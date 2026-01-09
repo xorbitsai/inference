@@ -4,19 +4,23 @@ import {
 } from '../data/data'
 
 export default function getModelFormConfig({
-  t,
-  formData,
-  modelData,
-  gpuAvailable,
-  engineItems,
-  formatItems,
-  sizeItems,
-  quantizationItems,
-  getNGPURange,
-  downloadHubOptions,
-  enginesWithNWorker,
-  multimodalProjectorOptions,
-}) {
+                                             t,
+                                             formData,
+                                             modelData,
+                                             gpuAvailable,
+                                             engineItems,
+                                             formatItems,
+                                             sizeItems,
+                                             quantizationItems,
+                                             getNGPURange,
+                                             downloadHubOptions,
+                                             enginesWithNWorker,
+                                             multimodalProjectorOptions,
+                                           }) {
+  const ggufQuantizations =
+    modelData?.gguf_quantizations ??
+    modelData?.model_specs?.find((spec) => spec.gguf_quantizations)
+      ?.gguf_quantizations
   const config = {
     LLM: [
       {
@@ -67,9 +71,9 @@ export default function getModelFormConfig({
       {
         name: 'n_gpu',
         label: t(
-          enginesWithNWorker.includes(formData.model_engine)
-            ? 'launchModel.nGPUPerWorker'
-            : 'launchModel.nGPU'
+            enginesWithNWorker.includes(formData.model_engine)
+                ? 'launchModel.nGPUPerWorker'
+                : 'launchModel.nGPU'
         ),
         type: 'select',
         default: 'auto',
@@ -140,8 +144,8 @@ export default function getModelFormConfig({
               },
             },
             error:
-              !!formData.request_limits &&
-              !/^[1-9]\d*$/.test(formData.request_limits),
+                !!formData.request_limits &&
+                !/^[1-9]\d*$/.test(formData.request_limits),
             helperText: t('launchModel.enterIntegerGreaterThanZero'),
             visible: true,
           },
@@ -158,8 +162,8 @@ export default function getModelFormConfig({
             error: !!formData.n_worker && !/^[1-9]\d*$/.test(formData.n_worker),
             helperText: t('launchModel.enterIntegerGreaterThanZero'),
             visible:
-              !!formData.model_engine &&
-              enginesWithNWorker.includes(formData.model_engine),
+                !!formData.model_engine &&
+                enginesWithNWorker.includes(formData.model_engine),
           },
           {
             name: 'worker_ip',
@@ -172,7 +176,7 @@ export default function getModelFormConfig({
             label: t('launchModel.GPUIdx'),
             type: 'input',
             error:
-              !!formData.gpu_idx && !/^\d+(?:,\d+)*$/.test(formData.gpu_idx),
+                !!formData.gpu_idx && !/^\d+(?:,\d+)*$/.test(formData.gpu_idx),
             helperText: t('launchModel.enterCommaSeparatedNumbers'),
             visible: true,
           },
@@ -256,7 +260,7 @@ export default function getModelFormConfig({
       {
         name: 'quantization_config',
         label: t(
-          'launchModel.additionalQuantizationParametersForInferenceEngine'
+            'launchModel.additionalQuantizationParametersForInferenceEngine'
         ),
         type: 'dynamicField',
         mode: 'key-value',
@@ -264,21 +268,21 @@ export default function getModelFormConfig({
         valuePlaceholder: 'value',
         keyOptions: quantizationParametersTipList,
         visible:
-          !!formData.model_engine && formData.model_engine === 'Transformers',
+            !!formData.model_engine && formData.model_engine === 'Transformers',
       },
       {
         name: 'custom',
         label: `${t('launchModel.additionalParametersForInferenceEngine')}${
-          formData.model_engine ? ': ' + formData.model_engine : ''
+            formData.model_engine ? ': ' + formData.model_engine : ''
         }`,
         type: 'dynamicField',
         mode: 'key-value',
         keyPlaceholder: 'key',
         valuePlaceholder: 'value',
         keyOptions:
-          additionalParameterTipList[
-            formData.model_engine?.toLocaleLowerCase()
-          ],
+            additionalParameterTipList[
+                formData.model_engine?.toLocaleLowerCase()
+                ],
         visible: true,
       },
     ],
@@ -372,8 +376,8 @@ export default function getModelFormConfig({
           },
         },
         error:
-          !!formData.request_limits &&
-          !/^[1-9]\d*$/.test(formData.request_limits),
+            !!formData.request_limits &&
+            !/^[1-9]\d*$/.test(formData.request_limits),
         helperText: t('launchModel.enterIntegerGreaterThanZero'),
         visible: true,
       },
@@ -425,7 +429,7 @@ export default function getModelFormConfig({
       {
         name: 'custom',
         label: `${t('launchModel.additionalParametersForInferenceEngine')}${
-          formData.model_engine ? ': ' + formData.model_engine : ''
+            formData.model_engine ? ': ' + formData.model_engine : ''
         }`,
         type: 'dynamicField',
         mode: 'key-value',
@@ -514,6 +518,19 @@ export default function getModelFormConfig({
         visible: true,
       },
       {
+        name: 'gguf_quantization',
+        label: t('launchModel.GGUFQuantization.optional'),
+        type: 'select',
+        options: ['none', ...(ggufQuantizations || [])],
+        visible: !!ggufQuantizations,
+      },
+      {
+        name: 'gguf_model_path',
+        label: t('launchModel.GGUFModelPath.optional'),
+        type: 'input',
+        visible: !!ggufQuantizations,
+      },
+      {
         name: 'request_limits',
         label: t('launchModel.requestLimits.optional'),
         type: 'number',
@@ -523,8 +540,8 @@ export default function getModelFormConfig({
           },
         },
         error:
-          !!formData.request_limits &&
-          !/^[1-9]\d*$/.test(formData.request_limits),
+            !!formData.request_limits &&
+            !/^[1-9]\d*$/.test(formData.request_limits),
         helperText: t('launchModel.enterIntegerGreaterThanZero'),
         visible: true,
       },
@@ -643,14 +660,14 @@ export default function getModelFormConfig({
         name: 'gguf_quantization',
         label: t('launchModel.GGUFQuantization.optional'),
         type: 'select',
-        options: ['none', ...(modelData.gguf_quantizations || [])],
-        visible: !!modelData.gguf_quantizations,
+        options: ['none', ...(ggufQuantizations || [])],
+        visible: !!ggufQuantizations,
       },
       {
         name: 'gguf_model_path',
         label: t('launchModel.GGUFModelPath.optional'),
         type: 'input',
-        visible: !!modelData.gguf_quantizations,
+        visible: !!ggufQuantizations,
       },
       {
         name: 'lightning_version',
@@ -675,8 +692,8 @@ export default function getModelFormConfig({
           },
         },
         error:
-          !!formData.request_limits &&
-          !/^[1-9]\d*$/.test(formData.request_limits),
+            !!formData.request_limits &&
+            !/^[1-9]\d*$/.test(formData.request_limits),
         helperText: t('launchModel.enterIntegerGreaterThanZero'),
         visible: true,
       },
@@ -831,6 +848,19 @@ export default function getModelFormConfig({
         visible: true,
       },
       {
+        name: 'gguf_quantization',
+        label: t('launchModel.GGUFQuantization.optional'),
+        type: 'select',
+        options: ['none', ...(ggufQuantizations || [])],
+        visible: !!ggufQuantizations,
+      },
+      {
+        name: 'gguf_model_path',
+        label: t('launchModel.GGUFModelPath.optional'),
+        type: 'input',
+        visible: !!ggufQuantizations,
+      },
+      {
         name: 'request_limits',
         label: t('launchModel.requestLimits.optional'),
         type: 'number',
@@ -840,8 +870,8 @@ export default function getModelFormConfig({
           },
         },
         error:
-          !!formData.request_limits &&
-          !/^[1-9]\d*$/.test(formData.request_limits),
+            !!formData.request_limits &&
+            !/^[1-9]\d*$/.test(formData.request_limits),
         helperText: t('launchModel.enterIntegerGreaterThanZero'),
         visible: true,
       },
@@ -957,6 +987,19 @@ export default function getModelFormConfig({
         visible: true,
       },
       {
+        name: 'gguf_quantization',
+        label: t('launchModel.GGUFQuantization.optional'),
+        type: 'select',
+        options: ['none', ...(ggufQuantizations || [])],
+        visible: !!ggufQuantizations,
+      },
+      {
+        name: 'gguf_model_path',
+        label: t('launchModel.GGUFModelPath.optional'),
+        type: 'input',
+        visible: !!ggufQuantizations,
+      },
+      {
         name: 'request_limits',
         label: t('launchModel.requestLimits.optional'),
         type: 'number',
@@ -966,8 +1009,8 @@ export default function getModelFormConfig({
           },
         },
         error:
-          !!formData.request_limits &&
-          !/^[1-9]\d*$/.test(formData.request_limits),
+            !!formData.request_limits &&
+            !/^[1-9]\d*$/.test(formData.request_limits),
         helperText: t('launchModel.enterIntegerGreaterThanZero'),
         visible: true,
       },
@@ -1124,8 +1167,8 @@ export default function getModelFormConfig({
           },
         },
         error:
-          !!formData.request_limits &&
-          !/^[1-9]\d*$/.test(formData.request_limits),
+            !!formData.request_limits &&
+            !/^[1-9]\d*$/.test(formData.request_limits),
         helperText: t('launchModel.enterIntegerGreaterThanZero'),
         visible: true,
       },

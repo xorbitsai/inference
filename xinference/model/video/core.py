@@ -41,6 +41,9 @@ class VideoModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
     model_ability: Optional[List[str]]
     default_model_config: Optional[Dict[str, Any]]
     default_generate_config: Optional[Dict[str, Any]]
+    gguf_model_id: Optional[str]
+    gguf_quantizations: Optional[List[str]]
+    gguf_model_file_name_template: Optional[str]
     virtualenv: Optional[VirtualEnvSettings]
 
     class Config:
@@ -109,21 +112,27 @@ def create_video_model_instance(
         Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
     ] = None,
     model_path: Optional[str] = None,
+    gguf_quantization: Optional[str] = None,
+    gguf_model_path: Optional[str] = None,
     **kwargs,
 ) -> DiffusersVideoModel:
-    from ..cache_manager import CacheManager
+    from .cache_manager import VideoCacheManager
 
     model_spec = match_diffusion(model_name, download_hub)
 
     if not model_path:
-        cache_manager = CacheManager(model_spec)
+        cache_manager = VideoCacheManager(model_spec)
         model_path = cache_manager.cache()
+    if not gguf_model_path and gguf_quantization:
+        cache_manager = VideoCacheManager(model_spec)
+        gguf_model_path = cache_manager.cache_gguf(gguf_quantization)
     assert model_path is not None
 
     model = DiffusersVideoModel(
         model_uid,
         model_path,
         model_spec,
+        gguf_model_path=gguf_model_path,
         **kwargs,
     )
     return model
