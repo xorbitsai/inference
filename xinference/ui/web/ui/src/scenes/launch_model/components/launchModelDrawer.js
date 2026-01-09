@@ -424,13 +424,7 @@ const LaunchModelDrawer = ({
       setCollapseState({})
     }
     setPendingHistory(null)
-  }, [
-    pendingHistory,
-    open,
-    hasFetchedEngines,
-    engineOptions,
-    modelType,
-  ])
+  }, [pendingHistory, open, hasFetchedEngines, engineOptions, modelType])
 
   useEffect(() => {
     if (open && modelEngineType.includes(modelType))
