@@ -998,18 +998,48 @@
         "#system_numpy#"
       ]
     },
-    "model_src": {
-      "huggingface": {
-        "model_id": "deepseek-ai/DeepSeek-OCR",
-        "model_revision": "main"
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "deepseek-ai/DeepSeek-OCR",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "model_id": "deepseek-ai/DeepSeek-OCR",
+            "model_revision": "master"
+          }
+        }
       },
-      "modelscope": {
-        "model_id": "deepseek-ai/DeepSeek-OCR",
-        "model_revision": "master"
+      {
+        "model_format": "mlx",
+        "model_src": {
+          "huggingface": {
+            "model_id": "mlx-community/DeepSeek-OCR-{quantization}",
+            "model_revision": "main",
+            "quantizations": [
+              "8bit",
+              "6bit",
+              "5bit",
+              "4bit"
+            ]
+          },
+          "modelscope": {
+            "model_id": "mlx-community/DeepSeek-OCR-{quantization}",
+            "model_revision": "master",
+            "quantizations": [
+              "8bit",
+              "6bit",
+              "5bit",
+              "4bit"
+            ]
+          }
+        }
       }
-    },
-    "updated_at": 1766387624,
-    "featured": false
+    ],
+    "featured": false,
+    "updated_at": 1767691154
   },
   {
     "version": 2,

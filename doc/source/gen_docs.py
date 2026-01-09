@@ -241,6 +241,13 @@ def _can_use_transformers_legacy(model, model_spec):
     abilities = set(model.get("model_ability", []))
     return "chat" in abilities or "generate" in abilities
 
+def _extract_primary_model_src(model):
+    if model.get("model_specs"):
+        for spec in model["model_specs"]:
+            if isinstance(spec, dict) and "model_src" in spec:
+                return spec["model_src"]
+    return model.get("model_src")
+
 def main():
     template_dir = '../templates' 
     env = Environment(loader=FileSystemLoader(template_dir))
@@ -456,9 +463,10 @@ def main():
 
         for model in sorted_models:
             # Process model_src for template compatibility
-            if 'model_src' in model:
-                if 'huggingface' in model['model_src']:
-                    hf_src = model['model_src']['huggingface']
+            model_src = _extract_primary_model_src(model)
+            if model_src:
+                if 'huggingface' in model_src:
+                    hf_src = model_src['huggingface']
                     model['model_id'] = hf_src['model_id']
                     # Handle GGUF related fields
                     if 'gguf_model_id' in hf_src:
@@ -470,8 +478,8 @@ def main():
                         model['lightning_model_id'] = hf_src['lightning_model_id']
                     if 'lightning_versions' in hf_src:
                         model['lightning_versions'] = ", ".join(hf_src['lightning_versions'])
-                elif 'modelscope' in model['model_src']:
-                    model['model_id'] = model['model_src']['modelscope']['model_id']
+                elif 'modelscope' in model_src:
+                    model['model_id'] = model_src['modelscope']['model_id']
             
             available_controlnet = [cn["model_name"] for cn in model.get("controlnet", [])]
             if not available_controlnet:
@@ -502,11 +510,12 @@ def main():
 
         for model in sorted_models:
             # Process model_src for template compatibility
-            if 'model_src' in model:
-                if 'huggingface' in model['model_src']:
-                    model['model_id'] = model['model_src']['huggingface']['model_id']
-                elif 'modelscope' in model['model_src']:
-                    model['model_id'] = model['model_src']['modelscope']['model_id']
+            model_src = _extract_primary_model_src(model)
+            if model_src:
+                if 'huggingface' in model_src:
+                    model['model_id'] = model_src['huggingface']['model_id']
+                elif 'modelscope' in model_src:
+                    model['model_id'] = model_src['modelscope']['model_id']
             
             rendered = env.get_template('audio.rst.jinja').render(model)
             output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
@@ -527,11 +536,12 @@ def main():
 
         for model in sorted_models:
             # Process model_src for template compatibility
-            if 'model_src' in model:
-                if 'huggingface' in model['model_src']:
-                    model['model_id'] = model['model_src']['huggingface']['model_id']
-                elif 'modelscope' in model['model_src']:
-                    model['model_id'] = model['model_src']['modelscope']['model_id']
+            model_src = _extract_primary_model_src(model)
+            if model_src:
+                if 'huggingface' in model_src:
+                    model['model_id'] = model_src['huggingface']['model_id']
+                elif 'modelscope' in model_src:
+                    model['model_id'] = model_src['modelscope']['model_id']
             
             model["model_ability"] = ', '.join(model.get("model_ability"))
             rendered = env.get_template('video.rst.jinja').render(model)
