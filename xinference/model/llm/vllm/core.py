@@ -809,9 +809,10 @@ class VLLMModel(LLM):
         model_config.setdefault("max_model_len", None)
         model_config.setdefault("reasoning_content", False)
 
-        model_config["speculative_config"] = self.parse_str_field_to_dict(
-            model_config.get("speculative_config", {}), "speculative_config"
-        )
+        if "speculative_config" in model_config:
+            model_config["speculative_config"] = self.parse_str_field_to_dict(
+                model_config.get("speculative_config", {}), "speculative_config"
+            )
         if "rope_scaling" in model_config:
             rope_scaling = self.parse_str_field_to_dict(
                 model_config["rope_scaling"], "rope_scaling"
