@@ -60,7 +60,7 @@ const model_ability_options = [
   },
   {
     type: 'image',
-    options: ['ocr'],
+    options: ['text2image', 'image2image', 'inpainting'],
   },
   {
     type: 'audio',
@@ -80,7 +80,7 @@ const messages = [
 const model_family_options = [
   {
     type: 'image',
-    options: ['stable_diffusion', 'ocr'],
+    options: ['stable_diffusion'],
   },
   {
     type: 'audio',
@@ -271,8 +271,14 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           setFormData(rerankData)
           setContrastObj(rerankData)
         } else if (modelType === 'image') {
-          const { version, model_name, model_uri, model_family, controlnet } =
-            data
+          const {
+            version,
+            model_name,
+            model_uri,
+            model_family,
+            model_ability = [],
+            controlnet,
+          } = data
           const virtualenv = data.virtualenv ?? { packages: [] }
           const controlnetArr = controlnet.map((item) => {
             const { model_name, model_uri, model_family } = item
@@ -287,6 +293,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
             model_name,
             model_uri,
             model_family,
+            model_ability,
             controlnet: controlnetArr,
             virtualenv,
           }
@@ -663,6 +670,19 @@ const RegisterModelComponent = ({ modelType, customData }) => {
     })
   }
 
+  const toggleImageAbility = (ability) => {
+    const currentAbilities = formData.model_ability || []
+    const isRemoving = currentAbilities.includes(ability)
+    const updated = isRemoving
+      ? currentAbilities.filter((item) => item !== ability)
+      : [...currentAbilities, ability]
+
+    setFormData({
+      ...formData,
+      model_ability: updated,
+    })
+  }
+
   const handleFamily = (value) => {
     if (formData.model_ability.includes('chat')) {
       if (family?.chat?.includes(value)) {
@@ -698,10 +718,17 @@ const RegisterModelComponent = ({ modelType, customData }) => {
         })
       }
     } else {
-      setFormData({
-        ...formData,
-        model_family: value,
-      })
+      if (modelType === 'image') {
+        setFormData({
+          ...formData,
+          model_family: value,
+        })
+      } else {
+        setFormData({
+          ...formData,
+          model_family: value,
+        })
+      }
     }
   }
 
@@ -1246,6 +1273,32 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                         </Box>
                       ))}
                   </>
+                ) : modelType === 'image' ? (
+                  <Box className="checkboxWrapper">
+                    {model_ability_options
+                      .find((item) => item.type === modelType)
+                      .options.map((ability) => {
+                        return (
+                          <Box key={ability} sx={{ marginRight: '10px' }}>
+                            <FormControlLabel
+                              control={
+                                <Checkbox
+                                  checked={formData.model_ability.includes(
+                                    ability
+                                  )}
+                                  onChange={() => toggleImageAbility(ability)}
+                                  name={ability}
+                                />
+                              }
+                              label={ability}
+                              style={{
+                                paddingLeft: 10,
+                              }}
+                            />
+                          </Box>
+                        )
+                      })}
+                  </Box>
                 ) : (
                   <RadioGroup
                     value={formData.model_ability}
