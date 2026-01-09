@@ -109,8 +109,9 @@ class VLLMModelConfig(TypedDict, total=False):
     min_pixels: NotRequired[int]
     max_pixels: NotRequired[int]
     enable_expert_parallel: bool
-    rope_scaling: Optional[Dict[str, Union[str, float, int]]]
-    speculative_config: Optional[Dict[str, Union[str, int]]]
+    speculative_config: Optional[Dict[str, Any]]
+    rope_scaling: Optional[Dict[str, Any]]
+    hf_overrides: Optional[Dict[str, Any]]
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
@@ -739,11 +740,11 @@ class VLLMModel(LLM):
         Returns an empty default dict and logs a warning if parsing fails.
 
         Applicable scenarios: JSON-formatted strings passed via webui
-        (e.g., speculative_config, rope_scaling, mm_processor_kwargs fields)
+        (e.g., speculative_config, mm_processor_kwargs fields)
 
         Args:
             field_value: Value of the field to parse (may be str/dict/other types)
-            field_name: Name of the field (used for log messages, e.g., "speculative_config", "rope_scaling")
+            field_name: Name of the field (used for log messages, e.g., "speculative_config")
             default: Default value returned when parsing fails, empty dict by default
 
         Returns:
@@ -811,9 +812,13 @@ class VLLMModel(LLM):
         model_config["speculative_config"] = self.parse_str_field_to_dict(
             model_config.get("speculative_config", {}), "speculative_config"
         )
-        model_config["rope_scaling"] = self.parse_str_field_to_dict(
-            model_config.get("rope_scaling", {}), "rope_scaling"
-        )
+        if "rope_scaling" in model_config:
+            rope_scaling = self.parse_str_field_to_dict(
+                model_config["rope_scaling"], "rope_scaling"
+            )
+            model_config["hf_overrides"] = {"rope_scaling": rope_scaling}
+            model_config.pop("rope_scaling", {})
+
         # Add scheduling policy if vLLM version is 0.6.3 or higher
         if VLLM_VERSION >= version.parse("0.6.3"):
             model_config.setdefault("scheduling_policy", "fcfs")
