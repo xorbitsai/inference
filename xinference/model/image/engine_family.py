@@ -12,19 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type
+import importlib.util
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 
 if TYPE_CHECKING:
     from .core import ImageModelFamilyV2
 
 
 class ImageEngineModel:
+    required_libs: Tuple[str, ...] = ()
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         pass
 
     @classmethod
     def match(cls, model_family: "ImageModelFamilyV2") -> bool:
         raise NotImplementedError
+
+    @classmethod
+    def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
+        for lib in cls.required_libs:
+            if importlib.util.find_spec(lib) is None:
+                return False, f"Library '{lib}' is not installed"
+        return True
 
 
 # { image model name -> { engine name -> engine params } }

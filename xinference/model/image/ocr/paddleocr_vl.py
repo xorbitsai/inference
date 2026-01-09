@@ -29,6 +29,8 @@ logger = logging.getLogger(__name__)
 class PaddleOCRVLModel(OCRModel):
     """PaddleOCR-VL model for OCR, table recognition, formula recognition, and chart recognition."""
 
+    required_libs = ("transformers",)
+
     @classmethod
     def match(cls, model_family: "ImageModelFamilyV2") -> bool:
         return model_family.model_name == "PaddleOCR-VL"

@@ -115,6 +115,8 @@ def _extract_text(outputs: List[Any]) -> List[str]:
 
 
 class VLLMDeepSeekOCRModel(DeepSeekOCRModel):
+    required_libs = ("vllm",)
+
     def load(self):
         vllm_kwargs = _sanitize_vllm_kwargs(self._kwargs)
         self._model = _load_vllm_model(self._model_path, vllm_kwargs)
@@ -194,10 +196,12 @@ class VLLMDeepSeekOCRModel(DeepSeekOCRModel):
 
 
 class VLLMGotOCR2Model(GotOCR2Model):
-    pass
+    required_libs = ("vllm",)
 
 
 class VLLMHunyuanOCRModel(HunyuanOCRModel):
+    required_libs = ("vllm",)
+
     def load(self):
         from transformers import AutoProcessor
 
@@ -261,4 +265,4 @@ class VLLMHunyuanOCRModel(HunyuanOCRModel):
 
 
 class VLLMPaddleOCRVLModel(PaddleOCRVLModel):
-    pass
+    required_libs = ("vllm",)

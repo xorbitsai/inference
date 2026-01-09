@@ -414,6 +414,8 @@ def extract_text_blocks(text: str) -> List[Dict[str, Any]]:
 
 
 class DeepSeekOCRModel(OCRModel):
+    required_libs: Tuple[str, ...] = ("transformers",)
+
     @classmethod
     def match(cls, model_family: "ImageModelFamilyV2") -> bool:
         model_format = getattr(model_family, "model_format", None)

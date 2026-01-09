@@ -15,7 +15,7 @@
 import logging
 import platform
 import sys
-from typing import TYPE_CHECKING, Any, List, Optional, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union
 
 import PIL.Image
 
@@ -28,6 +28,8 @@ if TYPE_CHECKING:
 
 
 class MLXDeepSeekOCRModel(DeepSeekOCRModel):
+    required_libs: Tuple[str, ...] = ("mlx_vlm", "mlx")
+
     def __init__(
         self,
         model_uid: str,
@@ -43,6 +45,12 @@ class MLXDeepSeekOCRModel(DeepSeekOCRModel):
     def match(cls, model_family) -> bool:
         model_format = getattr(model_family, "model_format", None)
         return model_family.model_name == "DeepSeek-OCR" and model_format == "mlx"
+
+    @classmethod
+    def check_lib(cls):
+        if sys.platform != "darwin" or platform.processor() != "arm":
+            return False, "MLX engine is only supported on Apple silicon Macs."
+        return super().check_lib()
 
     def load(self):
         if sys.platform != "darwin" or platform.processor() != "arm":

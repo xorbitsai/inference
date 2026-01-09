@@ -24,11 +24,42 @@ if TYPE_CHECKING:
 class DiffusersImageModel(DiffusionModel, ImageEngineModel):
     engine_model_format = "diffusers"
     engine_quantization = "none"
+    required_libs = ("diffusers",)
 
     @classmethod
     def match(cls, model_family: "ImageModelFamilyV2") -> bool:
         return model_family.model_family != "ocr"
 
 
+class VLLMImageModel(ImageEngineModel):
+    @classmethod
+    def match(cls, model_family: "ImageModelFamilyV2") -> bool:
+        _ = model_family
+        return False
+
+    @classmethod
+    def check_lib(cls):
+        return (
+            False,
+            "Engine vLLM is not compatible with current image model or environment",
+        )
+
+
+class SGLangImageModel(ImageEngineModel):
+    @classmethod
+    def match(cls, model_family: "ImageModelFamilyV2") -> bool:
+        _ = model_family
+        return False
+
+    @classmethod
+    def check_lib(cls):
+        return (
+            False,
+            "Engine SGLang is not compatible with current image model or environment",
+        )
+
+
 def register_builtin_image_engines() -> None:
     SUPPORTED_ENGINES["diffusers"] = [DiffusersImageModel]
+    SUPPORTED_ENGINES["vLLM"] = [VLLMImageModel]
+    SUPPORTED_ENGINES["SGLang"] = [SGLangImageModel]

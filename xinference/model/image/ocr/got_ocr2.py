@@ -26,6 +26,8 @@ logger = logging.getLogger(__name__)
 
 
 class GotOCR2Model(OCRModel):
+    required_libs = ("transformers",)
+
     @classmethod
     def match(cls, model_family: "ImageModelFamilyV2") -> bool:
         return model_family.model_name == "GOT-OCR2_0"
