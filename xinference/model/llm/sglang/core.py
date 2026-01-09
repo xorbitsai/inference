@@ -53,6 +53,8 @@ class SGLANGModelConfig(TypedDict, total=False):
     mem_fraction_static: float
     log_level: str
     attention_reduce_in_fp32: bool  # For gemma
+    quantization: Optional[str]
+    dtype: Optional[str]
     # distributed
     nnodes: Optional[int]
     node_rank: Optional[int]
@@ -87,6 +89,7 @@ SGLANG_SUPPORTED_MODELS = [
     "MistralForCausalLM",
     "MixtralForCausalLM",
     "Qwen2ForCausalLM",
+    "OPTForCausalLM",
 ]
 SGLANG_SUPPORTED_CHAT_MODELS = [
     "LlamaForCausalLM",
@@ -268,8 +271,21 @@ class SGLANGModel(LLM):
                 model_config["mem_fraction_static"] = 0.88
         model_config.setdefault("log_level", "info")
         model_config.setdefault("reasoning_content", False)
+        self._apply_fp4_config(model_config)
 
         return model_config
+
+    def _apply_fp4_config(self, model_config: SGLANGModelConfig) -> None:
+        if self.model_spec.model_format != "fp4":
+            return
+
+        if "quantization" in model_config:
+            logger.warning(
+                "SGLang fp4 expects offline-quantized weights; ignoring quantization=%s",
+                model_config["quantization"],
+            )
+            model_config.pop("quantization", None)
+        model_config.setdefault("dtype", "bfloat16")
 
     @staticmethod
     def _sanitize_generate_config(
@@ -322,7 +338,15 @@ class SGLANGModel(LLM):
         if not cls._is_linux():
             return False, "SGLang backend is only supported on Linux"
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
-            return False, "SGLang supports pytorch/gptq/awq/fp8/bnb formats only"
+            return (
+                False,
+                "SGLang supports pytorch/gptq/awq/fp8/bnb formats only",
+            )
+        if llm_spec.model_format == "fp4":
+            return (
+                False,
+                "SGLang does not support fp4 online quantization; use offline fp4 weights with a compatible SGLang version",
+            )
         if llm_spec.model_format == "pytorch":
             if quantization not in (None, "none"):
                 return (
@@ -632,6 +656,11 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
                 False,
                 "SGLang chat engine supports pytorch/gptq/awq/fp8/bnb formats only",
             )
+        if llm_spec.model_format == "fp4":
+            return (
+                False,
+                "SGLang chat engine does not support fp4 online quantization; use offline fp4 weights with a compatible SGLang version",
+            )
         if llm_spec.model_format == "pytorch":
             if quantization not in (None, "none"):
                 return (
@@ -729,6 +758,11 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
             return (
                 False,
                 "SGLang vision engine supports pytorch/gptq/awq/fp8/bnb formats only",
+            )
+        if llm_spec.model_format == "fp4":
+            return (
+                False,
+                "SGLang vision engine does not support fp4 online quantization; use offline fp4 weights with a compatible SGLang version",
             )
         if llm_spec.model_format == "pytorch":
             if quantization not in (None, "none"):

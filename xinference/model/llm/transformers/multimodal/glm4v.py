@@ -68,7 +68,7 @@ class Glm4VModel(PytorchMultiModalModel):
         from transformers import AutoModelForCausalLM
 
         kwargs = {"device_map": self._device}
-        kwargs = self.apply_bnb_quantization(kwargs)
+        kwargs = self.apply_quantization_config(kwargs)
 
         model = AutoModelForCausalLM.from_pretrained(
             self.model_path,

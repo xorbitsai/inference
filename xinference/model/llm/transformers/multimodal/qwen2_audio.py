@@ -64,7 +64,7 @@ class Qwen2AudioChatModel(PytorchMultiModalModel):
     def load_multimodal_model(self):
         from transformers import Qwen2AudioForConditionalGeneration
 
-        kwargs = self.apply_bnb_quantization()
+        kwargs = self.apply_quantization_config()
         self._model = Qwen2AudioForConditionalGeneration.from_pretrained(
             self.model_path,
             device_map="auto" if self._device == "cuda" else self._device,

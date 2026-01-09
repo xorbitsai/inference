@@ -62,10 +62,10 @@ class QwenOmniChatModel(PytorchMultiModalModel):
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        if model_spec.model_format not in ["pytorch", "gptq", "awq", "bnb"]:
+        if model_spec.model_format not in ["pytorch", "gptq", "awq", "bnb", "fp4"]:
             return (
                 False,
-                "Qwen Omni transformer supports pytorch/gptq/awq/bnb formats only",
+                "Qwen Omni transformer supports pytorch/gptq/awq/bnb/fp4 formats only",
             )
         if not model_family.has_architecture(*cls.QWEN_OMNI_ARCHITECTURES):
             return (
@@ -118,7 +118,7 @@ class QwenOmniChatModel(PytorchMultiModalModel):
         )
         if enable_flash_attn:
             kwargs["attn_implementation"] = "flash_attention_2"
-        kwargs = self.apply_bnb_quantization(kwargs)
+        kwargs = self.apply_quantization_config(kwargs)
         logger.debug("Loading model with extra kwargs: %s", kwargs)
 
         self._model = QwenOmniForConditionalGeneration.from_pretrained(

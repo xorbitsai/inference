@@ -896,8 +896,8 @@ class VLLMModel(LLM):
             return False, "vLLM requires CUDA or MLU GPUs or VACC GPUs or MUSA GPUs"
         if not cls._is_linux():
             return False, "vLLM backend is only supported on Linux"
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
-            return False, "vLLM supports pytorch/gptq/awq/fp8/bnb formats only"
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp4", "fp8", "bnb"]:
+            return False, "vLLM supports pytorch/gptq/awq/fp4/fp8/bnb formats only"
         if llm_spec.model_format == "pytorch":
             if quantization not in (None, "none"):
                 return (
@@ -1420,13 +1420,14 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             "pytorch",
             "gptq",
             "awq",
+            "fp4",
             "fp8",
             "bnb",
             "ggufv2",
         ]:
             return (
                 False,
-                "vLLM chat mode supports pytorch/gptq/awq/fp8/bnb/ggufv2 formats only",
+                "vLLM chat mode supports pytorch/gptq/awq/fp4/fp8/bnb/ggufv2 formats only",
             )
         if llm_spec.model_format == "pytorch":
             if quantization not in (None, "none"):
@@ -1613,10 +1614,10 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             )
         if not cls._is_linux():
             return False, "vLLM multimodal engine is only supported on Linux"
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp4", "fp8", "bnb"]:
             return (
                 False,
-                "vLLM multimodal engine supports pytorch/gptq/awq/fp8/bnb formats only",
+                "vLLM multimodal engine supports pytorch/gptq/awq/fp4/fp8/bnb formats only",
             )
         if llm_spec.model_format == "pytorch":
             if quantization not in (None, "none"):

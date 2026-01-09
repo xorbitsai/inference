@@ -45,8 +45,8 @@ class OptPytorchModel(PytorchModel):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        if llm_spec.model_format != "pytorch":
-            return False, "OPT transformer only supports pytorch format"
+        if llm_spec.model_format not in ["pytorch", "fp4"]:
+            return False, "OPT transformer only supports pytorch/fp4 format"
         if not llm_family.has_architecture(*cls.OPT_ARCHITECTURES):
             return (
                 False,

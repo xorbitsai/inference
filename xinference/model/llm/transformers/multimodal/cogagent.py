@@ -74,7 +74,7 @@ class CogAgentChatModel(PytorchMultiModalModel):
     def load_multimodal_model(self):
         from transformers import AutoModelForCausalLM
 
-        kwargs = self.apply_bnb_quantization()
+        kwargs = self.apply_quantization_config()
         self._model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             torch_dtype=torch.bfloat16,

@@ -59,10 +59,17 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        if model_spec.model_format not in ["pytorch", "gptq", "awq", "bnb", "fp8"]:
+        if model_spec.model_format not in [
+            "pytorch",
+            "gptq",
+            "awq",
+            "bnb",
+            "fp8",
+            "fp4",
+        ]:
             return (
                 False,
-                "Qwen2 VL transformer supports pytorch/gptq/awq/bnb/fp8 formats only",
+                "Qwen2 VL transformer supports pytorch/gptq/awq/bnb/fp8/fp4 formats only",
             )
         if not model_family.has_architecture(*cls.QWEN2_VL_ARCHITECTURES):
             return (
@@ -105,7 +112,7 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
         except ImportError:
             AutoModelForImageTextToText = None
 
-        kwargs = self.apply_bnb_quantization()
+        kwargs = self.apply_quantization_config()
         if self.model_family.has_architecture("Qwen2_5_VLForConditionalGeneration"):
             model_cls = Qwen2_5_VLForConditionalGeneration
         elif self.model_family.has_architecture("Qwen3VLMoeForConditionalGeneration"):

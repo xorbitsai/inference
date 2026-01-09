@@ -95,7 +95,7 @@ class LLMCacheManager(CacheManager):
         if not IS_NEW_HUGGINGFACE_HUB:
             use_symlinks = {"local_dir_use_symlinks": True, "local_dir": cache_dir}
 
-        if self._model_format in ["pytorch", "gptq", "awq", "fp8", "bnb", "mlx"]:
+        if self._model_format in ["pytorch", "gptq", "awq", "fp4", "fp8", "bnb", "mlx"]:
             download_dir = retry_download(
                 huggingface_hub.snapshot_download,
                 self._model_name,
@@ -158,7 +158,16 @@ class LLMCacheManager(CacheManager):
         if self.get_cache_status():
             return cache_dir
 
-        if self._model_format in ["pytorch", "gptq", "awq", "bnb", "fp8", "bnb", "mlx"]:
+        if self._model_format in [
+            "pytorch",
+            "gptq",
+            "awq",
+            "fp4",
+            "bnb",
+            "fp8",
+            "bnb",
+            "mlx",
+        ]:
             download_dir = retry_download(
                 snapshot_download,
                 self._model_name,
@@ -248,7 +257,7 @@ class LLMCacheManager(CacheManager):
         if self.get_cache_status():
             return cache_dir
 
-        if self._model_format in ["pytorch", "gptq", "awq", "fp8", "bnb", "mlx"]:
+        if self._model_format in ["pytorch", "gptq", "awq", "fp4", "fp8", "bnb", "mlx"]:
             download_dir = retry_download(
                 snapshot_download,
                 self._model_name,

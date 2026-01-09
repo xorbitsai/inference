@@ -71,7 +71,7 @@ class DeepSeekVL2ChatModel(PytorchMultiModalModel):
 
         from .....thirdparty.deepseek_vl2.models import DeepseekVLV2ForCausalLM
 
-        kwargs = self.apply_bnb_quantization()
+        kwargs = self.apply_quantization_config()
         vl_gpt: DeepseekVLV2ForCausalLM = AutoModelForCausalLM.from_pretrained(  # type: ignore
             self.model_path,
             trust_remote_code=True,
