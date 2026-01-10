@@ -126,21 +126,47 @@ const LaunchModelDrawer = ({
   }
 
   const handleValueType = (str) => {
-    str = String(str)
-    if (str.toLowerCase() === 'none') {
+    let val = String(str).trim()
+
+    const isBracketed = (s) =>
+      (s.startsWith('{') && s.endsWith('}')) ||
+      (s.startsWith('[') && s.endsWith(']'))
+
+    const tryParseStructured = (s) => {
+      try {
+        const normalized = s
+          .replace(/\bNone\b/g, 'null')
+          .replace(/\bTrue\b/g, 'true')
+          .replace(/\bFalse\b/g, 'false')
+          .replace(/'([^']*)'/g, '"$1"')
+        return JSON.parse(normalized)
+      } catch (e) {
+        return null
+      }
+    }
+
+    if (val.toLowerCase() === 'none') {
       return null
-    } else if (str.toLowerCase() === 'true') {
+    } else if (val.toLowerCase() === 'true') {
       return true
-    } else if (str.toLowerCase() === 'false') {
+    } else if (val.toLowerCase() === 'false') {
       return false
-    } else if (str.includes(',')) {
-      return str.split(',')
-    } else if (str.includes('，')) {
-      return str.split('，')
-    } else if (Number(str) || (str !== '' && Number(str) === 0)) {
-      return Number(str)
+    } else if (isBracketed(val)) {
+      const parsed = tryParseStructured(val)
+      if (parsed !== null) return parsed
+      // parsing failed: keep original string without splitting by comma
+      return val
+    } else if (val.includes(',')) {
+      return val.split(',').map((item) => item.trim())
+    } else if (val.includes('，')) {
+      return val.split('，').map((item) => item.trim())
+    } else if (
+      !Number.isNaN(Number(val)) &&
+      (val !== '' || Number(val) === 0)
+    ) {
+      return Number(val)
     } else {
-      return str
+      return val
     }
   }
 
@@ -179,6 +205,27 @@ const LaunchModelDrawer = ({
     return value || 'CPU'
   }
 
+  const stringifyStructuredForInput = (val) => {
+    if (val === null) return 'none'
+
+    if (Array.isArray(val)) {
+      const allPrimitives = val.every(
+        (item) =>
+          item === null || ['string', 'number', 'boolean'].includes(typeof item)
+      )
+      if (allPrimitives) {
+        return val.map((v) => String(v)).join(',')
+      }
+    }
+
+    try {
+      const json = JSON.stringify(val)
+      return json.replace(/"/g, "'").replace(/:/g, ': ').replace(/,/g, ', ')
+    } catch (e) {
+      return String(val)
+    }
+  }
+
   const restoreFormDataFormat = (finalData) => {
     const result = { ...finalData }
 
@@ -190,8 +237,8 @@ const LaunchModelDrawer = ({
           value:
             result[key] === null
               ? 'none'
-              : result[key] === false
-              ? false
+              : typeof result[key] === 'object'
+              ? stringifyStructuredForInput(result[key])
               : result[key],
         })
     }

@@ -181,8 +181,9 @@ def get_available_device_env_name():
 def gpu_count():
     device_module = torch.get_device_module(get_available_device())
     if torch.cuda.is_available() or is_vacc_available() or is_musa_available():
-        visible_devices_env = get_available_device_env_name()
+        import os
 
+        visible_devices_env = os.getenv(get_available_device_env_name(), None)
         if visible_devices_env is None:
             return device_module.device_count()
 

@@ -109,6 +109,9 @@ class VLLMModelConfig(TypedDict, total=False):
     min_pixels: NotRequired[int]
     max_pixels: NotRequired[int]
     enable_expert_parallel: bool
+    speculative_config: Optional[Dict[str, Any]]
+    rope_scaling: Optional[Dict[str, Any]]
+    hf_overrides: Optional[Dict[str, Any]]
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
@@ -729,6 +732,51 @@ class VLLMModel(LLM):
             else:
                 await asyncio.sleep(interval)
 
+    def parse_str_field_to_dict(
+        self, field_value, field_name: str = "config_field", default: dict = {}
+    ) -> dict:
+        """
+        Generic function: Parse a string-type configuration field to a dictionary.
+        Returns an empty default dict and logs a warning if parsing fails.
+
+        Applicable scenarios: JSON-formatted strings passed via webui
+        (e.g., speculative_config, mm_processor_kwargs fields)
+
+        Args:
+            field_value: Value of the field to parse (may be str/dict/other types)
+            field_name: Name of the field (used for log messages, e.g., "speculative_config")
+            default: Default value returned when parsing fails, empty dict by default
+
+        Returns:
+            Parsed dictionary (returns default if parsing fails or input is non-string type)
+        """
+        # Non-string type: Return original value if it's a dict, otherwise return default
+        if not isinstance(field_value, str):
+            return field_value if isinstance(field_value, dict) else default
+
+        # String type: Attempt JSON parsing
+        try:
+            parsed_dict = json.loads(field_value)
+            # Ensure parsing result is a dictionary (avoid list/number etc. from JSON string)
+            if isinstance(parsed_dict, dict):
+                return parsed_dict
+            else:
+                logger.warning(
+                    f"Parsed result of {field_name} is not a dictionary (type: {type(parsed_dict)}), "
+                    f"using default empty dict"
+                )
+                return default
+        except json.JSONDecodeError:
+            logger.warning(
+                f"Failed to parse {field_name} as JSON string, using default empty dict"
+            )
+            return default
+        except Exception as e:
+            logger.warning(
+                f"Unexpected error parsing {field_name}: {str(e)}, using default empty dict"
+            )
+            return default
+
     def _sanitize_model_config(
         self, model_config: Optional[VLLMModelConfig]
     ) -> VLLMModelConfig:
@@ -753,30 +801,32 @@ class VLLMModel(LLM):
         model_config.setdefault("swap_space", 4)
         model_config.setdefault("gpu_memory_utilization", 0.90)
         model_config.setdefault("max_num_seqs", 256)
+
         if "model_quantization" in model_config:
             model_config["quantization"] = model_config.pop("model_quantization")
         else:
             model_config.setdefault("quantization", None)
         model_config.setdefault("max_model_len", None)
         model_config.setdefault("reasoning_content", False)
+
+        if "speculative_config" in model_config:
+            model_config["speculative_config"] = self.parse_str_field_to_dict(
+                model_config.get("speculative_config", {}), "speculative_config"
+            )
+        if "rope_scaling" in model_config:
+            rope_scaling = self.parse_str_field_to_dict(
+                model_config["rope_scaling"], "rope_scaling"
+            )
+            model_config["hf_overrides"] = {"rope_scaling": rope_scaling}
+            model_config.pop("rope_scaling", {})
+
         # Add scheduling policy if vLLM version is 0.6.3 or higher
         if VLLM_VERSION >= version.parse("0.6.3"):
             model_config.setdefault("scheduling_policy", "fcfs")
             # init mm_processor_kwargs params
-            mm_processor_kwargs = model_config.get("mm_processor_kwargs", {})
-            if isinstance(mm_processor_kwargs, str):
-                try:
-                    mm_processor_kwargs = json.loads(mm_processor_kwargs)
-                except json.JSONDecodeError:
-                    logger.warning(
-                        "Failed to parse mm_processor_kwargs as JSON, using default empty dict"
-                    )
-                    mm_processor_kwargs = {}
-                except Exception as e:
-                    logger.warning(
-                        f"Unexpected error parsing mm_processor_kwargs: {e}, using default empty dict"
-                    )
-                    mm_processor_kwargs = {}
+            mm_processor_kwargs = self.parse_str_field_to_dict(
+                model_config.get("mm_processor_kwargs", {}), "mm_processor_kwargs"
+            )
             pixel_params: Dict[str, int] = {}
             if "min_pixels" in model_config:
                 pixel_params["min_pixels"] = model_config.pop("min_pixels")
