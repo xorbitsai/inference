@@ -18,7 +18,17 @@ import sys
 import threading
 import time
 import uuid
-from typing import AsyncGenerator, Dict, List, Optional, Tuple, TypedDict, Union
+from typing import (
+    Any,
+    AsyncGenerator,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    TypedDict,
+    Union,
+    cast,
+)
 
 from xoscar.utils import get_next_port
 
@@ -309,6 +319,7 @@ class SGLANGModel(LLM):
         stream_options = generate_config.get("stream_options")
         generate_config.setdefault("stream_options", stream_options)
         generate_config.setdefault("ignore_eos", False)
+        cast(Dict[str, Any], generate_config).pop("tool_choice", None)
         response_format = generate_config.pop("response_format", None)
         if response_format:
             json_schema_config = response_format.pop("json_schema", None)
@@ -688,6 +699,7 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
             if (not generate_config.get("stop")) and self.model_family.stop:
                 generate_config["stop"] = self.model_family.stop.copy()
         generate_config.pop("chat_template_kwargs", None)
+        cast(Dict[str, Any], generate_config).pop("tool_choice", None)
         return generate_config
 
     @staticmethod
@@ -792,6 +804,7 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
         if self.model_family.stop:
             if (not generate_config.get("stop")) and self.model_family.stop:
                 generate_config["stop"] = self.model_family.stop.copy()
+        cast(Dict[str, Any], generate_config).pop("tool_choice", None)
         return generate_config
 
     async def async_chat(
