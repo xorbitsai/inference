@@ -14,7 +14,8 @@
 
 import json
 import logging
-from typing import List, Tuple, Union
+import os
+from typing import Any, Dict, List, Tuple, Union, cast
 
 from ....device_utils import is_vacc_available
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
@@ -67,8 +68,12 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
                     is_matryoshka=True,
                 )
 
-        if Version(vllm_version) >= Version("0.13.0"):
-            self._model = LLM(model=self._model_path, **self._kwargs)
+        if self.model_family.model_name.startswith("Qwen3-VL-Embedding"):
+            from packaging.version import Version
+
+            if Version(vllm_version) < Version("0.14.0"):
+                raise ValueError("Qwen3-VL embedding requires vLLM>=0.14.0")
+            self._model = LLM(model=self._model_path, runner="pooling", **self._kwargs)
         else:
             self._model = LLM(model=self._model_path, task="embed", **self._kwargs)
         self._tokenizer = self._model.get_tokenizer()
@@ -131,9 +136,12 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
                     f"Please upgrade to v0.10.1 or later."
                 )
             pool_params = PoolingParams(dimensions=dimensions)
-        outputs = self._model.embed(
-            sentences, use_tqdm=False, pooling_params=pool_params
-        )
+        if self.model_family.model_name.startswith("Qwen3-VL-Embedding"):
+            outputs = self._embed_vl(sentences)
+        else:
+            outputs = self._model.embed(
+                sentences, use_tqdm=False, pooling_params=pool_params
+            )
         embedding_list = []
         all_token_nums = 0
         for index, output in enumerate(outputs):
@@ -142,7 +150,8 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
                     index=index, object="embedding", embedding=output.outputs.embedding
                 )
             )
-            all_token_nums += len(output.prompt_token_ids)
+            if hasattr(output, "prompt_token_ids"):
+                all_token_nums += len(output.prompt_token_ids)
         usage = EmbeddingUsage(
             prompt_tokens=all_token_nums, total_tokens=all_token_nums
         )
@@ -156,6 +165,62 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
         self._clean_cache_if_needed(all_token_nums)
 
         return result
+
+    def _embed_vl(
+        self, inputs: Union[str, List[str], Dict[str, Any], List[Dict[str, Any]]]
+    ):
+        import base64
+        import re
+        from io import BytesIO
+
+        from PIL import Image
+        from vllm.multimodal.utils import fetch_image
+
+        if isinstance(inputs, str):
+            normalized: List[Dict[str, Any]] = [{"text": inputs}]
+        elif isinstance(inputs, dict):
+            normalized = [inputs]
+        elif isinstance(inputs, list) and inputs and isinstance(inputs[0], str):
+            normalized = [{"text": item} for item in inputs]
+        elif isinstance(inputs, list):
+            normalized = cast(List[Dict[str, Any]], inputs)
+        else:
+            raise ValueError("Unsupported input type for Qwen3-VL embedding.")
+
+        image_placeholder = "<|vision_start|><|image_pad|><|vision_end|>"
+        vllm_inputs: List[Dict[str, Any]] = []
+
+        def _load_image(val: Any) -> Any:
+            if isinstance(val, Image.Image):
+                return val.convert("RGB")
+            if isinstance(val, str):
+                if re.match(r"^data:image/.+;base64,", val):
+                    base64_data = val.split(",", 1)[1]
+                    data = base64.b64decode(base64_data)
+                    return Image.open(BytesIO(data)).convert("RGB")
+                if val.startswith(("http://", "https://", "oss://")):
+                    return fetch_image(val)
+                if os.path.exists(val):
+                    return Image.open(val).convert("RGB")
+            return val
+
+        for item in normalized:
+            text = item.get("text") if isinstance(item, dict) else None
+            image = item.get("image") if isinstance(item, dict) else None
+            if image is not None:
+                image_obj = _load_image(image)
+                if text:
+                    prompt = f"{image_placeholder}\n{text}"
+                else:
+                    prompt = image_placeholder
+                vllm_inputs.append(
+                    {"prompt": prompt, "multi_modal_data": {"image": image_obj}}
+                )
+            else:
+                vllm_inputs.append({"prompt": text or ""})
+
+        assert self._model is not None
+        return self._model.embed(vllm_inputs)
 
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
@@ -171,6 +236,8 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
         model_spec: EmbeddingSpecV1,
         quantization: str,
     ) -> Union[bool, Tuple[bool, str]]:
+        if model_family.model_name.startswith("Qwen3-VL-Embedding"):
+            return False, "Qwen3-VL embedding requires vLLM>=0.14.0"
         if model_spec.model_format not in ["pytorch"]:
             return False, "vLLM embedding engine only supports pytorch format"
         prefix = model_family.model_name.split("-", 1)[0]
