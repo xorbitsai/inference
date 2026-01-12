@@ -1967,6 +1967,20 @@ class SupervisorActor(xo.StatelessActor):
     async def report_worker_status(
         self, worker_address: str, status: Dict[str, Union[ResourceStatus, GPUStatus]]
     ):
+        if worker_address not in self._worker_address_to_worker:
+            logger.warning(
+                "Worker %s reported status but is not registered; restoring models",
+                worker_address,
+            )
+            worker_ref = await self.ensure_worker(worker_address)
+            try:
+                models = await worker_ref.list_models()
+                await self.restore_worker_models(worker_address, models)
+            except Exception:
+                logger.exception(
+                    "Failed to restore worker models on status report for %s",
+                    worker_address,
+                )
         if worker_address not in self._worker_status:
             logger.debug("Worker %s resources: %s", worker_address, status)
             self._worker_status[worker_address] = WorkerStatus(
