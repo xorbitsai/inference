@@ -31,7 +31,7 @@ import ModelCard from './modelCard'
 const ENABLE_PAGINATION = false
 
 const LaunchModelComponent = forwardRef(
-  ({ modelType, gpuAvailable, featureModels }, ref) => {
+  ({ modelType, gpuAvailable }, ref) => {
     const { isCallingApi, setIsCallingApi, endPoint } = useContext(ApiContext)
     const { isUpdatingModel } = useContext(ApiContext)
     const { setErrorMsg } = useContext(ApiContext)
@@ -84,11 +84,9 @@ const LaunchModelComponent = forwardRef(
         }
 
         if (modelListType === 'featured') {
-          if (
-            featureModels.length &&
-            !featureModels.includes(registration.model_name) &&
-            !collectionArr?.includes(registration.model_name)
-          ) {
+          const isFavorite = Array.isArray(collectionArr) &&
+            collectionArr.includes(registration.model_name)
+          if (registration?.featured !== true && !isFavorite) {
             return false
           }
         }
@@ -124,7 +122,6 @@ const LaunchModelComponent = forwardRef(
       [
         searchTerm,
         modelListType,
-        featureModels,
         collectionArr,
         modelAbilityData.modelAbility,
         statusArr,
@@ -184,6 +181,14 @@ const LaunchModelComponent = forwardRef(
             )
             setCollectionArr(collectionData)
 
+            // If no featured models in backend or favorites, default to 'all'
+            const hasFeaturedOrFavorite = builtinRegistrations.some(
+              (r) => r.featured === true || (Array.isArray(collectionData) && collectionData.includes(r.model_name))
+            )
+            if (!hasFeaturedOrFavorite && modelListType === 'featured') {
+              setModelListType('all')
+            }
+
             // Reset pagination status
             setCurrentPage(1)
             setHasMore(true)
@@ -216,12 +221,13 @@ const LaunchModelComponent = forwardRef(
 
       const sortedData = [...filteredData].sort((a, b) => {
         if (modelListType === 'featured') {
-          const indexA = featureModels.indexOf(a.model_name)
-          const indexB = featureModels.indexOf(b.model_name)
-          return (
-            (indexA !== -1 ? indexA : Infinity) -
-            (indexB !== -1 ? indexB : Infinity)
-          )
+          const isFavA = Array.isArray(collectionArr) &&
+            collectionArr.includes(a.model_name)
+          const isFavB = Array.isArray(collectionArr) &&
+            collectionArr.includes(b.model_name)
+          const rankA = a.featured === true ? 0 : (isFavA ? 1 : 2)
+          const rankB = b.featured === true ? 0 : (isFavB ? 1 : 2)
+          return rankA - rankB
         }
         return 0
       })
@@ -247,7 +253,6 @@ const LaunchModelComponent = forwardRef(
       registrationData,
       filter,
       modelListType,
-      featureModels,
       currentPage,
       itemsPerPage,
     ])
@@ -377,6 +382,20 @@ const LaunchModelComponent = forwardRef(
       update,
     }))
 
+    const hasFeatured = registrationData?.some(
+      (r) => r.featured === true || (Array.isArray(collectionArr) && collectionArr.includes(r.model_name))
+    )
+
+    useEffect(() => {
+      if (modelListType === 'featured' && !hasFeatured) {
+        setModelListType('all')
+      }
+    }, [modelListType, hasFeatured])
+
+    useEffect(() => {
+      setModelListType('featured')
+    }, [modelType])
+
     return (
       <Box m="20px">
         <div
@@ -384,15 +403,11 @@ const LaunchModelComponent = forwardRef(
             display: 'grid',
             gridTemplateColumns: (() => {
               const hasAbility = modelAbilityData.options.length > 0
-              const hasFeature = featureModels.length > 0
-
               const baseColumns = hasAbility ? ['200px', '150px'] : ['200px']
               const altColumns = hasAbility ? ['150px', '150px'] : ['150px']
-
-              const columns = hasFeature
+              const columns = hasFeatured
                 ? [...baseColumns, '150px', '1fr']
                 : [...altColumns, '1fr']
-
               return columns.join(' ')
             })(),
             columnGap: '20px',
@@ -400,7 +415,7 @@ const LaunchModelComponent = forwardRef(
             alignItems: 'center',
           }}
         >
-          {featureModels.length > 0 && (
+          {hasFeatured && (
             <FormControl sx={{ minWidth: 120 }} size="small">
               <ButtonGroup>
                 <Button
