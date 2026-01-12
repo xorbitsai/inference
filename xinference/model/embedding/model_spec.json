@@ -1312,7 +1312,9 @@
     "virtualenv": {
       "packages": [
         "sentence_transformers",
-        "transformers==4.51.3"
+        "transformers==4.51.3",
+        "#system_torch#",
+        "#system_torchvision#"
       ]
     },
     "model_specs": [
@@ -1334,7 +1336,7 @@
         }
       }
     ],
-    "updated_at": 1766473256,
+    "updated_at": 1768188140,
     "featured": false
   }
 ]
