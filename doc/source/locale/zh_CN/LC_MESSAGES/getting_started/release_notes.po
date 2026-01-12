@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-12-27 10:31+0800\n"
+"POT-Creation-Date: 2026-01-12 12:24+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -37,64 +37,72 @@ msgid "Version"
 msgstr "版本"
 
 #: ../../source/getting_started/release_notes.rst:12
-msgid "v1.16.0"
+msgid "v1.17.0"
 msgstr ""
 
 #: ../../source/getting_started/release_notes.rst:12
+msgid "`View release notes <https://xinference.io/release_notes/v1.17.0.html>`_"
+msgstr "`查看版本说明 <https://xinference.cn/release_notes/v1.17.0.html>`_"
+
+#: ../../source/getting_started/release_notes.rst:14
+msgid "v1.16.0"
+msgstr ""
+
+#: ../../source/getting_started/release_notes.rst:14
 msgid "`View release notes <https://xinference.io/release_notes/v1.16.0.html>`_"
 msgstr "`查看版本说明 <https://xinference.cn/release_notes/v1.16.0.html>`_"
 
-#: ../../source/getting_started/release_notes.rst:14
+#: ../../source/getting_started/release_notes.rst:16
 msgid "v1.15.0"
 msgstr ""
 
-#: ../../source/getting_started/release_notes.rst:14
+#: ../../source/getting_started/release_notes.rst:16
 msgid "`View release notes <https://xinference.io/release_notes/v1.15.0.html>`_"
 msgstr "`查看版本说明 <https://xinference.cn/release_notes/v1.15.0.html>`_"
 
-#: ../../source/getting_started/release_notes.rst:16
+#: ../../source/getting_started/release_notes.rst:18
 msgid "v1.14.0"
 msgstr ""
 
-#: ../../source/getting_started/release_notes.rst:16
+#: ../../source/getting_started/release_notes.rst:18
 msgid "`View release notes <https://xinference.io/release_notes/v1.14.0.html>`_"
 msgstr "`查看版本说明 <https://xinference.cn/release_notes/v1.14.0.html>`_"
 
-#: ../../source/getting_started/release_notes.rst:18
+#: ../../source/getting_started/release_notes.rst:20
 msgid "v1.13.0"
 msgstr ""
 
-#: ../../source/getting_started/release_notes.rst:18
+#: ../../source/getting_started/release_notes.rst:20
 msgid "`View release notes <https://xinference.io/release_notes/v1.13.0.html>`_"
 msgstr "`查看版本说明 <https://xinference.cn/release_notes/v1.13.0.html>`_"
 
-#: ../../source/getting_started/release_notes.rst:20
+#: ../../source/getting_started/release_notes.rst:22
 msgid "v1.12.0"
 msgstr ""
 
-#: ../../source/getting_started/release_notes.rst:20
+#: ../../source/getting_started/release_notes.rst:22
 msgid "`View release notes <https://xinference.io/release_notes/v1.12.0.html>`_"
 msgstr "`查看版本说明 <https://xinference.cn/release_notes/v1.12.0.html>`_"
 
-#: ../../source/getting_started/release_notes.rst:22
+#: ../../source/getting_started/release_notes.rst:24
 msgid "v1.11.0.post1"
 msgstr ""
 
-#: ../../source/getting_started/release_notes.rst:22
+#: ../../source/getting_started/release_notes.rst:24
 msgid ""
 "`View release notes "
 "<https://xinference.io/release_notes/v1.11.0.post1.html>`_"
 msgstr "`查看版本说明 <https://xinference.cn/release_notes/v1.11.0.post1.html>`_"
 
-#: ../../source/getting_started/release_notes.rst:24
+#: ../../source/getting_started/release_notes.rst:26
 msgid "v1.10.1"
 msgstr ""
 
-#: ../../source/getting_started/release_notes.rst:24
+#: ../../source/getting_started/release_notes.rst:26
 msgid "`View release notes <https://xinference.io/release_notes/v1.10.1.html>`_"
 msgstr "`查看版本说明 <https://xinference.cn/release_notes/v1.10.1.html>`_"
 
-#: ../../source/getting_started/release_notes.rst:29
+#: ../../source/getting_started/release_notes.rst:31
 msgid ""
 "For older versions and source history, see our GitHub releases page: "
 "https://github.com/xorbitsai/inference/releases"
