@@ -558,5 +558,37 @@
     ],
     "updated_at": 1766386719,
     "featured": false
+  },
+  {
+    "version": 2,
+    "model_name": "Qwen3-VL-Reranker-8B",
+    "type": "normal",
+    "language": [
+      "en",
+      "zh"
+    ],
+    "max_tokens": 8192,
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3-VL-Reranker-8B",
+            "model_revision": "8e52ab8fdc69d698b3e1c17f9977afb6fea4f656",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3-VL-Reranker-8B",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "featured": false,
+    "updated_at": 1768203204
   }
 ]
