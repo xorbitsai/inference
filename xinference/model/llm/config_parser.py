@@ -246,9 +246,7 @@ def _infer_model_format(config: Dict[str, Any]) -> str:
     return "pytorch"
 
 
-def build_llm_registration_from_local_config(
-    model_name: str, model_path: str
-) -> Dict[str, Any]:
+def build_llm_registration_from_local_config(model_path: str) -> Dict[str, Any]:
 
     config_path, model_dir = _resolve_config_and_dir(model_path)
     config = _load_json_file(config_path)
@@ -300,7 +298,6 @@ def build_llm_registration_from_local_config(
 
     result = {
         "version": 2,
-        "model_name": model_name,
         "context_length": context_length,
         "model_lang": model_lang,
         "model_ability": model_ability,

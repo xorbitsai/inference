@@ -198,7 +198,6 @@ class RegisterModelRequest(BaseModel):
 
 
 class AutoConfigLLMRequest(BaseModel):
-    model_name: str
     model_path: str
 
 
@@ -1127,7 +1126,6 @@ class RESTfulAPI(CancelMixin):
             )
 
             data = build_llm_registration_from_local_config(
-                model_name=body.model_name,
                 model_path=body.model_path,
             )
             return JSONResponse(content=data)
