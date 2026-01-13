@@ -6,9 +6,6 @@ _BUILTIN_FAMILY_CACHE: Optional[List[Dict[str, Any]]] = None
 
 
 def _resolve_config_and_dir(model_path: str) -> Tuple[str, str]:
-    normalized_path = model_path.lower()
-    if normalized_path.endswith(".gguf"):
-        raise ValueError("GGUF format is not supported for auto config.")
     if os.path.isdir(model_path):
         config_path = os.path.join(model_path, "config.json")
         model_dir = model_path
