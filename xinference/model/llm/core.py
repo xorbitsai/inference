@@ -142,7 +142,10 @@ class LLM(abc.ABC):
         Use pymtml to impl this interface.
         DO NOT USE torch to impl this, which will lead to some unexpected errors.
         """
-        from pymtml import nvmlDeviceGetCount, nvmlInit, nvmlShutdown
+        try:
+            from pymtml import nvmlDeviceGetCount, nvmlInit, nvmlShutdown
+        except Exception:
+            return False
 
         device_count = 0
         try:
