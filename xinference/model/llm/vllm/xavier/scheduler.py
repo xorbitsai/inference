@@ -13,11 +13,13 @@
 # limitations under the License.
 import asyncio
 import logging
+import struct
 import time
 from collections import deque
 from typing import Callable, Deque, Dict, List, Optional, Set, Tuple, no_type_check
 
 import xoscar as xo
+import xxhash
 from vllm.config import CacheConfig, LoRAConfig, SchedulerConfig
 from vllm.core.block.interfaces import Block
 from vllm.core.interfaces import BlockSpaceManager
@@ -37,6 +39,9 @@ logger = logging.getLogger(__name__)
 
 
 class XavierScheduler(Scheduler):
+    # same as vllm.core.block.prefix_caching_block.PrefixCachingBlock._none_hash
+    _none_hash: int = -1
+
     @staticmethod
     def _get_block_space_manager_class(version: str):
         logger.debug("Init xavier block manager.")
@@ -91,6 +96,49 @@ class XavierScheduler(Scheduler):
             )
         return self._transfer_ref
 
+    @classmethod
+    def hash_block_tokens(
+        cls,
+        is_first_block: bool,
+        prev_block_hash: Optional[int],
+        cur_block_token_ids: List[int],
+        extra_hash: Optional[int] = None,
+    ) -> int:
+        """
+        Computes a stable hash value corresponding to the contents of a block
+        and the contents of the preceding block(s), using xxhash instead of
+        Python hash() for cross-process stability.
+        """
+
+        if prev_block_hash is None:
+            prev_block_hash = cls._none_hash
+        if extra_hash is None:
+            extra_hash = cls._none_hash
+
+        buf = bytearray()
+
+        # 0. hash version（强烈建议保留）
+        buf += b"v1"
+
+        # 1. is_first_block: bool -> 1 byte
+        buf += struct.pack("<?", is_first_block)
+
+        # 2. prev_block_hash: int64
+        buf += struct.pack("<Q", int(prev_block_hash) & 0xFFFFFFFFFFFFFFFF)
+
+        # 3. token count: uint32
+        buf += struct.pack("<I", len(cur_block_token_ids))
+
+        # 4. token ids: int32[]
+        for tid in cur_block_token_ids:
+            buf += struct.pack("<i", int(tid))
+
+        # 5. extra_hash: int64
+        buf += struct.pack("<Q", int(extra_hash) & 0xFFFFFFFFFFFFFFFF)
+
+        # xxhash64, fixed seed for determinism
+        return xxhash.xxh64_intdigest(bytes(buf), seed=0)
+
     async def _get_transfer_details(
         self,
         virtual_engine: int,
@@ -109,9 +157,21 @@ class XavierScheduler(Scheduler):
         details: Set[Tuple[int, int]] = set()
         for seq in seq_group.get_seqs(status=SequenceStatus.RUNNING):
             block_ids = block_tables[seq.seq_id]
+            tmp_content_hash = None
             for _id in block_ids:
                 block: Block = self.block_manager.get_block_by_block_id(seq.seq_id, _id)
-                detail = (block.content_hash, _id)
+                if block._prev_block is None:
+                    content_hash = self.hash_block_tokens(
+                        True, self._none_hash, block.token_ids, block._extra_hash
+                    )
+
+                else:
+                    prev_content_hash: Optional[int] = tmp_content_hash
+                    content_hash = self.hash_block_tokens(
+                        False, prev_content_hash, block.token_ids, block._extra_hash
+                    )
+                tmp_content_hash = content_hash
+                detail = (content_hash, _id)
                 """
                 1. `block.content_hash is not None` means that the block has been filled with tokens.
                 Unless it is evicted from the cache, the computation result of this block is constant.
@@ -123,7 +183,7 @@ class XavierScheduler(Scheduler):
                 and does not need to be transferred.
                 """
                 if (
-                    (block.content_hash is not None)
+                    (content_hash is not None)
                     and (
                         not self.block_manager.get_block_status_by_block_id(
                             "transferred", block.block_id
@@ -362,7 +422,8 @@ class XavierScheduler(Scheduler):
                         if scheduler_outputs.num_prefill_groups > 0
                         else None
                     ),
-                    mm_processor_kwargs=seq_group.mm_processor_kwargs,
+                    # this arg removed by version >= 0.8.0
+                    # mm_processor_kwargs=seq_group.mm_processor_kwargs,
                     prompt_adapter_request=seq_group.prompt_adapter_request,
                 )
             else:
