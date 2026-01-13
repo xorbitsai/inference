@@ -292,11 +292,7 @@ const LaunchModelDrawer = ({
 
   const applyHistory = (data) => {
     const restoredData = restoreFormDataFormat(data)
-    setFormData(
-      modelEngineType.includes(modelType)
-        ? { ...restoredData, __isInitializing: true }
-        : restoredData
-    )
+    setFormData(restoredData)
     const collapseFromData = getCollapseStateFromData(restoredData)
     setCollapseState((prev) => ({ ...prev, ...collapseFromData }))
   }
@@ -481,15 +477,6 @@ const LaunchModelDrawer = ({
   }, [open, modelData.model_name, modelType])
 
   useEffect(() => {
-    if (formData.__isInitializing) {
-      setFormData((prev) => {
-        const { __isInitializing, ...rest } = prev
-        console.log('__isInitializing', __isInitializing)
-        return rest
-      })
-      return
-    }
-
     if (formData.model_engine && modelEngineType.includes(modelType)) {
       const format = [
         ...new Set(
@@ -514,8 +501,6 @@ const LaunchModelDrawer = ({
   }, [formData.model_engine, enginesObj])
 
   useEffect(() => {
-    if (formData.__isInitializing) return
-
     if (!formData.model_engine || !formData.model_format) return
 
     const configMap = {
@@ -565,7 +550,6 @@ const LaunchModelDrawer = ({
   }, [formData.model_engine, formData.model_format, enginesObj])
 
   useEffect(() => {
-    if (formData.__isInitializing) return
     if (
       formData.model_engine &&
       formData.model_format &&
