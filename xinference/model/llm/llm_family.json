@@ -24328,7 +24328,7 @@
     "virtualenv": {
       "packages": []
     },
-    "updated_at": 1766473675,
+    "updated_at": 1767667287,
     "featured": false,
     "architectures": [
       "MiniMaxM2ForCausalLM"
