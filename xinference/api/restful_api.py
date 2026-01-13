@@ -197,6 +197,11 @@ class RegisterModelRequest(BaseModel):
     persist: bool
 
 
+class AutoConfigLLMRequest(BaseModel):
+    model_name: str
+    model_path: str
+
+
 class UpdateModelRequest(BaseModel):
     model_type: str
 
@@ -365,6 +370,16 @@ class RESTfulAPI(CancelMixin):
         )
         self._router.add_api_route(
             "/v1/models/families", self._get_builtin_families, methods=["GET"]
+        )
+        self._router.add_api_route(
+            "/v1/models/llm/auto-register",
+            self.build_llm_registration_from_config,
+            methods=["POST"],
+            dependencies=(
+                [Security(self._auth_service, scopes=["models:register"])]
+                if self.is_authenticated()
+                else None
+            ),
         )
         self._router.add_api_route(
             "/v1/models/vllm-supported",
@@ -1098,6 +1113,27 @@ class RESTfulAPI(CancelMixin):
         try:
             data = await (await self._get_supervisor_ref()).get_builtin_families()
             return JSONResponse(content=data)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def build_llm_registration_from_config(
+        self, request: Request
+    ) -> JSONResponse:
+        try:
+            body = AutoConfigLLMRequest.parse_obj(await request.json())
+            from ..model.llm.config_parser import (
+                build_llm_registration_from_local_config,
+            )
+
+            data = build_llm_registration_from_local_config(
+                model_name=body.model_name,
+                model_path=body.model_path,
+            )
+            return JSONResponse(content=data)
+        except ValueError as re:
+            logger.error(re, exc_info=True)
+            raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
