@@ -20,7 +20,7 @@ from vllm.sequence import ExecuteModelRequest, PoolerOutput
 from vllm.utils import is_pin_memory_available
 from vllm.worker.cache_engine import CacheEngine
 
-from ..utils import hash_block_tokens
+from .utils import hash_block_tokens
 
 if TYPE_CHECKING:
     from .scheduler import XavierScheduler

@@ -31,8 +31,8 @@ from vllm.sequence import (
     SequenceStatus,
 )
 
-from ..utils import hash_block_tokens
 from .block_manager import XavierBlockManager
+from .utils import hash_block_tokens
 
 logger = logging.getLogger(__name__)
 
