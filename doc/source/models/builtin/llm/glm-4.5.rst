@@ -164,7 +164,7 @@ Model Spec 10 (awq, 106 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 106
 - **Quantizations:** 4bit
-- **Engines**: 
+- **Engines**: vLLM, Transformers
 - **Model ID:** cpatonn-mirror/GLM-4.5-Air-AWQ-4bit
 - **Model Hubs**:  `ModelScope <https://modelscope.cn/models/cpatonn-mirror/GLM-4.5-Air-AWQ-4bit>`__
 

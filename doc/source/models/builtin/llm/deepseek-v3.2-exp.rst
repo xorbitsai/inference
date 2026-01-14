@@ -7,7 +7,7 @@ DeepSeek-V3.2-Exp
 - **Context Length:** 163840
 - **Model Name:** DeepSeek-V3.2-Exp
 - **Languages:** en, zh
-- **Abilities:** chat, reasoning
+- **Abilities:** chat, reasoning, hybrid, tools
 - **Description:** We are excited to announce the official release of DeepSeek-V3.2-Exp, an experimental version of our model. As an intermediate step toward our next-generation architecture, V3.2-Exp builds upon V3.1-Terminus by introducing DeepSeek Sparse Attention—a sparse attention mechanism designed to explore and validate optimizations for training and inference efficiency in long-context scenarios.
 
 Specifications
@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 671 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 671
 - **Quantizations:** none
-- **Engines**: 
+- **Engines**: vLLM, Transformers
 - **Model ID:** deepseek-ai/DeepSeek-V3.2-Exp
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/deepseek-ai/DeepSeek-V3.2-Exp>`__, `ModelScope <https://modelscope.cn/models/deepseek-ai/DeepSeek-V3.2-Exp>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (awq, 671 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 671
 - **Quantizations:** AWQ, AWQ-Lite
-- **Engines**: 
+- **Engines**: Transformers
 - **Model ID:** QuantTrio/DeepSeek-V3.2-Exp-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/DeepSeek-V3.2-Exp-{quantization}>`__, `ModelScope <https://modelscope.cn/models/tclf90/DeepSeek-V3.2-Exp-{quantization}>`__
 

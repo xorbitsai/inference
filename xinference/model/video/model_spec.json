@@ -23,7 +23,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445104,
+    "updated_at": 1766385300,
     "featured": false
   },
   {
@@ -50,7 +50,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445106,
+    "updated_at": 1766385301,
     "featured": false
   },
   {
@@ -68,14 +68,48 @@
     "model_src": {
       "huggingface": {
         "model_id": "hunyuanvideo-community/HunyuanVideo",
-        "model_revision": "e8c2aaa66fe3742a32c11a6766aecbf07c56e773"
+        "model_revision": "e8c2aaa66fe3742a32c11a6766aecbf07c56e773",
+        "gguf_model_id": "city96/HunyuanVideo-gguf",
+        "gguf_quantizations": [
+          "BF16",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "hunyuan-video-t2v-720p-{quantization}.gguf"
       },
       "modelscope": {
         "model_id": "Xorbits/HunyuanVideo",
-        "model_revision": "master"
+        "model_revision": "master",
+        "gguf_model_id": "city96/HunyuanVideo-gguf",
+        "gguf_quantizations": [
+          "BF16",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "hunyuan-video-t2v-720p-{quantization}.gguf"
       }
     },
-    "updated_at": 1763445107,
+    "updated_at": 1768188075,
     "featured": false
   },
   {
@@ -108,7 +142,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445108,
+    "updated_at": 1766385303,
     "featured": false
   },
   {
@@ -141,7 +175,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445109,
+    "updated_at": 1766385304,
     "featured": false
   },
   {
@@ -179,7 +213,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445111,
+    "updated_at": 1766385305,
     "featured": false
   },
   {
@@ -217,7 +251,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445112,
+    "updated_at": 1766385306,
     "featured": false
   },
   {
@@ -255,7 +289,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445113,
+    "updated_at": 1766385307,
     "featured": false
   },
   {
@@ -288,7 +322,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445115,
+    "updated_at": 1766385308,
     "featured": false
   },
   {
@@ -321,7 +355,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445116,
+    "updated_at": 1766385309,
     "featured": false
   },
   {
@@ -355,7 +389,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445117,
+    "updated_at": 1766385310,
     "featured": false
   }
 ]

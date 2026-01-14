@@ -142,6 +142,7 @@ const RegisterModel = () => {
               version: 2,
               model_name: 'custom-image',
               model_uri: '/path/to/image-model',
+              model_ability: [],
               model_family: 'stable_diffusion',
               controlnet: [],
               virtualenv: {

@@ -37,9 +37,15 @@ The following is a list of built-in image models in Xinference:
   
    qwen-image
   
+   qwen-image-2512
+  
    qwen-image-edit
   
    qwen-image-edit-2509
+  
+   qwen-image-edit-2511
+  
+   qwen-image-layered
   
    sd-turbo
   

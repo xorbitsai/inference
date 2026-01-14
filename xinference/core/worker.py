@@ -147,7 +147,6 @@ class WorkerActor(xo.StatelessActor):
         self._model_uid_to_model_spec: Dict[str, Dict[str, Any]] = {}
         self._model_uid_to_model_status: Dict[str, ModelStatus] = {}
         self._gpu_to_model_uids: Dict[int, Set[str]] = defaultdict(set)
-        self._gpu_to_embedding_model_uids: Dict[int, Set[str]] = defaultdict(set)
         # Dict structure: gpu_index: {(replica_model_uid, model_type)}
         self._user_specified_gpu_to_model_uids: Dict[int, Set[Tuple[str, str]]] = (
             defaultdict(set)
@@ -501,59 +500,6 @@ class WorkerActor(xo.StatelessActor):
         model_ref = await supervisor_ref.get_model(_model_uid)
         return await model_ref.is_vllm_backend()
 
-    async def allocate_devices_for_embedding(self, model_uid: str) -> int:
-        """
-        we assume that embedding model only takes 1 GPU slot.
-        """
-        candidates = []
-        for _dev in self._total_gpu_devices:
-            if (
-                _dev not in self._gpu_to_model_uids
-                and _dev not in self._user_specified_gpu_to_model_uids
-            ):  # no possible vllm model on it, add it to candidates
-                candidates.append(_dev)
-            else:  # need to judge that whether to have vllm model on this device
-                has_vllm_model = False
-                if _dev in self._gpu_to_model_uids:
-                    for existing_model_uid in self._gpu_to_model_uids[_dev]:
-                        has_vllm_model = await self.is_model_vllm_backend(
-                            existing_model_uid
-                        )
-                        if has_vllm_model:
-                            break
-                if (
-                    not has_vllm_model
-                    and _dev in self._user_specified_gpu_to_model_uids
-                ):
-                    for rep_uid, _ in self._user_specified_gpu_to_model_uids[_dev]:
-                        has_vllm_model = await self.is_model_vllm_backend(rep_uid)
-                        if has_vllm_model:
-                            break
-                if not has_vllm_model:
-                    candidates.append(_dev)
-
-        if len(candidates) == 0:
-            raise RuntimeError(
-                "No available slot found for the embedding model. "
-                "We recommend to launch the embedding model first, and then launch the LLM models."
-            )
-
-        device, min_cnt = -1, -1
-        # Pick the device with the fewest existing models among all the candidate devices.
-        for _dev in candidates:
-            existing_cnt = 0
-            if _dev in self._gpu_to_embedding_model_uids:
-                existing_cnt += len(self._gpu_to_embedding_model_uids[_dev])
-            if _dev in self._gpu_to_model_uids:
-                existing_cnt += len(self._gpu_to_model_uids[_dev])
-            if _dev in self._user_specified_gpu_to_model_uids:
-                existing_cnt += len(self._user_specified_gpu_to_model_uids[_dev])
-            if min_cnt == -1 or existing_cnt < min_cnt:
-                device, min_cnt = _dev, existing_cnt
-
-        self._gpu_to_embedding_model_uids[device].add(model_uid)
-        return device
-
     def allocate_devices(self, model_uid: str, n_gpu: int) -> List[int]:
         if n_gpu > len(self._total_gpu_devices):
             raise RuntimeError("Requested GPUs exceed the number of available devices")
@@ -567,10 +513,6 @@ class WorkerActor(xo.StatelessActor):
             for dev, model_infos in self._user_specified_gpu_to_model_uids.items():
                 if model_infos:
                     occupied_devices.add(dev)
-            for dev, model_uids in self._gpu_to_embedding_model_uids.items():
-                if model_uids:
-                    occupied_devices.add(dev)
-
             available_devices = [
                 dev for dev in self._total_gpu_devices if dev not in occupied_devices
             ]
@@ -620,15 +562,7 @@ class WorkerActor(xo.StatelessActor):
             existing_model_uids = []
             if idx in self._gpu_to_model_uids:
                 for rep_uid in self._gpu_to_model_uids[idx]:
-                    is_vllm_model = await self.is_model_vllm_backend(rep_uid)
-                    if is_vllm_model:
-                        raise RuntimeError(
-                            f"GPU index {idx} has been occupied with a vLLM model: {rep_uid}, "
-                            f"therefore cannot allocate GPU memory for a new model."
-                        )
                     existing_model_uids.append(rep_uid)
-            if idx in self._gpu_to_embedding_model_uids:
-                existing_model_uids.extend(self._gpu_to_embedding_model_uids[idx])
             if not self._allow_multi_replica_per_gpu and (
                 existing_model_uids
                 or len(self._user_specified_gpu_to_model_uids.get(idx, set())) > 0
@@ -648,17 +582,25 @@ class WorkerActor(xo.StatelessActor):
             self._user_specified_gpu_to_model_uids[idx].add((model_uid, model_type))
         return sorted(gpu_idx)
 
+    @log_async(logger=logger)
+    async def get_gpu_allocation_status(self) -> Dict[str, Any]:
+        """Return current device allocation snapshot for scheduling/diagnostics."""
+        return {
+            "total": list(self._total_gpu_devices),
+            "models": {int(k): list(v) for k, v in self._gpu_to_model_uids.items()},
+            "user_specified": {
+                int(k): [list(t) for t in v]
+                for k, v in self._user_specified_gpu_to_model_uids.items()
+            },
+            "allow_multi_replica_per_gpu": self._allow_multi_replica_per_gpu,
+        }
+
     def release_devices(self, model_uid: str):
         for dev, model_uids in list(self._gpu_to_model_uids.items()):
             if model_uid in model_uids:
                 model_uids.remove(model_uid)
                 if not model_uids:
                     del self._gpu_to_model_uids[dev]
-
-        # check embedding
-        for dev in self._gpu_to_embedding_model_uids:
-            if model_uid in self._gpu_to_embedding_model_uids[dev]:
-                self._gpu_to_embedding_model_uids[dev].remove(model_uid)
 
         # check user-specified slots
         for dev in self._user_specified_gpu_to_model_uids:
@@ -687,11 +629,7 @@ class WorkerActor(xo.StatelessActor):
             if isinstance(n_gpu, int) or (n_gpu == "auto" and gpu_count() > 0):
                 # Currently, n_gpu=auto means using 1 GPU
                 gpu_cnt = n_gpu if isinstance(n_gpu, int) else 1
-                devices = (
-                    [await self.allocate_devices_for_embedding(model_uid)]
-                    if model_type in ["embedding", "rerank"]
-                    else self.allocate_devices(model_uid=model_uid, n_gpu=gpu_cnt)
-                )
+                devices = self.allocate_devices(model_uid=model_uid, n_gpu=gpu_cnt)
                 env[env_name] = ",".join([str(dev) for dev in devices])
                 logger.debug(f"GPU selected: {devices} for model {model_uid}")
             if n_gpu is None:
@@ -1100,6 +1038,11 @@ class WorkerActor(xo.StatelessActor):
                                 "model_hub": family.model_hub,
                                 "model_id": family.model_id,
                                 "cache_status": video_cache_manager.get_cache_status(),
+                                "gguf_model_id": family.gguf_model_id,
+                                "gguf_quantizations": family.gguf_quantizations,
+                                "gguf_model_file_name_template": (
+                                    family.gguf_model_file_name_template
+                                ),
                             }
                         ]
                         ret.append(

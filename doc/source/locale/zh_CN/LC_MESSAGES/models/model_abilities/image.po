@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-08-22 21:43+0800\n"
+"POT-Creation-Date: 2025-12-04 17:26+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -17,7 +17,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.14.0\n"
+"Generated-By: Babel 2.17.0\n"
 
 #: ../../source/models/model_abilities/image.rst:5
 msgid "Images"
@@ -98,76 +98,88 @@ msgid "stable-diffusion-xl-base-1.0"
 msgstr ""
 
 #: ../../source/models/model_abilities/image.rst:43
-#: ../../source/models/model_abilities/image.rst:209
+#: ../../source/models/model_abilities/image.rst:213
 msgid "sd3-medium"
 msgstr ""
 
 #: ../../source/models/model_abilities/image.rst:44
-#: ../../source/models/model_abilities/image.rst:211
-#: ../../source/models/model_abilities/image.rst:246
+#: ../../source/models/model_abilities/image.rst:215
+#: ../../source/models/model_abilities/image.rst:252
 msgid "sd3.5-medium"
 msgstr ""
 
 #: ../../source/models/model_abilities/image.rst:45
-#: ../../source/models/model_abilities/image.rst:213
-#: ../../source/models/model_abilities/image.rst:248
+#: ../../source/models/model_abilities/image.rst:217
+#: ../../source/models/model_abilities/image.rst:254
 msgid "sd3.5-large"
 msgstr ""
 
 #: ../../source/models/model_abilities/image.rst:46
-#: ../../source/models/model_abilities/image.rst:215
-#: ../../source/models/model_abilities/image.rst:250
+#: ../../source/models/model_abilities/image.rst:219
+#: ../../source/models/model_abilities/image.rst:256
 msgid "sd3.5-large-turbo"
 msgstr ""
 
 #: ../../source/models/model_abilities/image.rst:47
-#: ../../source/models/model_abilities/image.rst:207
-#: ../../source/models/model_abilities/image.rst:244
+#: ../../source/models/model_abilities/image.rst:211
+#: ../../source/models/model_abilities/image.rst:250
 msgid "FLUX.1-schnell"
 msgstr ""
 
 #: ../../source/models/model_abilities/image.rst:48
-#: ../../source/models/model_abilities/image.rst:205
-#: ../../source/models/model_abilities/image.rst:242
+#: ../../source/models/model_abilities/image.rst:209
+#: ../../source/models/model_abilities/image.rst:248
 msgid "FLUX.1-dev"
 msgstr ""
 
 #: ../../source/models/model_abilities/image.rst:49
-msgid "Flux.1-Kontext-dev"
-msgstr ""
-
-#: ../../source/models/model_abilities/image.rst:50
 msgid "Kolors"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:51
+#: ../../source/models/model_abilities/image.rst:50
 msgid "hunyuandit-v1.2"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:52
+#: ../../source/models/model_abilities/image.rst:51
 msgid "hunyuandit-v1.2-distilled"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:53
+#: ../../source/models/model_abilities/image.rst:52
 msgid "cogview4"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:54
-#: ../../source/models/model_abilities/image.rst:217
-#: ../../source/models/model_abilities/image.rst:252
-#: ../../source/models/model_abilities/image.rst:282
+#: ../../source/models/model_abilities/image.rst:53
+#: ../../source/models/model_abilities/image.rst:221
+#: ../../source/models/model_abilities/image.rst:258
+#: ../../source/models/model_abilities/image.rst:292
 msgid "Qwen-Image"
 msgstr ""
 
+#: ../../source/models/model_abilities/image.rst:55
+#, fuzzy
+msgid "Image-to-image supported models:"
+msgstr "支持的模型列表"
+
+#: ../../source/models/model_abilities/image.rst:57
+msgid "Flux.1-Kontext-dev"
+msgstr ""
+
 #: ../../source/models/model_abilities/image.rst:58
+#: ../../source/models/model_abilities/image.rst:223
+#: ../../source/models/model_abilities/image.rst:260
+#: ../../source/models/model_abilities/image.rst:294
+msgid "Qwen-Image-Edit"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:62
 msgid "Quickstart"
 msgstr "快速入门"
 
-#: ../../source/models/model_abilities/image.rst:61
+#: ../../source/models/model_abilities/image.rst:65
 msgid "Text-to-image"
 msgstr "文生图"
 
-#: ../../source/models/model_abilities/image.rst:63
+#: ../../source/models/model_abilities/image.rst:67
 msgid ""
 "The Text-to-image API mimics OpenAI's `create images API "
 "<https://platform.openai.com/docs/api-reference/images/create>`_. We can "
@@ -177,11 +189,11 @@ msgstr ""
 "可以通过 cURL、OpenAI Client 或 Xinference 的方式尝试使用 Text-to-image "
 "API。"
 
-#: ../../source/models/model_abilities/image.rst:117
+#: ../../source/models/model_abilities/image.rst:121
 msgid "Image-to-image"
 msgstr "图生图"
 
-#: ../../source/models/model_abilities/image.rst:119
+#: ../../source/models/model_abilities/image.rst:123
 msgid ""
 "The Image-to-image API mimics OpenAI's `create image variation API "
 "<https://platform.openai.com/docs/api-"
@@ -192,11 +204,11 @@ msgstr ""
 "com/docs/api-reference/images/createVariation>`_。我们可以通过 cURL、"
 "OpenAI 客户端，或 Xinference 的 Python 客户端来尝试使用图生图 API："
 
-#: ../../source/models/model_abilities/image.rst:172
+#: ../../source/models/model_abilities/image.rst:176
 msgid "Memory optimization for Large Image Models e.g. SD3-Medium, FLUX.1"
 msgstr "大型图像模型（例如 SD3-Medium、FLUX.1）的内存优化"
 
-#: ../../source/models/model_abilities/image.rst:176
+#: ../../source/models/model_abilities/image.rst:180
 msgid ""
 "From v0.16.1, Xinference by default enabled quantization for large image "
 "models like Flux.1 and SD3.5 series. So if your Xinference version is "
@@ -207,11 +219,11 @@ msgstr ""
 "量化。如果你使用新于 v0.16.1 的 Xinference 版本，你不需要做什么事情来在小"
 " GPU 显存的机器上来运行这些大型图像模型。"
 
-#: ../../source/models/model_abilities/image.rst:181
+#: ../../source/models/model_abilities/image.rst:185
 msgid "Useful extra parameters can be passed to launch including:"
 msgstr "有用的传递给加载模型的额外参数包括："
 
-#: ../../source/models/model_abilities/image.rst:183
+#: ../../source/models/model_abilities/image.rst:187
 msgid ""
 "``--cpu_offload True``: specifying ``True`` will offload the components "
 "of the model to CPU during inference in order to save memory, while "
@@ -223,7 +235,7 @@ msgstr ""
 "CPU 上以节省内存，这会导致推理延迟略有增加。模型卸载仅会在需要执行时将"
 "模型组件移动到 GPU 上，同时保持其余组件在 CPU 上"
 
-#: ../../source/models/model_abilities/image.rst:187
+#: ../../source/models/model_abilities/image.rst:191
 msgid ""
 "``--quantize_text_encoder <text encoder layer>``: We leveraged the "
 "``bitsandbytes`` library to load and quantize the T5-XXL text encoder to "
@@ -234,7 +246,7 @@ msgstr ""
 "`` 库加载并量化 T5-XXL 文本编码器至8位精度。这使得你能够在仅轻微影响性能"
 "的情况下继续使用全部文本编码器。"
 
-#: ../../source/models/model_abilities/image.rst:190
+#: ../../source/models/model_abilities/image.rst:194
 msgid ""
 "``--text_encoder_3 None``, for sd3-medium, removing the memory-intensive "
 "4.7B parameter T5-XXL text encoder during inference can significantly "
@@ -243,11 +255,11 @@ msgstr ""
 "``--text_encoder_3 None``，对于 sd3-medium，移除在推理过程中内存密集型的"
 "47亿参数T5-XXL文本编码器可以显著降低内存需求，而仅造成性能上的轻微损失。"
 
-#: ../../source/models/model_abilities/image.rst:193
+#: ../../source/models/model_abilities/image.rst:197
 msgid "``--transformer_nf4 True``: use nf4 for transformer quantization."
 msgstr "``--transformer_nf4 True`` ：使用 nf4 量化 transformer。"
 
-#: ../../source/models/model_abilities/image.rst:194
+#: ../../source/models/model_abilities/image.rst:198
 msgid ""
 "``--quantize``: Only work for MLX on Mac, Flux.1-dev and Flux.1-schnell "
 "will switch to MLX engine on Mac, and ``quantize`` can be used to "
@@ -256,7 +268,7 @@ msgstr ""
 "``--quantize`` ：只对 Mac 上的 MLX 引擎生效，Flux.1-dev 和 Flux.1-schnell"
 "会在 Mac 上使用 MLX 引擎计算，``quantize`` 可以用来量化模型。"
 
-#: ../../source/models/model_abilities/image.rst:197
+#: ../../source/models/model_abilities/image.rst:201
 msgid ""
 "For WebUI, Just add additional parameters, e.g. add key ``cpu_offload`` "
 "and value ``True`` to enable cpu offloading."
@@ -264,68 +276,71 @@ msgstr ""
 "对于 WebUI，只需要添加额外参数，比如，添加 key ``cpu_offload`` 以及值 ``"
 "True`` 来开启 CPU 卸载。"
 
-#: ../../source/models/model_abilities/image.rst:200
+#: ../../source/models/model_abilities/image.rst:204
 msgid "Below list default options that used from v0.16.1."
 msgstr "如下列出了从 v0.16.1 开始默认使用的参数。"
 
-#: ../../source/models/model_abilities/image.rst:203
-#: ../../source/models/model_abilities/image.rst:240
-#: ../../source/models/model_abilities/image.rst:280
+#: ../../source/models/model_abilities/image.rst:207
+#: ../../source/models/model_abilities/image.rst:246
+#: ../../source/models/model_abilities/image.rst:290
 msgid "Model"
 msgstr "模型"
 
-#: ../../source/models/model_abilities/image.rst:203
+#: ../../source/models/model_abilities/image.rst:207
 msgid "quantize_text_encoder"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:203
+#: ../../source/models/model_abilities/image.rst:207
 msgid "quantize"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:203
+#: ../../source/models/model_abilities/image.rst:207
 msgid "transformer_nf4"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:205
-#: ../../source/models/model_abilities/image.rst:207
+#: ../../source/models/model_abilities/image.rst:209
+#: ../../source/models/model_abilities/image.rst:211
 msgid "text_encoder_2"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:205
-#: ../../source/models/model_abilities/image.rst:207
-#: ../../source/models/model_abilities/image.rst:213
-#: ../../source/models/model_abilities/image.rst:215
+#: ../../source/models/model_abilities/image.rst:209
+#: ../../source/models/model_abilities/image.rst:211
+#: ../../source/models/model_abilities/image.rst:217
+#: ../../source/models/model_abilities/image.rst:219
 msgid "True"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:205
-#: ../../source/models/model_abilities/image.rst:207
 #: ../../source/models/model_abilities/image.rst:209
 #: ../../source/models/model_abilities/image.rst:211
-#: ../../source/models/model_abilities/image.rst:217
+#: ../../source/models/model_abilities/image.rst:213
+#: ../../source/models/model_abilities/image.rst:215
+#: ../../source/models/model_abilities/image.rst:221
+#: ../../source/models/model_abilities/image.rst:223
 msgid "False"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:209
-#: ../../source/models/model_abilities/image.rst:211
 #: ../../source/models/model_abilities/image.rst:213
 #: ../../source/models/model_abilities/image.rst:215
+#: ../../source/models/model_abilities/image.rst:217
+#: ../../source/models/model_abilities/image.rst:219
 msgid "text_encoder_3"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:209
-#: ../../source/models/model_abilities/image.rst:211
 #: ../../source/models/model_abilities/image.rst:213
 #: ../../source/models/model_abilities/image.rst:215
 #: ../../source/models/model_abilities/image.rst:217
+#: ../../source/models/model_abilities/image.rst:219
+#: ../../source/models/model_abilities/image.rst:221
+#: ../../source/models/model_abilities/image.rst:223
 msgid "N/A"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:217
+#: ../../source/models/model_abilities/image.rst:221
+#: ../../source/models/model_abilities/image.rst:223
 msgid "text_encoder"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:222
+#: ../../source/models/model_abilities/image.rst:228
 msgid ""
 "If you want to disable some quantization, just set the corresponding "
 "option to False. e.g. for Web UI, set key ``quantize_text_encoder`` and "
@@ -336,7 +351,7 @@ msgstr ""
 "设置 key ``quantize_text_encoder`` 和值 ``False``，或对于命令行，指定 ``"
 "--quantize_text_encoder False`` 来关闭 text encoder 的量化。"
 
-#: ../../source/models/model_abilities/image.rst:227
+#: ../../source/models/model_abilities/image.rst:233
 msgid ""
 "For :ref:`CogView4 <models_builtin_cogview4>`, we found that quantization"
 " has a significant impact on the model. Therefore, when GPU memory is "
@@ -348,11 +363,11 @@ msgstr ""
 "较大。因此，当显存有限时，我们推荐在 Web UI 中启用 CPU offload 选项，在"
 "命令行加载模型时指定 ``--cpu_offload True``。"
 
-#: ../../source/models/model_abilities/image.rst:232
+#: ../../source/models/model_abilities/image.rst:238
 msgid "GGUF file format"
 msgstr "GGUF 文件格式"
 
-#: ../../source/models/model_abilities/image.rst:234
+#: ../../source/models/model_abilities/image.rst:240
 msgid ""
 "GGUF file format for transformer provides various quantization options. "
 "To use gguf file, you can specify additional option ``gguf_quantization``"
@@ -364,28 +379,40 @@ msgstr ""
 "``--gguf_quantization`` ，以为 Xinference 内建支持 GGUF 量化的模型开启。"
 "如下是内置支持的模型。"
 
-#: ../../source/models/model_abilities/image.rst:240
+#: ../../source/models/model_abilities/image.rst:246
 msgid "supported gguf quantization"
 msgstr "支持 GGUF 量化格式"
 
-#: ../../source/models/model_abilities/image.rst:242
-#: ../../source/models/model_abilities/image.rst:244
+#: ../../source/models/model_abilities/image.rst:248
+#: ../../source/models/model_abilities/image.rst:250
 msgid "F16, Q2_K, Q3_K_S, Q4_0, Q4_1, Q4_K_S, Q5_0, Q5_1, Q5_K_S, Q6_K, Q8_0"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:246
 #: ../../source/models/model_abilities/image.rst:252
+#: ../../source/models/model_abilities/image.rst:258
 msgid ""
 "F16, Q3_K_M, Q3_K_S, Q4_0, Q4_1, Q4_K_M, Q4_K_S, Q5_0, Q5_1, Q5_K_M, "
 "Q5_K_S, Q6_K, Q8_0"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:248
-#: ../../source/models/model_abilities/image.rst:250
+#: ../../source/models/model_abilities/image.rst:254
+#: ../../source/models/model_abilities/image.rst:256
 msgid "F16, Q4_0, Q4_1, Q5_0, Q5_1, Q8_0"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:257
+#: ../../source/models/model_abilities/image.rst:260
+#: ../../source/models/model_abilities/image.rst:262
+msgid ""
+"Q2_K, Q3_K_M, Q3_K_S, Q4_0, Q4_1, Q4_K_M, Q4_K_S, Q5_0, Q5_1, Q5_K_M, "
+"Q5_K_S, Q6_K, Q8_0"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:262
+#: ../../source/models/model_abilities/image.rst:296
+msgid "Qwen-Image-Edit-2509"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:267
 msgid ""
 "We stronly recommend to enable additional option ``cpu_offload`` with "
 "value ``True`` for WebUI, or specify ``--cpu_offload True`` for command "
@@ -394,17 +421,17 @@ msgstr ""
 "我们强烈推荐在 WebUI 上开启额外选项 ``cpu_offload`` 并指定为 ``True``，或"
 "对命令行，指定 ``--cpu_offload True``。"
 
-#: ../../source/models/model_abilities/image.rst:260
+#: ../../source/models/model_abilities/image.rst:270
 msgid "Example:"
 msgstr "例如："
 
-#: ../../source/models/model_abilities/image.rst:266
+#: ../../source/models/model_abilities/image.rst:276
 msgid ""
 "With ``Q2_K`` quantization, you only need around 5 GiB GPU memory to run "
 "Flux.1-dev."
 msgstr "使用 ``Q2_K`` 量化，你只需要大约 5GB 的显存来运行 Flux.1-dev。"
 
-#: ../../source/models/model_abilities/image.rst:268
+#: ../../source/models/model_abilities/image.rst:278
 msgid ""
 "For those models gguf options are not supported internally, or you want "
 "to download gguf files on you own, you can specify additional option "
@@ -415,11 +442,11 @@ msgstr ""
 "Web UI 指定额外选项 ``gguf_model_path`` 或者用命令行指定 ``--gguf_model_"
 "path /path/to/model_quant.gguf`` 。"
 
-#: ../../source/models/model_abilities/image.rst:273
+#: ../../source/models/model_abilities/image.rst:283
 msgid "Lightning LORA Support"
 msgstr "Lightning LORA 支持"
 
-#: ../../source/models/model_abilities/image.rst:275
+#: ../../source/models/model_abilities/image.rst:285
 msgid ""
 "Lightning LORA performs distillation on models in the form of LoRA, "
 "reducing the number of inference steps while maintaining model "
@@ -429,34 +456,42 @@ msgstr ""
 "Lightning LORA 以 LoRA 的形式对模型进行蒸馏，在保持模型性能的同时减少推理"
 "步数，并大幅提升推理速度。以下模型目前支持该 LoRA："
 
-#: ../../source/models/model_abilities/image.rst:280
+#: ../../source/models/model_abilities/image.rst:290
 msgid "Supported lightning version"
 msgstr "支持的 Lightning 版本"
 
-#: ../../source/models/model_abilities/image.rst:282
+#: ../../source/models/model_abilities/image.rst:292
 msgid "4steps-V1.0-bf16, 4steps-V1.0, 8steps-V1.0, 8steps-V1.1-bf16, 8steps-V1.1"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:285
+#: ../../source/models/model_abilities/image.rst:294
+msgid "4steps-V1.0-bf16, 4steps-V1.0, 8steps-V1.0-bf16, 8steps-V1.0"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:296
+msgid "4steps-V1.0-bf16, 4steps-V1.0-fp32, 8steps-V1.0-bf16, 8steps-V1.0-fp32"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:299
 msgid ""
 "4 steps or 8 steps refer to the inference steps "
 "(``num_inference_steps``). When ``lightning_version`` is specified, "
 "Xinference will automatically set the number of inference steps."
 msgstr ""
-"4 步或 8 步是指推理步数（ ``num_inference_steps`` ）。当指定了 ``lightning_"
-"version`` 时，Xinference 会自动设定推理步数。"
+"4 步或 8 步是指推理步数（ ``num_inference_steps`` ）。当指定了 ``"
+"lightning_version`` 时，Xinference 会自动设定推理步数。"
 
-#: ../../source/models/model_abilities/image.rst:288
+#: ../../source/models/model_abilities/image.rst:302
 msgid ""
 "When using it, select the lightning version in the interface, or specify "
 "it via the command line."
 msgstr "使用时，可以在界面上选择 lightning 版本，或者通过命令行指定。"
 
-#: ../../source/models/model_abilities/image.rst:294
+#: ../../source/models/model_abilities/image.rst:308
 msgid "Use the command line with ``--lightning_version <version>``."
 msgstr "在命令行中使用 ``--lightning_version <version>``。"
 
-#: ../../source/models/model_abilities/image.rst:296
+#: ../../source/models/model_abilities/image.rst:310
 msgid ""
 "For those who have downloaded the lightning LoRA files themselves, you "
 "can specify them via the Lightning Model Path in the interface or by "
@@ -465,21 +500,21 @@ msgstr ""
 "对于自行下载了 lightning LoRA 文件的用户，可以在界面上通过 Lightning "
 "Model Path 指定，或者使用命令行参数 ``--lightning_model_path`` 。"
 
-#: ../../source/models/model_abilities/image.rst:299
+#: ../../source/models/model_abilities/image.rst:313
 msgid ""
 "For example, using ``4steps-V1.0``, the inference time is reduced from "
 "the original 34s to 3s."
 msgstr "例如，使用 ``4steps-V1.0`` 时，推理时间从原来的 34 秒减少到 3 秒。"
 
-#: ../../source/models/model_abilities/image.rst:302
+#: ../../source/models/model_abilities/image.rst:316
 msgid "OCR"
 msgstr ""
 
-#: ../../source/models/model_abilities/image.rst:304
+#: ../../source/models/model_abilities/image.rst:318
 msgid "The OCR API accepts image bytes and returns the OCR text."
 msgstr "OCR API 接受图像字节并返回 OCR 文本。"
 
-#: ../../source/models/model_abilities/image.rst:306
+#: ../../source/models/model_abilities/image.rst:320
 msgid "We can try OCR API out either via cURL, or Xinference's python client:"
 msgstr "可以通过 cURL 或 Xinference 的 Python 客户端来尝试 OCR API。"
 

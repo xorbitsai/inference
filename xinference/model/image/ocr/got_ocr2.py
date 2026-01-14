@@ -20,10 +20,18 @@ import PIL.Image
 if TYPE_CHECKING:
     from ..core import ImageModelFamilyV2
 
+from .ocr_family import OCRModel
+
 logger = logging.getLogger(__name__)
 
 
-class GotOCR2Model:
+class GotOCR2Model(OCRModel):
+    required_libs = ("transformers",)
+
+    @classmethod
+    def match(cls, model_family: "ImageModelFamilyV2") -> bool:
+        return model_family.model_name == "GOT-OCR2_0"
+
     def __init__(
         self,
         model_uid: str,
@@ -77,4 +85,8 @@ class GotOCR2Model:
             image = image.convert("RGB")
         assert self._model is not None
         # This chat API limits the max new tokens inside.
-        return self._model.chat(self._tokenizer, image, gradio_input=True, **kwargs)
+        result = self._model.chat(self._tokenizer, image, gradio_input=True, **kwargs)
+        if result is None:
+            logger.warning("Got OCR 2.0 returned empty result.")
+            return ""
+        return result

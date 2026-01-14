@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 6 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 6
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** 01-ai/Yi-6B-200K
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/01-ai/Yi-6B-200K>`__, `ModelScope <https://modelscope.cn/models/01ai/Yi-6B-200K>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (pytorch, 34 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 34
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** 01-ai/Yi-34B-200K
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/01-ai/Yi-34B-200K>`__, `ModelScope <https://modelscope.cn/models/01ai/Yi-34B-200K>`__
 

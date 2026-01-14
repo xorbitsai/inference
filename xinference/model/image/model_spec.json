@@ -53,7 +53,7 @@
         "gguf_model_file_name_template": "flux1-schnell-{quantization}.gguf"
       }
     },
-    "updated_at": 1763445575,
+    "updated_at": 1766387546,
     "featured": true
   },
   {
@@ -115,8 +115,8 @@
         "gguf_model_file_name_template": "flux1-dev-{quantization}.gguf"
       }
     },
-    "featured": true,
-    "updated_at": 1764238627
+    "featured": false,
+    "updated_at": 1767694123
   },
   {
     "version": 2,
@@ -185,7 +185,7 @@
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1763445577,
+    "updated_at": 1766387550,
     "featured": true
   },
   {
@@ -277,8 +277,8 @@
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1763445579,
-    "featured": true
+    "updated_at": 1767694045,
+    "featured": false
   },
   {
     "version": 2,
@@ -303,7 +303,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445580,
+    "updated_at": 1766387558,
     "featured": false
   },
   {
@@ -364,7 +364,7 @@
         "gguf_model_file_name_template": "sd3.5_medium-{quantization}.gguf"
       }
     },
-    "updated_at": 1763445581,
+    "updated_at": 1766387562,
     "featured": true
   },
   {
@@ -412,7 +412,7 @@
         "gguf_model_file_name_template": "sd3.5_large-{quantization}.gguf"
       }
     },
-    "updated_at": 1763445582,
+    "updated_at": 1766387565,
     "featured": true
   },
   {
@@ -464,7 +464,7 @@
         "gguf_model_file_name_template": "sd3.5_large_turbo-{quantization}.gguf"
       }
     },
-    "updated_at": 1763445583,
+    "updated_at": 1766387568,
     "featured": false
   },
   {
@@ -484,7 +484,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445585,
+    "updated_at": 1766387569,
     "featured": true
   },
   {
@@ -504,7 +504,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445586,
+    "updated_at": 1766387571,
     "featured": false
   },
   {
@@ -528,7 +528,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445587,
+    "updated_at": 1766387573,
     "featured": false
   },
   {
@@ -552,7 +552,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445588,
+    "updated_at": 1766387575,
     "featured": false
   },
   {
@@ -617,7 +617,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445589,
+    "updated_at": 1766387577,
     "featured": false
   },
   {
@@ -658,7 +658,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445591,
+    "updated_at": 1766387579,
     "featured": false
   },
   {
@@ -688,7 +688,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445592,
+    "updated_at": 1766387581,
     "featured": false
   },
   {
@@ -717,7 +717,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445593,
+    "updated_at": 1766387584,
     "featured": true
   },
   {
@@ -733,7 +733,7 @@
         "model_revision": "51388a731f57604945fddd703ecb5c50e8e7b49d"
       }
     },
-    "updated_at": 1763445594,
+    "updated_at": 1766387586,
     "featured": false
   },
   {
@@ -749,7 +749,7 @@
         "model_revision": "81a84f49b15956b60b4272a405ad3daef3da4590"
       }
     },
-    "updated_at": 1763445596,
+    "updated_at": 1766387588,
     "featured": false
   },
   {
@@ -765,7 +765,7 @@
         "model_revision": "115134f363124c53c7d878647567d04daf26e41e"
       }
     },
-    "updated_at": 1763445597,
+    "updated_at": 1766387589,
     "featured": false
   },
   {
@@ -800,7 +800,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1763445598,
+    "updated_at": 1766387590,
     "featured": false
   },
   {
@@ -887,7 +887,7 @@
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1763445599,
+    "updated_at": 1766387620,
     "featured": false
   },
   {
@@ -974,8 +974,8 @@
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1763445601,
-    "featured": true
+    "updated_at": 1767694066,
+    "featured": false
   },
   {
     "version": 2,
@@ -998,18 +998,48 @@
         "#system_numpy#"
       ]
     },
-    "model_src": {
-      "huggingface": {
-        "model_id": "deepseek-ai/DeepSeek-OCR",
-        "model_revision": "main"
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "deepseek-ai/DeepSeek-OCR",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "model_id": "deepseek-ai/DeepSeek-OCR",
+            "model_revision": "master"
+          }
+        }
       },
-      "modelscope": {
-        "model_id": "deepseek-ai/DeepSeek-OCR",
-        "model_revision": "master"
+      {
+        "model_format": "mlx",
+        "model_src": {
+          "huggingface": {
+            "model_id": "mlx-community/DeepSeek-OCR-{quantization}",
+            "model_revision": "main",
+            "quantizations": [
+              "8bit",
+              "6bit",
+              "5bit",
+              "4bit"
+            ]
+          },
+          "modelscope": {
+            "model_id": "mlx-community/DeepSeek-OCR-{quantization}",
+            "model_revision": "master",
+            "quantizations": [
+              "8bit",
+              "6bit",
+              "5bit",
+              "4bit"
+            ]
+          }
+        }
       }
-    },
-    "updated_at": 1763445602,
-    "featured": false
+    ],
+    "featured": false,
+    "updated_at": 1767691154
   },
   {
     "version": 2,
@@ -1037,7 +1067,7 @@
       }
     },
     "featured": false,
-    "updated_at": 1764237221
+    "updated_at": 1766387626
   },
   {
     "version": 2,
@@ -1087,14 +1117,15 @@
       }
     },
     "featured": true,
-    "updated_at": 1764322840
+    "updated_at": 1766387628
   },
   {
     "version": 2,
     "model_name": "Z-Image-Turbo",
     "model_family": "stable_diffusion",
     "model_ability": [
-      "text2image"
+      "text2image",
+      "image2image"
     ],
     "default_model_config": {
       "torch_dtype": "bfloat16",
@@ -1104,6 +1135,26 @@
       "num_inference_steps": 9,
       "guidance_scale": 0
     },
+    "gguf_model_id": "unsloth/Z-Image-Turbo-GGUF",
+    "gguf_quantizations": [
+      "BF16",
+      "F16",
+      "Q2_K",
+      "Q3_K_L",
+      "Q3_K_M",
+      "Q3_K_S",
+      "Q4_0",
+      "Q4_1",
+      "Q4_K_M",
+      "Q4_K_S",
+      "Q5_0",
+      "Q5_1",
+      "Q5_K_M",
+      "Q5_K_S",
+      "Q6_K",
+      "Q8_0"
+    ],
+    "gguf_model_file_name_template": "z-image-turbo-{quantization}.gguf",
     "virtualenv": {
       "packages": [
         "git+https://github.com/huggingface/diffusers",
@@ -1124,7 +1175,7 @@
       }
     },
     "featured": true,
-    "updated_at": 1765166124
+    "updated_at": 1767838623
   },
   {
     "version": 2,
@@ -1151,7 +1202,223 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1765507528,
+    "updated_at": 1766387632,
     "featured": true
+  },
+  {
+    "version": 2,
+    "model_name": "Qwen-Image-Layered",
+    "model_family": "stable_diffusion",
+    "model_ability": [
+      "image2image"
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen-Image-Layered",
+        "model_revision": "8f0ca708dfff6ba1dd5f2d85d78f8c108a040bcf"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen-Image-Layered",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder",
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+      "true_cfg_scale": 4
+    },
+    "virtualenv": {
+      "packages": [
+        "git+https://github.com/huggingface/diffusers",
+        "transformers>=4.51.3",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    },
+    "featured": true,
+    "updated_at": 1766568088
+  },
+  {
+    "version": 2,
+    "model_name": "Qwen-Image-Edit-2511",
+    "model_family": "stable_diffusion",
+    "model_ability": [
+      "image2image"
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen-Image-Edit-2511",
+        "model_revision": "6f3ccc0b56e431dc6a0c2b2039706d7d26f22cb9",
+        "gguf_model_id": "unsloth/Qwen-Image-Edit-2511-GGUF",
+        "gguf_quantizations": [
+          "BF16",
+          "F16",
+          "Q2_K",
+          "Q3_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "qwen-image-edit-2511-{quantization}.gguf",
+        "lightning_model_id": "lightx2v/Qwen-Image-Edit-2511-Lightning",
+        "lightning_versions": [
+          "4steps-V1.0-bf16",
+          "4steps-V1.0-fp32"
+        ],
+        "lightning_model_file_name_template": "Qwen-Image-Edit-2511-Lightning-{lightning_version}.safetensors"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen-Image-Edit-2511",
+        "model_revision": "master",
+        "gguf_model_id": "unsloth/Qwen-Image-Edit-2511-GGUF",
+        "gguf_quantizations": [
+          "BF16",
+          "F16",
+          "Q2_K",
+          "Q3_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "qwen-image-edit-2511-{quantization}.gguf",
+        "lightning_model_id": "lightx2v/Qwen-Image-Edit-2511-Lightning",
+        "lightning_versions": [
+          "4steps-V1.0-bf16",
+          "4steps-V1.0-fp32"
+        ],
+        "lightning_model_file_name_template": "Qwen-Image-Edit-2511-Lightning-{lightning_version}.safetensors"
+      }
+    },
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder",
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+      "true_cfg_scale": 4
+    },
+    "virtualenv": {
+      "packages": [
+        "git+https://github.com/huggingface/diffusers",
+        "peft>=0.17.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    },
+    "featured": true,
+    "updated_at": 1767521216
+  },
+  {
+    "version": 2,
+    "model_name": "Qwen-Image-2512",
+    "model_family": "stable_diffusion",
+    "model_ability": [
+      "text2image",
+      "image2image",
+      "inpainting"
+    ],
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder",
+      "torch_dtype": "bfloat16"
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen-Image-2512",
+        "model_revision": "25468b98e3276ca6700de15c6628e51b7de54a26",
+        "gguf_model_id": "unsloth/Qwen-Image-2512-GGUF",
+        "gguf_quantizations": [
+          "BF16",
+          "F16",
+          "Q2_K",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "qwen-image-2512-{quantization}.gguf",
+        "lightning_model_id": "lightx2v/Qwen-Image-2512-Lightning",
+        "lightning_versions": [
+          "4steps-V1.0-bf16",
+          "4steps-V1.0-fp32"
+        ],
+        "lightning_model_file_name_template": "Qwen-Image-2512-Lightning-{lightning_version}.safetensors"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen-Image-2512",
+        "model_revision": "master",
+        "gguf_model_id": "unsloth/Qwen-Image-2512-GGUF",
+        "gguf_quantizations": [
+          "BF16",
+          "F16",
+          "Q2_K",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "qwen-image-2512-{quantization}.gguf",
+        "lightning_model_id": "lightx2v/Qwen-Image-2512-Lightning",
+        "lightning_versions": [
+          "4steps-V1.0-bf16",
+          "4steps-V1.0-fp32"
+        ],
+        "lightning_model_file_name_template": "Qwen-Image-2512-Lightning-{lightning_version}.safetensors"
+      }
+    },
+    "default_generate_config": {
+      "guidance_scale": 1,
+      "true_cfg_scale": 1
+    },
+    "virtualenv": {
+      "no_build_isolation": true,
+      "packages": [
+        "diffusers==0.35.1",
+        "peft>=0.17.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    },
+    "featured": true,
+    "updated_at": 1767599235
   }
 ]

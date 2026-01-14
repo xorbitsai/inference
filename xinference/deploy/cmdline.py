@@ -855,6 +855,13 @@ def remove_cache(
 )
 @click.option("--model-path", "-mp", default=None, type=str, help="Model path to run.")
 @click.option(
+    "--enable-thinking",
+    "enable_thinking",
+    flag_value=True,
+    default=None,
+    help="Enable thinking mode for hybrid reasoning LLMs (e.g., Qwen3).",
+)
+@click.option(
     "--enable-virtual-env",
     is_flag=True,
     default=None,
@@ -905,6 +912,7 @@ def model_launch(
     api_key: Optional[str],
     model_path: Optional[str],
     quantization_config: Optional[Tuple],
+    enable_thinking: Optional[bool],
     enable_virtual_env: Optional[bool],
     virtual_env_package: Optional[Tuple[str]],
     env: Optional[Tuple[Tuple[str, str]]],
@@ -1009,6 +1017,7 @@ def model_launch(
         gpu_idx=_gpu_idx,
         trust_remote_code=trust_remote_code,
         model_path=model_path,
+        enable_thinking=enable_thinking,
         enable_virtual_env=enable_virtual_env,
         virtual_env_packages=list(virtual_env_package) if virtual_env_package else None,
         envs=dict(env) if env else None,

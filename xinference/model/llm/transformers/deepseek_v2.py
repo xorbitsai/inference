@@ -23,10 +23,10 @@ logger = logging.getLogger(__name__)
 
 
 @register_transformer
-@register_non_default_model(
-    "deepseek-v2-chat", "deepseek-v2.5", "deepseek-v2-chat-0628"
-)
+@register_non_default_model("DeepseekV2ForCausalLM")
 class DeepSeekV2PytorchChatModel(PytorchChatModel):
+    DEEPSEEK_V2_ARCHITECTURES = {"DeepseekV2ForCausalLM"}
+
     def _load_model(self, **kwargs):
         try:
             from transformers import (
@@ -64,11 +64,13 @@ class DeepSeekV2PytorchChatModel(PytorchChatModel):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        if llm_spec.model_format != "pytorch":
-            return False, "DeepSeek v2 transformer only supports pytorch format"
-        model_family = llm_family.model_family or llm_family.model_name
-        if "deepseek-v2" not in model_family:
-            return False, f"Model family {model_family} is not a DeepSeek v2 variant"
+        if llm_spec.model_format not in ["pytorch", "fp4"]:
+            return False, "DeepSeek v2 transformer only supports pytorch/fp4 format"
+        if not llm_family.has_architecture(*cls.DEEPSEEK_V2_ARCHITECTURES):
+            return (
+                False,
+                f"Model architectures {llm_family.architectures} are not DeepSeek v2",
+            )
         if "chat" not in llm_family.model_ability:
             return False, "DeepSeek v2 transformer requires chat ability"
         return True

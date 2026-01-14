@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 9 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 9
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** zai-org/cogagent-9b-20241220
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/cogagent-9b-20241220>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/cogagent-9b-20241220>`__
 

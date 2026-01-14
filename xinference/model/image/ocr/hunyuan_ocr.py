@@ -21,10 +21,18 @@ import torch
 if TYPE_CHECKING:
     from ..core import ImageModelFamilyV2
 
+from .ocr_family import OCRModel
+
 logger = logging.getLogger(__name__)
 
 
-class HunyuanOCRModel:
+class HunyuanOCRModel(OCRModel):
+    required_libs = ("transformers",)
+
+    @classmethod
+    def match(cls, model_family: "ImageModelFamilyV2") -> bool:
+        return model_family.model_name == "HunyuanOCR"
+
     def __init__(
         self,
         model_uid: str,
@@ -137,5 +145,11 @@ class HunyuanOCRModel:
             clean_up_tokenization_spaces=False,
         )
         if isinstance(output_texts, list):
-            return output_texts[0]
+            if output_texts:
+                return output_texts[0]
+            logger.warning("HunyuanOCR returned empty decoded list.")
+            return ""
+        if output_texts is None:
+            logger.warning("HunyuanOCR returned None output.")
+            return ""
         return output_texts

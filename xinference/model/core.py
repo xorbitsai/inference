@@ -40,6 +40,10 @@ def create_model_instance(
     from .rerank.core import create_rerank_model_instance
     from .video.core import create_video_model_instance
 
+    # enable_thinking is only meaningful for LLMs; drop it for other model types.
+    if model_type != "LLM":
+        kwargs.pop("enable_thinking", None)
+
     if model_type == "LLM":
         return create_llm_model_instance(
             model_uid,
@@ -74,6 +78,9 @@ def create_model_instance(
             peft_model_config,
             download_hub,
             model_path,
+            model_engine,
+            model_format,
+            quantization,
             **kwargs,
         )
     elif model_type == "rerank":

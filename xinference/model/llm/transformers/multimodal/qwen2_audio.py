@@ -28,15 +28,19 @@ logger = logging.getLogger(__name__)
 
 
 @register_transformer
-@register_non_default_model("qwen2-audio-instruct")
+@register_non_default_model("Qwen2AudioForConditionalGeneration")
 class Qwen2AudioChatModel(PytorchMultiModalModel):
+    QWEN2_AUDIO_ARCHITECTURES = {"Qwen2AudioForConditionalGeneration"}
+
     @classmethod
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        llm_family = model_family.model_family or model_family.model_name
-        if "qwen2-audio".lower() not in llm_family.lower():
-            return False, f"Model family {llm_family} is not Qwen2-Audio"
+        if not model_family.has_architecture(*cls.QWEN2_AUDIO_ARCHITECTURES):
+            return (
+                False,
+                f"Model architectures {model_family.architectures} are not Qwen2-Audio",
+            )
         if "audio" not in model_family.model_ability:
             return False, "Qwen2-Audio transformer requires audio ability"
         return True
@@ -60,7 +64,7 @@ class Qwen2AudioChatModel(PytorchMultiModalModel):
     def load_multimodal_model(self):
         from transformers import Qwen2AudioForConditionalGeneration
 
-        kwargs = self.apply_bnb_quantization()
+        kwargs = self.apply_quantization_config()
         self._model = Qwen2AudioForConditionalGeneration.from_pretrained(
             self.model_path,
             device_map="auto" if self._device == "cuda" else self._device,

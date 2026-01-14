@@ -753,6 +753,7 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
         self,
         messages: List[Dict],
         tools: Optional[List[Dict]] = None,
+        enable_thinking: Optional[bool] = None,
         generate_config: Optional["PytorchGenerateConfig"] = None,
     ) -> Union["ChatCompletion", Iterator["ChatCompletionChunk"]]:
         """
@@ -767,6 +768,8 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
         generate_config: Optional["PytorchGenerateConfig"]
             Additional configuration for the chat generation.
             "PytorchGenerateConfig" -> configuration for pytorch model
+        enable_thinking: Optional[bool]
+            Toggle thinking mode per request for hybrid reasoning LLMs.
 
         Returns
         -------
@@ -789,8 +792,24 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
         }
         if tools is not None:
             request_body["tools"] = tools
-        if generate_config is not None:
-            for key, value in generate_config.items():
+        if generate_config is not None or enable_thinking is not None:
+            merged_config: Dict[str, Any] = (
+                dict(generate_config) if generate_config is not None else {}
+            )
+            if enable_thinking is not None:
+                chat_template_kwargs = merged_config.get("chat_template_kwargs") or {}
+                if isinstance(chat_template_kwargs, str):
+                    try:
+                        chat_template_kwargs = json.loads(chat_template_kwargs)
+                    except json.JSONDecodeError:
+                        chat_template_kwargs = {}
+                if not isinstance(chat_template_kwargs, dict):
+                    chat_template_kwargs = {}
+                chat_template_kwargs = dict(chat_template_kwargs)
+                chat_template_kwargs["enable_thinking"] = enable_thinking
+                chat_template_kwargs["thinking"] = enable_thinking
+                merged_config["chat_template_kwargs"] = chat_template_kwargs
+            for key, value in merged_config.items():
                 request_body[key] = value
 
         stream = bool(generate_config and generate_config.get("stream"))
@@ -1174,6 +1193,7 @@ class Client:
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
         model_path: Optional[str] = None,
+        enable_thinking: Optional[bool] = None,
         enable_virtual_env: Optional[bool] = None,
         virtual_env_packages: Optional[List[str]] = None,
         envs: Optional[Dict[str, str]] = None,
@@ -1218,6 +1238,9 @@ class Client:
             Specify the GPU index where the model is located.
         model_path: Optional[str]
             Model path, if gguf format, should be the file path, otherwise, should be directory of the model.
+        enable_thinking: Optional[bool]
+            Enable or disable thinking mode for hybrid reasoning LLMs (e.g., Qwen3). None uses
+            the model default.
         enable_virtual_env: Optional[bool]
             If enable virtual env.
         virtual_env_packages: Optional[List[str]]
@@ -1257,6 +1280,7 @@ class Client:
             "worker_ip": worker_ip,
             "gpu_idx": gpu_idx,
             "model_path": model_path,
+            "enable_thinking": enable_thinking,
             "enable_virtual_env": enable_virtual_env,
             "virtual_env_packages": virtual_env_packages,
             "envs": envs,

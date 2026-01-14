@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 2 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 2
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** openbmb/MiniCPM-2B-dpo-bf16
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/openbmb/MiniCPM-2B-dpo-bf16>`__, `ModelScope <https://modelscope.cn/models/OpenBMB/MiniCPM-2B-dpo-bf16>`__
 

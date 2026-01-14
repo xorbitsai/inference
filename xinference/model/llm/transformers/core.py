@@ -55,17 +55,17 @@ from .utils import (
 
 logger = logging.getLogger(__name__)
 
-# !!!!! Do not add model_name to this list, use `register_non_default_model` below instead!
+# !!!!! Do not add model_name to this list; register architectures via `register_non_default_model` instead!
 NON_DEFAULT_MODEL_LIST: List[str] = []
 
 
 # Define the decorator to support multiple names registration
-def register_non_default_model(*model_names: str):
+def register_non_default_model(*architectures: str):
     """
-    Decorator for registering new non-default model names (supports multiple names).
+    Decorator for registering non-default model architectures.
 
     Args:
-        *model_names (str): One or more model names to be registered as non-default models.
+        *architectures (str): One or more architecture names to be treated as non-default.
 
     Returns:
         A decorator function that adds the provided model names to the NON_DEFAULT_MODEL_LIST.
@@ -81,7 +81,7 @@ def register_non_default_model(*model_names: str):
         Returns:
             The original class after registering the model names.
         """
-        for name in model_names:
+        for name in architectures:
             if name not in NON_DEFAULT_MODEL_LIST:
                 NON_DEFAULT_MODEL_LIST.append(name)
         return cls
@@ -251,34 +251,73 @@ class PytorchModel(LLM):
     def apply_bnb_quantization(
         self, kwargs: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        model_format = self.model_spec.model_format
         _kwargs = kwargs if kwargs is not None else {}
-        if model_format == "pytorch":
-            quantization_config = self._pytorch_model_config.get(
-                "quantization_config", {}
-            )
-            if quantization_config:
-                # If `load_in_4bit` is enabled, apply default quantization presets.
-                if quantization_config.get("load_in_4bit", False):
-                    quantization_config.setdefault(
-                        "bnb_4bit_compute_dtype", torch.float16
-                    )
-                    quantization_config.setdefault("bnb_4bit_use_double_quant", True)
-                    quantization_config.setdefault(
-                        "llm_int8_skip_modules",
-                        [
-                            "lm_head",
-                            "encoder",
-                            "EncDecAttention",
-                        ],
-                    )
-
-                from transformers import BitsAndBytesConfig
-
-                _kwargs["quantization_config"] = BitsAndBytesConfig(
-                    **quantization_config
+        quantization_config = (
+            self._pytorch_model_config.get("quantization_config") or {}
+        )
+        if quantization_config:
+            # If `load_in_4bit` is enabled, apply default quantization presets.
+            if quantization_config.get("load_in_4bit", False):
+                quantization_config.setdefault("bnb_4bit_compute_dtype", torch.float16)
+                quantization_config.setdefault("bnb_4bit_use_double_quant", True)
+                quantization_config.setdefault(
+                    "llm_int8_skip_modules",
+                    [
+                        "lm_head",
+                        "encoder",
+                        "EncDecAttention",
+                    ],
                 )
+
+            from transformers import BitsAndBytesConfig
+
+            _kwargs["quantization_config"] = BitsAndBytesConfig(**quantization_config)
         return _kwargs
+
+    def apply_fp_quantization(
+        self, kwargs: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        if self.model_spec.model_format != "fp4":
+            return kwargs if kwargs is not None else {}
+
+        _kwargs = kwargs if kwargs is not None else {}
+        quantization_config = (
+            self._pytorch_model_config.get("quantization_config") or {}
+        )
+
+        try:
+            from transformers import FPQuantConfig
+        except ImportError as exc:
+            raise ImportError(
+                "FP4 quantization requires `transformers` with FPQuantConfig support."
+            ) from exc
+
+        if isinstance(quantization_config, FPQuantConfig):
+            fp_config = quantization_config
+        elif isinstance(quantization_config, dict):
+            fp_kwargs = dict(quantization_config)
+            fp_kwargs.setdefault("pseudoquantization", True)
+            if "forward_dtype" not in fp_kwargs:
+                model_quant = (self.model_spec.quantization or "").lower()
+                if model_quant in ("mxfp4", "nvfp4"):
+                    fp_kwargs["forward_dtype"] = model_quant
+            fp_config = FPQuantConfig(**fp_kwargs)
+        else:
+            raise ValueError(
+                "fp4 quantization_config must be a dict or FPQuantConfig instance"
+            )
+
+        _kwargs["quantization_config"] = fp_config
+        return _kwargs
+
+    def apply_quantization_config(
+        self, kwargs: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        if self.model_spec.model_format == "fp4":
+            return self.apply_fp_quantization(kwargs)
+        if self.model_spec.model_format == "pytorch":
+            return self.apply_bnb_quantization(kwargs)
+        return kwargs if kwargs is not None else {}
 
     def load(self):
         num_gpus = gpu_count()
@@ -301,6 +340,9 @@ class PytorchModel(LLM):
             else:
                 raise ValueError(f"Device {self._device} is not supported in temporary")
 
+        if self.model_spec.model_format == "fp4":
+            kwargs["torch_dtype"] = torch.bfloat16
+
         kwargs["revision"] = self._pytorch_model_config.get(
             "revision", self.model_spec.model_revision
         )
@@ -322,8 +364,8 @@ class PytorchModel(LLM):
             }
             kwargs["max_memory"] = max_memory
 
-        # handle bnb quantization
-        kwargs = self.apply_bnb_quantization(kwargs)
+        # handle quantization
+        kwargs = self.apply_quantization_config(kwargs)
 
         if num_gpus > 0 and is_hf_accelerate_supported(self._device):
             kwargs.update({"device_map": "auto"})
@@ -502,16 +544,15 @@ class PytorchModel(LLM):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "bnb"]:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "bnb", "fp4"]:
             return (
                 False,
-                "Transformers engine supports pytorch/gptq/awq/bnb formats only",
+                "Transformers engine supports pytorch/gptq/awq/bnb/fp4 formats only",
             )
-        model_family = llm_family.model_family or llm_family.model_name
-        if model_family in NON_DEFAULT_MODEL_LIST:
+        if llm_family.matches_supported_architectures(NON_DEFAULT_MODEL_LIST):
             return (
                 False,
-                f"Model family {model_family} requires a custom transformer implementation",
+                f"Model architectures {llm_family.architectures} require a custom transformer implementation",
             )
         if "generate" not in llm_family.model_ability:
             return False, "Transformers engine requires generate ability"
@@ -968,16 +1009,15 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "bnb"]:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "bnb", "fp4"]:
             return (
                 False,
-                "Transformers chat engine supports pytorch/gptq/awq/bnb formats only",
+                "Transformers chat engine supports pytorch/gptq/awq/bnb/fp4 formats only",
             )
-        model_family = llm_family.model_family or llm_family.model_name
-        if model_family in NON_DEFAULT_MODEL_LIST:
+        if llm_family.matches_supported_architectures(NON_DEFAULT_MODEL_LIST):
             return (
                 False,
-                f"Model family {model_family} requires a custom transformer implementation",
+                f"Model architectures {llm_family.architectures} require a custom transformer implementation",
             )
         if "chat" not in llm_family.model_ability:
             return False, "Transformers chat engine requires chat ability"

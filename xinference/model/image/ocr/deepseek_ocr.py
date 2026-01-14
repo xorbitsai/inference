@@ -27,6 +27,8 @@ from torchvision import transforms
 if TYPE_CHECKING:
     from ..core import ImageModelFamilyV2
 
+from .ocr_family import OCRModel
+
 logger = logging.getLogger(__name__)
 
 
@@ -411,7 +413,14 @@ def extract_text_blocks(text: str) -> List[Dict[str, Any]]:
     return blocks
 
 
-class DeepSeekOCRModel:
+class DeepSeekOCRModel(OCRModel):
+    required_libs: Tuple[str, ...] = ("transformers",)
+
+    @classmethod
+    def match(cls, model_family: "ImageModelFamilyV2") -> bool:
+        model_format = getattr(model_family, "model_format", None)
+        return model_family.model_name == "DeepSeek-OCR" and model_format != "mlx"
+
     def __init__(
         self,
         model_uid: str,
@@ -499,12 +508,12 @@ class DeepSeekOCRModel:
         logger.info("DeepSeek-OCR kwargs: %s", kwargs)
 
         # Set default values for DeepSeek-OCR specific parameters
-        prompt = kwargs.get("prompt", "<image>\nFree OCR.")
-        model_size = kwargs.get("model_size", "gundam")
-        test_compress = kwargs.get("test_compress", False)
-        save_results = kwargs.get("save_results", False)
-        save_dir = kwargs.get("save_dir", None)
-        eval_mode = kwargs.get("eval_mode", False)
+        prompt = kwargs.pop("prompt", "<image>\nFree OCR.")
+        model_size = kwargs.pop("model_size", "gundam")
+        test_compress = kwargs.pop("test_compress", False)
+        save_results = kwargs.pop("save_results", False)
+        save_dir = kwargs.pop("save_dir", None)
+        eval_mode = kwargs.pop("eval_mode", False)
 
         # Smart detection: Check if this should be a visualization request
         # Visualization is triggered when:
@@ -526,7 +535,15 @@ class DeepSeekOCRModel:
             logger.info("Detected visualization request, delegating to visualize_ocr")
             # Delegate to visualize_ocr for visualization functionality
             # Pass all parameters through kwargs to avoid duplication
-            return self.visualize_ocr(image=image, **kwargs)
+            return self.visualize_ocr(
+                image=image,
+                prompt=prompt,
+                model_size=model_size,
+                save_results=save_results,
+                save_dir=save_dir,
+                eval_mode=eval_mode,
+                **kwargs,
+            )
 
         if self._model is None or self._tokenizer is None:
             raise RuntimeError("Model not loaded. Please call load() first.")
@@ -861,6 +878,24 @@ class DeepSeekOCRModel:
                     "image_size": model_config.image_size,
                     "crop_mode": model_config.crop_mode,
                 }
+
+                # If the model returned an empty result, fall back to visualization
+                # mode (same path as Gradio) to give users a usable response.
+                if processed_result is None or (
+                    isinstance(processed_result, str) and not processed_result.strip()
+                ):
+                    logger.warning(
+                        "DeepSeek-OCR returned empty text, falling back to visualization mode."
+                    )
+                    return self.visualize_ocr(
+                        image=image,
+                        prompt=prompt,
+                        model_size=model_size,
+                        save_results=save_results,
+                        save_dir=save_dir,
+                        eval_mode=True,
+                        **kwargs,
+                    )
 
                 # Include LaTeX processing info in response
                 if latex_info:

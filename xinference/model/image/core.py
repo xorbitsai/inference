@@ -14,19 +14,14 @@
 
 import collections.abc
 import logging
-import platform
 from collections import defaultdict
-from typing import Dict, List, Literal, Optional, Union
+from typing import Dict, List, Literal, Optional, Union, cast
 
 from ...types import PeftModelConfig
 from ..core import CacheableModelSpec, VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
-from .ocr.deepseek_ocr import DeepSeekOCRModel
-from .ocr.got_ocr2 import GotOCR2Model
-from .ocr.hunyuan_ocr import HunyuanOCRModel
-from .ocr.paddleocr_vl import PaddleOCRVLModel
-from .stable_diffusion.core import DiffusionModel
-from .stable_diffusion.mlx import MLXDiffusionModel
+from .engine_family import ImageEngineModel
+from .ocr.ocr_family import OCRModel
 
 logger = logging.getLogger(__name__)
 
@@ -160,45 +155,31 @@ def match_diffusion(
 def create_ocr_model_instance(
     model_uid: str,
     model_spec: ImageModelFamilyV2,
+    model_engine: Optional[str] = None,
     model_path: Optional[str] = None,
     **kwargs,
-) -> Union[DeepSeekOCRModel, GotOCR2Model, HunyuanOCRModel, PaddleOCRVLModel]:
+) -> OCRModel:
     from .cache_manager import ImageCacheManager
+    from .ocr.ocr_family import check_engine_by_model_name_and_engine
 
     if not model_path:
         cache_manager = ImageCacheManager(model_spec)
         model_path = cache_manager.cache()
 
-    # Choose OCR model based on model_name
-    if model_spec.model_name == "DeepSeek-OCR":
-        return DeepSeekOCRModel(
-            model_uid,
-            model_path,
-            model_spec=model_spec,
-            **kwargs,
-        )
-    if model_spec.model_name == "HunyuanOCR":
-        return HunyuanOCRModel(
-            model_uid,
-            model_path,
-            model_spec=model_spec,
-            **kwargs,
-        )
-    elif model_spec.model_name == "PaddleOCR-VL":
-        return PaddleOCRVLModel(
-            model_uid,
-            model_path,
-            model_spec=model_spec,
-            **kwargs,
-        )
-    else:
-        # Default to GOT-OCR2 for other OCR models
-        return GotOCR2Model(
-            model_uid,
-            model_path,
-            model_spec=model_spec,
-            **kwargs,
-        )
+    if model_engine is None:
+        model_engine = "transformers"
+
+    model_format = getattr(model_spec, "model_format", None)
+    quantization = getattr(model_spec, "quantization", None)
+    ocr_cls = check_engine_by_model_name_and_engine(
+        model_engine, model_spec.model_name, model_format, quantization
+    )
+    return ocr_cls(
+        model_uid,
+        model_path,
+        model_spec=model_spec,
+        **kwargs,
+    )
 
 
 def create_image_model_instance(
@@ -209,26 +190,33 @@ def create_image_model_instance(
         Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
     ] = None,
     model_path: Optional[str] = None,
+    model_engine: Optional[str] = None,
+    model_format: Optional[str] = None,
+    quantization: Optional[str] = None,
     gguf_quantization: Optional[str] = None,
     gguf_model_path: Optional[str] = None,
     lightning_version: Optional[str] = None,
     lightning_model_path: Optional[str] = None,
     **kwargs,
 ) -> Union[
-    DiffusionModel,
-    MLXDiffusionModel,
-    GotOCR2Model,
-    DeepSeekOCRModel,
-    HunyuanOCRModel,
-    PaddleOCRVLModel,
+    ImageEngineModel,
+    OCRModel,
 ]:
     from .cache_manager import ImageCacheManager
 
     model_spec = match_diffusion(model_name, download_hub)
     if model_spec.model_ability and "ocr" in model_spec.model_ability:
+        model_spec = _select_ocr_model_family(
+            model_name,
+            model_engine or "transformers",
+            download_hub,
+            model_format=model_format,
+            quantization=quantization,
+        )
         return create_ocr_model_instance(
             model_uid=model_uid,
             model_spec=model_spec,
+            model_engine=model_engine,
             model_path=model_path,
             **kwargs,
         )
@@ -285,15 +273,14 @@ def create_image_model_instance(
         lora_load_kwargs = None
         lora_fuse_kwargs = None
 
-    if (
-        platform.system() == "Darwin"
-        and "arm" in platform.machine().lower()
-        and MLXDiffusionModel.support_model(model_name)
-    ):
-        # Mac with M series silicon chips
-        model_cls = MLXDiffusionModel
-    else:
-        model_cls = DiffusionModel  # type: ignore
+    from .engine_family import check_engine_by_model_name_and_engine
+
+    if model_engine is None:
+        model_engine = "diffusers"
+
+    model_cls = check_engine_by_model_name_and_engine(
+        model_engine, model_spec.model_name, model_format, quantization
+    )
 
     model = model_cls(
         model_uid,
@@ -307,3 +294,80 @@ def create_image_model_instance(
         **kwargs,
     )
     return model
+
+
+def _select_ocr_model_family(
+    model_name: str,
+    model_engine: str,
+    download_hub: Optional[
+        Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
+    ],
+    model_format: Optional[str] = None,
+    quantization: Optional[str] = None,
+) -> ImageModelFamilyV2:
+    from ..utils import download_from_modelscope
+    from . import BUILTIN_IMAGE_MODELS
+    from .custom import get_user_defined_images
+
+    candidates: List[ImageModelFamilyV2] = []
+    for model_spec in get_user_defined_images():
+        if model_spec.model_name == model_name:
+            candidates.append(model_spec)
+
+    if not candidates and model_name in BUILTIN_IMAGE_MODELS:
+        candidates = BUILTIN_IMAGE_MODELS[model_name]
+
+    if not candidates:
+        raise ValueError(
+            f"Image model {model_name} not found, available"
+            f"model list: {BUILTIN_IMAGE_MODELS.keys()}"
+        )
+
+    prefer_modelscope = download_hub == "modelscope" or download_from_modelscope()
+    preferred_hubs = (
+        ["modelscope", "huggingface"]
+        if prefer_modelscope
+        else ["huggingface", "modelscope"]
+    )
+
+    def _hub_rank(spec: ImageModelFamilyV2) -> int:
+        try:
+            return preferred_hubs.index(spec.model_hub)
+        except ValueError:
+            return len(preferred_hubs)
+
+    engine = model_engine.lower()
+    if engine == "mlx":
+        filtered = [c for c in candidates if getattr(c, "model_format", None) == "mlx"]
+    else:
+        filtered = [c for c in candidates if getattr(c, "model_format", None) != "mlx"]
+        if not filtered:
+            filtered = candidates
+
+    if model_format:
+        requested_format = model_format.lower()
+        filtered = [
+            c
+            for c in filtered
+            if isinstance(getattr(c, "model_format", None), str)
+            and cast(str, getattr(c, "model_format", None)).lower() == requested_format
+        ]
+
+    if quantization:
+        requested_quant = quantization.lower()
+        filtered = [
+            c
+            for c in filtered
+            if isinstance(getattr(c, "quantization", None), str)
+            and cast(str, getattr(c, "quantization", None)).lower() == requested_quant
+        ]
+
+    if not filtered:
+        raise ValueError(
+            "Image OCR model not found for "
+            f"name={model_name}, engine={model_engine}, "
+            f"format={model_format}, quantization={quantization}."
+        )
+
+    filtered.sort(key=_hub_rank)
+    return filtered[0]

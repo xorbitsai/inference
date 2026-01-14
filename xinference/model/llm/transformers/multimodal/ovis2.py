@@ -26,8 +26,10 @@ logger = logging.getLogger(__name__)
 
 
 @register_transformer
-@register_non_default_model("Ovis2")
+@register_non_default_model("Ovis")
 class Ovis2ChatModel(PytorchMultiModalModel):
+    OVIS_ARCHITECTURES = {"Ovis"}
+
     def __init__(self, *args, **kws):
         super().__init__(*args, **kws)
         self._text_tokenizer = None
@@ -37,11 +39,16 @@ class Ovis2ChatModel(PytorchMultiModalModel):
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        if model_spec.model_format not in ["pytorch", "gptq", "awq", "bnb"]:
-            return False, "Ovis2 transformer supports pytorch/gptq/awq/bnb formats only"
-        llm_family = model_family.model_family or model_family.model_name
-        if "ovis2".lower() not in llm_family.lower():
-            return False, f"Model family {llm_family} is not Ovis2"
+        if model_spec.model_format not in ["pytorch", "gptq", "awq", "bnb", "fp4"]:
+            return (
+                False,
+                "Ovis2 transformer supports pytorch/gptq/awq/bnb/fp4 formats only",
+            )
+        if not model_family.has_architecture(*cls.OVIS_ARCHITECTURES):
+            return (
+                False,
+                f"Model architectures {model_family.architectures} are not Ovis2",
+            )
         if "vision" not in model_family.model_ability:
             return False, "Ovis2 transformer requires vision ability"
         return True
@@ -55,7 +62,7 @@ class Ovis2ChatModel(PytorchMultiModalModel):
     def load_multimodal_model(self):
         from transformers import AutoModelForCausalLM
 
-        kwargs = self.apply_bnb_quantization()
+        kwargs = self.apply_quantization_config()
         self._model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             torch_dtype=torch.bfloat16,

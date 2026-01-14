@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 7 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 7
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** AIDC-AI/Marco-o1
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/AIDC-AI/Marco-o1>`__, `ModelScope <https://modelscope.cn/models/AIDC-AI/Marco-o1>`__
 

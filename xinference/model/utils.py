@@ -337,7 +337,8 @@ def set_all_random_seed(seed: int):
 class CancellableDownloader:
     _global_lock = threading.Lock()
     _active_instances = 0
-    _original_update = None  # Class-level original update method
+    _original_update = None  # Class-level original update method (tqdm.auto.tqdm)
+    _original_update_plain = None  # Class-level original update method (tqdm.tqdm)
     _patch_lock = threading.Lock()  # Additional lock for patching operations
 
     def __init__(
@@ -420,54 +421,65 @@ class CancellableDownloader:
     def patch_tqdm(self):
         # Use class-level patching to avoid conflicts
         with self._patch_lock:
+            import tqdm as tqdm_module
+
             if self._original_update is None:
-                self._original_update = original_update = tqdm.update
+                self._original_update = tqdm.update
+            if self._original_update_plain is None:
+                self._original_update_plain = tqdm_module.tqdm.update
 
-                # Thread-safe patched update
-                def patched_update(tqdm_instance, n):
-                    import gc
+            if self._original_update is None or self._original_update_plain is None:
+                return
 
-                    # Get all CancellableDownloader instances and check for cancellation
-                    downloaders = [
-                        obj
-                        for obj in gc.get_objects()
-                        if isinstance(obj, CancellableDownloader)
-                    ]
+            original_update_plain = self._original_update_plain
 
-                    for downloader in downloaders:
-                        # if download cancelled, throw error
-                        if getattr(downloader, "cancelled", False):
-                            downloader.raise_error()
+            # Thread-safe patched update
+            def patched_update(tqdm_instance, n):
+                import gc
 
-                        progresses = None
-                        if not getattr(tqdm_instance, "disable", False):
-                            unit = getattr(tqdm_instance, "unit", "it")
-                            if unit == "it":
-                                progresses = getattr(
-                                    downloader, "_main_progresses", None
-                                )
-                            else:
-                                progresses = getattr(
-                                    downloader, "_download_progresses", None
-                                )
+                # Get all CancellableDownloader instances and check for cancellation
+                downloaders = [
+                    obj
+                    for obj in gc.get_objects()
+                    if isinstance(obj, CancellableDownloader)
+                ]
 
-                        if progresses is not None:
-                            progresses.add(tqdm_instance)
+                for downloader in downloaders:
+                    # if download cancelled, throw error
+                    if getattr(downloader, "cancelled", False):
+                        downloader.raise_error()
+
+                    progresses = None
+                    if not getattr(tqdm_instance, "disable", False):
+                        unit = getattr(tqdm_instance, "unit", "it")
+                        if unit == "it":
+                            progresses = getattr(downloader, "_main_progresses", None)
                         else:
-                            logger.debug(
-                                f"No progresses found for downloader {downloader}"
+                            progresses = getattr(
+                                downloader, "_download_progresses", None
                             )
 
-                    # Call original update with safety check
-                    return original_update(tqdm_instance, n)
+                    if progresses is not None:
+                        progresses.add(tqdm_instance)
+                    else:
+                        logger.debug(f"No progresses found for downloader {downloader}")
 
-                tqdm.update = patched_update
+                # Call original update with safety check
+                return original_update_plain(tqdm_instance, n)
+
+            tqdm.update = patched_update
+            tqdm_module.tqdm.update = patched_update
 
     def unpatch_tqdm(self):
         with self._patch_lock:
             if self._original_update is not None and self._active_instances == 0:
+                import tqdm as tqdm_module
+
                 tqdm.update = self._original_update
                 self._original_update = None
+                if self._original_update_plain is not None:
+                    tqdm_module.tqdm.update = self._original_update_plain
+                    self._original_update_plain = None
 
     def __enter__(self):
         # Use global lock to prevent concurrent patching
@@ -622,6 +634,159 @@ def get_engine_params_by_name(
                     engine_name, error_reason, error_type, error_details
                 )
 
+    def _collect_supported_image_engines(
+        families: List[Any],
+        supported_engines: Dict[str, List[Type[Any]]],
+        engine_type_label: str,
+    ):
+        if not families:
+            return
+        for engine_name, engine_classes in supported_engines.items():
+            if engine_name in engine_params:
+                continue
+
+            error_reason: Optional[str] = None
+            error_type: Optional[str] = None
+            error_details: Optional[str] = None
+            relevant = False
+
+            for engine_class in engine_classes:
+                try:
+                    match_func = getattr(engine_class, "match", None)
+                    matched = False
+                    last_reason: Optional[str] = None
+                    last_type: Optional[str] = None
+                    last_details: Optional[str] = None
+                    for family in families:
+                        match_res = (
+                            match_func(family) if callable(match_func) else False
+                        )
+                        (
+                            is_match,
+                            reason,
+                            m_err_type,
+                            m_details,
+                        ) = _normalize_match_result(
+                            match_res,
+                            f"Engine {engine_name} is not compatible with current {engine_type_label} model or environment",
+                            "model_compatibility",
+                        )
+                        if is_match:
+                            matched = True
+                            break
+                        last_reason = reason or last_reason
+                        last_type = m_err_type or last_type
+                        last_details = m_details or last_details
+
+                    if matched:
+                        check_lib = getattr(engine_class, "check_lib", None)
+                        lib_ok, lib_reason, lib_type, lib_details = (
+                            _normalize_match_result(
+                                check_lib() if callable(check_lib) else True,
+                                f"Engine {engine_name} library is not installed",
+                                "dependency_missing",
+                            )
+                        )
+                        if not lib_ok:
+                            relevant = True
+                            error_reason = lib_reason
+                            error_type = lib_type
+                            error_details = lib_details
+                        else:
+                            relevant = False
+                            error_reason = None
+                            error_type = None
+                            error_details = None
+                        break
+
+                    relevant = True
+                    error_reason = last_reason
+                    error_type = last_type
+                    error_details = last_details
+                    break
+                except Exception as e:
+                    relevant = True
+                    error_reason = f"Engine {engine_name} is not available: {str(e)}"
+                    error_type = "configuration_error"
+                    break
+
+            if relevant:
+                _append_unavailable_engine(
+                    engine_name, error_reason, error_type, error_details
+                )
+
+    def _validate_available_image_engines(
+        families: List[Any],
+        supported_engines: Dict[str, List[Type[Any]]],
+        engine_type_label: str,
+    ):
+        if not families:
+            return
+        for engine_name, engine_data in list(engine_params.items()):
+            if not isinstance(engine_data, list):
+                continue
+            if engine_name not in supported_engines:
+                continue
+
+            matched = False
+            error_reason: Optional[str] = None
+            error_type: Optional[str] = None
+            error_details: Optional[str] = None
+
+            for engine_class in supported_engines[engine_name]:
+                try:
+                    match_func = getattr(engine_class, "match", None)
+                    for family in families:
+                        match_res = (
+                            match_func(family) if callable(match_func) else False
+                        )
+                        (
+                            is_match,
+                            reason,
+                            m_err_type,
+                            m_details,
+                        ) = _normalize_match_result(
+                            match_res,
+                            f"Engine {engine_name} is not compatible with current {engine_type_label} model or environment",
+                            "model_compatibility",
+                        )
+                        if is_match:
+                            matched = True
+                            break
+                        error_reason = reason or error_reason
+                        error_type = m_err_type or error_type
+                        error_details = m_details or error_details
+                    if matched:
+                        check_lib = getattr(engine_class, "check_lib", None)
+                        lib_ok, lib_reason, lib_type, lib_details = (
+                            _normalize_match_result(
+                                check_lib() if callable(check_lib) else True,
+                                f"Engine {engine_name} library is not installed",
+                                "dependency_missing",
+                            )
+                        )
+                        if not lib_ok:
+                            _append_unavailable_engine(
+                                engine_name, lib_reason, lib_type, lib_details
+                            )
+                        break
+                except Exception as e:
+                    _append_unavailable_engine(
+                        engine_name,
+                        f"Engine {engine_name} is not available: {str(e)}",
+                        "configuration_error",
+                        None,
+                    )
+                    break
+
+            if not matched and engine_name in engine_params:
+                _append_unavailable_engine(
+                    engine_name,
+                    error_reason,
+                    error_type,
+                    error_details,
+                )
+
     if model_type == "LLM":
         from .llm.llm_family import BUILTIN_LLM_FAMILIES, LLM_ENGINES, SUPPORTED_ENGINES
 
@@ -684,8 +849,71 @@ def get_engine_params_by_name(
 
         return engine_params
 
+    elif model_type == "image":
+        from .image import BUILTIN_IMAGE_MODELS
+        from .image.custom import get_user_defined_images
+        from .image.engine_family import (
+            IMAGE_ENGINES,
+        )
+        from .image.engine_family import SUPPORTED_ENGINES as IMAGE_SUPPORTED_ENGINES
+        from .image.ocr.ocr_family import (
+            OCR_ENGINES,
+        )
+        from .image.ocr.ocr_family import SUPPORTED_ENGINES as OCR_SUPPORTED_ENGINES
+
+        def _get_image_families(model_name: str, is_ocr: bool) -> List[Any]:
+            families: List[Any] = []
+            if model_name in BUILTIN_IMAGE_MODELS:
+                families.extend(BUILTIN_IMAGE_MODELS[model_name])
+            families.extend(
+                f for f in get_user_defined_images() if f.model_name == model_name
+            )
+            if is_ocr:
+                return [
+                    f
+                    for f in families
+                    if getattr(f, "model_ability", None)
+                    and "ocr" in getattr(f, "model_ability")
+                ]
+            return [
+                f
+                for f in families
+                if not (
+                    getattr(f, "model_ability", None)
+                    and "ocr" in getattr(f, "model_ability")
+                )
+            ]
+
+        if model_name in OCR_ENGINES:
+            available_engines = deepcopy(OCR_ENGINES[model_name])
+            for engine, params in available_engines.items():
+                _append_available_engine(engine, params, "ocr_class")
+            ocr_families = _get_image_families(model_name, is_ocr=True)
+            _validate_available_image_engines(
+                ocr_families, OCR_SUPPORTED_ENGINES, "OCR"
+            )
+            _collect_supported_image_engines(ocr_families, OCR_SUPPORTED_ENGINES, "OCR")
+            return engine_params
+
+        if model_name not in IMAGE_ENGINES:
+            return None
+
+        available_engines = deepcopy(IMAGE_ENGINES[model_name])
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "image_class")
+        image_families = _get_image_families(model_name, is_ocr=False)
+        _validate_available_image_engines(
+            image_families, IMAGE_SUPPORTED_ENGINES, "image"
+        )
+        _collect_supported_image_engines(
+            image_families, IMAGE_SUPPORTED_ENGINES, "image"
+        )
+
+        return engine_params
+
     raise ValueError(
-        f"Cannot support model_engine for {model_type}, only available for LLM, embedding, rerank"
+        "Cannot support model_engine for "
+        f"{model_type}, only available for LLM, embedding, rerank, image"
     )
 
 
@@ -746,9 +974,28 @@ def merge_cached_files(
 
 def flatten_model_src(input_json: dict):
     flattened = []
-    base_info = {key: value for key, value in input_json.items() if key != "model_src"}
+    base_info = {
+        key: value
+        for key, value in input_json.items()
+        if key not in ("model_src", "model_specs")
+    }
+
+    if "model_specs" in input_json:
+        for spec in input_json["model_specs"]:
+            spec_base = base_info.copy()
+            spec_base.update({k: v for k, v in spec.items() if k != "model_src"})
+            for model_hub, hub_info in spec["model_src"].items():
+                record = spec_base.copy()
+                hub_info = hub_info.copy()
+                hub_info.pop("model_hub", None)
+                record.update(hub_info)
+                record["model_hub"] = model_hub
+                flattened.append(record)
+        return flattened
+
     for model_hub, hub_info in input_json["model_src"].items():
         record = base_info.copy()
+        hub_info = hub_info.copy()
         hub_info.pop("model_hub", None)
         record.update(hub_info)
         record["model_hub"] = model_hub
@@ -771,6 +1018,11 @@ def flatten_quantizations(input_json: dict):
 
             for key, value in hub_info.items():
                 if key != "quantizations":
+                    if isinstance(value, str) and "{quantization}" in value:
+                        try:
+                            value = value.format(quantization=quant)
+                        except Exception:
+                            pass
                     record[key] = value
 
             flattened.append(record)

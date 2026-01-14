@@ -25,20 +25,24 @@ logger = logging.getLogger(__name__)
 
 
 @register_transformer
-@register_non_default_model("gemma-3-it")
+@register_non_default_model("Gemma3ForConditionalGeneration")
 class Gemma3ChatModel(PytorchMultiModalModel):
+    GEMMA3_MM_ARCHITECTURES = {"Gemma3ForConditionalGeneration"}
+
     @classmethod
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        if model_spec.model_format not in ["pytorch", "gptq", "awq", "bnb"]:
+        if model_spec.model_format not in ["pytorch", "gptq", "awq", "bnb", "fp4"]:
             return (
                 False,
-                "Gemma-3 multimodal transformer supports pytorch/gptq/awq/bnb formats only",
+                "Gemma-3 multimodal transformer supports pytorch/gptq/awq/bnb/fp4 formats only",
             )
-        llm_family = model_family.model_family or model_family.model_name
-        if "gemma-3-it".lower() not in llm_family.lower():
-            return False, f"Model family {llm_family} is not Gemma-3-it"
+        if not model_family.has_architecture(*cls.GEMMA3_MM_ARCHITECTURES):
+            return (
+                False,
+                f"Model architectures {model_family.architectures} are not Gemma-3-it",
+            )
         return True
 
     def _sanitize_model_config(
@@ -70,7 +74,7 @@ class Gemma3ChatModel(PytorchMultiModalModel):
     def load_multimodal_model(self):
         from transformers import Gemma3ForConditionalGeneration
 
-        kwargs = self.apply_bnb_quantization()
+        kwargs = self.apply_quantization_config()
         self._model = Gemma3ForConditionalGeneration.from_pretrained(
             self.model_path, device_map="auto", torch_dtype="bfloat16", **kwargs
         )

@@ -35,7 +35,6 @@ from ....types import (
 from ...utils import check_dependency_available
 from .. import LLM, LLMFamilyV2, LLMSpecV1
 from ..core import chat_context_var
-from ..llm_family import CustomLLMFamilyV2
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
@@ -54,6 +53,8 @@ class SGLANGModelConfig(TypedDict, total=False):
     mem_fraction_static: float
     log_level: str
     attention_reduce_in_fp32: bool  # For gemma
+    quantization: Optional[str]
+    dtype: Optional[str]
     # distributed
     nnodes: Optional[int]
     node_rank: Optional[int]
@@ -84,55 +85,30 @@ except ImportError:
     SGLANG_INSTALLED = False
 
 SGLANG_SUPPORTED_MODELS = [
-    "llama-2",
-    "llama-3",
-    "llama-3.1",
-    "mistral-v0.1",
-    "mixtral-v0.1",
-    "qwen2.5",
-    "qwen2.5-coder",
+    "LlamaForCausalLM",
+    "MistralForCausalLM",
+    "MixtralForCausalLM",
+    "Qwen2ForCausalLM",
+    "OPTForCausalLM",
 ]
 SGLANG_SUPPORTED_CHAT_MODELS = [
-    "llama-2-chat",
-    "llama-3-instruct",
-    "llama-3.1-instruct",
-    "llama-3.3-instruct",
-    "qwen-chat",
-    "qwen1.5-chat",
-    "qwen2-instruct",
-    "qwen2-moe-instruct",
-    "mistral-instruct-v0.1",
-    "mistral-instruct-v0.2",
-    "mixtral-instruct-v0.1",
-    "gemma-it",
-    "gemma-2-it",
-    "gemma-3-1b-it",
-    "deepseek-v2.5",
-    "deepseek-v2-chat",
-    "deepseek-v2-chat-0628",
-    "qwen2.5-instruct",
-    "qwen2.5-coder-instruct",
-    "XiYanSQL-QwenCoder-2504",
-    "QwQ-32B-Preview",
-    "QwQ-32B",
-    "deepseek-r1-distill-qwen",
-    "deepseek-r1-distill-llama",
-    "deepseek-v3",
-    "deepseek-v3-0324",
-    "deepseek-r1",
-    "deepseek-r1-0528",
-    "deepseek-r1-0528-qwen3",
-    "deepseek-prover-v2",
-    "DianJin-R1",
-    "qwen3",
-    "HuatuoGPT-o1-Qwen2.5",
-    "HuatuoGPT-o1-LLaMA-3.1",
+    "LlamaForCausalLM",
+    "QWenLMHeadModel",
+    "Qwen2ForCausalLM",
+    "Qwen2MoeForCausalLM",
+    "MistralForCausalLM",
+    "MixtralForCausalLM",
+    "GemmaForCausalLM",
+    "Gemma3ForCausalLM",
+    "DeepseekV2ForCausalLM",
+    "DeepseekV3ForCausalLM",
+    "Qwen3ForCausalLM",
 ]
 SGLANG_SUPPORTED_VISION_MODEL_LIST = [
-    "qwen2.5-vl-instruct",
-    "gemma-3-it",
-    "MiniCPM-V",
-    "llama-3.2-vision-instruct",
+    "Qwen2_5_VLForConditionalGeneration",
+    "Gemma3ForConditionalGeneration",
+    "MiniCPMV",
+    "MllamaForConditionalGeneration",
 ]
 
 
@@ -295,8 +271,21 @@ class SGLANGModel(LLM):
                 model_config["mem_fraction_static"] = 0.88
         model_config.setdefault("log_level", "info")
         model_config.setdefault("reasoning_content", False)
+        self._apply_fp4_config(model_config)
 
         return model_config
+
+    def _apply_fp4_config(self, model_config: SGLANGModelConfig) -> None:
+        if self.model_spec.model_format != "fp4":
+            return
+
+        if "quantization" in model_config:
+            logger.warning(
+                "SGLang fp4 expects offline-quantized weights; ignoring quantization=%s",
+                model_config["quantization"],
+            )
+            model_config.pop("quantization", None)
+        model_config.setdefault("dtype", "bfloat16")
 
     @staticmethod
     def _sanitize_generate_config(
@@ -349,25 +338,26 @@ class SGLANGModel(LLM):
         if not cls._is_linux():
             return False, "SGLang backend is only supported on Linux"
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
-            return False, "SGLang supports pytorch/gptq/awq/fp8/bnb formats only"
+            return (
+                False,
+                "SGLang supports pytorch/gptq/awq/fp8/bnb formats only",
+            )
+        if llm_spec.model_format == "fp4":
+            return (
+                False,
+                "SGLang does not support fp4 online quantization; use offline fp4 weights with a compatible SGLang version",
+            )
         if llm_spec.model_format == "pytorch":
             if quantization not in (None, "none"):
                 return (
                     False,
                     "pytorch format with quantization is not supported by SGLang",
                 )
-        if isinstance(llm_family, CustomLLMFamilyV2):
-            if llm_family.model_family not in SGLANG_SUPPORTED_MODELS:
-                return (
-                    False,
-                    f"Custom family {llm_family.model_family} not supported by SGLang",
-                )
-        else:
-            if llm_family.model_name not in SGLANG_SUPPORTED_MODELS:
-                return (
-                    False,
-                    f"Model {llm_family.model_name} is not supported by SGLang",
-                )
+        if not llm_family.matches_supported_architectures(SGLANG_SUPPORTED_MODELS):
+            return (
+                False,
+                f"Model architectures {llm_family.architectures} are not supported by SGLang",
+            )
         if "generate" not in llm_family.model_ability:
             return False, "SGLang base engine requires generate ability"
         if not SGLANG_INSTALLED:
@@ -666,24 +656,22 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
                 False,
                 "SGLang chat engine supports pytorch/gptq/awq/fp8/bnb formats only",
             )
+        if llm_spec.model_format == "fp4":
+            return (
+                False,
+                "SGLang chat engine does not support fp4 online quantization; use offline fp4 weights with a compatible SGLang version",
+            )
         if llm_spec.model_format == "pytorch":
             if quantization not in (None, "none"):
                 return (
                     False,
                     "pytorch format with quantization is not supported by SGLang chat",
                 )
-        if isinstance(llm_family, CustomLLMFamilyV2):
-            if llm_family.model_family not in SGLANG_SUPPORTED_CHAT_MODELS:
-                return (
-                    False,
-                    f"Custom family {llm_family.model_family} not supported by SGLang chat",
-                )
-        else:
-            if llm_family.model_name not in SGLANG_SUPPORTED_CHAT_MODELS:
-                return (
-                    False,
-                    f"Model {llm_family.model_name} is not supported by SGLang chat",
-                )
+        if not llm_family.matches_supported_architectures(SGLANG_SUPPORTED_CHAT_MODELS):
+            return (
+                False,
+                f"Model architectures {llm_family.architectures} are not supported by SGLang chat",
+            )
         if "chat" not in llm_family.model_ability:
             return False, "SGLang chat engine requires chat ability"
         if not SGLANG_INSTALLED:
@@ -771,24 +759,24 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
                 False,
                 "SGLang vision engine supports pytorch/gptq/awq/fp8/bnb formats only",
             )
+        if llm_spec.model_format == "fp4":
+            return (
+                False,
+                "SGLang vision engine does not support fp4 online quantization; use offline fp4 weights with a compatible SGLang version",
+            )
         if llm_spec.model_format == "pytorch":
             if quantization not in (None, "none"):
                 return (
                     False,
                     "pytorch format with quantization is not supported by SGLang vision",
                 )
-        if isinstance(llm_family, CustomLLMFamilyV2):
-            if llm_family.model_family not in SGLANG_SUPPORTED_VISION_MODEL_LIST:
-                return (
-                    False,
-                    f"Custom family {llm_family.model_family} not supported by SGLang vision",
-                )
-        else:
-            if llm_family.model_name not in SGLANG_SUPPORTED_VISION_MODEL_LIST:
-                return (
-                    False,
-                    f"Model {llm_family.model_name} is not supported by SGLang vision",
-                )
+        if not llm_family.matches_supported_architectures(
+            SGLANG_SUPPORTED_VISION_MODEL_LIST
+        ):
+            return (
+                False,
+                f"Model architectures {llm_family.architectures} are not supported by SGLang vision",
+            )
         if "vision" not in llm_family.model_ability:
             return False, "SGLang vision engine requires vision ability"
         if not SGLANG_INSTALLED:

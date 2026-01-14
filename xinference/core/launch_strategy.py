@@ -14,12 +14,9 @@
 
 import random
 from abc import ABC, abstractmethod
-from collections import defaultdict
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import xoscar as xo
-
-from .resource import GPUStatus
 
 if TYPE_CHECKING:
     from .supervisor import WorkerStatus
@@ -32,14 +29,15 @@ class LaunchStrategy(ABC):
 
     @abstractmethod
     def select_worker(
-        self, worker_candidates: List[Dict]
+        self, worker_candidates: List[Dict], n_gpu: Optional[int] = None
     ) -> Tuple[xo.ActorRefType, Optional[List[int]]]:
         """
         Pick a worker and the gpu_idx list for the next replica.
 
         Args:
             worker_candidates: List of dicts that contain at least `ref` (worker ref)
-            and `count` (current load).
+            `count` (current load), and optionally `alloc` (GPU allocation snapshot).
+            n_gpu: Optional requested GPU count for this replica.
 
         Returns:
             worker_ref, gpu_idx list (None lets worker decide).
@@ -48,105 +46,92 @@ class LaunchStrategy(ABC):
 
 class IdleFirstLaunchStrategy(LaunchStrategy):
     """
-    Prefer the GPU with the most available memory across the cluster.
-
-    The strategy reads the latest worker heartbeat stored in supervisor,
-    books a fixed amount of memory for every assignment to avoid stacking
-    all replicas onto a single GPU, and falls back to least-load worker
-    if no heartbeat is available.
+    Count-based scheduler: choose the (worker, gpu) slot with the fewest active models.
+    Ignores memory; falls back to least-loaded worker if no GPU allocation snapshot is available.
     """
 
-    def __init__(
-        self,
-        worker_status: Dict[str, "WorkerStatus"],
-        reserve_bytes: int = 1 * 1024 * 1024 * 1024,
-    ):
+    def __init__(self, worker_status: Dict[str, "WorkerStatus"]):
         self._worker_status = worker_status
-        self._reserve_bytes = reserve_bytes
-        self._booked: Dict[str, Dict[int, float]] = defaultdict(
-            lambda: defaultdict(float)
-        )
-        self._fallback_load: Dict[str, int] = defaultdict(int)
+        self._fallback_load: Dict[str, int] = {}
 
-    def _parse_gpu_idx(self, gpu_key: str) -> Optional[int]:
-        if gpu_key == "cpu":
-            return None
-        if gpu_key.startswith("gpu-"):
-            try:
-                return int(gpu_key.split("-")[1])
-            except Exception:
-                return None
-        try:
-            return int(gpu_key)
-        except Exception:
-            return None
-
-    def _select_idle_gpu(
-        self, worker_candidates: List[Dict]
-    ) -> Optional[Tuple[xo.ActorRefType, int]]:
+    def _select_least_loaded_gpu(
+        self, worker_candidates: List[Dict], n_gpu: int
+    ) -> Optional[Tuple[xo.ActorRefType, List[int]]]:
         best = None
         for candidate in worker_candidates:
             ref = candidate["ref"]
-            status = self._worker_status.get(ref.address)
-            if not status:
+            alloc = candidate.get("alloc")
+            if not alloc:
                 continue
-            for gpu_key, gpu_status in status.status.items():  # type: ignore
-                if not isinstance(gpu_status, GPUStatus):
-                    continue
-                gpu_idx = self._parse_gpu_idx(str(gpu_key))
-                if gpu_idx is None:
-                    continue
-                booked = self._booked[ref.address][gpu_idx]
-                usable_mem = gpu_status.mem_free - booked
-                # Skip GPUs that are already overbooked
-                if usable_mem <= 0:
-                    continue
-                if (
-                    best is None
-                    or usable_mem > best["usable_mem"]
-                    or (
-                        usable_mem == best["usable_mem"]
-                        and gpu_status.mem_total > best["mem_total"]
-                    )
-                ):
-                    best = {
-                        "ref": ref,
-                        "gpu_idx": gpu_idx,
-                        "usable_mem": usable_mem,
-                        "mem_total": gpu_status.mem_total,
-                    }
-        if best is None:
-            return None
-        self._booked[best["ref"].address][best["gpu_idx"]] += self._reserve_bytes
-        return best["ref"], best["gpu_idx"]
+            total = alloc.get("total", [])
+            models = alloc.get("models", {})
+            user_specified = alloc.get("user_specified", {})
+            if total:
+                dev_iter = total
+            else:
+                dev_iter = []
+                keys = set(models.keys())
+                keys.update(user_specified.keys())
+                for dev_key in keys:
+                    try:
+                        dev_iter.append(int(dev_key))
+                    except Exception:
+                        continue
+            loads = []
+            for dev in dev_iter:
+                models_on_dev = models.get(dev, [])
+                load = len(models_on_dev)
+                load += len(user_specified.get(dev, []))
+                loads.append((load, dev))
+            if len(loads) < n_gpu:
+                continue
+            loads.sort(key=lambda x: (x[0], x[1]))
+            selected = loads[:n_gpu]
+            score = tuple([sum(load for load, _ in selected), ref.address])
+            if best is None or score < best["score"]:
+                best = {
+                    "ref": ref,
+                    "gpu_idx": [dev for _, dev in selected],
+                    "score": score,
+                }
+        return (best["ref"], best["gpu_idx"]) if best else None
+
+    def _reserve_slot(
+        self, worker_candidates: List[Dict], ref: xo.ActorRefType, dev: int
+    ):
+        """
+        Update local snapshot so subsequent replicas see the reserved slot.
+        """
+        for candidate in worker_candidates:
+            if candidate["ref"] != ref:
+                continue
+            alloc = candidate.setdefault("alloc", {})
+            models = alloc.setdefault("models", {})
+            models.setdefault(dev, [])
+            models[dev].append("__reserved__")
+            break
 
     def select_worker(
-        self, worker_candidates: List[Dict]
+        self, worker_candidates: List[Dict], n_gpu: Optional[int] = None
     ) -> Tuple[xo.ActorRefType, Optional[List[int]]]:
-        # No heartbeat: treat GPUs as unlimited, pick random for the first replica,
-        # then prefer the least booked worker.
-        if not self._worker_status:
-            for candidate in worker_candidates:
-                self._fallback_load.setdefault(candidate["ref"].address, 0)
-            min_load = min(
-                self._fallback_load[candidate["ref"].address]
-                for candidate in worker_candidates
-            )
-            least_loaded = [
-                candidate
-                for candidate in worker_candidates
-                if self._fallback_load[candidate["ref"].address] == min_load
-            ]
-            chosen = random.choice(least_loaded)
-            self._fallback_load[chosen["ref"].address] += 1
-            return chosen["ref"], None
+        random.shuffle(worker_candidates)
 
-        idle_gpu = self._select_idle_gpu(worker_candidates)
-        if idle_gpu is not None:
-            worker_ref, gpu_idx = idle_gpu
-            return worker_ref, [gpu_idx]
+        # Use allocation snapshot to pick the least-loaded GPU slot.
+        requested_gpu = n_gpu if isinstance(n_gpu, int) and n_gpu > 0 else 1
+        gpu_choice = self._select_least_loaded_gpu(worker_candidates, requested_gpu)
+        if gpu_choice is not None:
+            ref, gpu_idx = gpu_choice
+            # Update local snapshot to reflect the reservation.
+            for dev in gpu_idx:
+                self._reserve_slot(worker_candidates, ref, dev)
+            return ref, gpu_idx
 
-        # Fallback: use least-loaded worker
+        # Fallback: least-loaded worker by count, stable by address.
+        for candidate in worker_candidates:
+            self._fallback_load.setdefault(candidate["ref"].address, 0)
         worker_candidates.sort(key=lambda x: (x["count"], x["ref"].address))
-        chosen = worker_candidates[0]["ref"]
-        return chosen, None
+        min_count = worker_candidates[0]["count"]
+        least_loaded = [c for c in worker_candidates if c["count"] == min_count]
+        chosen = random.choice(least_loaded)
+        self._fallback_load[chosen["ref"].address] += 1
+        return chosen["ref"], None

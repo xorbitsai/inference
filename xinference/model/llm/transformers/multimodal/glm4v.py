@@ -33,15 +33,22 @@ logger = logging.getLogger(__name__)
 
 @register_batching_multimodal_models("glm-4v")
 @register_transformer
-@register_non_default_model("glm-4v")
+@register_non_default_model("ChatGLMModel")
 class Glm4VModel(PytorchMultiModalModel):
+    GLM4V_ARCHITECTURES = {
+        "Glm4vForConditionalGeneration",
+        "Glm4vMoeForConditionalGeneration",
+    }
+
     @classmethod
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        family = model_family.model_family or model_family.model_name
-        if "glm-4v" not in family.lower():
-            return False, f"Model family {family} is not GLM-4V"
+        if not model_family.has_architecture(*cls.GLM4V_ARCHITECTURES):
+            return (
+                False,
+                f"Model architectures {model_family.architectures} are not GLM-4V",
+            )
         if "vision" not in model_family.model_ability:
             return False, "GLM-4V transformer requires vision ability"
         return True
@@ -61,7 +68,7 @@ class Glm4VModel(PytorchMultiModalModel):
         from transformers import AutoModelForCausalLM
 
         kwargs = {"device_map": self._device}
-        kwargs = self.apply_bnb_quantization(kwargs)
+        kwargs = self.apply_quantization_config(kwargs)
 
         model = AutoModelForCausalLM.from_pretrained(
             self.model_path,

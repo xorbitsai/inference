@@ -50,12 +50,14 @@ def gather_node_info() -> Dict[str, Union[ResourceStatus, GPUStatus]]:
         memory_total=mem_info.total,
     )
     for gpu_idx, gpu_info in get_nvidia_gpu_info().items():
+        mem_total = gpu_info["total"]
+        mem_usage = (gpu_info["used"] / mem_total) if mem_total else 0.0
         node_resource[gpu_idx] = GPUStatus(  # type: ignore
             name=gpu_info["name"],
-            mem_total=gpu_info["total"],
+            mem_total=mem_total,
             mem_used=gpu_info["used"],
             mem_free=gpu_info["free"],
-            mem_usage=gpu_info["used"] / gpu_info["total"],
+            mem_usage=mem_usage,
             gpu_util=gpu_info["util"],
         )
 

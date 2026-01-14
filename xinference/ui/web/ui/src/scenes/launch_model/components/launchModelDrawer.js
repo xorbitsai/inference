@@ -39,7 +39,7 @@ import Progress from './progress'
 import SelectField from './selectField'
 
 const enginesWithNWorker = ['SGLang', 'vLLM', 'MLX']
-const modelEngineType = ['LLM', 'embedding', 'rerank']
+const modelEngineType = ['LLM', 'embedding', 'rerank', 'image']
 
 const LaunchModelDrawer = ({
   modelData,
@@ -77,8 +77,12 @@ const LaunchModelDrawer = ({
   const [progress, setProgress] = useState(0)
   const [checkDynamicFieldComplete, setCheckDynamicFieldComplete] = useState([])
   const [replicaStatuses, setReplicaStatuses] = useState([])
+  const [pendingHistory, setPendingHistory] = useState(null)
+  const [hasFetchedEngines, setHasFetchedEngines] = useState(false)
 
   const intervalRef = useRef(null)
+
+  const modelSpecs = modelData.model_specs || []
 
   const downloadHubOptions = useMemo(
     () => ['none', ...(modelData?.download_hubs || [])],
@@ -122,21 +126,47 @@ const LaunchModelDrawer = ({
   }
 
   const handleValueType = (str) => {
-    str = String(str)
-    if (str.toLowerCase() === 'none') {
+    let val = String(str).trim()
+
+    const isBracketed = (s) =>
+      (s.startsWith('{') && s.endsWith('}')) ||
+      (s.startsWith('[') && s.endsWith(']'))
+
+    const tryParseStructured = (s) => {
+      try {
+        const normalized = s
+          .replace(/\bNone\b/g, 'null')
+          .replace(/\bTrue\b/g, 'true')
+          .replace(/\bFalse\b/g, 'false')
+          .replace(/'([^']*)'/g, '"$1"')
+        return JSON.parse(normalized)
+      } catch (e) {
+        return null
+      }
+    }
+
+    if (val.toLowerCase() === 'none') {
       return null
-    } else if (str.toLowerCase() === 'true') {
+    } else if (val.toLowerCase() === 'true') {
       return true
-    } else if (str.toLowerCase() === 'false') {
+    } else if (val.toLowerCase() === 'false') {
       return false
-    } else if (str.includes(',')) {
-      return str.split(',')
-    } else if (str.includes('，')) {
-      return str.split('，')
-    } else if (Number(str) || (str !== '' && Number(str) === 0)) {
-      return Number(str)
+    } else if (isBracketed(val)) {
+      const parsed = tryParseStructured(val)
+      if (parsed !== null) return parsed
+      // parsing failed: keep original string without splitting by comma
+      return val
+    } else if (val.includes(',')) {
+      return val.split(',').map((item) => item.trim())
+    } else if (val.includes('，')) {
+      return val.split('，').map((item) => item.trim())
+    } else if (
+      !Number.isNaN(Number(val)) &&
+      (val !== '' || Number(val) === 0)
+    ) {
+      return Number(val)
     } else {
-      return str
+      return val
     }
   }
 
@@ -175,6 +205,27 @@ const LaunchModelDrawer = ({
     return value || 'CPU'
   }
 
+  const stringifyStructuredForInput = (val) => {
+    if (val === null) return 'none'
+
+    if (Array.isArray(val)) {
+      const allPrimitives = val.every(
+        (item) =>
+          item === null || ['string', 'number', 'boolean'].includes(typeof item)
+      )
+      if (allPrimitives) {
+        return val.map((v) => String(v)).join(',')
+      }
+    }
+
+    try {
+      const json = JSON.stringify(val)
+      return json.replace(/"/g, "'").replace(/:/g, ': ').replace(/,/g, ', ')
+    } catch (e) {
+      return String(val)
+    }
+  }
+
   const restoreFormDataFormat = (finalData) => {
     const result = { ...finalData }
 
@@ -186,8 +237,8 @@ const LaunchModelDrawer = ({
           value:
             result[key] === null
               ? 'none'
-              : result[key] === false
-              ? false
+              : typeof result[key] === 'object'
+              ? stringifyStructuredForInput(result[key])
               : result[key],
         })
     }
@@ -237,6 +288,17 @@ const LaunchModelDrawer = ({
     }
 
     return result
+  }
+
+  const applyHistory = (data) => {
+    const restoredData = restoreFormDataFormat(data)
+    setFormData(
+      modelEngineType.includes(modelType)
+        ? { ...restoredData, __isInitializing: true }
+        : restoredData
+    )
+    const collapseFromData = getCollapseStateFromData(restoredData)
+    setCollapseState((prev) => ({ ...prev, ...collapseFromData }))
   }
 
   const getCollapseStateFromData = (result) => {
@@ -291,6 +353,7 @@ const LaunchModelDrawer = ({
   }
 
   const fetchModelEngine = (model_name, model_type) => {
+    setHasFetchedEngines(false)
     fetchWrapper
       .get(
         model_type === 'LLM'
@@ -298,6 +361,11 @@ const LaunchModelDrawer = ({
           : `/v1/engines/${model_type}/${model_name}`
       )
       .then((data) => {
+        if (!data) {
+          setEnginesObj({})
+          setEngineOptions([])
+          return
+        }
         setEnginesObj(data)
         setEngineOptions(Object.keys(data))
       })
@@ -309,6 +377,7 @@ const LaunchModelDrawer = ({
       })
       .finally(() => {
         setIsCallingApi(false)
+        setHasFetchedEngines(true)
       })
   }
 
@@ -370,16 +439,41 @@ const LaunchModelDrawer = ({
     const data = handleGetHistory()
     if (data) {
       setHasHistory(true)
-      const restoredData = restoreFormDataFormat(data)
-      setFormData(
-        modelEngineType.includes(modelType)
-          ? { ...restoredData, __isInitializing: true }
-          : restoredData
-      )
-      const collapseFromData = getCollapseStateFromData(restoredData)
-      setCollapseState((prev) => ({ ...prev, ...collapseFromData }))
+      if (modelEngineType.includes(modelType)) {
+        setPendingHistory(data)
+      } else {
+        applyHistory(data)
+      }
     }
   }, [])
+
+  useEffect(() => {
+    if (!pendingHistory || !modelEngineType.includes(modelType)) return
+    if (!open || !hasFetchedEngines) return
+
+    if (!pendingHistory.model_engine) {
+      setHasHistory(false)
+      setFormData({})
+      setCollapseState({})
+      setPendingHistory(null)
+      return
+    }
+
+    const engineData = enginesObj[pendingHistory.model_engine]
+    const isValidEngine =
+      engineOptions.includes(pendingHistory.model_engine) &&
+      Array.isArray(engineData) &&
+      engineData.length > 0
+
+    if (isValidEngine) {
+      applyHistory(pendingHistory)
+    } else {
+      setHasHistory(false)
+      setFormData({})
+      setCollapseState({})
+    }
+    setPendingHistory(null)
+  }, [pendingHistory, open, hasFetchedEngines, engineOptions, modelType])
 
   useEffect(() => {
     if (open && modelEngineType.includes(modelType))
@@ -401,7 +495,7 @@ const LaunchModelDrawer = ({
         ...new Set(
           enginesObj[formData.model_engine]?.map((item) => item.model_format)
         ),
-      ]
+      ].filter((value) => value !== undefined && value !== null && value !== '')
       setFormatOptions(format)
 
       if (!format.includes(formData.model_format)) {
@@ -440,6 +534,11 @@ const LaunchModelDrawer = ({
         optionSetter: setQuantizationOptions,
         extractor: (item) => item.quantization,
       },
+      image: {
+        field: 'quantization',
+        optionSetter: setQuantizationOptions,
+        extractor: (item) => item.quantization,
+      },
     }
 
     const config = configMap[modelType]
@@ -451,7 +550,9 @@ const LaunchModelDrawer = ({
           ?.filter((item) => item.model_format === formData.model_format)
           ?.map(config.extractor)
       ),
-    ]
+    ].filter(
+      (option) => option !== undefined && option !== null && option !== ''
+    )
 
     config.optionSetter(options)
     if (!options.includes(formData[config.field])) {
@@ -534,7 +635,7 @@ const LaunchModelDrawer = ({
           new Set(engineData.map((item) => item.model_format))
         )
 
-        const relevantSpecs = modelData.model_specs.filter((spec) =>
+        const relevantSpecs = modelSpecs.filter((spec) =>
           modelFormats.includes(spec.model_format)
         )
 
@@ -555,23 +656,25 @@ const LaunchModelDrawer = ({
   }, [engineOptions, enginesObj, modelData])
 
   const formatItems = useMemo(() => {
-    return formatOptions.map((format) => {
-      const specs = modelData.model_specs.filter(
-        (spec) => spec.model_format === format
+    return formatOptions
+      .filter(
+        (format) => format !== undefined && format !== null && format !== ''
       )
+      .map((format) => {
+        const specs = modelSpecs.filter((spec) => spec.model_format === format)
 
-      const cached = specs.some((spec) => isCached(spec))
+        const cached = specs.some((spec) => isCached(spec))
 
-      return {
-        value: format,
-        label: cached ? `${format} ${t('launchModel.cached')}` : format,
-      }
-    })
+        return {
+          value: format,
+          label: cached ? `${format} ${t('launchModel.cached')}` : format,
+        }
+      })
   }, [formatOptions, modelData])
 
   const sizeItems = useMemo(() => {
     return sizeOptions.map((size) => {
-      const specs = modelData.model_specs
+      const specs = modelSpecs
         .filter((spec) => spec.model_format === formData.model_format)
         .filter((spec) => spec.model_size_in_billions === size)
       const cached = specs.some((spec) => isCached(spec))
@@ -585,7 +688,7 @@ const LaunchModelDrawer = ({
 
   const quantizationItems = useMemo(() => {
     return quantizationOptions.map((quant) => {
-      const specs = modelData.model_specs
+      const specs = modelSpecs
         .filter((spec) => spec.model_format === formData.model_format)
         .filter((spec) =>
           modelType === 'LLM'
@@ -595,11 +698,14 @@ const LaunchModelDrawer = ({
         )
 
       const spec = specs.find((s) => {
-        return s.quantizations === quant
+        return modelType === 'LLM'
+          ? s.quantizations === quant
+          : s.quantization === quant
       })
-      const cached = Array.isArray(spec?.cache_status)
-        ? spec?.cache_status[spec?.quantizations.indexOf(quant)]
-        : spec?.cache_status
+      const cached =
+        modelType === 'LLM' && Array.isArray(spec?.cache_status)
+          ? spec?.cache_status[spec?.quantizations.indexOf(quant)]
+          : spec?.cache_status
 
       return {
         value: quant,
