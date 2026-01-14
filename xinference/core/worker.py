@@ -918,35 +918,27 @@ class WorkerActor(xo.StatelessActor):
 
             # Add built-in image models (BUILTIN_IMAGE_MODELS contains model_name -> families list)
             for model_name, families in BUILTIN_IMAGE_MODELS.items():
-                if detailed:
-                    model_specs = []
-                    download_hubs = []
-                    for family in families:
+                for family in families:
+                    if detailed:
                         cache_manager = ImageCacheManager(family)
-                        model_hub = family.model_hub
-                        if model_hub not in download_hubs:
-                            download_hubs.append(model_hub)
-                        spec = {
-                            "model_format": getattr(family, "model_format", None)
-                            or "pytorch",
-                            "model_hub": model_hub,
-                            "model_id": family.model_id,
-                            "cache_status": cache_manager.get_cache_status(),
-                        }
-                        quantization = getattr(family, "quantization", None)
-                        if quantization is not None:
-                            spec["quantization"] = quantization
-                        model_specs.append(spec)
-                    ret.append(
-                        {
-                            **families[0].dict(),
-                            "model_specs": model_specs,
-                            "is_builtin": True,
-                            "download_hubs": download_hubs,
-                        }
-                    )
-                else:
-                    ret.append({"model_name": model_name, "is_builtin": True})
+                        model_specs = [
+                            {
+                                "model_format": "pytorch",
+                                "model_hub": family.model_hub,
+                                "model_id": family.model_id,
+                                "cache_status": cache_manager.get_cache_status(),
+                            }
+                        ]
+                        ret.append(
+                            {
+                                **family.dict(),
+                                "model_specs": model_specs,
+                                "is_builtin": True,
+                                "download_hubs": [family.model_hub],
+                            }
+                        )
+                    else:
+                        ret.append({"model_name": model_name, "is_builtin": True})
 
             # Add user-defined image models
             for model_spec in get_user_defined_images():
@@ -982,35 +974,27 @@ class WorkerActor(xo.StatelessActor):
 
             # Add built-in audio models (BUILTIN_AUDIO_MODELS contains model_name -> families list)
             for model_name, families in BUILTIN_AUDIO_MODELS.items():
-                if detailed:
-                    model_specs = []
-                    download_hubs = []
-                    for family in families:
+                for family in families:
+                    if detailed:
                         audio_cache_manager = CacheManager(family)
-                        model_hub = family.model_hub
-                        if model_hub not in download_hubs:
-                            download_hubs.append(model_hub)
-                        spec = {
-                            "model_format": getattr(family, "model_format", None)
-                            or "pytorch",
-                            "model_hub": model_hub,
-                            "model_id": family.model_id,
-                            "cache_status": audio_cache_manager.get_cache_status(),
-                        }
-                        quantization = getattr(family, "quantization", None)
-                        if quantization is not None:
-                            spec["quantization"] = quantization
-                        model_specs.append(spec)
-                    ret.append(
-                        {
-                            **families[0].dict(),
-                            "model_specs": model_specs,
-                            "is_builtin": True,
-                            "download_hubs": download_hubs,
-                        }
-                    )
-                else:
-                    ret.append({"model_name": model_name, "is_builtin": True})
+                        model_specs = [
+                            {
+                                "model_format": "pytorch",
+                                "model_hub": family.model_hub,
+                                "model_id": family.model_id,
+                                "cache_status": audio_cache_manager.get_cache_status(),
+                            }
+                        ]
+                        ret.append(
+                            {
+                                **family.dict(),
+                                "model_specs": model_specs,
+                                "is_builtin": True,
+                                "download_hubs": [family.model_hub],
+                            }
+                        )
+                    else:
+                        ret.append({"model_name": model_name, "is_builtin": True})
 
             # Add user-defined audio models
             for model_spec in get_user_defined_audios():
@@ -1045,40 +1029,32 @@ class WorkerActor(xo.StatelessActor):
 
             # Add built-in video models (BUILTIN_VIDEO_MODELS contains model_name -> families list)
             for model_name, families in BUILTIN_VIDEO_MODELS.items():
-                if detailed:
-                    model_specs = []
-                    download_hubs = []
-                    for family in families:
+                for family in families:
+                    if detailed:
                         video_cache_manager = CacheManager(family)
-                        model_hub = family.model_hub
-                        if model_hub not in download_hubs:
-                            download_hubs.append(model_hub)
-                        spec = {
-                            "model_format": getattr(family, "model_format", None)
-                            or "pytorch",
-                            "model_hub": model_hub,
-                            "model_id": family.model_id,
-                            "cache_status": video_cache_manager.get_cache_status(),
-                            "gguf_model_id": family.gguf_model_id,
-                            "gguf_quantizations": family.gguf_quantizations,
-                            "gguf_model_file_name_template": (
-                                family.gguf_model_file_name_template
-                            ),
-                        }
-                        quantization = getattr(family, "quantization", None)
-                        if quantization is not None:
-                            spec["quantization"] = quantization
-                        model_specs.append(spec)
-                    ret.append(
-                        {
-                            **families[0].dict(),
-                            "model_specs": model_specs,
-                            "is_builtin": True,
-                            "download_hubs": download_hubs,
-                        }
-                    )
-                else:
-                    ret.append({"model_name": model_name, "is_builtin": True})
+                        model_specs = [
+                            {
+                                "model_format": "pytorch",
+                                "model_hub": family.model_hub,
+                                "model_id": family.model_id,
+                                "cache_status": video_cache_manager.get_cache_status(),
+                                "gguf_model_id": family.gguf_model_id,
+                                "gguf_quantizations": family.gguf_quantizations,
+                                "gguf_model_file_name_template": (
+                                    family.gguf_model_file_name_template
+                                ),
+                            }
+                        ]
+                        ret.append(
+                            {
+                                **family.dict(),
+                                "model_specs": model_specs,
+                                "is_builtin": True,
+                                "download_hubs": [family.model_hub],
+                            }
+                        )
+                    else:
+                        ret.append({"model_name": model_name, "is_builtin": True})
 
             ret.sort(key=sort_helper)
             return ret
