@@ -196,7 +196,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "passlib[bcrypt]"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "aioprometheus[starlette]"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "pynvml"
-            ${{ env.SELF_HOST_PYTHON }} -m pip install "transformers==4.53.2"
+            ${{ env.SELF_HOST_PYTHON }} -m pip install "transformers==4.57.1"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "qwen-vl-utils==0.0.11"
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "Pillow"
             ${{ env.SELF_HOST_PYTHON }} -m pip install "funasr==1.2.7"
