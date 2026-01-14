@@ -44,7 +44,7 @@ msgstr "使用"
 msgid ""
 "Simply add the parameter ``enable_xavier=True`` when starting the vllm "
 "model."
-msgstr "启动 vllm 模型时设置选项 ``enable_xavier=True`` 即可。"
+msgstr "启动 vllm 模型时设置选项 ``enable_xavier=True`` 即可。该功能目前只针对英伟达产品。"
 
 #: ../../source/user_guide/vllm_enhancement.rst:20
 msgid "Limitations"
@@ -52,7 +52,7 @@ msgstr "限制"
 
 #: ../../source/user_guide/vllm_enhancement.rst:21
 msgid "Xavier requires vllm version >= ``0.7.0``."
-msgstr "Xavier 要求 vllm 版本不低于 ``0.7.0`` 。"
+msgstr "Xavier 要求 vllm 版本不低于 ``0.7.0`` 。暂不支持vllm 版本高于 ``0.11.0``"
 
 #: ../../source/user_guide/vllm_enhancement.rst:22
 msgid ""
