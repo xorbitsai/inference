@@ -1,7 +1,7 @@
 funasr==1.2.7
 omegaconf~=2.3.0  # For ChatTTS
 nemo_text_processing==1.1.0  # 1.1.0 requires pynini==2.1.6.post1
-#WeTextProcessing==1.0.4.1  # 1.0.4 requires pynini==2.1.6
+WeTextProcessing<1.0.4.1  # 1.0.4 requires pynini==2.1.6
 librosa  # For ChatTTS
 ChatTTS>=0.2.1
 xxhash  # For ChatTTS
