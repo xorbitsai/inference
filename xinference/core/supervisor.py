@@ -669,6 +669,59 @@ class SupervisorActor(xo.StatelessActor):
         for worker in workers:
             ret.extend(await worker.list_model_registrations(model_type, detailed))
 
+        if model_type in {"image", "audio", "video"}:
+            if detailed:
+                grouped: Dict[str, List[Dict[str, Any]]] = {}
+                for reg in ret:
+                    grouped.setdefault(reg["model_name"], []).append(reg)
+                merged: List[Dict[str, Any]] = []
+                for regs in grouped.values():
+                    base = next(
+                        (reg for reg in regs if reg.get("model_hub") == "huggingface"),
+                        regs[0],
+                    )
+                    merged_reg = dict(base)
+                    merged_reg["is_builtin"] = any(
+                        reg.get("is_builtin") for reg in regs
+                    )
+                    hubs: List[str] = []
+                    for reg in regs:
+                        for hub in reg.get("download_hubs", []) or []:
+                            if hub not in hubs:
+                                hubs.append(hub)
+                    if hubs:
+                        merged_reg["download_hubs"] = hubs
+                    specs: List[Dict[str, Any]] = []
+                    seen_specs = set()
+                    for reg in regs:
+                        for spec in reg.get("model_specs", []) or []:
+                            key = (
+                                spec.get("model_hub"),
+                                spec.get("model_id"),
+                                spec.get("model_format"),
+                                spec.get("quantization"),
+                                spec.get("gguf_model_id"),
+                                spec.get("gguf_model_file_name_template"),
+                            )
+                            if key in seen_specs:
+                                continue
+                            seen_specs.add(key)
+                            specs.append(spec)
+                    if specs:
+                        merged_reg["model_specs"] = specs
+                    merged.append(merged_reg)
+                ret = merged
+            else:
+                seen_names = set()
+                deduped = []
+                for reg in ret:
+                    model_name = reg["model_name"]
+                    if model_name in seen_names:
+                        continue
+                    seen_names.add(model_name)
+                    deduped.append(reg)
+                ret = deduped
+
         ret.sort(key=sort_helper)
         return ret
 
