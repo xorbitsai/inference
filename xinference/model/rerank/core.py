@@ -72,6 +72,7 @@ class RerankModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
     language: List[str]
     type: Optional[str] = "unknown"
     max_tokens: Optional[int]
+    cache_config: Optional[dict] = None
     virtualenv: Optional[VirtualEnvSettings]
 
     class Config:
