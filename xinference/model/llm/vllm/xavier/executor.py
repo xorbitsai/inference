@@ -11,16 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import struct
 from typing import TYPE_CHECKING, List, Optional, Set, Tuple, Union
 
 import xoscar as xo
-import xxhash
 from vllm.executor.mp_distributed_executor import MultiprocessingDistributedExecutor
 from vllm.model_executor.layers.sampler import SamplerOutput
 from vllm.sequence import ExecuteModelRequest, PoolerOutput
 from vllm.utils import is_pin_memory_available
 from vllm.worker.cache_engine import CacheEngine
+
+from ..utils import hash_block_tokens
 
 if TYPE_CHECKING:
     from .scheduler import XavierScheduler
@@ -92,49 +92,6 @@ class XavierExecutor(MultiprocessingDistributedExecutor):
     def get_rank(self) -> int:
         return self.vllm_config.xavier_config.get("rank")
 
-    @classmethod
-    def hash_block_tokens(
-        cls,
-        is_first_block: bool,
-        prev_block_hash: Optional[int],
-        cur_block_token_ids: List[int],
-        extra_hash: Optional[int] = None,
-    ) -> int:
-        """
-        Computes a stable hash value corresponding to the contents of a block
-        and the contents of the preceding block(s), using xxhash instead of
-        Python hash() for cross-process stability.
-        """
-
-        if prev_block_hash is None:
-            prev_block_hash = cls._none_hash
-        if extra_hash is None:
-            extra_hash = cls._none_hash
-
-        buf = bytearray()
-
-        # 0. hash version（强烈建议保留）
-        buf += b"v1"
-
-        # 1. is_first_block: bool -> 1 byte
-        buf += struct.pack("<?", is_first_block)
-
-        # 2. prev_block_hash: int64
-        buf += struct.pack("<Q", int(prev_block_hash) & 0xFFFFFFFFFFFFFFFF)
-
-        # 3. token count: uint32
-        buf += struct.pack("<I", len(cur_block_token_ids))
-
-        # 4. token ids: int32[]
-        for tid in cur_block_token_ids:
-            buf += struct.pack("<i", int(tid))
-
-        # 5. extra_hash: int64
-        buf += struct.pack("<Q", int(extra_hash) & 0xFFFFFFFFFFFFFFFF)
-
-        # xxhash64, fixed seed for determinism
-        return xxhash.xxh64_intdigest(bytes(buf), seed=0)
-
     async def execute_model_async(
         self,
         execute_model_req: ExecuteModelRequest,
@@ -159,14 +116,22 @@ class XavierExecutor(MultiprocessingDistributedExecutor):
                         "executed", _id
                     )
                     if b._prev_block is None:
-                        content_hash = self.hash_block_tokens(
-                            True, self._none_hash, b.token_ids, b._extra_hash
+                        content_hash = hash_block_tokens(
+                            True,
+                            self._none_hash,
+                            b.token_ids,
+                            b._extra_hash,
+                            self._none_hash,
                         )
 
                     else:
                         prev_content_hash: Optional[int] = tmp_content_hash
-                        content_hash = self.hash_block_tokens(
-                            False, prev_content_hash, b.token_ids, b._extra_hash
+                        content_hash = hash_block_tokens(
+                            False,
+                            prev_content_hash,
+                            b.token_ids,
+                            b._extra_hash,
+                            self._none_hash,
                         )
                     tmp_content_hash = content_hash
                     detail = (content_hash, b.block_id)
