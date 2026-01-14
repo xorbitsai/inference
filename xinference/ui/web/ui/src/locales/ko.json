@@ -228,7 +228,11 @@
     "testFailurePreventsChatWorking": "테스트를 통과하지 못하면 채팅이 제대로 작동하지 않을 수 있습니다.",
     "stopControlForChatModels": "int 유형, 채팅 모델의 중지를 제어하는 데 사용",
     "stopControlStringForChatModels": "string 유형, 채팅 모델의 중지를 제어하는 데 사용",
-    "enterJsonFormattedDictionary": "JSON 형식의 사전을 입력하세요."
+    "enterJsonFormattedDictionary": "JSON 형식의 사전을 입력하세요.",
+    "autoFill": "자동 채우기",
+    "parameters": "매개변수",
+    "fillInModelPathFirst": "먼저 모델 경로를 입력하세요",
+    "provideModelPathForAutoFill": "원클릭 자동 채우기를 위해 모델 경로를 제공하세요"
   },
   "clusterInfo": {
     "supervisor": "슈퍼바이저",

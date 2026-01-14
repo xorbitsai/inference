@@ -1,5 +1,6 @@
 import './styles/registerModelStyle.css'
 
+import { AutoFixHigh, ExpandLess, ExpandMore } from '@mui/icons-material'
 import Cancel from '@mui/icons-material/Cancel'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight'
@@ -12,6 +13,7 @@ import {
   Button,
   Checkbox,
   Chip,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
@@ -19,6 +21,8 @@ import {
   FormControl,
   FormControlLabel,
   InputLabel,
+  ListItemButton,
+  ListItemText,
   MenuItem,
   Radio,
   RadioGroup,
@@ -122,6 +126,8 @@ const RegisterModelComponent = ({ modelType, customData }) => {
 
   const { registerModelType, model_name } = useParams()
   const [isShow, setIsShow] = useState(model_name ? true : false)
+  const [isCollapsed, setIsCollapsed] = useState(true)
+  const [modelPath, setModelPath] = useState('/path/to/llama-1')
   const [specsArr, setSpecsArr] = useState(
     model_name
       ? JSON.parse(sessionStorage.getItem('customJsonData')).model_specs
@@ -765,7 +771,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   }
 
   const getSpecsArr = (arr, isSpecsArrError) => {
-    setFormData({ ...formData, model_specs: arr })
+    setFormData((prev) => ({ ...prev, model_specs: arr }))
     setIsSpecsArrError(isSpecsArrError)
   }
 
@@ -995,6 +1001,26 @@ const RegisterModelComponent = ({ modelType, customData }) => {
     }
   }
 
+  const autoFillForm = async () => {
+    if (!modelPath) {
+      setErrorMsg(t('registerModel.fillInModelPathFirst'))
+      return
+    }
+    try {
+      const res = await fetchWrapper.post('/v1/models/llm/auto-register', {
+        model_path: modelPath,
+      })
+      setFormData((prev) => ({ ...prev, ...res }))
+      setContrastObj(res)
+      setSpecsArr(res.model_specs || res.specs || customData.model_specs)
+    } catch (error) {
+      console.error('Error:', error)
+      if (error?.response?.status !== 403 && error?.response?.status !== 401) {
+        setErrorMsg(error.message)
+      }
+    }
+  }
+
   return (
     <Box style={{ display: 'flex', overFlow: 'hidden', maxWidth: '100%' }}>
       <div className="show-json">
@@ -1037,6 +1063,38 @@ const RegisterModelComponent = ({ modelType, customData }) => {
             </>
           )}
 
+          {modelType === 'LLM' && (<>
+            <TextField
+              label={t('registerModel.modelPath')}
+              value={modelPath}
+              size="small"
+              helperText={t('registerModel.provideModelPathForAutoFill')}
+              onChange={(event) =>
+                setModelPath(event.target.value)
+              }
+              sx={{ flex: 1 }}
+            />
+            <Box padding="15px"></Box>
+
+            <Button
+              variant="outlined"
+              startIcon={<AutoFixHigh />}
+              onClick={autoFillForm}
+            >
+              {t('registerModel.autoFill')}
+            </Button>
+            <Box padding="15px"></Box>
+          </>)}
+
+          {modelType === 'LLM' && (
+            <ListItemButton onClick={() => setIsCollapsed(!isCollapsed)}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <ListItemText primary={t('registerModel.parameters')} />
+                {!isCollapsed ? <ExpandLess /> : <ExpandMore />}
+              </div>
+            </ListItemButton>
+          )}
+          <Collapse {...(modelType === 'LLM' ? { in: !isCollapsed, unmountOnExit: false, sx: { px: 2.5, pt: 2.5 } } : { in: true, unmountOnExit: false })} timeout="auto">
           {/* description */}
           {customData.model_description && (
             <>
@@ -1044,6 +1102,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 label={t('registerModel.modelDescription')}
                 value={formData.model_description}
                 size="small"
+                fullWidth
                 onChange={(event) =>
                   setFormData({
                     ...formData,
@@ -1063,6 +1122,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 label={t('registerModel.contextLength')}
                 value={formData.context_length}
                 size="small"
+                fullWidth
                 onChange={(event) => {
                   handleNumber(event.target.value, 'context_length')
                 }}
@@ -1084,6 +1144,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 error={Number(formData.dimensions) > 0 ? false : true}
                 value={formData.dimensions}
                 size="small"
+                fullWidth
                 onChange={(event) => {
                   handleNumber(event.target.value, 'dimensions')
                 }}
@@ -1105,6 +1166,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 error={Number(formData.max_tokens) > 0 ? false : true}
                 value={formData.max_tokens}
                 size="small"
+                fullWidth
                 onChange={(event) => {
                   handleNumber(event.target.value, 'max_tokens')
                 }}
@@ -1126,6 +1188,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 error={formData.model_uri ? false : true}
                 value={formData.model_uri}
                 size="small"
+                fullWidth
                 helperText={t('registerModel.provideModelDirectoryPath')}
                 onChange={(event) =>
                   setFormData({ ...formData, model_uri: event.target.value })
@@ -1602,8 +1665,8 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           {customData.model_specs && (
             <>
               <AddModelSpecs
-                isJump={model_name ? true : false}
-                formData={customData.model_specs[0]}
+                isJump={(model_name ? true : false) || (specsArr && specsArr.length > 0)}
+                formData={(formData?.model_specs && formData.model_specs[0]) || customData.model_specs[0]}
                 specsDataArr={specsArr}
                 onGetArr={getSpecsArr}
                 scrollRef={scrollRef}
@@ -1633,6 +1696,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 error={formData.launcher ? false : true}
                 value={formData.launcher}
                 size="small"
+                fullWidth
                 helperText={t('registerModel.provideModelLauncher')}
                 onChange={(event) =>
                   setFormData({ ...formData, launcher: event.target.value })
@@ -1649,6 +1713,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 label={t('registerModel.launcherArguments')}
                 value={formData.launcher_args}
                 size="small"
+                fullWidth
                 helperText={t('registerModel.jsonArgumentsForLauncher')}
                 onChange={(event) => {
                   try {
@@ -1682,9 +1747,10 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 onChangeVirtualenv={changeVirtualenv}
                 scrollRef={scrollRef}
               />
-              <Box padding="15px"></Box>
             </>
           )}
+          </Collapse>
+          <Box padding="15px"></Box>
         </FormControl>
 
         {model_name ? (
