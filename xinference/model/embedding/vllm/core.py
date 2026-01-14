@@ -36,7 +36,9 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
         try:
             if is_vacc_available():
                 import vllm_vacc  # noqa: F401
+            from packaging.version import Version
             from vllm import LLM
+            from vllm import __version__ as vllm_version
 
         except ImportError:
             error_message = "Failed to import module 'vllm'"
@@ -65,7 +67,10 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
                     is_matryoshka=True,
                 )
 
-        self._model = LLM(model=self._model_path, task="embed", **self._kwargs)
+        if Version(vllm_version) >= Version("0.13.0"):
+            self._model = LLM(model=self._model_path, **self._kwargs)
+        else:
+            self._model = LLM(model=self._model_path, task="embed", **self._kwargs)
         self._tokenizer = self._model.get_tokenizer()
 
     @staticmethod
@@ -184,7 +189,14 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
         """Set context length"""
         from vllm import envs
 
-        if not (envs.is_set("VLLM_USE_V1") and envs.VLLM_USE_V1):
+        use_v1 = False
+        if hasattr(envs, "VLLM_USE_V1"):
+            try:
+                use_v1 = envs.is_set("VLLM_USE_V1") and envs.VLLM_USE_V1
+            except AttributeError:
+                use_v1 = False
+
+        if not use_v1:
             # v0
             self._context_length = (
                 self._model.llm_engine.vllm_config.model_config.max_model_len
