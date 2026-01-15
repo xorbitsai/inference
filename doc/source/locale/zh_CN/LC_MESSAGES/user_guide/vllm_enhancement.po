@@ -45,8 +45,7 @@ msgid ""
 "Simply add the parameter ``enable_xavier=True`` when starting the vllm "
 "model."
 msgstr ""
-"启动 vllm 模型时设置选项 ``enable_xavier=True`` 即可。该功能目前只针对英"
-"伟达产品。"
+"启动 vllm 模型时设置选项 ``enable_xavier=True`` 即可。"
 
 #: ../../source/user_guide/vllm_enhancement.rst:20
 msgid "Limitations"
