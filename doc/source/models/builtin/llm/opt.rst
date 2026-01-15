@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 1 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 1
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: Transformers, SGLang
 - **Model ID:** facebook/opt-125m
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/facebook/opt-125m>`__
 
