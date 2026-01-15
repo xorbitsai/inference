@@ -71,7 +71,9 @@ const ModelCard = ({
     const btnHeight = btnEl ? btnEl.offsetHeight : 0
     const btnStyle = btnEl ? window.getComputedStyle(btnEl) : null
     const btnMarginTop = btnStyle ? parseFloat(btnStyle.marginTop) || 0 : 0
-    const btnMarginBottom = btnStyle ? parseFloat(btnStyle.marginBottom) || 0 : 0
+    const btnMarginBottom = btnStyle
+      ? parseFloat(btnStyle.marginBottom) || 0
+      : 0
     const computed = window.getComputedStyle(textEl)
     const lineHeightPx = parseFloat(computed.lineHeight)
     const textMarginTop = parseFloat(computed.marginTop) || 0
@@ -79,7 +81,12 @@ const ModelCard = ({
     if (!lineHeightPx || !containerHeight) return
     const availableHeight = Math.max(
       0,
-      containerHeight - btnHeight - btnMarginTop - btnMarginBottom - textMarginTop - textMarginBottom
+      containerHeight -
+        btnHeight -
+        btnMarginTop -
+        btnMarginBottom -
+        textMarginTop -
+        textMarginBottom
     )
     const maxLines = Math.floor(availableHeight / lineHeightPx)
     const clamped = Math.max(1, Math.min(5, maxLines - 1))
