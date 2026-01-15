@@ -6,7 +6,7 @@ Z-Image-Turbo
 
 - **Model Name:** Z-Image-Turbo
 - **Model Family:** stable_diffusion
-- **Abilities:** text2image
+- **Abilities:** text2image, image2image
 - **Available ControlNet:** None
 
 Specifications
