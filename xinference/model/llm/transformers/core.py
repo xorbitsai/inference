@@ -46,7 +46,10 @@ from ..utils import (
     ChatModelMixin,
 )
 from .utils import (
+    _get_cache_layer_kv,
+    _get_cache_layers_len,
     _get_pad_param,
+    _set_cache_layer_kv,
     convert_to_cache_cls,
     get_context_length,
     get_max_src_len,
@@ -778,15 +781,18 @@ class PytorchModel(LLM):
 
         _, seq_len_idx = self.get_batch_size_and_seq_len_indexes_from_kv()
 
+        past_cache_len = _get_cache_layers_len(past_cache)
+        new_cache_len = _get_cache_layers_len(new_cache)
+
         # Handle empty caches
-        if len(past_cache) == 0:
+        if past_cache_len == 0:
             return new_cache
-        if len(new_cache) == 0:
+        if new_cache_len == 0:
             return past_cache
 
         # Get first layer seq_len safely
-        past_first = past_cache[0] if len(past_cache) > 0 else (None, None)
-        new_first = new_cache[0] if len(new_cache) > 0 else (None, None)
+        past_first = _get_cache_layer_kv(past_cache, 0)
+        new_first = _get_cache_layer_kv(new_cache, 0)
 
         if past_first[0] is None or past_first[1] is None:
             return new_cache
@@ -806,22 +812,24 @@ class PytorchModel(LLM):
                 padding_len = new_seq_len - past_seq_len
 
             pad_param = _get_pad_param(seq_len_idx, padding_len)
-            for idx in range(len(padding_target)):
-                k = padding_target.key_cache[idx]
-                v = padding_target.value_cache[idx]
+            for idx in range(_get_cache_layers_len(padding_target)):
+                k, v = _get_cache_layer_kv(padding_target, idx)
                 if k is not None and v is not None:
-                    padding_target.key_cache[idx] = pad(k, pad_param)
-                    padding_target.value_cache[idx] = pad(v, pad_param)
+                    _set_cache_layer_kv(
+                        padding_target, idx, pad(k, pad_param), pad(v, pad_param)
+                    )
 
         # Merge caches
         ret_kv = DynamicCache()
-        max_layers = max(len(past_cache), len(new_cache))
+        max_layers = max(past_cache_len, new_cache_len)
 
         for idx in range(max_layers):
-            past_k = past_cache.key_cache[idx] if idx < len(past_cache) else None
-            past_v = past_cache.value_cache[idx] if idx < len(past_cache) else None
-            new_k = new_cache.key_cache[idx] if idx < len(new_cache) else None
-            new_v = new_cache.value_cache[idx] if idx < len(new_cache) else None
+            past_k, past_v = (None, None)
+            if idx < past_cache_len:
+                past_k, past_v = _get_cache_layer_kv(past_cache, idx)
+            new_k, new_v = (None, None)
+            if idx < new_cache_len:
+                new_k, new_v = _get_cache_layer_kv(new_cache, idx)
 
             if past_k is not None and new_k is not None:
                 # Both layers exist - validate tensor dimensions before concatenation
@@ -832,17 +840,18 @@ class PytorchModel(LLM):
                     )
                     # Use the cache with higher batch size
                     if past_k.shape[0] >= new_k.shape[0]:
-                        ret_kv.update(past_k, past_v, idx)
+                        _set_cache_layer_kv(ret_kv, idx, past_k, past_v)
                     else:
-                        ret_kv.update(new_k, new_v, idx)
+                        _set_cache_layer_kv(ret_kv, idx, new_k, new_v)
                     continue
 
                 if past_k.shape[1:] == new_k.shape[1:]:
                     # Shapes are compatible, concatenate along batch dimension
-                    ret_kv.update(
+                    _set_cache_layer_kv(
+                        ret_kv,
+                        idx,
                         torch.cat((new_k, past_k), 0).contiguous(),
                         torch.cat((new_v, past_v), 0).contiguous(),
-                        idx,
                     )
                 else:
                     # Detailed logging for shape mismatch
@@ -854,16 +863,16 @@ class PytorchModel(LLM):
 
                     # Choose the cache with larger batch size to preserve more data
                     if past_k.shape[0] >= new_k.shape[0]:
-                        ret_kv.update(past_k, past_v, idx)
+                        _set_cache_layer_kv(ret_kv, idx, past_k, past_v)
                     else:
-                        ret_kv.update(new_k, new_v, idx)
+                        _set_cache_layer_kv(ret_kv, idx, new_k, new_v)
             elif past_k is not None:
-                ret_kv.update(past_k, past_v, idx)
+                _set_cache_layer_kv(ret_kv, idx, past_k, past_v)
             elif new_k is not None:
-                ret_kv.update(new_k, new_v, idx)
+                _set_cache_layer_kv(ret_kv, idx, new_k, new_v)
             else:
                 # both None, fill with None
-                ret_kv.update(None, None, idx)
+                _set_cache_layer_kv(ret_kv, idx, None, None)
 
         return ret_kv
 
@@ -963,14 +972,26 @@ class PytorchModel(LLM):
         self.handle_batch_inference_results(req_list)
 
     def build_reduced_kv_cache(self, cache, skipped_indexes: Set[int]):
-        batch_size = cache.key_cache[0].shape[0]
+        from transformers import DynamicCache
+
+        batch_k, _ = _get_cache_layer_kv(cache, 0)
+        if batch_k is None:
+            return cache
+        batch_size = batch_k.shape[0]
         batch_slices = [num for num in range(batch_size) if num not in skipped_indexes]
-        for idx in range(len(cache)):
-            cache.key_cache[idx] = cache.key_cache[idx][batch_slices, ::].contiguous()
-            cache.value_cache[idx] = cache.value_cache[idx][
-                batch_slices, ::
-            ].contiguous()
-        return cache
+        reduced_cache = DynamicCache()
+        for idx in range(_get_cache_layers_len(cache)):
+            k, v = _get_cache_layer_kv(cache, idx)
+            if k is None or v is None:
+                _set_cache_layer_kv(reduced_cache, idx, None, None)
+                continue
+            _set_cache_layer_kv(
+                reduced_cache,
+                idx,
+                k[batch_slices, ::].contiguous(),
+                v[batch_slices, ::].contiguous(),
+            )
+        return reduced_cache
 
 
 class PytorchChatModel(PytorchModel, ChatModelMixin):
