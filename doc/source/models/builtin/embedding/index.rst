@@ -78,9 +78,9 @@ The following is a list of built-in embedding models in Xinference:
    qwen3-embedding-8b
   
    qwen3-vl-embedding-2b
-
+  
    qwen3-vl-embedding-8b
-
+  
    text2vec-base-chinese
   
    text2vec-base-chinese-paraphrase
