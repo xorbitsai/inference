@@ -5,7 +5,8 @@
     "registerModel": "Register Model",
     "clusterInfo": "Cluster Information",
     "contactUs": "Contact Us",
-    "documentation": "Documentation"
+    "documentation": "Documentation",
+    "website": "Official Website"
   },
 
   "model": {
@@ -144,7 +145,8 @@
     "mustBeUnique": "{{key}} must be unique",
     "update": "Update",
     "launchProgress": "Launch Progress",
-    "initializing": "Initializing..."
+    "initializing": "Initializing...",
+    "moreDetails": "More Details"
   },
   "modelReplicaDetails": {
     "title": "Model Replica Details",

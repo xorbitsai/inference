@@ -5,7 +5,8 @@
     "registerModel": "모델 등록",
     "clusterInfo": "클러스터 정보",
     "contactUs": "문의하기",
-    "documentation": "문서"
+    "documentation": "문서",
+    "website": "공식 웹사이트"
   },
   "model": {
     "languageModels": "언어 모델",
@@ -142,7 +143,8 @@
     "mustBeUnique": "{{key}} 는 고유해야 합니다",
     "update": "업데이트",
     "launchProgress": "시작 진행 상황",
-    "initializing": "초기화 중..."
+    "initializing": "초기화 중...",
+    "moreDetails": "자세히 보기"
   },
   "modelReplicaDetails": {
     "title": "모델 복제본 세부 정보",

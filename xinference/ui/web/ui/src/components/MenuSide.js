@@ -4,6 +4,7 @@ import {
   DescriptionOutlined,
   DnsOutlined,
   GitHub,
+  Language,
   OpenInNew,
   RocketLaunchOutlined,
   SmartToyOutlined,
@@ -21,7 +22,7 @@ import {
 } from '@mui/material'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
 import icon from '../media/icon.webp'
 import ThemeButton from './themeButton'
@@ -30,8 +31,6 @@ import VersionLabel from './versionLabel'
 
 const MenuSide = () => {
   const theme = useTheme()
-  const { pathname } = useLocation()
-  const [active, setActive] = useState('')
   const navigate = useNavigate()
   const [drawerWidth, setDrawerWidth] = useState(
     `${Math.min(Math.max(window.innerWidth * 0.2, 287), 320)}px`
@@ -43,37 +42,69 @@ const MenuSide = () => {
       text: 'launch_model',
       label: t('menu.launchModel'),
       icon: <RocketLaunchOutlined />,
+      action: 'navigate',
+      path: '/launch_model/llm',
+      session: {
+        modelType: '/launch_model/llm',
+        lastActiveUrl: 'launch_model',
+      },
     },
     {
       text: 'running_models',
       label: t('menu.runningModels'),
       icon: <SmartToyOutlined />,
+      action: 'navigate',
+      path: '/running_models/LLM',
+      session: {
+        runningModelType: '/running_models/LLM',
+        lastActiveUrl: 'running_models',
+      },
     },
     {
       text: 'register_model',
       label: t('menu.registerModel'),
       icon: <AddBoxOutlined />,
+      action: 'navigate',
+      path: '/register_model/llm',
+      session: {
+        registerModelType: '/register_model/llm',
+        lastActiveUrl: 'register_model',
+      },
     },
     {
       text: 'cluster_information',
       label: t('menu.clusterInfo'),
       icon: <DnsOutlined />,
+      action: 'navigate',
+      path: '/cluster_info',
     },
     {
       text: 'documentation',
       label: t('menu.documentation'),
       icon: <DescriptionOutlined />,
+      action: 'external',
+      url:
+        'https://inference.readthedocs.io/' +
+        (i18n.language === 'zh' ? 'zh-cn' : ''),
     },
     {
       text: 'contact_us',
       label: t('menu.contactUs'),
       icon: <GitHub />,
+      action: 'external',
+      url: 'https://github.com/xorbitsai/inference',
+    },
+    {
+      text: 'website',
+      label: t('menu.website'),
+      icon: <Language />,
+      action: 'external',
+      url:
+        i18n.language === 'zh'
+          ? 'https://xinference.cn'
+          : 'https://xinference.io',
     },
   ]
-
-  useEffect(() => {
-    setActive(pathname.substring(1))
-  }, [pathname])
 
   useEffect(() => {
     const screenWidth = window.innerWidth
@@ -95,6 +126,27 @@ const MenuSide = () => {
       window.removeEventListener('resize', handleResize)
     }
   }, [])
+
+  const handleNavClick = (item) => {
+    const { action, url, path, text, session } = item
+    if (action === 'external' && url) {
+      window.open(url, '_blank', 'noreferrer')
+      return
+    }
+
+    if (action === 'navigate') {
+      if (session) {
+        Object.entries(session).forEach(([key, value]) => {
+          sessionStorage.setItem(key, value)
+        })
+      }
+      navigate(path ?? `/${text}`)
+      return
+    }
+
+    // default behavior
+    navigate(`/${text}`)
+  }
 
   return (
     <Drawer
@@ -146,7 +198,8 @@ const MenuSide = () => {
         <Box width="100%">
           <Box m="1.5rem 2rem 2rem 3rem"></Box>
           <List>
-            {navItems.map(({ text, label, icon }) => {
+            {navItems.map((item) => {
+              const { text, label, icon, action } = item
               if (!icon) {
                 return (
                   <Typography key={text} sx={{ m: '2.25rem 0 1rem 3rem' }}>
@@ -156,55 +209,7 @@ const MenuSide = () => {
               }
               return (
                 <ListItem key={text}>
-                  <ListItemButton
-                    onClick={() => {
-                      if (text === 'contact_us') {
-                        window.open(
-                          'https://github.com/xorbitsai/inference',
-                          '_blank',
-                          'noreferrer'
-                        )
-                      } else if (text === 'documentation') {
-                        window.open(
-                          'https://inference.readthedocs.io/' +
-                            (i18n.language === 'zh' ? 'zh-cn' : ''),
-                          '_blank',
-                          'noreferrer'
-                        )
-                      } else if (text === 'launch_model') {
-                        sessionStorage.setItem('modelType', '/launch_model/llm')
-                        navigate('/launch_model/llm')
-                        setActive(text)
-                        sessionStorage.setItem('lastActiveUrl', text)
-                        console.log(active)
-                      } else if (text === 'cluster_information') {
-                        navigate('/cluster_info')
-                        setActive(text)
-                      } else if (text === 'running_models') {
-                        navigate('/running_models/LLM')
-                        sessionStorage.setItem(
-                          'runningModelType',
-                          '/running_models/LLM'
-                        )
-                        setActive(text)
-                        sessionStorage.setItem('lastActiveUrl', text)
-                        console.log(active)
-                      } else if (text === 'register_model') {
-                        sessionStorage.setItem(
-                          'registerModelType',
-                          '/register_model/llm'
-                        )
-                        navigate('/register_model/llm')
-                        setActive(text)
-                        sessionStorage.setItem('lastActiveUrl', text)
-                        console.log(active)
-                      } else {
-                        navigate(`/${text}`)
-                        setActive(text)
-                        console.log(active)
-                      }
-                    }}
-                  >
+                  <ListItemButton onClick={() => handleNavClick(item)}>
                     <ListItemIcon
                       sx={{
                         ml: '2rem',
@@ -213,7 +218,7 @@ const MenuSide = () => {
                       {icon}
                     </ListItemIcon>
                     <ListItemText primary={label} />
-                    {text === 'contact_us' || text === 'documentation' ? (
+                    {action === 'external' ? (
                       <OpenInNew
                         sx={{ ml: 'auto', mr: '0.5rem', fontSize: 'small' }}
                       />
