@@ -48,9 +48,9 @@ def get_distributed_init_method(ip: str, port: int) -> str:
 
 def get_tcp_uri(ip: str, port: int) -> str:
     if is_valid_ipv6_address(ip):
-        return f"tcp://[{ip}]:{port}"
+        return f"tcp://[{ip}]:{port}"  # noqa E231
     else:
-        return f"tcp://{ip}:{port}"
+        return f"tcp://{ip}:{port}"  # noqa E231
 
 
 def is_valid_ipv6_address(address: str) -> bool:
