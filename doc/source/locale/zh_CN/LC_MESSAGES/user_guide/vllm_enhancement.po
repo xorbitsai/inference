@@ -8,14 +8,14 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-02-17 18:23+0800\n"
+"POT-Creation-Date: 2026-01-15 13:56+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.11.0\n"
+"Generated-By: Babel 2.14.0\n"
 
 #: ../../source/user_guide/vllm_enhancement.rst:5
 msgid "Xavier: Share KV Cache between vllm replicas"
@@ -44,15 +44,19 @@ msgstr "使用"
 msgid ""
 "Simply add the parameter ``enable_xavier=True`` when starting the vllm "
 "model."
-msgstr "启动 vllm 模型时设置选项 ``enable_xavier=True`` 即可。"
+msgstr ""
+"启动 vllm 模型时设置选项 ``enable_xavier=True`` 即可。"
 
 #: ../../source/user_guide/vllm_enhancement.rst:20
 msgid "Limitations"
 msgstr "限制"
 
 #: ../../source/user_guide/vllm_enhancement.rst:21
-msgid "Xavier requires vllm version >= ``0.7.0``."
-msgstr "Xavier 要求 vllm 版本不低于 ``0.7.0`` 。"
+msgid ""
+"Xavier requires vllm version >= ``0.7.0``, and currently not supports for"
+" vllm version >= ``0.11.0`` due to vllm reconstruction."
+msgstr ""
+"Xavier 要求 vllm 版本不低于 ``0.7.0`` 。暂不支持vllm 版本高于 ``0.11.0``。"
 
 #: ../../source/user_guide/vllm_enhancement.rst:22
 msgid ""
@@ -62,4 +66,8 @@ msgid ""
 msgstr ""
 "由于底层通信无法识别 ``0.0.0.0`` 地址，启动 xinference 时需要配置实际的 "
 "IP 地址，例如：``xinference-local -H 192.168.xx.xx`` 。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:23
+msgid "Xavier only works for Nvidia product."
+msgstr "Xavier 只支持 Nvidia 显卡。"
 
