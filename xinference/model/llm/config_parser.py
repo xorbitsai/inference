@@ -265,6 +265,8 @@ def build_llm_registration_from_local_config(
 
         prompt_style = BUILTIN_LLM_PROMPT_STYLE.get(model_family)
         if prompt_style:
+            if prompt_style.get("chat_template") and "chat" not in model_ability:
+                model_ability.append("chat")
             if prompt_style.get("reasoning_start_tag") and prompt_style.get(
                 "reasoning_end_tag"
             ):
