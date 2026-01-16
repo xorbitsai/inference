@@ -22272,14 +22272,24 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1768548872,
+    "updated_at": 1768550062,
     "featured": true,
     "architectures": [
       "GptOssForCausalLM"
     ],
     "tool_parser": "qwen",
     "reasoning_start_tag": "analysis",
-    "reasoning_end_tag": "assistantfinal"
+    "reasoning_end_tag": "assistantfinal",
+    "cache_config": {
+      "ignore_patterns": [
+        "metal/**",
+        "original/**"
+      ],
+      "ignore_file_pattern": [
+        "metal/*",
+        "original/*"
+      ]
+    }
   },
   {
     "version": 2,
