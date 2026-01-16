@@ -243,36 +243,33 @@ def _infer_model_format(config: Dict[str, Any]) -> str:
     return "pytorch"
 
 
-def build_llm_registration_from_local_config(model_path: str) -> Dict[str, Any]:
+def build_llm_registration_from_local_config(
+    model_path: str, model_family: str
+) -> Dict[str, Any]:
 
     config_path, model_dir = _resolve_config_and_dir(model_path)
     config = _load_json_file(config_path)
     tokenizer_config = _load_tokenizer_config(model_dir)
 
-    architectures = _normalize_architectures(config)
-    matched_family = _match_family_by_architectures(architectures)
-    config_model_type = config.get("model_type")
-    if isinstance(config_model_type, str) and config_model_type:
-        model_family = config_model_type
-    else:
-        model_family = matched_family["model_name"] if matched_family else "other"
-    model_lang = (
-        list(matched_family.get("model_lang", []))
-        if matched_family and matched_family.get("model_lang")
-        else _infer_languages(config)
-    )
+    model_lang = _infer_languages(config)
+    chat_template = _extract_chat_template(tokenizer_config)
+    model_ability = ["generate"]
+    if chat_template:
+        model_ability.append("chat")
+    if config.get("vision_config") is not None:
+        model_ability.append("vision")
 
-    chat_template = None
-    if matched_family:
-        model_ability = list(matched_family.get("model_ability", []))
-        if not model_ability:
-            model_ability = ["generate"]
-    else:
-        chat_template = _extract_chat_template(tokenizer_config)
-        if chat_template:
-            model_ability = ["generate", "chat"]
-        else:
-            model_ability = ["generate"]
+    prompt_style = None
+    if isinstance(model_family, str) and model_family:
+        from .llm_family import BUILTIN_LLM_PROMPT_STYLE
+
+        prompt_style = BUILTIN_LLM_PROMPT_STYLE.get(model_family)
+        if prompt_style:
+            if prompt_style.get("reasoning_start_tag") and prompt_style.get(
+                "reasoning_end_tag"
+            ):
+                if "reasoning" not in model_ability:
+                    model_ability.append("reasoning")
 
     context_length = _infer_context_length(config)
     model_size_in_billions = _infer_model_size_in_billions(config)
@@ -294,15 +291,16 @@ def build_llm_registration_from_local_config(model_path: str) -> Dict[str, Any]:
     }
 
     result = {
-        "version": 2,
         "context_length": context_length,
         "model_lang": model_lang,
         "model_ability": model_ability,
-        "model_family": model_family,
         "model_specs": [model_spec],
     }
-    if architectures:
-        result["architectures"] = architectures
-    if chat_template:
-        result["chat_template"] = chat_template
+    if "chat" in model_ability and prompt_style:
+        result["chat_template"] = prompt_style.get("chat_template")
+        result["stop"] = prompt_style.get("stop")
+        result["stop_token_ids"] = prompt_style.get("stop_token_ids")
+    if "reasoning" in model_ability and prompt_style:
+        result["reasoning_start_tag"] = prompt_style.get("reasoning_start_tag")
+        result["reasoning_end_tag"] = prompt_style.get("reasoning_end_tag")
     return result
