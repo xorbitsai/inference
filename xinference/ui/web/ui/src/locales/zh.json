@@ -5,7 +5,8 @@
     "registerModel": "注册模型",
     "clusterInfo": "集群信息",
     "contactUs": "联系我们",
-    "documentation": "文档"
+    "documentation": "文档",
+    "website": "官网"
   },
   "model": {
     "languageModels": "语言模型",
@@ -142,7 +143,8 @@
     "mustBeUnique": "{{key}} 必须唯一",
     "update": "更新",
     "launchProgress": "启动进度",
-    "initializing": "初始化中..."
+    "initializing": "初始化中...",
+    "moreDetails": "更多详情"
   },
   "modelReplicaDetails": {
     "title": "模型副本详情",
