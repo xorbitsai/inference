@@ -1298,6 +1298,7 @@ class WorkerActor(xo.StatelessActor):
         virtual_env_manager: "VirtualEnvManager",
         settings: Optional[VirtualEnvSettings],
         virtual_env_packages: Optional[List[str]],
+        model_engine: Optional[str],
     ):
         if (not settings or not settings.packages) and not virtual_env_packages:
             # no settings or no packages
@@ -1320,6 +1321,10 @@ class WorkerActor(xo.StatelessActor):
         conf.pop("inherit_pip_config", None)
         if XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED:
             conf["skip_installed"] = XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED
+        variables = {}
+        if model_engine:
+            variables["engine"] = model_engine
+            variables["model_engine"] = model_engine
 
         logger.info(
             "Installing packages %s in virtual env %s, with settings(%s)",
@@ -1327,7 +1332,7 @@ class WorkerActor(xo.StatelessActor):
             virtual_env_manager.env_path,
             ", ".join([f"{k}={v}" for k, v in conf.items() if v]),
         )
-        virtual_env_manager.install_packages(packages, **conf)
+        virtual_env_manager.install_packages(packages, **conf, **variables)
 
     async def _get_progressor(self, request_id: str):
         from .progress_tracker import Progressor, ProgressTrackerActor
@@ -1563,6 +1568,7 @@ class WorkerActor(xo.StatelessActor):
                         virtual_env_manager,
                         model.model_family.virtualenv,
                         virtual_env_packages,
+                        model_engine,
                     )
                     launch_info.virtual_env_manager = virtual_env_manager
 
