@@ -1101,10 +1101,12 @@
     },
     "version": 2,
     "virtualenv": {
-      "packages": []
+      "packages": [
+        "funasr @ git+https://github.com/modelscope/FunASR@b25472b0b562d04f411da30ff9cc59786f68b0f2"
+      ]
     },
     "featured": false,
-    "updated_at": 1768536085
+    "updated_at": 1768536254
   },
   {
     "model_name": "Fun-ASR-MLT-Nano-2512",
