@@ -1461,10 +1461,15 @@ class WorkerActor(xo.StatelessActor):
 
             # virtualenv
             virtual_env_name = kwargs.pop("virtual_env_name", None)
-            # Use v3 structure: .xinference/virtualenv/v3/model_name/python_version
+            # Use v4 structure: .xinference/virtualenv/v4/model_name/model_engine/python_version
             python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+            engine_name = (model_engine or "default").lower()
             virtual_env_path = os.path.join(
-                XINFERENCE_VIRTUAL_ENV_DIR, "v3", model_name, python_version
+                XINFERENCE_VIRTUAL_ENV_DIR,
+                "v4",
+                model_name,
+                engine_name,
+                python_version,
             )
             virtual_env_manager = await asyncio.to_thread(
                 self._create_virtual_env_manager,
@@ -1956,16 +1961,19 @@ class WorkerActor(xo.StatelessActor):
 
     # Virtual environment management methods
     async def list_virtual_envs(
-        self, model_name: Optional[str] = None
+        self, model_name: Optional[str] = None, model_engine: Optional[str] = None
     ) -> List[Dict[Any, Any]]:
         """List all virtual environments or filter by model name."""
         try:
-            result = self._virtual_env_manager.list_virtual_envs(model_name)
+            result = self._virtual_env_manager.list_virtual_envs(
+                model_name, model_engine
+            )
             # Add IP address to each virtual environment, same as cache implementation
             virtual_envs = []
             for env in result:
                 virtual_env = {
                     "model_name": env.get("model_name"),
+                    "model_engine": env.get("model_engine"),
                     "path": env.get("path"),
                     "real_path": env.get("real_path"),
                     "python_version": env.get("python_version"),
@@ -1983,10 +1991,15 @@ class WorkerActor(xo.StatelessActor):
         return self._virtual_env_manager.list_virtual_env_packages(model_name)
 
     async def remove_virtual_env(
-        self, model_name: str, python_version: Optional[str] = None
+        self,
+        model_name: str,
+        model_engine: Optional[str] = None,
+        python_version: Optional[str] = None,
     ) -> bool:
         """Remove a virtual environment for a specific model."""
-        return self._virtual_env_manager.remove_virtual_env(model_name, python_version)
+        return self._virtual_env_manager.remove_virtual_env(
+            model_name, model_engine, python_version
+        )
 
     async def get_workers_info(self) -> Dict[str, Any]:
         ret = {
