@@ -57,6 +57,7 @@ from ....types import (
 )
 from .. import BUILTIN_LLM_FAMILIES, LLM, LLMFamilyV2, LLMSpecV1
 from ..core import chat_context_var
+from ..harmony import async_stream_harmony_chat_completion
 from ..llm_family import cache_model_tokenizer_and_config
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
@@ -807,7 +808,10 @@ class VLLMModel(LLM):
         else:
             model_config.setdefault("quantization", None)
         model_config.setdefault("max_model_len", None)
-        model_config.setdefault("reasoning_content", False)
+        if self.model_family.model_name == "gpt-oss":
+            model_config.setdefault("reasoning_content", True)
+        else:
+            model_config.setdefault("reasoning_content", False)
 
         if "speculative_config" in model_config:
             model_config["speculative_config"] = self.parse_str_field_to_dict(
@@ -1632,9 +1636,12 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             assert isinstance(agen, AsyncGenerator)
             if tools:
                 return self._async_to_tool_completion_chunks(agen, chat_template_kwargs)
-            return self._async_to_chat_completion_chunks(
+            chunks = self._async_to_chat_completion_chunks(
                 agen, self.reasoning_parser, chat_template_kwargs
             )
+            if self.model_family.model_name == "gpt-oss":
+                return async_stream_harmony_chat_completion(chunks)
+            return chunks
         else:
             c = await self.async_generate(
                 full_prompt, generate_config, request_id=request_id
@@ -1644,7 +1651,13 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 return self._post_process_completion(
                     self.model_family, self.model_uid, c
                 )
-            return self._to_chat_completion(c, self.reasoning_parser)
+            completion = self._to_chat_completion(c, self.reasoning_parser)
+            if self.model_family.model_name == "gpt-oss":
+                async for parsed_completion in async_stream_harmony_chat_completion(
+                    completion
+                ):
+                    return parsed_completion
+            return completion
 
 
 class VLLMMultiModel(VLLMModel, ChatModelMixin):
