@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import inspect
 import os
 import shutil
 import tempfile
@@ -21,18 +20,13 @@ import pytest
 import torch
 from PIL import Image
 
+from .....client import Client
 from ...cache_manager import EmbeddingCacheManager as CacheManager
 from ...core import (
     EmbeddingModelFamilyV2,
     TransformersEmbeddingSpecV1,
     create_embedding_model_instance,
 )
-from ...custom import (
-    CustomEmbeddingModelFamilyV2,
-    register_embedding,
-    unregister_embedding,
-)
-from ...embed_family import BUILTIN_EMBEDDING_MODELS
 
 QWEN3_EMBEDDING_SPEC = EmbeddingModelFamilyV2(
     version=2,
@@ -99,10 +93,11 @@ async def test_qwen3_embedding_sentence_transformers_smoke():
 
 
 @pytest.mark.skipif(_should_skip_gpu_ci_only(), reason="Run only on GitHub GPU CI")
-async def test_qwen3_vl_embedding_sentence_transformers_inputs():
-    model_path = None
-    registered = False
+def test_qwen3_vl_embedding_sentence_transformers_inputs(setup):
+    endpoint, _ = setup
+    client = Client(endpoint)
     model_name = "Qwen3-VL-Embedding-2B"
+    model_uid = None
 
     repo_root = os.path.abspath(
         os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "..", "..")
@@ -119,47 +114,22 @@ async def test_qwen3_vl_embedding_sentence_transformers_inputs():
         Image.new("RGB", (64, 64), color=(0, 255, 0)).save(image_path_2)
 
     try:
-        if model_name not in BUILTIN_EMBEDDING_MODELS:
-            custom_spec = CustomEmbeddingModelFamilyV2.parse_obj(
-                QWEN3_VL_EMBEDDING_SPEC.dict()
-            )
-            register_embedding(custom_spec, persist=False)
-            registered = True
-
-        model_path = CacheManager(QWEN3_VL_EMBEDDING_SPEC).cache()
-
-        model = create_embedding_model_instance(
-            "mock",
-            model_name,
-            "sentence_transformers",
-            model_path=model_path,
+        model_uid = client.launch_model(
+            model_name=model_name,
+            model_type="embedding",
+            model_engine="sentence_transformers",
+            enable_virtual_env=True,
+            virtual_env_packages=["transformers==4.57.1", "qwen-vl-utils"],
         )
-        model.load()
+        model = client.get_model(model_uid)
 
         text_only = "This is a text-only embedding input."
-        result = await model.create_embedding(text_only)
+        result = model.create_embedding(text_only)
         assert len(result["data"]) == 1
         assert len(result["data"][0]["embedding"]) == 4096
 
-        try:
-            import qwen_vl_utils
-
-            process_vision_info = getattr(qwen_vl_utils, "process_vision_info", None)
-        except Exception:
-            process_vision_info = None
-
-        if process_vision_info is None:
-            pytest.skip("qwen_vl_utils.process_vision_info is unavailable")
-
-        signature = inspect.signature(process_vision_info)
-        if "image_patch_size" not in signature.parameters:
-            pytest.skip(
-                "qwen_vl_utils is too old for Qwen3-VL embedding; "
-                "please upgrade qwen-vl-utils"
-            )
-
         single_image = {"text": "This is a single image input.", "image": image_path}
-        result = await model.create_embedding(single_image)
+        result = model.create_embedding(single_image)
         assert len(result["data"]) == 1
         assert len(result["data"][0]["embedding"]) == 4096
 
@@ -167,13 +137,14 @@ async def test_qwen3_vl_embedding_sentence_transformers_inputs():
             "text": "This input includes two images.",
             "image": [image_path, image_path_2],
         }
-        result = await model.create_embedding(multi_image)
+        result = model.create_embedding(multi_image)
         assert len(result["data"]) == 1
         assert len(result["data"][0]["embedding"]) == 4096
     finally:
         if temp_dir is not None:
             shutil.rmtree(temp_dir, ignore_errors=True)
-        if model_path is not None:
-            shutil.rmtree(model_path, ignore_errors=True)
-        if registered:
-            unregister_embedding(model_name, raise_error=False)
+        if model_uid is not None:
+            try:
+                client.terminate_model(model_uid)
+            except Exception:
+                pass
