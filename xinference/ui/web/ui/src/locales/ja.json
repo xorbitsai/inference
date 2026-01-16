@@ -230,9 +230,8 @@
     "stopControlStringForChatModels": "string型、チャットモデルの停止を制御するために使用",
     "enterJsonFormattedDictionary": "JSON形式の辞書を入力してください。",
     "autoFill": "自動入力",
-    "parameters": "パラメータ",
     "fillInModelPathFirst": "まずモデルパスを入力してください",
-    "provideModelPathForAutoFill": "ワンクリック自動入力のためにモデルパスを指定してください"
+    "fillInModelFamilyFirst": "まずモデルファミリーを選択してください"
   },
   "clusterInfo": {
     "supervisor": "スーパーバイザー",

@@ -234,9 +234,8 @@
     "stopControlStringForChatModels": "string type, used to control the stopping of chat models",
     "enterJsonFormattedDictionary": "Please enter the JSON-formatted dictionary.",
     "autoFill": "Auto Fill",
-    "parameters": "Parameters",
     "fillInModelPathFirst": "Please fill in modelPath first",
-    "provideModelPathForAutoFill": "Provide model path for one-click auto fill"
+    "fillInModelFamilyFirst": "Please select model family first"
   },
 
   "clusterInfo": {

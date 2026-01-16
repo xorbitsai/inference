@@ -230,9 +230,8 @@
     "stopControlStringForChatModels": "字符串类型，用于控制聊天模型的停止。",
     "enterJsonFormattedDictionary": "请输入 JSON 格式的字典。",
     "autoFill": "自动填充",
-    "parameters": "参数",
     "fillInModelPathFirst": "请先填写模型路径",
-    "provideModelPathForAutoFill": "提供模型路径，用于一键自动填充"
+    "fillInModelFamilyFirst": "请先选择模型系列"
   },
   "clusterInfo": {
     "supervisor": "主管",

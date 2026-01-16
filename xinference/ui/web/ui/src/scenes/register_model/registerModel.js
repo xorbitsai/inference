@@ -1,11 +1,13 @@
 import './styles/registerModelStyle.css'
 
-import { AutoFixHigh, ExpandLess, ExpandMore } from '@mui/icons-material'
-import Cancel from '@mui/icons-material/Cancel'
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
-import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight'
-import NotesIcon from '@mui/icons-material/Notes'
-import OpenInFullIcon from '@mui/icons-material/OpenInFull'
+import {
+  AutoFixHigh,
+  Cancel,
+  CheckCircle,
+  KeyboardDoubleArrowRight,
+  Notes,
+  OpenInFull,
+} from '@mui/icons-material'
 import {
   Alert,
   Autocomplete,
@@ -13,7 +15,6 @@ import {
   Button,
   Checkbox,
   Chip,
-  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
@@ -21,8 +22,6 @@ import {
   FormControl,
   FormControlLabel,
   InputLabel,
-  ListItemButton,
-  ListItemText,
   MenuItem,
   Radio,
   RadioGroup,
@@ -33,7 +32,7 @@ import {
   Tooltip,
 } from '@mui/material'
 import nunjucks from 'nunjucks'
-import React, { useContext, useEffect, useRef, useState } from 'react'
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useCookies } from 'react-cookie'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -126,8 +125,6 @@ const RegisterModelComponent = ({ modelType, customData }) => {
 
   const { registerModelType, model_name } = useParams()
   const [isShow, setIsShow] = useState(model_name ? true : false)
-  const [isCollapsed, setIsCollapsed] = useState(true)
-  const [modelPath, setModelPath] = useState('/path/to/llama-1')
   const [specsArr, setSpecsArr] = useState(
     model_name
       ? JSON.parse(sessionStorage.getItem('customJsonData')).model_specs
@@ -146,7 +143,21 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   const [isStopTokenIdsAlert, setIsStopTokenIdsAlert] = useState(false)
   const [familyOptions, setFamilyOptions] = useState([])
   const [isEditableFamily, setIsEditableFamily] = useState(true)
+  const [openAutoFillDialog, setOpenAutoFillDialog] = useState(false)
+  const [autoFillModelPath, setAutoFillModelPath] = useState('')
+  const [autoFillModelFamily, setAutoFillModelFamily] = useState('')
   const { t } = useTranslation()
+
+  const allFamilies = useMemo(() => {
+    return [
+      ...new Set(
+        Object.values(family || {}).reduce(
+          (acc, cur) => acc.concat(cur || []),
+          []
+        )
+      ),
+    ]
+  }, [family])
 
   useEffect(() => {
     if (model_name) {
@@ -771,7 +782,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   }
 
   const getSpecsArr = (arr, isSpecsArrError) => {
-    setFormData((prev) => ({ ...prev, model_specs: arr }))
+    setFormData({ ...formData, model_specs: arr })
     setIsSpecsArrError(isSpecsArrError)
   }
 
@@ -1002,17 +1013,20 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   }
 
   const autoFillForm = async () => {
-    if (!modelPath) {
-      setErrorMsg(t('registerModel.fillInModelPathFirst'))
+    if (!autoFillModelPath || !autoFillModelFamily) {
+      setErrorMsg(t(!autoFillModelPath ? 'registerModel.fillInModelPathFirst' : 'registerModel.fillInModelFamilyFirst'))
       return
     }
     try {
       const res = await fetchWrapper.post('/v1/models/llm/auto-register', {
-        model_path: modelPath,
+        model_path: autoFillModelPath,
+        model_family: autoFillModelFamily,
       })
       setFormData((prev) => ({ ...prev, ...res }))
       setContrastObj(res)
-      setSpecsArr(res.model_specs || res.specs || customData.model_specs)
+      setSpecsArr(res.model_specs)
+
+      setOpenAutoFillDialog(false)
     } catch (error) {
       console.error('Error:', error)
       if (error?.response?.status !== 403 && error?.response?.status !== 401) {
@@ -1027,21 +1041,32 @@ const RegisterModelComponent = ({ modelType, customData }) => {
         <p>{t('registerModel.showCustomJsonConfig')}</p>
         {isShow ? (
           <Tooltip title={t('registerModel.packUp')} placement="top">
-            <KeyboardDoubleArrowRightIcon
+            <KeyboardDoubleArrowRight
               className="icon arrow"
               onClick={() => setIsShow(!isShow)}
             />
           </Tooltip>
         ) : (
           <Tooltip title={t('registerModel.unfold')} placement="top">
-            <NotesIcon
-              className="icon notes"
-              onClick={() => setIsShow(!isShow)}
-            />
+            <Notes className="icon notes" onClick={() => setIsShow(!isShow)} />
           </Tooltip>
         )}
       </div>
       <div ref={scrollRef} className={isShow ? 'formBox' : 'formBox broaden'}>
+        {modelType === 'LLM' && (
+          <>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AutoFixHigh />}
+              onClick={() => setOpenAutoFillDialog(true)}
+            >
+              {t('registerModel.autoFill')}
+            </Button>
+            <Box padding="15px"></Box>
+          </>
+        )}
+
         {/* Base Information */}
         <FormControl style={{ width: '100%' }}>
           {/* name */}
@@ -1063,38 +1088,6 @@ const RegisterModelComponent = ({ modelType, customData }) => {
             </>
           )}
 
-          {modelType === 'LLM' && (<>
-            <TextField
-              label={t('registerModel.modelPath')}
-              value={modelPath}
-              size="small"
-              helperText={t('registerModel.provideModelPathForAutoFill')}
-              onChange={(event) =>
-                setModelPath(event.target.value)
-              }
-              sx={{ flex: 1 }}
-            />
-            <Box padding="15px"></Box>
-
-            <Button
-              variant="outlined"
-              startIcon={<AutoFixHigh />}
-              onClick={autoFillForm}
-            >
-              {t('registerModel.autoFill')}
-            </Button>
-            <Box padding="15px"></Box>
-          </>)}
-
-          {modelType === 'LLM' && (
-            <ListItemButton onClick={() => setIsCollapsed(!isCollapsed)}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <ListItemText primary={t('registerModel.parameters')} />
-                {!isCollapsed ? <ExpandLess /> : <ExpandMore />}
-              </div>
-            </ListItemButton>
-          )}
-          <Collapse {...(modelType === 'LLM' ? { in: !isCollapsed, unmountOnExit: false, sx: { px: 2.5, pt: 2.5 } } : { in: true, unmountOnExit: false })} timeout="auto">
           {/* description */}
           {customData.model_description && (
             <>
@@ -1102,7 +1095,6 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 label={t('registerModel.modelDescription')}
                 value={formData.model_description}
                 size="small"
-                fullWidth
                 onChange={(event) =>
                   setFormData({
                     ...formData,
@@ -1122,7 +1114,6 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 label={t('registerModel.contextLength')}
                 value={formData.context_length}
                 size="small"
-                fullWidth
                 onChange={(event) => {
                   handleNumber(event.target.value, 'context_length')
                 }}
@@ -1144,7 +1135,6 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 error={Number(formData.dimensions) > 0 ? false : true}
                 value={formData.dimensions}
                 size="small"
-                fullWidth
                 onChange={(event) => {
                   handleNumber(event.target.value, 'dimensions')
                 }}
@@ -1166,7 +1156,6 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 error={Number(formData.max_tokens) > 0 ? false : true}
                 value={formData.max_tokens}
                 size="small"
-                fullWidth
                 onChange={(event) => {
                   handleNumber(event.target.value, 'max_tokens')
                 }}
@@ -1188,7 +1177,6 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 error={formData.model_uri ? false : true}
                 value={formData.model_uri}
                 size="small"
-                fullWidth
                 helperText={t('registerModel.provideModelDirectoryPath')}
                 onChange={(event) =>
                   setFormData({ ...formData, model_uri: event.target.value })
@@ -1512,7 +1500,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                       <span style={{ fontSize: 16 }}>
                         {t('registerModel.messagesExample')}
                       </span>
-                      <OpenInFullIcon
+                      <OpenInFull
                         onClick={() => setIsOpenMessages(true)}
                         style={{
                           fontSize: 14,
@@ -1534,9 +1522,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                         {testErrorInfo ? (
                           <Cancel style={{ color: 'red' }} />
                         ) : testRes ? (
-                          <CheckCircleIcon
-                            style={{ color: 'rgb(46, 125, 50)' }}
-                          />
+                          <CheckCircle style={{ color: 'rgb(46, 125, 50)' }} />
                         ) : (
                           ''
                         )}
@@ -1665,8 +1651,14 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           {customData.model_specs && (
             <>
               <AddModelSpecs
-                isJump={(model_name ? true : false) || (specsArr && specsArr.length > 0)}
-                formData={(formData?.model_specs && formData.model_specs[0]) || customData.model_specs[0]}
+                isJump={
+                  (model_name ? true : false) ||
+                  (specsArr && specsArr.length > 0)
+                }
+                formData={
+                  (formData?.model_specs && formData.model_specs[0]) ||
+                  customData.model_specs[0]
+                }
                 specsDataArr={specsArr}
                 onGetArr={getSpecsArr}
                 scrollRef={scrollRef}
@@ -1696,7 +1688,6 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 error={formData.launcher ? false : true}
                 value={formData.launcher}
                 size="small"
-                fullWidth
                 helperText={t('registerModel.provideModelLauncher')}
                 onChange={(event) =>
                   setFormData({ ...formData, launcher: event.target.value })
@@ -1713,7 +1704,6 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 label={t('registerModel.launcherArguments')}
                 value={formData.launcher_args}
                 size="small"
-                fullWidth
                 helperText={t('registerModel.jsonArgumentsForLauncher')}
                 onChange={(event) => {
                   try {
@@ -1747,10 +1737,9 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                 onChangeVirtualenv={changeVirtualenv}
                 scrollRef={scrollRef}
               />
+              <Box padding="15px"></Box>
             </>
           )}
-          </Collapse>
-          <Box padding="15px"></Box>
         </FormControl>
 
         {model_name ? (
@@ -1824,6 +1813,58 @@ const RegisterModelComponent = ({ modelType, customData }) => {
             style={{ marginRight: 15, marginBottom: 15 }}
           >
             OK
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={openAutoFillDialog}
+        onClose={() => setOpenAutoFillDialog(false)}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">
+          {t('registerModel.autoFill')}
+        </DialogTitle>
+        <DialogContent style={{ width: 600, padding: 20 }}>
+          <TextField
+            label={t('registerModel.modelPath')}
+            value={autoFillModelPath}
+            size="small"
+            fullWidth
+            onChange={(e) => setAutoFillModelPath(e.target.value)}
+          />
+          <Box padding="15px"></Box>
+
+          <FormControl fullWidth size="small">
+            <InputLabel>{t('registerModel.modelFamily')}</InputLabel>
+            <Select
+              value={autoFillModelFamily}
+              label={t('registerModel.modelFamily')}
+              onChange={(e) => setAutoFillModelFamily(e.target.value)}
+              MenuProps={{
+                PaperProps: {
+                  style: {
+                    maxHeight: 300,
+                  },
+                },
+              }}
+            >
+              {(allFamilies || []).map((subItem) => (
+                <MenuItem key={subItem} value={subItem}>
+                  {subItem}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            variant="contained"
+            onClick={autoFillForm}
+            style={{ marginRight: 15, marginBottom: 15 }}
+          >
+            {t('registerModel.autoFill')}
           </Button>
         </DialogActions>
       </Dialog>

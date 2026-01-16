@@ -293,6 +293,7 @@ def build_llm_registration_from_local_config(
     result = {
         "context_length": context_length,
         "model_lang": model_lang,
+        "model_family": model_family,
         "model_ability": model_ability,
         "model_specs": [model_spec],
     }
