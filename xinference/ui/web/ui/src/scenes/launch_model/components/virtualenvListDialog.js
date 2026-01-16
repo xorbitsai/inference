@@ -149,7 +149,9 @@ const VirtualEnvListDialog = ({ open, onClose, onUpdate, modelData }) => {
                     style={{ maxHeight: 90 }}
                     key={
                       row.path ||
-                      `${row.model_name}-${row.model_engine || 'default'}-${row.python_version || 'unknown'}`
+                      `${row.model_name}-${row.model_engine || 'default'}-${
+                        row.python_version || 'unknown'
+                      }`
                     }
                   >
                     <TableCell component="th" scope="row">
