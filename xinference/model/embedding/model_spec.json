@@ -1409,7 +1409,14 @@
         }
       }
     ],
+    "virtualenv": {
+      "packages": [
+        "transformers==4.57.1",
+        "qwen-vl-utils==0.0.11",
+        "Pillow"
+      ]
+    },
     "featured": false,
-    "updated_at": 1768201202
+    "updated_at": 1768556273
   }
 ]
