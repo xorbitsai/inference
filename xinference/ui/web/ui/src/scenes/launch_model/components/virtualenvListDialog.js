@@ -147,7 +147,10 @@ const VirtualEnvListDialog = ({ open, onClose, onUpdate, modelData }) => {
                 {virtualenvListArr.slice(page * 5, page * 5 + 5).map((row) => (
                   <StyledTableRow
                     style={{ maxHeight: 90 }}
-                    key={row.model_name}
+                    key={
+                      row.path ||
+                      `${row.model_name}-${row.model_engine || 'default'}-${row.python_version || 'unknown'}`
+                    }
                   >
                     <TableCell component="th" scope="row">
                       <Tooltip title={row.model_name}>

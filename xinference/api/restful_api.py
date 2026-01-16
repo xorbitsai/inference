@@ -3419,12 +3419,15 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(status_code=500, detail=str(e))
 
     async def list_virtual_envs(
-        self, model_name: str = Query(None), worker_ip: str = Query(None)
+        self,
+        model_name: str = Query(None),
+        model_engine: str = Query(None),
+        worker_ip: str = Query(None),
     ) -> JSONResponse:
         """List all virtual environments or filter by model name."""
         try:
             data = await (await self._get_supervisor_ref()).list_virtual_envs(
-                model_name, worker_ip
+                model_name, model_engine, worker_ip
             )
             resp = {
                 "list": data,
@@ -3440,6 +3443,7 @@ class RESTfulAPI(CancelMixin):
     async def remove_virtual_env(
         self,
         model_name: str = Query(None),
+        model_engine: str = Query(None),
         python_version: str = Query(None),
         worker_ip: str = Query(None),
     ) -> JSONResponse:
@@ -3452,6 +3456,7 @@ class RESTfulAPI(CancelMixin):
         try:
             res = await (await self._get_supervisor_ref()).remove_virtual_env(
                 model_name=model_name,
+                model_engine=model_engine,
                 python_version=python_version,
                 worker_ip=worker_ip,
             )

@@ -27,8 +27,9 @@ class VirtualEnvManager:
     """
     Manager class for handling virtual environments.
     Extracted from worker.py to improve code organization and maintainability.
-    Supports multiple Python versions per model with v3 structure:
-    .xinference/virtualenv/v3/{model_name}/{python_version}/
+    Supports multiple Python versions per model and engine with v4 structure:
+    .xinference/virtualenv/v4/{model_name}/{model_engine}/{python_version}/
+    Legacy v3 structure is still discoverable.
     """
 
     def __init__(self, worker_address: str):
@@ -41,22 +42,63 @@ class VirtualEnvManager:
         self.worker_address = worker_address
 
     def list_virtual_envs(
-        self, model_name: Optional[str] = None
+        self, model_name: Optional[str] = None, model_engine: Optional[str] = None
     ) -> List[Dict[Any, Any]]:
         """
         List all virtual environments or filter by model name.
 
         Args:
             model_name: Optional model name to filter results
+            model_engine: Optional model engine to filter results
 
         Returns:
             List of virtual environment information dictionaries
         """
 
-        v3_env_dir = os.path.join(XINFERENCE_VIRTUAL_ENV_DIR, "v3")
-        virtual_envs = []
+        virtual_envs: List[Dict[str, Any]] = []
+        if model_engine is not None:
+            model_engine = model_engine.lower()
+        v4_env_dir = os.path.join(XINFERENCE_VIRTUAL_ENV_DIR, "v4")
 
-        if os.path.exists(v3_env_dir):
+        if os.path.exists(v4_env_dir):
+            for model_dir in os.listdir(v4_env_dir):
+                model_path = os.path.join(v4_env_dir, model_dir)
+                if not os.path.isdir(model_path):
+                    continue
+
+                # Apply filter if model_name is specified
+                if model_name and model_dir != model_name:
+                    continue
+
+                for engine_dir in os.listdir(model_path):
+                    engine_path = os.path.join(model_path, engine_dir)
+                    if not os.path.isdir(engine_path):
+                        continue
+
+                    # Apply filter if model_engine is specified
+                    if model_engine and engine_dir != model_engine:
+                        continue
+
+                    # Check for Python version directories
+                    for python_version_dir in os.listdir(engine_path):
+                        python_version_path = os.path.join(
+                            engine_path, python_version_dir
+                        )
+                        if os.path.isdir(python_version_path):
+                            # Validate Python version format (e.g., "3.10", "3.13")
+                            if self._is_valid_python_version(python_version_dir):
+                                env_info: Dict[str, Any] = {
+                                    "model_name": model_dir,
+                                    "model_engine": engine_dir,
+                                    "python_version": python_version_dir,
+                                    "path": python_version_path,
+                                    "real_path": os.path.realpath(python_version_path),
+                                }
+                                virtual_envs.append(env_info)
+
+        # Legacy v3 structure: .xinference/virtualenv/v3/{model_name}/{python_version}/
+        v3_env_dir = os.path.join(XINFERENCE_VIRTUAL_ENV_DIR, "v3")
+        if os.path.exists(v3_env_dir) and model_engine is None:
             for model_dir in os.listdir(v3_env_dir):
                 model_path = os.path.join(v3_env_dir, model_dir)
                 if not os.path.isdir(model_path):
@@ -70,27 +112,30 @@ class VirtualEnvManager:
                 for python_version_dir in os.listdir(model_path):
                     python_version_path = os.path.join(model_path, python_version_dir)
                     if os.path.isdir(python_version_path):
-                        # Validate Python version format (e.g., "3.10", "3.13")
                         if self._is_valid_python_version(python_version_dir):
-                            virtual_envs.append(
-                                {
-                                    "model_name": model_dir,
-                                    "python_version": python_version_dir,
-                                    "path": python_version_path,
-                                    "real_path": os.path.realpath(python_version_path),
-                                }
-                            )
+                            legacy_env_info: Dict[str, Any] = {
+                                "model_name": model_dir,
+                                "model_engine": None,
+                                "python_version": python_version_dir,
+                                "path": python_version_path,
+                                "real_path": os.path.realpath(python_version_path),
+                            }
+                            virtual_envs.append(legacy_env_info)
 
         return virtual_envs
 
     def remove_virtual_env(
-        self, model_name: str, python_version: Optional[str] = None
+        self,
+        model_name: str,
+        model_engine: Optional[str] = None,
+        python_version: Optional[str] = None,
     ) -> bool:
         """
         Remove a virtual environment for a specific model.
 
         Args:
             model_name: Name of the model whose virtual environment should be removed
+            model_engine: Optional model engine to remove specific engine
             python_version: Optional Python version to remove specific version,
                           if None, removes all Python versions for the model
 
@@ -101,6 +146,8 @@ class VirtualEnvManager:
             raise ValueError("model_name is required")
 
         try:
+            if model_engine is not None:
+                model_engine = model_engine.lower()
             from ..constants import XINFERENCE_VIRTUAL_ENV_DIR
         except ImportError:
             # Fallback for testing or when run as standalone
@@ -108,64 +155,147 @@ class VirtualEnvManager:
                 os.path.expanduser("~/.xinference"), "virtualenv"
             )
 
+        v4_env_dir = os.path.join(XINFERENCE_VIRTUAL_ENV_DIR, "v4")
         v3_env_dir = os.path.join(XINFERENCE_VIRTUAL_ENV_DIR, "v3")
-        model_path = os.path.join(v3_env_dir, model_name)
-
-        if not os.path.exists(model_path):
-            logger.warning(
-                f"Virtual environment path not found for model: {model_name}"
-            )
-            return True
 
         try:
-            if python_version:
-                # Remove specific Python version
-                if not self._is_valid_python_version(python_version):
-                    logger.warning(f"Invalid Python version format: {python_version}")
-                    return False
+            if python_version and not self._is_valid_python_version(python_version):
+                logger.warning(f"Invalid Python version format: {python_version}")
+                return False
 
-                version_path = os.path.join(model_path, python_version)
-                if not os.path.exists(version_path):
+            if model_engine:
+                model_path = os.path.join(v4_env_dir, model_name, model_engine)
+                if not os.path.exists(model_path):
                     logger.warning(
-                        f"Virtual environment for {model_name} Python {python_version} not found"
+                        f"Virtual environment path not found for model: {model_name}"
                     )
                     return True
 
-                if os.path.islink(version_path):
-                    os.unlink(version_path)
-                elif os.path.isdir(version_path):
-                    shutil.rmtree(version_path)
+                if python_version:
+                    version_path = os.path.join(model_path, python_version)
+                    if not os.path.exists(version_path):
+                        logger.warning(
+                            "Virtual environment for %s engine %s Python %s not found",
+                            model_name,
+                            model_engine,
+                            python_version,
+                        )
+                        return True
+
+                    if os.path.islink(version_path):
+                        os.unlink(version_path)
+                    elif os.path.isdir(version_path):
+                        shutil.rmtree(version_path)
+                    else:
+                        logger.warning(
+                            "Virtual environment path is not a directory: %s",
+                            version_path,
+                        )
+
+                    logger.info(
+                        "Successfully removed virtual environment: %s", version_path
+                    )
                 else:
-                    logger.warning(
-                        f"Virtual environment path is not a directory: {version_path}"
+                    if os.path.islink(model_path):
+                        os.unlink(model_path)
+                    elif os.path.isdir(model_path):
+                        shutil.rmtree(model_path)
+                    else:
+                        logger.warning(
+                            "Virtual environment path is not a directory: %s",
+                            model_path,
+                        )
+
+                    logger.info(
+                        "Successfully removed all virtual environments for model engine: %s",
+                        model_path,
                     )
 
-                logger.info(f"Successfully removed virtual environment: {version_path}")
-
-                # If model directory is empty, remove it too
+                # Cleanup empty model directory
+                model_root = os.path.join(v4_env_dir, model_name)
                 try:
-                    if os.path.exists(model_path) and not os.listdir(model_path):
-                        os.rmdir(model_path)
-                        logger.info(f"Removed empty model directory: {model_path}")
+                    if os.path.exists(model_root) and not os.listdir(model_root):
+                        os.rmdir(model_root)
+                        logger.info("Removed empty model directory: %s", model_root)
                 except OSError:
-                    pass  # Directory not empty or other error, ignore
+                    pass
 
                 return True
-            else:
-                # Remove all Python versions for the model
+
+            # No model_engine specified: remove across all engines (v4) and legacy v3
+            model_path_v4 = os.path.join(v4_env_dir, model_name)
+            model_path_v3 = os.path.join(v3_env_dir, model_name)
+
+            if python_version:
+                # Remove specific Python version across v4 engines
+                if os.path.exists(model_path_v4):
+                    for engine_dir in os.listdir(model_path_v4):
+                        engine_path = os.path.join(model_path_v4, engine_dir)
+                        if not os.path.isdir(engine_path):
+                            continue
+                        version_path = os.path.join(engine_path, python_version)
+                        if not os.path.exists(version_path):
+                            continue
+                        if os.path.islink(version_path):
+                            os.unlink(version_path)
+                        elif os.path.isdir(version_path):
+                            shutil.rmtree(version_path)
+                        else:
+                            logger.warning(
+                                "Virtual environment path is not a directory: %s",
+                                version_path,
+                            )
+                        try:
+                            if os.path.exists(engine_path) and not os.listdir(
+                                engine_path
+                            ):
+                                os.rmdir(engine_path)
+                        except OSError:
+                            pass
+
+                # Remove specific Python version in legacy v3
+                if os.path.exists(model_path_v3):
+                    version_path = os.path.join(model_path_v3, python_version)
+                    if os.path.exists(version_path):
+                        if os.path.islink(version_path):
+                            os.unlink(version_path)
+                        elif os.path.isdir(version_path):
+                            shutil.rmtree(version_path)
+                        else:
+                            logger.warning(
+                                "Virtual environment path is not a directory: %s",
+                                version_path,
+                            )
+
+                # Cleanup empty model directories
+                for model_path in [model_path_v4, model_path_v3]:
+                    try:
+                        if os.path.exists(model_path) and not os.listdir(model_path):
+                            os.rmdir(model_path)
+                            logger.info("Removed empty model directory: %s", model_path)
+                    except OSError:
+                        pass
+
+                return True
+
+            # Remove all Python versions for the model (v4 and v3)
+            for model_path in [model_path_v4, model_path_v3]:
+                if not os.path.exists(model_path):
+                    continue
                 if os.path.islink(model_path):
                     os.unlink(model_path)
                 elif os.path.isdir(model_path):
                     shutil.rmtree(model_path)
                 else:
                     logger.warning(
-                        f"Virtual environment path is not a directory: {model_path}"
+                        "Virtual environment path is not a directory: %s", model_path
                     )
 
-                logger.info(
-                    f"Successfully removed all virtual environments for model: {model_path}"
-                )
-                return True
+            logger.info(
+                "Successfully removed all virtual environments for model: %s",
+                model_name,
+            )
+            return True
 
         except Exception as e:
             logger.error(f"Failed to remove virtual environment: {e}")
