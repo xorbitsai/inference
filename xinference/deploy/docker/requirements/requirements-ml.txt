@@ -1,4 +1,3 @@
-uv
 transformers==4.52.4
 accelerate>=0.28.0
 sentencepiece
