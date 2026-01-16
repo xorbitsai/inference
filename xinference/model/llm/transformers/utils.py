@@ -210,6 +210,50 @@ def convert_to_cache_cls(cache) -> DynamicCache:
     return cache
 
 
+def _get_cache_layers_len(cache) -> int:
+    if hasattr(cache, "key_cache"):
+        return len(cache.key_cache)
+    if hasattr(cache, "layers"):
+        return len(cache.layers)
+    return len(cache)
+
+
+def _ensure_cache_layers(cache, num_layers: int) -> None:
+    if hasattr(cache, "layers"):
+        while len(cache.layers) < num_layers:
+            cache.layers.append(cache.layer_class_to_replicate())
+        return
+    if hasattr(cache, "key_cache"):
+        while len(cache.key_cache) < num_layers:
+            cache.key_cache.append(None)
+            cache.value_cache.append(None)
+
+
+def _get_cache_layer_kv(cache, idx: int):
+    if hasattr(cache, "key_cache"):
+        return cache.key_cache[idx], cache.value_cache[idx]
+    if hasattr(cache, "layers"):
+        layer = cache.layers[idx]
+        return layer.keys, layer.values
+    return cache[idx]
+
+
+def _set_cache_layer_kv(cache, idx: int, keys, values) -> None:
+    if hasattr(cache, "key_cache"):
+        _ensure_cache_layers(cache, idx + 1)
+        cache.key_cache[idx] = keys
+        cache.value_cache[idx] = values
+        return
+    if hasattr(cache, "layers"):
+        _ensure_cache_layers(cache, idx + 1)
+        layer = cache.layers[idx]
+        layer.keys = keys
+        layer.values = values
+        layer.is_initialized = keys is not None
+        return
+    raise TypeError("Unsupported cache type for KV cache mutation.")
+
+
 @torch.inference_mode()
 def _batch_inference_one_step_internal(
     xinf_model_obj: "PytorchModel",

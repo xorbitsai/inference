@@ -234,6 +234,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U sentence-transformers
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U FlagEmbedding
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "peft<=0.17.1"
+            ${{ env.SELF_HOST_PYTHON }} -m pip install -U uv
             ${{ env.SELF_HOST_PYTHON }} -m pip install "xllamacpp>=0.2.0" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 --extra-index-url https://pypi.org/simple
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
               --disable-warnings \
@@ -277,6 +278,9 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/embedding/tests/test_integrated_embedding.py && \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/embedding/sentence_transformers/tests/test_qwen3_sentence_transformers.py && \
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/embedding/vllm/tests/test_vllm_embedding.py && \
