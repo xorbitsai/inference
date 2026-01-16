@@ -23,3 +23,4 @@ peft<=0.17.1
 opencv-contrib-python-headless
 setproctitle
 gguf
+uv
