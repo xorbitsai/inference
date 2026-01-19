@@ -685,18 +685,23 @@ class SupervisorActor(xo.StatelessActor):
         raise ValueError(f"Model {model_name} not found")
 
     async def query_engines_by_model_name(
-        self, model_name: str, model_type: Optional[str] = None
+        self,
+        model_name: str,
+        model_type: Optional[str] = None,
+        enable_virtual_env: Optional[bool] = None,
     ):
         # search in worker first
         workers = list(self._worker_address_to_worker.values())
         for worker in workers:
             res = await worker.query_engines_by_model_name(
-                model_name, model_type=model_type
+                model_name, model_type=model_type, enable_virtual_env=enable_virtual_env
             )
             if res is not None:
                 return res
 
-        return get_engine_params_by_name(model_type, model_name)
+        return get_engine_params_by_name(
+            model_type, model_name, enable_virtual_env=enable_virtual_env
+        )
 
     @log_async(logger=logger)
     async def register_model(

@@ -19,6 +19,7 @@ import json
 import logging
 import os
 import random
+import re
 import threading
 from abc import ABC, abstractmethod
 from copy import deepcopy
@@ -46,6 +47,7 @@ from tqdm.auto import tqdm
 from ..constants import (
     XINFERENCE_CACHE_DIR,
     XINFERENCE_DOWNLOAD_MAX_ATTEMPTS,
+    XINFERENCE_ENABLE_VIRTUAL_ENV,
     XINFERENCE_ENV_MODEL_SRC,
 )
 from ..device_utils import get_available_device, is_device_available
@@ -57,6 +59,198 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 IS_NEW_HUGGINGFACE_HUB: bool = huggingface_hub.__version__ >= "0.23.0"
+_ENGINE_MARKER_RE = re.compile(
+    r"#(?:engine|model_engine)#\s*==\s*[\"']([^\"']+)[\"']",
+    re.IGNORECASE,
+)
+
+
+def _normalize_match_result(
+    result: Any, default_error: str, default_type: str
+) -> Tuple[bool, Optional[str], Optional[str], Optional[str]]:
+    if result is True:
+        return True, None, None, None
+    if result is False or result is None:
+        return False, default_error, default_type, None
+
+    if isinstance(result, tuple) and len(result) >= 2:
+        flag, reason = result[0], result[1]
+        if isinstance(flag, bool):
+            if flag:
+                return True, None, None, None
+            reason_str = str(reason) if reason is not None else default_error
+            return False, reason_str, default_type, None
+
+    if hasattr(result, "is_match"):
+        is_match = bool(getattr(result, "is_match"))
+        reason = getattr(result, "reason", None)
+        err_type = getattr(result, "error_type", default_type)
+        technical_details = getattr(result, "technical_details", None)
+        return is_match, reason, err_type, technical_details
+
+    if isinstance(result, str):
+        return False, result, default_type, None
+
+    return False, str(result), default_type, None
+
+
+def _extract_engine_markers_from_packages(packages: List[str]) -> Set[str]:
+    engines: Set[str] = set()
+    for pkg in packages:
+        for match in _ENGINE_MARKER_RE.finditer(pkg):
+            engines.add(match.group(1).lower())
+    return engines
+
+
+def _collect_virtualenv_engine_markers(family: Optional[Any]) -> Set[str]:
+    packages: List[str] = []
+    if family is None:
+        return set()
+
+    virtualenv = getattr(family, "virtualenv", None)
+    if virtualenv and getattr(virtualenv, "packages", None):
+        packages.extend(virtualenv.packages)
+
+    for spec in getattr(family, "model_specs", []) or []:
+        spec_virtualenv = getattr(spec, "virtualenv", None)
+        if spec_virtualenv and getattr(spec_virtualenv, "packages", None):
+            packages.extend(spec_virtualenv.packages)
+
+    return _extract_engine_markers_from_packages(packages)
+
+
+def _build_engine_params_from_specs(
+    family: Any, specs: List[Any]
+) -> List[Dict[str, Any]]:
+    engine_param_list: List[Dict[str, Any]] = []
+    for spec in specs:
+        quantization = getattr(spec, "quantization", None) or "none"
+        model_format = getattr(spec, "model_format", None)
+        model_size_in_billions = getattr(spec, "model_size_in_billions", None)
+        existing = next(
+            (
+                item
+                for item in engine_param_list
+                if item.get("model_name") == family.model_name
+                and item.get("model_format") == model_format
+                and item.get("model_size_in_billions") == model_size_in_billions
+            ),
+            None,
+        )
+        if existing:
+            if quantization not in existing["quantizations"]:
+                existing["quantizations"].append(quantization)
+        else:
+            new_item = {
+                "model_name": family.model_name,
+                "model_format": model_format,
+                "model_size_in_billions": model_size_in_billions,
+                "quantizations": [quantization],
+            }
+            if hasattr(spec, "multimodal_projectors"):
+                new_item["multimodal_projectors"] = getattr(
+                    spec, "multimodal_projectors"
+                )
+            engine_param_list.append(new_item)
+    return engine_param_list
+
+
+def _force_virtualenv_engine_params(
+    family: Optional[Any],
+    supported_engines: Dict[str, List[Type[Any]]],
+    engine_markers: Set[str],
+    engine_params: Dict[str, Any],
+    available_params: Dict[str, List[Dict[str, Any]]],
+) -> Dict[str, bool]:
+    match_status: Dict[str, bool] = {}
+    if family is None or not engine_markers:
+        return match_status
+    specs = getattr(family, "model_specs", []) or []
+    for engine_name, engine_classes in supported_engines.items():
+        if engine_name.lower() not in engine_markers:
+            continue
+
+        has_match = False
+        for spec in specs:
+            quantization = getattr(spec, "quantization", None) or "none"
+            for cls in engine_classes:
+                match_func = getattr(cls, "match_json", None)
+                if not callable(match_func):
+                    continue
+                try:
+                    match_res = match_func(family, spec, quantization)
+                except Exception:
+                    match_res = False
+                is_match, _, _, _ = _normalize_match_result(
+                    match_res,
+                    f"Engine {engine_name} is not compatible with current model or environment",
+                    "model_compatibility",
+                )
+                if is_match:
+                    has_match = True
+                    break
+            if has_match:
+                break
+
+        match_status[engine_name] = has_match
+        if engine_name in available_params and isinstance(
+            engine_params.get(engine_name), list
+        ):
+            continue
+        engine_param_list = _build_engine_params_from_specs(family, specs)
+        if engine_param_list:
+            engine_params[engine_name] = engine_param_list
+            available_params[engine_name] = engine_param_list
+    return match_status
+
+
+def _apply_virtualenv_engine_overrides(
+    engine_params: Dict[str, Any],
+    supported_engines: Dict[str, List[Type[Any]]],
+    engine_markers: Set[str],
+    enable_virtual_env: bool,
+    match_status: Optional[Dict[str, bool]] = None,
+):
+    if not engine_markers:
+        return
+    match_status = match_status or {}
+
+    for engine_name, params in list(engine_params.items()):
+        if not isinstance(params, list):
+            if engine_name not in supported_engines:
+                continue
+            if engine_name.lower() not in engine_markers:
+                continue
+            # string reason but marker matched: keep as-is for now
+            continue
+        if engine_name not in supported_engines:
+            continue
+        if engine_name.lower() not in engine_markers:
+            continue
+
+        lib_ok = False
+        for engine_class in supported_engines[engine_name]:
+            check_lib = getattr(engine_class, "check_lib", None)
+            result = check_lib() if callable(check_lib) else True
+            lib_ok, _, _, _ = _normalize_match_result(
+                result,
+                f"Engine {engine_name} library is not installed",
+                "dependency_missing",
+            )
+            if lib_ok:
+                break
+
+        require_virtualenv = not lib_ok or not match_status.get(engine_name, True)
+        reason = f"Engine {engine_name} is not installed in the current environment; enable virtualenv to use it."
+        if enable_virtual_env and engine_name.lower() in engine_markers:
+            if require_virtualenv:
+                for param in engine_params[engine_name]:
+                    param["virtualenv_required"] = True
+                    param["virtualenv_reason"] = reason
+            continue
+
+        if require_virtualenv:
+            engine_params[engine_name] = reason
 
 
 def check_dependency_available(
@@ -504,37 +698,14 @@ class CancellableDownloader:
 
 @no_type_check
 def get_engine_params_by_name(
-    model_type: Optional[str], model_name: str
+    model_type: Optional[str],
+    model_name: str,
+    enable_virtual_env: Optional[bool] = None,
 ) -> Optional[Dict[str, Any]]:
     engine_params: Dict[str, Any] = {}
-
-    def _normalize_match_result(
-        result: Any, default_error: str, default_type: str
-    ) -> Tuple[bool, Optional[str], Optional[str], Optional[str]]:
-        if result is True:
-            return True, None, None, None
-        if result is False or result is None:
-            return False, default_error, default_type, None
-
-        if isinstance(result, tuple) and len(result) >= 2:
-            flag, reason = result[0], result[1]
-            if isinstance(flag, bool):
-                if flag:
-                    return True, None, None, None
-                reason_str = str(reason) if reason is not None else default_error
-                return False, reason_str, default_type, None
-
-        if hasattr(result, "is_match"):
-            is_match = bool(getattr(result, "is_match"))
-            reason = getattr(result, "reason", None)
-            err_type = getattr(result, "error_type", default_type)
-            technical_details = getattr(result, "technical_details", None)
-            return is_match, reason, err_type, technical_details
-
-        if isinstance(result, str):
-            return False, result, default_type, None
-
-        return False, str(result), default_type, None
+    available_params: Dict[str, List[Dict[str, Any]]] = {}
+    if enable_virtual_env is None:
+        enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
 
     def _append_available_engine(
         engine: str, params: List[Dict[str, Any]], class_field: str
@@ -544,6 +715,7 @@ def get_engine_params_by_name(
             new_param = {k: v for k, v in param.items() if k != class_field}
             cleaned_params.append(new_param)
         engine_params[engine] = cleaned_params
+        available_params[engine] = cleaned_params
 
     def _append_unavailable_engine(
         engine: str,
@@ -801,6 +973,21 @@ def get_engine_params_by_name(
             (f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name), None
         )
         _collect_supported_engines(llm_family, SUPPORTED_ENGINES, "LLM")
+        engine_markers = _collect_virtualenv_engine_markers(llm_family)
+        match_status = _force_virtualenv_engine_params(
+            llm_family,
+            SUPPORTED_ENGINES,
+            engine_markers,
+            engine_params,
+            available_params,
+        )
+        _apply_virtualenv_engine_overrides(
+            engine_params,
+            SUPPORTED_ENGINES,
+            engine_markers,
+            enable_virtual_env,
+            match_status,
+        )
 
         return engine_params
 
@@ -825,6 +1012,21 @@ def get_engine_params_by_name(
         _collect_supported_engines(
             embedding_family, EMBEDDING_SUPPORTED_ENGINES, "embedding"
         )
+        engine_markers = _collect_virtualenv_engine_markers(embedding_family)
+        match_status = _force_virtualenv_engine_params(
+            embedding_family,
+            EMBEDDING_SUPPORTED_ENGINES,
+            engine_markers,
+            engine_params,
+            available_params,
+        )
+        _apply_virtualenv_engine_overrides(
+            engine_params,
+            EMBEDDING_SUPPORTED_ENGINES,
+            engine_markers,
+            enable_virtual_env,
+            match_status,
+        )
 
         return engine_params
 
@@ -846,6 +1048,21 @@ def get_engine_params_by_name(
         )
         rerank_family = rerank_family_list[0] if rerank_family_list else None
         _collect_supported_engines(rerank_family, RERANK_SUPPORTED_ENGINES, "rerank")
+        engine_markers = _collect_virtualenv_engine_markers(rerank_family)
+        match_status = _force_virtualenv_engine_params(
+            rerank_family,
+            RERANK_SUPPORTED_ENGINES,
+            engine_markers,
+            engine_params,
+            available_params,
+        )
+        _apply_virtualenv_engine_overrides(
+            engine_params,
+            RERANK_SUPPORTED_ENGINES,
+            engine_markers,
+            enable_virtual_env,
+            match_status,
+        )
 
         return engine_params
 

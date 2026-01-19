@@ -3178,9 +3178,16 @@ class RESTfulAPI(CancelMixin):
     ) -> JSONResponse:
         try:
             model_type = model_type or request.path_params.get("model_type", "LLM")
+            enable_virtual_env = request.query_params.get("enable_virtual_env")
+            if enable_virtual_env is not None:
+                enable_virtual_env = enable_virtual_env.lower() in ("1", "true", "yes")
             content = await (
                 await self._get_supervisor_ref()
-            ).query_engines_by_model_name(model_name, model_type=model_type)
+            ).query_engines_by_model_name(
+                model_name,
+                model_type=model_type,
+                enable_virtual_env=enable_virtual_env,
+            )
             return JSONResponse(content=content)
         except ValueError as re:
             logger.error(re, exc_info=True)

@@ -596,17 +596,42 @@ def check_engine_by_spec_parameters(
     model_format: str,
     model_size_in_billions: Union[str, int],
     quantization: str,
+    llm_family: Optional["LLMFamilyV2"] = None,
+    enable_virtual_env: Optional[bool] = None,
 ) -> Type[LLM]:
+    from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+    from ..utils import _collect_virtualenv_engine_markers
+
     def get_model_engine_from_spell(engine_str: str) -> str:
         for engine in LLM_ENGINES[model_name].keys():
             if engine.lower() == engine_str.lower():
                 return engine
         return engine_str
 
+    if enable_virtual_env is None:
+        enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
+
     if model_name not in LLM_ENGINES:
         raise ValueError(f"Model {model_name} not found.")
     model_engine = get_model_engine_from_spell(model_engine)
     if model_engine not in LLM_ENGINES[model_name]:
+        if llm_family is None:
+            llm_family = next(
+                (f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name), None
+            )
+        engine_markers = _collect_virtualenv_engine_markers(llm_family)
+        if model_engine.lower() in engine_markers:
+            if not enable_virtual_env:
+                raise ValueError(
+                    f"Engine {model_engine} requires virtualenv to be enabled."
+                )
+            for engine_name, engine_classes in SUPPORTED_ENGINES.items():
+                if engine_name.lower() == model_engine.lower() and engine_classes:
+                    logger.warning(
+                        "Bypassing engine compatibility checks for %s due to virtualenv marker.",
+                        model_engine,
+                    )
+                    return engine_classes[0]
         raise ValueError(f"Model {model_name} cannot be run on engine {model_engine}.")
     match_params = LLM_ENGINES[model_name][model_engine]
     for param in match_params:
@@ -617,6 +642,23 @@ def check_engine_by_spec_parameters(
             and quantization in param["quantizations"]
         ):
             return param["llm_class"]
+    if llm_family is None:
+        llm_family = next(
+            (f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name), None
+        )
+    engine_markers = _collect_virtualenv_engine_markers(llm_family)
+    if model_engine.lower() in engine_markers:
+        if not enable_virtual_env:
+            raise ValueError(
+                f"Engine {model_engine} requires virtualenv to be enabled."
+            )
+        for engine_name, engine_classes in SUPPORTED_ENGINES.items():
+            if engine_name.lower() == model_engine.lower() and engine_classes:
+                logger.warning(
+                    "Bypassing engine compatibility checks for %s due to virtualenv marker.",
+                    model_engine,
+                )
+                return engine_classes[0]
     raise ValueError(
         f"Model {model_name} cannot be run on engine {model_engine}, with format {model_format}, size {model_size_in_billions} and quantization {quantization}."
     )

@@ -285,12 +285,15 @@ def create_llm_model_instance(
             f"size: {model_size_in_billions}, quantization: {quantization}"
         )
 
+    enable_virtual_env = kwargs.pop("enable_virtual_env", None)
     llm_cls = check_engine_by_spec_parameters(
         model_engine,
         llm_family.model_name,
         llm_family.model_specs[0].model_format,
         llm_family.model_specs[0].model_size_in_billions,
         llm_family.model_specs[0].quantization,
+        llm_family=llm_family,
+        enable_virtual_env=enable_virtual_env,
     )
     logger.debug(f"Launching {model_uid} with {llm_cls.__name__}")
 

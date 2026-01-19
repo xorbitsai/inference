@@ -1225,9 +1225,14 @@ class WorkerActor(xo.StatelessActor):
 
     @log_async(logger=logger)
     async def query_engines_by_model_name(
-        self, model_name: str, model_type: Optional[str] = None
+        self,
+        model_name: str,
+        model_type: Optional[str] = None,
+        enable_virtual_env: Optional[bool] = None,
     ):
-        return get_engine_params_by_name(model_type, model_name)
+        return get_engine_params_by_name(
+            model_type, model_name, enable_virtual_env=enable_virtual_env
+        )
 
     async def _get_model_ability(self, model: Any, model_type: str) -> List[str]:
         from ..model.llm.core import LLM
@@ -1323,8 +1328,9 @@ class WorkerActor(xo.StatelessActor):
             conf["skip_installed"] = XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED
         variables = {}
         if model_engine:
-            variables["engine"] = model_engine
-            variables["model_engine"] = model_engine
+            engine_value = model_engine.lower()
+            variables["engine"] = engine_value
+            variables["model_engine"] = engine_value
 
         logger.info(
             "Installing packages %s in virtual env %s, with settings(%s)",
@@ -1501,6 +1507,7 @@ class WorkerActor(xo.StatelessActor):
                 if xavier_config is not None:
                     xavier_config["rank_address"] = subpool_address
                 model_kwargs = kwargs.copy()
+                model_kwargs["enable_virtual_env"] = enable_virtual_env
                 if n_worker > 1:  # type: ignore
                     # for model across workers,
                     # add a few kwargs
