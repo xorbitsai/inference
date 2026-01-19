@@ -1014,7 +1014,13 @@ const RegisterModelComponent = ({ modelType, customData }) => {
 
   const autoFillForm = async () => {
     if (!autoFillModelPath || !autoFillModelFamily) {
-      setErrorMsg(t(!autoFillModelPath ? 'registerModel.fillInModelPathFirst' : 'registerModel.fillInModelFamilyFirst'))
+      setErrorMsg(
+        t(
+          !autoFillModelPath
+            ? 'registerModel.fillInModelPathFirst'
+            : 'registerModel.fillInModelFamilyFirst'
+        )
+      )
       return
     }
     try {
