@@ -108,7 +108,7 @@ const AddModelSpecs = ({
       setCount(count + 1)
       setPathArr([formData.model_uri])
     }
-  }, [])
+  }, [specsDataArr])
 
   useEffect(() => {
     const arr = specsArr.map((item) => {
