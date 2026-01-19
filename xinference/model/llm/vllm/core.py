@@ -180,98 +180,108 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "GlmForCausalLM",
     "ChatGLMModel",
 ]
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.0"):
-    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "Qwen2ForCausalLM")
-    _append_unique(VLLM_SUPPORTED_MODELS, "Qwen2ForCausalLM")
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.2"):
-    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "GemmaForCausalLM")
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.3"):
-    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "OrionForCausalLM")
+def _update_vllm_supported_lists() -> None:
+    if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.0"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "Qwen2ForCausalLM")
+        _append_unique(VLLM_SUPPORTED_MODELS, "Qwen2ForCausalLM")
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.4.0"):
-    _append_unique(
-        VLLM_SUPPORTED_CHAT_MODELS, "Qwen2MoeForCausalLM", "CohereForCausalLM"
-    )
+    if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.2"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "GemmaForCausalLM")
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.5.1"):
-    _append_unique(
-        VLLM_SUPPORTED_CHAT_MODELS,
-        "DeepseekV2ForCausalLM",
-        "DeepseekV3ForCausalLM",
-        "Qwen3ForCausalLM",
-    )
+    if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.3"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "OrionForCausalLM")
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.1"):
-    _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "InternVLChatModel")
+    if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.4.0"):
+        _append_unique(
+            VLLM_SUPPORTED_CHAT_MODELS, "Qwen2MoeForCausalLM", "CohereForCausalLM"
+        )
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.2"):
-    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "MiniCPM3ForCausalLM")
+    if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.5.1"):
+        _append_unique(
+            VLLM_SUPPORTED_CHAT_MODELS,
+            "DeepseekV2ForCausalLM",
+            "DeepseekV3ForCausalLM",
+            "Qwen3ForCausalLM",
+        )
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.3"):
-    _append_unique(VLLM_SUPPORTED_MODELS, "MllamaForConditionalGeneration")
-    _append_unique(
-        VLLM_SUPPORTED_MULTI_MODEL_LIST,
-        "MllamaForConditionalGeneration",
-        "Qwen2VLForConditionalGeneration",
-        "Qwen2AudioForConditionalGeneration",
-    )
+    if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.1"):
+        _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "InternVLChatModel")
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.0"):
-    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "InternLM3ForCausalLM")
+    if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.2"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "MiniCPM3ForCausalLM")
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.2"):
-    _append_unique(
-        VLLM_SUPPORTED_MULTI_MODEL_LIST,
-        "Qwen2_5_VLForConditionalGeneration",
-        "Qwen2AudioForConditionalGeneration",
-    )
+    if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.3"):
+        _append_unique(VLLM_SUPPORTED_MODELS, "MllamaForConditionalGeneration")
+        _append_unique(
+            VLLM_SUPPORTED_MULTI_MODEL_LIST,
+            "MllamaForConditionalGeneration",
+            "Qwen2VLForConditionalGeneration",
+            "Qwen2AudioForConditionalGeneration",
+        )
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.3"):
-    _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "Qwen2_5OmniModel")
+    if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.0"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "InternLM3ForCausalLM")
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.0"):
-    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "Gemma3ForCausalLM")
-    _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "Gemma3ForConditionalGeneration")
+    if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.2"):
+        _append_unique(
+            VLLM_SUPPORTED_MULTI_MODEL_LIST,
+            "Qwen2_5_VLForConditionalGeneration",
+            "Qwen2AudioForConditionalGeneration",
+        )
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.4"):
-    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "Glm4ForCausalLM")
+    if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.3"):
+        _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "Qwen2_5OmniModel")
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.1"):
-    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "MiniCPMForCausalLM")
+    if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.0"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "Gemma3ForCausalLM")
+        _append_unique(
+            VLLM_SUPPORTED_MULTI_MODEL_LIST, "Gemma3ForConditionalGeneration"
+        )
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.2"):
-    _append_unique(
-        VLLM_SUPPORTED_CHAT_MODELS,
-        "Ernie4_5ForCausalLM",
-        "Qwen3MoeForCausalLM",
-    )
-    _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "Glm4vForConditionalGeneration")
+    if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.4"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "Glm4ForCausalLM")
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.10.0"):
-    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "Glm4MoeForCausalLM")
-    _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "Glm4vMoeForConditionalGeneration")
+    if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.1"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "MiniCPMForCausalLM")
 
-if VLLM_INSTALLED and VLLM_VERSION > version.parse("0.10.0"):
-    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "GptOssForCausalLM")
+    if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.2"):
+        _append_unique(
+            VLLM_SUPPORTED_CHAT_MODELS,
+            "Ernie4_5ForCausalLM",
+            "Qwen3MoeForCausalLM",
+        )
+        _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "Glm4vForConditionalGeneration")
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.10.2"):
-    _append_unique(
-        VLLM_SUPPORTED_CHAT_MODELS, "SeedOssForCausalLM", "Qwen3NextForCausalLM"
-    )
-    _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "MiniCPMV")
+    if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.10.0"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "Glm4MoeForCausalLM")
+        _append_unique(
+            VLLM_SUPPORTED_MULTI_MODEL_LIST, "Glm4vMoeForConditionalGeneration"
+        )
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.11.0"):
-    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "DeepseekV32ForCausalLM")
-    _append_unique(
-        VLLM_SUPPORTED_MULTI_MODEL_LIST,
-        "Qwen3VLMoeForConditionalGeneration",
-        "Qwen3OmniMoeForConditionalGeneration",
-    )
+    if VLLM_INSTALLED and VLLM_VERSION > version.parse("0.10.0"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "GptOssForCausalLM")
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.11.2"):
-    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "MiniMaxM2ForCausalLM")
+    if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.10.2"):
+        _append_unique(
+            VLLM_SUPPORTED_CHAT_MODELS, "SeedOssForCausalLM", "Qwen3NextForCausalLM"
+        )
+        _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "MiniCPMV")
+
+    if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.11.0"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "DeepseekV32ForCausalLM")
+        _append_unique(
+            VLLM_SUPPORTED_MULTI_MODEL_LIST,
+            "Qwen3VLMoeForConditionalGeneration",
+            "Qwen3OmniMoeForConditionalGeneration",
+        )
+
+    if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.11.2"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "MiniMaxM2ForCausalLM")
+
+
+_update_vllm_supported_lists()
 
 
 class VLLMModel(LLM):
@@ -285,21 +295,11 @@ class VLLMModel(LLM):
         model_config: Optional[VLLMModelConfig],
         peft_model: Optional[List[LoRA]] = None,
     ):
-        try:
-            from vllm.lora.request import LoRARequest
-        except ImportError:
-            error_message = "Failed to import module 'vllm'"
-            installation_guide = [
-                "Please make sure 'vllm' is installed. ",
-                "You can install it by `pip install vllm`\n",
-            ]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
         super().__init__(model_uid, model_family, model_path)
         self._model_config = model_config
         self._engine = None
         self.lora_modules = peft_model
-        self.lora_requests: List[LoRARequest] = []
+        self.lora_requests: List[Any] = []
         self._xavier_config = None
         self._context_length: Optional[int] = None
         # distributed inference
@@ -366,6 +366,7 @@ class VLLMModel(LLM):
 
     def load(self):
         try:
+            import vllm
             from vllm.engine.arg_utils import AsyncEngineArgs
             from vllm.engine.async_llm_engine import AsyncLLMEngine
             from vllm.lora.request import LoRARequest
@@ -385,6 +386,15 @@ class VLLMModel(LLM):
             ]
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+        if not getattr(vllm, "__version__", None):
+            raise ImportError(
+                "vllm not installed properly, or wrongly be found in sys.path"
+            )
+        global VLLM_INSTALLED, VLLM_VERSION
+        VLLM_INSTALLED = True
+        VLLM_VERSION = version.parse(vllm.__version__)
+        _update_vllm_supported_lists()
 
         from ..llm_family import LlamaCppLLMSpecV2
 
