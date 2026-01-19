@@ -312,7 +312,7 @@ class VLLMPaddleOCRVLModel(PaddleOCRVLModel):
 class VLLMMinerUModel(MinerUModel):
     """vLLM-based MinerU model for faster inference."""
 
-    required_libs = "vllm"
+    required_libs = ("vllm",)
 
     def load(self):
         try:
