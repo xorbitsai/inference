@@ -350,11 +350,22 @@ const LaunchModelDrawer = ({
 
   const fetchModelEngine = (model_name, model_type) => {
     setHasFetchedEngines(false)
+    const enableVirtualEnv =
+      formData?.enable_virtual_env === true ||
+      formData?.enable_virtual_env === 'true'
+        ? 'true'
+        : formData?.enable_virtual_env === false ||
+            formData?.enable_virtual_env === 'false'
+          ? 'false'
+          : null
+    const enableVirtualEnvQuery = enableVirtualEnv
+      ? `?enable_virtual_env=${enableVirtualEnv}`
+      : ''
     fetchWrapper
       .get(
         model_type === 'LLM'
-          ? `/v1/engines/${model_name}`
-          : `/v1/engines/${model_type}/${model_name}`
+          ? `/v1/engines/${model_name}${enableVirtualEnvQuery}`
+          : `/v1/engines/${model_type}/${model_name}${enableVirtualEnvQuery}`
       )
       .then((data) => {
         if (!data) {
