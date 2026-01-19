@@ -34,7 +34,7 @@ class MinerUModel(OCRModel):
     strategy: global layout analysis followed by fine-grained content recognition.
     """
 
-    required_libs = "transformers"
+    required_libs = ("transformers",)
 
     @classmethod
     def match(cls, model_family: "ImageModelFamilyV2") -> bool:
@@ -251,7 +251,7 @@ class MinerUModel(OCRModel):
                         level = block.get("level", 1)
                         result_parts.append(f"{'#' * level} {content}")
                     elif block_type == "table":
-                        result_parts.append(content)
+                        result_parts.append(str(content))
                     elif block_type == "formula":
                         result_parts.append(f"$${content}$$")
                     elif block_type == "image":
