@@ -187,14 +187,20 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
 
     def _set_context_length(self):
         """Set context length"""
+        from packaging import version
+        from vllm import __version__ as vllm_version
         from vllm import envs
 
-        use_v1 = False
-        if hasattr(envs, "VLLM_USE_V1"):
-            try:
-                use_v1 = envs.is_set("VLLM_USE_V1") and envs.VLLM_USE_V1
-            except AttributeError:
-                use_v1 = False
+        # For vLLM >= 0.11.1, v1 is default; older versions rely on env var.
+        if version.parse(vllm_version) > version.parse("0.11.0"):
+            use_v1 = True
+        else:
+            use_v1 = False
+            if hasattr(envs, "VLLM_USE_V1"):
+                try:
+                    use_v1 = envs.is_set("VLLM_USE_V1") and envs.VLLM_USE_V1
+                except AttributeError:
+                    use_v1 = False
 
         if not use_v1:
             # v0
