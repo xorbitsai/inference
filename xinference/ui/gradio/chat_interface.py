@@ -417,43 +417,6 @@ class GradioInterface:
                 audio,
             )
             
-            # Handle PDF file - send directly to MinerU VLM (no conversion needed)
-            if pdf_file:
-                try:
-                    # Read PDF file as bytes and encode to base64
-                    with open(pdf_file, 'rb') as f:
-                        pdf_bytes = f.read()
-                    pdf_b64_str = base64.b64encode(pdf_bytes).decode()
-                    
-                    # Get filename for display
-                    import os
-                    pdf_filename = os.path.basename(pdf_file)
-                    
-                    display_content = f'📄 <b>{pdf_filename}</b><br/>{text}'
-                    message = {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": text},
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:application/pdf;base64,{pdf_b64_str}",
-                                }
-                            },
-                        ],
-                    }
-                    
-                    history = history + [message]
-                    bot = bot + [[display_content, None]]
-                    return history, bot, "", None, None, None, None
-                except Exception as e:
-                    logger.error(f"Error processing PDF: {e}")
-                    display_content = f"[Error processing PDF: {e}]\\n{text}"
-                    message = {"role": "user", "content": text}
-                    history = history + [message]
-                    bot = bot + [[display_content, None]]
-                    return history, bot, "", None, None, None, None
-            
             if image:
                 buffered = BytesIO()
                 with PIL.Image.open(image) as img:
@@ -596,15 +559,9 @@ class GradioInterface:
                     if has_vision:
                         imagebox = gr.Image(type="filepath")
                         videobox = gr.Video()
-                        pdfbox = gr.File(
-                            label="PDF Document",
-                            file_types=[".pdf"],
-                            type="filepath",
-                        )
                     else:
                         imagebox = gr.Image(type="filepath", visible=False)
                         videobox = gr.Video(visible=False)
-                        pdfbox = gr.File(visible=False)
 
                     if has_audio:
                         audiobox = gr.Audio(
@@ -646,8 +603,8 @@ class GradioInterface:
 
             textbox.submit(
                 add_text,
-                [state, chatbot, textbox, imagebox, videobox, audiobox, pdfbox],
-                [state, chatbot, textbox, imagebox, videobox, audiobox, pdfbox],
+                [state, chatbot, textbox, imagebox, videobox, audiobox],
+                [state, chatbot, textbox, imagebox, videobox, audiobox],
                 queue=False,
             ).then(
                 predict,
@@ -657,8 +614,8 @@ class GradioInterface:
 
             submit_btn.click(
                 add_text,
-                [state, chatbot, textbox, imagebox, videobox, audiobox, pdfbox],
-                [state, chatbot, textbox, imagebox, videobox, audiobox, pdfbox],
+                [state, chatbot, textbox, imagebox, videobox, audiobox],
+                [state, chatbot, textbox, imagebox, videobox, audiobox],
                 queue=False,
             ).then(
                 predict,
@@ -669,7 +626,7 @@ class GradioInterface:
             clear_btn.click(
                 clear_history,
                 None,
-                [state, chatbot, textbox, imagebox, videobox, audiobox, pdfbox],
+                [state, chatbot, textbox, imagebox, videobox, audiobox],
                 queue=False,
             )
 
