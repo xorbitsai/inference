@@ -137,4 +137,5 @@ class VirtualEnvSettings(BaseModel):
     extra_index_url: Optional[Union[str, List[str]]] = None
     find_links: Optional[Union[str, List[str]]] = None
     trusted_host: Optional[Union[str, List[str]]] = None
+    index_strategy: Optional[str] = None
     no_build_isolation: Optional[bool] = None
