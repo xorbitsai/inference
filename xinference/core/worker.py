@@ -74,6 +74,10 @@ from .utils import (
     purge_dir,
 )
 from .virtual_env_manager import VirtualEnvManager as XinferenceVirtualEnvManager
+from .virtual_env_manager import (
+    expand_engine_dependency_placeholders,
+    get_engine_virtualenv_packages,
+)
 
 try:
     from xoscar.virtualenv import VirtualEnvManager
@@ -1305,12 +1309,17 @@ class WorkerActor(xo.StatelessActor):
         virtual_env_packages: Optional[List[str]],
         model_engine: Optional[str],
     ):
-        if (not settings or not settings.packages) and not virtual_env_packages:
+        engine_defaults = get_engine_virtualenv_packages(model_engine)
+        if (
+            (not settings or not settings.packages)
+            and not virtual_env_packages
+            and not engine_defaults
+        ):
             # no settings or no packages
             return
 
         if settings is None:
-            settings = VirtualEnvSettings(packages=virtual_env_packages)
+            settings = VirtualEnvSettings(packages=virtual_env_packages or [])
 
         if settings.inherit_pip_config:
             # inherit pip config
@@ -1319,9 +1328,23 @@ class WorkerActor(xo.StatelessActor):
                 if hasattr(settings, k) and not getattr(settings, k):
                     setattr(settings, k, v)
 
+        try:
+            from xoscar.virtualenv.platform import get_cuda_version
+
+            cuda_version = get_cuda_version()
+        except Exception:
+            cuda_version = None
+
+        if cuda_version != "13.0":
+            settings.extra_index_url = None
+            settings.index_strategy = None
+
         conf = dict(settings)
-        base_packages = settings.packages.copy() if settings.packages else []
+        base_packages = engine_defaults
+        if settings.packages:
+            base_packages = base_packages + settings.packages.copy()
         packages = merge_virtual_env_packages(base_packages, virtual_env_packages)
+        packages = expand_engine_dependency_placeholders(packages, model_engine)
         conf.pop("packages", None)
         conf.pop("inherit_pip_config", None)
         if XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED:

@@ -22,6 +22,48 @@ from ..constants import XINFERENCE_VIRTUAL_ENV_DIR
 
 logger = logging.getLogger(__name__)
 
+ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
+    "sglang": [
+        "pybase64",
+        "zmq",
+        "partial_json_parser",
+        "sentencepiece",
+        "dill",
+        "ninja",
+        "sglang>=0.5.6",
+    ],
+    "vllm": [
+        "vllm==0.13.0",
+    ],
+    "llama.cpp": [
+        "xllamacpp>=0.2.6",
+    ],
+}
+
+
+def get_engine_virtualenv_packages(model_engine: Optional[str]) -> List[str]:
+    if not model_engine:
+        return []
+    return ENGINE_VIRTUALENV_PACKAGES.get(model_engine.lower(), []).copy()
+
+
+def expand_engine_dependency_placeholders(
+    packages: List[str], model_engine: Optional[str]
+) -> List[str]:
+    if not packages:
+        return []
+    engine_name = model_engine.lower() if model_engine else None
+    expanded: List[str] = []
+    for pkg in packages:
+        name = pkg.split(";", 1)[0].strip().lower()
+        if name.endswith("_dependencies") and engine_name:
+            target_engine = name[: -len("_dependencies")]
+            if target_engine == engine_name:
+                expanded.extend(get_engine_virtualenv_packages(engine_name))
+            continue
+        expanded.append(pkg)
+    return expanded
+
 
 class VirtualEnvManager:
     """

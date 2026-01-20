@@ -171,6 +171,7 @@ def _force_virtualenv_engine_params(
             continue
 
         has_match = False
+        matched_specs: List[Any] = []
         for spec in specs:
             quantization = getattr(spec, "quantization", None) or "none"
             for cls in engine_classes:
@@ -188,16 +189,20 @@ def _force_virtualenv_engine_params(
                 )
                 if is_match:
                     has_match = True
+                    matched_specs.append(spec)
                     break
             if has_match:
-                break
+                continue
 
         match_status[engine_name] = has_match
         if engine_name in available_params and isinstance(
             engine_params.get(engine_name), list
         ):
             continue
-        engine_param_list = _build_engine_params_from_specs(family, specs)
+        if engine_name.lower() == "llama.cpp":
+            engine_param_list = _build_engine_params_from_specs(family, matched_specs)
+        else:
+            engine_param_list = _build_engine_params_from_specs(family, specs)
         if engine_param_list:
             engine_params[engine_name] = engine_param_list
             available_params[engine_name] = engine_param_list
