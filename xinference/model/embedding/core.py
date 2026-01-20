@@ -427,6 +427,7 @@ def create_embedding_model_instance(
 ) -> EmbeddingModel:
     from .cache_manager import EmbeddingCacheManager
 
+    enable_virtual_env = kwargs.pop("enable_virtual_env", None)
     model_family = match_embedding(model_name, model_format, quantization, download_hub)
     if model_path is None:
         cache_manager = EmbeddingCacheManager(model_family)
@@ -440,7 +441,12 @@ def create_embedding_model_instance(
     from .embed_family import check_engine_by_model_name_and_engine
 
     embedding_cls = check_engine_by_model_name_and_engine(
-        model_engine, model_name, model_format, quantization
+        model_engine,
+        model_name,
+        model_format,
+        quantization,
+        model_family=model_family,
+        enable_virtual_env=enable_virtual_env,
     )
     model = embedding_cls(
         model_uid,
