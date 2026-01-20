@@ -35,6 +35,9 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
     "vllm": [
         "vllm==0.13.0",
     ],
+    "mlx": [
+        "mlx-lm>=0.24.0",
+    ],
     "llama.cpp": [
         "xllamacpp>=0.2.6",
     ],
