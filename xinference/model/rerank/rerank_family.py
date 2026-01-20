@@ -15,6 +15,8 @@
 import logging
 from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Type, Union
 
+from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+
 if TYPE_CHECKING:
     from .core import RerankModel, RerankModelFamilyV2, RerankSpecV1
 
@@ -119,6 +121,8 @@ def check_engine_by_model_name_and_engine(
     model_name: str,
     model_format: Optional[str],
     quantization: Optional[str],
+    model_family: Optional["RerankModelFamilyV2"] = None,
+    enable_virtual_env: Optional[bool] = None,
 ) -> Type["RerankModel"]:
     def get_model_engine_from_spell(engine_str: str) -> str:
         for engine in RERANK_ENGINES[model_name].keys():
@@ -126,10 +130,67 @@ def check_engine_by_model_name_and_engine(
                 return engine
         return engine_str
 
+    if enable_virtual_env is None:
+        enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
+
     if model_name not in RERANK_ENGINES:
+        if enable_virtual_env and model_family is not None:
+            from ..utils import (
+                _collect_virtualenv_engine_markers,
+                _normalize_match_result,
+            )
+
+            engine_key = get_model_engine_from_spell(model_engine)
+            engine_markers = _collect_virtualenv_engine_markers(model_family)
+            if engine_key.lower() in engine_markers:
+                engine_classes = SUPPORTED_ENGINES.get(engine_key, [])
+                for spec in model_family.model_specs:
+                    spec_quant = getattr(spec, "quantization", None) or "none"
+                    for cls in engine_classes:
+                        match_func = getattr(cls, "match_json", None)
+                        if not callable(match_func):
+                            continue
+                        try:
+                            match_res = match_func(model_family, spec, spec_quant)
+                        except Exception:
+                            match_res = False
+                        is_match, _, _, _ = _normalize_match_result(
+                            match_res,
+                            f"Model {model_name} cannot be run on engine {engine_key}.",
+                            "model_compatibility",
+                        )
+                        if is_match:
+                            return cls
         raise ValueError(f"Model {model_name} not found.")
     model_engine = get_model_engine_from_spell(model_engine)
     if model_engine not in RERANK_ENGINES[model_name]:
+        if enable_virtual_env and model_family is not None:
+            from ..utils import (
+                _collect_virtualenv_engine_markers,
+                _normalize_match_result,
+            )
+
+            engine_key = get_model_engine_from_spell(model_engine)
+            engine_markers = _collect_virtualenv_engine_markers(model_family)
+            if engine_key.lower() in engine_markers:
+                engine_classes = SUPPORTED_ENGINES.get(engine_key, [])
+                for spec in model_family.model_specs:
+                    spec_quant = getattr(spec, "quantization", None) or "none"
+                    for cls in engine_classes:
+                        match_func = getattr(cls, "match_json", None)
+                        if not callable(match_func):
+                            continue
+                        try:
+                            match_res = match_func(model_family, spec, spec_quant)
+                        except Exception:
+                            match_res = False
+                        is_match, _, _, _ = _normalize_match_result(
+                            match_res,
+                            f"Model {model_name} cannot be run on engine {engine_key}.",
+                            "model_compatibility",
+                        )
+                        if is_match:
+                            return cls
         raise ValueError(f"Model {model_name} cannot be run on engine {model_engine}.")
     match_params = RERANK_ENGINES[model_name][model_engine]
     for param in match_params:

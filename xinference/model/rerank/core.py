@@ -223,6 +223,7 @@ def create_rerank_model_instance(
 ) -> RerankModel:
     from .cache_manager import RerankCacheManager
 
+    enable_virtual_env = kwargs.pop("enable_virtual_env", None)
     model_family = match_rerank(model_name, model_format, quantization, download_hub)
     if model_path is None:
         cache_manager = RerankCacheManager(model_family)
@@ -234,7 +235,12 @@ def create_rerank_model_instance(
         model_engine = "sentence_transformers"
 
     rerank_cls = check_engine_by_model_name_and_engine(
-        model_engine, model_name, model_format, quantization
+        model_engine,
+        model_name,
+        model_format,
+        quantization,
+        model_family=model_family,
+        enable_virtual_env=enable_virtual_env,
     )
     model = rerank_cls(
         model_uid,
