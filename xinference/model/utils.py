@@ -155,16 +155,52 @@ def _build_engine_params_from_specs(
     return engine_param_list
 
 
+def _build_engine_params_from_specs_by_quantization(
+    family: Any, specs: List[Any]
+) -> List[Dict[str, Any]]:
+    engine_param_list: List[Dict[str, Any]] = []
+    for spec in specs:
+        quantization = getattr(spec, "quantization", None) or "none"
+        model_format = getattr(spec, "model_format", None)
+        model_size_in_billions = getattr(spec, "model_size_in_billions", None)
+        existing = next(
+            (
+                item
+                for item in engine_param_list
+                if item.get("model_name") == family.model_name
+                and item.get("model_format") == model_format
+                and item.get("model_size_in_billions") == model_size_in_billions
+                and item.get("quantization") == quantization
+            ),
+            None,
+        )
+        if existing:
+            continue
+
+        new_item = {
+            "model_name": family.model_name,
+            "model_format": model_format,
+            "model_size_in_billions": model_size_in_billions,
+            "quantization": quantization,
+        }
+        if hasattr(spec, "multimodal_projectors"):
+            new_item["multimodal_projectors"] = getattr(spec, "multimodal_projectors")
+        engine_param_list.append(new_item)
+    return engine_param_list
+
+
 def _force_virtualenv_engine_params(
     family: Optional[Any],
     supported_engines: Dict[str, List[Type[Any]]],
     engine_markers: Set[str],
     engine_params: Dict[str, Any],
     available_params: Dict[str, List[Dict[str, Any]]],
+    param_builder: Optional[Callable[[Any, List[Any]], List[Dict[str, Any]]]] = None,
 ) -> Dict[str, bool]:
     match_status: Dict[str, bool] = {}
     if family is None or not engine_markers:
         return match_status
+    param_builder = param_builder or _build_engine_params_from_specs
     specs = getattr(family, "model_specs", []) or []
     for engine_name, engine_classes in supported_engines.items():
         if engine_name.lower() not in engine_markers:
@@ -199,10 +235,8 @@ def _force_virtualenv_engine_params(
             engine_params.get(engine_name), list
         ):
             continue
-        if engine_name.lower() == "llama.cpp":
-            engine_param_list = _build_engine_params_from_specs(family, matched_specs)
-        else:
-            engine_param_list = _build_engine_params_from_specs(family, specs)
+        selected_specs = matched_specs or specs
+        engine_param_list = param_builder(family, selected_specs)
         if engine_param_list:
             engine_params[engine_name] = engine_param_list
             available_params[engine_name] = engine_param_list
@@ -1024,6 +1058,7 @@ def get_engine_params_by_name(
             engine_markers,
             engine_params,
             available_params,
+            param_builder=_build_engine_params_from_specs_by_quantization,
         )
         _apply_virtualenv_engine_overrides(
             engine_params,
@@ -1060,6 +1095,7 @@ def get_engine_params_by_name(
             engine_markers,
             engine_params,
             available_params,
+            param_builder=_build_engine_params_from_specs_by_quantization,
         )
         _apply_virtualenv_engine_overrides(
             engine_params,
