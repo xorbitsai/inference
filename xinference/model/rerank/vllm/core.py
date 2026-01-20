@@ -32,7 +32,9 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         try:
             if is_vacc_available():
                 import vllm_vacc  # noqa: F401
+            from packaging.version import Version
             from vllm import LLM
+            from vllm import __version__ as vllm_version
 
         except ImportError:
             error_message = "Failed to import module 'vllm'"
@@ -63,7 +65,10 @@ class VLLMRerankModel(RerankModel, BatchMixin):
                     classifier_from_token=["no", "yes"],
                     is_original_qwen3_reranker=True,
                 )
-        self._model = LLM(model=self._model_path, task="score", **self._kwargs)
+        if Version(vllm_version) >= Version("0.13.0"):
+            self._model = LLM(model=self._model_path, **self._kwargs)
+        else:
+            self._model = LLM(model=self._model_path, task="score", **self._kwargs)
         self._tokenizer = self._model.get_tokenizer()
 
     def _rerank(
