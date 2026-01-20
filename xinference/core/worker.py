@@ -1328,6 +1328,12 @@ class WorkerActor(xo.StatelessActor):
                 if hasattr(settings, k) and not getattr(settings, k):
                     setattr(settings, k, v)
 
+        base_packages = engine_defaults
+        if settings.packages:
+            base_packages = base_packages + settings.packages.copy()
+        packages = merge_virtual_env_packages(base_packages, virtual_env_packages)
+        packages = expand_engine_dependency_placeholders(packages, model_engine)
+
         try:
             from xoscar.virtualenv.platform import get_cuda_version
 
@@ -1339,12 +1345,18 @@ class WorkerActor(xo.StatelessActor):
             settings.extra_index_url = None
             settings.index_strategy = None
 
+        system_markers = {
+            "#system_torch#",
+            "#system_torchaudio#",
+            "#system_torchvision#",
+            "#system_torchcodec#",
+            "#system_numpy#",
+        }
+        packages = [
+            pkg for pkg in packages if pkg.strip().lower() not in system_markers
+        ]
+
         conf = dict(settings)
-        base_packages = engine_defaults
-        if settings.packages:
-            base_packages = base_packages + settings.packages.copy()
-        packages = merge_virtual_env_packages(base_packages, virtual_env_packages)
-        packages = expand_engine_dependency_placeholders(packages, model_engine)
         conf.pop("packages", None)
         conf.pop("inherit_pip_config", None)
         if XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED:
