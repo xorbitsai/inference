@@ -230,7 +230,10 @@
     "testFailurePreventsChatWorking": "テストに合格しないと、チャットが正常に動作しない可能性があることに注意してください。",
     "stopControlForChatModels": "int型、チャットモデルの停止を制御するために使用",
     "stopControlStringForChatModels": "string型、チャットモデルの停止を制御するために使用",
-    "enterJsonFormattedDictionary": "JSON形式の辞書を入力してください。"
+    "enterJsonFormattedDictionary": "JSON形式の辞書を入力してください。",
+    "autoFill": "自動入力",
+    "fillInModelPathFirst": "まずモデルパスを入力してください",
+    "fillInModelFamilyFirst": "まずモデルファミリーを選択してください"
   },
   "clusterInfo": {
     "supervisor": "スーパーバイザー",

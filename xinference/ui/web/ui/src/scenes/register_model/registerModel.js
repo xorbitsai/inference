@@ -1,10 +1,13 @@
 import './styles/registerModelStyle.css'
 
-import Cancel from '@mui/icons-material/Cancel'
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
-import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight'
-import NotesIcon from '@mui/icons-material/Notes'
-import OpenInFullIcon from '@mui/icons-material/OpenInFull'
+import {
+  AutoFixHigh,
+  Cancel,
+  CheckCircle,
+  KeyboardDoubleArrowRight,
+  Notes,
+  OpenInFull,
+} from '@mui/icons-material'
 import {
   Alert,
   Autocomplete,
@@ -29,7 +32,7 @@ import {
   Tooltip,
 } from '@mui/material'
 import nunjucks from 'nunjucks'
-import React, { useContext, useEffect, useRef, useState } from 'react'
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useCookies } from 'react-cookie'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -140,7 +143,21 @@ const RegisterModelComponent = ({ modelType, customData }) => {
   const [isStopTokenIdsAlert, setIsStopTokenIdsAlert] = useState(false)
   const [familyOptions, setFamilyOptions] = useState([])
   const [isEditableFamily, setIsEditableFamily] = useState(true)
+  const [openAutoFillDialog, setOpenAutoFillDialog] = useState(false)
+  const [autoFillModelPath, setAutoFillModelPath] = useState('')
+  const [autoFillModelFamily, setAutoFillModelFamily] = useState('')
   const { t } = useTranslation()
+
+  const allFamilies = useMemo(() => {
+    return [
+      ...new Set(
+        Object.values(family || {}).reduce(
+          (acc, cur) => acc.concat(cur || []),
+          []
+        )
+      ),
+    ]
+  }, [family])
 
   useEffect(() => {
     if (model_name) {
@@ -995,27 +1012,67 @@ const RegisterModelComponent = ({ modelType, customData }) => {
     }
   }
 
+  const autoFillForm = async () => {
+    if (!autoFillModelPath || !autoFillModelFamily) {
+      setErrorMsg(
+        t(
+          !autoFillModelPath
+            ? 'registerModel.fillInModelPathFirst'
+            : 'registerModel.fillInModelFamilyFirst'
+        )
+      )
+      return
+    }
+    try {
+      const res = await fetchWrapper.post('/v1/models/llm/auto-register', {
+        model_path: autoFillModelPath,
+        model_family: autoFillModelFamily,
+      })
+      setFormData((prev) => ({ ...prev, ...res }))
+      setContrastObj(res)
+      setSpecsArr(res.model_specs)
+
+      setOpenAutoFillDialog(false)
+    } catch (error) {
+      console.error('Error:', error)
+      if (error?.response?.status !== 403 && error?.response?.status !== 401) {
+        setErrorMsg(error.message)
+      }
+    }
+  }
+
   return (
     <Box style={{ display: 'flex', overFlow: 'hidden', maxWidth: '100%' }}>
       <div className="show-json">
         <p>{t('registerModel.showCustomJsonConfig')}</p>
         {isShow ? (
           <Tooltip title={t('registerModel.packUp')} placement="top">
-            <KeyboardDoubleArrowRightIcon
+            <KeyboardDoubleArrowRight
               className="icon arrow"
               onClick={() => setIsShow(!isShow)}
             />
           </Tooltip>
         ) : (
           <Tooltip title={t('registerModel.unfold')} placement="top">
-            <NotesIcon
-              className="icon notes"
-              onClick={() => setIsShow(!isShow)}
-            />
+            <Notes className="icon notes" onClick={() => setIsShow(!isShow)} />
           </Tooltip>
         )}
       </div>
       <div ref={scrollRef} className={isShow ? 'formBox' : 'formBox broaden'}>
+        {modelType === 'LLM' && (
+          <>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AutoFixHigh />}
+              onClick={() => setOpenAutoFillDialog(true)}
+            >
+              {t('registerModel.autoFill')}
+            </Button>
+            <Box padding="15px"></Box>
+          </>
+        )}
+
         {/* Base Information */}
         <FormControl style={{ width: '100%' }}>
           {/* name */}
@@ -1449,7 +1506,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                       <span style={{ fontSize: 16 }}>
                         {t('registerModel.messagesExample')}
                       </span>
-                      <OpenInFullIcon
+                      <OpenInFull
                         onClick={() => setIsOpenMessages(true)}
                         style={{
                           fontSize: 14,
@@ -1471,9 +1528,7 @@ const RegisterModelComponent = ({ modelType, customData }) => {
                         {testErrorInfo ? (
                           <Cancel style={{ color: 'red' }} />
                         ) : testRes ? (
-                          <CheckCircleIcon
-                            style={{ color: 'rgb(46, 125, 50)' }}
-                          />
+                          <CheckCircle style={{ color: 'rgb(46, 125, 50)' }} />
                         ) : (
                           ''
                         )}
@@ -1602,8 +1657,14 @@ const RegisterModelComponent = ({ modelType, customData }) => {
           {customData.model_specs && (
             <>
               <AddModelSpecs
-                isJump={model_name ? true : false}
-                formData={customData.model_specs[0]}
+                isJump={
+                  (model_name ? true : false) ||
+                  (specsArr && specsArr.length > 0)
+                }
+                formData={
+                  (formData?.model_specs && formData.model_specs[0]) ||
+                  customData.model_specs[0]
+                }
                 specsDataArr={specsArr}
                 onGetArr={getSpecsArr}
                 scrollRef={scrollRef}
@@ -1758,6 +1819,58 @@ const RegisterModelComponent = ({ modelType, customData }) => {
             style={{ marginRight: 15, marginBottom: 15 }}
           >
             OK
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={openAutoFillDialog}
+        onClose={() => setOpenAutoFillDialog(false)}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">
+          {t('registerModel.autoFill')}
+        </DialogTitle>
+        <DialogContent style={{ width: 600, padding: 20 }}>
+          <TextField
+            label={t('registerModel.modelPath')}
+            value={autoFillModelPath}
+            size="small"
+            fullWidth
+            onChange={(e) => setAutoFillModelPath(e.target.value)}
+          />
+          <Box padding="15px"></Box>
+
+          <FormControl fullWidth size="small">
+            <InputLabel>{t('registerModel.modelFamily')}</InputLabel>
+            <Select
+              value={autoFillModelFamily}
+              label={t('registerModel.modelFamily')}
+              onChange={(e) => setAutoFillModelFamily(e.target.value)}
+              MenuProps={{
+                PaperProps: {
+                  style: {
+                    maxHeight: 300,
+                  },
+                },
+              }}
+            >
+              {(allFamilies || []).map((subItem) => (
+                <MenuItem key={subItem} value={subItem}>
+                  {subItem}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            variant="contained"
+            onClick={autoFillForm}
+            style={{ marginRight: 15, marginBottom: 15 }}
+          >
+            {t('registerModel.autoFill')}
           </Button>
         </DialogActions>
       </Dialog>
