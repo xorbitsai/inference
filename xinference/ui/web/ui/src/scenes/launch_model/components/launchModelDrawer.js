@@ -355,9 +355,9 @@ const LaunchModelDrawer = ({
       formData?.enable_virtual_env === 'true'
         ? 'true'
         : formData?.enable_virtual_env === false ||
-            formData?.enable_virtual_env === 'false'
-          ? 'false'
-          : null
+          formData?.enable_virtual_env === 'false'
+        ? 'false'
+        : null
     const enableVirtualEnvQuery = enableVirtualEnv
       ? `?enable_virtual_env=${enableVirtualEnv}`
       : ''

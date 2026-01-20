@@ -30,7 +30,7 @@ const VirtualEnvListDialog = ({ open, onClose, onUpdate, modelData }) => {
   const [virtualenvListArr, setVirtualenvListArr] = useState([])
   const [page, setPage] = useState(0)
   const [isDeleteVirtualenv, setIsDeleteVirtualenv] = useState(false)
-  const [selectedModelName, setSelectedModelName] = useState('')
+  const [selectedVirtualEnv, setSelectedVirtualEnv] = useState(null)
 
   const StyledTableRow = styled(TableRow)(({ theme }) => ({
     '&:nth-of-type(odd)': {
@@ -58,19 +58,34 @@ const VirtualEnvListDialog = ({ open, onClose, onUpdate, modelData }) => {
       })
   }
 
+  const buildDeleteQuery = (virtualEnv) => {
+    const params = new URLSearchParams()
+    if (virtualEnv?.model_name) params.set('model_name', virtualEnv.model_name)
+    if (virtualEnv?.model_engine)
+      params.set('model_engine', virtualEnv.model_engine)
+    if (virtualEnv?.python_version)
+      params.set('python_version', virtualEnv.python_version)
+    if (virtualEnv?.actor_ip_address)
+      params.set('worker_ip', virtualEnv.actor_ip_address)
+    return params.toString()
+  }
+
   const handleDeleteVirtualenv = () => {
+    if (!selectedVirtualEnv?.model_name) {
+      setIsDeleteVirtualenv(false)
+      return
+    }
     fetchWrapper
-      .delete(`/v1/virtualenvs?model_name=${selectedModelName}`)
+      .delete(`/v1/virtualenvs?${buildDeleteQuery(selectedVirtualEnv)}`)
       .then(() => {
         getVirtualenvList()
         setIsDeleteVirtualenv(false)
-        setSelectedModelName('')
+        setSelectedVirtualEnv(null)
       })
       .catch((error) => {
         console.error(error)
-        if (error.response.status !== 403) {
+        if (!error.response || error.response.status !== 403)
           setErrorMsg(error.message)
-        }
       })
   }
 
@@ -78,8 +93,8 @@ const VirtualEnvListDialog = ({ open, onClose, onUpdate, modelData }) => {
     setPage(newPage)
   }
 
-  const handleOpenDeleteVirtualenvDialog = (modelName) => {
-    setSelectedModelName(modelName)
+  const handleOpenDeleteVirtualenvDialog = (virtualEnv) => {
+    setSelectedVirtualEnv(virtualEnv)
     setIsDeleteVirtualenv(true)
   }
 
@@ -181,9 +196,7 @@ const VirtualEnvListDialog = ({ open, onClose, onUpdate, modelData }) => {
                         <IconButton
                           aria-label="delete"
                           size="large"
-                          onClick={() =>
-                            handleOpenDeleteVirtualenvDialog(row.model_name)
-                          }
+                          onClick={() => handleOpenDeleteVirtualenvDialog(row)}
                         >
                           <Delete />
                         </IconButton>
