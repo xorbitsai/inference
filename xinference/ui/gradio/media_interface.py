@@ -1611,6 +1611,173 @@ class MediaInterface:
 
         return ocr_interface
 
+    def document_parsing_interface(self) -> "gr.Blocks":
+        """Document parsing interface that supports PDF file uploads (for MinerU)."""
+        
+        def parse_document(
+            file_path: str,
+            backend: str = "hybrid-auto-engine",
+            parse_method: str = "auto",
+            language: str = "ch",
+            output_format: str = "markdown",
+            progress=gr.Progress(),
+        ) -> str:
+            from ...client import RESTfulClient
+            
+            if not file_path:
+                return "**Error**: Please upload a PDF or image file."
+            
+            client = RESTfulClient(self.endpoint)
+            client._set_token(self.access_token)
+            model = client.get_model(self.model_uid)
+            
+            if not hasattr(model, "ocr"):
+                return "**Error**: Model does not support OCR/document parsing."
+            
+            progress(0.1, desc="Reading file...")
+            
+            try:
+                # Read file content
+                with open(file_path, "rb") as f:
+                    file_bytes = f.read()
+                
+                file_ext = os.path.splitext(file_path)[1].lower()
+                
+                progress(0.3, desc="Processing document...")
+                
+                # Call model's ocr method
+                response = model.ocr(
+                    image=file_bytes,
+                    backend=backend,
+                    parse_method=parse_method,
+                    language=language,
+                    output_format=output_format,
+                    return_dict=True,
+                )
+                
+                progress(0.9, desc="Formatting output...")
+                
+                if isinstance(response, dict):
+                    if response.get("success"):
+                        result = response.get("markdown", response.get("text", "No content extracted"))
+                        return result
+                    else:
+                        return f"**Error**: {response.get('error', 'Unknown error')}"
+                elif isinstance(response, str):
+                    return response
+                else:
+                    return str(response)
+                    
+            except Exception as e:
+                logger.error(f"Document parsing error: {e}")
+                import traceback
+                error_details = traceback.format_exc()
+                logger.error(f"Full traceback: {error_details}")
+                return f"""**Document Parsing Error**
+
+```
+{str(e)}
+```
+
+**Debug Info:**
+- File: {file_path}
+- Backend: {backend}
+- Parse Method: {parse_method}
+- Language: {language}
+"""
+            finally:
+                progress(1.0, desc="Complete")
+        
+        with gr.Blocks() as doc_parsing_interface:
+            gr.Markdown(f"### 📄 Document Parsing with {self.model_name}")
+            gr.Markdown("Upload PDF or image files for high-precision document parsing to Markdown/JSON.")
+            
+            with gr.Row():
+                with gr.Column(scale=1):
+                    # File upload that accepts PDF and images
+                    file_input = gr.File(
+                        label="Upload Document (PDF or Image)",
+                        file_types=[".pdf", ".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"],
+                        type="filepath",
+                    )
+                    
+                    gr.Markdown(f"**Current Model:** {self.model_name}")
+                    
+                    # MinerU-specific configuration
+                    backend = gr.Dropdown(
+                        choices=[
+                            "pipeline",  # General mode
+                            "vlm-auto-engine",  # Local VLM high accuracy
+                            "hybrid-auto-engine",  # Hybrid mode (recommended)
+                        ],
+                        value="hybrid-auto-engine",
+                        label="Backend",
+                        info="pipeline: General, vlm: High accuracy (local), hybrid: Recommended",
+                    )
+                    
+                    parse_method = gr.Dropdown(
+                        choices=["auto", "txt", "ocr"],
+                        value="auto",
+                        label="Parse Method",
+                        info="auto: Auto-detect, txt: Text extraction, ocr: OCR for scanned documents",
+                    )
+                    
+                    language = gr.Dropdown(
+                        choices=[
+                            "ch",  # Chinese
+                            "en",  # English
+                            "korean",
+                            "japan",
+                            "chinese_cht",  # Traditional Chinese
+                            "ta",  # Tamil
+                            "te",  # Telugu
+                            "ka",  # Georgian
+                            "th",  # Thai
+                            "el",  # Greek
+                            "latin",
+                            "arabic",
+                            "east_slavic",
+                            "cyrillic",
+                            "devanagari",
+                        ],
+                        value="ch",
+                        label="Document Language",
+                        info="Select the primary language of your document",
+                    )
+                    
+                    output_format = gr.Dropdown(
+                        choices=["markdown", "json"],
+                        value="markdown",
+                        label="Output Format",
+                    )
+                    
+                    parse_btn = gr.Button("Parse Document", variant="primary")
+                
+                with gr.Column(scale=1):
+                    with gr.Group(elem_classes="output-container"):
+                        gr.Markdown("### 📄 Parsing Results")
+                        
+                        result_output = gr.Markdown(
+                            value="Parsed content will be displayed here...",
+                            elem_classes="output-text",
+                            container=False,
+                        )
+            
+            parse_btn.click(
+                fn=parse_document,
+                inputs=[
+                    file_input,
+                    backend,
+                    parse_method,
+                    language,
+                    output_format,
+                ],
+                outputs=result_output,
+            )
+        
+        return doc_parsing_interface
+
+
     def build_main_interface(self) -> "gr.Blocks":
         if self.model_type == "image":
             if "ocr" in self.model_ability:
@@ -1731,6 +1898,9 @@ class MediaInterface:
             if "ocr" in self.model_ability:
                 with gr.Tab("OCR"):
                     self.ocr_interface()
+            if "document-parsing" in self.model_ability:
+                with gr.Tab("Document Parsing"):
+                    self.document_parsing_interface()
             if "text2image" in self.model_ability:
                 with gr.Tab("Text to Image"):
                     self.text2image_interface()
