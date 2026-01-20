@@ -42,6 +42,11 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
         "xllamacpp>=0.2.6",
     ],
 }
+DEPENDENCY_GROUP_PACKAGES: Dict[str, List[str]] = {
+    "diffusers_dependencies": [
+        "diffusers>=0.32.0",
+    ],
+}
 
 
 def get_engine_virtualenv_packages(model_engine: Optional[str]) -> List[str]:
@@ -59,6 +64,9 @@ def expand_engine_dependency_placeholders(
     expanded: List[str] = []
     for pkg in packages:
         name = pkg.split(";", 1)[0].strip().lower()
+        if name in DEPENDENCY_GROUP_PACKAGES:
+            expanded.extend(DEPENDENCY_GROUP_PACKAGES[name])
+            continue
         if name.endswith("_dependencies") and engine_name:
             target_engine = name[: -len("_dependencies")]
             if target_engine == engine_name:

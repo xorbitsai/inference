@@ -20,6 +20,7 @@ import logging
 import os
 import random
 import re
+import sys
 import threading
 from abc import ABC, abstractmethod
 from copy import deepcopy
@@ -116,7 +117,10 @@ def _collect_virtualenv_engine_markers(family: Optional[Any]) -> Set[str]:
         if spec_virtualenv and getattr(spec_virtualenv, "packages", None):
             packages.extend(spec_virtualenv.packages)
 
-    return _extract_engine_markers_from_packages(packages)
+    engines = _extract_engine_markers_from_packages(packages)
+    if sys.platform != "darwin":
+        engines.discard("mlx")
+    return engines
 
 
 def _build_engine_params_from_specs(
@@ -930,6 +934,8 @@ def get_engine_params_by_name(
         families: List[Any],
         supported_engines: Dict[str, List[Type[Any]]],
         engine_type_label: str,
+        engine_markers: Set[str],
+        enable_virtual_env: bool,
     ):
         if not families:
             return
@@ -977,6 +983,11 @@ def get_engine_params_by_name(
                             )
                         )
                         if not lib_ok:
+                            if (
+                                enable_virtual_env
+                                and engine_name.lower() in engine_markers
+                            ):
+                                break
                             _append_unavailable_engine(
                                 engine_name, lib_reason, lib_type, lib_details
                             )
@@ -1147,10 +1158,23 @@ def get_engine_params_by_name(
             for engine, params in available_engines.items():
                 _append_available_engine(engine, params, "ocr_class")
             ocr_families = _get_image_families(model_name, is_ocr=True)
+            ocr_engine_markers: Set[str] = set()
+            for family in ocr_families:
+                ocr_engine_markers |= _collect_virtualenv_engine_markers(family)
             _validate_available_image_engines(
-                ocr_families, OCR_SUPPORTED_ENGINES, "OCR"
+                ocr_families,
+                OCR_SUPPORTED_ENGINES,
+                "OCR",
+                ocr_engine_markers,
+                enable_virtual_env,
             )
             _collect_supported_image_engines(ocr_families, OCR_SUPPORTED_ENGINES, "OCR")
+            _apply_virtualenv_engine_overrides(
+                engine_params,
+                OCR_SUPPORTED_ENGINES,
+                ocr_engine_markers,
+                enable_virtual_env,
+            )
             return engine_params
 
         if model_name not in IMAGE_ENGINES:
@@ -1160,11 +1184,24 @@ def get_engine_params_by_name(
         for engine, params in available_engines.items():
             _append_available_engine(engine, params, "image_class")
         image_families = _get_image_families(model_name, is_ocr=False)
+        image_engine_markers: Set[str] = set()
+        for family in image_families:
+            image_engine_markers |= _collect_virtualenv_engine_markers(family)
         _validate_available_image_engines(
-            image_families, IMAGE_SUPPORTED_ENGINES, "image"
+            image_families,
+            IMAGE_SUPPORTED_ENGINES,
+            "image",
+            image_engine_markers,
+            enable_virtual_env,
         )
         _collect_supported_image_engines(
             image_families, IMAGE_SUPPORTED_ENGINES, "image"
+        )
+        _apply_virtualenv_engine_overrides(
+            engine_params,
+            IMAGE_SUPPORTED_ENGINES,
+            image_engine_markers,
+            enable_virtual_env,
         )
 
         return engine_params
