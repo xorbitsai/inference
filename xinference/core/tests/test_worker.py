@@ -209,7 +209,7 @@ def test_prepare_virtual_env_injects_engine_vars():
 
     assert len(manager.calls) == 1
     packages, kwargs = manager.calls[0]
-    assert packages == ["pkgA==1.0.0", "pkgB==2.0.0"]
+    assert packages == ["vllm==0.13.0", "pkgA==1.0.0", "pkgB==2.0.0"]
     assert kwargs["engine"] == "vllm"
     assert kwargs["model_engine"] == "vllm"
 
@@ -249,6 +249,25 @@ def test_prepare_virtual_env_inherit_pip_config(monkeypatch):
     assert len(manager.calls) == 1
     _, kwargs = manager.calls[0]
     assert kwargs["index_url"] == "https://example.invalid/simple"
+
+
+def test_prepare_virtual_env_skips_system_markers():
+    manager = DummyVirtualEnvManager()
+    settings = VirtualEnvSettings(
+        packages=["pkgA==1.0.0", "#system_torch#", "#system_numpy#"],
+        inherit_pip_config=False,
+    )
+
+    WorkerActor._prepare_virtual_env(
+        manager,
+        settings,
+        ["pkgB==2.0.0", "#system_torchaudio#"],
+        model_engine=None,
+    )
+
+    assert len(manager.calls) == 1
+    packages, _ = manager.calls[0]
+    assert packages == ["pkgA==1.0.0", "pkgB==2.0.0"]
 
 
 @pytest.mark.asyncio

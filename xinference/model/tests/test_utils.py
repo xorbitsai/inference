@@ -14,6 +14,7 @@
 
 import asyncio
 import shutil
+import sys
 
 import pytest
 from tqdm.auto import tqdm
@@ -22,6 +23,7 @@ from ...utils import get_real_path
 from ..utils import (
     CancellableDownloader,
     _apply_virtualenv_engine_overrides,
+    _collect_virtualenv_engine_markers,
     _extract_engine_markers_from_packages,
     _force_virtualenv_engine_params,
     parse_uri,
@@ -80,6 +82,22 @@ def test_extract_engine_markers_from_packages():
         "transformers>=4.51.0",
     ]
     assert _extract_engine_markers_from_packages(packages) == {"vllm", "sglang"}
+
+
+def test_collect_virtualenv_engine_markers_platform_gating():
+    class _VirtualEnv:
+        packages = ['mlx-lm ; #engine# == "mlx"', 'vllm ; #engine# == "vllm"']
+
+    class _Family:
+        virtualenv = _VirtualEnv()
+        model_specs = []
+
+    engines = _collect_virtualenv_engine_markers(_Family())
+    assert "vllm" in engines
+    if sys.platform == "darwin":
+        assert "mlx" in engines
+    else:
+        assert "mlx" not in engines
 
 
 class _DummyEngineMissing:
