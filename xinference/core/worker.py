@@ -1352,9 +1352,37 @@ class WorkerActor(xo.StatelessActor):
             "#system_torchcodec#",
             "#system_numpy#",
         }
-        packages = [
-            pkg for pkg in packages if pkg.strip().lower() not in system_markers
-        ]
+
+        def _marker_allows(marker: str) -> bool:
+            marker = marker.strip().lower()
+            if "#engine#" in marker:
+                if not model_engine:
+                    return False
+                if f'#engine# == "{model_engine.lower()}"' not in marker:
+                    return False
+            if 'cuda_version == "13.0"' in marker and cuda_version != "13.0":
+                return False
+            if 'cuda_version < "13.0"' in marker:
+                if not cuda_version or cuda_version == "13.0":
+                    return False
+            return True
+
+        def _has_custom_marker(marker: str) -> bool:
+            marker = marker.lower()
+            return "#engine#" in marker or "cuda_version" in marker
+
+        resolved_packages: List[str] = []
+        for pkg in packages:
+            if ";" in pkg:
+                req, marker = pkg.split(";", 1)
+                req = req.strip()
+                marker = marker.strip()
+                if req in system_markers or _has_custom_marker(marker):
+                    if _marker_allows(marker):
+                        resolved_packages.append(req)
+                    continue
+            resolved_packages.append(pkg)
+        packages = resolved_packages
 
         conf = dict(settings)
         conf.pop("packages", None)

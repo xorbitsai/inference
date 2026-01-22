@@ -30,6 +30,7 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
         "sentencepiece",
         "dill",
         "ninja",
+        "numpy>=2.4.1",
         "sglang>=0.5.6",
     ],
     "vllm": [
