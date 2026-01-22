@@ -25662,7 +25662,7 @@
   {
     "version": 2,
     "context_length": 32768,
-    "model_name": "mineru-vlm",
+    "model_name": "MinerU2.5-2509-1.2B",
     "model_lang": [
       "en",
       "zh"
