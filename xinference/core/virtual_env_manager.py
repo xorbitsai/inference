@@ -34,20 +34,25 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
         "sglang>=0.5.6",
     ],
     "vllm": [
-        "vllm==0.13.0",
+        "vllm>=0.11.2",
+    ],
+    "transformers": [
+        "transformers>=4.46.0",
+        "accelerate>=0.28.0",
+    ],
+    "sentence_transformers": [
+        "sentence_transformers",
+        "einops",
+    ],
+    "diffusers": [
+        "diffusers>=0.32.0",
+        "huggingface-hub<1.0",
     ],
     "mlx": [
         "mlx-lm>=0.24.0",
     ],
     "llama.cpp": [
         "xllamacpp>=0.2.6",
-    ],
-}
-DEPENDENCY_GROUP_PACKAGES: Dict[str, List[str]] = {
-    "diffusers_dependencies": ["diffusers>=0.32.0", "huggingface-hub<1.0"],
-    "sentence_transformers_dependencies": [
-        "sentence_transformers",
-        "einops",
     ],
 }
 
@@ -67,13 +72,12 @@ def expand_engine_dependency_placeholders(
     expanded: List[str] = []
     for pkg in packages:
         name = pkg.split(";", 1)[0].strip().lower()
-        if name in DEPENDENCY_GROUP_PACKAGES:
-            expanded.extend(DEPENDENCY_GROUP_PACKAGES[name])
-            continue
         if name.endswith("_dependencies") and engine_name:
             target_engine = name[: -len("_dependencies")]
             if target_engine == engine_name:
-                expanded.extend(get_engine_virtualenv_packages(engine_name))
+                expanded.extend(
+                    ENGINE_VIRTUALENV_PACKAGES.get(target_engine, []).copy()
+                )
             continue
         expanded.append(pkg)
     return expanded

@@ -74,10 +74,7 @@ from .utils import (
     purge_dir,
 )
 from .virtual_env_manager import VirtualEnvManager as XinferenceVirtualEnvManager
-from .virtual_env_manager import (
-    expand_engine_dependency_placeholders,
-    get_engine_virtualenv_packages,
-)
+from .virtual_env_manager import expand_engine_dependency_placeholders
 
 try:
     from xoscar.virtualenv import VirtualEnvManager
@@ -1309,7 +1306,7 @@ class WorkerActor(xo.StatelessActor):
         virtual_env_packages: Optional[List[str]],
         model_engine: Optional[str],
     ):
-        engine_defaults = get_engine_virtualenv_packages(model_engine)
+        engine_defaults: List[str] = []
         if (
             (not settings or not settings.packages)
             and not virtual_env_packages
