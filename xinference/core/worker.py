@@ -1381,6 +1381,8 @@ class WorkerActor(xo.StatelessActor):
                     if _marker_allows(marker):
                         resolved_packages.append(req)
                     continue
+            if pkg in system_markers:
+                continue
             resolved_packages.append(pkg)
         packages = resolved_packages
 
