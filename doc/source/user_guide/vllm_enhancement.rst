@@ -18,5 +18,6 @@ Simply add the parameter ``enable_xavier=True`` when starting the vllm model.
 ***********
 Limitations
 ***********
-* Xavier requires vllm version >= ``0.7.0``.
+* Xavier requires vllm version >= ``0.7.0``, and currently not supports for vllm version >= ``0.11.0`` due to vllm reconstruction.
 * Due to the underlying communication not recognizing ``0.0.0.0``, the actual IP address needs to be passed when starting Xinference, for example: ``xinference-local -H 192.168.xx.xx``.
+* Xavier only works for Nvidia product. 

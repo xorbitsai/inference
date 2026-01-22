@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -918,6 +918,10 @@ class WorkerActor(xo.StatelessActor):
 
             # Add built-in image models (BUILTIN_IMAGE_MODELS contains model_name -> families list)
             for model_name, families in BUILTIN_IMAGE_MODELS.items():
+                download_hubs = []
+                for family in families:
+                    if family.model_hub not in download_hubs:
+                        download_hubs.append(family.model_hub)
                 for family in families:
                     if detailed:
                         cache_manager = ImageCacheManager(family)
@@ -934,7 +938,7 @@ class WorkerActor(xo.StatelessActor):
                                 **family.dict(),
                                 "model_specs": model_specs,
                                 "is_builtin": True,
-                                "download_hubs": [family.model_hub],
+                                "download_hubs": download_hubs,
                             }
                         )
                     else:
@@ -974,6 +978,10 @@ class WorkerActor(xo.StatelessActor):
 
             # Add built-in audio models (BUILTIN_AUDIO_MODELS contains model_name -> families list)
             for model_name, families in BUILTIN_AUDIO_MODELS.items():
+                download_hubs = []
+                for family in families:
+                    if family.model_hub not in download_hubs:
+                        download_hubs.append(family.model_hub)
                 for family in families:
                     if detailed:
                         audio_cache_manager = CacheManager(family)
@@ -990,7 +998,7 @@ class WorkerActor(xo.StatelessActor):
                                 **family.dict(),
                                 "model_specs": model_specs,
                                 "is_builtin": True,
-                                "download_hubs": [family.model_hub],
+                                "download_hubs": download_hubs,
                             }
                         )
                     else:
@@ -1029,6 +1037,10 @@ class WorkerActor(xo.StatelessActor):
 
             # Add built-in video models (BUILTIN_VIDEO_MODELS contains model_name -> families list)
             for model_name, families in BUILTIN_VIDEO_MODELS.items():
+                download_hubs = []
+                for family in families:
+                    if family.model_hub not in download_hubs:
+                        download_hubs.append(family.model_hub)
                 for family in families:
                     if detailed:
                         video_cache_manager = CacheManager(family)
@@ -1050,7 +1062,7 @@ class WorkerActor(xo.StatelessActor):
                                 **family.dict(),
                                 "model_specs": model_specs,
                                 "is_builtin": True,
-                                "download_hubs": [family.model_hub],
+                                "download_hubs": download_hubs,
                             }
                         )
                     else:

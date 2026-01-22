@@ -1,4 +1,4 @@
-# Copyright 2022-2025 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -521,9 +521,7 @@ class DeepSeekOCRModel(OCRModel):
         # 2. save_results is True (default behavior for visualization)
         # 3. Explicit visualization parameters are provided
         is_visualization_request = (
-            "grounding" in prompt.lower()
-            or "convert" in prompt.lower()
-            or "markdown" in prompt.lower()
+            "<|grounding|>" in prompt
             or save_results
             or any(
                 key in kwargs

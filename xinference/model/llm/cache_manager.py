@@ -1,4 +1,4 @@
-# Copyright 2022-2025 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -91,9 +91,15 @@ class LLMCacheManager(CacheManager):
         if self.get_cache_status():
             return cache_dir
 
+        cache_config = (
+            self._llm_family.cache_config.copy()
+            if self._llm_family.cache_config
+            else {}
+        )
         use_symlinks = {}
         if not IS_NEW_HUGGINGFACE_HUB:
             use_symlinks = {"local_dir_use_symlinks": True, "local_dir": cache_dir}
+            cache_config = {**cache_config, **use_symlinks}
 
         if self._model_format in ["pytorch", "gptq", "awq", "fp4", "fp8", "bnb", "mlx"]:
             download_dir = retry_download(
@@ -105,7 +111,7 @@ class LLMCacheManager(CacheManager):
                 },
                 self._model_id,
                 revision=self._model_revision,
-                **use_symlinks,
+                **cache_config,
             )
             if IS_NEW_HUGGINGFACE_HUB:
                 create_symlink(download_dir, cache_dir)
@@ -158,6 +164,11 @@ class LLMCacheManager(CacheManager):
         if self.get_cache_status():
             return cache_dir
 
+        cache_config = (
+            self._llm_family.cache_config.copy()
+            if self._llm_family.cache_config
+            else {}
+        )
         if self._model_format in [
             "pytorch",
             "gptq",
@@ -177,6 +188,7 @@ class LLMCacheManager(CacheManager):
                 },
                 self._model_id,
                 revision=self._model_revision,
+                **cache_config,
             )
             create_symlink(download_dir, cache_dir)
 

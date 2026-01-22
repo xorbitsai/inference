@@ -1,4 +1,4 @@
-# Copyright 2022-2025 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,7 +36,9 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
         try:
             if is_vacc_available():
                 import vllm_vacc  # noqa: F401
+            from packaging.version import Version
             from vllm import LLM
+            from vllm import __version__ as vllm_version
 
         except ImportError:
             error_message = "Failed to import module 'vllm'"
@@ -65,7 +67,10 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
                     is_matryoshka=True,
                 )
 
-        self._model = LLM(model=self._model_path, task="embed", **self._kwargs)
+        if Version(vllm_version) >= Version("0.13.0"):
+            self._model = LLM(model=self._model_path, **self._kwargs)
+        else:
+            self._model = LLM(model=self._model_path, task="embed", **self._kwargs)
         self._tokenizer = self._model.get_tokenizer()
 
     @staticmethod
@@ -182,9 +187,22 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
 
     def _set_context_length(self):
         """Set context length"""
+        from packaging import version
+        from vllm import __version__ as vllm_version
         from vllm import envs
 
-        if not (envs.is_set("VLLM_USE_V1") and envs.VLLM_USE_V1):
+        # For vLLM >= 0.11.1, v1 is default; older versions rely on env var.
+        if version.parse(vllm_version) > version.parse("0.11.0"):
+            use_v1 = True
+        else:
+            use_v1 = False
+            if hasattr(envs, "VLLM_USE_V1"):
+                try:
+                    use_v1 = envs.is_set("VLLM_USE_V1") and envs.VLLM_USE_V1
+                except AttributeError:
+                    use_v1 = False
+
+        if not use_v1:
             # v0
             self._context_length = (
                 self._model.llm_engine.vllm_config.model_config.max_model_len

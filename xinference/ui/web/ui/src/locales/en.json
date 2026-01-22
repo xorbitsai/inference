@@ -5,7 +5,8 @@
     "registerModel": "Register Model",
     "clusterInfo": "Cluster Information",
     "contactUs": "Contact Us",
-    "documentation": "Documentation"
+    "documentation": "Documentation",
+    "website": "Official Website"
   },
 
   "model": {
@@ -144,7 +145,8 @@
     "mustBeUnique": "{{key}} must be unique",
     "update": "Update",
     "launchProgress": "Launch Progress",
-    "initializing": "Initializing..."
+    "initializing": "Initializing...",
+    "moreDetails": "More Details"
   },
   "modelReplicaDetails": {
     "title": "Model Replica Details",
@@ -232,7 +234,10 @@
     "testFailurePreventsChatWorking": "Please note that failure to pass test may prevent chats from working properly.",
     "stopControlForChatModels": "int type, used to control the stopping of chat models",
     "stopControlStringForChatModels": "string type, used to control the stopping of chat models",
-    "enterJsonFormattedDictionary": "Please enter the JSON-formatted dictionary."
+    "enterJsonFormattedDictionary": "Please enter the JSON-formatted dictionary.",
+    "autoFill": "Auto Fill",
+    "fillInModelPathFirst": "Please fill in modelPath first",
+    "fillInModelFamilyFirst": "Please select model family first"
   },
 
   "clusterInfo": {

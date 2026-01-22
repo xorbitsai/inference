@@ -1096,13 +1096,17 @@
         "max_single_segment_time": 30000
       }
     },
-    "default_transcription_config": {},
+    "default_transcription_config": {
+      "batch_size": 1
+    },
     "version": 2,
     "virtualenv": {
-      "packages": []
+      "packages": [
+        "funasr @ git+https://github.com/modelscope/FunASR@b25472b0b562d04f411da30ff9cc59786f68b0f2"
+      ]
     },
     "featured": false,
-    "updated_at": 1766568011
+    "updated_at": 1768536254
   },
   {
     "model_name": "Fun-ASR-MLT-Nano-2512",
@@ -1128,12 +1132,16 @@
         "max_single_segment_time": 30000
       }
     },
-    "default_transcription_config": {},
+    "default_transcription_config": {
+      "batch_size": 1
+    },
     "version": 2,
     "virtualenv": {
-      "packages": []
+      "packages": [
+        "funasr @ git+https://github.com/modelscope/FunASR@b25472b0b562d04f411da30ff9cc59786f68b0f2"
+      ]
     },
     "featured": false,
-    "updated_at": 1766568013
+    "updated_at": 1768536595
   }
 ]

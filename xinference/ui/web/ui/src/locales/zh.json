@@ -5,7 +5,8 @@
     "registerModel": "注册模型",
     "clusterInfo": "集群信息",
     "contactUs": "联系我们",
-    "documentation": "文档"
+    "documentation": "文档",
+    "website": "官网"
   },
   "model": {
     "languageModels": "语言模型",
@@ -142,7 +143,8 @@
     "mustBeUnique": "{{key}} 必须唯一",
     "update": "更新",
     "launchProgress": "启动进度",
-    "initializing": "初始化中..."
+    "initializing": "初始化中...",
+    "moreDetails": "更多详情"
   },
   "modelReplicaDetails": {
     "title": "模型副本详情",
@@ -228,7 +230,10 @@
     "testFailurePreventsChatWorking": "请注意，未通过测试可能会导致聊天无法正常工作。",
     "stopControlForChatModels": "整数类型，用于控制聊天模型的停止。",
     "stopControlStringForChatModels": "字符串类型，用于控制聊天模型的停止。",
-    "enterJsonFormattedDictionary": "请输入 JSON 格式的字典。"
+    "enterJsonFormattedDictionary": "请输入 JSON 格式的字典。",
+    "autoFill": "自动填充",
+    "fillInModelPathFirst": "请先填写模型路径",
+    "fillInModelFamilyFirst": "请先选择模型系列"
   },
   "clusterInfo": {
     "supervisor": "主管",

@@ -1,4 +1,4 @@
-# Copyright 2022-2025 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ from ....device_utils import is_vacc_available
 from .deepseek_ocr import DeepSeekOCRModel
 from .got_ocr2 import GotOCR2Model
 from .hunyuan_ocr import HunyuanOCRModel
+from .mineru import MinerUModel
 from .paddleocr_vl import PaddleOCRVLModel
 
 logger = logging.getLogger(__name__)
@@ -306,3 +307,44 @@ class VLLMHunyuanOCRModel(HunyuanOCRModel):
 
 class VLLMPaddleOCRVLModel(PaddleOCRVLModel):
     required_libs = ("vllm",)
+
+
+class VLLMMinerUModel(MinerUModel):
+    """vLLM-based MinerU model for faster inference."""
+
+    required_libs = ("vllm",)
+
+    def load(self):
+        try:
+            from mineru_vl_utils import MinerUClient, MinerULogitsProcessor
+        except ImportError:
+            raise ImportError(
+                "mineru-vl-utils is required for MinerU models. "
+                "Please install it with: pip install 'mineru-vl-utils[vllm]'"
+            )
+
+        logger.info(f"Loading MinerU model with vLLM from {self._model_path}")
+
+        vllm_kwargs = _sanitize_vllm_kwargs(self._kwargs)
+
+        # Load vLLM model with MinerU logits processor
+        from vllm import LLM
+
+        self._model = LLM(
+            model=self._model_path,
+            logits_processors=[MinerULogitsProcessor],
+            **vllm_kwargs,
+        )
+
+        # Create MinerU client with vLLM backend
+        self._client = MinerUClient(
+            backend="vllm-engine",
+            vllm_llm=self._model,
+        )
+
+        logger.info("MinerU model loaded successfully with vLLM backend")
+
+    def stop(self):
+        _shutdown_vllm_model(self._model)
+        self._model = None
+        self._client = None
