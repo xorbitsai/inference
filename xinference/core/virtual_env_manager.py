@@ -44,8 +44,10 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
     ],
 }
 DEPENDENCY_GROUP_PACKAGES: Dict[str, List[str]] = {
-    "diffusers_dependencies": [
-        "diffusers>=0.32.0",
+    "diffusers_dependencies": ["diffusers>=0.32.0", "huggingface-hub<1.0"],
+    "sentence_transformers_dependencies": [
+        "sentence_transformers",
+        "einops",
     ],
 }
 

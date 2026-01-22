@@ -13,10 +13,15 @@
 # limitations under the License.
 
 import importlib.util
+import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
+
+from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV
 
 if TYPE_CHECKING:
     from .core import ImageModelFamilyV2
+
+logger = logging.getLogger(__name__)
 
 
 class ImageEngineModel:
@@ -47,6 +52,8 @@ def check_engine_by_model_name_and_engine(
     model_name: str,
     model_format: Optional[str],
     quantization: Optional[str],
+    model_family: Optional["ImageModelFamilyV2"] = None,
+    enable_virtual_env: Optional[bool] = None,
 ) -> Type[ImageEngineModel]:
     def get_model_engine_from_spell(engine_str: str) -> str:
         for engine in IMAGE_ENGINES[model_name].keys():
@@ -54,10 +61,37 @@ def check_engine_by_model_name_and_engine(
                 return engine
         return engine_str
 
+    if enable_virtual_env is None:
+        enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
+
     if model_name not in IMAGE_ENGINES:
+        if enable_virtual_env and model_family is not None:
+            from ..utils import _collect_virtualenv_engine_markers
+
+            engine_markers = _collect_virtualenv_engine_markers(model_family)
+            if model_engine.lower() in engine_markers:
+                engine_classes = SUPPORTED_ENGINES.get(model_engine, [])
+                if engine_classes:
+                    logger.warning(
+                        "Bypassing engine compatibility checks for %s due to virtualenv marker.",
+                        model_engine,
+                    )
+                    return engine_classes[0]
         raise ValueError(f"Image model {model_name} not found.")
     model_engine = get_model_engine_from_spell(model_engine)
     if model_engine not in IMAGE_ENGINES[model_name]:
+        if enable_virtual_env and model_family is not None:
+            from ..utils import _collect_virtualenv_engine_markers
+
+            engine_markers = _collect_virtualenv_engine_markers(model_family)
+            if model_engine.lower() in engine_markers:
+                engine_classes = SUPPORTED_ENGINES.get(model_engine, [])
+                if engine_classes:
+                    logger.warning(
+                        "Bypassing engine compatibility checks for %s due to virtualenv marker.",
+                        model_engine,
+                    )
+                    return engine_classes[0]
         raise ValueError(
             f"Image model {model_name} cannot be run on engine {model_engine}."
         )

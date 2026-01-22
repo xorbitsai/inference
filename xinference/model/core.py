@@ -58,8 +58,9 @@ def create_model_instance(
             **kwargs,
         )
     elif model_type == "embedding":
-        # embedding model doesn't accept trust_remote_code
-        kwargs.pop("trust_remote_code", None)
+        # allow trust_remote_code for engines that require it (e.g. vLLM)
+        if model_engine and model_engine.lower() != "vllm":
+            kwargs.pop("trust_remote_code", None)
         return create_embedding_model_instance(
             model_uid,
             model_name,

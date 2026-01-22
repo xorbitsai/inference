@@ -162,6 +162,7 @@ def create_ocr_model_instance(
     from .cache_manager import ImageCacheManager
     from .ocr.ocr_family import check_engine_by_model_name_and_engine
 
+    enable_virtual_env = kwargs.pop("enable_virtual_env", None)
     if not model_path:
         cache_manager = ImageCacheManager(model_spec)
         model_path = cache_manager.cache()
@@ -172,7 +173,12 @@ def create_ocr_model_instance(
     model_format = getattr(model_spec, "model_format", None)
     quantization = getattr(model_spec, "quantization", None)
     ocr_cls = check_engine_by_model_name_and_engine(
-        model_engine, model_spec.model_name, model_format, quantization
+        model_engine,
+        model_spec.model_name,
+        model_format,
+        quantization,
+        model_family=model_spec,
+        enable_virtual_env=enable_virtual_env,
     )
     return ocr_cls(
         model_uid,
@@ -204,6 +210,7 @@ def create_image_model_instance(
 ]:
     from .cache_manager import ImageCacheManager
 
+    enable_virtual_env = kwargs.pop("enable_virtual_env", None)
     model_spec = match_diffusion(model_name, download_hub)
     if model_spec.model_ability and "ocr" in model_spec.model_ability:
         model_spec = _select_ocr_model_family(
@@ -279,7 +286,12 @@ def create_image_model_instance(
         model_engine = "diffusers"
 
     model_cls = check_engine_by_model_name_and_engine(
-        model_engine, model_spec.model_name, model_format, quantization
+        model_engine,
+        model_spec.model_name,
+        model_format,
+        quantization,
+        model_family=model_spec,
+        enable_virtual_env=enable_virtual_env,
     )
 
     model = model_cls(

@@ -145,6 +145,12 @@ def check_engine_by_model_name_and_engine(
             engine_markers = _collect_virtualenv_engine_markers(model_family)
             if engine_key.lower() in engine_markers:
                 engine_classes = SUPPORTED_ENGINES.get(engine_key, [])
+                if enable_virtual_env and engine_classes:
+                    logger.warning(
+                        "Bypassing engine compatibility checks for %s due to virtualenv marker.",
+                        engine_key,
+                    )
+                    return engine_classes[0]
                 for spec in model_family.model_specs:
                     spec_quant = getattr(spec, "quantization", None) or "none"
                     for cls in engine_classes:
@@ -175,6 +181,12 @@ def check_engine_by_model_name_and_engine(
             engine_markers = _collect_virtualenv_engine_markers(model_family)
             if engine_key.lower() in engine_markers:
                 engine_classes = SUPPORTED_ENGINES.get(engine_key, [])
+                if enable_virtual_env and engine_classes:
+                    logger.warning(
+                        "Bypassing engine compatibility checks for %s due to virtualenv marker.",
+                        engine_key,
+                    )
+                    return engine_classes[0]
                 for spec in model_family.model_specs:
                     spec_quant = getattr(spec, "quantization", None) or "none"
                     for cls in engine_classes:
