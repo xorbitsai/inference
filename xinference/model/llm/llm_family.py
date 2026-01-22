@@ -14,7 +14,7 @@
 
 import logging
 import os
-from typing import Any, Dict, List, Optional, Set, Type, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
 
 from typing_extensions import Annotated, Literal
 
@@ -636,11 +636,50 @@ def check_engine_by_spec_parameters(
                 return engine_cls
         return None
 
+    def _select_engine_class_fallback(
+        engine_classes: List[Type[LLM]],
+        family: "LLMFamilyV2",
+    ) -> Optional[Type[LLM]]:
+        if not engine_classes:
+            return None
+        abilities = set(getattr(family, "model_ability", []) or [])
+        preferred_tokens: List[Tuple[str, ...]] = []
+        if any(a in abilities for a in ("vision", "audio", "omni")):
+            preferred_tokens.append(("multi", "vision", "omni"))
+        if "chat" in abilities:
+            preferred_tokens.append(("chat",))
+        for tokens in preferred_tokens:
+            for engine_cls in engine_classes:
+                cls_name = engine_cls.__name__.lower()
+                if any(token in cls_name for token in tokens):
+                    return engine_cls
+        return engine_classes[0]
+
+    def _select_engine_class_with_virtualenv(
+        engine_classes: List[Type[LLM]],
+        family: "LLMFamilyV2",
+        spec: "LLMSpecV1",
+    ) -> Optional[Type[LLM]]:
+        engine_cls = _select_engine_class(engine_classes, family, spec)
+        if engine_cls is not None or not enable_virtual_env:
+            return engine_cls
+        return _select_engine_class_fallback(engine_classes, family)
+
     if enable_virtual_env is None:
         enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
 
     if model_name not in LLM_ENGINES:
         raise ValueError(f"Model {model_name} not found.")
+    if enable_virtual_env:
+        if llm_family is None:
+            llm_family = next(
+                (f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name), None
+            )
+        engine_markers = _collect_virtualenv_engine_markers(llm_family)
+        if engine_markers and model_engine.lower() not in engine_markers:
+            raise ValueError(
+                f"Engine {model_engine} is not listed in virtualenv packages for model {model_name}."
+            )
     model_engine = get_model_engine_from_spell(model_engine)
     if model_engine not in LLM_ENGINES[model_name]:
         if llm_family is None:
@@ -668,7 +707,7 @@ def check_engine_by_spec_parameters(
                 )
             for engine_name, engine_classes in SUPPORTED_ENGINES.items():
                 if engine_name.lower() == model_engine.lower() and engine_classes:
-                    engine_cls = _select_engine_class(
+                    engine_cls = _select_engine_class_with_virtualenv(
                         engine_classes, llm_family, llm_spec
                     )
                     if engine_cls is None:
@@ -717,7 +756,9 @@ def check_engine_by_spec_parameters(
             )
         for engine_name, engine_classes in SUPPORTED_ENGINES.items():
             if engine_name.lower() == model_engine.lower() and engine_classes:
-                engine_cls = _select_engine_class(engine_classes, llm_family, llm_spec)
+                engine_cls = _select_engine_class_with_virtualenv(
+                    engine_classes, llm_family, llm_spec
+                )
                 if engine_cls is None:
                     raise ValueError(
                         f"Model {model_name} cannot be run on engine {model_engine}, "

@@ -133,7 +133,7 @@ def test_force_virtualenv_engine_params_and_override():
     supported = {"SGLang": [_DummyEngineMissing]}
 
     match_status = _force_virtualenv_engine_params(
-        _Family(), supported, {"sglang"}, engine_params, available_params
+        _Family(), supported, {"sglang"}, engine_params, available_params, False
     )
 
     assert "SGLang" in engine_params

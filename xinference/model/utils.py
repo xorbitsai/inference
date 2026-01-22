@@ -199,6 +199,7 @@ def _force_virtualenv_engine_params(
     engine_markers: Set[str],
     engine_params: Dict[str, Any],
     available_params: Dict[str, List[Dict[str, Any]]],
+    enable_virtual_env: bool,
     param_builder: Optional[Callable[[Any, List[Any]], List[Dict[str, Any]]]] = None,
 ) -> Dict[str, bool]:
     match_status: Dict[str, bool] = {}
@@ -208,6 +209,14 @@ def _force_virtualenv_engine_params(
     specs = getattr(family, "model_specs", []) or []
     for engine_name, engine_classes in supported_engines.items():
         if engine_name.lower() not in engine_markers:
+            continue
+
+        if enable_virtual_env:
+            engine_param_list = param_builder(family, specs)
+            if engine_param_list:
+                engine_params[engine_name] = engine_param_list
+                available_params[engine_name] = engine_param_list
+            match_status[engine_name] = True
             continue
 
         has_match = False
@@ -1030,6 +1039,7 @@ def get_engine_params_by_name(
             engine_markers,
             engine_params,
             available_params,
+            enable_virtual_env,
         )
         _apply_virtualenv_engine_overrides(
             engine_params,
@@ -1038,6 +1048,13 @@ def get_engine_params_by_name(
             enable_virtual_env,
             match_status,
         )
+        if enable_virtual_env and engine_markers:
+            for engine_name in list(engine_params.keys()):
+                if engine_name.lower() in engine_markers:
+                    continue
+                engine_params[engine_name] = (
+                    f"Engine {engine_name} is not listed in model virtualenv packages."
+                )
 
         return engine_params
 
@@ -1069,6 +1086,7 @@ def get_engine_params_by_name(
             engine_markers,
             engine_params,
             available_params,
+            enable_virtual_env,
             param_builder=_build_engine_params_from_specs_by_quantization,
         )
         _apply_virtualenv_engine_overrides(
@@ -1106,6 +1124,7 @@ def get_engine_params_by_name(
             engine_markers,
             engine_params,
             available_params,
+            enable_virtual_env,
             param_builder=_build_engine_params_from_specs_by_quantization,
         )
         _apply_virtualenv_engine_overrides(
