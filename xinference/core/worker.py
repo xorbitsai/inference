@@ -59,7 +59,11 @@ from ..core.model import ModelActor
 from ..core.status_guard import LaunchStatus
 from ..device_utils import get_available_device_env_name, gpu_count
 from ..model.core import VirtualEnvSettings, create_model_instance
-from ..model.utils import CancellableDownloader, get_engine_params_by_name
+from ..model.utils import (
+    CancellableDownloader,
+    get_engine_params_by_name,
+    get_engine_params_by_name_with_virtual_env,
+)
 from ..types import PeftModelConfig
 from ..utils import get_pip_config_args, get_real_path
 from .cache_tracker import CacheTrackerActor
@@ -1233,6 +1237,12 @@ class WorkerActor(xo.StatelessActor):
         model_type: Optional[str] = None,
         enable_virtual_env: Optional[bool] = None,
     ):
+        if enable_virtual_env is None:
+            enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
+        if enable_virtual_env:
+            return get_engine_params_by_name_with_virtual_env(
+                model_type, model_name, enable_virtual_env=enable_virtual_env
+            )
         return get_engine_params_by_name(
             model_type, model_name, enable_virtual_env=enable_virtual_env
         )

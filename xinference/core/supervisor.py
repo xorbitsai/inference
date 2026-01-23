@@ -47,7 +47,10 @@ from ..constants import (
 )
 from ..core.model import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
-from ..model.utils import get_engine_params_by_name
+from ..model.utils import (
+    get_engine_params_by_name,
+    get_engine_params_by_name_with_virtual_env,
+)
 from ..types import PeftModelConfig
 from .launch_strategy import IdleFirstLaunchStrategy
 from .metrics import record_metrics
@@ -699,6 +702,14 @@ class SupervisorActor(xo.StatelessActor):
             if res is not None:
                 return res
 
+        if enable_virtual_env is None:
+            from ..constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+
+            enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
+        if enable_virtual_env:
+            return get_engine_params_by_name_with_virtual_env(
+                model_type, model_name, enable_virtual_env=enable_virtual_env
+            )
         return get_engine_params_by_name(
             model_type, model_name, enable_virtual_env=enable_virtual_env
         )

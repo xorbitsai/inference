@@ -755,6 +755,390 @@ def get_engine_params_by_name(
     enable_virtual_env: Optional[bool] = None,
 ) -> Optional[Dict[str, Any]]:
     engine_params: Dict[str, Any] = {}
+
+    def _append_available_engine(
+        engine: str, params: List[Dict[str, Any]], class_field: str
+    ):
+        cleaned_params: List[Dict[str, Any]] = []
+        for param in params:
+            new_param = {k: v for k, v in param.items() if k != class_field}
+            cleaned_params.append(new_param)
+        engine_params[engine] = cleaned_params
+
+    def _append_unavailable_engine(
+        engine: str,
+        reason: Optional[str],
+        error_type: Optional[str],
+        technical_details: Optional[str],
+    ):
+        engine_params[engine] = (
+            reason
+            or technical_details
+            or f"Engine {engine} is not compatible with current model or environment"
+        )
+
+    def _collect_supported_engines(
+        family: Optional[Any],
+        supported_engines: Dict[str, List[Type[Any]]],
+        engine_type_label: str,
+    ):
+        if family is None:
+            return
+        specs = getattr(family, "model_specs", [])
+        for engine_name, engine_classes in supported_engines.items():
+            if engine_name in engine_params:
+                continue
+
+            error_reason: Optional[str] = None
+            error_type: Optional[str] = None
+            error_details: Optional[str] = None
+            relevant = False
+
+            for engine_class in engine_classes:
+                try:
+                    lib_ok, lib_reason, lib_type, lib_details = _normalize_match_result(
+                        engine_class.check_lib(),
+                        f"Engine {engine_name} library is not installed",
+                        "dependency_missing",
+                    )
+                    if not lib_ok:
+                        relevant = True
+                        error_reason = lib_reason
+                        error_type = lib_type
+                        error_details = lib_details
+                        break
+
+                    for spec in specs:
+                        quantization = getattr(spec, "quantization", None) or "none"
+                        match_func = getattr(engine_class, "match_json", None)
+                        match_res = (
+                            match_func(family, spec, quantization)
+                            if callable(match_func)
+                            else False
+                        )
+                        (
+                            is_match,
+                            reason,
+                            m_err_type,
+                            m_details,
+                        ) = _normalize_match_result(
+                            match_res,
+                            f"Engine {engine_name} is not compatible with current {engine_type_label} model or environment",
+                            "model_compatibility",
+                        )
+                        if is_match:
+                            relevant = False
+                            error_reason = None
+                            break
+
+                        relevant = True
+                        if reason:
+                            error_reason = reason
+                        if m_err_type:
+                            error_type = m_err_type
+                        if m_details:
+                            error_details = m_details
+                        break
+                    if relevant and error_reason:
+                        break
+                except Exception as e:
+                    relevant = True
+                    error_reason = f"Engine {engine_name} is not available: {str(e)}"
+                    error_type = "configuration_error"
+                    break
+
+            if relevant:
+                _append_unavailable_engine(
+                    engine_name, error_reason, error_type, error_details
+                )
+
+    def _collect_supported_image_engines(
+        families: List[Any],
+        supported_engines: Dict[str, List[Type[Any]]],
+        engine_type_label: str,
+    ):
+        if not families:
+            return
+        for engine_name, engine_classes in supported_engines.items():
+            if engine_name in engine_params:
+                continue
+
+            error_reason: Optional[str] = None
+            error_type: Optional[str] = None
+            error_details: Optional[str] = None
+            relevant = False
+
+            for engine_class in engine_classes:
+                try:
+                    match_func = getattr(engine_class, "match", None)
+                    matched = False
+                    last_reason: Optional[str] = None
+                    last_type: Optional[str] = None
+                    last_details: Optional[str] = None
+                    for family in families:
+                        match_res = (
+                            match_func(family) if callable(match_func) else False
+                        )
+                        (
+                            is_match,
+                            reason,
+                            m_err_type,
+                            m_details,
+                        ) = _normalize_match_result(
+                            match_res,
+                            f"Engine {engine_name} is not compatible with current {engine_type_label} model or environment",
+                            "model_compatibility",
+                        )
+                        if is_match:
+                            matched = True
+                            break
+                        last_reason = reason or last_reason
+                        last_type = m_err_type or last_type
+                        last_details = m_details or last_details
+
+                    if matched:
+                        check_lib = getattr(engine_class, "check_lib", None)
+                        lib_ok, lib_reason, lib_type, lib_details = (
+                            _normalize_match_result(
+                                check_lib() if callable(check_lib) else True,
+                                f"Engine {engine_name} library is not installed",
+                                "dependency_missing",
+                            )
+                        )
+                        if not lib_ok:
+                            relevant = True
+                            error_reason = lib_reason
+                            error_type = lib_type
+                            error_details = lib_details
+                        else:
+                            relevant = False
+                            error_reason = None
+                            error_type = None
+                            error_details = None
+                        break
+
+                    relevant = True
+                    error_reason = last_reason
+                    error_type = last_type
+                    error_details = last_details
+                    break
+                except Exception as e:
+                    relevant = True
+                    error_reason = f"Engine {engine_name} is not available: {str(e)}"
+                    error_type = "configuration_error"
+                    break
+
+            if relevant:
+                _append_unavailable_engine(
+                    engine_name, error_reason, error_type, error_details
+                )
+
+    def _validate_available_image_engines(
+        families: List[Any],
+        supported_engines: Dict[str, List[Type[Any]]],
+        engine_type_label: str,
+    ):
+        if not families:
+            return
+        for engine_name, engine_data in list(engine_params.items()):
+            if not isinstance(engine_data, list):
+                continue
+            if engine_name not in supported_engines:
+                continue
+
+            matched = False
+            error_reason: Optional[str] = None
+            error_type: Optional[str] = None
+            error_details: Optional[str] = None
+
+            for engine_class in supported_engines[engine_name]:
+                try:
+                    match_func = getattr(engine_class, "match", None)
+                    for family in families:
+                        match_res = (
+                            match_func(family) if callable(match_func) else False
+                        )
+                        (
+                            is_match,
+                            reason,
+                            m_err_type,
+                            m_details,
+                        ) = _normalize_match_result(
+                            match_res,
+                            f"Engine {engine_name} is not compatible with current {engine_type_label} model or environment",
+                            "model_compatibility",
+                        )
+                        if is_match:
+                            matched = True
+                            break
+                        error_reason = reason or error_reason
+                        error_type = m_err_type or error_type
+                        error_details = m_details or error_details
+                    if matched:
+                        check_lib = getattr(engine_class, "check_lib", None)
+                        lib_ok, lib_reason, lib_type, lib_details = (
+                            _normalize_match_result(
+                                check_lib() if callable(check_lib) else True,
+                                f"Engine {engine_name} library is not installed",
+                                "dependency_missing",
+                            )
+                        )
+                        if not lib_ok:
+                            _append_unavailable_engine(
+                                engine_name, lib_reason, lib_type, lib_details
+                            )
+                        break
+                except Exception as e:
+                    _append_unavailable_engine(
+                        engine_name,
+                        f"Engine {engine_name} is not available: {str(e)}",
+                        "configuration_error",
+                        None,
+                    )
+                    break
+
+            if not matched and engine_name in engine_params:
+                _append_unavailable_engine(
+                    engine_name,
+                    error_reason,
+                    error_type,
+                    error_details,
+                )
+
+    if model_type == "LLM":
+        from .llm.llm_family import BUILTIN_LLM_FAMILIES, LLM_ENGINES, SUPPORTED_ENGINES
+
+        if model_name not in LLM_ENGINES:
+            return None
+
+        available_engines = deepcopy(LLM_ENGINES[model_name])
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "llm_class")
+
+        llm_family = next(
+            (f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name), None
+        )
+        _collect_supported_engines(llm_family, SUPPORTED_ENGINES, "LLM")
+        return engine_params
+
+    if model_type == "embedding":
+        from .embedding.embed_family import (
+            BUILTIN_EMBEDDING_MODELS,
+            EMBEDDING_ENGINES,
+        )
+        from .embedding.embed_family import (
+            SUPPORTED_ENGINES as EMBEDDING_SUPPORTED_ENGINES,
+        )
+
+        if model_name not in EMBEDDING_ENGINES:
+            return None
+
+        available_engines = deepcopy(EMBEDDING_ENGINES[model_name])
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "embedding_class")
+
+        embedding_family_list = BUILTIN_EMBEDDING_MODELS.get(model_name, [])
+        embedding_family = embedding_family_list[0] if embedding_family_list else None
+        _collect_supported_engines(
+            embedding_family, EMBEDDING_SUPPORTED_ENGINES, "embedding"
+        )
+        return engine_params
+
+    if model_type == "rerank":
+        from .rerank.rerank_family import BUILTIN_RERANK_MODELS, RERANK_ENGINES
+        from .rerank.rerank_family import SUPPORTED_ENGINES as RERANK_SUPPORTED_ENGINES
+
+        if model_name not in RERANK_ENGINES:
+            return None
+
+        available_engines = deepcopy(RERANK_ENGINES[model_name])
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "rerank_class")
+
+        from .rerank.core import RerankModelFamilyV2
+
+        rerank_family_list: List[RerankModelFamilyV2] = BUILTIN_RERANK_MODELS.get(
+            model_name, []
+        )
+        rerank_family = rerank_family_list[0] if rerank_family_list else None
+        _collect_supported_engines(rerank_family, RERANK_SUPPORTED_ENGINES, "rerank")
+        return engine_params
+
+    if model_type == "image":
+        from .image import BUILTIN_IMAGE_MODELS
+        from .image.custom import get_user_defined_images
+        from .image.engine_family import (
+            IMAGE_ENGINES,
+        )
+        from .image.engine_family import SUPPORTED_ENGINES as IMAGE_SUPPORTED_ENGINES
+        from .image.ocr.ocr_family import (
+            OCR_ENGINES,
+        )
+        from .image.ocr.ocr_family import SUPPORTED_ENGINES as OCR_SUPPORTED_ENGINES
+
+        def _get_image_families(model_name: str, is_ocr: bool) -> List[Any]:
+            families: List[Any] = []
+            if model_name in BUILTIN_IMAGE_MODELS:
+                families.extend(BUILTIN_IMAGE_MODELS[model_name])
+            families.extend(
+                f for f in get_user_defined_images() if f.model_name == model_name
+            )
+            if is_ocr:
+                return [
+                    f
+                    for f in families
+                    if getattr(f, "model_ability", None)
+                    and "ocr" in getattr(f, "model_ability")
+                ]
+            return [
+                f
+                for f in families
+                if not (
+                    getattr(f, "model_ability", None)
+                    and "ocr" in getattr(f, "model_ability")
+                )
+            ]
+
+        if model_name in OCR_ENGINES:
+            available_engines = deepcopy(OCR_ENGINES[model_name])
+            for engine, params in available_engines.items():
+                _append_available_engine(engine, params, "ocr_class")
+            ocr_families = _get_image_families(model_name, is_ocr=True)
+            _validate_available_image_engines(
+                ocr_families,
+                OCR_SUPPORTED_ENGINES,
+                "OCR",
+            )
+            _collect_supported_image_engines(ocr_families, OCR_SUPPORTED_ENGINES, "OCR")
+            return engine_params
+
+        if model_name not in IMAGE_ENGINES:
+            return None
+
+        available_engines = deepcopy(IMAGE_ENGINES[model_name])
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "image_class")
+        image_families = _get_image_families(model_name, is_ocr=False)
+        _validate_available_image_engines(
+            image_families,
+            IMAGE_SUPPORTED_ENGINES,
+            "image",
+        )
+        _collect_supported_image_engines(
+            image_families, IMAGE_SUPPORTED_ENGINES, "image"
+        )
+        return engine_params
+
+    return None
+
+
+@no_type_check
+def get_engine_params_by_name_with_virtual_env(
+    model_type: Optional[str],
+    model_name: str,
+    enable_virtual_env: Optional[bool] = None,
+) -> Optional[Dict[str, Any]]:
+    engine_params: Dict[str, Any] = {}
     available_params: Dict[str, List[Dict[str, Any]]] = {}
     if enable_virtual_env is None:
         enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
