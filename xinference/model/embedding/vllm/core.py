@@ -68,10 +68,8 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
                 )
 
         if Version(vllm_version) >= Version("0.13.0"):
-            self._kwargs.setdefault("trust_remote_code", True)
             self._model = LLM(model=self._model_path, **self._kwargs)
         else:
-            self._kwargs.setdefault("trust_remote_code", True)
             self._model = LLM(model=self._model_path, task="embed", **self._kwargs)
         self._tokenizer = self._model.get_tokenizer()
 
