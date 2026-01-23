@@ -1394,12 +1394,13 @@ class WorkerActor(xo.StatelessActor):
                 req, marker = pkg.split(";", 1)
                 req = req.strip()
                 marker = marker.strip()
-                if req in system_markers or _has_custom_marker(marker):
+                if req in system_markers:
+                    resolved_packages.append(pkg)
+                    continue
+                if _has_custom_marker(marker):
                     if _marker_allows(marker):
                         resolved_packages.append(req)
                     continue
-            if pkg in system_markers:
-                continue
             resolved_packages.append(pkg)
         packages = resolved_packages
 

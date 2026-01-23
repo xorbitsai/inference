@@ -251,7 +251,7 @@ def test_prepare_virtual_env_inherit_pip_config(monkeypatch):
     assert kwargs["index_url"] == "https://example.invalid/simple"
 
 
-def test_prepare_virtual_env_skips_system_markers():
+def test_prepare_virtual_env_keeps_system_markers():
     manager = DummyVirtualEnvManager()
     settings = VirtualEnvSettings(
         packages=["pkgA==1.0.0", "#system_torch#", "#system_numpy#"],
@@ -267,7 +267,13 @@ def test_prepare_virtual_env_skips_system_markers():
 
     assert len(manager.calls) == 1
     packages, _ = manager.calls[0]
-    assert packages == ["pkgA==1.0.0", "pkgB==2.0.0"]
+    assert packages == [
+        "pkgA==1.0.0",
+        "#system_torch#",
+        "#system_numpy#",
+        "pkgB==2.0.0",
+        "#system_torchaudio#",
+    ]
 
 
 @pytest.mark.asyncio
