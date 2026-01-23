@@ -19,7 +19,7 @@ import string
 import uuid
 import weakref
 from enum import Enum
-from typing import Dict, Generator, List, Optional, Tuple, Union
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
 import orjson
 from packaging.requirements import Requirement
@@ -289,6 +289,25 @@ def merge_virtual_env_packages(
                 merged.append(pkg)
 
     return merged
+
+
+def build_subpool_envs_for_virtual_env(
+    envs: Optional[Dict[str, str]],
+    enable_virtual_env: Optional[bool],
+    virtual_env_manager: Any,
+) -> Dict[str, str]:
+    subpool_envs = {} if envs is None else envs.copy()
+    if bool(enable_virtual_env) and virtual_env_manager is not None:
+        venv_python = virtual_env_manager.get_python_path()
+        venv_bin = os.path.dirname(venv_python)
+        venv_path = os.path.dirname(venv_bin)
+        current_path = subpool_envs.get("PATH") or os.environ.get("PATH", "")
+        subpool_envs["PATH"] = os.pathsep.join([venv_bin, current_path])
+        subpool_envs["VIRTUAL_ENV"] = venv_path
+        subpool_envs.setdefault(
+            "FLASHINFER_NINJA_PATH", os.path.join(venv_bin, "ninja")
+        )
+    return subpool_envs
 
 
 def assign_replica_gpu(

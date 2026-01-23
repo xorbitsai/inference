@@ -68,6 +68,7 @@ from .metrics import launch_metrics_export_server, record_metrics
 from .resource import gather_node_info
 from .status_guard import StatusGuardActor
 from .utils import (
+    build_subpool_envs_for_virtual_env,
     log_async,
     log_sync,
     merge_virtual_env_packages,
@@ -1576,17 +1577,9 @@ class WorkerActor(xo.StatelessActor):
                 if virtual_env_manager is None
                 else virtual_env_manager.get_python_path()
             )
-            subpool_envs = {} if envs is None else envs.copy()
-            if enable_virtual_env and virtual_env_manager is not None:
-                venv_python = virtual_env_manager.get_python_path()
-                venv_bin = os.path.dirname(venv_python)
-                venv_path = os.path.dirname(venv_bin)
-                current_path = subpool_envs.get("PATH") or os.environ.get("PATH", "")
-                subpool_envs["PATH"] = os.pathsep.join([venv_bin, current_path])
-                subpool_envs["VIRTUAL_ENV"] = venv_path
-                subpool_envs.setdefault(
-                    "FLASHINFER_NINJA_PATH", os.path.join(venv_bin, "ninja")
-                )
+            subpool_envs = build_subpool_envs_for_virtual_env(
+                envs, enable_virtual_env, virtual_env_manager
+            )
             subpool_address, devices = await self._create_subpool(
                 model_uid,
                 model_type,
