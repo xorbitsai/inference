@@ -29,8 +29,22 @@
         }
       }
     ],
-    "updated_at": 1766386705,
-    "featured": false
+    "updated_at": 1769152683,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "sentence_transformers_dependencies ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -62,8 +76,22 @@
         }
       }
     ],
-    "updated_at": 1766386706,
-    "featured": false
+    "updated_at": 1769152684,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "sentence_transformers_dependencies ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -95,8 +123,17 @@
         }
       }
     ],
-    "updated_at": 1766386708,
-    "featured": false
+    "updated_at": 1769152685,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "sentence_transformers_dependencies ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
   },
   {
     "version": 2,
@@ -162,7 +199,21 @@
       }
     ],
     "featured": false,
-    "updated_at": 1766386709
+    "updated_at": 1769152686,
+    "virtualenv": {
+      "packages": [
+        "sentence_transformers_dependencies ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -194,8 +245,22 @@
         }
       }
     ],
-    "updated_at": 1766386710,
-    "featured": false
+    "updated_at": 1769152687,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "sentence_transformers_dependencies ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -227,8 +292,22 @@
         }
       }
     ],
-    "updated_at": 1766386711,
-    "featured": false
+    "updated_at": 1769152688,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "sentence_transformers_dependencies ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -260,8 +339,22 @@
         }
       }
     ],
-    "updated_at": 1766386713,
-    "featured": false
+    "updated_at": 1769152689,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "sentence_transformers_dependencies ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -292,8 +385,17 @@
         }
       }
     ],
-    "updated_at": 1766386715,
-    "featured": false
+    "updated_at": 1769152690,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "sentence_transformers_dependencies ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
   },
   {
     "version": 2,
@@ -370,7 +472,21 @@
       }
     ],
     "featured": false,
-    "updated_at": 1766386716
+    "updated_at": 1769152691,
+    "virtualenv": {
+      "packages": [
+        "sentence_transformers_dependencies ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -447,7 +563,21 @@
       }
     ],
     "featured": false,
-    "updated_at": 1766386717
+    "updated_at": 1769152692,
+    "virtualenv": {
+      "packages": [
+        "sentence_transformers_dependencies ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -524,7 +654,21 @@
       }
     ],
     "featured": false,
-    "updated_at": 1766386718
+    "updated_at": 1769152693,
+    "virtualenv": {
+      "packages": [
+        "sentence_transformers_dependencies ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -556,8 +700,22 @@
         }
       }
     ],
-    "updated_at": 1766386719,
-    "featured": false
+    "updated_at": 1769152694,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "sentence_transformers_dependencies ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -589,6 +747,20 @@
       }
     ],
     "featured": false,
-    "updated_at": 1768203204
+    "updated_at": 1769152696,
+    "virtualenv": {
+      "packages": [
+        "sentence_transformers_dependencies ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   }
 ]
