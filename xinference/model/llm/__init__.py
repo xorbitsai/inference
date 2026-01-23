@@ -217,6 +217,38 @@ def load_model_family_from_json(json_filename, target_families):
             BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
 
 
+def _merge_missing_multimodal_projectors(target, fallback) -> None:
+    fallback_map = {}
+    for spec in getattr(fallback, "model_specs", []) or []:
+        if not hasattr(spec, "multimodal_projectors"):
+            continue
+        projectors = getattr(spec, "multimodal_projectors")
+        if not projectors:
+            continue
+        key = (
+            getattr(spec, "model_format", None),
+            getattr(spec, "model_size_in_billions", None),
+            getattr(spec, "model_hub", None),
+        )
+        fallback_map[key] = projectors
+
+    if not fallback_map:
+        return
+
+    for spec in getattr(target, "model_specs", []) or []:
+        if not hasattr(spec, "multimodal_projectors"):
+            continue
+        if getattr(spec, "multimodal_projectors"):
+            continue
+        key = (
+            getattr(spec, "model_format", None),
+            getattr(spec, "model_size_in_billions", None),
+            getattr(spec, "model_hub", None),
+        )
+        if key in fallback_map:
+            setattr(spec, "multimodal_projectors", fallback_map[key])
+
+
 def _install():
     from .llama_cpp.core import XllamaCppModel
     from .lmdeploy.core import LMDeployChatModel, LMDeployModel
@@ -277,6 +309,11 @@ def _install():
                 if model.model_name not in seen_models:
                     seen_models.add(model.model_name)
                     merged_models.append(model)
+                else:
+                    for existing in merged_models:
+                        if existing.model_name == model.model_name:
+                            _merge_missing_multimodal_projectors(existing, model)
+                            break
 
             # Update BUILTIN_LLM_FAMILIES with merged results
             BUILTIN_LLM_FAMILIES.clear()
