@@ -73,12 +73,26 @@
         }
       }
     ],
-    "updated_at": 1768443779,
+    "updated_at": 1769152948,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
     ],
-    "model_type": "mistral"
+    "model_type": "mistral",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -137,12 +151,25 @@
       "<|EOT|>",
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1768443780,
+    "updated_at": 1769152949,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama"
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -170,12 +197,24 @@
         }
       }
     ],
-    "updated_at": 1768443781,
+    "updated_at": 1769152950,
     "featured": false,
     "architectures": [
       "GPT2LMHeadModel"
     ],
-    "model_type": "gpt2"
+    "model_type": "gpt2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -382,12 +421,25 @@
         }
       }
     ],
-    "updated_at": 1768443782,
+    "updated_at": 1769152951,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama"
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -469,12 +521,25 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1768443783,
+    "updated_at": 1769152952,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
     ],
-    "model_type": "mistral"
+    "model_type": "mistral",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -622,12 +687,25 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1768443784,
+    "updated_at": 1769152953,
     "featured": false,
     "architectures": [
       "MixtralForCausalLM"
     ],
-    "model_type": "mixtral"
+    "model_type": "mixtral",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -686,12 +764,25 @@
     "stop": [
       "<|im_end|>"
     ],
-    "updated_at": 1768443785,
+    "updated_at": 1769152954,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
     ],
-    "model_type": "mistral"
+    "model_type": "mistral",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -719,12 +810,24 @@
         }
       }
     ],
-    "updated_at": 1768443786,
+    "updated_at": 1769152955,
     "featured": false,
     "architectures": [
       "OPTForCausalLM"
     ],
-    "model_type": "opt"
+    "model_type": "opt",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -776,12 +879,25 @@
         }
       }
     ],
-    "updated_at": 1768443787,
+    "updated_at": 1769152956,
     "featured": false,
     "architectures": [
       "PhiForCausalLM"
     ],
-    "model_type": "phi"
+    "model_type": "phi",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -832,12 +948,25 @@
         }
       }
     ],
-    "updated_at": 1768443788,
+    "updated_at": 1769152957,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
     ],
-    "model_type": "mistral"
+    "model_type": "mistral",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -888,12 +1017,25 @@
         }
       }
     ],
-    "updated_at": 1768443789,
+    "updated_at": 1769152958,
     "featured": false,
     "architectures": [
       "GemmaForCausalLM"
     ],
-    "model_type": "gemma"
+    "model_type": "gemma",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -1076,12 +1218,25 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1768443790,
+    "updated_at": 1769152959,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2"
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -1145,12 +1300,24 @@
       "<|eom_id|>"
     ],
     "tool_parser": "llama3",
-    "updated_at": 1768443791,
+    "updated_at": 1769152960,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama"
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -1215,12 +1382,28 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1768443792,
+    "updated_at": 1769152960,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2"
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -1503,12 +1686,24 @@
     "stop": [
       "<|im_end|>"
     ],
-    "updated_at": 1768443793,
+    "updated_at": 1769152961,
     "featured": false,
     "architectures": [
       "InternVLChatModel"
     ],
-    "model_type": "internvl_chat"
+    "model_type": "internvl_chat",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -1574,12 +1769,24 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1768443794,
+    "updated_at": 1769152962,
     "featured": false,
     "architectures": [
       "MiniCPMV"
     ],
-    "model_type": "minicpmv"
+    "model_type": "minicpmv",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -1805,12 +2012,24 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1768443795,
+    "updated_at": 1769152963,
     "featured": false,
     "architectures": [
       "Ovis"
     ],
-    "model_type": "ovis"
+    "model_type": "ovis",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -1880,12 +2099,25 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1768443796,
+    "updated_at": 1769152964,
     "featured": false,
     "architectures": [
       "Qwen2VLForConditionalGeneration"
     ],
-    "model_type": "qwen2_vl"
+    "model_type": "qwen2_vl",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -2059,12 +2291,26 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "qwen",
-    "updated_at": 1768443797,
+    "updated_at": 1769152965,
     "featured": true,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2"
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -2195,12 +2441,26 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1768443798,
+    "updated_at": 1769152966,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2"
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -2236,12 +2496,17 @@
         }
       }
     ],
-    "updated_at": 1768443798,
+    "updated_at": 1769152967,
     "featured": false,
     "architectures": [
       "SkyworkForCausalLM"
     ],
-    "model_type": "skywork"
+    "model_type": "skywork",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\""
+      ]
+    }
   },
   {
     "version": 2,
@@ -2277,12 +2542,17 @@
         }
       }
     ],
-    "updated_at": 1768443799,
+    "updated_at": 1769152968,
     "featured": false,
     "architectures": [
       "SkyworkForCausalLM"
     ],
-    "model_type": "skywork"
+    "model_type": "skywork",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\""
+      ]
+    }
   },
   {
     "version": 2,
@@ -2347,12 +2617,28 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1768443800,
+    "updated_at": 1769152969,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2"
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -2464,12 +2750,29 @@
         }
       }
     ],
-    "updated_at": 1768443801,
+    "updated_at": 1769152970,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama"
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -2557,12 +2860,24 @@
         }
       }
     ],
-    "updated_at": 1768443802,
+    "updated_at": 1769152971,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama"
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -2903,12 +3218,26 @@
       "<|im_end|>",
       "<|im_sep|>"
     ],
-    "updated_at": 1768443803,
+    "updated_at": 1769152972,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama"
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -3025,12 +3354,25 @@
       "<|im_end|>",
       "<|im_sep|>"
     ],
-    "updated_at": 1768443804,
+    "updated_at": 1769152973,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama"
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -3092,12 +3434,24 @@
         }
       }
     ],
-    "updated_at": 1768443805,
+    "updated_at": 1769152974,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama"
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -3209,12 +3563,25 @@
       "<|im_end|>",
       "<|im_sep|>"
     ],
-    "updated_at": 1768443809,
+    "updated_at": 1769152975,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama"
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -3282,12 +3649,17 @@
         }
       }
     ],
-    "updated_at": 1768443815,
+    "updated_at": 1769152976,
     "featured": false,
     "architectures": [
       "BaichuanForCausalLM"
     ],
-    "model_type": "baichuan"
+    "model_type": "baichuan",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\""
+      ]
+    }
   },
   {
     "version": 2,
@@ -3361,12 +3733,17 @@
       195
     ],
     "stop": [],
-    "updated_at": 1768443817,
+    "updated_at": 1769152977,
     "featured": false,
     "architectures": [
       "BaichuanForCausalLM"
     ],
-    "model_type": "baichuan"
+    "model_type": "baichuan",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\""
+      ]
+    }
   },
   {
     "version": 2,
@@ -3513,12 +3890,25 @@
         }
       }
     ],
-    "updated_at": 1768443824,
+    "updated_at": 1769152978,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama"
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -3696,12 +4086,25 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1768443827,
+    "updated_at": 1769152979,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama"
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -3878,12 +4281,25 @@
         }
       }
     ],
-    "updated_at": 1768443830,
+    "updated_at": 1769152980,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama"
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -3961,12 +4377,25 @@
       "<|user|>",
       "<|observation|>"
     ],
-    "updated_at": 1768443835,
+    "updated_at": 1769152981,
     "featured": false,
     "architectures": [
       "ChatGLMModel"
     ],
-    "model_type": "chatglm"
+    "model_type": "chatglm",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -4006,12 +4435,28 @@
         }
       }
     ],
-    "updated_at": 1768443836,
+    "updated_at": 1769152982,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2"
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -4114,12 +4559,29 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1768443840,
+    "updated_at": 1769152982,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2"
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -4155,12 +4617,17 @@
         }
       }
     ],
-    "updated_at": 1768443842,
+    "updated_at": 1769152983,
     "featured": false,
     "architectures": [
       "CodeShellForCausalLM"
     ],
-    "model_type": "kclgpt"
+    "model_type": "kclgpt",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\""
+      ]
+    }
   },
   {
     "version": 2,
@@ -4205,12 +4672,17 @@
       "|||",
       "|<end>|"
     ],
-    "updated_at": 1768443844,
+    "updated_at": 1769152984,
     "featured": false,
     "architectures": [
       "CodeShellForCausalLM"
     ],
-    "model_type": "codeshell"
+    "model_type": "codeshell",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\""
+      ]
+    }
   },
   {
     "version": 2,
@@ -4256,12 +4728,24 @@
       "<|user|>",
       "<|observation|>"
     ],
-    "updated_at": 1768443848,
+    "updated_at": 1769152985,
     "featured": false,
     "architectures": [
       "ChatGLMForConditionalGeneration"
     ],
-    "model_type": "chatglm"
+    "model_type": "chatglm",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -4363,12 +4847,25 @@
         }
       }
     ],
-    "updated_at": 1768443852,
+    "updated_at": 1769152986,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama"
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -4477,12 +4974,25 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1768443854,
+    "updated_at": 1769152987,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama"
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -4741,12 +5251,25 @@
         }
       }
     ],
-    "updated_at": 1768443857,
+    "updated_at": 1769152988,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama"
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -5012,12 +5535,25 @@
     "stop": [
       "<|EOT|>"
     ],
-    "updated_at": 1768443861,
+    "updated_at": 1769152989,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama"
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -5098,12 +5634,25 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1768443865,
+    "updated_at": 1769152990,
     "featured": false,
     "architectures": [
       "DeepseekV3ForCausalLM"
     ],
-    "model_type": "deepseek_v3"
+    "model_type": "deepseek_v3",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -5524,12 +6073,26 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1768443867,
+    "updated_at": 1769152991,
     "featured": false,
     "architectures": [
       "DeepseekV3ForCausalLM"
     ],
-    "model_type": "deepseek_v3"
+    "model_type": "deepseek_v3",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -5599,12 +6162,24 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "deepseek-r1",
-    "updated_at": 1768443870,
+    "updated_at": 1769152992,
     "featured": false,
     "architectures": [
       "DeepseekV3ForCausalLM"
     ],
-    "model_type": "deepseek_v3"
+    "model_type": "deepseek_v3",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -5686,12 +6261,28 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1768443872,
+    "updated_at": 1769152993,
     "featured": false,
     "architectures": [
       "Qwen3ForCausalLM"
     ],
-    "model_type": "qwen3"
+    "model_type": "qwen3",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -5958,12 +6549,26 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "deepseek-r1",
-    "updated_at": 1768443874,
+    "updated_at": 1769152994,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama"
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -6387,12 +6992,30 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1768443878,
+    "updated_at": 1769152995,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2"
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -6455,12 +7078,24 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1768443879,
+    "updated_at": 1769152996,
     "featured": false,
     "architectures": [
       "DeepseekV2ForCausalLM"
     ],
-    "model_type": "deepseek_v2"
+    "model_type": "deepseek_v2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -6503,12 +7138,24 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1768443881,
+    "updated_at": 1769152997,
     "featured": false,
     "architectures": [
       "DeepseekV2ForCausalLM"
     ],
-    "model_type": "deepseek_v2"
+    "model_type": "deepseek_v2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -6551,12 +7198,24 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1768443884,
+    "updated_at": 1769152997,
     "featured": false,
     "architectures": [
       "DeepseekV2ForCausalLM"
     ],
-    "model_type": "deepseek_v2"
+    "model_type": "deepseek_v2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -6837,12 +7496,26 @@
       "<｜end▁of▁sentence｜>"
     ],
     "tool_parser": "deepseek_v3",
-    "updated_at": 1768443886,
+    "updated_at": 1769152998,
     "featured": false,
     "architectures": [
       "DeepseekV3ForCausalLM"
     ],
-    "model_type": "deepseek_v3"
+    "model_type": "deepseek_v3",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -6918,12 +7591,25 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1768443891,
+    "updated_at": 1769152999,
     "featured": false,
     "architectures": [
       "DeepseekV3ForCausalLM"
     ],
-    "model_type": "deepseek_v3"
+    "model_type": "deepseek_v3",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -7004,12 +7690,24 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1768443892,
+    "updated_at": 1769153000,
     "featured": false,
     "architectures": [
       "DeepseekV2ForCausalLM"
     ],
-    "model_type": "deepseek_vl_v2"
+    "model_type": "deepseek_vl_v2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -7092,12 +7790,24 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1768443896,
+    "updated_at": 1769153001,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2"
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -7220,12 +7930,26 @@
       "<end_of_turn>",
       "<start_of_turn>"
     ],
-    "updated_at": 1768443897,
+    "updated_at": 1769153002,
     "featured": false,
     "architectures": [
       "Gemma3ForCausalLM"
     ],
-    "model_type": "gemma3_text"
+    "model_type": "gemma3_text",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -7573,12 +8297,26 @@
       "<end_of_turn>",
       "<start_of_turn>"
     ],
-    "updated_at": 1768443900,
+    "updated_at": 1769153003,
     "featured": true,
     "architectures": [
       "Gemma3ForConditionalGeneration"
     ],
-    "model_type": "gemma3"
+    "model_type": "gemma3",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -7632,12 +8370,28 @@
       "<|user|>",
       "<|observation|>"
     ],
-    "updated_at": 1768443904,
+    "updated_at": 1769153004,
     "featured": false,
     "architectures": [
       "ChatGLMModel"
     ],
-    "model_type": "chatglm"
+    "model_type": "chatglm",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -7824,12 +8578,29 @@
       "<|user|>",
       "<|observation|>"
     ],
-    "updated_at": 1768443905,
+    "updated_at": 1769153005,
     "featured": false,
     "architectures": [
       "GlmForCausalLM"
     ],
-    "model_type": "glm"
+    "model_type": "glm",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -8073,12 +8844,23 @@
     ],
     "virtualenv": {
       "packages": [
-        "transformers>=4.51.3",
-        "mlx-lm>=0.23.1 ; sys_platform=='darwin'",
-        "#system_numpy#"
-      ]
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
     },
-    "updated_at": 1768443908,
+    "updated_at": 1769153006,
     "featured": false,
     "architectures": [
       "Glm4ForCausalLM"
@@ -8192,12 +8974,29 @@
       "<|observation|>"
     ],
     "tool_parser": "glm4",
-    "updated_at": 1768443913,
+    "updated_at": 1769153007,
     "featured": false,
     "architectures": [
       "GlmForCausalLM"
     ],
-    "model_type": "glm"
+    "model_type": "glm",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -8306,12 +9105,29 @@
       "<|observation|>"
     ],
     "tool_parser": "glm4",
-    "updated_at": 1768443914,
+    "updated_at": 1769153008,
     "featured": false,
     "architectures": [
       "GlmForCausalLM"
     ],
-    "model_type": "glm"
+    "model_type": "glm",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -8443,12 +9259,26 @@
       "</s>",
       "<|im_end|>"
     ],
-    "updated_at": 1768443917,
+    "updated_at": 1769153009,
     "featured": false,
     "architectures": [
       "InternLM3ForCausalLM"
     ],
-    "model_type": "internlm3"
+    "model_type": "internlm3",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -8698,11 +9528,24 @@
     ],
     "stop": [],
     "featured": false,
-    "updated_at": 1768443923,
+    "updated_at": 1769153010,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama"
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -8793,12 +9636,25 @@
         }
       }
     ],
-    "updated_at": 1768443926,
+    "updated_at": 1769153011,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama"
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -9012,12 +9868,26 @@
       "<|end_of_text|>",
       "<|eot_id|>"
     ],
-    "updated_at": 1768443929,
+    "updated_at": 1769153012,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama"
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -9125,12 +9995,25 @@
         }
       }
     ],
-    "updated_at": 1768443931,
+    "updated_at": 1769153013,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama"
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -9505,12 +10388,26 @@
       "<|eom_id|>"
     ],
     "tool_parser": "llama3",
-    "updated_at": 1768443933,
+    "updated_at": 1769153014,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama"
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -9569,12 +10466,17 @@
         }
       }
     ],
-    "updated_at": 1768443936,
+    "updated_at": 1769153015,
     "featured": false,
     "architectures": [
       "MllamaForConditionalGeneration"
     ],
-    "model_type": "mllama"
+    "model_type": "mllama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\""
+      ]
+    }
   },
   {
     "version": 2,
@@ -9644,12 +10546,17 @@
       "<|eot_id|>",
       "<|eom_id|>"
     ],
-    "updated_at": 1768443940,
+    "updated_at": 1769153016,
     "featured": false,
     "architectures": [
       "MllamaForConditionalGeneration"
     ],
-    "model_type": "mllama"
+    "model_type": "mllama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\""
+      ]
+    }
   },
   {
     "version": 2,
@@ -9789,12 +10696,26 @@
       "<|eot_id|>",
       "<|eom_id|>"
     ],
-    "updated_at": 1768443943,
+    "updated_at": 1769153017,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama"
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -9886,12 +10807,25 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1768443946,
+    "updated_at": 1769153018,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2"
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -9941,11 +10875,23 @@
       "<s>",
       "</s>"
     ],
-    "updated_at": 1766473530,
+    "updated_at": 1769153018,
     "featured": false,
     "architectures": [
       "MiniCPMForCausalLM"
-    ]
+    ],
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -9989,11 +10935,23 @@
       "<s>",
       "</s>"
     ],
-    "updated_at": 1766473532,
+    "updated_at": 1769153019,
     "featured": false,
     "architectures": [
       "MiniCPMForCausalLM"
-    ]
+    ],
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -10037,11 +10995,23 @@
       "<s>",
       "</s>"
     ],
-    "updated_at": 1766473534,
+    "updated_at": 1769153020,
     "featured": false,
     "architectures": [
       "MiniCPMForCausalLM"
-    ]
+    ],
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -10091,11 +11061,23 @@
       "<s>",
       "</s>"
     ],
-    "updated_at": 1766473537,
+    "updated_at": 1769153021,
     "featured": false,
     "architectures": [
       "MiniCPMForCausalLM"
-    ]
+    ],
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -10139,11 +11121,23 @@
       "<s>",
       "</s>"
     ],
-    "updated_at": 1766473538,
+    "updated_at": 1769153022,
     "featured": false,
     "architectures": [
       "MiniCPMForCausalLM"
-    ]
+    ],
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -10213,12 +11207,24 @@
       "<s>",
       "</s>"
     ],
-    "updated_at": 1768443958,
+    "updated_at": 1769153023,
     "featured": false,
     "architectures": [
       "MiniCPM3ForCausalLM"
     ],
-    "model_type": "minicpm3"
+    "model_type": "minicpm3",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -10296,12 +11302,25 @@
       "</s>",
       "<|im_end|>"
     ],
-    "updated_at": 1768443961,
+    "updated_at": 1769153024,
     "featured": false,
     "architectures": [
       "MiniCPMForCausalLM"
     ],
-    "model_type": "minicpm"
+    "model_type": "minicpm",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -10391,12 +11410,25 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1768443966,
+    "updated_at": 1769153025,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
     ],
-    "model_type": "mistral"
+    "model_type": "mistral",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -10492,12 +11524,25 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1768443967,
+    "updated_at": 1769153026,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
     ],
-    "model_type": "mistral"
+    "model_type": "mistral",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -10690,12 +11735,26 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1768443972,
+    "updated_at": 1769153027,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
     ],
-    "model_type": "mistral"
+    "model_type": "mistral",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -10871,12 +11930,26 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1768443976,
+    "updated_at": 1769153028,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
     ],
-    "model_type": "mistral"
+    "model_type": "mistral",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -10960,12 +12033,25 @@
         }
       }
     ],
-    "updated_at": 1768443979,
+    "updated_at": 1769153029,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
     ],
-    "model_type": "mistral"
+    "model_type": "mistral",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -11055,12 +12141,25 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1768443980,
+    "updated_at": 1769153030,
     "featured": false,
     "architectures": [
       "MixtralForCausalLM"
     ],
-    "model_type": "mixtral"
+    "model_type": "mixtral",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -11131,12 +12230,25 @@
         }
       }
     ],
-    "updated_at": 1768443986,
+    "updated_at": 1769153030,
     "featured": false,
     "architectures": [
       "MixtralForCausalLM"
     ],
-    "model_type": "mixtral"
+    "model_type": "mixtral",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -11177,12 +12289,24 @@
     "stop": [
       "<|im_end|>"
     ],
-    "updated_at": 1768443990,
+    "updated_at": 1769153031,
     "featured": false,
     "architectures": [
       "DeepseekV3ForCausalLM"
     ],
-    "model_type": "deepseek_v3"
+    "model_type": "deepseek_v3",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -11246,12 +12370,24 @@
       "</s>",
       "<unk>"
     ],
-    "updated_at": 1768443992,
+    "updated_at": 1769153032,
     "featured": false,
     "architectures": [
       "OrionForCausalLM"
     ],
-    "model_type": "orion"
+    "model_type": "orion",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -11297,12 +12433,24 @@
       "<|assistant|>",
       "<|end|>"
     ],
-    "updated_at": 1768443994,
+    "updated_at": 1769153033,
     "featured": false,
     "architectures": [
       "Phi3ForCausalLM"
     ],
-    "model_type": "phi3"
+    "model_type": "phi3",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -11362,12 +12510,25 @@
       "<|assistant|>",
       "<|end|>"
     ],
-    "updated_at": 1768443997,
+    "updated_at": 1769153034,
     "featured": false,
     "architectures": [
       "Phi3ForCausalLM"
     ],
-    "model_type": "phi3"
+    "model_type": "phi3",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -11618,12 +12779,29 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1768443999,
+    "updated_at": 1769153035,
     "featured": false,
     "architectures": [
       "QWenLMHeadModel"
     ],
-    "model_type": "qwen"
+    "model_type": "qwen",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -12374,12 +13552,29 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1768444002,
+    "updated_at": 1769153036,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2"
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -12444,12 +13639,28 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1768444004,
+    "updated_at": 1769153037,
     "featured": false,
     "architectures": [
       "Qwen2MoeForCausalLM"
     ],
-    "model_type": "qwen2_moe"
+    "model_type": "qwen2_moe",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -12498,12 +13709,28 @@
         "<|endoftext|>"
       ]
     },
-    "updated_at": 1768444006,
+    "updated_at": 1769153038,
     "featured": false,
     "architectures": [
       "Qwen2AudioForConditionalGeneration"
     ],
-    "model_type": "qwen2_audio"
+    "model_type": "qwen2_audio",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -12553,12 +13780,28 @@
         "<|endoftext|>"
       ]
     },
-    "updated_at": 1768444008,
+    "updated_at": 1769153039,
     "featured": false,
     "architectures": [
       "Qwen2AudioForConditionalGeneration"
     ],
-    "model_type": "qwen2_audio"
+    "model_type": "qwen2_audio",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -13188,12 +14431,30 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1768444011,
+    "updated_at": 1769153040,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2"
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -13316,12 +14577,29 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1768444012,
+    "updated_at": 1769153041,
     "featured": false,
     "architectures": [
       "Qwen2MoeForCausalLM"
     ],
-    "model_type": "qwen2_moe"
+    "model_type": "qwen2_moe",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -13637,12 +14915,29 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1768444014,
+    "updated_at": 1769153042,
     "featured": false,
     "architectures": [
       "Qwen2VLForConditionalGeneration"
     ],
-    "model_type": "qwen2_vl"
+    "model_type": "qwen2_vl",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -13828,12 +15123,28 @@
         }
       }
     ],
-    "updated_at": 1768444018,
+    "updated_at": 1769153043,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2"
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -13963,12 +15274,28 @@
         }
       }
     ],
-    "updated_at": 1768444020,
+    "updated_at": 1769153044,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2"
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -14523,12 +15850,29 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1768444025,
+    "updated_at": 1769153045,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2"
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -16040,12 +17384,30 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1768444027,
+    "updated_at": 1769153046,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2"
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -16106,12 +17468,28 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1768444030,
+    "updated_at": 1769153047,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2"
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -16177,13 +17555,23 @@
     ],
     "virtualenv": {
       "packages": [
-        "git+https://github.com/huggingface/transformers@v4.51.3-Qwen2.5-Omni-preview",
-        "#system_numpy#",
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "#system_numpy# ; #engine# == \"vllm\"",
         "qwen_omni_utils",
         "soundfile"
-      ]
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
     },
-    "updated_at": 1768444032,
+    "updated_at": 1769153048,
     "featured": false,
     "architectures": [
       "Qwen2_5OmniModel"
@@ -16454,12 +17842,29 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1768444035,
+    "updated_at": 1769153049,
     "featured": false,
     "architectures": [
       "Qwen2_5_VLForConditionalGeneration"
     ],
-    "model_type": "qwen2_5_vl"
+    "model_type": "qwen2_5_vl",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -17969,13 +19374,24 @@
     "reasoning_end_tag": "</think>",
     "virtualenv": {
       "packages": [
-        "transformers>=4.51.0",
-        "mlx-lm>=0.24.0 ; sys_platform=='darwin'",
-        "#system_numpy#"
-      ]
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
     },
     "tool_parser": "qwen",
-    "updated_at": 1768444038,
+    "updated_at": 1769153050,
     "featured": true,
     "architectures": [
       "Qwen3ForCausalLM"
@@ -18765,12 +20181,30 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1768444041,
+    "updated_at": 1769153051,
     "featured": false,
     "architectures": [
       "Qwen3MoeForCausalLM"
     ],
-    "model_type": "qwen3_moe"
+    "model_type": "qwen3_moe",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -19552,12 +20986,30 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "qwen",
-    "updated_at": 1768444044,
+    "updated_at": 1769153052,
     "featured": false,
     "architectures": [
       "Qwen3MoeForCausalLM"
     ],
-    "model_type": "qwen3_moe"
+    "model_type": "qwen3_moe",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -20342,12 +21794,30 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1768444047,
+    "updated_at": 1769153053,
     "featured": false,
     "architectures": [
       "Qwen3MoeForCausalLM"
     ],
-    "model_type": "qwen3_moe"
+    "model_type": "qwen3_moe",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -20419,12 +21889,24 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1768444052,
+    "updated_at": 1769153054,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2"
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -20525,12 +22007,24 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1768444053,
+    "updated_at": 1769153055,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2"
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -20749,12 +22243,25 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1768444055,
+    "updated_at": 1769153056,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2"
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -20896,12 +22403,17 @@
       160133,
       160132
     ],
-    "updated_at": 1768444058,
+    "updated_at": 1769153057,
     "featured": false,
     "architectures": [
       "TelechatForCausalLM"
     ],
-    "model_type": "telechat"
+    "model_type": "telechat",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\""
+      ]
+    }
   },
   {
     "version": 2,
@@ -20948,12 +22460,25 @@
         }
       }
     ],
-    "updated_at": 1768444060,
+    "updated_at": 1769153058,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "tinyllama"
+    "model_type": "tinyllama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -21086,12 +22611,25 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1768444061,
+    "updated_at": 1769153059,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama"
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -21146,12 +22684,24 @@
     "stop": [
       "</s>"
     ],
-    "updated_at": 1768444064,
+    "updated_at": 1769153060,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama"
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -21227,12 +22777,24 @@
         }
       }
     ],
-    "updated_at": 1768444066,
+    "updated_at": 1769153061,
     "featured": false,
     "architectures": [
       "XverseForCausalLM"
     ],
-    "model_type": "xverse"
+    "model_type": "xverse",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -21295,12 +22857,24 @@
     "stop": [
       "<|endoftext|>"
     ],
-    "updated_at": 1768444069,
+    "updated_at": 1769153062,
     "featured": false,
     "architectures": [
       "XverseForCausalLM"
     ],
-    "model_type": "xverse"
+    "model_type": "xverse",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -21361,12 +22935,28 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1768444072,
+    "updated_at": 1769153062,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2"
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -21689,12 +23279,19 @@
     ],
     "virtualenv": {
       "packages": [
-        "transformers",
-        "mlx-lm>=0.25.2 ; sys_platform=='darwin'",
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "mlx-lm>=0.25.2 ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
         "#system_numpy#"
-      ]
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
     },
-    "updated_at": 1768444077,
+    "updated_at": 1769153063,
     "featured": true,
     "architectures": [
       "Ernie4_5ForCausalLM"
@@ -21791,15 +23388,26 @@
     "reasoning_end_tag": "</think>",
     "virtualenv": {
       "packages": [
-        "transformers>=4.53.2",
-        "#system_numpy#"
-      ]
+        "transformers>=4.53.2 ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "#system_numpy# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"Transformers\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
     },
     "featured": false,
     "architectures": [
       "Glm4vForConditionalGeneration"
     ],
-    "updated_at": 1768444078,
+    "updated_at": 1769153080,
     "model_type": "glm4v"
   },
   {
@@ -22046,15 +23654,26 @@
     "reasoning_end_tag": "</think>",
     "virtualenv": {
       "packages": [
-        "transformers>=4.54.0",
-        "#system_numpy#"
-      ]
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
     },
     "featured": true,
     "architectures": [
       "Glm4MoeForCausalLM"
     ],
-    "updated_at": 1768444080,
+    "updated_at": 1769153064,
     "model_type": "glm4_moe"
   },
   {
@@ -22174,15 +23793,26 @@
     "reasoning_end_tag": "</think>",
     "virtualenv": {
       "packages": [
-        "transformers>=4.55.0",
-        "#system_numpy#"
-      ]
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
     },
     "featured": false,
     "architectures": [
       "Glm4vMoeForConditionalGeneration"
     ],
-    "updated_at": 1768444082,
+    "updated_at": 1769153065,
     "model_type": "glm4v_moe"
   },
   {
@@ -22267,17 +23897,38 @@
     ],
     "virtualenv": {
       "packages": [
-        "transformers>=4.55.0,<4.56.0",
-        "kernels==0.9.0",
-        "#system_numpy#"
-      ]
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
     },
-    "updated_at": 1768444084,
+    "updated_at": 1769153066,
     "featured": true,
     "architectures": [
       "GptOssForCausalLM"
     ],
-    "model_type": "gpt_oss"
+    "tool_parser": "qwen",
+    "reasoning_start_tag": "analysis",
+    "reasoning_end_tag": "assistantfinal",
+    "cache_config": {
+      "ignore_patterns": [
+        "metal/**",
+        "original/**"
+      ],
+      "ignore_file_pattern": [
+        "metal/*",
+        "original/*"
+      ]
+    }
   },
   {
     "version": 2,
@@ -22356,12 +24007,24 @@
       "<|endoftext|>",
       "<|im_end|>"
     ],
-    "updated_at": 1768444086,
+    "updated_at": 1769153067,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2"
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -22469,10 +24132,22 @@
     "reasoning_end_tag": "</think>",
     "virtualenv": {
       "packages": [
-        "transformers==4.53.0"
-      ]
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
     },
-    "updated_at": 1768444087,
+    "updated_at": 1769153068,
     "featured": false,
     "architectures": [
       "DeepseekV3ForCausalLM"
@@ -22668,12 +24343,26 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1768444088,
+    "updated_at": 1769153069,
     "featured": false,
     "architectures": [
       "SeedOssForCausalLM"
     ],
-    "model_type": "seed_oss"
+    "model_type": "seed_oss",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "llama_cpp_dependencies ; #engine# == \"llama.cpp\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -22741,12 +24430,24 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1768444091,
+    "updated_at": 1769153070,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2"
+    "model_type": "qwen2",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -23403,12 +25104,29 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1768444092,
+    "updated_at": 1769153071,
     "featured": true,
     "architectures": [
       "Qwen3VLMoeForConditionalGeneration"
     ],
-    "model_type": "qwen3_vl_moe"
+    "model_type": "qwen3_vl_moe",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -23882,12 +25600,29 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "qwen",
-    "updated_at": 1768444094,
+    "updated_at": 1769153072,
     "featured": false,
     "architectures": [
       "Qwen3VLMoeForConditionalGeneration"
     ],
-    "model_type": "qwen3_vl_moe"
+    "model_type": "qwen3_vl_moe",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -23998,12 +25733,29 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1768444096,
+    "updated_at": 1769153073,
     "featured": false,
     "architectures": [
       "Qwen3NextForCausalLM"
     ],
-    "model_type": "qwen3_next"
+    "model_type": "qwen3_next",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -24117,12 +25869,29 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "qwen",
-    "updated_at": 1768444097,
+    "updated_at": 1769153074,
     "featured": false,
     "architectures": [
       "Qwen3NextForCausalLM"
     ],
-    "model_type": "qwen3_next"
+    "model_type": "qwen3_next",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    }
   },
   {
     "version": 2,
@@ -24188,9 +25957,22 @@
       "<|im_end|>"
     ],
     "virtualenv": {
-      "packages": []
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
     },
-    "updated_at": 1768444098,
+    "updated_at": 1769153075,
     "featured": false,
     "architectures": [
       "MiniCPMV"
@@ -24270,13 +26052,24 @@
     "tool_parser": "qwen",
     "virtualenv": {
       "packages": [
-        "transformers==4.57.1",
-        "#system_numpy#",
+        "transformers==4.57.1 ; #engine# == \"Transformers\"",
+        "accelerate>=0.28.0 ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "#system_numpy# ; #engine# == \"vllm\"",
         "qwen_omni_utils",
         "soundfile"
-      ]
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
     },
-    "updated_at": 1768444099,
+    "updated_at": 1769153076,
     "featured": false,
     "architectures": [
       "Qwen3OmniMoeForConditionalGeneration"
@@ -24353,13 +26146,24 @@
     "tool_parser": "qwen",
     "virtualenv": {
       "packages": [
-        "transformers==4.57.1",
-        "#system_numpy#",
+        "transformers==4.57.1 ; #engine# == \"Transformers\"",
+        "accelerate>=0.28.0 ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "#system_numpy# ; #engine# == \"vllm\"",
         "qwen_omni_utils",
         "soundfile"
-      ]
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
     },
-    "updated_at": 1768444100,
+    "updated_at": 1769153077,
     "featured": false,
     "architectures": [
       "Qwen3OmniMoeForConditionalGeneration"
@@ -24458,9 +26262,23 @@
     "tool_parser": "minimax",
     "version": 2,
     "virtualenv": {
-      "packages": []
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
     },
-    "updated_at": 1768444101,
+    "updated_at": 1769153078,
     "featured": false,
     "architectures": [
       "MiniMaxM2ForCausalLM"
@@ -24533,11 +26351,13 @@
     ],
     "version": 2,
     "virtualenv": {
-      "packages": []
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\""
+      ]
     },
     "tool_parser": "deepseek-r1",
     "featured": true,
-    "updated_at": 1768444102,
+    "updated_at": 1769153079,
     "model_type": "deepseek_v32"
   },
   {
@@ -24610,11 +26430,13 @@
     "reasoning_end_tag": "</think>",
     "version": 2,
     "virtualenv": {
-      "packages": []
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\""
+      ]
     },
     "tool_parser": "deepseek-r1",
     "featured": true,
-    "updated_at": 1768444103,
+    "updated_at": 1769153081,
     "model_type": "deepseek_v32"
   }
 ]
