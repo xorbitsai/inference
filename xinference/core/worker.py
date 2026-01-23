@@ -1373,10 +1373,15 @@ class WorkerActor(xo.StatelessActor):
 
         def _marker_allows(marker: str) -> bool:
             marker = marker.strip().lower()
-            if "#engine#" in marker:
+            if "#engine#" in marker or "#model_engine#" in marker:
                 if not model_engine:
                     return False
-                if f'#engine# == "{model_engine.lower()}"' not in marker:
+                engine_value = model_engine.lower()
+                if (
+                    f'#engine# == "{engine_value}"' not in marker
+                    and f'#model_engine# == "{engine_value}"' not in marker
+                    and f"#model_engine# == '{engine_value}'" not in marker
+                ):
                     return False
             if 'cuda_version == "13.0"' in marker and cuda_version != "13.0":
                 return False
@@ -1397,7 +1402,11 @@ class WorkerActor(xo.StatelessActor):
 
         def _has_custom_marker(marker: str) -> bool:
             marker = marker.lower()
-            return "#engine#" in marker or "cuda_version" in marker
+            return (
+                "#engine#" in marker
+                or "#model_engine#" in marker
+                or "cuda_version" in marker
+            )
 
         resolved_packages: List[str] = []
         for pkg in packages:
@@ -1406,6 +1415,10 @@ class WorkerActor(xo.StatelessActor):
                 req = req.strip()
                 marker = marker.strip()
                 if req in system_markers:
+                    if _has_custom_marker(marker):
+                        if _marker_allows(marker):
+                            resolved_packages.append(req)
+                        continue
                     resolved_packages.append(pkg)
                     continue
                 if _has_custom_marker(marker):
