@@ -25789,14 +25789,25 @@
     "reasoning_end_tag": "</think>",
     "virtualenv": {
       "packages": [
-        "transformers>=4.54.0",
-        "#system_numpy#"
-      ]
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
     },
     "featured": true,
     "architectures": [
       "Glm4MoeForCausalLM"
     ],
-    "updated_at": 1769159073
+    "updated_at": 1769162354
   }
 ]
