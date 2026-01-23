@@ -53,8 +53,17 @@
         "gguf_model_file_name_template": "flux1-schnell-{quantization}.gguf"
       }
     },
-    "updated_at": 1766387546,
-    "featured": true
+    "updated_at": 1769152885,
+    "featured": true,
+    "virtualenv": {
+      "packages": [
+        "diffusers_dependencies ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -116,7 +125,16 @@
       }
     },
     "featured": false,
-    "updated_at": 1767694123
+    "updated_at": 1769152886,
+    "virtualenv": {
+      "packages": [
+        "diffusers_dependencies ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -178,14 +196,15 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers==0.35.1",
+        "diffusers==0.35.1 ; #engine# == \"diffusers\"",
+        "huggingface-hub<1.0 ; #engine# == \"diffusers\"",
         "peft>=0.17.0",
         "#system_torch#",
         "#system_numpy#"
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1766387550,
+    "updated_at": 1769152886,
     "featured": true
   },
   {
@@ -270,14 +289,15 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers==0.35.1",
+        "diffusers==0.35.1 ; #engine# == \"diffusers\"",
+        "huggingface-hub<1.0 ; #engine# == \"diffusers\"",
         "peft>=0.17.0",
         "#system_torch#",
         "#system_numpy#"
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1767694045,
+    "updated_at": 1769152887,
     "featured": false
   },
   {
@@ -303,8 +323,17 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387558,
-    "featured": false
+    "updated_at": 1769152888,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "diffusers_dependencies ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -364,8 +393,17 @@
         "gguf_model_file_name_template": "sd3.5_medium-{quantization}.gguf"
       }
     },
-    "updated_at": 1766387562,
-    "featured": true
+    "updated_at": 1769152889,
+    "featured": true,
+    "virtualenv": {
+      "packages": [
+        "diffusers_dependencies ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -412,8 +450,17 @@
         "gguf_model_file_name_template": "sd3.5_large-{quantization}.gguf"
       }
     },
-    "updated_at": 1766387565,
-    "featured": true
+    "updated_at": 1769152890,
+    "featured": true,
+    "virtualenv": {
+      "packages": [
+        "diffusers_dependencies ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -464,8 +511,17 @@
         "gguf_model_file_name_template": "sd3.5_large_turbo-{quantization}.gguf"
       }
     },
-    "updated_at": 1766387568,
-    "featured": false
+    "updated_at": 1769152891,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "diffusers_dependencies ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -484,8 +540,17 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387569,
-    "featured": true
+    "updated_at": 1769152892,
+    "featured": true,
+    "virtualenv": {
+      "packages": [
+        "diffusers_dependencies ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -504,8 +569,17 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387571,
-    "featured": false
+    "updated_at": 1769152893,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "diffusers_dependencies ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -528,8 +602,17 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387573,
-    "featured": false
+    "updated_at": 1769152894,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "diffusers_dependencies ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -552,8 +635,17 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387575,
-    "featured": false
+    "updated_at": 1769152894,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "diffusers_dependencies ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -617,8 +709,17 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387577,
-    "featured": false
+    "updated_at": 1769152895,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "diffusers_dependencies ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -658,8 +759,17 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387579,
-    "featured": false
+    "updated_at": 1769152896,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "diffusers_dependencies ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -674,9 +784,12 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers>=0.30.0",
+        "diffusers_dependencies ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
         "#system_numpy#"
-      ]
+      ],
+      "no_build_isolation": true
     },
     "model_src": {
       "huggingface": {
@@ -688,7 +801,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387581,
+    "updated_at": 1769152897,
     "featured": false
   },
   {
@@ -703,9 +816,12 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers>=0.33.0",
+        "diffusers_dependencies ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
         "#system_numpy#"
-      ]
+      ],
+      "no_build_isolation": true
     },
     "model_src": {
       "huggingface": {
@@ -717,7 +833,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387584,
+    "updated_at": 1769152898,
     "featured": true
   },
   {
@@ -733,8 +849,17 @@
         "model_revision": "51388a731f57604945fddd703ecb5c50e8e7b49d"
       }
     },
-    "updated_at": 1766387586,
-    "featured": false
+    "updated_at": 1769152899,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "diffusers_dependencies ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -749,8 +874,17 @@
         "model_revision": "81a84f49b15956b60b4272a405ad3daef3da4590"
       }
     },
-    "updated_at": 1766387588,
-    "featured": false
+    "updated_at": 1769152900,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "diffusers_dependencies ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -765,8 +899,17 @@
         "model_revision": "115134f363124c53c7d878647567d04daf26e41e"
       }
     },
-    "updated_at": 1766387589,
-    "featured": false
+    "updated_at": 1769152901,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "diffusers_dependencies ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -880,14 +1023,15 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers==0.35.1",
+        "diffusers==0.35.1 ; #engine# == \"diffusers\"",
+        "huggingface-hub<1.0 ; #engine# == \"diffusers\"",
         "peft>=0.17.0",
         "#system_torch#",
         "#system_numpy#"
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1766387620,
+    "updated_at": 1769152903,
     "featured": false
   },
   {
@@ -967,14 +1111,14 @@
     },
     "virtualenv": {
       "packages": [
-        "git+https://github.com/huggingface/diffusers",
+        "diffusers_dependencies ; #engine# == \"diffusers\"",
         "peft>=0.17.0",
         "#system_torch#",
         "#system_numpy#"
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1767694066,
+    "updated_at": 1769152904,
     "featured": false
   },
   {
@@ -986,7 +1130,8 @@
     ],
     "virtualenv": {
       "packages": [
-        "transformers==4.46.3",
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "mlx-vlm ; #engine# == \"mlx\"",
         "tokenizers==0.20.3",
         "PyMuPDF",
         "img2pdf",
@@ -994,9 +1139,15 @@
         "easydict",
         "addict",
         "Pillow",
-        "#system_torch#",
+        "#system_torch# ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
         "#system_numpy#"
-      ]
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
     },
     "model_specs": [
       {
@@ -1039,7 +1190,7 @@
       }
     ],
     "featured": false,
-    "updated_at": 1767691154
+    "updated_at": 1769152905
   },
   {
     "version": 2,
@@ -1050,11 +1201,17 @@
     ],
     "virtualenv": {
       "packages": [
-        "transformers @ git+https://github.com/huggingface/transformers@82a06db03535c49aa987719ed0746a76093b1ec4",
-        "accelerate>=0.34.2",
+        "transformers @ git+https://github.com/huggingface/transformers@82a06db03535c49aa987719ed0746a76093b1ec4 ; #engine# == \"Transformers\"",
+        "accelerate>=0.34.2 ; #engine# == \"Transformers\"",
         "#system_numpy#",
-        "#system_torch#"
-      ]
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "#system_torch# ; #engine# == \"Transformers\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
     },
     "model_src": {
       "huggingface": {
@@ -1067,7 +1224,7 @@
       }
     },
     "featured": false,
-    "updated_at": 1766387626
+    "updated_at": 1769152905
   },
   {
     "version": 2,
@@ -1117,7 +1274,16 @@
       }
     },
     "featured": true,
-    "updated_at": 1766387628
+    "updated_at": 1769152906,
+    "virtualenv": {
+      "packages": [
+        "diffusers_dependencies ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -1157,7 +1323,7 @@
     "gguf_model_file_name_template": "z-image-turbo-{quantization}.gguf",
     "virtualenv": {
       "packages": [
-        "git+https://github.com/huggingface/diffusers",
+        "diffusers_dependencies ; #engine# == \"diffusers\"",
         "transformers>=4.51.0",
         "#system_torch#",
         "#system_numpy#"
@@ -1175,7 +1341,7 @@
       }
     },
     "featured": true,
-    "updated_at": 1767838623
+    "updated_at": 1769152907
   },
   {
     "version": 2,
@@ -1232,7 +1398,7 @@
     },
     "virtualenv": {
       "packages": [
-        "git+https://github.com/huggingface/diffusers",
+        "diffusers_dependencies ; #engine# == \"diffusers\"",
         "transformers>=4.51.3",
         "#system_torch#",
         "#system_numpy#"
@@ -1240,7 +1406,7 @@
       "no_build_isolation": true
     },
     "featured": true,
-    "updated_at": 1766568088
+    "updated_at": 1769152909
   },
   {
     "version": 2,
@@ -1321,7 +1487,7 @@
     },
     "virtualenv": {
       "packages": [
-        "git+https://github.com/huggingface/diffusers",
+        "diffusers_dependencies ; #engine# == \"diffusers\"",
         "peft>=0.17.0",
         "#system_torch#",
         "#system_numpy#"
@@ -1329,7 +1495,7 @@
       "no_build_isolation": true
     },
     "featured": true,
-    "updated_at": 1767521216
+    "updated_at": 1769152911
   },
   {
     "version": 2,
@@ -1412,14 +1578,15 @@
     "virtualenv": {
       "no_build_isolation": true,
       "packages": [
-        "diffusers==0.35.1",
+        "diffusers==0.35.1 ; #engine# == \"diffusers\"",
+        "huggingface-hub<1.0 ; #engine# == \"diffusers\"",
         "peft>=0.17.0",
         "#system_torch#",
         "#system_numpy#"
       ]
     },
     "featured": true,
-    "updated_at": 1767599235
+    "updated_at": 1769152912
   },
   {
     "version": 2,
