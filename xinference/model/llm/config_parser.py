@@ -32,6 +32,15 @@ def _load_tokenizer_config(model_dir: str) -> Optional[Dict[str, Any]]:
     return _load_json_file(tokenizer_config_path)
 
 
+def _load_chat_template_file(model_dir: str) -> Optional[str]:
+    chat_template_path = os.path.join(model_dir, "chat_template.jinja")
+    if not os.path.exists(chat_template_path):
+        return None
+    with open(chat_template_path, "r") as file:
+        content = file.read()
+    return content.strip() if content else None
+
+
 def _get_first_value(config: Dict[str, Any], *keys: str) -> Optional[Any]:
     for key in keys:
         value = config.get(key)
@@ -250,9 +259,10 @@ def build_llm_registration_from_local_config(
     config_path, model_dir = _resolve_config_and_dir(model_path)
     config = _load_json_file(config_path)
     tokenizer_config = _load_tokenizer_config(model_dir)
+    chat_template_file = _load_chat_template_file(model_dir)
 
     model_lang = _infer_languages(config)
-    chat_template = _extract_chat_template(tokenizer_config)
+    chat_template = _extract_chat_template(tokenizer_config) or chat_template_file
     model_ability = ["generate"]
     if chat_template:
         model_ability.append("chat")
