@@ -306,4 +306,3 @@ class VLLMHunyuanOCRModel(HunyuanOCRModel):
 
 class VLLMPaddleOCRVLModel(PaddleOCRVLModel):
     required_libs = ("vllm",)
-
