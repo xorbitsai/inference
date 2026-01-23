@@ -209,7 +209,7 @@ def test_prepare_virtual_env_injects_engine_vars():
 
     assert len(manager.calls) == 1
     packages, kwargs = manager.calls[0]
-    assert packages == ["vllm==0.13.0", "pkgA==1.0.0", "pkgB==2.0.0"]
+    assert packages == ["pkgA==1.0.0", "pkgB==2.0.0"]
     assert kwargs["engine"] == "vllm"
     assert kwargs["model_engine"] == "vllm"
 
