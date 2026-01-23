@@ -160,7 +160,10 @@ def create_ocr_model_instance(
     **kwargs,
 ) -> OCRModel:
     from .cache_manager import ImageCacheManager
-    from .ocr.ocr_family import check_engine_by_model_name_and_engine
+    from .ocr.ocr_family import (
+        check_engine_by_model_name_and_engine,
+        check_engine_by_model_name_and_engine_with_virtual_env,
+    )
 
     enable_virtual_env = kwargs.pop("enable_virtual_env", None)
     if not model_path:
@@ -172,14 +175,26 @@ def create_ocr_model_instance(
 
     model_format = getattr(model_spec, "model_format", None)
     quantization = getattr(model_spec, "quantization", None)
-    ocr_cls = check_engine_by_model_name_and_engine(
-        model_engine,
-        model_spec.model_name,
-        model_format,
-        quantization,
-        model_family=model_spec,
-        enable_virtual_env=enable_virtual_env,
-    )
+    if enable_virtual_env is None:
+        from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+
+        enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
+
+    if enable_virtual_env:
+        ocr_cls = check_engine_by_model_name_and_engine_with_virtual_env(
+            model_engine,
+            model_spec.model_name,
+            model_format,
+            quantization,
+            model_family=model_spec,
+        )
+    else:
+        ocr_cls = check_engine_by_model_name_and_engine(
+            model_engine,
+            model_spec.model_name,
+            model_format,
+            quantization,
+        )
     return ocr_cls(
         model_uid,
         model_path,
@@ -280,19 +295,34 @@ def create_image_model_instance(
         lora_load_kwargs = None
         lora_fuse_kwargs = None
 
-    from .engine_family import check_engine_by_model_name_and_engine
+    from .engine_family import (
+        check_engine_by_model_name_and_engine,
+        check_engine_by_model_name_and_engine_with_virtual_env,
+    )
 
     if model_engine is None:
         model_engine = "diffusers"
 
-    model_cls = check_engine_by_model_name_and_engine(
-        model_engine,
-        model_spec.model_name,
-        model_format,
-        quantization,
-        model_family=model_spec,
-        enable_virtual_env=enable_virtual_env,
-    )
+    if enable_virtual_env is None:
+        from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+
+        enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
+
+    if enable_virtual_env:
+        model_cls = check_engine_by_model_name_and_engine_with_virtual_env(
+            model_engine,
+            model_spec.model_name,
+            model_format,
+            quantization,
+            model_family=model_spec,
+        )
+    else:
+        model_cls = check_engine_by_model_name_and_engine(
+            model_engine,
+            model_spec.model_name,
+            model_format,
+            quantization,
+        )
 
     model = model_cls(
         model_uid,

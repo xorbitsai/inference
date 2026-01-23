@@ -15,8 +15,6 @@
 import logging
 from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Type, Union
 
-from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV
-
 if TYPE_CHECKING:
     from .core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 
@@ -122,8 +120,6 @@ def check_engine_by_model_name_and_engine(
     model_name: str,
     model_format: Optional[str],
     quantization: Optional[str],
-    model_family: Optional["EmbeddingModelFamilyV2"] = None,
-    enable_virtual_env: Optional[bool] = None,
 ) -> Type["EmbeddingModel"]:
     def get_model_engine_from_spell(engine_str: str) -> str:
         for engine in EMBEDDING_ENGINES[model_name].keys():
@@ -131,79 +127,10 @@ def check_engine_by_model_name_and_engine(
                 return engine
         return engine_str
 
-    if enable_virtual_env is None:
-        enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
-
     if model_name not in EMBEDDING_ENGINES:
-        if enable_virtual_env and model_family is not None:
-            from ..utils import (
-                _collect_virtualenv_engine_markers,
-                _normalize_match_result,
-            )
-
-            engine_key = get_model_engine_from_spell(model_engine)
-            engine_markers = _collect_virtualenv_engine_markers(model_family)
-            if engine_key.lower() in engine_markers:
-                engine_classes = SUPPORTED_ENGINES.get(engine_key, [])
-                if enable_virtual_env and engine_classes:
-                    logger.warning(
-                        "Bypassing engine compatibility checks for %s due to virtualenv marker.",
-                        engine_key,
-                    )
-                    return engine_classes[0]
-                for spec in model_family.model_specs:
-                    spec_quant = getattr(spec, "quantization", None) or "none"
-                    for cls in engine_classes:
-                        match_func = getattr(cls, "match_json", None)
-                        if not callable(match_func):
-                            continue
-                        try:
-                            match_res = match_func(model_family, spec, spec_quant)
-                        except Exception:
-                            match_res = False
-                        is_match, _, _, _ = _normalize_match_result(
-                            match_res,
-                            f"Model {model_name} cannot be run on engine {engine_key}.",
-                            "model_compatibility",
-                        )
-                        if is_match:
-                            return cls
         raise ValueError(f"Model {model_name} not found.")
     model_engine = get_model_engine_from_spell(model_engine)
     if model_engine not in EMBEDDING_ENGINES[model_name]:
-        if enable_virtual_env and model_family is not None:
-            from ..utils import (
-                _collect_virtualenv_engine_markers,
-                _normalize_match_result,
-            )
-
-            engine_key = get_model_engine_from_spell(model_engine)
-            engine_markers = _collect_virtualenv_engine_markers(model_family)
-            if engine_key.lower() in engine_markers:
-                engine_classes = SUPPORTED_ENGINES.get(engine_key, [])
-                if enable_virtual_env and engine_classes:
-                    logger.warning(
-                        "Bypassing engine compatibility checks for %s due to virtualenv marker.",
-                        engine_key,
-                    )
-                    return engine_classes[0]
-                for spec in model_family.model_specs:
-                    spec_quant = getattr(spec, "quantization", None) or "none"
-                    for cls in engine_classes:
-                        match_func = getattr(cls, "match_json", None)
-                        if not callable(match_func):
-                            continue
-                        try:
-                            match_res = match_func(model_family, spec, spec_quant)
-                        except Exception:
-                            match_res = False
-                        is_match, _, _, _ = _normalize_match_result(
-                            match_res,
-                            f"Model {model_name} cannot be run on engine {engine_key}.",
-                            "model_compatibility",
-                        )
-                        if is_match:
-                            return cls
         raise ValueError(f"Model {model_name} cannot be run on engine {model_engine}.")
     match_params = EMBEDDING_ENGINES[model_name][model_engine]
     for param in match_params:
@@ -214,4 +141,67 @@ def check_engine_by_model_name_and_engine(
         ):
             continue
         return param["embedding_class"]
+    raise ValueError(f"Model {model_name} cannot be run on engine {model_engine}.")
+
+
+def check_engine_by_model_name_and_engine_with_virtual_env(
+    model_engine: str,
+    model_name: str,
+    model_format: Optional[str],
+    quantization: Optional[str],
+    model_family: Optional["EmbeddingModelFamilyV2"] = None,
+) -> Type["EmbeddingModel"]:
+    from ..utils import _collect_virtualenv_engine_markers
+
+    def get_model_engine_from_spell(engine_str: str) -> str:
+        for engine in EMBEDDING_ENGINES[model_name].keys():
+            if engine.lower() == engine_str.lower():
+                return engine
+        return engine_str
+
+    if model_family is None:
+        if model_name in BUILTIN_EMBEDDING_MODELS:
+            target_families = BUILTIN_EMBEDDING_MODELS[model_name]
+            model_family = target_families[0] if target_families else None
+        else:
+            from .custom import get_user_defined_embeddings
+
+            model_family = next(
+                (
+                    f
+                    for f in get_user_defined_embeddings()
+                    if f.model_name == model_name
+                ),
+                None,
+            )
+    engine_markers = _collect_virtualenv_engine_markers(model_family)
+
+    if model_name not in EMBEDDING_ENGINES:
+        engine_key = get_model_engine_from_spell(model_engine)
+        if engine_key.lower() in engine_markers:
+            engine_classes = SUPPORTED_ENGINES.get(engine_key, [])
+            if engine_classes:
+                logger.warning(
+                    "Bypassing engine compatibility checks for %s due to virtualenv marker.",
+                    engine_key,
+                )
+                return engine_classes[0]
+        raise ValueError(f"Model {model_name} not found.")
+
+    model_engine = get_model_engine_from_spell(model_engine)
+    if model_engine not in EMBEDDING_ENGINES[model_name]:
+        if model_engine.lower() in engine_markers:
+            engine_classes = SUPPORTED_ENGINES.get(model_engine, [])
+            if engine_classes:
+                logger.warning(
+                    "Bypassing engine compatibility checks for %s due to virtualenv marker.",
+                    model_engine,
+                )
+                return engine_classes[0]
+        raise ValueError(f"Model {model_name} cannot be run on engine {model_engine}.")
+
+    match_params = EMBEDDING_ENGINES[model_name][model_engine]
+    if match_params:
+        return match_params[0]["embedding_class"]
+
     raise ValueError(f"Model {model_name} cannot be run on engine {model_engine}.")

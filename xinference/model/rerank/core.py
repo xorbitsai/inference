@@ -21,7 +21,11 @@ from ..._compat import BaseModel, Field
 from ...types import Rerank
 from ..core import VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
-from .rerank_family import check_engine_by_model_name_and_engine, match_rerank
+from .rerank_family import (
+    check_engine_by_model_name_and_engine,
+    check_engine_by_model_name_and_engine_with_virtual_env,
+    match_rerank,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -234,14 +238,26 @@ def create_rerank_model_instance(
         # we use sentence_transformers as the default engine for all models
         model_engine = "sentence_transformers"
 
-    rerank_cls = check_engine_by_model_name_and_engine(
-        model_engine,
-        model_name,
-        model_format,
-        quantization,
-        model_family=model_family,
-        enable_virtual_env=enable_virtual_env,
-    )
+    if enable_virtual_env is None:
+        from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+
+        enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
+
+    if enable_virtual_env:
+        rerank_cls = check_engine_by_model_name_and_engine_with_virtual_env(
+            model_engine,
+            model_name,
+            model_format,
+            quantization,
+            model_family=model_family,
+        )
+    else:
+        rerank_cls = check_engine_by_model_name_and_engine(
+            model_engine,
+            model_name,
+            model_format,
+            quantization,
+        )
     model = rerank_cls(
         model_uid,
         model_path,

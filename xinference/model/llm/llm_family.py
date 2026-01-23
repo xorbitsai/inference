@@ -596,10 +596,40 @@ def check_engine_by_spec_parameters(
     model_format: str,
     model_size_in_billions: Union[str, int],
     quantization: str,
-    llm_family: Optional["LLMFamilyV2"] = None,
-    enable_virtual_env: Optional[bool] = None,
 ) -> Type[LLM]:
-    from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+    def get_model_engine_from_spell(engine_str: str) -> str:
+        for engine in LLM_ENGINES[model_name].keys():
+            if engine.lower() == engine_str.lower():
+                return engine
+        return engine_str
+
+    if model_name not in LLM_ENGINES:
+        raise ValueError(f"Model {model_name} not found.")
+    model_engine = get_model_engine_from_spell(model_engine)
+    if model_engine not in LLM_ENGINES[model_name]:
+        raise ValueError(f"Model {model_name} cannot be run on engine {model_engine}.")
+    match_params = LLM_ENGINES[model_name][model_engine]
+    for param in match_params:
+        if (
+            model_name == param["model_name"]
+            and model_format == param["model_format"]
+            and model_size_in_billions == param["model_size_in_billions"]
+            and quantization in param["quantizations"]
+        ):
+            return param["llm_class"]
+    raise ValueError(
+        f"Model {model_name} cannot be run on engine {model_engine}, with format {model_format}, size {model_size_in_billions} and quantization {quantization}."
+    )
+
+
+def check_engine_by_spec_parameters_with_virtual_env(
+    model_engine: str,
+    model_name: str,
+    model_format: str,
+    model_size_in_billions: Union[str, int],
+    quantization: str,
+    llm_family: Optional["LLMFamilyV2"] = None,
+) -> Type[LLM]:
     from ..utils import _collect_virtualenv_engine_markers
 
     def get_model_engine_from_spell(engine_str: str) -> str:
@@ -623,19 +653,6 @@ def check_engine_by_spec_parameters(
             return spec
         return None
 
-    def _select_engine_class(
-        engine_classes: List[Type[LLM]],
-        family: "LLMFamilyV2",
-        spec: "LLMSpecV1",
-    ) -> Optional[Type[LLM]]:
-        for engine_cls in engine_classes:
-            match_result = engine_cls.match_json(family, spec, quantization)
-            if match_result is True or (
-                isinstance(match_result, tuple) and match_result[0] is True
-            ):
-                return engine_cls
-        return None
-
     def _select_engine_class_fallback(
         engine_classes: List[Type[LLM]],
         family: "LLMFamilyV2",
@@ -655,43 +672,20 @@ def check_engine_by_spec_parameters(
                     return engine_cls
         return engine_classes[0]
 
-    def _select_engine_class_with_virtualenv(
-        engine_classes: List[Type[LLM]],
-        family: "LLMFamilyV2",
-        spec: "LLMSpecV1",
-    ) -> Optional[Type[LLM]]:
-        engine_cls = _select_engine_class(engine_classes, family, spec)
-        if engine_cls is not None or not enable_virtual_env:
-            return engine_cls
-        return _select_engine_class_fallback(engine_classes, family)
-
-    if enable_virtual_env is None:
-        enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
-
     if model_name not in LLM_ENGINES:
         raise ValueError(f"Model {model_name} not found.")
-    if enable_virtual_env:
-        if llm_family is None:
-            llm_family = next(
-                (f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name), None
-            )
-        engine_markers = _collect_virtualenv_engine_markers(llm_family)
-        if engine_markers and model_engine.lower() not in engine_markers:
-            raise ValueError(
-                f"Engine {model_engine} is not listed in virtualenv packages for model {model_name}."
-            )
+    if llm_family is None:
+        llm_family = next(
+            (f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name), None
+        )
+    engine_markers = _collect_virtualenv_engine_markers(llm_family)
+    if engine_markers and model_engine.lower() not in engine_markers:
+        raise ValueError(
+            f"Engine {model_engine} is not listed in virtualenv packages for model {model_name}."
+        )
     model_engine = get_model_engine_from_spell(model_engine)
     if model_engine not in LLM_ENGINES[model_name]:
-        if llm_family is None:
-            llm_family = next(
-                (f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name), None
-            )
-        engine_markers = _collect_virtualenv_engine_markers(llm_family)
         if model_engine.lower() in engine_markers:
-            if not enable_virtual_env:
-                raise ValueError(
-                    f"Engine {model_engine} requires virtualenv to be enabled."
-                )
             if model_engine.lower() == "mlx" and model_format != "mlx":
                 raise ValueError(
                     f"Engine {model_engine} only supports mlx format, got {model_format}."
@@ -707,8 +701,8 @@ def check_engine_by_spec_parameters(
                 )
             for engine_name, engine_classes in SUPPORTED_ENGINES.items():
                 if engine_name.lower() == model_engine.lower() and engine_classes:
-                    engine_cls = _select_engine_class_with_virtualenv(
-                        engine_classes, llm_family, llm_spec
+                    engine_cls = _select_engine_class_fallback(
+                        engine_classes, llm_family
                     )
                     if engine_cls is None:
                         raise ValueError(
@@ -731,16 +725,7 @@ def check_engine_by_spec_parameters(
             and quantization in param["quantizations"]
         ):
             return param["llm_class"]
-    if llm_family is None:
-        llm_family = next(
-            (f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name), None
-        )
-    engine_markers = _collect_virtualenv_engine_markers(llm_family)
     if model_engine.lower() in engine_markers:
-        if not enable_virtual_env:
-            raise ValueError(
-                f"Engine {model_engine} requires virtualenv to be enabled."
-            )
         if model_engine.lower() == "mlx" and model_format != "mlx":
             raise ValueError(
                 f"Engine {model_engine} only supports mlx format, got {model_format}."
@@ -756,9 +741,7 @@ def check_engine_by_spec_parameters(
             )
         for engine_name, engine_classes in SUPPORTED_ENGINES.items():
             if engine_name.lower() == model_engine.lower() and engine_classes:
-                engine_cls = _select_engine_class_with_virtualenv(
-                    engine_classes, llm_family, llm_spec
-                )
+                engine_cls = _select_engine_class_fallback(engine_classes, llm_family)
                 if engine_cls is None:
                     raise ValueError(
                         f"Model {model_name} cannot be run on engine {model_engine}, "
