@@ -25703,13 +25703,13 @@
       "<|endoftext|>"
     ],
     "virtualenv": {
-      "packages": [
-        "transformers>=4.45.0",
-        "mineru-vl-utils[transformers]",
-        "qwen-vl-utils",
-        "#system_torch#",
-        "#system_numpy#",
-        "qwen_omni_utils"
+      "packages": [
+        "transformers>=4.45.0",
+        "mineru-vl-utils[transformers]",
+        "qwen-vl-utils",
+        "#system_torch#",
+        "#system_numpy#",
+        "qwen_omni_utils"
       ]
     },
     "updated_at": 1766740802,
