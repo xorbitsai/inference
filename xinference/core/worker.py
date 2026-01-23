@@ -42,6 +42,7 @@ from typing import (
 
 import xoscar as xo
 from async_timeout import timeout
+from packaging.version import Version
 from xoscar import MainActorPoolType
 
 from ..constants import (
@@ -1318,6 +1319,15 @@ class WorkerActor(xo.StatelessActor):
         if settings is None:
             settings = VirtualEnvSettings(packages=virtual_env_packages or [])
 
+        if settings and model_engine and model_engine.lower() not in ("vllm", "sglang"):
+            # Pydantic v1 compatibility: use copy() when model_copy is unavailable.
+            if hasattr(settings, "model_copy"):
+                settings = settings.model_copy(deep=True)
+            else:
+                settings = settings.copy(deep=True)
+            settings.extra_index_url = None
+            settings.index_strategy = None
+
         if settings.inherit_pip_config:
             # inherit pip config
             pip_config = get_pip_config_args()
@@ -1338,7 +1348,7 @@ class WorkerActor(xo.StatelessActor):
         except Exception:
             cuda_version = None
 
-        if cuda_version != "13.0":
+        if not cuda_version or Version(cuda_version) < Version("13.0"):
             settings.extra_index_url = None
             settings.index_strategy = None
 
@@ -1362,6 +1372,16 @@ class WorkerActor(xo.StatelessActor):
             if 'cuda_version < "13.0"' in marker:
                 if not cuda_version or cuda_version == "13.0":
                     return False
+            if (
+                'platform_machine == "x86_64"' in marker
+                and platform.machine().lower() != "x86_64"
+            ):
+                return False
+            if (
+                'platform_machine == "aarch64"' in marker
+                and platform.machine().lower() != "aarch64"
+            ):
+                return False
             return True
 
         def _has_custom_marker(marker: str) -> bool:
