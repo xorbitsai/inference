@@ -211,14 +211,6 @@ def _force_virtualenv_engine_params(
         if engine_name.lower() not in engine_markers:
             continue
 
-        if enable_virtual_env:
-            engine_param_list = param_builder(family, specs)
-            if engine_param_list:
-                engine_params[engine_name] = engine_param_list
-                available_params[engine_name] = engine_param_list
-            match_status[engine_name] = True
-            continue
-
         has_match = False
         matched_specs: List[Any] = []
         for spec in specs:
@@ -244,6 +236,14 @@ def _force_virtualenv_engine_params(
                 continue
 
         match_status[engine_name] = has_match
+        if enable_virtual_env:
+            if not matched_specs:
+                continue
+            engine_param_list = param_builder(family, matched_specs)
+            if engine_param_list:
+                engine_params[engine_name] = engine_param_list
+                available_params[engine_name] = engine_param_list
+            continue
         if engine_name in available_params and isinstance(
             engine_params.get(engine_name), list
         ):
