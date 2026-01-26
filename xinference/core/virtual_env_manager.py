@@ -107,15 +107,21 @@ def expand_engine_dependency_placeholders(
         return []
     engine_name = model_engine.lower() if model_engine else None
     expanded: List[str] = []
+    # Mapping for dependency names that differ from engine names
+    dependency_to_engine_map: Dict[str, str] = {
+        "llama_cpp": "llama.cpp",
+    }
     for pkg in packages:
         name = pkg.split(";", 1)[0].strip().lower()
         if name.startswith("#") and name.endswith("#"):
             name = name[1:-1]
         if name.endswith("_dependencies") and engine_name:
             target_engine = name[: -len("_dependencies")]
-            if target_engine == engine_name:
+            # Map dependency name to actual engine name if needed
+            actual_engine = dependency_to_engine_map.get(target_engine, target_engine)
+            if actual_engine == engine_name:
                 expanded.extend(
-                    ENGINE_VIRTUALENV_PACKAGES.get(target_engine, []).copy()
+                    ENGINE_VIRTUALENV_PACKAGES.get(actual_engine, []).copy()
                 )
             continue
         expanded.append(pkg)
