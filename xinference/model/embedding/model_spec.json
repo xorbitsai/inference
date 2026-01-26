@@ -1625,12 +1625,11 @@
       "packages": [
         "sentence_transformers",
         "transformers==4.51.3",
-        "xformers",
-        "flash_attn==2.7.4 ; sys_platform=='linux'"
+        "xformers"
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1766473166,
+    "updated_at": 1769396357,
     "featured": false
   },
   {
