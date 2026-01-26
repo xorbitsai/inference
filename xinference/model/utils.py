@@ -211,8 +211,61 @@ def _force_virtualenv_engine_params(
         if engine_name.lower() not in engine_markers:
             continue
 
+        if enable_virtual_env:
+            matched_specs: List[Any] = []
+            for spec in specs:
+                quantization = getattr(spec, "quantization", None) or "none"
+                for cls in engine_classes:
+                    match_func = getattr(cls, "match_json", None)
+                    if not callable(match_func):
+                        continue
+                    try:
+                        match_res = match_func(family, spec, quantization)
+                    except Exception:
+                        match_res = False
+                    is_match, _, _, _ = _normalize_match_result(
+                        match_res,
+                        f"Engine {engine_name} is not compatible with current model or environment",
+                        "model_compatibility",
+                    )
+                    if is_match:
+                        matched_specs.append(spec)
+                        break
+
+            if not matched_specs and engine_name.lower() == "sglang":
+                vllm_classes: Optional[List[Type[Any]]] = None
+                for candidate_name, candidate_classes in supported_engines.items():
+                    if candidate_name.lower() == "vllm":
+                        vllm_classes = candidate_classes
+                        break
+                if vllm_classes:
+                    for spec in specs:
+                        quantization = getattr(spec, "quantization", None) or "none"
+                        for cls in vllm_classes:
+                            match_func = getattr(cls, "match_json", None)
+                            if not callable(match_func):
+                                continue
+                            try:
+                                match_res = match_func(family, spec, quantization)
+                            except Exception:
+                                match_res = False
+                            is_match, _, _, _ = _normalize_match_result(
+                                match_res,
+                                "Engine vLLM is not compatible with current model or environment",
+                                "model_compatibility",
+                            )
+                            if is_match:
+                                matched_specs.append(spec)
+                                break
+
+            engine_param_list = param_builder(family, matched_specs)
+            engine_params[engine_name] = engine_param_list
+            available_params[engine_name] = engine_param_list
+            match_status[engine_name] = True
+            continue
+
         has_match = False
-        matched_specs: List[Any] = []
+        matched_specs = []
         for spec in specs:
             quantization = getattr(spec, "quantization", None) or "none"
             for cls in engine_classes:
@@ -236,14 +289,6 @@ def _force_virtualenv_engine_params(
                 continue
 
         match_status[engine_name] = has_match
-        if enable_virtual_env:
-            if not matched_specs:
-                continue
-            engine_param_list = param_builder(family, matched_specs)
-            if engine_param_list:
-                engine_params[engine_name] = engine_param_list
-                available_params[engine_name] = engine_param_list
-            continue
         if engine_name in available_params and isinstance(
             engine_params.get(engine_name), list
         ):

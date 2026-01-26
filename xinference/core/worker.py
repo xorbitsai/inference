@@ -80,7 +80,11 @@ from .utils import (
     purge_dir,
 )
 from .virtual_env_manager import VirtualEnvManager as XinferenceVirtualEnvManager
-from .virtual_env_manager import expand_engine_dependency_placeholders
+from .virtual_env_manager import (
+    expand_engine_dependency_placeholders,
+    get_engine_virtualenv_extra_index_urls,
+    get_engine_virtualenv_index_strategy,
+)
 
 try:
     from xoscar.virtualenv import VirtualEnvManager
@@ -1346,6 +1350,22 @@ class WorkerActor(xo.StatelessActor):
                 if hasattr(settings, k) and not getattr(settings, k):
                     setattr(settings, k, v)
 
+        if model_engine:
+            engine_extra_index_urls = get_engine_virtualenv_extra_index_urls(
+                model_engine
+            )
+            engine_index_strategy = get_engine_virtualenv_index_strategy(model_engine)
+            logger.debug(
+                f"[DEBUG] Before set: model_engine={model_engine}, engine_extra_index_urls={engine_extra_index_urls}, settings.extra_index_url={settings.extra_index_url}"
+            )
+            if settings.extra_index_url is None and engine_extra_index_urls:
+                settings.extra_index_url = engine_extra_index_urls
+            logger.debug(
+                f"[DEBUG] After set: settings.extra_index_url={settings.extra_index_url}"
+            )
+            if settings.index_strategy is None and engine_index_strategy:
+                settings.index_strategy = engine_index_strategy
+
         base_packages = engine_defaults
         if settings.packages:
             base_packages = base_packages + settings.packages.copy()
@@ -1360,8 +1380,15 @@ class WorkerActor(xo.StatelessActor):
             cuda_version = None
 
         if not cuda_version or Version(cuda_version) < Version("13.0"):
+            logger.debug(
+                f"[DEBUG] CUDA version check: cuda_version={cuda_version}, clearing extra_index_url and index_strategy"
+            )
             settings.extra_index_url = None
             settings.index_strategy = None
+        else:
+            logger.debug(
+                f"[DEBUG] CUDA version check passed: cuda_version={cuda_version}, keeping settings.extra_index_url={settings.extra_index_url}"
+            )
 
         system_markers = {
             "#system_torch#",

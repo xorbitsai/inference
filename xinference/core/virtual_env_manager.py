@@ -32,6 +32,9 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
         "ninja",
         "numpy>=2.4.1",
         "sglang>=0.5.6",
+        'https://github.com/sgl-project/whl/releases/download/v0.3.21/sgl_kernel-0.3.21+cu130-cp310-abi3-manylinux2014_x86_64.whl ; cuda_version == "13.0" and platform_machine == "x86_64"',
+        'https://github.com/sgl-project/whl/releases/download/v0.3.21/sgl_kernel-0.3.2+cu130-cp310-abi3-manylinux2014_aarch64.whl ; cuda_version == "13.0" and platform_machine == "aarch64"',
+        'sgl_kernel ; cuda_version < "13.0"',
     ],
     "vllm": [
         "vllm>=0.11.2",
@@ -56,11 +59,45 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
     ],
 }
 
+ENGINE_VIRTUALENV_EXTRA_INDEX_URLS: Dict[str, List[str]] = {
+    "vllm": [
+        "https://wheels.vllm.ai/0.14.1/cu130",
+        "https://download.pytorch.org/whl/cu130",
+    ],
+    "sglang": [
+        "https://download.pytorch.org/whl/cu130",
+    ],
+}
+
+ENGINE_VIRTUALENV_INDEX_STRATEGY: Dict[str, str] = {
+    "vllm": "unsafe-best-match",
+    "sglang": "unsafe-best-match",
+}
+
 
 def get_engine_virtualenv_packages(model_engine: Optional[str]) -> List[str]:
     if not model_engine:
         return []
     return ENGINE_VIRTUALENV_PACKAGES.get(model_engine.lower(), []).copy()
+
+
+def get_engine_virtualenv_extra_index_urls(
+    model_engine: Optional[str],
+) -> Optional[List[str]]:
+    if not model_engine:
+        return None
+    urls = ENGINE_VIRTUALENV_EXTRA_INDEX_URLS.get(model_engine.lower())
+    result = urls.copy() if urls else None
+    logger.debug(
+        f"[DEBUG] get_engine_virtualenv_extra_index_urls: model_engine={model_engine}, urls={urls}, result={result}"
+    )
+    return result
+
+
+def get_engine_virtualenv_index_strategy(model_engine: Optional[str]) -> Optional[str]:
+    if not model_engine:
+        return None
+    return ENGINE_VIRTUALENV_INDEX_STRATEGY.get(model_engine.lower())
 
 
 def expand_engine_dependency_placeholders(
@@ -72,6 +109,8 @@ def expand_engine_dependency_placeholders(
     expanded: List[str] = []
     for pkg in packages:
         name = pkg.split(";", 1)[0].strip().lower()
+        if name.startswith("#") and name.endswith("#"):
+            name = name[1:-1]
         if name.endswith("_dependencies") and engine_name:
             target_engine = name[: -len("_dependencies")]
             if target_engine == engine_name:
