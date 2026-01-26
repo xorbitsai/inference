@@ -33,7 +33,7 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
         "numpy>=2.4.1",
         "sglang>=0.5.6",
         'https://github.com/sgl-project/whl/releases/download/v0.3.21/sgl_kernel-0.3.21+cu130-cp310-abi3-manylinux2014_x86_64.whl ; cuda_version == "13.0" and platform_machine == "x86_64"',
-        'https://github.com/sgl-project/whl/releases/download/v0.3.21/sgl_kernel-0.3.2+cu130-cp310-abi3-manylinux2014_aarch64.whl ; cuda_version == "13.0" and platform_machine == "aarch64"',
+        'https://github.com/sgl-project/whl/releases/download/v0.3.21/sgl_kernel-0.3.21+cu130-cp310-abi3-manylinux2014_aarch64.whl ; cuda_version == "13.0" and platform_machine == "aarch64"',
         'sgl_kernel ; cuda_version < "13.0"',
     ],
     "vllm": [
