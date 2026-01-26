@@ -1623,13 +1623,14 @@
     ],
     "virtualenv": {
       "packages": [
-        "sentence_transformers",
+        "sentence_transformers_dependencies ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
         "transformers==4.51.3",
         "xformers"
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1769396357,
+    "updated_at": 1769396933,
     "featured": false
   },
   {
@@ -1661,14 +1662,14 @@
     ],
     "virtualenv": {
       "packages": [
-        "sentence_transformers",
+        "sentence_transformers_dependencies ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
         "transformers==4.52.0",
-        "xformers",
-        "flash_attn==2.7.4 ; sys_platform=='linux'"
+        "xformers"
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1766473192,
+    "updated_at": 1769397341,
     "featured": false
   },
   {
@@ -1682,11 +1683,12 @@
     ],
     "virtualenv": {
       "packages": [
-        "sentence_transformers",
+        "sentence_transformers_dependencies ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
         "transformers==4.51.3",
-        "#system_torch#",
-        "#system_torchvision#"
-      ]
+        "#system_torch# ; #engine# == \"sentence_transformers\""
+      ],
+      "no_build_isolation": true
     },
     "model_specs": [
       {
@@ -1707,7 +1709,7 @@
         }
       }
     ],
-    "updated_at": 1768188160,
+    "updated_at": 1769397406,
     "featured": false
   },
   {
@@ -1721,11 +1723,12 @@
     ],
     "virtualenv": {
       "packages": [
-        "sentence_transformers",
+        "sentence_transformers_dependencies ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
         "transformers==4.51.3",
-        "#system_torch#",
-        "#system_torchvision#"
-      ]
+        "#system_torch# ; #engine# == \"sentence_transformers\""
+      ],
+      "no_build_isolation": true
     },
     "model_specs": [
       {
@@ -1746,7 +1749,7 @@
         }
       }
     ],
-    "updated_at": 1768188140,
+    "updated_at": 1769397423,
     "featured": false
   },
   {
