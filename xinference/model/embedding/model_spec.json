@@ -1630,7 +1630,8 @@
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1769396594
+    "updated_at": 1769396933,
+    "featured": false
   },
   {
     "version": 2,
