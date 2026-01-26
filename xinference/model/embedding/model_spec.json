@@ -1623,15 +1623,14 @@
     ],
     "virtualenv": {
       "packages": [
-        "sentence_transformers",
+        "sentence_transformers_dependencies ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
         "transformers==4.51.3",
-        "xformers",
-        "flash_attn==2.7.4 ; sys_platform=='linux'"
+        "xformers"
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1766473166,
-    "featured": false
+    "updated_at": 1769396594
   },
   {
     "version": 2,
