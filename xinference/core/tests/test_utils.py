@@ -54,7 +54,9 @@ def test_build_subpool_envs_for_virtual_env_enabled():
 
     result = build_subpool_envs_for_virtual_env(base_envs, True, manager)
 
-    assert result["PATH"] == "/venv/bin" + ":" + "/usr/bin"
+    import os
+
+    assert result["PATH"] == "/venv/bin" + os.pathsep + "/usr/bin"
     assert result["VIRTUAL_ENV"] == "/venv"
     assert result["FLASHINFER_NINJA_PATH"] == "/custom/ninja"
     assert result is not base_envs

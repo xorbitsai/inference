@@ -1600,6 +1600,12 @@ class WorkerActor(xo.StatelessActor):
                 if virtual_env_manager is None
                 else virtual_env_manager.get_python_path()
             )
+            if subpool_python_path and not os.path.exists(subpool_python_path):
+                env_path = getattr(virtual_env_manager, "env_path", None)
+                if env_path is not None:
+                    candidate = os.path.join(str(env_path), "Scripts", "python.exe")
+                    if os.path.exists(candidate):
+                        subpool_python_path = candidate
             subpool_envs = build_subpool_envs_for_virtual_env(
                 envs, enable_virtual_env, virtual_env_manager
             )
