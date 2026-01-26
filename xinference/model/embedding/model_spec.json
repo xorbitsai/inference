@@ -1723,11 +1723,12 @@
     ],
     "virtualenv": {
       "packages": [
-        "sentence_transformers",
+        "sentence_transformers_dependencies ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
         "transformers==4.51.3",
-        "#system_torch#",
-        "#system_torchvision#"
-      ]
+        "#system_torch# ; #engine# == \"sentence_transformers\""
+      ],
+      "no_build_isolation": true
     },
     "model_specs": [
       {
@@ -1748,7 +1749,7 @@
         }
       }
     ],
-    "updated_at": 1768188140,
+    "updated_at": 1769397423,
     "featured": false
   },
   {
