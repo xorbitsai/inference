@@ -15,32 +15,39 @@ import { useTranslation } from 'react-i18next'
 const TranslateButton = ({ sx }) => {
   const [open, setOpen] = React.useState(false)
   const { i18n } = useTranslation()
-  const languages = [
-    {
-      language: 'English',
-      code: 'en',
-    },
-    {
-      language: '中文',
-      code: 'zh',
-    },
-    {
-      language: '日本語',
-      code: 'ja',
-    },
-    {
-      language: '한국어',
-      code: 'ko',
-    },
-  ]
+  const languages = React.useMemo(
+    () => [
+      { language: 'English', code: 'en', flag: '🇺🇸' },
+      { language: '中文', code: 'zh', flag: '🇨🇳' },
+      { language: '日本語', code: 'ja', flag: '🇯🇵' },
+      { language: '한국어', code: 'ko', flag: '🇰🇷' },
+    ],
+    []
+  )
+
+  const normalizeLang = (lng) =>
+    String(lng || '')
+      .toLowerCase()
+      .split('-')[0]
+  const currentLang = normalizeLang(i18n.language)
 
   const changeLanguage = (lng) => {
+    if (normalizeLang(i18n.language) === lng) {
+      handleTooltipClose()
+      return
+    }
     i18n.changeLanguage(lng)
     handleTooltipClose()
   }
 
   const handleTooltipClose = () => {
     setOpen(false)
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      handleTooltipClose()
+    }
   }
 
   return (
@@ -67,6 +74,7 @@ const TranslateButton = ({ sx }) => {
                   onClick={() => changeLanguage(item.code)}
                 >
                   <ListItemButton
+                    selected={currentLang === item.code}
                     sx={{
                       '&': {
                         paddingY: 0,
@@ -78,7 +86,7 @@ const TranslateButton = ({ sx }) => {
                       },
                     }}
                   >
-                    <ListItemText primary={item.language} />
+                    <ListItemText primary={item.flag + ' ' + item.language} />
                   </ListItemButton>
                 </ListItem>
               )
@@ -86,8 +94,12 @@ const TranslateButton = ({ sx }) => {
           </List>
         }
       >
-        <Box sx={sx}>
-          <IconButton size="large" onClick={() => setOpen((prev) => !prev)}>
+        <Box sx={sx} onKeyDown={handleKeyDown}>
+          <IconButton
+            size="large"
+            aria-label="Change language"
+            onClick={() => setOpen((prev) => !prev)}
+          >
             <Translate />
           </IconButton>
         </Box>
