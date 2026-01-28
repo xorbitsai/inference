@@ -100,6 +100,31 @@ def get_engine_virtualenv_index_strategy(model_engine: Optional[str]) -> Optiona
     return ENGINE_VIRTUALENV_INDEX_STRATEGY.get(model_engine.lower())
 
 
+def resolve_virtualenv_python_path(virtual_env_manager: Any) -> Optional[str]:
+    """
+    Resolve a usable Python executable path for a virtual environment.
+
+    This prefers the manager's reported path when it exists, otherwise falls
+    back to OS-specific defaults under the env_path.
+    """
+    if virtual_env_manager is None:
+        return None
+    venv_python = virtual_env_manager.get_python_path()
+    if venv_python and os.path.exists(venv_python):
+        return venv_python
+    env_path = getattr(virtual_env_manager, "env_path", None)
+    if env_path is None:
+        return venv_python
+    candidates: List[str] = []
+    if os.name == "nt":
+        candidates.append(os.path.join(str(env_path), "Scripts", "python.exe"))
+    candidates.append(os.path.join(str(env_path), "bin", "python"))
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return candidate
+    return venv_python
+
+
 def expand_engine_dependency_placeholders(
     packages: List[str], model_engine: Optional[str]
 ) -> List[str]:

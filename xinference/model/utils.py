@@ -104,6 +104,16 @@ def _extract_engine_markers_from_packages(packages: List[str]) -> Set[str]:
 
 
 def _collect_virtualenv_engine_markers(family: Optional[Any]) -> Set[str]:
+    """
+    Collect engine markers referenced by a model family.
+
+    This scans both the family-level virtualenv.packages and each spec-level
+    virtualenv.packages, extracts marker-based engine names (e.g. #engine# == "vllm"),
+    and returns the normalized, lowercase set.
+
+    On non-macOS platforms, the MLX engine marker is dropped because MLX is
+    only supported on macOS.
+    """
     packages: List[str] = []
     if family is None:
         return set()
@@ -202,6 +212,18 @@ def _force_virtualenv_engine_params(
     enable_virtual_env: bool,
     param_builder: Optional[Callable[[Any, List[Any]], List[Dict[str, Any]]]] = None,
 ) -> Dict[str, bool]:
+    """
+    Populate engine params for models with virtualenv markers.
+
+    Behavior:
+    - For virtualenv-enabled launches, use match_json to filter specs per engine.
+      If the engine is sglang and no specs match, fall back to vLLM's match_json
+      to reuse its compatibility logic.
+    - For non-virtualenv launches, keep strict matching and only include engines
+      with compatible specs.
+
+    Returns a map of engine name -> matched (True/False) used by override logic.
+    """
     match_status: Dict[str, bool] = {}
     if family is None or not engine_markers:
         return match_status
@@ -308,6 +330,14 @@ def _apply_virtualenv_engine_overrides(
     enable_virtual_env: bool,
     match_status: Optional[Dict[str, bool]] = None,
 ):
+    """
+    Mark engines that require virtualenv, or replace them with a reason string.
+
+    If an engine is referenced by virtualenv markers but its library is not
+    available in the current environment, this annotates the engine params
+    with virtualenv_required/virtualenv_reason (when virtualenv is enabled),
+    or replaces the engine entry with a string reason (when disabled).
+    """
     if not engine_markers:
         return
     match_status = match_status or {}
@@ -1183,6 +1213,16 @@ def get_engine_params_by_name_with_virtual_env(
     model_name: str,
     enable_virtual_env: Optional[bool] = None,
 ) -> Optional[Dict[str, Any]]:
+    """
+    Resolve engine params for UI/launch flows with virtualenv awareness.
+
+    This method keeps engine discovery compatible with virtualenv markers:
+    - It expands engine params from model registries.
+    - It applies virtualenv marker-based selection without blocking engines
+      that rely on virtualenv-installed dependencies.
+    - It annotates engines that require virtualenv when dependencies are
+      missing in the current environment.
+    """
     engine_params: Dict[str, Any] = {}
     available_params: Dict[str, List[Dict[str, Any]]] = {}
     if enable_virtual_env is None:

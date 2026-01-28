@@ -298,13 +298,11 @@ def build_subpool_envs_for_virtual_env(
 ) -> Dict[str, str]:
     subpool_envs = {} if envs is None else envs.copy()
     if bool(enable_virtual_env) and virtual_env_manager is not None:
-        venv_python = virtual_env_manager.get_python_path()
-        if venv_python and not os.path.exists(venv_python):
-            env_path = getattr(virtual_env_manager, "env_path", None)
-            if env_path is not None:
-                candidate = os.path.join(str(env_path), "Scripts", "python.exe")
-                if os.path.exists(candidate):
-                    venv_python = candidate
+        from .virtual_env_manager import resolve_virtualenv_python_path
+
+        venv_python = resolve_virtualenv_python_path(virtual_env_manager)
+        if not venv_python:
+            return subpool_envs
         venv_bin = os.path.dirname(venv_python)
         venv_path = os.path.dirname(venv_bin)
         current_path = subpool_envs.get("PATH") or os.environ.get("PATH", "")
