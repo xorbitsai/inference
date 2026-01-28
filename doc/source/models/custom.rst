@@ -18,7 +18,7 @@ For example:
 
   .. code-tab:: bash shell
 
-    xinference launch --model_path <model_file_path> --model-engine <engine> -n qwen1.5-chat
+    xinference launch --model-path <model_file_path> --model-engine <engine> -n qwen1.5-chat
 
   .. code-tab:: bash cURL
 
@@ -49,8 +49,31 @@ The above example demonstrates how to directly launch a qwen1.5-chat model file 
 For distributed scenarios, if your model file is on a specific worker,
 you can directly launch it using the ``worker_ip`` and ``model_path`` parameters with the launch interface.
 
+.. note::
+   For CLI usage, prefer ``--model-path`` (kebab-case). ``--model_path`` is legacy-compatible but not recommended.
+
 Define a custom model
 ~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Web UI: Automatic LLM Config Parsing
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When registering a custom LLM via the Web UI, Xinference can automatically parse the model
+configuration and pre-fill key fields for you.
+
+You only need to provide:
+
+- **Model path / Model ID** (where the model lives, local path or hub ID)
+- **Model Family**
+
+After parsing, the UI can auto-populate fields such as:
+
+- ``Context Length``
+- ``Model_Languages``
+- ``Model_Abilities``
+- ``Model_Specs``
+
+You can review and edit these fields before saving the custom model.
 
 Define a custom model based on the following templates:
 
@@ -277,8 +300,9 @@ Define a custom model based on the following templates:
 * model_family: A required string representing the family of the model you want to register. This parameter must not conflict with any builtin model names.
 * model_specs: An array of objects defining the specifications of the model. These include:
    * model_format: A string that defines the model format, like "pytorch" or "ggufv2".
-   * model_size_in_billions: An integer defining the size of the model in billions of parameters.
-   * quantizations: A list of strings defining the available quantizations for the model. For PyTorch models, it could be "4-bit", "8-bit", or "none". For ggufv2 models, the quantizations should correspond to values that work with the ``model_file_name_template``.
+* model_size_in_billions: An integer defining the size of the model in billions of parameters.
+* quantizations: A list of strings defining the available quantizations for the model. For PyTorch models, it could be "4-bit", "8-bit", or "none". For ggufv2 models, the quantizations should correspond to values that work with the ``model_file_name_template``.
+  Some engines also support ``fp4`` / ``fp8`` / ``bnb`` formats (see :ref:`installation` for backend support details).
    * model_id: A string representing the model ID, possibly referring to an identifier used by Hugging Face. **If model_uri is missing, Xinference will try to download the model from the huggingface repository specified here.**.
    * model_hub: A string representing where to download the model from, like "Huggingface" or "modelscope"
    * model_uri: A string representing the URI where the model can be loaded from, such as "file:///path/to/llama-2-7b". **When the model format is ggufv2, model_uri must be the specific file path. When the model format is pytorch, model_uri must be the path to the directory containing the model files.** If model URI is absent, Xinference will try to download the model from Hugging Face with the model ID.
@@ -289,7 +313,7 @@ Define a custom model based on the following templates:
 * reasoning_start_tag: A special token or prompt used to explicitly instruct the LLM to begin its chain-of-thought or reasoning process in its output.
 * reasoning_end_tag: A special token or prompt used to explicitly mark the end of the model's chain-of-thought or reasoning process in its output.
 * cache_config: A string representing the parameters and rules for how the system stores and manages temporary data (cache).
-* virtualenv: An array refers to the name or path of a self-contained Python environment used to isolate dependencies required to run a specific model or project. Please refer to :ref:`this document <virtualenv>`.
+* virtualenv: A settings object for model dependency isolation. Please refer to :ref:`this document <virtualenv>` for details.
 
 Register a Custom Model
 ~~~~~~~~~~~~~~~~~~~~~~~

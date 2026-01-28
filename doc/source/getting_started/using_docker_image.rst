@@ -26,8 +26,11 @@ Available tags include:
 * ``v<release version>``: This image is built each time a Xinference release version is published, and it is typically more stable.
 * ``latest``: This image is built with the latest Xinference release version.
 * For CPU version, add ``-cpu`` suffix, e.g. ``nightly-main-cpu``.
-* For CUDA 12.8, add ``-cu128`` suffix, e.g. ``nightly-main-cu128``. (Xinference version should be between v1.8.1 and v1.15.0)
 * For CUDA 12.9, add ``-cu129`` suffix, e.g. ``nightly-main-cu129``. (Xinference version should be v1.16.0 at least)
+
+.. note::
+
+   Starting from **Xinference v2.0**, only ``-cu129`` and ``-cpu`` images are officially provided.
 
 
 Dockerfile for custom build
@@ -95,5 +98,4 @@ at <home_path>/.cache/huggingface and <home_path>/.cache/modelscope. The command
      --gpus all \
      xprobe/xinference:v<your_version> \
      xinference-local -H 0.0.0.0
-
 

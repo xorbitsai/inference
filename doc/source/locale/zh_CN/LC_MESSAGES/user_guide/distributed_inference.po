@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-06-26 23:29+0800\n"
+"POT-Creation-Date: 2026-01-28 11:54+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -29,30 +29,26 @@ msgid ""
 "too large to fit into GPus on a single machine, Xinference supported "
 "running these models across multiple machines."
 msgstr ""
-"一些语言模型，包括 **DeepSeek V3**、**DeepSeek R1** 等，体积过大，无法"
-"适配单台机器上的 GPU，Xinference 支持在多台机器上运行这些模型。"
+"一些语言模型，包括 **DeepSeek V3**、**DeepSeek R1** 等，体积过大，无法适配单台机器上的 "
+"GPU，Xinference 支持在多台机器上运行这些模型。"
 
-#: ../../source/user_guide/distributed_inference.rst:10
-msgid "This feature is added in v1.3.0."
-msgstr "这些特性在 v1.3.0 中添加。"
-
-#: ../../source/user_guide/distributed_inference.rst:14
+#: ../../source/user_guide/distributed_inference.rst:13
 msgid "Supported Engines"
 msgstr "支持的引擎"
 
-#: ../../source/user_guide/distributed_inference.rst:15
+#: ../../source/user_guide/distributed_inference.rst:14
 msgid "Now, Xinference supported below engines to run models across workers."
 msgstr "现在，Xinference 支持如下引擎在多台 worker 上运行模型。"
 
-#: ../../source/user_guide/distributed_inference.rst:17
+#: ../../source/user_guide/distributed_inference.rst:16
 msgid ":ref:`SGLang <sglang_backend>` (supported in v1.3.0)"
 msgstr ":ref:`SGLang <sglang_backend>` （在 v1.3.0 中支持）"
 
-#: ../../source/user_guide/distributed_inference.rst:18
+#: ../../source/user_guide/distributed_inference.rst:17
 msgid ":ref:`vLLM <vllm_backend>` (supported in v1.4.1)"
 msgstr ":ref:`vLLM <vllm_backend>` （在 v1.4.1 中支持）"
 
-#: ../../source/user_guide/distributed_inference.rst:19
+#: ../../source/user_guide/distributed_inference.rst:18
 msgid ""
 ":ref:`MLX <mlx_backend>` (supported in v1.7.1), MLX distributed currently"
 " does not support all models. The following model types are supported at "
@@ -60,57 +56,64 @@ msgid ""
 "GitHub issue at `https://github.com/xorbitsai/inference/issues "
 "<https://github.com/xorbitsai/inference/issues>`_ to request support."
 msgstr ""
-":ref:`MLX <mlx_backend>` （自 v1.7.1 起支持）目前在分布式模式下并不支持"
-"所有模型。目前支持以下几种模型类型。如果你有其他需求，欢迎在 `https://"
-"github.com/xorbitsai/inference/issues <https://github.com/xorbitsai/"
-"inference/issues>`_ 提交 GitHub issue 来请求支持。"
+":ref:`MLX <mlx_backend>` （自 v1.7.1 "
+"起支持）目前在分布式模式下并不支持所有模型。目前支持以下几种模型类型。如果你有其他需求，欢迎在 "
+"`https://github.com/xorbitsai/inference/issues "
+"<https://github.com/xorbitsai/inference/issues>`_ 提交 GitHub issue 来请求支持。"
 
-#: ../../source/user_guide/distributed_inference.rst:23
+#: ../../source/user_guide/distributed_inference.rst:22
 msgid "DeepSeek v3 and R1"
 msgstr "DeepSeek v3 和 R1"
 
-#: ../../source/user_guide/distributed_inference.rst:24
+#: ../../source/user_guide/distributed_inference.rst:23
 msgid "Qwen2.5-instruct and the models have the same model architectures."
 msgstr "Qwen2.5-instruct 及其他具有相同模型架构的模型。"
 
-#: ../../source/user_guide/distributed_inference.rst:25
+#: ../../source/user_guide/distributed_inference.rst:24
 msgid "Qwen3 and the models have the same model architectures."
 msgstr "Qwen3 及其他具有相同模型架构的模型。"
 
-#: ../../source/user_guide/distributed_inference.rst:26
+#: ../../source/user_guide/distributed_inference.rst:25
 msgid "Qwen3-moe and the models have the same model architectures."
 msgstr "Qwen3-moe 及其他具有相同模型架构的模型。"
 
-#: ../../source/user_guide/distributed_inference.rst:31
+#: ../../source/user_guide/distributed_inference.rst:30
 msgid "Usage"
 msgstr "使用"
 
-#: ../../source/user_guide/distributed_inference.rst:32
+#: ../../source/user_guide/distributed_inference.rst:31
 msgid ""
 "First you need at least 2 workers to support distributed inference. Refer"
 " to :ref:`running Xinference in cluster <distributed_getting_started>` to"
 " create a Xinference cluster including supervisor and workers."
 msgstr ""
-"首先，您需要至少 2 个工作节点来支持分布式推理。请参考 :ref:`在集群中运行 "
-"Xinference <distributed_getting_started>` 以创建包含 supervisor 节点和 "
-"worker 节点的 Xinference 集群。"
+"首先，您需要至少 2 个工作节点来支持分布式推理。请参考 :ref:`在集群中运行 Xinference "
+"<distributed_getting_started>` 以创建包含 supervisor 节点和 worker 节点的 Xinference"
+" 集群。"
 
-#: ../../source/user_guide/distributed_inference.rst:36
+#: ../../source/user_guide/distributed_inference.rst:35
+msgid ""
+"vLLM (v0.11.0+) note: Starting from vLLM v0.11.0, distributed deployment "
+"with vLLM requires Xinference >= v1.17.1. In addition to setting "
+"``--n-worker`` as before, you must also set ``tensor_parallel_size=2`` "
+"and ``pipeline_parallel_size=1`` when launching the model."
+msgstr ""
+"vLLM（v0.11.0+）注意事项：从vLLM v0.11.0版本开始，使用vLLM进行分布式部署需要Xinference >= v1.17.1版本。"
+"除原有的 ``--n-worker`` 参数设置外，启动模型时还必须同时设置 ``tensor_parallel_size=2`` 和 ``pipeline_parallel_size=1`` 参数。"
+
+#: ../../source/user_guide/distributed_inference.rst:40
 msgid ""
 "Then if are using web UI, choose expected machines for ``worker count`` "
 "in the optional configurations, if you are using command line, add "
 "``--n-worker <machine number>`` when launching a model. The model will be"
 " launched across multiple workers accordingly."
 msgstr ""
-"然后，如果您使用的是 Web UI，请在可选配置中选择期望的机器数量作为 ``"
-"worker count``；如果您使用的是命令行，启动模型时请添加 ``--n-worker <机器"
-"数量>``。模型将相应地在多个工作节点上启动。"
+"然后，如果您使用的是 Web UI，请在可选配置中选择期望的机器数量作为 ``worker count``；如果您使用的是命令行，启动模型时请添加"
+" ``--n-worker <机器数量>``。模型将相应地在多个工作节点上启动。"
 
-#: ../../source/user_guide/distributed_inference.rst:44
+#: ../../source/user_guide/distributed_inference.rst:48
 msgid ""
 "``GPU count`` on web UI, or ``--n-gpu`` for command line now mean GPUs "
 "count per worker if you are using distributed inference."
-msgstr ""
-"使用分布式推理时，在 Web UI 中的 ``GPU count`` 或命令行中的 ``--n-gpu`` "
-"现在表示每个工作节点的 GPU 数量。"
+msgstr "使用分布式推理时，在 Web UI 中的 ``GPU count`` 或命令行中的 ``--n-gpu`` 现在表示每个工作节点的 GPU 数量。"
 

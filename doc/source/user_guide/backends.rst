@@ -117,7 +117,7 @@ vLLM is fast with:
 
 When the following conditions are met, Xinference will choose vLLM as the inference engine:
 
-- The model format is ``pytorch``, ``gptq`` or ``awq``.
+- The model format is ``pytorch``, ``gptq``, ``awq``, ``fp4``, ``fp8`` or ``bnb``.
 - When the model format is ``pytorch``, the quantization is ``none``.
 - When the model format is ``awq``, the quantization is ``Int4``.
 - When the model format is ``gptq``, the quantization is ``Int3``, ``Int4`` or ``Int8``.
@@ -176,5 +176,4 @@ MLX
 `MLX <https://github.com/ml-explore/mlx-examples/tree/main/llms>`_ provides efficient runtime
 to run LLM on Apple silicon. It's recommended to use for Mac users when running on Apple silicon
 if the model has MLX format support.
-
 
