@@ -72,7 +72,9 @@ from .metrics import launch_metrics_export_server, record_metrics
 from .resource import gather_node_info
 from .status_guard import StatusGuardActor
 from .utils import (
+    apply_engine_virtualenv_settings,
     build_subpool_envs_for_virtual_env,
+    filter_virtualenv_packages_by_markers,
     log_async,
     log_sync,
     merge_virtual_env_packages,
@@ -82,8 +84,6 @@ from .utils import (
 from .virtual_env_manager import VirtualEnvManager as XinferenceVirtualEnvManager
 from .virtual_env_manager import (
     expand_engine_dependency_placeholders,
-    get_engine_virtualenv_extra_index_urls,
-    get_engine_virtualenv_index_strategy,
     resolve_virtualenv_python_path,
 )
 
@@ -1255,22 +1255,18 @@ class WorkerActor(xo.StatelessActor):
     async def _get_model_ability(self, model: Any, model_type: str) -> List[str]:
         from ..model.llm.core import LLM
 
-        if model_type == "embedding":
-            return ["embed"]
-        elif model_type == "rerank":
-            return ["rerank"]
-        elif model_type == "image":
+        ability_map = {
+            "embedding": ["embed"],
+            "rerank": ["rerank"],
+            "flexible": ["flexible"],
+        }
+        if model_type in ability_map:
+            return ability_map[model_type]
+        if model_type in {"image", "audio", "video"}:
             return model.model_ability
-        elif model_type == "audio":
-            return model.model_ability
-        elif model_type == "video":
-            return model.model_ability
-        elif model_type == "flexible":
-            return ["flexible"]
-        else:
-            assert model_type == "LLM"
-            assert isinstance(model, LLM)
-            return model.model_family.model_ability  # type: ignore
+        assert model_type == "LLM"
+        assert isinstance(model, LLM)
+        return model.model_family.model_ability  # type: ignore
 
     async def update_cache_status(self, model_name: str, version_info: Any):
         if isinstance(version_info, list):  # image model
@@ -1351,21 +1347,7 @@ class WorkerActor(xo.StatelessActor):
                 if hasattr(settings, k) and not getattr(settings, k):
                     setattr(settings, k, v)
 
-        if model_engine:
-            engine_extra_index_urls = get_engine_virtualenv_extra_index_urls(
-                model_engine
-            )
-            engine_index_strategy = get_engine_virtualenv_index_strategy(model_engine)
-            logger.debug(
-                f"[DEBUG] Before set: model_engine={model_engine}, engine_extra_index_urls={engine_extra_index_urls}, settings.extra_index_url={settings.extra_index_url}"
-            )
-            if settings.extra_index_url is None and engine_extra_index_urls:
-                settings.extra_index_url = engine_extra_index_urls
-            logger.debug(
-                f"[DEBUG] After set: settings.extra_index_url={settings.extra_index_url}"
-            )
-            if settings.index_strategy is None and engine_index_strategy:
-                settings.index_strategy = engine_index_strategy
+        apply_engine_virtualenv_settings(settings, model_engine)
 
         base_packages = engine_defaults
         if settings.packages:
@@ -1391,70 +1373,9 @@ class WorkerActor(xo.StatelessActor):
                 f"[DEBUG] CUDA version check passed: cuda_version={cuda_version}, keeping settings.extra_index_url={settings.extra_index_url}"
             )
 
-        system_markers = {
-            "#system_torch#",
-            "#system_torchaudio#",
-            "#system_torchvision#",
-            "#system_torchcodec#",
-            "#system_numpy#",
-        }
-
-        def _marker_allows(marker: str) -> bool:
-            marker = marker.strip().lower()
-            if "#engine#" in marker or "#model_engine#" in marker:
-                if not model_engine:
-                    return False
-                engine_value = model_engine.lower()
-                if (
-                    f'#engine# == "{engine_value}"' not in marker
-                    and f'#model_engine# == "{engine_value}"' not in marker
-                    and f"#model_engine# == '{engine_value}'" not in marker
-                ):
-                    return False
-            if 'cuda_version == "13.0"' in marker and cuda_version != "13.0":
-                return False
-            if 'cuda_version < "13.0"' in marker:
-                if not cuda_version or cuda_version == "13.0":
-                    return False
-            if (
-                'platform_machine == "x86_64"' in marker
-                and platform.machine().lower() != "x86_64"
-            ):
-                return False
-            if (
-                'platform_machine == "aarch64"' in marker
-                and platform.machine().lower() != "aarch64"
-            ):
-                return False
-            return True
-
-        def _has_custom_marker(marker: str) -> bool:
-            marker = marker.lower()
-            return (
-                "#engine#" in marker
-                or "#model_engine#" in marker
-                or "cuda_version" in marker
-            )
-
-        resolved_packages: List[str] = []
-        for pkg in packages:
-            if ";" in pkg:
-                req, marker = pkg.split(";", 1)
-                req = req.strip()
-                marker = marker.strip()
-                if req in system_markers:
-                    if _has_custom_marker(marker):
-                        if _marker_allows(marker):
-                            resolved_packages.append(req)
-                        continue
-                    resolved_packages.append(pkg)
-                    continue
-                if _has_custom_marker(marker):
-                    if _marker_allows(marker):
-                        resolved_packages.append(req)
-                    continue
-            resolved_packages.append(pkg)
-        packages = resolved_packages
+        packages = filter_virtualenv_packages_by_markers(
+            packages, model_engine, cuda_version
+        )
 
         conf = dict(settings)
         conf.pop("packages", None)

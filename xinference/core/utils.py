@@ -14,6 +14,7 @@
 import asyncio
 import logging
 import os
+import platform
 import random
 import string
 import uuid
@@ -29,6 +30,7 @@ from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_LOG_ARG_MAX_LENGTH,
 )
+from ..model.core import VirtualEnvSettings
 
 logger = logging.getLogger(__name__)
 
@@ -312,6 +314,107 @@ def build_subpool_envs_for_virtual_env(
             "FLASHINFER_NINJA_PATH", os.path.join(venv_bin, "ninja")
         )
     return subpool_envs
+
+
+def apply_engine_virtualenv_settings(
+    settings: "VirtualEnvSettings",
+    model_engine: Optional[str],
+) -> None:
+    """
+    Apply engine-specific virtualenv settings (extra indexes, strategies).
+    """
+    if not model_engine:
+        return
+    from .virtual_env_manager import (
+        get_engine_virtualenv_extra_index_urls,
+        get_engine_virtualenv_index_strategy,
+    )
+
+    engine_extra_index_urls = get_engine_virtualenv_extra_index_urls(model_engine)
+    engine_index_strategy = get_engine_virtualenv_index_strategy(model_engine)
+    if settings.extra_index_url is None and engine_extra_index_urls:
+        settings.extra_index_url = engine_extra_index_urls
+    if settings.index_strategy is None and engine_index_strategy:
+        settings.index_strategy = engine_index_strategy
+
+
+def filter_virtualenv_packages_by_markers(
+    packages: List[str],
+    model_engine: Optional[str],
+    cuda_version: Optional[str],
+) -> List[str]:
+    """
+    Filter virtualenv packages using custom markers and system placeholders.
+
+    This keeps #system_*# entries intact while evaluating engine/cuda/platform
+    markers for other packages.
+    """
+    if not packages:
+        return []
+    system_markers = {
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_torchvision#",
+        "#system_torchcodec#",
+        "#system_numpy#",
+    }
+
+    def _marker_allows(marker: str) -> bool:
+        marker = marker.strip().lower()
+        if "#engine#" in marker or "#model_engine#" in marker:
+            if not model_engine:
+                return False
+            engine_value = model_engine.lower()
+            if (
+                f'#engine# == "{engine_value}"' not in marker
+                and f'#model_engine# == "{engine_value}"' not in marker
+                and f"#model_engine# == '{engine_value}'" not in marker
+            ):
+                return False
+        if 'cuda_version == "13.0"' in marker and cuda_version != "13.0":
+            return False
+        if 'cuda_version < "13.0"' in marker:
+            if not cuda_version or cuda_version == "13.0":
+                return False
+        if (
+            'platform_machine == "x86_64"' in marker
+            and platform.machine().lower() != "x86_64"
+        ):
+            return False
+        if (
+            'platform_machine == "aarch64"' in marker
+            and platform.machine().lower() != "aarch64"
+        ):
+            return False
+        return True
+
+    def _has_custom_marker(marker: str) -> bool:
+        marker = marker.lower()
+        return (
+            "#engine#" in marker
+            or "#model_engine#" in marker
+            or "cuda_version" in marker
+        )
+
+    resolved_packages: List[str] = []
+    for pkg in packages:
+        if ";" in pkg:
+            req, marker = pkg.split(";", 1)
+            req = req.strip()
+            marker = marker.strip()
+            if req in system_markers:
+                if _has_custom_marker(marker):
+                    if _marker_allows(marker):
+                        resolved_packages.append(req)
+                    continue
+                resolved_packages.append(pkg)
+                continue
+            if _has_custom_marker(marker):
+                if _marker_allows(marker):
+                    resolved_packages.append(req)
+                continue
+        resolved_packages.append(pkg)
+    return resolved_packages
 
 
 def assign_replica_gpu(
