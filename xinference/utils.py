@@ -39,7 +39,7 @@ def get_real_path(path: str) -> Optional[str]:
         return os.path.realpath(path)
 
 
-def get_pip_config_args() -> dict[str, str]:
+def get_pip_config_args() -> dict[str, str | list[str]]:
     """
     Parse pip config and return a dict with keys matching install_packages kwargs:
     index_url, extra_index_url, find_links, trusted_host.
@@ -58,7 +58,7 @@ def get_pip_config_args() -> dict[str, str]:
             text=True,
             check=True,
         )
-        args: dict[str, str] = {}
+        args: dict[str, str | list[str]] = {}
         for line in result.stdout.splitlines():
             if "=" not in line:
                 continue
@@ -67,7 +67,16 @@ def get_pip_config_args() -> dict[str, str]:
             value = raw_value.strip().strip("'\"")
             mapped_key = key_map.get(key)
             if mapped_key and value:
-                args[mapped_key] = value
+                if mapped_key in ("extra_index_url", "find_links", "trusted_host"):
+                    existing = args.get(mapped_key)
+                    if existing is None:
+                        args[mapped_key] = value
+                    elif isinstance(existing, list):
+                        existing.append(value)
+                    else:
+                        args[mapped_key] = [existing, value]
+                else:
+                    args[mapped_key] = value
 
         return args
     except subprocess.CalledProcessError:

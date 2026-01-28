@@ -158,6 +158,7 @@ def create_audio_model_instance(
 ]:
     from ..cache_manager import CacheManager
 
+    kwargs.pop("enable_virtual_env", None)
     model_spec = match_audio(model_name, download_hub)
     if model_path is None:
         cache_manager = CacheManager(model_spec)

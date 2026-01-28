@@ -427,6 +427,7 @@ def create_embedding_model_instance(
 ) -> EmbeddingModel:
     from .cache_manager import EmbeddingCacheManager
 
+    enable_virtual_env = kwargs.pop("enable_virtual_env", None)
     model_family = match_embedding(model_name, model_format, quantization, download_hub)
     if model_path is None:
         cache_manager = EmbeddingCacheManager(model_family)
@@ -437,11 +438,31 @@ def create_embedding_model_instance(
         # we use sentence_transformers as the default engine for all models
         model_engine = "sentence_transformers"
 
-    from .embed_family import check_engine_by_model_name_and_engine
-
-    embedding_cls = check_engine_by_model_name_and_engine(
-        model_engine, model_name, model_format, quantization
+    from .embed_family import (
+        check_engine_by_model_name_and_engine,
+        check_engine_by_model_name_and_engine_with_virtual_env,
     )
+
+    if enable_virtual_env is None:
+        from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+
+        enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
+
+    if enable_virtual_env:
+        embedding_cls = check_engine_by_model_name_and_engine_with_virtual_env(
+            model_engine,
+            model_name,
+            model_format,
+            quantization,
+            model_family=model_family,
+        )
+    else:
+        embedding_cls = check_engine_by_model_name_and_engine(
+            model_engine,
+            model_name,
+            model_format,
+            quantization,
+        )
     model = embedding_cls(
         model_uid,
         model_path,
