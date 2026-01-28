@@ -1839,7 +1839,10 @@ class AsyncClient:
         return response_data
 
     async def query_engine_by_model_name(
-        self, model_name: str, model_type: Optional[str] = "LLM"
+        self,
+        model_name: str,
+        model_type: Optional[str] = "LLM",
+        enable_virtual_env: Optional[bool] = None,
     ):
         """
         Get the engine parameters with the model name registered on the server.
@@ -1859,7 +1862,10 @@ class AsyncClient:
             url = f"{self.base_url}/v1/engines/{model_name}"
         else:
             url = f"{self.base_url}/v1/engines/{model_type}/{model_name}"
-        response = await self.session.get(url, headers=self._headers)
+        params = {}
+        if enable_virtual_env is not None:
+            params["enable_virtual_env"] = str(enable_virtual_env).lower()
+        response = await self.session.get(url, headers=self._headers, params=params)
         if response.status != 200:
             raise RuntimeError(
                 f"Failed to query engine parameters by model name, detail: {await _get_error_string(response)}"

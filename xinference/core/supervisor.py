@@ -47,7 +47,10 @@ from ..constants import (
 )
 from ..core.model import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
-from ..model.utils import get_engine_params_by_name
+from ..model.utils import (
+    get_engine_params_by_name,
+    get_engine_params_by_name_with_virtual_env,
+)
 from ..types import PeftModelConfig
 from .launch_strategy import IdleFirstLaunchStrategy
 from .metrics import record_metrics
@@ -685,18 +688,31 @@ class SupervisorActor(xo.StatelessActor):
         raise ValueError(f"Model {model_name} not found")
 
     async def query_engines_by_model_name(
-        self, model_name: str, model_type: Optional[str] = None
+        self,
+        model_name: str,
+        model_type: Optional[str] = None,
+        enable_virtual_env: Optional[bool] = None,
     ):
         # search in worker first
         workers = list(self._worker_address_to_worker.values())
         for worker in workers:
             res = await worker.query_engines_by_model_name(
-                model_name, model_type=model_type
+                model_name, model_type=model_type, enable_virtual_env=enable_virtual_env
             )
             if res is not None:
                 return res
 
-        return get_engine_params_by_name(model_type, model_name)
+        if enable_virtual_env is None:
+            from ..constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+
+            enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
+        if enable_virtual_env:
+            return get_engine_params_by_name_with_virtual_env(
+                model_type, model_name, enable_virtual_env=enable_virtual_env
+            )
+        return get_engine_params_by_name(
+            model_type, model_name, enable_virtual_env=enable_virtual_env
+        )
 
     @log_async(logger=logger)
     async def register_model(
@@ -1960,7 +1976,10 @@ class SupervisorActor(xo.StatelessActor):
 
     # Virtual environment management methods
     async def list_virtual_envs(
-        self, model_name: Optional[str] = None, worker_ip: Optional[str] = None
+        self,
+        model_name: Optional[str] = None,
+        model_engine: Optional[str] = None,
+        worker_ip: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """List virtual environments across the cluster."""
         target_ip_worker_ref = (
@@ -1975,14 +1994,16 @@ class SupervisorActor(xo.StatelessActor):
 
         # If specific worker is requested, query only that worker
         if target_ip_worker_ref:
-            virtual_envs = await target_ip_worker_ref.list_virtual_envs(model_name)
+            virtual_envs = await target_ip_worker_ref.list_virtual_envs(
+                model_name, model_engine
+            )
             return sorted(virtual_envs, key=lambda x: x["model_name"])
 
         # Otherwise, query all workers
         virtual_envs = []
         for worker_address, worker in self._worker_address_to_worker.items():
             try:
-                envs = await worker.list_virtual_envs(model_name)
+                envs = await worker.list_virtual_envs(model_name, model_engine)
                 virtual_envs.extend(envs)
             except Exception as e:
                 logger.warning(f"Failed to list virtual environments on worker: {e}")
@@ -2031,6 +2052,7 @@ class SupervisorActor(xo.StatelessActor):
     async def remove_virtual_env(
         self,
         model_name: str,
+        model_engine: Optional[str] = None,
         python_version: Optional[str] = None,
         worker_ip: Optional[str] = None,
     ) -> bool:
@@ -2051,7 +2073,7 @@ class SupervisorActor(xo.StatelessActor):
         # If specific worker is requested, remove only from that worker
         if target_ip_worker_ref:
             return await target_ip_worker_ref.remove_virtual_env(
-                model_name, python_version
+                model_name, model_engine, python_version
             )
 
         # Otherwise, remove from all workers that have the virtual environment
@@ -2061,7 +2083,7 @@ class SupervisorActor(xo.StatelessActor):
         # First, identify which workers have the virtual environment
         for worker in self._worker_address_to_worker.values():
             try:
-                envs = await worker.list_virtual_envs(model_name)
+                envs = await worker.list_virtual_envs(model_name, model_engine)
                 if envs:
                     workers_with_env.append(worker)
             except Exception as e:
@@ -2070,7 +2092,9 @@ class SupervisorActor(xo.StatelessActor):
         # Then remove from those workers
         for worker in workers_with_env:
             try:
-                result = await worker.remove_virtual_env(model_name, python_version)
+                result = await worker.remove_virtual_env(
+                    model_name, model_engine, python_version
+                )
                 ret = ret and result
             except Exception as e:
                 logger.error(f"Failed to remove virtual environment from worker: {e}")

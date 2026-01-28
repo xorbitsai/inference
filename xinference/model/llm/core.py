@@ -271,7 +271,11 @@ def create_llm_model_instance(
     **kwargs,
 ) -> LLM:
     from .cache_manager import LLMCacheManager
-    from .llm_family import check_engine_by_spec_parameters, match_llm
+    from .llm_family import (
+        check_engine_by_spec_parameters,
+        check_engine_by_spec_parameters_with_virtual_env,
+        match_llm,
+    )
 
     if model_engine is None:
         raise ValueError("model_engine is required for LLM model")
@@ -285,13 +289,28 @@ def create_llm_model_instance(
             f"size: {model_size_in_billions}, quantization: {quantization}"
         )
 
-    llm_cls = check_engine_by_spec_parameters(
-        model_engine,
-        llm_family.model_name,
-        llm_family.model_specs[0].model_format,
-        llm_family.model_specs[0].model_size_in_billions,
-        llm_family.model_specs[0].quantization,
-    )
+    enable_virtual_env = kwargs.pop("enable_virtual_env", None)
+    if enable_virtual_env is None:
+        from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+
+        enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
+    if enable_virtual_env:
+        llm_cls = check_engine_by_spec_parameters_with_virtual_env(
+            model_engine,
+            llm_family.model_name,
+            llm_family.model_specs[0].model_format,
+            llm_family.model_specs[0].model_size_in_billions,
+            llm_family.model_specs[0].quantization,
+            llm_family=llm_family,
+        )
+    else:
+        llm_cls = check_engine_by_spec_parameters(
+            model_engine,
+            llm_family.model_name,
+            llm_family.model_specs[0].model_format,
+            llm_family.model_specs[0].model_size_in_billions,
+            llm_family.model_specs[0].quantization,
+        )
     logger.debug(f"Launching {model_uid} with {llm_cls.__name__}")
 
     multimodal_projector = kwargs.get("multimodal_projector")

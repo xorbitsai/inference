@@ -42,6 +42,7 @@ from typing import (
 
 import xoscar as xo
 from async_timeout import timeout
+from packaging.version import Version
 from xoscar import MainActorPoolType
 
 from ..constants import (
@@ -58,7 +59,11 @@ from ..core.model import ModelActor
 from ..core.status_guard import LaunchStatus
 from ..device_utils import get_available_device_env_name, gpu_count
 from ..model.core import VirtualEnvSettings, create_model_instance
-from ..model.utils import CancellableDownloader, get_engine_params_by_name
+from ..model.utils import (
+    CancellableDownloader,
+    get_engine_params_by_name,
+    get_engine_params_by_name_with_virtual_env,
+)
 from ..types import PeftModelConfig
 from ..utils import get_pip_config_args, get_real_path
 from .cache_tracker import CacheTrackerActor
@@ -67,6 +72,9 @@ from .metrics import launch_metrics_export_server, record_metrics
 from .resource import gather_node_info
 from .status_guard import StatusGuardActor
 from .utils import (
+    apply_engine_virtualenv_settings,
+    build_subpool_envs_for_virtual_env,
+    filter_virtualenv_packages_by_markers,
     log_async,
     log_sync,
     merge_virtual_env_packages,
@@ -74,6 +82,10 @@ from .utils import (
     purge_dir,
 )
 from .virtual_env_manager import VirtualEnvManager as XinferenceVirtualEnvManager
+from .virtual_env_manager import (
+    expand_engine_dependency_placeholders,
+    resolve_virtualenv_python_path,
+)
 
 try:
     from xoscar.virtualenv import VirtualEnvManager
@@ -1225,29 +1237,36 @@ class WorkerActor(xo.StatelessActor):
 
     @log_async(logger=logger)
     async def query_engines_by_model_name(
-        self, model_name: str, model_type: Optional[str] = None
+        self,
+        model_name: str,
+        model_type: Optional[str] = None,
+        enable_virtual_env: Optional[bool] = None,
     ):
-        return get_engine_params_by_name(model_type, model_name)
+        if enable_virtual_env is None:
+            enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
+        if enable_virtual_env:
+            return get_engine_params_by_name_with_virtual_env(
+                model_type, model_name, enable_virtual_env=enable_virtual_env
+            )
+        return get_engine_params_by_name(
+            model_type, model_name, enable_virtual_env=enable_virtual_env
+        )
 
     async def _get_model_ability(self, model: Any, model_type: str) -> List[str]:
         from ..model.llm.core import LLM
 
-        if model_type == "embedding":
-            return ["embed"]
-        elif model_type == "rerank":
-            return ["rerank"]
-        elif model_type == "image":
+        ability_map = {
+            "embedding": ["embed"],
+            "rerank": ["rerank"],
+            "flexible": ["flexible"],
+        }
+        if model_type in ability_map:
+            return ability_map[model_type]
+        if model_type in {"image", "audio", "video"}:
             return model.model_ability
-        elif model_type == "audio":
-            return model.model_ability
-        elif model_type == "video":
-            return model.model_ability
-        elif model_type == "flexible":
-            return ["flexible"]
-        else:
-            assert model_type == "LLM"
-            assert isinstance(model, LLM)
-            return model.model_family.model_ability  # type: ignore
+        assert model_type == "LLM"
+        assert isinstance(model, LLM)
+        return model.model_family.model_ability  # type: ignore
 
     async def update_cache_status(self, model_name: str, version_info: Any):
         if isinstance(version_info, list):  # image model
@@ -1298,13 +1317,28 @@ class WorkerActor(xo.StatelessActor):
         virtual_env_manager: "VirtualEnvManager",
         settings: Optional[VirtualEnvSettings],
         virtual_env_packages: Optional[List[str]],
+        model_engine: Optional[str],
     ):
-        if (not settings or not settings.packages) and not virtual_env_packages:
+        engine_defaults: List[str] = []
+        if (
+            (not settings or not settings.packages)
+            and not virtual_env_packages
+            and not engine_defaults
+        ):
             # no settings or no packages
             return
 
         if settings is None:
-            settings = VirtualEnvSettings(packages=virtual_env_packages)
+            settings = VirtualEnvSettings(packages=virtual_env_packages or [])
+
+        if settings and model_engine and model_engine.lower() not in ("vllm", "sglang"):
+            # Pydantic v1 compatibility: use copy() when model_copy is unavailable.
+            if hasattr(settings, "model_copy"):
+                settings = settings.model_copy(deep=True)
+            else:
+                settings = settings.copy(deep=True)
+            settings.extra_index_url = None
+            settings.index_strategy = None
 
         if settings.inherit_pip_config:
             # inherit pip config
@@ -1313,13 +1347,46 @@ class WorkerActor(xo.StatelessActor):
                 if hasattr(settings, k) and not getattr(settings, k):
                     setattr(settings, k, v)
 
-        conf = dict(settings)
-        base_packages = settings.packages.copy() if settings.packages else []
+        apply_engine_virtualenv_settings(settings, model_engine)
+
+        base_packages = engine_defaults
+        if settings.packages:
+            base_packages = base_packages + settings.packages.copy()
         packages = merge_virtual_env_packages(base_packages, virtual_env_packages)
+        packages = expand_engine_dependency_placeholders(packages, model_engine)
+
+        try:
+            from xoscar.virtualenv.platform import get_cuda_version
+
+            cuda_version = get_cuda_version()
+        except Exception:
+            cuda_version = None
+
+        if not cuda_version or Version(cuda_version) < Version("13.0"):
+            logger.debug(
+                f"[DEBUG] CUDA version check: cuda_version={cuda_version}, clearing extra_index_url and index_strategy"
+            )
+            settings.extra_index_url = None
+            settings.index_strategy = None
+        else:
+            logger.debug(
+                f"[DEBUG] CUDA version check passed: cuda_version={cuda_version}, keeping settings.extra_index_url={settings.extra_index_url}"
+            )
+
+        packages = filter_virtualenv_packages_by_markers(
+            packages, model_engine, cuda_version
+        )
+
+        conf = dict(settings)
         conf.pop("packages", None)
         conf.pop("inherit_pip_config", None)
         if XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED:
             conf["skip_installed"] = XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED
+        variables = {}
+        if model_engine:
+            engine_value = model_engine.lower()
+            variables["engine"] = engine_value
+            variables["model_engine"] = engine_value
 
         logger.info(
             "Installing packages %s in virtual env %s, with settings(%s)",
@@ -1327,7 +1394,7 @@ class WorkerActor(xo.StatelessActor):
             virtual_env_manager.env_path,
             ", ".join([f"{k}={v}" for k, v in conf.items() if v]),
         )
-        virtual_env_manager.install_packages(packages, **conf)
+        virtual_env_manager.install_packages(packages, **conf, **variables)
 
     async def _get_progressor(self, request_id: str):
         from .progress_tracker import Progressor, ProgressTrackerActor
@@ -1461,10 +1528,15 @@ class WorkerActor(xo.StatelessActor):
 
             # virtualenv
             virtual_env_name = kwargs.pop("virtual_env_name", None)
-            # Use v3 structure: .xinference/virtualenv/v3/model_name/python_version
+            # Use v4 structure: .xinference/virtualenv/v4/model_name/model_engine/python_version
             python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+            engine_name = (model_engine or "default").lower()
             virtual_env_path = os.path.join(
-                XINFERENCE_VIRTUAL_ENV_DIR, "v3", model_name, python_version
+                XINFERENCE_VIRTUAL_ENV_DIR,
+                "v4",
+                model_name,
+                engine_name,
+                python_version,
             )
             virtual_env_manager = await asyncio.to_thread(
                 self._create_virtual_env_manager,
@@ -1472,10 +1544,9 @@ class WorkerActor(xo.StatelessActor):
                 virtual_env_name,
                 virtual_env_path,
             )
-            subpool_python_path = (
-                None
-                if virtual_env_manager is None
-                else virtual_env_manager.get_python_path()
+            subpool_python_path = resolve_virtualenv_python_path(virtual_env_manager)
+            subpool_envs = build_subpool_envs_for_virtual_env(
+                envs, enable_virtual_env, virtual_env_manager
             )
             subpool_address, devices = await self._create_subpool(
                 model_uid,
@@ -1483,7 +1554,7 @@ class WorkerActor(xo.StatelessActor):
                 n_gpu=n_gpu,
                 gpu_idx=gpu_idx,
                 start_python=subpool_python_path,
-                env=envs,
+                env=subpool_envs,
             )
             all_subpool_addresses = [subpool_address]
             try:
@@ -1491,6 +1562,7 @@ class WorkerActor(xo.StatelessActor):
                 if xavier_config is not None:
                     xavier_config["rank_address"] = subpool_address
                 model_kwargs = kwargs.copy()
+                model_kwargs["enable_virtual_env"] = enable_virtual_env
                 if n_worker > 1:  # type: ignore
                     # for model across workers,
                     # add a few kwargs
@@ -1558,6 +1630,7 @@ class WorkerActor(xo.StatelessActor):
                         virtual_env_manager,
                         model.model_family.virtualenv,
                         virtual_env_packages,
+                        model_engine,
                     )
                     launch_info.virtual_env_manager = virtual_env_manager
 
@@ -1956,16 +2029,19 @@ class WorkerActor(xo.StatelessActor):
 
     # Virtual environment management methods
     async def list_virtual_envs(
-        self, model_name: Optional[str] = None
+        self, model_name: Optional[str] = None, model_engine: Optional[str] = None
     ) -> List[Dict[Any, Any]]:
         """List all virtual environments or filter by model name."""
         try:
-            result = self._virtual_env_manager.list_virtual_envs(model_name)
+            result = self._virtual_env_manager.list_virtual_envs(
+                model_name, model_engine
+            )
             # Add IP address to each virtual environment, same as cache implementation
             virtual_envs = []
             for env in result:
                 virtual_env = {
                     "model_name": env.get("model_name"),
+                    "model_engine": env.get("model_engine"),
                     "path": env.get("path"),
                     "real_path": env.get("real_path"),
                     "python_version": env.get("python_version"),
@@ -1983,10 +2059,15 @@ class WorkerActor(xo.StatelessActor):
         return self._virtual_env_manager.list_virtual_env_packages(model_name)
 
     async def remove_virtual_env(
-        self, model_name: str, python_version: Optional[str] = None
+        self,
+        model_name: str,
+        model_engine: Optional[str] = None,
+        python_version: Optional[str] = None,
     ) -> bool:
         """Remove a virtual environment for a specific model."""
-        return self._virtual_env_manager.remove_virtual_env(model_name, python_version)
+        return self._virtual_env_manager.remove_virtual_env(
+            model_name, model_engine, python_version
+        )
 
     async def get_workers_info(self) -> Dict[str, Any]:
         ret = {

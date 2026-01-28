@@ -14,6 +14,7 @@
 import json
 import logging
 import multiprocessing
+import os
 import sys
 import threading
 import time
@@ -138,6 +139,13 @@ class SGLANGModel(LLM):
 
     def load(self):
         try:
+            venv_bin = os.path.dirname(sys.executable)
+            if venv_bin:
+                path_entries = os.environ.get("PATH", "").split(os.pathsep)
+                if venv_bin not in path_entries:
+                    os.environ["PATH"] = os.pathsep.join(
+                        [venv_bin] + ([p for p in path_entries if p] or [])
+                    )
             import sglang as sgl
         except ImportError:
             error_message = "Failed to import module 'sglang'"

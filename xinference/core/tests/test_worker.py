@@ -18,6 +18,7 @@ import pytest_asyncio
 import xoscar as xo
 from xoscar import MainActorPoolType, create_actor_pool, get_pool_config
 
+from ...model.core import VirtualEnvSettings
 from ..utils import merge_virtual_env_packages
 from ..worker import WorkerActor
 
@@ -184,6 +185,94 @@ def test_merge_virtual_env_packages_override_and_append():
         "accelerate>=0.34.2",
         "#system_numpy#",
         "numpy==2.1.0",
+    ]
+
+
+class DummyVirtualEnvManager:
+    def __init__(self):
+        self.env_path = "/tmp/fake-virtualenv"
+        self.calls = []
+
+    def install_packages(self, packages, **kwargs):
+        self.calls.append((packages, kwargs))
+
+
+def test_prepare_virtual_env_injects_engine_vars():
+    manager = DummyVirtualEnvManager()
+    settings = VirtualEnvSettings(packages=["pkgA==1.0.0"], inherit_pip_config=False)
+    WorkerActor._prepare_virtual_env(
+        manager,
+        settings,
+        ["pkgB==2.0.0"],
+        model_engine="vllm",
+    )
+
+    assert len(manager.calls) == 1
+    packages, kwargs = manager.calls[0]
+    assert packages == ["pkgA==1.0.0", "pkgB==2.0.0"]
+    assert kwargs["engine"] == "vllm"
+    assert kwargs["model_engine"] == "vllm"
+
+
+def test_prepare_virtual_env_without_engine_vars():
+    manager = DummyVirtualEnvManager()
+    settings = VirtualEnvSettings(packages=["pkgA==1.0.0"], inherit_pip_config=False)
+    WorkerActor._prepare_virtual_env(
+        manager,
+        settings,
+        ["pkgB==2.0.0"],
+        model_engine=None,
+    )
+
+    assert len(manager.calls) == 1
+    _, kwargs = manager.calls[0]
+    assert "engine" not in kwargs
+    assert "model_engine" not in kwargs
+
+
+def test_prepare_virtual_env_inherit_pip_config(monkeypatch):
+    manager = DummyVirtualEnvManager()
+    settings = VirtualEnvSettings(packages=["pkgA==1.0.0"], inherit_pip_config=True)
+
+    monkeypatch.setattr(
+        "xinference.core.worker.get_pip_config_args",
+        lambda: {"index_url": "https://example.invalid/simple"},
+    )
+
+    WorkerActor._prepare_virtual_env(
+        manager,
+        settings,
+        None,
+        model_engine="mlx",
+    )
+
+    assert len(manager.calls) == 1
+    _, kwargs = manager.calls[0]
+    assert kwargs["index_url"] == "https://example.invalid/simple"
+
+
+def test_prepare_virtual_env_keeps_system_markers():
+    manager = DummyVirtualEnvManager()
+    settings = VirtualEnvSettings(
+        packages=["pkgA==1.0.0", "#system_torch#", "#system_numpy#"],
+        inherit_pip_config=False,
+    )
+
+    WorkerActor._prepare_virtual_env(
+        manager,
+        settings,
+        ["pkgB==2.0.0", "#system_torchaudio#"],
+        model_engine=None,
+    )
+
+    assert len(manager.calls) == 1
+    packages, _ = manager.calls[0]
+    assert packages == [
+        "pkgA==1.0.0",
+        "#system_torch#",
+        "#system_numpy#",
+        "pkgB==2.0.0",
+        "#system_torchaudio#",
     ]
 
 

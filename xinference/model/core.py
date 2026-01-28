@@ -58,8 +58,9 @@ def create_model_instance(
             **kwargs,
         )
     elif model_type == "embedding":
-        # embedding model doesn't accept trust_remote_code
-        kwargs.pop("trust_remote_code", None)
+        # allow trust_remote_code for engines that require it (e.g. vLLM)
+        if model_engine and model_engine.lower() != "vllm":
+            kwargs.pop("trust_remote_code", None)
         return create_embedding_model_instance(
             model_uid,
             model_name,
@@ -134,7 +135,8 @@ class VirtualEnvSettings(BaseModel):
     packages: List[str]
     inherit_pip_config: bool = True
     index_url: Optional[str] = None
-    extra_index_url: Optional[str] = None
-    find_links: Optional[str] = None
-    trusted_host: Optional[str] = None
+    extra_index_url: Optional[Union[str, List[str]]] = None
+    find_links: Optional[Union[str, List[str]]] = None
+    trusted_host: Optional[Union[str, List[str]]] = None
+    index_strategy: Optional[str] = None
     no_build_isolation: Optional[bool] = None
