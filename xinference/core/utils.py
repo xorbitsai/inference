@@ -30,7 +30,6 @@ from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_LOG_ARG_MAX_LENGTH,
 )
-from ..model.core import VirtualEnvSettings
 
 logger = logging.getLogger(__name__)
 
@@ -317,7 +316,7 @@ def build_subpool_envs_for_virtual_env(
 
 
 def apply_engine_virtualenv_settings(
-    settings: "VirtualEnvSettings",
+    settings: Any,
     model_engine: Optional[str],
 ) -> None:
     """
