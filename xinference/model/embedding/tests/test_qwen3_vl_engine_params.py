@@ -12,8 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pytest
+import os
+import site
+import sys
 
+import pytest
+import torch
+
+from xinference.constants import XINFERENCE_VIRTUAL_ENV_DIR
+from xinference.core.worker import WorkerActor
 from xinference.model.embedding import _install
 from xinference.model.embedding.cache_manager import EmbeddingCacheManager
 from xinference.model.embedding.core import create_embedding_model_instance
@@ -49,8 +56,48 @@ def _get_cached_model_path():
     return cache_manager.cache()
 
 
+def _get_virtualenv_site_packages(env_path: str) -> str:
+    py_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+    if os.name == "nt":
+        return os.path.join(env_path, "Lib", "site-packages")
+    return os.path.join(env_path, "lib", f"python{py_version}", "site-packages")
+
+
+def _purge_modules(prefixes):
+    for name in list(sys.modules):
+        if any(name == prefix or name.startswith(f"{prefix}.") for prefix in prefixes):
+            sys.modules.pop(name, None)
+
+
+def _prepare_engine_virtualenv(engine_name: str):
+    family = match_embedding("Qwen3-VL-Embedding-2B", "pytorch", "none")
+    py_version = (
+        f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    )
+    env_path = os.path.join(
+        XINFERENCE_VIRTUAL_ENV_DIR,
+        "v4",
+        family.model_name,
+        engine_name.lower(),
+        py_version,
+    )
+    manager = WorkerActor._create_virtual_env_manager(True, None, env_path)
+    assert manager is not None
+    WorkerActor._prepare_virtual_env(
+        manager, family.virtualenv, virtual_env_packages=None, model_engine=engine_name
+    )
+    site_packages = _get_virtualenv_site_packages(env_path)
+    if os.path.isdir(site_packages):
+        site.addsitedir(site_packages)
+    return env_path
+
+
 def test_qwen3_vl_embedding_sentence_transformers_startup_virtualenv():
+    if not torch.cuda.is_available():
+        pytest.skip("Qwen3-VL embedding startup tests require GPU")
     _install()
+    _prepare_engine_virtualenv("sentence_transformers")
+    _purge_modules(["transformers", "qwen_vl_utils", "PIL"])
     for module_name in ("transformers", "qwen_vl_utils", "PIL"):
         dep_check = check_dependency_available(module_name, module_name)
         if dep_check != True:
@@ -69,7 +116,11 @@ def test_qwen3_vl_embedding_sentence_transformers_startup_virtualenv():
 
 
 def test_qwen3_vl_embedding_vllm_startup_virtualenv():
+    if not torch.cuda.is_available():
+        pytest.skip("Qwen3-VL embedding startup tests require GPU")
     _install()
+    _prepare_engine_virtualenv("vllm")
+    _purge_modules(["vllm"])
     try:
         import vllm
         from packaging.version import Version
