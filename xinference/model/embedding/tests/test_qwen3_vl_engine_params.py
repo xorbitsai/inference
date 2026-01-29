@@ -20,6 +20,7 @@ import pytest
 import torch
 
 from xinference.constants import XINFERENCE_VIRTUAL_ENV_DIR
+from xinference.core import worker as worker_mod
 from xinference.core.worker import WorkerActor
 from xinference.model.embedding import _install
 from xinference.model.embedding.cache_manager import EmbeddingCacheManager
@@ -83,12 +84,18 @@ def _prepare_engine_virtualenv(engine_name: str):
     )
     manager = WorkerActor._create_virtual_env_manager(True, None, env_path)
     assert manager is not None
+    previous_skip_installed = worker_mod.XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED
+    worker_mod.XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED = False
     WorkerActor._prepare_virtual_env(
         manager, family.virtualenv, virtual_env_packages=None, model_engine=engine_name
     )
+    worker_mod.XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED = previous_skip_installed
     site_packages = _get_virtualenv_site_packages(env_path)
     if os.path.isdir(site_packages):
         site.addsitedir(site_packages)
+        if site_packages in sys.path:
+            sys.path.remove(site_packages)
+            sys.path.insert(0, site_packages)
     return env_path
 
 
