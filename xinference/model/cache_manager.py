@@ -78,6 +78,11 @@ class CacheManager:
                 snapshot_download as ms_download,
             )
 
+            if "ignore_file_pattern" not in cache_config:
+                cache_config["ignore_file_pattern"] = [".gitkeep"]
+            elif isinstance(cache_config["ignore_file_pattern"], list):
+                cache_config["ignore_file_pattern"].append(".gitkeep")
+
             download_dir = retry_download(
                 ms_download,
                 self._model_family.model_name,
