@@ -32,9 +32,7 @@ The following is a list of built-in image models in Xinference:
    hunyuanocr
   
    kolors
-  
-   mineru2.5-2509-1.2b
-  
+   
    paddleocr-vl
   
    qwen-image

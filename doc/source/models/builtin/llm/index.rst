@@ -918,6 +918,8 @@ The following is a list of built-in LLM in Xinference:
    qwen2-moe-instruct
   
    qwen2-vl-instruct
+
+   mineru2.5-2509-1.2b
   
    qwen2.5
   

@@ -416,6 +416,7 @@ class GradioInterface:
                 video,
                 audio,
             )
+            
             if image:
                 buffered = BytesIO()
                 with PIL.Image.open(image) as img:
@@ -502,11 +503,11 @@ class GradioInterface:
                 message = {"role": "user", "content": text}
             history = history + [message]
             bot = bot + [[display_content, None]]
-            return history, bot, "", None, None, None
+            return history, bot, "", None, None, None, None
 
         def clear_history():
             logger.debug("Clear history.")
-            return [], None, "", None, None, None
+            return [], None, "", None, None, None, None
 
         def update_button(text):
             return gr.update(interactive=bool(text))
