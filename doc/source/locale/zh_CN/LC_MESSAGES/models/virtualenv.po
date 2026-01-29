@@ -216,8 +216,8 @@ msgstr ""
 
 #: ../../source/models/virtualenv.rst:133
 msgid ""
-"This feature is enabled by default in ``v2.0.0``. To disable it, set "
-"``XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED=0``."
+"This feature is enabled by default in ``v2.0.0`` . To disable it, set "
+"``XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED=0`` ."
 msgstr ""
 "此功能在``v2.0.0``版本中默认启用。若需禁用，请设置"
 "``XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED=0`` 。"
@@ -230,7 +230,7 @@ msgstr "优势"
 msgid ""
 "Avoid redundant installations of large dependencies (e.g., ``torch`` + "
 "``CUDA``)."
-msgstr "避免重复安装大型依赖（例如 ``torch`` + ``CUDA``）。"
+msgstr "避免重复安装大型依赖（例如 ``torch`` + ``CUDA`` ）。"
 
 #: ../../source/models/virtualenv.rst:140
 msgid "Speed up virtual environment creation."

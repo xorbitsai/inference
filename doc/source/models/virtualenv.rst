@@ -113,7 +113,7 @@ By default, the model’s virtual environment is stored under path:
 * Since v2.0: :ref:`XINFERENCE_HOME <environments_xinference_home>` / virtualenv / v4 / {model_name} / {model_engine} / {python_version}
 
 Skip Installed Libraries
-########################
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. _skip_installed_libraries:
 

@@ -6,6 +6,9 @@ Xinference Docker Image
 
 Xinference provides official images for use on Dockerhub.
 
+.. versionchanged:: v2.0
+
+   Starting from **Xinference v2.0**, to use the CUDA version of the image, the minimum CUDA version must be **CUDA 12.9**.
 
 Prerequisites
 =============
@@ -20,16 +23,10 @@ Docker Image
 The official image of Xinference is available on DockerHub in the repository ``xprobe/xinference``.
 Available tags include:
 
-.. versionchanged:: v2.0
-
-   Starting from **Xinference v2.0**, only two image variants are provided:
-   the default (no suffix, **CUDA 12.9**) and the ``-cpu`` image.
-
 * ``nightly-main``: This image is built daily from the `GitHub main branch <https://github.com/xorbitsai/inference>`_ and generally does not guarantee stability.
 * ``v<release version>``: This image is built each time a Xinference release version is published, and it is typically more stable.
 * ``latest``: This image is built with the latest Xinference release version.
 * For CPU version, add ``-cpu`` suffix, e.g. ``nightly-main-cpu``.
-* For CUDA 12.9, no suffix, e.g. ``nightly-main``. (Xinference version should be v2.0 at least)
 
 
 Dockerfile for custom build
