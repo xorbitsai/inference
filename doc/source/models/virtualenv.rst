@@ -113,7 +113,7 @@ By default, the model’s virtual environment is stored under path:
 * Since v2.0: :ref:`XINFERENCE_HOME <environments_xinference_home>` / virtualenv / v4 / {model_name} / {model_engine} / {python_version}
 
 Skip Installed Libraries
-~~~~~~~~~~~~~~~~~~~~~~~~
+########################
 
 .. _skip_installed_libraries:
 
@@ -128,10 +128,9 @@ This ensures better isolation from system packages but can result in redundant i
 Starting from ``v1.8.1``, an **experimental feature** is available:
 by setting the environment variable ``XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED=1``, ``uv`` will **skip packages already available in system site-packages**.
 
-.. versionchanged:: v2.0.0
+.. versionchanged:: v2.0
 
-    This feature is enabled by default in ``v2.0.0``. To disable it, set
-    ``XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED=0``.
+    This feature is enabled by default in ``v2.0``. To disable it, set ``XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED=0``.
 
 Advantages
 ~~~~~~~~~~
@@ -183,7 +182,7 @@ Using the ``CosyVoice 0.5B`` model as an example:
 .. _model_launching_virtualenv:
 
 Model Launching: Toggle Virtual Environments and Customize Dependencies
------------------------------------------------------------------------
+#######################################################################
 
 .. versionadded:: v1.8.1
 
@@ -232,7 +231,7 @@ In addition to the standard way of specifying package dependencies, such as ``tr
   ensures that the installed package matches the system site package version of numpy. This helps prevent dependency conflicts.
 
 ModelHub JSON for Xinference Models
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+###################################
 
 If you plan to add a model to a model hub for Xinference, define a ``virtualenv`` block
 in the model JSON. Starting from v2.0 (v4 flow), **engine-aware markers are recommended**
@@ -312,7 +311,7 @@ allowing you to create isolated Python environments for each model with specific
     <img class="align-center" alt="actor" src="../_static/manage_virtual_envs2.png" style="background-color: transparent", width="95%">
 
 Key Features
-~~~~~~~~~~
+############
 
 **Multiple Python Version Support**:
 Each model can have virtual environments
@@ -324,7 +323,7 @@ Each virtual environment contains its own set of packages,
 preventing conflicts between different models' requirements.
 
 Management Operations
-~~~~~
+#####################
 
 **Listing Virtual Environments**:
 View all virtual environments across your cluster,
