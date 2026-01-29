@@ -216,6 +216,11 @@ The following is a list of built-in LLM in Xinference:
      - 131072
      - GLM-4.5V is based on ZhipuAI’s next-generation flagship text foundation model GLM-4.5-Air (106B parameters, 12B active). It continues the technical approach of GLM-4.1V-Thinking, achieving SOTA performance among models of the same scale on 42 public vision-language benchmarks.
 
+   * - :ref:`glm-4.6 <models_llm_glm-4.6>`
+     - chat, reasoning, hybrid, tools
+     - 202752
+     - GLM-4.6 significantly enhances context length (up to 200K tokens), code generation, reasoning with tool use, agent capabilities, and human-aligned writing compared to GLM-4.5.
+
    * - :ref:`glm-4v <models_llm_glm-4v>`
      - chat, vision
      - 8192
@@ -800,6 +805,8 @@ The following is a list of built-in LLM in Xinference:
    glm-4.5
   
    glm-4.5v
+  
+   glm-4.6
   
    glm-4v
   
