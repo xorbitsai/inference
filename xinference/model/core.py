@@ -140,4 +140,3 @@ class VirtualEnvSettings(BaseModel):
     trusted_host: Optional[Union[str, List[str]]] = None
     index_strategy: Optional[str] = None
     no_build_isolation: Optional[bool] = None
-
