@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-
 import pytest
 
 from xinference.model.embedding import _install
@@ -45,25 +43,13 @@ def test_qwen3_vl_embedding_engine_params_with_virtualenv():
     _assert_engine_params(params, "vllm")
 
 
-def _skip_unless_smoke_enabled():
-    if os.environ.get("CI"):
-        pytest.skip("Skip Qwen3-VL embedding smoke tests on CI")
-    if not os.environ.get("XINFERENCE_QWEN3_VL_EMBEDDING_SMOKE"):
-        pytest.skip(
-            "Set XINFERENCE_QWEN3_VL_EMBEDDING_SMOKE=1 to enable Qwen3-VL embedding startup tests"
-        )
-
-
 def _get_cached_model_path():
     family = match_embedding("Qwen3-VL-Embedding-2B", "pytorch", "none")
     cache_manager = EmbeddingCacheManager(family)
-    if not cache_manager.get_cache_status():
-        pytest.skip("Qwen3-VL-Embedding-2B is not cached locally")
     return cache_manager.cache()
 
 
 def test_qwen3_vl_embedding_sentence_transformers_startup_virtualenv():
-    _skip_unless_smoke_enabled()
     _install()
     for module_name in ("transformers", "qwen_vl_utils", "PIL"):
         dep_check = check_dependency_available(module_name, module_name)
@@ -83,7 +69,6 @@ def test_qwen3_vl_embedding_sentence_transformers_startup_virtualenv():
 
 
 def test_qwen3_vl_embedding_vllm_startup_virtualenv():
-    _skip_unless_smoke_enabled()
     _install()
     try:
         import vllm
