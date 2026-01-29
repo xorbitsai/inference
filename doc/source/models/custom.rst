@@ -58,6 +58,8 @@ Define a custom model
 Web UI: Automatic LLM Config Parsing
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+.. versionadded:: v2.0.0
+
 When registering a custom LLM via the Web UI, Xinference can automatically parse the model
 configuration and pre-fill key fields for you.
 

@@ -35,7 +35,7 @@ to create a Xinference cluster including supervisor and workers.
 vLLM (v0.11.0+) note:
 Starting from vLLM v0.11.0, distributed deployment with vLLM requires Xinference >= v1.17.1.
 In addition to setting ``--n-worker`` as before, you must also set
-``tensor_parallel_size=2`` and ``pipeline_parallel_size=1`` when launching the model.
+``tensor_parallel_size`` (set it to the **GPU count**) and ``pipeline_parallel_size=1`` when launching the model.
 
 Then if are using web UI, choose expected machines for ``worker count`` in the optional configurations,
 if you are using command line, add ``--n-worker <machine number>`` when launching a model.

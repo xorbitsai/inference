@@ -11,8 +11,6 @@ Prerequisites
 =============
 * The image can only run in an environment with GPUs and CUDA installed, because Xinference in the image relies on Nvidia GPUs for acceleration.
 * CUDA must be successfully installed on the host machine. This can be determined by whether you can successfully execute the ``nvidia-smi`` command.
-* For CUDA version < 12.8, CUDA version in the docker image is ``12.4``, and the CUDA version on the host machine should be ``12.4`` or above, and the NVIDIA driver version should be ``550`` or above.
-* For CUDA version >= 12.8 and <12.9, CUDA version in the docker image is ``12.8``, and the CUDA version on the host machine should be ``12.8`` or above, and the NVIDIA driver version should be ``570`` or above.
 * For CUDA version >= 12.9, CUDA version in the docker image is ``12.9``, and the CUDA version on the host machine should be ``12.9`` or above, and the NVIDIA driver version should be ``575`` or above.
 * Ensure `NVIDIA Container Toolkit <https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html>`_ installed.
 
@@ -28,7 +26,7 @@ Available tags include:
 * For CPU version, add ``-cpu`` suffix, e.g. ``nightly-main-cpu``.
 * For CUDA 12.9, add ``-cu129`` suffix, e.g. ``nightly-main-cu129``. (Xinference version should be v1.16.0 at least)
 
-.. note::
+.. versionchanged:: v2.0.0
 
    Starting from **Xinference v2.0**, only ``-cu129`` and ``-cpu`` images are officially provided.
 
@@ -98,4 +96,3 @@ at <home_path>/.cache/huggingface and <home_path>/.cache/modelscope. The command
      --gpus all \
      xprobe/xinference:v<your_version> \
      xinference-local -H 0.0.0.0
-

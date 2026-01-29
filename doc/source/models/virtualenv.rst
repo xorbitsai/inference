@@ -47,7 +47,7 @@ Example usage:
 
   Xinference will by default inherit the config for current pip.
 
-.. note::
+.. versionchanged:: v2.0.0
 
   Starting from **Xinference v2.0**, the model virtual environment feature is
   enabled by default (i.e., ``XINFERENCE_ENABLE_VIRTUAL_ENV`` defaults to ``1``).
@@ -112,13 +112,10 @@ By default, the model’s virtual environment is stored under path:
 * Since v1.14.0: :ref:`XINFERENCE_HOME <environments_xinference_home>` / virtualenv / v3 / {model_name} / {python_version}
 * Since v2.0: :ref:`XINFERENCE_HOME <environments_xinference_home>` / virtualenv / v4 / {model_name} / {model_engine} / {python_version}
 
-Experimental Feature
-####################
+Skip Installed Libraries
+########################
 
 .. _skip_installed_libraries:
-
-Skip Installed Libraries
-------------------------
 
 .. versionadded:: v1.8.1
 
@@ -131,9 +128,10 @@ This ensures better isolation from system packages but can result in redundant i
 Starting from ``v1.8.1``, an **experimental feature** is available:
 by setting the environment variable ``XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED=1``, ``uv`` will **skip packages already available in system site-packages**.
 
-.. note::
+.. versionchanged:: v2.0.0
 
-    The feature is currently disabled but will be enabled by default in ``v2.0.0``.
+    This feature is enabled by default in ``v2.0.0``. To disable it, set
+    ``XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED=0``.
 
 Advantages
 ~~~~~~~~~~
@@ -233,12 +231,12 @@ In addition to the standard way of specifying package dependencies, such as ``tr
 * ``#system_xxx#``: Using the same version as the system site packages, such as ``#system_numpy#``,
   ensures that the installed package matches the system site package version of numpy. This helps prevent dependency conflicts.
 
-Authoring Custom Models (JSON)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ModelHub JSON for Xinference Models
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When registering a custom model, you can define a ``virtualenv`` block in the model JSON.
-Starting from v2.0 (v4 flow), **engine-aware markers are recommended** so one JSON can cover
-multiple engines.
+If you plan to add a model to a model hub for Xinference, define a ``virtualenv`` block
+in the model JSON. Starting from v2.0 (v4 flow), **engine-aware markers are recommended**
+so one JSON can cover multiple engines.
 
 Important rule:
 If a new model supports a specific engine, you **must** include at least one package
