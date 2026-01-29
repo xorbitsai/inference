@@ -69,7 +69,6 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
                 )
 
         if self.model_family.model_name.startswith("Qwen3-VL-Embedding"):
-            from packaging.version import Version
 
             if Version(vllm_version) < Version("0.14.0"):
                 raise ValueError("Qwen3-VL embedding requires vLLM>=0.14.0")
