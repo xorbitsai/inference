@@ -43,12 +43,18 @@ PyTorch (transformers) supports the inference of most state-of-art models. It is
 
    pip install "xinference[transformers]"
 
+Notes:
+
+- The transformers engine supports ``pytorch`` / ``gptq`` / ``awq`` / ``bnb`` / ``fp4`` formats.
+- FP4 format requires ``transformers`` with ``FPQuantConfig`` support. If you see an import error,
+  please upgrade ``transformers`` to a newer version.
+
 
 vLLM Backend
 ~~~~~~~~~~~~
 vLLM is a fast and easy-to-use library for LLM inference and serving. Xinference will choose vLLM as the backend to achieve better throughput when the following conditions are met:
 
-- The model format is ``pytorch``, ``gptq`` or ``awq``.
+- The model format is ``pytorch``, ``gptq``, ``awq``, ``fp4``, ``fp8`` or ``bnb``.
 - When the model format is ``pytorch``, the quantization is ``none``.
 - When the model format is ``awq``, the quantization is ``Int4``.
 - When the model format is ``gptq``, the quantization is ``Int3``, ``Int4`` or ``Int8``.
@@ -142,4 +148,3 @@ Other Platforms
 ~~~~~~~~~~~~~~~
 
 * :ref:`Ascend NPU <installation_npu>`
-

@@ -27,7 +27,7 @@ Introduce a new environment variable:
 
 .. code-block:: bash
 
-    XINFERENCE_ENV_ALLOW_MULTI_REPLICA_PER_GPU
+    XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU
 
 Control whether to enable the single GPU multi-copy feature
 Default value: 1
@@ -53,7 +53,7 @@ Smart Allocation: Number of replicas may differ from GPU count; system intellige
 GPU Allocation Strategy
 =======================
 
-The current policy is *Idle First*: The scheduler always attempts to assign replicas to the least utilized GPU. Use the ``XINFERENCE_ENV_LAUNCH_STRATEGY`` parameter to choose launch strategy.
+The current policy is *Idle First*: The scheduler always attempts to assign replicas to the least utilized GPU. Use the ``XINFERENCE_LAUNCH_STRATEGY`` parameter to choose launch strategy.
 
 Set Environment Variables
 =========================
@@ -86,3 +86,42 @@ Configuring Model Virtual Environment
 .. versionadded:: v1.8.1
 
 For this part, please refer to :ref:`toggling virtual environments and customizing dependencies <model_launching_virtualenv>`.
+
+Batching / Continuous Batching
+==============================
+
+Xinference supports batching for higher throughput. For LLMs on the ``transformers`` engine,
+continuous batching is available and can be enabled via environment variables at launch time.
+
+Key settings:
+
+- ``XINFERENCE_BATCH_SIZE`` and ``XINFERENCE_BATCH_INTERVAL`` for general batching behavior.
+- ``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` for text-to-image models (when supported).
+
+Example (LLM, transformers):
+
+.. code-block:: bash
+
+  XINFERENCE_BATCH_SIZE=32 XINFERENCE_BATCH_INTERVAL=0.003 xinference-local --log-level debug
+  xinference launch -e <endpoint> --model-engine transformers -n qwen1.5-chat -s 4 -f pytorch -q none
+
+Example (text-to-image):
+
+.. code-block:: bash
+
+  XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE=1024*1024 xinference-local --log-level debug
+
+For detailed behavior, supported models, and aborting requests, see
+:ref:`Continuous Batching <user_guide_continuous_batching>`.
+
+Thinking Mode
+=============
+
+Some hybrid reasoning models (for example, Qwen3) support an optional *thinking mode*.
+You can enable this at launch time via ``--enable-thinking``.
+
+Example usage:
+
+.. code-block:: bash
+
+  xinference launch -n qwen3-xxx --model-engine vllm --enable-thinking
