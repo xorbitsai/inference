@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-29 17:40+0800\n"
+"POT-Creation-Date: 2026-01-29 18:51+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -219,8 +219,8 @@ msgid ""
 "This feature is enabled by default in ``v2.0``. To disable it, set "
 "``XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED=0``."
 msgstr ""
-"此功能在 ``v2.0`` "
-"版本中默认启用。若需禁用，请设置 ``XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED=0`` 。"
+"此功能在 ``v2.0`` 版本中默认启用。若需禁用，请设置 "
+"``XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED=0`` 。"
 
 #: ../../source/models/virtualenv.rst:136
 msgid "Advantages"
@@ -337,11 +337,67 @@ msgstr ""
 "``#system_xxx#``：使用与系统 site packages 相同的版本，例如 "
 "``#system_numpy#``，确保安装的包版本与系统 site packages 中的 numpy 版本一致，防止依赖冲突。"
 
-#: ../../source/models/virtualenv.rst:234
+#: ../../source/models/virtualenv.rst:237
+msgid "Manage Virtual Enviroments"
+msgstr "虚拟环境管理"
+
+#: ../../source/models/virtualenv.rst:241
+msgid ""
+"Xinference provides comprehensive virtual environment management for "
+"model dependencies, allowing you to create isolated Python environments "
+"for each model with specific package requirements."
+msgstr "Xinference 提供全面的虚拟环境管理功能，允许您为每个模型创建独立的 Python 环境，满足特定的包依赖需求。"
+
+#: ../../source/models/virtualenv.rst:253
+msgid "Key Features"
+msgstr "核心功能"
+
+#: ../../source/models/virtualenv.rst:255
+msgid ""
+"**Multiple Python Version Support**: Each model can have virtual "
+"environments with different Python versions (e.g., Python 3.10.18, "
+"3.11.5), enabling compatibility with various model requirements."
+msgstr ""
+"**多 Python 版本支持** : 每个模型可以拥有不同 Python 版本的虚拟环境（例如 Python "
+"3.10.18、3.11.5），实现与各种模型要求的兼容性。"
+
+#: ../../source/models/virtualenv.rst:260
+msgid ""
+"**Isolated Dependencies**: Each virtual environment contains its own set "
+"of packages, preventing conflicts between different models' requirements."
+msgstr "**依赖隔离** : 每个虚拟环境包含自己独立的包集合，防止不同模型之间的依赖冲突。"
+
+#: ../../source/models/virtualenv.rst:265
+msgid "Management Operations"
+msgstr "管理操作"
+
+#: ../../source/models/virtualenv.rst:267
+msgid ""
+"**Listing Virtual Environments**: View all virtual environments across "
+"your cluster, filtered by model name or worker IP address."
+msgstr "**列出虚拟环境** : 查看集群中的所有虚拟环境，支持按模型名称或工作节点 IP 地址过滤。"
+
+#: ../../source/models/virtualenv.rst:271
+msgid ""
+"**Creating Environments**: Automatically created when launching models "
+"with enable_virtual_env=true. The system detects your current Python "
+"version and creates an isolated environment with the required packages."
+msgstr ""
+"**创建环境** : 当使用 enable_virtual_env=true 启动模型时自动创建。系统会检测当前的 Python "
+"版本并创建包含所需包的独立环境。"
+
+#: ../../source/models/virtualenv.rst:276
+msgid ""
+"**Removing Environments**: Delete specific virtual environments by model "
+"name and optionally Python version, or remove all environments for a "
+"model."
+msgstr "**删除环境** : 可按模型名称和可选的 Python 版本删除特定虚拟环境，或删除模型的所有环境。"
+
+#: ../../source/models/virtualenv.rst:281
 msgid "ModelHub JSON for Xinference Models"
 msgstr "ModelHub JSON 格式（适用于 Xinference 模型）"
 
-#: ../../source/models/virtualenv.rst:236
+#: ../../source/models/virtualenv.rst:283
 msgid ""
 "If you plan to add a model to a model hub for Xinference, define a "
 "``virtualenv`` block in the model JSON. Starting from v2.0 (v4 flow), "
@@ -351,7 +407,7 @@ msgstr ""
 "若计划将模型添加至Xinference的Model Hub，请在模型JSON中定义一个``virtualenv``块。自v2.0（v4流程）起， "
 "**建议使用引擎感知标记** ，以便单个JSON文件覆盖多个引擎。"
 
-#: ../../source/models/virtualenv.rst:240
+#: ../../source/models/virtualenv.rst:287
 msgid ""
 "Important rule: If a new model supports a specific engine, you **must** "
 "include at least one package entry for that engine in "
@@ -363,17 +419,17 @@ msgstr ""
 "中至少包含该引擎的一个包条目，并附加标记（例如 ``#engine# == \"vllm\"`` "
 "）。当虚拟环境启用时，引擎可用性检查依赖这些标记进行验证。"
 
-#: ../../source/models/virtualenv.rst:267
+#: ../../source/models/virtualenv.rst:314
 msgid "``packages`` (required): list of pip requirement strings or markers."
 msgstr " ``packages`` （必填）：pip 要求字符串或标记的列表。"
 
-#: ../../source/models/virtualenv.rst:268
+#: ../../source/models/virtualenv.rst:315
 msgid ""
 "``inherit_pip_config`` (default ``true``): inherit system pip "
 "configuration if present."
 msgstr " ``inherit_pip_config`` （默认值为 ``true`` ）：若存在系统 pip 配置文件，则继承其设置。"
 
-#: ../../source/models/virtualenv.rst:269
+#: ../../source/models/virtualenv.rst:316
 msgid ""
 "``index_url`` / ``extra_index_url`` / ``find_links`` / ``trusted_host``: "
 "pip index and mirror controls."
@@ -381,49 +437,49 @@ msgstr ""
 " ``index_url`` / ``extra_index_url`` / ``find_links`` / ``trusted_host`` "
 ": pip 索引和镜像控制。"
 
-#: ../../source/models/virtualenv.rst:271
+#: ../../source/models/virtualenv.rst:318
 msgid ""
 "``index_strategy``: passed through to the virtualenv installer (used by "
 "some engines)."
 msgstr " ``index_strategy`` ：传递给虚拟环境安装程序（由某些引擎使用）。"
 
-#: ../../source/models/virtualenv.rst:272
+#: ../../source/models/virtualenv.rst:319
 msgid "``no_build_isolation``: pip build isolation switch for tricky builds."
 msgstr " ``no_build_isolation`` ：用于处理复杂构建的pip构建隔离开关。"
 
-#: ../../source/models/virtualenv.rst:277
+#: ../../source/models/virtualenv.rst:324
 msgid "Use wrapped placeholders to inject engine defaults:"
 msgstr "使用包裹的占位符注入引擎默认值："
 
-#: ../../source/models/virtualenv.rst:279
+#: ../../source/models/virtualenv.rst:326
 msgid "``#vllm_dependencies#``"
 msgstr ""
 
-#: ../../source/models/virtualenv.rst:280
+#: ../../source/models/virtualenv.rst:327
 msgid "``#sglang_dependencies#``"
 msgstr ""
 
-#: ../../source/models/virtualenv.rst:281
+#: ../../source/models/virtualenv.rst:328
 msgid "``#mlx_dependencies#``"
 msgstr ""
 
-#: ../../source/models/virtualenv.rst:282
+#: ../../source/models/virtualenv.rst:329
 msgid "``#transformers_dependencies#``"
 msgstr ""
 
-#: ../../source/models/virtualenv.rst:283
+#: ../../source/models/virtualenv.rst:330
 msgid "``#llama_cpp_dependencies#``"
 msgstr ""
 
-#: ../../source/models/virtualenv.rst:284
+#: ../../source/models/virtualenv.rst:331
 msgid "``#diffusers_dependencies#``"
 msgstr ""
 
-#: ../../source/models/virtualenv.rst:285
+#: ../../source/models/virtualenv.rst:332
 msgid "``#sentence_transformers_dependencies#``"
 msgstr ""
 
-#: ../../source/models/virtualenv.rst:290
+#: ../../source/models/virtualenv.rst:337
 msgid ""
 "Markers use ``#engine#`` or ``#model_engine#`` comparisons (case-"
 "sensitive). Engine values are passed in lowercase internally, so prefer "
@@ -433,58 +489,6 @@ msgstr ""
 "标记使用 ``#engine#`` 或 ``#model_engine#`` "
 "进行比较（区分大小写）。引擎值在内部以小写形式传递，因此建议使用小写值，例如 ``#engine# == \"vllm\"`` 或 "
 "``#engine# == \"transformers\"`` 。"
-
-#: ../../source/models/virtualenv.rst:302
-msgid ""
-"Xinference provides comprehensive virtual environment management for "
-"model dependencies, allowing you to create isolated Python environments "
-"for each model with specific package requirements."
-msgstr "Xinference 提供全面的虚拟环境管理功能，允许您为每个模型创建独立的 Python 环境，满足特定的包依赖需求。"
-
-#: ../../source/models/virtualenv.rst:314
-msgid "Key Features"
-msgstr "核心功能"
-
-#: ../../source/models/virtualenv.rst:316
-msgid ""
-"**Multiple Python Version Support**: Each model can have virtual "
-"environments with different Python versions (e.g., Python 3.10.18, "
-"3.11.5), enabling compatibility with various model requirements."
-msgstr ""
-"**多 Python 版本支持** : 每个模型可以拥有不同 Python 版本的虚拟环境（例如 Python "
-"3.10.18、3.11.5），实现与各种模型要求的兼容性。"
-
-#: ../../source/models/virtualenv.rst:321
-msgid ""
-"**Isolated Dependencies**: Each virtual environment contains its own set "
-"of packages, preventing conflicts between different models' requirements."
-msgstr "**依赖隔离** : 每个虚拟环境包含自己独立的包集合，防止不同模型之间的依赖冲突。"
-
-#: ../../source/models/virtualenv.rst:326
-msgid "Management Operations"
-msgstr "管理操作"
-
-#: ../../source/models/virtualenv.rst:328
-msgid ""
-"**Listing Virtual Environments**: View all virtual environments across "
-"your cluster, filtered by model name or worker IP address."
-msgstr "**列出虚拟环境** : 查看集群中的所有虚拟环境，支持按模型名称或工作节点 IP 地址过滤。"
-
-#: ../../source/models/virtualenv.rst:332
-msgid ""
-"**Creating Environments**: Automatically created when launching models "
-"with enable_virtual_env=true. The system detects your current Python "
-"version and creates an isolated environment with the required packages."
-msgstr ""
-"**创建环境** : 当使用 enable_virtual_env=true 启动模型时自动创建。系统会检测当前的 Python "
-"版本并创建包含所需包的独立环境。"
-
-#: ../../source/models/virtualenv.rst:337
-msgid ""
-"**Removing Environments**: Delete specific virtual environments by model "
-"name and optionally Python version, or remove all environments for a "
-"model."
-msgstr "**删除环境** : 可按模型名称和可选的 Python 版本删除特定虚拟环境，或删除模型的所有环境。"
 
 #~ msgid "Manage Virtual Enviroments"
 #~ msgstr "虚拟环境管理"
