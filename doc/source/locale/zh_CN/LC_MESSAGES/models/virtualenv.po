@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../source/models/virtualenv.rst:6
 msgid "Model Virtual Environments"
-msgstr "模型虚拟空间"
+msgstr "模型虚拟环境"
 
 #: ../../source/models/virtualenv.rst:11
 msgid "Background"
@@ -49,7 +49,7 @@ msgstr "解决方案"
 msgid ""
 "To address this issue, we have introduced the **Model Virtual "
 "Environment** feature."
-msgstr "为了解决这个问题，我们引入了 **模型虚拟空间** 功能。"
+msgstr "为了解决这个问题，我们引入了 **模型虚拟环境** 功能。"
 
 #: ../../source/models/virtualenv.rst:23
 msgid "Install requirements for this functionality via"
@@ -219,7 +219,7 @@ msgid ""
 "This feature is enabled by default in ``v2.0.0`` . To disable it, set "
 "``XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED=0`` ."
 msgstr ""
-"此功能在``v2.0.0``版本中默认启用。若需禁用，请设置"
+"此功能在 ``v2.0.0`` 版本中默认启用。若需禁用，请设置"
 "``XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED=0`` 。"
 
 #: ../../source/models/virtualenv.rst:137
