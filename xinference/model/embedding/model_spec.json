@@ -1648,14 +1648,14 @@
     ],
     "virtualenv": {
       "packages": [
-        "transformers==4.57.1 ; #engine# == \"sentence_transformers\"",
-        "qwen-vl-utils==0.0.11",
+        "transformers>=4.57.0 ; #engine# == \"sentence_transformers\"",
+        "qwen-vl-utils>=0.0.14",
         "Pillow",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ]
     },
     "featured": true,
-    "updated_at": 1769418313
+    "updated_at": 1769675758
   }
 ]
