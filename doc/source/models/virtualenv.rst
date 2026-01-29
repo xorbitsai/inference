@@ -47,24 +47,60 @@ Example usage:
 
   Xinference will by default inherit the config for current pip.
 
-.. note::
+.. versionchanged:: v2.0.0
 
-  The model virtual environment feature is disabled by default (i.e., XINFERENCE_ENABLE_VIRTUAL_ENV is set to 0).
+  Starting from **Xinference v2.0**, the model virtual environment feature is
+  enabled by default (i.e., ``XINFERENCE_ENABLE_VIRTUAL_ENV`` defaults to ``1``).
 
-  It will be enabled by default starting from Xinference v2.0.0.
+  To disable it globally, set ``XINFERENCE_ENABLE_VIRTUAL_ENV=0`` when starting Xinference.
 
 When enabled, Xinference will automatically create a dedicated virtual environment for each model when it is loaded,
 and install its specific dependencies there. This prevents dependency conflicts between models,
 allowing them to run in isolation without affecting one another.
 
-Supported Models
-################
+Using Virtual Environments (v2.0)
+#################################
 
-Currently, this feature supports the following models:
+Global toggle
+~~~~~~~~~~~~~
 
-* :ref:`GOT-OCR2 <models_builtin_got-ocr2_0>`
-* :ref:`Qwen2.5-omni <models_llm_qwen2.5-omni>`
-* ... (New models since v1.5.0 will all consider to add support)
+Virtual environments are enabled by default starting from v2.0. You can still override this globally:
+
+.. code-block:: bash
+
+  # Enable globally (default)
+  XINFERENCE_ENABLE_VIRTUAL_ENV=1 xinference-local -H 0.0.0.0 -p 9997
+
+  # Disable globally
+  XINFERENCE_ENABLE_VIRTUAL_ENV=0 xinference-local -H 0.0.0.0 -p 9997
+
+Per-model override at launch time
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can override the global setting when launching a model:
+
+.. code-block:: bash
+
+  # Force enable for this model
+  xinference launch -n qwen2.5-instruct --model-engine transformers --enable-virtual-env
+
+  # Force disable for this model
+  xinference launch -n qwen2.5-instruct --model-engine transformers --disable-virtual-env
+
+Add or override packages at launch time
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use ``--virtual-env-package`` (or ``-vp``) multiple times:
+
+.. code-block:: bash
+
+  xinference launch -n qwen2.5-instruct --model-engine transformers \
+    --virtual-env-package transformers==4.46.3 \
+    --virtual-env-package accelerate==0.33.0
+
+If you specify a package that already exists in the model's default virtualenv package list,
+your version replaces the default instead of being appended.
+
 
 Storage Location
 ################
@@ -74,14 +110,12 @@ By default, the model’s virtual environment is stored under path:
 * Before v1.6.0: :ref:`XINFERENCE_HOME <environments_xinference_home>` / virtualenv / {model_name}
 * From v1.6.0 to v1.13.0: :ref:`XINFERENCE_HOME <environments_xinference_home>` / virtualenv / v2 / {model_name}
 * Since v1.14.0: :ref:`XINFERENCE_HOME <environments_xinference_home>` / virtualenv / v3 / {model_name} / {python_version}
-
-Experimental Feature
-####################
-
-.. _skip_installed_libraries:
+* Since v2.0: :ref:`XINFERENCE_HOME <environments_xinference_home>` / virtualenv / v4 / {model_name} / {model_engine} / {python_version}
 
 Skip Installed Libraries
-------------------------
+########################
+
+.. _skip_installed_libraries:
 
 .. versionadded:: v1.8.1
 
@@ -94,9 +128,9 @@ This ensures better isolation from system packages but can result in redundant i
 Starting from ``v1.8.1``, an **experimental feature** is available:
 by setting the environment variable ``XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED=1``, ``uv`` will **skip packages already available in system site-packages**.
 
-.. note::
+.. versionchanged:: v2.0
 
-    The feature is currently disabled but will be enabled by default in ``v2.0.0``.
+    This feature is enabled by default in ``v2.0``. To disable it, set ``XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED=0``.
 
 Advantages
 ~~~~~~~~~~
@@ -148,7 +182,7 @@ Using the ``CosyVoice 0.5B`` model as an example:
 .. _model_launching_virtualenv:
 
 Model Launching: Toggle Virtual Environments and Customize Dependencies
------------------------------------------------------------------------
+#######################################################################
 
 .. versionadded:: v1.8.1
 
@@ -200,7 +234,7 @@ In addition to the standard way of specifying package dependencies, such as ``tr
 .. _manage_virtual_enviroments:
 
 Manage Virtual Enviroments
-------------------------
+##########################
 
 .. versionadded:: v1.14.0
 
@@ -216,7 +250,7 @@ allowing you to create isolated Python environments for each model with specific
     <img class="align-center" alt="actor" src="../_static/manage_virtual_envs2.png" style="background-color: transparent", width="95%">
 
 Key Features
-~~~~~~~~~~
+############
 
 **Multiple Python Version Support**:
 Each model can have virtual environments
@@ -228,7 +262,7 @@ Each virtual environment contains its own set of packages,
 preventing conflicts between different models' requirements.
 
 Management Operations
-~~~~~
+#####################
 
 **Listing Virtual Environments**:
 View all virtual environments across your cluster,
@@ -243,4 +277,64 @@ environment with the required packages.
 Delete specific virtual environments by model name and optionally
 Python version, or remove all environments for a model.
 
+ModelHub JSON for Xinference Models
+###################################
+
+If you plan to add a model to a model hub for Xinference, define a ``virtualenv`` block
+in the model JSON. Starting from v2.0 (v4 flow), **engine-aware markers are recommended**
+so one JSON can cover multiple engines.
+
+Important rule:
+If a new model supports a specific engine, you **must** include at least one package
+entry for that engine in ``virtualenv.packages`` and attach a marker, for example
+``#engine# == "vllm"``. Engine availability checks rely on these markers when
+virtual environments are enabled.
+
+Minimal virtualenv block (recommended)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: json
+
+  {
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#mlx_dependencies# ; #engine# == \"mlx\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  }
+
+Field reference
+^^^^^^^^^^^^^^^
+
+- ``packages`` (required): list of pip requirement strings or markers.
+- ``inherit_pip_config`` (default ``true``): inherit system pip configuration if present.
+- ``index_url`` / ``extra_index_url`` / ``find_links`` / ``trusted_host``:
+  pip index and mirror controls.
+- ``index_strategy``: passed through to the virtualenv installer (used by some engines).
+- ``no_build_isolation``: pip build isolation switch for tricky builds.
+
+Engine placeholders
+^^^^^^^^^^^^^^^^^^
+
+Use wrapped placeholders to inject engine defaults:
+
+- ``#vllm_dependencies#``
+- ``#sglang_dependencies#``
+- ``#mlx_dependencies#``
+- ``#transformers_dependencies#``
+- ``#llama_cpp_dependencies#``
+- ``#diffusers_dependencies#``
+- ``#sentence_transformers_dependencies#``
+
+Markers and case
+^^^^^^^^^^^^^^^^
+
+Markers use ``#engine#`` or ``#model_engine#`` comparisons (case-sensitive).
+Engine values are passed in lowercase internally, so prefer lowercase values,
+for example ``#engine# == "vllm"`` or ``#engine# == "transformers"``.
 
