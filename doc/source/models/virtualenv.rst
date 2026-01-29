@@ -234,7 +234,7 @@ In addition to the standard way of specifying package dependencies, such as ``tr
 .. _manage_virtual_enviroments:
 
 Manage Virtual Enviroments
---------------------------
+##########################
 
 .. versionadded:: v1.14.0
 
