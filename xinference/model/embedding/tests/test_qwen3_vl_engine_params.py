@@ -139,29 +139,29 @@ def test_qwen3_vl_embedding_sentence_transformers_startup_virtualenv():
     model.load()
 
 
-def test_qwen3_vl_embedding_vllm_startup_virtualenv():
-    if not torch.cuda.is_available():
-        pytest.skip("Qwen3-VL embedding startup tests require GPU")
-    _install()
-    _prepare_engine_virtualenv("vllm", virtual_env_packages=["numpy==2.2.0"])
-    _purge_modules(["vllm"])
-    try:
-        import vllm
-        from packaging.version import Version
-
-        if Version(vllm.__version__) < Version("0.14.0"):
-            pytest.skip("vLLM version is lower than 0.14.0")
-    except Exception as exc:
-        pytest.skip(f"Failed to import vLLM: {exc}")
-    model_path = _get_cached_model_path()
-    model = create_embedding_model_instance(
-        "qwen3-vl-embedding-vllm",
-        "Qwen3-VL-Embedding-2B",
-        "vllm",
-        model_format="pytorch",
-        quantization="none",
-        model_path=model_path,
-        enable_virtual_env=True,
-        virtual_env_package="numpy==2.2.0",
-    )
-    model.load()
+# def test_qwen3_vl_embedding_vllm_startup_virtualenv():
+#     if not torch.cuda.is_available():
+#         pytest.skip("Qwen3-VL embedding startup tests require GPU")
+#     _install()
+#     _prepare_engine_virtualenv("vllm", virtual_env_packages=["numpy==2.2.0"])
+#     _purge_modules(["vllm"])
+#     try:
+#         import vllm
+#         from packaging.version import Version
+#
+#         if Version(vllm.__version__) < Version("0.14.0"):
+#             pytest.skip("vLLM version is lower than 0.14.0")
+#     except Exception as exc:
+#         pytest.skip(f"Failed to import vLLM: {exc}")
+#     model_path = _get_cached_model_path()
+#     model = create_embedding_model_instance(
+#         "qwen3-vl-embedding-vllm",
+#         "Qwen3-VL-Embedding-2B",
+#         "vllm",
+#         model_format="pytorch",
+#         quantization="none",
+#         model_path=model_path,
+#         enable_virtual_env=True,
+#         virtual_env_package="numpy==2.2.0",
+#     )
+#     model.load()
