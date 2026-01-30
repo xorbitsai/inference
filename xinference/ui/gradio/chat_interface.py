@@ -416,7 +416,7 @@ class GradioInterface:
                 video,
                 audio,
             )
-            
+
             if image:
                 buffered = BytesIO()
                 with PIL.Image.open(image) as img:
