@@ -85,6 +85,7 @@ def test_qwen3_vl_reranker_sentence_transformers_startup_virtualenv():
         pytest.skip("Qwen3-VL reranker startup tests require GPU")
     _install()
     _prepare_engine_virtualenv(
+        "sentence_transformers",
         virtual_env_packages=[
             "transformers>=4.57.0",
             "qwen-vl-utils>=0.0.14",
