@@ -145,5 +145,6 @@ def test_qwen3_vl_embedding_vllm_startup_virtualenv():
         quantization="none",
         model_path=model_path,
         enable_virtual_env=True,
+        virtual_env_package="numpy==2.2.0",
     )
     model.load()
