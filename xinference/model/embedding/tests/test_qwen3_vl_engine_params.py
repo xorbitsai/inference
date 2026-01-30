@@ -70,8 +70,22 @@ def _purge_modules(prefixes):
             sys.modules.pop(name, None)
 
 
-def _prepare_engine_virtualenv(engine_name: str):
+def _prepare_engine_virtualenv(engine_name: str, virtual_env_packages=None):
     family = match_embedding("Qwen3-VL-Embedding-2B", "pytorch", "none")
+    settings = family.virtualenv
+    if virtual_env_packages:
+        # If the caller pins numpy, drop any system numpy placeholder to avoid conflicts.
+        if any(pkg.lower().startswith("numpy") for pkg in virtual_env_packages):
+            if settings is not None:
+                if hasattr(settings, "model_copy"):
+                    settings = settings.model_copy(deep=True)
+                else:
+                    settings = settings.copy(deep=True)
+                settings.packages = [
+                    pkg
+                    for pkg in settings.packages
+                    if not pkg.strip().startswith("#system_numpy#")
+                ]
     py_version = (
         f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     )
@@ -87,7 +101,10 @@ def _prepare_engine_virtualenv(engine_name: str):
     previous_skip_installed = worker_mod.XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED
     worker_mod.XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED = False
     WorkerActor._prepare_virtual_env(
-        manager, family.virtualenv, virtual_env_packages=None, model_engine=engine_name
+        manager,
+        settings,
+        virtual_env_packages=virtual_env_packages,
+        model_engine=engine_name,
     )
     worker_mod.XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED = previous_skip_installed
     site_packages = _get_virtualenv_site_packages(env_path)
@@ -126,7 +143,7 @@ def test_qwen3_vl_embedding_vllm_startup_virtualenv():
     if not torch.cuda.is_available():
         pytest.skip("Qwen3-VL embedding startup tests require GPU")
     _install()
-    _prepare_engine_virtualenv("vllm")
+    _prepare_engine_virtualenv("vllm", virtual_env_packages=["numpy==2.2.0"])
     _purge_modules(["vllm"])
     try:
         import vllm
