@@ -1,4 +1,4 @@
-FROM vllm/vllm-openai:v0.11.2
+FROM vllm/vllm-openai:v0.13.0
 
 COPY . /opt/inference
 WORKDIR /opt/inference
