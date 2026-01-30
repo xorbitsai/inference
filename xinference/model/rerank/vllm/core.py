@@ -360,6 +360,8 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         model_spec: RerankSpecV1,
         quantization: str,
     ) -> Union[bool, Tuple[bool, str]]:
+        if model_family.model_name.startswith("Qwen3-VL-Reranker"):
+            return False, "Qwen3-VL reranker requires vLLM>=0.14.0"
         if model_spec.model_format not in ["pytorch"]:
             return False, "vLLM rerank engine only supports pytorch format"
         prefix = model_family.model_name.split("-", 1)[0]
