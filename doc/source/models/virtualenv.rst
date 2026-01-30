@@ -47,6 +47,17 @@ Example usage:
 
   Xinference will by default inherit the config for current pip.
 
+.. note::
+
+  Note: When launching a vLLM/SgLang engine model inside a virtual environment, if you encounter
+  a cuDNN error, you can set:
+
+  .. code-block:: bash
+
+    export LD_LIBRARY_PATH=$CONDA_PREFIX/lib/python3.12/site-packages/nvidia/cudnn/lib:$LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=$CONDA_PREFIX/lib/python3.12/site-packages/nvidia/cusparselt/lib:$LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=$CONDA_PREFIX/lib/python3.12/site-packages/nvidia/nccl/lib:$LD_LIBRARY_PATH
+
 .. versionchanged:: v2.0.0
 
   Starting from **Xinference v2.0**, the model virtual environment feature is
@@ -337,4 +348,3 @@ Markers and case
 Markers use ``#engine#`` or ``#model_engine#`` comparisons (case-sensitive).
 Engine values are passed in lowercase internally, so prefer lowercase values,
 for example ``#engine# == "vllm"`` or ``#engine# == "transformers"``.
-
