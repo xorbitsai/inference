@@ -5,8 +5,8 @@ MinerU2.5-2509-1.2B
 ===================
 
 - **Model Name:** MinerU2.5-2509-1.2B
-- **Model Family:** ocr
-- **Abilities:** ocr
+- **Model Family:** 
+- **Abilities:** chat, vision
 - **Available ControlNet:** None
 
 Specifications
