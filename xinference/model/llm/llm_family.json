@@ -73,12 +73,12 @@
         }
       }
     ],
+    "model_type": "mistral",
     "updated_at": 1769418470,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
     ],
-    "model_type": "mistral",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -146,12 +146,12 @@
       "<|EOT|>",
       "<｜end▁of▁sentence｜>"
     ],
+    "model_type": "llama",
     "updated_at": 1769418471,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -187,12 +187,12 @@
         }
       }
     ],
+    "model_type": "gpt2",
     "updated_at": 1769418472,
     "featured": false,
     "architectures": [
       "GPT2LMHeadModel"
     ],
-    "model_type": "gpt2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -406,12 +406,12 @@
         }
       }
     ],
+    "model_type": "llama",
     "updated_at": 1769418473,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -501,12 +501,12 @@
     "stop": [
       "</s>"
     ],
+    "model_type": "mistral",
     "updated_at": 1769418474,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
     ],
-    "model_type": "mistral",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -662,12 +662,12 @@
     "stop": [
       "</s>"
     ],
+    "model_type": "mixtral",
     "updated_at": 1769418475,
     "featured": false,
     "architectures": [
       "MixtralForCausalLM"
     ],
-    "model_type": "mixtral",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -734,12 +734,12 @@
     "stop": [
       "<|im_end|>"
     ],
+    "model_type": "mistral",
     "updated_at": 1769418476,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
     ],
-    "model_type": "mistral",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -775,12 +775,12 @@
         }
       }
     ],
+    "model_type": "opt",
     "updated_at": 1769418477,
     "featured": false,
     "architectures": [
       "OPTForCausalLM"
     ],
-    "model_type": "opt",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -839,12 +839,12 @@
         }
       }
     ],
+    "model_type": "phi",
     "updated_at": 1769418478,
     "featured": false,
     "architectures": [
       "PhiForCausalLM"
     ],
-    "model_type": "phi",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -903,12 +903,12 @@
         }
       }
     ],
+    "model_type": "mistral",
     "updated_at": 1769418479,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
     ],
-    "model_type": "mistral",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -967,12 +967,12 @@
         }
       }
     ],
+    "model_type": "gemma",
     "updated_at": 1769418480,
     "featured": false,
     "architectures": [
       "GemmaForCausalLM"
     ],
-    "model_type": "gemma",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -1163,12 +1163,12 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
+    "model_type": "qwen2",
     "updated_at": 1769418481,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -1240,12 +1240,12 @@
       "<|eom_id|>"
     ],
     "tool_parser": "llama3",
+    "model_type": "llama",
     "updated_at": 1769418481,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -1317,12 +1317,12 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
+    "model_type": "qwen2",
     "updated_at": 1769418482,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -1613,12 +1613,12 @@
     "stop": [
       "<|im_end|>"
     ],
+    "model_type": "internvl_chat",
     "updated_at": 1769418483,
     "featured": false,
     "architectures": [
       "InternVLChatModel"
     ],
-    "model_type": "internvl_chat",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -1691,12 +1691,12 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
+    "model_type": "minicpmv",
     "updated_at": 1769418484,
     "featured": false,
     "architectures": [
       "MiniCPMV"
     ],
-    "model_type": "minicpmv",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -1929,12 +1929,12 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
+    "model_type": "ovis",
     "updated_at": 1769418485,
     "featured": false,
     "architectures": [
       "Ovis"
     ],
-    "model_type": "ovis",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -2011,12 +2011,12 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
+    "model_type": "qwen2_vl",
     "updated_at": 1769418486,
     "featured": false,
     "architectures": [
       "Qwen2VLForConditionalGeneration"
     ],
-    "model_type": "qwen2_vl",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -2198,12 +2198,12 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "qwen",
+    "model_type": "qwen2",
     "updated_at": 1769418487,
     "featured": true,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -2343,12 +2343,12 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
+    "model_type": "qwen2",
     "updated_at": 1769418488,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -2393,12 +2393,12 @@
         }
       }
     ],
+    "model_type": "skywork",
     "updated_at": 1769418489,
     "featured": false,
     "architectures": [
       "SkyworkForCausalLM"
     ],
-    "model_type": "skywork",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\""
@@ -2439,12 +2439,12 @@
         }
       }
     ],
+    "model_type": "skywork",
     "updated_at": 1769418490,
     "featured": false,
     "architectures": [
       "SkyworkForCausalLM"
     ],
-    "model_type": "skywork",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\""
@@ -2514,12 +2514,12 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
+    "model_type": "qwen2",
     "updated_at": 1769418491,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -2639,12 +2639,12 @@
         }
       }
     ],
+    "model_type": "llama",
     "updated_at": 1769418492,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -2741,12 +2741,12 @@
         }
       }
     ],
+    "model_type": "llama",
     "updated_at": 1769418493,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -3094,12 +3094,12 @@
       "<|im_end|>",
       "<|im_sep|>"
     ],
+    "model_type": "llama",
     "updated_at": 1769418494,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -3225,12 +3225,12 @@
       "<|im_end|>",
       "<|im_sep|>"
     ],
+    "model_type": "llama",
     "updated_at": 1769418495,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -3300,12 +3300,12 @@
         }
       }
     ],
+    "model_type": "llama",
     "updated_at": 1769418496,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -3424,12 +3424,12 @@
       "<|im_end|>",
       "<|im_sep|>"
     ],
+    "model_type": "llama",
     "updated_at": 1769418497,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -3505,12 +3505,12 @@
         }
       }
     ],
+    "model_type": "baichuan",
     "updated_at": 1769418498,
     "featured": false,
     "architectures": [
       "BaichuanForCausalLM"
     ],
-    "model_type": "baichuan",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\""
@@ -3589,12 +3589,12 @@
       195
     ],
     "stop": [],
+    "model_type": "baichuan",
     "updated_at": 1769418499,
     "featured": false,
     "architectures": [
       "BaichuanForCausalLM"
     ],
-    "model_type": "baichuan",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\""
@@ -3746,12 +3746,12 @@
         }
       }
     ],
+    "model_type": "llama",
     "updated_at": 1769418500,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -3937,12 +3937,12 @@
     "stop": [
       "</s>"
     ],
+    "model_type": "llama",
     "updated_at": 1769418501,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -4127,12 +4127,12 @@
         }
       }
     ],
+    "model_type": "llama",
     "updated_at": 1769418502,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -4218,12 +4218,12 @@
       "<|user|>",
       "<|observation|>"
     ],
+    "model_type": "chatglm",
     "updated_at": 1769418503,
     "featured": false,
     "architectures": [
       "ChatGLMModel"
     ],
-    "model_type": "chatglm",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -4271,12 +4271,12 @@
         }
       }
     ],
+    "model_type": "qwen2",
     "updated_at": 1769418503,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -4387,12 +4387,12 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
+    "model_type": "qwen2",
     "updated_at": 1769418504,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -4437,12 +4437,12 @@
         }
       }
     ],
+    "model_type": "kclgpt",
     "updated_at": 1769418505,
     "featured": false,
     "architectures": [
       "CodeShellForCausalLM"
     ],
-    "model_type": "kclgpt",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\""
@@ -4492,12 +4492,12 @@
       "|||",
       "|<end>|"
     ],
+    "model_type": "codeshell",
     "updated_at": 1769418506,
     "featured": false,
     "architectures": [
       "CodeShellForCausalLM"
     ],
-    "model_type": "codeshell",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\""
@@ -4548,12 +4548,12 @@
       "<|user|>",
       "<|observation|>"
     ],
+    "model_type": "chatglm",
     "updated_at": 1769418507,
     "featured": false,
     "architectures": [
       "ChatGLMForConditionalGeneration"
     ],
-    "model_type": "chatglm",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -4662,12 +4662,12 @@
         }
       }
     ],
+    "model_type": "llama",
     "updated_at": 1769418508,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -4784,12 +4784,12 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
+    "model_type": "llama",
     "updated_at": 1769418509,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -5056,12 +5056,12 @@
         }
       }
     ],
+    "model_type": "llama",
     "updated_at": 1769418510,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -5335,12 +5335,12 @@
     "stop": [
       "<|EOT|>"
     ],
+    "model_type": "llama",
     "updated_at": 1769418511,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -5429,12 +5429,12 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
+    "model_type": "deepseek_v3",
     "updated_at": 1769418511,
     "featured": false,
     "architectures": [
       "DeepseekV3ForCausalLM"
     ],
-    "model_type": "deepseek_v3",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -5863,12 +5863,12 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
+    "model_type": "deepseek_v3",
     "updated_at": 1769418512,
     "featured": false,
     "architectures": [
       "DeepseekV3ForCausalLM"
     ],
-    "model_type": "deepseek_v3",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -5947,12 +5947,12 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "deepseek-r1",
+    "model_type": "deepseek_v3",
     "updated_at": 1769418513,
     "featured": false,
     "architectures": [
       "DeepseekV3ForCausalLM"
     ],
-    "model_type": "deepseek_v3",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -6041,12 +6041,12 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
+    "model_type": "qwen3",
     "updated_at": 1769418514,
     "featured": false,
     "architectures": [
       "Qwen3ForCausalLM"
     ],
-    "model_type": "qwen3",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -6321,12 +6321,12 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "deepseek-r1",
+    "model_type": "llama",
     "updated_at": 1769418515,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -6759,12 +6759,12 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
+    "model_type": "qwen2",
     "updated_at": 1769418516,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -6837,12 +6837,12 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
+    "model_type": "deepseek_v2",
     "updated_at": 1769418517,
     "featured": false,
     "architectures": [
       "DeepseekV2ForCausalLM"
     ],
-    "model_type": "deepseek_v2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -6892,12 +6892,12 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
+    "model_type": "deepseek_v2",
     "updated_at": 1769418518,
     "featured": false,
     "architectures": [
       "DeepseekV2ForCausalLM"
     ],
-    "model_type": "deepseek_v2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -6947,12 +6947,12 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
+    "model_type": "deepseek_v2",
     "updated_at": 1769418519,
     "featured": false,
     "architectures": [
       "DeepseekV2ForCausalLM"
     ],
-    "model_type": "deepseek_v2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -7240,12 +7240,12 @@
       "<｜end▁of▁sentence｜>"
     ],
     "tool_parser": "deepseek_v3",
+    "model_type": "deepseek_v3",
     "updated_at": 1769418520,
     "featured": false,
     "architectures": [
       "DeepseekV3ForCausalLM"
     ],
-    "model_type": "deepseek_v3",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -7330,12 +7330,12 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
+    "model_type": "deepseek_v3",
     "updated_at": 1769418521,
     "featured": false,
     "architectures": [
       "DeepseekV3ForCausalLM"
     ],
-    "model_type": "deepseek_v3",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -7424,12 +7424,12 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
+    "model_type": "deepseek_vl_v2",
     "updated_at": 1769418522,
     "featured": false,
     "architectures": [
       "DeepseekV2ForCausalLM"
     ],
-    "model_type": "deepseek_vl_v2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -7519,12 +7519,12 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
+    "model_type": "qwen2",
     "updated_at": 1769418523,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -7654,12 +7654,12 @@
       "<end_of_turn>",
       "<start_of_turn>"
     ],
+    "model_type": "gemma3_text",
     "updated_at": 1769418524,
     "featured": false,
     "architectures": [
       "Gemma3ForCausalLM"
     ],
-    "model_type": "gemma3_text",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -8016,12 +8016,12 @@
       "<end_of_turn>",
       "<start_of_turn>"
     ],
+    "model_type": "gemma3",
     "updated_at": 1769418525,
     "featured": true,
     "architectures": [
       "Gemma3ForConditionalGeneration"
     ],
-    "model_type": "gemma3",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -8084,12 +8084,12 @@
       "<|user|>",
       "<|observation|>"
     ],
+    "model_type": "chatglm",
     "updated_at": 1769418526,
     "featured": false,
     "architectures": [
       "ChatGLMModel"
     ],
-    "model_type": "chatglm",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -8284,12 +8284,12 @@
       "<|user|>",
       "<|observation|>"
     ],
+    "model_type": "glm",
     "updated_at": 1769418527,
     "featured": false,
     "architectures": [
       "GlmForCausalLM"
     ],
-    "model_type": "glm",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -8550,12 +8550,12 @@
         "#system_numpy# ; #engine# == \"vllm\""
       ]
     },
+    "model_type": "glm4",
     "updated_at": 1769418528,
     "featured": false,
     "architectures": [
       "Glm4ForCausalLM"
-    ],
-    "model_type": "glm4"
+    ]
   },
   {
     "version": 2,
@@ -8664,12 +8664,12 @@
       "<|observation|>"
     ],
     "tool_parser": "glm4",
+    "model_type": "glm",
     "updated_at": 1769418529,
     "featured": false,
     "architectures": [
       "GlmForCausalLM"
     ],
-    "model_type": "glm",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -8787,12 +8787,12 @@
       "<|observation|>"
     ],
     "tool_parser": "glm4",
+    "model_type": "glm",
     "updated_at": 1769418530,
     "featured": false,
     "architectures": [
       "GlmForCausalLM"
     ],
-    "model_type": "glm",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -8933,12 +8933,12 @@
       "</s>",
       "<|im_end|>"
     ],
+    "model_type": "internlm3",
     "updated_at": 1769418531,
     "featured": false,
     "architectures": [
       "InternLM3ForCausalLM"
     ],
-    "model_type": "internlm3",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -9197,11 +9197,11 @@
     ],
     "stop": [],
     "featured": false,
+    "model_type": "llama",
     "updated_at": 1769418532,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -9300,12 +9300,12 @@
         }
       }
     ],
+    "model_type": "llama",
     "updated_at": 1769418533,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -9527,12 +9527,12 @@
       "<|end_of_text|>",
       "<|eot_id|>"
     ],
+    "model_type": "llama",
     "updated_at": 1769418534,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -9649,12 +9649,12 @@
         }
       }
     ],
+    "model_type": "llama",
     "updated_at": 1769418535,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -10037,12 +10037,12 @@
       "<|eom_id|>"
     ],
     "tool_parser": "llama3",
+    "model_type": "llama",
     "updated_at": 1769418535,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -10110,12 +10110,12 @@
         }
       }
     ],
+    "model_type": "mllama",
     "updated_at": 1769418536,
     "featured": false,
     "architectures": [
       "MllamaForConditionalGeneration"
     ],
-    "model_type": "mllama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\""
@@ -10190,12 +10190,12 @@
       "<|eot_id|>",
       "<|eom_id|>"
     ],
+    "model_type": "mllama",
     "updated_at": 1769418537,
     "featured": false,
     "architectures": [
       "MllamaForConditionalGeneration"
     ],
-    "model_type": "mllama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\""
@@ -10340,12 +10340,12 @@
       "<|eot_id|>",
       "<|eom_id|>"
     ],
+    "model_type": "llama",
     "updated_at": 1769418538,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -10446,12 +10446,12 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
+    "model_type": "qwen2",
     "updated_at": 1769418539,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -10816,12 +10816,12 @@
       "<s>",
       "</s>"
     ],
+    "model_type": "minicpm3",
     "updated_at": 1769418545,
     "featured": false,
     "architectures": [
       "MiniCPM3ForCausalLM"
     ],
-    "model_type": "minicpm3",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -10906,12 +10906,12 @@
       "</s>",
       "<|im_end|>"
     ],
+    "model_type": "minicpm",
     "updated_at": 1769418546,
     "featured": false,
     "architectures": [
       "MiniCPMForCausalLM"
     ],
-    "model_type": "minicpm",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -11009,12 +11009,12 @@
     "stop": [
       "</s>"
     ],
+    "model_type": "mistral",
     "updated_at": 1769418547,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
     ],
-    "model_type": "mistral",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -11118,12 +11118,12 @@
     "stop": [
       "</s>"
     ],
+    "model_type": "mistral",
     "updated_at": 1769418548,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
     ],
-    "model_type": "mistral",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -11324,12 +11324,12 @@
     "stop": [
       "</s>"
     ],
+    "model_type": "mistral",
     "updated_at": 1769418548,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
     ],
-    "model_type": "mistral",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -11514,12 +11514,12 @@
     "stop": [
       "</s>"
     ],
+    "model_type": "mistral",
     "updated_at": 1769418549,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
     ],
-    "model_type": "mistral",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -11612,12 +11612,12 @@
         }
       }
     ],
+    "model_type": "mistral",
     "updated_at": 1769418550,
     "featured": false,
     "architectures": [
       "MistralForCausalLM"
     ],
-    "model_type": "mistral",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -11715,12 +11715,12 @@
     "stop": [
       "</s>"
     ],
+    "model_type": "mixtral",
     "updated_at": 1769418551,
     "featured": false,
     "architectures": [
       "MixtralForCausalLM"
     ],
-    "model_type": "mixtral",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -11799,12 +11799,12 @@
         }
       }
     ],
+    "model_type": "mixtral",
     "updated_at": 1769418552,
     "featured": false,
     "architectures": [
       "MixtralForCausalLM"
     ],
-    "model_type": "mixtral",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -11853,12 +11853,12 @@
     "stop": [
       "<|im_end|>"
     ],
+    "model_type": "deepseek_v3",
     "updated_at": 1769418553,
     "featured": false,
     "architectures": [
       "DeepseekV3ForCausalLM"
     ],
-    "model_type": "deepseek_v3",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -11929,12 +11929,12 @@
       "</s>",
       "<unk>"
     ],
+    "model_type": "orion",
     "updated_at": 1769418554,
     "featured": false,
     "architectures": [
       "OrionForCausalLM"
     ],
-    "model_type": "orion",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -11987,12 +11987,12 @@
       "<|assistant|>",
       "<|end|>"
     ],
+    "model_type": "phi3",
     "updated_at": 1769418555,
     "featured": false,
     "architectures": [
       "Phi3ForCausalLM"
     ],
-    "model_type": "phi3",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -12059,12 +12059,12 @@
       "<|assistant|>",
       "<|end|>"
     ],
+    "model_type": "phi3",
     "updated_at": 1769418556,
     "featured": false,
     "architectures": [
       "Phi3ForCausalLM"
     ],
-    "model_type": "phi3",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -12323,12 +12323,12 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
+    "model_type": "qwen",
     "updated_at": 1769418557,
     "featured": false,
     "architectures": [
       "QWenLMHeadModel"
     ],
-    "model_type": "qwen",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -13088,12 +13088,12 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
+    "model_type": "qwen2",
     "updated_at": 1769418558,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -13167,12 +13167,12 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
+    "model_type": "qwen2_moe",
     "updated_at": 1769418559,
     "featured": false,
     "architectures": [
       "Qwen2MoeForCausalLM"
     ],
-    "model_type": "qwen2_moe",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -13229,12 +13229,12 @@
         "<|endoftext|>"
       ]
     },
+    "model_type": "qwen2_audio",
     "updated_at": 1769418560,
     "featured": false,
     "architectures": [
       "Qwen2AudioForConditionalGeneration"
     ],
-    "model_type": "qwen2_audio",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -13292,12 +13292,12 @@
         "<|endoftext|>"
       ]
     },
+    "model_type": "qwen2_audio",
     "updated_at": 1769418561,
     "featured": false,
     "architectures": [
       "Qwen2AudioForConditionalGeneration"
     ],
-    "model_type": "qwen2_audio",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -13935,12 +13935,12 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
+    "model_type": "qwen2",
     "updated_at": 1769418562,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -14073,12 +14073,12 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
+    "model_type": "qwen2_moe",
     "updated_at": 1769418563,
     "featured": false,
     "architectures": [
       "Qwen2MoeForCausalLM"
     ],
-    "model_type": "qwen2_moe",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -14403,12 +14403,12 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
+    "model_type": "qwen2_vl",
     "updated_at": 1769418564,
     "featured": false,
     "architectures": [
       "Qwen2VLForConditionalGeneration"
     ],
-    "model_type": "qwen2_vl",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -14603,12 +14603,12 @@
         }
       }
     ],
+    "model_type": "qwen2",
     "updated_at": 1769418565,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -14746,12 +14746,12 @@
         }
       }
     ],
+    "model_type": "qwen2",
     "updated_at": 1769418565,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -15314,12 +15314,12 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
+    "model_type": "qwen2",
     "updated_at": 1769418566,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -16840,12 +16840,12 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
+    "model_type": "qwen2",
     "updated_at": 1769418567,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -16916,12 +16916,12 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
+    "model_type": "qwen2",
     "updated_at": 1769418568,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -17003,12 +17003,12 @@
         "soundfile"
       ]
     },
+    "model_type": "qwen2_5_omni",
     "updated_at": 1769418569,
     "featured": false,
     "architectures": [
       "Qwen2_5OmniModel"
-    ],
-    "model_type": "qwen2_5_omni"
+    ]
   },
   {
     "version": 2,
@@ -17274,12 +17274,12 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
+    "model_type": "qwen2_5_vl",
     "updated_at": 1769418570,
     "featured": false,
     "architectures": [
       "Qwen2_5_VLForConditionalGeneration"
     ],
-    "model_type": "qwen2_5_vl",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -18807,12 +18807,12 @@
       ]
     },
     "tool_parser": "qwen",
+    "model_type": "qwen3",
     "updated_at": 1769418571,
     "featured": true,
     "architectures": [
       "Qwen3ForCausalLM"
-    ],
-    "model_type": "qwen3"
+    ]
   },
   {
     "version": 2,
@@ -19597,12 +19597,12 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
+    "model_type": "qwen3_moe",
     "updated_at": 1769418573,
     "featured": false,
     "architectures": [
       "Qwen3MoeForCausalLM"
     ],
-    "model_type": "qwen3_moe",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -20394,12 +20394,12 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "qwen",
+    "model_type": "qwen3_moe",
     "updated_at": 1769418574,
     "featured": false,
     "architectures": [
       "Qwen3MoeForCausalLM"
     ],
-    "model_type": "qwen3_moe",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -21194,12 +21194,12 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
+    "model_type": "qwen3_moe",
     "updated_at": 1769418575,
     "featured": false,
     "architectures": [
       "Qwen3MoeForCausalLM"
     ],
-    "model_type": "qwen3_moe",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -21281,12 +21281,12 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
+    "model_type": "qwen2",
     "updated_at": 1769418576,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -21394,12 +21394,12 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
+    "model_type": "qwen2",
     "updated_at": 1769418577,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -21625,12 +21625,12 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
+    "model_type": "qwen2",
     "updated_at": 1769418577,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -21780,12 +21780,12 @@
       160133,
       160132
     ],
+    "model_type": "telechat",
     "updated_at": 1769418578,
     "featured": false,
     "architectures": [
       "TelechatForCausalLM"
     ],
-    "model_type": "telechat",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\""
@@ -21837,12 +21837,12 @@
         }
       }
     ],
+    "model_type": "tinyllama",
     "updated_at": 1769418579,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "tinyllama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -21983,12 +21983,12 @@
     "stop": [
       "</s>"
     ],
+    "model_type": "llama",
     "updated_at": 1769418580,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -22051,12 +22051,12 @@
     "stop": [
       "</s>"
     ],
+    "model_type": "llama",
     "updated_at": 1769418581,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
     ],
-    "model_type": "llama",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -22139,12 +22139,12 @@
         }
       }
     ],
+    "model_type": "xverse",
     "updated_at": 1769418582,
     "featured": false,
     "architectures": [
       "XverseForCausalLM"
     ],
-    "model_type": "xverse",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -22214,12 +22214,12 @@
     "stop": [
       "<|endoftext|>"
     ],
+    "model_type": "xverse",
     "updated_at": 1769418583,
     "featured": false,
     "architectures": [
       "XverseForCausalLM"
     ],
-    "model_type": "xverse",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -22287,12 +22287,12 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
+    "model_type": "qwen2",
     "updated_at": 1769418584,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -22630,116 +22630,12 @@
         "#system_numpy#"
       ]
     },
+    "model_type": "ernie4_5",
     "updated_at": 1769418585,
     "featured": true,
     "architectures": [
       "Ernie4_5ForCausalLM"
-    ],
-    "model_type": "ernie4_5"
-  },
-  {
-    "version": 2,
-    "context_length": 65536,
-    "model_name": "glm-4.1v-thinking",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "chat",
-      "vision",
-      "reasoning",
-      "tools"
-    ],
-    "model_description": "GLM-4.1V-9B-Thinking, designed to explore the upper limits of reasoning in vision-language models.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 9,
-        "model_src": {
-          "huggingface": {
-            "quantizations": [
-              "none"
-            ],
-            "model_id": "zai-org/GLM-4.1V-9B-Thinking",
-            "model_revision": "b627c82cd8fc9175ff2b82b33fb439eba260055f"
-          },
-          "modelscope": {
-            "quantizations": [
-              "none"
-            ],
-            "model_id": "ZhipuAI/GLM-4.1V-9B-Thinking",
-            "model_revision": "master"
-          }
-        }
-      },
-      {
-        "model_format": "awq",
-        "model_size_in_billions": 9,
-        "model_src": {
-          "huggingface": {
-            "quantizations": [
-              "Int4"
-            ],
-            "model_id": "QuantTrio/GLM-4.1V-9B-Thinking-AWQ"
-          },
-          "modelscope": {
-            "quantizations": [
-              "Int4"
-            ],
-            "model_id": "tclf90/GLM-4.1V-9B-Thinking-AWQ",
-            "model_revision": "master"
-          }
-        }
-      },
-      {
-        "model_format": "gptq",
-        "model_size_in_billions": 9,
-        "model_src": {
-          "huggingface": {
-            "quantizations": [
-              "Int4-Int8Mix"
-            ],
-            "model_id": "QuantTrio/GLM-4.1V-9B-Thinking-GPTQ-Int4-Int8Mix"
-          },
-          "modelscope": {
-            "quantizations": [
-              "Int4-Int8Mix"
-            ],
-            "model_id": "tclf90/GLM-4.1V-9B-Thinking-GPTQ-Int4-Int8Mix",
-            "model_revision": "master"
-          }
-        }
-      }
-    ],
-    "chat_template": "[gMASK]<sop> {%- for msg in messages %} {%- if msg.role == 'system' %} <|system|> {{ msg.content }} {%- elif msg.role == 'user' %} <|user|>{{ '\n' }} {%- if msg.content is string %} {{ msg.content }} {%- else %} {%- for item in msg.content %} {%- if item.type == 'video' or 'video' in item %} <|begin_of_video|><|video|><|end_of_video|> {%- elif item.type == 'image' or 'image' in item %} <|begin_of_image|><|image|><|end_of_image|> {%- elif item.type == 'text' %} {{ item.text }} {%- endif %} {%- endfor %} {%- endif %} {%- elif msg.role == 'assistant' %} {%- if msg.metadata %} <|assistant|>{{ msg.metadata }} {{ msg.content }} {%- else %} <|assistant|> {{ msg.content }} {%- endif %} {%- endif %} {%- endfor %} {% if add_generation_prompt %}<|assistant|> {% endif %}",
-    "stop_token_ids": [
-      151329,
-      151336,
-      151338
-    ],
-    "stop": [
-      "<|endoftext|>",
-      "<|user|>",
-      "<|observation|>"
-    ],
-    "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>",
-    "virtualenv": {
-      "packages": [
-        "transformers>=4.53.2 ; #engine# == \"Transformers\"",
-        "#vllm_dependencies# ; #engine# == \"vllm\"",
-        "#sglang_dependencies# ; #engine# == \"sglang\"",
-        "#system_numpy# ; #engine# == \"vllm\"",
-        "#system_numpy# ; #engine# == \"Transformers\""
-      ]
-    },
-    "featured": false,
-    "architectures": [
-      "Glm4vForConditionalGeneration"
-    ],
-    "updated_at": 1769418605,
-    "model_type": "glm4v"
+    ]
   },
   {
     "version": 2,
@@ -22996,8 +22892,8 @@
     "architectures": [
       "Glm4MoeForCausalLM"
     ],
-    "updated_at": 1769418586,
-    "model_type": "glm4_moe"
+    "model_type": "glm4_moe",
+    "updated_at": 1769418586
   },
   {
     "version": 2,
@@ -23127,8 +23023,8 @@
     "architectures": [
       "Glm4vMoeForConditionalGeneration"
     ],
-    "updated_at": 1769418587,
-    "model_type": "glm4v_moe"
+    "model_type": "glm4v_moe",
+    "updated_at": 1769418587
   },
   {
     "version": 2,
@@ -23142,6 +23038,19 @@
       "reasoning"
     ],
     "model_description": "gpt-oss series, OpenAI’s open-weight models designed for powerful reasoning, agentic tasks, and versatile developer use cases.",
+    "tool_parser": "qwen",
+    "reasoning_start_tag": "analysis",
+    "reasoning_end_tag": "assistantfinal",
+    "cache_config": {
+      "ignore_patterns": [
+        "metal/**",
+        "original/**"
+      ],
+      "ignore_file_pattern": [
+        "metal/*",
+        "original/*"
+      ]
+    },
     "model_specs": [
       {
         "model_format": "pytorch",
@@ -23222,20 +23131,7 @@
     "featured": true,
     "architectures": [
       "GptOssForCausalLM"
-    ],
-    "tool_parser": "qwen",
-    "reasoning_start_tag": "analysis",
-    "reasoning_end_tag": "assistantfinal",
-    "cache_config": {
-      "ignore_patterns": [
-        "metal/**",
-        "original/**"
-      ],
-      "ignore_file_pattern": [
-        "metal/*",
-        "original/*"
-      ]
-    }
+    ]
   },
   {
     "version": 2,
@@ -23314,12 +23210,12 @@
       "<|endoftext|>",
       "<|im_end|>"
     ],
+    "model_type": "qwen2",
     "updated_at": 1769418589,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -23441,12 +23337,12 @@
         "#system_numpy# ; #engine# == \"vllm\""
       ]
     },
+    "model_type": "deepseek_v3",
     "updated_at": 1769418590,
     "featured": false,
     "architectures": [
       "DeepseekV3ForCausalLM"
-    ],
-    "model_type": "deepseek_v3"
+    ]
   },
   {
     "version": 2,
@@ -23637,12 +23533,12 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
+    "model_type": "seed_oss",
     "updated_at": 1769418591,
     "featured": false,
     "architectures": [
       "SeedOssForCausalLM"
     ],
-    "model_type": "seed_oss",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -23719,12 +23615,12 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
+    "model_type": "qwen2",
     "updated_at": 1769418592,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
     ],
-    "model_type": "qwen2",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -24388,12 +24284,12 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
+    "model_type": "qwen3_vl_moe",
     "updated_at": 1769418594,
     "featured": true,
     "architectures": [
       "Qwen3VLMoeForConditionalGeneration"
     ],
-    "model_type": "qwen3_vl_moe",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -24876,12 +24772,12 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "qwen",
+    "model_type": "qwen3_vl_moe",
     "updated_at": 1769418596,
     "featured": false,
     "architectures": [
       "Qwen3VLMoeForConditionalGeneration"
     ],
-    "model_type": "qwen3_vl_moe",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -25001,12 +24897,12 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
+    "model_type": "qwen3_next",
     "updated_at": 1769418597,
     "featured": false,
     "architectures": [
       "Qwen3NextForCausalLM"
     ],
-    "model_type": "qwen3_next",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -25129,12 +25025,12 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "qwen",
+    "model_type": "qwen3_next",
     "updated_at": 1769418598,
     "featured": false,
     "architectures": [
       "Qwen3NextForCausalLM"
     ],
-    "model_type": "qwen3_next",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
@@ -25216,12 +25112,12 @@
         "#system_numpy# ; #engine# == \"vllm\""
       ]
     },
+    "model_type": "minicpmv",
     "updated_at": 1769418599,
     "featured": false,
     "architectures": [
       "MiniCPMV"
-    ],
-    "model_type": "minicpmv"
+    ]
   },
   {
     "version": 2,
@@ -25305,12 +25201,12 @@
         "soundfile"
       ]
     },
+    "model_type": "qwen3_omni_moe",
     "updated_at": 1769418600,
     "featured": false,
     "architectures": [
       "Qwen3OmniMoeForConditionalGeneration"
-    ],
-    "model_type": "qwen3_omni_moe"
+    ]
   },
   {
     "version": 2,
@@ -25391,12 +25287,12 @@
         "soundfile"
       ]
     },
+    "model_type": "qwen3_omni_moe",
     "updated_at": 1769418602,
     "featured": false,
     "architectures": [
       "Qwen3OmniMoeForConditionalGeneration"
-    ],
-    "model_type": "qwen3_omni_moe"
+    ]
   },
   {
     "model_name": "MiniMax-M2",
@@ -25498,12 +25394,12 @@
         "#system_numpy# ; #engine# == \"vllm\""
       ]
     },
+    "model_type": "minimax_m2",
     "updated_at": 1769418603,
     "featured": false,
     "architectures": [
       "MiniMaxM2ForCausalLM"
-    ],
-    "model_type": "minimax_m2"
+    ]
   },
   {
     "model_name": "DeepSeek-V3.2",
@@ -25577,8 +25473,112 @@
     },
     "tool_parser": "deepseek-r1",
     "featured": true,
-    "updated_at": 1769418604,
-    "model_type": "deepseek_v32"
+    "model_type": "deepseek_v32",
+    "updated_at": 1769418604
+  },
+  {
+    "version": 2,
+    "context_length": 65536,
+    "model_name": "glm-4.1v-thinking",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "vision",
+      "reasoning",
+      "tools"
+    ],
+    "model_description": "GLM-4.1V-9B-Thinking, designed to explore the upper limits of reasoning in vision-language models.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 9,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "zai-org/GLM-4.1V-9B-Thinking",
+            "model_revision": "b627c82cd8fc9175ff2b82b33fb439eba260055f"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "ZhipuAI/GLM-4.1V-9B-Thinking",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 9,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "QuantTrio/GLM-4.1V-9B-Thinking-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "tclf90/GLM-4.1V-9B-Thinking-AWQ",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 9,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4-Int8Mix"
+            ],
+            "model_id": "QuantTrio/GLM-4.1V-9B-Thinking-GPTQ-Int4-Int8Mix"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4-Int8Mix"
+            ],
+            "model_id": "tclf90/GLM-4.1V-9B-Thinking-GPTQ-Int4-Int8Mix",
+            "model_revision": "master"
+          }
+        }
+      }
+    ],
+    "chat_template": "[gMASK]<sop> {%- for msg in messages %} {%- if msg.role == 'system' %} <|system|> {{ msg.content }} {%- elif msg.role == 'user' %} <|user|>{{ '\n' }} {%- if msg.content is string %} {{ msg.content }} {%- else %} {%- for item in msg.content %} {%- if item.type == 'video' or 'video' in item %} <|begin_of_video|><|video|><|end_of_video|> {%- elif item.type == 'image' or 'image' in item %} <|begin_of_image|><|image|><|end_of_image|> {%- elif item.type == 'text' %} {{ item.text }} {%- endif %} {%- endfor %} {%- endif %} {%- elif msg.role == 'assistant' %} {%- if msg.metadata %} <|assistant|>{{ msg.metadata }} {{ msg.content }} {%- else %} <|assistant|> {{ msg.content }} {%- endif %} {%- endif %} {%- endfor %} {% if add_generation_prompt %}<|assistant|> {% endif %}",
+    "stop_token_ids": [
+      151329,
+      151336,
+      151338
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|user|>",
+      "<|observation|>"
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "virtualenv": {
+      "packages": [
+        "transformers>=4.53.2 ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "#system_numpy# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"Transformers\""
+      ]
+    },
+    "featured": false,
+    "architectures": [
+      "Glm4vForConditionalGeneration"
+    ],
+    "model_type": "glm4v",
+    "updated_at": 1769418605
   },
   {
     "model_name": "DeepSeek-V3.2-Exp",
@@ -25656,7 +25656,230 @@
     },
     "tool_parser": "deepseek-r1",
     "featured": true,
-    "updated_at": 1769418606,
-    "model_type": "deepseek_v32"
+    "model_type": "deepseek_v32",
+    "updated_at": 1769418606
+  },
+  {
+    "version": 2,
+    "context_length": 8192,
+    "model_name": "Gemma-SEA-LION-v3-it",
+    "model_lang": [
+      "my",
+      "zh",
+      "en",
+      "fil",
+      "id",
+      "km",
+      "lo",
+      "ms",
+      "ta",
+      "th",
+      "vi"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "SEA-LION is a collection of Large Language Models (LLMs) which have been pretrained and instruct-tuned for the Southeast Asia (SEA) region.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 9,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "aisingapore/Gemma-SEA-LION-v3-9B-IT",
+            "model_revision": "c3e627060b4e450caeedea1e5dab7afba0e01579"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 9,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "F16",
+              "Q2_K",
+              "Q3_K_M",
+              "Q4_0",
+              "Q4_K_M",
+              "Q5_0",
+              "Q5_K_M",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "aisingapore/Gemma-SEA-LION-v3-9B-IT",
+            "model_file_name_template": "Gemma-SEA-LION-v3-9B-IT-{quantization}.gguf"
+          }
+        }
+      }
+    ],
+    "chat_template": "{{ bos_token }}{% for message in messages %}{% if (message['role'] == 'assistant') %}{% set role = 'model' %}{% else %}{% set role = message['role'] %}{% endif %}{{ '<start_of_turn>' + role + '\n' + message['content'] | trim + '<end_of_turn>\n' }}{% endfor %}{% if add_generation_prompt %}{{'<start_of_turn>model\n'}}{% endif %}",
+    "stop_token_ids": [
+      1,
+      106,
+      107
+    ],
+    "stop": [
+      "<eos>",
+      "<end_of_turn>",
+      "<start_of_turn>"
+    ],
+    "featured": false,
+    "is_enterprise": true,
+    "updated_at": 1766547543
+  },
+  {
+    "version": 2,
+    "context_length": 202752,
+    "model_name": "GLM-4.6",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "reasoning",
+      "hybrid",
+      "tools"
+    ],
+    "model_description": "GLM-4.6 significantly enhances context length (up to 200K tokens), code generation, reasoning with tool use, agent capabilities, and human-aligned writing compared to GLM-4.5.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 355,
+        "activated_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "zai-org/GLM-4.6"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "ZhipuAI/GLM-4.6"
+          }
+        }
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 355,
+        "activated_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "FP8"
+            ],
+            "model_id": "zai-org/GLM-4.6-FP8"
+          },
+          "modelscope": {
+            "quantizations": [
+              "FP8"
+            ],
+            "model_id": "ZhipuAI/GLM-4.6-FP8"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 355,
+        "activated_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4-Int8Mix"
+            ],
+            "model_id": "QuantTrio/GLM-4.6-GPTQ-Int4-Int8Mix"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4-Int8Mix"
+            ],
+            "model_id": "tclf90/GLM-4.6-GPTQ-Int4-Int8Mix"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 355,
+        "activated_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "QuantTrio/GLM-4.6-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "tclf90/GLM-4.6-AWQ"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 355,
+        "activated_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit",
+              "5bit"
+            ],
+            "model_id": "mlx-community/GLM-4.6-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit",
+              "5bit"
+            ],
+            "model_id": "mlx-community/GLM-4.6-{quantization}"
+          }
+        }
+      }
+    ],
+    "chat_template": "[gMASK]<sop>{%- if tools -%}<|system|># Tools\\nYou may call one or more functions to assist with the user query.\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>{% for tool in tools %}{{ tool | tojson(ensure_ascii=False) }}{% endfor %}</tools>\\nFor each function call, output the function name and arguments within the following XML format:\\n<tool_call>{function-name}\\n<arg_key>{arg-key-1}</arg_key>\\n<arg_value>{arg-value-1}</arg_value>\\n<arg_key>{arg-key-2}</arg_key>\\n<arg_value>{arg-value-2}</arg_value>\\n...<tool_call>{%- endif -%}{%- macro visible_text(content) -%}{%- if content is string -%}{{- content }}{%- elif content is iterable and content is not mapping -%}{%- for item in content -%}{%- if item is mapping and item.type == 'text' -%}{{- item.text }}{%- elif item is string -%}{{- item }}{%- endif -%}{%- endfor -%}{%- else -%}{{- content }}{%- endif -%}{%- endmacro -%}{%- set ns = namespace(last_user_index=-1) %}{%- for m in messages %}{%- if m.role == 'user' %}{% set ns.last_user_index = loop.index0 -%}{%- endif %}{%- endfor %}{% for m in messages %}{%- if m.role == 'user' -%}<|user|>{{ visible_text(m.content) }}{{- '/nothink' if (enable_thinking is defined and not enable_thinking and not visible_text(m.content).endswith(\"/nothink\")) else '' }}{%- elif m.role == 'assistant' -%}<|assistant|>{%- set reasoning_content = '' %}{%- set content = visible_text(m.content) %}{%- if m.reasoning_content is string %}{%- set reasoning_content = m.reasoning_content %}{%- else %}{%- if '</think>' in content %}{%- set reasoning_content = content.split('</think>')[0].rstrip('\\n').split('<think>')[-1].lstrip('\\n') %}{%- set content = content.split('</think>')[-1].lstrip('\\n') %}{%- endif %}{%- endif %}{%- if loop.index0 > ns.last_user_index and reasoning_content -%}{{ '\\n<think>\\' + reasoning_content.strip() + '</think>'}}{%- else -%}{{ '\\n<think></think>' }}{%- endif -%}{%- if content.strip() -%}{{ '\\n' + content.strip() }}{%- endif -%}{% if m.tool_calls %}{% for tc in m.tool_calls %}{%- if tc.function %}{%- set tc = tc.function %}{%- endif %}{{ '\\n<tool_call>' + tc.name }}{% set _args = tc.arguments %}{% for k, v in _args.items() %}<arg_key>{{ k }}</arg_key><arg_value>{{ v | tojson(ensure_ascii=False) if v is not string else v }}</arg_value>{% endfor %}<tool_call>{% endfor %}{% endif %}{%- elif m.role == 'tool' -%}{%- if m.content is string -%}{%- if loop.first or (messages[loop.index0 - 1].role != \"tool\") %}{{- '<|observation|>' }}{%- endif %}{{- '\\n<tool_call>\\n' }}{{- m.content }}{{- '\\n<tool_call>' }}{%- else -%}<|observation|>{% for tr in m.content %}<tool_call>{{ tr.output if tr.output is defined else tr }}<tool_call>{% endfor -%}{% endif -%}{%- elif m.role == 'system' -%}<|system|>{{ visible_text(m.content) }}{%- endif -%}{%- endfor -%}{%- if add_generation_prompt -%}<|assistant|>{{- '\\n<think></think>' if (enable_thinking is defined and not enable_thinking) else '' -}}{%- endif -%}",
+    "stop_token_ids": [
+      151329,
+      151336,
+      151338
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|user|>",
+      "<|observation|>"
+    ],
+    "tool_parser": "glm4",
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    },
+    "featured": true,
+    "architectures": [
+      "Glm4MoeForCausalLM"
+    ],
+    "updated_at": 1769680026
   }
 ]
