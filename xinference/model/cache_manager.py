@@ -10,14 +10,18 @@ logger = logging.getLogger(__name__)
 
 
 class CacheManager:
+    is_initialized: bool = False
+
     def __init__(self, model_family: "CacheableModelSpec"):
         from ..constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
 
         self._model_family = model_family
         self._v2_cache_dir_prefix = os.path.join(XINFERENCE_CACHE_DIR, "v2")
         self._v2_custom_dir_prefix = os.path.join(XINFERENCE_MODEL_DIR, "v2")
-        os.makedirs(self._v2_cache_dir_prefix, exist_ok=True)
-        os.makedirs(self._v2_custom_dir_prefix, exist_ok=True)
+        if not CacheManager.is_initialized:
+            os.makedirs(self._v2_cache_dir_prefix, exist_ok=True)
+            os.makedirs(self._v2_custom_dir_prefix, exist_ok=True)
+            CacheManager.is_initialized = True
         self._cache_dir = os.path.join(
             self._v2_cache_dir_prefix, self._model_family.model_name.replace(".", "_")
         )
