@@ -280,10 +280,11 @@ def _force_virtualenv_engine_params(
                                 matched_specs.append(spec)
                                 break
 
-            engine_param_list = param_builder(family, matched_specs)
+            selected_specs = matched_specs or specs
+            engine_param_list = param_builder(family, selected_specs)
             engine_params[engine_name] = engine_param_list
             available_params[engine_name] = engine_param_list
-            match_status[engine_name] = True
+            match_status[engine_name] = bool(matched_specs)
             continue
 
         has_match = False

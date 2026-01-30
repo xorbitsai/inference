@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-07-28 22:01+0800\n"
+"POT-Creation-Date: 2026-01-28 11:54+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -17,7 +17,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.14.0\n"
+"Generated-By: Babel 2.17.0\n"
 
 #: ../../source/getting_started/environments.rst:5
 msgid "Environments Variables"
@@ -32,8 +32,8 @@ msgid ""
 "Endpoint of Xinference, used to connect to Xinference service. Default "
 "value is http://127.0.0.1:9997 , you can get it through logs."
 msgstr ""
-"Xinference 的服务地址，用来与 Xinference 连接。默认地址是 http://127.0."
-"0.1:9997，可以在日志中获得这个地址。"
+"Xinference 的服务地址，用来与 Xinference 连接。默认地址是 "
+"http://127.0.0.1:9997，可以在日志中获得这个地址。"
 
 #: ../../source/getting_started/environments.rst:13
 msgid "XINFERENCE_MODEL_SRC"
@@ -43,74 +43,190 @@ msgstr "XINFERENCE_MODEL_SRC"
 msgid ""
 "Modelhub used for downloading models. Default is \"huggingface\", or you "
 "can set \"modelscope\" as downloading source."
-msgstr ""
-"配置模型下载仓库。默认下载源是 \"huggingface\"，也可以设置为 \"modelscope"
-"\" 作为下载源。"
+msgstr "配置模型下载仓库。默认下载源是 \"huggingface\"，也可以设置为 \"modelscope\" 作为下载源。"
 
-#: ../../source/getting_started/environments.rst:18
+#: ../../source/getting_started/environments.rst:20
 msgid "XINFERENCE_HOME"
 msgstr "XINFERENCE_HOME"
 
-#: ../../source/getting_started/environments.rst:19
+#: ../../source/getting_started/environments.rst:21
 msgid ""
 "By default, Xinference uses ``<HOME>/.xinference`` as home path to store "
 "necessary files such as logs and models, where ``<HOME>`` is the home "
 "path of current user. You can change this directory by configuring this "
 "environment variable."
 msgstr ""
-"Xinference 默认使用 ``<HOME>/.xinference`` 作为默认目录来存储模型以及日志"
-"等必要的文件。其中 ``<HOME>`` 是当前用户的主目录。可以通过配置这个"
-"环境变量来修改默认目录。"
+"Xinference 默认使用 ``<HOME>/.xinference`` 作为默认目录来存储模型以及日志等必要的文件。其中 "
+"``<HOME>`` 是当前用户的主目录。可以通过配置这个环境变量来修改默认目录。"
 
-#: ../../source/getting_started/environments.rst:25
-msgid "XINFERENCE_HEALTH_CHECK_ATTEMPTS"
-msgstr "XINFERENCE_HEALTH_CHECK_ATTEMPTS"
+#: ../../source/getting_started/environments.rst:27
+msgid "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD"
+msgstr "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD"
 
-#: ../../source/getting_started/environments.rst:26
+#: ../../source/getting_started/environments.rst:28
 msgid ""
-"The number of attempts for the health check at Xinference startup, if "
-"exceeded, will result in an error. The default value is 3."
-msgstr ""
-"Xinference 启动时健康检查的次数，如果超过这个次数还未成功，启动会报错，"
-"默认值为 3。"
+"The maximum number of failed health checks tolerated at Xinference "
+"startup. Default value is 5."
+msgstr "Xinference启动时允许的最大健康检查失败次数。默认值为5。"
 
-#: ../../source/getting_started/environments.rst:30
+#: ../../source/getting_started/environments.rst:32
 msgid "XINFERENCE_HEALTH_CHECK_INTERVAL"
 msgstr "XINFERENCE_HEALTH_CHECK_INTERVAL"
 
-#: ../../source/getting_started/environments.rst:31
-msgid ""
-"The timeout duration for the health check at Xinference startup, if "
-"exceeded, will result in an error. The default value is 3."
-msgstr ""
-"Xinference 启动时健康检查的时间间隔，如果超过这个时间还未成功，启动会报错"
-"，默认值为 3。"
+#: ../../source/getting_started/environments.rst:33
+msgid "Health check interval (seconds) at Xinference startup. Default value is 5."
+msgstr "Xinference启动时的健康检查间隔（秒）。默认值为5。"
 
-#: ../../source/getting_started/environments.rst:35
-#, fuzzy
+#: ../../source/getting_started/environments.rst:37
+msgid "XINFERENCE_HEALTH_CHECK_TIMEOUT"
+msgstr "XINFERENCE_HEALTH_CHECK_TIMEOUT"
+
+#: ../../source/getting_started/environments.rst:38
+msgid "Health check timeout (seconds) at Xinference startup. Default value is 10."
+msgstr "Xinference启动时的健康检查超时时间（秒）。默认值为10。"
+
+#: ../../source/getting_started/environments.rst:42
 msgid "XINFERENCE_DISABLE_HEALTH_CHECK"
-msgstr "XINFERENCE_DISABLE_VLLM"
+msgstr "XINFERENCE_DISABLE_HEALTH_CHECK"
 
-#: ../../source/getting_started/environments.rst:36
+#: ../../source/getting_started/environments.rst:43
 msgid ""
 "Xinference will automatically report health check at Xinference startup. "
 "Setting this environment to 1 can disable health check."
-msgstr ""
-"在满足条件时，Xinference 会自动汇报worker健康状况，设置改环境变量为 1可以"
-"禁用健康检查。"
+msgstr "在满足条件时，Xinference 会自动汇报worker健康状况，设置改环境变量为 1可以禁用健康检查。"
 
-#: ../../source/getting_started/environments.rst:40
-#, fuzzy
+#: ../../source/getting_started/environments.rst:47
 msgid "XINFERENCE_DISABLE_METRICS"
-msgstr "XINFERENCE_DISABLE_VLLM"
+msgstr "XINFERENCE_DISABLE_METRICS"
 
-#: ../../source/getting_started/environments.rst:41
+#: ../../source/getting_started/environments.rst:48
 msgid ""
 "Xinference will by default enable the metrics exporter on the supervisor "
 "and worker. Setting this environment to 1 will disable the /metrics "
 "endpoint on the supervisor and the HTTP service (only provide the "
 "/metrics endpoint) on the worker."
 msgstr ""
-"Xinference 会默认在 supervisor 和 worker 上启用 metrics exporter。设置"
-"环境变量为 1可以在 supervisor 上禁用 /metrics 端点，并在 worker 上禁用 "
-"HTTP 服务（仅提供 /metrics 端点）"
+"Xinference 会默认在 supervisor 和 worker 上启用 metrics exporter。设置环境变量为 1可以在 "
+"supervisor 上禁用 /metrics 端点，并在 worker 上禁用 HTTP 服务（仅提供 /metrics 端点）"
+
+#: ../../source/getting_started/environments.rst:53
+msgid "XINFERENCE_DOWNLOAD_MAX_ATTEMPTS"
+msgstr "XINFERENCE_DOWNLOAD_MAX_ATTEMPTS"
+
+#: ../../source/getting_started/environments.rst:54
+msgid "Maximum download retry attempts for model files. Default value is 3."
+msgstr "模型文件的最大下载重试次数。默认值为3。"
+
+#: ../../source/getting_started/environments.rst:58
+msgid "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE"
+msgstr "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE"
+
+#: ../../source/getting_started/environments.rst:59
+msgid ""
+"Enable continuous batching for text-to-image models by specifying the "
+"target image size (e.g., ``1024*1024``). Default is unset."
+msgstr "通过指定目标图像尺寸（例如 ``1024*1024`` ）为文本转图像模型启用连续批处理。默认未设置。"
+
+#: ../../source/getting_started/environments.rst:63
+msgid "XINFERENCE_SSE_PING_ATTEMPTS_SECONDS"
+msgstr "XINFERENCE_SSE_PING_ATTEMPTS_SECONDS"
+
+#: ../../source/getting_started/environments.rst:64
+msgid ""
+"Server-Sent Events keepalive ping interval (seconds). Default value is "
+"600."
+msgstr "服务器发送事件保持活动状态的ping间隔（秒）。默认值为600。"
+
+#: ../../source/getting_started/environments.rst:68
+msgid "XINFERENCE_MAX_TOKENS"
+msgstr "XINFERENCE_MAX_TOKENS"
+
+#: ../../source/getting_started/environments.rst:69
+msgid "Global max tokens limit override for requests. Default is unset."
+msgstr "请求的全局最大tokens限制覆盖。默认值为未设置。"
+
+#: ../../source/getting_started/environments.rst:72
+msgid "XINFERENCE_ALLOWED_IPS"
+msgstr "XINFERENCE_ALLOWED_IPS"
+
+#: ../../source/getting_started/environments.rst:73
+msgid ""
+"Restrict access to specified IPs or CIDR blocks. Default is unset (no "
+"restriction)."
+msgstr "限制访问特定IP地址或CIDR地址块。默认未设置（无限制）。"
+
+#: ../../source/getting_started/environments.rst:76
+msgid "XINFERENCE_BATCH_SIZE"
+msgstr "XINFERENCE_BATCH_SIZE"
+
+#: ../../source/getting_started/environments.rst:77
+msgid ""
+"Default batch size used by the server when batching is enabled. Default "
+"value is 32."
+msgstr "启用批处理时服务器使用的默认批处理大小。默认值为32。"
+
+#: ../../source/getting_started/environments.rst:81
+msgid "XINFERENCE_BATCH_INTERVAL"
+msgstr "XINFERENCE_BATCH_INTERVAL"
+
+#: ../../source/getting_started/environments.rst:82
+msgid "Default batching interval (seconds). Default value is 0.003."
+msgstr "默认批处理间隔（秒）。默认值为0.003。"
+
+#: ../../source/getting_started/environments.rst:86
+msgid "XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU"
+msgstr "XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU"
+
+#: ../../source/getting_started/environments.rst:87
+msgid ""
+"Whether to allow multiple replicas on a single GPU. Default value is 1 "
+"(enabled)."
+msgstr "是否允许在单个GPU上创建多个副本。默认值为1 (启用)。"
+
+#: ../../source/getting_started/environments.rst:91
+msgid "XINFERENCE_LAUNCH_STRATEGY"
+msgstr "XINFERENCE_LAUNCH_STRATEGY"
+
+#: ../../source/getting_started/environments.rst:92
+msgid ""
+"GPU allocation strategy for replicas. Default is "
+"``IDLE_FIRST_LAUNCH_STRATEGY``."
+msgstr "副本的GPU分配策略。默认值为 ``IDLE_FIRST_LAUNCH_STRATEGY`` 。"
+
+#: ../../source/getting_started/environments.rst:95
+msgid "XINFERENCE_ENABLE_VIRTUAL_ENV"
+msgstr "XINFERENCE_ENABLE_VIRTUAL_ENV"
+
+#: ../../source/getting_started/environments.rst:96
+msgid ""
+"Enable model virtual environments globally. Default value is 1 (enabled, "
+"starting from v2.0)."
+msgstr "全局启用模型虚拟环境。默认值为1（启用，自v2.0版本生效）"
+
+#: ../../source/getting_started/environments.rst:100
+msgid "XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED"
+msgstr "XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED"
+
+#: ../../source/getting_started/environments.rst:101
+msgid ""
+"Skip packages already present in system site-packages when creating "
+"virtual environments. Default value is 1."
+msgstr "创建虚拟环境时跳过系统site-packages中已存在的包。默认值为1。"
+
+#: ../../source/getting_started/environments.rst:105
+msgid "XINFERENCE_CSG_TOKEN"
+msgstr "XINFERENCE_CSG_TOKEN"
+
+#: ../../source/getting_started/environments.rst:106
+msgid "Authentication token for CSGHub model source. Default is unset."
+msgstr "CSGHub模型源的认证令牌。默认值为未设置。"
+
+#: ../../source/getting_started/environments.rst:110
+msgid "XINFERENCE_CSG_ENDPOINT"
+msgstr "XINFERENCE_CSG_ENDPOINT"
+
+#: ../../source/getting_started/environments.rst:111
+msgid ""
+"CSGHub endpoint for model source. Default value is ``https://hub-"
+"stg.opencsg.com/``."
+msgstr "CSGHub 模型源端点。默认值为 ``https://hub-stg.opencsg.com/`` 。"
