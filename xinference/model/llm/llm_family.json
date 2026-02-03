@@ -25572,12 +25572,14 @@
     "version": 2,
     "virtualenv": {
       "packages": [
-        "#transformers_dependencies# ; #engine# == \"Transformers\""
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
       ]
     },
     "tool_parser": "deepseek-r1",
     "featured": true,
-    "updated_at": 1769418604,
+    "updated_at": 1770087071,
     "model_type": "deepseek_v32"
   },
   {
@@ -25809,5 +25811,157 @@
       "Glm4MoeForCausalLM"
     ],
     "updated_at": 1769680026
+  },
+  {
+    "version": 2,
+    "context_length": 202752,
+    "model_name": "GLM-4.7",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "reasoning",
+      "hybrid",
+      "tools"
+    ],
+    "model_description": "GLM-4.7 significantly advances core and multilingual agentic coding, UI/vibe coding, tool use, and complex reasoning—outperforming GLM-4.6 across benchmarks like SWE-bench, Terminal Bench 2.0, τ²-Bench, and HLE—while also improving chat, creative writing, and role-play.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 355,
+        "activated_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "zai-org/GLM-4.7"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "ZhipuAI/GLM-4.7"
+          }
+        }
+      },
+      {
+        "model_format": "fp8",
+        "model_size_in_billions": 355,
+        "activated_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "FP8"
+            ],
+            "model_id": "zai-org/GLM-4.7-FP8"
+          },
+          "modelscope": {
+            "quantizations": [
+              "FP8"
+            ],
+            "model_id": "ZhipuAI/GLM-4.7-FP8"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 355,
+        "activated_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4-Int8Mix"
+            ],
+            "model_id": "QuantTrio/GLM-4.7-GPTQ-Int4-Int8Mix"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4-Int8Mix"
+            ],
+            "model_id": "tclf90/GLM-4.7-GPTQ-Int4-Int8Mix"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 355,
+        "activated_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "QuantTrio/GLM-4.7-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "tclf90/GLM-4.7-AWQ"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 355,
+        "activated_size_in_billions": 32,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit",
+              "6bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/GLM-4.7-{quantization}"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit",
+              "6bit",
+              "8bit"
+            ],
+            "model_id": "mlx-community/GLM-4.7-{quantization}"
+          }
+        }
+      }
+    ],
+    "chat_template": "[gMASK]<sop>{%- if tools -%}<|system|># Tools\\nYou may call one or more functions to assist with the user query.\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>{% for tool in tools %}{{ tool | tojson(ensure_ascii=False) }}{% endfor %}</tools>\\nFor each function call, output the function name and arguments within the following XML format:\\n<tool_call>{function-name}<arg_key>{arg-key-1}</arg_key><arg_value>{arg-value-1}</arg_value><arg_key>{arg-key-2}</arg_key><arg_value>{arg-value-2}</arg_value>...<tool_call>{%- endif -%}{%- macro visible_text(content) -%}{%- if content is string -%}{{- content }}{%- elif content is iterable and content is not mapping -%}{%- for item in content -%}{%- if item is mapping and item.type == 'text' -%}{{- item.text }}{%- elif item is string -%}{{- item }}{%- endif -%}{%- endfor -%}{%- else -%}{{- content }}{%- endif -%}{%- endmacro -%}{%- set ns = namespace(last_user_index=-1) %}{%- for m in messages %}{%- if m.role == 'user' %}{% set ns.last_user_index = loop.index0 -%}{%- endif %}{%- endfor %}{% for m in messages %}{%- if m.role == 'user' -%}<|user|>{{ visible_text(m.content) }}{%- elif m.role == 'assistant' -%}<|assistant|>{%- set reasoning_content = '' %}{%- set content = visible_text(m.content) %}{%- if m.reasoning_content is string %}{%- set reasoning_content = m.reasoning_content %}{%- else %}{%- if '</think>' in content %}{%- set reasoning_content = content.split('</think>')[0].rstrip('\\n').split('<think>')[-1].lstrip('\\n') %}{%- set content = content.split('</think>')[-1].lstrip('\\n') %}{%- endif %}{%- endif %}{%- if ((clear_thinking is defined and not clear_thinking) or loop.index0 > ns.last_user_index) and reasoning_content -%}{{ '<think>' + reasoning_content.strip() + '</think>'}}{%- else -%}{{ '</think>' }}{%- endif -%}{%- if content.strip() -%}{{ content.strip() }}{%- endif -%}{% if m.tool_calls %}{% for tc in m.tool_calls %}{%- if tc.function %}{%- set tc = tc.function %}{%- endif %}{{- '<tool_call>' + tc.name -}}{% set _args = tc.arguments %}{% for k, v in _args.items() %}<arg_key>{{ k }}</arg_key><arg_value>{{ v | tojson(ensure_ascii=False) if v is not string else v }}</arg_value>{% endfor %}<tool_call>{% endfor %}{% endif %}{%- elif m.role == 'tool' -%}{%- if m.content is string -%}{%- if loop.first or (messages[loop.index0 - 1].role != \"tool\") %}{{- '<|observation|>' }}{%- endif %}{{- '<tool_call>' }}{{- m.content }}{{- '<tool_call>' }}{%- else -%}<|observation|>{% for tr in m.content %}<tool_call>{{ tr.output if tr.output is defined else tr }}<tool_call>{% endfor -%}{% endif -%}{%- elif m.role == 'system' -%}<|system|>{{ visible_text(m.content) }}{%- endif -%}{%- endfor -%}{%- if add_generation_prompt -%}<|assistant|>{{- '</think>' if (enable_thinking is defined and not enable_thinking) else '<think>' -}}{%- endif -%}",
+    "stop_token_ids": [
+      151329,
+      151336,
+      151338
+    ],
+    "stop": [
+      "<|endoftext|>",
+      "<|user|>",
+      "<|observation|>"
+    ],
+    "tool_parser": "glm4",
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "mlx_dependencies ; #engine# == \"MLX\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
+        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.14.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
+    },
+    "architectures": [
+      "Glm4MoeForCausalLM"
+    ],
+    "updated_at": 1770100010
   }
 ]
