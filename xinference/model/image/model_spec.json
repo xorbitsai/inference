@@ -1580,35 +1580,6 @@
   },
   {
     "version": 2,
-    "model_name": "MinerU2.5-2509-1.2B",
-    "model_family": "ocr",
-    "model_ability": [
-      "ocr"
-    ],
-    "virtualenv": {
-      "packages": [
-        "transformers>=4.45.0 ; #engine# == \"transformers\"",
-        "mineru-vl-utils[transformers] ; #engine# == \"transformers\"",
-        "qwen-vl-utils",
-        "#system_torch#",
-        "#system_numpy#"
-      ]
-    },
-    "model_src": {
-      "huggingface": {
-        "model_id": "opendatalab/MinerU2.5-2509-1.2B",
-        "model_revision": "main"
-      },
-      "modelscope": {
-        "model_id": "opendatalab/MinerU2.5-2509-1.2B",
-        "model_revision": "master"
-      }
-    },
-    "featured": false,
-    "updated_at": 1769418382
-  },
-  {
-    "version": 2,
     "model_name": "Z-Image",
     "model_family": "stable_diffusion",
     "model_ability": [
