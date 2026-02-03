@@ -221,6 +221,11 @@ The following is a list of built-in LLM in Xinference:
      - 202752
      - GLM-4.6 significantly enhances context length (up to 200K tokens), code generation, reasoning with tool use, agent capabilities, and human-aligned writing compared to GLM-4.5.
 
+   * - :ref:`glm-4.7 <models_llm_glm-4.7>`
+     - chat, reasoning, hybrid, tools
+     - 202752
+     - GLM-4.7 significantly advances core and multilingual agentic coding, UI/vibe coding, tool use, and complex reasoning—outperforming GLM-4.6 across benchmarks like SWE-bench, Terminal Bench 2.0, τ²-Bench, and HLE—while also improving chat, creative writing, and role-play.
+
    * - :ref:`glm-4v <models_llm_glm-4v>`
      - chat, vision
      - 8192
@@ -807,6 +812,8 @@ The following is a list of built-in LLM in Xinference:
    glm-4.5v
   
    glm-4.6
+  
+   glm-4.7
   
    glm-4v
   

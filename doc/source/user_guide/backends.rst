@@ -153,7 +153,7 @@ Currently, supported model includes:
 - ``minicpm-2b-dpo-bf16``, ``minicpm-2b-dpo-fp16``, ``minicpm-2b-dpo-fp32``, ``minicpm-2b-sft-bf16``, ``minicpm-2b-sft-fp32``, ``minicpm4``
 - ``Ernie4.5``
 - ``Qwen3-Coder``, ``Qwen3-Instruct``, ``Qwen3-Thinking``
-- ``glm-4.5``, ``GLM-4.6``
+- ``glm-4.5``, ``GLM-4.6``, ``GLM-4.7``
 - ``gpt-oss``
 - ``seed-oss``
 - ``Qwen3-Next-Instruct``, ``Qwen3-Next-Thinking``
