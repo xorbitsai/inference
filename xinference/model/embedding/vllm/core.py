@@ -69,12 +69,16 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
                 )
 
         if self.model_family.model_name.startswith("Qwen3-VL-Embedding"):
-
             if Version(vllm_version) < Version("0.14.0"):
                 raise ValueError("Qwen3-VL embedding requires vLLM>=0.14.0")
             self._model = LLM(model=self._model_path, runner="pooling", **self._kwargs)
         else:
-            self._model = LLM(model=self._model_path, task="embed", **self._kwargs)
+            if Version(vllm_version) >= Version("0.13.0"):
+                self._model = LLM(
+                    model=self._model_path, runner="pooling", **self._kwargs
+                )
+            else:
+                self._model = LLM(model=self._model_path, task="embed", **self._kwargs)
         self._tokenizer = self._model.get_tokenizer()
 
     @staticmethod
