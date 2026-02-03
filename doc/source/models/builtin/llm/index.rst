@@ -346,6 +346,11 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - Marco-o1: Towards Open Reasoning Models for Open-Ended Solutions
 
+   * - :ref:`mineru2.5-2509-1.2b <models_llm_mineru2.5-2509-1.2b>`
+     - chat, vision
+     - 32768
+     - MinerU2.5-2509-1.2B is a vision language model for document understanding.
+
    * - :ref:`minicpm-2b-dpo-bf16 <models_llm_minicpm-2b-dpo-bf16>`
      - chat
      - 4096
@@ -867,6 +872,8 @@ The following is a list of built-in LLM in Xinference:
    llama-3.3-instruct
   
    marco-o1
+  
+   mineru2.5-2509-1.2b
   
    minicpm-2b-dpo-bf16
   
