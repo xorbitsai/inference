@@ -25579,8 +25579,7 @@
     },
     "tool_parser": "deepseek-r1",
     "featured": true,
-    "updated_at": 1770087071,
-    "model_type": "deepseek_v32"
+    "updated_at": 1770100192
   },
   {
     "model_name": "DeepSeek-V3.2-Exp",
