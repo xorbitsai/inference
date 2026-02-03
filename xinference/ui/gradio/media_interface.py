@@ -1656,7 +1656,9 @@ class MediaInterface:
 
                 if isinstance(response, dict):
                     if response.get("success"):
-                        result = response.get("markdown", response.get("text", "No content extracted"))
+                        result = response.get(
+                            "markdown", response.get("text", "No content extracted")
+                        )
                         return result
                     else:
                         return f"**Error**: {response.get('error', 'Unknown error')}"
@@ -1668,6 +1670,7 @@ class MediaInterface:
             except Exception as e:
                 logger.error(f"Document parsing error: {e}")
                 import traceback
+
                 error_details = traceback.format_exc()
                 logger.error(f"Full traceback: {error_details}")
                 return f"""**Document Parsing Error**
@@ -1687,14 +1690,24 @@ class MediaInterface:
 
         with gr.Blocks() as doc_parsing_interface:
             gr.Markdown(f"### 📄 Document Parsing with {self.model_name}")
-            gr.Markdown("Upload PDF or image files for high-precision document parsing to Markdown/JSON.")
+            gr.Markdown(
+                "Upload PDF or image files for high-precision document parsing to Markdown/JSON."
+            )
 
             with gr.Row():
                 with gr.Column(scale=1):
                     # File upload that accepts PDF and images
                     file_input = gr.File(
                         label="Upload Document (PDF or Image)",
-                        file_types=[".pdf", ".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"],
+                        file_types=[
+                            ".pdf",
+                            ".png",
+                            ".jpg",
+                            ".jpeg",
+                            ".webp",
+                            ".bmp",
+                            ".gif",
+                        ],
                         type="filepath",
                     )
 
