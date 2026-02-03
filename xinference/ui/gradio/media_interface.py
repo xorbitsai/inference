@@ -1659,7 +1659,7 @@ class MediaInterface:
                         result = response.get(
                             "markdown", response.get("text", "No content extracted")
                         )
-                        return result
+                        return result or "No content extracted"
                     else:
                         return f"**Error**: {response.get('error', 'Unknown error')}"
                 elif isinstance(response, str):
