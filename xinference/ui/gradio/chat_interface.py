@@ -258,12 +258,14 @@ class GradioInterface:
                     gr.Markdown(
                         f"""<h1 style='text-align: center; margin-bottom: 1rem'>🚀 Xinference Chat Bot : {self.model_name} 🚀</h1>"""
                     )
-                    gr.Markdown(f"""
+                    gr.Markdown(
+                        f"""
                         <div class="center">Model ID: {self.model_uid}</div>
                         <div class="center">Model Size: {self.model_size_in_billions} Billion Parameters</div>
                         <div class="center">Model Format: {self.model_format}</div>
                         <div class="center">Model Quantization: {self.quantization}</div>
-                        """)
+                        """
+                    )
 
                 # Chat container
                 with gr.Column(elem_classes="chat-container"):
@@ -526,10 +528,13 @@ class GradioInterface:
         """,
             analytics_enabled=False,
         ) as chat_vl_interface:
-            Markdown(f"""
+            Markdown(
+                f"""
                 <h1 style='text-align: center; margin-bottom: 1rem'>🚀 Xinference Chat Bot : {self.model_name} 🚀</h1>
-                """)
-            Markdown(f"""
+                """
+            )
+            Markdown(
+                f"""
                 <div class="center">
                 Model ID: {self.model_uid}
                 </div>
@@ -542,7 +547,8 @@ class GradioInterface:
                 <div class="center">
                 Model Quantization: {self.quantization}
                 </div>
-                """)
+                """
+            )
 
             state = gr.State([])
             with gr.Row():
@@ -747,10 +753,13 @@ class GradioInterface:
         ) as generate_interface:
             history = gr.State([])
 
-            Markdown(f"""
+            Markdown(
+                f"""
                 <h1 style='text-align: center; margin-bottom: 1rem'>🚀 Xinference Generate Bot : {self.model_name} 🚀</h1>
-                """)
-            Markdown(f"""
+                """
+            )
+            Markdown(
+                f"""
                 <div class="center">
                 Model ID: {self.model_uid}
                 </div>
@@ -763,7 +772,8 @@ class GradioInterface:
                 <div class="center">
                 Model Quantization: {self.quantization}
                 </div>
-                """)
+                """
+            )
 
             with Column(variant="panel"):
                 textbox = Textbox(

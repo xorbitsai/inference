@@ -1892,14 +1892,18 @@ class MediaInterface:
                     """,
             analytics_enabled=False,
         ) as app:
-            Markdown(f"""
+            Markdown(
+                f"""
                     <h1 class="center" style='text-align: center; margin-bottom: 1rem'>{title}</h1>
-                    """)
-            Markdown(f"""
+                    """
+            )
+            Markdown(
+                f"""
                     <div class="center">
                     Model ID: {self.model_uid}
                     </div>
-                    """)
+                    """
+            )
             if "ocr" in self.model_ability:
                 with gr.Tab("OCR"):
                     self.ocr_interface()
