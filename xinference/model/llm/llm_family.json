@@ -25809,5 +25809,37 @@
       "Glm4MoeForCausalLM"
     ],
     "updated_at": 1769162354
+  },
+  {
+    "model_name": "GLM-4.7",
+    "model_description": "This is a custom model description.",
+    "context_length": 2048,
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "generate"
+    ],
+    "model_specs": [
+      {
+        "model_size_in_billions": 7,
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "zai-org/GLM-4.7",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "version": 2,
+    "virtualenv": {
+      "packages": []
+    },
+    "featured": false,
+    "updated_at": 1770097707
   }
 ]
