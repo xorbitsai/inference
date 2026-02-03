@@ -1736,19 +1736,7 @@ class MediaInterface:
                         choices=[
                             "ch",  # Chinese
                             "en",  # English
-                            "korean",
-                            "japan",
                             "chinese_cht",  # Traditional Chinese
-                            "ta",  # Tamil
-                            "te",  # Telugu
-                            "ka",  # Georgian
-                            "th",  # Thai
-                            "el",  # Greek
-                            "latin",
-                            "arabic",
-                            "east_slavic",
-                            "cyrillic",
-                            "devanagari",
                         ],
                         value="ch",
                         label="Document Language",
