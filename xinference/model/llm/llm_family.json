@@ -25652,13 +25652,14 @@
     "version": 2,
     "virtualenv": {
       "packages": [
-        "#transformers_dependencies# ; #engine# == \"Transformers\""
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
       ]
     },
     "tool_parser": "deepseek-r1",
     "featured": true,
-    "updated_at": 1769418606,
-    "model_type": "deepseek_v32"
+    "updated_at": 1770100312
   },
   {
     "version": 2,
