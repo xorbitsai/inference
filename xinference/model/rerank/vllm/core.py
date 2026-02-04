@@ -129,15 +129,15 @@ class VLLMRerankModel(RerankModel, BatchMixin):
                 document_template.format(doc=doc, suffix=suffix) for doc in documents
             ]
             outputs = self._model.score(
-                processed_documents,
                 processed_queries,
+                processed_documents,
                 use_tqdm=False,
             )
 
         else:
             outputs = self._model.score(
-                documents,
                 query_list,
+                documents,
                 use_tqdm=False,
             )
         # clear cache if possible
