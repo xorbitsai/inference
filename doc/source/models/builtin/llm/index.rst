@@ -226,6 +226,11 @@ The following is a list of built-in LLM in Xinference:
      - 202752
      - GLM-4.7 significantly advances core and multilingual agentic coding, UI/vibe coding, tool use, and complex reasoning—outperforming GLM-4.6 across benchmarks like SWE-bench, Terminal Bench 2.0, τ²-Bench, and HLE—while also improving chat, creative writing, and role-play.
 
+   * - :ref:`glm-4.7-flash <models_llm_glm-4.7-flash>`
+     - chat, reasoning, hybrid, tools
+     - 202752
+     - GLM-4.7-Flash is a 30B-A3B MoE model. As the strongest model in the 30B class, it offers a lightweight deployment option that balances performance and efficiency.
+
    * - :ref:`glm-4v <models_llm_glm-4v>`
      - chat, vision
      - 8192
@@ -814,6 +819,8 @@ The following is a list of built-in LLM in Xinference:
    glm-4.6
   
    glm-4.7
+  
+   glm-4.7-flash
   
    glm-4v
   
