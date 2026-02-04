@@ -346,6 +346,23 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         else:
             return 1
 
+    def stop(self):
+        logger.info("Stopping vLLM rerank engine")
+        try:
+            if self._model is None:
+                return
+            engine = getattr(self._model, "llm_engine", None) or getattr(
+                self._model, "engine", None
+            )
+            if engine is not None and hasattr(engine, "shutdown"):
+                engine.shutdown()
+            if hasattr(self._model, "shutdown"):
+                self._model.shutdown()
+        finally:
+            self._model = None
+            gc.collect()
+            empty_cache()
+
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
         dep_check = check_dependency_available("vllm", "vLLM")
