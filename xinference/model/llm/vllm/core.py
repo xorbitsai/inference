@@ -1069,22 +1069,38 @@ class VLLMModel(LLM):
         )
 
     async def _get_tokenizer(self, lora_request: Any) -> Any:
+        import inspect
+
         try:
             # vLLM 0.11.0+ get_tokenizer doesn't accept lora_request parameter
             if (
                 VLLM_VERSION >= version.parse("0.11.0")
                 or VLLM_VERSION.base_version >= "0.11.0"
             ):
-                return await self._engine.get_tokenizer()  # type: ignore
+                result = self._engine.get_tokenizer()  # type: ignore
+                # In vLLM v1 (>= 0.15.0), get_tokenizer may return tokenizer directly
+                # instead of a coroutine. Check if we need to await.
+                if inspect.iscoroutine(result):
+                    return await result
+                return result
             else:
-                return await self._engine.get_tokenizer(lora_request)  # type: ignore
+                result = self._engine.get_tokenizer(lora_request)  # type: ignore
+                if inspect.iscoroutine(result):
+                    return await result
+                return result
         except AttributeError:
             # Fallback to get_tokenizer_async for older versions
             try:
-                return await self._engine.get_tokenizer_async(lora_request)  # type: ignore
+                result = self._engine.get_tokenizer_async(lora_request)  # type: ignore
+                if inspect.iscoroutine(result):
+                    return await result
+                return result
             except (AttributeError, TypeError):
                 # If all else fails, try without parameters
-                return await self._engine.get_tokenizer()  # type: ignore
+                result = self._engine.get_tokenizer()  # type: ignore
+                if inspect.iscoroutine(result):
+                    return await result
+                return result
 
     def _tokenize(self, tokenizer: Any, prompt: str, config: dict) -> List[int]:
         truncate_prompt_tokens = config.get("truncate_prompt_tokens")
