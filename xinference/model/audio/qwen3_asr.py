@@ -123,10 +123,8 @@ class Qwen3ASRModel:
                 "Prompt for Qwen3-ASR transcriptions will be ignored: %s", prompt
             )
 
-        kw = (
-            self._model_spec.default_transcription_config.copy()
-            if getattr(self._model_spec, "default_transcription_config", None)
-            else {}
+        kw = dict(
+            getattr(self._model_spec, "default_transcription_config", None) or {}
         )
         kw.update(kwargs)
 
