@@ -123,9 +123,7 @@ class Qwen3ASRModel:
                 "Prompt for Qwen3-ASR transcriptions will be ignored: %s", prompt
             )
 
-        kw = dict(
-            getattr(self._model_spec, "default_transcription_config", None) or {}
-        )
+        kw = dict(getattr(self._model_spec, "default_transcription_config", None) or {})
         kw.update(kwargs)
 
         with tempfile.NamedTemporaryFile(buffering=0) as f:
