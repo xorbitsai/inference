@@ -1176,5 +1176,38 @@
     },
     "featured": false,
     "updated_at": 1770217332
+  },
+  {
+    "model_name": "Qwen3-ASR-1.7B",
+    "model_description": "This is a custom model description.",
+    "multilingual": true,
+    "model_ability": [
+      "audio2text"
+    ],
+    "model_family": "qwen3_asr",
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen3-ASR-1.7B",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen3-ASR-1.7B",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {
+      "forced_aligner": "Qwen/Qwen3-ForcedAligner-0.6B"
+    },
+    "default_transcription_config": {},
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "qwen-asr",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1770262385
   }
 ]
