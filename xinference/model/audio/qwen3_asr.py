@@ -16,8 +16,11 @@ import logging
 import tempfile
 from typing import TYPE_CHECKING, List, Optional, Tuple
 
-from ...device_utils import get_available_device, get_device_preferred_dtype
-from ...device_utils import is_device_available
+from ...device_utils import (
+    get_available_device,
+    get_device_preferred_dtype,
+    is_device_available,
+)
 
 if TYPE_CHECKING:
     from .core import AudioModelFamilyV2
