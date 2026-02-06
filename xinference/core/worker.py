@@ -1820,6 +1820,15 @@ class WorkerActor(xo.StatelessActor):
 
         try:
             logger.debug("Start to destroy model actor: %s", model_ref)
+            if model_ref is not None:
+                try:
+                    await model_ref.stop()
+                except Exception as e:
+                    logger.debug(
+                        "Stop model actor failed, model uid: %s, error: %s",
+                        model_uid,
+                        e,
+                    )
             coro = xo.destroy_actor(model_ref)
             # see https://github.com/xorbitsai/xoscar/pull/140
             # asyncio.wait_for cannot work for Xoscar actor call,

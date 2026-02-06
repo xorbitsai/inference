@@ -427,6 +427,12 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         # will hold driver information includes dist store etc.
         return self._driver_info
 
+    async def stop(self):
+        if hasattr(self._model, "stop"):
+            await asyncio.to_thread(self._model.stop)
+        elif hasattr(self._model, "close"):
+            await asyncio.to_thread(self._model.close)
+
     async def _handle_oom_error(self, ex):
         error_message = (
             f"Model actor is out of memory, model id: {self.model_uid()}, error: {ex}"
