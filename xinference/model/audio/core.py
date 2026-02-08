@@ -29,6 +29,7 @@ from .kokoro_mlx import KokoroMLXModel
 from .kokoro_zh import KokoroZHModel
 from .megatts import MegaTTSModel
 from .melotts import MeloTTSModel
+from .qwen3_asr import Qwen3ASRModel
 from .whisper import WhisperModel
 from .whisper_mlx import WhisperMLXModel
 
@@ -155,6 +156,7 @@ def create_audio_model_instance(
     KokoroZHModel,
     MegaTTSModel,
     Indextts2,
+    Qwen3ASRModel,
 ]:
     from ..cache_manager import CacheManager
 
@@ -178,6 +180,7 @@ def create_audio_model_instance(
         KokoroZHModel,
         MegaTTSModel,
         Indextts2,
+        Qwen3ASRModel,
     ]
     if model_spec.model_family == "whisper":
         if not model_spec.engine:
@@ -208,6 +211,8 @@ def create_audio_model_instance(
         model = MegaTTSModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "IndexTTS2":
         model = Indextts2(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "qwen3_asr":
+        model = Qwen3ASRModel(model_uid, model_path, model_spec, **kwargs)
     else:
         raise Exception(f"Unsupported audio model family: {model_spec.model_family}")
     return model
