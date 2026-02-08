@@ -71,6 +71,8 @@ The following is a list of built-in audio models in Xinference:
   
    paraformer-zh-spk
   
+   qwen3-asr-0.6b
+  
    seaco-paraformer-zh
   
    sensevoicesmall
