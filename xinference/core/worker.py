@@ -52,6 +52,7 @@ from ..constants import (
     XINFERENCE_DISABLE_METRICS,
     XINFERENCE_ENABLE_VIRTUAL_ENV,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
+    XINFERENCE_HEALTH_CHECK_TIMEOUT,
     XINFERENCE_VIRTUAL_ENV_DIR,
     XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED,
 )
@@ -202,6 +203,14 @@ class WorkerActor(xo.StatelessActor):
         self._virtual_env_manager = XinferenceVirtualEnvManager(self.address)
 
         self._lock = asyncio.Lock()
+
+    async def _reset_supervisor_refs(self):
+        async with self._lock:
+            self._supervisor_ref = None
+            self._status_guard_ref = None
+            self._event_collector_ref = None
+            self._cache_tracker_ref = None
+            self._progress_tracker_ref = None
 
     async def recover_sub_pool(self, address):
         logger.warning("Process %s is down.", address)
@@ -449,52 +458,63 @@ class WorkerActor(xo.StatelessActor):
         """
         from .supervisor import SupervisorActor
 
-        if self._supervisor_ref is not None:
-            return self._supervisor_ref
-        supervisor_ref = await xo.actor_ref(  # type: ignore
-            address=self._supervisor_address, uid=SupervisorActor.default_uid()
-        )
-        # Prevent concurrent operations leads to double initialization, check again.
-        if self._supervisor_ref is not None:
-            return self._supervisor_ref
-        self._supervisor_ref = supervisor_ref
-        if add_worker and len(self._model_uid_to_model) == 0:
-            # Newly started (or restarted), has no model, notify supervisor
-            await self._supervisor_ref.add_worker(self.address)
-            logger.info("Connected to supervisor as a fresh worker")
+        async with self._lock:
+            if self._supervisor_ref is not None:
+                return self._supervisor_ref
+            supervisor_ref = await xo.actor_ref(  # type: ignore
+                address=self._supervisor_address, uid=SupervisorActor.default_uid()
+            )
+            # Prevent concurrent operations leads to double initialization, check again.
+            if self._supervisor_ref is not None:
+                return self._supervisor_ref
+            self._supervisor_ref = supervisor_ref
+            if add_worker:
+                await self._supervisor_ref.ensure_worker(self.address)
+                if len(self._model_uid_to_model) == 0:
+                    logger.info("Connected to supervisor as a fresh worker")
+                else:
+                    try:
+                        models = await self.list_models()
+                        await self._supervisor_ref.restore_worker_models(
+                            self.address, models
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Failed to restore worker models to supervisor"
+                        )
 
-        self._status_guard_ref = await xo.actor_ref(
-            address=self._supervisor_address, uid=StatusGuardActor.default_uid()
-        )
-        self._event_collector_ref = await xo.actor_ref(
-            address=self._supervisor_address, uid=EventCollectorActor.default_uid()
-        )
-        self._cache_tracker_ref = await xo.actor_ref(
-            address=self._supervisor_address, uid=CacheTrackerActor.default_uid()
-        )
-        self._progress_tracker_ref = None
-        # cache_tracker is on supervisor
-        from ..model.audio import get_audio_model_descriptions
-        from ..model.embedding import get_embedding_model_descriptions
-        from ..model.flexible import get_flexible_model_descriptions
-        from ..model.image import get_image_model_descriptions
-        from ..model.llm import get_llm_version_infos
-        from ..model.rerank import get_rerank_model_descriptions
-        from ..model.video import get_video_model_descriptions
+            self._status_guard_ref = await xo.actor_ref(
+                address=self._supervisor_address, uid=StatusGuardActor.default_uid()
+            )
+            self._event_collector_ref = await xo.actor_ref(
+                address=self._supervisor_address, uid=EventCollectorActor.default_uid()
+            )
+            self._cache_tracker_ref = await xo.actor_ref(
+                address=self._supervisor_address, uid=CacheTrackerActor.default_uid()
+            )
+            self._progress_tracker_ref = None
+            # cache_tracker is on supervisor
+            from ..model.audio import get_audio_model_descriptions
+            from ..model.embedding import get_embedding_model_descriptions
+            from ..model.flexible import get_flexible_model_descriptions
+            from ..model.image import get_image_model_descriptions
+            from ..model.llm import get_llm_version_infos
+            from ..model.rerank import get_rerank_model_descriptions
+            from ..model.video import get_video_model_descriptions
 
-        # record model version
-        model_version_infos: Dict[str, List[Dict]] = {}  # type: ignore
-        model_version_infos.update(get_llm_version_infos())
-        model_version_infos.update(get_embedding_model_descriptions())
-        model_version_infos.update(get_rerank_model_descriptions())
-        model_version_infos.update(get_image_model_descriptions())
-        model_version_infos.update(get_audio_model_descriptions())
-        model_version_infos.update(get_video_model_descriptions())
-        model_version_infos.update(get_flexible_model_descriptions())
-        await self._cache_tracker_ref.record_model_version(
-            model_version_infos, self.address
-        )
-        return self._supervisor_ref
+            # record model version
+            model_version_infos: Dict[str, List[Dict]] = {}  # type: ignore
+            model_version_infos.update(get_llm_version_infos())
+            model_version_infos.update(get_embedding_model_descriptions())
+            model_version_infos.update(get_rerank_model_descriptions())
+            model_version_infos.update(get_image_model_descriptions())
+            model_version_infos.update(get_audio_model_descriptions())
+            model_version_infos.update(get_video_model_descriptions())
+            model_version_infos.update(get_flexible_model_descriptions())
+            await self._cache_tracker_ref.record_model_version(
+                model_version_infos, self.address
+            )
+            return self._supervisor_ref
 
     @staticmethod
     def get_devices_count():
@@ -1930,7 +1950,20 @@ class WorkerActor(xo.StatelessActor):
         except Exception:
             logger.exception("Report status got error.")
         supervisor_ref = await self.get_supervisor_ref()
-        await supervisor_ref.report_worker_status(self.address, status)
+        try:
+            await asyncio.wait_for(
+                supervisor_ref.report_worker_status(self.address, status),
+                timeout=XINFERENCE_HEALTH_CHECK_TIMEOUT,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(
+                "report_worker_status timed out, will reset supervisor refs for retry"
+            )
+            await self._reset_supervisor_refs()
+            raise
+        except Exception:
+            await self._reset_supervisor_refs()
+            raise
 
     async def _periodical_report_status(self):
         while True:
