@@ -303,7 +303,13 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 )
             except ValueError:
                 model_name_lower = self._model_spec.model_name.lower()
-                if "flux.2" in model_name_lower:
+                if "klein" in model_name_lower:
+                    from diffusers import Flux2KleinPipeline
+
+                    self._model = Flux2KleinPipeline.from_pretrained(
+                        self._model_path, **self._kwargs
+                    )
+                elif "flux.2" in model_name_lower:
                     from diffusers import Flux2Pipeline
 
                     self._model = Flux2Pipeline.from_pretrained(
