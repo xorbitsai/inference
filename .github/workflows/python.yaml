@@ -103,7 +103,7 @@ jobs:
       - name: Update pip and setuptools
         if: ${{ matrix.python-version == '3.12' || matrix.python-version == '3.13' }}
         run: |
-          python -m pip install -U pip setuptools
+          python -m pip install -U pip "setuptools<82"
 
       # Install torch for Python 3.13 using nightly builds
       - name: Install torch for Python 3.13
