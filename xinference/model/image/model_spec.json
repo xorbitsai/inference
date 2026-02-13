@@ -1640,10 +1640,14 @@
     "version": 2,
     "virtualenv": {
       "packages": [
-        "git+https://github.com/huggingface/diffusers"
-      ]
+        "git+https://github.com/huggingface/diffusers",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
     },
     "featured": false,
-    "updated_at": 1770989356
+    "updated_at": 1770989972
   }
 ]
