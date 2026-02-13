@@ -1649,5 +1649,35 @@
     },
     "featured": false,
     "updated_at": 1770989972
+  },
+  {
+    "model_name": "FLUX.2-klein-9B",
+    "model_description": "FLUX.2 [klein] 9B is a 9 billion parameter rectified flow transformer capable of generating images from text descriptions and supports multi-reference editing capabilities.",
+    "model_ability": [
+      "text2image",
+      "image2image"
+    ],
+    "model_family": "stable_diffusion",
+    "controlnet": [],
+    "model_src": {
+      "huggingface": {
+        "model_id": "black-forest-labs/FLUX.2-klein-9B",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "flux-community/FLUX.2-klein-9B"
+      }
+    },
+    "default_model_config": {},
+    "default_generate_config": {},
+    "cache_config": {},
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "git+https://github.com/huggingface/diffusers"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1770989374
   }
 ]
