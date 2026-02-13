@@ -24,9 +24,9 @@ The following is a list of built-in image models in Xinference:
    flux.2-dev
   
    flux.2-klein-4b
-
+  
    flux.2-klein-9b
-
+  
    got-ocr2_0
   
    hunyuandit-v1.2
