@@ -1631,8 +1631,8 @@
         "model_revision": "5e67da950fce4a097bc150c22958a05716994cea"
       },
       "modelscope": {
-        "model_id": "flux-community/FLUX.2-klein-4B",
-        "model_revision": "main"
+        "model_id": "black-forest-labs/FLUX.2-klein-4B",
+        "model_revision": "master"
       }
     },
     "default_model_config": {},
@@ -1649,6 +1649,6 @@
       "no_build_isolation": true
     },
     "featured": false,
-    "updated_at": 1770994676
+    "updated_at": 1770994941
   }
 ]
