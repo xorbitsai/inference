@@ -1640,10 +1640,10 @@
     "version": 2,
     "virtualenv": {
       "packages": [
-        "diffusers>0.36.0"
+        "git+https://github.com/huggingface/diffusers"
       ]
     },
     "featured": false,
-    "updated_at": 1770987116
+    "updated_at": 1770989356
   }
 ]
