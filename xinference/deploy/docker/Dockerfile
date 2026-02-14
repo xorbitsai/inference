@@ -27,7 +27,7 @@ ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/python3.10/dist-packages/nvi
 # Install pip dependencies
 ARG LLAMA_CPP_USE_CUDA=true
 ARG PIP_INDEX=https://pypi.org/simple
-RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel && \
+RUN pip install --upgrade -i "$PIP_INDEX" pip "setuptools<82" wheel && \
     apt-get -y update && \
     ( wget -O openfst-1.7.2.tar.gz http://www.openslr.org/resources/2/openfst-1.7.2.tar.gz \
       || wget -O openfst-1.7.2.tar.gz https://www.openfst.org/twiki/pub/FST/FstDownload/openfst-1.7.2.tar.gz ) && \
@@ -49,7 +49,7 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel && \
     pip install -i "$PIP_INDEX" wetext && \
     pip uninstall flashinfer -y && \
     pip install -i "$PIP_INDEX" flashinfer-python==0.5.3 flashinfer-cubin==0.5.3 && \
-    pip install https://github.com/flashinfer-ai/flashinfer/releases/download/v0.5.3/flashinfer_jit_cache-0.5.3+cu129-cp39-abi3-manylinux_2_28_x86_64.whl && \ 
+    pip install https://github.com/flashinfer-ai/flashinfer/releases/download/v0.5.3/flashinfer_jit_cache-0.5.3+cu129-cp39-abi3-manylinux_2_28_x86_64.whl && \
     pip install -i "$PIP_INDEX" SQLAlchemy==1.4.54 && \
     pip install https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.5.4/flash_attn-2.8.3+cu128torch2.9-cp312-cp312-linux_x86_64.whl && \
     cd /opt/inference && \
