@@ -46,14 +46,14 @@ potential of cutting-edge AI models.
 - Support specifying worker and GPU indexes for launching models: [#1195](https://github.com/xorbitsai/inference/pull/1195)
 - Support SGLang backend: [#1161](https://github.com/xorbitsai/inference/pull/1161)
 ### New Models
+- Built-in support for [FLUX.2-Klein](https://bfl.ai/models/flux-2-klein): [#4596](https://github.com/xorbitsai/inference/pull/4596)
+- Built-in support for [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR): [#4581](https://github.com/xorbitsai/inference/pull/4581)
+- Built-in support for [GLM-4.7](https://huggingface.co/zai-org/GLM-4.7): [#4565](https://github.com/xorbitsai/inference/pull/4565)
+- Built-in support for [MinerU2.5-2509-1.2B](https://huggingface.co/opendatalab/MinerU2.5-2509-1.2B): [#4569](https://github.com/xorbitsai/inference/pull/4569)
 - Built-in support for [Qwen3-VL-Embedding](https://github.com/QwenLM/Qwen3-VL-Embedding): [#4470](https://github.com/xorbitsai/inference/pull/4470)
 - Built-in support for [Qwen-Image-Layered](https://qwen.ai/blog?id=qwen-image-layered): [#4395](https://github.com/xorbitsai/inference/pull/4395)
 - Built-in support for [DeepSeek-V3.2](https://api-docs.deepseek.com/news/news251201): [#4344](https://github.com/xorbitsai/inference/pull/4344)
 - Built-in support for [Z-Image-Turbo](https://tongyi-mai.github.io/Z-Image-blog/): [#4333](https://github.com/xorbitsai/inference/pull/4333)
-- Built-in support for [PaddleOCR-VL](https://ernie.baidu.com/blog/posts/paddleocr-vl/): [#4304](https://github.com/xorbitsai/inference/pull/4304)
-- Built-in support for [FLUX.2-dev](https://github.com/black-forest-labs/flux2): [#4292](https://github.com/xorbitsai/inference/pull/4292)
-- Built-in support for [HunyuanOCR](https://github.com/Tencent-Hunyuan/HunyuanOCR): [#4290](https://github.com/xorbitsai/inference/pull/4290)
-- Built-in support for [DeepSeek-OCR](https://github.com/deepseek-ai/DeepSeek-OCR): [#4187](https://github.com/xorbitsai/inference/pull/4187)
 ### Integrations
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
 - [FastGPT](https://github.com/labring/FastGPT): a knowledge-based platform built on the LLM, offers out-of-the-box data processing and model invocation capabilities, allows for workflow orchestration through Flow visualization.
