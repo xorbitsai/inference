@@ -1598,7 +1598,7 @@ class RESTfulAPI(CancelMixin):
         self,
         request: Request,
         prompt: str = Form(...),
-        image: Optional[List[UploadFile]] = File(None, media_type="application/octet-stream"),
+        images: Optional[List[UploadFile]] = File(None, media_type="application/octet-stream"),
         mask: Optional[UploadFile] = File(None, media_type="application/octet-stream"),
         model: Optional[str] = Form(None),
         n: Optional[int] = Form(1),
@@ -1617,7 +1617,7 @@ class RESTfulAPI(CancelMixin):
 
         # If FastAPI didn't bind any files (e.g. client used "image[]" key),
         # fall back to manual form parsing.
-        image_files: List[UploadFile] = image or []
+        image_files: List[UploadFile] = images or []
         if not image_files:
             form = await request.form()
             image_files = (
@@ -1679,7 +1679,7 @@ class RESTfulAPI(CancelMixin):
             self._add_running_task(request_id)
 
             # Read and convert all uploaded images to RGB PIL Images.
-            images: list[Image.Image] = []
+            pil_images: list[Image.Image] = []
             for img_file in image_files:
                 image_content = await img_file.read()
                 pil_image = Image.open(io.BytesIO(image_content))
@@ -1691,10 +1691,10 @@ class RESTfulAPI(CancelMixin):
                 elif pil_image.mode != "RGB":
                     pil_image = pil_image.convert("RGB")
 
-                images.append(pil_image)
+                pil_images.append(pil_image)
 
-            primary_image = images[0]
-            reference_images = images[1:] if len(images) > 1 else []
+            primary_image = pil_images[0]
+            reference_images = pil_images[1:] if len(pil_images) > 1 else []
 
             # Normalise the size parameter.
             if size and size != "original":
