@@ -1621,9 +1621,10 @@ class RESTfulAPI(CancelMixin):
         if not image_files:
             form = await request.form()
             image_files = (
-                form.getlist("image[]")
-                or form.getlist("image")
+                form.getlist("images[]")
                 or form.getlist("images")
+                or form.getlist("image[]")
+                or form.getlist("image")
             )
 
         if not image_files:
