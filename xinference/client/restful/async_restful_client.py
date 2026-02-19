@@ -369,7 +369,7 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
 
     async def image_edit(
         self,
-        image: Union[Union[str, bytes], List[Union[str, bytes]]],
+        images: Union[Union[str, bytes], List[Union[str, bytes]]],
         prompt: str,
         mask: Optional[Union[str, bytes]] = None,
         n: int = 1,
@@ -382,7 +382,7 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
 
         Parameters
         ----------
-        image: `Union[Union[str, bytes], List[Union[str, bytes]]]`
+        images: `Union[Union[str, bytes], List[Union[str, bytes]]]`
             The input image(s) to edit. Can be:
             - Single image: file path, URL, or binary image data
             - Multiple images: list of file paths, URLs, or binary image data
@@ -416,13 +416,13 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
         --------
         # Single image editing
         result = await model.image_edit(
-            image="path/to/image.png",
+            images="path/to/image.png",
             prompt="make this image look like a painting"
         )
 
         # Multiple image editing with reference images
         result = await model.image_edit(
-            image=["primary_image.png", "reference1.jpg", "reference2.png"],
+            images=["primary_image.png", "reference1.jpg", "reference2.png"],
             prompt="edit the main image using the style from reference images"
         )
         """
@@ -451,18 +451,18 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
                 data.add_field(key, str(value))
 
         # Handle single image or multiple images
-        if isinstance(image, list):
+        if isinstance(images, list):
             # Validate image list is not empty
-            if len(image) == 0:
+            if len(images) == 0:
                 raise ValueError("Image list cannot be empty")
-            # Multiple images - send as image[] array
-            for i, img in enumerate(image):
+            # Multiple images - send as images[] array
+            for i, img in enumerate(images):
                 if isinstance(img, str):
                     # File path - read file content
                     with open(img, "rb") as f:
                         content = f.read()
                     data.add_field(
-                        f"image[]",
+                        f"images[]",
                         content,
                         filename=f"image_{i}.png",
                         content_type="image/png",
@@ -470,24 +470,24 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
                 else:
                     # Binary data
                     data.add_field(
-                        f"image[]",
+                        f"images[]",
                         img,
                         filename=f"image_{i}.png",
                         content_type="image/png",
                     )
         else:
             # Single image
-            if isinstance(image, str):
+            if isinstance(images, str):
                 # File path - read file content
-                with open(image, "rb") as f:
+                with open(images, "rb") as f:
                     content = f.read()
                 data.add_field(
-                    "image", content, filename="image.png", content_type="image/png"
+                    "images", content, filename="image.png", content_type="image/png"
                 )
             else:
                 # Binary data
                 data.add_field(
-                    "image", image, filename="image.png", content_type="image/png"
+                    "images", image, filename="image.png", content_type="image/png"
                 )
 
         if mask is not None:

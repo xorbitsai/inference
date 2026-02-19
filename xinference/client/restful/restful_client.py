@@ -331,7 +331,7 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
 
     def image_edit(
         self,
-        image: Union[Union[str, bytes], List[Union[str, bytes]]],
+        images: Union[Union[str, bytes], List[Union[str, bytes]]],
         prompt: str,
         mask: Optional[Union[str, bytes]] = None,
         n: int = 1,
@@ -344,7 +344,7 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
 
         Parameters
         ----------
-        image: `Union[Union[str, bytes], List[Union[str, bytes]]]`
+        images: `Union[Union[str, bytes], List[Union[str, bytes]]]`
             The input image(s) to edit. Can be:
             - Single image: file path, URL, or binary image data
             - Multiple images: list of file paths, URLs, or binary image data
@@ -378,13 +378,13 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
         --------
         # Single image editing
         result = model.image_edit(
-            image="path/to/image.png",
+            images="path/to/image.png",
             prompt="make this image look like a painting"
         )
 
         # Multiple image editing with reference images
         result = model.image_edit(
-            image=["primary_image.png", "reference1.jpg", "reference2.png"],
+            images=["primary_image.png", "reference1.jpg", "reference2.png"],
             prompt="edit the main image using the style from reference images"
         )
         """
@@ -403,32 +403,32 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
                 files.append((key, (None, value)))
 
         # Handle single image or multiple images using requests format
-        if isinstance(image, list):
+        if isinstance(images, list):
             # Validate image list is not empty
-            if len(image) == 0:
+            if len(images) == 0:
                 raise ValueError("Image list cannot be empty")
             # Multiple images - send as image[] array
-            for i, img in enumerate(image):
+            for i, img in enumerate(images):
                 if isinstance(img, str):
                     # File path - open file
                     f = open(img, "rb")
                     files.append(
-                        (f"image[]", (f"image_{i}", f, "application/octet-stream"))
+                        (f"images[]", (f"image_{i}", f, "application/octet-stream"))
                     )
                 else:
                     # Binary data
                     files.append(
-                        (f"image[]", (f"image_{i}", img, "application/octet-stream"))
+                        (f"images[]", (f"image_{i}", img, "application/octet-stream"))
                     )
         else:
             # Single image
-            if isinstance(image, str):
+            if isinstance(images, str):
                 # File path - open file
-                f = open(image, "rb")
-                files.append(("image", ("image", f, "application/octet-stream")))
+                f = open(images, "rb")
+                files.append(("images", ("image", f, "application/octet-stream")))
             else:
                 # Binary data
-                files.append(("image", ("image", image, "application/octet-stream")))
+                files.append(("images", ("image", image, "application/octet-stream")))
 
         if mask is not None:
             if isinstance(mask, str):
