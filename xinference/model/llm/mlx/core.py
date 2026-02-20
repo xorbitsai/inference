@@ -951,10 +951,20 @@ class MLXModel(LLM):
             model_actor_ref = await xo.actor_ref(
                 address=address, uid=self.raw_model_uid
             )
-            # we don't actually need to get the result from shard >= 1
+
             if stream:
-                async for _ in await getattr(model_actor_ref, method)(*args, **kwargs):
-                    pass
+                iterator = await getattr(model_actor_ref, method)(*args, **kwargs)
+                # The iterator may be async or sync depending on backend/xoscar wrapper.
+                if hasattr(iterator, "__aiter__"):
+                    async for _ in iterator:
+                        pass
+                else:
+
+                    def _drain_iterator(it):
+                        for _ in it:
+                            pass
+
+                    await asyncio.to_thread(_drain_iterator, iterator)
             else:
                 await getattr(model_actor_ref, method)(*args, **kwargs)
 
