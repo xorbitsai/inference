@@ -428,7 +428,7 @@ class RESTfulImageModelHandle(RESTfulModelHandle):
                 files.append(("images", ("image", f, "application/octet-stream")))
             else:
                 # Binary data
-                files.append(("images", ("image", image, "application/octet-stream")))
+                files.append(("images", ("image", images, "application/octet-stream")))
 
         if mask is not None:
             if isinstance(mask, str):

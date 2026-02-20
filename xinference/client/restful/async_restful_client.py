@@ -487,7 +487,7 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
             else:
                 # Binary data
                 data.add_field(
-                    "images", image, filename="image.png", content_type="image/png"
+                    "images", images, filename="image.png", content_type="image/png"
                 )
 
         if mask is not None:
