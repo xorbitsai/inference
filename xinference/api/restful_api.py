@@ -1598,6 +1598,9 @@ class RESTfulAPI(CancelMixin):
         self,
         request: Request,
         prompt: str = Form(...),
+        images: Optional[List[UploadFile]] = File(
+            None, media_type="application/octet-stream"
+        ),
         mask: Optional[UploadFile] = File(None, media_type="application/octet-stream"),
         model: Optional[str] = Form(None),
         n: Optional[int] = Form(1),
@@ -1605,101 +1608,48 @@ class RESTfulAPI(CancelMixin):
         response_format: Optional[str] = Form("url"),
         stream: Optional[bool] = Form(False),
     ) -> Response:
-        """OpenAI-compatible image edit endpoint."""
+        """OpenAI-compatible image edit endpoint.
+
+        Accepts multiple image files via:
+            -F "image=@image1.jpeg" -F "image=@image2.jpeg"
+        The first image is used as the primary input; additional images
+        are passed as reference images to the model.
+        """
         import io
 
-        # Parse multipart form data to handle files
-        content_type = request.headers.get("content-type", "")
-
-        if "multipart/form-data" in content_type:
-            # Try manual multipart parsing for better duplicate field handling
-            try:
-                image_files, manual_mask = await self._parse_multipart_manual(request)
-                # Use manually parsed mask if available, otherwise keep the original
-                if manual_mask is not None:
-                    mask = manual_mask
-            except Exception as e:
-                logger.error(f"Manual parsing failed, falling back to FastAPI: {e}")
-                # Fallback to FastAPI form parsing
-                form = await request.form()
-                multipart_files: dict[str, list] = {}
-                for key, value in form.items():
-                    if hasattr(value, "filename") and value.filename:
-                        if key not in multipart_files:
-                            multipart_files[key] = []
-                        multipart_files[key].append(value)
-
-                image_files = multipart_files.get("image", [])
-                if not image_files:
-                    image_files = multipart_files.get("image[]", [])
-                if not image_files:
-                    image_files = multipart_files.get("images", [])
-
-        else:
-            # Fallback to FastAPI form parsing
+        # If FastAPI didn't bind any files (e.g. client used "image[]" key),
+        # fall back to manual form parsing.
+        image_files: List[UploadFile] = images or []
+        if not image_files:
             form = await request.form()
-            fallback_files: dict[str, list] = {}
-            for key, value in form.items():
-                if hasattr(value, "filename") and value.filename:
-                    if key not in fallback_files:
-                        fallback_files[key] = []
-                    fallback_files[key].append(value)
-
-            image_files = fallback_files.get("image", [])
-            if not image_files:
-                image_files = fallback_files.get("image[]", [])
-            if not image_files:
-                image_files = fallback_files.get("images", [])
-
-        all_file_keys = []
-        if "multipart/form-data" in content_type:
-            all_file_keys = [f"image[] (x{len(image_files)})"] if image_files else []
-        else:
-            # Fallback to FastAPI form parsing
-            form = await request.form()
-            debug_files: dict[str, list] = {}
-            for key, value in form.items():
-                if hasattr(value, "filename") and value.filename:
-                    if key not in debug_files:
-                        debug_files[key] = []
-                    debug_files[key].append(value)
-
-            # Get image files
-            image_files = debug_files.get("image", [])
-            if not image_files:
-                image_files = debug_files.get("image[]", [])
-            if not image_files:
-                image_files = debug_files.get("images", [])
-
-        logger.info(f"Total image files found: {len(image_files)}")
+            image_files = (
+                form.getlist("images[]")
+                or form.getlist("images")
+                or form.getlist("image[]")
+                or form.getlist("image")
+            )
 
         if not image_files:
-            # Debug: log all received file fields
-            logger.warning(
-                f"No image files found. Available file fields: {all_file_keys}"
-            )
             raise HTTPException(
                 status_code=400, detail="At least one image file is required"
             )
 
-        # Validate response format
-        if response_format not in ["url", "b64_json"]:
+        if response_format not in ("url", "b64_json"):
             raise HTTPException(
                 status_code=400, detail="response_format must be 'url' or 'b64_json'"
             )
 
-        # Get default model if not specified
+        # Resolve model when the caller didn't specify one.
         if not model:
             try:
                 models = await (await self._get_supervisor_ref()).list_models()
                 image_models = [
                     name
                     for name, info in models.items()
-                    if info["model_type"] == "image"
-                    and info.get("model_ability", [])
+                    if info.get("model_type") == "image"
                     and (
-                        "image2image" in info["model_ability"]
-                        or "inpainting" in info["model_ability"]
+                        "image2image" in info.get("model_ability", [])
+                        or "inpainting" in info.get("model_ability", [])
                     )
                 ]
                 if not image_models:
@@ -1707,6 +1657,8 @@ class RESTfulAPI(CancelMixin):
                         status_code=400, detail="No available image models found"
                     )
                 model = image_models[0]
+            except HTTPException:
+                raise
             except Exception as e:
                 logger.error(f"Failed to get available models: {e}", exc_info=True)
                 raise HTTPException(
@@ -1729,90 +1681,60 @@ class RESTfulAPI(CancelMixin):
         try:
             self._add_running_task(request_id)
 
-            # Read and process all images (needed for both streaming and non-streaming)
-            images = []
-            original_filenames = []
-            for i, img in enumerate(image_files):
-                # Store original filename before processing
-                original_filename = (
-                    img.filename if hasattr(img, "filename") else f"upload_{i}"
-                )
-                original_filenames.append(original_filename)
+            # Read and convert all uploaded images to RGB PIL Images.
+            pil_images: list[Image.Image] = []
+            for img_file in image_files:
+                image_content = await img_file.read()
+                pil_image = Image.open(io.BytesIO(image_content))
 
-                image_content = await img.read()
-                image_file = io.BytesIO(image_content)
-                pil_image = Image.open(image_file)
-
-                # Debug: save the received image for inspection
-                debug_filename = f"/tmp/received_image_{i}_{pil_image.mode}_{pil_image.size[0]}x{pil_image.size[1]}.png"
-                pil_image.save(debug_filename)
-                logger.info(f"Saved received image {i} to {debug_filename}")
-
-                # Convert to RGB format to avoid channel mismatch errors
                 if pil_image.mode == "RGBA":
-                    logger.info(f"Converting RGBA image {i} to RGB")
-                    # Create white background for RGBA images
                     background = Image.new("RGB", pil_image.size, (255, 255, 255))
                     background.paste(pil_image, mask=pil_image.split()[3])
                     pil_image = background
                 elif pil_image.mode != "RGB":
-                    logger.info(f"Converting {pil_image.mode} image {i} to RGB")
                     pil_image = pil_image.convert("RGB")
 
-                # Debug: save the converted image
-                converted_filename = f"/tmp/converted_image_{i}_RGB_{pil_image.size[0]}x{pil_image.size[1]}.png"
-                pil_image.save(converted_filename)
-                logger.info(f"Saved converted image {i} to {converted_filename}")
+                pil_images.append(pil_image)
 
-                images.append(pil_image)
+            primary_image = pil_images[0]
+            reference_images = pil_images[1:] if len(pil_images) > 1 else []
 
-            # Debug: log image summary
-            logger.info(f"Processing {len(images)} images:")
-            for i, img in enumerate(images):
-                logger.info(
-                    f"  Image {i}: mode={img.mode}, size={img.size}, filename={original_filenames[i]}"
-                )
-
-            # Handle streaming if requested
-            if stream:
-                return EventSourceResponse(
-                    self._stream_image_edit(
-                        model_ref,
-                        images,  # Pass processed images instead of raw files
-                        mask,
-                        prompt,
-                        (
-                            size.replace("x", "*") if size else ""
-                        ),  # Convert size format for streaming
-                        response_format,
-                        n,
-                    )
-                )
-
-            # Use the first image as primary, others as reference
-            primary_image = images[0]
-            reference_images = images[1:] if len(images) > 1 else []
-
-            # Prepare model parameters
-            # If size is "original", use empty string to let model determine original dimensions
-            if size == "original":
-                model_size = ""
+            # Normalise the size parameter.
+            if size and size != "original":
+                model_size = size.replace("x", "*")
             else:
-                model_size = size.replace("x", "*") if size else ""
+                model_size = ""
 
-            model_params = {
+            model_params: dict[str, Any] = {
                 "prompt": prompt,
                 "n": n or 1,
                 "size": model_size,
                 "response_format": response_format,
-                "denoising_strength": 0.75,  # Default strength for image editing
-                "reference_images": reference_images,  # Pass reference images
-                "negative_prompt": " ",  # Space instead of empty string to prevent filtering
+                "denoising_strength": 0.75,
+                "negative_prompt": " ",
             }
+            if reference_images:
+                model_params["reference_images"] = reference_images
 
-            # Generate the image
+            # DEBUG: Log the number of files and model params before processing
+            logger.debug(
+                f"Processing image edit with {len(image_files)} image(s), "
+                f"model: {model_uid}, stream: {stream}, mask: {'yes' if mask else 'no'}, "
+                f"model_params: {model_params}"
+            )
+
+            if stream:
+                return EventSourceResponse(
+                    self._stream_image_edit(
+                        model_ref,
+                        primary_image,
+                        reference_images,
+                        mask,
+                        model_params,
+                    )
+                )
+
             if mask:
-                # Use inpainting for masked edits
                 mask_content = await mask.read()
                 mask_image = Image.open(io.BytesIO(mask_content))
                 result = await model_ref.inpainting(
@@ -1821,12 +1743,11 @@ class RESTfulAPI(CancelMixin):
                     **model_params,
                 )
             else:
-                # Use image-to-image for general edits
                 result = await model_ref.image_to_image(
-                    image=primary_image, **model_params
+                    image=primary_image,
+                    **model_params,
                 )
 
-            # Return the result directly (should be ImageList format)
             return Response(content=result, media_type="application/json")
 
         except asyncio.CancelledError:
@@ -1841,158 +1762,32 @@ class RESTfulAPI(CancelMixin):
             self.handle_request_limit_error(e)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def _parse_multipart_manual(self, request: Request):
-        """Manually parse multipart form data to handle duplicate field names"""
-        import io
-
-        class FileWrapper:
-            """Wrapper for BytesIO to add filename and content_type attributes"""
-
-            def __init__(self, data, filename, content_type="application/octet-stream"):
-                self._file = io.BytesIO(data)
-                self.filename = filename
-                self.content_type = content_type
-
-            def read(self, *args, **kwargs):
-                return self._file.read(*args, **kwargs)
-
-            def seek(self, *args, **kwargs):
-                return self._file.seek(*args, **kwargs)
-
-            def tell(self, *args, **kwargs):
-                return self._file.tell(*args, **kwargs)
-
-        from multipart.multipart import parse_options_header
-
-        content_type = request.headers.get("content-type", "")
-        if not content_type:
-            return [], None
-
-        # Parse content type and boundary
-        content_type, options = parse_options_header(content_type.encode("utf-8"))
-        if content_type != b"multipart/form-data":
-            return [], None
-
-        boundary = options.get(b"boundary")
-        if not boundary:
-            return [], None
-
-        # Get the raw body
-        body = await request.body()
-
-        # Parse multipart data manually
-        image_files = []
-        mask_file = None
-        try:
-            # Import multipart parser
-            from multipart.multipart import MultipartParser
-
-            # Parse the multipart data
-            parser = MultipartParser(
-                io.BytesIO(body),
-                boundary.decode("utf-8") if isinstance(boundary, bytes) else boundary,
-            )
-
-            for part in parser:
-                # Check if this part is an image file
-                field_name = part.name
-                filename = part.filename or ""
-
-                # Look for image fields with different naming conventions
-                if field_name in ["image", "image[]", "images"] and filename:
-                    # Create a file-like object from the part data
-                    file_obj = FileWrapper(
-                        part.data,
-                        filename,
-                        part.content_type or "application/octet-stream",
-                    )
-                    image_files.append(file_obj)
-                elif field_name == "mask" and filename:
-                    # Handle mask file
-                    mask_file = FileWrapper(
-                        part.data,
-                        filename,
-                        part.content_type or "application/octet-stream",
-                    )
-                    logger.info(f"Manual multipart parsing found mask file: {filename}")
-
-            logger.info(
-                f"Manual multipart parsing found {len(image_files)} image files and mask: {mask_file is not None}"
-            )
-
-        except Exception as e:
-            logger.error(f"Manual multipart parsing failed: {e}")
-            # Return empty list to trigger fallback
-            return [], None
-
-        return image_files, mask_file
-
     async def _stream_image_edit(
-        self, model_ref, images, mask, prompt, size, response_format, n
+        self,
+        model_ref,
+        primary_image: Image.Image,
+        reference_images: list,
+        mask: Optional[UploadFile],
+        model_params: dict,
     ):
-        """Stream image editing progress and results"""
+        """Stream image editing progress and results."""
         import io
         import json
         from datetime import datetime
 
         try:
-            # Send start event
             yield {
                 "event": "start",
                 "data": json.dumps(
                     {
                         "type": "image_edit_started",
                         "timestamp": datetime.now().isoformat(),
-                        "prompt": prompt,
-                        "image_count": len(images),
+                        "prompt": model_params.get("prompt", ""),
+                        "image_count": 1 + len(reference_images),
                     }
                 ),
             }
 
-            # Images are already processed in the main method, just use them directly
-            image_objects = images
-            logger.info(f"Streaming: Using {len(image_objects)} pre-processed images")
-
-            # Debug: log streaming image summary
-            logger.info(f"Streaming: Processing {len(image_objects)} images:")
-            for i, img in enumerate(image_objects):
-                logger.info(f"  Streaming Image {i}: mode={img.mode}, size={img.size}")
-
-            # Use the first image as primary, others as reference
-            primary_image = image_objects[0]
-            reference_images = image_objects[1:] if len(image_objects) > 1 else []
-
-            # Send processing event
-            yield {
-                "event": "processing",
-                "data": json.dumps(
-                    {
-                        "type": "images_loaded",
-                        "timestamp": datetime.now().isoformat(),
-                        "primary_image_size": primary_image.size,
-                        "reference_images_count": len(reference_images),
-                    }
-                ),
-            }
-
-            # Prepare model parameters
-            # If size is "original", use empty string to let model determine original dimensions
-            if size == "original":
-                model_size = ""
-            else:
-                model_size = size
-
-            model_params = {
-                "prompt": prompt,
-                "n": n or 1,
-                "size": model_size,
-                "response_format": response_format,
-                "denoising_strength": 0.75,
-                "reference_images": reference_images,
-                "negative_prompt": " ",  # Space instead of empty string to prevent filtering
-            }
-
-            # Generate the image
             if mask:
                 mask_content = await mask.read()
                 mask_image = Image.open(io.BytesIO(mask_content))
@@ -2022,18 +1817,14 @@ class RESTfulAPI(CancelMixin):
                     ),
                 }
                 result = await model_ref.image_to_image(
-                    image=primary_image, **model_params
+                    image=primary_image,
+                    **model_params,
                 )
 
-            # Parse the result and send final event in OpenAI format
             result_data = json.loads(result)
-
-            # Send completion event with OpenAI-compatible format
             yield {
                 "event": "complete",
-                "data": json.dumps(
-                    result_data
-                ),  # Direct send the result in OpenAI format
+                "data": json.dumps(result_data),
             }
 
         except Exception as e:
