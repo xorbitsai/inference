@@ -295,13 +295,11 @@ class RESTfulAPI(CancelMixin):
                 SPAStaticFiles(directory=ui_location, html=True),
             )
         else:
-            warnings.warn(
-                f"""
+            warnings.warn(f"""
             Xinference ui is not built at expected directory: {ui_location}
             To resolve this warning, navigate to {os.path.join(lib_location, "ui/web/ui/")}
             And build the Xinference ui by running "npm run build"
-            """
-            )
+            """)
 
         config = Config(
             app=self._app, host=self._host, port=self._port, log_config=logging_conf
@@ -1598,7 +1596,9 @@ class RESTfulAPI(CancelMixin):
         self,
         request: Request,
         prompt: str = Form(...),
-        images: Optional[List[UploadFile]] = File(None, media_type="application/octet-stream"),
+        images: Optional[List[UploadFile]] = File(
+            None, media_type="application/octet-stream"
+        ),
         mask: Optional[UploadFile] = File(None, media_type="application/octet-stream"),
         model: Optional[str] = Form(None),
         n: Optional[int] = Form(1),
