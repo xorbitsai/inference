@@ -843,7 +843,6 @@ class MLXModel(LLM):
 
         i = 0
         start = time.time()
-        output = ""
         tokens = []
         # For VLM models, let generate_step handle cache creation internally
         # to avoid incompatible cache types between mlx_lm and mlx_vlm
@@ -865,10 +864,10 @@ class MLXModel(LLM):
             out = chunk_resp.text
             if stream:
                 # this special character is mainly for qwen
-                out = out.strip("�")
-                output = out
-            else:
-                output += out
+                out = out.strip("")
+            
+            # MINIMAL FIX: Always yield the delta (out) rather than an accumulated output.
+            # This prevents the calling generate() method from double-accumulating text.
 
             completion_usage = CompletionUsage(
                 prompt_tokens=input_echo_len,
@@ -877,7 +876,7 @@ class MLXModel(LLM):
             )
 
             yield generate_completion_chunk(
-                chunk_text=output,
+                chunk_text=out,
                 finish_reason=None,
                 chunk_id=chunk_id,
                 model_uid=model_uid,
@@ -906,26 +905,15 @@ class MLXModel(LLM):
             completion_tokens=i,
             total_tokens=(input_echo_len + i),
         )
-        if stream:
-            yield generate_completion_chunk(
-                "",
-                finish_reason=finish_reason,
-                chunk_id=chunk_id,
-                model_uid=model_uid,
-                prompt_tokens=input_echo_len,
-                completion_tokens=i,
-                total_tokens=(input_echo_len + i),
-            ), completion_usage
-        else:
-            yield generate_completion_chunk(
-                output,
-                finish_reason=finish_reason,
-                chunk_id=chunk_id,
-                model_uid=model_uid,
-                prompt_tokens=input_echo_len,
-                completion_tokens=i,
-                total_tokens=(input_echo_len + i),
-            ), completion_usage
+        yield generate_completion_chunk(
+            "",
+            finish_reason=finish_reason,
+            chunk_id=chunk_id,
+            model_uid=model_uid,
+            prompt_tokens=input_echo_len,
+            completion_tokens=i,
+            total_tokens=(input_echo_len + i),
+        ), completion_usage
 
         if include_usage:
             completion_chunk = CompletionChunk(
