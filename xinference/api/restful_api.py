@@ -23,7 +23,7 @@ import pprint
 import time
 import uuid
 import warnings
-from typing import Any, List, Optional, Union
+from typing import Any, List, Optional, Union, get_type_hints
 
 import gradio as gr
 import xoscar as xo
@@ -41,16 +41,13 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from sse_starlette.sse import EventSourceResponse
-from starlette.responses import JSONResponse as StarletteJSONResponse
 from starlette.responses import PlainTextResponse, RedirectResponse
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
-from .._version import get_versions
 from ..constants import (
     XINFERENCE_ALLOWED_IPS,
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
@@ -60,7 +57,7 @@ from ..constants import (
 )
 from ..core.event import Event, EventCollectorActor, EventType
 from ..core.supervisor import SupervisorActor
-from ..core.utils import CancelMixin, json_dumps
+from ..core.utils import CancelMixin
 from ..types import (
     CreateChatCompletion,
     CreateMessage,
@@ -68,7 +65,7 @@ from ..types import (
     max_tokens_field,
 )
 from .oauth2.auth_service import AuthService
-from .oauth2.types import LoginUserForm
+from .responses import JSONResponse
 from .schemas import (
     AutoConfigLLMRequest,
     BuildGradioInterfaceRequest,
@@ -87,11 +84,6 @@ from .schemas import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-class JSONResponse(StarletteJSONResponse):  # type: ignore # noqa: F811
-    def render(self, content: Any) -> bytes:
-        return json_dumps(content)
 
 
 class RESTfulAPI(CancelMixin):
@@ -176,7 +168,9 @@ class RESTfulAPI(CancelMixin):
             )
         return self._event_collector_ref
 
-    async def _report_error_event(self, model_uid: str, content: str):
+    async def _report_error_event(self, model_uid: Optional[str], content: str) -> None:
+        if model_uid is None:
+            return
         try:
             event_collector_ref = await self._get_event_collector_ref()
             await event_collector_ref.report_event(
@@ -191,16 +185,6 @@ class RESTfulAPI(CancelMixin):
             logger.exception(
                 "Report error event failed, model: %s, content: %s", model_uid, content
             )
-
-    async def login_for_access_token(self, request: Request) -> JSONResponse:
-        form_data = LoginUserForm.parse_obj(await request.json())
-        result = self._auth_service.generate_token_for_user(
-            form_data.username, form_data.password
-        )
-        return JSONResponse(content=result)
-
-    async def is_cluster_authenticated(self) -> JSONResponse:
-        return JSONResponse(content={"auth": self.is_authenticated()})
 
     def serve(self, logging_conf: Optional[dict] = None):
         self._app.add_middleware(
@@ -228,6 +212,9 @@ class RESTfulAPI(CancelMixin):
                 status_code=500, content=f"Internal Server Error: {exc}"
             )
 
+        # Attach API instance for dependency injection (Depends(get_api), etc.)
+        self._app.state.api = self
+
         # Register all domain routes from routers/ modules
         from .routers import register_all_routes
 
@@ -254,6 +241,19 @@ class RESTfulAPI(CancelMixin):
         try:
             for router in self._router.routes:
                 return_annotation = router.endpoint.__annotations__.get("return")
+                # Resolve string annotations (e.g. under __future__ annotations)
+                if isinstance(return_annotation, str):
+                    try:
+                        hints = get_type_hints(router.endpoint)
+                        return_annotation = hints.get("return")
+                    except Exception:
+                        pass
+                    # Fallback: resolve by name from the endpoint's module globals
+                    if isinstance(return_annotation, str):
+                        globals = getattr(router.endpoint, "__globals__", {})
+                        return_annotation = globals.get(
+                            return_annotation, return_annotation
+                        )
                 if not inspect.isclass(return_annotation) or not issubclass(
                     return_annotation, Response
                 ):
@@ -348,25 +348,6 @@ class RESTfulAPI(CancelMixin):
         except ValueError as re:
             logger.error(re, exc_info=True)
             raise HTTPException(status_code=400, detail=str(re))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def _get_devices_count(self) -> JSONResponse:
-        """
-        For internal usage
-        """
-        try:
-            data = await (await self._get_supervisor_ref()).get_devices_count()
-            return JSONResponse(content=data)
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def get_status(self) -> JSONResponse:
-        try:
-            data = await (await self._get_supervisor_ref()).get_status()
-            return JSONResponse(content=data)
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
@@ -760,9 +741,6 @@ class RESTfulAPI(CancelMixin):
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
         return JSONResponse(content=None)
-
-    async def get_address(self) -> JSONResponse:
-        return JSONResponse(content=self._supervisor_address)
 
     async def _get_model_last_error(self, replica_model_uid: bytes, e: Exception):
         if not isinstance(e, xo.ServerClosed):
@@ -1270,17 +1248,6 @@ class RESTfulAPI(CancelMixin):
             logger.error(e, exc_info=True)
             await self._report_error_event(model_uid, str(e))
             self.handle_request_limit_error(e)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def get_progress(self, request_id: str) -> JSONResponse:
-        try:
-            supervisor_ref = await self._get_supervisor_ref()
-            result = {"progress": await supervisor_ref.get_progress(request_id)}
-            return JSONResponse(content=result)
-        except KeyError as e:
-            raise HTTPException(status_code=400, detail=str(e))
-        except Exception as e:
-            logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
     async def create_images(self, request: Request) -> Response:
@@ -2291,24 +2258,6 @@ class RESTfulAPI(CancelMixin):
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def list_cached_models(
-        self, model_name: str = Query(None), worker_ip: str = Query(None)
-    ) -> JSONResponse:
-        try:
-            data = await (await self._get_supervisor_ref()).list_cached_models(
-                model_name, worker_ip
-            )
-            resp = {
-                "list": data,
-            }
-            return JSONResponse(content=resp)
-        except ValueError as re:
-            logger.error(re, exc_info=True)
-            raise HTTPException(status_code=400, detail=str(re))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
     async def get_model_events(self, model_uid: str) -> JSONResponse:
         try:
             event_collector_ref = await self._get_event_collector_ref()
@@ -2357,148 +2306,6 @@ class RESTfulAPI(CancelMixin):
                 "generate": VLLM_SUPPORTED_MODELS,
             }
             return JSONResponse(content=data)
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def get_cluster_device_info(
-        self, detailed: bool = Query(False)
-    ) -> JSONResponse:
-        try:
-            data = await (await self._get_supervisor_ref()).get_cluster_device_info(
-                detailed=detailed
-            )
-            return JSONResponse(content=data)
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def get_cluster_version(self) -> JSONResponse:
-        try:
-            data = get_versions()
-            return JSONResponse(content=data)
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def list_model_files(
-        self, model_version: str = Query(None), worker_ip: str = Query(None)
-    ) -> JSONResponse:
-        try:
-            data = await (await self._get_supervisor_ref()).list_deletable_models(
-                model_version, worker_ip
-            )
-            response = {
-                "model_version": model_version,
-                "worker_ip": worker_ip,
-                "paths": data,
-            }
-            return JSONResponse(content=response)
-        except ValueError as re:
-            logger.error(re, exc_info=True)
-            raise HTTPException(status_code=400, detail=str(re))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def confirm_and_remove_model(
-        self, model_version: str = Query(None), worker_ip: str = Query(None)
-    ) -> JSONResponse:
-        try:
-            res = await (await self._get_supervisor_ref()).confirm_and_remove_model(
-                model_version=model_version, worker_ip=worker_ip
-            )
-            return JSONResponse(content={"result": res})
-        except ValueError as re:
-            logger.error(re, exc_info=True)
-            raise HTTPException(status_code=400, detail=str(re))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def list_virtual_envs(
-        self,
-        model_name: str = Query(None),
-        model_engine: str = Query(None),
-        worker_ip: str = Query(None),
-    ) -> JSONResponse:
-        """List all virtual environments or filter by model name."""
-        try:
-            data = await (await self._get_supervisor_ref()).list_virtual_envs(
-                model_name, model_engine, worker_ip
-            )
-            resp = {
-                "list": data,
-            }
-            return JSONResponse(content=resp)
-        except ValueError as re:
-            logger.error(re, exc_info=True)
-            raise HTTPException(status_code=400, detail=str(re))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def remove_virtual_env(
-        self,
-        model_name: str = Query(None),
-        model_engine: str = Query(None),
-        python_version: str = Query(None),
-        worker_ip: str = Query(None),
-    ) -> JSONResponse:
-        """Remove a virtual environment for a specific model."""
-        if not model_name:
-            raise HTTPException(
-                status_code=400, detail="model_name parameter is required"
-            )
-
-        try:
-            res = await (await self._get_supervisor_ref()).remove_virtual_env(
-                model_name=model_name,
-                model_engine=model_engine,
-                python_version=python_version,
-                worker_ip=worker_ip,
-            )
-            return JSONResponse(content={"result": res})
-        except ValueError as re:
-            logger.error(re, exc_info=True)
-            raise HTTPException(status_code=400, detail=str(re))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def get_workers_info(self) -> JSONResponse:
-        try:
-            res = await (await self._get_supervisor_ref()).get_workers_info()
-            return JSONResponse(content=res)
-        except ValueError as re:
-            logger.error(re, exc_info=True)
-            raise HTTPException(status_code=400, detail=str(re))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def get_supervisor_info(self) -> JSONResponse:
-        try:
-            res = await (await self._get_supervisor_ref()).get_supervisor_info()
-            return res
-        except ValueError as re:
-            logger.error(re, exc_info=True)
-            raise HTTPException(status_code=400, detail=str(re))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def abort_cluster(self) -> JSONResponse:
-        import os
-        import signal
-
-        try:
-            res = await (await self._get_supervisor_ref()).abort_cluster()
-            os.kill(os.getpid(), signal.SIGINT)
-            return JSONResponse(content={"result": res})
-        except ValueError as re:
-            logger.error(re, exc_info=True)
-            raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
