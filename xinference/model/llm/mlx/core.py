@@ -865,7 +865,7 @@ class MLXModel(LLM):
             if stream:
                 # this special character is mainly for qwen
                 out = out.strip("")
-            
+
             # MINIMAL FIX: Always yield the delta (out) rather than an accumulated output.
             # This prevents the calling generate() method from double-accumulating text.
 
