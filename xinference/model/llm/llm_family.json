@@ -25580,7 +25580,7 @@
     },
     "tool_parser": "deepseek-r1",
     "featured": true,
-    "updated_at": 1770087071
+    "updated_at": 1770100192
   },
   {
     "model_name": "DeepSeek-V3.2-Exp",
@@ -25660,7 +25660,7 @@
     },
     "tool_parser": "deepseek-r1",
     "featured": true,
-    "updated_at": 1770100312
+    "updated_at": 1770205932
   },
   {
     "version": 2,
@@ -25811,7 +25811,7 @@
     "architectures": [
       "Glm4MoeForCausalLM"
     ],
-    "updated_at": 1769162354
+    "updated_at": 1769680026
   },
   {
     "version": 2,
@@ -25963,7 +25963,7 @@
     "architectures": [
       "Glm4MoeForCausalLM"
     ],
-    "updated_at": 1770097727
+    "updated_at": 1770100010
   },
   {
     "version": 2,
