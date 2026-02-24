@@ -23442,7 +23442,7 @@
         "#system_numpy# ; #engine# == \"vllm\""
       ]
     },
-    "updated_at": 1769418590,
+    "updated_at": 1771925175,
     "featured": false,
     "architectures": [
       "DeepseekV3ForCausalLM"
