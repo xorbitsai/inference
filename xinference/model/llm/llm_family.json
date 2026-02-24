@@ -23446,7 +23446,8 @@
     "featured": false,
     "architectures": [
       "DeepseekV3ForCausalLM"
-    ]
+    ],
+    "model_type": "deepseek_v3"
   },
   {
     "version": 2,
