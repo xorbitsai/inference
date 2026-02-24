@@ -1227,8 +1227,13 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         stream = generate_config.get("stream", False)
 
         if stream:
-            # Return generator for streaming
-            return self._generate_stream(prompt, generate_config)
+            # _generate_stream yields (chunk, usage) tuples; unwrap for the caller
+            # so that _to_chat_completion_chunks receives plain CompletionChunk objects.
+            def _unwrap():
+                for chunk, _usage in self._generate_stream(prompt, generate_config):
+                    yield chunk
+
+            return _unwrap()
         else:
             # Non-streaming: collect all chunks and return completion
             text = ""
