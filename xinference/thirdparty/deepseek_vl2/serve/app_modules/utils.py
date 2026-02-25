@@ -309,7 +309,7 @@ def parse_ref_bbox(response, image: Image.Image):
 
         # print(f"boxes = {boxes}, labels = {labels}, re-render = {image}")
         return image
-    except:
+    except Exception:
         return None
 
 

@@ -1491,7 +1491,7 @@ class SupervisorActor(xo.StatelessActor):
                     # wait for load complete
                     for worker_ref in worker_refs:
                         await worker_ref.wait_for_load(rep_model_uid)
-            except:
+            except Exception:
                 # terminate_model will remove the replica info.
                 await self.terminate_model(model_uid, suppress_exception=True)
                 await self._status_guard_ref.update_instance_info(

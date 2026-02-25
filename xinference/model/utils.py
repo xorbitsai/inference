@@ -405,7 +405,7 @@ def is_locale_chinese_simplified() -> bool:
     try:
         lang, _ = locale.getdefaultlocale()
         return lang == "zh_CN"
-    except:
+    except Exception:
         return False
 
 

@@ -684,7 +684,7 @@ class MLXModel(LLM):
                         ).result()
 
                     self._load_model_shard(**kwargs)
-                except:
+                except Exception:
                     logger.exception("Loading mlx shard model failed")
                     self._loading_error = sys.exc_info()
 

@@ -302,5 +302,5 @@ def setup_with_auth():
         restful_api_proc.kill()
         try:
             os.remove(auth_file)
-        except:
+        except Exception:
             pass
