@@ -179,11 +179,11 @@ def set_hparams(config='', exp_name='', hparams_str='', print_hparams=True, glob
                 config_node[k] = v
                 try:
                     config_node[k] = float(v)
-                except:
+                except Exception:
                     pass
                 try:
                     config_node[k] = int(v)
-                except:
+                except Exception:
                     pass
                 if v.lower() in ['false', 'true']:
                     config_node[k] = v.lower() == 'true'

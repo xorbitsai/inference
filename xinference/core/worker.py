@@ -1681,7 +1681,7 @@ class WorkerActor(xo.StatelessActor):
                     except xo.ServerClosed:
                         check_cancel()
                         raise
-            except:
+            except Exception:
                 logger.error(f"Failed to load model {model_uid}", exc_info=True)
                 self.release_devices(model_uid=model_uid)
                 for addr in all_subpool_addresses:
@@ -2128,7 +2128,7 @@ class WorkerActor(xo.StatelessActor):
                     uid=rep_model_uid,
                     xavier_config=xavier_config,
                 )
-            except:
+            except Exception:
                 await self._main_pool.remove_sub_pool(subpool_address)
                 raise
             self._model_uid_to_model[rep_model_uid] = model_ref
