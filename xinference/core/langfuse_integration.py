@@ -256,12 +256,16 @@ class LangfuseMiddleware:
             return
 
         trace_name = f"xinference/{operation}"
+        result_text = self._extract_result_text(output_summary)
         metadata = {
             "model_type": model_type,
             "operation": operation,
+            "model_name": model_name,
             "status_code": status_code,
-            "duration_ms": round(duration_ms, 2),
+            "latency_ms": round(duration_ms, 2),
         }
+        if result_text:
+            metadata["result_text"] = result_text
 
         level = "ERROR" if error or status_code >= 400 else "DEFAULT"
         status_message = (
@@ -291,6 +295,35 @@ class LangfuseMiddleware:
             return func(**kwargs)
         filtered_kwargs = {k: v for k, v in kwargs.items() if k in params}
         return func(**filtered_kwargs)
+
+    @staticmethod
+    def _extract_result_text(output_summary: Any, max_len: int = 512) -> Optional[str]:
+        """Extract concise text result for metadata display."""
+        if output_summary is None:
+            return None
+
+        text_value: Optional[str] = None
+        if isinstance(output_summary, str):
+            text_value = output_summary
+        elif isinstance(output_summary, dict):
+            candidate_keys = ("text", "result", "content", "transcript")
+            for key in candidate_keys:
+                value = output_summary.get(key)
+                if isinstance(value, str) and value.strip():
+                    text_value = value
+                    break
+            if text_value is None:
+                for value in output_summary.values():
+                    if isinstance(value, str) and value.strip():
+                        text_value = value
+                        break
+
+        if not text_value:
+            return None
+        normalized = text_value.strip().replace("\n", " ")
+        if len(normalized) > max_len:
+            return normalized[:max_len] + "..."
+        return normalized
 
     def _report_trace_v3(
         self,
@@ -330,4 +363,6 @@ class LangfuseMiddleware:
                     update_kwargs["model"] = model_name
                     if usage:
                         update_kwargs["usage"] = usage
+                elif model_name and model_name != "unknown":
+                    update_kwargs["model"] = model_name
                 self._invoke_with_supported_kwargs(observation.update, update_kwargs)
