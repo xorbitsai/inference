@@ -1881,6 +1881,77 @@ class SupervisorActor(xo.StatelessActor):
         logger.debug("Worker %s has been added successfully", worker_address)
 
     @log_async(logger=logger)
+    async def ensure_worker(
+        self, worker_address: str
+    ) -> xo.ActorRefType["WorkerActor"]:
+        from .worker import WorkerActor
+
+        worker_ref = await xo.actor_ref(
+            address=worker_address, uid=WorkerActor.default_uid()
+        )
+        if worker_address in self._worker_address_to_worker:
+            self._worker_address_to_worker[worker_address] = worker_ref
+            logger.debug("Worker %s already registered, refreshed ref", worker_address)
+        else:
+            self._worker_address_to_worker[worker_address] = worker_ref
+            logger.debug("Worker %s has been added successfully", worker_address)
+        return worker_ref
+
+    @log_async(logger=logger)
+    async def restore_worker_models(
+        self, worker_address: str, models: Dict[str, Dict[str, Any]]
+    ):
+        if not models:
+            return
+        worker_ref = await self.ensure_worker(worker_address)
+        restored = 0
+        for replica_model_uid in models.keys():
+            model_uid, rep_id = parse_replica_model_uid(replica_model_uid)
+            if rep_id < 0:
+                rep_id = 0
+
+            replica_info = self._model_uid_to_replica_info.get(model_uid, None)
+            if replica_info is None:
+                replica_count = rep_id + 1
+                replica_info = ReplicaInfo(
+                    replica=replica_count,
+                    scheduler=itertools.cycle(range(replica_count)),
+                )
+                self._model_uid_to_replica_info[model_uid] = replica_info
+            elif rep_id + 1 > replica_info.replica:
+                replica_info.replica = rep_id + 1
+                replica_info.scheduler = itertools.cycle(range(replica_info.replica))
+
+            if all(
+                w.address != worker_ref.address
+                for w in replica_info.replica_to_worker_refs[rep_id]
+            ):
+                replica_info.replica_to_worker_refs[rep_id].append(worker_ref)
+
+            existing = self._replica_model_uid_to_worker.get(replica_model_uid, None)
+            if existing is None:
+                self._replica_model_uid_to_worker[replica_model_uid] = worker_ref
+            elif isinstance(existing, (list, tuple)):
+                if all(w.address != worker_ref.address for w in existing):
+                    if isinstance(existing, tuple):
+                        self._replica_model_uid_to_worker[replica_model_uid] = [
+                            *existing,
+                            worker_ref,
+                        ]
+                    else:
+                        existing.append(worker_ref)
+            else:
+                if existing.address != worker_ref.address:
+                    self._replica_model_uid_to_worker[replica_model_uid] = [
+                        existing,
+                        worker_ref,
+                    ]
+            restored += 1
+        logger.info(
+            "Restored %s model replicas for worker %s", restored, worker_address
+        )
+
+    @log_async(logger=logger)
     async def remove_worker(self, worker_address: str):
         uids_to_remove = []
         for model_uid in self._replica_model_uid_to_worker:
@@ -1912,6 +1983,20 @@ class SupervisorActor(xo.StatelessActor):
     async def report_worker_status(
         self, worker_address: str, status: Dict[str, Union[ResourceStatus, GPUStatus]]
     ):
+        if worker_address not in self._worker_address_to_worker:
+            logger.warning(
+                "Worker %s reported status but is not registered; restoring models",
+                worker_address,
+            )
+            worker_ref = await self.ensure_worker(worker_address)
+            try:
+                models = await worker_ref.list_models()
+                await self.restore_worker_models(worker_address, models)
+            except Exception:
+                logger.exception(
+                    "Failed to restore worker models on status report for %s",
+                    worker_address,
+                )
         if worker_address not in self._worker_status:
             logger.debug("Worker %s resources: %s", worker_address, status)
             self._worker_status[worker_address] = WorkerStatus(
