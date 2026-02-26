@@ -211,6 +211,26 @@ class RESTfulAPI(CancelMixin):
             allow_headers=["*"],
         )
 
+        # Langfuse observability middleware
+        from ..constants import XINFERENCE_LANGFUSE_ENABLED
+
+        if XINFERENCE_LANGFUSE_ENABLED:
+            try:
+                from ..core.langfuse_integration import LangfuseMiddleware
+
+                self._app.add_middleware(LangfuseMiddleware)
+                logger.info(
+                    "Langfuse tracing middleware is enabled. "
+                    "Traces will be sent to the configured Langfuse server."
+                )
+            except ImportError:
+                logger.warning(
+                    "XINFERENCE_LANGFUSE_ENABLED is set, but the 'langfuse' package "
+                    "is not installed. Install it with: pip install xinference[langfuse]"
+                )
+            except Exception as e:
+                logger.warning("Failed to enable Langfuse middleware: %s", e)
+
         @self._app.middleware("http")
         async def ip_restriction_middleware(request: Request, call_next):
             client_ip = request.client.host
