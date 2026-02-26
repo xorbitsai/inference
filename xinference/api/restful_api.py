@@ -86,6 +86,8 @@ from .schemas import (
     UpdateModelRequest,
 )
 
+from ..core.langfuse_integration import set_langfuse_trace_data
+
 logger = logging.getLogger(__name__)
 
 
@@ -211,14 +213,14 @@ class RESTfulAPI(CancelMixin):
             allow_headers=["*"],
         )
 
-        # Langfuse observability middleware
+        # Langfuse observability middleware (pure ASGI, no BaseHTTPMiddleware)
         from ..constants import XINFERENCE_LANGFUSE_ENABLED
 
         if XINFERENCE_LANGFUSE_ENABLED:
             try:
                 from ..core.langfuse_integration import LangfuseMiddleware
 
-                self._app.add_middleware(LangfuseMiddleware)
+                self._app = LangfuseMiddleware(self._app)
                 logger.info(
                     "Langfuse tracing middleware is enabled. "
                     "Traces will be sent to the configured Langfuse server."
@@ -226,7 +228,7 @@ class RESTfulAPI(CancelMixin):
             except ImportError:
                 logger.warning(
                     "XINFERENCE_LANGFUSE_ENABLED is set, but the 'langfuse' package "
-                    "is not installed. Install it with: pip install xinference[langfuse]"
+                    "is not installed. Install it with: pip install langfuse"
                 )
             except Exception as e:
                 logger.warning("Failed to enable Langfuse middleware: %s", e)
@@ -823,6 +825,7 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(status_code=501, detail="Not implemented")
 
         model_uid = body.model
+        set_langfuse_trace_data(request, model_uid=model_uid)
 
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
@@ -1027,6 +1030,8 @@ class RESTfulAPI(CancelMixin):
         payload = await request.json()
         body = CreateEmbeddingRequest.parse_obj(payload)
         model_uid = body.model
+        set_langfuse_trace_data(request, model_uid=model_uid)
+
         exclude = {
             "model",
             "input",
@@ -1061,6 +1066,7 @@ class RESTfulAPI(CancelMixin):
         payload = await request.json()
         body = CreateEmbeddingRequest.parse_obj(payload)
         model_uid = body.model
+        set_langfuse_trace_data(request, model_uid=model_uid)
         exclude = {
             "model",
             "input",
@@ -1093,6 +1099,7 @@ class RESTfulAPI(CancelMixin):
         payload = await request.json()
         body = RerankRequest.parse_obj(payload)
         model_uid = body.model
+        set_langfuse_trace_data(request, model_uid=model_uid)
 
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
@@ -1143,7 +1150,7 @@ class RESTfulAPI(CancelMixin):
         if timestamp_granularities:
             timestamp_granularities = [timestamp_granularities]
         model_uid = model
-        request.state.model_uid = model_uid
+        set_langfuse_trace_data(request, model_uid=model_uid)
         try:
             model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
@@ -1193,7 +1200,7 @@ class RESTfulAPI(CancelMixin):
         if timestamp_granularities:
             timestamp_granularities = [timestamp_granularities]
         model_uid = model
-        request.state.model_uid = model_uid
+        set_langfuse_trace_data(request, model_uid=model_uid)
         try:
             model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
@@ -1243,7 +1250,7 @@ class RESTfulAPI(CancelMixin):
             f = await request.json()
         body = SpeechRequest.parse_obj(f)
         model_uid = body.model
-        request.state.model_uid = model_uid
+        set_langfuse_trace_data(request, model_uid=model_uid)
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
@@ -1309,6 +1316,7 @@ class RESTfulAPI(CancelMixin):
     async def create_images(self, request: Request) -> Response:
         body = TextToImageRequest.parse_obj(await request.json())
         model_uid = body.model
+        set_langfuse_trace_data(request, model_uid=model_uid)
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
@@ -1463,7 +1471,7 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
-        request.state.model_uid = model_uid
+        set_langfuse_trace_data(request, model_uid=model_uid)
         try:
             model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
@@ -1527,7 +1535,7 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
-        request.state.model_uid = model_uid
+        set_langfuse_trace_data(request, model_uid=model_uid)
         try:
             model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
@@ -1582,7 +1590,7 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
-        request.state.model_uid = model_uid
+        set_langfuse_trace_data(request, model_uid=model_uid)
         try:
             model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
@@ -1693,7 +1701,7 @@ class RESTfulAPI(CancelMixin):
 
         assert model is not None
         model_uid = model
-        request.state.model_uid = model_uid
+        set_langfuse_trace_data(request, model_uid=model_uid)
         try:
             model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
@@ -1900,6 +1908,7 @@ class RESTfulAPI(CancelMixin):
     async def create_videos(self, request: Request) -> Response:
         body = TextToVideoRequest.parse_obj(await request.json())
         model_uid = body.model
+        set_langfuse_trace_data(request, model_uid=model_uid)
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
@@ -1944,7 +1953,7 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
-        request.state.model_uid = model_uid
+        set_langfuse_trace_data(request, model_uid=model_uid)
         try:
             model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
@@ -1995,7 +2004,7 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
-        request.state.model_uid = model_uid
+        set_langfuse_trace_data(request, model_uid=model_uid)
         try:
             model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
@@ -2096,6 +2105,7 @@ class RESTfulAPI(CancelMixin):
 
         has_tool_message = messages[-1].get("role") == "tool"
         model_uid = body.model
+        set_langfuse_trace_data(request, model_uid=model_uid)
 
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)

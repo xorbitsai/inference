@@ -16,8 +16,15 @@
 Langfuse integration module for Xinference.
 
 Provides observability/tracing for all model API calls (LLM, Embedding,
-Rerank, Audio, Image, Video) via a FastAPI middleware that intercepts
+Rerank, Audio, Image, Video) via a pure ASGI middleware that intercepts
 requests and responses, then reports traces to a Langfuse server.
+
+Design:
+    The middleware itself does NOT read request/response bodies,
+    avoiding all known issues with BaseHTTPMiddleware and file uploads.
+    Instead, each API handler injects tracing metadata into `request.state`
+    (e.g., model_uid, input, output, usage). The middleware simply
+    measures latency and reads `request.state` after the response is sent.
 
 Enable by setting environment variables:
     XINFERENCE_LANGFUSE_ENABLED=1
@@ -33,11 +40,6 @@ import logging
 import time
 import uuid
 from typing import Any, Dict, Optional, Tuple
-
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
-from starlette.responses import Response, StreamingResponse
-from starlette.types import ASGIApp
 
 from ..constants import XINFERENCE_LANGFUSE_ENABLED
 
@@ -127,204 +129,95 @@ def _match_route(path: str) -> Optional[Tuple[str, str]]:
     return None
 
 
-def _safe_parse_json(body: bytes) -> Optional[Dict[str, Any]]:
-    """Try to parse JSON body, return None on failure."""
-    try:
-        return json.loads(body)
-    except (json.JSONDecodeError, UnicodeDecodeError):
-        return None
-
-
-def _extract_model_name(request_body: Optional[Dict[str, Any]]) -> str:
-    """Extract model name from the request body."""
-    if request_body and isinstance(request_body, dict):
-        return str(request_body.get("model", "unknown"))
-    return "unknown"
-
-
-def _extract_input_summary(
-    operation: str, request_body: Optional[Dict[str, Any]]
-) -> Any:
-    """Extract a concise input summary suitable for Langfuse trace display."""
-    if request_body is None:
-        return None
-
-    if operation == "chat_completion" or operation == "anthropic_message":
-        return request_body.get("messages")
-    elif operation == "completion":
-        return request_body.get("prompt")
-    elif operation == "create_embedding":
-        inp = request_body.get("input")
-        # Truncate if input is very long
-        if isinstance(inp, str) and len(inp) > 500:
-            return inp[:500] + "..."
-        return inp
-    elif operation == "rerank":
-        return {
-            "query": request_body.get("query"),
-            "documents_count": len(request_body.get("documents", [])),
-        }
-    elif operation in ("transcription", "translation"):
-        return {"type": operation}
-    elif operation == "speech":
-        return {"input": request_body.get("input", "")[:200]}
-    elif operation in ("generation", "sdapi_txt2img"):
-        return {"prompt": request_body.get("prompt", "")[:200]}
-    else:
-        # For image/video operations, return a minimal summary
-        return {"operation": operation}
-
-
-def _extract_usage(
-    operation: str, response_body: Optional[Dict[str, Any]]
-) -> Optional[Dict[str, Any]]:
-    """Extract token usage from a response body (for LLM operations)."""
-    if response_body is None or not isinstance(response_body, dict):
-        return None
-    usage = response_body.get("usage")
-    if usage and isinstance(usage, dict):
-        return {
-            "input": usage.get("prompt_tokens"),
-            "output": usage.get("completion_tokens"),
-            "total": usage.get("total_tokens"),
-        }
-    return None
-
-
-def _extract_output_summary(
-    operation: str, response_body: Optional[Dict[str, Any]]
-) -> Any:
-    """Extract a concise output summary from the response."""
-    if response_body is None:
-        return None
-
-    if operation in ("chat_completion", "anthropic_message"):
-        choices = response_body.get("choices", [])
-        if choices and isinstance(choices, list):
-            first = choices[0]
-            if isinstance(first, dict):
-                return first.get("message") or first.get("delta")
-        # Anthropic format
-        content = response_body.get("content")
-        if content:
-            return content
-    elif operation == "completion":
-        choices = response_body.get("choices", [])
-        if choices and isinstance(choices, list):
-            first = choices[0]
-            if isinstance(first, dict):
-                return first.get("text")
-    elif operation == "create_embedding":
-        data = response_body.get("data", [])
-        return {"embedding_count": len(data)}
-    elif operation == "rerank":
-        results = response_body.get("results", [])
-        return {"result_count": len(results)}
-
-    return None
-
-
-class LangfuseMiddleware(BaseHTTPMiddleware):
+def set_langfuse_trace_data(request, **kwargs):
     """
-    FastAPI/Starlette middleware that traces model API calls to Langfuse.
+    Helper for API handlers to inject tracing metadata into the request.
+    
+    Usage in any handler:
+        from xinference.core.langfuse_integration import set_langfuse_trace_data
+        set_langfuse_trace_data(request,
+            model_uid="my-model",
+            input={"messages": [...]},
+            output={"choices": [...]},
+            usage={"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
+        )
+    
+    Supported keys: model_uid, input, output, usage
+    """
+    if not hasattr(request.state, "langfuse_trace"):
+        request.state.langfuse_trace = {}
+    request.state.langfuse_trace.update(kwargs)
 
-    Only active when XINFERENCE_LANGFUSE_ENABLED environment variable is truthy.
-    Non-model endpoints (admin, UI, metrics, etc.) are ignored.
+
+class LangfuseMiddleware:
+    """
+    Pure ASGI middleware that traces model API calls to Langfuse.
+    
+    Unlike BaseHTTPMiddleware, this does NOT interfere with request/response
+    body streaming, so it's fully compatible with multipart/form-data file
+    uploads (Audio, Image, Video).
+    
+    The middleware only records timing and reads metadata that handlers
+    inject into request.state via set_langfuse_trace_data().
     """
 
-    def __init__(self, app: ASGIApp):
-        super().__init__(app)
+    def __init__(self, app):
+        self.app = app
         self._tracer = LangfuseClient.get_instance()
 
-    async def dispatch(self, request: Request, call_next) -> Response:
-        if not self._tracer.enabled:
-            return await call_next(request)
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or not self._tracer.enabled:
+            await self.app(scope, receive, send)
+            return
 
         # Check if this path should be traced
-        route_info = _match_route(request.url.path)
+        path = scope.get("path", "")
+        route_info = _match_route(path)
         if route_info is None:
-            return await call_next(request)
+            await self.app(scope, receive, send)
+            return
 
         model_type, operation = route_info
         trace_id = str(uuid.uuid4())
         start_time = time.time()
 
-        # Try to read the request body for tracing
-        request_body = None
-        try:
-            content_type = request.headers.get("content-type", "")
-            if "application/json" in content_type:
-                body_bytes = await request.body()
-                request_body = _safe_parse_json(body_bytes)
-            elif "multipart/form-data" in content_type or "application/x-www-form-urlencoded" in content_type:
-                # PERFORMANCE & STABILITY CAVEAT:
-                # Calling `await request.body()` here forces the entire uploaded file 
-                # (e.g., 50MB audio) into RAM, bypassing FastAPI's SpooledTemporaryFile 
-                # mechanism and risking OOM. 
-                # Calling `await request.form()` breaks FastAPI's dependency injection.
-                # Therefore, we safely skip body parsing for form-data to guarantee 
-                # zero performance degradation. The trace will be logged with 
-                # model="unknown" and no input payload, but latency/status are still captured.
-                pass
-        except Exception:
-            pass
+        # Track response status code
+        status_code = 500  # default to error
 
-        model_name = _extract_model_name(request_body)
-        input_summary = _extract_input_summary(operation, request_body)
+        async def send_wrapper(message):
+            nonlocal status_code
+            if message["type"] == "http.response.start":
+                status_code = message.get("status", 500)
+            await send(message)
 
-        # Determine if this is a streaming request
-        is_stream = False
-        if request_body and isinstance(request_body, dict):
-            # Form values are typically strings, we need to handle "true", "1", etc.
-            stream_val = request_body.get("stream", False)
-            if isinstance(stream_val, str):
-                is_stream = stream_val.lower() in ("true", "1", "yes")
-            else:
-                is_stream = bool(stream_val)
-
-        # Call the actual handler
-        response = None
         error_msg = None
-        response_body = None
-
         try:
-            response = await call_next(request)
-
-            # For non-streaming responses, capture the response body
-            if not is_stream and hasattr(response, "body"):
-                response_body = _safe_parse_json(response.body)
-            elif not is_stream and isinstance(response, StreamingResponse):
-                # For StreamingResponse (non-SSE), collect the body
-                body_chunks = []
-                async for chunk in response.body_iterator:
-                    if isinstance(chunk, bytes):
-                        body_chunks.append(chunk)
-                    else:
-                        body_chunks.append(chunk.encode("utf-8"))
-                collected_body = b"".join(body_chunks)
-                response_body = _safe_parse_json(collected_body)
-
-                # Reconstruct the response since we consumed the iterator
-                response = Response(
-                    content=collected_body,
-                    status_code=response.status_code,
-                    headers=dict(response.headers),
-                    media_type=response.media_type,
-                )
+            await self.app(scope, receive, send_wrapper)
         except Exception as e:
             error_msg = str(e)
             raise
         finally:
             duration_ms = (time.time() - start_time) * 1000
-            status_code = response.status_code if response else 500
 
-            # Handlers can inject the parsed model_uid into request.state
-            # to help the middleware precisely track multipart/form-data models
-            state_model = getattr(request.state, "model_uid", None)
-            if state_model:
-                model_name = str(state_model)
+            # Read tracing metadata injected by the handler
+            # scope["state"] is the same dict backing request.state
+            state = scope.get("state", {})
+            trace_data = state.get("langfuse_trace", {})
 
-            # Report to Langfuse in background (non-blocking)
+            model_name = str(trace_data.get("model_uid", "unknown"))
+            input_summary = trace_data.get("input")
+            output_summary = trace_data.get("output")
+            usage_raw = trace_data.get("usage")
+
+            # Normalize usage
+            usage = None
+            if usage_raw and isinstance(usage_raw, dict):
+                usage = {
+                    "input": usage_raw.get("prompt_tokens"),
+                    "output": usage_raw.get("completion_tokens"),
+                    "total": usage_raw.get("total_tokens"),
+                }
+
             try:
                 self._report_trace(
                     trace_id=trace_id,
@@ -332,17 +225,14 @@ class LangfuseMiddleware(BaseHTTPMiddleware):
                     operation=operation,
                     model_name=model_name,
                     input_summary=input_summary,
-                    output_summary=_extract_output_summary(operation, response_body),
-                    usage=_extract_usage(operation, response_body),
+                    output_summary=output_summary,
+                    usage=usage,
                     duration_ms=duration_ms,
                     status_code=status_code,
-                    is_stream=is_stream,
                     error=error_msg,
                 )
             except Exception as e:
-                logger.debug("Failed to report Langfuse trace: %s", e)
-
-        return response
+                logger.warning("Failed to report Langfuse trace: %s", e)
 
     def _report_trace(
         self,
@@ -355,7 +245,6 @@ class LangfuseMiddleware(BaseHTTPMiddleware):
         usage: Optional[Dict[str, Any]],
         duration_ms: float,
         status_code: int,
-        is_stream: bool,
         error: Optional[str],
     ):
         """Create a Langfuse trace with a generation/span for the model call."""
@@ -367,7 +256,6 @@ class LangfuseMiddleware(BaseHTTPMiddleware):
         metadata = {
             "model_type": model_type,
             "operation": operation,
-            "is_stream": is_stream,
             "status_code": status_code,
             "duration_ms": round(duration_ms, 2),
         }
