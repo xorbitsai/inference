@@ -257,14 +257,15 @@ class LangfuseMiddleware(BaseHTTPMiddleware):
                 body_bytes = await request.body()
                 request_body = _safe_parse_json(body_bytes)
             elif "multipart/form-data" in content_type or "application/x-www-form-urlencoded" in content_type:
-                # Starlette caches the form payload on the request object after the first call,
-                # so it's safe to call here without breaking FastAPI's form parsing.
-                form = await request.form()
-                request_body = {}
-                for k, v in form.items():
-                    # Exclude file uploads from being captured in the trace body
-                    if not hasattr(v, "filename"):
-                        request_body[k] = v
+                # PERFORMANCE & STABILITY CAVEAT:
+                # Calling `await request.body()` here forces the entire uploaded file 
+                # (e.g., 50MB audio) into RAM, bypassing FastAPI's SpooledTemporaryFile 
+                # mechanism and risking OOM. 
+                # Calling `await request.form()` breaks FastAPI's dependency injection.
+                # Therefore, we safely skip body parsing for form-data to guarantee 
+                # zero performance degradation. The trace will be logged with 
+                # model="unknown" and no input payload, but latency/status are still captured.
+                pass
         except Exception:
             pass
 
@@ -316,6 +317,12 @@ class LangfuseMiddleware(BaseHTTPMiddleware):
         finally:
             duration_ms = (time.time() - start_time) * 1000
             status_code = response.status_code if response else 500
+
+            # Handlers can inject the parsed model_uid into request.state
+            # to help the middleware precisely track multipart/form-data models
+            state_model = getattr(request.state, "model_uid", None)
+            if state_model:
+                model_name = str(state_model)
 
             # Report to Langfuse in background (non-blocking)
             try:

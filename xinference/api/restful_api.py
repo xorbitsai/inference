@@ -1143,6 +1143,7 @@ class RESTfulAPI(CancelMixin):
         if timestamp_granularities:
             timestamp_granularities = [timestamp_granularities]
         model_uid = model
+        request.state.model_uid = model_uid
         try:
             model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
@@ -1192,6 +1193,7 @@ class RESTfulAPI(CancelMixin):
         if timestamp_granularities:
             timestamp_granularities = [timestamp_granularities]
         model_uid = model
+        request.state.model_uid = model_uid
         try:
             model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
@@ -1241,6 +1243,7 @@ class RESTfulAPI(CancelMixin):
             f = await request.json()
         body = SpeechRequest.parse_obj(f)
         model_uid = body.model
+        request.state.model_uid = model_uid
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
@@ -1460,6 +1463,7 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
+        request.state.model_uid = model_uid
         try:
             model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
@@ -1523,6 +1527,7 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
+        request.state.model_uid = model_uid
         try:
             model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
@@ -1577,6 +1582,7 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
+        request.state.model_uid = model_uid
         try:
             model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
@@ -1687,6 +1693,7 @@ class RESTfulAPI(CancelMixin):
 
         assert model is not None
         model_uid = model
+        request.state.model_uid = model_uid
         try:
             model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
@@ -1937,6 +1944,7 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
+        request.state.model_uid = model_uid
         try:
             model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
@@ -1987,6 +1995,7 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
+        request.state.model_uid = model_uid
         try:
             model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
         except ValueError as ve:
