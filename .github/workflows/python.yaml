@@ -166,6 +166,7 @@ jobs:
             pip install datamodel_code_generator
             pip install jsonschema
           fi
+          pip install pytest-xdist
         working-directory: .
 
       - name: Clean up disk
@@ -327,6 +328,8 @@ jobs:
               --ignore xinference/client/tests/test_client.py \
               --ignore xinference/client/tests/test_async_client.py \
               --ignore xinference/model/llm/mlx \
+              -n 1 \
+              --dist loadfile \
               xinference
           
           fi
