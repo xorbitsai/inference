@@ -252,8 +252,19 @@ class LangfuseMiddleware(BaseHTTPMiddleware):
         # Try to read the request body for tracing
         request_body = None
         try:
-            body_bytes = await request.body()
-            request_body = _safe_parse_json(body_bytes)
+            content_type = request.headers.get("content-type", "")
+            if "application/json" in content_type:
+                body_bytes = await request.body()
+                request_body = _safe_parse_json(body_bytes)
+            elif "multipart/form-data" in content_type or "application/x-www-form-urlencoded" in content_type:
+                # Starlette caches the form payload on the request object after the first call,
+                # so it's safe to call here without breaking FastAPI's form parsing.
+                form = await request.form()
+                request_body = {}
+                for k, v in form.items():
+                    # Exclude file uploads from being captured in the trace body
+                    if not hasattr(v, "filename"):
+                        request_body[k] = v
         except Exception:
             pass
 
@@ -263,7 +274,12 @@ class LangfuseMiddleware(BaseHTTPMiddleware):
         # Determine if this is a streaming request
         is_stream = False
         if request_body and isinstance(request_body, dict):
-            is_stream = bool(request_body.get("stream", False))
+            # Form values are typically strings, we need to handle "true", "1", etc.
+            stream_val = request_body.get("stream", False)
+            if isinstance(stream_val, str):
+                is_stream = stream_val.lower() in ("true", "1", "yes")
+            else:
+                is_stream = bool(stream_val)
 
         # Call the actual handler
         response = None
