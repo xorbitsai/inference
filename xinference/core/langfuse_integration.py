@@ -361,7 +361,12 @@ class LangfuseMiddleware:
         start_time_s: float,
         end_time_s: float,
     ):
-        as_type = "generation" if model_type == "llm" else "span"
+        if model_type == "llm":
+            as_type = "generation"
+        elif model_type == "embedding":
+            as_type = "embedding"
+        else:
+            as_type = "span"
         start_time = datetime.fromtimestamp(start_time_s, tz=timezone.utc)
         end_time = datetime.fromtimestamp(end_time_s, tz=timezone.utc)
         observation_kwargs = {
@@ -387,7 +392,7 @@ class LangfuseMiddleware:
                     "start_time": start_time,
                     "end_time": end_time,
                 }
-                if model_type == "llm":
+                if model_type in ("llm", "embedding"):
                     update_kwargs["model"] = model_name
                     if usage:
                         update_kwargs["usage"] = usage
