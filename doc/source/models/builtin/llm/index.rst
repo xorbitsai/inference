@@ -401,6 +401,11 @@ The following is a list of built-in LLM in Xinference:
      - 196608
      - MiniMax-M2, a Mini model built for Max coding & agentic workflows.
 
+   * - :ref:`minimax-m2.5 <models_llm_minimax-m2.5>`
+     - chat, tools, reasoning
+     - 196608
+     - MiniMax-M2.5, a Mini model built for Max coding & agentic workflows.
+
    * - :ref:`mistral-instruct-v0.1 <models_llm_mistral-instruct-v0.1>`
      - chat
      - 8192
@@ -894,6 +899,8 @@ The following is a list of built-in LLM in Xinference:
    minicpm4
   
    minimax-m2
+  
+   minimax-m2.5
   
    mistral-instruct-v0.1
   
