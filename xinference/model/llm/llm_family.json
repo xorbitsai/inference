@@ -26100,7 +26100,6 @@
       "zh"
     ],
     "model_ability": [
-      "generate",
       "chat",
       "vision",
       "tools",
@@ -26147,6 +26146,6 @@
     ],
     "tool_parser": "qwen",
     "featured": false,
-    "updated_at": 1772092225
+    "updated_at": 1772096760
   }
 ]
