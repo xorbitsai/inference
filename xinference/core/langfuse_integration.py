@@ -37,8 +37,10 @@ from __future__ import annotations
 
 import importlib
 import inspect
+import json
 import logging
 import time
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
 
 from ..constants import XINFERENCE_LANGFUSE_ENABLED
@@ -202,7 +204,8 @@ class LangfuseMiddleware:
             error_msg = str(e)
             raise
         finally:
-            duration_ms = (time.time() - start_time) * 1000
+            end_time = time.time()
+            duration_ms = (end_time - start_time) * 1000
 
             # Read tracing metadata injected by the handler
             # scope["state"] is the same dict backing request.state
@@ -232,6 +235,8 @@ class LangfuseMiddleware:
                     output_summary=output_summary,
                     usage=usage,
                     duration_ms=duration_ms,
+                    start_time_s=start_time,
+                    end_time_s=end_time,
                     status_code=status_code,
                     error=error_msg,
                 )
@@ -247,6 +252,8 @@ class LangfuseMiddleware:
         output_summary: Any,
         usage: Optional[Dict[str, Any]],
         duration_ms: float,
+        start_time_s: float,
+        end_time_s: float,
         status_code: int,
         error: Optional[str],
     ):
@@ -284,6 +291,8 @@ class LangfuseMiddleware:
             usage=usage,
             level=level,
             status_message=status_message,
+            start_time_s=start_time_s,
+            end_time_s=end_time_s,
         )
 
     @staticmethod
@@ -304,7 +313,18 @@ class LangfuseMiddleware:
 
         text_value: Optional[str] = None
         if isinstance(output_summary, str):
-            text_value = output_summary
+            stripped = output_summary.strip()
+            if stripped.startswith("{"):
+                try:
+                    parsed = json.loads(stripped)
+                    if isinstance(parsed, dict):
+                        output_summary = parsed
+                    else:
+                        text_value = stripped
+                except Exception:
+                    text_value = stripped
+            else:
+                text_value = stripped
         elif isinstance(output_summary, dict):
             candidate_keys = ("text", "result", "content", "transcript")
             for key in candidate_keys:
@@ -338,14 +358,20 @@ class LangfuseMiddleware:
         usage: Optional[Dict[str, Any]],
         level: str,
         status_message: str,
+        start_time_s: float,
+        end_time_s: float,
     ):
         as_type = "generation" if model_type == "llm" else "span"
+        start_time = datetime.fromtimestamp(start_time_s, tz=timezone.utc)
+        end_time = datetime.fromtimestamp(end_time_s, tz=timezone.utc)
         observation_kwargs = {
             "name": trace_name,
             "as_type": as_type,
             "input": input_summary,
             "output": output_summary,
             "metadata": metadata,
+            "start_time": start_time,
+            "end_time": end_time,
         }
         with self._invoke_with_supported_kwargs(
             client.start_as_current_observation, observation_kwargs
@@ -358,6 +384,8 @@ class LangfuseMiddleware:
                     "metadata": metadata,
                     "level": level,
                     "status_message": status_message,
+                    "start_time": start_time,
+                    "end_time": end_time,
                 }
                 if model_type == "llm":
                     update_kwargs["model"] = model_name
