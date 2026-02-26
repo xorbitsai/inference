@@ -216,11 +216,12 @@ class RESTfulAPI(CancelMixin):
         # Langfuse observability middleware (pure ASGI, no BaseHTTPMiddleware)
         from ..constants import XINFERENCE_LANGFUSE_ENABLED
 
+        langfuse_middleware_cls = None
         if XINFERENCE_LANGFUSE_ENABLED:
             try:
                 from ..core.langfuse_integration import LangfuseMiddleware
 
-                self._app = LangfuseMiddleware(self._app)
+                langfuse_middleware_cls = LangfuseMiddleware
                 logger.info(
                     "Langfuse tracing middleware is enabled. "
                     "Traces will be sent to the configured Langfuse server."
@@ -325,8 +326,13 @@ class RESTfulAPI(CancelMixin):
             """
             )
 
+        # Wrap with Langfuse middleware as the outermost ASGI layer
+        asgi_app = self._app
+        if langfuse_middleware_cls is not None:
+            asgi_app = langfuse_middleware_cls(self._app)
+
         config = Config(
-            app=self._app, host=self._host, port=self._port, log_config=logging_conf
+            app=asgi_app, host=self._host, port=self._port, log_config=logging_conf
         )
         server = Server(config)
         server.run()
