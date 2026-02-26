@@ -35,10 +35,10 @@ Enable by setting environment variables:
 
 from __future__ import annotations
 
-import json
+import importlib
+import inspect
 import logging
 import time
-import uuid
 from typing import Any, Dict, Optional, Tuple
 
 from ..constants import XINFERENCE_LANGFUSE_ENABLED
@@ -89,11 +89,17 @@ class LangfuseClient:
             return
 
         try:
-            from langfuse import Langfuse
-
-            self._client = Langfuse()
-            self._enabled = True
-            logger.info("Langfuse tracing is enabled.")
+            langfuse_module = importlib.import_module("langfuse")
+            langfuse_cls = getattr(langfuse_module, "Langfuse")
+            self._client = langfuse_cls()
+            self._enabled = hasattr(self._client, "start_as_current_observation")
+            if self._enabled:
+                logger.info("Langfuse tracing is enabled (API mode: v3).")
+            else:
+                logger.warning(
+                    "Langfuse SDK does not expose v3 API `start_as_current_observation`; "
+                    "trace reporting is disabled."
+                )
         except ImportError:
             logger.warning(
                 "XINFERENCE_LANGFUSE_ENABLED is set, but the 'langfuse' package "
@@ -132,7 +138,7 @@ def _match_route(path: str) -> Optional[Tuple[str, str]]:
 def set_langfuse_trace_data(request, **kwargs):
     """
     Helper for API handlers to inject tracing metadata into the request.
-    
+
     Usage in any handler:
         from xinference.core.langfuse_integration import set_langfuse_trace_data
         set_langfuse_trace_data(request,
@@ -141,7 +147,7 @@ def set_langfuse_trace_data(request, **kwargs):
             output={"choices": [...]},
             usage={"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
         )
-    
+
     Supported keys: model_uid, input, output, usage
     """
     if not hasattr(request.state, "langfuse_trace"):
@@ -152,11 +158,11 @@ def set_langfuse_trace_data(request, **kwargs):
 class LangfuseMiddleware:
     """
     Pure ASGI middleware that traces model API calls to Langfuse.
-    
+
     Unlike BaseHTTPMiddleware, this does NOT interfere with request/response
     body streaming, so it's fully compatible with multipart/form-data file
     uploads (Audio, Image, Video).
-    
+
     The middleware only records timing and reads metadata that handlers
     inject into request.state via set_langfuse_trace_data().
     """
@@ -178,7 +184,6 @@ class LangfuseMiddleware:
             return
 
         model_type, operation = route_info
-        trace_id = str(uuid.uuid4())
         start_time = time.time()
 
         # Track response status code
@@ -220,7 +225,6 @@ class LangfuseMiddleware:
 
             try:
                 self._report_trace(
-                    trace_id=trace_id,
                     model_type=model_type,
                     operation=operation,
                     model_name=model_name,
@@ -236,7 +240,6 @@ class LangfuseMiddleware:
 
     def _report_trace(
         self,
-        trace_id: str,
         model_type: str,
         operation: str,
         model_name: str,
@@ -247,7 +250,7 @@ class LangfuseMiddleware:
         status_code: int,
         error: Optional[str],
     ):
-        """Create a Langfuse trace with a generation/span for the model call."""
+        """Create a Langfuse trace/observation for the model call."""
         client = self._tracer.client
         if client is None:
             return
@@ -261,37 +264,70 @@ class LangfuseMiddleware:
         }
 
         level = "ERROR" if error or status_code >= 400 else "DEFAULT"
-        status_message = error if error else ("OK" if status_code < 400 else f"HTTP {status_code}")
-
-        trace = client.trace(
-            id=trace_id,
-            name=trace_name,
-            input=input_summary,
-            output=output_summary,
-            metadata=metadata,
+        status_message = (
+            error if error else ("OK" if status_code < 400 else f"HTTP {status_code}")
         )
 
-        # For LLM operations, create a generation observation
-        if model_type == "llm":
-            generation_kwargs = {
-                "name": operation,
-                "model": model_name,
-                "input": input_summary,
-                "output": output_summary,
-                "metadata": metadata,
-                "level": level,
-                "status_message": status_message,
-            }
-            if usage:
-                generation_kwargs["usage"] = usage
-            trace.generation(**generation_kwargs)
-        else:
-            # For non-LLM operations, create a span
-            trace.span(
-                name=operation,
-                input=input_summary,
-                output=output_summary,
-                metadata=metadata,
-                level=level,
-                status_message=status_message,
-            )
+        self._report_trace_v3(
+            client=client,
+            trace_name=trace_name,
+            model_type=model_type,
+            operation=operation,
+            model_name=model_name,
+            input_summary=input_summary,
+            output_summary=output_summary,
+            metadata=metadata,
+            usage=usage,
+            level=level,
+            status_message=status_message,
+        )
+
+    @staticmethod
+    def _invoke_with_supported_kwargs(func, kwargs: Dict[str, Any]):
+        """Invoke a callable with kwargs filtered by its signature."""
+        sig = inspect.signature(func)
+        params = sig.parameters
+        if any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()):
+            return func(**kwargs)
+        filtered_kwargs = {k: v for k, v in kwargs.items() if k in params}
+        return func(**filtered_kwargs)
+
+    def _report_trace_v3(
+        self,
+        client,
+        trace_name: str,
+        model_type: str,
+        operation: str,
+        model_name: str,
+        input_summary: Any,
+        output_summary: Any,
+        metadata: Dict[str, Any],
+        usage: Optional[Dict[str, Any]],
+        level: str,
+        status_message: str,
+    ):
+        as_type = "generation" if model_type == "llm" else "span"
+        observation_kwargs = {
+            "name": trace_name,
+            "as_type": as_type,
+            "input": input_summary,
+            "output": output_summary,
+            "metadata": metadata,
+        }
+        with self._invoke_with_supported_kwargs(
+            client.start_as_current_observation, observation_kwargs
+        ) as observation:
+            if hasattr(observation, "update"):
+                update_kwargs = {
+                    "name": operation,
+                    "input": input_summary,
+                    "output": output_summary,
+                    "metadata": metadata,
+                    "level": level,
+                    "status_message": status_message,
+                }
+                if model_type == "llm":
+                    update_kwargs["model"] = model_name
+                    if usage:
+                        update_kwargs["usage"] = usage
+                self._invoke_with_supported_kwargs(observation.update, update_kwargs)
