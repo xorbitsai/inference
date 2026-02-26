@@ -26090,5 +26090,58 @@
     },
     "featured": false,
     "updated_at": 1770103567
+  },
+  {
+    "model_name": "Kimi-K2.5",
+    "model_description": "Kimi K2.5 is an open-source, native multimodal agentic model built through continual pretraining on approximately 15 trillion mixed visual and text tokens atop Kimi-K2-Base. It seamlessly integrates vision and language understanding with advanced agentic capabilities, instant and thinking modes, as well as conversational and agentic paradigms.",
+    "context_length": 262144,
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "vision"
+    ],
+    "model_specs": [
+      {
+        "model_size_in_billions": "1058_59",
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "moonshotai/Kimi-K2.5",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "moonshotai/Kimi-K2.5",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "architectures": [
+      "KimiK25ForConditionalGeneration"
+    ],
+    "chat_template": "{%- macro render_content(msg) -%}\n    {%- set c = msg.get('content') -%}\n    {%- if c is string -%}\n      {{ c }}\n    {%- elif c is not none -%}\n      {% for content in c -%}\n        {% if content['type'] == 'image' or content['type'] == 'image_url' -%}\n          <|media_begin|>image<|media_content|><|media_pad|><|media_end|>\n        {% elif content['type'] == 'video' or content['type']== 'video_url'-%}\n          <|kimi_k25_video_placeholder|>\n        {% else -%}\n          {{ content['text'] }}\n        {%- endif -%}\n      {%- endfor -%}\n    {%- endif -%}\n{%- endmacro -%}\n\n{% macro set_roles(message) -%}\n  {%- set role_name =  message.get('name') or  message['role'] -%}\n  {%- if message['role'] == 'user' -%}\n    <|im_user|>{{role_name}}<|im_middle|>\n  {%- elif message['role'] == 'assistant' -%}\n    <|im_assistant|>{{role_name}}<|im_middle|>\n  {%- else -%}\n    <|im_system|>{{role_name}}<|im_middle|>\n  {%- endif -%}\n{%- endmacro -%}\n\n\n{%- macro render_toolcalls(message) -%}\n  <|tool_calls_section_begin|>\n  {%- for tool_call in message['tool_calls'] -%}\n    {%- set formatted_id = tool_call['id'] -%}\n    <|tool_call_begin|>{{ formatted_id }}<|tool_call_argument_begin|>{% if tool_call['function']['arguments'] is string %}{{ tool_call['function']['arguments'] }}{% else %}{{ tool_call['function']['arguments'] | tojson }}{% endif %}<|tool_call_end|>\n  {%- endfor -%}\n  <|tool_calls_section_end|>\n{%- endmacro -%}\n\n\n{# Find last non-tool-call assisitant message #}\n{%- set ns = namespace(last_non_tool_call_assistant_msg=-1) -%}\n{%- for idx in range(messages|length-1, -1, -1) -%}\n    {%- if messages[idx]['role'] == 'assistant' and not messages[idx].get('tool_calls') -%}\n        {%- set ns.last_non_tool_call_assistant_msg = idx -%}\n        {%- break -%}\n    {%- endif -%}\n{%- endfor -%}\n\n{# split all messages into history & suffix, reasoning_content in suffix should be reserved.#}\n{%- set hist_msgs = messages[:ns.last_non_tool_call_assistant_msg+1] -%}\n{%- set suffix_msgs = messages[ns.last_non_tool_call_assistant_msg+1:] -%}\n\n{%- if tools -%}\n  {%- if tools_ts_str -%}\n    <|im_system|>tool_declare<|im_middle|>{{ tools_ts_str }}<|im_end|>\n  {%- else -%}\n    <|im_system|>tool_declare<|im_middle|>{{ tools | tojson(separators=(',', ':')) }}<|im_end|>\n  {%- endif -%}\n{%- endif -%}\n  \n{%- for message in hist_msgs -%}\n  {{set_roles(message)}}\n  {%- if message['role'] == 'assistant' -%}\n    <think></think>{{render_content(message)}}\n    {%- if message.get('tool_calls') -%}\n      {{render_toolcalls(message)}}\n    {%- endif -%}\n  {%- elif message['role'] == 'tool' -%}\n    {%- set tool_call_id = message.tool_call_id -%}\n    ## Return of {{ tool_call_id }}\n{{render_content(message)}}\n  {%- elif message['content'] is not none -%}\n    {{render_content(message)}}\n  {%- endif -%}\n  <|im_end|>\n{%- endfor -%}\n\n{%- for message in suffix_msgs -%}\n  {{set_roles(message)}}\n  {%- if message['role'] == 'assistant' -%}\n    {%- if thinking is defined and thinking is false -%}\n    <think></think>{{render_content(message)}}\n    {%- else -%}\n    {%- set rc = message.get('reasoning_content', '') -%}\n    <think>{{rc}}</think>{{render_content(message)}}\n    {%- endif -%}\n    {%- if message.get('tool_calls') -%}\n     {{render_toolcalls(message)}}\n    {%- endif -%}\n  {%- elif message['role'] == 'tool' -%}\n    {%- set tool_call_id = message.tool_call_id -%}\n    ## Return of {{ tool_call_id }}\n{{render_content(message)}}\n  {%- elif message['content'] is not none -%}\n    {{render_content(message)}}\n  {%- endif -%}\n  <|im_end|>\n{%- endfor -%}\n\n\n{%- if add_generation_prompt -%}\n  <|im_assistant|>assistant<|im_middle|>\n  {%- if thinking is defined and thinking is false -%}\n  <think></think>\n  {%- else -%}\n  <think>\n  {%- endif -%}\n{%- endif -%}",
+    "stop_token_ids": [
+      163585
+    ],
+    "stop": [
+      "[EOS]"
+    ],
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    },
+    "featured": false,
+    "updated_at": 1772096743
   }
 ]

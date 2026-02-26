@@ -1665,6 +1665,7 @@ class RESTfulAPI(CancelMixin):
                     status_code=500, detail="Failed to get available models"
                 )
 
+        assert model is not None
         model_uid = model
         try:
             model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
@@ -2089,11 +2090,7 @@ class RESTfulAPI(CancelMixin):
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
-        from ..model.llm.utils import (
-            GLM4_TOOL_CALL_FAMILY,
-            QWEN_TOOL_CALL_FAMILY,
-            TOOL_CALL_FAMILY,
-        )
+        from ..model.llm.utils import TOOL_CALL_FAMILY
 
         model_family = desc.get("model_family", "")
 
@@ -2108,18 +2105,7 @@ class RESTfulAPI(CancelMixin):
                     status_code=400,
                     detail=f"Only {TOOL_CALL_FAMILY} support tool messages",
                 )
-        if body.tools and body.stream:
-            is_vllm = await model.is_vllm_backend()
-            is_sglang = await model.is_sglang_backend()
-            if not (
-                ((is_vllm or is_sglang) and model_family in QWEN_TOOL_CALL_FAMILY)
-                or (not is_vllm and model_family in GLM4_TOOL_CALL_FAMILY)
-            ):
-                raise HTTPException(
-                    status_code=400,
-                    detail="Streaming support for tool calls is available only when using "
-                    "Qwen models with vLLM backend or GLM4-chat models without vLLM backend.",
-                )
+
         if "skip_special_tokens" in raw_kwargs and await model.is_vllm_backend():
             kwargs["skip_special_tokens"] = raw_kwargs["skip_special_tokens"]
         if body.stream:

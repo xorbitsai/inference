@@ -94,12 +94,12 @@ class LLM(abc.ABC):
         try:
             nvmlInit()
             device_count = nvmlDeviceGetCount()
-        except:
+        except Exception:
             pass
         finally:
             try:
                 nvmlShutdown()
-            except:
+            except Exception:
                 pass
 
         return device_count > 0
@@ -118,7 +118,7 @@ class LLM(abc.ABC):
                 ["cnmon", "info"], capture_output=True, text=True, timeout=5
             )
             return "Card 0" in result.stdout
-        except:
+        except Exception:
             return False
 
     @staticmethod
@@ -132,7 +132,7 @@ class LLM(abc.ABC):
             import glob
 
             return len(glob.glob("/dev/vacc*")) > 0
-        except:
+        except Exception:
             return False
 
     @staticmethod
@@ -151,12 +151,12 @@ class LLM(abc.ABC):
         try:
             nvmlInit()
             device_count = nvmlDeviceGetCount()
-        except:
+        except Exception:
             pass
         finally:
             try:
                 nvmlShutdown()
-            except:
+            except Exception:
                 pass
 
         return device_count > 0
