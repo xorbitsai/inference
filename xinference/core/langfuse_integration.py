@@ -187,6 +187,7 @@ class LangfuseMiddleware:
 
         model_type, operation = route_info
         start_time = time.time()
+        trace_name = f"xinference/{operation}"
 
         # Track response status code
         status_code = 500  # default to error
@@ -197,7 +198,73 @@ class LangfuseMiddleware:
                 status_code = message.get("status", 500)
             await send(message)
 
+        observation = None
+        client = self._tracer.client
+        if client is not None:
+            try:
+                initial_metadata = {
+                    "model_type": model_type,
+                    "operation": operation,
+                }
+                observation_kwargs = {
+                    "name": trace_name,
+                    "as_type": self._observation_type(model_type),
+                    "metadata": initial_metadata,
+                }
+                observation = self._invoke_with_supported_kwargs(
+                    client.start_as_current_observation, observation_kwargs
+                )
+            except Exception as e:
+                logger.warning("Failed to start Langfuse observation: %s", e)
+
         error_msg = None
+        if observation is not None:
+            with observation as observation_handle:
+                try:
+                    await self.app(scope, receive, send_wrapper)
+                except Exception as e:
+                    error_msg = str(e)
+                    raise
+                finally:
+                    end_time = time.time()
+                    duration_ms = (end_time - start_time) * 1000
+
+                    # Read tracing metadata injected by the handler
+                    # scope["state"] is the same dict backing request.state
+                    state = scope.get("state", {})
+                    trace_data = state.get("langfuse_trace", {})
+
+                    model_name = str(trace_data.get("model_uid", "unknown"))
+                    input_summary = trace_data.get("input")
+                    output_summary = trace_data.get("output")
+                    usage_raw = trace_data.get("usage")
+
+                    # Normalize usage
+                    usage = None
+                    if usage_raw and isinstance(usage_raw, dict):
+                        usage = {
+                            "input": usage_raw.get("prompt_tokens"),
+                            "output": usage_raw.get("completion_tokens"),
+                            "total": usage_raw.get("total_tokens"),
+                        }
+
+                    try:
+                        self._update_observation(
+                            observation=observation_handle,
+                            model_type=model_type,
+                            operation=operation,
+                            model_name=model_name,
+                            input_summary=input_summary,
+                            output_summary=output_summary,
+                            usage=usage,
+                            duration_ms=duration_ms,
+                            status_code=status_code,
+                            error=error_msg,
+                        )
+                    except Exception as e:
+                        logger.warning("Failed to update Langfuse observation: %s", e)
+            return
+
         try:
             await self.app(scope, receive, send_wrapper)
         except Exception as e:
@@ -242,6 +309,60 @@ class LangfuseMiddleware:
                 )
             except Exception as e:
                 logger.warning("Failed to report Langfuse trace: %s", e)
+
+    @staticmethod
+    def _observation_type(model_type: str) -> str:
+        if model_type == "llm":
+            return "generation"
+        if model_type == "embedding":
+            return "embedding"
+        return "span"
+
+    def _update_observation(
+        self,
+        observation,
+        model_type: str,
+        operation: str,
+        model_name: str,
+        input_summary: Any,
+        output_summary: Any,
+        usage: Optional[Dict[str, Any]],
+        duration_ms: float,
+        status_code: int,
+        error: Optional[str],
+    ):
+        result_text = self._extract_result_text(output_summary)
+        metadata = {
+            "model_type": model_type,
+            "operation": operation,
+            "model_name": model_name,
+            "status_code": status_code,
+            "latency_ms": round(duration_ms, 2),
+        }
+        if result_text:
+            metadata["result_text"] = result_text
+
+        level = "ERROR" if error or status_code >= 400 else "DEFAULT"
+        status_message = (
+            error if error else ("OK" if status_code < 400 else f"HTTP {status_code}")
+        )
+
+        if hasattr(observation, "update"):
+            update_kwargs = {
+                "name": operation,
+                "input": input_summary,
+                "output": output_summary,
+                "metadata": metadata,
+                "level": level,
+                "status_message": status_message,
+            }
+            if model_type in ("llm", "embedding"):
+                update_kwargs["model"] = model_name
+                if usage:
+                    update_kwargs["usage"] = usage
+            elif model_name and model_name != "unknown":
+                update_kwargs["model"] = model_name
+            self._invoke_with_supported_kwargs(observation.update, update_kwargs)
 
     def _report_trace(
         self,
