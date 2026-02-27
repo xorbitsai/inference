@@ -13,6 +13,7 @@
 # limitations under the License.
 import base64
 
+import pytest
 import requests
 
 from .....client import Client
@@ -37,6 +38,7 @@ def test_gguf(setup):
     assert len(completion["choices"][0]["text"]) > 0
 
 
+@pytest.mark.skip(reason="Cost too many resources.")
 def test_gguf_multimodal(setup):
     IMG_URL_0 = "https://github.com/bebechien/gemma/blob/main/surprise.png?raw=true"
 

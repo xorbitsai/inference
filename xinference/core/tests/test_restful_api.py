@@ -24,7 +24,7 @@ import pytest
 import requests
 from packaging import version
 
-# from ...model.embedding import BUILTIN_EMBEDDING_MODELS
+from ...model.embedding import BUILTIN_EMBEDDING_MODELS
 
 
 class _DummyRequest:
@@ -322,77 +322,78 @@ async def test_restful_api(setup):
     assert custom_model_reg is None
 
 
-# def test_restful_api_for_embedding(setup):
-#     model_name = "gte-base"
-#     # BUILTIN_EMBEDDING_MODELS stores a list of model families for each model name
-#     model_spec_list = BUILTIN_EMBEDDING_MODELS[model_name]
-#     # Use the first (latest) model family from the list
-#     model_spec = model_spec_list[0] if model_spec_list else None
+@pytest.mark.skip(reason="Cost too many resources.")
+def test_restful_api_for_embedding(setup):
+    model_name = "gte-base"
+    # BUILTIN_EMBEDDING_MODELS stores a list of model families for each model name
+    model_spec_list = BUILTIN_EMBEDDING_MODELS[model_name]
+    # Use the first (latest) model family from the list
+    model_spec = model_spec_list[0] if model_spec_list else None
 
-#     endpoint, _ = setup
-#     url = f"{endpoint}/v1/models"
+    endpoint, _ = setup
+    url = f"{endpoint}/v1/models"
 
-#     # list
-#     response = requests.get(url)
-#     response_data = response.json()
-#     assert len(response_data["data"]) == 0
+    # list
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data["data"]) == 0
 
-#     # launch
-#     payload = {
-#         "model_uid": "test_embedding",
-#         "model_name": model_name,
-#         "model_type": "embedding",
-#     }
+    # launch
+    payload = {
+        "model_uid": "test_embedding",
+        "model_name": model_name,
+        "model_type": "embedding",
+    }
 
-#     response = requests.post(url, json=payload)
-#     response_data = response.json()
-#     model_uid_res = response_data["model_uid"]
-#     assert model_uid_res == "test_embedding"
+    response = requests.post(url, json=payload)
+    response_data = response.json()
+    model_uid_res = response_data["model_uid"]
+    assert model_uid_res == "test_embedding"
 
-#     response = requests.get(url)
-#     response_data = response.json()
-#     assert len(response_data["data"]) == 1
+    response = requests.get(url)
+    response_data = response.json()
+    assert len(response_data["data"]) == 1
 
-#     # test embedding
-#     url = f"{endpoint}/v1/embeddings"
-#     payload = {
-#         "model": "test_embedding",
-#         "input": "The food was delicious and the waiter...",
-#     }
-#     response = requests.post(url, json=payload)
-#     embedding_res = response.json()
+    # test embedding
+    url = f"{endpoint}/v1/embeddings"
+    payload = {
+        "model": "test_embedding",
+        "input": "The food was delicious and the waiter...",
+    }
+    response = requests.post(url, json=payload)
+    embedding_res = response.json()
 
-#     assert "embedding" in embedding_res["data"][0]
-#     assert len(embedding_res["data"][0]["embedding"]) == model_spec.dimensions
-#     assert "model_replica" in embedding_res
-#     assert embedding_res["model_replica"] is not None
-#     assert embedding_res["model"] == payload["model"]
+    assert "embedding" in embedding_res["data"][0]
+    assert len(embedding_res["data"][0]["embedding"]) == model_spec.dimensions
+    assert "model_replica" in embedding_res
+    assert embedding_res["model_replica"] is not None
+    assert embedding_res["model"] == payload["model"]
 
-#     # test multiple
-#     payload = {
-#         "model": "test_embedding",
-#         "input": [
-#             "The food was delicious and the waiter...",
-#             "how to implement quick sort in python?",
-#             "Beijing",
-#             "sorting algorithms",
-#         ],
-#     }
-#     response = requests.post(url, json=payload)
-#     embedding_res = response.json()
+    # test multiple
+    payload = {
+        "model": "test_embedding",
+        "input": [
+            "The food was delicious and the waiter...",
+            "how to implement quick sort in python?",
+            "Beijing",
+            "sorting algorithms",
+        ],
+    }
+    response = requests.post(url, json=payload)
+    embedding_res = response.json()
 
-#     assert len(embedding_res["data"]) == 4
-#     for data in embedding_res["data"]:
-#         assert len(data["embedding"]) == model_spec.dimensions
+    assert len(embedding_res["data"]) == 4
+    for data in embedding_res["data"]:
+        assert len(data["embedding"]) == model_spec.dimensions
 
-#     # delete model
-#     url = f"{endpoint}/v1/models/test_embedding"
-#     response = requests.delete(url)
-#     assert response.status_code == 200
+    # delete model
+    url = f"{endpoint}/v1/models/test_embedding"
+    response = requests.delete(url)
+    assert response.status_code == 200
 
-#     response = requests.get(f"{endpoint}/v1/models")
-#     response_data = response.json()
-#     assert len(response_data["data"]) == 0
+    response = requests.get(f"{endpoint}/v1/models")
+    response_data = response.json()
+    assert len(response_data["data"]) == 0
 
 
 def _check_invalid_tool_calls(endpoint, model_uid_res):
@@ -1037,66 +1038,67 @@ def test_restful_api_for_qwen_tool_calls(setup, model_format, quantization):
     # _check_invalid_tool_calls(endpoint, model_uid_res)
 
 
-# def test_restful_api_with_request_limits(setup):
-#     model_name = "gte-base"
+@pytest.mark.skip(reason="Cost too many resources.")
+def test_restful_api_with_request_limits(setup):
+    model_name = "gte-base"
 
-#     endpoint, _ = setup
-#     url = f"{endpoint}/v1/models"
+    endpoint, _ = setup
+    url = f"{endpoint}/v1/models"
 
-#     # test embedding
-#     # launch
-#     payload = {
-#         "model_uid": "test_embedding",
-#         "model_name": model_name,
-#         "model_type": "embedding",
-#         "request_limits": 0,
-#     }
+    # test embedding
+    # launch
+    payload = {
+        "model_uid": "test_embedding",
+        "model_name": model_name,
+        "model_type": "embedding",
+        "request_limits": 0,
+    }
 
-#     response = requests.post(url, json=payload)
-#     response_data = response.json()
-#     model_uid_res = response_data["model_uid"]
-#     assert model_uid_res == "test_embedding"
+    response = requests.post(url, json=payload)
+    response_data = response.json()
+    model_uid_res = response_data["model_uid"]
+    assert model_uid_res == "test_embedding"
 
-#     # test embedding
-#     url = f"{endpoint}/v1/embeddings"
-#     payload = {
-#         "model": "test_embedding",
-#         "input": "The food was delicious and the waiter...",
-#     }
-#     response = requests.post(url, json=payload)
-#     assert response.status_code == 429
-#     assert "Rate limit reached" in response.json()["detail"]
+    # test embedding
+    url = f"{endpoint}/v1/embeddings"
+    payload = {
+        "model": "test_embedding",
+        "input": "The food was delicious and the waiter...",
+    }
+    response = requests.post(url, json=payload)
+    assert response.status_code == 429
+    assert "Rate limit reached" in response.json()["detail"]
 
-#     # delete model
-#     url = f"{endpoint}/v1/models/test_embedding"
-#     response = requests.delete(url)
-#     assert response.status_code == 200
+    # delete model
+    url = f"{endpoint}/v1/models/test_embedding"
+    response = requests.delete(url)
+    assert response.status_code == 200
 
-#     # test llm
-#     url = f"{endpoint}/v1/models"
-#     payload = {
-#         "model_uid": "test_restful_api",
-#         "model_engine": "llama.cpp",
-#         "model_name": "qwen1.5-chat",
-#         "model_size_in_billions": "0_5",
-#         "quantization": "q4_0",
-#         "request_limits": 0,
-#     }
+    # test llm
+    url = f"{endpoint}/v1/models"
+    payload = {
+        "model_uid": "test_restful_api",
+        "model_engine": "llama.cpp",
+        "model_name": "qwen1.5-chat",
+        "model_size_in_billions": "0_5",
+        "quantization": "q4_0",
+        "request_limits": 0,
+    }
 
-#     response = requests.post(url, json=payload)
-#     response_data = response.json()
-#     model_uid_res = response_data["model_uid"]
-#     assert model_uid_res == "test_restful_api"
+    response = requests.post(url, json=payload)
+    response_data = response.json()
+    model_uid_res = response_data["model_uid"]
+    assert model_uid_res == "test_restful_api"
 
-#     # generate
-#     url = f"{endpoint}/v1/completions"
-#     payload = {
-#         "model": model_uid_res,
-#         "prompt": "Once upon a time, there was a very old computer.",
-#     }
-#     response = requests.post(url, json=payload)
-#     assert response.status_code == 429
-#     assert "Rate limit reached" in response.json()["detail"]
+    # generate
+    url = f"{endpoint}/v1/completions"
+    payload = {
+        "model": model_uid_res,
+        "prompt": "Once upon a time, there was a very old computer.",
+    }
+    response = requests.post(url, json=payload)
+    assert response.status_code == 429
+    assert "Rate limit reached" in response.json()["detail"]
 
 
 @pytest.mark.asyncio
