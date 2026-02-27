@@ -139,6 +139,9 @@ dmypy.json
 node_modules/
 static/
 
+# Local docs (project notes, refactoring plans, etc.)
+docs/
+
 # doc
 doc/source/savefig/
 
