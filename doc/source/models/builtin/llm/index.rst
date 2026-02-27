@@ -296,6 +296,11 @@ The following is a list of built-in LLM in Xinference:
      - 131072
      - Kwaipilot-AutoThink ranks first among all open-source models on LiveCodeBench Pro, a challenging benchmark explicitly designed to prevent data leakage, and even surpasses strong proprietary systems such as Seed and o3-mini.
 
+   * - :ref:`kimi-k2.5 <models_llm_kimi-k2.5>`
+     - chat, vision
+     - 262144
+     - Kimi K2.5 is an open-source, native multimodal agentic model built through continual pretraining on approximately 15 trillion mixed visual and text tokens atop Kimi-K2-Base. It seamlessly integrates vision and language understanding with advanced agentic capabilities, instant and thinking modes, as well as conversational and agentic paradigms.
+
    * - :ref:`llama-2 <models_llm_llama-2>`
      - generate
      - 4096
@@ -400,6 +405,11 @@ The following is a list of built-in LLM in Xinference:
      - chat, tools, reasoning
      - 196608
      - MiniMax-M2, a Mini model built for Max coding & agentic workflows.
+
+   * - :ref:`minimax-m2.5 <models_llm_minimax-m2.5>`
+     - chat, tools, reasoning
+     - 196608
+     - MiniMax-M2.5, a Mini model built for Max coding & agentic workflows.
 
    * - :ref:`mistral-instruct-v0.1 <models_llm_mistral-instruct-v0.1>`
      - chat
@@ -853,6 +863,8 @@ The following is a list of built-in LLM in Xinference:
   
    kat-v1
   
+   kimi-k2.5
+  
    llama-2
   
    llama-2-chat
@@ -894,6 +906,8 @@ The following is a list of built-in LLM in Xinference:
    minicpm4
   
    minimax-m2
+  
+   minimax-m2.5
   
    mistral-instruct-v0.1
   
