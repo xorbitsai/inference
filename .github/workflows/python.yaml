@@ -72,7 +72,6 @@ jobs:
         shell: bash -l {0}
     strategy:
       fail-fast: false
-      max-parallel: 1
       matrix:
         os: [ "ubuntu-latest", "macos-latest", "windows-latest" ]
         python-version: [ "3.10", "3.11", "3.12", "3.13" ]
@@ -177,6 +176,12 @@ jobs:
           sudo apt-get clean
           sudo rm -rf /var/lib/apt/lists/*
           df -h 
+
+      - name: Check memory after test
+        run: free -h
+      
+      - name: Check OOM log
+        run: dmesg | tail -n 50
 
       - name: Test with pytest
         env:
@@ -330,9 +335,3 @@ jobs:
           
           fi
         working-directory: .
-
-      - name: Check memory after test
-        run: free -h
-      
-      - name: Check OOM log
-        run: dmesg | tail -n 50
