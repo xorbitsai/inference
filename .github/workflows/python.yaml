@@ -178,10 +178,7 @@ jobs:
           df -h 
 
       - name: Check memory after test
-        run: free -h
-      
-      - name: Check OOM log
-        run: dmesg | tail -n 50
+        run: top -s  | head -n 10
 
       - name: Test with pytest
         env:
