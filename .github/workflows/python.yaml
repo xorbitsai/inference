@@ -330,3 +330,9 @@ jobs:
           
           fi
         working-directory: .
+
+      - name: Check memory after test
+        run: free -h
+      
+      - name: Check OOM log
+        run: dmesg | tail -n 50
