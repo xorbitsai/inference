@@ -179,7 +179,6 @@ jobs:
 
       - name: Fix SSL for Windows
         if: startsWith(matrix.os, 'windows')
-        shell: bash
         run: |
           echo "SSL_CERT_FILE=$SSL_CERT_FILE"
           export SSL_CERT_FILE=$(python -c "import os; print(os.path.normpath(os.environ['SSL_CERT_FILE']))")
