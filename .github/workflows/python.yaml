@@ -177,8 +177,11 @@ jobs:
           sudo rm -rf /var/lib/apt/lists/*
           df -h 
 
-      - name: Check memory after test
-        run: top -b -n 1 | head -n 10 || true
+      - name: Debug SSL env
+        run: |
+          echo SSL_CERT_FILE=$env:SSL_CERT_FILE
+          echo REQUESTS_CA_BUNDLE=$env:REQUESTS_CA_BUNDLE
+          echo CURL_CA_BUNDLE=$env:CURL_CA_BUNDLE
 
       - name: Test with pytest
         env:

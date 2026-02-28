@@ -322,7 +322,6 @@ async def test_restful_api(setup):
     assert custom_model_reg is None
 
 
-@pytest.mark.skip(reason="Cost too many resources.")
 def test_restful_api_for_embedding(setup):
     model_name = "gte-base"
     # BUILTIN_EMBEDDING_MODELS stores a list of model families for each model name
@@ -1038,7 +1037,6 @@ def test_restful_api_for_qwen_tool_calls(setup, model_format, quantization):
     # _check_invalid_tool_calls(endpoint, model_uid_res)
 
 
-@pytest.mark.skip(reason="Cost too many resources.")
 def test_restful_api_with_request_limits(setup):
     model_name = "gte-base"
 
