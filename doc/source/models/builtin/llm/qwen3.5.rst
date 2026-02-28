@@ -29,3 +29,51 @@ chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 397 --model-format pytorch --quantization ${quantization}
 
+
+Model Spec 2 (pytorch, 122 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** pytorch
+- **Model Size (in billions):** 122
+- **Quantizations:** none
+- **Engines**: Transformers
+- **Model ID:** Qwen/Qwen3.5-122B-A10B
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3.5-122B-A10B>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3.5-122B-A10B>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 122 --model-format pytorch --quantization ${quantization}
+
+
+Model Spec 3 (pytorch, 35 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** pytorch
+- **Model Size (in billions):** 35
+- **Quantizations:** none
+- **Engines**: Transformers
+- **Model ID:** Qwen/Qwen3.5-35B-A3B
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3.5-35B-A3B>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3.5-35B-A3B>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 35 --model-format pytorch --quantization ${quantization}
+
+
+Model Spec 4 (pytorch, 27 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** pytorch
+- **Model Size (in billions):** 27
+- **Quantizations:** none
+- **Engines**: Transformers
+- **Model ID:** Qwen/Qwen3.5-27B
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3.5-27B>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3.5-27B>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 27 --model-format pytorch --quantization ${quantization}
+
