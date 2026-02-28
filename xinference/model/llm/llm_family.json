@@ -26223,10 +26223,16 @@
         "model_format": "pytorch",
         "model_src": {
           "huggingface": {
-            "model_id": "zai-org/GLM-5"
+            "model_id": "zai-org/GLM-5",
+            "quantizations": [
+              "none"
+            ]
           },
           "modelscope": {
-            "model_id": "ZhipuAI/GLM-5"
+            "model_id": "ZhipuAI/GLM-5",
+            "quantizations": [
+              "none"
+            ]
           }
         }
       }
@@ -26257,6 +26263,6 @@
       ]
     },
     "featured": false,
-    "updated_at": 1772247655
+    "updated_at": 1772248212
   }
 ]
