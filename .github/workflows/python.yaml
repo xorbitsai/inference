@@ -179,9 +179,9 @@ jobs:
 
       - name: Debug SSL env
         run: |
-          echo SSL_CERT_FILE=$env:SSL_CERT_FILE
-          echo REQUESTS_CA_BUNDLE=$env:REQUESTS_CA_BUNDLE
-          echo CURL_CA_BUNDLE=$env:CURL_CA_BUNDLE
+          echo "SSL_CERT_FILE=$SSL_CERT_FILE"
+          echo "REQUESTS_CA_BUNDLE=$REQUESTS_CA_BUNDLE"
+          echo "CURL_CA_BUNDLE=$CURL_CA_BUNDLE"
 
       - name: Test with pytest
         env:
