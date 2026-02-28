@@ -95,7 +95,7 @@ Currently, supported models include:
 - ``seed-oss``
 - ``Qwen3-Next-Instruct``, ``Qwen3-Next-Thinking``
 - ``DeepSeek-V3.2``, ``DeepSeek-V3.2-Exp``
-- ``MiniMax-M2``
+- ``MiniMax-M2``, ``MiniMax-M2.5``
 .. vllm_end
 
 To install Xinference and vLLM::
