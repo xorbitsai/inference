@@ -178,7 +178,7 @@ jobs:
           df -h 
 
       - name: Check memory after test
-        run: top -s  | head -n 10
+        run: top -b -n 1 | head -n 10 || true
 
       - name: Test with pytest
         env:
