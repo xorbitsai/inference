@@ -25580,7 +25580,7 @@
     },
     "tool_parser": "deepseek-r1",
     "featured": true,
-    "updated_at": 1770087071
+    "updated_at": 1770100192
   },
   {
     "model_name": "DeepSeek-V3.2-Exp",
@@ -25660,7 +25660,7 @@
     },
     "tool_parser": "deepseek-r1",
     "featured": true,
-    "updated_at": 1770100312
+    "updated_at": 1770205932
   },
   {
     "version": 2,
@@ -25811,7 +25811,7 @@
     "architectures": [
       "Glm4MoeForCausalLM"
     ],
-    "updated_at": 1769162354
+    "updated_at": 1769680026
   },
   {
     "version": 2,
@@ -25963,7 +25963,7 @@
     "architectures": [
       "Glm4MoeForCausalLM"
     ],
-    "updated_at": 1770097727
+    "updated_at": 1770100010
   },
   {
     "version": 2,
@@ -26145,65 +26145,6 @@
     "updated_at": 1772096743
   },
   {
-    "model_name": "MiniMax-M2.5",
-    "model_description": "MiniMax-M2.5, a Mini model built for Max coding & agentic workflows.",
-    "context_length": 196608,
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "chat",
-      "tools",
-      "reasoning"
-    ],
-    "model_specs": [
-      {
-        "model_size_in_billions": 230,
-        "model_format": "pytorch",
-        "model_src": {
-          "huggingface": {
-            "model_id": "MiniMaxAI/MiniMax-M2.5",
-            "quantizations": [
-              "none"
-            ]
-          },
-          "modelscope": {
-            "model_id": "MiniMax/MiniMax-M2.5",
-            "quantizations": [
-              "none"
-            ]
-          }
-        }
-      }
-    ],
-    "architectures": [
-      "MiniMaxM2ForCausalLM"
-    ],
-    "chat_template": "{# ----------‑‑‑ special token variables ‑‑‑---------- #}\n{%- set toolcall_begin_token   = '<minimax:tool_call>'         -%}\n{%- set toolcall_end_token     = '</minimax:tool_call>'        -%}\n{#- Tool Rendering Functions ============================================== -#}\n{%- macro render_tool_namespace(namespace_name, tool_list) -%}\n{%- for tool in tool_list -%}\n<tool>{{ tool.function | tojson(ensure_ascii=False) }}</tool>\n{% endfor -%}\n{%- endmacro -%}\n{%- macro visible_text(content) -%}\n    {%- if content is string -%}\n        {{ content }}\n    {%- elif content is iterable and content is not mapping -%}\n        {%- for item in content -%}\n            {%- if item is mapping and item.type == 'text' -%}\n                {{- item.text }}\n            {%- elif item is string -%}\n                {{- item }}\n            {%- endif -%}\n        {%- endfor -%}\n    {%- else -%}\n        {{- content }}\n    {%- endif -%}\n{%- endmacro -%}\n{#- System Message Construction ============================================ -#}\n{%- macro build_system_message(system_message) -%}\n    {%- if system_message and system_message.content -%}\n        {{- visible_text(system_message.content) }}\n    {%- else -%}\n        {%- if model_identity is not defined -%}\n            {%- set model_identity = \"You are a helpful assistant. Your name is MiniMax-M2.5 and is built by MiniMax.\" -%}\n        {%- endif -%}\n        {{- model_identity }}\n    {%- endif -%}\n    \n    {#- Handle current_date -#}\n    {%- if system_message and system_message.current_date -%}\n        {{- '\\n' ~ 'Current date: ' + system_message.current_date }}\n    {%- endif -%}\n    {#- Handle current_location -#}\n    {%- if system_message and system_message.current_location -%}\n        {{- '\\n' ~ 'Current location: ' + system_message.current_location }}\n    {%- endif -%}\n{%- endmacro -%}\n{#- Main Template Logic ================================================= -#}\n{#- Extract system message (only first message if it's system) -#}\n{%- set system_message = none -%}\n{%- set conversation_messages = messages -%}\n{%- if messages and messages[0].role == \"system\" -%}\n    {%- set system_message = messages[0] -%}\n    {%- set conversation_messages = messages[1:] -%}\n{%- endif -%}\n{#- Get the last user message turn, for interleved thinking -#}\n{%- set ns = namespace(last_user_index=-1) %}\n{% for m in conversation_messages %}\n    {%- if m.role == 'user' %}\n        {% set ns.last_user_index = loop.index0 -%}\n    {%- endif %}\n{%- endfor %}\n{#- Render system message -#}\n{{- ']~!b[' ~ ']~b]system' ~ '\\n' }}\n{{- build_system_message(system_message) }}\n{#- Render tools if available -#}\n{%- if tools -%}\n    {{- '\\n\\n' ~ '# Tools' ~ '\\n' ~ 'You may call one or more tools to assist with the user query.\\nHere are the tools available in JSONSchema format:' ~ '\\n' }}\n    {{- '\\n' ~ '<tools>' ~ '\\n' }}\n    {{- render_tool_namespace(\"functions\", tools) }}\n    {{- '</tools>' ~ '\\n\\n' }}\n{{- 'When making tool calls, use XML format to invoke tools and pass parameters:' ~ '\\n' }}\n{{- '\\n' ~ toolcall_begin_token }}\n<invoke name=\"tool-name-1\">\n<parameter name=\"param-key-1\">param-value-1</parameter>\n<parameter name=\"param-key-2\">param-value-2</parameter>\n...\n</invoke>\n{{- '\\n' ~ toolcall_end_token }}\n{%- endif -%}\n{{- '[e~[\\n' }}\n\n{#- Render messages -#}\n{%- set last_tool_call = namespace(name=none) -%}\n{%- for message in conversation_messages -%}\n    {%- if message.role == 'assistant' -%}\n        {#- Only render reasoning_content if no user message follows -#}\n        {{- ']~b]ai' ~ '\\n' }}\n\n        {%- set reasoning_content = '' %}\n        {%- set content = visible_text(message.content) %}\n        {%- if message.reasoning_content is string %}\n            {%- set reasoning_content = message.reasoning_content %}\n        {%- else %}\n            {%- if '</think>' in content %}\n                {%- set reasoning_content = content.split('</think>')[0].strip('\\n').split('<think>')[-1].strip('\\n') %}\n                {%- set content = content.split('</think>')[-1].strip('\\n') %}\n            {%- endif %}\n        {%- endif %}\n        {%- if reasoning_content and loop.index0 > ns.last_user_index -%}\n            {{- '<think>' ~ '\\n' ~ reasoning_content ~ '\\n' ~ '</think>' ~ '\\n\\n' }}\n        {%- endif -%}\n        {%- if content -%}\n            {{- content }}\n        {%- endif -%}\n        {%- if message.tool_calls -%}\n            {{- '\\n' ~ toolcall_begin_token ~ '\\n' }}\n\n            {%- for tool_call in message.tool_calls -%}\n                {%- if tool_call.function %}\n                    {%- set tool_call = tool_call.function %}\n                {%- endif %}\n                {{- '<invoke name=\"' + tool_call.name + '\">' }}\n                {% set _args = tool_call.arguments %}\n                {%- for k, v in _args.items() %}\n                {{- '<parameter name=\"' + k + '\">' }}\n                {{- v | tojson(ensure_ascii=False) if v is not string else v }}\n                {{- '</parameter>' }}\n                {% endfor %}\n                {{- '</invoke>' ~ '\\n' }}\n            {%- endfor -%}\n            \n            {{- toolcall_end_token}}\n            {%- set last_tool_call.name = message.tool_calls[-1].name -%}\n        {%- else -%}\n            {%- set last_tool_call.name = none -%}\n        {%- endif -%}\n        {{- '[e~[' ~ '\\n' }}\n        \n    {%- elif message.role == 'tool' -%}\n    {%- if last_tool_call.name is none -%}\n        {{- raise_exception(\"Message has tool role, but there was no previous assistant message with a tool call!\") }}\n    {%- endif -%}\n    {%- if loop.first or (conversation_messages[loop.index0 - 1].role != 'tool') -%}\n        {{- ']~b]tool' }}\n    {%- endif -%}\n    {%- if message.content is string -%}\n        {{- '\\n<response>' }}\n        {{- message.content }}\n        {{- '</response>' }}\n    {%- else -%}\n        {%- for tr in message.content -%}\n            {{- '\\n<response>' }}\n            {{- tr.output if tr.output is defined else (tr.text if tr.type == 'text' and tr.text is defined else tr) }}\n            {{- '\\n</response>' }}\n        {%- endfor -%}\n    {%- endif -%}\n    {%- if loop.last or (conversation_messages[loop.index0 + 1].role != 'tool') -%}\n        {{- '[e~[\\n' -}}\n    {%- endif -%}\n        \n    {%- elif message.role == 'user' -%}\n        {{- ']~b]user' ~ '\\n' }}\n        {{- visible_text(message.content) }}\n        {{- '[e~[' ~ '\\n' }}\n    {%- endif -%}\n{%- endfor -%}\n\n{#- Generation prompt -#}\n{%- if add_generation_prompt -%}\n{{- ']~b]ai' ~ '\\n' ~ '<think>' ~ '\\n' }}\n{%- endif -%}",
-    "stop_token_ids": [
-      200020
-    ],
-    "stop": [
-      "[e~["
-    ],
-    "tool_parser": "minimax",
-    "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>",
-    "version": 2,
-    "virtualenv": {
-      "packages": [
-        "#transformers_dependencies# ; #engine# == \"Transformers\"",
-        "#mlx_dependencies# ; #engine# == \"MLX\"",
-        "#vllm_dependencies# ; #engine# == \"vllm\"",
-        "#sglang_dependencies# ; #engine# == \"sglang\"",
-        "#system_numpy# ; #engine# == \"vllm\""
-      ]
-    },
-    "featured": false,
-    "updated_at": 1772095707
-  },
-  {
     "model_name": "glm-5",
     "model_description": "We are launching GLM-5, targeting complex systems engineering and long-horizon agentic tasks. Scaling is still one of the most important ways to improve the intelligence efficiency of Artificial General Intelligence (AGI). Compared to GLM-4.5, GLM-5 scales from 355B parameters (32B active) to 744B parameters (40B active), and increases pre-training data from 23T to 28.5T tokens. GLM-5 also integrates DeepSeek Sparse Attention (DSA), largely reducing deployment cost while preserving long-context capacity.  Reinforcement learning aims to bridge the gap between competence and excellence in pre-trained models. However, deploying it at scale for LLMs is a challenge due to the RL training inefficiency. To this end, we developed slime, a novel asynchronous RL infrastructure that substantially improves training throughput and efficiency, enabling more fine-grained post-training iterations. With advances in both pre-training and post-training, GLM-5 delivers significant improvement compared to GLM-4.7 across a wide range of academic benchmarks and achieves best-in-class performance among all open-source models in the world on reasoning, coding, and agentic tasks, closing the gap with frontier models.",
     "context_length": 202752,
@@ -26264,5 +26205,64 @@
     },
     "featured": false,
     "updated_at": 1772248212
+  },
+  {
+    "model_name": "MiniMax-M2.5",
+    "model_description": "MiniMax-M2.5, a Mini model built for Max coding & agentic workflows.",
+    "context_length": 196608,
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "tools",
+      "reasoning"
+    ],
+    "model_specs": [
+      {
+        "model_size_in_billions": 230,
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "MiniMaxAI/MiniMax-M2.5",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "MiniMax/MiniMax-M2.5",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "architectures": [
+      "MiniMaxM2ForCausalLM"
+    ],
+    "chat_template": "{# ----------‑‑‑ special token variables ‑‑‑---------- #}\n{%- set toolcall_begin_token   = '<minimax:tool_call>'         -%}\n{%- set toolcall_end_token     = '</minimax:tool_call>'        -%}\n{#- Tool Rendering Functions ============================================== -#}\n{%- macro render_tool_namespace(namespace_name, tool_list) -%}\n{%- for tool in tool_list -%}\n<tool>{{ tool.function | tojson(ensure_ascii=False) }}</tool>\n{% endfor -%}\n{%- endmacro -%}\n{%- macro visible_text(content) -%}\n    {%- if content is string -%}\n        {{ content }}\n    {%- elif content is iterable and content is not mapping -%}\n        {%- for item in content -%}\n            {%- if item is mapping and item.type == 'text' -%}\n                {{- item.text }}\n            {%- elif item is string -%}\n                {{- item }}\n            {%- endif -%}\n        {%- endfor -%}\n    {%- else -%}\n        {{- content }}\n    {%- endif -%}\n{%- endmacro -%}\n{#- System Message Construction ============================================ -#}\n{%- macro build_system_message(system_message) -%}\n    {%- if system_message and system_message.content -%}\n        {{- visible_text(system_message.content) }}\n    {%- else -%}\n        {%- if model_identity is not defined -%}\n            {%- set model_identity = \"You are a helpful assistant. Your name is MiniMax-M2.5 and is built by MiniMax.\" -%}\n        {%- endif -%}\n        {{- model_identity }}\n    {%- endif -%}\n    \n    {#- Handle current_date -#}\n    {%- if system_message and system_message.current_date -%}\n        {{- '\\n' ~ 'Current date: ' + system_message.current_date }}\n    {%- endif -%}\n    {#- Handle current_location -#}\n    {%- if system_message and system_message.current_location -%}\n        {{- '\\n' ~ 'Current location: ' + system_message.current_location }}\n    {%- endif -%}\n{%- endmacro -%}\n{#- Main Template Logic ================================================= -#}\n{#- Extract system message (only first message if it's system) -#}\n{%- set system_message = none -%}\n{%- set conversation_messages = messages -%}\n{%- if messages and messages[0].role == \"system\" -%}\n    {%- set system_message = messages[0] -%}\n    {%- set conversation_messages = messages[1:] -%}\n{%- endif -%}\n{#- Get the last user message turn, for interleved thinking -#}\n{%- set ns = namespace(last_user_index=-1) %}\n{% for m in conversation_messages %}\n    {%- if m.role == 'user' %}\n        {% set ns.last_user_index = loop.index0 -%}\n    {%- endif %}\n{%- endfor %}\n{#- Render system message -#}\n{{- ']~!b[' ~ ']~b]system' ~ '\\n' }}\n{{- build_system_message(system_message) }}\n{#- Render tools if available -#}\n{%- if tools -%}\n    {{- '\\n\\n' ~ '# Tools' ~ '\\n' ~ 'You may call one or more tools to assist with the user query.\\nHere are the tools available in JSONSchema format:' ~ '\\n' }}\n    {{- '\\n' ~ '<tools>' ~ '\\n' }}\n    {{- render_tool_namespace(\"functions\", tools) }}\n    {{- '</tools>' ~ '\\n\\n' }}\n{{- 'When making tool calls, use XML format to invoke tools and pass parameters:' ~ '\\n' }}\n{{- '\\n' ~ toolcall_begin_token }}\n<invoke name=\"tool-name-1\">\n<parameter name=\"param-key-1\">param-value-1</parameter>\n<parameter name=\"param-key-2\">param-value-2</parameter>\n...\n</invoke>\n{{- '\\n' ~ toolcall_end_token }}\n{%- endif -%}\n{{- '[e~[\\n' }}\n\n{#- Render messages -#}\n{%- set last_tool_call = namespace(name=none) -%}\n{%- for message in conversation_messages -%}\n    {%- if message.role == 'assistant' -%}\n        {#- Only render reasoning_content if no user message follows -#}\n        {{- ']~b]ai' ~ '\\n' }}\n\n        {%- set reasoning_content = '' %}\n        {%- set content = visible_text(message.content) %}\n        {%- if message.reasoning_content is string %}\n            {%- set reasoning_content = message.reasoning_content %}\n        {%- else %}\n            {%- if '</think>' in content %}\n                {%- set reasoning_content = content.split('</think>')[0].strip('\\n').split('<think>')[-1].strip('\\n') %}\n                {%- set content = content.split('</think>')[-1].strip('\\n') %}\n            {%- endif %}\n        {%- endif %}\n        {%- if reasoning_content and loop.index0 > ns.last_user_index -%}\n            {{- '<think>' ~ '\\n' ~ reasoning_content ~ '\\n' ~ '</think>' ~ '\\n\\n' }}\n        {%- endif -%}\n        {%- if content -%}\n            {{- content }}\n        {%- endif -%}\n        {%- if message.tool_calls -%}\n            {{- '\\n' ~ toolcall_begin_token ~ '\\n' }}\n\n            {%- for tool_call in message.tool_calls -%}\n                {%- if tool_call.function %}\n                    {%- set tool_call = tool_call.function %}\n                {%- endif %}\n                {{- '<invoke name=\"' + tool_call.name + '\">' }}\n                {% set _args = tool_call.arguments %}\n                {%- for k, v in _args.items() %}\n                {{- '<parameter name=\"' + k + '\">' }}\n                {{- v | tojson(ensure_ascii=False) if v is not string else v }}\n                {{- '</parameter>' }}\n                {% endfor %}\n                {{- '</invoke>' ~ '\\n' }}\n            {%- endfor -%}\n            \n            {{- toolcall_end_token}}\n            {%- set last_tool_call.name = message.tool_calls[-1].name -%}\n        {%- else -%}\n            {%- set last_tool_call.name = none -%}\n        {%- endif -%}\n        {{- '[e~[' ~ '\\n' }}\n        \n    {%- elif message.role == 'tool' -%}\n    {%- if last_tool_call.name is none -%}\n        {{- raise_exception(\"Message has tool role, but there was no previous assistant message with a tool call!\") }}\n    {%- endif -%}\n    {%- if loop.first or (conversation_messages[loop.index0 - 1].role != 'tool') -%}\n        {{- ']~b]tool' }}\n    {%- endif -%}\n    {%- if message.content is string -%}\n        {{- '\\n<response>' }}\n        {{- message.content }}\n        {{- '</response>' }}\n    {%- else -%}\n        {%- for tr in message.content -%}\n            {{- '\\n<response>' }}\n            {{- tr.output if tr.output is defined else (tr.text if tr.type == 'text' and tr.text is defined else tr) }}\n            {{- '\\n</response>' }}\n        {%- endfor -%}\n    {%- endif -%}\n    {%- if loop.last or (conversation_messages[loop.index0 + 1].role != 'tool') -%}\n        {{- '[e~[\\n' -}}\n    {%- endif -%}\n        \n    {%- elif message.role == 'user' -%}\n        {{- ']~b]user' ~ '\\n' }}\n        {{- visible_text(message.content) }}\n        {{- '[e~[' ~ '\\n' }}\n    {%- endif -%}\n{%- endfor -%}\n\n{#- Generation prompt -#}\n{%- if add_generation_prompt -%}\n{{- ']~b]ai' ~ '\\n' ~ '<think>' ~ '\\n' }}\n{%- endif -%}",
+    "stop_token_ids": [
+      200020
+    ],
+    "stop": [
+      "[e~["
+    ],
+    "tool_parser": "minimax",
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#mlx_dependencies# ; #engine# == \"MLX\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    },
+    "featured": false,
+    "updated_at": 1772095707
   }
 ]
