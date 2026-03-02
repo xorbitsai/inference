@@ -239,8 +239,12 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
         model_spec: EmbeddingSpecV1,
         quantization: str,
     ) -> Union[bool, Tuple[bool, str]]:
+
         if model_family.model_name.startswith("Qwen3-VL-Embedding"):
-            return False, "Qwen3-VL embedding requires vLLM>=0.14.0"
+            from packaging import version
+            import vllm
+            if version.parse(vllm.__version__) < version.parse("0.14.0"):
+                return False, f"Qwen3-VL embedding requires vLLM>=0.14.0, current: {vllm.__version__}"
         if model_spec.model_format not in ["pytorch"]:
             return False, "vLLM embedding engine only supports pytorch format"
         prefix = model_family.model_name.split("-", 1)[0]
