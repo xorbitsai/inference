@@ -177,6 +177,13 @@ jobs:
           sudo rm -rf /var/lib/apt/lists/*
           df -h 
 
+      - name: Fix SSL for Windows
+        if: startsWith(matrix.os, 'windows')
+        run: |
+          echo "SSL_CERT_FILE=$SSL_CERT_FILE"
+          export SSL_CERT_FILE=$(python -c "import os; print(os.path.normpath(os.environ['SSL_CERT_FILE']))")
+          echo "SSL_CERT_FILE=$SSL_CERT_FILE"
+
       - name: Test with pytest
         env:
           MODULE: ${{ matrix.module }}
