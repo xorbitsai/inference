@@ -49,7 +49,7 @@ DEBUG_EXECUTOR = bool(int(os.getenv("XINFERENCE_DEBUG_VLLM_EXECUTOR", "0")))
 class WorkerActor(xo.StatelessActor):
     def __init__(self, vllm_config: "VllmConfig", rpc_rank: int = 0, **kwargs):
         super().__init__(**kwargs)
-        self._worker = WorkerWrapperBase(vllm_config, rpc_rank=rpc_rank)
+        self._worker = WorkerWrapperBase(rpc_rank=rpc_rank)
 
     async def __post_create__(self):
         try:
@@ -61,6 +61,10 @@ class WorkerActor(xo.StatelessActor):
             pass
 
     def __getattr__(self, item):
+        from xoscar.core import NO_LOCK_ATTRIBUTE_HINT
+
+        if item == NO_LOCK_ATTRIBUTE_HINT:
+            return True
         return getattr(self._worker, item)
 
     @classmethod
