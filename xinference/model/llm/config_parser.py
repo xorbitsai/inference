@@ -197,10 +197,10 @@ def _infer_model_size_in_billions(config: Dict[str, Any]) -> Optional[Union[int,
     attention_params = 4 * hidden_size * hidden_size
     mlp_params = 3 * hidden_size * intermediate_size
     total_params = embedding_params + num_layers * (attention_params + mlp_params)
-    size_in_billions = total_params / 1e9
-    if size_in_billions <= 0:
+    calculated_size_in_billions = total_params / 1e9
+    if calculated_size_in_billions <= 0:
         return None
-    return _format_size_in_billions(size_in_billions)
+    return _format_size_in_billions(calculated_size_in_billions)
 
 
 def _infer_quantization(config: Dict[str, Any], model_format: str) -> str:
