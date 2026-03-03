@@ -1098,10 +1098,7 @@ def get_engine_params_by_name(
         return engine_params
 
     if model_type == "embedding":
-        from .embedding.embed_family import (
-            BUILTIN_EMBEDDING_MODELS,
-            EMBEDDING_ENGINES,
-        )
+        from .embedding.embed_family import BUILTIN_EMBEDDING_MODELS, EMBEDDING_ENGINES
         from .embedding.embed_family import (
             SUPPORTED_ENGINES as EMBEDDING_SUPPORTED_ENGINES,
         )
@@ -1143,13 +1140,9 @@ def get_engine_params_by_name(
     if model_type == "image":
         from .image import BUILTIN_IMAGE_MODELS
         from .image.custom import get_user_defined_images
-        from .image.engine_family import (
-            IMAGE_ENGINES,
-        )
+        from .image.engine_family import IMAGE_ENGINES
         from .image.engine_family import SUPPORTED_ENGINES as IMAGE_SUPPORTED_ENGINES
-        from .image.ocr.ocr_family import (
-            OCR_ENGINES,
-        )
+        from .image.ocr.ocr_family import OCR_ENGINES
         from .image.ocr.ocr_family import SUPPORTED_ENGINES as OCR_SUPPORTED_ENGINES
 
         def _get_image_families(model_name: str, is_ocr: bool) -> List[Any]:
@@ -1529,10 +1522,7 @@ def get_engine_params_by_name_with_virtual_env(
         return engine_params
 
     elif model_type == "embedding":
-        from .embedding.embed_family import (
-            BUILTIN_EMBEDDING_MODELS,
-            EMBEDDING_ENGINES,
-        )
+        from .embedding.embed_family import BUILTIN_EMBEDDING_MODELS, EMBEDDING_ENGINES
         from .embedding.embed_family import (
             SUPPORTED_ENGINES as EMBEDDING_SUPPORTED_ENGINES,
         )
@@ -1610,13 +1600,9 @@ def get_engine_params_by_name_with_virtual_env(
     elif model_type == "image":
         from .image import BUILTIN_IMAGE_MODELS
         from .image.custom import get_user_defined_images
-        from .image.engine_family import (
-            IMAGE_ENGINES,
-        )
+        from .image.engine_family import IMAGE_ENGINES
         from .image.engine_family import SUPPORTED_ENGINES as IMAGE_SUPPORTED_ENGINES
-        from .image.ocr.ocr_family import (
-            OCR_ENGINES,
-        )
+        from .image.ocr.ocr_family import OCR_ENGINES
         from .image.ocr.ocr_family import SUPPORTED_ENGINES as OCR_SUPPORTED_ENGINES
 
         def _get_image_families(model_name: str, is_ocr: bool) -> List[Any]:

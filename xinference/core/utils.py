@@ -307,7 +307,7 @@ def build_subpool_envs_for_virtual_env(
         venv_bin = os.path.dirname(venv_python)
         venv_path = os.path.dirname(venv_bin)
         current_path = subpool_envs.get("PATH") or os.environ.get("PATH", "")
-        subpool_envs["PATH"] = os.pathsep.join([venv_bin, current_path])
+        subpool_envs["PATH"] = os.pathsep.join([venv_bin, current_path or ""])
         subpool_envs["VIRTUAL_ENV"] = venv_path
         subpool_envs.setdefault(
             "FLASHINFER_NINJA_PATH", os.path.join(venv_bin, "ninja")

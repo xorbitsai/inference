@@ -29,25 +29,10 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
-      - name: flake8 Lint
-        uses: py-actions/flake8@v2
-        with:
-          path: "xinference"
-          args: "--config setup.cfg"
-      - name: black
-        uses: psf/black@stable
-        with:
-          src: "xinference"
-          options: "--check"
-          version: "25.1.0"
-      - uses: isort/isort-action@master
-        with:
-          sortPaths: "xinference"
-          configuration: "--check-only --diff --sp setup.cfg"
-      - name: mypy
-        run: pip install 'mypy==1.18.1' && mypy --install-types --non-interactive xinference
-      - name: codespell
-        run: pip install codespell && codespell --ignore-words-list thirdparty xinference
+      - name: Install pre-commit
+        run: pip install pre-commit
+      - name: Run pre-commit
+        run: pre-commit run --all-files
       - name: Set up Node.js
         uses: actions/setup-node@v1
         with:

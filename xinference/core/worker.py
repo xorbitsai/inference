@@ -1331,12 +1331,15 @@ class WorkerActor(xo.StatelessActor):
         if settings is None:
             settings = VirtualEnvSettings(packages=virtual_env_packages or [])
 
+        assert settings is not None  # for mypy type narrowing
+
         if settings and model_engine and model_engine.lower() not in ("vllm", "sglang"):
             # Pydantic v1 compatibility: use copy() when model_copy is unavailable.
             if hasattr(settings, "model_copy"):
                 settings = settings.model_copy(deep=True)
             else:
                 settings = settings.copy(deep=True)
+            assert settings is not None  # for mypy type narrowing after copy
             settings.extra_index_url = None
             settings.index_strategy = None
 
