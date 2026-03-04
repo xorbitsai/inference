@@ -312,7 +312,9 @@ def _update_vllm_supported_lists() -> None:
         _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "GlmMoeDsaForCausalLM")
 
     if effective_version > version.parse("0.16.0"):
-        _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "Qwen3_5MoeForConditionalGeneration")
+        _append_unique(
+            VLLM_SUPPORTED_MULTI_MODEL_LIST, "Qwen3_5MoeForConditionalGeneration"
+        )
 
 
 _update_vllm_supported_lists()
