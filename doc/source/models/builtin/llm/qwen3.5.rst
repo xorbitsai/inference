@@ -30,7 +30,39 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 397 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 2 (pytorch, 122 Billion)
+Model Spec 2 (fp8, 397 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** fp8
+- **Model Size (in billions):** 397
+- **Quantizations:** FP8
+- **Engines**: 
+- **Model ID:** Qwen/Qwen3.5-397B-A17B-FP8
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3.5-397B-A17B-FP8>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3.5-397B-A17B-FP8>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 397 --model-format fp8 --quantization ${quantization}
+
+
+Model Spec 3 (gptq, 397 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** gptq
+- **Model Size (in billions):** 397
+- **Quantizations:** Int4
+- **Engines**: Transformers
+- **Model ID:** Qwen/Qwen3.5-397B-A17B-GPTQ-Int4
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3.5-397B-A17B-GPTQ-Int4>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3.5-397B-A17B-GPTQ-Int4>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 397 --model-format gptq --quantization ${quantization}
+
+
+Model Spec 4 (pytorch, 122 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -46,7 +78,39 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 122 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 3 (pytorch, 35 Billion)
+Model Spec 5 (fp8, 122 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** fp8
+- **Model Size (in billions):** 122
+- **Quantizations:** FP8
+- **Engines**: 
+- **Model ID:** Qwen/Qwen3.5-122B-A10B-FP8
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3.5-122B-A10B-FP8>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3.5-122B-A10B-FP8>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 122 --model-format fp8 --quantization ${quantization}
+
+
+Model Spec 6 (gptq, 122 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** gptq
+- **Model Size (in billions):** 122
+- **Quantizations:** Int4
+- **Engines**: Transformers
+- **Model ID:** Qwen/Qwen3.5-122B-A10B-GPTQ-Int4
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3.5-122B-A10B-GPTQ-Int4>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3.5-122B-A10B-GPTQ-Int4>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 122 --model-format gptq --quantization ${quantization}
+
+
+Model Spec 7 (pytorch, 35 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -62,7 +126,39 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 35 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 4 (pytorch, 27 Billion)
+Model Spec 8 (fp8, 35 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** fp8
+- **Model Size (in billions):** 35
+- **Quantizations:** FP8
+- **Engines**: 
+- **Model ID:** Qwen/Qwen3.5-35B-A3B-FP8
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3.5-35B-A3B-FP8>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3.5-35B-A3B-FP8>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 35 --model-format fp8 --quantization ${quantization}
+
+
+Model Spec 9 (gptq, 35 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** gptq
+- **Model Size (in billions):** 35
+- **Quantizations:** Int4
+- **Engines**: Transformers
+- **Model ID:** Qwen/Qwen3.5-35B-A3B-GPTQ-Int4
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3.5-35B-A3B-GPTQ-Int4>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3.5-35B-A3B-GPTQ-Int4>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 35 --model-format gptq --quantization ${quantization}
+
+
+Model Spec 10 (pytorch, 27 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -76,4 +172,36 @@ Execute the following command to launch the model, remember to replace ``${quant
 chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 27 --model-format pytorch --quantization ${quantization}
+
+
+Model Spec 11 (fp8, 27 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** fp8
+- **Model Size (in billions):** 27
+- **Quantizations:** FP8
+- **Engines**: 
+- **Model ID:** Qwen/Qwen3.5-27B-FP8
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3.5-27B-FP8>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3.5-27B-FP8>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 27 --model-format fp8 --quantization ${quantization}
+
+
+Model Spec 12 (gptq, 27 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** gptq
+- **Model Size (in billions):** 27
+- **Quantizations:** Int4
+- **Engines**: Transformers
+- **Model ID:** Qwen/Qwen3.5-27B-GPTQ-Int4
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3.5-27B-GPTQ-Int4>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3.5-27b-GPTQ-Int4>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 27 --model-format gptq --quantization ${quantization}
 

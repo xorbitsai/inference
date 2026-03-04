@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 230 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 230
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** MiniMaxAI/MiniMax-M2.5
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/MiniMaxAI/MiniMax-M2.5>`__, `ModelScope <https://modelscope.cn/models/MiniMax/MiniMax-M2.5>`__
 

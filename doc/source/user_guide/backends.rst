@@ -159,6 +159,7 @@ Currently, supported model includes:
 - ``Qwen3-Next-Instruct``, ``Qwen3-Next-Thinking``
 - ``DeepSeek-V3.2``, ``DeepSeek-V3.2-Exp``
 - ``MiniMax-M2``, ``MiniMax-M2.5``
+- ``glm-5``
 .. vllm_end
 
 .. _sglang_backend:
