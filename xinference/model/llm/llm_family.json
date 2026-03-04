@@ -26235,6 +26235,24 @@
             ]
           }
         }
+      },
+      {
+        "model_size_in_billions": 744,
+        "model_format": "fp8",
+        "model_src": {
+          "huggingface": {
+            "model_id": "zai-org/GLM-5-FP8",
+            "quantizations": [
+              "FP8"
+            ]
+          },
+          "modelscope": {
+            "model_id": "ZhipuAI/GLM-5-FP8",
+            "quantizations": [
+              "FP8"
+            ]
+          }
+        }
       }
     ],
     "architectures": [
@@ -26263,7 +26281,7 @@
       ]
     },
     "featured": false,
-    "updated_at": 1772248212
+    "updated_at": 1772607514
   },
   {
     "model_name": "qwen3.5",
@@ -26299,6 +26317,42 @@
         }
       },
       {
+        "model_size_in_billions": 397,
+        "model_format": "fp8",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-397B-A17B-FP8",
+            "quantizations": [
+              "FP8"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-397B-A17B-FP8",
+            "quantizations": [
+              "FP8"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 397,
+        "model_format": "gptq",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-397B-A17B-GPTQ-Int4",
+            "quantizations": [
+              "Int4"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-397B-A17B-GPTQ-Int4",
+            "quantizations": [
+              "Int4"
+            ]
+          }
+        }
+      },
+      {
         "model_size_in_billions": 122,
         "model_format": "pytorch",
         "model_src": {
@@ -26312,6 +26366,42 @@
             "model_id": "Qwen/Qwen3.5-122B-A10B",
             "quantizations": [
               "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 122,
+        "model_format": "fp8",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-122B-A10B-FP8",
+            "quantizations": [
+              "FP8"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-122B-A10B-FP8",
+            "quantizations": [
+              "FP8"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 122,
+        "model_format": "gptq",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-122B-A10B-GPTQ-Int4",
+            "quantizations": [
+              "Int4"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-122B-A10B-GPTQ-Int4",
+            "quantizations": [
+              "Int4"
             ]
           }
         }
@@ -26335,6 +26425,42 @@
         }
       },
       {
+        "model_size_in_billions": 35,
+        "model_format": "fp8",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-35B-A3B-FP8",
+            "quantizations": [
+              "FP8"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-35B-A3B-FP8",
+            "quantizations": [
+              "FP8"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 35,
+        "model_format": "gptq",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-35B-A3B-GPTQ-Int4",
+            "quantizations": [
+              "Int4"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-35B-A3B-GPTQ-Int4",
+            "quantizations": [
+              "Int4"
+            ]
+          }
+        }
+      },
+      {
         "model_size_in_billions": 27,
         "model_format": "pytorch",
         "model_src": {
@@ -26346,6 +26472,114 @@
           },
           "modelscope": {
             "model_id": "Qwen/Qwen3.5-27B",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 27,
+        "model_format": "fp8",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-27B-FP8",
+            "quantizations": [
+              "FP8"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-27B-FP8",
+            "quantizations": [
+              "FP8"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 27,
+        "model_format": "gptq",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-27B-GPTQ-Int4",
+            "quantizations": [
+              "Int4"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-27b-GPTQ-Int4",
+            "quantizations": [
+              "Int4"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 9,
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-9B",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-9B",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 4,
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-4B",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-4B",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 2,
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-2B",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-2B",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": "0_8",
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-0.8B",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-0.8B",
             "quantizations": [
               "none"
             ]
@@ -26378,6 +26612,6 @@
     ],
     "tool_parser": "qwen",
     "featured": false,
-    "updated_at": 1772249003
+    "updated_at": 1772607161
   }
 ]
