@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 1058_59 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 1058_59
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** moonshotai/Kimi-K2.5
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/moonshotai/Kimi-K2.5>`__, `ModelScope <https://modelscope.cn/models/moonshotai/Kimi-K2.5>`__
 
