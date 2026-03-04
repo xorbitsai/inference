@@ -29,3 +29,19 @@ chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name glm-5 --size-in-billions 744 --model-format pytorch --quantization ${quantization}
 
+
+Model Spec 2 (fp8, 744 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** fp8
+- **Model Size (in billions):** 744
+- **Quantizations:** FP8
+- **Engines**: 
+- **Model ID:** zai-org/GLM-5-FP8
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/GLM-5-FP8>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/GLM-5-FP8>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name glm-5 --size-in-billions 744 --model-format fp8 --quantization ${quantization}
+
