@@ -53,6 +53,7 @@ from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_DEFAULT_ENDPOINT_PORT,
     XINFERENCE_DISABLE_METRICS,
+    XINFERENCE_ENABLE_OTEL,
     XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
 )
 from ..core.event import Event, EventCollectorActor, EventType
@@ -205,6 +206,17 @@ class RESTfulAPI(CancelMixin):
             response = await call_next(request)
             return response
 
+        # Initialise OpenTelemetry tracing & metrics (no-op when disabled)
+        if XINFERENCE_ENABLE_OTEL:
+            try:
+                from ..core.otel import setup_otel
+
+                setup_otel(self._app)
+            except Exception:
+                logger.exception(
+                    "Failed to initialise OpenTelemetry — continuing without OTEL."
+                )
+
         @self._app.exception_handler(500)
         async def internal_exception_handler(request: Request, exc: Exception):
             logger.exception("Handling request %s failed: %s", request.url, exc)
@@ -264,7 +276,7 @@ class RESTfulAPI(CancelMixin):
             pass  # In case that some Python version does not have __annotations__
         if invalid_routes:
             raise Exception(
-                f"The return value type of the following routes is not Response:\n"
+                f"The return value type of the following routes is not Response: \n"
                 f"{pprint.pformat(invalid_routes)}"
             )
 
@@ -657,7 +669,7 @@ class RESTfulAPI(CancelMixin):
             access_token = request.headers.get("Authorization")
             internal_host = "localhost" if self._host == "0.0.0.0" else self._host
             interface = GradioInterface(
-                endpoint=f"http://{internal_host}:{self._port}",
+                endpoint="http://" + internal_host + ":" + str(self._port),
                 model_uid=model_uid,
                 model_name=body.model_name,
                 model_size_in_billions=body.model_size_in_billions,
@@ -698,7 +710,7 @@ class RESTfulAPI(CancelMixin):
             access_token = request.headers.get("Authorization")
             internal_host = "localhost" if self._host == "0.0.0.0" else self._host
             interface = MediaInterface(
-                endpoint=f"http://{internal_host}:{self._port}",
+                endpoint="http://" + internal_host + ":" + str(self._port),
                 model_uid=model_uid,
                 model_family=body.model_family,
                 model_name=body.model_name,
@@ -2455,7 +2467,7 @@ def run(
     logging_conf: Optional[dict] = None,
     auth_config_file: Optional[str] = None,
 ):
-    logger.info(f"Starting Xinference at endpoint: http://{host}:{port}")
+    logger.info("Starting Xinference at endpoint: http://%s:%s", host, port)
     try:
         api = RESTfulAPI(
             supervisor_address=supervisor_address,
@@ -2471,7 +2483,7 @@ def run(
         if port is XINFERENCE_DEFAULT_ENDPOINT_PORT:
             port = get_next_port()
             logger.info(f"Found available port: {port}")
-            logger.info(f"Starting Xinference at endpoint: http://{host}:{port}")
+            logger.info("Starting Xinference at endpoint: http://%s:%s", host, port)
             api = RESTfulAPI(
                 supervisor_address=supervisor_address,
                 host=host,
