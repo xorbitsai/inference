@@ -286,8 +286,8 @@ class RESTfulAPI(CancelMixin):
             pass  # In case that some Python version does not have __annotations__
         if invalid_routes:
             raise Exception(
-                "The return value type of the following routes is not Response:\n"
-                + pprint.pformat(invalid_routes)
+                f"The return value type of the following routes is not Response:\n"
+                f"{pprint.pformat(invalid_routes)}"
             )
 
         class SPAStaticFiles(StaticFiles):
@@ -684,7 +684,7 @@ class RESTfulAPI(CancelMixin):
             access_token = request.headers.get("Authorization")
             internal_host = "localhost" if self._host == "0.0.0.0" else self._host
             interface = GradioInterface(
-                endpoint="http://%s:%s" % (internal_host, self._port),
+                endpoint=f"http://{internal_host}:{self._port}",
                 model_uid=model_uid,
                 model_name=body.model_name,
                 model_size_in_billions=body.model_size_in_billions,
@@ -725,7 +725,7 @@ class RESTfulAPI(CancelMixin):
             access_token = request.headers.get("Authorization")
             internal_host = "localhost" if self._host == "0.0.0.0" else self._host
             interface = MediaInterface(
-                endpoint="http://%s:%s" % (internal_host, self._port),
+                endpoint=f"http://{internal_host}:{self._port}",
                 model_uid=model_uid,
                 model_family=body.model_family,
                 model_name=body.model_name,
@@ -2522,7 +2522,7 @@ def run(
     logging_conf: Optional[dict] = None,
     auth_config_file: Optional[str] = None,
 ):
-    logger.info("Starting Xinference at endpoint: http://%s:%s", host, port)
+    logger.info(f"Starting Xinference at endpoint: http://{host}:{port}")
     try:
         api = RESTfulAPI(
             supervisor_address=supervisor_address,
@@ -2537,8 +2537,8 @@ def run(
         # default port and the user does not specify the port.
         if port is XINFERENCE_DEFAULT_ENDPOINT_PORT:
             port = get_next_port()
-            logger.info("Found available port: %s", port)
-            logger.info("Starting Xinference at endpoint: http://%s:%s", host, port)
+            logger.info(f"Found available port: {port}")
+            logger.info(f"Starting Xinference at endpoint: http://{host}:{port}")
             api = RESTfulAPI(
                 supervisor_address=supervisor_address,
                 host=host,
