@@ -26353,6 +26353,520 @@
         }
       },
       {
+        "model_size_in_billions": 397,
+        "model_format": "ggufv2",
+        "model_src": {
+          "huggingface": {
+            "model_id": "unsloth/Qwen3.5-397B-A17B-GGUF",
+            "model_file_name_template": "Qwen3.5-397B-A17B-{quantization}.gguf",
+            "model_file_name_split_template": "Qwen3.5-397B-A17B-{quantization}-{part}.gguf",
+            "quantizations": [
+              "UD-TQ1_0"
+            ],
+            "quantization_parts": {
+              "BF16": [
+                "00001-of-00017",
+                "00002-of-00017",
+                "00003-of-00017",
+                "00004-of-00017",
+                "00005-of-00017",
+                "00006-of-00017",
+                "00007-of-00017",
+                "00008-of-00017",
+                "00009-of-00017",
+                "00010-of-00017",
+                "00011-of-00017",
+                "00012-of-00017",
+                "00013-of-00017",
+                "00014-of-00017",
+                "00015-of-00017",
+                "00016-of-00017",
+                "00017-of-00017"
+              ],
+              "IQ4_NL": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "IQ4_XS": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "MXFP4_MOE": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "Q2_K": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "Q2_K_L": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "Q3_K_M": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "Q3_K_S": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "Q4_0": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "Q4_1": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "Q4_K_M": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "Q4_K_S": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "Q5_K_M": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "Q5_K_S": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "Q6_K": [
+                "00001-of-00008",
+                "00002-of-00008",
+                "00003-of-00008",
+                "00004-of-00008",
+                "00005-of-00008",
+                "00006-of-00008",
+                "00007-of-00008",
+                "00008-of-00008"
+              ],
+              "Q8_0": [
+                "00001-of-00010",
+                "00002-of-00010",
+                "00003-of-00010",
+                "00004-of-00010",
+                "00005-of-00010",
+                "00006-of-00010",
+                "00007-of-00010",
+                "00008-of-00010",
+                "00009-of-00010",
+                "00010-of-00010"
+              ],
+              "UD-IQ1_M": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "UD-IQ1_S": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "UD-IQ2_M": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "UD-IQ2_XXS": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "UD-IQ3_XXS": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "UD-Q2_K_XL": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "UD-Q3_K_XL": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "UD-Q4_K_XL": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "UD-Q5_K_XL": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "UD-Q6_K_XL": [
+                "00001-of-00008",
+                "00002-of-00008",
+                "00003-of-00008",
+                "00004-of-00008",
+                "00005-of-00008",
+                "00006-of-00008",
+                "00007-of-00008",
+                "00008-of-00008"
+              ],
+              "UD-Q8_K_XL": [
+                "00001-of-00011",
+                "00002-of-00011",
+                "00003-of-00011",
+                "00004-of-00011",
+                "00005-of-00011",
+                "00006-of-00011",
+                "00007-of-00011",
+                "00008-of-00011",
+                "00009-of-00011",
+                "00010-of-00011",
+                "00011-of-00011"
+              ]
+            },
+            "multimodal_projectors": [
+              "mmproj-BF16.gguf",
+              "mmproj-F16.gguf",
+              "mmproj-F32.gguf"
+            ]
+          },
+          "modelscope": {
+            "model_id": "unsloth/Qwen3.5-397B-A17B-GGUF",
+            "model_file_name_template": "Qwen3.5-397B-A17B-{quantization}.gguf",
+            "model_file_name_split_template": "Qwen3.5-397B-A17B-{quantization}-{part}.gguf",
+            "quantizations": [
+              "UD-TQ1_0"
+            ],
+            "quantization_parts": {
+              "BF16": [
+                "00001-of-00017",
+                "00002-of-00017",
+                "00003-of-00017",
+                "00004-of-00017",
+                "00005-of-00017",
+                "00006-of-00017",
+                "00007-of-00017",
+                "00008-of-00017",
+                "00009-of-00017",
+                "00010-of-00017",
+                "00011-of-00017",
+                "00012-of-00017",
+                "00013-of-00017",
+                "00014-of-00017",
+                "00015-of-00017",
+                "00016-of-00017",
+                "00017-of-00017"
+              ],
+              "IQ4_NL": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "IQ4_XS": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "MXFP4_MOE": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "Q2_K": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "Q2_K_L": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "Q3_K_M": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "Q3_K_S": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "Q4_0": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "Q4_1": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "Q4_K_M": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "Q4_K_S": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "Q5_K_M": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "Q5_K_S": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "Q6_K": [
+                "00001-of-00008",
+                "00002-of-00008",
+                "00003-of-00008",
+                "00004-of-00008",
+                "00005-of-00008",
+                "00006-of-00008",
+                "00007-of-00008",
+                "00008-of-00008"
+              ],
+              "Q8_0": [
+                "00001-of-00010",
+                "00002-of-00010",
+                "00003-of-00010",
+                "00004-of-00010",
+                "00005-of-00010",
+                "00006-of-00010",
+                "00007-of-00010",
+                "00008-of-00010",
+                "00009-of-00010",
+                "00010-of-00010"
+              ],
+              "UD-IQ1_M": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "UD-IQ1_S": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "UD-IQ2_M": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "UD-IQ2_XXS": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "UD-IQ3_XXS": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "UD-Q2_K_XL": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "UD-Q3_K_XL": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "UD-Q4_K_XL": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "UD-Q5_K_XL": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "UD-Q6_K_XL": [
+                "00001-of-00008",
+                "00002-of-00008",
+                "00003-of-00008",
+                "00004-of-00008",
+                "00005-of-00008",
+                "00006-of-00008",
+                "00007-of-00008",
+                "00008-of-00008"
+              ],
+              "UD-Q8_K_XL": [
+                "00001-of-00011",
+                "00002-of-00011",
+                "00003-of-00011",
+                "00004-of-00011",
+                "00005-of-00011",
+                "00006-of-00011",
+                "00007-of-00011",
+                "00008-of-00011",
+                "00009-of-00011",
+                "00010-of-00011",
+                "00011-of-00011"
+              ]
+            },
+            "multimodal_projectors": [
+              "mmproj-BF16.gguf",
+              "mmproj-F16.gguf",
+              "mmproj-F32.gguf"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 397,
+        "model_format": "mlx",
+        "model_src": {
+          "huggingface": {
+            "model_id": "mlx-community/Qwen3.5-397B-A17B-{quantization}",
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit"
+            ]
+          },
+          "modelscope": {
+            "model_id": "mlx-community/Qwen3.5-397B-A17B-{quantization}",
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit"
+            ]
+          }
+        }
+      },
+      {
         "model_size_in_billions": 122,
         "model_format": "pytorch",
         "model_src": {
@@ -26407,6 +26921,264 @@
         }
       },
       {
+        "model_size_in_billions": 122,
+        "model_format": "ggufv2",
+        "model_src": {
+          "huggingface": {
+            "model_id": "unsloth/Qwen3.5-122B-A10B-GGUF",
+            "model_file_name_template": "Qwen3.5-122B-A10B-{quantization}.gguf",
+            "model_file_name_split_template": "Qwen3.5-122B-A10B-{quantization}-{part}.gguf",
+            "quantizations": [
+              "UD-IQ1_M",
+              "UD-IQ1_S",
+              "UD-IQ2_M",
+              "UD-IQ2_XXS",
+              "UD-IQ3_S",
+              "UD-IQ3_XXS"
+            ],
+            "quantization_parts": {
+              "BF16": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "IQ4_NL": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "IQ4_XS": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "MXFP4_MOE": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q3_K_M": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q3_K_S": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q4_K_M": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q4_K_S": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q5_K_M": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q5_K_S": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q6_K": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "Q8_0": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "UD-IQ4_NL": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "UD-Q3_K_XL": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "UD-Q4_K_XL": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "UD-Q5_K_XL": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "UD-Q6_K_XL": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "UD-Q8_K_XL": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ]
+            },
+            "multimodal_projectors": [
+              "mmproj-BF16.gguf",
+              "mmproj-F16.gguf",
+              "mmproj-F32.gguf"
+            ]
+          },
+          "modelscope": {
+            "model_id": "unsloth/Qwen3.5-122B-A10B-GGUF",
+            "model_file_name_template": "Qwen3.5-122B-A10B-{quantization}.gguf",
+            "model_file_name_split_template": "Qwen3.5-122B-A10B-{quantization}-{part}.gguf",
+            "quantizations": [
+              "UD-IQ1_M",
+              "UD-IQ1_S",
+              "UD-IQ2_XXS",
+              "UD-IQ3_XXS"
+            ],
+            "quantization_parts": {
+              "BF16": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "IQ4_NL": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "IQ4_XS": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "MXFP4_MOE": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q3_K_M": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q3_K_S": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q4_K_M": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q4_K_S": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q5_K_M": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q5_K_S": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "Q6_K": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "Q8_0": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "UD-Q3_K_XL": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "UD-Q4_K_XL": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "UD-Q5_K_XL": [
+                "00001-of-00003",
+                "00002-of-00003",
+                "00003-of-00003"
+              ],
+              "UD-Q6_K_XL": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "UD-Q8_K_XL": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ]
+            },
+            "multimodal_projectors": [
+              "mmproj-BF16.gguf",
+              "mmproj-F16.gguf",
+              "mmproj-F32.gguf"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 122,
+        "model_format": "mlx",
+        "model_src": {
+          "huggingface": {
+            "model_id": "mlx-community/Qwen3.5-122B-A10B-{quantization}",
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit",
+              "bf16"
+            ]
+          },
+          "modelscope": {
+            "model_id": "mlx-community/Qwen3.5-122B-A10B-{quantization}",
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit",
+              "bf16"
+            ]
+          }
+        }
+      },
+      {
         "model_size_in_billions": 35,
         "model_format": "pytorch",
         "model_src": {
@@ -26456,6 +27228,122 @@
             "model_id": "Qwen/Qwen3.5-35B-A3B-GPTQ-Int4",
             "quantizations": [
               "Int4"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 35,
+        "model_format": "ggufv2",
+        "model_src": {
+          "huggingface": {
+            "model_id": "unsloth/Qwen3.5-35B-A3B-GGUF",
+            "model_file_name_template": "Qwen3.5-35B-A3B-{quantization}.gguf",
+            "model_file_name_split_template": "Qwen3.5-35B-A3B-{quantization}-{part}.gguf",
+            "quantizations": [
+              "MXFP4_MOE",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ1_M",
+              "UD-IQ2_M",
+              "UD-IQ2_XXS",
+              "UD-IQ3_S",
+              "UD-IQ3_XXS",
+              "UD-IQ4_NL",
+              "UD-IQ4_XS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_L",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_S",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL"
+            ],
+            "quantization_parts": {
+              "BF16": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ]
+            },
+            "multimodal_projectors": [
+              "mmproj-BF16.gguf",
+              "mmproj-F16.gguf",
+              "mmproj-F32.gguf"
+            ]
+          },
+          "modelscope": {
+            "model_id": "unsloth/Qwen3.5-35B-A3B-GGUF",
+            "model_file_name_template": "Qwen3.5-35B-A3B-{quantization}.gguf",
+            "model_file_name_split_template": "Qwen3.5-35B-A3B-{quantization}-{part}.gguf",
+            "quantizations": [
+              "MXFP4_MOE",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ1_M",
+              "UD-IQ2_M",
+              "UD-IQ2_XXS",
+              "UD-IQ3_S",
+              "UD-IQ3_XXS",
+              "UD-IQ4_NL",
+              "UD-IQ4_XS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_L",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_S",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL"
+            ],
+            "quantization_parts": {
+              "BF16": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ]
+            },
+            "multimodal_projectors": [
+              "mmproj-BF16.gguf",
+              "mmproj-F16.gguf",
+              "mmproj-F32.gguf"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 35,
+        "model_format": "mlx",
+        "model_src": {
+          "huggingface": {
+            "model_id": "mlx-community/Qwen3.5-35B-A3B-{quantization}",
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit",
+              "bf16"
+            ]
+          },
+          "modelscope": {
+            "model_id": "mlx-community/Qwen3.5-35B-A3B-{quantization}",
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit",
+              "bf16"
             ]
           }
         }
@@ -26515,6 +27403,118 @@
         }
       },
       {
+        "model_size_in_billions": 27,
+        "model_format": "ggufv2",
+        "model_src": {
+          "huggingface": {
+            "model_id": "unsloth/Qwen3.5-27B-GGUF",
+            "model_file_name_template": "Qwen3.5-27B-{quantization}.gguf",
+            "model_file_name_split_template": "Qwen3.5-27B-{quantization}-{part}.gguf",
+            "quantizations": [
+              "IQ4_NL",
+              "IQ4_XS",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ2_M",
+              "UD-IQ2_XXS",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL"
+            ],
+            "quantization_parts": {
+              "BF16": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ]
+            },
+            "multimodal_projectors": [
+              "mmproj-BF16.gguf",
+              "mmproj-F16.gguf",
+              "mmproj-F32.gguf"
+            ]
+          },
+          "modelscope": {
+            "model_id": "unsloth/Qwen3.5-27B-GGUF",
+            "model_file_name_template": "Qwen3.5-27B-{quantization}.gguf",
+            "model_file_name_split_template": "Qwen3.5-27B-{quantization}-{part}.gguf",
+            "quantizations": [
+              "IQ4_NL",
+              "IQ4_XS",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ2_M",
+              "UD-IQ2_XXS",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL"
+            ],
+            "quantization_parts": {
+              "BF16": [
+                "00001-of-00002",
+                "00002-of-00002"
+              ]
+            },
+            "multimodal_projectors": [
+              "mmproj-BF16.gguf",
+              "mmproj-F16.gguf",
+              "mmproj-F32.gguf"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 27,
+        "model_format": "mlx",
+        "model_src": {
+          "huggingface": {
+            "model_id": "mlx-community/Qwen3.5-27B-{quantization}",
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit",
+              "bf16",
+              "mxfp8"
+            ]
+          },
+          "modelscope": {
+            "model_id": "mlx-community/Qwen3.5-27B-{quantization}",
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit",
+              "bf16",
+              "mxfp8"
+            ]
+          }
+        }
+      },
+      {
         "model_size_in_billions": 9,
         "model_format": "pytorch",
         "model_src": {
@@ -26528,6 +27528,104 @@
             "model_id": "Qwen/Qwen3.5-9B",
             "quantizations": [
               "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 9,
+        "model_format": "ggufv2",
+        "model_src": {
+          "huggingface": {
+            "model_id": "unsloth/Qwen3.5-9B-GGUF",
+            "model_file_name_template": "Qwen3.5-9B-{quantization}.gguf",
+            "quantizations": [
+              "BF16",
+              "IQ4_NL",
+              "IQ4_XS",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ2_M",
+              "UD-IQ2_XXS",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL"
+            ],
+            "multimodal_projectors": [
+              "mmproj-BF16.gguf",
+              "mmproj-F16.gguf",
+              "mmproj-F32.gguf"
+            ]
+          },
+          "modelscope": {
+            "model_id": "unsloth/Qwen3.5-9B-GGUF",
+            "model_file_name_template": "Qwen3.5-9B-{quantization}.gguf",
+            "quantizations": [
+              "BF16",
+              "IQ4_NL",
+              "IQ4_XS",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ2_M",
+              "UD-IQ2_XXS",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL"
+            ],
+            "multimodal_projectors": [
+              "mmproj-BF16.gguf",
+              "mmproj-F16.gguf",
+              "mmproj-F32.gguf"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 9,
+        "model_format": "mlx",
+        "model_src": {
+          "huggingface": {
+            "model_id": "mlx-community/Qwen3.5-9B-{quantization}",
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit",
+              "bf16"
+            ]
+          },
+          "modelscope": {
+            "model_id": "mlx-community/Qwen3.5-9B-{quantization}",
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit",
+              "bf16"
             ]
           }
         }
@@ -26551,6 +27649,102 @@
         }
       },
       {
+        "model_size_in_billions": 4,
+        "model_format": "ggufv2",
+        "model_src": {
+          "huggingface": {
+            "model_id": "unsloth/Qwen3.5-4B-GGUF",
+            "model_file_name_template": "Qwen3.5-4B-{quantization}.gguf",
+            "quantizations": [
+              "BF16",
+              "IQ4_NL",
+              "IQ4_XS",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ2_M",
+              "UD-IQ2_XXS",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL"
+            ],
+            "multimodal_projectors": [
+              "mmproj-BF16.gguf",
+              "mmproj-F16.gguf",
+              "mmproj-F32.gguf"
+            ]
+          },
+          "modelscope": {
+            "model_id": "unsloth/Qwen3.5-4B-GGUF",
+            "model_file_name_template": "Qwen3.5-4B-{quantization}.gguf",
+            "quantizations": [
+              "BF16",
+              "IQ4_NL",
+              "IQ4_XS",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ2_M",
+              "UD-IQ2_XXS",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL"
+            ],
+            "multimodal_projectors": [
+              "mmproj-BF16.gguf",
+              "mmproj-F16.gguf",
+              "mmproj-F32.gguf"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 4,
+        "model_format": "mlx",
+        "model_src": {
+          "huggingface": {
+            "model_id": "mlx-community/Qwen3.5-4B-{quantization}",
+            "quantizations": [
+              "3bit",
+              "4bit",
+              "6bit",
+              "8bit"
+            ]
+          },
+          "modelscope": {
+            "model_id": "mlx-community/Qwen3.5-4B-{quantization}",
+            "quantizations": [
+              "3bit",
+              "4bit",
+              "6bit",
+              "8bit"
+            ]
+          }
+        }
+      },
+      {
         "model_size_in_billions": 2,
         "model_format": "pytorch",
         "model_src": {
@@ -26569,6 +27763,112 @@
         }
       },
       {
+        "model_size_in_billions": 2,
+        "model_format": "ggufv2",
+        "model_src": {
+          "huggingface": {
+            "model_id": "unsloth/Qwen3.5-2B-GGUF",
+            "model_file_name_template": "Qwen3.5-2B-{quantization}.gguf",
+            "quantizations": [
+              "BF16",
+              "IQ4_NL",
+              "IQ4_XS",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ2_M",
+              "UD-IQ2_XXS",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL"
+            ],
+            "multimodal_projectors": [
+              "mmproj-BF16.gguf",
+              "mmproj-F16.gguf",
+              "mmproj-F32.gguf"
+            ]
+          },
+          "modelscope": {
+            "model_id": "unsloth/Qwen3.5-2B-GGUF",
+            "model_file_name_template": "Qwen3.5-2B-{quantization}.gguf",
+            "quantizations": [
+              "BF16",
+              "IQ4_NL",
+              "IQ4_XS",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ2_M",
+              "UD-IQ2_XXS",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL"
+            ],
+            "multimodal_projectors": [
+              "mmproj-BF16.gguf",
+              "mmproj-F16.gguf",
+              "mmproj-F32.gguf"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 2,
+        "model_format": "mlx",
+        "model_src": {
+          "huggingface": {
+            "model_id": "mlx-community/Qwen3.5-2B-{quantization}",
+            "quantizations": [
+              "3bit",
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit",
+              "bf16",
+              "mxfp4",
+              "mxfp8",
+              "nvfp4"
+            ]
+          },
+          "modelscope": {
+            "model_id": "mlx-community/Qwen3.5-2B-{quantization}",
+            "quantizations": [
+              "3bit",
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit",
+              "bf16",
+              "mxfp4",
+              "mxfp8",
+              "nvfp4"
+            ]
+          }
+        }
+      },
+      {
         "model_size_in_billions": "0_8",
         "model_format": "pytorch",
         "model_src": {
@@ -26582,6 +27882,112 @@
             "model_id": "Qwen/Qwen3.5-0.8B",
             "quantizations": [
               "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": "0_8",
+        "model_format": "ggufv2",
+        "model_src": {
+          "huggingface": {
+            "model_id": "unsloth/Qwen3.5-0.8B-GGUF",
+            "model_file_name_template": "Qwen3.5-0.8B-{quantization}.gguf",
+            "quantizations": [
+              "BF16",
+              "IQ4_NL",
+              "IQ4_XS",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ2_M",
+              "UD-IQ2_XXS",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL"
+            ],
+            "multimodal_projectors": [
+              "mmproj-BF16.gguf",
+              "mmproj-F16.gguf",
+              "mmproj-F32.gguf"
+            ]
+          },
+          "modelscope": {
+            "model_id": "unsloth/Qwen3.5-0.8B-GGUF",
+            "model_file_name_template": "Qwen3.5-0.8B-{quantization}.gguf",
+            "quantizations": [
+              "BF16",
+              "IQ4_NL",
+              "IQ4_XS",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ2_M",
+              "UD-IQ2_XXS",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL"
+            ],
+            "multimodal_projectors": [
+              "mmproj-BF16.gguf",
+              "mmproj-F16.gguf",
+              "mmproj-F32.gguf"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": "0_8",
+        "model_format": "mlx",
+        "model_src": {
+          "huggingface": {
+            "model_id": "mlx-community/Qwen3.5-0.8B-{quantization}",
+            "quantizations": [
+              "3bit",
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit",
+              "bf16",
+              "mxfp4",
+              "mxfp8",
+              "nvfp4"
+            ]
+          },
+          "modelscope": {
+            "model_id": "mlx-community/Qwen3.5-0.8B-{quantization}",
+            "quantizations": [
+              "3bit",
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit",
+              "bf16",
+              "mxfp4",
+              "mxfp8",
+              "nvfp4"
             ]
           }
         }
@@ -26612,6 +28018,6 @@
     ],
     "tool_parser": "qwen",
     "featured": false,
-    "updated_at": 1772607161
+    "updated_at": 1772701459
   }
 ]
