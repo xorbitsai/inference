@@ -236,6 +236,11 @@ The following is a list of built-in LLM in Xinference:
      - 8192
      - GLM4 is the open source version of the latest generation of pre-trained models in the GLM-4 series launched by Zhipu AI.
 
+   * - :ref:`glm-5 <models_llm_glm-5>`
+     - chat, vision, tools, reasoning
+     - 202752
+     - We are launching GLM-5, targeting complex systems engineering and long-horizon agentic tasks. Scaling is still one of the most important ways to improve the intelligence efficiency of Artificial General Intelligence (AGI). Compared to GLM-4.5, GLM-5 scales from 355B parameters (32B active) to 744B parameters (40B active), and increases pre-training data from 23T to 28.5T tokens. GLM-5 also integrates DeepSeek Sparse Attention (DSA), largely reducing deployment cost while preserving long-context capacity.  Reinforcement learning aims to bridge the gap between competence and excellence in pre-trained models. However, deploying it at scale for LLMs is a challenge due to the RL training inefficiency. To this end, we developed slime, a novel asynchronous RL infrastructure that substantially improves training throughput and efficiency, enabling more fine-grained post-training iterations. With advances in both pre-training and post-training, GLM-5 delivers significant improvement compared to GLM-4.7 across a wide range of academic benchmarks and achieves best-in-class performance among all open-source models in the world on reasoning, coding, and agentic tasks, closing the gap with frontier models.
+
    * - :ref:`glm-edge-chat <models_llm_glm-edge-chat>`
      - chat
      - 8192
@@ -295,6 +300,11 @@ The following is a list of built-in LLM in Xinference:
      - chat
      - 131072
      - Kwaipilot-AutoThink ranks first among all open-source models on LiveCodeBench Pro, a challenging benchmark explicitly designed to prevent data leakage, and even surpasses strong proprietary systems such as Seed and o3-mini.
+
+   * - :ref:`kimi-k2.5 <models_llm_kimi-k2.5>`
+     - chat, vision
+     - 262144
+     - Kimi K2.5 is an open-source, native multimodal agentic model built through continual pretraining on approximately 15 trillion mixed visual and text tokens atop Kimi-K2-Base. It seamlessly integrates vision and language understanding with advanced agentic capabilities, instant and thinking modes, as well as conversational and agentic paradigms.
 
    * - :ref:`llama-2 <models_llm_llama-2>`
      - generate
@@ -400,6 +410,11 @@ The following is a list of built-in LLM in Xinference:
      - chat, tools, reasoning
      - 196608
      - MiniMax-M2, a Mini model built for Max coding & agentic workflows.
+
+   * - :ref:`minimax-m2.5 <models_llm_minimax-m2.5>`
+     - chat, tools, reasoning
+     - 196608
+     - MiniMax-M2.5, a Mini model built for Max coding & agentic workflows.
 
    * - :ref:`mistral-instruct-v0.1 <models_llm_mistral-instruct-v0.1>`
      - chat
@@ -616,6 +631,11 @@ The following is a list of built-in LLM in Xinference:
      - 262144
      - Meet Qwen3-VL — the most powerful vision-language model in the Qwen series to date.
 
+   * - :ref:`qwen3.5 <models_llm_qwen3.5>`
+     - chat, vision, tools, reasoning
+     - 262144
+     - Over recent months, we have intensified our focus on developing foundation models that deliver exceptional utility and performance. Qwen3.5 represents a significant leap forward, integrating breakthroughs in multimodal learning, architectural efficiency, reinforcement learning scale, and global accessibility to empower developers and enterprises with unprecedented capability and efficiency.
+
    * - :ref:`qwenlong-l1 <models_llm_qwenlong-l1>`
      - chat
      - 32768
@@ -829,6 +849,8 @@ The following is a list of built-in LLM in Xinference:
   
    glm-4v
   
+   glm-5
+  
    glm-edge-chat
   
    glm4-0414
@@ -852,6 +874,8 @@ The following is a list of built-in LLM in Xinference:
    internvl3
   
    kat-v1
+  
+   kimi-k2.5
   
    llama-2
   
@@ -894,6 +918,8 @@ The following is a list of built-in LLM in Xinference:
    minicpm4
   
    minimax-m2
+  
+   minimax-m2.5
   
    mistral-instruct-v0.1
   
@@ -980,6 +1006,8 @@ The following is a list of built-in LLM in Xinference:
    qwen3-vl-instruct
   
    qwen3-vl-thinking
+  
+   qwen3.5
   
    qwenlong-l1
   

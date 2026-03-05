@@ -44,14 +44,14 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - 支持加载模型时指定 worker 和 GPU 索引: [#1195](https://github.com/xorbitsai/inference/pull/1195)
 - 支持 SGLang 后端: [#1161](https://github.com/xorbitsai/inference/pull/1161)
 ### 新模型
+- 内置 [Qwen-3.5](https://github.com/QwenLM/Qwen3.5): [#4639](https://github.com/xorbitsai/inference/pull/4639)
+- 内置 [GLM-5](https://github.com/zai-org/GLM-5): [#4638](https://github.com/xorbitsai/inference/pull/4638)
+- 内置 [MiniMax-M2.5](https://github.com/MiniMax-AI/MiniMax-M2.5): [#4630](https://github.com/xorbitsai/inference/pull/4630)
+- 内置 [Kimi-K2.5](https://github.com/MoonshotAI/Kimi-K2.5): [#4631](https://github.com/xorbitsai/inference/pull/4631)
 - 内置 [FLUX.2-Klein](https://bfl.ai/models/flux-2-klein): [#4596](https://github.com/xorbitsai/inference/pull/4596)
 - 内置 [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR): [#4581](https://github.com/xorbitsai/inference/pull/4581)
 - 内置 [GLM-4.7](https://huggingface.co/zai-org/GLM-4.7): [#4565](https://github.com/xorbitsai/inference/pull/4565)
 - 内置 [MinerU2.5-2509-1.2B](https://huggingface.co/opendatalab/MinerU2.5-2509-1.2B): [#4569](https://github.com/xorbitsai/inference/pull/4569)
-- 内置 [Qwen3-VL-Embedding](https://github.com/QwenLM/Qwen3-VL-Embedding): [#4470](https://github.com/xorbitsai/inference/pull/4470)
-- 内置 [Qwen-Image-Layered](https://qwen.ai/blog?id=qwen-image-layered): [#4395](https://github.com/xorbitsai/inference/pull/4395)
-- 内置 [DeepSeek-V3.2](https://api-docs.deepseek.com/news/news251201): [#4344](https://github.com/xorbitsai/inference/pull/4344)
-- 内置 [Z-Image-Turbo](https://tongyi-mai.github.io/Z-Image-blog/): [#4333](https://github.com/xorbitsai/inference/pull/4333)
 ### 集成
 - [FastGPT](https://doc.fastai.site/docs/development/custom-models/xinference/)：一个基于 LLM 大模型的开源 AI 知识库构建平台。提供了开箱即用的数据处理、模型调用、RAG 检索、可视化 AI 工作流编排等能力，帮助您轻松实现复杂的问答场景。
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): 一个涵盖了大型语言模型开发、部署、维护和优化的 LLMOps 平台。

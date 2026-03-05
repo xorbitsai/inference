@@ -26090,5 +26090,528 @@
     },
     "featured": false,
     "updated_at": 1770103567
+  },
+  {
+    "model_name": "Kimi-K2.5",
+    "model_description": "Kimi K2.5 is an open-source, native multimodal agentic model built through continual pretraining on approximately 15 trillion mixed visual and text tokens atop Kimi-K2-Base. It seamlessly integrates vision and language understanding with advanced agentic capabilities, instant and thinking modes, as well as conversational and agentic paradigms.",
+    "context_length": 262144,
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "vision"
+    ],
+    "model_specs": [
+      {
+        "model_size_in_billions": "1058_59",
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "moonshotai/Kimi-K2.5",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "moonshotai/Kimi-K2.5",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "architectures": [
+      "KimiK25ForConditionalGeneration"
+    ],
+    "chat_template": "{%- macro render_content(msg) -%}\n    {%- set c = msg.get('content') -%}\n    {%- if c is string -%}\n      {{ c }}\n    {%- elif c is not none -%}\n      {% for content in c -%}\n        {% if content['type'] == 'image' or content['type'] == 'image_url' -%}\n          <|media_begin|>image<|media_content|><|media_pad|><|media_end|>\n        {% elif content['type'] == 'video' or content['type']== 'video_url'-%}\n          <|kimi_k25_video_placeholder|>\n        {% else -%}\n          {{ content['text'] }}\n        {%- endif -%}\n      {%- endfor -%}\n    {%- endif -%}\n{%- endmacro -%}\n\n{% macro set_roles(message) -%}\n  {%- set role_name =  message.get('name') or  message['role'] -%}\n  {%- if message['role'] == 'user' -%}\n    <|im_user|>{{role_name}}<|im_middle|>\n  {%- elif message['role'] == 'assistant' -%}\n    <|im_assistant|>{{role_name}}<|im_middle|>\n  {%- else -%}\n    <|im_system|>{{role_name}}<|im_middle|>\n  {%- endif -%}\n{%- endmacro -%}\n\n\n{%- macro render_toolcalls(message) -%}\n  <|tool_calls_section_begin|>\n  {%- for tool_call in message['tool_calls'] -%}\n    {%- set formatted_id = tool_call['id'] -%}\n    <|tool_call_begin|>{{ formatted_id }}<|tool_call_argument_begin|>{% if tool_call['function']['arguments'] is string %}{{ tool_call['function']['arguments'] }}{% else %}{{ tool_call['function']['arguments'] | tojson }}{% endif %}<|tool_call_end|>\n  {%- endfor -%}\n  <|tool_calls_section_end|>\n{%- endmacro -%}\n\n\n{# Find last non-tool-call assisitant message #}\n{%- set ns = namespace(last_non_tool_call_assistant_msg=-1) -%}\n{%- for idx in range(messages|length-1, -1, -1) -%}\n    {%- if messages[idx]['role'] == 'assistant' and not messages[idx].get('tool_calls') -%}\n        {%- set ns.last_non_tool_call_assistant_msg = idx -%}\n        {%- break -%}\n    {%- endif -%}\n{%- endfor -%}\n\n{# split all messages into history & suffix, reasoning_content in suffix should be reserved.#}\n{%- set hist_msgs = messages[:ns.last_non_tool_call_assistant_msg+1] -%}\n{%- set suffix_msgs = messages[ns.last_non_tool_call_assistant_msg+1:] -%}\n\n{%- if tools -%}\n  {%- if tools_ts_str -%}\n    <|im_system|>tool_declare<|im_middle|>{{ tools_ts_str }}<|im_end|>\n  {%- else -%}\n    <|im_system|>tool_declare<|im_middle|>{{ tools | tojson(separators=(',', ':')) }}<|im_end|>\n  {%- endif -%}\n{%- endif -%}\n  \n{%- for message in hist_msgs -%}\n  {{set_roles(message)}}\n  {%- if message['role'] == 'assistant' -%}\n    <think></think>{{render_content(message)}}\n    {%- if message.get('tool_calls') -%}\n      {{render_toolcalls(message)}}\n    {%- endif -%}\n  {%- elif message['role'] == 'tool' -%}\n    {%- set tool_call_id = message.tool_call_id -%}\n    ## Return of {{ tool_call_id }}\n{{render_content(message)}}\n  {%- elif message['content'] is not none -%}\n    {{render_content(message)}}\n  {%- endif -%}\n  <|im_end|>\n{%- endfor -%}\n\n{%- for message in suffix_msgs -%}\n  {{set_roles(message)}}\n  {%- if message['role'] == 'assistant' -%}\n    {%- if thinking is defined and thinking is false -%}\n    <think></think>{{render_content(message)}}\n    {%- else -%}\n    {%- set rc = message.get('reasoning_content', '') -%}\n    <think>{{rc}}</think>{{render_content(message)}}\n    {%- endif -%}\n    {%- if message.get('tool_calls') -%}\n     {{render_toolcalls(message)}}\n    {%- endif -%}\n  {%- elif message['role'] == 'tool' -%}\n    {%- set tool_call_id = message.tool_call_id -%}\n    ## Return of {{ tool_call_id }}\n{{render_content(message)}}\n  {%- elif message['content'] is not none -%}\n    {{render_content(message)}}\n  {%- endif -%}\n  <|im_end|>\n{%- endfor -%}\n\n\n{%- if add_generation_prompt -%}\n  <|im_assistant|>assistant<|im_middle|>\n  {%- if thinking is defined and thinking is false -%}\n  <think></think>\n  {%- else -%}\n  <think>\n  {%- endif -%}\n{%- endif -%}",
+    "stop_token_ids": [
+      163585
+    ],
+    "stop": [
+      "[EOS]"
+    ],
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    },
+    "featured": false,
+    "updated_at": 1772096743
+  },
+  {
+    "model_name": "MiniMax-M2.5",
+    "model_description": "MiniMax-M2.5, a Mini model built for Max coding & agentic workflows.",
+    "context_length": 196608,
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "tools",
+      "reasoning"
+    ],
+    "model_specs": [
+      {
+        "model_size_in_billions": 230,
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "MiniMaxAI/MiniMax-M2.5",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "MiniMax/MiniMax-M2.5",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "architectures": [
+      "MiniMaxM2ForCausalLM"
+    ],
+    "chat_template": "{# ----------‑‑‑ special token variables ‑‑‑---------- #}\n{%- set toolcall_begin_token   = '<minimax:tool_call>'         -%}\n{%- set toolcall_end_token     = '</minimax:tool_call>'        -%}\n{#- Tool Rendering Functions ============================================== -#}\n{%- macro render_tool_namespace(namespace_name, tool_list) -%}\n{%- for tool in tool_list -%}\n<tool>{{ tool.function | tojson(ensure_ascii=False) }}</tool>\n{% endfor -%}\n{%- endmacro -%}\n{%- macro visible_text(content) -%}\n    {%- if content is string -%}\n        {{ content }}\n    {%- elif content is iterable and content is not mapping -%}\n        {%- for item in content -%}\n            {%- if item is mapping and item.type == 'text' -%}\n                {{- item.text }}\n            {%- elif item is string -%}\n                {{- item }}\n            {%- endif -%}\n        {%- endfor -%}\n    {%- else -%}\n        {{- content }}\n    {%- endif -%}\n{%- endmacro -%}\n{#- System Message Construction ============================================ -#}\n{%- macro build_system_message(system_message) -%}\n    {%- if system_message and system_message.content -%}\n        {{- visible_text(system_message.content) }}\n    {%- else -%}\n        {%- if model_identity is not defined -%}\n            {%- set model_identity = \"You are a helpful assistant. Your name is MiniMax-M2.5 and is built by MiniMax.\" -%}\n        {%- endif -%}\n        {{- model_identity }}\n    {%- endif -%}\n    \n    {#- Handle current_date -#}\n    {%- if system_message and system_message.current_date -%}\n        {{- '\\n' ~ 'Current date: ' + system_message.current_date }}\n    {%- endif -%}\n    {#- Handle current_location -#}\n    {%- if system_message and system_message.current_location -%}\n        {{- '\\n' ~ 'Current location: ' + system_message.current_location }}\n    {%- endif -%}\n{%- endmacro -%}\n{#- Main Template Logic ================================================= -#}\n{#- Extract system message (only first message if it's system) -#}\n{%- set system_message = none -%}\n{%- set conversation_messages = messages -%}\n{%- if messages and messages[0].role == \"system\" -%}\n    {%- set system_message = messages[0] -%}\n    {%- set conversation_messages = messages[1:] -%}\n{%- endif -%}\n{#- Get the last user message turn, for interleved thinking -#}\n{%- set ns = namespace(last_user_index=-1) %}\n{% for m in conversation_messages %}\n    {%- if m.role == 'user' %}\n        {% set ns.last_user_index = loop.index0 -%}\n    {%- endif %}\n{%- endfor %}\n{#- Render system message -#}\n{{- ']~!b[' ~ ']~b]system' ~ '\\n' }}\n{{- build_system_message(system_message) }}\n{#- Render tools if available -#}\n{%- if tools -%}\n    {{- '\\n\\n' ~ '# Tools' ~ '\\n' ~ 'You may call one or more tools to assist with the user query.\\nHere are the tools available in JSONSchema format:' ~ '\\n' }}\n    {{- '\\n' ~ '<tools>' ~ '\\n' }}\n    {{- render_tool_namespace(\"functions\", tools) }}\n    {{- '</tools>' ~ '\\n\\n' }}\n{{- 'When making tool calls, use XML format to invoke tools and pass parameters:' ~ '\\n' }}\n{{- '\\n' ~ toolcall_begin_token }}\n<invoke name=\"tool-name-1\">\n<parameter name=\"param-key-1\">param-value-1</parameter>\n<parameter name=\"param-key-2\">param-value-2</parameter>\n...\n</invoke>\n{{- '\\n' ~ toolcall_end_token }}\n{%- endif -%}\n{{- '[e~[\\n' }}\n\n{#- Render messages -#}\n{%- set last_tool_call = namespace(name=none) -%}\n{%- for message in conversation_messages -%}\n    {%- if message.role == 'assistant' -%}\n        {#- Only render reasoning_content if no user message follows -#}\n        {{- ']~b]ai' ~ '\\n' }}\n\n        {%- set reasoning_content = '' %}\n        {%- set content = visible_text(message.content) %}\n        {%- if message.reasoning_content is string %}\n            {%- set reasoning_content = message.reasoning_content %}\n        {%- else %}\n            {%- if '</think>' in content %}\n                {%- set reasoning_content = content.split('</think>')[0].strip('\\n').split('<think>')[-1].strip('\\n') %}\n                {%- set content = content.split('</think>')[-1].strip('\\n') %}\n            {%- endif %}\n        {%- endif %}\n        {%- if reasoning_content and loop.index0 > ns.last_user_index -%}\n            {{- '<think>' ~ '\\n' ~ reasoning_content ~ '\\n' ~ '</think>' ~ '\\n\\n' }}\n        {%- endif -%}\n        {%- if content -%}\n            {{- content }}\n        {%- endif -%}\n        {%- if message.tool_calls -%}\n            {{- '\\n' ~ toolcall_begin_token ~ '\\n' }}\n\n            {%- for tool_call in message.tool_calls -%}\n                {%- if tool_call.function %}\n                    {%- set tool_call = tool_call.function %}\n                {%- endif %}\n                {{- '<invoke name=\"' + tool_call.name + '\">' }}\n                {% set _args = tool_call.arguments %}\n                {%- for k, v in _args.items() %}\n                {{- '<parameter name=\"' + k + '\">' }}\n                {{- v | tojson(ensure_ascii=False) if v is not string else v }}\n                {{- '</parameter>' }}\n                {% endfor %}\n                {{- '</invoke>' ~ '\\n' }}\n            {%- endfor -%}\n            \n            {{- toolcall_end_token}}\n            {%- set last_tool_call.name = message.tool_calls[-1].name -%}\n        {%- else -%}\n            {%- set last_tool_call.name = none -%}\n        {%- endif -%}\n        {{- '[e~[' ~ '\\n' }}\n        \n    {%- elif message.role == 'tool' -%}\n    {%- if last_tool_call.name is none -%}\n        {{- raise_exception(\"Message has tool role, but there was no previous assistant message with a tool call!\") }}\n    {%- endif -%}\n    {%- if loop.first or (conversation_messages[loop.index0 - 1].role != 'tool') -%}\n        {{- ']~b]tool' }}\n    {%- endif -%}\n    {%- if message.content is string -%}\n        {{- '\\n<response>' }}\n        {{- message.content }}\n        {{- '</response>' }}\n    {%- else -%}\n        {%- for tr in message.content -%}\n            {{- '\\n<response>' }}\n            {{- tr.output if tr.output is defined else (tr.text if tr.type == 'text' and tr.text is defined else tr) }}\n            {{- '\\n</response>' }}\n        {%- endfor -%}\n    {%- endif -%}\n    {%- if loop.last or (conversation_messages[loop.index0 + 1].role != 'tool') -%}\n        {{- '[e~[\\n' -}}\n    {%- endif -%}\n        \n    {%- elif message.role == 'user' -%}\n        {{- ']~b]user' ~ '\\n' }}\n        {{- visible_text(message.content) }}\n        {{- '[e~[' ~ '\\n' }}\n    {%- endif -%}\n{%- endfor -%}\n\n{#- Generation prompt -#}\n{%- if add_generation_prompt -%}\n{{- ']~b]ai' ~ '\\n' ~ '<think>' ~ '\\n' }}\n{%- endif -%}",
+    "stop_token_ids": [
+      200020
+    ],
+    "stop": [
+      "[e~["
+    ],
+    "tool_parser": "minimax",
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#mlx_dependencies# ; #engine# == \"MLX\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    },
+    "featured": false,
+    "updated_at": 1772095707
+  },
+  {
+    "model_name": "glm-5",
+    "model_description": "We are launching GLM-5, targeting complex systems engineering and long-horizon agentic tasks. Scaling is still one of the most important ways to improve the intelligence efficiency of Artificial General Intelligence (AGI). Compared to GLM-4.5, GLM-5 scales from 355B parameters (32B active) to 744B parameters (40B active), and increases pre-training data from 23T to 28.5T tokens. GLM-5 also integrates DeepSeek Sparse Attention (DSA), largely reducing deployment cost while preserving long-context capacity.  Reinforcement learning aims to bridge the gap between competence and excellence in pre-trained models. However, deploying it at scale for LLMs is a challenge due to the RL training inefficiency. To this end, we developed slime, a novel asynchronous RL infrastructure that substantially improves training throughput and efficiency, enabling more fine-grained post-training iterations. With advances in both pre-training and post-training, GLM-5 delivers significant improvement compared to GLM-4.7 across a wide range of academic benchmarks and achieves best-in-class performance among all open-source models in the world on reasoning, coding, and agentic tasks, closing the gap with frontier models.",
+    "context_length": 202752,
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "vision",
+      "tools",
+      "reasoning"
+    ],
+    "model_specs": [
+      {
+        "model_size_in_billions": 744,
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "zai-org/GLM-5",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "ZhipuAI/GLM-5",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 744,
+        "model_format": "fp8",
+        "model_src": {
+          "huggingface": {
+            "model_id": "zai-org/GLM-5-FP8",
+            "quantizations": [
+              "FP8"
+            ]
+          },
+          "modelscope": {
+            "model_id": "ZhipuAI/GLM-5-FP8",
+            "quantizations": [
+              "FP8"
+            ]
+          }
+        }
+      }
+    ],
+    "architectures": [
+      "GlmMoeDsaForCausalLM"
+    ],
+    "chat_template": "[gMASK]<sop>\n{%- if tools -%}\n<|system|>\n# Tools\n\nYou may call one or more functions to assist with the user query.\n\nYou are provided with function signatures within <tools></tools> XML tags:\n<tools>\n{% for tool in tools %}\n{{ tool | tojson(ensure_ascii=False) }}\n{% endfor %}\n</tools>\n\nFor each function call, output the function name and arguments within the following XML format:\n<tool_call>{function-name}<arg_key>{arg-key-1}</arg_key><arg_value>{arg-value-1}</arg_value><arg_key>{arg-key-2}</arg_key><arg_value>{arg-value-2}</arg_value>...</tool_call>{%- endif -%}\n{%- macro visible_text(content) -%}\n    {%- if content is string -%}\n        {{- content }}\n    {%- elif content is iterable and content is not mapping -%}\n        {%- for item in content -%}\n            {%- if item is mapping and item.type == 'text' -%}\n                {{- item.text }}\n            {%- elif item is string -%}\n                {{- item }}\n            {%- endif -%}\n        {%- endfor -%}\n    {%- else -%}\n        {{- content }}\n    {%- endif -%}\n{%- endmacro -%}\n{%- set ns = namespace(last_user_index=-1) %}\n{%- for m in messages %}\n    {%- if m.role == 'user' %}\n        {% set ns.last_user_index = loop.index0 -%}\n    {%- endif %}\n{%- endfor %}\n{% for m in messages %}\n{%- if m.role == 'user' -%}<|user|>{{ visible_text(m.content) }}\n{%- elif m.role == 'assistant' -%}\n<|assistant|>\n{%- set reasoning_content = '' %}\n{%- set content = visible_text(m.content) %}\n{%- if m.reasoning_content is string %}\n    {%- set reasoning_content = m.reasoning_content %}\n{%- else %}\n    {%- if '</think>' in content %}\n        {%- set reasoning_content = content.split('</think>')[0].rstrip('\\n').split('<think>')[-1].lstrip('\\n') %}\n        {%- set content = content.split('</think>')[-1].lstrip('\\n') %}\n    {%- endif %}\n{%- endif %}\n{%- if ((clear_thinking is defined and not clear_thinking) or loop.index0 > ns.last_user_index) and reasoning_content -%}\n{{ '<think>' + reasoning_content.strip() +  '</think>'}}\n{%- else -%}\n{{ '</think>' }}\n{%- endif -%}\n{%- if content.strip() -%}\n{{ content.strip() }}\n{%- endif -%}\n{% if m.tool_calls %}\n{% for tc in m.tool_calls %}\n{%- if tc.function %}\n    {%- set tc = tc.function %}\n{%- endif %}\n{{- '<tool_call>' + tc.name -}}\n{% set _args = tc.arguments %}{% for k, v in _args.items() %}<arg_key>{{ k }}</arg_key><arg_value>{{ v | tojson(ensure_ascii=False) if v is not string else v }}</arg_value>{% endfor %}</tool_call>{% endfor %}\n{% endif %}\n{%- elif m.role == 'tool' -%}\n{%- if m.content is string -%}\n{%- if loop.first or (messages[loop.index0 - 1].role != \"tool\") %}\n    {{- '<|observation|>' }}\n{%- endif %}\n{{- '<tool_response>' }}\n{{- m.content }}\n{{- '</tool_response>' }}\n{%- else -%}\n<|observation|>{% for tr in m.content %}\n<tool_response>{{ tr.output if tr.output is defined else tr }}</tool_response>{% endfor -%}\n{% endif -%}\n{%- elif m.role == 'system' -%}\n<|system|>{{ visible_text(m.content) }}\n{%- endif -%}\n{%- endfor -%}\n{%- if add_generation_prompt -%}\n    <|assistant|>{{- '</think>' if (enable_thinking is defined and not enable_thinking) else '<think>' -}}\n{%- endif -%}",
+    "stop_token_ids": [
+      154820,
+      154827,
+      154829
+    ],
+    "stop": [
+      "<|endoftext|>"
+    ],
+    "tool_parser": "glm4",
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#mlx_dependencies# ; #engine# == \"MLX\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    },
+    "featured": false,
+    "updated_at": 1772607514
+  },
+  {
+    "model_name": "qwen3.5",
+    "model_description": "Over recent months, we have intensified our focus on developing foundation models that deliver exceptional utility and performance. Qwen3.5 represents a significant leap forward, integrating breakthroughs in multimodal learning, architectural efficiency, reinforcement learning scale, and global accessibility to empower developers and enterprises with unprecedented capability and efficiency.",
+    "context_length": 262144,
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "vision",
+      "tools",
+      "reasoning"
+    ],
+    "model_specs": [
+      {
+        "model_size_in_billions": 397,
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-397B-A17B",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-397B-A17B",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 397,
+        "model_format": "fp8",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-397B-A17B-FP8",
+            "quantizations": [
+              "FP8"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-397B-A17B-FP8",
+            "quantizations": [
+              "FP8"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 397,
+        "model_format": "gptq",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-397B-A17B-GPTQ-Int4",
+            "quantizations": [
+              "Int4"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-397B-A17B-GPTQ-Int4",
+            "quantizations": [
+              "Int4"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 122,
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-122B-A10B",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-122B-A10B",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 122,
+        "model_format": "fp8",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-122B-A10B-FP8",
+            "quantizations": [
+              "FP8"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-122B-A10B-FP8",
+            "quantizations": [
+              "FP8"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 122,
+        "model_format": "gptq",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-122B-A10B-GPTQ-Int4",
+            "quantizations": [
+              "Int4"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-122B-A10B-GPTQ-Int4",
+            "quantizations": [
+              "Int4"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 35,
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-35B-A3B",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-35B-A3B",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 35,
+        "model_format": "fp8",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-35B-A3B-FP8",
+            "quantizations": [
+              "FP8"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-35B-A3B-FP8",
+            "quantizations": [
+              "FP8"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 35,
+        "model_format": "gptq",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-35B-A3B-GPTQ-Int4",
+            "quantizations": [
+              "Int4"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-35B-A3B-GPTQ-Int4",
+            "quantizations": [
+              "Int4"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 27,
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-27B",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-27B",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 27,
+        "model_format": "fp8",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-27B-FP8",
+            "quantizations": [
+              "FP8"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-27B-FP8",
+            "quantizations": [
+              "FP8"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 27,
+        "model_format": "gptq",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-27B-GPTQ-Int4",
+            "quantizations": [
+              "Int4"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-27b-GPTQ-Int4",
+            "quantizations": [
+              "Int4"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 9,
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-9B",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-9B",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 4,
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-4B",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-4B",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 2,
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-2B",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-2B",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": "0_8",
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.5-0.8B",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.5-0.8B",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "transformers_dependencies ; #engine# == \"Transformers\"",
+        "vllm_dependencies ; #engine# == \"vllm\"",
+        "sglang_dependencies ; #engine# == \"sglang\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    },
+    "architectures": [
+      "Qwen3_5MoeForConditionalGeneration"
+    ],
+    "chat_template": "{%- set image_count = namespace(value=0) %}\n{%- set video_count = namespace(value=0) %}\n{%- macro render_content(content, do_vision_count, is_system_content=false) %}\n    {%- if content is string %}\n        {{- content }}\n    {%- elif content is iterable and content is not mapping %}\n        {%- for item in content %}\n            {%- if 'image' in item or 'image_url' in item or item.type == 'image' %}\n                {%- if is_system_content %}\n                    {{- raise_exception('System message cannot contain images.') }}\n                {%- endif %}\n                {%- if do_vision_count %}\n                    {%- set image_count.value = image_count.value + 1 %}\n                {%- endif %}\n                {%- if add_vision_id %}\n                    {{- 'Picture ' ~ image_count.value ~ ': ' }}\n                {%- endif %}\n                {{- '<|vision_start|><|image_pad|><|vision_end|>' }}\n            {%- elif 'video' in item or item.type == 'video' %}\n                {%- if is_system_content %}\n                    {{- raise_exception('System message cannot contain videos.') }}\n                {%- endif %}\n                {%- if do_vision_count %}\n                    {%- set video_count.value = video_count.value + 1 %}\n                {%- endif %}\n                {%- if add_vision_id %}\n                    {{- 'Video ' ~ video_count.value ~ ': ' }}\n                {%- endif %}\n                {{- '<|vision_start|><|video_pad|><|vision_end|>' }}\n            {%- elif 'text' in item %}\n                {{- item.text }}\n            {%- else %}\n                {{- raise_exception('Unexpected item type in content.') }}\n            {%- endif %}\n        {%- endfor %}\n    {%- elif content is none or content is undefined %}\n        {{- '' }}\n    {%- else %}\n        {{- raise_exception('Unexpected content type.') }}\n    {%- endif %}\n{%- endmacro %}\n{%- if not messages %}\n    {{- raise_exception('No messages provided.') }}\n{%- endif %}\n{%- if tools and tools is iterable and tools is not mapping %}\n    {{- '<|im_start|>system\\n' }}\n    {{- \"# Tools\\n\\nYou have access to the following functions:\\n\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\" }}\n    {{- '\\n\\nIf you choose to call a function ONLY reply in the following format with NO suffix:\\n\\n<tool_call>\\n<function=example_function_name>\\n<parameter=example_parameter_1>\\nvalue_1\\n</parameter>\\n<parameter=example_parameter_2>\\nThis is the value for the second parameter\\nthat can span\\nmultiple lines\\n</parameter>\\n</function>\\n</tool_call>\\n\\n<IMPORTANT>\\nReminder:\\n- Function calls MUST follow the specified format: an inner <function=...></function> block must be nested within <tool_call></tool_call> XML tags\\n- Required parameters MUST be specified\\n- You may provide optional reasoning for your function call in natural language BEFORE the function call, but NOT after\\n- If there is no function call available, answer the question like normal with your current knowledge and do not tell the user about function calls\\n</IMPORTANT>' }}\n    {%- if messages[0].role == 'system' %}\n        {%- set content = render_content(messages[0].content, false, true)|trim %}\n        {%- if content %}\n            {{- '\\n\\n' + content }}\n        {%- endif %}\n    {%- endif %}\n    {{- '<|im_end|>\\n' }}\n{%- else %}\n    {%- if messages[0].role == 'system' %}\n        {%- set content = render_content(messages[0].content, false, true)|trim %}\n        {{- '<|im_start|>system\\n' + content + '<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- set ns = namespace(multi_step_tool=true, last_query_index=messages|length - 1) %}\n{%- for message in messages[::-1] %}\n    {%- set index = (messages|length - 1) - loop.index0 %}\n    {%- if ns.multi_step_tool and message.role == \"user\" %}\n        {%- set content = render_content(message.content, false)|trim %}\n        {%- if not(content.startswith('<tool_response>') and content.endswith('</tool_response>')) %}\n            {%- set ns.multi_step_tool = false %}\n            {%- set ns.last_query_index = index %}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if ns.multi_step_tool %}\n    {{- raise_exception('No user query found in messages.') }}\n{%- endif %}\n{%- for message in messages %}\n    {%- set content = render_content(message.content, true)|trim %}\n    {%- if message.role == \"system\" %}\n        {%- if not loop.first %}\n            {{- raise_exception('System message must be at the beginning.') }}\n        {%- endif %}\n    {%- elif message.role == \"user\" %}\n        {{- '<|im_start|>' + message.role + '\\n' + content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {%- set reasoning_content = '' %}\n        {%- if message.reasoning_content is string %}\n            {%- set reasoning_content = message.reasoning_content %}\n        {%- else %}\n            {%- if '</think>' in content %}\n                {%- set reasoning_content = content.split('</think>')[0].rstrip('\\n').split('<think>')[-1].lstrip('\\n') %}\n                {%- set content = content.split('</think>')[-1].lstrip('\\n') %}\n            {%- endif %}\n        {%- endif %}\n        {%- set reasoning_content = reasoning_content|trim %}\n        {%- if loop.index0 > ns.last_query_index %}\n            {{- '<|im_start|>' + message.role + '\\n<think>\\n' + reasoning_content + '\\n</think>\\n\\n' + content }}\n        {%- else %}\n            {{- '<|im_start|>' + message.role + '\\n' + content }}\n        {%- endif %}\n        {%- if message.tool_calls and message.tool_calls is iterable and message.tool_calls is not mapping %}\n            {%- for tool_call in message.tool_calls %}\n                {%- if tool_call.function is defined %}\n                    {%- set tool_call = tool_call.function %}\n                {%- endif %}\n                {%- if loop.first %}\n                    {%- if content|trim %}\n                        {{- '\\n\\n<tool_call>\\n<function=' + tool_call.name + '>\\n' }}\n                    {%- else %}\n                        {{- '<tool_call>\\n<function=' + tool_call.name + '>\\n' }}\n                    {%- endif %}\n                {%- else %}\n                    {{- '\\n<tool_call>\\n<function=' + tool_call.name + '>\\n' }}\n                {%- endif %}\n                {%- if tool_call.arguments is defined %}\n                    {%- for args_name, args_value in tool_call.arguments|items %}\n                        {{- '<parameter=' + args_name + '>\\n' }}\n                        {%- set args_value = args_value | tojson | safe if args_value is mapping or (args_value is sequence and args_value is not string) else args_value | string %}\n                        {{- args_value }}\n                        {{- '\\n</parameter>\\n' }}\n                    {%- endfor %}\n                {%- endif %}\n                {{- '</function>\\n</tool_call>' }}\n            {%- endfor %}\n        {%- endif %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if loop.previtem and loop.previtem.role != \"tool\" %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- content }}\n        {{- '\\n</tool_response>' }}\n        {%- if not loop.last and loop.nextitem.role != \"tool\" %}\n            {{- '<|im_end|>\\n' }}\n        {%- elif loop.last %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- else %}\n        {{- raise_exception('Unexpected message role.') }}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n' }}\n    {%- if enable_thinking is defined and enable_thinking is false %}\n        {{- '<think>\\n\\n</think>\\n\\n' }}\n    {%- else %}\n        {{- '<think>\\n' }}\n    {%- endif %}\n{%- endif %}",
+    "stop_token_ids": [
+      248044,
+      248046
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "stop": [
+      "<|endoftext|>",
+      "<|im_end|>"
+    ],
+    "tool_parser": "qwen",
+    "featured": false,
+    "updated_at": 1772607161
   }
 ]
