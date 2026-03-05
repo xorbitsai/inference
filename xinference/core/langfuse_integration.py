@@ -227,7 +227,6 @@ class LangfuseMiddleware:
                     raise
                 finally:
                     end_time = time.time()
-                    duration_ms = (end_time - start_time) * 1000
 
                     # Read tracing metadata injected by the handler
                     # scope["state"] is the same dict backing request.state
@@ -257,7 +256,6 @@ class LangfuseMiddleware:
                             input_summary=input_summary,
                             output_summary=output_summary,
                             usage=usage,
-                            duration_ms=duration_ms,
                             status_code=status_code,
                             error=error_msg,
                         )
@@ -272,7 +270,6 @@ class LangfuseMiddleware:
             raise
         finally:
             end_time = time.time()
-            duration_ms = (end_time - start_time) * 1000
 
             # Read tracing metadata injected by the handler
             # scope["state"] is the same dict backing request.state
@@ -301,7 +298,6 @@ class LangfuseMiddleware:
                     input_summary=input_summary,
                     output_summary=output_summary,
                     usage=usage,
-                    duration_ms=duration_ms,
                     start_time_s=start_time,
                     end_time_s=end_time,
                     status_code=status_code,
@@ -327,7 +323,6 @@ class LangfuseMiddleware:
         input_summary: Any,
         output_summary: Any,
         usage: Optional[Dict[str, Any]],
-        duration_ms: float,
         status_code: int,
         error: Optional[str],
     ):
@@ -337,7 +332,6 @@ class LangfuseMiddleware:
             "operation": operation,
             "model_name": model_name,
             "status_code": status_code,
-            "latency_ms": round(duration_ms, 2),
         }
         if result_text:
             metadata["result_text"] = result_text
@@ -372,7 +366,6 @@ class LangfuseMiddleware:
         input_summary: Any,
         output_summary: Any,
         usage: Optional[Dict[str, Any]],
-        duration_ms: float,
         start_time_s: float,
         end_time_s: float,
         status_code: int,
@@ -390,7 +383,6 @@ class LangfuseMiddleware:
             "operation": operation,
             "model_name": model_name,
             "status_code": status_code,
-            "latency_ms": round(duration_ms, 2),
         }
         if result_text:
             metadata["result_text"] = result_text
