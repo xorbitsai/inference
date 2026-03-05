@@ -1013,7 +1013,11 @@ class RESTfulAPI(CancelMixin):
         payload = await request.json()
         body = CreateEmbeddingRequest.parse_obj(payload)
         model_uid = body.model
-        set_langfuse_trace_data(request, model_uid=model_uid)
+        set_langfuse_trace_data(
+            request,
+            model_uid=model_uid,
+            input={"input": body.input},
+        )
 
         exclude = {
             "model",
@@ -1082,7 +1086,11 @@ class RESTfulAPI(CancelMixin):
         payload = await request.json()
         body = RerankRequest.parse_obj(payload)
         model_uid = body.model
-        set_langfuse_trace_data(request, model_uid=model_uid)
+        set_langfuse_trace_data(
+            request,
+            model_uid=model_uid,
+            input={"query": body.query, "documents": body.documents},
+        )
 
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
@@ -1109,6 +1117,11 @@ class RESTfulAPI(CancelMixin):
                 return_len=body.return_len,
                 **parsed_kwargs,
             )
+            try:
+                rerank_output = json.loads(scores)
+            except Exception:
+                rerank_output = None
+            set_langfuse_trace_data(request, output=rerank_output)
             return Response(scores, media_type="application/json")
         except Exception as e:
             e = await self._get_model_last_error(model.uid, e)
