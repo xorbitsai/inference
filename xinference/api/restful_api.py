@@ -2113,7 +2113,11 @@ class RESTfulAPI(CancelMixin):
 
         has_tool_message = messages[-1].get("role") == "tool"
         model_uid = body.model
-        set_langfuse_trace_data(request, model_uid=model_uid)
+        set_langfuse_trace_data(
+            request,
+            model_uid=model_uid,
+            input={"messages": messages},
+        )
 
         try:
             model = await (await self._get_supervisor_ref()).get_model(model_uid)
@@ -2203,6 +2207,18 @@ class RESTfulAPI(CancelMixin):
                     kwargs,
                     raw_params=raw_kwargs,
                 )
+                try:
+                    resp_json = json.loads(data)
+                    choice = resp_json.get("choices", [{}])[0]
+                    output_content = choice.get("message", {}).get("content")
+                    usage = resp_json.get("usage")
+                    set_langfuse_trace_data(
+                        request,
+                        output={"content": output_content},
+                        usage=usage,
+                    )
+                except Exception:
+                    pass
                 return Response(content=data, media_type="application/json")
             except Exception as e:
                 e = await self._get_model_last_error(model.uid, e)
