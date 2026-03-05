@@ -56,6 +56,7 @@ from ..constants import (
     XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
 )
 from ..core.event import Event, EventCollectorActor, EventType
+from ..core.langfuse_integration import set_langfuse_trace_data
 from ..core.supervisor import SupervisorActor
 from ..core.utils import CancelMixin
 from ..types import (
@@ -82,8 +83,6 @@ from .schemas import (
     TextToVideoRequest,
     UpdateModelRequest,
 )
-
-from ..core.langfuse_integration import set_langfuse_trace_data
 
 logger = logging.getLogger(__name__)
 
@@ -287,8 +286,8 @@ class RESTfulAPI(CancelMixin):
             pass  # In case that some Python version does not have __annotations__
         if invalid_routes:
             raise Exception(
-                f"The return value type of the following routes is not Response:\n"
-                f"{pprint.pformat(invalid_routes)}"
+                "The return value type of the following routes is not Response:\n"
+                + pprint.pformat(invalid_routes)
             )
 
         class SPAStaticFiles(StaticFiles):
@@ -685,7 +684,7 @@ class RESTfulAPI(CancelMixin):
             access_token = request.headers.get("Authorization")
             internal_host = "localhost" if self._host == "0.0.0.0" else self._host
             interface = GradioInterface(
-                endpoint=f"http://{internal_host}:{self._port}",
+                endpoint="http://%s:%s" % (internal_host, self._port),
                 model_uid=model_uid,
                 model_name=body.model_name,
                 model_size_in_billions=body.model_size_in_billions,
@@ -726,7 +725,7 @@ class RESTfulAPI(CancelMixin):
             access_token = request.headers.get("Authorization")
             internal_host = "localhost" if self._host == "0.0.0.0" else self._host
             interface = MediaInterface(
-                endpoint=f"http://{internal_host}:{self._port}",
+                endpoint="http://%s:%s" % (internal_host, self._port),
                 model_uid=model_uid,
                 model_family=body.model_family,
                 model_name=body.model_name,
@@ -1160,6 +1159,15 @@ class RESTfulAPI(CancelMixin):
                 timestamp_granularities=timestamp_granularities,
                 **parsed_kwargs,
             )
+            trace_output: Any = transcription
+            if isinstance(transcription, bytes):
+                trace_output = transcription.decode("utf-8", errors="ignore")
+            if isinstance(trace_output, str):
+                try:
+                    trace_output = json.loads(trace_output)
+                except Exception:
+                    trace_output = {"text": trace_output}
+            set_langfuse_trace_data(request, output=trace_output)
             return Response(content=transcription, media_type="application/json")
         except Exception as e:
             e = await self._get_model_last_error(model_ref.uid, e)
@@ -1210,6 +1218,15 @@ class RESTfulAPI(CancelMixin):
                 timestamp_granularities=timestamp_granularities,
                 **parsed_kwargs,
             )
+            trace_output: Any = translation
+            if isinstance(translation, bytes):
+                trace_output = translation.decode("utf-8", errors="ignore")
+            if isinstance(trace_output, str):
+                try:
+                    trace_output = json.loads(trace_output)
+                except Exception:
+                    trace_output = {"text": trace_output}
+            set_langfuse_trace_data(request, output=trace_output)
             return Response(content=translation, media_type="application/json")
         except Exception as e:
             e = await self._get_model_last_error(model_ref.uid, e)
@@ -1434,6 +1451,7 @@ class RESTfulAPI(CancelMixin):
 
     async def create_variations(
         self,
+        request: Request,
         model: str = Form(...),
         image: List[UploadFile] = File(media_type="application/octet-stream"),
         prompt: Optional[Union[str, List[str]]] = Form(None),
@@ -1497,6 +1515,7 @@ class RESTfulAPI(CancelMixin):
 
     async def create_inpainting(
         self,
+        request: Request,
         model: str = Form(...),
         image: UploadFile = File(media_type="application/octet-stream"),
         mask_image: UploadFile = File(media_type="application/octet-stream"),
@@ -1558,6 +1577,7 @@ class RESTfulAPI(CancelMixin):
 
     async def create_ocr(
         self,
+        request: Request,
         model: str = Form(...),
         image: UploadFile = File(media_type="application/octet-stream"),
         kwargs: Optional[str] = Form(None),
@@ -1918,6 +1938,7 @@ class RESTfulAPI(CancelMixin):
 
     async def create_videos_from_images(
         self,
+        request: Request,
         model: str = Form(...),
         image: UploadFile = File(media_type="application/octet-stream"),
         prompt: Optional[Union[str, List[str]]] = Form(None),
@@ -1968,6 +1989,7 @@ class RESTfulAPI(CancelMixin):
 
     async def create_videos_from_first_last_frame(
         self,
+        request: Request,
         model: str = Form(...),
         first_frame: UploadFile = File(media_type="application/octet-stream"),
         last_frame: UploadFile = File(media_type="application/octet-stream"),
@@ -2500,7 +2522,7 @@ def run(
     logging_conf: Optional[dict] = None,
     auth_config_file: Optional[str] = None,
 ):
-    logger.info(f"Starting Xinference at endpoint: http://{host}:{port}")
+    logger.info("Starting Xinference at endpoint: http://%s:%s", host, port)
     try:
         api = RESTfulAPI(
             supervisor_address=supervisor_address,
@@ -2515,8 +2537,8 @@ def run(
         # default port and the user does not specify the port.
         if port is XINFERENCE_DEFAULT_ENDPOINT_PORT:
             port = get_next_port()
-            logger.info(f"Found available port: {port}")
-            logger.info(f"Starting Xinference at endpoint: http://{host}:{port}")
+            logger.info("Found available port: %s", port)
+            logger.info("Starting Xinference at endpoint: http://%s:%s", host, port)
             api = RESTfulAPI(
                 supervisor_address=supervisor_address,
                 host=host,
