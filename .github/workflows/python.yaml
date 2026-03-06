@@ -188,8 +188,16 @@ jobs:
         if: startsWith(matrix.os, 'windows')
         shell: bash
         run: |
-          echo "before: $SSL_CERT_FILE"
+          echo "activate conda env"
 
+          source $CONDA/etc/profile.d/conda.sh || true
+          conda activate $CONDA_ENV || true
+          
+          python -V
+          which python
+          
+          echo "before: $SSL_CERT_FILE"
+          
           python -m pip install --quiet certifi || true
           
           SSL_CERT_FILE=${SSL_CERT_FILE:-$(python -c "import certifi;print(certifi.where())")}
