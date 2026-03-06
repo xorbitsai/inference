@@ -188,10 +188,9 @@ jobs:
         if: startsWith(matrix.os, 'windows')
         shell: bash
         run: |
-          python -m pip install -U certifi
-          export SSL_CERT_FILE=$(python -c "import certifi; print(certifi.where())")
-          export REQUESTS_CA_BUNDLE=$SSL_CERT_FILE
-          echo "SSL_CERT_FILE=$SSL_CERT_FILE"
+          unset SSL_CERT_FILE
+          unset REQUESTS_CA_BUNDLE
+          unset CURL_CA_BUNDLE
     
       - name: Test with pytest
         env:
