@@ -188,11 +188,11 @@ jobs:
         if: startsWith(matrix.os, 'windows')
         shell: bash
         run: |
-          unset SSL_CERT_FILE
-          unset REQUESTS_CA_BUNDLE
-          unset CURL_CA_BUNDLE
-          unset SELF_HOST_PYTHON
-          unset SELF_HOST_CONDA
+          echo "before: $SSL_CERT_FILE"
+          export SSL_CERT_FILE=$(python -c "import os;print(os.path.normpath(os.environ['SSL_CERT_FILE']))")
+          export REQUESTS_CA_BUNDLE=$SSL_CERT_FILE
+          export CURL_CA_BUNDLE=$SSL_CERT_FILE
+          echo "after: $SSL_CERT_FILE"
     
       - name: Test with pytest
         env:
