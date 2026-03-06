@@ -48,7 +48,7 @@ Guide for Model Maintainers
 This section describes the features available to users with model registration or maintenance permissions, including model registration, updates, and review workflows.
 
 **Audience:** Users with model registration or maintenance permissions.
-To become a model maintainer, you may `contact us <https://xorbits.cn/assets/images/wechat_work_qr.png>`_.
+To become a model maintainer, you may `contact us <https://xinference.cn/images/WeCom.jpg>`_.
 
 Core Features (Login Required)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
