@@ -26129,6 +26129,9 @@
           "huggingface": {
             "model_id": "unsloth/Kimi-K2.5-GGUF",
             "model_file_name_split_template": "Kimi-K2.5-{quantization}-{part}.gguf",
+            "quantizations": [
+              "none"
+            ],
             "quantization_parts": {
               "BF16": [
                 "00001-of-00046",
@@ -26553,6 +26556,9 @@
           "modelscope": {
             "model_id": "unsloth/Kimi-K2.5-GGUF",
             "model_file_name_split_template": "Kimi-K2.5-{quantization}-{part}.gguf",
+            "quantizations": [
+              "none"
+            ],
             "quantization_parts": {
               "Q8_0": [
                 "00001-of-00023",
