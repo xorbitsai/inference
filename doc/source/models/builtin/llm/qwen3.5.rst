@@ -62,7 +62,39 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 397 --model-format gptq --quantization ${quantization}
 
 
-Model Spec 4 (pytorch, 122 Billion)
+Model Spec 4 (ggufv2, 397 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** ggufv2
+- **Model Size (in billions):** 397
+- **Quantizations:** UD-TQ1_0
+- **Engines**: 
+- **Model ID:** unsloth/Qwen3.5-397B-A17B-GGUF
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/Qwen3.5-397B-A17B-GGUF>`__, `ModelScope <https://modelscope.cn/models/unsloth/Qwen3.5-397B-A17B-GGUF>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 397 --model-format ggufv2 --quantization ${quantization}
+
+
+Model Spec 5 (mlx, 397 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 397
+- **Quantizations:** 4bit, 5bit, 6bit, 8bit
+- **Engines**: 
+- **Model ID:** mlx-community/Qwen3.5-397B-A17B-{quantization}
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen3.5-397B-A17B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/Qwen3.5-397B-A17B-{quantization}>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 397 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 6 (pytorch, 122 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -78,7 +110,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 122 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 5 (fp8, 122 Billion)
+Model Spec 7 (fp8, 122 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** fp8
@@ -94,7 +126,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 122 --model-format fp8 --quantization ${quantization}
 
 
-Model Spec 6 (gptq, 122 Billion)
+Model Spec 8 (gptq, 122 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** gptq
@@ -110,7 +142,39 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 122 --model-format gptq --quantization ${quantization}
 
 
-Model Spec 7 (pytorch, 35 Billion)
+Model Spec 9 (ggufv2, 122 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** ggufv2
+- **Model Size (in billions):** 122
+- **Quantizations:** UD-IQ1_M, UD-IQ1_S, UD-IQ2_M, UD-IQ2_XXS, UD-IQ3_S, UD-IQ3_XXS
+- **Engines**: 
+- **Model ID:** unsloth/Qwen3.5-122B-A10B-GGUF
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/Qwen3.5-122B-A10B-GGUF>`__, `ModelScope <https://modelscope.cn/models/unsloth/Qwen3.5-122B-A10B-GGUF>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 122 --model-format ggufv2 --quantization ${quantization}
+
+
+Model Spec 10 (mlx, 122 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 122
+- **Quantizations:** 4bit, 5bit, 6bit, 8bit, bf16
+- **Engines**: 
+- **Model ID:** mlx-community/Qwen3.5-122B-A10B-{quantization}
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen3.5-122B-A10B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/Qwen3.5-122B-A10B-{quantization}>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 122 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 11 (pytorch, 35 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -126,7 +190,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 35 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 8 (fp8, 35 Billion)
+Model Spec 12 (fp8, 35 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** fp8
@@ -142,7 +206,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 35 --model-format fp8 --quantization ${quantization}
 
 
-Model Spec 9 (gptq, 35 Billion)
+Model Spec 13 (gptq, 35 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** gptq
@@ -158,7 +222,39 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 35 --model-format gptq --quantization ${quantization}
 
 
-Model Spec 10 (pytorch, 27 Billion)
+Model Spec 14 (ggufv2, 35 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** ggufv2
+- **Model Size (in billions):** 35
+- **Quantizations:** MXFP4_MOE, Q3_K_M, Q3_K_S, Q4_K_M, Q4_K_S, Q5_K_M, Q5_K_S, Q6_K, Q8_0, UD-IQ1_M, UD-IQ2_M, UD-IQ2_XXS, UD-IQ3_S, UD-IQ3_XXS, UD-IQ4_NL, UD-IQ4_XS, UD-Q2_K_XL, UD-Q3_K_XL, UD-Q4_K_L, UD-Q4_K_XL, UD-Q5_K_XL, UD-Q6_K_S, UD-Q6_K_XL, UD-Q8_K_XL
+- **Engines**: 
+- **Model ID:** unsloth/Qwen3.5-35B-A3B-GGUF
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF>`__, `ModelScope <https://modelscope.cn/models/unsloth/Qwen3.5-35B-A3B-GGUF>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 35 --model-format ggufv2 --quantization ${quantization}
+
+
+Model Spec 15 (mlx, 35 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 35
+- **Quantizations:** 4bit, 5bit, 6bit, 8bit, bf16
+- **Engines**: 
+- **Model ID:** mlx-community/Qwen3.5-35B-A3B-{quantization}
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen3.5-35B-A3B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/Qwen3.5-35B-A3B-{quantization}>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 35 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 16 (pytorch, 27 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -174,7 +270,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 27 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 11 (fp8, 27 Billion)
+Model Spec 17 (fp8, 27 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** fp8
@@ -190,7 +286,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 27 --model-format fp8 --quantization ${quantization}
 
 
-Model Spec 12 (gptq, 27 Billion)
+Model Spec 18 (gptq, 27 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** gptq
@@ -206,7 +302,39 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 27 --model-format gptq --quantization ${quantization}
 
 
-Model Spec 13 (pytorch, 9 Billion)
+Model Spec 19 (ggufv2, 27 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** ggufv2
+- **Model Size (in billions):** 27
+- **Quantizations:** IQ4_NL, IQ4_XS, Q3_K_M, Q3_K_S, Q4_0, Q4_1, Q4_K_M, Q4_K_S, Q5_K_M, Q5_K_S, Q6_K, Q8_0, UD-IQ2_M, UD-IQ2_XXS, UD-IQ3_XXS, UD-Q2_K_XL, UD-Q3_K_XL, UD-Q4_K_XL, UD-Q5_K_XL, UD-Q6_K_XL, UD-Q8_K_XL
+- **Engines**: 
+- **Model ID:** unsloth/Qwen3.5-27B-GGUF
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/Qwen3.5-27B-GGUF>`__, `ModelScope <https://modelscope.cn/models/unsloth/Qwen3.5-27B-GGUF>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 27 --model-format ggufv2 --quantization ${quantization}
+
+
+Model Spec 20 (mlx, 27 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 27
+- **Quantizations:** 4bit, 5bit, 6bit, 8bit, bf16, mxfp8
+- **Engines**: 
+- **Model ID:** mlx-community/Qwen3.5-27B-{quantization}
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen3.5-27B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/Qwen3.5-27B-{quantization}>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 27 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 21 (pytorch, 9 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -222,7 +350,39 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 9 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 14 (pytorch, 4 Billion)
+Model Spec 22 (ggufv2, 9 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** ggufv2
+- **Model Size (in billions):** 9
+- **Quantizations:** BF16, IQ4_NL, IQ4_XS, Q3_K_M, Q3_K_S, Q4_0, Q4_1, Q4_K_M, Q4_K_S, Q5_K_M, Q5_K_S, Q6_K, Q8_0, UD-IQ2_M, UD-IQ2_XXS, UD-IQ3_XXS, UD-Q2_K_XL, UD-Q3_K_XL, UD-Q4_K_XL, UD-Q5_K_XL, UD-Q6_K_XL, UD-Q8_K_XL
+- **Engines**: 
+- **Model ID:** unsloth/Qwen3.5-9B-GGUF
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/Qwen3.5-9B-GGUF>`__, `ModelScope <https://modelscope.cn/models/unsloth/Qwen3.5-9B-GGUF>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 9 --model-format ggufv2 --quantization ${quantization}
+
+
+Model Spec 23 (mlx, 9 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 9
+- **Quantizations:** 4bit, 5bit, 6bit, 8bit, bf16
+- **Engines**: 
+- **Model ID:** mlx-community/Qwen3.5-9B-{quantization}
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen3.5-9B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/Qwen3.5-9B-{quantization}>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 9 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 24 (pytorch, 4 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -238,7 +398,39 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 4 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 15 (pytorch, 2 Billion)
+Model Spec 25 (ggufv2, 4 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** ggufv2
+- **Model Size (in billions):** 4
+- **Quantizations:** BF16, IQ4_NL, IQ4_XS, Q3_K_M, Q3_K_S, Q4_0, Q4_1, Q4_K_M, Q4_K_S, Q5_K_M, Q5_K_S, Q6_K, Q8_0, UD-IQ2_M, UD-IQ2_XXS, UD-IQ3_XXS, UD-Q2_K_XL, UD-Q3_K_XL, UD-Q4_K_XL, UD-Q5_K_XL, UD-Q6_K_XL, UD-Q8_K_XL
+- **Engines**: 
+- **Model ID:** unsloth/Qwen3.5-4B-GGUF
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/Qwen3.5-4B-GGUF>`__, `ModelScope <https://modelscope.cn/models/unsloth/Qwen3.5-4B-GGUF>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 4 --model-format ggufv2 --quantization ${quantization}
+
+
+Model Spec 26 (mlx, 4 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 4
+- **Quantizations:** 3bit, 4bit, 6bit, 8bit
+- **Engines**: 
+- **Model ID:** mlx-community/Qwen3.5-4B-{quantization}
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen3.5-4B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/Qwen3.5-4B-{quantization}>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 4 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 27 (pytorch, 2 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -254,7 +446,39 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 2 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 16 (pytorch, 0_8 Billion)
+Model Spec 28 (ggufv2, 2 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** ggufv2
+- **Model Size (in billions):** 2
+- **Quantizations:** BF16, IQ4_NL, IQ4_XS, Q3_K_M, Q3_K_S, Q4_0, Q4_1, Q4_K_M, Q4_K_S, Q5_K_M, Q5_K_S, Q6_K, Q8_0, UD-IQ2_M, UD-IQ2_XXS, UD-IQ3_XXS, UD-Q2_K_XL, UD-Q3_K_XL, UD-Q4_K_XL, UD-Q5_K_XL, UD-Q6_K_XL, UD-Q8_K_XL
+- **Engines**: 
+- **Model ID:** unsloth/Qwen3.5-2B-GGUF
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/Qwen3.5-2B-GGUF>`__, `ModelScope <https://modelscope.cn/models/unsloth/Qwen3.5-2B-GGUF>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 2 --model-format ggufv2 --quantization ${quantization}
+
+
+Model Spec 29 (mlx, 2 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 2
+- **Quantizations:** 3bit, 4bit, 5bit, 6bit, 8bit, bf16, mxfp4, mxfp8, nvfp4
+- **Engines**: 
+- **Model ID:** mlx-community/Qwen3.5-2B-{quantization}
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen3.5-2B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/Qwen3.5-2B-{quantization}>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 2 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 30 (pytorch, 0_8 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -268,4 +492,36 @@ Execute the following command to launch the model, remember to replace ``${quant
 chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 0_8 --model-format pytorch --quantization ${quantization}
+
+
+Model Spec 31 (ggufv2, 0_8 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** ggufv2
+- **Model Size (in billions):** 0_8
+- **Quantizations:** BF16, IQ4_NL, IQ4_XS, Q3_K_M, Q3_K_S, Q4_0, Q4_1, Q4_K_M, Q4_K_S, Q5_K_M, Q5_K_S, Q6_K, Q8_0, UD-IQ2_M, UD-IQ2_XXS, UD-IQ3_XXS, UD-Q2_K_XL, UD-Q3_K_XL, UD-Q4_K_XL, UD-Q5_K_XL, UD-Q6_K_XL, UD-Q8_K_XL
+- **Engines**: 
+- **Model ID:** unsloth/Qwen3.5-0.8B-GGUF
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF>`__, `ModelScope <https://modelscope.cn/models/unsloth/Qwen3.5-0.8B-GGUF>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 0_8 --model-format ggufv2 --quantization ${quantization}
+
+
+Model Spec 32 (mlx, 0_8 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 0_8
+- **Quantizations:** 3bit, 4bit, 5bit, 6bit, 8bit, bf16, mxfp4, mxfp8, nvfp4
+- **Engines**: 
+- **Model ID:** mlx-community/Qwen3.5-0.8B-{quantization}
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Qwen3.5-0.8B-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/Qwen3.5-0.8B-{quantization}>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 0_8 --model-format mlx --quantization ${quantization}
 
