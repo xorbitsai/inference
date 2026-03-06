@@ -190,7 +190,9 @@ jobs:
         run: |
           echo "before: $SSL_CERT_FILE"
 
-          SSL_CERT_FILE=${SSL_CERT_FILE:-$(python -m certifi)}
+          python -m pip install --quiet certifi || true
+          
+          SSL_CERT_FILE=${SSL_CERT_FILE:-$(python -c "import certifi;print(certifi.where())")}
           
           export SSL_CERT_FILE
           export REQUESTS_CA_BUNDLE=$SSL_CERT_FILE
