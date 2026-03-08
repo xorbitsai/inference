@@ -1924,6 +1924,17 @@ class SupervisorActor(xo.StatelessActor):
             worker_status.update_time = time.time()
             worker_status.status = status
 
+        # Feed worker metrics to OTEL (no-op if OTEL is disabled)
+        if status:
+            try:
+                from .otel import get_cluster_metrics_collector
+
+                collector = get_cluster_metrics_collector()
+                if collector is not None:
+                    collector.update(worker_address, status)
+            except Exception:
+                pass
+
     async def list_deletable_models(
         self, model_version: str, worker_ip: Optional[str] = None
     ) -> List[str]:

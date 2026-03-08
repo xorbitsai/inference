@@ -100,6 +100,12 @@ def setup_otel(app, service_name: str = "xinference") -> None:  # type: ignore[t
             export_timeout_ms=XINFERENCE_OTEL_METRIC_EXPORT_TIMEOUT,
         )
         _instrument_fastapi(app)
+
+        # Register worker metrics gauges (data is fed by supervisor)
+        global _cluster_metrics_collector
+        _cluster_metrics_collector = ClusterMetricsCollector()
+        _cluster_metrics_collector.register()
+
         _otel_initialized = True
         logger.info(
             "OpenTelemetry initialized. "
@@ -275,3 +281,207 @@ def _instrument_fastapi(app) -> None:  # type: ignore[type-arg]
 
     FastAPIInstrumentor.instrument_app(app)
     logger.debug("FastAPI instrumented with OpenTelemetry.")
+
+
+# ---------------------------------------------------------------------------
+# Supervisor-side worker metrics (CPU / MEM / GPU)
+# ---------------------------------------------------------------------------
+
+
+class ClusterMetricsCollector:
+    """
+    Collects worker node metrics (CPU, memory, GPU) for ALL workers and
+    reports them as OTEL ObservableGauge metrics.
+
+    This is designed to run in the **supervisor** process, which already
+    receives periodic ``report_worker_status(address, node_info)`` calls
+    from every worker.  The supervisor's ``setup_otel()`` has already
+    initialised the MeterProvider, so no additional provider setup is needed.
+
+    Usage::
+
+        collector = ClusterMetricsCollector()
+        collector.register()
+
+        # In supervisor.report_worker_status():
+        collector.update(worker_address, node_info)
+    """
+
+    def __init__(self) -> None:
+        # { worker_address: { "cpu": ResourceStatus, 0: GPUStatus, ... } }
+        self._workers: dict = {}
+
+    def update(self, worker_address: str, node_info: dict) -> None:
+        """Store the latest ``gather_node_info()`` result for a worker."""
+        self._workers[worker_address] = node_info
+
+    def remove_worker(self, worker_address: str) -> None:
+        """Stop reporting metrics for a removed/dead worker."""
+        self._workers.pop(worker_address, None)
+
+    def register(self) -> None:
+        """Create OTEL ObservableGauge instruments and bind callbacks."""
+        from opentelemetry import metrics
+
+        meter = metrics.get_meter("xinference.worker")
+
+        meter.create_observable_gauge(
+            name="xinference.worker.cpu.utilization",
+            callbacks=[self._cpu_utilization_cb],
+            description="Worker CPU utilization (0.0 - 1.0)",
+            unit="1",
+        )
+        meter.create_observable_gauge(
+            name="xinference.worker.cpu.count",
+            callbacks=[self._cpu_count_cb],
+            description="Worker CPU core count",
+            unit="{cores}",
+        )
+        meter.create_observable_gauge(
+            name="xinference.worker.memory.used",
+            callbacks=[self._memory_used_cb],
+            description="Worker memory used in bytes",
+            unit="By",
+        )
+        meter.create_observable_gauge(
+            name="xinference.worker.memory.total",
+            callbacks=[self._memory_total_cb],
+            description="Worker total memory in bytes",
+            unit="By",
+        )
+        meter.create_observable_gauge(
+            name="xinference.worker.gpu.utilization",
+            callbacks=[self._gpu_utilization_cb],
+            description="Worker GPU utilization (0.0 - 1.0)",
+            unit="1",
+        )
+        meter.create_observable_gauge(
+            name="xinference.worker.gpu.memory.used",
+            callbacks=[self._gpu_mem_used_cb],
+            description="Worker GPU memory used in bytes",
+            unit="By",
+        )
+        meter.create_observable_gauge(
+            name="xinference.worker.gpu.memory.total",
+            callbacks=[self._gpu_mem_total_cb],
+            description="Worker GPU total memory in bytes",
+            unit="By",
+        )
+        meter.create_observable_gauge(
+            name="xinference.worker.gpu.memory.free",
+            callbacks=[self._gpu_mem_free_cb],
+            description="Worker GPU free memory in bytes",
+            unit="By",
+        )
+        logger.info("Cluster OTEL worker metrics registered.")
+
+    # -- CPU callbacks -------------------------------------------------------
+
+    def _cpu_utilization_cb(self, options):  # type: ignore[no-untyped-def]
+        from opentelemetry.metrics import Observation
+
+        for addr, info in self._workers.items():
+            cpu = info.get("cpu")
+            if cpu is not None:
+                yield Observation(cpu.usage, {"worker_address": addr})
+
+    def _cpu_count_cb(self, options):  # type: ignore[no-untyped-def]
+        from opentelemetry.metrics import Observation
+
+        for addr, info in self._workers.items():
+            cpu = info.get("cpu")
+            if cpu is not None:
+                yield Observation(cpu.total, {"worker_address": addr})
+
+    # -- Memory callbacks ----------------------------------------------------
+
+    def _memory_used_cb(self, options):  # type: ignore[no-untyped-def]
+        from opentelemetry.metrics import Observation
+
+        for addr, info in self._workers.items():
+            cpu = info.get("cpu")
+            if cpu is not None:
+                yield Observation(cpu.memory_used, {"worker_address": addr})
+
+    def _memory_total_cb(self, options):  # type: ignore[no-untyped-def]
+        from opentelemetry.metrics import Observation
+
+        for addr, info in self._workers.items():
+            cpu = info.get("cpu")
+            if cpu is not None:
+                yield Observation(cpu.memory_total, {"worker_address": addr})
+
+    # -- GPU callbacks -------------------------------------------------------
+
+    def _gpu_utilization_cb(self, options):  # type: ignore[no-untyped-def]
+        from opentelemetry.metrics import Observation
+
+        for addr, info in self._workers.items():
+            for key, gpu in info.items():
+                if key == "cpu":
+                    continue
+                yield Observation(
+                    gpu.gpu_util,
+                    {
+                        "worker_address": addr,
+                        "gpu_index": str(key),
+                        "gpu_name": gpu.name,
+                    },
+                )
+
+    def _gpu_mem_used_cb(self, options):  # type: ignore[no-untyped-def]
+        from opentelemetry.metrics import Observation
+
+        for addr, info in self._workers.items():
+            for key, gpu in info.items():
+                if key == "cpu":
+                    continue
+                yield Observation(
+                    gpu.mem_used,
+                    {
+                        "worker_address": addr,
+                        "gpu_index": str(key),
+                        "gpu_name": gpu.name,
+                    },
+                )
+
+    def _gpu_mem_total_cb(self, options):  # type: ignore[no-untyped-def]
+        from opentelemetry.metrics import Observation
+
+        for addr, info in self._workers.items():
+            for key, gpu in info.items():
+                if key == "cpu":
+                    continue
+                yield Observation(
+                    gpu.mem_total,
+                    {
+                        "worker_address": addr,
+                        "gpu_index": str(key),
+                        "gpu_name": gpu.name,
+                    },
+                )
+
+    def _gpu_mem_free_cb(self, options):  # type: ignore[no-untyped-def]
+        from opentelemetry.metrics import Observation
+
+        for addr, info in self._workers.items():
+            for key, gpu in info.items():
+                if key == "cpu":
+                    continue
+                yield Observation(
+                    gpu.mem_free,
+                    {
+                        "worker_address": addr,
+                        "gpu_index": str(key),
+                        "gpu_name": gpu.name,
+                    },
+                )
+
+
+# Singleton instance (created by setup_otel, used by supervisor)
+_cluster_metrics_collector: Optional[ClusterMetricsCollector] = None
+
+
+def get_cluster_metrics_collector() -> Optional[ClusterMetricsCollector]:
+    """Return the global ClusterMetricsCollector, or None if OTEL is disabled."""
+    return _cluster_metrics_collector
