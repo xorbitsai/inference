@@ -25511,7 +25511,7 @@
     "model_description": "We introduce DeepSeek-V3.2, a model that harmonizes high computational efficiency with superior reasoning and agent performance",
     "context_length": 163840,
     "model_lang": [
-      "en1",
+      "en",
       "zh"
     ],
     "model_ability": [
@@ -25580,7 +25580,7 @@
     },
     "tool_parser": "deepseek-r1",
     "featured": true,
-    "updated_at": 1773028048
+    "updated_at": 1773028085
   },
   {
     "model_name": "DeepSeek-V3.2-Exp",
