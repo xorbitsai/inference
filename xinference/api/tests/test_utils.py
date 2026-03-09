@@ -37,8 +37,8 @@ class DummySupervisor:
         return self._models[model_uid]
 
 
-class TestGetModelOrError:
-    """Tests for get_model_or_error function."""
+class TestRequireModel:
+    """Tests for require_model function."""
 
     @pytest.mark.asyncio
     async def test_successful_get(self):
