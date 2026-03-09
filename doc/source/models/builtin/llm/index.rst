@@ -634,7 +634,7 @@ The following is a list of built-in LLM in Xinference:
    * - :ref:`qwen3.5 <models_llm_qwen3.5>`
      - chat, vision, tools, reasoning
      - 262144
-     - Over recent months, we have intensified our focus on developing foundation models that deliver exceptional utility and performance. Qwen3.5 represents a significant leap forward, integrating breakthroughs in multimodal learning, architectural efficiency, reinforcement learning scale, and global accessibility to empower developers and enterprises with unprecedented capability and efficiency.
+     - Over recent months, we have intensified our focus on developing foundation models that deliver exceptional utility and performance. Qwen3.5 represents a significant leap forward, integrating breakthroughs in multimodal learning, architectural efficiency, reinforcement learning scale, and global accessibility to empower developers and enterprises with unprecedented capability and efficiency
 
    * - :ref:`qwenlong-l1 <models_llm_qwenlong-l1>`
      - chat

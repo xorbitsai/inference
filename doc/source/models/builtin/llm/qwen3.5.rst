@@ -8,7 +8,7 @@ qwen3.5
 - **Model Name:** qwen3.5
 - **Languages:** en, zh
 - **Abilities:** chat, vision, tools, reasoning
-- **Description:** Over recent months, we have intensified our focus on developing foundation models that deliver exceptional utility and performance. Qwen3.5 represents a significant leap forward, integrating breakthroughs in multimodal learning, architectural efficiency, reinforcement learning scale, and global accessibility to empower developers and enterprises with unprecedented capability and efficiency.
+- **Description:** Over recent months, we have intensified our focus on developing foundation models that deliver exceptional utility and performance. Qwen3.5 represents a significant leap forward, integrating breakthroughs in multimodal learning, architectural efficiency, reinforcement learning scale, and global accessibility to empower developers and enterprises with unprecedented capability and efficiency
 
 Specifications
 ^^^^^^^^^^^^^^
@@ -62,7 +62,23 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 397 --model-format gptq --quantization ${quantization}
 
 
-Model Spec 4 (ggufv2, 397 Billion)
+Model Spec 4 (awq, 397 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** awq
+- **Model Size (in billions):** 397
+- **Quantizations:** Int4
+- **Engines**: Transformers
+- **Model ID:** QuantTrio/Qwen3.5-397B-A17B-AWQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/Qwen3.5-397B-A17B-AWQ>`__, `ModelScope <https://modelscope.cn/models/tclf90/Qwen3.5-397B-A17B-AWQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 397 --model-format awq --quantization ${quantization}
+
+
+Model Spec 5 (ggufv2, 397 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
@@ -78,7 +94,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 397 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 5 (mlx, 397 Billion)
+Model Spec 6 (mlx, 397 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** mlx
@@ -94,7 +110,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 397 --model-format mlx --quantization ${quantization}
 
 
-Model Spec 6 (pytorch, 122 Billion)
+Model Spec 7 (pytorch, 122 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -110,7 +126,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 122 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 7 (fp8, 122 Billion)
+Model Spec 8 (fp8, 122 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** fp8
@@ -126,7 +142,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 122 --model-format fp8 --quantization ${quantization}
 
 
-Model Spec 8 (gptq, 122 Billion)
+Model Spec 9 (gptq, 122 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** gptq
@@ -142,7 +158,23 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 122 --model-format gptq --quantization ${quantization}
 
 
-Model Spec 9 (ggufv2, 122 Billion)
+Model Spec 10 (awq, 122 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** awq
+- **Model Size (in billions):** 122
+- **Quantizations:** Int4
+- **Engines**: Transformers
+- **Model ID:** QuantTrio/Qwen3.5-122B-A10B-AWQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/Qwen3.5-122B-A10B-AWQ>`__, `ModelScope <https://modelscope.cn/models/tclf90/Qwen3.5-122B-A10B-AWQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 122 --model-format awq --quantization ${quantization}
+
+
+Model Spec 11 (ggufv2, 122 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
@@ -158,7 +190,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 122 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 10 (mlx, 122 Billion)
+Model Spec 12 (mlx, 122 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** mlx
@@ -174,7 +206,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 122 --model-format mlx --quantization ${quantization}
 
 
-Model Spec 11 (pytorch, 35 Billion)
+Model Spec 13 (pytorch, 35 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -190,7 +222,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 35 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 12 (fp8, 35 Billion)
+Model Spec 14 (fp8, 35 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** fp8
@@ -206,7 +238,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 35 --model-format fp8 --quantization ${quantization}
 
 
-Model Spec 13 (gptq, 35 Billion)
+Model Spec 15 (gptq, 35 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** gptq
@@ -222,7 +254,23 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 35 --model-format gptq --quantization ${quantization}
 
 
-Model Spec 14 (ggufv2, 35 Billion)
+Model Spec 16 (awq, 35 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** awq
+- **Model Size (in billions):** 35
+- **Quantizations:** Int4
+- **Engines**: Transformers
+- **Model ID:** QuantTrio/Qwen3.5-35B-A3B-AWQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/Qwen3.5-35B-A3B-AWQ>`__, `ModelScope <https://modelscope.cn/models/tclf90/Qwen3.5-35B-A3B-AWQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 35 --model-format awq --quantization ${quantization}
+
+
+Model Spec 17 (ggufv2, 35 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
@@ -238,7 +286,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 35 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 15 (mlx, 35 Billion)
+Model Spec 18 (mlx, 35 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** mlx
@@ -254,7 +302,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 35 --model-format mlx --quantization ${quantization}
 
 
-Model Spec 16 (pytorch, 27 Billion)
+Model Spec 19 (pytorch, 27 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -270,7 +318,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 27 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 17 (fp8, 27 Billion)
+Model Spec 20 (fp8, 27 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** fp8
@@ -286,7 +334,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 27 --model-format fp8 --quantization ${quantization}
 
 
-Model Spec 18 (gptq, 27 Billion)
+Model Spec 21 (gptq, 27 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** gptq
@@ -302,7 +350,23 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 27 --model-format gptq --quantization ${quantization}
 
 
-Model Spec 19 (ggufv2, 27 Billion)
+Model Spec 22 (awq, 27 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** awq
+- **Model Size (in billions):** 27
+- **Quantizations:** Int4
+- **Engines**: Transformers
+- **Model ID:** QuantTrio/Qwen3.5-27B-AWQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/Qwen3.5-27B-AWQ>`__, `ModelScope <https://modelscope.cn/models/tclf90/Qwen3.5-27B-AWQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 27 --model-format awq --quantization ${quantization}
+
+
+Model Spec 23 (ggufv2, 27 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
@@ -318,7 +382,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 27 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 20 (mlx, 27 Billion)
+Model Spec 24 (mlx, 27 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** mlx
@@ -334,7 +398,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 27 --model-format mlx --quantization ${quantization}
 
 
-Model Spec 21 (pytorch, 9 Billion)
+Model Spec 25 (pytorch, 9 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -350,7 +414,23 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 9 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 22 (ggufv2, 9 Billion)
+Model Spec 26 (awq, 9 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** awq
+- **Model Size (in billions):** 9
+- **Quantizations:** none
+- **Engines**: Transformers
+- **Model ID:** QuantTrio/Qwen3.5-9B-AWQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/Qwen3.5-9B-AWQ>`__, `ModelScope <https://modelscope.cn/models/tclf90/Qwen3.5-9B-AWQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 9 --model-format awq --quantization ${quantization}
+
+
+Model Spec 27 (ggufv2, 9 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
@@ -366,7 +446,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 9 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 23 (mlx, 9 Billion)
+Model Spec 28 (mlx, 9 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** mlx
@@ -382,7 +462,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 9 --model-format mlx --quantization ${quantization}
 
 
-Model Spec 24 (pytorch, 4 Billion)
+Model Spec 29 (pytorch, 4 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -398,7 +478,23 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 4 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 25 (ggufv2, 4 Billion)
+Model Spec 30 (awq, 4 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** awq
+- **Model Size (in billions):** 4
+- **Quantizations:** none
+- **Engines**: Transformers
+- **Model ID:** QuantTrio/Qwen3.5-4B-AWQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/Qwen3.5-4B-AWQ>`__, `ModelScope <https://modelscope.cn/models/tclf90/Qwen3.5-4B-AWQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 4 --model-format awq --quantization ${quantization}
+
+
+Model Spec 31 (ggufv2, 4 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
@@ -414,7 +510,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 4 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 26 (mlx, 4 Billion)
+Model Spec 32 (mlx, 4 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** mlx
@@ -430,7 +526,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 4 --model-format mlx --quantization ${quantization}
 
 
-Model Spec 27 (pytorch, 2 Billion)
+Model Spec 33 (pytorch, 2 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -446,7 +542,23 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 2 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 28 (ggufv2, 2 Billion)
+Model Spec 34 (awq, 2 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** awq
+- **Model Size (in billions):** 2
+- **Quantizations:** none
+- **Engines**: Transformers
+- **Model ID:** QuantTrio/Qwen3.5-2B-AWQ
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/Qwen3.5-2B-AWQ>`__, `ModelScope <https://modelscope.cn/models/tclf90/Qwen3.5-2B-AWQ>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 2 --model-format awq --quantization ${quantization}
+
+
+Model Spec 35 (ggufv2, 2 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
@@ -462,7 +574,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 2 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 29 (mlx, 2 Billion)
+Model Spec 36 (mlx, 2 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** mlx
@@ -478,7 +590,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 2 --model-format mlx --quantization ${quantization}
 
 
-Model Spec 30 (pytorch, 0_8 Billion)
+Model Spec 37 (pytorch, 0_8 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -494,7 +606,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 0_8 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 31 (ggufv2, 0_8 Billion)
+Model Spec 38 (ggufv2, 0_8 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
@@ -510,7 +622,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name qwen3.5 --size-in-billions 0_8 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 32 (mlx, 0_8 Billion)
+Model Spec 39 (mlx, 0_8 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** mlx
