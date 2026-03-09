@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import base64
+from pathlib import Path
 
-import requests
+import pytest
 
 from .....client import Client
 
@@ -37,15 +38,17 @@ def test_gguf(setup):
     assert len(completion["choices"][0]["text"]) > 0
 
 
-def test_gguf_multimodal(setup):
-    IMG_URL_0 = "https://github.com/bebechien/gemma/blob/main/surprise.png?raw=true"
+@pytest.fixture(scope="session")
+def surprise_image_base64():
+    img_path = Path(__file__).parent / "assets" / "surprise.png"
 
-    response = requests.get(IMG_URL_0)
-    response.raise_for_status()  # Raise an exception for bad status codes
-    IMG_BASE64_0 = "data:image/png;base64," + base64.b64encode(response.content).decode(
-        "utf-8"
-    )
+    with open(img_path, "rb") as f:
+        img_base64 = base64.b64encode(f.read()).decode("utf-8")
 
+    return "data:image/png;base64," + img_base64
+
+
+def test_gguf_multimodal(setup, surprise_image_base64):
     endpoint, _ = setup
     client = Client(endpoint)
 
@@ -78,7 +81,7 @@ def test_gguf_multimodal(setup):
                     {
                         "type": "image_url",
                         "image_url": {
-                            "url": IMG_BASE64_0,
+                            "url": surprise_image_base64,
                         },
                     },
                 ],
