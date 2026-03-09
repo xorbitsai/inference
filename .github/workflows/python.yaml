@@ -161,7 +161,32 @@ jobs:
           sudo apt-get clean
           sudo rm -rf /var/lib/apt/lists/*
           df -h 
+          
+      - name: Fix SSL on Windows
+        if: startsWith(matrix.os, 'windows')
+        shell: bash
+        run: |
+          echo "activate conda env"
 
+          source $CONDA/etc/profile.d/conda.sh || true
+          conda activate $CONDA_ENV || true
+          
+          python -V
+          which python
+          
+          echo "before: $SSL_CERT_FILE"
+          
+          python -m pip install --quiet certifi || true
+          
+          SSL_CERT_FILE=$(python -c "import certifi,os;print(os.path.normpath(certifi.where()))")
+          
+          export SSL_CERT_FILE
+          export REQUESTS_CA_BUNDLE=$SSL_CERT_FILE
+          export CURL_CA_BUNDLE=$SSL_CERT_FILE
+          
+          echo "after: $SSL_CERT_FILE"
+          echo "SSL_CERT_FILE=$(python -c 'import certifi;print(certifi.where())')" >> $GITHUB_ENV
+    
       - name: Test with pytest
         env:
           MODULE: ${{ matrix.module }}
