@@ -29,3 +29,35 @@ chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name Kimi-K2.5 --size-in-billions 1058_59 --model-format pytorch --quantization ${quantization}
 
+
+Model Spec 2 (ggufv2, 1058_59 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** ggufv2
+- **Model Size (in billions):** 1058_59
+- **Quantizations:** none
+- **Engines**: 
+- **Model ID:** unsloth/Kimi-K2.5-GGUF
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/Kimi-K2.5-GGUF>`__, `ModelScope <https://modelscope.cn/models/unsloth/Kimi-K2.5-GGUF>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name Kimi-K2.5 --size-in-billions 1058_59 --model-format ggufv2 --quantization ${quantization}
+
+
+Model Spec 3 (mlx, 1058_59 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 1058_59
+- **Quantizations:** 3bit
+- **Engines**: 
+- **Model ID:** mlx-community/Kimi-K2.5-{quantization}
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Kimi-K2.5-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/Kimi-K2.5-{quantization}>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name Kimi-K2.5 --size-in-billions 1058_59 --model-format mlx --quantization ${quantization}
+
