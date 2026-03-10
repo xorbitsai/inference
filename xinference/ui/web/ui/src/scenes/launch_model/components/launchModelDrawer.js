@@ -726,6 +726,7 @@ const LaunchModelDrawer = ({
         multimodalProjectorOptions,
       }),
     [
+      t,
       formData,
       modelData,
       gpuAvailable,
