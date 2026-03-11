@@ -82,6 +82,7 @@ from .schemas import (
     TextToVideoRequest,
     UpdateModelRequest,
 )
+from .utils import require_model
 
 logger = logging.getLogger(__name__)
 
@@ -782,17 +783,9 @@ class RESTfulAPI(CancelMixin):
 
         model_uid = body.model
 
-        try:
-            model = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         if body.stream:
 
@@ -899,16 +892,9 @@ class RESTfulAPI(CancelMixin):
         else:
             model_uid = requested_model_id
 
-        try:
-            model = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         if body.stream:
 
@@ -993,16 +979,9 @@ class RESTfulAPI(CancelMixin):
         }
         kwargs = {key: value for key, value in payload.items() if key not in exclude}
 
-        try:
-            model = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         try:
             kwargs["model_uid"] = model_uid
@@ -1026,16 +1005,9 @@ class RESTfulAPI(CancelMixin):
         }
         kwargs = {key: value for key, value in payload.items() if key not in exclude}
 
-        try:
-            model = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         try:
             decoded_texts = await model.convert_ids_to_tokens(body.input, **kwargs)
@@ -1052,16 +1024,9 @@ class RESTfulAPI(CancelMixin):
         body = RerankRequest.parse_obj(payload)
         model_uid = body.model
 
-        try:
-            model = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         try:
             if body.kwargs is not None:
@@ -1101,16 +1066,9 @@ class RESTfulAPI(CancelMixin):
         if timestamp_granularities:
             timestamp_granularities = [timestamp_granularities]
         model_uid = model
-        try:
-            model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model_ref = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         try:
             if kwargs is not None:
@@ -1150,16 +1108,9 @@ class RESTfulAPI(CancelMixin):
         if timestamp_granularities:
             timestamp_granularities = [timestamp_granularities]
         model_uid = model
-        try:
-            model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model_ref = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         try:
             if kwargs is not None:
@@ -1199,16 +1150,9 @@ class RESTfulAPI(CancelMixin):
             f = await request.json()
         body = SpeechRequest.parse_obj(f)
         model_uid = body.model
-        try:
-            model = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         try:
             if body.kwargs is not None:
@@ -1253,16 +1197,9 @@ class RESTfulAPI(CancelMixin):
     async def create_images(self, request: Request) -> Response:
         body = TextToImageRequest.parse_obj(await request.json())
         model_uid = body.model
-        try:
-            model = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         request_id = None
         try:
@@ -1337,18 +1274,9 @@ class RESTfulAPI(CancelMixin):
         body = SDAPITxt2imgRequst.parse_obj(await request.json())
         model_uid = body.model or body.override_settings.get("sd_model_checkpoint")
 
-        try:
-            if not model_uid:
-                raise ValueError("Unknown model")
-            model = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         try:
             kwargs = dict(body)
@@ -1368,18 +1296,9 @@ class RESTfulAPI(CancelMixin):
         body = SDAPIImg2imgRequst.parse_obj(await request.json())
         model_uid = body.model or body.override_settings.get("sd_model_checkpoint")
 
-        try:
-            if not model_uid:
-                raise ValueError("Unknown model")
-            model = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         try:
             kwargs = dict(body)
@@ -1407,16 +1326,9 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
-        try:
-            model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model_ref = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         request_id = None
         try:
@@ -1470,16 +1382,9 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
-        try:
-            model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model_ref = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         request_id = None
         try:
@@ -1524,16 +1429,9 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
-        try:
-            model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model_ref = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         request_id = None
         try:
@@ -1634,16 +1532,9 @@ class RESTfulAPI(CancelMixin):
 
         assert model is not None
         model_uid = model
-        try:
-            model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model_ref = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         request_id = None
         try:
@@ -1816,16 +1707,9 @@ class RESTfulAPI(CancelMixin):
         exclude = {"model", "args"}
         kwargs = {key: value for key, value in payload.items() if key not in exclude}
 
-        try:
-            model = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         try:
             result = await model.infer(*args, **kwargs)
@@ -1840,16 +1724,9 @@ class RESTfulAPI(CancelMixin):
     async def create_videos(self, request: Request) -> Response:
         body = TextToVideoRequest.parse_obj(await request.json())
         model_uid = body.model
-        try:
-            model = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         request_id = None
         try:
@@ -1884,16 +1761,9 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
-        try:
-            model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model_ref = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         request_id = None
         try:
@@ -1934,16 +1804,9 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
-        try:
-            model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model_ref = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         request_id = None
         try:
@@ -2035,16 +1898,9 @@ class RESTfulAPI(CancelMixin):
         has_tool_message = messages[-1].get("role") == "tool"
         model_uid = body.model
 
-        try:
-            model = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         try:
             desc = await (await self._get_supervisor_ref()).describe_model(model_uid)
