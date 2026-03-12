@@ -521,11 +521,6 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - Qwen1.5-MoE is a transformer-based MoE decoder-only language model pretrained on a large amount of data.
 
-   * - :ref:`qwen2-audio <models_llm_qwen2-audio>`
-     - generate, audio
-     - 32768
-     - Qwen2-Audio: A large-scale audio-language model which is capable of accepting various audio signal inputs and performing audio analysis or direct textual responses with regard to speech instructions.
-
    * - :ref:`qwen2-audio-instruct <models_llm_qwen2-audio-instruct>`
      - chat, audio
      - 32768
@@ -962,8 +957,6 @@ The following is a list of built-in LLM in Xinference:
    qwen1.5-chat
   
    qwen1.5-moe-chat
-  
-   qwen2-audio
   
    qwen2-audio-instruct
   
