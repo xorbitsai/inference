@@ -1230,15 +1230,23 @@ def generate_chat_completion(
 def get_stop_token_ids_from_config_file(model_path: str) -> Optional[List[int]]:
     from transformers import GenerationConfig as TransformersGenerationConfig
 
-    transformers_config = TransformersGenerationConfig.from_pretrained(model_path)
-    if transformers_config.eos_token_id is not None:
-        stop_token_ids = (
-            transformers_config.eos_token_id
-            if isinstance(transformers_config.eos_token_id, list)
-            else [transformers_config.eos_token_id]
+    try:
+        transformers_config = TransformersGenerationConfig.from_pretrained(model_path)
+        if transformers_config.eos_token_id is not None:
+            stop_token_ids = (
+                transformers_config.eos_token_id
+                if isinstance(transformers_config.eos_token_id, list)
+                else [transformers_config.eos_token_id]
+            )
+            return stop_token_ids
+        return None
+    except OSError as e:
+        logger.warning(
+            "Failed to load model config from path %s: %s. Stop tokens will not be applied.",
+            model_path,
+            e,
         )
-        return stop_token_ids
-    return None
+        return None
 
 
 def normalize_response_format(
