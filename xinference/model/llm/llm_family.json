@@ -29789,9 +29789,10 @@
     "virtualenv": {
       "packages": [
         "transformers_dependencies ; #engine# == \"Transformers\"",
-        "vllm_dependencies ; #engine# == \"vllm\"",
         "sglang_dependencies ; #engine# == \"sglang\"",
-        "#system_numpy# ; #engine# == \"vllm\""
+        "#system_numpy# ; #engine# == \"vllm\"",
+        "qwen_omni_utils",
+        "vllm>=0.17.0"
       ]
     },
     "architectures": [
