@@ -32,18 +32,21 @@ logger = logging.getLogger(__name__)
     "QvQ-72B-Preview",
     "Qwen3-VL-Instruct",
     "Qwen3-VL-Thinking",
+    "qwen3.5",
 )
 @register_transformer
 @register_non_default_model(
     "Qwen2VLForConditionalGeneration",
     "Qwen2_5_VLForConditionalGeneration",
     "Qwen3VLMoeForConditionalGeneration",
+    "Qwen3_5ForConditionalGeneration",
 )
 class Qwen2VLChatModel(PytorchMultiModalModel):
     QWEN2_VL_ARCHITECTURES = {
         "Qwen2VLForConditionalGeneration",
         "Qwen2_5_VLForConditionalGeneration",
         "Qwen3VLMoeForConditionalGeneration",
+        "Qwen3_5ForConditionalGeneration",
     }
 
     def _sanitize_model_config(
@@ -108,6 +111,11 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
             Qwen2_5_VLForConditionalGeneration = None
 
         try:
+            from transformers import Qwen3_5ForConditionalGeneration
+        except ImportError:
+            Qwen3_5ForConditionalGeneration = None
+
+        try:
             from transformers import AutoModelForImageTextToText
         except ImportError:
             AutoModelForImageTextToText = None
@@ -115,6 +123,8 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
         kwargs = self.apply_quantization_config()
         if self.model_family.has_architecture("Qwen2_5_VLForConditionalGeneration"):
             model_cls = Qwen2_5_VLForConditionalGeneration
+        elif self.model_family.has_architecture("Qwen3_5ForConditionalGeneration"):
+            model_cls = Qwen3_5ForConditionalGeneration
         elif self.model_family.has_architecture("Qwen3VLMoeForConditionalGeneration"):
             model_cls = AutoModelForImageTextToText
         else:
