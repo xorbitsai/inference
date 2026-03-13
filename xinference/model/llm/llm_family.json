@@ -13185,68 +13185,6 @@
   {
     "version": 2,
     "context_length": 32768,
-    "model_name": "qwen2-audio",
-    "model_lang": [
-      "en",
-      "zh"
-    ],
-    "model_ability": [
-      "generate",
-      "audio"
-    ],
-    "model_description": "Qwen2-Audio: A large-scale audio-language model which is capable of accepting various audio signal inputs and performing audio analysis or direct textual responses with regard to speech instructions.",
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_size_in_billions": 7,
-        "model_src": {
-          "huggingface": {
-            "quantizations": [
-              "none"
-            ],
-            "model_id": "Qwen/Qwen2-Audio-7B",
-            "model_revision": "8577bc71d330c8fa32ffe9f8a1374100759f2466"
-          },
-          "modelscope": {
-            "quantizations": [
-              "none"
-            ],
-            "model_id": "qwen/Qwen2-Audio-7B",
-            "model_revision": "master"
-          }
-        }
-      }
-    ],
-    "prompt_style": {
-      "style_name": "QWEN",
-      "system_prompt": "You are a helpful assistant",
-      "roles": [
-        "user",
-        "assistant"
-      ],
-      "stop": [
-        "<|im_end|>",
-        "<|endoftext|>"
-      ]
-    },
-    "updated_at": 1769418560,
-    "featured": false,
-    "architectures": [
-      "Qwen2AudioForConditionalGeneration"
-    ],
-    "model_type": "qwen2_audio",
-    "virtualenv": {
-      "packages": [
-        "#transformers_dependencies# ; #engine# == \"Transformers\"",
-        "#sglang_dependencies# ; #engine# == \"sglang\"",
-        "#vllm_dependencies# ; #engine# == \"vllm\"",
-        "#system_numpy# ; #engine# == \"vllm\""
-      ]
-    }
-  },
-  {
-    "version": 2,
-    "context_length": 32768,
     "model_name": "qwen2-audio-instruct",
     "model_lang": [
       "en",
@@ -25580,7 +25518,7 @@
     },
     "tool_parser": "deepseek-r1",
     "featured": true,
-    "updated_at": 1770087071
+    "updated_at": 1773028085
   },
   {
     "model_name": "DeepSeek-V3.2-Exp",
@@ -25660,7 +25598,7 @@
     },
     "tool_parser": "deepseek-r1",
     "featured": true,
-    "updated_at": 1770100312
+    "updated_at": 1770205932
   },
   {
     "version": 2,
@@ -25811,7 +25749,7 @@
     "architectures": [
       "Glm4MoeForCausalLM"
     ],
-    "updated_at": 1769162354
+    "updated_at": 1769680026
   },
   {
     "version": 2,
@@ -25963,7 +25901,7 @@
     "architectures": [
       "Glm4MoeForCausalLM"
     ],
-    "updated_at": 1770097727
+    "updated_at": 1770100010
   },
   {
     "version": 2,
@@ -26654,7 +26592,7 @@
       ]
     },
     "featured": false,
-    "updated_at": 1772702932
+    "updated_at": 1773041680
   },
   {
     "model_name": "MiniMax-M2.5",
@@ -29789,9 +29727,10 @@
     "virtualenv": {
       "packages": [
         "transformers_dependencies ; #engine# == \"Transformers\"",
-        "vllm_dependencies ; #engine# == \"vllm\"",
         "sglang_dependencies ; #engine# == \"sglang\"",
-        "#system_numpy# ; #engine# == \"vllm\""
+        "#system_numpy# ; #engine# == \"vllm\"",
+        "qwen_omni_utils",
+        "vllm>=0.17.0"
       ]
     },
     "architectures": [
@@ -29810,6 +29749,6 @@
     ],
     "tool_parser": "qwen",
     "featured": false,
-    "updated_at": 1773029265
+    "updated_at": 1773287066
   }
 ]
