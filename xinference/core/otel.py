@@ -387,6 +387,7 @@ class ClusterMetricsCollector:
             description="Worker GPU free memory in bytes",
             unit="By",
         )
+
     # -- CPU callbacks -------------------------------------------------------
 
     def _cpu_utilization_cb(self, options):  # type: ignore[no-untyped-def]
