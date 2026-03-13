@@ -211,7 +211,7 @@ class RESTfulAPI(CancelMixin):
             try:
                 from ..core.otel import setup_otel
 
-                setup_otel(self._app)
+                setup_otel(self._app, register_worker_metrics=False)
             except Exception:
                 logger.exception(
                     "Failed to initialise OpenTelemetry — continuing without OTEL."

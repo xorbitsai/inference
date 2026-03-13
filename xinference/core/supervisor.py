@@ -40,6 +40,7 @@ import xoscar as xo
 from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_DISABLE_HEALTH_CHECK,
+    XINFERENCE_ENABLE_OTEL,
     XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
     XINFERENCE_HEALTH_CHECK_TIMEOUT,
@@ -136,6 +137,15 @@ class SupervisorActor(xo.StatelessActor):
 
     async def __post_create__(self):
         self._uptime = time.time()
+        if XINFERENCE_ENABLE_OTEL:
+            try:
+                from .otel import setup_otel
+
+                setup_otel(instrument_app=False, register_worker_metrics=True)
+            except Exception:
+                logger.exception(
+                    "Failed to initialise supervisor OpenTelemetry worker metrics. Continuing without supervisor OTEL metrics."
+                )
         if not XINFERENCE_DISABLE_HEALTH_CHECK:
             # Run _check_dead_nodes() in a dedicated thread.
             from ..isolation import Isolation
@@ -1933,7 +1943,10 @@ class SupervisorActor(xo.StatelessActor):
                 if collector is not None:
                     collector.update(worker_address, status)
             except Exception:
-                pass
+                logger.exception(
+                    "Failed to feed worker status into OTEL collector for worker_address=%s",
+                    worker_address,
+                )
 
     async def list_deletable_models(
         self, model_version: str, worker_ip: Optional[str] = None

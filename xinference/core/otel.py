@@ -46,7 +46,13 @@ logger = logging.getLogger(__name__)
 _otel_initialized = False
 
 
-def setup_otel(app, service_name: str = "xinference") -> None:  # type: ignore[type-arg]
+def setup_otel(
+    app=None,
+    service_name: str = "xinference",
+    *,
+    instrument_app: bool = True,
+    register_worker_metrics: bool = True,
+) -> None:  # type: ignore[type-arg]
     """
     Initialise OpenTelemetry tracing and metrics and instrument the FastAPI app.
 
@@ -60,6 +66,10 @@ def setup_otel(app, service_name: str = "xinference") -> None:  # type: ignore[t
         The FastAPI application instance.
     service_name:
         The OTEL ``service.name`` resource attribute (default: "xinference").
+    instrument_app:
+        Whether to attach FastAPI auto-instrumentation for the provided app.
+    register_worker_metrics:
+        Whether to register supervisor-side worker resource metrics.
     """
     global _otel_initialized
     if _otel_initialized:
@@ -99,20 +109,24 @@ def setup_otel(app, service_name: str = "xinference") -> None:  # type: ignore[t
             export_interval_ms=XINFERENCE_OTEL_METRIC_EXPORT_INTERVAL,
             export_timeout_ms=XINFERENCE_OTEL_METRIC_EXPORT_TIMEOUT,
         )
-        _instrument_fastapi(app)
-
-        # Register worker metrics gauges (data is fed by supervisor)
-        global _cluster_metrics_collector
-        _cluster_metrics_collector = ClusterMetricsCollector()
-        _cluster_metrics_collector.register()
+        if instrument_app and app is not None:
+            _instrument_fastapi(app)
+        collector_id = None
+        if register_worker_metrics:
+            # Register worker metrics gauges (data is fed by supervisor)
+            global _cluster_metrics_collector
+            _cluster_metrics_collector = ClusterMetricsCollector()
+            _cluster_metrics_collector.register()
+            collector_id = id(_cluster_metrics_collector)
 
         _otel_initialized = True
         logger.info(
             "OpenTelemetry initialized. "
-            "trace_endpoint=%s metric_endpoint=%s sampling_rate=%s",
+            "trace_endpoint=%s metric_endpoint=%s sampling_rate=%s collector_id=%s",
             XINFERENCE_OTLP_TRACE_ENDPOINT,
             XINFERENCE_OTLP_METRIC_ENDPOINT,
             XINFERENCE_OTEL_SAMPLING_RATE,
+            collector_id,
         )
     except ImportError as exc:
         logger.warning(
@@ -373,8 +387,6 @@ class ClusterMetricsCollector:
             description="Worker GPU free memory in bytes",
             unit="By",
         )
-        logger.info("Cluster OTEL worker metrics registered.")
-
     # -- CPU callbacks -------------------------------------------------------
 
     def _cpu_utilization_cb(self, options):  # type: ignore[no-untyped-def]
