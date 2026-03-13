@@ -118,8 +118,10 @@ class VLLMGenerateConfig(TypedDict, total=False):
     lora_name: Optional[str]
     n: int
     best_of: Optional[int]
+    seed: Optional[int]
     presence_penalty: float
     frequency_penalty: float
+    repetition_penalty: float
     temperature: float
     top_p: float
     top_k: int
@@ -909,11 +911,15 @@ class VLLMModel(LLM):
         sanitized.setdefault("lora_name", generate_config.get("lora_name", None))
         sanitized.setdefault("n", generate_config.get("n", 1))
         sanitized.setdefault("best_of", generate_config.get("best_of", None))
+        sanitized.setdefault("seed", generate_config.get("seed", None))
         sanitized.setdefault(
             "presence_penalty", generate_config.get("presence_penalty", 0.0)
         )
         sanitized.setdefault(
             "frequency_penalty", generate_config.get("frequency_penalty", 0.0)
+        )
+        sanitized.setdefault(
+            "repetition_penalty", generate_config.get("repetition_penalty", 1.0)
         )
         sanitized.setdefault("temperature", generate_config.get("temperature", 1.0))
         sanitized.setdefault("top_p", generate_config.get("top_p", 1.0))
