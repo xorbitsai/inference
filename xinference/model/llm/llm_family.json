@@ -29726,11 +29726,10 @@
     "version": 2,
     "virtualenv": {
       "packages": [
-        "transformers_dependencies ; #engine# == \"Transformers\"",
         "sglang_dependencies ; #engine# == \"sglang\"",
-        "#system_numpy# ; #engine# == \"vllm\"",
-        "qwen_omni_utils",
-        "vllm>=0.17.0"
+        "transformers>=5.2.0 ; #engine# == \"Transformers\"",
+        "qwen_omni_utils ; #engine# == \"vllm\"",
+        "vllm>=0.17.0 ; #engine# == \"vllm\""
       ]
     },
     "architectures": [
