@@ -754,7 +754,19 @@ class AsyncRESTfulVideoModelHandle(AsyncRESTfulModelHandle):
             ("first_frame", ("image", first_frame, "application/octet-stream"))
         )
         files.append(("last_frame", ("image", last_frame, "application/octet-stream")))
-        response = await self.session.post(url, files=files, headers=self.auth_headers)
+        # Convert files list to FormData for proper multipart encoding
+        data = aiohttp.FormData()
+        for item in files:
+            if len(item) == 3 and isinstance(item[1], tuple):
+                # Format: (field_name, (filename, content, content_type))
+                field_name, (filename, content, content_type) = item
+                data.add_field(
+                    field_name, content, filename=filename, content_type=content_type
+                )
+            else:
+                # Format: (field_name, content)
+                data.add_field(item[0], item[1])
+        response = await self.session.post(url, data=data, headers=self.auth_headers)
         if response.status != 200:
             raise RuntimeError(
                 f"Failed to create the video from image, detail: {await _get_error_string(response)}"
@@ -956,11 +968,13 @@ class AsyncRESTfulAudioModelHandle(AsyncRESTfulModelHandle):
             "kwargs": json.dumps(kwargs),
         }
         params = _filter_params(params)
-        files: List[Any] = []
-        files.append(("file", ("file", audio, "application/octet-stream")))
-        response = await self.session.post(
-            url, data=params, files=files, headers=self.auth_headers
+        data = aiohttp.FormData()
+        for key, value in params.items():
+            data.add_field(key, str(value) if value is not None else "")
+        data.add_field(
+            "file", audio, filename="file", content_type="application/octet-stream"
         )
+        response = await self.session.post(url, data=data, headers=self.auth_headers)
         if response.status != 200:
             raise RuntimeError(
                 f"Failed to transcribe the audio, detail: {await _get_error_string(response)}"
@@ -1021,11 +1035,13 @@ class AsyncRESTfulAudioModelHandle(AsyncRESTfulModelHandle):
             "timestamp_granularities[]": timestamp_granularities,
         }
         params = _filter_params(params)
-        files: List[Any] = []
-        files.append(("file", ("file", audio, "application/octet-stream")))
-        response = await self.session.post(
-            url, data=params, files=files, headers=self.auth_headers
+        data = aiohttp.FormData()
+        for key, value in params.items():
+            data.add_field(key, str(value) if value is not None else "")
+        data.add_field(
+            "file", audio, filename="file", content_type="application/octet-stream"
         )
+        response = await self.session.post(url, data=data, headers=self.auth_headers)
         if response.status != 200:
             raise RuntimeError(
                 f"Failed to translate the audio, detail: {await _get_error_string(response)}"
@@ -1083,24 +1099,26 @@ class AsyncRESTfulAudioModelHandle(AsyncRESTfulModelHandle):
             "kwargs": json.dumps(kwargs),
         }
         params = _filter_params(params)
-        files: List[Any] = []
+        data = aiohttp.FormData()
+        for key, value in params.items():
+            data.add_field(key, str(value) if value is not None else "")
         if prompt_speech:
-            files.append(
-                (
-                    "prompt_speech",
-                    ("prompt_speech", prompt_speech, "application/octet-stream"),
-                )
+            data.add_field(
+                "prompt_speech",
+                prompt_speech,
+                filename="prompt_speech",
+                content_type="application/octet-stream",
             )
         if prompt_latent:
-            files.append(
-                (
-                    "prompt_latent",
-                    ("prompt_latent", prompt_latent, "application/octet-stream"),
-                )
+            data.add_field(
+                "prompt_latent",
+                prompt_latent,
+                filename="prompt_latent",
+                content_type="application/octet-stream",
             )
-        if files:
+        if prompt_speech or prompt_latent:
             response = await self.session.post(
-                url, data=params, files=files, headers=self.auth_headers
+                url, data=data, headers=self.auth_headers
             )
         else:
             response = await self.session.post(
@@ -1114,8 +1132,11 @@ class AsyncRESTfulAudioModelHandle(AsyncRESTfulModelHandle):
         if stream:
             await _release_response(response)
             return response.content.iter_chunked(1024)
+
+        # Read content before releasing connection
+        content = await response.read()
         await _release_response(response)
-        return response.content
+        return content
 
 
 class AsyncRESTfulFlexibleModelHandle(AsyncRESTfulModelHandle):
