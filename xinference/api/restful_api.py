@@ -53,6 +53,7 @@ from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_DEFAULT_ENDPOINT_PORT,
     XINFERENCE_DISABLE_METRICS,
+    XINFERENCE_ENABLE_OTEL,
     XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
 )
 from ..core.event import Event, EventCollectorActor, EventType
@@ -155,6 +156,38 @@ class RESTfulAPI(CancelMixin):
         if "Rate limit reached" in str(e):
             raise HTTPException(status_code=429, detail=str(e))
 
+    @staticmethod
+    def _set_trace_model(model_uid: Optional[str]) -> None:
+        if not model_uid:
+            return
+
+        try:
+            from opentelemetry.trace import get_current_span
+
+            span = get_current_span()
+            if span is not None and span.is_recording():
+                span.set_attribute("xinference.model_uid", model_uid)
+        except ImportError:
+            return
+        except Exception:
+            logger.debug("Failed to attach model uid to current trace span.")
+
+    @staticmethod
+    def _set_trace_model_type(model_type: Optional[str]) -> None:
+        if not model_type:
+            return
+
+        try:
+            from opentelemetry.trace import get_current_span
+
+            span = get_current_span()
+            if span is not None and span.is_recording():
+                span.set_attribute("xinference.model_type", model_type)
+        except ImportError:
+            return
+        except Exception:
+            logger.debug("Failed to attach model type to current trace span.")
+
     async def _get_supervisor_ref(self) -> xo.ActorRefType[SupervisorActor]:
         if self._supervisor_ref is None:
             self._supervisor_ref = await xo.actor_ref(
@@ -205,6 +238,17 @@ class RESTfulAPI(CancelMixin):
                 )
             response = await call_next(request)
             return response
+
+        # Initialise OpenTelemetry tracing & metrics (no-op when disabled)
+        if XINFERENCE_ENABLE_OTEL:
+            try:
+                from ..core.otel import setup_otel
+
+                setup_otel(self._app, register_worker_metrics=False)
+            except Exception:
+                logger.exception(
+                    "Failed to initialise OpenTelemetry — continuing without OTEL."
+                )
 
         @self._app.exception_handler(500)
         async def internal_exception_handler(request: Request, exc: Exception):
@@ -265,7 +309,7 @@ class RESTfulAPI(CancelMixin):
             pass  # In case that some Python version does not have __annotations__
         if invalid_routes:
             raise Exception(
-                f"The return value type of the following routes is not Response:\n"
+                f"The return value type of the following routes is not Response: \n"
                 f"{pprint.pformat(invalid_routes)}"
             )
 
@@ -658,7 +702,7 @@ class RESTfulAPI(CancelMixin):
             access_token = request.headers.get("Authorization")
             internal_host = "localhost" if self._host == "0.0.0.0" else self._host
             interface = GradioInterface(
-                endpoint=f"http://{internal_host}:{self._port}",
+                endpoint="http://" + internal_host + ":" + str(self._port),
                 model_uid=model_uid,
                 model_name=body.model_name,
                 model_size_in_billions=body.model_size_in_billions,
@@ -699,7 +743,7 @@ class RESTfulAPI(CancelMixin):
             access_token = request.headers.get("Authorization")
             internal_host = "localhost" if self._host == "0.0.0.0" else self._host
             interface = MediaInterface(
-                endpoint=f"http://{internal_host}:{self._port}",
+                endpoint="http://" + internal_host + ":" + str(self._port),
                 model_uid=model_uid,
                 model_family=body.model_family,
                 model_name=body.model_name,
@@ -782,6 +826,8 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(status_code=501, detail="Not implemented")
 
         model_uid = body.model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("llm")
 
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
@@ -892,6 +938,9 @@ class RESTfulAPI(CancelMixin):
         else:
             model_uid = requested_model_id
 
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("llm")
+
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
@@ -971,6 +1020,8 @@ class RESTfulAPI(CancelMixin):
         payload = await request.json()
         body = CreateEmbeddingRequest.parse_obj(payload)
         model_uid = body.model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("embedding")
         exclude = {
             "model",
             "input",
@@ -998,6 +1049,8 @@ class RESTfulAPI(CancelMixin):
         payload = await request.json()
         body = CreateEmbeddingRequest.parse_obj(payload)
         model_uid = body.model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("embedding")
         exclude = {
             "model",
             "input",
@@ -1023,6 +1076,8 @@ class RESTfulAPI(CancelMixin):
         payload = await request.json()
         body = RerankRequest.parse_obj(payload)
         model_uid = body.model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("rerank")
 
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
@@ -1066,6 +1121,8 @@ class RESTfulAPI(CancelMixin):
         if timestamp_granularities:
             timestamp_granularities = [timestamp_granularities]
         model_uid = model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("audio")
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
@@ -1108,6 +1165,8 @@ class RESTfulAPI(CancelMixin):
         if timestamp_granularities:
             timestamp_granularities = [timestamp_granularities]
         model_uid = model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("audio")
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
@@ -1150,6 +1209,8 @@ class RESTfulAPI(CancelMixin):
             f = await request.json()
         body = SpeechRequest.parse_obj(f)
         model_uid = body.model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("audio")
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
@@ -1197,6 +1258,8 @@ class RESTfulAPI(CancelMixin):
     async def create_images(self, request: Request) -> Response:
         body = TextToImageRequest.parse_obj(await request.json())
         model_uid = body.model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("image")
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
@@ -1229,6 +1292,8 @@ class RESTfulAPI(CancelMixin):
     async def sdapi_options(self, request: Request) -> Response:
         body = SDAPIOptionsRequest.parse_obj(await request.json())
         model_uid = body.sd_model_checkpoint
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("image")
 
         try:
             if not model_uid:
@@ -1273,6 +1338,8 @@ class RESTfulAPI(CancelMixin):
     async def sdapi_txt2img(self, request: Request) -> Response:
         body = SDAPITxt2imgRequst.parse_obj(await request.json())
         model_uid = body.model or body.override_settings.get("sd_model_checkpoint")
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("image")
 
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
@@ -1295,6 +1362,8 @@ class RESTfulAPI(CancelMixin):
     async def sdapi_img2img(self, request: Request) -> Response:
         body = SDAPIImg2imgRequst.parse_obj(await request.json())
         model_uid = body.model or body.override_settings.get("sd_model_checkpoint")
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("image")
 
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
@@ -1326,6 +1395,8 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("image")
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
@@ -1382,6 +1453,8 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("image")
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
@@ -1429,6 +1502,8 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("image")
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
@@ -1532,6 +1607,8 @@ class RESTfulAPI(CancelMixin):
 
         assert model is not None
         model_uid = model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("image")
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
@@ -1702,6 +1779,8 @@ class RESTfulAPI(CancelMixin):
         payload = await request.json()
 
         model_uid = payload.get("model")
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("flexible")
         args = payload.get("args")
 
         exclude = {"model", "args"}
@@ -1724,6 +1803,8 @@ class RESTfulAPI(CancelMixin):
     async def create_videos(self, request: Request) -> Response:
         body = TextToVideoRequest.parse_obj(await request.json())
         model_uid = body.model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("video")
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
@@ -1761,6 +1842,8 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("video")
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
@@ -1804,6 +1887,8 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("video")
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
@@ -1897,6 +1982,8 @@ class RESTfulAPI(CancelMixin):
 
         has_tool_message = messages[-1].get("role") == "tool"
         model_uid = body.model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("llm")
 
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
@@ -2311,7 +2398,7 @@ def run(
     logging_conf: Optional[dict] = None,
     auth_config_file: Optional[str] = None,
 ):
-    logger.info(f"Starting Xinference at endpoint: http://{host}:{port}")
+    logger.info("Starting Xinference at endpoint: http://%s:%s", host, port)
     try:
         api = RESTfulAPI(
             supervisor_address=supervisor_address,
@@ -2327,7 +2414,7 @@ def run(
         if port is XINFERENCE_DEFAULT_ENDPOINT_PORT:
             port = get_next_port()
             logger.info(f"Found available port: {port}")
-            logger.info(f"Starting Xinference at endpoint: http://{host}:{port}")
+            logger.info("Starting Xinference at endpoint: http://%s:%s", host, port)
             api = RESTfulAPI(
                 supervisor_address=supervisor_address,
                 host=host,

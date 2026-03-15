@@ -40,13 +40,13 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
         "vllm>=0.11.2,<0.15.0",
     ],
     "transformers": [
-        "transformers>=4.46.0,<5.0.0",
+        "transformers>=4.53.3,<5.0.0",
         "accelerate>=0.28.0",
     ],
     "sentence_transformers": [
         "sentence_transformers",
         "einops",
-        "transformers<5.0.0",
+        "transformers>=4.53.3,<5.0.0",
     ],
     "diffusers": [
         "diffusers>=0.32.0",
