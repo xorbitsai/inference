@@ -29215,13 +29215,13 @@
           "huggingface": {
             "model_id": "QuantTrio/Qwen3.5-9B-AWQ",
             "quantizations": [
-              "none"
+              "Int4"
             ]
           },
           "modelscope": {
             "model_id": "tclf90/Qwen3.5-9B-AWQ",
             "quantizations": [
-              "none"
+              "Int4"
             ]
           }
         }
@@ -29349,13 +29349,13 @@
           "huggingface": {
             "model_id": "QuantTrio/Qwen3.5-4B-AWQ",
             "quantizations": [
-              "none"
+              "Int4"
             ]
           },
           "modelscope": {
             "model_id": "tclf90/Qwen3.5-4B-AWQ",
             "quantizations": [
-              "none"
+              "Int4"
             ]
           }
         }
@@ -29481,13 +29481,13 @@
           "huggingface": {
             "model_id": "QuantTrio/Qwen3.5-2B-AWQ",
             "quantizations": [
-              "none"
+              "Int4"
             ]
           },
           "modelscope": {
             "model_id": "tclf90/Qwen3.5-2B-AWQ",
             "quantizations": [
-              "none"
+              "Int4"
             ]
           }
         }
@@ -29748,6 +29748,6 @@
     ],
     "tool_parser": "qwen",
     "featured": false,
-    "updated_at": 1773399862
+    "updated_at": 1773574253
   }
 ]

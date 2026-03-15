@@ -36,7 +36,7 @@ Model Spec 2 (ggufv2, 1058_59 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 1058_59
 - **Quantizations:** none
-- **Engines**: 
+- **Engines**: llama.cpp
 - **Model ID:** unsloth/Kimi-K2.5-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/Kimi-K2.5-GGUF>`__, `ModelScope <https://modelscope.cn/models/unsloth/Kimi-K2.5-GGUF>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (mlx, 1058_59 Billion)
 - **Model Format:** mlx
 - **Model Size (in billions):** 1058_59
 - **Quantizations:** 3bit
-- **Engines**: 
+- **Engines**: MLX
 - **Model ID:** mlx-community/Kimi-K2.5-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/Kimi-K2.5-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/Kimi-K2.5-{quantization}>`__
 
