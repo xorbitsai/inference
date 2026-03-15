@@ -664,13 +664,19 @@ class SupervisorActor(xo.StatelessActor):
             assert isinstance(item["model_name"], str)
             return item.get("model_name").lower()
 
-        ret = []
+        ret: List[Dict[str, Any]] = []
 
         # Always get model registrations from workers, including local deployment
         # In local deployment, supervisor acts as its own worker
         workers = list(self._worker_address_to_worker.values())
-        for worker in workers:
-            ret.extend(await worker.list_model_registrations(model_type, detailed))
+        results: List[List[Dict[str, Any]]] = await asyncio.gather(
+            *[
+                worker.list_model_registrations(model_type, detailed)
+                for worker in workers
+            ]
+        )
+        for result in results:
+            ret.extend(result)
 
         ret.sort(key=sort_helper)
         return ret
