@@ -69,7 +69,7 @@ def merge_short_sentences_en(sens):
         if len(sens_out[-1].split(" ")) <= 2:
             sens_out[-2] = sens_out[-2] + " " + sens_out[-1]
             sens_out.pop(-1)
-    except:
+    except Exception:
         pass
     return sens_out
 
@@ -96,7 +96,7 @@ def merge_short_sentences_zh(sens):
         if len(sens_out[-1]) <= 2:
             sens_out[-2] = sens_out[-2] + " " + sens_out[-1]
             sens_out.pop(-1)
-    except:
+    except Exception:
         pass
     return sens_out
 

@@ -14,7 +14,7 @@ from tokenizer import get_tokenizer
 try:
     from GPTQ import GenericGPTQRunner, InputRecorder
     from eval import get_task_dict, evaluate, lm_eval
-except:
+except Exception:
     pass
 
 from model import Transformer
@@ -252,7 +252,7 @@ class GPTQQuantHandler(QuantHandler):
 
         try:
             lm_eval.tasks.initialize_tasks()
-        except:
+        except Exception:
             pass
         task_dict = get_task_dict(calibration_tasks)
         print("Obtaining GPTQ calibration inputs on: ", calibration_tasks)

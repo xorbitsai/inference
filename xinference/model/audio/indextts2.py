@@ -195,5 +195,5 @@ class Indextts2:
                 os.unlink(temp_prompt_path)
                 if emo_prompt_path:
                     os.unlink(emo_prompt_path)
-            except:
+            except Exception:
                 pass

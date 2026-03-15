@@ -49,7 +49,7 @@ DEBUG_EXECUTOR = bool(int(os.getenv("XINFERENCE_DEBUG_VLLM_EXECUTOR", "0")))
 class WorkerActor(xo.StatelessActor):
     def __init__(self, vllm_config: "VllmConfig", rpc_rank: int = 0, **kwargs):
         super().__init__(**kwargs)
-        self._worker = WorkerWrapperBase(vllm_config, rpc_rank=rpc_rank)
+        self._worker = WorkerWrapperBase(rpc_rank=rpc_rank)
 
     async def __post_create__(self):
         try:
@@ -61,6 +61,10 @@ class WorkerActor(xo.StatelessActor):
             pass
 
     def __getattr__(self, item):
+        from xoscar.core import NO_LOCK_ATTRIBUTE_HINT
+
+        if item == NO_LOCK_ATTRIBUTE_HINT:
+            return True
         return getattr(self._worker, item)
 
     @classmethod
@@ -78,9 +82,34 @@ class WorkerActor(xo.StatelessActor):
                 kwargs,
             )
         if isinstance(method, str):
-            return getattr(self._worker, method)(*args, **kwargs)
+            result = getattr(self._worker, method)(*args, **kwargs)
+            return self._sanitize(result)
         else:
             return method(self._worker, *args, **kwargs)
+
+    def _sanitize(self, obj):
+        import torch
+
+        if isinstance(obj, torch.cuda.Event):
+            return None
+
+        if isinstance(obj, torch.Tensor):
+            return obj.cpu().tolist()
+
+        if isinstance(obj, dict):
+            return {k: self._sanitize(v) for k, v in obj.items()}
+
+        if isinstance(obj, (list, tuple)):
+            return [self._sanitize(v) for v in obj]
+
+        if hasattr(obj, "__dict__"):
+            return {
+                k: self._sanitize(v)
+                for k, v in obj.__dict__.items()
+                if not k.startswith("_")
+            }
+
+        return obj
 
 
 class WorkerWrapper:

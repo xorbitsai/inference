@@ -114,7 +114,7 @@ def load_ckpt(cur_model, ckpt_base_dir, model_name='model', force=True, strict=T
                     cur_model.load_state_dict(state_dict, strict=True)
                     if not silent:
                         print(f"| loaded '{model_name}' from '{ckpt_path}' with strict=True.")
-                except:
+                except Exception:
                     cur_model_state_dict = cur_model.state_dict()
                     cur_model_state_dict = {k.replace('module.', '').replace('_orig_mod.', ''): v for k, v in
                                             cur_model_state_dict.items()}

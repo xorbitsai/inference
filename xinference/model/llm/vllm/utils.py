@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 def vllm_check(fn):
     try:
         from vllm.engine.async_llm_engine import AsyncEngineDeadError
-    except:
+    except Exception:
         return fn
 
     @functools.wraps(fn)
@@ -33,7 +33,7 @@ def vllm_check(fn):
             logger.info("Detecting vLLM is not health, prepare to quit the process")
             try:
                 self.stop()
-            except:
+            except Exception:
                 # ignore error when stop
                 pass
             # Just kill the process and let xinference auto-recover the model

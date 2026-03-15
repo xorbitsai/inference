@@ -217,7 +217,7 @@ class SGLANGModel(LLM):
                         port=sgl_port,
                         **self._model_config,
                     )
-                except:
+                except Exception:
                     logger.exception("Creating sglang Runtime failed")
                     self._loading_error = sys.exc_info()
 

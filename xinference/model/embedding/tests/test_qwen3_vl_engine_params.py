@@ -81,6 +81,7 @@ def _prepare_engine_virtualenv(engine_name: str, virtual_env_packages=None):
                     settings = settings.model_copy(deep=True)
                 else:
                     settings = settings.copy(deep=True)
+                assert settings is not None  # for mypy type narrowing
                 settings.packages = [
                     pkg
                     for pkg in settings.packages

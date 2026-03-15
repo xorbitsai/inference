@@ -1331,12 +1331,15 @@ class WorkerActor(xo.StatelessActor):
         if settings is None:
             settings = VirtualEnvSettings(packages=virtual_env_packages or [])
 
+        assert settings is not None  # for mypy type narrowing
+
         if settings and model_engine and model_engine.lower() not in ("vllm", "sglang"):
             # Pydantic v1 compatibility: use copy() when model_copy is unavailable.
             if hasattr(settings, "model_copy"):
                 settings = settings.model_copy(deep=True)
             else:
                 settings = settings.copy(deep=True)
+            assert settings is not None  # for mypy type narrowing after copy
             settings.extra_index_url = None
             settings.index_strategy = None
 
@@ -1681,7 +1684,7 @@ class WorkerActor(xo.StatelessActor):
                     except xo.ServerClosed:
                         check_cancel()
                         raise
-            except:
+            except Exception:
                 logger.error(f"Failed to load model {model_uid}", exc_info=True)
                 self.release_devices(model_uid=model_uid)
                 for addr in all_subpool_addresses:
@@ -2128,7 +2131,7 @@ class WorkerActor(xo.StatelessActor):
                     uid=rep_model_uid,
                     xavier_config=xavier_config,
                 )
-            except:
+            except Exception:
                 await self._main_pool.remove_sub_pool(subpool_address)
                 raise
             self._model_uid_to_model[rep_model_uid] = model_ref

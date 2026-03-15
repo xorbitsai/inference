@@ -80,7 +80,7 @@ def load_image(image_path: str) -> Optional[PIL.Image.Image]:
         logger.error(f"Error loading image {image_path}: {e}")
         try:
             return PIL.Image.open(image_path)
-        except:
+        except Exception:
             return None
 
 
@@ -251,7 +251,7 @@ def draw_bounding_boxes(
     # Use default font
     try:
         font = PIL.ImageFont.load_default()
-    except:
+    except Exception:
         font = None
 
     img_idx = 0
@@ -406,7 +406,7 @@ def extract_text_blocks(text: str) -> List[Dict[str, Any]]:
                         "bbox": coords[0] if len(coords) == 1 else coords,
                     }
                 )
-        except:
+        except Exception:
             # Skip if coordinates can't be parsed
             continue
 

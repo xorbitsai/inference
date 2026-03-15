@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 1_2 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 1_2
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** opendatalab/MinerU2.5-2509-1.2B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/opendatalab/MinerU2.5-2509-1.2B>`__, `ModelScope <https://modelscope.cn/models/opendatalab/MinerU2.5-2509-1.2B>`__
 
