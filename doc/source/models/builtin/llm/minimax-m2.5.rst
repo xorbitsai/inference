@@ -36,7 +36,7 @@ Model Spec 2 (ggufv2, 230 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 230
 - **Quantizations:** UD-TQ1_0
-- **Engines**: 
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** unsloth/MiniMax-M2.5-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/MiniMax-M2.5-GGUF>`__, `ModelScope <https://modelscope.cn/models/unsloth/MiniMax-M2.5-GGUF>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (mlx, 230 Billion)
 - **Model Format:** mlx
 - **Model Size (in billions):** 230
 - **Quantizations:** 3bit, 4bit, 5bit, 6bit, 8bit
-- **Engines**: 
+- **Engines**: MLX
 - **Model ID:** mlx-community/MiniMax-M2.5-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/MiniMax-M2.5-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/MiniMax-M2.5-{quantization}>`__
 

@@ -36,7 +36,7 @@ Model Spec 2 (fp8, 744 Billion)
 - **Model Format:** fp8
 - **Model Size (in billions):** 744
 - **Quantizations:** FP8
-- **Engines**: 
+- **Engines**: vLLM
 - **Model ID:** zai-org/GLM-5-FP8
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/GLM-5-FP8>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/GLM-5-FP8>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (ggufv2, 744 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 744
 - **Quantizations:** UD-TQ1_0
-- **Engines**: 
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** unsloth/GLM-5-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/GLM-5-GGUF>`__, `ModelScope <https://modelscope.cn/models/unsloth/GLM-5-GGUF>`__
 
@@ -68,7 +68,7 @@ Model Spec 4 (mlx, 744 Billion)
 - **Model Format:** mlx
 - **Model Size (in billions):** 744
 - **Quantizations:** 4bit, 8bit-MXFP8
-- **Engines**: 
+- **Engines**: MLX
 - **Model ID:** mlx-community/GLM-5-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/GLM-5-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/GLM-5-{quantization}>`__
 
