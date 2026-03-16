@@ -1,6 +1,6 @@
 # transformers 4.53.2 and below globally register OTEL providers on import,
 # which conflicts with Xinference OTEL initialization.
-transformers>=4.53.3,<5.0.0
+transformers>=4.53.3
 accelerate>=0.28.0
 sentencepiece
 transformers_stream_generator
