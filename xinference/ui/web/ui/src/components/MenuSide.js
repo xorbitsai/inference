@@ -199,7 +199,10 @@ const MenuSide = () => {
             const { text, label, icon, action } = item
             return (
               <ListItem key={text}>
-                <ListItemButton sx={{ pl: '1.5rem' }} onClick={() => handleNavClick(item)}>
+                <ListItemButton
+                  sx={{ pl: '1.5rem' }}
+                  onClick={() => handleNavClick(item)}
+                >
                   <ListItemIcon sx={{ minWidth: '2rem' }}>{icon}</ListItemIcon>
                   <ListItemText primary={label} />
                   {action === 'external' ? (
