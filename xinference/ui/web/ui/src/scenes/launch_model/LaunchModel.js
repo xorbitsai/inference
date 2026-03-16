@@ -1,7 +1,5 @@
 import {
   Box,
-  Button,
-  ButtonGroup,
   Chip,
   CircularProgress,
   FormControl,
@@ -44,7 +42,6 @@ const LaunchModelComponent = forwardRef(({ modelType, gpuAvailable }, ref) => {
   const [collectionArr, setCollectionArr] = useState([])
   const [filterArr, setFilterArr] = useState([])
   const { t } = useTranslation()
-  const [modelListType, setModelListType] = useState('featured')
   const [modelAbilityData, setModelAbilityData] = useState({
     type: modelType,
     modelAbility: '',
@@ -81,15 +78,6 @@ const LaunchModelComponent = forwardRef(({ modelType, gpuAvailable }, ref) => {
         }
       }
 
-      if (modelListType === 'featured') {
-        const isFavorite =
-          Array.isArray(collectionArr) &&
-          collectionArr.includes(registration.model_name)
-        if (registration?.featured !== true && !isFavorite) {
-          return false
-        }
-      }
-
       if (
         modelAbilityData.modelAbility &&
         ((Array.isArray(registration.model_ability) &&
@@ -118,13 +106,7 @@ const LaunchModelComponent = forwardRef(({ modelType, gpuAvailable }, ref) => {
 
       return true
     },
-    [
-      searchTerm,
-      modelListType,
-      collectionArr,
-      modelAbilityData.modelAbility,
-      statusArr,
-    ]
+    [searchTerm, collectionArr, modelAbilityData.modelAbility, statusArr]
   )
 
   const filterCache = useCallback((spec) => {
@@ -178,17 +160,6 @@ const LaunchModelComponent = forwardRef(({ modelType, gpuAvailable }, ref) => {
           )
           setCollectionArr(collectionData)
 
-          // If no featured models in backend or favorites, default to 'all'
-          const hasFeaturedOrFavorite = builtinRegistrations.some(
-            (r) =>
-              r.featured === true ||
-              (Array.isArray(collectionData) &&
-                collectionData.includes(r.model_name))
-          )
-          if (!hasFeaturedOrFavorite && modelListType === 'featured') {
-            setModelListType('all')
-          }
-
           // Reset pagination status
           setCurrentPage(1)
           setHasMore(true)
@@ -217,16 +188,13 @@ const LaunchModelComponent = forwardRef(({ modelType, gpuAvailable }, ref) => {
     )
 
     const sortedData = [...filteredData].sort((a, b) => {
-      if (modelListType === 'featured') {
-        const isFavA =
-          Array.isArray(collectionArr) && collectionArr.includes(a.model_name)
-        const isFavB =
-          Array.isArray(collectionArr) && collectionArr.includes(b.model_name)
-        const rankA = a.featured === true ? 0 : isFavA ? 1 : 2
-        const rankB = b.featured === true ? 0 : isFavB ? 1 : 2
-        return rankA - rankB
-      }
-      return 0
+      const isFavA =
+        Array.isArray(collectionArr) && collectionArr.includes(a.model_name)
+      const isFavB =
+        Array.isArray(collectionArr) && collectionArr.includes(b.model_name)
+      const rankA = a.featured === true ? 0 : isFavA ? 1 : 2
+      const rankB = b.featured === true ? 0 : isFavB ? 1 : 2
+      return rankA - rankB
     })
 
     // If pagination is disabled, show all data at once
@@ -246,7 +214,7 @@ const LaunchModelComponent = forwardRef(({ modelType, gpuAvailable }, ref) => {
       setDisplayedData((prev) => [...prev, ...newData])
     }
     setHasMore(endIndex < sortedData.length)
-  }, [registrationData, filter, modelListType, currentPage, itemsPerPage])
+  }, [registrationData, filter, currentPage, itemsPerPage])
 
   useEffect(() => {
     updateDisplayedData()
@@ -256,7 +224,7 @@ const LaunchModelComponent = forwardRef(({ modelType, gpuAvailable }, ref) => {
   useEffect(() => {
     setCurrentPage(1)
     setHasMore(true)
-  }, [searchTerm, modelAbilityData.modelAbility, status, modelListType])
+  }, [searchTerm, modelAbilityData.modelAbility, status])
 
   // Infinite scroll observer
   useEffect(() => {
@@ -353,17 +321,6 @@ const LaunchModelComponent = forwardRef(({ modelType, gpuAvailable }, ref) => {
     setHasMore(true)
   }
 
-  const handleModelType = (newModelType) => {
-    if (newModelType !== null) {
-      setModelListType(newModelType)
-
-      // Reset pagination status
-      setDisplayedData([])
-      setCurrentPage(1)
-      setHasMore(true)
-    }
-  }
-
   function getLabel(item) {
     const translation = t(`launchModel.${item}`)
     return translation === `launchModel.${item}` ? item : translation
@@ -373,22 +330,6 @@ const LaunchModelComponent = forwardRef(({ modelType, gpuAvailable }, ref) => {
     update,
   }))
 
-  const hasFeatured = registrationData?.some(
-    (r) =>
-      r.featured === true ||
-      (Array.isArray(collectionArr) && collectionArr.includes(r.model_name))
-  )
-
-  useEffect(() => {
-    if (modelListType === 'featured' && !hasFeatured) {
-      setModelListType('all')
-    }
-  }, [modelListType, hasFeatured])
-
-  useEffect(() => {
-    setModelListType('featured')
-  }, [modelType])
-
   return (
     <Box m="20px">
       <div
@@ -396,11 +337,9 @@ const LaunchModelComponent = forwardRef(({ modelType, gpuAvailable }, ref) => {
           display: 'grid',
           gridTemplateColumns: (() => {
             const hasAbility = modelAbilityData.options.length > 0
-            const baseColumns = hasAbility ? ['200px', '150px'] : ['200px']
-            const altColumns = hasAbility ? ['150px', '150px'] : ['150px']
-            const columns = hasFeatured
-              ? [...baseColumns, '150px', '1fr']
-              : [...altColumns, '1fr']
+            const columns = hasAbility
+              ? ['150px', '150px', '1fr']
+              : ['150px', '1fr']
             return columns.join(' ')
           })(),
           columnGap: '20px',
@@ -408,28 +347,6 @@ const LaunchModelComponent = forwardRef(({ modelType, gpuAvailable }, ref) => {
           alignItems: 'center',
         }}
       >
-        {hasFeatured && (
-          <FormControl sx={{ minWidth: 120 }} size="small">
-            <ButtonGroup>
-              <Button
-                fullWidth
-                onClick={() => handleModelType('featured')}
-                variant={
-                  modelListType === 'featured' ? 'contained' : 'outlined'
-                }
-              >
-                {t('launchModel.featured')}
-              </Button>
-              <Button
-                fullWidth
-                onClick={() => handleModelType('all')}
-                variant={modelListType === 'all' ? 'contained' : 'outlined'}
-              >
-                {t('launchModel.all')}
-              </Button>
-            </ButtonGroup>
-          </FormControl>
-        )}
         {modelAbilityData.options.length > 0 && (
           <FormControl sx={{ minWidth: 120 }} size="small">
             <InputLabel id="ability-select-label">
