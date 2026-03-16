@@ -1309,6 +1309,64 @@ class WorkerActor(xo.StatelessActor):
             # sometimes uv would find other versions.
             python_path = pathlib.Path(sys.executable)
         virtual_env_manager.create_env(python_path=python_path)
+
+        import site as _site
+        import sysconfig as _sysconfig
+
+        if not hasattr(sys, "_MEIPASS"):
+            # Normal execution (pip, venv, conda, source, Docker).
+            # Inject parent site-packages via .pth so xinference and xoscar are
+            # discoverable in the child venv while preserving child-venv isolation.
+            # .pth paths are appended AFTER child site-packages so child-installed
+            # packages always take precedence over parent ones.
+            parent_site_packages = _sysconfig.get_paths()["purelib"]
+
+            # Warn if xinference appears to be user-installed — child venvs
+            # cannot see user site-packages (~/.local/lib/...) by design.
+            user_site = (
+                _site.getusersitepackages()
+                if hasattr(_site, "getusersitepackages")
+                else None
+            )
+            if (
+                user_site
+                and not os.path.exists(os.path.join(parent_site_packages, "xinference"))
+                and os.path.exists(os.path.join(user_site, "xinference"))
+            ):
+                logger.warning(
+                    "xinference is installed in user site-packages (%s) which is "
+                    "not visible to child venvs. Re-install inside a virtual "
+                    "environment.",
+                    user_site,
+                )
+
+            if os.path.exists(parent_site_packages):
+                child_site_packages = pathlib.Path(virtual_env_manager.get_lib_path())
+                child_site_packages.mkdir(parents=True, exist_ok=True)
+                pth_file = child_site_packages / "_xinference_parent.pth"
+                pth_file.write_text(parent_site_packages + "\n")
+                logger.debug(
+                    "Injected parent site-packages into child venv via %s -> %s",
+                    pth_file,
+                    parent_site_packages,
+                )
+            else:
+                logger.warning(
+                    "Parent site-packages path does not exist: %s — child venv "
+                    "may not be able to import xinference or xoscar.",
+                    parent_site_packages,
+                )
+        else:
+            # PyInstaller bundle: sys._MEIPASS is a private temp directory
+            # belonging to the bundle process. The child venv runs an external
+            # Python interpreter that has no access to that directory.
+            # Skip .pth injection entirely — xinference in bundle mode manages
+            # its own package visibility through the bundle mechanism.
+            logger.debug(
+                "Running inside PyInstaller bundle — skipping parent site-packages "
+                "injection into child venv."
+            )
+
         return virtual_env_manager
 
     @classmethod
