@@ -92,6 +92,7 @@ class WorkerActor(xo.StatelessActor):
 
     def _sanitize_result(self, obj):
         output = obj.get_output()
+        return output
 
 
 class WorkerWrapper:
