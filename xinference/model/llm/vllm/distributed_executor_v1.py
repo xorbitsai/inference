@@ -82,34 +82,16 @@ class WorkerActor(xo.StatelessActor):
                 kwargs,
             )
         if isinstance(method, str):
-            result = getattr(self._worker, method)(*args, **kwargs)
-            return self._sanitize(result)
+            if method != "sample_tokens":
+                return getattr(self._worker, method)(*args, **kwargs)
+            else:
+                result = getattr(self._worker, method)(*args, **kwargs)
+                return self._sanitize_result(result)
         else:
             return method(self._worker, *args, **kwargs)
 
-    def _sanitize(self, obj):
-        import torch
-
-        if isinstance(obj, torch.cuda.Event):
-            return None
-
-        if isinstance(obj, torch.Tensor):
-            return obj.cpu().tolist()
-
-        if isinstance(obj, dict):
-            return {k: self._sanitize(v) for k, v in obj.items()}
-
-        if isinstance(obj, (list, tuple)):
-            return [self._sanitize(v) for v in obj]
-
-        if hasattr(obj, "__dict__"):
-            return {
-                k: self._sanitize(v)
-                for k, v in obj.__dict__.items()
-                if not k.startswith("_")
-            }
-
-        return obj
+    def _sanitize_result(self, obj):
+        output = obj.get_output()
 
 
 class WorkerWrapper:
