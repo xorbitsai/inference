@@ -78,6 +78,7 @@ QWEN_TOOL_CALL_FAMILY = [
     "Qwen3-Omni-Instruct",
     "Qwen3-Omni-Thinking",
     "MiniMax-M2",
+    "qwen3.5",
 ]
 
 GLM4_TOOL_CALL_FAMILY = [
