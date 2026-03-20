@@ -627,7 +627,7 @@ The following is a list of built-in LLM in Xinference:
      - Meet Qwen3-VL — the most powerful vision-language model in the Qwen series to date.
 
    * - :ref:`qwen3.5 <models_llm_qwen3.5>`
-     - chat, vision, tools, reasoning
+     - chat, vision, tools, reasoning, hybrid
      - 262144
      - Over recent months, we have intensified our focus on developing foundation models that deliver exceptional utility and performance. Qwen3.5 represents a significant leap forward, integrating breakthroughs in multimodal learning, architectural efficiency, reinforcement learning scale, and global accessibility to empower developers and enterprises with unprecedented capability and efficiency
 
