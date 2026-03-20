@@ -27881,7 +27881,8 @@
       "chat",
       "vision",
       "tools",
-      "reasoning"
+      "reasoning",
+      "hybrid"
     ],
     "model_specs": [
       {
@@ -29746,8 +29747,8 @@
       "<|endoftext|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen",
+    "tool_parser": "qwen3_coder",
     "featured": false,
-    "updated_at": 1773574253
+    "updated_at": 1774014602
   }
 ]
