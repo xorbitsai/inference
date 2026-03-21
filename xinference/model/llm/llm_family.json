@@ -29747,7 +29747,7 @@
       "<|endoftext|>",
       "<|im_end|>"
     ],
-    "tool_parser": "qwen3_coder",
+    "tool_parser": "qwen",
     "featured": false,
     "updated_at": 1774014602
   }
