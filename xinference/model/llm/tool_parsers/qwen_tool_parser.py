@@ -334,6 +334,8 @@ class QwenToolParser(ToolParser):
                 )
                 if function_call is None:
                     return None
+                if "<function=" in function_call and "<parameter=" in function_call:
+                    return self.parse_qwen35_tool_call(function_call)
                 res = json.loads(function_call, strict=False)
                 return None, res["name"], res["arguments"]
             else:
@@ -343,3 +345,30 @@ class QwenToolParser(ToolParser):
         except Exception as e:
             logger.error("Error in Qwen streaming tool call extraction: %s", e)
             raise
+
+    @staticmethod
+    def parse_qwen35_tool_call(text: str):
+        """
+        Parse Qwen3.5 tool call.
+        """
+        func_match = re.search(r"<function\s*=\s*([a-zA-Z0-9_]+)\s*>", text)
+        if not func_match:
+            logger.error("Qwen3.5: missing function name")
+            return text, None, None
+
+        func_name = func_match.group(1)
+
+        param_pattern = re.compile(
+            r"<parameter\s*=\s*([a-zA-Z0-9_]+)\s*>\s*(.*?)\s*</parameter>", re.DOTALL
+        )
+
+        args = {}
+        for key, value in param_pattern.findall(text):
+            cleaned = value.strip()
+            try:
+                cleaned = json.loads(cleaned)
+            except Exception:
+                pass
+            args[key] = cleaned
+
+        return None, func_name, args

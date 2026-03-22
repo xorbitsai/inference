@@ -7,7 +7,7 @@ qwen3.5
 - **Context Length:** 262144
 - **Model Name:** qwen3.5
 - **Languages:** en, zh
-- **Abilities:** chat, vision, tools, reasoning
+- **Abilities:** chat, vision, tools, reasoning, hybrid
 - **Description:** Over recent months, we have intensified our focus on developing foundation models that deliver exceptional utility and performance. Qwen3.5 represents a significant leap forward, integrating breakthroughs in multimodal learning, architectural efficiency, reinforcement learning scale, and global accessibility to empower developers and enterprises with unprecedented capability and efficiency
 
 Specifications

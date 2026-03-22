@@ -27881,7 +27881,8 @@
       "chat",
       "vision",
       "tools",
-      "reasoning"
+      "reasoning",
+      "hybrid"
     ],
     "model_specs": [
       {
@@ -29748,6 +29749,6 @@
     ],
     "tool_parser": "qwen",
     "featured": false,
-    "updated_at": 1773574253
+    "updated_at": 1774076811
   }
 ]
