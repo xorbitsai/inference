@@ -65,12 +65,9 @@ def test_minimax_m27_pytorch_spec(minimax_m27_entry):
     assert pytorch_spec["model_size_in_billions"] == 230
     assert pytorch_spec["activated_size_in_billions"] == 10
     assert (
-        pytorch_spec["model_src"]["huggingface"]["model_id"]
-        == "MiniMaxAI/MiniMax-M2.7"
+        pytorch_spec["model_src"]["huggingface"]["model_id"] == "MiniMaxAI/MiniMax-M2.7"
     )
-    assert (
-        pytorch_spec["model_src"]["modelscope"]["model_id"] == "MiniMax/MiniMax-M2.7"
-    )
+    assert pytorch_spec["model_src"]["modelscope"]["model_id"] == "MiniMax/MiniMax-M2.7"
     assert "none" in pytorch_spec["model_src"]["huggingface"]["quantizations"]
 
 
@@ -100,9 +97,9 @@ def test_minimax_m27_chat_template(minimax_m27_entry):
     """MiniMax-M2.7 chat template should reference correct model identity."""
     assert "MiniMax-M2.7" in minimax_m27_entry["chat_template"]
     # Should not reference M2.5 identity
-    assert "MiniMax-M2.5 and is built by MiniMax" not in minimax_m27_entry[
-        "chat_template"
-    ]
+    assert (
+        "MiniMax-M2.5 and is built by MiniMax" not in minimax_m27_entry["chat_template"]
+    )
 
 
 def test_minimax_m27_version(minimax_m27_entry):
