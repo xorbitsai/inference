@@ -920,9 +920,9 @@ The following is a list of built-in LLM in Xinference:
    minimax-m2
   
    minimax-m2.5
-
+  
    minimax-m2.7
-
+  
    mistral-instruct-v0.1
   
    mistral-instruct-v0.2
