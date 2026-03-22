@@ -308,7 +308,7 @@ class SupervisorActor(xo.StatelessActor):
         import psutil
 
         def _get_gpu_statuses(
-            status: Dict[str, Union[ResourceStatus, GPUStatus]]
+            status: Dict[str, Union[ResourceStatus, GPUStatus]],
         ) -> List[GPUStatus]:
             gpu_statuses: List[GPUStatus] = []
             for value in status.values():
@@ -317,7 +317,7 @@ class SupervisorActor(xo.StatelessActor):
             return gpu_statuses
 
         def _get_average_gpu_utilization(
-            status: Dict[str, Union[ResourceStatus, GPUStatus]]
+            status: Dict[str, Union[ResourceStatus, GPUStatus]],
         ) -> Optional[float]:
             gpu_statuses = _get_gpu_statuses(status)
             if not gpu_statuses:

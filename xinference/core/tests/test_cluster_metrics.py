@@ -78,9 +78,7 @@ async def test_supervisor_cluster_device_info_includes_gpu_utilization_average()
     worker_without_gpu = next(
         item for item in result if item["ip_address"] == "worker-2"
     )
-    supervisor_info = next(
-        item for item in result if item["node_type"] == "Supervisor"
-    )
+    supervisor_info = next(item for item in result if item["node_type"] == "Supervisor")
 
     assert worker_with_gpu["gpu_count"] == 2
     assert worker_with_gpu["gpu_utilization"] == 50.0
