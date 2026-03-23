@@ -2013,7 +2013,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             assert isinstance(agen, AsyncGenerator)
             if tools:
                 return self._async_to_tool_completion_chunks(agen, chat_template_kwargs)
-            return self._async_to_chat_completion_chunks(agen)
+            return self._async_to_chat_completion_chunks(agen, self.reasoning_parser)
         else:
             c = await self.async_generate(
                 inputs, generate_config, request_id=request_id
@@ -2023,4 +2023,4 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 return self._post_process_completion(
                     self.model_family, self.model_uid, c
                 )
-            return self._to_chat_completion(c)
+            return self._to_chat_completion(c, self.reasoning_parser)
