@@ -246,6 +246,10 @@ class QwenToolParser(ToolParser):
             for function_call in function_calls:
                 try:
                     parsed_json = self._parse_json_function_call(function_call)
+                    # Check for Qwen3.5 XML-like format before JSON parsing
+                    if "<function=" in parsed_json and "<parameter=" in parsed_json:
+                        results.append(self.parse_qwen35_tool_call(parsed_json))
+                        continue
                     res = json.loads(parsed_json, strict=False)
                     # Validate that we have the required fields
                     if "name" in res and "arguments" in res:
