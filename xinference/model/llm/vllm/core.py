@@ -94,7 +94,7 @@ class VLLMModelConfig(TypedDict, total=False):
     node_rank: int
     distributed_executor_backend: str
     block_size: int
-    swap_space: int  # GiB
+    swap_space: NotRequired[int]  # GiB
     gpu_memory_utilization: float
     max_num_batched_tokens: int
     max_num_seqs: int
@@ -846,7 +846,8 @@ class VLLMModel(LLM):
             # Use mp backend to satisfy vLLM validation; executor is patched later.
             model_config.setdefault("distributed_executor_backend", "mp")
         model_config.setdefault("block_size", 16)
-        model_config.setdefault("swap_space", 4)
+        if VLLM_VERSION < version.parse("0.18.0"):
+            model_config.setdefault("swap_space", 4)
         model_config.setdefault("gpu_memory_utilization", 0.90)
         model_config.setdefault("max_num_seqs", 256)
 
