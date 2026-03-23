@@ -7,6 +7,14 @@ from xinference.core.resource import GPUStatus, ResourceStatus
 from xinference.core.supervisor import SupervisorActor, WorkerStatus
 
 
+class DummySupervisor:
+    get_cluster_device_info = SupervisorActor.get_cluster_device_info
+
+    def __init__(self, address, worker_status):
+        self.address = address
+        self._worker_status = worker_status
+
+
 def _build_worker_status(*, gpu_utils=None):
     if gpu_utils is None:
         gpu_utils = []
@@ -57,20 +65,21 @@ def test_cluster_metrics_collector_remove_worker_stops_observations():
 
 @pytest.mark.asyncio
 async def test_supervisor_cluster_device_info_includes_gpu_utilization_average():
-    supervisor = object.__new__(SupervisorActor)
-    supervisor.address = "127.0.0.1:9999"
-    supervisor._worker_status = {
-        "worker-1": WorkerStatus(
-            update_time=0,
-            failure_remaining_count=3,
-            status=_build_worker_status(gpu_utils=[40, 60]),
-        ),
-        "worker-2": WorkerStatus(
-            update_time=0,
-            failure_remaining_count=3,
-            status=_build_worker_status(),
-        ),
-    }
+    supervisor = DummySupervisor(
+        "127.0.0.1:9999",
+        {
+            "worker-1": WorkerStatus(
+                update_time=0,
+                failure_remaining_count=3,
+                status=_build_worker_status(gpu_utils=[40, 60]),
+            ),
+            "worker-2": WorkerStatus(
+                update_time=0,
+                failure_remaining_count=3,
+                status=_build_worker_status(),
+            ),
+        },
+    )
 
     result = await supervisor.get_cluster_device_info(detailed=True)
 

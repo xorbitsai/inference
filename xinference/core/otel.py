@@ -38,12 +38,28 @@ XINFERENCE_OTEL_METRIC_EXPORT_TIMEOUT          Metric export timeout ms (default
 """
 
 import logging
-from typing import Optional
+from dataclasses import dataclass
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
 # Sentinel so setup_otel() is idempotent (safe to call multiple times)
 _otel_initialized = False
+
+
+@dataclass
+class _FallbackObservation:
+    value: Any
+    attributes: dict
+
+
+def _get_observation_factory() -> Callable[[Any, dict], Any]:
+    try:
+        from opentelemetry.metrics import Observation
+
+        return Observation
+    except ImportError:
+        return _FallbackObservation
 
 
 def setup_otel(
@@ -391,49 +407,49 @@ class ClusterMetricsCollector:
     # -- CPU callbacks -------------------------------------------------------
 
     def _cpu_utilization_cb(self, options):  # type: ignore[no-untyped-def]
-        from opentelemetry.metrics import Observation
+        observation_factory = _get_observation_factory()
 
         for addr, info in self._workers.items():
             cpu = info.get("cpu")
             if cpu is not None:
-                yield Observation(cpu.usage, {"worker_address": addr})
+                yield observation_factory(cpu.usage, {"worker_address": addr})
 
     def _cpu_count_cb(self, options):  # type: ignore[no-untyped-def]
-        from opentelemetry.metrics import Observation
+        observation_factory = _get_observation_factory()
 
         for addr, info in self._workers.items():
             cpu = info.get("cpu")
             if cpu is not None:
-                yield Observation(cpu.total, {"worker_address": addr})
+                yield observation_factory(cpu.total, {"worker_address": addr})
 
     # -- Memory callbacks ----------------------------------------------------
 
     def _memory_used_cb(self, options):  # type: ignore[no-untyped-def]
-        from opentelemetry.metrics import Observation
+        observation_factory = _get_observation_factory()
 
         for addr, info in self._workers.items():
             cpu = info.get("cpu")
             if cpu is not None:
-                yield Observation(cpu.memory_used, {"worker_address": addr})
+                yield observation_factory(cpu.memory_used, {"worker_address": addr})
 
     def _memory_total_cb(self, options):  # type: ignore[no-untyped-def]
-        from opentelemetry.metrics import Observation
+        observation_factory = _get_observation_factory()
 
         for addr, info in self._workers.items():
             cpu = info.get("cpu")
             if cpu is not None:
-                yield Observation(cpu.memory_total, {"worker_address": addr})
+                yield observation_factory(cpu.memory_total, {"worker_address": addr})
 
     # -- GPU callbacks -------------------------------------------------------
 
     def _gpu_utilization_cb(self, options):  # type: ignore[no-untyped-def]
-        from opentelemetry.metrics import Observation
+        observation_factory = _get_observation_factory()
 
         for addr, info in self._workers.items():
             for key, gpu in info.items():
                 if key == "cpu":
                     continue
-                yield Observation(
+                yield observation_factory(
                     gpu.gpu_util,
                     {
                         "worker_address": addr,
@@ -443,13 +459,13 @@ class ClusterMetricsCollector:
                 )
 
     def _gpu_mem_used_cb(self, options):  # type: ignore[no-untyped-def]
-        from opentelemetry.metrics import Observation
+        observation_factory = _get_observation_factory()
 
         for addr, info in self._workers.items():
             for key, gpu in info.items():
                 if key == "cpu":
                     continue
-                yield Observation(
+                yield observation_factory(
                     gpu.mem_used,
                     {
                         "worker_address": addr,
@@ -459,13 +475,13 @@ class ClusterMetricsCollector:
                 )
 
     def _gpu_mem_total_cb(self, options):  # type: ignore[no-untyped-def]
-        from opentelemetry.metrics import Observation
+        observation_factory = _get_observation_factory()
 
         for addr, info in self._workers.items():
             for key, gpu in info.items():
                 if key == "cpu":
                     continue
-                yield Observation(
+                yield observation_factory(
                     gpu.mem_total,
                     {
                         "worker_address": addr,
@@ -475,13 +491,13 @@ class ClusterMetricsCollector:
                 )
 
     def _gpu_mem_free_cb(self, options):  # type: ignore[no-untyped-def]
-        from opentelemetry.metrics import Observation
+        observation_factory = _get_observation_factory()
 
         for addr, info in self._workers.items():
             for key, gpu in info.items():
                 if key == "cpu":
                     continue
-                yield Observation(
+                yield observation_factory(
                     gpu.mem_free,
                     {
                         "worker_address": addr,
