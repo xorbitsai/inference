@@ -43,12 +43,18 @@ PyTorch (transformers) supports the inference of most state-of-art models. It is
 
    pip install "xinference[transformers]"
 
+Notes:
+
+- The transformers engine supports ``pytorch`` / ``gptq`` / ``awq`` / ``bnb`` / ``fp4`` formats.
+- FP4 format requires ``transformers`` with ``FPQuantConfig`` support. If you see an import error,
+  please upgrade ``transformers`` to a newer version.
+
 
 vLLM Backend
 ~~~~~~~~~~~~
 vLLM is a fast and easy-to-use library for LLM inference and serving. Xinference will choose vLLM as the backend to achieve better throughput when the following conditions are met:
 
-- The model format is ``pytorch``, ``gptq`` or ``awq``.
+- The model format is ``pytorch``, ``gptq``, ``awq``, ``fp4``, ``fp8`` or ``bnb``.
 - When the model format is ``pytorch``, the quantization is ``none``.
 - When the model format is ``awq``, the quantization is ``Int4``.
 - When the model format is ``gptq``, the quantization is ``Int3``, ``Int4`` or ``Int8``.
@@ -84,12 +90,13 @@ Currently, supported models include:
 - ``minicpm-2b-dpo-bf16``, ``minicpm-2b-dpo-fp16``, ``minicpm-2b-dpo-fp32``, ``minicpm-2b-sft-bf16``, ``minicpm-2b-sft-fp32``, ``minicpm4``
 - ``Ernie4.5``
 - ``Qwen3-Coder``, ``Qwen3-Instruct``, ``Qwen3-Thinking``
-- ``glm-4.5``
+- ``glm-4.5``, ``GLM-4.6``, ``GLM-4.7``
 - ``gpt-oss``
 - ``seed-oss``
 - ``Qwen3-Next-Instruct``, ``Qwen3-Next-Thinking``
 - ``DeepSeek-V3.2``, ``DeepSeek-V3.2-Exp``
-- ``MiniMax-M2``
+- ``MiniMax-M2``, ``MiniMax-M2.5``, ``MiniMax-M2.7``
+- ``glm-5``
 .. vllm_end
 
 To install Xinference and vLLM::
@@ -142,4 +149,3 @@ Other Platforms
 ~~~~~~~~~~~~~~~
 
 * :ref:`Ascend NPU <installation_npu>`
-

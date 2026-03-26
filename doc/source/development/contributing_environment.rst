@@ -61,7 +61,7 @@ Conda environment. Here are the commands:
 
 ::
 
-   conda install python=3.10
+   conda install python=3.12
    conda install nodejs
 
 Install from source code

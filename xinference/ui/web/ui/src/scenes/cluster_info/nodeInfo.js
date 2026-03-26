@@ -89,7 +89,16 @@ class NodeInfo extends React.Component {
       }
 
       const gatherResourceStats = (prop) =>
-        sum(roleData.map((obj) => obj[prop]))
+        sum(roleData.map((obj) => obj[prop] || 0))
+
+      const nodesWithGpuLoad = roleData.filter(
+        (obj) => obj['gpu_utilization'] !== undefined
+      )
+      const gpu_utilization_avg =
+        nodesWithGpuLoad.length > 0
+          ? sum(nodesWithGpuLoad.map((obj) => obj['gpu_utilization'])) /
+            nodesWithGpuLoad.length
+          : undefined
 
       const resourceStats = {
         cpu_total: gatherResourceStats('cpu_count'),
@@ -99,6 +108,7 @@ class NodeInfo extends React.Component {
         gpu_total: gatherResourceStats('gpu_count'),
         gpu_memory_total: gatherResourceStats('gpu_vram_total'),
         gpu_memory_avail: gatherResourceStats('gpu_vram_available'),
+        gpu_load: gpu_utilization_avg,
       }
 
       //for all cases, we will at least have cpu information available.
@@ -184,10 +194,23 @@ class NodeInfo extends React.Component {
             <StyledTableCell>{this.t('clusterInfo.gpuInfo')}</StyledTableCell>
             <StyledTableCell>
               <Grid container>
-                <Grid xs={12}>
-                  {this.t('clusterInfo.total')}{' '}
-                  {resourceStats.gpu_total.toFixed(2)}
-                </Grid>
+                {resourceStats.gpu_load !== undefined ? (
+                  <React.Fragment>
+                    <Grid xs={4}>
+                      {this.t('clusterInfo.gpuLoad')}{' '}
+                      {resourceStats.gpu_load.toFixed(2)}%
+                    </Grid>
+                    <Grid xs={8}>
+                      {this.t('clusterInfo.total')}{' '}
+                      {resourceStats.gpu_total.toFixed(2)}
+                    </Grid>
+                  </React.Fragment>
+                ) : (
+                  <Grid xs={12}>
+                    {this.t('clusterInfo.total')}{' '}
+                    {resourceStats.gpu_total.toFixed(2)}
+                  </Grid>
+                )}
               </Grid>
             </StyledTableCell>
           </StyledTableRow>
@@ -285,6 +308,9 @@ class NodeInfo extends React.Component {
                 {this.t('clusterInfo.gpuCount')}
               </StyledTableCell>
               <StyledTableCell style={{ fontWeight: 'bolder' }}>
+                {this.t('clusterInfo.gpuLoad')}
+              </StyledTableCell>
+              <StyledTableCell style={{ fontWeight: 'bolder' }}>
                 {this.t('clusterInfo.gpuMemUsage')}
               </StyledTableCell>
               <StyledTableCell style={{ fontWeight: 'bolder' }}>
@@ -310,6 +336,11 @@ class NodeInfo extends React.Component {
                   {toReadableSize(row['mem_total'])}
                 </StyledTableCell>
                 <StyledTableCell>{row['gpu_count'].toFixed(2)}</StyledTableCell>
+                <StyledTableCell>
+                  {row['gpu_utilization'] !== undefined
+                    ? row['gpu_utilization'].toFixed(2) + '%'
+                    : '-'}
+                </StyledTableCell>
                 <StyledTableCell>
                   {toReadableSize(
                     row['gpu_vram_total'] - row['gpu_vram_available']

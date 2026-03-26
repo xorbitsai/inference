@@ -12,6 +12,7 @@
 [![PyPI Latest Release](https://img.shields.io/pypi/v/xinference.svg?style=for-the-badge)](https://pypi.org/project/xinference/)
 [![License](https://img.shields.io/pypi/l/xinference.svg?style=for-the-badge)](https://github.com/xorbitsai/inference/blob/main/LICENSE)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/xorbitsai/inference/python.yaml?branch=main&style=for-the-badge&label=GITHUB%20ACTIONS&logo=github)](https://actions-badge.atrox.dev/xorbitsai/inference/goto?ref=main)
+[![Docker Pulls](https://img.shields.io/docker/pulls/xprobe/xinference?style=for-the-badge&logo=docker)](https://hub.docker.com/r/xprobe/xinference)
 [![Discord](https://img.shields.io/badge/join_Discord-5462eb.svg?logo=discord&style=for-the-badge&logoColor=%23f5f5f5)](https://discord.gg/Xw9tszSkr5)
 [![Twitter](https://img.shields.io/twitter/follow/xorbitsio?logo=x&style=for-the-badge)](https://twitter.com/xorbitsio)
 
@@ -37,29 +38,27 @@ potential of cutting-edge AI models.
 
 ## 🔥 Hot Topics
 ### Framework Enhancements
+- Agent-native Serving: Xinference integrates with [Xagent](https://github.com/xorbitsai/xagent) to enable dynamic planning, tool use, and autonomous multi-step reasoning — moving beyond static pipelines.
 - Auto batch: Multiple concurrent requests are automatically batched, significantly improving throughput: [#4197](https://github.com/xorbitsai/inference/pull/4197)
 - [Xllamacpp](https://github.com/xorbitsai/xllamacpp): New llama.cpp Python binding, maintained by Xinference team, supports continuous batching and is more production-ready.: [#2997](https://github.com/xorbitsai/inference/pull/2997)
 - Distributed inference: running models across workers: [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - VLLM enhancement: Shared KV cache across multiple replicas: [#2732](https://github.com/xorbitsai/inference/pull/2732)
-- Support Continuous batching for Transformers engine: [#1724](https://github.com/xorbitsai/inference/pull/1724)
-- Support MLX backend for Apple Silicon chips: [#1765](https://github.com/xorbitsai/inference/pull/1765)
-- Support specifying worker and GPU indexes for launching models: [#1195](https://github.com/xorbitsai/inference/pull/1195)
-- Support SGLang backend: [#1161](https://github.com/xorbitsai/inference/pull/1161)
 ### New Models
-- Built-in support for [Qwen-Image-Layered](https://qwen.ai/blog?id=qwen-image-layered): [#4395](https://github.com/xorbitsai/inference/pull/4395)
-- Built-in support for [DeepSeek-V3.2](https://api-docs.deepseek.com/news/news251201): [#4344](https://github.com/xorbitsai/inference/pull/4344)
-- Built-in support for [Z-Image-Turbo](https://tongyi-mai.github.io/Z-Image-blog/): [#4333](https://github.com/xorbitsai/inference/pull/4333)
-- Built-in support for [PaddleOCR-VL](https://ernie.baidu.com/blog/posts/paddleocr-vl/): [#4304](https://github.com/xorbitsai/inference/pull/4304)
-- Built-in support for [FLUX.2-dev](https://github.com/black-forest-labs/flux2): [#4292](https://github.com/xorbitsai/inference/pull/4292)
-- Built-in support for [HunyuanOCR](https://github.com/Tencent-Hunyuan/HunyuanOCR): [#4290](https://github.com/xorbitsai/inference/pull/4290)
-- Built-in support for [DeepSeek-OCR](https://github.com/deepseek-ai/DeepSeek-OCR): [#4187](https://github.com/xorbitsai/inference/pull/4187)
-- Built-in support for [Qwen3-Omni](https://github.com/QwenLM/Qwen3-Omni): [#4137](https://github.com/xorbitsai/inference/pull/4137)
+- Built-in support for [Qwen-3.5](https://github.com/QwenLM/Qwen3.5): [#4639](https://github.com/xorbitsai/inference/pull/4639)
+- Built-in support for [GLM-5](https://github.com/zai-org/GLM-5): [#4638](https://github.com/xorbitsai/inference/pull/4638)
+- Built-in support for [MiniMax-M2.7](https://huggingface.co/MiniMaxAI/MiniMax-M2.7)
+- Built-in support for [MiniMax-M2.5](https://github.com/MiniMax-AI/MiniMax-M2.5): [#4630](https://github.com/xorbitsai/inference/pull/4630)
+- Built-in support for [Kimi-K2.5](https://github.com/MoonshotAI/Kimi-K2.5): [#4631](https://github.com/xorbitsai/inference/pull/4631)
+- Built-in support for [FLUX.2-Klein](https://bfl.ai/models/flux-2-klein): [#4596](https://github.com/xorbitsai/inference/pull/4596)
+- Built-in support for [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR): [#4581](https://github.com/xorbitsai/inference/pull/4581)
+- Built-in support for [GLM-4.7](https://huggingface.co/zai-org/GLM-4.7): [#4565](https://github.com/xorbitsai/inference/pull/4565)
+- Built-in support for [MinerU2.5-2509-1.2B](https://huggingface.co/opendatalab/MinerU2.5-2509-1.2B): [#4569](https://github.com/xorbitsai/inference/pull/4569)
 ### Integrations
+- [Xagent](https://github.com/xorbitsai/xagent): an enterprise agent platform for building and running AI agents with planning, memory, and tool use — not limited to rigid workflows.
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
 - [FastGPT](https://github.com/labring/FastGPT): a knowledge-based platform built on the LLM, offers out-of-the-box data processing and model invocation capabilities, allows for workflow orchestration through Flow visualization.
 - [RAGFlow](https://github.com/infiniflow/ragflow): is an open-source RAG engine based on deep document understanding.
 - [MaxKB](https://github.com/1Panel-dev/MaxKB): MaxKB = Max Knowledge Brain, it is a powerful and easy-to-use AI assistant that integrates Retrieval-Augmented Generation (RAG) pipelines, supports robust workflows, and provides advanced MCP tool-use capabilities.
-- [Chatbox](https://chatboxai.app/): a desktop client for multiple cutting-edge LLM models, available on Windows, Mac and Linux.
 
 
 ## Key Features

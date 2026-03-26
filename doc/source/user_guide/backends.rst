@@ -117,7 +117,7 @@ vLLM is fast with:
 
 When the following conditions are met, Xinference will choose vLLM as the inference engine:
 
-- The model format is ``pytorch``, ``gptq`` or ``awq``.
+- The model format is ``pytorch``, ``gptq``, ``awq``, ``fp4``, ``fp8`` or ``bnb``.
 - When the model format is ``pytorch``, the quantization is ``none``.
 - When the model format is ``awq``, the quantization is ``Int4``.
 - When the model format is ``gptq``, the quantization is ``Int3``, ``Int4`` or ``Int8``.
@@ -153,12 +153,13 @@ Currently, supported model includes:
 - ``minicpm-2b-dpo-bf16``, ``minicpm-2b-dpo-fp16``, ``minicpm-2b-dpo-fp32``, ``minicpm-2b-sft-bf16``, ``minicpm-2b-sft-fp32``, ``minicpm4``
 - ``Ernie4.5``
 - ``Qwen3-Coder``, ``Qwen3-Instruct``, ``Qwen3-Thinking``
-- ``glm-4.5``
+- ``glm-4.5``, ``GLM-4.6``, ``GLM-4.7``
 - ``gpt-oss``
 - ``seed-oss``
 - ``Qwen3-Next-Instruct``, ``Qwen3-Next-Thinking``
 - ``DeepSeek-V3.2``, ``DeepSeek-V3.2-Exp``
-- ``MiniMax-M2``
+- ``MiniMax-M2``, ``MiniMax-M2.5``, ``MiniMax-M2.7``
+- ``glm-5``
 .. vllm_end
 
 .. _sglang_backend:
@@ -176,5 +177,4 @@ MLX
 `MLX <https://github.com/ml-explore/mlx-examples/tree/main/llms>`_ provides efficient runtime
 to run LLM on Apple silicon. It's recommended to use for Mac users when running on Apple silicon
 if the model has MLX format support.
-
 

@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import gc
+import importlib.util
 import inspect
 import logging
+import os
 import threading
 import uuid
 from collections import defaultdict
-from typing import Any, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import torch
@@ -98,6 +100,7 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
     def __init__(self, *args, **kwargs) -> None:
         RerankModel.__init__(self, *args, **kwargs)
         BatchMixin.__init__(self, self.rerank, **kwargs)  # type: ignore
+        self._vl_reranker = None
 
     def load(self):
         # TODO: Split FlagReranker and sentence_transformers into different model_engines like FlagRerankModel
@@ -114,6 +117,27 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
                 "flash_attn can only support fp16 and bf16, will force set `use_fp16` to True"
             )
             self._use_fp16 = True
+
+        if self.model_family.model_name.startswith("Qwen3-VL-Reranker"):
+            module_path = os.path.join(
+                self._model_path, "scripts", "qwen3_vl_reranker.py"
+            )
+            if not os.path.exists(module_path):
+                raise FileNotFoundError(
+                    f"Missing qwen3_vl_reranker.py under {self._model_path}. "
+                    "Please verify the model repository files."
+                )
+            spec = importlib.util.spec_from_file_location(
+                "qwen3_vl_reranker", module_path
+            )
+            if spec is None or spec.loader is None:
+                raise ImportError(f"Failed to load reranker module from {module_path}")
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            self._vl_reranker = module.Qwen3VLReranker(
+                model_name_or_path=self._model_path, **self._kwargs
+            )
+            return
 
         if (
             self.model_family.type == "normal"
@@ -256,6 +280,8 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
         return_len: Optional[bool],
         **kwargs,
     ) -> List[Any]:
+        if self._vl_reranker is not None:
+            return self._rerank_vl(documents, query, **kwargs)
         assert self._model is not None
         if max_chunks_per_doc is not None:
             raise ValueError("rerank hasn't support `max_chunks_per_doc` parameter.")
@@ -334,6 +360,37 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
                 similarity_scores = similarity_scores[0]
 
         return similarity_scores
+
+    def _normalize_vl_text(self, val: Any) -> Dict[str, Any]:
+        if isinstance(val, dict):
+            return val
+        if isinstance(val, str):
+            return {"text": val}
+        raise ValueError("Unsupported input type for Qwen3-VL reranker.")
+
+    def _rerank_vl(self, documents: List[Any], query: List[Any], **kwargs) -> List[Any]:
+        if self._vl_reranker is None:
+            raise RuntimeError("Qwen3-VL reranker is not initialized.")
+
+        if len(query) == 0 or len(documents) == 0:
+            return []
+
+        query_obj = self._normalize_vl_text(query[0])
+        doc_objs = [self._normalize_vl_text(doc) for doc in documents]
+
+        payload: Dict[str, Any] = {
+            "query": query_obj,
+            "documents": doc_objs,
+        }
+        if "instruction" in kwargs:
+            payload["instruction"] = kwargs.get("instruction")
+        if "fps" in kwargs:
+            payload["fps"] = kwargs.get("fps")
+        if "max_frames" in kwargs:
+            payload["max_frames"] = kwargs.get("max_frames")
+
+        scores = self._vl_reranker.process(payload)
+        return [float(score) for score in scores]
 
     @extensible
     def rerank(
@@ -622,11 +679,6 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
 
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
-        dep_check = check_dependency_available(
-            "sentence_transformers", "sentence-transformers"
-        )
-        if dep_check != True:
-            return dep_check
         return True
 
     @classmethod
@@ -636,6 +688,27 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
         model_spec: RerankSpecV1,
         quantization: str,
     ) -> Union[bool, Tuple[bool, str]]:
+        if model_family.model_name.startswith("Qwen3-VL-Reranker"):
+            dep_check = check_dependency_available("transformers", "transformers")
+            if dep_check != True:
+                return dep_check
+            dep_check = check_dependency_available("qwen_vl_utils", "qwen_vl_utils")
+            if dep_check != True:
+                return dep_check
+            dep_check = check_dependency_available("PIL", "Pillow")
+            if dep_check != True:
+                return dep_check
+            dep_check = check_dependency_available("scipy", "scipy")
+            if dep_check != True:
+                return dep_check
+            if model_spec.model_format not in ["pytorch"]:
+                return False, "Qwen3-VL reranker supports pytorch format only"
+            return True
+        dep_check = check_dependency_available(
+            "sentence_transformers", "sentence-transformers"
+        )
+        if dep_check != True:
+            return dep_check
         if model_spec.model_format not in ["pytorch"]:
             return False, "SentenceTransformer rerank engine requires pytorch format"
         return True

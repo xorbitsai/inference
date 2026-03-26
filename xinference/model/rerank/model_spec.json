@@ -29,8 +29,16 @@
         }
       }
     ],
-    "updated_at": 1766386705,
-    "featured": false
+    "updated_at": 1769418426,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
   },
   {
     "version": 2,
@@ -62,8 +70,16 @@
         }
       }
     ],
-    "updated_at": 1766386706,
-    "featured": false
+    "updated_at": 1769418427,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
   },
   {
     "version": 2,
@@ -95,8 +111,14 @@
         }
       }
     ],
-    "updated_at": 1766386708,
-    "featured": false
+    "updated_at": 1769418428,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\""
+      ]
+    }
   },
   {
     "version": 2,
@@ -162,7 +184,16 @@
       }
     ],
     "featured": false,
-    "updated_at": 1766386709
+    "updated_at": 1769418429,
+    "virtualenv": {
+      "packages": [
+        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
   },
   {
     "version": 2,
@@ -194,8 +225,16 @@
         }
       }
     ],
-    "updated_at": 1766386710,
-    "featured": false
+    "updated_at": 1769418430,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
   },
   {
     "version": 2,
@@ -227,8 +266,16 @@
         }
       }
     ],
-    "updated_at": 1766386711,
-    "featured": false
+    "updated_at": 1769418431,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
   },
   {
     "version": 2,
@@ -260,8 +307,16 @@
         }
       }
     ],
-    "updated_at": 1766386713,
-    "featured": false
+    "updated_at": 1769418432,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
   },
   {
     "version": 2,
@@ -292,8 +347,14 @@
         }
       }
     ],
-    "updated_at": 1766386715,
-    "featured": false
+    "updated_at": 1769418433,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\""
+      ]
+    }
   },
   {
     "version": 2,
@@ -370,7 +431,16 @@
       }
     ],
     "featured": false,
-    "updated_at": 1766386716
+    "updated_at": 1769418434,
+    "virtualenv": {
+      "packages": [
+        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
   },
   {
     "version": 2,
@@ -447,7 +517,16 @@
       }
     ],
     "featured": false,
-    "updated_at": 1766386717
+    "updated_at": 1769418435,
+    "virtualenv": {
+      "packages": [
+        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
   },
   {
     "version": 2,
@@ -524,7 +603,16 @@
       }
     ],
     "featured": false,
-    "updated_at": 1766386718
+    "updated_at": 1769418436,
+    "virtualenv": {
+      "packages": [
+        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
   },
   {
     "version": 2,
@@ -556,39 +644,95 @@
         }
       }
     ],
-    "updated_at": 1766386719,
-    "featured": false
+    "updated_at": 1769418437,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
   },
   {
     "version": 2,
     "model_name": "Qwen3-VL-Reranker-8B",
     "type": "normal",
     "language": [
-      "en",
-      "zh"
+        "en",
+        "zh"
     ],
     "max_tokens": 8192,
     "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_src": {
-          "huggingface": {
-            "model_id": "Qwen/Qwen3-VL-Reranker-8B",
-            "model_revision": "8e52ab8fdc69d698b3e1c17f9977afb6fea4f656",
-            "quantizations": [
-              "none"
-            ]
-          },
-          "modelscope": {
-            "model_id": "Qwen/Qwen3-VL-Reranker-8B",
-            "quantizations": [
-              "none"
-            ]
-          }
+        {
+            "model_format": "pytorch",
+            "model_src": {
+                "huggingface": {
+                    "model_id": "Qwen/Qwen3-VL-Reranker-8B",
+                    "model_revision": "8e52ab8fdc69d698b3e1c17f9977afb6fea4f656",
+                    "quantizations": [
+                        "none"
+                    ]
+                },
+                "modelscope": {
+                    "model_id": "Qwen/Qwen3-VL-Reranker-8B",
+                    "quantizations": [
+                        "none"
+                    ]
+                }
+            }
         }
-      }
     ],
     "featured": false,
-    "updated_at": 1768203204
+    "updated_at": 1769418439,
+    "virtualenv": {
+        "packages": [
+            "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+            "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+            "#vllm_dependencies# ; #engine# == \"vllm\"",
+            "#system_numpy# ; #engine# == \"vllm\""
+        ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "Qwen3-VL-Reranker-2B",
+    "type": "normal",
+    "language": [
+        "en",
+        "zh"
+    ],
+    "max_tokens": 8192,
+    "model_specs": [
+        {
+            "model_format": "pytorch",
+            "model_src": {
+                "huggingface": {
+                    "model_id": "Qwen/Qwen3-VL-Reranker-2B",
+                    "model_revision": "76219daff7a696073e0ab28b74fa32aa81183052",
+                    "quantizations": [
+                        "none"
+                    ]
+                },
+                "modelscope": {
+                    "model_id": "Qwen/Qwen3-VL-Reranker-2B",
+                    "quantizations": [
+                        "none"
+                    ]
+                }
+            }
+        }
+    ],
+    "featured": true,
+    "updated_at": 1769418438,
+    "virtualenv": {
+        "packages": [
+            "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+            "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+            "#vllm_dependencies# ; #engine# == \"vllm\"",
+            "#system_numpy# ; #engine# == \"vllm\""
+        ]
+    }
   }
 ]

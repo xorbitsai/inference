@@ -33,9 +33,9 @@ Regular users can browse public models without logging in:
 Browse Models
 ~~~~~~~~~~~~~
 
-* **Function:** View all publicly available models  
-* **Location:** Navigation bar → “Models”  
-* **Model Details:** The default tab is “README,” which includes model description, usage guide, and important notes  
+* **Function:** View all publicly available models
+* **Location:** Navigation bar → “Models”
+* **Model Details:** The default tab is “README,” which includes model description, usage guide, and important notes
 
 .. note::
    Certain advanced or enterprise-level models are visible only to authorized users.
@@ -47,8 +47,8 @@ Guide for Model Maintainers
 
 This section describes the features available to users with model registration or maintenance permissions, including model registration, updates, and review workflows.
 
-**Audience:** Users with model registration or maintenance permissions.  
-To become a model maintainer, you may `contact us <https://xorbits.cn/assets/images/wechat_work_qr.png>`_.
+**Audience:** Users with model registration or maintenance permissions.
+To become a model maintainer, you may `contact us <https://xinference.cn/images/WeCom.jpg>`_.
 
 Core Features (Login Required)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -58,10 +58,10 @@ Model maintainers have access to the following advanced features in addition to 
 User Center
 ~~~~~~~~~~~
 
-* **Function:** View and manage personal information  
-* **Location:** Top-right avatar → “User Center”  
-* **Account Management:** Update profile, email, and other information  
-* **Token Management:** Configure a personal GitHub Token for model submissions or updates  
+* **Function:** View and manage personal information
+* **Location:** Top-right avatar → “User Center”
+* **Account Management:** Update profile, email, and other information
+* **Token Management:** Configure a personal GitHub Token for model submissions or updates
 
 .. note::
    If no GitHub Token is configured, the system will use a default Token when generating PRs.
@@ -69,13 +69,13 @@ User Center
 Model Registration
 ~~~~~~~~~~~~~~~~~~
 
-* **Function:** Register new models and submit them for review  
+* **Function:** Register new models and submit them for review
 * **Location:** After logging in → Top-right avatar → “Model Registration”
 
 **Submission Steps:**
 
-1. Fill in basic model information (name, engine, format, etc.)  
-2. Edit the README (click “Get README” to auto-generate a template)  
+1. Fill in basic model information (name, engine, format, etc.)
+2. Edit the README (click “Get README” to auto-generate a template)
 3. Submit the model (enable the “Public Model” parameter if registering a public model)
 
 .. note::
@@ -84,14 +84,14 @@ Model Registration
 My Models
 ~~~~~~~~~
 
-* **Function:** View all models associated with the current account  
+* **Function:** View all models associated with the current account
 * **Location:** After logging in → Top-right avatar → “My Models”
 
 Model Maintenance
 ~~~~~~~~~~~~~~~~~
 
-* **Function:** Modify the model’s JSON or README  
-* **Location:** Model details page → “Settings” icon  
+* **Function:** Modify the model’s JSON or README
+* **Location:** Model details page → “Settings” icon
 
 .. note::
    When updating a public model, the system automatically creates a PR in the `xorbitsai/inference` repository.
@@ -101,15 +101,15 @@ Review Workflow
 
 **Submitter Workflow:**
 
-1. Submit a model  
-2. Wait for review  
-3. Revise based on reviewer feedback  
+1. Submit a model
+2. Wait for review
+3. Revise based on reviewer feedback
 4. Updated PRs are generated automatically (for public models)
 
 **Reviewer Permissions:** Access to the model review list and model review privileges.
 
 **Reviewer Workflow:**
 
-1. Enter the “Review List”  
-2. Evaluate the model’s quality, completeness, and compliance  
+1. Enter the “Review List”
+2. Evaluate the model’s quality, completeness, and compliance
 3. Approve or reject, providing feedback as necessary

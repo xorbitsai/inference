@@ -67,7 +67,7 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         ):
             try:
                 _id, spk, language, text, phones, tone, word2ph = item
-            except:
+            except Exception:
                 print(item)
                 raise
             audiopath = f"{_id}"
@@ -121,7 +121,7 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         try:
             spec = torch.load(spec_filename)
             assert False
-        except:
+        except Exception:
             if self.use_mel_spec_posterior:
                 spec = mel_spectrogram_torch(
                     audio_norm,

@@ -23,7 +23,7 @@ import pprint
 import time
 import uuid
 import warnings
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, List, Optional, Union, get_type_hints
 
 import gradio as gr
 import xoscar as xo
@@ -38,194 +38,54 @@ from fastapi import (
     Query,
     Request,
     Response,
-    Security,
     UploadFile,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from sse_starlette.sse import EventSourceResponse
-from starlette.responses import JSONResponse as StarletteJSONResponse
 from starlette.responses import PlainTextResponse, RedirectResponse
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
-from .._compat import BaseModel, Field
-from .._version import get_versions
 from ..constants import (
     XINFERENCE_ALLOWED_IPS,
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_DEFAULT_ENDPOINT_PORT,
     XINFERENCE_DISABLE_METRICS,
+    XINFERENCE_ENABLE_OTEL,
     XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
 )
 from ..core.event import Event, EventCollectorActor, EventType
 from ..core.supervisor import SupervisorActor
-from ..core.utils import CancelMixin, json_dumps
-
-# Import Anthropic-related types and availability flag
+from ..core.utils import CancelMixin
 from ..types import (
-    ANTHROPIC_AVAILABLE,
-    AnthropicMessage,
-    ChatCompletion,
-    Completion,
     CreateChatCompletion,
-    CreateCompletion,
     CreateMessage,
-    ImageList,
     PeftModelConfig,
-    SDAPIResult,
-    VideoList,
     max_tokens_field,
 )
 from .oauth2.auth_service import AuthService
-from .oauth2.types import LoginUserForm
+from .responses import JSONResponse
+from .schemas import (
+    AutoConfigLLMRequest,
+    BuildGradioInterfaceRequest,
+    BuildGradioMediaInterfaceRequest,
+    CreateCompletionRequest,
+    CreateEmbeddingRequest,
+    RegisterModelRequest,
+    RerankRequest,
+    SDAPIImg2imgRequst,
+    SDAPIOptionsRequest,
+    SDAPITxt2imgRequst,
+    SpeechRequest,
+    TextToImageRequest,
+    TextToVideoRequest,
+    UpdateModelRequest,
+)
+from .utils import require_model
 
 logger = logging.getLogger(__name__)
-
-
-class JSONResponse(StarletteJSONResponse):  # type: ignore # noqa: F811
-    def render(self, content: Any) -> bytes:
-        return json_dumps(content)
-
-
-class CreateCompletionRequest(CreateCompletion):
-    class Config:
-        schema_extra = {
-            "example": {
-                "prompt": "\n\n### Instructions:\nWhat is the capital of France?\n\n### Response:\n",
-                "stop": ["\n", "###"],
-            }
-        }
-
-
-class CreateEmbeddingRequest(BaseModel):
-    model: str
-    input: Union[
-        str, List[str], List[int], List[List[int]], Dict[str, str], List[Dict[str, str]]
-    ] = Field(description="The input to embed.")
-    user: Optional[str] = None
-
-    class Config:
-        schema_extra = {
-            "example": {
-                "input": "The food was delicious and the waiter...",
-            }
-        }
-
-
-class RerankRequest(BaseModel):
-    model: str
-    query: str
-    documents: List[str]
-    top_n: Optional[int] = None
-    return_documents: Optional[bool] = False
-    return_len: Optional[bool] = False
-    max_chunks_per_doc: Optional[int] = None
-    kwargs: Optional[str] = None
-
-
-class TextToImageRequest(BaseModel):
-    model: str
-    prompt: Union[str, List[str]] = Field(description="The input to embed.")
-    n: Optional[int] = 1
-    response_format: Optional[str] = "url"
-    size: Optional[str] = "1024*1024"
-    kwargs: Optional[str] = None
-    user: Optional[str] = None
-
-
-class SDAPIOptionsRequest(BaseModel):
-    sd_model_checkpoint: Optional[str] = None
-
-
-class SDAPITxt2imgRequst(BaseModel):
-    model: Optional[str]
-    prompt: Optional[str] = ""
-    negative_prompt: Optional[str] = ""
-    steps: Optional[int] = None
-    seed: Optional[int] = -1
-    cfg_scale: Optional[float] = 7.0
-    override_settings: Optional[dict] = {}
-    width: Optional[int] = 512
-    height: Optional[int] = 512
-    sampler_name: Optional[str] = None
-    denoising_strength: Optional[float] = None
-    kwargs: Optional[str] = None
-    user: Optional[str] = None
-
-
-class SDAPIImg2imgRequst(BaseModel):
-    model: Optional[str]
-    init_images: Optional[list]
-    prompt: Optional[str] = ""
-    negative_prompt: Optional[str] = ""
-    steps: Optional[int] = None
-    seed: Optional[int] = -1
-    cfg_scale: Optional[float] = 7.0
-    override_settings: Optional[dict] = {}
-    width: Optional[int] = 512
-    height: Optional[int] = 512
-    sampler_name: Optional[str] = None
-    denoising_strength: Optional[float] = None
-    kwargs: Optional[str] = None
-    user: Optional[str] = None
-
-
-class TextToVideoRequest(BaseModel):
-    model: str
-    prompt: Union[str, List[str]] = Field(description="The input to embed.")
-    n: Optional[int] = 1
-    kwargs: Optional[str] = None
-    user: Optional[str] = None
-
-
-class SpeechRequest(BaseModel):
-    model: str
-    input: str
-    voice: Optional[str]
-    response_format: Optional[str] = "mp3"
-    speed: Optional[float] = 1.0
-    stream: Optional[bool] = False
-    kwargs: Optional[str] = None
-
-
-class RegisterModelRequest(BaseModel):
-    model: str
-    worker_ip: Optional[str]
-    persist: bool
-
-
-class AutoConfigLLMRequest(BaseModel):
-    model_path: str
-    model_family: str
-
-
-class UpdateModelRequest(BaseModel):
-    model_type: str
-
-
-class BuildGradioInterfaceRequest(BaseModel):
-    model_type: str
-    model_name: str
-    model_size_in_billions: int
-    model_format: str
-    quantization: str
-    context_length: int
-    model_ability: List[str]
-    model_description: str
-    model_lang: List[str]
-
-
-class BuildGradioMediaInterfaceRequest(BaseModel):
-    model_type: str
-    model_name: str
-    model_family: str
-    model_id: str
-    controlnet: Union[None, List[Dict[str, Union[str, dict, None]]]]
-    model_revision: Optional[str]
-    model_ability: List[str]
 
 
 class RESTfulAPI(CancelMixin):
@@ -296,6 +156,38 @@ class RESTfulAPI(CancelMixin):
         if "Rate limit reached" in str(e):
             raise HTTPException(status_code=429, detail=str(e))
 
+    @staticmethod
+    def _set_trace_model(model_uid: Optional[str]) -> None:
+        if not model_uid:
+            return
+
+        try:
+            from opentelemetry.trace import get_current_span
+
+            span = get_current_span()
+            if span is not None and span.is_recording():
+                span.set_attribute("xinference.model_uid", model_uid)
+        except ImportError:
+            return
+        except Exception:
+            logger.debug("Failed to attach model uid to current trace span.")
+
+    @staticmethod
+    def _set_trace_model_type(model_type: Optional[str]) -> None:
+        if not model_type:
+            return
+
+        try:
+            from opentelemetry.trace import get_current_span
+
+            span = get_current_span()
+            if span is not None and span.is_recording():
+                span.set_attribute("xinference.model_type", model_type)
+        except ImportError:
+            return
+        except Exception:
+            logger.debug("Failed to attach model type to current trace span.")
+
     async def _get_supervisor_ref(self) -> xo.ActorRefType[SupervisorActor]:
         if self._supervisor_ref is None:
             self._supervisor_ref = await xo.actor_ref(
@@ -310,7 +202,9 @@ class RESTfulAPI(CancelMixin):
             )
         return self._event_collector_ref
 
-    async def _report_error_event(self, model_uid: str, content: str):
+    async def _report_error_event(self, model_uid: Optional[str], content: str) -> None:
+        if model_uid is None:
+            return
         try:
             event_collector_ref = await self._get_event_collector_ref()
             await event_collector_ref.report_event(
@@ -325,16 +219,6 @@ class RESTfulAPI(CancelMixin):
             logger.exception(
                 "Report error event failed, model: %s, content: %s", model_uid, content
             )
-
-    async def login_for_access_token(self, request: Request) -> JSONResponse:
-        form_data = LoginUserForm.parse_obj(await request.json())
-        result = self._auth_service.generate_token_for_user(
-            form_data.username, form_data.password
-        )
-        return JSONResponse(content=result)
-
-    async def is_cluster_authenticated(self) -> JSONResponse:
-        return JSONResponse(content={"auth": self.is_authenticated()})
 
     def serve(self, logging_conf: Optional[dict] = None):
         self._app.add_middleware(
@@ -355,6 +239,17 @@ class RESTfulAPI(CancelMixin):
             response = await call_next(request)
             return response
 
+        # Initialise OpenTelemetry tracing & metrics (no-op when disabled)
+        if XINFERENCE_ENABLE_OTEL:
+            try:
+                from ..core.otel import setup_otel
+
+                setup_otel(self._app, register_worker_metrics=False)
+            except Exception:
+                logger.exception(
+                    "Failed to initialise OpenTelemetry — continuing without OTEL."
+                )
+
         @self._app.exception_handler(500)
         async def internal_exception_handler(request: Request, exc: Exception):
             logger.exception("Handling request %s failed: %s", request.url, exc)
@@ -362,662 +257,13 @@ class RESTfulAPI(CancelMixin):
                 status_code=500, content=f"Internal Server Error: {exc}"
             )
 
-        # internal interface
-        self._router.add_api_route("/status", self.get_status, methods=["GET"])
-        # conflict with /v1/models/{model_uid} below, so register this first
-        self._router.add_api_route(
-            "/v1/models/prompts", self._get_builtin_prompts, methods=["GET"]
-        )
-        self._router.add_api_route(
-            "/v1/models/families", self._get_builtin_families, methods=["GET"]
-        )
-        self._router.add_api_route(
-            "/v1/models/llm/auto-register",
-            self.build_llm_registration_from_config,
-            methods=["POST"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:register"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/models/vllm-supported",
-            self.list_vllm_supported_model_families,
-            methods=["GET"],
-        )
-        self._router.add_api_route(
-            "/v1/cluster/info",
-            self.get_cluster_device_info,
-            methods=["GET"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["admin"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/cluster/version",
-            self.get_cluster_version,
-            methods=["GET"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["admin"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/cluster/devices",
-            self._get_devices_count,
-            methods=["GET"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:list"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route("/v1/address", self.get_address, methods=["GET"])
+        # Attach API instance for dependency injection (Depends(get_api), etc.)
+        self._app.state.api = self
 
-        # user interface
-        self._router.add_api_route(
-            "/v1/ui/{model_uid}",
-            self.build_gradio_interface,
-            methods=["POST"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/ui/images/{model_uid}",
-            self.build_gradio_media_interface,
-            methods=["POST"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/ui/audios/{model_uid}",
-            self.build_gradio_media_interface,
-            methods=["POST"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/ui/videos/{model_uid}",
-            self.build_gradio_media_interface,
-            methods=["POST"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/token", self.login_for_access_token, methods=["POST"]
-        )
-        self._router.add_api_route(
-            "/v1/cluster/auth", self.is_cluster_authenticated, methods=["GET"]
-        )
-        # just for compatibility, LLM only
-        self._router.add_api_route(
-            "/v1/engines/{model_name}",
-            self.query_engines_by_model_name,
-            methods=["GET"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:list"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        # engines for all model types
-        self._router.add_api_route(
-            "/v1/engines/{model_type}/{model_name}",
-            self.query_engines_by_model_name,
-            methods=["GET"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:list"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        # running instances
-        self._router.add_api_route(
-            "/v1/models/instances",
-            self.get_instance_info,
-            methods=["GET"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:list"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/models/{model_type}/{model_name}/versions",
-            self.get_model_versions,
-            methods=["GET"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:list"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/models",
-            self.list_models,
-            methods=["GET"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:list"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
+        # Register all domain routes from routers/ modules
+        from .routers import register_all_routes
 
-        self._router.add_api_route(
-            "/v1/models/{model_uid}",
-            self.describe_model,
-            methods=["GET"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:list"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/models/{model_uid}/events",
-            self.get_model_events,
-            methods=["GET"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/models/{model_uid}/replicas",
-            self.get_model_replicas,
-            methods=["GET"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:list"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/models/{model_uid}/requests/{request_id}/abort",
-            self.abort_request,
-            methods=["POST"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/models/instance",
-            self.launch_model_by_version,
-            methods=["POST"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:start"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/models",
-            self.launch_model,
-            methods=["POST"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:start"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/models/{model_uid}",
-            self.terminate_model,
-            methods=["DELETE"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:stop"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/models/{model_uid}/progress",
-            self.get_launch_model_progress,
-            methods=["GET"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/models/{model_uid}/cancel",
-            self.cancel_launch_model,
-            methods=["POST"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:stop"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/completions",
-            self.create_completion,
-            methods=["POST"],
-            response_model=Completion,
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        # Register messages endpoint only if Anthropic is available
-        if ANTHROPIC_AVAILABLE:
-            self._router.add_api_route(
-                "/anthropic/v1/messages",
-                self.create_message,
-                methods=["POST"],
-                response_model=AnthropicMessage,
-                dependencies=(
-                    [Security(self._auth_service, scopes=["models:read"])]
-                    if self.is_authenticated()
-                    else None
-                ),
-            )
-            # Register Anthropic models endpoints
-            self._router.add_api_route(
-                "/anthropic/v1/models",
-                self.anthropic_list_models,
-                methods=["GET"],
-                dependencies=(
-                    [Security(self._auth_service, scopes=["models:list"])]
-                    if self.is_authenticated()
-                    else None
-                ),
-            )
-            self._router.add_api_route(
-                "/anthropic/v1/models/{model_id}",
-                self.anthropic_get_model,
-                methods=["GET"],
-                dependencies=(
-                    [Security(self._auth_service, scopes=["models:list"])]
-                    if self.is_authenticated()
-                    else None
-                ),
-            )
-        self._router.add_api_route(
-            "/v1/embeddings",
-            self.create_embedding,
-            methods=["POST"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/convert_ids_to_tokens",
-            self.convert_ids_to_tokens,
-            methods=["POST"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/rerank",
-            self.rerank,
-            methods=["POST"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/audio/transcriptions",
-            self.create_transcriptions,
-            methods=["POST"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/audio/translations",
-            self.create_translations,
-            methods=["POST"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/audio/speech",
-            self.create_speech,
-            methods=["POST"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/requests/{request_id}/progress",
-            self.get_progress,
-            methods=["get"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/images/generations",
-            self.create_images,
-            methods=["POST"],
-            response_model=ImageList,
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/images/variations",
-            self.create_variations,
-            methods=["POST"],
-            response_model=ImageList,
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/images/inpainting",
-            self.create_inpainting,
-            methods=["POST"],
-            response_model=ImageList,
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/images/ocr",
-            self.create_ocr,
-            methods=["POST"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/images/edits",
-            self.create_image_edits,
-            methods=["POST"],
-            response_model=ImageList,
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-
-        # SD WebUI API
-        self._router.add_api_route(
-            "/sdapi/v1/options",
-            self.sdapi_options,
-            methods=["POST"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/sdapi/v1/sd-models",
-            self.sdapi_sd_models,
-            methods=["GET"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/sdapi/v1/samplers",
-            self.sdapi_samplers,
-            methods=["GET"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/sdapi/v1/txt2img",
-            self.sdapi_txt2img,
-            methods=["POST"],
-            response_model=SDAPIResult,
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/sdapi/v1/img2img",
-            self.sdapi_img2img,
-            methods=["POST"],
-            response_model=SDAPIResult,
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/video/generations",
-            self.create_videos,
-            methods=["POST"],
-            response_model=VideoList,
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/video/generations/image",
-            self.create_videos_from_images,
-            methods=["POST"],
-            response_model=VideoList,
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/video/generations/flf",
-            self.create_videos_from_first_last_frame,
-            methods=["POST"],
-            response_model=VideoList,
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/chat/completions",
-            self.create_chat_completion,
-            methods=["POST"],
-            response_model=ChatCompletion,
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/flexible/infers",
-            self.create_flexible_infer,
-            methods=["POST"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:read"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-
-        # for custom models
-        self._router.add_api_route(
-            "/v1/model_registrations/{model_type}",
-            self.register_model,
-            methods=["POST"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:register"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/model_registrations/{model_type}/{model_name}",
-            self.unregister_model,
-            methods=["DELETE"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:unregister"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/model_registrations/{model_type}",
-            self.list_model_registrations,
-            methods=["GET"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:list"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/models/update_type",
-            self.update_model_type,
-            methods=["POST"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:add"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/model_registrations/{model_type}/{model_name}",
-            self.get_model_registrations,
-            methods=["GET"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["models:list"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/cache/models",
-            self.list_cached_models,
-            methods=["GET"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["cache:list"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/cache/models/files",
-            self.list_model_files,
-            methods=["GET"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["cache:list"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/cache/models",
-            self.confirm_and_remove_model,
-            methods=["DELETE"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["cache:delete"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/virtualenvs",
-            self.list_virtual_envs,
-            methods=["GET"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["virtualenv:list"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/virtualenvs",
-            self.remove_virtual_env,
-            methods=["DELETE"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["virtualenv:delete"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/workers",
-            self.get_workers_info,
-            methods=["GET"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["admin"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/supervisor",
-            self.get_supervisor_info,
-            methods=["GET"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["admin"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
-        self._router.add_api_route(
-            "/v1/clusters",
-            self.abort_cluster,
-            methods=["DELETE"],
-            dependencies=(
-                [Security(self._auth_service, scopes=["admin"])]
-                if self.is_authenticated()
-                else None
-            ),
-        )
+        register_all_routes(self)
 
         if XINFERENCE_DISABLE_METRICS:
             logger.info(
@@ -1040,6 +286,19 @@ class RESTfulAPI(CancelMixin):
         try:
             for router in self._router.routes:
                 return_annotation = router.endpoint.__annotations__.get("return")
+                # Resolve string annotations (e.g. under __future__ annotations)
+                if isinstance(return_annotation, str):
+                    try:
+                        hints = get_type_hints(router.endpoint)
+                        return_annotation = hints.get("return")
+                    except Exception:
+                        pass
+                    # Fallback: resolve by name from the endpoint's module globals
+                    if isinstance(return_annotation, str):
+                        globals = getattr(router.endpoint, "__globals__", {})
+                        return_annotation = globals.get(
+                            return_annotation, return_annotation
+                        )
                 if not inspect.isclass(return_annotation) or not issubclass(
                     return_annotation, Response
                 ):
@@ -1050,7 +309,7 @@ class RESTfulAPI(CancelMixin):
             pass  # In case that some Python version does not have __annotations__
         if invalid_routes:
             raise Exception(
-                f"The return value type of the following routes is not Response:\n"
+                f"The return value type of the following routes is not Response: \n"
                 f"{pprint.pformat(invalid_routes)}"
             )
 
@@ -1134,25 +393,6 @@ class RESTfulAPI(CancelMixin):
         except ValueError as re:
             logger.error(re, exc_info=True)
             raise HTTPException(status_code=400, detail=str(re))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def _get_devices_count(self) -> JSONResponse:
-        """
-        For internal usage
-        """
-        try:
-            data = await (await self._get_supervisor_ref()).get_devices_count()
-            return JSONResponse(content=data)
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def get_status(self) -> JSONResponse:
-        try:
-            data = await (await self._get_supervisor_ref()).get_status()
-            return JSONResponse(content=data)
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
@@ -1462,7 +702,7 @@ class RESTfulAPI(CancelMixin):
             access_token = request.headers.get("Authorization")
             internal_host = "localhost" if self._host == "0.0.0.0" else self._host
             interface = GradioInterface(
-                endpoint=f"http://{internal_host}:{self._port}",
+                endpoint="http://" + internal_host + ":" + str(self._port),
                 model_uid=model_uid,
                 model_name=body.model_name,
                 model_size_in_billions=body.model_size_in_billions,
@@ -1503,7 +743,7 @@ class RESTfulAPI(CancelMixin):
             access_token = request.headers.get("Authorization")
             internal_host = "localhost" if self._host == "0.0.0.0" else self._host
             interface = MediaInterface(
-                endpoint=f"http://{internal_host}:{self._port}",
+                endpoint="http://" + internal_host + ":" + str(self._port),
                 model_uid=model_uid,
                 model_family=body.model_family,
                 model_name=body.model_name,
@@ -1547,9 +787,6 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(status_code=500, detail=str(e))
         return JSONResponse(content=None)
 
-    async def get_address(self) -> JSONResponse:
-        return JSONResponse(content=self._supervisor_address)
-
     async def _get_model_last_error(self, replica_model_uid: bytes, e: Exception):
         if not isinstance(e, xo.ServerClosed):
             return e
@@ -1589,18 +826,12 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(status_code=501, detail="Not implemented")
 
         model_uid = body.model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("llm")
 
-        try:
-            model = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         if body.stream:
 
@@ -1707,16 +938,12 @@ class RESTfulAPI(CancelMixin):
         else:
             model_uid = requested_model_id
 
-        try:
-            model = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("llm")
+
+        model = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         if body.stream:
 
@@ -1793,6 +1020,8 @@ class RESTfulAPI(CancelMixin):
         payload = await request.json()
         body = CreateEmbeddingRequest.parse_obj(payload)
         model_uid = body.model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("embedding")
         exclude = {
             "model",
             "input",
@@ -1801,16 +1030,9 @@ class RESTfulAPI(CancelMixin):
         }
         kwargs = {key: value for key, value in payload.items() if key not in exclude}
 
-        try:
-            model = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         try:
             kwargs["model_uid"] = model_uid
@@ -1827,6 +1049,8 @@ class RESTfulAPI(CancelMixin):
         payload = await request.json()
         body = CreateEmbeddingRequest.parse_obj(payload)
         model_uid = body.model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("embedding")
         exclude = {
             "model",
             "input",
@@ -1834,16 +1058,9 @@ class RESTfulAPI(CancelMixin):
         }
         kwargs = {key: value for key, value in payload.items() if key not in exclude}
 
-        try:
-            model = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         try:
             decoded_texts = await model.convert_ids_to_tokens(body.input, **kwargs)
@@ -1859,17 +1076,12 @@ class RESTfulAPI(CancelMixin):
         payload = await request.json()
         body = RerankRequest.parse_obj(payload)
         model_uid = body.model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("rerank")
 
-        try:
-            model = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         try:
             if body.kwargs is not None:
@@ -1909,16 +1121,11 @@ class RESTfulAPI(CancelMixin):
         if timestamp_granularities:
             timestamp_granularities = [timestamp_granularities]
         model_uid = model
-        try:
-            model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("audio")
+        model_ref = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         try:
             if kwargs is not None:
@@ -1958,16 +1165,11 @@ class RESTfulAPI(CancelMixin):
         if timestamp_granularities:
             timestamp_granularities = [timestamp_granularities]
         model_uid = model
-        try:
-            model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("audio")
+        model_ref = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         try:
             if kwargs is not None:
@@ -2007,16 +1209,11 @@ class RESTfulAPI(CancelMixin):
             f = await request.json()
         body = SpeechRequest.parse_obj(f)
         model_uid = body.model
-        try:
-            model = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("audio")
+        model = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         try:
             if body.kwargs is not None:
@@ -2058,30 +1255,14 @@ class RESTfulAPI(CancelMixin):
             self.handle_request_limit_error(e)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def get_progress(self, request_id: str) -> JSONResponse:
-        try:
-            supervisor_ref = await self._get_supervisor_ref()
-            result = {"progress": await supervisor_ref.get_progress(request_id)}
-            return JSONResponse(content=result)
-        except KeyError as e:
-            raise HTTPException(status_code=400, detail=str(e))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
     async def create_images(self, request: Request) -> Response:
         body = TextToImageRequest.parse_obj(await request.json())
         model_uid = body.model
-        try:
-            model = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("image")
+        model = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         request_id = None
         try:
@@ -2111,6 +1292,8 @@ class RESTfulAPI(CancelMixin):
     async def sdapi_options(self, request: Request) -> Response:
         body = SDAPIOptionsRequest.parse_obj(await request.json())
         model_uid = body.sd_model_checkpoint
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("image")
 
         try:
             if not model_uid:
@@ -2155,19 +1338,12 @@ class RESTfulAPI(CancelMixin):
     async def sdapi_txt2img(self, request: Request) -> Response:
         body = SDAPITxt2imgRequst.parse_obj(await request.json())
         model_uid = body.model or body.override_settings.get("sd_model_checkpoint")
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("image")
 
-        try:
-            if not model_uid:
-                raise ValueError("Unknown model")
-            model = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         try:
             kwargs = dict(body)
@@ -2186,19 +1362,12 @@ class RESTfulAPI(CancelMixin):
     async def sdapi_img2img(self, request: Request) -> Response:
         body = SDAPIImg2imgRequst.parse_obj(await request.json())
         model_uid = body.model or body.override_settings.get("sd_model_checkpoint")
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("image")
 
-        try:
-            if not model_uid:
-                raise ValueError("Unknown model")
-            model = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         try:
             kwargs = dict(body)
@@ -2226,16 +1395,11 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
-        try:
-            model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("image")
+        model_ref = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         request_id = None
         try:
@@ -2289,16 +1453,11 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
-        try:
-            model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("image")
+        model_ref = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         request_id = None
         try:
@@ -2343,16 +1502,11 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
-        try:
-            model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("image")
+        model_ref = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         request_id = None
         try:
@@ -2384,6 +1538,9 @@ class RESTfulAPI(CancelMixin):
         self,
         request: Request,
         prompt: str = Form(...),
+        images: Optional[List[UploadFile]] = File(
+            None, media_type="application/octet-stream"
+        ),
         mask: Optional[UploadFile] = File(None, media_type="application/octet-stream"),
         model: Optional[str] = Form(None),
         n: Optional[int] = Form(1),
@@ -2391,101 +1548,48 @@ class RESTfulAPI(CancelMixin):
         response_format: Optional[str] = Form("url"),
         stream: Optional[bool] = Form(False),
     ) -> Response:
-        """OpenAI-compatible image edit endpoint."""
+        """OpenAI-compatible image edit endpoint.
+
+        Accepts multiple image files via:
+            -F "image=@image1.jpeg" -F "image=@image2.jpeg"
+        The first image is used as the primary input; additional images
+        are passed as reference images to the model.
+        """
         import io
 
-        # Parse multipart form data to handle files
-        content_type = request.headers.get("content-type", "")
-
-        if "multipart/form-data" in content_type:
-            # Try manual multipart parsing for better duplicate field handling
-            try:
-                image_files, manual_mask = await self._parse_multipart_manual(request)
-                # Use manually parsed mask if available, otherwise keep the original
-                if manual_mask is not None:
-                    mask = manual_mask
-            except Exception as e:
-                logger.error(f"Manual parsing failed, falling back to FastAPI: {e}")
-                # Fallback to FastAPI form parsing
-                form = await request.form()
-                multipart_files: dict[str, list] = {}
-                for key, value in form.items():
-                    if hasattr(value, "filename") and value.filename:
-                        if key not in multipart_files:
-                            multipart_files[key] = []
-                        multipart_files[key].append(value)
-
-                image_files = multipart_files.get("image", [])
-                if not image_files:
-                    image_files = multipart_files.get("image[]", [])
-                if not image_files:
-                    image_files = multipart_files.get("images", [])
-
-        else:
-            # Fallback to FastAPI form parsing
+        # If FastAPI didn't bind any files (e.g. client used "image[]" key),
+        # fall back to manual form parsing.
+        image_files: List[UploadFile] = images or []
+        if not image_files:
             form = await request.form()
-            fallback_files: dict[str, list] = {}
-            for key, value in form.items():
-                if hasattr(value, "filename") and value.filename:
-                    if key not in fallback_files:
-                        fallback_files[key] = []
-                    fallback_files[key].append(value)
-
-            image_files = fallback_files.get("image", [])
-            if not image_files:
-                image_files = fallback_files.get("image[]", [])
-            if not image_files:
-                image_files = fallback_files.get("images", [])
-
-        all_file_keys = []
-        if "multipart/form-data" in content_type:
-            all_file_keys = [f"image[] (x{len(image_files)})"] if image_files else []
-        else:
-            # Fallback to FastAPI form parsing
-            form = await request.form()
-            debug_files: dict[str, list] = {}
-            for key, value in form.items():
-                if hasattr(value, "filename") and value.filename:
-                    if key not in debug_files:
-                        debug_files[key] = []
-                    debug_files[key].append(value)
-
-            # Get image files
-            image_files = debug_files.get("image", [])
-            if not image_files:
-                image_files = debug_files.get("image[]", [])
-            if not image_files:
-                image_files = debug_files.get("images", [])
-
-        logger.info(f"Total image files found: {len(image_files)}")
+            image_files = (
+                form.getlist("images[]")
+                or form.getlist("images")
+                or form.getlist("image[]")
+                or form.getlist("image")
+            )
 
         if not image_files:
-            # Debug: log all received file fields
-            logger.warning(
-                f"No image files found. Available file fields: {all_file_keys}"
-            )
             raise HTTPException(
                 status_code=400, detail="At least one image file is required"
             )
 
-        # Validate response format
-        if response_format not in ["url", "b64_json"]:
+        if response_format not in ("url", "b64_json"):
             raise HTTPException(
                 status_code=400, detail="response_format must be 'url' or 'b64_json'"
             )
 
-        # Get default model if not specified
+        # Resolve model when the caller didn't specify one.
         if not model:
             try:
                 models = await (await self._get_supervisor_ref()).list_models()
                 image_models = [
                     name
                     for name, info in models.items()
-                    if info["model_type"] == "image"
-                    and info.get("model_ability", [])
+                    if info.get("model_type") == "image"
                     and (
-                        "image2image" in info["model_ability"]
-                        or "inpainting" in info["model_ability"]
+                        "image2image" in info.get("model_ability", [])
+                        or "inpainting" in info.get("model_ability", [])
                     )
                 ]
                 if not image_models:
@@ -2493,112 +1597,80 @@ class RESTfulAPI(CancelMixin):
                         status_code=400, detail="No available image models found"
                     )
                 model = image_models[0]
+            except HTTPException:
+                raise
             except Exception as e:
                 logger.error(f"Failed to get available models: {e}", exc_info=True)
                 raise HTTPException(
                     status_code=500, detail="Failed to get available models"
                 )
 
+        assert model is not None
         model_uid = model
-        try:
-            model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("image")
+        model_ref = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         request_id = None
         try:
             self._add_running_task(request_id)
 
-            # Read and process all images (needed for both streaming and non-streaming)
-            images = []
-            original_filenames = []
-            for i, img in enumerate(image_files):
-                # Store original filename before processing
-                original_filename = (
-                    img.filename if hasattr(img, "filename") else f"upload_{i}"
-                )
-                original_filenames.append(original_filename)
+            # Read and convert all uploaded images to RGB PIL Images.
+            pil_images: list[Image.Image] = []
+            for img_file in image_files:
+                image_content = await img_file.read()
+                pil_image = Image.open(io.BytesIO(image_content))
 
-                image_content = await img.read()
-                image_file = io.BytesIO(image_content)
-                pil_image = Image.open(image_file)
-
-                # Debug: save the received image for inspection
-                debug_filename = f"/tmp/received_image_{i}_{pil_image.mode}_{pil_image.size[0]}x{pil_image.size[1]}.png"
-                pil_image.save(debug_filename)
-                logger.info(f"Saved received image {i} to {debug_filename}")
-
-                # Convert to RGB format to avoid channel mismatch errors
                 if pil_image.mode == "RGBA":
-                    logger.info(f"Converting RGBA image {i} to RGB")
-                    # Create white background for RGBA images
                     background = Image.new("RGB", pil_image.size, (255, 255, 255))
                     background.paste(pil_image, mask=pil_image.split()[3])
                     pil_image = background
                 elif pil_image.mode != "RGB":
-                    logger.info(f"Converting {pil_image.mode} image {i} to RGB")
                     pil_image = pil_image.convert("RGB")
 
-                # Debug: save the converted image
-                converted_filename = f"/tmp/converted_image_{i}_RGB_{pil_image.size[0]}x{pil_image.size[1]}.png"
-                pil_image.save(converted_filename)
-                logger.info(f"Saved converted image {i} to {converted_filename}")
+                pil_images.append(pil_image)
 
-                images.append(pil_image)
+            primary_image = pil_images[0]
+            reference_images = pil_images[1:] if len(pil_images) > 1 else []
 
-            # Debug: log image summary
-            logger.info(f"Processing {len(images)} images:")
-            for i, img in enumerate(images):
-                logger.info(
-                    f"  Image {i}: mode={img.mode}, size={img.size}, filename={original_filenames[i]}"
-                )
-
-            # Handle streaming if requested
-            if stream:
-                return EventSourceResponse(
-                    self._stream_image_edit(
-                        model_ref,
-                        images,  # Pass processed images instead of raw files
-                        mask,
-                        prompt,
-                        (
-                            size.replace("x", "*") if size else ""
-                        ),  # Convert size format for streaming
-                        response_format,
-                        n,
-                    )
-                )
-
-            # Use the first image as primary, others as reference
-            primary_image = images[0]
-            reference_images = images[1:] if len(images) > 1 else []
-
-            # Prepare model parameters
-            # If size is "original", use empty string to let model determine original dimensions
-            if size == "original":
-                model_size = ""
+            # Normalise the size parameter.
+            if size and size != "original":
+                model_size = size.replace("x", "*")
             else:
-                model_size = size.replace("x", "*") if size else ""
+                model_size = ""
 
-            model_params = {
+            model_params: dict[str, Any] = {
                 "prompt": prompt,
                 "n": n or 1,
                 "size": model_size,
                 "response_format": response_format,
-                "denoising_strength": 0.75,  # Default strength for image editing
-                "reference_images": reference_images,  # Pass reference images
-                "negative_prompt": " ",  # Space instead of empty string to prevent filtering
+                "denoising_strength": 0.75,
+                "negative_prompt": " ",
             }
+            if reference_images:
+                model_params["reference_images"] = reference_images
 
-            # Generate the image
+            # DEBUG: Log the number of files and model params before processing
+            logger.debug(
+                f"Processing image edit with {len(image_files)} image(s), "
+                f"model: {model_uid}, stream: {stream}, mask: {'yes' if mask else 'no'}, "
+                f"model_params: {model_params}"
+            )
+
+            if stream:
+                return EventSourceResponse(
+                    self._stream_image_edit(
+                        model_ref,
+                        primary_image,
+                        reference_images,
+                        mask,
+                        model_params,
+                    )
+                )
+
             if mask:
-                # Use inpainting for masked edits
                 mask_content = await mask.read()
                 mask_image = Image.open(io.BytesIO(mask_content))
                 result = await model_ref.inpainting(
@@ -2607,12 +1679,11 @@ class RESTfulAPI(CancelMixin):
                     **model_params,
                 )
             else:
-                # Use image-to-image for general edits
                 result = await model_ref.image_to_image(
-                    image=primary_image, **model_params
+                    image=primary_image,
+                    **model_params,
                 )
 
-            # Return the result directly (should be ImageList format)
             return Response(content=result, media_type="application/json")
 
         except asyncio.CancelledError:
@@ -2627,158 +1698,32 @@ class RESTfulAPI(CancelMixin):
             self.handle_request_limit_error(e)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def _parse_multipart_manual(self, request: Request):
-        """Manually parse multipart form data to handle duplicate field names"""
-        import io
-
-        class FileWrapper:
-            """Wrapper for BytesIO to add filename and content_type attributes"""
-
-            def __init__(self, data, filename, content_type="application/octet-stream"):
-                self._file = io.BytesIO(data)
-                self.filename = filename
-                self.content_type = content_type
-
-            def read(self, *args, **kwargs):
-                return self._file.read(*args, **kwargs)
-
-            def seek(self, *args, **kwargs):
-                return self._file.seek(*args, **kwargs)
-
-            def tell(self, *args, **kwargs):
-                return self._file.tell(*args, **kwargs)
-
-        from multipart.multipart import parse_options_header
-
-        content_type = request.headers.get("content-type", "")
-        if not content_type:
-            return [], None
-
-        # Parse content type and boundary
-        content_type, options = parse_options_header(content_type.encode("utf-8"))
-        if content_type != b"multipart/form-data":
-            return [], None
-
-        boundary = options.get(b"boundary")
-        if not boundary:
-            return [], None
-
-        # Get the raw body
-        body = await request.body()
-
-        # Parse multipart data manually
-        image_files = []
-        mask_file = None
-        try:
-            # Import multipart parser
-            from multipart.multipart import MultipartParser
-
-            # Parse the multipart data
-            parser = MultipartParser(
-                io.BytesIO(body),
-                boundary.decode("utf-8") if isinstance(boundary, bytes) else boundary,
-            )
-
-            for part in parser:
-                # Check if this part is an image file
-                field_name = part.name
-                filename = part.filename or ""
-
-                # Look for image fields with different naming conventions
-                if field_name in ["image", "image[]", "images"] and filename:
-                    # Create a file-like object from the part data
-                    file_obj = FileWrapper(
-                        part.data,
-                        filename,
-                        part.content_type or "application/octet-stream",
-                    )
-                    image_files.append(file_obj)
-                elif field_name == "mask" and filename:
-                    # Handle mask file
-                    mask_file = FileWrapper(
-                        part.data,
-                        filename,
-                        part.content_type or "application/octet-stream",
-                    )
-                    logger.info(f"Manual multipart parsing found mask file: {filename}")
-
-            logger.info(
-                f"Manual multipart parsing found {len(image_files)} image files and mask: {mask_file is not None}"
-            )
-
-        except Exception as e:
-            logger.error(f"Manual multipart parsing failed: {e}")
-            # Return empty list to trigger fallback
-            return [], None
-
-        return image_files, mask_file
-
     async def _stream_image_edit(
-        self, model_ref, images, mask, prompt, size, response_format, n
+        self,
+        model_ref,
+        primary_image: Image.Image,
+        reference_images: list,
+        mask: Optional[UploadFile],
+        model_params: dict,
     ):
-        """Stream image editing progress and results"""
+        """Stream image editing progress and results."""
         import io
         import json
         from datetime import datetime
 
         try:
-            # Send start event
             yield {
                 "event": "start",
                 "data": json.dumps(
                     {
                         "type": "image_edit_started",
                         "timestamp": datetime.now().isoformat(),
-                        "prompt": prompt,
-                        "image_count": len(images),
+                        "prompt": model_params.get("prompt", ""),
+                        "image_count": 1 + len(reference_images),
                     }
                 ),
             }
 
-            # Images are already processed in the main method, just use them directly
-            image_objects = images
-            logger.info(f"Streaming: Using {len(image_objects)} pre-processed images")
-
-            # Debug: log streaming image summary
-            logger.info(f"Streaming: Processing {len(image_objects)} images:")
-            for i, img in enumerate(image_objects):
-                logger.info(f"  Streaming Image {i}: mode={img.mode}, size={img.size}")
-
-            # Use the first image as primary, others as reference
-            primary_image = image_objects[0]
-            reference_images = image_objects[1:] if len(image_objects) > 1 else []
-
-            # Send processing event
-            yield {
-                "event": "processing",
-                "data": json.dumps(
-                    {
-                        "type": "images_loaded",
-                        "timestamp": datetime.now().isoformat(),
-                        "primary_image_size": primary_image.size,
-                        "reference_images_count": len(reference_images),
-                    }
-                ),
-            }
-
-            # Prepare model parameters
-            # If size is "original", use empty string to let model determine original dimensions
-            if size == "original":
-                model_size = ""
-            else:
-                model_size = size
-
-            model_params = {
-                "prompt": prompt,
-                "n": n or 1,
-                "size": model_size,
-                "response_format": response_format,
-                "denoising_strength": 0.75,
-                "reference_images": reference_images,
-                "negative_prompt": " ",  # Space instead of empty string to prevent filtering
-            }
-
-            # Generate the image
             if mask:
                 mask_content = await mask.read()
                 mask_image = Image.open(io.BytesIO(mask_content))
@@ -2808,18 +1753,14 @@ class RESTfulAPI(CancelMixin):
                     ),
                 }
                 result = await model_ref.image_to_image(
-                    image=primary_image, **model_params
+                    image=primary_image,
+                    **model_params,
                 )
 
-            # Parse the result and send final event in OpenAI format
             result_data = json.loads(result)
-
-            # Send completion event with OpenAI-compatible format
             yield {
                 "event": "complete",
-                "data": json.dumps(
-                    result_data
-                ),  # Direct send the result in OpenAI format
+                "data": json.dumps(result_data),
             }
 
         except Exception as e:
@@ -2838,21 +1779,16 @@ class RESTfulAPI(CancelMixin):
         payload = await request.json()
 
         model_uid = payload.get("model")
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("flexible")
         args = payload.get("args")
 
         exclude = {"model", "args"}
         kwargs = {key: value for key, value in payload.items() if key not in exclude}
 
-        try:
-            model = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         try:
             result = await model.infer(*args, **kwargs)
@@ -2867,16 +1803,11 @@ class RESTfulAPI(CancelMixin):
     async def create_videos(self, request: Request) -> Response:
         body = TextToVideoRequest.parse_obj(await request.json())
         model_uid = body.model
-        try:
-            model = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("video")
+        model = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         request_id = None
         try:
@@ -2911,16 +1842,11 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
-        try:
-            model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("video")
+        model_ref = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         request_id = None
         try:
@@ -2961,16 +1887,11 @@ class RESTfulAPI(CancelMixin):
         kwargs: Optional[str] = Form(None),
     ) -> Response:
         model_uid = model
-        try:
-            model_ref = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("video")
+        model_ref = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         request_id = None
         try:
@@ -3061,17 +1982,12 @@ class RESTfulAPI(CancelMixin):
 
         has_tool_message = messages[-1].get("role") == "tool"
         model_uid = body.model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("llm")
 
-        try:
-            model = await (await self._get_supervisor_ref()).get_model(model_uid)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            await self._report_error_event(model_uid, str(ve))
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            await self._report_error_event(model_uid, str(e))
-            raise HTTPException(status_code=500, detail=str(e))
+        model = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
 
         try:
             desc = await (await self._get_supervisor_ref()).describe_model(model_uid)
@@ -3084,11 +2000,7 @@ class RESTfulAPI(CancelMixin):
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
-        from ..model.llm.utils import (
-            GLM4_TOOL_CALL_FAMILY,
-            QWEN_TOOL_CALL_FAMILY,
-            TOOL_CALL_FAMILY,
-        )
+        from ..model.llm.utils import TOOL_CALL_FAMILY
 
         model_family = desc.get("model_family", "")
 
@@ -3103,18 +2015,7 @@ class RESTfulAPI(CancelMixin):
                     status_code=400,
                     detail=f"Only {TOOL_CALL_FAMILY} support tool messages",
                 )
-        if body.tools and body.stream:
-            is_vllm = await model.is_vllm_backend()
-            is_sglang = await model.is_sglang_backend()
-            if not (
-                ((is_vllm or is_sglang) and model_family in QWEN_TOOL_CALL_FAMILY)
-                or (not is_vllm and model_family in GLM4_TOOL_CALL_FAMILY)
-            ):
-                raise HTTPException(
-                    status_code=400,
-                    detail="Streaming support for tool calls is available only when using "
-                    "Qwen models with vLLM backend or GLM4-chat models without vLLM backend.",
-                )
+
         if "skip_special_tokens" in raw_kwargs and await model.is_vllm_backend():
             kwargs["skip_special_tokens"] = raw_kwargs["skip_special_tokens"]
         if body.stream:
@@ -3178,9 +2079,16 @@ class RESTfulAPI(CancelMixin):
     ) -> JSONResponse:
         try:
             model_type = model_type or request.path_params.get("model_type", "LLM")
+            enable_virtual_env = request.query_params.get("enable_virtual_env")
+            if enable_virtual_env is not None:
+                enable_virtual_env = enable_virtual_env.lower() in ("1", "true", "yes")
             content = await (
                 await self._get_supervisor_ref()
-            ).query_engines_by_model_name(model_name, model_type=model_type)
+            ).query_engines_by_model_name(
+                model_name,
+                model_type=model_type,
+                enable_virtual_env=enable_virtual_env,
+            )
             return JSONResponse(content=content)
         except ValueError as re:
             logger.error(re, exc_info=True)
@@ -3293,24 +2201,6 @@ class RESTfulAPI(CancelMixin):
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def list_cached_models(
-        self, model_name: str = Query(None), worker_ip: str = Query(None)
-    ) -> JSONResponse:
-        try:
-            data = await (await self._get_supervisor_ref()).list_cached_models(
-                model_name, worker_ip
-            )
-            resp = {
-                "list": data,
-            }
-            return JSONResponse(content=resp)
-        except ValueError as re:
-            logger.error(re, exc_info=True)
-            raise HTTPException(status_code=400, detail=str(re))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
     async def get_model_events(self, model_uid: str) -> JSONResponse:
         try:
             event_collector_ref = await self._get_event_collector_ref()
@@ -3359,143 +2249,6 @@ class RESTfulAPI(CancelMixin):
                 "generate": VLLM_SUPPORTED_MODELS,
             }
             return JSONResponse(content=data)
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def get_cluster_device_info(
-        self, detailed: bool = Query(False)
-    ) -> JSONResponse:
-        try:
-            data = await (await self._get_supervisor_ref()).get_cluster_device_info(
-                detailed=detailed
-            )
-            return JSONResponse(content=data)
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def get_cluster_version(self) -> JSONResponse:
-        try:
-            data = get_versions()
-            return JSONResponse(content=data)
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def list_model_files(
-        self, model_version: str = Query(None), worker_ip: str = Query(None)
-    ) -> JSONResponse:
-        try:
-            data = await (await self._get_supervisor_ref()).list_deletable_models(
-                model_version, worker_ip
-            )
-            response = {
-                "model_version": model_version,
-                "worker_ip": worker_ip,
-                "paths": data,
-            }
-            return JSONResponse(content=response)
-        except ValueError as re:
-            logger.error(re, exc_info=True)
-            raise HTTPException(status_code=400, detail=str(re))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def confirm_and_remove_model(
-        self, model_version: str = Query(None), worker_ip: str = Query(None)
-    ) -> JSONResponse:
-        try:
-            res = await (await self._get_supervisor_ref()).confirm_and_remove_model(
-                model_version=model_version, worker_ip=worker_ip
-            )
-            return JSONResponse(content={"result": res})
-        except ValueError as re:
-            logger.error(re, exc_info=True)
-            raise HTTPException(status_code=400, detail=str(re))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def list_virtual_envs(
-        self, model_name: str = Query(None), worker_ip: str = Query(None)
-    ) -> JSONResponse:
-        """List all virtual environments or filter by model name."""
-        try:
-            data = await (await self._get_supervisor_ref()).list_virtual_envs(
-                model_name, worker_ip
-            )
-            resp = {
-                "list": data,
-            }
-            return JSONResponse(content=resp)
-        except ValueError as re:
-            logger.error(re, exc_info=True)
-            raise HTTPException(status_code=400, detail=str(re))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def remove_virtual_env(
-        self,
-        model_name: str = Query(None),
-        python_version: str = Query(None),
-        worker_ip: str = Query(None),
-    ) -> JSONResponse:
-        """Remove a virtual environment for a specific model."""
-        if not model_name:
-            raise HTTPException(
-                status_code=400, detail="model_name parameter is required"
-            )
-
-        try:
-            res = await (await self._get_supervisor_ref()).remove_virtual_env(
-                model_name=model_name,
-                python_version=python_version,
-                worker_ip=worker_ip,
-            )
-            return JSONResponse(content={"result": res})
-        except ValueError as re:
-            logger.error(re, exc_info=True)
-            raise HTTPException(status_code=400, detail=str(re))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def get_workers_info(self) -> JSONResponse:
-        try:
-            res = await (await self._get_supervisor_ref()).get_workers_info()
-            return JSONResponse(content=res)
-        except ValueError as re:
-            logger.error(re, exc_info=True)
-            raise HTTPException(status_code=400, detail=str(re))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def get_supervisor_info(self) -> JSONResponse:
-        try:
-            res = await (await self._get_supervisor_ref()).get_supervisor_info()
-            return res
-        except ValueError as re:
-            logger.error(re, exc_info=True)
-            raise HTTPException(status_code=400, detail=str(re))
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def abort_cluster(self) -> JSONResponse:
-        import os
-        import signal
-
-        try:
-            res = await (await self._get_supervisor_ref()).abort_cluster()
-            os.kill(os.getpid(), signal.SIGINT)
-            return JSONResponse(content={"result": res})
-        except ValueError as re:
-            logger.error(re, exc_info=True)
-            raise HTTPException(status_code=400, detail=str(re))
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
@@ -3645,7 +2398,7 @@ def run(
     logging_conf: Optional[dict] = None,
     auth_config_file: Optional[str] = None,
 ):
-    logger.info(f"Starting Xinference at endpoint: http://{host}:{port}")
+    logger.info("Starting Xinference at endpoint: http://%s:%s", host, port)
     try:
         api = RESTfulAPI(
             supervisor_address=supervisor_address,
@@ -3661,7 +2414,7 @@ def run(
         if port is XINFERENCE_DEFAULT_ENDPOINT_PORT:
             port = get_next_port()
             logger.info(f"Found available port: {port}")
-            logger.info(f"Starting Xinference at endpoint: http://{host}:{port}")
+            logger.info("Starting Xinference at endpoint: http://%s:%s", host, port)
             api = RESTfulAPI(
                 supervisor_address=supervisor_address,
                 host=host,

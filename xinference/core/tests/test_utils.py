@@ -14,6 +14,7 @@
 
 from ..utils import (
     build_replica_model_uid,
+    build_subpool_envs_for_virtual_env,
     iter_replica_model_uid,
     parse_replica_model_uid,
 )
@@ -29,3 +30,33 @@ def test_replica_model_uid():
         all_gen_ids.append(replica_model_uid)
     assert len(all_gen_ids) == 5
     assert len(set(all_gen_ids)) == 5
+
+
+class DummyVirtualEnvManager:
+    def __init__(self, python_path: str):
+        self._python_path = python_path
+
+    def get_python_path(self) -> str:
+        return self._python_path
+
+
+def test_build_subpool_envs_for_virtual_env_disabled():
+    base_envs = {"PATH": "/usr/bin", "FLASHINFER_NINJA_PATH": "/custom/ninja"}
+    result = build_subpool_envs_for_virtual_env(base_envs, False, None)
+
+    assert result == base_envs
+    assert result is not base_envs
+
+
+def test_build_subpool_envs_for_virtual_env_enabled():
+    manager = DummyVirtualEnvManager("/venv/bin/python")
+    base_envs = {"PATH": "/usr/bin", "FLASHINFER_NINJA_PATH": "/custom/ninja"}
+
+    result = build_subpool_envs_for_virtual_env(base_envs, True, manager)
+
+    import os
+
+    assert result["PATH"] == "/venv/bin" + os.pathsep + "/usr/bin"
+    assert result["VIRTUAL_ENV"] == "/venv"
+    assert result["FLASHINFER_NINJA_PATH"] == "/custom/ninja"
+    assert result is not base_envs

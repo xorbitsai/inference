@@ -6,6 +6,7 @@ import {
   GitHub,
   Language,
   OpenInNew,
+  Psychology,
   RocketLaunchOutlined,
   SmartToyOutlined,
 } from '@mui/icons-material'
@@ -104,6 +105,15 @@ const MenuSide = () => {
           ? 'https://xinference.cn'
           : 'https://xinference.io',
     },
+    {
+      text: 'xagent',
+      label: t('menu.xagent'),
+      icon: (
+        <Psychology sx={{ fontSize: 26, marginLeft: -0.5, color: '#1e88e5' }} />
+      ),
+      action: 'external',
+      url: 'https://github.com/xorbitsai/xagent',
+    },
   ]
 
   useEffect(() => {
@@ -165,72 +175,46 @@ const MenuSide = () => {
       {/* Title */}
       <Box
         display="flex"
-        justifyContent="center"
         alignItems="center"
-        width="100%"
+        gap="1rem"
+        margin="2rem 0rem 2rem 2rem"
       >
-        <Box display="flex" m="2rem 1rem 0rem 1rem" width="217px">
-          <Box
-            display="flex"
-            justifyContent="space-between"
-            alignItems="center"
-            textTransform="none"
-          >
-            <Box
-              component="img"
-              alt="profile"
-              src={icon}
-              height="60px"
-              width="60px"
-              borderRadius="50%"
-              sx={{ objectFit: 'cover', mr: 1.5 }}
-            />
-            <Box textAlign="left">
-              <Typography fontWeight="bold" fontSize="1.7rem">
-                {'Xinference'}
-              </Typography>
-            </Box>
-          </Box>
+        <Box
+          component="img"
+          alt="profile"
+          src={icon}
+          width="60px"
+          borderRadius="50%"
+        />
+        <Box textAlign="left">
+          <Typography fontWeight="bold" fontSize="1.7rem">
+            {'Xinference'}
+          </Typography>
         </Box>
       </Box>
 
       <Box sx={{ flexGrow: 1 }}>
-        <Box width="100%">
-          <Box m="1.5rem 2rem 2rem 3rem"></Box>
-          <List>
-            {navItems.map((item) => {
-              const { text, label, icon, action } = item
-              if (!icon) {
-                return (
-                  <Typography key={text} sx={{ m: '2.25rem 0 1rem 3rem' }}>
-                    {label}
-                  </Typography>
-                )
-              }
-              return (
-                <ListItem key={text}>
-                  <ListItemButton onClick={() => handleNavClick(item)}>
-                    <ListItemIcon
-                      sx={{
-                        ml: '2rem',
-                      }}
-                    >
-                      {icon}
-                    </ListItemIcon>
-                    <ListItemText primary={label} />
-                    {action === 'external' ? (
-                      <OpenInNew
-                        sx={{ ml: 'auto', mr: '0.5rem', fontSize: 'small' }}
-                      />
-                    ) : (
-                      <ChevronRightOutlined sx={{ ml: 'auto' }} />
-                    )}
-                  </ListItemButton>
-                </ListItem>
-              )
-            })}
-          </List>
-        </Box>
+        <List>
+          {navItems.map((item) => {
+            const { text, label, icon, action } = item
+            return (
+              <ListItem key={text}>
+                <ListItemButton
+                  sx={{ pl: '1.5rem' }}
+                  onClick={() => handleNavClick(item)}
+                >
+                  <ListItemIcon sx={{ minWidth: '2rem' }}>{icon}</ListItemIcon>
+                  <ListItemText primary={label} />
+                  {action === 'external' ? (
+                    <OpenInNew sx={{ fontSize: 'small' }} />
+                  ) : (
+                    <ChevronRightOutlined />
+                  )}
+                </ListItemButton>
+              </ListItem>
+            )
+          })}
+        </List>
       </Box>
 
       <Box display="flex" alignItems="center" marginX={'3rem'}>

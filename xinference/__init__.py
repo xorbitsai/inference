@@ -27,7 +27,7 @@ __version__ = _version.get_versions()["version"]
 
 try:
     import intel_extension_for_pytorch  # noqa: F401
-except:
+except Exception:
     pass
 
 

@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib.util
 import logging
-from typing import List, Optional, Tuple, Union, no_type_check
+import os
+from typing import Any, Dict, List, Optional, Tuple, Union, cast, no_type_check
 
 import numpy as np
 import torch
@@ -31,9 +33,30 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
     def __init__(self, *args, **kwargs) -> None:
         EmbeddingModel.__init__(self, *args, **kwargs)
         BatchMixin.__init__(self, self.create_embedding, **kwargs)  # type: ignore
+        self._embedder = None
 
     def load(self):
         # TODO: load model
+        if self.model_family.model_name.startswith("Qwen3-VL-Embedding"):
+            module_path = os.path.join(
+                self._model_path, "scripts", "qwen3_vl_embedding.py"
+            )
+            if not os.path.exists(module_path):
+                raise FileNotFoundError(
+                    f"Missing qwen3_vl_embedding.py under {self._model_path}. "
+                    "Please verify the model repository files."
+                )
+            spec = importlib.util.spec_from_file_location(
+                "qwen3_vl_embedding", module_path
+            )
+            if spec is None or spec.loader is None:
+                raise ImportError(f"Failed to load embedding module from {module_path}")
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            self._embedder = module.Qwen3VLEmbedder(
+                model_name_or_path=self._model_path, **self._kwargs
+            )
+            return
         try:
             import sentence_transformers
             from sentence_transformers import SentenceTransformer
@@ -137,6 +160,8 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         sentences: Union[str, List[str]],
         **kwargs,
     ):
+        if self._embedder is not None:
+            return self._create_qwen3_vl_embedding(sentences, **kwargs)
         sentences = self._fix_langchain_openai_inputs(sentences)
         model_uid = kwargs.pop("model_uid", None)
 
@@ -427,13 +452,55 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
 
         return result
 
+    def _normalize_vl_inputs(
+        self, inputs: Union[str, Dict[str, Any], List[str], List[Dict[str, Any]]]
+    ) -> List[Dict[str, Any]]:
+        if isinstance(inputs, str):
+            return [{"text": inputs}]
+        if isinstance(inputs, dict):
+            return [inputs]
+        if isinstance(inputs, list):
+            if not inputs:
+                return []
+            if isinstance(inputs[0], str):
+                return [{"text": item} for item in inputs]
+            if isinstance(inputs[0], dict):
+                return cast(List[Dict[str, Any]], inputs)
+        raise ValueError("Unsupported input type for Qwen3-VL embedding.")
+
+    def _create_qwen3_vl_embedding(self, sentences, **kwargs):
+        sentences = self._fix_langchain_openai_inputs(sentences)
+        model_uid = kwargs.pop("model_uid", None)
+        normalize_embedding = kwargs.get("normalize_embedding", True)
+        inputs = self._normalize_vl_inputs(sentences)
+        if not inputs:
+            return Embedding(
+                object="list",
+                model=model_uid,
+                model_replica=self._model_uid,
+                data=[],
+                usage=EmbeddingUsage(prompt_tokens=0, total_tokens=0),
+            )
+
+        embeddings = self._embedder.process(inputs, normalize=normalize_embedding)
+        embedding_list = []
+        for index, data in enumerate(embeddings):
+            if isinstance(data, torch.Tensor):
+                data = data.tolist()
+            embedding_list.append(
+                EmbeddingData(index=index, object="embedding", embedding=data)
+            )
+        usage = EmbeddingUsage(prompt_tokens=-1, total_tokens=-1)
+        return Embedding(
+            object="list",
+            model=model_uid,
+            model_replica=self._model_uid,
+            data=embedding_list,
+            usage=usage,
+        )
+
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
-        dep_check = check_dependency_available(
-            "sentence_transformers", "sentence-transformers"
-        )
-        if dep_check != True:
-            return dep_check
         return True
 
     @classmethod
@@ -443,6 +510,24 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         model_spec: EmbeddingSpecV1,
         quantization: str,
     ) -> Union[bool, Tuple[bool, str]]:
+        if model_family.model_name.startswith("Qwen3-VL-Embedding"):
+            dep_check = check_dependency_available("transformers", "transformers")
+            if dep_check != True:
+                return dep_check
+            dep_check = check_dependency_available("qwen_vl_utils", "qwen_vl_utils")
+            if dep_check != True:
+                return dep_check
+            dep_check = check_dependency_available("PIL", "Pillow")
+            if dep_check != True:
+                return dep_check
+            if model_spec.model_format not in ["pytorch"]:
+                return False, "Qwen3-VL embedding supports pytorch format only"
+            return True
+        dep_check = check_dependency_available(
+            "sentence_transformers", "sentence-transformers"
+        )
+        if dep_check != True:
+            return dep_check
         if model_spec.model_format not in ["pytorch"]:
             return False, "SentenceTransformer embeddings require pytorch format"
         return True

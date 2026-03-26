@@ -4,6 +4,7 @@
     "runningModels": "実行中のモデル",
     "registerModel": "モデル登録",
     "clusterInfo": "クラスター情報",
+    "xagent": "XagentでAIエージェントを構築",
     "contactUs": "お問い合わせ",
     "documentation": "ドキュメント",
     "website": "公式サイト"
@@ -258,6 +259,7 @@
     "memUsage": "メモリ使用率",
     "memTotal": "メモリ合計",
     "gpuCount": "GPU数",
+    "gpuLoad": "GPU負荷",
     "gpuMemUsage": "GPUメモリ使用率",
     "gpuMemTotal": "GPUメモリ合計",
     "worker": "ワーカー"

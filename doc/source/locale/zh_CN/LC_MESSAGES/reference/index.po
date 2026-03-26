@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-01-26 11:51+0800\n"
+"POT-Creation-Date: 2026-01-28 11:54+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -17,7 +17,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.14.0\n"
+"Generated-By: Babel 2.17.0\n"
 
 #: ../../source/reference/index.rst:5
 msgid "API Reference"
@@ -27,290 +27,450 @@ msgstr "API 指南"
 msgid "Client"
 msgstr ""
 
-#: ../../source/reference/index.rst:25:<autosummary>:1
+#: ../../source/reference/index.rst:39:<autosummary>:1
 msgid ""
 ":py:obj:`xinference.client.Client <xinference.client.Client>`\\ "
 "\\(base\\_url\\[\\, api\\_key\\]\\)"
 msgstr ""
 
-#: ../../source/reference/index.rst:25:<autosummary>:1
+#: ../../source/reference/index.rst:39:<autosummary>:1
 msgid ""
 ":py:obj:`xinference.client.Client.describe_model "
 "<xinference.client.Client.describe_model>`\\ \\(...\\)"
 msgstr ""
 
-#: ../../source/reference/index.rst:25:<autosummary>:1
+#: ../../source/reference/index.rst:39:<autosummary>:1
 msgid "Get model information via RESTful APIs."
 msgstr ""
 
-#: ../../source/reference/index.rst:25:<autosummary>:1
+#: ../../source/reference/index.rst:39:<autosummary>:1
 msgid ""
 ":py:obj:`xinference.client.Client.get_model "
 "<xinference.client.Client.get_model>`\\ \\(model\\_uid\\)"
 msgstr ""
 
-#: ../../source/reference/index.rst:25:<autosummary>:1
+#: ../../source/reference/index.rst:39:<autosummary>:1
 msgid "Launch the model based on the parameters on the server via RESTful APIs."
 msgstr ""
 
-#: ../../source/reference/index.rst:25:<autosummary>:1
+#: ../../source/reference/index.rst:39:<autosummary>:1
 msgid ""
 ":py:obj:`xinference.client.Client.get_model_registration "
 "<xinference.client.Client.get_model_registration>`\\ \\(...\\)"
 msgstr ""
 
-#: ../../source/reference/index.rst:25:<autosummary>:1
+#: ../../source/reference/index.rst:39:<autosummary>:1
 msgid "Get the model with the model type and model name registered on the server."
 msgstr ""
 
-#: ../../source/reference/index.rst:25:<autosummary>:1
+#: ../../source/reference/index.rst:39:<autosummary>:1
+msgid ""
+":py:obj:`xinference.client.Client.get_launch_model_progress "
+"<xinference.client.Client.get_launch_model_progress>`\\ \\(...\\)"
+msgstr ""
+
+#: ../../source/reference/index.rst:39:<autosummary>:1
+msgid "Get progress of the specific model."
+msgstr ""
+
+#: ../../source/reference/index.rst:39:<autosummary>:1
+msgid ""
+":py:obj:`xinference.client.Client.cancel_launch_model "
+"<xinference.client.Client.cancel_launch_model>`\\ \\(...\\)"
+msgstr ""
+
+#: ../../source/reference/index.rst:39:<autosummary>:1
+msgid "Cancel launching model."
+msgstr ""
+
+#: ../../source/reference/index.rst:39:<autosummary>:1
+msgid ""
+":py:obj:`xinference.client.Client.get_instance_info "
+"<xinference.client.Client.get_instance_info>`\\ \\(...\\)"
+msgstr ""
+
+#: ../../source/reference/index.rst:39:<autosummary>:1
 msgid ""
 ":py:obj:`xinference.client.Client.launch_model "
 "<xinference.client.Client.launch_model>`\\ \\(model\\_name\\)"
 msgstr ""
 
-#: ../../source/reference/index.rst:25:<autosummary>:1
+#: ../../source/reference/index.rst:39:<autosummary>:1
 msgid ""
 ":py:obj:`xinference.client.Client.list_model_registrations "
 "<xinference.client.Client.list_model_registrations>`\\ \\(...\\)"
 msgstr ""
 
-#: ../../source/reference/index.rst:25:<autosummary>:1
+#: ../../source/reference/index.rst:39:<autosummary>:1
 msgid "List models registered on the server."
 msgstr ""
 
-#: ../../source/reference/index.rst:25:<autosummary>:1
+#: ../../source/reference/index.rst:39:<autosummary>:1
 msgid ""
 ":py:obj:`xinference.client.Client.list_models "
 "<xinference.client.Client.list_models>`\\ \\(\\)"
 msgstr ""
 
-#: ../../source/reference/index.rst:25:<autosummary>:1
+#: ../../source/reference/index.rst:39:<autosummary>:1
 msgid "Retrieve the model specifications from the Server."
 msgstr ""
 
-#: ../../source/reference/index.rst:25:<autosummary>:1
+#: ../../source/reference/index.rst:39:<autosummary>:1
+msgid ""
+":py:obj:`xinference.client.Client.list_cached_models "
+"<xinference.client.Client.list_cached_models>`\\ \\(\\[...\\]\\)"
+msgstr ""
+
+#: ../../source/reference/index.rst:39:<autosummary>:1
+msgid "Get a list of cached models."
+msgstr ""
+
+#: ../../source/reference/index.rst:39:<autosummary>:1
+msgid ""
+":py:obj:`xinference.client.Client.list_deletable_models "
+"<xinference.client.Client.list_deletable_models>`\\ \\(...\\)"
+msgstr ""
+
+#: ../../source/reference/index.rst:39:<autosummary>:1
+msgid "Get the cached models with the model path cached on the server."
+msgstr ""
+
+#: ../../source/reference/index.rst:39:<autosummary>:1
+msgid ""
+":py:obj:`xinference.client.Client.confirm_and_remove_model "
+"<xinference.client.Client.confirm_and_remove_model>`\\ \\(...\\)"
+msgstr ""
+
+#: ../../source/reference/index.rst:39:<autosummary>:1
+msgid "Remove the cached models with the model name cached on the server."
+msgstr ""
+
+#: ../../source/reference/index.rst:39:<autosummary>:1
+msgid ""
+":py:obj:`xinference.client.Client.query_engine_by_model_name "
+"<xinference.client.Client.query_engine_by_model_name>`\\ \\(...\\)"
+msgstr ""
+
+#: ../../source/reference/index.rst:39:<autosummary>:1
+msgid "Get the engine parameters with the model name registered on the server."
+msgstr ""
+
+#: ../../source/reference/index.rst:39:<autosummary>:1
 msgid ""
 ":py:obj:`xinference.client.Client.register_model "
 "<xinference.client.Client.register_model>`\\ \\(...\\)"
 msgstr ""
 
-#: ../../source/reference/index.rst:25:<autosummary>:1
+#: ../../source/reference/index.rst:39:<autosummary>:1
 msgid "Register a custom model."
 msgstr ""
 
-#: ../../source/reference/index.rst:25:<autosummary>:1
+#: ../../source/reference/index.rst:39:<autosummary>:1
 msgid ""
 ":py:obj:`xinference.client.Client.terminate_model "
 "<xinference.client.Client.terminate_model>`\\ \\(...\\)"
 msgstr ""
 
-#: ../../source/reference/index.rst:25:<autosummary>:1
+#: ../../source/reference/index.rst:39:<autosummary>:1
 msgid "Terminate the specific model running on the server."
 msgstr ""
 
-#: ../../source/reference/index.rst:25:<autosummary>:1
+#: ../../source/reference/index.rst:39:<autosummary>:1
+msgid ""
+":py:obj:`xinference.client.Client.abort_request "
+"<xinference.client.Client.abort_request>`\\ \\(...\\)"
+msgstr ""
+
+#: ../../source/reference/index.rst:39:<autosummary>:1
+msgid "Abort a request."
+msgstr ""
+
+#: ../../source/reference/index.rst:39:<autosummary>:1
+msgid ""
+":py:obj:`xinference.client.Client.vllm_models "
+"<xinference.client.Client.vllm_models>`\\ \\(\\)"
+msgstr ""
+
+#: ../../source/reference/index.rst:39:<autosummary>:1
+msgid ""
+":py:obj:`xinference.client.Client.login "
+"<xinference.client.Client.login>`\\ \\(username\\, ...\\)"
+msgstr ""
+
+#: ../../source/reference/index.rst:39:<autosummary>:1
+msgid ""
+":py:obj:`xinference.client.Client.get_workers_info "
+"<xinference.client.Client.get_workers_info>`\\ \\(\\)"
+msgstr ""
+
+#: ../../source/reference/index.rst:39:<autosummary>:1
+msgid ""
+":py:obj:`xinference.client.Client.get_supervisor_info "
+"<xinference.client.Client.get_supervisor_info>`\\ \\(\\)"
+msgstr ""
+
+#: ../../source/reference/index.rst:39:<autosummary>:1
+msgid ""
+":py:obj:`xinference.client.Client.get_progress "
+"<xinference.client.Client.get_progress>`\\ \\(request\\_id\\)"
+msgstr ""
+
+#: ../../source/reference/index.rst:39:<autosummary>:1
+msgid ""
+":py:obj:`xinference.client.Client.abort_cluster "
+"<xinference.client.Client.abort_cluster>`\\ \\(\\)"
+msgstr ""
+
+#: ../../source/reference/index.rst:39:<autosummary>:1
 msgid ""
 ":py:obj:`xinference.client.Client.unregister_model "
 "<xinference.client.Client.unregister_model>`\\ \\(...\\)"
 msgstr ""
 
-#: ../../source/reference/index.rst:25:<autosummary>:1
+#: ../../source/reference/index.rst:39:<autosummary>:1
 msgid "Unregister a custom model."
 msgstr ""
 
-#: ../../source/reference/index.rst:27
+#: ../../source/reference/index.rst:41
 msgid "Model Handles"
 msgstr ""
 
-#: ../../source/reference/index.rst:31
+#: ../../source/reference/index.rst:45
 msgid "ChatModelHandle"
 msgstr ""
 
-#: ../../source/reference/index.rst:40:<autosummary>:1
+#: ../../source/reference/index.rst:54:<autosummary>:1
 msgid ""
 ":py:obj:`xinference.client.handlers.ChatModelHandle "
 "<xinference.client.handlers.ChatModelHandle>`\\"
 msgstr ""
 
-#: ../../source/reference/index.rst:40:<autosummary>:1
+#: ../../source/reference/index.rst:54:<autosummary>:1
 msgid ""
 "alias of "
 ":py:class:`~xinference.client.restful.restful_client.RESTfulChatModelHandle`"
 msgstr ""
 
-#: ../../source/reference/index.rst:40:<autosummary>:1
+#: ../../source/reference/index.rst:54:<autosummary>:1
 msgid ""
 ":py:obj:`xinference.client.handlers.ChatModelHandle.chat "
 "<xinference.client.handlers.ChatModelHandle.chat>`\\ \\(...\\)"
 msgstr ""
 
-#: ../../source/reference/index.rst:40:<autosummary>:1
+#: ../../source/reference/index.rst:54:<autosummary>:1
 msgid ""
 "Given a list of messages comprising a conversation, the model will return"
 " a response via RESTful APIs."
 msgstr ""
 
-#: ../../source/reference/index.rst:40:<autosummary>:1
+#: ../../source/reference/index.rst:54:<autosummary>:1
 msgid ""
 ":py:obj:`xinference.client.handlers.ChatModelHandle.generate "
 "<xinference.client.handlers.ChatModelHandle.generate>`\\ \\(prompt\\)"
 msgstr ""
 
-#: ../../source/reference/index.rst:40:<autosummary>:1
-#: ../../source/reference/index.rst:60:<autosummary>:1
+#: ../../source/reference/index.rst:54:<autosummary>:1
+#: ../../source/reference/index.rst:84:<autosummary>:1
 msgid ""
 "Creates a completion for the provided prompt and parameters via RESTful "
 "APIs."
 msgstr ""
 
-#: ../../source/reference/index.rst:42
+#: ../../source/reference/index.rst:56
 msgid "EmbeddingModelHandle"
 msgstr ""
 
-#: ../../source/reference/index.rst:50:<autosummary>:1
+#: ../../source/reference/index.rst:64:<autosummary>:1
 msgid ""
 ":py:obj:`xinference.client.handlers.EmbeddingModelHandle "
 "<xinference.client.handlers.EmbeddingModelHandle>`\\"
 msgstr ""
 
-#: ../../source/reference/index.rst:50:<autosummary>:1
+#: ../../source/reference/index.rst:64:<autosummary>:1
 msgid ""
 "alias of "
 ":py:class:`~xinference.client.restful.restful_client.RESTfulEmbeddingModelHandle`"
 msgstr ""
 
-#: ../../source/reference/index.rst:50:<autosummary>:1
+#: ../../source/reference/index.rst:64:<autosummary>:1
 msgid ""
 ":py:obj:`xinference.client.handlers.EmbeddingModelHandle.create_embedding"
 " <xinference.client.handlers.EmbeddingModelHandle.create_embedding>`\\ "
 "\\(...\\)"
 msgstr ""
 
-#: ../../source/reference/index.rst:50:<autosummary>:1
+#: ../../source/reference/index.rst:64:<autosummary>:1
 msgid "Create an Embedding from user input via RESTful APIs."
 msgstr ""
 
-#: ../../source/reference/index.rst:52
+#: ../../source/reference/index.rst:66
+msgid "RerankModelHandle"
+msgstr ""
+
+#: ../../source/reference/index.rst:74:<autosummary>:1
+msgid ""
+":py:obj:`xinference.client.restful.restful_client.RESTfulRerankModelHandle"
+" <xinference.client.restful.restful_client.RESTfulRerankModelHandle>`\\ "
+"\\(...\\)"
+msgstr ""
+
+#: ../../source/reference/index.rst:74:<autosummary>:1
+msgid ""
+":py:obj:`xinference.client.restful.restful_client.RESTfulRerankModelHandle.rerank"
+" "
+"<xinference.client.restful.restful_client.RESTfulRerankModelHandle.rerank>`\\"
+" \\(...\\)"
+msgstr ""
+
+#: ../../source/reference/index.rst:74:<autosummary>:1
+msgid ""
+"Returns an ordered list of documents ordered by their relevance to the "
+"provided query."
+msgstr ""
+
+#: ../../source/reference/index.rst:76
 msgid "GenerateModelHandle"
 msgstr ""
 
-#: ../../source/reference/index.rst:60:<autosummary>:1
+#: ../../source/reference/index.rst:84:<autosummary>:1
 msgid ""
 ":py:obj:`xinference.client.handlers.GenerateModelHandle "
 "<xinference.client.handlers.GenerateModelHandle>`\\"
 msgstr ""
 
-#: ../../source/reference/index.rst:60:<autosummary>:1
+#: ../../source/reference/index.rst:84:<autosummary>:1
 msgid ""
 "alias of "
 ":py:class:`~xinference.client.restful.restful_client.RESTfulGenerateModelHandle`"
 msgstr ""
 
-#: ../../source/reference/index.rst:60:<autosummary>:1
+#: ../../source/reference/index.rst:84:<autosummary>:1
 msgid ""
 ":py:obj:`xinference.client.handlers.GenerateModelHandle.generate "
 "<xinference.client.handlers.GenerateModelHandle.generate>`\\ \\(prompt\\)"
 msgstr ""
 
-#: ../../source/reference/index.rst:62
+#: ../../source/reference/index.rst:86
 msgid "ImageModelHandle"
 msgstr ""
 
-#: ../../source/reference/index.rst:70:<autosummary>:1
+#: ../../source/reference/index.rst:94:<autosummary>:1
 msgid ""
 ":py:obj:`xinference.client.handlers.ImageModelHandle "
 "<xinference.client.handlers.ImageModelHandle>`\\"
 msgstr ""
 
-#: ../../source/reference/index.rst:70:<autosummary>:1
+#: ../../source/reference/index.rst:94:<autosummary>:1
 msgid ""
 "alias of "
 ":py:class:`~xinference.client.restful.restful_client.RESTfulImageModelHandle`"
 msgstr ""
 
-#: ../../source/reference/index.rst:70:<autosummary>:1
+#: ../../source/reference/index.rst:94:<autosummary>:1
 msgid ""
 ":py:obj:`xinference.client.handlers.ImageModelHandle.text_to_image "
 "<xinference.client.handlers.ImageModelHandle.text_to_image>`\\ "
 "\\(prompt\\)"
 msgstr ""
 
-#: ../../source/reference/index.rst:70:<autosummary>:1
+#: ../../source/reference/index.rst:94:<autosummary>:1
 msgid "Creates an image by the input text."
 msgstr ""
 
-#: ../../source/reference/index.rst:72
+#: ../../source/reference/index.rst:96
 msgid "AudioModelHandle"
 msgstr ""
 
-#: ../../source/reference/index.rst:82:<autosummary>:1
+#: ../../source/reference/index.rst:106:<autosummary>:1
 msgid ""
 ":py:obj:`xinference.client.handlers.AudioModelHandle "
 "<xinference.client.handlers.AudioModelHandle>`\\"
 msgstr ""
 
-#: ../../source/reference/index.rst:82:<autosummary>:1
+#: ../../source/reference/index.rst:106:<autosummary>:1
 msgid ""
 "alias of "
 ":py:class:`~xinference.client.restful.restful_client.RESTfulAudioModelHandle`"
 msgstr ""
 
-#: ../../source/reference/index.rst:82:<autosummary>:1
+#: ../../source/reference/index.rst:106:<autosummary>:1
 msgid ""
 ":py:obj:`xinference.client.handlers.AudioModelHandle.transcriptions "
 "<xinference.client.handlers.AudioModelHandle.transcriptions>`\\ "
 "\\(audio\\)"
 msgstr ""
 
-#: ../../source/reference/index.rst:82:<autosummary>:1
+#: ../../source/reference/index.rst:106:<autosummary>:1
 msgid "Transcribes audio into the input language."
 msgstr ""
 
-#: ../../source/reference/index.rst:82:<autosummary>:1
+#: ../../source/reference/index.rst:106:<autosummary>:1
 msgid ""
 ":py:obj:`xinference.client.handlers.AudioModelHandle.translations "
 "<xinference.client.handlers.AudioModelHandle.translations>`\\ \\(audio\\)"
 msgstr ""
 
-#: ../../source/reference/index.rst:82:<autosummary>:1
+#: ../../source/reference/index.rst:106:<autosummary>:1
 msgid "Translates audio into English."
 msgstr ""
 
-#: ../../source/reference/index.rst:82:<autosummary>:1
+#: ../../source/reference/index.rst:106:<autosummary>:1
 msgid ""
 ":py:obj:`xinference.client.handlers.AudioModelHandle.speech "
 "<xinference.client.handlers.AudioModelHandle.speech>`\\ \\(input\\)"
 msgstr ""
 
-#: ../../source/reference/index.rst:82:<autosummary>:1
+#: ../../source/reference/index.rst:106:<autosummary>:1
 msgid "Generates audio from the input text."
 msgstr ""
 
-#: ../../source/reference/index.rst:84
+#: ../../source/reference/index.rst:108
+msgid "FlexibleModelHandle"
+msgstr ""
+
+#: ../../source/reference/index.rst:116:<autosummary>:1
+msgid ""
+":py:obj:`xinference.client.restful.restful_client.RESTfulFlexibleModelHandle"
+" <xinference.client.restful.restful_client.RESTfulFlexibleModelHandle>`\\"
+" \\(...\\)"
+msgstr ""
+
+#: ../../source/reference/index.rst:116:<autosummary>:1
+msgid ""
+":py:obj:`xinference.client.restful.restful_client.RESTfulFlexibleModelHandle.infer"
+" "
+"<xinference.client.restful.restful_client.RESTfulFlexibleModelHandle.infer>`\\"
+" \\(...\\)"
+msgstr ""
+
+#: ../../source/reference/index.rst:116:<autosummary>:1
+msgid "Call flexible model."
+msgstr ""
+
+#: ../../source/reference/index.rst:118
 msgid "VideoModelHandle"
 msgstr ""
 
-#: ../../source/reference/index.rst:90:<autosummary>:1
+#: ../../source/reference/index.rst:124:<autosummary>:1
 msgid ""
 ":py:obj:`xinference.client.handlers.VideoModelHandle "
 "<xinference.client.handlers.VideoModelHandle>`\\"
 msgstr ""
 
-#: ../../source/reference/index.rst:90:<autosummary>:1
+#: ../../source/reference/index.rst:124:<autosummary>:1
 msgid ""
 "alias of "
 ":py:class:`~xinference.client.restful.restful_client.RESTfulVideoModelHandle`"
 msgstr ""
 
-#: ../../source/reference/index.rst:90:<autosummary>:1
+#: ../../source/reference/index.rst:124:<autosummary>:1
 msgid ""
 ":py:obj:`xinference.client.handlers.VideoModelHandle.text_to_video "
 "<xinference.client.handlers.VideoModelHandle.text_to_video>`\\ "
 "\\(prompt\\)"
 msgstr ""
 
-#: ../../source/reference/index.rst:90:<autosummary>:1
+#: ../../source/reference/index.rst:124:<autosummary>:1
 msgid "Creates a video by the input text."
 msgstr ""
 

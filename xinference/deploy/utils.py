@@ -203,13 +203,13 @@ def handle_click_args_type(arg: str) -> Any:
     try:
         result = int(arg)
         return result
-    except:
+    except Exception:
         pass
 
     try:
         result = float(arg)
         return result
-    except:
+    except Exception:
         pass
 
     return arg

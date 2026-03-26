@@ -18,7 +18,7 @@ RUN apt-get -y update \
 ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
 
 ARG PIP_INDEX=https://pypi.org/simple
-RUN python -m pip install --upgrade -i "$PIP_INDEX" pip setuptools wheel "packaging>=24.2" && \
+RUN python -m pip install --upgrade -i "$PIP_INDEX" pip "setuptools<82" wheel "packaging>=24.2" && \
     pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_cpu/requirements_cpu-base.txt && \
     pip install --no-cache-dir -i "$PIP_INDEX" --no-build-isolation gptqmodel && \

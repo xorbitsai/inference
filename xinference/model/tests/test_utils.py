@@ -14,12 +14,20 @@
 
 import asyncio
 import shutil
+import sys
 
 import pytest
 from tqdm.auto import tqdm
 
 from ...utils import get_real_path
-from ..utils import CancellableDownloader, parse_uri
+from ..utils import (
+    CancellableDownloader,
+    _apply_virtualenv_engine_overrides,
+    _collect_virtualenv_engine_markers,
+    _extract_engine_markers_from_packages,
+    _force_virtualenv_engine_params,
+    parse_uri,
+)
 
 
 def test_parse_uri():
@@ -65,6 +73,87 @@ def test_tqdm_patch():
             all_bar.update(6)
 
     assert downloader.done
+
+
+def test_extract_engine_markers_from_packages():
+    packages = [
+        'vllm ; #engine# == "vllm"',
+        "sglang ; #model_engine# == 'sglang'",
+        "transformers>=4.51.0",
+    ]
+    assert _extract_engine_markers_from_packages(packages) == {"vllm", "sglang"}
+
+
+def test_collect_virtualenv_engine_markers_platform_gating():
+    class _VirtualEnv:
+        packages = ['mlx-lm ; #engine# == "mlx"', 'vllm ; #engine# == "vllm"']
+
+    class _Family:
+        virtualenv = _VirtualEnv()
+        model_specs = []
+
+    engines = _collect_virtualenv_engine_markers(_Family())
+    assert "vllm" in engines
+    if sys.platform == "darwin":
+        assert "mlx" in engines
+    else:
+        assert "mlx" not in engines
+
+
+class _DummyEngineMissing:
+    @staticmethod
+    def check_lib():
+        return False, "missing dependency"
+
+
+class _DummyEngineOk:
+    @staticmethod
+    def check_lib():
+        return True
+
+
+class _DummyEngineMatchJson:
+    @staticmethod
+    def match_json(family, spec, quantization):
+        return False
+
+
+def test_force_virtualenv_engine_params_and_override():
+    class _Spec:
+        model_format = "pytorch"
+        model_size_in_billions = "0_6"
+        quantization = "none"
+
+    class _Family:
+        model_name = "qwen3"
+        model_specs = [_Spec()]
+
+    engine_params = {}
+    available_params = {}
+    supported = {"SGLang": [_DummyEngineMissing]}
+
+    match_status = _force_virtualenv_engine_params(
+        _Family(), supported, {"sglang"}, engine_params, available_params, False
+    )
+
+    assert "SGLang" in engine_params
+    assert match_status["SGLang"] is False
+
+    _apply_virtualenv_engine_overrides(
+        engine_params, supported, {"sglang"}, True, match_status
+    )
+    assert engine_params["SGLang"][0]["virtualenv_required"] is True
+
+
+def test_virtualenv_override_disabled_marks_unavailable():
+    engine_params = {"SGLang": [{"model_name": "qwen3"}]}
+    supported = {"SGLang": [_DummyEngineMissing]}
+
+    _apply_virtualenv_engine_overrides(
+        engine_params, supported, {"sglang"}, False, {"SGLang": False}
+    )
+
+    assert isinstance(engine_params["SGLang"], str)
 
 
 async def test_download_hugginface():

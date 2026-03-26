@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-07-30 11:01+0800\n"
+"POT-Creation-Date: 2026-01-28 11:54+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -28,8 +28,8 @@ msgid ""
 " run models using Xinference, you will need to install the backend "
 "corresponding to the type of model you intend to serve."
 msgstr ""
-"Xinference 在 Linux, Windows, MacOS 上都可以通过 ``pip`` 来安装。如果需要"
-"使用 Xinference 进行模型推理，可以根据不同的模型指定不同的引擎。"
+"Xinference 在 Linux, Windows, MacOS 上都可以通过 ``pip`` 来安装。如果需要使用 Xinference "
+"进行模型推理，可以根据不同的模型指定不同的引擎。"
 
 #: ../../source/getting_started/installation.rst:8
 msgid ""
@@ -44,8 +44,8 @@ msgid ""
 "sglang, please install it separately via ``pip install "
 "'xinference[sglang]'``."
 msgstr ""
-"由于 vllm 和 sglang 在包依赖上无法调和，因此，我们从 all 里移除了 sglang"
-"，如果要使用 sglang，请使用 ``pip install 'xinference[sglang]'`` 。"
+"由于 vllm 和 sglang 在包依赖上无法调和，因此，我们从 all 里移除了 sglang，如果要使用 sglang，请使用 ``pip "
+"install 'xinference[sglang]'`` 。"
 
 #: ../../source/getting_started/installation.rst:17
 msgid "Several usage scenarios require special attention."
@@ -60,9 +60,7 @@ msgid ""
 "In this situation, it's advised to install its dependencies manually "
 "based on your hardware specifications to enable acceleration. For more "
 "details, see the :ref:`installation_gguf` section."
-msgstr ""
-"在这种情况下，建议根据您的硬件规格手动安装其依赖项以启用加速。更多详情请"
-"参见 :ref:`installation_gguf` 部分。"
+msgstr "在这种情况下，建议根据您的硬件规格手动安装其依赖项以启用加速。更多详情请参见 :ref:`installation_gguf` 部分。"
 
 #: ../../source/getting_started/installation.rst:23
 msgid "**AWQ or GPTQ** format with **transformers engine**"
@@ -76,17 +74,15 @@ msgstr "**本节内容新增于 v1.6.0。**"
 msgid ""
 "This is because the dependencies at this stage require special options "
 "and are difficult to install. Please run command below in advance"
-msgstr ""
-"这是因为此阶段的依赖项需要特殊选项，并且安装起来比较困难。请提前运行以下"
-"命令"
+msgstr "这是因为此阶段的依赖项需要特殊选项，并且安装起来比较困难。请提前运行以下命令"
 
 #: ../../source/getting_started/installation.rst:33
 msgid ""
 "Some dependencies like ``transformers`` might be downgraded, you can run "
 "``pip install \"xinference[all]\"`` afterwards."
 msgstr ""
-"某些依赖项，如 ``transformers``，可能会被降级，您可以之后运行 ``pip "
-"install \"xinference[all]\"``。"
+"某些依赖项，如 ``transformers``，可能会被降级，您可以之后运行 ``pip install "
+"\"xinference[all]\"``。"
 
 #: ../../source/getting_started/installation.rst:36
 msgid ""
@@ -102,118 +98,110 @@ msgstr "Transformers 引擎"
 msgid ""
 "PyTorch (transformers) supports the inference of most state-of-art "
 "models. It is the default backend for models in PyTorch format::"
-msgstr ""
-"PyTorch(transformers) 引擎支持几乎有所的最新模型，这是 Pytorch 模型默认"
-"使用的引擎："
+msgstr "PyTorch(transformers) 引擎支持几乎有所的最新模型，这是 Pytorch 模型默认使用的引擎："
+
+#: ../../source/getting_started/installation.rst:46
+msgid "Notes:"
+msgstr "注意："
 
 #: ../../source/getting_started/installation.rst:48
+msgid ""
+"The transformers engine supports ``pytorch`` / ``gptq`` / ``awq`` / "
+"``bnb`` / ``fp4`` formats."
+msgstr "Transformers引擎支持 ``pytorch`` / ``gptq`` / ``awq`` / ``bnb`` / ``fp4`` 格式。"
+
+#: ../../source/getting_started/installation.rst:49
+msgid ""
+"FP4 format requires ``transformers`` with ``FPQuantConfig`` support. If "
+"you see an import error, please upgrade ``transformers`` to a newer "
+"version."
+msgstr "FP4格式需要支持FPQuantConfig的transformers库。若遇到导入错误，请将transformers升级至新版本。"
+
+#: ../../source/getting_started/installation.rst:54
 msgid "vLLM Backend"
 msgstr "vLLM 引擎"
 
-#: ../../source/getting_started/installation.rst:49
+#: ../../source/getting_started/installation.rst:55
 msgid ""
 "vLLM is a fast and easy-to-use library for LLM inference and serving. "
 "Xinference will choose vLLM as the backend to achieve better throughput "
 "when the following conditions are met:"
-msgstr ""
-"vLLM 是一个支持高并发的高性能大模型推理引擎。当满足以下条件时，Xinference"
-" 会自动选择 vllm 作为引擎来达到更高的吞吐量："
+msgstr "vLLM 是一个支持高并发的高性能大模型推理引擎。当满足以下条件时，Xinference 会自动选择 vllm 作为引擎来达到更高的吞吐量："
 
-#: ../../source/getting_started/installation.rst:51
-msgid "The model format is ``pytorch``, ``gptq`` or ``awq``."
-msgstr "模型格式为 ``pytorch`` ， ``gptq`` 或者 ``awq`` 。"
+#: ../../source/getting_started/installation.rst:57
+msgid ""
+"The model format is ``pytorch``, ``gptq``, ``awq``, ``fp4``, ``fp8`` or "
+"``bnb``."
+msgstr "模型格式为 ``pytorch`` ， ``gptq`` ， ``awq`` ， ``fp4`` ， ``fp8`` 或者 ``bnb`` 。"
 
-#: ../../source/getting_started/installation.rst:52
+#: ../../source/getting_started/installation.rst:58
 msgid "When the model format is ``pytorch``, the quantization is ``none``."
 msgstr "当模型格式为 ``pytorch`` 时，量化选项需为 ``none`` 。"
 
-#: ../../source/getting_started/installation.rst:53
+#: ../../source/getting_started/installation.rst:59
 msgid "When the model format is ``awq``, the quantization is ``Int4``."
 msgstr "当模型格式为 ``awq`` 时，量化选项需为 ``Int4`` 。"
 
-#: ../../source/getting_started/installation.rst:54
+#: ../../source/getting_started/installation.rst:60
 msgid ""
 "When the model format is ``gptq``, the quantization is ``Int3``, ``Int4``"
 " or ``Int8``."
-msgstr ""
-"当模型格式为 ``gptq`` 时，量化选项需为 ``Int3`` 、 ``Int4`` 或者 ``Int8``"
-" 。"
+msgstr "当模型格式为 ``gptq`` 时，量化选项需为 ``Int3`` 、 ``Int4`` 或者 ``Int8`` 。"
 
-#: ../../source/getting_started/installation.rst:55
+#: ../../source/getting_started/installation.rst:61
 msgid "The system is Linux and has at least one CUDA device"
 msgstr "操作系统为 Linux 并且至少有一个支持 CUDA 的设备"
 
-#: ../../source/getting_started/installation.rst:56
+#: ../../source/getting_started/installation.rst:62
 msgid ""
 "The model family (for custom models) / model name (for builtin models) is"
 " within the list of models supported by vLLM"
-msgstr ""
-"自定义模型的 ``model_family`` 字段和内置模型的 ``model_name`` 字段在 vLLM"
-" 的支持列表中。"
+msgstr "自定义模型的 ``model_family`` 字段和内置模型的 ``model_name`` 字段在 vLLM 的支持列表中。"
 
-#: ../../source/getting_started/installation.rst:58
+#: ../../source/getting_started/installation.rst:64
 msgid "Currently, supported models include:"
 msgstr "目前，支持的模型包括："
 
-#: ../../source/getting_started/installation.rst:62
-msgid ""
-"``llama-2``, ``llama-3``, ``llama-3.1``, ``llama-3.2-vision``, "
-"``llama-2-chat``, ``llama-3-instruct``, ``llama-3.1-instruct``, "
-"``llama-3.3-instruct``"
-msgstr ""
-
-#: ../../source/getting_started/installation.rst:63
-msgid ""
-"``mistral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``, "
-"``mistral-instruct-v0.3``, ``mistral-nemo-instruct``, ``mistral-large-"
-"instruct``"
-msgstr ""
-
-#: ../../source/getting_started/installation.rst:64
-msgid "``codestral-v0.1``"
-msgstr ""
-
-#: ../../source/getting_started/installation.rst:65
-msgid "``Yi``, ``Yi-1.5``, ``Yi-chat``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``"
-msgstr ""
-
-#: ../../source/getting_started/installation.rst:66
-msgid "``code-llama``, ``code-llama-python``, ``code-llama-instruct``"
-msgstr ""
-
-#: ../../source/getting_started/installation.rst:67
-msgid ""
-"``deepseek``, ``deepseek-coder``, ``deepseek-chat``, ``deepseek-coder-"
-"instruct``, ``deepseek-r1-distill-qwen``, ``deepseek-v2-chat``, "
-"``deepseek-v2-chat-0628``, ``deepseek-v2.5``, ``deepseek-v3``, "
-"``deepseek-v3-0324``, ``deepseek-r1``, ``deepseek-r1-0528``, ``deepseek-"
-"prover-v2``, ``deepseek-r1-0528-qwen3``, ``deepseek-r1-distill-llama``"
-msgstr ""
-
 #: ../../source/getting_started/installation.rst:68
-msgid "``yi-coder``, ``yi-coder-chat``"
+msgid ""
+"``code-llama``, ``code-llama-instruct``, ``code-llama-python``, "
+"``deepseek``, ``deepseek-chat``, ``deepseek-coder``, ``deepseek-coder-"
+"instruct``, ``deepseek-r1-distill-llama``, ``gorilla-openfunctions-v2``, "
+"``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``, ``llama-3``, "
+"``llama-3-instruct``, ``llama-3.1``, ``llama-3.1-instruct``, "
+"``llama-3.3-instruct``, ``tiny-llama``, ``wizardcoder-python-v1.0``, "
+"``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, ``Yi-1.5-chat-"
+"16k``, ``Yi-200k``, ``Yi-chat``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:69
-msgid "``codeqwen1.5``, ``codeqwen1.5-chat``"
+msgid ""
+"``codestral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``,"
+" ``mistral-instruct-v0.3``, ``mistral-large-instruct``, ``mistral-nemo-"
+"instruct``, ``mistral-v0.1``, ``openhermes-2.5``, ``seallm_v2``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:70
 msgid ""
-"``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-instruct``, ``qwen2.5-coder-"
-"instruct``, ``qwen2.5-instruct-1m``"
+"``Baichuan-M2``, ``codeqwen1.5``, ``codeqwen1.5-chat``, ``deepseek-r1"
+"-distill-qwen``, ``DianJin-R1``, ``fin-r1``, ``HuatuoGPT-o1-Qwen2.5``, "
+"``KAT-V1``, ``marco-o1``, ``qwen1.5-chat``, ``qwen2-instruct``, "
+"``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-instruct``, "
+"``qwen2.5-instruct``, ``qwen2.5-instruct-1m``, ``qwenLong-l1``, ``QwQ-"
+"32B``, ``QwQ-32B-Preview``, ``seallms-v3``, ``skywork-or1``, ``skywork-"
+"or1-preview``, ``XiYanSQL-QwenCoder-2504``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:71
-msgid "``baichuan-2-chat``"
+msgid "``llama-3.2-vision``, ``llama-3.2-vision-instruct``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:72
-msgid "``internlm2-chat``"
+msgid "``baichuan-2``, ``baichuan-2-chat``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:73
-msgid "``internlm2.5-chat``, ``internlm2.5-chat-1m``"
+msgid "``InternLM2ForCausalLM``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:74
@@ -221,172 +209,176 @@ msgid "``qwen-chat``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:75
-msgid "``mixtral-instruct-v0.1``, ``mixtral-8x22B-instruct-v0.1``"
+msgid ""
+"``mixtral-8x22B-instruct-v0.1``, ``mixtral-instruct-v0.1``, "
+"``mixtral-v0.1``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:76
-msgid "``chatglm3``, ``chatglm3-32k``, ``chatglm3-128k``"
+msgid "``cogagent``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:77
-msgid "``glm4-chat``, ``glm4-chat-1m``, ``glm4-0414``"
+msgid "``glm-edge-chat``, ``glm4-chat``, ``glm4-chat-1m``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:78
-msgid "``codegeex4``"
+msgid "``codegeex4``, ``glm-4v``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:79
-msgid "``qwen1.5-chat``, ``qwen1.5-moe-chat``"
+msgid "``seallm_v2.5``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:80
-msgid "``qwen2-instruct``, ``qwen2-moe-instruct``"
+msgid "``orion-chat``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:81
-msgid "``XiYanSQL-QwenCoder-2504``"
+msgid "``qwen1.5-moe-chat``, ``qwen2-moe-instruct``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:82
-msgid "``QwQ-32B-Preview``, ``QwQ-32B``"
+msgid "``CohereForCausalLM``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:83
-msgid "``marco-o1``"
+msgid ""
+"``deepseek-v2-chat``, ``deepseek-v2-chat-0628``, ``deepseek-v2.5``, "
+"``deepseek-vl2``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:84
-msgid "``fin-r1``"
+msgid ""
+"``deepseek-prover-v2``, ``deepseek-r1``, ``deepseek-r1-0528``, "
+"``deepseek-v3``, ``deepseek-v3-0324``, ``Deepseek-V3.1``, ``moonlight-"
+"16b-a3b-instruct``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:85
-msgid "``seallms-v3``"
+msgid "``deepseek-r1-0528-qwen3``, ``qwen3``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:86
-msgid "``skywork-or1-preview``, ``skywork-or1``"
-msgstr ""
-
-#: ../../source/getting_started/installation.rst:87
-msgid "``HuatuoGPT-o1-Qwen2.5``, ``HuatuoGPT-o1-LLaMA-3.1``"
-msgstr ""
-
-#: ../../source/getting_started/installation.rst:88
-msgid "``DianJin-R1``"
-msgstr ""
-
-#: ../../source/getting_started/installation.rst:89
-msgid "``gemma-it``, ``gemma-2-it``, ``gemma-3-1b-it``"
-msgstr ""
-
-#: ../../source/getting_started/installation.rst:90
-msgid "``orion-chat``, ``orion-chat-rag``"
-msgstr ""
-
-#: ../../source/getting_started/installation.rst:91
-msgid "``c4ai-command-r-v01``"
-msgstr ""
-
-#: ../../source/getting_started/installation.rst:92
 msgid "``minicpm3-4b``"
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:93
+#: ../../source/getting_started/installation.rst:87
 msgid "``internlm3-instruct``"
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:94
-msgid "``moonlight-16b-a3b-instruct``"
+#: ../../source/getting_started/installation.rst:88
+msgid "``gemma-3-1b-it``"
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:95
-msgid "``qwenLong-l1``"
+#: ../../source/getting_started/installation.rst:89
+msgid "``glm4-0414``"
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:96
-msgid "``qwen3``"
+#: ../../source/getting_started/installation.rst:90
+msgid ""
+"``minicpm-2b-dpo-bf16``, ``minicpm-2b-dpo-fp16``, ``minicpm-2b-dpo-"
+"fp32``, ``minicpm-2b-sft-bf16``, ``minicpm-2b-sft-fp32``, ``minicpm4``"
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:97
-msgid "``minicpm4``"
-msgstr ""
-
-#: ../../source/getting_started/installation.rst:98
+#: ../../source/getting_started/installation.rst:91
 msgid "``Ernie4.5``"
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:99
-msgid "``Qwen3-Instruct``"
+#: ../../source/getting_started/installation.rst:92
+msgid "``Qwen3-Coder``, ``Qwen3-Instruct``, ``Qwen3-Thinking``"
 msgstr ""
 
-#: ../../source/getting_started/installation.rst:102
+#: ../../source/getting_started/installation.rst:93
+msgid "``glm-4.5``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:94
+msgid "``gpt-oss``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:95
+msgid "``seed-oss``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:96
+msgid "``Qwen3-Next-Instruct``, ``Qwen3-Next-Thinking``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:97
+msgid "``DeepSeek-V3.2``, ``DeepSeek-V3.2-Exp``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:98
+msgid "``MiniMax-M2``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:101
 msgid "To install Xinference and vLLM::"
 msgstr "安装 xinference 和 vLLM："
 
-#: ../../source/getting_started/installation.rst:115
+#: ../../source/getting_started/installation.rst:114
 msgid "Llama.cpp Backend"
 msgstr "Llama.cpp 引擎"
 
-#: ../../source/getting_started/installation.rst:116
+#: ../../source/getting_started/installation.rst:115
 msgid ""
 "Xinference supports models in ``gguf`` format via ``xllamacpp``. "
 "`xllamacpp <https://github.com/xorbitsai/xllamacpp>`_ is developed by "
 "Xinference team, and is the sole backend for llama.cpp since v1.6.0."
 msgstr ""
-"Xinference 通过 xllamacpp 支持 gguf 格式的模型。`xllamacpp <https://"
-"github.com/xorbitsai/xllamacpp>`_ 由 Xinference 团队开发，并从 v1.6.0 "
+"Xinference 通过 xllamacpp 支持 gguf 格式的模型。`xllamacpp "
+"<https://github.com/xorbitsai/xllamacpp>`_ 由 Xinference 团队开发，并从 v1.6.0 "
 "开始成为 llama.cpp 的唯一后端。"
 
-#: ../../source/getting_started/installation.rst:122
+#: ../../source/getting_started/installation.rst:121
 msgid ""
 "Since Xinference v1.5.0, ``llama-cpp-python`` is deprecated. Since "
 "Xinference v1.6.0, ``llama-cpp-python`` has been removed."
 msgstr ""
-"自 Xinference v1.5.0 起，``llama-cpp-python`` 被弃用；在 Xinference 从 "
-"v1.6.0 开始，该后端已被移除。"
+"自 Xinference v1.5.0 起，``llama-cpp-python`` 被弃用；在 Xinference 从 v1.6.0 "
+"开始，该后端已被移除。"
 
-#: ../../source/getting_started/installation.rst:125
-#: ../../source/getting_started/installation.rst:135
-#: ../../source/getting_started/installation.rst:144
+#: ../../source/getting_started/installation.rst:124
+#: ../../source/getting_started/installation.rst:134
+#: ../../source/getting_started/installation.rst:143
 msgid "Initial setup::"
 msgstr "初始步骤："
 
-#: ../../source/getting_started/installation.rst:129
+#: ../../source/getting_started/installation.rst:128
 msgid ""
 "For more installation instructions for ``xllamacpp`` to enable GPU "
 "acceleration, please refer to: https://github.com/xorbitsai/xllamacpp"
 msgstr ""
-"更多的 ``xllamacpp`` 安装说明以便开启 GPU 加速，请参考：https://github.com"
-"/xorbitsai/xllamacpp"
+"更多的 ``xllamacpp`` 安装说明以便开启 GPU "
+"加速，请参考：https://github.com/xorbitsai/xllamacpp"
 
-#: ../../source/getting_started/installation.rst:132
+#: ../../source/getting_started/installation.rst:131
 msgid "SGLang Backend"
 msgstr "SGLang 引擎"
 
-#: ../../source/getting_started/installation.rst:133
+#: ../../source/getting_started/installation.rst:132
 msgid ""
 "SGLang has a high-performance inference runtime with RadixAttention. It "
 "significantly accelerates the execution of complex LLM programs by "
 "automatic KV cache reuse across multiple calls. And it also supports "
 "other common techniques like continuous batching and tensor parallelism."
 msgstr ""
-"SGLang 具有基于 RadixAttention 的高性能推理运行时。它通过在多个调用之间"
-"自动重用KV缓存，显著加速了复杂 LLM 程序的执行。它还支持其他常见推理技术，"
-"如连续批处理和张量并行处理。"
+"SGLang 具有基于 RadixAttention 的高性能推理运行时。它通过在多个调用之间自动重用KV缓存，显著加速了复杂 LLM "
+"程序的执行。它还支持其他常见推理技术，如连续批处理和张量并行处理。"
 
-#: ../../source/getting_started/installation.rst:141
+#: ../../source/getting_started/installation.rst:140
 msgid "MLX Backend"
 msgstr "MLX 引擎"
 
-#: ../../source/getting_started/installation.rst:142
+#: ../../source/getting_started/installation.rst:141
 msgid "MLX-lm is designed for Apple silicon users to run LLM efficiently."
 msgstr "MLX-lm 用来在苹果 silicon 芯片上提供高效的 LLM 推理。"
 
-#: ../../source/getting_started/installation.rst:149
+#: ../../source/getting_started/installation.rst:148
 msgid "Other Platforms"
 msgstr "其他平台"
 
-#: ../../source/getting_started/installation.rst:151
+#: ../../source/getting_started/installation.rst:150
 msgid ":ref:`Ascend NPU <installation_npu>`"
 msgstr ""

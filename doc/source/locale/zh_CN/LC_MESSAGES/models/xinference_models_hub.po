@@ -131,8 +131,8 @@ msgstr "本节介绍具备模型注册或维护权限的用户可使用的功能
 msgid ""
 "**Audience:** Users with model registration or maintenance permissions. "
 "To become a model maintainer, you may `contact us "
-"<https://xorbits.cn/assets/images/wechat_work_qr.png>`_."
-msgstr "**适用对象：** 具有模型注册或维护权限的用户。如需成为模型维护者，可 `联系我们 <https://xorbits.cn/assets/images/wechat_work_qr.png>`_。"
+"<https://xinference.cn/images/WeCom.jpg>`_."
+msgstr "**适用对象：** 具有模型注册或维护权限的用户。如需成为模型维护者，可 `联系我们 <https://xinference.cn/images/WeCom.jpg>`_。"
 
 #: ../../source/models/xinference_models_hub.rst:54
 msgid "Core Features (Login Required)"

@@ -13,10 +13,13 @@
 # limitations under the License.
 
 import importlib.util
+import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 
 if TYPE_CHECKING:
     from ..core import ImageModelFamilyV2
+
+logger = logging.getLogger(__name__)
 
 
 class OCRModel:
@@ -68,6 +71,55 @@ def check_engine_by_model_name_and_engine(
         ):
             continue
         return param["ocr_class"]
+    raise ValueError(f"Model {model_name} cannot be run on engine {model_engine}.")
+
+
+def check_engine_by_model_name_and_engine_with_virtual_env(
+    model_engine: str,
+    model_name: str,
+    model_format: Optional[str],
+    quantization: Optional[str],
+    model_family: Optional["ImageModelFamilyV2"] = None,
+) -> Type[OCRModel]:
+    from ...utils import _collect_virtualenv_engine_markers
+
+    def get_model_engine_from_spell(engine_str: str) -> str:
+        for engine in OCR_ENGINES[model_name].keys():
+            if engine.lower() == engine_str.lower():
+                return engine
+        return engine_str
+
+    if model_family is None:
+        raise ValueError(f"Model {model_name} not found.")
+
+    engine_markers = _collect_virtualenv_engine_markers(model_family)
+    if model_name not in OCR_ENGINES:
+        if model_engine.lower() in engine_markers:
+            engine_classes = SUPPORTED_ENGINES.get(model_engine, [])
+            if engine_classes:
+                logger.warning(
+                    "Bypassing engine compatibility checks for %s due to virtualenv marker.",
+                    model_engine,
+                )
+                return engine_classes[0]
+        raise ValueError(f"Model {model_name} not found.")
+
+    model_engine = get_model_engine_from_spell(model_engine)
+    if model_engine not in OCR_ENGINES[model_name]:
+        if model_engine.lower() in engine_markers:
+            engine_classes = SUPPORTED_ENGINES.get(model_engine, [])
+            if engine_classes:
+                logger.warning(
+                    "Bypassing engine compatibility checks for %s due to virtualenv marker.",
+                    model_engine,
+                )
+                return engine_classes[0]
+        raise ValueError(f"Model {model_name} cannot be run on engine {model_engine}.")
+
+    match_params = OCR_ENGINES[model_name][model_engine]
+    if match_params:
+        return match_params[0]["ocr_class"]
+
     raise ValueError(f"Model {model_name} cannot be run on engine {model_engine}.")
 
 

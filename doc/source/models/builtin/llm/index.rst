@@ -216,10 +216,30 @@ The following is a list of built-in LLM in Xinference:
      - 131072
      - GLM-4.5V is based on ZhipuAI’s next-generation flagship text foundation model GLM-4.5-Air (106B parameters, 12B active). It continues the technical approach of GLM-4.1V-Thinking, achieving SOTA performance among models of the same scale on 42 public vision-language benchmarks.
 
+   * - :ref:`glm-4.6 <models_llm_glm-4.6>`
+     - chat, reasoning, hybrid, tools
+     - 202752
+     - GLM-4.6 significantly enhances context length (up to 200K tokens), code generation, reasoning with tool use, agent capabilities, and human-aligned writing compared to GLM-4.5.
+
+   * - :ref:`glm-4.7 <models_llm_glm-4.7>`
+     - chat, reasoning, hybrid, tools
+     - 202752
+     - GLM-4.7 significantly advances core and multilingual agentic coding, UI/vibe coding, tool use, and complex reasoning—outperforming GLM-4.6 across benchmarks like SWE-bench, Terminal Bench 2.0, τ²-Bench, and HLE—while also improving chat, creative writing, and role-play.
+
+   * - :ref:`glm-4.7-flash <models_llm_glm-4.7-flash>`
+     - chat, reasoning, hybrid, tools
+     - 202752
+     - GLM-4.7-Flash is a 30B-A3B MoE model. As the strongest model in the 30B class, it offers a lightweight deployment option that balances performance and efficiency.
+
    * - :ref:`glm-4v <models_llm_glm-4v>`
      - chat, vision
      - 8192
      - GLM4 is the open source version of the latest generation of pre-trained models in the GLM-4 series launched by Zhipu AI.
+
+   * - :ref:`glm-5 <models_llm_glm-5>`
+     - chat, vision, tools, reasoning
+     - 202752
+     - We are launching GLM-5, targeting complex systems engineering and long-horizon agentic tasks. Scaling is still one of the most important ways to improve the intelligence efficiency of Artificial General Intelligence (AGI). Compared to GLM-4.5, GLM-5 scales from 355B parameters (32B active) to 744B parameters (40B active), and increases pre-training data from 23T to 28.5T tokens. GLM-5 also integrates DeepSeek Sparse Attention (DSA), largely reducing deployment cost while preserving long-context capacity.  Reinforcement learning aims to bridge the gap between competence and excellence in pre-trained models. However, deploying it at scale for LLMs is a challenge due to the RL training inefficiency. To this end, we developed slime, a novel asynchronous RL infrastructure that substantially improves training throughput and efficiency, enabling more fine-grained post-training iterations. With advances in both pre-training and post-training, GLM-5 delivers significant improvement compared to GLM-4.7 across a wide range of academic benchmarks and achieves best-in-class performance among all open-source models in the world on reasoning, coding, and agentic tasks, closing the gap with frontier models.
 
    * - :ref:`glm-edge-chat <models_llm_glm-edge-chat>`
      - chat
@@ -281,6 +301,11 @@ The following is a list of built-in LLM in Xinference:
      - 131072
      - Kwaipilot-AutoThink ranks first among all open-source models on LiveCodeBench Pro, a challenging benchmark explicitly designed to prevent data leakage, and even surpasses strong proprietary systems such as Seed and o3-mini.
 
+   * - :ref:`kimi-k2.5 <models_llm_kimi-k2.5>`
+     - chat, vision
+     - 262144
+     - Kimi K2.5 is an open-source, native multimodal agentic model built through continual pretraining on approximately 15 trillion mixed visual and text tokens atop Kimi-K2-Base. It seamlessly integrates vision and language understanding with advanced agentic capabilities, instant and thinking modes, as well as conversational and agentic paradigms.
+
    * - :ref:`llama-2 <models_llm_llama-2>`
      - generate
      - 4096
@@ -331,6 +356,11 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - Marco-o1: Towards Open Reasoning Models for Open-Ended Solutions
 
+   * - :ref:`mineru2.5-2509-1.2b <models_llm_mineru2.5-2509-1.2b>`
+     - chat, vision
+     - 32768
+     - MinerU2.5-2509-1.2B is a vision language model for document understanding.
+
    * - :ref:`minicpm-2b-dpo-bf16 <models_llm_minicpm-2b-dpo-bf16>`
      - chat
      - 4096
@@ -380,6 +410,16 @@ The following is a list of built-in LLM in Xinference:
      - chat, tools, reasoning
      - 196608
      - MiniMax-M2, a Mini model built for Max coding & agentic workflows.
+
+   * - :ref:`minimax-m2.5 <models_llm_minimax-m2.5>`
+     - chat, tools, reasoning
+     - 196608
+     - MiniMax-M2.5, a Mini model built for Max coding & agentic workflows.
+
+   * - :ref:`minimax-m2.7 <models_llm_minimax-m2.7>`
+     - chat, tools, reasoning
+     - 204800
+     - MiniMax-M2.7, Peak Performance, Ultimate Value, Master the Complex.
 
    * - :ref:`mistral-instruct-v0.1 <models_llm_mistral-instruct-v0.1>`
      - chat
@@ -486,11 +526,6 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - Qwen1.5-MoE is a transformer-based MoE decoder-only language model pretrained on a large amount of data.
 
-   * - :ref:`qwen2-audio <models_llm_qwen2-audio>`
-     - generate, audio
-     - 32768
-     - Qwen2-Audio: A large-scale audio-language model which is capable of accepting various audio signal inputs and performing audio analysis or direct textual responses with regard to speech instructions.
-
    * - :ref:`qwen2-audio-instruct <models_llm_qwen2-audio-instruct>`
      - chat, audio
      - 32768
@@ -595,6 +630,11 @@ The following is a list of built-in LLM in Xinference:
      - chat, vision, reasoning, tools
      - 262144
      - Meet Qwen3-VL — the most powerful vision-language model in the Qwen series to date.
+
+   * - :ref:`qwen3.5 <models_llm_qwen3.5>`
+     - chat, vision, tools, reasoning, hybrid
+     - 262144
+     - Over recent months, we have intensified our focus on developing foundation models that deliver exceptional utility and performance. Qwen3.5 represents a significant leap forward, integrating breakthroughs in multimodal learning, architectural efficiency, reinforcement learning scale, and global accessibility to empower developers and enterprises with unprecedented capability and efficiency
 
    * - :ref:`qwenlong-l1 <models_llm_qwenlong-l1>`
      - chat
@@ -801,7 +841,15 @@ The following is a list of built-in LLM in Xinference:
   
    glm-4.5v
   
+   glm-4.6
+  
+   glm-4.7
+  
+   glm-4.7-flash
+  
    glm-4v
+  
+   glm-5
   
    glm-edge-chat
   
@@ -827,6 +875,8 @@ The following is a list of built-in LLM in Xinference:
   
    kat-v1
   
+   kimi-k2.5
+  
    llama-2
   
    llama-2-chat
@@ -847,6 +897,8 @@ The following is a list of built-in LLM in Xinference:
   
    marco-o1
   
+   mineru2.5-2509-1.2b
+  
    minicpm-2b-dpo-bf16
   
    minicpm-2b-dpo-fp16
@@ -866,6 +918,10 @@ The following is a list of built-in LLM in Xinference:
    minicpm4
   
    minimax-m2
+  
+   minimax-m2.5
+  
+   minimax-m2.7
   
    mistral-instruct-v0.1
   
@@ -909,8 +965,6 @@ The following is a list of built-in LLM in Xinference:
   
    qwen1.5-moe-chat
   
-   qwen2-audio
-  
    qwen2-audio-instruct
   
    qwen2-instruct
@@ -952,6 +1006,8 @@ The following is a list of built-in LLM in Xinference:
    qwen3-vl-instruct
   
    qwen3-vl-thinking
+  
+   qwen3.5
   
    qwenlong-l1
   

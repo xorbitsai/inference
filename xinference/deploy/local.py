@@ -103,7 +103,7 @@ def run(
             )
         )
         loop.run_until_complete(task)
-    except:
+    except Exception:
         tb = traceback.format_exc()
         if conn:
             try:

@@ -350,11 +350,22 @@ const LaunchModelDrawer = ({
 
   const fetchModelEngine = (model_name, model_type) => {
     setHasFetchedEngines(false)
+    const enableVirtualEnv =
+      formData?.enable_virtual_env === true ||
+      formData?.enable_virtual_env === 'true'
+        ? 'true'
+        : formData?.enable_virtual_env === false ||
+          formData?.enable_virtual_env === 'false'
+        ? 'false'
+        : null
+    const enableVirtualEnvQuery = enableVirtualEnv
+      ? `?enable_virtual_env=${enableVirtualEnv}`
+      : ''
     fetchWrapper
       .get(
         model_type === 'LLM'
-          ? `/v1/engines/${model_name}`
-          : `/v1/engines/${model_type}/${model_name}`
+          ? `/v1/engines/${model_name}${enableVirtualEnvQuery}`
+          : `/v1/engines/${model_type}/${model_name}${enableVirtualEnvQuery}`
       )
       .then((data) => {
         if (!data) {
@@ -698,6 +709,61 @@ const LaunchModelDrawer = ({
     })
   }, [quantizationOptions, modelData])
 
+  const modelFormConfig = useMemo(
+    () =>
+      getModelFormConfig({
+        t,
+        formData,
+        modelData,
+        gpuAvailable,
+        engineItems,
+        formatItems,
+        sizeItems,
+        quantizationItems,
+        getNGPURange,
+        downloadHubOptions,
+        enginesWithNWorker,
+        multimodalProjectorOptions,
+      }),
+    [
+      t,
+      formData,
+      modelData,
+      gpuAvailable,
+      engineItems,
+      formatItems,
+      sizeItems,
+      quantizationItems,
+      getNGPURange,
+      downloadHubOptions,
+      enginesWithNWorker,
+      multimodalProjectorOptions,
+    ]
+  )
+
+  useEffect(() => {
+    if (modelFormConfig[modelType]) {
+      const defaults = {}
+      const traverse = (fields) => {
+        fields.forEach((field) => {
+          if (
+            field.default !== undefined &&
+            formData[field.name] === undefined
+          ) {
+            defaults[field.name] = field.default
+          }
+          if (field.children) {
+            traverse(field.children)
+          }
+        })
+      }
+      traverse(modelFormConfig[modelType])
+      if (Object.keys(defaults).length > 0) {
+        setFormData((prev) => ({ ...prev, ...defaults }))
+      }
+    }
+  }, [modelFormConfig, modelType])
+
   const checkRequiredFields = (fields, data) => {
     return fields.every((field) => {
       if (field.type === 'collapse' && field.children) {
@@ -929,21 +995,6 @@ const LaunchModelDrawer = ({
     }
   }
 
-  const modelFormConfig = getModelFormConfig({
-    t,
-    formData,
-    modelData,
-    gpuAvailable,
-    engineItems,
-    formatItems,
-    sizeItems,
-    quantizationItems,
-    getNGPURange,
-    downloadHubOptions,
-    enginesWithNWorker,
-    multimodalProjectorOptions,
-  })
-
   const areRequiredFieldsFilled = useMemo(() => {
     const data = getFinalFormData()
     const fields = modelFormConfig[modelType] || []
@@ -966,21 +1017,7 @@ const LaunchModelDrawer = ({
               false),
         }
       }
-      if (field.name === 'gpu_idx' && field.visible !== true) {
-        const n_gpu_default = fields.find(
-          (item) => item.name === 'n_gpu'
-        ).default
 
-        return {
-          ...field,
-          visible:
-            formData.n_gpu === 'GPU' ||
-            ((formData.n_gpu === undefined ||
-              formData.n_gpu === null ||
-              formData.n_gpu === '') &&
-              n_gpu_default === 'GPU'),
-        }
-      }
       return field
     })
 

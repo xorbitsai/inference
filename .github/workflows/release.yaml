@@ -25,7 +25,7 @@ jobs:
         run: >-
           python3 -m
           pip install
-          build setuptools
+          build "setuptools<82"
           --user
       - name: Build web
         run: >-

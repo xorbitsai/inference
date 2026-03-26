@@ -4,6 +4,7 @@
     "runningModels": "运行模型",
     "registerModel": "注册模型",
     "clusterInfo": "集群信息",
+    "xagent": "使用 Xagent 构建 AI 智能体",
     "contactUs": "联系我们",
     "documentation": "文档",
     "website": "官网"
@@ -258,6 +259,7 @@
     "memUsage": "内存使用率",
     "memTotal": "内存总量",
     "gpuCount": "GPU 数量",
+    "gpuLoad": "GPU 负载",
     "gpuMemUsage": "GPU 内存使用率",
     "gpuMemTotal": "GPU 内存总量",
     "worker": "工作节点"

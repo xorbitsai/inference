@@ -91,6 +91,12 @@ def generate_engine_config_by_model_family(model_family: "LLMFamilyV2"):
                         ):
                             if quantization not in param["quantizations"]:
                                 param["quantizations"].append(quantization)
+                            if "multimodal_projectors" not in param and hasattr(
+                                spec, "multimodal_projectors"
+                            ):
+                                param["multimodal_projectors"] = (
+                                    spec.multimodal_projectors
+                                )
                             already_exists = True
                             break
                     # successfully match the params for the first time, add to the structure

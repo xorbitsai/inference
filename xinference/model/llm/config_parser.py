@@ -32,6 +32,15 @@ def _load_tokenizer_config(model_dir: str) -> Optional[Dict[str, Any]]:
     return _load_json_file(tokenizer_config_path)
 
 
+def _load_chat_template_file(model_dir: str) -> Optional[str]:
+    chat_template_path = os.path.join(model_dir, "chat_template.jinja")
+    if not os.path.exists(chat_template_path):
+        return None
+    with open(chat_template_path, "r") as file:
+        content = file.read()
+    return content.strip() if content else None
+
+
 def _get_first_value(config: Dict[str, Any], *keys: str) -> Optional[Any]:
     for key in keys:
         value = config.get(key)
@@ -188,10 +197,10 @@ def _infer_model_size_in_billions(config: Dict[str, Any]) -> Optional[Union[int,
     attention_params = 4 * hidden_size * hidden_size
     mlp_params = 3 * hidden_size * intermediate_size
     total_params = embedding_params + num_layers * (attention_params + mlp_params)
-    size_in_billions = total_params / 1e9
-    if size_in_billions <= 0:
+    calculated_size_in_billions = total_params / 1e9
+    if calculated_size_in_billions <= 0:
         return None
-    return _format_size_in_billions(size_in_billions)
+    return _format_size_in_billions(calculated_size_in_billions)
 
 
 def _infer_quantization(config: Dict[str, Any], model_format: str) -> str:
@@ -250,9 +259,10 @@ def build_llm_registration_from_local_config(
     config_path, model_dir = _resolve_config_and_dir(model_path)
     config = _load_json_file(config_path)
     tokenizer_config = _load_tokenizer_config(model_dir)
+    chat_template_file = _load_chat_template_file(model_dir)
 
     model_lang = _infer_languages(config)
-    chat_template = _extract_chat_template(tokenizer_config)
+    chat_template = _extract_chat_template(tokenizer_config) or chat_template_file
     model_ability = ["generate"]
     if chat_template:
         model_ability.append("chat")

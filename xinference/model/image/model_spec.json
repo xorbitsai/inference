@@ -53,8 +53,17 @@
         "gguf_model_file_name_template": "flux1-schnell-{quantization}.gguf"
       }
     },
-    "updated_at": 1766387546,
-    "featured": true
+    "updated_at": 1769418353,
+    "featured": true,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -116,7 +125,16 @@
       }
     },
     "featured": false,
-    "updated_at": 1767694123
+    "updated_at": 1769418354,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -178,14 +196,15 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers==0.35.1",
+        "diffusers==0.35.1 ; #engine# == \"diffusers\"",
+        "huggingface-hub<1.0 ; #engine# == \"diffusers\"",
         "peft>=0.17.0",
         "#system_torch#",
         "#system_numpy#"
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1766387550,
+    "updated_at": 1769152886,
     "featured": true
   },
   {
@@ -270,14 +289,15 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers==0.35.1",
+        "diffusers==0.35.1 ; #engine# == \"diffusers\"",
+        "huggingface-hub<1.0 ; #engine# == \"diffusers\"",
         "peft>=0.17.0",
         "#system_torch#",
         "#system_numpy#"
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1767694045,
+    "updated_at": 1769152887,
     "featured": false
   },
   {
@@ -303,8 +323,17 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387558,
-    "featured": false
+    "updated_at": 1769418356,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -364,8 +393,17 @@
         "gguf_model_file_name_template": "sd3.5_medium-{quantization}.gguf"
       }
     },
-    "updated_at": 1766387562,
-    "featured": true
+    "updated_at": 1769418357,
+    "featured": true,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -412,8 +450,17 @@
         "gguf_model_file_name_template": "sd3.5_large-{quantization}.gguf"
       }
     },
-    "updated_at": 1766387565,
-    "featured": true
+    "updated_at": 1769418358,
+    "featured": true,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -464,8 +511,17 @@
         "gguf_model_file_name_template": "sd3.5_large_turbo-{quantization}.gguf"
       }
     },
-    "updated_at": 1766387568,
-    "featured": false
+    "updated_at": 1769418359,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -484,8 +540,17 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387569,
-    "featured": true
+    "updated_at": 1769418360,
+    "featured": true,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -504,8 +569,17 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387571,
-    "featured": false
+    "updated_at": 1769418361,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -528,8 +602,17 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387573,
-    "featured": false
+    "updated_at": 1769418362,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -552,8 +635,17 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387575,
-    "featured": false
+    "updated_at": 1769418363,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -617,8 +709,17 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387577,
-    "featured": false
+    "updated_at": 1769418364,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -658,8 +759,17 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387579,
-    "featured": false
+    "updated_at": 1769418365,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -674,9 +784,12 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers>=0.30.0",
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
         "#system_numpy#"
-      ]
+      ],
+      "no_build_isolation": true
     },
     "model_src": {
       "huggingface": {
@@ -688,7 +801,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387581,
+    "updated_at": 1769418366,
     "featured": false
   },
   {
@@ -703,9 +816,12 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers>=0.33.0",
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
         "#system_numpy#"
-      ]
+      ],
+      "no_build_isolation": true
     },
     "model_src": {
       "huggingface": {
@@ -717,7 +833,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387584,
+    "updated_at": 1769418366,
     "featured": true
   },
   {
@@ -733,8 +849,17 @@
         "model_revision": "51388a731f57604945fddd703ecb5c50e8e7b49d"
       }
     },
-    "updated_at": 1766387586,
-    "featured": false
+    "updated_at": 1769418367,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -749,8 +874,17 @@
         "model_revision": "81a84f49b15956b60b4272a405ad3daef3da4590"
       }
     },
-    "updated_at": 1766387588,
-    "featured": false
+    "updated_at": 1769418368,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -765,8 +899,17 @@
         "model_revision": "115134f363124c53c7d878647567d04daf26e41e"
       }
     },
-    "updated_at": 1766387589,
-    "featured": false
+    "updated_at": 1769418369,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -777,7 +920,7 @@
     ],
     "virtualenv": {
       "packages": [
-        "transformers==4.47.1",
+        "transformers==4.47.1 ; #engine# == \"transformers\"",
         "httpx==0.24.0",
         "deepspeed==0.12.3",
         "peft==0.4.0",
@@ -800,7 +943,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387590,
+    "updated_at": 1769418370,
     "featured": false
   },
   {
@@ -880,14 +1023,15 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers==0.35.1",
+        "diffusers==0.35.1 ; #engine# == \"diffusers\"",
+        "huggingface-hub<1.0 ; #engine# == \"diffusers\"",
         "peft>=0.17.0",
         "#system_torch#",
         "#system_numpy#"
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1766387620,
+    "updated_at": 1769152903,
     "featured": false
   },
   {
@@ -967,14 +1111,14 @@
     },
     "virtualenv": {
       "packages": [
-        "git+https://github.com/huggingface/diffusers",
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
         "peft>=0.17.0",
         "#system_torch#",
         "#system_numpy#"
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1767694066,
+    "updated_at": 1769418372,
     "featured": false
   },
   {
@@ -986,7 +1130,8 @@
     ],
     "virtualenv": {
       "packages": [
-        "transformers==4.46.3",
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "mlx-vlm ; #engine# == \"mlx\"",
         "tokenizers==0.20.3",
         "PyMuPDF",
         "img2pdf",
@@ -994,7 +1139,8 @@
         "easydict",
         "addict",
         "Pillow",
-        "#system_torch#",
+        "#system_torch# ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#system_numpy#"
       ]
     },
@@ -1039,7 +1185,7 @@
       }
     ],
     "featured": false,
-    "updated_at": 1767691154
+    "updated_at": 1769418373
   },
   {
     "version": 2,
@@ -1050,10 +1196,11 @@
     ],
     "virtualenv": {
       "packages": [
-        "transformers @ git+https://github.com/huggingface/transformers@82a06db03535c49aa987719ed0746a76093b1ec4",
-        "accelerate>=0.34.2",
+        "transformers @ git+https://github.com/huggingface/transformers@82a06db03535c49aa987719ed0746a76093b1ec4 ; #engine# == \"Transformers\"",
+        "accelerate>=0.34.2 ; #engine# == \"Transformers\"",
         "#system_numpy#",
-        "#system_torch#"
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_torch# ; #engine# == \"Transformers\""
       ]
     },
     "model_src": {
@@ -1067,7 +1214,7 @@
       }
     },
     "featured": false,
-    "updated_at": 1766387626
+    "updated_at": 1769418374
   },
   {
     "version": 2,
@@ -1117,7 +1264,16 @@
       }
     },
     "featured": true,
-    "updated_at": 1766387628
+    "updated_at": 1769418375,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -1157,7 +1313,7 @@
     "gguf_model_file_name_template": "z-image-turbo-{quantization}.gguf",
     "virtualenv": {
       "packages": [
-        "git+https://github.com/huggingface/diffusers",
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
         "transformers>=4.51.0",
         "#system_torch#",
         "#system_numpy#"
@@ -1175,7 +1331,7 @@
       }
     },
     "featured": true,
-    "updated_at": 1767838623
+    "updated_at": 1769418376
   },
   {
     "version": 2,
@@ -1232,7 +1388,7 @@
     },
     "virtualenv": {
       "packages": [
-        "git+https://github.com/huggingface/diffusers",
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
         "transformers>=4.51.3",
         "#system_torch#",
         "#system_numpy#"
@@ -1240,7 +1396,7 @@
       "no_build_isolation": true
     },
     "featured": true,
-    "updated_at": 1766568088
+    "updated_at": 1769418378
   },
   {
     "version": 2,
@@ -1321,7 +1477,7 @@
     },
     "virtualenv": {
       "packages": [
-        "git+https://github.com/huggingface/diffusers",
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
         "peft>=0.17.0",
         "#system_torch#",
         "#system_numpy#"
@@ -1329,7 +1485,7 @@
       "no_build_isolation": true
     },
     "featured": true,
-    "updated_at": 1767521216
+    "updated_at": 1769418379
   },
   {
     "version": 2,
@@ -1412,42 +1568,122 @@
     "virtualenv": {
       "no_build_isolation": true,
       "packages": [
-        "diffusers==0.35.1",
+        "diffusers==0.35.1 ; #engine# == \"diffusers\"",
+        "huggingface-hub<1.0 ; #engine# == \"diffusers\"",
         "peft>=0.17.0",
         "#system_torch#",
         "#system_numpy#"
       ]
     },
     "featured": true,
-    "updated_at": 1767599235
+    "updated_at": 1769152912
   },
   {
     "version": 2,
-    "model_name": "MinerU2.5-2509-1.2B",
-    "model_family": "ocr",
+    "model_name": "Z-Image",
+    "model_family": "stable_diffusion",
     "model_ability": [
-      "ocr"
+      "text2image",
+      "image2image"
     ],
+    "default_model_config": {
+      "torch_dtype": "bfloat16",
+      "low_cpu_mem_usage": false
+    },
+    "default_generate_config": {
+      "num_inference_steps": 28,
+      "guidance_scale": 4
+    },
     "virtualenv": {
       "packages": [
-        "transformers>=4.45.0",
-        "mineru-vl-utils[transformers]",
-        "qwen-vl-utils",
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
         "#system_torch#",
         "#system_numpy#"
-      ]
+      ],
+      "no_build_isolation": true
     },
     "model_src": {
       "huggingface": {
-        "model_id": "opendatalab/MinerU2.5-2509-1.2B",
-        "model_revision": "main"
+        "model_id": "Tongyi-MAI/Z-Image",
+        "model_revision": "e8fa147e7413241c5aa5146a8ae60dc38ade08ae"
       },
       "modelscope": {
-        "model_id": "opendatalab/MinerU2.5-2509-1.2B",
+        "model_id": "Tongyi-MAI/Z-Image",
         "model_revision": "master"
       }
     },
+    "featured": true,
+    "updated_at": 1769594289
+  },
+  {
+    "model_name": "FLUX.2-klein-4B",
+    "model_description": "FLUX.2 [klein] 4B is a 4 billion parameter rectified flow transformer capable of generating images from text descriptions and supports multi-reference editing capabilities.",
+    "model_ability": [
+      "text2image",
+      "image2image"
+    ],
+    "model_family": "stable_diffusion",
+    "controlnet": [],
+    "model_src": {
+      "huggingface": {
+        "model_id": "black-forest-labs/FLUX.2-klein-4B",
+        "model_revision": "5e67da950fce4a097bc150c22958a05716994cea"
+      },
+      "modelscope": {
+        "model_id": "black-forest-labs/FLUX.2-klein-4B",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {},
+    "default_generate_config": {},
+    "cache_config": {},
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "git+https://github.com/huggingface/diffusers",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    },
     "featured": false,
-    "updated_at": 1768812995
+    "updated_at": 1770994941
+  },
+  {
+    "model_name": "FLUX.2-klein-9B",
+    "model_description": "FLUX.2 [klein] 9B is a 9 billion parameter rectified flow transformer capable of generating images from text descriptions and supports multi-reference editing capabilities.",
+    "model_ability": [
+      "text2image",
+      "image2image"
+    ],
+    "model_family": "stable_diffusion",
+    "controlnet": [],
+    "model_src": {
+      "huggingface": {
+        "model_id": "black-forest-labs/FLUX.2-klein-9B",
+        "model_revision": "cd1bba5810fe2aba6666d9cf7352e25436426039"
+      },
+      "modelscope": {
+        "model_id": "black-forest-labs/FLUX.2-klein-9B",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {},
+    "default_generate_config": {},
+    "cache_config": {},
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "git+https://github.com/huggingface/diffusers",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    },
+    "featured": false,
+    "updated_at": 1770994886
   }
 ]

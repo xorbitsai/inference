@@ -303,7 +303,13 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 )
             except ValueError:
                 model_name_lower = self._model_spec.model_name.lower()
-                if "flux.2" in model_name_lower:
+                if "klein" in model_name_lower:
+                    from diffusers import Flux2KleinPipeline
+
+                    self._model = Flux2KleinPipeline.from_pretrained(
+                        self._model_path, **self._kwargs
+                    )
+                elif "flux.2" in model_name_lower:
                     from diffusers import Flux2Pipeline
 
                     self._model = Flux2Pipeline.from_pretrained(
@@ -762,6 +768,9 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             model, sampler_name
         ), self._release_after(), self._wrap_deepcache(model):
             logger.debug("stable diffusion args: %s, model: %s", kwargs, model)
+            # Some pipelines (e.g., Z-Image img2img) can't handle guidance_scale=None.
+            if kwargs.get("guidance_scale", "unset") is None:
+                kwargs.pop("guidance_scale", None)
             self._filter_kwargs(model, kwargs)
             images = model(**kwargs).images
 

@@ -40,6 +40,7 @@ import xoscar as xo
 from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_DISABLE_HEALTH_CHECK,
+    XINFERENCE_ENABLE_OTEL,
     XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
     XINFERENCE_HEALTH_CHECK_TIMEOUT,
@@ -47,7 +48,10 @@ from ..constants import (
 )
 from ..core.model import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
-from ..model.utils import get_engine_params_by_name
+from ..model.utils import (
+    get_engine_params_by_name,
+    get_engine_params_by_name_with_virtual_env,
+)
 from ..types import PeftModelConfig
 from .launch_strategy import IdleFirstLaunchStrategy
 from .metrics import record_metrics
@@ -133,6 +137,15 @@ class SupervisorActor(xo.StatelessActor):
 
     async def __post_create__(self):
         self._uptime = time.time()
+        if XINFERENCE_ENABLE_OTEL:
+            try:
+                from .otel import setup_otel
+
+                setup_otel(instrument_app=False, register_worker_metrics=True)
+            except Exception:
+                logger.exception(
+                    "Failed to initialise supervisor OpenTelemetry worker metrics. Continuing without supervisor OTEL metrics."
+                )
         if not XINFERENCE_DISABLE_HEALTH_CHECK:
             # Run _check_dead_nodes() in a dedicated thread.
             from ..isolation import Isolation
@@ -294,6 +307,23 @@ class SupervisorActor(xo.StatelessActor):
     async def get_cluster_device_info(self, detailed: bool = False) -> List:
         import psutil
 
+        def _get_gpu_statuses(
+            status: Dict[str, Union[ResourceStatus, GPUStatus]],
+        ) -> List[GPUStatus]:
+            gpu_statuses: List[GPUStatus] = []
+            for value in status.values():
+                if isinstance(value, GPUStatus):
+                    gpu_statuses.append(value)
+            return gpu_statuses
+
+        def _get_average_gpu_utilization(
+            status: Dict[str, Union[ResourceStatus, GPUStatus]],
+        ) -> Optional[float]:
+            gpu_statuses = _get_gpu_statuses(status)
+            if not gpu_statuses:
+                return None
+            return sum(gpu.gpu_util for gpu in gpu_statuses) / len(gpu_statuses)
+
         supervisor_device_info = {
             "ip_address": self.address,
             "gpu_count": 0,
@@ -302,6 +332,7 @@ class SupervisorActor(xo.StatelessActor):
         if detailed:
             supervisor_device_info["gpu_vram_total"] = 0
             supervisor_device_info["gpu_vram_available"] = 0
+            supervisor_device_info["gpu_utilization"] = None
             supervisor_device_info["cpu_available"] = psutil.cpu_count() * (
                 1 - psutil.cpu_percent() / 100.0
             )
@@ -318,10 +349,11 @@ class SupervisorActor(xo.StatelessActor):
             total = (
                 vram_total if vram_total == 0 else f"{int(vram_total / 1024 / 1024)}MiB"
             )
+            gpu_statuses = _get_gpu_statuses(worker_status.status)
             info = {
                 "node_type": "Worker",
                 "ip_address": worker_addr,
-                "gpu_count": len(worker_status.status) - 1,
+                "gpu_count": len(gpu_statuses),
                 "gpu_vram_total": total,
             }
             if detailed:
@@ -332,6 +364,9 @@ class SupervisorActor(xo.StatelessActor):
                 info["mem_available"] = cpu_info.memory_available
                 info["mem_total"] = cpu_info.memory_total
                 info["gpu_vram_total"] = vram_total
+                info["gpu_utilization"] = _get_average_gpu_utilization(
+                    worker_status.status
+                )
                 info["gpu_vram_available"] = sum(
                     [v.mem_free for k, v in worker_status.status.items() if k != "cpu"]
                 )
@@ -661,13 +696,19 @@ class SupervisorActor(xo.StatelessActor):
             assert isinstance(item["model_name"], str)
             return item.get("model_name").lower()
 
-        ret = []
+        ret: List[Dict[str, Any]] = []
 
         # Always get model registrations from workers, including local deployment
         # In local deployment, supervisor acts as its own worker
         workers = list(self._worker_address_to_worker.values())
-        for worker in workers:
-            ret.extend(await worker.list_model_registrations(model_type, detailed))
+        results: List[List[Dict[str, Any]]] = await asyncio.gather(
+            *[
+                worker.list_model_registrations(model_type, detailed)
+                for worker in workers
+            ]
+        )
+        for result in results:
+            ret.extend(result)
 
         ret.sort(key=sort_helper)
         return ret
@@ -685,18 +726,31 @@ class SupervisorActor(xo.StatelessActor):
         raise ValueError(f"Model {model_name} not found")
 
     async def query_engines_by_model_name(
-        self, model_name: str, model_type: Optional[str] = None
+        self,
+        model_name: str,
+        model_type: Optional[str] = None,
+        enable_virtual_env: Optional[bool] = None,
     ):
         # search in worker first
         workers = list(self._worker_address_to_worker.values())
         for worker in workers:
             res = await worker.query_engines_by_model_name(
-                model_name, model_type=model_type
+                model_name, model_type=model_type, enable_virtual_env=enable_virtual_env
             )
             if res is not None:
                 return res
 
-        return get_engine_params_by_name(model_type, model_name)
+        if enable_virtual_env is None:
+            from ..constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+
+            enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
+        if enable_virtual_env:
+            return get_engine_params_by_name_with_virtual_env(
+                model_type, model_name, enable_virtual_env=enable_virtual_env
+            )
+        return get_engine_params_by_name(
+            model_type, model_name, enable_virtual_env=enable_virtual_env
+        )
 
     @log_async(logger=logger)
     async def register_model(
@@ -1475,7 +1529,7 @@ class SupervisorActor(xo.StatelessActor):
                     # wait for load complete
                     for worker_ref in worker_refs:
                         await worker_ref.wait_for_load(rep_model_uid)
-            except:
+            except Exception:
                 # terminate_model will remove the replica info.
                 await self.terminate_model(model_uid, suppress_exception=True)
                 await self._status_guard_ref.update_instance_info(
@@ -1893,6 +1947,19 @@ class SupervisorActor(xo.StatelessActor):
                 f"Worker {worker_address} cannot be removed since it is not registered to supervisor."
             )
 
+        self._worker_status.pop(worker_address, None)
+        try:
+            from .otel import get_cluster_metrics_collector
+
+            collector = get_cluster_metrics_collector()
+            if collector is not None:
+                collector.remove_worker(worker_address)
+        except Exception:
+            logger.exception(
+                "Failed to remove worker status from OTEL collector for worker_address=%s",
+                worker_address,
+            )
+
     async def report_worker_status(
         self, worker_address: str, status: Dict[str, Union[ResourceStatus, GPUStatus]]
     ):
@@ -1907,6 +1974,20 @@ class SupervisorActor(xo.StatelessActor):
             worker_status = self._worker_status[worker_address]
             worker_status.update_time = time.time()
             worker_status.status = status
+
+        # Feed worker metrics to OTEL (no-op if OTEL is disabled)
+        if status:
+            try:
+                from .otel import get_cluster_metrics_collector
+
+                collector = get_cluster_metrics_collector()
+                if collector is not None:
+                    collector.update(worker_address, status)
+            except Exception:
+                logger.exception(
+                    "Failed to feed worker status into OTEL collector for worker_address=%s",
+                    worker_address,
+                )
 
     async def list_deletable_models(
         self, model_version: str, worker_ip: Optional[str] = None
@@ -1960,7 +2041,10 @@ class SupervisorActor(xo.StatelessActor):
 
     # Virtual environment management methods
     async def list_virtual_envs(
-        self, model_name: Optional[str] = None, worker_ip: Optional[str] = None
+        self,
+        model_name: Optional[str] = None,
+        model_engine: Optional[str] = None,
+        worker_ip: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """List virtual environments across the cluster."""
         target_ip_worker_ref = (
@@ -1975,14 +2059,16 @@ class SupervisorActor(xo.StatelessActor):
 
         # If specific worker is requested, query only that worker
         if target_ip_worker_ref:
-            virtual_envs = await target_ip_worker_ref.list_virtual_envs(model_name)
+            virtual_envs = await target_ip_worker_ref.list_virtual_envs(
+                model_name, model_engine
+            )
             return sorted(virtual_envs, key=lambda x: x["model_name"])
 
         # Otherwise, query all workers
         virtual_envs = []
         for worker_address, worker in self._worker_address_to_worker.items():
             try:
-                envs = await worker.list_virtual_envs(model_name)
+                envs = await worker.list_virtual_envs(model_name, model_engine)
                 virtual_envs.extend(envs)
             except Exception as e:
                 logger.warning(f"Failed to list virtual environments on worker: {e}")
@@ -2031,6 +2117,7 @@ class SupervisorActor(xo.StatelessActor):
     async def remove_virtual_env(
         self,
         model_name: str,
+        model_engine: Optional[str] = None,
         python_version: Optional[str] = None,
         worker_ip: Optional[str] = None,
     ) -> bool:
@@ -2051,7 +2138,7 @@ class SupervisorActor(xo.StatelessActor):
         # If specific worker is requested, remove only from that worker
         if target_ip_worker_ref:
             return await target_ip_worker_ref.remove_virtual_env(
-                model_name, python_version
+                model_name, model_engine, python_version
             )
 
         # Otherwise, remove from all workers that have the virtual environment
@@ -2061,7 +2148,7 @@ class SupervisorActor(xo.StatelessActor):
         # First, identify which workers have the virtual environment
         for worker in self._worker_address_to_worker.values():
             try:
-                envs = await worker.list_virtual_envs(model_name)
+                envs = await worker.list_virtual_envs(model_name, model_engine)
                 if envs:
                     workers_with_env.append(worker)
             except Exception as e:
@@ -2070,7 +2157,9 @@ class SupervisorActor(xo.StatelessActor):
         # Then remove from those workers
         for worker in workers_with_env:
             try:
-                result = await worker.remove_virtual_env(model_name, python_version)
+                result = await worker.remove_virtual_env(
+                    model_name, model_engine, python_version
+                )
                 ret = ret and result
             except Exception as e:
                 logger.error(f"Failed to remove virtual environment from worker: {e}")

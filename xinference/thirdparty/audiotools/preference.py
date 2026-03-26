@@ -582,7 +582,7 @@ class Samples:
             self.current += 1
             done = gr.update(interactive=True)
             pbar = self.progress()
-        except:
+        except Exception:
             traceback.print_exc()
             updates = [gr.update() for _ in range(len(self.order))]
             done = gr.update(value="No more samples!", interactive=False)
