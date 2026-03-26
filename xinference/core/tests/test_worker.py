@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import itertools
 from typing import List, Optional, Union
 
 import pytest
@@ -19,6 +20,7 @@ import xoscar as xo
 from xoscar import MainActorPoolType, create_actor_pool, get_pool_config
 
 from ...model.core import VirtualEnvSettings
+from ..supervisor import ReplicaInfo, SupervisorActor
 from ..utils import merge_virtual_env_packages
 from ..worker import WorkerActor
 
@@ -66,21 +68,47 @@ class MockWorkerActor(WorkerActor):
         model_size_in_billions: Optional[int],
         model_format: Optional[str],
         quantization: Optional[str],
+        model_engine: Optional[str] = None,
         model_type: str = "LLM",
-        n_gpu: Optional[int] = None,
+        n_gpu: Optional[Union[int, str]] = None,
+        n_worker: Optional[int] = 1,
+        shard: Optional[int] = 0,
         gpu_idx: Optional[Union[int, List[int]]] = None,
         **kwargs,
     ):
         subpool_address, devices = await self._create_subpool(
             model_uid, model_type, n_gpu=n_gpu, gpu_idx=gpu_idx  # type: ignore
         )
+        self._model_uid_to_model[model_uid] = DummyActorRef(subpool_address)
+        self._model_uid_to_model_spec[model_uid] = {
+            "model_uid": model_uid,
+            "model_name": model_name,
+            "model_type": model_type,
+            "model_engine": model_engine,
+        }
+        self._model_uid_to_launch_args[model_uid] = {
+            "model_uid": model_uid,
+            "model_name": model_name,
+            "model_size_in_billions": model_size_in_billions,
+            "model_format": model_format,
+            "quantization": quantization,
+            "model_engine": model_engine,
+            "model_type": model_type,
+            "n_gpu": n_gpu,
+            "n_worker": n_worker,
+            "shard": shard,
+            **kwargs,
+        }
         self._model_uid_to_addr[model_uid] = subpool_address
 
-    async def terminate_model(self, model_uid: str):
+    async def terminate_model(self, model_uid: str, is_model_die: bool = False):
         self.release_devices(model_uid)
 
         sub_pool_addr = self._model_uid_to_addr[model_uid]
         await self._main_pool.remove_sub_pool(sub_pool_addr)
+        self._model_uid_to_model.pop(model_uid, None)
+        self._model_uid_to_model_spec.pop(model_uid, None)
+        self._model_uid_to_launch_args.pop(model_uid, None)
         del self._model_uid_to_addr[model_uid]
 
 
@@ -197,6 +225,56 @@ class DummyVirtualEnvManager:
         self.calls.append((packages, kwargs))
 
 
+class DummySupervisorRef:
+    def __init__(self, fail_report_status_times: int = 0):
+        self.fail_report_status_times = fail_report_status_times
+        self.add_worker_calls = []
+        self.report_worker_status_calls = []
+
+    async def add_worker(
+        self,
+        worker_address: str,
+        replica_states=None,
+        replica_model_uids=None,
+    ):
+        self.add_worker_calls.append(
+            (
+                worker_address,
+                list(replica_states or []),
+                list(replica_model_uids or []),
+            )
+        )
+
+    async def report_worker_status(self, worker_address: str, status):
+        if self.fail_report_status_times > 0:
+            self.fail_report_status_times -= 1
+            raise RuntimeError("stale supervisor")
+        self.report_worker_status_calls.append((worker_address, status))
+
+
+class DummyActorRef:
+    def __init__(self, address: str):
+        self.address = address
+
+
+class DummyReplicaWorkerRef(DummyActorRef):
+    def __init__(self, address: str, models=None):
+        super().__init__(address)
+        self._models = models or {}
+
+    async def list_models(self):
+        return dict(self._models)
+
+    async def describe_model(self, model_uid: str):
+        return dict(self._models[model_uid])
+
+    async def get_model_status(self, model_uid: str):
+        return {"model_uid": model_uid, "worker_address": self.address}
+
+    async def get_model(self, model_uid: str):
+        return {"model_uid": model_uid, "worker_address": self.address}
+
+
 def test_prepare_virtual_env_injects_engine_vars():
     manager = DummyVirtualEnvManager()
     settings = VirtualEnvSettings(packages=["pkgA==1.0.0"], inherit_pip_config=False)
@@ -212,6 +290,187 @@ def test_prepare_virtual_env_injects_engine_vars():
     assert packages == ["pkgA==1.0.0", "pkgB==2.0.0"]
     assert kwargs["engine"] == "vllm"
     assert kwargs["model_engine"] == "vllm"
+
+
+@pytest.mark.asyncio
+async def test_worker_report_status_reconnects_and_replays_running_models(setup_pool, monkeypatch):
+    pool = setup_pool
+    addr = pool.external_address
+
+    worker: xo.ActorRefType["MockWorkerActor"] = await xo.create_actor(  # type: ignore
+        MockWorkerActor,
+        address=addr,
+        uid=WorkerActor.default_uid(),
+        supervisor_address="test://supervisor",
+        main_pool=pool,
+        cuda_devices=[0],
+    )
+
+    await worker.launch_builtin_model(
+        "model-a-0", "mock_model_name", None, None, None, n_gpu=1
+    )
+    await worker.launch_builtin_model(
+        "model-b-1", "mock_model_name", None, None, None, n_gpu=None
+    )
+
+    first_supervisor = DummySupervisorRef(fail_report_status_times=1)
+    second_supervisor = DummySupervisorRef()
+    refs = [first_supervisor, second_supervisor]
+
+    async def fake_get_supervisor_ref(self, add_worker=True):
+        if self._supervisor_ref is None:
+            self._supervisor_ref = refs.pop(0)
+        if add_worker:
+            await self._supervisor_ref.add_worker(
+                self.address,
+                replica_states=self._get_running_replica_states(),
+            )
+        return self._supervisor_ref
+
+    monkeypatch.setattr(WorkerActor, "get_supervisor_ref", fake_get_supervisor_ref)
+    monkeypatch.setattr("xinference.core.worker.gather_node_info", lambda: {"cpu": "ok"})
+
+    await worker.report_status()
+
+    assert first_supervisor.report_worker_status_calls == []
+    assert second_supervisor.add_worker_calls == [
+        (
+            addr,
+            [
+                {"replica_model_uid": "model-a-0", "n_worker": 1, "shard": 0},
+                {"replica_model_uid": "model-b-1", "n_worker": 1, "shard": 0},
+            ],
+            [],
+        )
+    ]
+    assert second_supervisor.report_worker_status_calls == [(addr, {"cpu": "ok"})]
+
+
+@pytest.mark.asyncio
+async def test_supervisor_add_worker_idempotent_rebuilds_replica_state(monkeypatch):
+    supervisor = SupervisorActor()
+    worker_ref = DummyReplicaWorkerRef(
+        "worker-1",
+        models={
+            "model-a-0": {"model_uid": "model-a-0", "address": "worker-1"},
+            "model-a-1": {"model_uid": "model-a-1", "address": "worker-1"},
+        },
+    )
+
+    async def fake_actor_ref(address, uid):
+        assert address == "worker-1"
+        return worker_ref
+
+    monkeypatch.setattr(xo, "actor_ref", fake_actor_ref)
+
+    replica_states = [
+        {"replica_model_uid": "model-a-0", "n_worker": 1, "shard": 0},
+        {"replica_model_uid": "model-a-1", "n_worker": 1, "shard": 0},
+        {"replica_model_uid": "model-a-rank0", "n_worker": 1, "shard": 0},
+    ]
+
+    await supervisor.add_worker("worker-1", replica_states=replica_states)
+    await supervisor.add_worker("worker-1", replica_states=replica_states)
+
+    replica_info = supervisor._model_uid_to_replica_info["model-a"]
+    assert replica_info.replica == 2
+    assert supervisor._replica_model_uid_to_worker["model-a-0"] is worker_ref
+    assert supervisor._replica_model_uid_to_worker["model-a-1"] is worker_ref
+    assert "model-a-rank0" not in supervisor._replica_model_uid_to_worker
+    assert replica_info.replica_to_worker_refs[0] == [worker_ref]
+    assert replica_info.replica_to_worker_refs[1] == [worker_ref]
+
+
+@pytest.mark.asyncio
+async def test_supervisor_add_worker_preserves_sharded_replicas_on_replay(monkeypatch):
+    supervisor = SupervisorActor()
+    shard0 = DummyReplicaWorkerRef(
+        "worker-0",
+        models={"model-s-0": {"model_uid": "model-s-0", "address": "worker-0"}},
+    )
+    shard1 = DummyReplicaWorkerRef(
+        "worker-1",
+        models={"model-s-0": {"model_uid": "model-s-0", "address": "worker-1"}},
+    )
+
+    supervisor._worker_address_to_worker = {
+        "worker-0": shard0,
+        "worker-1": shard1,
+    }
+    supervisor._replica_model_uid_to_worker = {"model-s-0": (shard0, shard1)}
+    supervisor._model_uid_to_replica_info = {
+        "model-s": ReplicaInfo(replica=1, scheduler=itertools.cycle(range(1)))
+    }
+    supervisor._model_uid_to_replica_info["model-s"].replica_to_worker_refs[0].extend(
+        [shard0, shard1]
+    )
+
+    async def fake_actor_ref(address, uid):
+        if address == "worker-0":
+            return shard0
+        if address == "worker-1":
+            return shard1
+        raise AssertionError(address)
+
+    monkeypatch.setattr(xo, "actor_ref", fake_actor_ref)
+
+    await supervisor.add_worker(
+        "worker-1",
+        replica_states=[
+            {"replica_model_uid": "model-s-0", "n_worker": 2, "shard": 1}
+        ],
+    )
+
+    worker_refs = supervisor._replica_model_uid_to_worker["model-s-0"]
+    assert isinstance(worker_refs, tuple)
+    assert worker_refs == (shard0, shard1)
+    assert supervisor._model_uid_to_replica_info["model-s"].replica_to_worker_refs[0] == [
+        shard0,
+        shard1,
+    ]
+
+
+@pytest.mark.asyncio
+async def test_supervisor_add_worker_rebuilds_sharded_replica_order(monkeypatch):
+    supervisor = SupervisorActor()
+    shard0 = DummyReplicaWorkerRef(
+        "worker-0",
+        models={"model-s-0": {"model_uid": "model-s-0", "address": "worker-0"}},
+    )
+    shard1 = DummyReplicaWorkerRef(
+        "worker-1",
+        models={"model-s-0": {"model_uid": "model-s-0", "address": "worker-1"}},
+    )
+
+    async def fake_actor_ref(address, uid):
+        if address == "worker-0":
+            return shard0
+        if address == "worker-1":
+            return shard1
+        raise AssertionError(address)
+
+    monkeypatch.setattr(xo, "actor_ref", fake_actor_ref)
+
+    await supervisor.add_worker(
+        "worker-1",
+        replica_states=[
+            {"replica_model_uid": "model-s-0", "n_worker": 2, "shard": 1}
+        ],
+    )
+    await supervisor.add_worker(
+        "worker-0",
+        replica_states=[
+            {"replica_model_uid": "model-s-0", "n_worker": 2, "shard": 0}
+        ],
+    )
+
+    worker_refs = supervisor._replica_model_uid_to_worker["model-s-0"]
+    assert isinstance(worker_refs, tuple)
+    assert worker_refs == (shard0, shard1)
+    assert supervisor._model_uid_to_replica_info["model-s"].replica_to_worker_refs[0] == [
+        shard0,
+        shard1,
+    ]
 
 
 def test_prepare_virtual_env_without_engine_vars():

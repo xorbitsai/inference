@@ -147,6 +147,7 @@ class WorkerActor(xo.StatelessActor):
         self._cache_tracker_ref: xo.ActorRefType[
             CacheTrackerActor
         ] = None  # type: ignore
+        self._progress_tracker_ref: Optional[xo.ActorRefType] = None
 
         # Virtual environment management
         self._virtual_env_manager: XinferenceVirtualEnvManager = None  # type: ignore
@@ -458,43 +459,78 @@ class WorkerActor(xo.StatelessActor):
         if self._supervisor_ref is not None:
             return self._supervisor_ref
         self._supervisor_ref = supervisor_ref
-        if add_worker and len(self._model_uid_to_model) == 0:
-            # Newly started (or restarted), has no model, notify supervisor
-            await self._supervisor_ref.add_worker(self.address)
-            logger.info("Connected to supervisor as a fresh worker")
+        try:
+            if add_worker:
+                replica_states = self._get_running_replica_states()
+                await supervisor_ref.add_worker(self.address, replica_states=replica_states)
+                if replica_states:
+                    logger.info(
+                        "Connected to supervisor and replayed %s running model replicas",
+                        len(replica_states),
+                    )
+                else:
+                    logger.info("Connected to supervisor as a fresh worker")
 
-        self._status_guard_ref = await xo.actor_ref(
-            address=self._supervisor_address, uid=StatusGuardActor.default_uid()
-        )
-        self._event_collector_ref = await xo.actor_ref(
-            address=self._supervisor_address, uid=EventCollectorActor.default_uid()
-        )
-        self._cache_tracker_ref = await xo.actor_ref(
-            address=self._supervisor_address, uid=CacheTrackerActor.default_uid()
-        )
-        self._progress_tracker_ref = None
-        # cache_tracker is on supervisor
-        from ..model.audio import get_audio_model_descriptions
-        from ..model.embedding import get_embedding_model_descriptions
-        from ..model.flexible import get_flexible_model_descriptions
-        from ..model.image import get_image_model_descriptions
-        from ..model.llm import get_llm_version_infos
-        from ..model.rerank import get_rerank_model_descriptions
-        from ..model.video import get_video_model_descriptions
+            self._status_guard_ref = await xo.actor_ref(
+                address=self._supervisor_address, uid=StatusGuardActor.default_uid()
+            )
+            self._event_collector_ref = await xo.actor_ref(
+                address=self._supervisor_address, uid=EventCollectorActor.default_uid()
+            )
+            self._cache_tracker_ref = await xo.actor_ref(
+                address=self._supervisor_address, uid=CacheTrackerActor.default_uid()
+            )
+            self._progress_tracker_ref = None
+            # cache_tracker is on supervisor
+            from ..model.audio import get_audio_model_descriptions
+            from ..model.embedding import get_embedding_model_descriptions
+            from ..model.flexible import get_flexible_model_descriptions
+            from ..model.image import get_image_model_descriptions
+            from ..model.llm import get_llm_version_infos
+            from ..model.rerank import get_rerank_model_descriptions
+            from ..model.video import get_video_model_descriptions
 
-        # record model version
-        model_version_infos: Dict[str, List[Dict]] = {}  # type: ignore
-        model_version_infos.update(get_llm_version_infos())
-        model_version_infos.update(get_embedding_model_descriptions())
-        model_version_infos.update(get_rerank_model_descriptions())
-        model_version_infos.update(get_image_model_descriptions())
-        model_version_infos.update(get_audio_model_descriptions())
-        model_version_infos.update(get_video_model_descriptions())
-        model_version_infos.update(get_flexible_model_descriptions())
-        await self._cache_tracker_ref.record_model_version(
-            model_version_infos, self.address
-        )
+            # record model version
+            model_version_infos: Dict[str, List[Dict]] = {}  # type: ignore
+            model_version_infos.update(get_llm_version_infos())
+            model_version_infos.update(get_embedding_model_descriptions())
+            model_version_infos.update(get_rerank_model_descriptions())
+            model_version_infos.update(get_image_model_descriptions())
+            model_version_infos.update(get_audio_model_descriptions())
+            model_version_infos.update(get_video_model_descriptions())
+            model_version_infos.update(get_flexible_model_descriptions())
+            await self._cache_tracker_ref.record_model_version(
+                model_version_infos, self.address
+            )
+        except Exception:
+            self._clear_supervisor_refs()
+            raise
         return self._supervisor_ref
+
+    def _clear_supervisor_refs(self):
+        self._supervisor_ref = None
+        self._status_guard_ref = None  # type: ignore
+        self._event_collector_ref = None  # type: ignore
+        self._cache_tracker_ref = None  # type: ignore
+        self._progress_tracker_ref = None
+
+    def _get_running_replica_states(self) -> List[Dict[str, Any]]:
+        replica_states: List[Dict[str, Any]] = []
+        for replica_model_uid in sorted(self._model_uid_to_model_spec):
+            launch_args = self._model_uid_to_launch_args.get(replica_model_uid, {})
+            xavier_config = launch_args.get("xavier_config")
+            if xavier_config is not None:
+                # Xavier recovery still depends on supervisor-owned coordination state,
+                # so only replay replicas that the supervisor can reconstruct safely.
+                continue
+            replica_states.append(
+                {
+                    "replica_model_uid": replica_model_uid,
+                    "n_worker": launch_args.get("n_worker", 1),
+                    "shard": launch_args.get("shard", 0),
+                }
+            )
+        return replica_states
 
     @staticmethod
     def get_devices_count():
@@ -1990,8 +2026,17 @@ class WorkerActor(xo.StatelessActor):
             raise
         except Exception:
             logger.exception("Report status got error.")
-        supervisor_ref = await self.get_supervisor_ref()
-        await supervisor_ref.report_worker_status(self.address, status)
+        try:
+            supervisor_ref = await self.get_supervisor_ref()
+            await supervisor_ref.report_worker_status(self.address, status)
+        except Exception:
+            logger.warning(
+                "Failed to report worker status, clearing cached supervisor references",
+                exc_info=True,
+            )
+            self._clear_supervisor_refs()
+            supervisor_ref = await self.get_supervisor_ref(add_worker=True)
+            await supervisor_ref.report_worker_status(self.address, status)
 
     async def _periodical_report_status(self):
         while True:
