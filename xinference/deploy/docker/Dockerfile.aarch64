@@ -1,57 +1,31 @@
 FROM vllm/vllm-openai:v0.17.1-aarch64
 
-COPY xinference-backend /opt/projects/xinference-backend
-COPY LLaMA-Factory /opt/projects/LLaMA-Factory
-COPY prometheus /opt/projects/prometheus
-COPY xinf-enterprise.sh /opt/projects
-COPY pyarmor-regfile-4671.zip /opt/projects
+COPY . /opt/inference
 
-WORKDIR /opt/projects
+WORKDIR /opt/inference
 
-ARG PIP_INDEX=https://pypi.org/simple/
+ARG PIP_INDEX=https://pypi.org/simple
 
 RUN sed -i 's|http://[a-z0-9\.]*ports.ubuntu.com|https://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports|g' /etc/apt/sources.list
 
-RUN chmod +x xinf-enterprise.sh && \
-    apt-get update -y && \
+RUN apt-get update -y && \
     pip install --upgrade pip setuptools==79.0.1 wheel && \
     apt-get install -y wget libpcre3 libpcre3-dev gcc rsync zlib1g zlib1g-dev git libssl-dev && \
     apt-get clean all && \
-    pip install -i "$PIP_INDEX" pyarmor==8.5.12 && \
-    pyarmor reg pyarmor-regfile-4671.zip && \
-    pyarmor gen -O dist -r -i --exclude "*/test" @xinference-backend/xinference/v2/deploy/docker/filelist && \
-    rsync -av --remove-source-files dist/api /opt/projects/xinference-backend/xinference/v2 && \
-    rsync -av --remove-source-files dist/core /opt/projects/xinference-backend/xinference/v2 && \
-    rsync -av --remove-source-files dist/model /opt/projects/xinference-backend/xinference && \
-    cd /opt/projects/xinference-backend && \
-    pip install --upgrade-strategy only-if-needed -r xinference/v2/deploy/docker/requirements_aarch64/requirements_aarch64.txt && \
+    cd /opt/inference/ && \
+    pip install --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_aarch64/requirements_aarch64.txt && \
     pip install --no-deps --no-build-isolation "." && \
-    echo 'export XINFERENCE_PROMETHEUS_SRC=/opt/projects/prometheus' >> ~/.bashrc && \
-    cd /opt/projects/LLaMA-Factory && \
-    rm -rf /opt/projects/xinference-backend /opt/projects/nginx /opt/projects/pyarmor-regfile-4671.zip
-
-RUN cd /opt/projects && \
-    wget https://openresty.org/download/openresty-1.21.4.3.tar.gz && \
-    tar -zxpf openresty-1.21.4.3.tar.gz && \
-    cd openresty-1.21.4.3 && \
-    ./configure -j2 \
-    --with-http_stub_status_module \
-    --with-http_realip_module \
-    --with-http_v2_module \
-    --with-http_ssl_module \
-    --with-http_realip_module \
-    --with-pcre-jit \
-    --with-luajit-xcflags="-DLUAJIT_NUMMODE=2 -DLUAJIT_ENABLE_LUA52COMPAT" \
-    --with-http_sub_module && \
-    make -j2 && \
-    make install && \
-    apt-get install -y gettext luarocks liblua5.3-dev
-
-RUN rm -rf /opt/projects/xinference-prod /opt/projects/nginx /opt/openresty-1.21.4.3 && \
+    cd /opt/inference && \
+    python3 setup.py build_web && \
+    git restore . && \
+    pip install -i "$PIP_INDEX" --no-deps "." && \
+    pip install -i "$PIP_INDEX" "xllamacpp>=0.2.0" && \
     pip cache purge
 
-COPY dist /usr/local/openresty/nginx/html/
-COPY nginx.conf /usr/local/openresty/nginx/conf/
-COPY nginx.conf.template /usr/local/openresty/nginx/conf/
+RUN pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128 \
+    --no-deps && \
+    pip install triton && \
+    pip install torchcodec && \
+    pip cache purge
 
 ENTRYPOINT []
