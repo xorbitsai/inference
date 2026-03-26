@@ -24,7 +24,7 @@ RUN chmod +x xinf-enterprise.sh && \
     rsync -av --remove-source-files dist/core /opt/projects/xinference-backend/xinference/v2 && \
     rsync -av --remove-source-files dist/model /opt/projects/xinference-backend/xinference && \
     cd /opt/projects/xinference-backend && \
-    pip install --upgrade-strategy only-if-needed -r xinference/v2/deploy/docker/requirements_npu/requirements_npu.txt && \
+    pip install --upgrade-strategy only-if-needed -r xinference/v2/deploy/docker/requirements_aarch64/requirements_aarch64.txt && \
     pip install --no-deps --no-build-isolation "." && \
     echo 'export XINFERENCE_PROMETHEUS_SRC=/opt/projects/prometheus' >> ~/.bashrc && \
     cd /opt/projects/LLaMA-Factory && \
