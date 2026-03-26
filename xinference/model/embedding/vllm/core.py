@@ -127,7 +127,11 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
                 sentences = truncated_sentences[0]
             else:
                 sentences = truncated_sentences
-        if Version(vllm_version) > Version("0.10.1"):
+        if Version(vllm_version) > Version("0.16.0"):
+            pool_params = PoolingParams(
+                dimensions=dimensions, use_activation=normalize_embedding
+            )
+        elif Version(vllm_version) > Version("0.10.1"):
             pool_params = PoolingParams(
                 dimensions=dimensions, normalize=normalize_embedding
             )
