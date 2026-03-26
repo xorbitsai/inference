@@ -6,8 +6,6 @@ WORKDIR /opt/inference
 
 ARG PIP_INDEX=https://pypi.org/simple
 
-RUN sed -i 's|http://[a-z0-9\.]*ports.ubuntu.com|https://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports|g' /etc/apt/sources.list
-
 RUN apt-get update -y && \
     pip install --upgrade pip setuptools==79.0.1 wheel && \
     apt-get install -y wget libpcre3 libpcre3-dev gcc rsync zlib1g zlib1g-dev git libssl-dev && \
