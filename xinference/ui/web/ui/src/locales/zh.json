@@ -256,11 +256,11 @@
     "nodeType": "节点类型",
     "cpuUsage": "CPU 使用率",
     "cpuTotal": "CPU 总数",
-    "memUsage": "内存使用率",
+    "memUsage": "内存用量",
     "memTotal": "内存总量",
     "gpuCount": "GPU 数量",
     "gpuLoad": "GPU 负载",
-    "gpuMemUsage": "GPU 内存使用率",
+    "gpuMemUsage": "GPU 内存用量",
     "gpuMemTotal": "GPU 内存总量",
     "worker": "工作节点"
   },

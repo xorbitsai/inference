@@ -256,11 +256,11 @@
     "nodeType": "ノードタイプ",
     "cpuUsage": "CPU使用率",
     "cpuTotal": "CPU合計",
-    "memUsage": "メモリ使用率",
+    "memUsage": "メモリ使用量",
     "memTotal": "メモリ合計",
     "gpuCount": "GPU数",
     "gpuLoad": "GPU負荷",
-    "gpuMemUsage": "GPUメモリ使用率",
+    "gpuMemUsage": "GPUメモリ使用量",
     "gpuMemTotal": "GPUメモリ合計",
     "worker": "ワーカー"
   },
