@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import itertools
-from typing import List, Optional, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import pytest
 import pytest_asyncio
@@ -20,6 +20,7 @@ import xoscar as xo
 from xoscar import MainActorPoolType, create_actor_pool, get_pool_config
 
 from ...model.core import VirtualEnvSettings
+from ..status_guard import InstanceInfo, LaunchStatus, ReplicaStatus
 from ..supervisor import ReplicaInfo, SupervisorActor
 from ..utils import merge_virtual_env_packages
 from ..worker import WorkerActor
@@ -115,7 +116,8 @@ class MockWorkerActor(WorkerActor):
 @pytest_asyncio.fixture
 async def setup_pool():
     pool = await create_actor_pool(
-        f"test://127.0.0.1:{xo.utils.get_next_port()}", n_process=0
+        "test://127.0.0.1:" + str(xo.utils.get_next_port()),
+        n_process=0,
     )
     async with pool:
         yield pool
@@ -228,8 +230,8 @@ class DummyVirtualEnvManager:
 class DummySupervisorRef:
     def __init__(self, fail_report_status_times: int = 0):
         self.fail_report_status_times = fail_report_status_times
-        self.add_worker_calls = []
-        self.report_worker_status_calls = []
+        self.add_worker_calls: List[Tuple[str, List[dict], List[str]]] = []
+        self.report_worker_status_calls: List[Tuple[str, Any]] = []
 
     async def add_worker(
         self,
@@ -275,6 +277,52 @@ class DummyReplicaWorkerRef(DummyActorRef):
         return {"model_uid": model_uid, "worker_address": self.address}
 
 
+class DummyStatusGuardRef:
+    def __init__(self):
+        self.instance_infos = {}
+
+    async def set_instance_info(self, model_uid: str, instance_info: InstanceInfo):
+        self.instance_infos[model_uid] = instance_info
+
+    async def get_instance_info(self, model_name=None, model_uid=None):
+        if model_uid is not None:
+            info = self.instance_infos.get(model_uid)
+            return [info] if info is not None else []
+        infos = list(self.instance_infos.values())
+        if model_name is None:
+            return infos
+        return [info for info in infos if info.model_name == model_name]
+
+    async def update_instance_info(self, model_uid: str, updates: dict):
+        self.instance_infos[model_uid].update(**updates)
+
+    async def update_replica_status(
+        self, model_uid: str, replica_id: int, status_update: dict
+    ):
+        info = self.instance_infos.get(model_uid)
+        if info is None:
+            return
+        for replica_status in info.replica_statuses:
+            if replica_status.replica_id == replica_id:
+                for key, value in status_update.items():
+                    setattr(replica_status, key, value)
+                return
+        info.replica_statuses.append(
+            ReplicaStatus(
+                replica_id=replica_id,
+                replica_model_uid=status_update.get("replica_model_uid", ""),
+                worker_address=status_update.get("worker_address", ""),
+                status=status_update.get("status", LaunchStatus.CREATING.name),
+                created_ts=status_update.get("created_ts", 0),
+                error_message=status_update.get("error_message"),
+            )
+        )
+
+    async def get_replica_statuses(self, model_uid: str):
+        info = self.instance_infos.get(model_uid)
+        return [] if info is None else info.replica_statuses
+
+
 def test_prepare_virtual_env_injects_engine_vars():
     manager = DummyVirtualEnvManager()
     settings = VirtualEnvSettings(packages=["pkgA==1.0.0"], inherit_pip_config=False)
@@ -293,7 +341,9 @@ def test_prepare_virtual_env_injects_engine_vars():
 
 
 @pytest.mark.asyncio
-async def test_worker_report_status_reconnects_and_replays_running_models(setup_pool, monkeypatch):
+async def test_worker_report_status_reconnects_and_replays_running_models(
+    setup_pool, monkeypatch
+):
     pool = setup_pool
     addr = pool.external_address
 
@@ -316,6 +366,7 @@ async def test_worker_report_status_reconnects_and_replays_running_models(setup_
     first_supervisor = DummySupervisorRef(fail_report_status_times=1)
     second_supervisor = DummySupervisorRef()
     refs = [first_supervisor, second_supervisor]
+    monkeypatch.setattr("xinference.core.worker.time.time", lambda: 1710000000)
 
     async def fake_get_supervisor_ref(self, add_worker=True):
         if self._supervisor_ref is None:
@@ -328,7 +379,9 @@ async def test_worker_report_status_reconnects_and_replays_running_models(setup_
         return self._supervisor_ref
 
     monkeypatch.setattr(WorkerActor, "get_supervisor_ref", fake_get_supervisor_ref)
-    monkeypatch.setattr("xinference.core.worker.gather_node_info", lambda: {"cpu": "ok"})
+    monkeypatch.setattr(
+        "xinference.core.worker.gather_node_info", lambda: {"cpu": "ok"}
+    )
 
     await worker.report_status()
 
@@ -337,8 +390,30 @@ async def test_worker_report_status_reconnects_and_replays_running_models(setup_
         (
             addr,
             [
-                {"replica_model_uid": "model-a-0", "n_worker": 1, "shard": 0},
-                {"replica_model_uid": "model-b-1", "n_worker": 1, "shard": 0},
+                {
+                    "replica_model_uid": "model-a-0",
+                    "n_worker": 1,
+                    "shard": 0,
+                    "model_uid": "model-a",
+                    "model_name": "mock_model_name",
+                    "model_version": None,
+                    "model_ability": [],
+                    "status": "READY",
+                    "created_ts": 1710000000,
+                    "instance_created_ts": 1710000000,
+                },
+                {
+                    "replica_model_uid": "model-b-1",
+                    "n_worker": 1,
+                    "shard": 0,
+                    "model_uid": "model-b",
+                    "model_name": "mock_model_name",
+                    "model_version": None,
+                    "model_ability": [],
+                    "status": "READY",
+                    "created_ts": 1710000000,
+                    "instance_created_ts": 1710000000,
+                },
             ],
             [],
         )
@@ -349,6 +424,7 @@ async def test_worker_report_status_reconnects_and_replays_running_models(setup_
 @pytest.mark.asyncio
 async def test_supervisor_add_worker_idempotent_rebuilds_replica_state(monkeypatch):
     supervisor = SupervisorActor()
+    supervisor._status_guard_ref = DummyStatusGuardRef()
     worker_ref = DummyReplicaWorkerRef(
         "worker-1",
         models={
@@ -384,6 +460,7 @@ async def test_supervisor_add_worker_idempotent_rebuilds_replica_state(monkeypat
 @pytest.mark.asyncio
 async def test_supervisor_add_worker_preserves_sharded_replicas_on_replay(monkeypatch):
     supervisor = SupervisorActor()
+    supervisor._status_guard_ref = DummyStatusGuardRef()
     shard0 = DummyReplicaWorkerRef(
         "worker-0",
         models={"model-s-0": {"model_uid": "model-s-0", "address": "worker-0"}},
@@ -416,23 +493,27 @@ async def test_supervisor_add_worker_preserves_sharded_replicas_on_replay(monkey
 
     await supervisor.add_worker(
         "worker-1",
-        replica_states=[
-            {"replica_model_uid": "model-s-0", "n_worker": 2, "shard": 1}
-        ],
+        replica_states=[{"replica_model_uid": "model-s-0", "n_worker": 2, "shard": 1}],
     )
 
     worker_refs = supervisor._replica_model_uid_to_worker["model-s-0"]
     assert isinstance(worker_refs, tuple)
     assert worker_refs == (shard0, shard1)
-    assert supervisor._model_uid_to_replica_info["model-s"].replica_to_worker_refs[0] == [
+    assert supervisor._model_uid_to_replica_info["model-s"].replica_to_worker_refs[
+        0
+    ] == [
         shard0,
         shard1,
     ]
+    assert (
+        await supervisor._status_guard_ref.get_instance_info(model_uid="model-s") == []
+    )
 
 
 @pytest.mark.asyncio
 async def test_supervisor_add_worker_rebuilds_sharded_replica_order(monkeypatch):
     supervisor = SupervisorActor()
+    supervisor._status_guard_ref = DummyStatusGuardRef()
     shard0 = DummyReplicaWorkerRef(
         "worker-0",
         models={"model-s-0": {"model_uid": "model-s-0", "address": "worker-0"}},
@@ -453,23 +534,104 @@ async def test_supervisor_add_worker_rebuilds_sharded_replica_order(monkeypatch)
 
     await supervisor.add_worker(
         "worker-1",
-        replica_states=[
-            {"replica_model_uid": "model-s-0", "n_worker": 2, "shard": 1}
-        ],
+        replica_states=[{"replica_model_uid": "model-s-0", "n_worker": 2, "shard": 1}],
     )
     await supervisor.add_worker(
         "worker-0",
-        replica_states=[
-            {"replica_model_uid": "model-s-0", "n_worker": 2, "shard": 0}
-        ],
+        replica_states=[{"replica_model_uid": "model-s-0", "n_worker": 2, "shard": 0}],
     )
 
     worker_refs = supervisor._replica_model_uid_to_worker["model-s-0"]
     assert isinstance(worker_refs, tuple)
     assert worker_refs == (shard0, shard1)
-    assert supervisor._model_uid_to_replica_info["model-s"].replica_to_worker_refs[0] == [
+    assert supervisor._model_uid_to_replica_info["model-s"].replica_to_worker_refs[
+        0
+    ] == [
         shard0,
         shard1,
+    ]
+    assert (
+        await supervisor._status_guard_ref.get_instance_info(model_uid="model-s") == []
+    )
+
+
+@pytest.mark.asyncio
+async def test_supervisor_add_worker_rebuilds_replica_details_after_reconnect(
+    monkeypatch,
+):
+    supervisor = SupervisorActor()
+    supervisor._status_guard_ref = DummyStatusGuardRef()
+    worker_ref = DummyReplicaWorkerRef(
+        "worker-1",
+        models={
+            "model-a-0": {"model_uid": "model-a-0", "address": "worker-1"},
+            "model-a-1": {"model_uid": "model-a-1", "address": "worker-1"},
+        },
+    )
+
+    async def fake_actor_ref(address, uid):
+        assert address == "worker-1"
+        return worker_ref
+
+    monkeypatch.setattr(xo, "actor_ref", fake_actor_ref)
+
+    replica_states = [
+        {
+            "replica_model_uid": "model-a-0",
+            "n_worker": 1,
+            "shard": 0,
+            "model_uid": "model-a",
+            "model_name": "SenseVoiceSmall",
+            "model_version": None,
+            "model_ability": ["audio"],
+            "status": LaunchStatus.READY.name,
+            "created_ts": 1710000001,
+            "instance_created_ts": 1710000001,
+        },
+        {
+            "replica_model_uid": "model-a-1",
+            "n_worker": 1,
+            "shard": 0,
+            "model_uid": "model-a",
+            "model_name": "SenseVoiceSmall",
+            "model_version": None,
+            "model_ability": ["audio"],
+            "status": LaunchStatus.READY.name,
+            "created_ts": 1710000002,
+            "instance_created_ts": 1710000001,
+        },
+    ]
+
+    await supervisor.add_worker("worker-1", replica_states=replica_states)
+
+    instance_infos = await supervisor._status_guard_ref.get_instance_info(
+        model_uid="model-a"
+    )
+    assert len(instance_infos) == 1
+    instance_info = instance_infos[0]
+    assert instance_info.model_name == "SenseVoiceSmall"
+    assert instance_info.model_uid == "model-a"
+    assert instance_info.model_ability == ["audio"]
+    assert instance_info.replica == 2
+    assert instance_info.status == LaunchStatus.READY.name
+    assert instance_info.instance_created_ts == 1710000001
+
+    replica_statuses = await supervisor._status_guard_ref.get_replica_statuses(
+        "model-a"
+    )
+    assert len(replica_statuses) == 2
+    assert [status.replica_id for status in replica_statuses] == [0, 1]
+    assert [status.replica_model_uid for status in replica_statuses] == [
+        "model-a-0",
+        "model-a-1",
+    ]
+    assert [status.worker_address for status in replica_statuses] == [
+        "worker-1",
+        "worker-1",
+    ]
+    assert [status.status for status in replica_statuses] == [
+        LaunchStatus.READY.name,
+        LaunchStatus.READY.name,
     ]
 
 

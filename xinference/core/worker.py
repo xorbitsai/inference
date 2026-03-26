@@ -462,7 +462,9 @@ class WorkerActor(xo.StatelessActor):
         try:
             if add_worker:
                 replica_states = self._get_running_replica_states()
-                await supervisor_ref.add_worker(self.address, replica_states=replica_states)
+                await supervisor_ref.add_worker(
+                    self.address, replica_states=replica_states
+                )
                 if replica_states:
                     logger.info(
                         "Connected to supervisor and replayed %s running model replicas",
@@ -518,16 +520,30 @@ class WorkerActor(xo.StatelessActor):
         replica_states: List[Dict[str, Any]] = []
         for replica_model_uid in sorted(self._model_uid_to_model_spec):
             launch_args = self._model_uid_to_launch_args.get(replica_model_uid, {})
+            model_spec = self._model_uid_to_model_spec.get(replica_model_uid, {})
+            origin_uid, _ = parse_replica_model_uid(replica_model_uid)
             xavier_config = launch_args.get("xavier_config")
             if xavier_config is not None:
                 # Xavier recovery still depends on supervisor-owned coordination state,
                 # so only replay replicas that the supervisor can reconstruct safely.
                 continue
+            created_ts = int(launch_args.get("launch_ts") or time.time())
             replica_states.append(
                 {
                     "replica_model_uid": replica_model_uid,
                     "n_worker": launch_args.get("n_worker", 1),
                     "shard": launch_args.get("shard", 0),
+                    "model_uid": origin_uid,
+                    "model_name": model_spec.get(
+                        "model_name", launch_args.get("model_name", origin_uid)
+                    ),
+                    "model_version": model_spec.get(
+                        "model_version", launch_args.get("model_version")
+                    ),
+                    "model_ability": model_spec.get("model_ability", []),
+                    "status": LaunchStatus.READY.name,
+                    "created_ts": created_ts,
+                    "instance_created_ts": created_ts,
                 }
             )
         return replica_states
@@ -764,7 +780,10 @@ class WorkerActor(xo.StatelessActor):
             )
 
         # Construct the URL to download JSON
-        url = f"https://model.xinference.io/api/models/download?model_type={model_type.lower()}"
+        url = (
+            "https://model.xinference.io/api/models/download"
+            f"?model_type={model_type.lower()}"
+        )
 
         try:
             # Download JSON from remote API
@@ -1555,6 +1574,7 @@ class WorkerActor(xo.StatelessActor):
         launch_args.pop("self")
         launch_args.pop("kwargs")
         launch_args.update(kwargs)
+        launch_args["launch_ts"] = int(time.time())
 
         try:
             origin_uid, _ = parse_replica_model_uid(model_uid)

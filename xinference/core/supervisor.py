@@ -194,7 +194,9 @@ class SupervisorActor(xo.StatelessActor):
                 if replica_info is not None:
                     replica_info.replica_to_worker_refs[replica_idx] = [
                         worker_ref
-                        for worker_ref in replica_info.replica_to_worker_refs[replica_idx]
+                        for worker_ref in replica_info.replica_to_worker_refs[
+                            replica_idx
+                        ]
                         if worker_ref.address != worker_address
                     ]
 
@@ -276,7 +278,9 @@ class SupervisorActor(xo.StatelessActor):
                 "shard": shard,
             }
 
-            existing_worker_refs = self._replica_model_uid_to_worker.get(replica_model_uid)
+            existing_worker_refs = self._replica_model_uid_to_worker.get(
+                replica_model_uid
+            )
             if n_worker <= 1:
                 self._replica_model_uid_to_worker_shards.pop(replica_model_uid, None)
                 self._replica_model_uid_to_worker[replica_model_uid] = worker_ref
@@ -288,23 +292,33 @@ class SupervisorActor(xo.StatelessActor):
                     if isinstance(existing_worker_refs, tuple):
                         shard_mapping = {
                             idx: existing_worker_ref
-                            for idx, existing_worker_ref in enumerate(existing_worker_refs)
+                            for idx, existing_worker_ref in enumerate(
+                                existing_worker_refs
+                            )
                         }
                     elif isinstance(existing_worker_refs, list):
                         shard_mapping = {
                             idx: existing_worker_ref
-                            for idx, existing_worker_ref in enumerate(existing_worker_refs)
+                            for idx, existing_worker_ref in enumerate(
+                                existing_worker_refs
+                            )
                         }
                     else:
                         shard_mapping = {0: existing_worker_refs}
                 shard_mapping[shard] = worker_ref
-                self._replica_model_uid_to_worker_shards[replica_model_uid] = shard_mapping
+                self._replica_model_uid_to_worker_shards[replica_model_uid] = (
+                    shard_mapping
+                )
 
                 ordered_refs = [
                     worker_ref
-                    for _, worker_ref in sorted(shard_mapping.items(), key=lambda item: item[0])
+                    for _, worker_ref in sorted(
+                        shard_mapping.items(), key=lambda item: item[0]
+                    )
                 ]
-                self._replica_model_uid_to_worker[replica_model_uid] = tuple(ordered_refs)
+                self._replica_model_uid_to_worker[replica_model_uid] = tuple(
+                    ordered_refs
+                )
 
         for model_uid, replica_metadata in replica_groups.items():
             replica_indexes = sorted(replica_metadata)
@@ -331,8 +345,143 @@ class SupervisorActor(xo.StatelessActor):
                 )
                 replica_info.replica_to_worker_refs[replica_idx] = [
                     ref
-                    for _, ref in sorted(shard_mapping.items(), key=lambda item: item[0])
+                    for _, ref in sorted(
+                        shard_mapping.items(), key=lambda item: item[0]
+                    )
                 ]
+
+    async def _rebuild_worker_status_guard_state(
+        self,
+        worker_address: str,
+        replica_states: List[Dict[str, Any]],
+    ):
+        if self._status_guard_ref is None or not replica_states:
+            return
+
+        grouped_states: DefaultDict[str, List[Dict[str, Any]]] = defaultdict(list)
+        for replica_state in replica_states:
+            n_worker = replica_state.get("n_worker", 1)
+            if not isinstance(n_worker, int) or n_worker > 1:
+                continue
+            replica_model_uid = replica_state.get("replica_model_uid")
+            if not isinstance(replica_model_uid, str):
+                continue
+            parsed = self._get_model_uid_and_replica_index(replica_model_uid)
+            if parsed is None:
+                continue
+            model_uid, _ = parsed
+            grouped_states[model_uid].append(replica_state)
+
+        for model_uid, states in grouped_states.items():
+            replica_indexes = []
+            created_ts_candidates = []
+            for state in states:
+                parsed = self._get_model_uid_and_replica_index(
+                    state.get("replica_model_uid", "")
+                )
+                if parsed is None:
+                    continue
+                replica_indexes.append(parsed[1])
+                created_ts = state.get("instance_created_ts")
+                if isinstance(created_ts, int):
+                    created_ts_candidates.append(created_ts)
+
+            inferred_replica_count = (
+                max(replica_indexes) + 1 if replica_indexes else len(states)
+            )
+            model_name = next(
+                (
+                    state.get("model_name")
+                    for state in states
+                    if isinstance(state.get("model_name"), str)
+                ),
+                model_uid,
+            )
+            model_version = next(
+                (state.get("model_version") for state in states),
+                None,
+            )
+            model_ability: List[str] = []
+            for state in states:
+                candidate_ability = state.get("model_ability")
+                if isinstance(candidate_ability, list) and all(
+                    isinstance(item, str) for item in candidate_ability
+                ):
+                    model_ability = candidate_ability
+                    break
+            n_worker = max(
+                (
+                    state.get("n_worker", 1)
+                    for state in states
+                    if isinstance(state.get("n_worker"), int)
+                ),
+                default=1,
+            )
+            if n_worker > 1:
+                continue
+            instance_created_ts = (
+                min(created_ts_candidates)
+                if created_ts_candidates
+                else int(time.time())
+            )
+
+            existing_infos = await self._status_guard_ref.get_instance_info(
+                model_uid=model_uid
+            )
+            if existing_infos:
+                existing_info = existing_infos[0]
+                await self._status_guard_ref.update_instance_info(
+                    model_uid,
+                    {
+                        "model_name": model_name,
+                        "model_version": model_version,
+                        "model_ability": model_ability,
+                        "replica": max(existing_info.replica, inferred_replica_count),
+                        "status": LaunchStatus.READY.name,
+                        "instance_created_ts": min(
+                            existing_info.instance_created_ts, instance_created_ts
+                        ),
+                        "n_worker": max(existing_info.n_worker or 1, n_worker),
+                    },
+                )
+            else:
+                await self._status_guard_ref.set_instance_info(
+                    model_uid,
+                    InstanceInfo(
+                        model_name=model_name,
+                        model_uid=model_uid,
+                        model_version=model_version,
+                        model_ability=model_ability,
+                        replica=inferred_replica_count,
+                        status=LaunchStatus.READY.name,
+                        instance_created_ts=instance_created_ts,
+                        n_worker=n_worker,
+                    ),
+                )
+
+            for state in states:
+                replica_model_uid = state.get("replica_model_uid")
+                if not isinstance(replica_model_uid, str):
+                    continue
+                parsed = self._get_model_uid_and_replica_index(replica_model_uid)
+                if parsed is None:
+                    continue
+                _, replica_id = parsed
+                created_ts = state.get("created_ts")
+                await self._status_guard_ref.update_replica_status(
+                    model_uid,
+                    replica_id,
+                    {
+                        "replica_model_uid": replica_model_uid,
+                        "worker_address": worker_address,
+                        "status": LaunchStatus.READY.name,
+                        "created_ts": (
+                            created_ts
+                            if isinstance(created_ts, int)
+                            else instance_created_ts
+                        ),
+                    },
+                )
 
     async def __post_create__(self):
         self._uptime = time.time()
@@ -2118,6 +2267,13 @@ class SupervisorActor(xo.StatelessActor):
         self._worker_address_to_worker[worker_address] = worker_ref
         self._rebuild_worker_replica_state(
             worker_ref,
+            self._normalize_replica_states(
+                replica_states=replica_states,
+                replica_model_uids=replica_model_uids,
+            ),
+        )
+        await self._rebuild_worker_status_guard_state(
+            worker_address,
             self._normalize_replica_states(
                 replica_states=replica_states,
                 replica_model_uids=replica_model_uids,
