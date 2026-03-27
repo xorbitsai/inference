@@ -45,6 +45,7 @@ from async_timeout import timeout
 from packaging.version import Version
 from xoscar import MainActorPoolType
 
+from ..client.restful.restful_client import Client as RESTfulClient
 from ..constants import (
     XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU,
     XINFERENCE_CACHE_DIR,
@@ -55,7 +56,6 @@ from ..constants import (
     XINFERENCE_VIRTUAL_ENV_DIR,
     XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED,
 )
-from ..client.restful.restful_client import Client as RESTfulClient
 from ..core.model import ModelActor
 from ..core.status_guard import LaunchStatus
 from ..device_utils import get_available_device_env_name, gpu_count
@@ -530,8 +530,9 @@ class WorkerActor(xo.StatelessActor):
             return
 
         refreshed_address = await asyncio.to_thread(
-            lambda: RESTfulClient(base_url=self._supervisor_endpoint)
-            ._get_supervisor_internal_address()
+            lambda: RESTfulClient(
+                base_url=self._supervisor_endpoint
+            )._get_supervisor_internal_address()
         )
         if refreshed_address != self._supervisor_address:
             logger.info(

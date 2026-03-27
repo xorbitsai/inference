@@ -27,10 +27,10 @@ from ..cmdline import (
     model_launch,
     model_list,
     model_terminate,
-    worker,
     register_model,
     remove_cache,
     unregister_model,
+    worker,
 )
 
 
