@@ -30,9 +30,9 @@ class MockWorkerActor(WorkerActor):
     def __init__(
         self,
         supervisor_address: str,
-        supervisor_endpoint: Optional[str],
         main_pool: MainActorPoolType,
         cuda_devices: List[int],
+        supervisor_endpoint: Optional[str] = None,
     ):
         super().__init__(
             supervisor_address=supervisor_address,
