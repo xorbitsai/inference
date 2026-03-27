@@ -55,6 +55,7 @@ from ..constants import (
     XINFERENCE_VIRTUAL_ENV_DIR,
     XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED,
 )
+from ..client.restful.restful_client import Client as RESTfulClient
 from ..core.model import ModelActor
 from ..core.status_guard import LaunchStatus
 from ..device_utils import get_available_device_env_name, gpu_count
@@ -126,6 +127,7 @@ class WorkerActor(xo.StatelessActor):
     def __init__(
         self,
         supervisor_address: str,
+        supervisor_endpoint: Optional[str],
         main_pool: MainActorPoolType,
         gpu_devices: List[int],
         metrics_exporter_host: Optional[str] = None,
@@ -135,6 +137,7 @@ class WorkerActor(xo.StatelessActor):
         # static attrs.
         self._total_gpu_devices = gpu_devices
         self._supervisor_address = supervisor_address
+        self._supervisor_endpoint = supervisor_endpoint
         self._supervisor_ref: Optional[xo.ActorRefType] = None
         self._main_pool = main_pool
         self._main_pool.recover_sub_pool = self.recover_sub_pool
@@ -452,9 +455,15 @@ class WorkerActor(xo.StatelessActor):
 
         if self._supervisor_ref is not None:
             return self._supervisor_ref
-        supervisor_ref = await xo.actor_ref(  # type: ignore
-            address=self._supervisor_address, uid=SupervisorActor.default_uid()
-        )
+        try:
+            supervisor_ref = await xo.actor_ref(  # type: ignore
+                address=self._supervisor_address, uid=SupervisorActor.default_uid()
+            )
+        except Exception:
+            await self._refresh_supervisor_address()
+            supervisor_ref = await xo.actor_ref(  # type: ignore
+                address=self._supervisor_address, uid=SupervisorActor.default_uid()
+            )
         # Prevent concurrent operations leads to double initialization, check again.
         if self._supervisor_ref is not None:
             return self._supervisor_ref
@@ -513,6 +522,22 @@ class WorkerActor(xo.StatelessActor):
         self._event_collector_ref = None  # type: ignore
         self._cache_tracker_ref = None  # type: ignore
         self._progress_tracker_ref = None
+
+    async def _refresh_supervisor_address(self):
+        if self._supervisor_endpoint is None:
+            return
+
+        refreshed_address = await asyncio.to_thread(
+            lambda: RESTfulClient(base_url=self._supervisor_endpoint)
+            ._get_supervisor_internal_address()
+        )
+        if refreshed_address != self._supervisor_address:
+            logger.info(
+                "Refreshed supervisor internal address from %s to %s",
+                self._supervisor_address,
+                refreshed_address,
+            )
+        self._supervisor_address = refreshed_address
 
     def _get_running_replica_states(self) -> List[Dict[str, Any]]:
         replica_states: List[Dict[str, Any]] = []

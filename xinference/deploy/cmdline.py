@@ -359,6 +359,7 @@ def worker(
     main(
         address=address,
         supervisor_address=supervisor_internal_addr,
+        supervisor_endpoint=endpoint,
         metrics_exporter_host=metrics_exporter_host,
         metrics_exporter_port=metrics_exporter_port,
         logging_conf=dict_config,

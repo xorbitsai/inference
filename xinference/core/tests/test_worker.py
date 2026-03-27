@@ -29,10 +29,16 @@ class MockWorkerActor(WorkerActor):
     def __init__(
         self,
         supervisor_address: str,
+        supervisor_endpoint: Optional[str],
         main_pool: MainActorPoolType,
         cuda_devices: List[int],
     ):
-        super().__init__(supervisor_address, main_pool, cuda_devices)
+        super().__init__(
+            supervisor_address=supervisor_address,
+            supervisor_endpoint=supervisor_endpoint,
+            main_pool=main_pool,
+            gpu_devices=cuda_devices,
+        )
 
     async def __post_create__(self):
         pass
@@ -251,6 +257,9 @@ class DummySupervisorRef:
             raise RuntimeError("stale supervisor")
         self.report_worker_status_calls.append((worker_address, status))
 
+    async def record_model_version(self, model_version_infos, worker_address: str):
+        return None
+
 
 class DummyActorRef:
     def __init__(self, address: str):
@@ -302,6 +311,7 @@ async def test_worker_report_status_reconnects_and_replays_running_models(setup_
         address=addr,
         uid=WorkerActor.default_uid(),
         supervisor_address="test://supervisor",
+        supervisor_endpoint=None,
         main_pool=pool,
         cuda_devices=[0],
     )
@@ -344,6 +354,113 @@ async def test_worker_report_status_reconnects_and_replays_running_models(setup_
         )
     ]
     assert second_supervisor.report_worker_status_calls == [(addr, {"cpu": "ok"})]
+
+
+@pytest.mark.asyncio
+async def test_worker_report_status_refreshes_supervisor_internal_address_on_reconnect(
+    setup_pool, monkeypatch
+):
+    pool = setup_pool
+    addr = pool.external_address
+
+    worker: xo.ActorRefType["MockWorkerActor"] = await xo.create_actor(  # type: ignore
+        MockWorkerActor,
+        address=addr,
+        uid=WorkerActor.default_uid(),
+        supervisor_address="test://stale-supervisor",
+        supervisor_endpoint="http://supervisor-endpoint",
+        main_pool=pool,
+        cuda_devices=[0],
+    )
+
+    await worker.launch_builtin_model(
+        "model-a-0", "mock_model_name", None, None, None, n_gpu=1
+    )
+
+    refreshed_supervisor = DummySupervisorRef()
+    refresh_calls = []
+
+    class DummyRESTfulClient:
+        def __init__(self, base_url):
+            self.base_url = base_url
+
+        def _get_supervisor_internal_address(self):
+            refresh_calls.append(self.base_url)
+            return "test://fresh-supervisor"
+
+    async def fake_actor_ref(address, uid):
+        if address == "test://stale-supervisor":
+            raise RuntimeError("stale supervisor address")
+        if address == "test://fresh-supervisor":
+            return refreshed_supervisor
+        return DummyActorRef(address)
+
+    monkeypatch.setattr(xo, "actor_ref", fake_actor_ref)
+    monkeypatch.setattr(
+        "xinference.core.worker.RESTfulClient",
+        DummyRESTfulClient,
+        raising=False,
+    )
+    monkeypatch.setattr("xinference.core.worker.gather_node_info", lambda: {"cpu": "ok"})
+
+    await worker.report_status()
+
+    assert refresh_calls == ["http://supervisor-endpoint"]
+    assert refreshed_supervisor.add_worker_calls == [
+        (
+            addr,
+            [{"replica_model_uid": "model-a-0", "n_worker": 1, "shard": 0}],
+            [],
+        )
+    ]
+    assert refreshed_supervisor.report_worker_status_calls == [(addr, {"cpu": "ok"})]
+
+
+@pytest.mark.asyncio
+async def test_worker_report_status_does_not_refresh_address_when_connection_is_healthy(
+    setup_pool, monkeypatch
+):
+    pool = setup_pool
+    addr = pool.external_address
+
+    worker: xo.ActorRefType["MockWorkerActor"] = await xo.create_actor(  # type: ignore
+        MockWorkerActor,
+        address=addr,
+        uid=WorkerActor.default_uid(),
+        supervisor_address="test://healthy-supervisor",
+        supervisor_endpoint="http://supervisor-endpoint",
+        main_pool=pool,
+        cuda_devices=[0],
+    )
+
+    healthy_supervisor = DummySupervisorRef()
+    refresh_calls = []
+
+    class DummyRESTfulClient:
+        def __init__(self, base_url):
+            self.base_url = base_url
+
+        def _get_supervisor_internal_address(self):
+            refresh_calls.append(self.base_url)
+            return "test://fresh-supervisor"
+
+    async def fake_actor_ref(address, uid):
+        if address == "test://healthy-supervisor":
+            return healthy_supervisor
+        return DummyActorRef(address)
+
+    monkeypatch.setattr(xo, "actor_ref", fake_actor_ref)
+    monkeypatch.setattr(
+        "xinference.core.worker.RESTfulClient",
+        DummyRESTfulClient,
+        raising=False,
+    )
+    monkeypatch.setattr("xinference.core.worker.gather_node_info", lambda: {"cpu": "ok"})
+
+    await worker.report_status()
+
+    assert refresh_calls == []
+    assert healthy_supervisor.report_worker_status_calls == [(addr, {"cpu": "ok"})]
 
 
 @pytest.mark.asyncio
