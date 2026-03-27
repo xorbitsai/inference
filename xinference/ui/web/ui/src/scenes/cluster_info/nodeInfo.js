@@ -92,7 +92,7 @@ class NodeInfo extends React.Component {
         sum(roleData.map((obj) => obj[prop] || 0))
 
       const nodesWithGpuLoad = roleData.filter(
-        (obj) => obj['gpu_utilization'] !== undefined
+        (obj) => obj['gpu_utilization'] != null
       )
       const gpu_utilization_avg =
         nodesWithGpuLoad.length > 0
@@ -194,7 +194,7 @@ class NodeInfo extends React.Component {
             <StyledTableCell>{this.t('clusterInfo.gpuInfo')}</StyledTableCell>
             <StyledTableCell>
               <Grid container>
-                {resourceStats.gpu_load !== undefined ? (
+                {resourceStats.gpu_load != null ? (
                   <React.Fragment>
                     <Grid xs={4}>
                       {this.t('clusterInfo.gpuLoad')}{' '}
@@ -337,7 +337,7 @@ class NodeInfo extends React.Component {
                 </StyledTableCell>
                 <StyledTableCell>{row['gpu_count'].toFixed(2)}</StyledTableCell>
                 <StyledTableCell>
-                  {row['gpu_utilization'] !== undefined
+                  {row['gpu_utilization'] != null
                     ? row['gpu_utilization'].toFixed(2) + '%'
                     : '-'}
                 </StyledTableCell>

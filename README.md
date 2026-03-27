@@ -46,7 +46,6 @@ potential of cutting-edge AI models.
 ### New Models
 - Built-in support for [Qwen-3.5](https://github.com/QwenLM/Qwen3.5): [#4639](https://github.com/xorbitsai/inference/pull/4639)
 - Built-in support for [GLM-5](https://github.com/zai-org/GLM-5): [#4638](https://github.com/xorbitsai/inference/pull/4638)
-- Built-in support for [MiniMax-M2.7](https://huggingface.co/MiniMaxAI/MiniMax-M2.7)
 - Built-in support for [MiniMax-M2.5](https://github.com/MiniMax-AI/MiniMax-M2.5): [#4630](https://github.com/xorbitsai/inference/pull/4630)
 - Built-in support for [Kimi-K2.5](https://github.com/MoonshotAI/Kimi-K2.5): [#4631](https://github.com/xorbitsai/inference/pull/4631)
 - Built-in support for [FLUX.2-Klein](https://bfl.ai/models/flux-2-klein): [#4596](https://github.com/xorbitsai/inference/pull/4596)

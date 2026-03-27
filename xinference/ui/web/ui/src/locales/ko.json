@@ -256,11 +256,11 @@
     "nodeType": "노드 유형",
     "cpuUsage": "CPU 사용률",
     "cpuTotal": "CPU 총계",
-    "memUsage": "메모리 사용률",
+    "memUsage": "메모리 용량",
     "memTotal": "메모리 총계",
     "gpuCount": "GPU 수",
     "gpuLoad": "GPU 로드",
-    "gpuMemUsage": "GPU 메모리 사용률",
+    "gpuMemUsage": "GPU 메모리 사용량",
     "gpuMemTotal": "GPU 메모리 총계",
     "worker": "워커"
   },
