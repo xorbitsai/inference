@@ -84,7 +84,10 @@ class MockWorkerActor(WorkerActor):
         **kwargs,
     ):
         subpool_address, devices = await self._create_subpool(
-            model_uid, model_type, n_gpu=n_gpu, gpu_idx=gpu_idx  # type: ignore
+            model_uid,
+            model_type,
+            n_gpu=n_gpu,
+            gpu_idx=gpu_idx,  # type: ignore
         )
         self._model_uid_to_model[model_uid] = DummyActorRef(subpool_address)
         self._model_uid_to_model_spec[model_uid] = {
@@ -476,18 +479,23 @@ async def test_worker_report_status_refreshes_supervisor_internal_address_on_rec
         DummyRESTfulClient,
         raising=False,
     )
-    monkeypatch.setattr("xinference.core.worker.gather_node_info", lambda: {"cpu": "ok"})
+    monkeypatch.setattr(
+        "xinference.core.worker.gather_node_info", lambda: {"cpu": "ok"}
+    )
 
     await worker.report_status()
 
     assert refresh_calls == ["http://supervisor-endpoint"]
-    assert refreshed_supervisor.add_worker_calls == [
-        (
-            addr,
-            [{"replica_model_uid": "model-a-0", "n_worker": 1, "shard": 0}],
-            [],
-        )
-    ]
+    assert len(refreshed_supervisor.add_worker_calls) == 1
+    worker_address, replica_states, replica_model_uids = (
+        refreshed_supervisor.add_worker_calls[0]
+    )
+    assert worker_address == addr
+    assert replica_model_uids == []
+    assert len(replica_states) == 1
+    assert replica_states[0]["replica_model_uid"] == "model-a-0"
+    assert replica_states[0]["n_worker"] == 1
+    assert replica_states[0]["shard"] == 0
     assert refreshed_supervisor.report_worker_status_calls == [(addr, {"cpu": "ok"})]
 
 
@@ -530,7 +538,9 @@ async def test_worker_report_status_does_not_refresh_address_when_connection_is_
         DummyRESTfulClient,
         raising=False,
     )
-    monkeypatch.setattr("xinference.core.worker.gather_node_info", lambda: {"cpu": "ok"})
+    monkeypatch.setattr(
+        "xinference.core.worker.gather_node_info", lambda: {"cpu": "ok"}
+    )
 
     await worker.report_status()
 

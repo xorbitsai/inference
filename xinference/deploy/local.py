@@ -62,6 +62,7 @@ async def _start_local_cluster(
         await start_worker_components(
             address=address,
             supervisor_address=address,
+            supervisor_endpoint=None,
             main_pool=pool,
             metrics_exporter_host=metrics_exporter_host,
             metrics_exporter_port=metrics_exporter_port,
