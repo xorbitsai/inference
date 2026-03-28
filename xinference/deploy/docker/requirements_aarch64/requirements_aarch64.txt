@@ -29,4 +29,3 @@ piexif
 aiohttp
 prometheus_client
 psycopg2-binary
-numpy==2.2.6
