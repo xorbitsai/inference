@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import hmac
 import re
 from datetime import timedelta
 from typing import List, Optional, Tuple
@@ -127,7 +128,7 @@ class AuthService:
     ) -> Tuple[Optional[User], List]:
         for user in self._config.user_config:
             for key in user.api_keys:
-                if api_key == key:
+                if hmac.compare_digest(api_key, key):
                     return user, user.permissions
         return None, []
 
