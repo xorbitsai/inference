@@ -24,6 +24,7 @@ RUN pip3 install --pre torch torchvision torchaudio --index-url https://download
     --no-deps && \
     pip install triton && \
     pip install torchcodec && \
+    pip install "numpy==2.2.6" && \
     pip cache purge
 
 ENTRYPOINT []
