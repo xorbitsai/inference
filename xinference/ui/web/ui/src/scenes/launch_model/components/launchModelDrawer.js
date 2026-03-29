@@ -221,7 +221,8 @@ const LaunchModelDrawer = ({
 
   const readHistoryEntries = () => {
     try {
-      const historyArr = JSON.parse(localStorage.getItem(historyStorageKey)) || []
+      const historyArr =
+        JSON.parse(localStorage.getItem(historyStorageKey)) || []
       if (!Array.isArray(historyArr)) return []
       return historyArr.map(normalizeHistoryEntry).filter(Boolean)
     } catch (error) {
@@ -1121,7 +1122,9 @@ const LaunchModelDrawer = ({
           )
           const nextHistoryEntries = upsertHistoryEntry(data)
           setHistoryEntries(nextHistoryEntries)
-          setSelectedHistoryKey(buildHistoryKey(data.model_name, data.model_uid))
+          setSelectedHistoryKey(
+            buildHistoryKey(data.model_name, data.model_uid)
+          )
         })
         .catch((error) => {
           console.error('Error:', error)
@@ -1347,7 +1350,9 @@ const LaunchModelDrawer = ({
             <TitleTypography value={modelData.model_name} />
             {hasHistory && (
               <Chip
-                label={`${t('launchModel.configCache')} (${historyEntries.length})`}
+                label={`${t('launchModel.configCache')} (${
+                  historyEntries.length
+                })`}
                 variant="outlined"
                 size="small"
                 color="primary"
@@ -1539,10 +1544,12 @@ const LaunchModelDrawer = ({
                           )}
                         </Box>
                         <Typography variant="body2" color="text.secondary">
-                          {t('modelReplicaDetails.modelUid')}: {entry.model_uid || '—'}
+                          {t('modelReplicaDetails.modelUid')}:{' '}
+                          {entry.model_uid || '—'}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
-                          {t('launchModel.lastUpdated')}: {formatHistoryTime(entry.updated_at)}
+                          {t('launchModel.lastUpdated')}:{' '}
+                          {formatHistoryTime(entry.updated_at)}
                         </Typography>
                       </Box>
                       <Box
@@ -1593,7 +1600,9 @@ const LaunchModelDrawer = ({
           <DialogTitle id="delete-history-cache-title">
             {t('components.warning')}
           </DialogTitle>
-          <DialogContent>{t('launchModel.confirmDeleteConfigCache')}</DialogContent>
+          <DialogContent>
+            {t('launchModel.confirmDeleteConfigCache')}
+          </DialogContent>
           <DialogActions>
             <Button onClick={() => setHistoryToDelete(null)}>
               {t('components.cancel')}
