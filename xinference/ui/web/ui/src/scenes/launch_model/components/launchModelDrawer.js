@@ -1301,9 +1301,9 @@ const LaunchModelDrawer = ({
                               }
                               size="small"
                               sx={{
-                                height: 22,
-                                fontSize: '0.7rem',
-                                fontWeight: 600,
+                                'height': 22,
+                                'fontSize': '0.7rem',
+                                'fontWeight': 600,
                                 '&.MuiChip-colorDefault': {
                                   bgcolor: 'rgba(255, 255, 255, 0.14)',
                                   color: '#fff',
