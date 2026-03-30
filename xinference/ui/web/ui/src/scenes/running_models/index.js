@@ -96,6 +96,7 @@ const RunningModels = () => {
   const { setErrorMsg } = useContext(ApiContext)
   const [cookie] = useCookies(['token'])
   const navigate = useNavigate()
+  const endPoint = useContext(ApiContext).endPoint
   const { t } = useTranslation()
   const location = useLocation()
 
