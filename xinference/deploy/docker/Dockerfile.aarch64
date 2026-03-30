@@ -4,7 +4,6 @@ COPY . /opt/inference
 
 WORKDIR /opt/inference
 
-ARG PIP_INDEX=https://pypi.org/simple
 
 RUN apt-get -y update \
   && apt install -y build-essential curl procps git libgl1 \
@@ -17,7 +16,7 @@ RUN apt-get -y update \
   && apt-get -yq clean
 
 ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
-
+ARG PIP_INDEX=https://pypi.org/simple
 RUN apt-get update -y && \
     pip install --upgrade pip setuptools==79.0.1 wheel && \
     apt-get install -y wget libpcre3 libpcre3-dev gcc rsync zlib1g zlib1g-dev git libssl-dev && \
