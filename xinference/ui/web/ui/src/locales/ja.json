@@ -154,9 +154,12 @@
     "workerAddress": "ワーカーアドレス",
     "status": "ステータス",
     "createdTime": "作成日時",
+    "actions": "操作",
     "noReplicaInfo": "レプリカ情報はありません",
     "errors": "エラー",
     "replica": "レプリカ",
+    "remove": "削除",
+    "removeConfirm": "モデル {{modelUid}} のレプリカ {{replicaId}} を削除しますか？",
     "close": "閉じる"
   },
   "runningModels": {

@@ -154,9 +154,12 @@
     "workerAddress": "工作节点地址",
     "status": "状态",
     "createdTime": "创建时间",
+    "actions": "操作",
     "noReplicaInfo": "暂无副本信息",
     "errors": "错误",
     "replica": "副本",
+    "remove": "移除",
+    "removeConfirm": "确认移除模型 {{modelUid}} 的副本 {{replicaId}} 吗？",
     "close": "关闭"
   },
   "runningModels": {

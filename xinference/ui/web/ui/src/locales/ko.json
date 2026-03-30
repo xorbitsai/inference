@@ -154,9 +154,12 @@
     "workerAddress": "워커 주소",
     "status": "상태",
     "createdTime": "생성 시간",
+    "actions": "작업",
     "noReplicaInfo": "복제본 정보를 사용할 수 없습니다",
     "errors": "오류",
     "replica": "복제본",
+    "remove": "제거",
+    "removeConfirm": "모델 {{modelUid}} 의 복제본 {{replicaId}} 을(를) 제거하시겠습니까?",
     "close": "닫기"
   },
   "runningModels": {

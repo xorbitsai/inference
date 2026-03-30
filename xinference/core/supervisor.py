@@ -104,6 +104,7 @@ class ReplicaInfo:
     replica_to_worker_refs: DefaultDict[int, List[xo.ActorRefType["WorkerActor"]]] = (
         field(default_factory=lambda: defaultdict(list))
     )
+    active_replica_ids: List[int] = field(default_factory=list)
 
 
 class SupervisorActor(xo.StatelessActor):
@@ -134,6 +135,29 @@ class SupervisorActor(xo.StatelessActor):
             if existing_ip == ip:
                 return ref
         return None
+
+    @staticmethod
+    def _build_replica_info(replica: int) -> ReplicaInfo:
+        active_replica_ids = list(range(replica))
+        return ReplicaInfo(
+            replica=replica,
+            scheduler=itertools.cycle(active_replica_ids),
+            active_replica_ids=active_replica_ids,
+        )
+
+    @staticmethod
+    def _refresh_replica_scheduler(replica_info: ReplicaInfo) -> None:
+        replica_info.replica = len(replica_info.active_replica_ids)
+        replica_info.scheduler = itertools.cycle(replica_info.active_replica_ids)
+
+    def _iter_active_replica_model_uids(self, model_uid: str) -> List[str]:
+        replica_info = self._model_uid_to_replica_info.get(model_uid, None)
+        if replica_info is None:
+            raise ValueError(f"Model not found in the model list, uid: {model_uid}")
+        return [
+            build_replica_model_uid(model_uid, replica_id)
+            for replica_id in replica_info.active_replica_ids
+        ]
 
     async def __post_create__(self):
         self._uptime = time.time()
@@ -1394,9 +1418,7 @@ class SupervisorActor(xo.StatelessActor):
         if model_uid in self._model_uid_to_replica_info:
             raise ValueError(f"Model is already in the model list, uid: {model_uid}")
         # Set replica info first for exception handler to terminate model.
-        self._model_uid_to_replica_info[model_uid] = ReplicaInfo(
-            replica=replica, scheduler=itertools.cycle(range(replica))
-        )
+        self._model_uid_to_replica_info[model_uid] = self._build_replica_info(replica)
         instance_info = InstanceInfo(
             model_name=model_name,
             model_uid=model_uid,
@@ -1554,9 +1576,7 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Model is already in the model list, uid: {model_uid}")
 
         # Set replica info first for exception handler to terminate model.
-        self._model_uid_to_replica_info[model_uid] = ReplicaInfo(
-            replica=replica, scheduler=itertools.cycle(range(replica))
-        )
+        self._model_uid_to_replica_info[model_uid] = self._build_replica_info(replica)
         instance_info = InstanceInfo(
             model_name=model_name,
             model_uid=model_uid,
@@ -1578,14 +1598,14 @@ class SupervisorActor(xo.StatelessActor):
 
     async def get_launch_builtin_model_progress(self, model_uid: str) -> float:
         try:
-            info = self._model_uid_to_replica_info[model_uid]
+            self._model_uid_to_replica_info[model_uid]
         except KeyError:
             # Not launched perhaps, just return 0.0 to prevent error
             return 0.0
 
         all_progress = 0.0
         i = 0
-        for rep_model_uid in iter_replica_model_uid(model_uid, info.replica):
+        for rep_model_uid in self._iter_active_replica_model_uids(model_uid):
             request_id = f"launching-{rep_model_uid}"
             try:
                 all_progress += await self._progress_tracker.get_progress(request_id)
@@ -1602,12 +1622,11 @@ class SupervisorActor(xo.StatelessActor):
             raise RuntimeError(f"Model {model_uid} has not been launched yet")
 
         coros = []
-        for i, rep_model_uid in enumerate(
-            iter_replica_model_uid(model_uid, info.replica)
-        ):
+        for replica_id in info.active_replica_ids:
+            rep_model_uid = build_replica_model_uid(model_uid, replica_id)
             worker_refs = self._model_uid_to_replica_info[
                 model_uid
-            ].replica_to_worker_refs[i]
+            ].replica_to_worker_refs[replica_id]
             for worker_ref in worker_refs:
                 coros.append(worker_ref.cancel_launch_model(rep_model_uid))
         try:
@@ -1718,7 +1737,7 @@ class SupervisorActor(xo.StatelessActor):
         if replica_info is None:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
 
-        for rep_model_uid in iter_replica_model_uid(model_uid, replica_info.replica):
+        for rep_model_uid in self._iter_active_replica_model_uids(model_uid):
             try:
                 await _terminate_one_model(rep_model_uid)
             except Exception:
@@ -1759,9 +1778,90 @@ class SupervisorActor(xo.StatelessActor):
                 logger.debug(f"Destroy block_tracker_ref done. model uid: {model_uid}")
 
     @log_async(logger=logger)
+    async def terminate_model_replica(
+        self, model_uid: str, replica_id: int, suppress_exception: bool = False
+    ) -> int:
+        replica_info = self._model_uid_to_replica_info.get(model_uid, None)
+        if replica_info is None:
+            raise ValueError(f"Model not found in the model list, uid: {model_uid}")
+
+        if replica_id not in replica_info.active_replica_ids:
+            raise ValueError(
+                f"Replica not found in the model list, uid: {model_uid}, replica_id: {replica_id}"
+            )
+
+        replica_model_uid = build_replica_model_uid(model_uid, replica_id)
+        worker_refs = self._replica_model_uid_to_worker.get(replica_model_uid, None)
+        if worker_refs is None:
+            raise ValueError(
+                f"Model not found in the model list, uid: {replica_model_uid}"
+            )
+        if not isinstance(worker_refs, list):
+            worker_refs = [worker_refs]
+
+        try:
+            for worker_ref in worker_refs:
+                await worker_ref.terminate_model(model_uid=replica_model_uid)
+        except Exception:
+            if not suppress_exception:
+                raise
+
+        self._replica_model_uid_to_worker.pop(replica_model_uid, None)
+        replica_info.replica_to_worker_refs.pop(replica_id, None)
+        replica_info.active_replica_ids.remove(replica_id)
+        self._refresh_replica_scheduler(replica_info)
+
+        remaining_replica_count = await self._status_guard_ref.remove_replica_status(
+            model_uid, replica_id
+        )
+        if remaining_replica_count > 0:
+            await self._status_guard_ref.update_instance_info(
+                model_uid,
+                {"replica": remaining_replica_count, "status": LaunchStatus.READY.name},
+            )
+            return remaining_replica_count
+
+        self._model_uid_to_replica_info.pop(model_uid, None)
+
+        rank0_uid = model_uid + "-rank0"
+        if rank0_uid in self._replica_model_uid_to_worker:
+            rank0_worker_refs = self._replica_model_uid_to_worker.pop(rank0_uid)
+            if not isinstance(rank0_worker_refs, list):
+                rank0_worker_refs = [rank0_worker_refs]
+            for worker_ref in rank0_worker_refs:
+                await worker_ref.terminate_model(model_uid=rank0_uid)
+
+        collective_manager_ref = self._collective_manager_mapping.pop(model_uid, None)
+        if collective_manager_ref is not None:
+            try:
+                await xo.destroy_actor(collective_manager_ref)
+            except Exception as e:
+                logger.debug(
+                    "Destroy collective_manager_ref failed, model uid: %s, error: %s",
+                    model_uid,
+                    e,
+                )
+
+        block_tracker_ref = self._block_tracker_mapping.pop(model_uid, None)
+        if block_tracker_ref is not None:
+            try:
+                await xo.destroy_actor(block_tracker_ref)
+            except Exception as e:
+                logger.debug(
+                    "Destroy block_tracker_ref failed, model uid: %s, error: %s",
+                    model_uid,
+                    e,
+                )
+
+        return 0
+
+    @log_async(logger=logger)
     async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
         if replica_info is None:
+            raise ValueError(f"Model not found in the model list, uid: {model_uid}")
+
+        if not replica_info.active_replica_ids:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
 
         replica_model_uid = build_replica_model_uid(
@@ -1801,9 +1901,12 @@ class SupervisorActor(xo.StatelessActor):
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
         if replica_info is None:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
-        # Use rep id 0 to instead of next(replica_info.scheduler) to avoid
-        # consuming the generator.
-        replica_model_uid = build_replica_model_uid(model_uid, 0)
+        if not replica_info.active_replica_ids:
+            raise ValueError(f"Model not found in the model list, uid: {model_uid}")
+        # Use the first live replica to avoid consuming the scheduler.
+        replica_model_uid = build_replica_model_uid(
+            model_uid, replica_info.active_replica_ids[0]
+        )
         worker_ref = self._replica_model_uid_to_worker.get(replica_model_uid, None)
         if worker_ref is None:
             raise ValueError(
@@ -1880,10 +1983,8 @@ class SupervisorActor(xo.StatelessActor):
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
         if not replica_info:
             return res
-        replica_cnt = replica_info.replica
-
         # Query all replicas
-        for rep_mid in iter_replica_model_uid(model_uid, replica_cnt):
+        for rep_mid in self._iter_active_replica_model_uids(model_uid):
             worker_ref = self._replica_model_uid_to_worker.get(rep_mid, None)
             if worker_ref is None:
                 continue

@@ -156,9 +156,12 @@
     "workerAddress": "Worker Address",
     "status": "Status",
     "createdTime": "Created Time",
+    "actions": "Actions",
     "noReplicaInfo": "No replica information available",
     "errors": "Errors",
     "replica": "Replica",
+    "remove": "Remove",
+    "removeConfirm": "Remove replica {{replicaId}} from model {{modelUid}}?",
     "close": "Close"
   },
 

@@ -787,6 +787,32 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(status_code=500, detail=str(e))
         return JSONResponse(content=None)
 
+    async def terminate_model_replica(
+        self, model_uid: str, replica_id: int
+    ) -> JSONResponse:
+        try:
+            assert self._app is not None
+            remaining_replicas = await (
+                await self._get_supervisor_ref()
+            ).terminate_model_replica(model_uid, replica_id)
+            if remaining_replicas == 0:
+                self._app.router.routes = [
+                    route
+                    for route in self._app.router.routes
+                    if not (
+                        hasattr(route, "path")
+                        and isinstance(route.path, str)
+                        and route.path == "/" + model_uid
+                    )
+                ]
+            return JSONResponse(content={"remaining_replicas": remaining_replicas})
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
     async def _get_model_last_error(self, replica_model_uid: bytes, e: Exception):
         if not isinstance(e, xo.ServerClosed):
             return e

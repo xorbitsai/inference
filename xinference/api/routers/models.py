@@ -114,6 +114,12 @@ def register_routes(api: "RESTfulAPI") -> None:
         dependencies=([Security(auth, scopes=["models:list"])] if is_auth else None),
     )
     router.add_api_route(
+        "/v1/models/{model_uid}/replicas/{replica_id}",
+        api.terminate_model_replica,
+        methods=["DELETE"],
+        dependencies=([Security(auth, scopes=["models:stop"])] if is_auth else None),
+    )
+    router.add_api_route(
         "/v1/models/{model_uid}/requests/{request_id}/abort",
         api.abort_request,
         methods=["POST"],
