@@ -196,6 +196,8 @@ const LaunchModelDrawer = ({
     return Object.entries(obj).map(([key, value]) => ({ key, value }))
   }
 
+  const getReplicaWorkerAddress = (replica) => replica?.worker_address || '—'
+
   const restoreNGPU = (value) => {
     if (value === null) return 'CPU'
     if (value === 'auto') {
@@ -1258,14 +1260,28 @@ const LaunchModelDrawer = ({
                             sx={{
                               display: 'flex',
                               justifyContent: 'space-between',
-                              alignItems: 'center',
+                              alignItems: 'flex-start',
                               mb: 0.5,
+                              gap: 1.5,
                             }}
                           >
-                            <Typography variant="caption">
-                              {t('modelReplicaDetails.replica')}{' '}
-                              {replica.replica_id}:
-                            </Typography>
+                            <Box sx={{ minWidth: 0 }}>
+                              <Typography variant="caption" display="block">
+                                {t('modelReplicaDetails.replica')}{' '}
+                                {replica.replica_id}:
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                display="block"
+                                color="text.secondary"
+                                sx={{
+                                  fontFamily: 'monospace',
+                                  wordBreak: 'break-all',
+                                }}
+                              >
+                                {getReplicaWorkerAddress(replica)}
+                              </Typography>
+                            </Box>
                             <Chip
                               label={replica.status}
                               color={
