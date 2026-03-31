@@ -105,41 +105,11 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         else:
             query_list = query
 
-        if self.model_family.model_name in {
-            "Qwen3-Reranker-0.6B",
-            "Qwen3-Reranker-4B",
-            "Qwen3-Reranker-8B",
-        }:
-            instruction = "Given a web search query, retrieve relevant passages that answer the query"
-            prefix = (
-                "<|im_start|>system\nJudge whether the Document meets the requirements based on"
-                " the Query and the Instruct provided. "
-                'Note that the answer can only be "yes" or "no".<|im_end|>\n<|im_start|>user\n'
-            )
-            suffix = "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
-            query_template = "{prefix}<Instruct>: {instruction}\n<Query>: {query}\n"
-            document_template = "<Document>: {doc}{suffix}"
-            processed_queries = [
-                query_template.format(
-                    prefix=prefix, instruction=instruction, query=query
-                )
-                for query in query_list
-            ]
-            processed_documents = [
-                document_template.format(doc=doc, suffix=suffix) for doc in documents
-            ]
-            outputs = self._model.score(
-                processed_queries,
-                processed_documents,
-                use_tqdm=False,
-            )
-
-        else:
-            outputs = self._model.score(
-                query_list,
-                documents,
-                use_tqdm=False,
-            )
+        outputs = self._model.score(
+            query_list,
+            documents,
+            use_tqdm=False,
+        )
         # clear cache if possible
         self._counter += 1
         if self._counter % RERANK_EMPTY_CACHE_COUNT == 0:
