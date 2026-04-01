@@ -93,7 +93,7 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             max_chunks_per_doc (Optional[int]): Maximum chunks per document.
             return_documents (Optional[bool]): Whether to return the documents.
             return_len (Optional[bool]): Whether to return the length of the documents.
-            enable_qwen3_rerank_template (passed by kwargs): Whether to enable qwen3 rerank template. this is per request level.
+            enable_qwen3_rerank_template (passed by kwargs) : Whether to enable qwen3 rerank template. this is per request level.
 
         Returns:
             Rerank: The reranked results.
@@ -168,7 +168,7 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             max_chunks_per_doc (Optional[int]): Maximum chunks per document.
             return_documents (Optional[bool]): Whether to return the documents.
             return_len (Optional[bool]): Whether to return the length of the documents.
-            enable_qwen3_rerank_template (passed by kwargs): Whether to enable qwen3 rerank template.
+            enable_qwen3_rerank_template (passed by kwargs): Whether to enable qwen3 rerank template. This is per request level.
 
         Returns:
             Rerank: The reranked results.
@@ -250,7 +250,6 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             kwargs = group["kwargs"]
             offsets = group["offsets"]
             indices = group["indices"]
-            print(f"")
             score_list = self._rerank(documents, query, **kwargs)
 
             top_n = kwargs.pop("top_n", None)
