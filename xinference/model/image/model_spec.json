@@ -1132,7 +1132,7 @@
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
         "mlx-vlm ; #engine# == \"mlx\"",
-        "tokenizers==0.20.3",
+        "tokenizers",
         "PyMuPDF",
         "img2pdf",
         "einops",
@@ -1185,7 +1185,7 @@
       }
     ],
     "featured": false,
-    "updated_at": 1769418373
+    "updated_at": 1774949598
   },
   {
     "version": 2,
