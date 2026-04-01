@@ -93,10 +93,12 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             max_chunks_per_doc (Optional[int]): Maximum chunks per document.
             return_documents (Optional[bool]): Whether to return the documents.
             return_len (Optional[bool]): Whether to return the length of the documents.
+            enable_qwen3_rerank_template (passed by kwargs): Whether to enable qwen3 rerank template. this is per request level.
 
         Returns:
             Rerank: The reranked results.
         """
+        enable_qwen3_rerank_template = kwargs.pop("enable_qwen3_rerank_template", None)
         if kwargs:
             raise RuntimeError("Unexpected keyword arguments: {}".format(kwargs))
         assert self._model is not None
@@ -107,11 +109,11 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         else:
             query_list = query
 
-        if QWEN3_RERANK_TEMPLATE and self.model_family.model_name in {
+        if self.model_family.model_name in {
             "Qwen3-Reranker-0.6B",
             "Qwen3-Reranker-4B",
             "Qwen3-Reranker-8B",
-        }:
+        } and (QWEN3_RERANK_TEMPLATE or enable_qwen3_rerank_template):
             instruction = "Given a web search query, retrieve relevant passages that answer the query"
             prefix = (
                 "<|im_start|>system\nJudge whether the Document meets the requirements based on"
@@ -130,17 +132,13 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             processed_documents = [
                 document_template.format(doc=doc, suffix=suffix) for doc in documents
             ]
-            outputs = self._model.score(
-                processed_queries,
-                processed_documents,
-                use_tqdm=False,
-            )
-        else:
-            outputs = self._model.score(
-                query_list,
-                documents,
-                use_tqdm=False,
-            )
+            query_list = processed_queries
+            documents = processed_documents
+        outputs = self._model.score(
+            query_list,
+            documents,
+            use_tqdm=False,
+        )
         # clear cache if possible
         self._counter += 1
         if self._counter % RERANK_EMPTY_CACHE_COUNT == 0:
@@ -170,6 +168,7 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             max_chunks_per_doc (Optional[int]): Maximum chunks per document.
             return_documents (Optional[bool]): Whether to return the documents.
             return_len (Optional[bool]): Whether to return the length of the documents.
+            enable_qwen3_rerank_template (passed by kwargs): Whether to enable qwen3 rerank template.
 
         Returns:
             Rerank: The reranked results.
@@ -251,6 +250,7 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             kwargs = group["kwargs"]
             offsets = group["offsets"]
             indices = group["indices"]
+            print(f"")
             score_list = self._rerank(documents, query, **kwargs)
 
             top_n = kwargs.pop("top_n", None)
