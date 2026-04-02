@@ -47,6 +47,8 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
         "sentence_transformers",
         "einops",
         "transformers>=4.53.3",
+        "accelerate>=0.28.0",
+        "torchvision",
     ],
     "diffusers": [
         "diffusers>=0.32.0",
