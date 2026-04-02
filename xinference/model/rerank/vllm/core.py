@@ -93,8 +93,7 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             max_chunks_per_doc (Optional[int]): Maximum chunks per document.
             return_documents (Optional[bool]): Whether to return the documents.
             return_len (Optional[bool]): Whether to return the length of the documents.
-            enable_qwen3_rerank_template (passed by kwargs) : Whether to enable qwen3 rerank template. this is per request level.
-
+            enable_qwen3_rerank_template (passed by kwargs) : Whether to enable qwen3 rerank template. this is per request level, higher priority than global ENV.
         Returns:
             Rerank: The reranked results.
         """
@@ -113,27 +112,31 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             "Qwen3-Reranker-0.6B",
             "Qwen3-Reranker-4B",
             "Qwen3-Reranker-8B",
-        } and (QWEN3_RERANK_TEMPLATE or enable_qwen3_rerank_template):
-            instruction = "Given a web search query, retrieve relevant passages that answer the query"
-            prefix = (
-                "<|im_start|>system\nJudge whether the Document meets the requirements based on"
-                " the Query and the Instruct provided. "
-                'Note that the answer can only be "yes" or "no".<|im_end|>\n<|im_start|>user\n'
-            )
-            suffix = "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
-            query_template = "{prefix}<Instruct>: {instruction}\n<Query>: {query}\n"
-            document_template = "<Document>: {doc}{suffix}"
-            processed_queries = [
-                query_template.format(
-                    prefix=prefix, instruction=instruction, query=query
+        }:
+            if enable_qwen3_rerank_template is False:
+                pass
+            if enable_qwen3_rerank_template is True or QWEN3_RERANK_TEMPLATE:
+                instruction = "Given a web search query, retrieve relevant passages that answer the query"
+                prefix = (
+                    "<|im_start|>system\nJudge whether the Document meets the requirements based on"
+                    " the Query and the Instruct provided. "
+                    'Note that the answer can only be "yes" or "no".<|im_end|>\n<|im_start|>user\n'
                 )
-                for query in query_list
-            ]
-            processed_documents = [
-                document_template.format(doc=doc, suffix=suffix) for doc in documents
-            ]
-            query_list = processed_queries
-            documents = processed_documents
+                suffix = "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+                query_template = "{prefix}<Instruct>: {instruction}\n<Query>: {query}\n"
+                document_template = "<Document>: {doc}{suffix}"
+                processed_queries = [
+                    query_template.format(
+                        prefix=prefix, instruction=instruction, query=query
+                    )
+                    for query in query_list
+                ]
+                processed_documents = [
+                    document_template.format(doc=doc, suffix=suffix)
+                    for doc in documents
+                ]
+                query_list = processed_queries
+                documents = processed_documents
         outputs = self._model.score(
             query_list,
             documents,
@@ -168,7 +171,6 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             max_chunks_per_doc (Optional[int]): Maximum chunks per document.
             return_documents (Optional[bool]): Whether to return the documents.
             return_len (Optional[bool]): Whether to return the length of the documents.
-            enable_qwen3_rerank_template (passed by kwargs): Whether to enable qwen3 rerank template. This is per request level.
 
         Returns:
             Rerank: The reranked results.
