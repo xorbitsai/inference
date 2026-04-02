@@ -115,7 +115,7 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         }:
             if enable_qwen3_rerank_template is False:
                 pass
-            if enable_qwen3_rerank_template is True or QWEN3_RERANK_TEMPLATE:
+            elif enable_qwen3_rerank_template is True or QWEN3_RERANK_TEMPLATE:
                 instruction = "Given a web search query, retrieve relevant passages that answer the query"
                 prefix = (
                     "<|im_start|>system\nJudge whether the Document meets the requirements based on"
