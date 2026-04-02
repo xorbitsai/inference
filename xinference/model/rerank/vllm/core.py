@@ -1,6 +1,7 @@
 import gc
 import inspect
 import logging
+import os
 import uuid
 from collections import defaultdict
 from typing import Any, List, Optional, Tuple, Union
@@ -19,6 +20,7 @@ from ..core import (
     RerankSpecV1,
 )
 
+QWEN3_RERANK_TEMPLATE = int(os.getenv("XINFERENCE_QWEN3_RERANK_TEMPLATE", "1"))
 logger = logging.getLogger(__name__)
 SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "gte", "Qwen3"]
 
@@ -91,10 +93,11 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             max_chunks_per_doc (Optional[int]): Maximum chunks per document.
             return_documents (Optional[bool]): Whether to return the documents.
             return_len (Optional[bool]): Whether to return the length of the documents.
-
+            enable_qwen3_rerank_template (passed by kwargs) : Whether to enable qwen3 rerank template. this is per request level, higher priority than global ENV.
         Returns:
             Rerank: The reranked results.
         """
+        enable_qwen3_rerank_template = kwargs.pop("enable_qwen3_rerank_template", None)
         if kwargs:
             raise RuntimeError("Unexpected keyword arguments: {}".format(kwargs))
         assert self._model is not None
@@ -105,6 +108,35 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         else:
             query_list = query
 
+        if self.model_family.model_name in {
+            "Qwen3-Reranker-0.6B",
+            "Qwen3-Reranker-4B",
+            "Qwen3-Reranker-8B",
+        }:
+            if enable_qwen3_rerank_template is False:
+                pass
+            elif enable_qwen3_rerank_template is True or QWEN3_RERANK_TEMPLATE:
+                instruction = "Given a web search query, retrieve relevant passages that answer the query"
+                prefix = (
+                    "<|im_start|>system\nJudge whether the Document meets the requirements based on"
+                    " the Query and the Instruct provided. "
+                    'Note that the answer can only be "yes" or "no".<|im_end|>\n<|im_start|>user\n'
+                )
+                suffix = "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+                query_template = "{prefix}<Instruct>: {instruction}\n<Query>: {query}\n"
+                document_template = "<Document>: {doc}{suffix}"
+                processed_queries = [
+                    query_template.format(
+                        prefix=prefix, instruction=instruction, query=query
+                    )
+                    for query in query_list
+                ]
+                processed_documents = [
+                    document_template.format(doc=doc, suffix=suffix)
+                    for doc in documents
+                ]
+                query_list = processed_queries
+                documents = processed_documents
         outputs = self._model.score(
             query_list,
             documents,

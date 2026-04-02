@@ -22568,8 +22568,8 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1769418585,
-    "featured": true,
+    "updated_at": 1775042828,
+    "featured": false,
     "architectures": [
       "Ernie4_5ForCausalLM"
     ],
@@ -29748,7 +29748,7 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "featured": false,
-    "updated_at": 1774076811
+    "featured": true,
+    "updated_at": 1775043000
   }
 ]
