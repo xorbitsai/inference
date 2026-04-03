@@ -1172,11 +1172,11 @@
         "qwen-asr",
         "#system_torch#",
         "#system_numpy#",
-        "#system_numpy#"
+        "#system_pandas#"
       ]
     },
     "featured": false,
-    "updated_at": 1775217462
+    "updated_at": 1775217476
   },
   {
     "model_name": "Qwen3-ASR-1.7B",
