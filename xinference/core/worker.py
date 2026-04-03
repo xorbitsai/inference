@@ -1416,6 +1416,27 @@ class WorkerActor(xo.StatelessActor):
         packages = merge_virtual_env_packages(base_packages, virtual_env_packages)
         packages = expand_engine_dependency_placeholders(packages, model_engine)
 
+        # Resolve #system_torch# etc. with CUDA version preservation
+        # This handles system packages with CUDA suffixes (e.g., torch==2.10.0+cu130)
+        from .virtual_env_manager import resolve_system_requirements_with_cuda
+
+        packages, system_cuda_urls = resolve_system_requirements_with_cuda(packages)
+
+        # Add PyTorch wheel URL if detected from system packages
+        if system_cuda_urls:
+            if settings.extra_index_url is None:
+                settings.extra_index_url = system_cuda_urls
+            else:
+                # Merge with existing extra_index_url, system URLs first for priority
+                existing_urls = (
+                    settings.extra_index_url
+                    if isinstance(settings.extra_index_url, list)
+                    else [settings.extra_index_url]
+                )
+                settings.extra_index_url = system_cuda_urls + [
+                    u for u in existing_urls if u not in system_cuda_urls
+                ]
+
         try:
             from xoscar.virtualenv.platform import get_cuda_version
 
