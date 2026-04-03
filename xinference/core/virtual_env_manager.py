@@ -12,12 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import importlib.metadata
 import logging
 import os
 import shutil
 import subprocess
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from ..constants import XINFERENCE_VIRTUAL_ENV_DIR
 
@@ -136,113 +135,6 @@ def resolve_virtualenv_python_path(virtual_env_manager: Any) -> Optional[str]:
         if os.path.exists(candidate):
             return candidate
     return venv_python
-
-
-def resolve_system_requirement_with_cuda(req_part: str) -> Tuple[str, Optional[str]]:
-    """
-    Resolve a system requirement placeholder like #system_torch# to its actual version,
-    preserving CUDA version information (e.g., torch==2.5.0+cu121).
-
-    Args:
-        req_part: The requirement string, potentially a placeholder like #system_torch#
-
-    Returns:
-        A tuple of (resolved_requirement, cuda_version) where:
-        - resolved_requirement: e.g., "torch==2.5.0+cu121" or "numpy==2.1.0"
-        - cuda_version: e.g., "cu121" if CUDA version detected, None otherwise
-    """
-    req_part = req_part.strip()
-    if not (req_part.startswith("#system_") and req_part.endswith("#")):
-        return req_part, None
-
-    real_pkg = req_part[len("#system_") : -1]
-    try:
-        # Get full version string, which may include +cu121 suffix
-        version = importlib.metadata.version(real_pkg)
-    except importlib.metadata.PackageNotFoundError:
-        raise RuntimeError(
-            f"System package '{real_pkg}' not found. Cannot resolve '{req_part}'."
-        )
-
-    # Extract CUDA version from version string (e.g., "2.5.0+cu121" -> "cu121")
-    cuda_version = None
-    if "+" in version:
-        _base_version, suffix = version.split("+", 1)
-        # Check if suffix looks like a CUDA version (cuXXX, rocmX.X, etc.)
-        if suffix.startswith("cu") or suffix.startswith("rocm"):
-            cuda_version = suffix
-            logger.debug(
-                f"Detected CUDA/ROCm version {cuda_version} for {real_pkg}=={version}"
-            )
-
-    return f"{real_pkg}=={version}", cuda_version
-
-
-def resolve_system_requirements_with_cuda(
-    packages: List[str],
-) -> Tuple[List[str], Optional[List[str]]]:
-    """
-    Process a list of package names, resolving #system_<package># placeholders
-    while preserving CUDA version information.
-
-    This function:
-    1. Resolves #system_torch# to torch==2.5.0+cu121 (preserving CUDA version)
-    2. Collects the required PyTorch wheel URL based on detected CUDA version
-    3. Returns resolved packages and any extra_index_urls needed
-
-    Args:
-        packages: List of package requirements, may include #system_torch# etc.
-
-    Returns:
-        A tuple of (resolved_packages, extra_index_urls) where:
-        - resolved_packages: List with placeholders replaced by actual versions
-        - extra_index_urls: List of PyTorch wheel URLs needed (or None if not needed)
-    """
-    if not packages:
-        return [], None
-
-    resolved_packages: List[str] = []
-    detected_cuda_version: Optional[str] = None
-    needs_pytorch_wheel = False
-
-    for pkg in packages:
-        if pkg.startswith("#system_") and pkg.endswith("#"):
-            resolved_pkg, cuda_ver = resolve_system_requirement_with_cuda(pkg)
-            resolved_packages.append(resolved_pkg)
-
-            # Track CUDA version and check if we need PyTorch wheels
-            if cuda_ver:
-                # Extract package name from resolved requirement
-                pkg_name = resolved_pkg.split("==")[0].lower()
-                if pkg_name in PYTORCH_PACKAGES:
-                    needs_pytorch_wheel = True
-                    if detected_cuda_version is None:
-                        detected_cuda_version = cuda_ver
-                    elif detected_cuda_version != cuda_ver:
-                        logger.warning(
-                            f"Mixed CUDA versions detected: {detected_cuda_version} and {cuda_ver}. "
-                            f"Using {detected_cuda_version} for PyTorch wheel URL."
-                        )
-        else:
-            resolved_packages.append(pkg)
-
-    # Determine extra_index_url based on detected CUDA version
-    extra_index_urls: Optional[List[str]] = None
-    if needs_pytorch_wheel and detected_cuda_version:
-        wheel_url = PYTORCH_CUDA_WHEEL_URLS.get(detected_cuda_version)
-        if wheel_url:
-            extra_index_urls = [wheel_url]
-            logger.info(
-                f"Auto-configuring PyTorch wheel URL for CUDA {detected_cuda_version}: {wheel_url}"
-            )
-        else:
-            logger.warning(
-                f"Unknown CUDA version format: {detected_cuda_version}. "
-                f"Supported versions: {list(PYTORCH_CUDA_WHEEL_URLS.keys())}. "
-                f"PyTorch packages may not install correctly."
-            )
-
-    return resolved_packages, extra_index_urls
 
 
 def expand_engine_dependency_placeholders(
