@@ -110,6 +110,7 @@ SGLANG_SUPPORTED_VISION_MODEL_LIST = [
     "Gemma3ForConditionalGeneration",
     "MiniCPMV",
     "MllamaForConditionalGeneration",
+    "Qwen3_5MoeForConditionalGeneration",
 ]
 
 
@@ -196,7 +197,9 @@ class SGLANGModel(LLM):
                 # distributed, need to init driver_info
                 assert self._driver_info is None
                 # This must run inside Xoscar pool
-                dist_init_addr = f"{self._address.split(':', 1)[0]}:{get_next_port()}"
+                dist_init_addr = (
+                    f"{self._address.split(':', 1)[0]}:{get_next_port()}"  # noqa: E231
+                )
                 self._driver_info = {"dist_init_addr": dist_init_addr}
                 self._model_config["dist_init_addr"] = dist_init_addr
             else:
@@ -816,6 +819,7 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
 
         messages = self._transform_messages(messages)
 
+        tools = list(generate_config.pop("tools", [])) if generate_config else None
         chat_template: str = (
             self.model_family.chat_template if self.model_family.chat_template else ""
         )
@@ -853,8 +857,14 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
         if stream:
             agen = await self.async_generate(prompt, image_data=base64_images, generate_config=generate_config)  # type: ignore
             assert isinstance(agen, AsyncGenerator)
+            if tools:
+                return self._async_to_tool_completion_chunks(agen)
             return self._async_to_chat_completion_chunks(agen, self.reasoning_parser)
         else:
             c = await self.async_generate(prompt, image_data=base64_images, generate_config=generate_config)  # type: ignore
             assert not isinstance(c, AsyncGenerator)
+            if tools:
+                return self._post_process_completion(
+                    self.model_family, self.model_uid, c
+                )
             return self._to_chat_completion(c, self.reasoning_parser)
