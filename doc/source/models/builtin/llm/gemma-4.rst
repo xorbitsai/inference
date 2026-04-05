@@ -7,7 +7,7 @@ gemma-4
 - **Context Length:** 262144
 - **Model Name:** gemma-4
 - **Languages:** en, zh
-- **Abilities:** generate, chat, reasoning, audio
+- **Abilities:** generate, chat, reasoning, audio, vision, hybrid
 - **Description:** Gemma is a family of open models built by Google DeepMind. Gemma 4 models are multimodal, handling text and image input (with audio supported on small models) and generating text output.
 
 Specifications
