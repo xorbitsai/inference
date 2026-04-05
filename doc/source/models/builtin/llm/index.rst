@@ -201,6 +201,11 @@ The following is a list of built-in LLM in Xinference:
      - 131072
      - Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models.
 
+   * - :ref:`gemma-4 <models_llm_gemma-4>`
+     - generate, chat, reasoning, audio
+     - 262144
+     - Gemma is a family of open models built by Google DeepMind. Gemma 4 models are multimodal, handling text and image input (with audio supported on small models) and generating text output.
+
    * - :ref:`glm-4.1v-thinking <models_llm_glm-4.1v-thinking>`
      - chat, vision, reasoning, tools
      - 65536
@@ -829,6 +834,8 @@ The following is a list of built-in LLM in Xinference:
    gemma-3-1b-it
   
    gemma-3-it
+  
+   gemma-4
   
    glm-4.1v-thinking
   
