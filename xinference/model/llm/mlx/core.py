@@ -404,6 +404,7 @@ class MLXModelConfig(TypedDict, total=False):
     max_gpu_memory: str
     trust_remote_code: bool
     reasoning_content: bool
+    enable_thinking: bool
     # distributed
     address: Optional[str]
     shard: Optional[int]
@@ -526,6 +527,7 @@ class MLXModel(LLM, ChatModelMixin):
         model_config.setdefault("revision", self.model_spec.model_revision)
         model_config.setdefault("trust_remote_code", True)
         model_config.setdefault("reasoning_content", False)
+        model_config.setdefault("enable_thinking", False)
         return model_config
 
     def _sanitize_generate_config(
@@ -1258,6 +1260,21 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             return False, "MLX vision engine requires vision ability"
         return True
 
+    def _sanitize_generate_config(
+        self,
+        generate_config: Optional[MLXGenerateConfig],
+    ) -> MLXGenerateConfig:
+        generate_config = super()._sanitize_generate_config(generate_config)
+        if (not generate_config.get("stop")) and self.model_family.stop:
+            generate_config["stop"] = self.model_family.stop.copy()
+        if (
+            generate_config.get("stop_token_ids", None) is None
+            and self.model_family.stop_token_ids
+        ):
+            generate_config["stop_token_ids"] = self.model_family.stop_token_ids.copy()
+
+        return generate_config
+
     def generate(
         self,
         prompt: Union[str, Dict[str, Any]],
@@ -1266,6 +1283,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
     ) -> Union[Completion, Iterator[CompletionChunk]]:
         """Generate method for vision models (not using continuous batching)."""
         generate_config = self._sanitize_generate_config(generate_config)
+        logger.debug(f"[MLXVisionModel] generation params: {generate_config}")
 
         assert self._model is not None
         assert self._tokenizer is not None
@@ -1344,6 +1362,13 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             raise NotImplementedError(
                 "Distributed inference is not supported for vision models"
             )
+
+        reasoning_content = self._model_config.pop("reasoning_content")
+        enable_thinking = self._model_config.pop("enable_thinking", True)
+        self.prepare_parse_reasoning_content(
+            reasoning_content, enable_thinking=enable_thinking
+        )
+        self.prepare_parse_tool_calls()
 
         kwargs = {}
         kwargs["revision"] = self._model_config.get(
@@ -1507,7 +1532,9 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
                 full_context_kwargs["tools"] = tools
             assert self.model_family.chat_template is not None
             prompt = self.get_full_context(
-                messages, self.model_family.chat_template, **full_context_kwargs
+                messages,
+                self.model_family.chat_template,
+                **full_context_kwargs,
             )
             images, video_inputs = process_vision_info(messages)
             if video_inputs:
@@ -1535,7 +1562,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         if stream:
             it = self.generate(inputs, generate_config)
             assert isinstance(it, Iterator)
-            return self._to_chat_completion_chunks(it)
+            return self._to_chat_completion_chunks(it, self.reasoning_parser)
         else:
             c = self.generate(inputs, generate_config)
             assert not isinstance(c, Iterator)
@@ -1543,4 +1570,4 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
                 return self._post_process_completion(
                     self.model_family, self.model_uid, c
                 )
-            return self._to_chat_completion(c)
+            return self._to_chat_completion(c, self.reasoning_parser)

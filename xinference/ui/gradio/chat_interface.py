@@ -597,7 +597,7 @@ class GradioInterface:
                 temperature = gr.Slider(
                     minimum=0, maximum=2, value=1, step=0.01, label="Temperature"
                 )
-                stream = gr.Checkbox(label="Stream", value=False)
+                stream = gr.Checkbox(label="Stream", value=True)
 
             textbox.change(update_button, [textbox], [submit_btn], queue=False)
 
