@@ -165,8 +165,8 @@ Model Spec 10 (mlx, 4 Billion)
 - **Model Size (in billions):** 4
 - **Quantizations:** bf16, 8bit, 6bit, 5bit, 4bit, mxfp8, mxfp4, nvfp4
 - **Engines**: 
-- **Model ID:** mlx-community/gemma-4-e4b-{quantization}
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/gemma-4-e4b-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/gemma-4-e4b-{quantization}>`__
+- **Model ID:** mlx-community/gemma-4-e4b-it-{quantization}
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/gemma-4-e4b-it-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/gemma-4-e4b-it-{quantization}>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
@@ -181,8 +181,8 @@ Model Spec 11 (mlx, 31 Billion)
 - **Model Size (in billions):** 31
 - **Quantizations:** bf16, 8bit, 6bit, 5bit, 4bit, mxfp8, mxfp4, nvfp4
 - **Engines**: 
-- **Model ID:** mlx-community/gemma-4-31b-{quantization}
-- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/gemma-4-31b-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/gemma-4-31b-{quantization}>`__
+- **Model ID:** mlx-community/gemma-4-31b-it-{quantization}
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/gemma-4-31b-it-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/gemma-4-31b-it-{quantization}>`__
 
 Execute the following command to launch the model, remember to replace ``${quantization}`` with your
 chosen quantization method from the options listed above::
