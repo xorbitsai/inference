@@ -29762,7 +29762,9 @@
       "generate",
       "chat",
       "reasoning",
-      "audio"
+      "audio",
+      "vision",
+      "hybrid"
     ],
     "model_specs": [
       {
@@ -30202,6 +30204,6 @@
       ]
     },
     "featured": true,
-    "updated_at": 1775365890
+    "updated_at": 1775366731
   }
 ]
