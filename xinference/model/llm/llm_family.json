@@ -30197,6 +30197,7 @@
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
         "#mlx_dependencies# ; #engine# == \"MLX\"",
+        "mlx-vlm>=0.4.4 ; #engine# == \"MLX\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#sglang_dependencies# ; #engine# == \\\"sglang\\\"\"",
         "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
@@ -30204,6 +30205,6 @@
       ]
     },
     "featured": true,
-    "updated_at": 1775366731
+    "updated_at": 1775367348
   }
 ]
