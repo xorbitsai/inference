@@ -1205,9 +1205,18 @@ class MLXChatModel(MLXModel, ChatModelMixin):
                 or model_family in DEEPSEEK_TOOL_CALL_FAMILY
             ):
                 full_context_kwargs["tools"] = tools
-        assert self.model_family.chat_template is not None
+        chat_template = self.model_family.chat_template
+        tokenizer = None
+        if not chat_template:
+            tokenizer = self._tokenizer
+            if tokenizer is not None:
+                chat_template = getattr(tokenizer, "chat_template", None)
+        if not chat_template:
+            raise ValueError(
+                f"chat_template is required for model {self.model_uid}, but none was provided."
+            )
         full_prompt = self.get_full_context(
-            messages, self.model_family.chat_template, **full_context_kwargs
+            messages, chat_template, tokenizer=tokenizer, **full_context_kwargs
         )
 
         generate_config = self._sanitize_generate_config(generate_config)
@@ -1219,9 +1228,27 @@ class MLXChatModel(MLXModel, ChatModelMixin):
             assert hasattr(
                 chunks, "__aiter__"
             ), "async_generate should return AsyncGenerator for streaming"
-            # Type narrowing: we know chunks is an AsyncGenerator when stream=True
+
+            async def _log_streaming_chunks():
+                full_text = ""
+                async for chunk in chunks:  # type: ignore[arg-type]
+                    choices = chunk.get("choices")
+                    if choices:
+                        first = choices[0]
+                        delta = first.get("delta")
+                        if isinstance(delta, dict):
+                            delta_text = delta.get("content")
+                            if delta_text:
+                                full_text += delta_text
+                        else:
+                            text = first.get("text")
+                            if isinstance(text, str):
+                                full_text += text
+                    yield chunk
+                logger.debug("[MLX] Full accumulated output: %r", full_text)
+
             return self._async_to_chat_completion_chunks(
-                chunks,  # type: ignore[arg-type]
+                _log_streaming_chunks(),
                 self.reasoning_parser,
                 chat_template_kwargs,
             )
@@ -1530,10 +1557,20 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             full_context_kwargs = chat_template_kwargs.copy()
             if tools and model_family in QWEN_TOOL_CALL_FAMILY:
                 full_context_kwargs["tools"] = tools
-            assert self.model_family.chat_template is not None
+            chat_template = self.model_family.chat_template
+            tokenizer = None
+            if not chat_template:
+                tokenizer = self._tokenizer
+                if tokenizer is not None:
+                    chat_template = getattr(tokenizer, "chat_template", None)
+            if not chat_template:
+                raise ValueError(
+                    f"chat_template is required for model {self.model_uid}, but none was provided."
+                )
             prompt = self.get_full_context(
                 messages,
-                self.model_family.chat_template,
+                chat_template,
+                tokenizer=tokenizer,
                 **full_context_kwargs,
             )
             images, video_inputs = process_vision_info(messages)
@@ -1562,7 +1599,21 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         if stream:
             it = self.generate(inputs, generate_config)
             assert isinstance(it, Iterator)
-            return self._to_chat_completion_chunks(it, self.reasoning_parser)
+
+            def _log_streaming_chunks():
+                full_text = ""
+                for chunk in it:
+                    choices = chunk.get("choices")
+                    if choices and choices[0].get("text"):
+                        text = choices[0]["text"]
+                        if text:
+                            full_text += text  # type: ignore[arg-type]
+                    yield chunk
+                logger.debug("[MLX] Full accumulated output: %r", full_text)
+
+            return self._to_chat_completion_chunks(
+                _log_streaming_chunks(), self.reasoning_parser
+            )
         else:
             c = self.generate(inputs, generate_config)
             assert not isinstance(c, Iterator)

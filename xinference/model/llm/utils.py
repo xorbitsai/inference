@@ -206,10 +206,9 @@ class ChatModelMixin:
                 raise TypeError(
                     f"`chat_template_kwargs` but be a JSON parsable str or dict, got: {kwargs}"
                 )
-        elif reasoning_parser and not reasoning_parser.enable_thinking:
-            # hybrid model like qwen3,
-            # disabled thinking
-            return {"enable_thinking": False}
+        elif reasoning_parser:
+            # pass enable_thinking to chat template
+            return {"enable_thinking": reasoning_parser.enable_thinking}
         return None
 
     @staticmethod
