@@ -30193,7 +30193,7 @@
       "<turn|>",
       "<|tool_response>"
     ],
-    "reasoning_start_tag": "<|channel>thought\\n",
+    "reasoning_start_tag": "<|channel>thought\n",
     "reasoning_end_tag": "<channel|>",
     "is_built_in": true,
     "version": 2,
@@ -30209,6 +30209,6 @@
       ]
     },
     "featured": true,
-    "updated_at": 1775483194
+    "updated_at": 1775543220
   }
 ]
