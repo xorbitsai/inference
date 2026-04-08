@@ -1686,7 +1686,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                     lora_request = lora
                     break
         tokenizer = await self._get_tokenizer(lora_request)
-
+        logger.debug("tokenizer class: %s", type(tokenizer).__name__)
         full_prompt = self.get_full_context(
             messages,
             self.model_family.chat_template,
