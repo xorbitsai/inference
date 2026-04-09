@@ -29730,7 +29730,8 @@
         "sglang_dependencies ; #engine# == \"sglang\"",
         "transformers>=5.2.0 ; #engine# == \"Transformers\"",
         "qwen_omni_utils ; #engine# == \"vllm\"",
-        "vllm>=0.17.0 ; #engine# == \"vllm\""
+        "vllm>=0.17.0 ; #engine# == \"vllm\"",
+        "transformers==4.57.6 ; #engine# == \"vllm\""
       ]
     },
     "architectures": [
@@ -29749,6 +29750,6 @@
     ],
     "tool_parser": "qwen",
     "featured": true,
-    "updated_at": 1775043000
+    "updated_at": 1775721759
   }
 ]
