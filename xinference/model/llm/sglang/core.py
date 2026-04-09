@@ -38,6 +38,7 @@ from .. import LLM, LLMFamilyV2, LLMSpecV1
 from ..core import chat_context_var
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
+    GEMMA_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_SYMBOLS,
     ChatModelMixin,
@@ -730,6 +731,7 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         if tools:
             if (
                 model_family in QWEN_TOOL_CALL_FAMILY
+                or model_family in GEMMA_TOOL_CALL_FAMILY
                 or model_family in DEEPSEEK_TOOL_CALL_FAMILY
             ):
                 full_context_kwargs["tools"] = tools

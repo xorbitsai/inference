@@ -53,6 +53,7 @@ from ..core import LLM, chat_context_var
 from ..llm_family import LLMFamilyV2, LLMSpecV1
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
+    GEMMA_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
     ChatModelMixin,
     generate_completion_chunk,
@@ -1186,6 +1187,7 @@ class MLXChatModel(MLXModel, ChatModelMixin):
         if tools:
             if (
                 model_family in QWEN_TOOL_CALL_FAMILY
+                or model_family in GEMMA_TOOL_CALL_FAMILY
                 or model_family in DEEPSEEK_TOOL_CALL_FAMILY
             ):
                 full_context_kwargs["tools"] = tools
@@ -1547,7 +1549,10 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             )
             chat_context_var.set(chat_template_kwargs)
             full_context_kwargs = chat_template_kwargs.copy()
-            if tools and model_family in QWEN_TOOL_CALL_FAMILY:
+            if tools and (
+                model_family in QWEN_TOOL_CALL_FAMILY
+                or model_family in GEMMA_TOOL_CALL_FAMILY
+            ):
                 full_context_kwargs["tools"] = tools
             chat_template = self.model_family.chat_template
             tokenizer = None

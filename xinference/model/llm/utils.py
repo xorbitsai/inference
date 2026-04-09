@@ -123,6 +123,8 @@ QWEN_TOOL_CALL_FAMILY = [
     "qwen3.5",
 ]
 
+GEMMA_TOOL_CALL_FAMILY = ["gemma-4"]
+
 GLM4_TOOL_CALL_FAMILY = [
     "glm4-chat",
     "glm4-chat-1m",
@@ -142,6 +144,7 @@ DEEPSEEK_TOOL_CALL_FAMILY = ["deepseek-v3", "deepseek-r1-0528", "Deepseek-V3.1"]
 
 TOOL_CALL_FAMILY = (
     QWEN_TOOL_CALL_FAMILY
+    + GEMMA_TOOL_CALL_FAMILY
     + GLM4_TOOL_CALL_FAMILY
     + LLAMA3_TOOL_CALL_FAMILY
     + DEEPSEEK_TOOL_CALL_FAMILY
