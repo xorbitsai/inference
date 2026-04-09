@@ -1275,6 +1275,36 @@
     "updated_at": 1775717083
   },
   {
+    "model_name": "Qwen3-TTS-12Hz-0.6B-CustomVoice",
+    "model_description": "This is a custom model description.",
+    "multilingual": true,
+    "model_ability": [
+      "text2audio"
+    ],
+    "model_family": "qwen3_tts",
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
+        "model_revision": "master"
+      }
+    },
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "qwen-tts",
+        "#system_torch#",
+        "#system_numpy#",
+        "#system_pandas#"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1775717182
+  },
+  {
     "model_name": "Qwen3-TTS-12Hz-1.7B-CustomVoice",
     "model_description": "This is a custom model description.",
     "multilingual": true,
