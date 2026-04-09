@@ -1231,12 +1231,16 @@ class MLXChatModel(MLXModel, ChatModelMixin):
 
             async def _log_streaming_chunks():
                 full_text = ""
+                full_reasoning = ""
                 async for chunk in chunks:  # type: ignore[arg-type]
                     choices = chunk.get("choices")
                     if choices:
                         first = choices[0]
                         delta = first.get("delta")
                         if isinstance(delta, dict):
+                            delta_reasoning = delta.get("reasoning_content")
+                            if isinstance(delta_reasoning, str):
+                                full_reasoning += delta_reasoning
                             delta_text = delta.get("content")
                             if delta_text:
                                 full_text += delta_text
@@ -1245,7 +1249,11 @@ class MLXChatModel(MLXModel, ChatModelMixin):
                             if isinstance(text, str):
                                 full_text += text
                     yield chunk
-                logger.debug("[MLX] Full accumulated output: %r", full_text)
+                logger.debug(
+                    "[MLX] Full accumulated output: reasoning=%r, content=%r",
+                    full_reasoning,
+                    full_text,
+                )
 
             return self._async_to_chat_completion_chunks(
                 _log_streaming_chunks(),
@@ -1602,14 +1610,29 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
 
             def _log_streaming_chunks():
                 full_text = ""
+                full_reasoning = ""
                 for chunk in it:
                     choices = chunk.get("choices")
-                    if choices and choices[0].get("text"):
-                        text = choices[0]["text"]
-                        if text:
-                            full_text += text  # type: ignore[arg-type]
+                    if choices:
+                        first = choices[0]
+                        delta = first.get("delta")
+                        if isinstance(delta, dict):
+                            delta_reasoning = delta.get("reasoning_content")
+                            if isinstance(delta_reasoning, str):
+                                full_reasoning += delta_reasoning
+                            delta_text = delta.get("content")
+                            if isinstance(delta_text, str):
+                                full_text += delta_text
+                        elif first.get("text"):
+                            text = first["text"]
+                            if text:
+                                full_text += text  # type: ignore[arg-type]
                     yield chunk
-                logger.debug("[MLX] Full accumulated output: %r", full_text)
+                logger.debug(
+                    "[MLX] Full accumulated output: reasoning=%r, content=%r",
+                    full_reasoning,
+                    full_text,
+                )
 
             return self._to_chat_completion_chunks(
                 _log_streaming_chunks(), self.reasoning_parser
