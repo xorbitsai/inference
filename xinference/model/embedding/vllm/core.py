@@ -278,9 +278,8 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
             result = {"prompt": prompt_text, "multi_modal_data": multi_modal_data}
             return result
 
-        vllm_inputs = [_prepare_vllm_inputs(item, self._model) for item in normalized]
-
         assert self._model is not None
+        vllm_inputs = [_prepare_vllm_inputs(item, self._model) for item in normalized]
         return self._model.embed(vllm_inputs)
 
     @classmethod
