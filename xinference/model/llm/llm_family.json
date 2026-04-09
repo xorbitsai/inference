@@ -30195,6 +30195,7 @@
     ],
     "reasoning_start_tag": "<|channel>thought\n",
     "reasoning_end_tag": "<channel|>",
+    "tool_parser": "gemma",
     "is_built_in": true,
     "version": 2,
     "virtualenv": {
@@ -30209,6 +30210,6 @@
       ]
     },
     "featured": true,
-    "updated_at": 1775543220
+    "updated_at": 1775754574
   }
 ]
