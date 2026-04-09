@@ -56,6 +56,7 @@ from ..utils import (
     QWEN_TOOL_CALL_FAMILY,
     ChatModelMixin,
     generate_completion_chunk,
+    get_context_length_from_config,
 )
 
 logger = logging.getLogger(__name__)
@@ -436,23 +437,6 @@ class PromptCache:
     tokens: List[int] = field(default_factory=list)
 
 
-def get_context_length(config: dict) -> int:
-    """Get the context length of a model from model config."""
-    if config.get("max_sequence_length") is not None:
-        max_sequence_length = config["max_sequence_length"]
-    else:
-        max_sequence_length = 2048
-    if config.get("seq_length") is not None:
-        seq_length = config["seq_length"]
-    else:
-        seq_length = 2048
-    if config.get("max_position_embeddings") is not None:
-        max_position_embeddings = config["max_position_embeddings"]
-    else:
-        max_position_embeddings = 2048
-    return max(max_sequence_length, seq_length, max_position_embeddings)
-
-
 class MLXModel(LLM, ChatModelMixin):
     _rank_to_addresses: Optional[Dict[int, str]]
     allow_batch: bool = False
@@ -752,7 +736,7 @@ class MLXModel(LLM, ChatModelMixin):
         # get context length
         config = load_config(Path(self.model_path))
         config.update(self._model_config)
-        self._context_length = get_context_length(config)
+        self._context_length = get_context_length_from_config(config)
 
         # Update allow_batch based on distributed inference
         # Only enable continuous batching for non-distributed inference (single worker)
@@ -1418,7 +1402,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         # get context length
         config = load_config(Path(self.model_path))
         config.update(self._model_config)
-        self._context_length = get_context_length(config)
+        self._context_length = get_context_length_from_config(config)
 
     def _generate_stream_inner(self, **kwargs):
         import mlx.core as mx

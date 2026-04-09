@@ -56,6 +56,48 @@ from .tool_parsers.glm4_tool_parser import Glm4ToolParser
 logger = logging.getLogger(__name__)
 
 
+_CONTEXT_LENGTH_KEYS: Tuple[str, ...] = (
+    "max_sequence_length",
+    "seq_length",
+    "max_position_embeddings",
+    "sliding_window",
+)
+
+
+def _get_config_value(config: Union[dict, Any], key: str) -> Any:
+    if isinstance(config, dict):
+        return config.get(key)
+    return getattr(config, key, None)
+
+
+def _collect_context_length_candidates(
+    config: Union[dict, Any], nested_attrs: Iterable[str]
+) -> List[int]:
+    candidates: List[int] = []
+    for key in _CONTEXT_LENGTH_KEYS:
+        value = _get_config_value(config, key)
+        if value is not None:
+            candidates.append(value)
+    for nested_attr in nested_attrs:
+        nested = _get_config_value(config, nested_attr)
+        if nested is not None:
+            candidates.extend(_collect_context_length_candidates(nested, nested_attrs))
+    return candidates
+
+
+def get_context_length_from_config(
+    config: Union[dict, Any], nested_attrs: Iterable[str] = ("text_config",)
+) -> int:
+    """
+    Determine a reasonable context length from model config dictionaries or
+    HuggingFace config objects.
+    """
+    candidates = _collect_context_length_candidates(config, nested_attrs)
+    if not candidates:
+        return 2048
+    return max(candidates)
+
+
 QWEN_TOOL_CALL_FAMILY = [
     "qwen1.5-chat",
     "qwen1.5-moe-chat",
