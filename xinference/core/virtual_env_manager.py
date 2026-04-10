@@ -37,7 +37,7 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
         'sgl_kernel ; cuda_version < "13.0"',
     ],
     "vllm": [
-        "vllm>=0.11.2,<0.15.0",
+        "vllm>=0.11.2",
     ],
     "transformers": [
         "transformers>=4.53.3",
