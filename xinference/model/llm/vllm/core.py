@@ -319,6 +319,11 @@ def _update_vllm_supported_lists() -> None:
             VLLM_SUPPORTED_MULTI_MODEL_LIST, "Qwen3_5MoeForConditionalGeneration"
         )
 
+    if effective_version >= version.parse("0.19.0"):
+        _append_unique(
+            VLLM_SUPPORTED_MULTI_MODEL_LIST, "Gemma4ForConditionalGeneration"
+        )
+
 
 _update_vllm_supported_lists()
 
