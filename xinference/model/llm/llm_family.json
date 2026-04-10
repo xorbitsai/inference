@@ -30205,12 +30205,13 @@
         "mlx-vlm>=0.4.4 ; #engine# == \"MLX\"",
         "vllm>=0.19.0 ; #engine# == \"vllm\"",
         "transformers>=5.5.0 ; #engine# == \"vllm\"",
+        "qwen_omni_utils ; #engine# == \"vllm\"",
         "#sglang_dependencies# ; #engine# == \\\"sglang\\\"\"",
         "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ]
     },
     "featured": true,
-    "updated_at": 1775810523
+    "updated_at": 1775810942
   }
 ]
