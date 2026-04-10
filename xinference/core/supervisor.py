@@ -2335,6 +2335,24 @@ class SupervisorActor(xo.StatelessActor):
                     worker_address,
                 )
 
+    async def receive_heartbeat(self, worker_address: str):
+        """
+        Receive lightweight heartbeat from worker.
+        Only updates the timestamp without collecting resource info.
+        Used for liveness detection separate from full status reporting.
+        """
+        if worker_address not in self._worker_status:
+            # New worker, create initial status with empty state
+            logger.debug("Worker %s heartbeat: new worker", worker_address)
+            self._worker_status[worker_address] = WorkerStatus(
+                update_time=time.time(),
+                failure_remaining_count=XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
+                status={},  # Empty status, waiting for full report
+            )
+        else:
+            # Only update timestamp, not status
+            self._worker_status[worker_address].update_time = time.time()
+
     async def list_deletable_models(
         self, model_version: str, worker_ip: Optional[str] = None
     ) -> List[str]:

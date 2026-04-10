@@ -53,6 +53,9 @@ from ..constants import (
     XINFERENCE_DISABLE_METRICS,
     XINFERENCE_ENABLE_VIRTUAL_ENV,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
+    XINFERENCE_STATUS_GATHER_TIMEOUT,
+    XINFERENCE_STATUS_REPORT_MULTIPLIER,
+    XINFERENCE_TCP_REQUEST_TIMEOUT,
     XINFERENCE_VIRTUAL_ENV_DIR,
     XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED,
 )
@@ -2111,8 +2114,8 @@ class WorkerActor(xo.StatelessActor):
     async def report_status(self):
         status = dict()
         try:
-            # asyncio.timeout is only available in Python >= 3.11
-            async with timeout(2):
+            # Use configurable timeout for status gathering
+            async with timeout(XINFERENCE_STATUS_GATHER_TIMEOUT):
                 status = await asyncio.to_thread(gather_node_info)
         except asyncio.CancelledError:
             raise
@@ -2130,10 +2133,32 @@ class WorkerActor(xo.StatelessActor):
             supervisor_ref = await self.get_supervisor_ref(add_worker=True)
             await supervisor_ref.report_worker_status(self.address, status)
 
+    async def heartbeat(self):
+        """
+        Lightweight heartbeat for liveness detection.
+        Only sends address to supervisor without collecting resource info.
+        """
+        await xo.wait_for(
+            (await self.get_supervisor_ref()).receive_heartbeat(self.address),
+            XINFERENCE_TCP_REQUEST_TIMEOUT,
+        )
+
     async def _periodical_report_status(self):
+        """
+        Periodically send heartbeat and status reports to supervisor.
+        Heartbeat is sent every interval, full status is sent every N intervals.
+        """
+        report_count = 0
         while True:
             try:
-                await self.report_status()
+                # Always send heartbeat for liveness detection
+                await self.heartbeat()
+
+                # Send full status every N heartbeats
+                if report_count % XINFERENCE_STATUS_REPORT_MULTIPLIER == 0:
+                    await self.report_status()
+
+                report_count += 1
             except asyncio.CancelledError:  # pragma: no cover
                 break
             except RuntimeError as ex:  # pragma: no cover
