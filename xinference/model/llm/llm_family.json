@@ -30203,13 +30203,14 @@
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
         "#mlx_dependencies# ; #engine# == \"MLX\"",
         "mlx-vlm>=0.4.4 ; #engine# == \"MLX\"",
-        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "vllm>=0.19.0 ; #engine# == \"vllm\"",
+        "transformers>=5.5.0 ; #engine# == \"vllm\"",
         "#sglang_dependencies# ; #engine# == \\\"sglang\\\"\"",
         "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ]
     },
     "featured": true,
-    "updated_at": 1775754574
+    "updated_at": 1775810523
   }
 ]
