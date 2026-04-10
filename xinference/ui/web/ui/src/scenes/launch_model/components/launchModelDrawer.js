@@ -196,6 +196,8 @@ const LaunchModelDrawer = ({
     return Object.entries(obj).map(([key, value]) => ({ key, value }))
   }
 
+  const getReplicaWorkerAddress = (replica) => replica?.worker_address || '—'
+
   const restoreNGPU = (value) => {
     if (value === null) return 'CPU'
     if (value === 'auto') {
@@ -1248,7 +1250,10 @@ const LaunchModelDrawer = ({
                 title={
                   isShowCancel ? (
                     <Box sx={{ minWidth: 200 }}>
-                      <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ mb: 1, fontWeight: 600, color: 'inherit' }}
+                      >
                         {t('launchModel.launchProgress')}:
                       </Typography>
                       {replicaStatuses.length > 0 ? (
@@ -1259,13 +1264,32 @@ const LaunchModelDrawer = ({
                               display: 'flex',
                               justifyContent: 'space-between',
                               alignItems: 'center',
-                              mb: 0.5,
+                              mb: 0.75,
+                              gap: 1.5,
                             }}
                           >
-                            <Typography variant="caption">
-                              {t('modelReplicaDetails.replica')}{' '}
-                              {replica.replica_id}:
-                            </Typography>
+                            <Box sx={{ minWidth: 0 }}>
+                              <Typography
+                                variant="caption"
+                                display="block"
+                                sx={{ fontWeight: 600, color: 'inherit' }}
+                              >
+                                {t('modelReplicaDetails.replica')}{' '}
+                                {replica.replica_id}:
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                display="block"
+                                sx={{
+                                  fontFamily: 'monospace',
+                                  color: 'rgba(255, 255, 255, 0.82)',
+                                  lineHeight: 1.4,
+                                  wordBreak: 'break-all',
+                                }}
+                              >
+                                {getReplicaWorkerAddress(replica)}
+                              </Typography>
+                            </Box>
                             <Chip
                               label={replica.status}
                               color={
@@ -1276,12 +1300,20 @@ const LaunchModelDrawer = ({
                                   : 'default'
                               }
                               size="small"
-                              sx={{ height: 20, fontSize: '0.7rem' }}
+                              sx={{
+                                'height': 22,
+                                'fontSize': '0.7rem',
+                                'fontWeight': 600,
+                                '&.MuiChip-colorDefault': {
+                                  bgcolor: 'rgba(255, 255, 255, 0.14)',
+                                  color: '#fff',
+                                },
+                              }}
                             />
                           </Box>
                         ))
                       ) : (
-                        <Typography variant="caption">
+                        <Typography variant="caption" sx={{ color: 'inherit' }}>
                           {t('launchModel.initializing')}
                         </Typography>
                       )}
@@ -1292,6 +1324,24 @@ const LaunchModelDrawer = ({
                 }
                 placement="top"
                 arrow
+                slotProps={{
+                  tooltip: {
+                    sx: {
+                      bgcolor: 'rgba(17, 24, 39, 0.96)',
+                      color: '#fff',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      boxShadow: 6,
+                      px: 1.5,
+                      py: 1.25,
+                      maxWidth: 360,
+                    },
+                  },
+                  arrow: {
+                    sx: {
+                      color: 'rgba(17, 24, 39, 0.96)',
+                    },
+                  },
+                }}
               >
                 <Button
                   style={{ flex: 1 }}

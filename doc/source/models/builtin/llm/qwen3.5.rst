@@ -420,7 +420,7 @@ Model Spec 26 (awq, 9 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 9
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** QuantTrio/Qwen3.5-9B-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/Qwen3.5-9B-AWQ>`__, `ModelScope <https://modelscope.cn/models/tclf90/Qwen3.5-9B-AWQ>`__
 
@@ -484,7 +484,7 @@ Model Spec 30 (awq, 4 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 4
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** QuantTrio/Qwen3.5-4B-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/Qwen3.5-4B-AWQ>`__, `ModelScope <https://modelscope.cn/models/tclf90/Qwen3.5-4B-AWQ>`__
 
@@ -548,7 +548,7 @@ Model Spec 34 (awq, 2 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 2
 - **Quantizations:** Int4
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** QuantTrio/Qwen3.5-2B-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/Qwen3.5-2B-AWQ>`__, `ModelScope <https://modelscope.cn/models/tclf90/Qwen3.5-2B-AWQ>`__
 

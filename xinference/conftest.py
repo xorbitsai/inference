@@ -141,6 +141,7 @@ async def _start_test_cluster(
         await start_worker_components(
             address=address,
             supervisor_address=address,
+            supervisor_endpoint=None,
             main_pool=pool,
             metrics_exporter_host=None,
             metrics_exporter_port=None,

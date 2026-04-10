@@ -47,6 +47,8 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
         "sentence_transformers",
         "einops",
         "transformers>=4.53.3",
+        "accelerate>=0.28.0",
+        "torchvision",
     ],
     "diffusers": [
         "diffusers>=0.32.0",
@@ -74,6 +76,17 @@ ENGINE_VIRTUALENV_INDEX_STRATEGY: Dict[str, str] = {
     "vllm": "unsafe-best-match",
     "sglang": "unsafe-best-match",
 }
+
+# Mapping from CUDA version suffix to PyTorch wheel URL
+# e.g., cu128 -> https://download.pytorch.org/whl/cu128
+PYTORCH_CUDA_WHEEL_URLS: Dict[str, str] = {
+    "cu130": "https://download.pytorch.org/whl/cu130",
+    "cu129": "https://download.pytorch.org/whl/cu129",
+    "cu128": "https://download.pytorch.org/whl/cu128",
+}
+
+# Packages that use PyTorch CUDA wheels
+PYTORCH_PACKAGES = {"torch", "torchaudio", "torchvision", "torchcodec"}
 
 
 def get_engine_virtualenv_packages(model_engine: Optional[str]) -> List[str]:

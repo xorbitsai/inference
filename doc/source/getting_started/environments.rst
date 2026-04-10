@@ -110,3 +110,8 @@ XINFERENCE_CSG_ENDPOINT
 ~~~~~~~~~~~~~~~~~~~~~~~
 CSGHub endpoint for model source.
 Default value is ``https://hub-stg.opencsg.com/``.
+
+XINFERENCE_QWEN3_RERANK_TEMPLATE
+~~~~~~~~~~~~~~~~~~~~~~~
+Enable template for Qwen3 rerank model family (0.6B, 4B, 8B,etc) globally.
+Default value is 1.

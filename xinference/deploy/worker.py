@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 async def start_worker_components(
     address: str,
     supervisor_address: str,
+    supervisor_endpoint: Optional[str],
     main_pool: MainActorPoolType,
     metrics_exporter_host: Optional[str],
     metrics_exporter_port: Optional[int],
@@ -48,6 +49,7 @@ async def start_worker_components(
         address=address,
         uid=WorkerActor.default_uid(),
         supervisor_address=supervisor_address,
+        supervisor_endpoint=supervisor_endpoint,
         main_pool=main_pool,
         gpu_devices=gpu_device_indices,
         metrics_exporter_host=metrics_exporter_host,
@@ -58,6 +60,7 @@ async def start_worker_components(
 async def _start_worker(
     address: str,
     supervisor_address: str,
+    supervisor_endpoint: Optional[str] = None,
     metrics_exporter_host: Optional[str] = None,
     metrics_exporter_port: Optional[int] = None,
     logging_conf: Any = None,
@@ -68,6 +71,7 @@ async def _start_worker(
     await start_worker_components(
         address=address,
         supervisor_address=supervisor_address,
+        supervisor_endpoint=supervisor_endpoint,
         main_pool=pool,
         metrics_exporter_host=metrics_exporter_host,
         metrics_exporter_port=metrics_exporter_port,
@@ -78,6 +82,7 @@ async def _start_worker(
 def main(
     address: str,
     supervisor_address: str,
+    supervisor_endpoint: Optional[str] = None,
     metrics_exporter_host: Optional[str] = None,
     metrics_exporter_port: Optional[int] = None,
     logging_conf: Optional[dict] = None,
@@ -92,6 +97,7 @@ def main(
         _start_worker(
             address,
             supervisor_address,
+            supervisor_endpoint,
             metrics_exporter_host,
             metrics_exporter_port,
             logging_conf,

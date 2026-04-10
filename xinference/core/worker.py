@@ -45,6 +45,7 @@ from async_timeout import timeout
 from packaging.version import Version
 from xoscar import MainActorPoolType
 
+from ..client.restful.restful_client import Client as RESTfulClient
 from ..constants import (
     XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU,
     XINFERENCE_CACHE_DIR,
@@ -126,6 +127,7 @@ class WorkerActor(xo.StatelessActor):
     def __init__(
         self,
         supervisor_address: str,
+        supervisor_endpoint: Optional[str],
         main_pool: MainActorPoolType,
         gpu_devices: List[int],
         metrics_exporter_host: Optional[str] = None,
@@ -135,6 +137,7 @@ class WorkerActor(xo.StatelessActor):
         # static attrs.
         self._total_gpu_devices = gpu_devices
         self._supervisor_address = supervisor_address
+        self._supervisor_endpoint = supervisor_endpoint
         self._supervisor_ref: Optional[xo.ActorRefType] = None
         self._main_pool = main_pool
         self._main_pool.recover_sub_pool = self.recover_sub_pool
@@ -147,6 +150,7 @@ class WorkerActor(xo.StatelessActor):
         self._cache_tracker_ref: xo.ActorRefType[
             CacheTrackerActor
         ] = None  # type: ignore
+        self._progress_tracker_ref: Optional[xo.ActorRefType] = None
 
         # Virtual environment management
         self._virtual_env_manager: XinferenceVirtualEnvManager = None  # type: ignore
@@ -451,50 +455,124 @@ class WorkerActor(xo.StatelessActor):
 
         if self._supervisor_ref is not None:
             return self._supervisor_ref
-        supervisor_ref = await xo.actor_ref(  # type: ignore
-            address=self._supervisor_address, uid=SupervisorActor.default_uid()
-        )
+        try:
+            supervisor_ref = await xo.actor_ref(  # type: ignore
+                address=self._supervisor_address, uid=SupervisorActor.default_uid()
+            )
+        except Exception:
+            await self._refresh_supervisor_address()
+            supervisor_ref = await xo.actor_ref(  # type: ignore
+                address=self._supervisor_address, uid=SupervisorActor.default_uid()
+            )
         # Prevent concurrent operations leads to double initialization, check again.
         if self._supervisor_ref is not None:
             return self._supervisor_ref
         self._supervisor_ref = supervisor_ref
-        if add_worker and len(self._model_uid_to_model) == 0:
-            # Newly started (or restarted), has no model, notify supervisor
-            await self._supervisor_ref.add_worker(self.address)
-            logger.info("Connected to supervisor as a fresh worker")
+        try:
+            if add_worker:
+                replica_states = self._get_running_replica_states()
+                await supervisor_ref.add_worker(
+                    self.address, replica_states=replica_states
+                )
+                if replica_states:
+                    logger.info(
+                        "Connected to supervisor and replayed %s running model replicas",
+                        len(replica_states),
+                    )
+                else:
+                    logger.info("Connected to supervisor as a fresh worker")
 
-        self._status_guard_ref = await xo.actor_ref(
-            address=self._supervisor_address, uid=StatusGuardActor.default_uid()
-        )
-        self._event_collector_ref = await xo.actor_ref(
-            address=self._supervisor_address, uid=EventCollectorActor.default_uid()
-        )
-        self._cache_tracker_ref = await xo.actor_ref(
-            address=self._supervisor_address, uid=CacheTrackerActor.default_uid()
-        )
-        self._progress_tracker_ref = None
-        # cache_tracker is on supervisor
-        from ..model.audio import get_audio_model_descriptions
-        from ..model.embedding import get_embedding_model_descriptions
-        from ..model.flexible import get_flexible_model_descriptions
-        from ..model.image import get_image_model_descriptions
-        from ..model.llm import get_llm_version_infos
-        from ..model.rerank import get_rerank_model_descriptions
-        from ..model.video import get_video_model_descriptions
+            self._status_guard_ref = await xo.actor_ref(
+                address=self._supervisor_address, uid=StatusGuardActor.default_uid()
+            )
+            self._event_collector_ref = await xo.actor_ref(
+                address=self._supervisor_address, uid=EventCollectorActor.default_uid()
+            )
+            self._cache_tracker_ref = await xo.actor_ref(
+                address=self._supervisor_address, uid=CacheTrackerActor.default_uid()
+            )
+            self._progress_tracker_ref = None
+            # cache_tracker is on supervisor
+            from ..model.audio import get_audio_model_descriptions
+            from ..model.embedding import get_embedding_model_descriptions
+            from ..model.flexible import get_flexible_model_descriptions
+            from ..model.image import get_image_model_descriptions
+            from ..model.llm import get_llm_version_infos
+            from ..model.rerank import get_rerank_model_descriptions
+            from ..model.video import get_video_model_descriptions
 
-        # record model version
-        model_version_infos: Dict[str, List[Dict]] = {}  # type: ignore
-        model_version_infos.update(get_llm_version_infos())
-        model_version_infos.update(get_embedding_model_descriptions())
-        model_version_infos.update(get_rerank_model_descriptions())
-        model_version_infos.update(get_image_model_descriptions())
-        model_version_infos.update(get_audio_model_descriptions())
-        model_version_infos.update(get_video_model_descriptions())
-        model_version_infos.update(get_flexible_model_descriptions())
-        await self._cache_tracker_ref.record_model_version(
-            model_version_infos, self.address
-        )
+            # record model version
+            model_version_infos: Dict[str, List[Dict]] = {}  # type: ignore
+            model_version_infos.update(get_llm_version_infos())
+            model_version_infos.update(get_embedding_model_descriptions())
+            model_version_infos.update(get_rerank_model_descriptions())
+            model_version_infos.update(get_image_model_descriptions())
+            model_version_infos.update(get_audio_model_descriptions())
+            model_version_infos.update(get_video_model_descriptions())
+            model_version_infos.update(get_flexible_model_descriptions())
+            await self._cache_tracker_ref.record_model_version(
+                model_version_infos, self.address
+            )
+        except Exception:
+            self._clear_supervisor_refs()
+            raise
         return self._supervisor_ref
+
+    def _clear_supervisor_refs(self):
+        self._supervisor_ref = None
+        self._status_guard_ref = None  # type: ignore
+        self._event_collector_ref = None  # type: ignore
+        self._cache_tracker_ref = None  # type: ignore
+        self._progress_tracker_ref = None
+
+    async def _refresh_supervisor_address(self):
+        if self._supervisor_endpoint is None:
+            return
+
+        refreshed_address = await asyncio.to_thread(
+            lambda: RESTfulClient(
+                base_url=self._supervisor_endpoint
+            )._get_supervisor_internal_address()
+        )
+        if refreshed_address != self._supervisor_address:
+            logger.info(
+                "Refreshed supervisor internal address from %s to %s",
+                self._supervisor_address,
+                refreshed_address,
+            )
+        self._supervisor_address = refreshed_address
+
+    def _get_running_replica_states(self) -> List[Dict[str, Any]]:
+        replica_states: List[Dict[str, Any]] = []
+        for replica_model_uid in sorted(self._model_uid_to_model_spec):
+            launch_args = self._model_uid_to_launch_args.get(replica_model_uid, {})
+            model_spec = self._model_uid_to_model_spec.get(replica_model_uid, {})
+            origin_uid, _ = parse_replica_model_uid(replica_model_uid)
+            xavier_config = launch_args.get("xavier_config")
+            if xavier_config is not None:
+                # Xavier recovery still depends on supervisor-owned coordination state,
+                # so only replay replicas that the supervisor can reconstruct safely.
+                continue
+            created_ts = int(launch_args.get("launch_ts") or time.time())
+            replica_states.append(
+                {
+                    "replica_model_uid": replica_model_uid,
+                    "n_worker": launch_args.get("n_worker", 1),
+                    "shard": launch_args.get("shard", 0),
+                    "model_uid": origin_uid,
+                    "model_name": model_spec.get(
+                        "model_name", launch_args.get("model_name", origin_uid)
+                    ),
+                    "model_version": model_spec.get(
+                        "model_version", launch_args.get("model_version")
+                    ),
+                    "model_ability": model_spec.get("model_ability", []),
+                    "status": LaunchStatus.READY.name,
+                    "created_ts": created_ts,
+                    "instance_created_ts": created_ts,
+                }
+            )
+        return replica_states
 
     @staticmethod
     def get_devices_count():
@@ -728,7 +806,10 @@ class WorkerActor(xo.StatelessActor):
             )
 
         # Construct the URL to download JSON
-        url = f"https://model.xinference.io/api/models/download?model_type={model_type.lower()}"
+        url = (
+            "https://model.xinference.io/api/models/download"
+            f"?model_type={model_type.lower()}"
+        )
 
         try:
             # Download JSON from remote API
@@ -1416,6 +1497,52 @@ class WorkerActor(xo.StatelessActor):
         packages = merge_virtual_env_packages(base_packages, virtual_env_packages)
         packages = expand_engine_dependency_placeholders(packages, model_engine)
 
+        # Auto-configure PyTorch wheel URL based on system packages
+        # Check if packages contain PyTorch system markers (#system_torch#, etc.)
+        # If so, detect CUDA version from system and configure wheel URL
+        # Note: markers are kept as-is and resolved later by xoscar's process_packages
+        from .virtual_env_manager import PYTORCH_CUDA_WHEEL_URLS, PYTORCH_PACKAGES
+
+        system_cuda_urls = None
+        for pkg in packages:
+            if pkg.startswith("#system_") and pkg.endswith("#"):
+                # Extract package name from marker
+                marker_pkg = pkg[len("#system_") : -1].lower()
+                if marker_pkg in PYTORCH_PACKAGES:
+                    try:
+                        import importlib.metadata
+
+                        version = importlib.metadata.version(marker_pkg)
+                        # Extract CUDA version from version string (e.g., "2.5.0+cu121" -> "cu121")
+                        if "+" in version:
+                            _, suffix = version.split("+", 1)
+                            if suffix.startswith("cu") or suffix.startswith("rocm"):
+                                wheel_url = PYTORCH_CUDA_WHEEL_URLS.get(suffix)
+                                if wheel_url:
+                                    system_cuda_urls = [wheel_url]
+                                    logger.info(
+                                        f"Auto-configuring PyTorch wheel URL for CUDA {suffix}: {wheel_url}"
+                                    )
+                                    break
+                    except importlib.metadata.PackageNotFoundError:
+                        # Package not installed, skip - will be resolved during install
+                        pass
+
+        # Add PyTorch wheel URL if detected from system packages
+        if system_cuda_urls:
+            if settings.extra_index_url is None:
+                settings.extra_index_url = system_cuda_urls
+            else:
+                # Merge with existing extra_index_url, system URLs first for priority
+                existing_urls = (
+                    settings.extra_index_url
+                    if isinstance(settings.extra_index_url, list)
+                    else [settings.extra_index_url]
+                )
+                settings.extra_index_url = system_cuda_urls + [
+                    u for u in existing_urls if u not in system_cuda_urls
+                ]
+
         try:
             from xoscar.virtualenv.platform import get_cuda_version
 
@@ -1519,6 +1646,7 @@ class WorkerActor(xo.StatelessActor):
         launch_args.pop("self")
         launch_args.pop("kwargs")
         launch_args.update(kwargs)
+        launch_args["launch_ts"] = int(time.time())
 
         try:
             origin_uid, _ = parse_replica_model_uid(model_uid)
@@ -1990,8 +2118,17 @@ class WorkerActor(xo.StatelessActor):
             raise
         except Exception:
             logger.exception("Report status got error.")
-        supervisor_ref = await self.get_supervisor_ref()
-        await supervisor_ref.report_worker_status(self.address, status)
+        try:
+            supervisor_ref = await self.get_supervisor_ref()
+            await supervisor_ref.report_worker_status(self.address, status)
+        except Exception:
+            logger.warning(
+                "Failed to report worker status, clearing cached supervisor references",
+                exc_info=True,
+            )
+            self._clear_supervisor_refs()
+            supervisor_ref = await self.get_supervisor_ref(add_worker=True)
+            await supervisor_ref.report_worker_status(self.address, status)
 
     async def _periodical_report_status(self):
         while True:
