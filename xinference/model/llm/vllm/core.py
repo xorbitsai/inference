@@ -1184,6 +1184,30 @@ class VLLMModel(LLM):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
+        # When enable_thinking is True, don't skip special tokens
+        # Check chat_template_kwargs or reasoning_parser for enable_thinking
+        enable_thinking = False
+        if generate_config:
+            chat_template_kwargs = generate_config.get("chat_template_kwargs")
+            if chat_template_kwargs:
+                if isinstance(chat_template_kwargs, dict):
+                    enable_thinking = chat_template_kwargs.get("enable_thinking", False)
+                elif isinstance(chat_template_kwargs, str):
+                    try:
+                        kwargs_dict = json.loads(chat_template_kwargs)
+                        enable_thinking = kwargs_dict.get("enable_thinking", False)
+                    except json.JSONDecodeError:
+                        pass
+            elif not enable_thinking and self.reasoning_parser:
+                enable_thinking = self.reasoning_parser.enable_thinking
+
+        if (
+            enable_thinking
+            and generate_config
+            and generate_config.get("skip_special_tokens") is None
+        ):
+            generate_config["skip_special_tokens"] = False
+
         sanitized_generate_config = self._sanitize_generate_config(generate_config)
         logger.debug(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
