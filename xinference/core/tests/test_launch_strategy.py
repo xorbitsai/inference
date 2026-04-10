@@ -246,6 +246,7 @@ async def test_distributed_launch_avoids_same_worker_for_shards():
     from xinference.core.supervisor import SupervisorActor
 
     class DummySupervisor:
+        _build_replica_info = staticmethod(SupervisorActor._build_replica_info)
         _choose_worker = SupervisorActor._choose_worker
         _launch_builtin_sharded_model = SupervisorActor._launch_builtin_sharded_model
 
