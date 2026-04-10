@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import logging
 import os
 import time
@@ -211,6 +212,18 @@ def handle_click_args_type(arg: str) -> Any:
         return result
     except Exception:
         pass
+
+    # Try to parse JSON objects and arrays.
+    # This allows CLI users to pass structured parameters like:
+    #   --compilation_config '{"mode": 3, "cudagraph_capture_sizes": [1, 2, 4, 8]}'
+    #   --kv_transfer_config '{"kv_connector":"FlexKVConnectorV1","kv_role":"kv_both"}'
+    # See: https://github.com/xorbitsai/inference/issues/4760
+    if arg.startswith(("{", "[")):
+        try:
+            result = json.loads(arg)
+            return result
+        except (json.JSONDecodeError, ValueError):
+            pass
 
     return arg
 
