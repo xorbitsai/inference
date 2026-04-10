@@ -64,7 +64,7 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
 
 ENGINE_VIRTUALENV_EXTRA_INDEX_URLS: Dict[str, List[str]] = {
     "vllm": [
-        "https://wheels.vllm.ai/0.14.1/cu130",
+        "https://wheels.vllm.ai/0.19.0/cu130",
         "https://download.pytorch.org/whl/cu130",
     ],
     "sglang": [
