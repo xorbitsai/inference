@@ -1976,6 +1976,19 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             ):
                 full_context_kwargs["tools"] = tools
             assert self.model_family.chat_template is not None
+
+            # Handle empty chat_template by falling back to tokenizer's chat_template
+            chat_template = self.model_family.chat_template
+            tokenizer = None
+            if not chat_template:
+                tokenizer = await self._get_tokenizer(None)
+                if tokenizer is not None:
+                    chat_template = getattr(tokenizer, "chat_template", None)
+            if not chat_template:
+                raise ValueError(
+                    f"chat_template is required for model {self.model_uid}, but none was provided."
+                )
+
             if "omni" in self.model_family.model_ability:
                 audios, images, videos, video_kwargs = process_mm_info(
                     messages, use_audio_in_video=True, return_video_kwargs=True
@@ -1988,7 +2001,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 )
 
             prompt = self.get_full_context(
-                messages, self.model_family.chat_template, **full_context_kwargs
+                messages, chat_template, tokenizer=tokenizer, **full_context_kwargs
             )
 
         else:

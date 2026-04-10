@@ -716,7 +716,10 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         generate_config: Optional[Dict] = None,
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
-        assert self.model_family.chat_template is not None
+        # Handle empty chat_template by using empty string (sglang server will use model's default)
+        chat_template: str = (
+            self.model_family.chat_template if self.model_family.chat_template else ""
+        )
         # fix: Object of type list_iterator is not JSON serializable
         tools = list(generate_config.pop("tools", [])) if generate_config else None
         model_family = self.model_family.model_family or self.model_family.model_name
@@ -736,7 +739,7 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
             ):
                 full_context_kwargs["tools"] = tools
         full_prompt = self.get_full_context(
-            messages, self.model_family.chat_template, **full_context_kwargs
+            messages, chat_template, **full_context_kwargs
         )
         generate_config = self._sanitize_chat_config(generate_config)
         stream = generate_config.get("stream", None)
@@ -822,9 +825,17 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
         messages = self._transform_messages(messages)
 
         tools = list(generate_config.pop("tools", [])) if generate_config else None
-        chat_template: str = (
-            self.model_family.chat_template if self.model_family.chat_template else ""
-        )
+        # Handle empty chat_template by falling back to tokenizer's chat_template
+        chat_template = self.model_family.chat_template
+        tokenizer = None
+        if not chat_template:
+            tokenizer = self._tokenizer
+            if tokenizer is not None:
+                chat_template = getattr(tokenizer, "chat_template", None)
+        if not chat_template:
+            raise ValueError(
+                f"chat_template is required for model {self.model_uid}, but none was provided."
+            )
         chat_template_kwargs = (
             self._get_chat_template_kwargs_from_generate_config(
                 generate_config, self.reasoning_parser
@@ -833,7 +844,9 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
         )
         chat_context_var.set(chat_template_kwargs)
         full_context_kwargs = chat_template_kwargs.copy()
-        prompt = self.get_full_context(messages, chat_template, **full_context_kwargs)
+        prompt = self.get_full_context(
+            messages, chat_template, tokenizer=tokenizer, **full_context_kwargs
+        )
 
         images, video_inputs = process_vision_info(messages)
         if video_inputs:
