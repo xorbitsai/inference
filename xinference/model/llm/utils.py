@@ -110,10 +110,16 @@ QWEN_TOOL_CALL_SYMBOLS = ["<tool_call>", "</tool_call>"]
 
 class ChatModelMixin:
     def __init__(self):
-        self.model_family = None
-        self.model_uid = None
-        self.reasoning_parser = None
-        self.tool_parser = None
+        # Only set attributes if they don't already exist
+        # to avoid overriding values set by parent classes
+        if not hasattr(self, "model_family"):
+            self.model_family = None
+        if not hasattr(self, "model_uid"):
+            self.model_uid = None
+        if not hasattr(self, "reasoning_parser"):
+            self.reasoning_parser = None
+        if not hasattr(self, "tool_parser"):
+            self.tool_parser = None
 
     @staticmethod
     @functools.lru_cache

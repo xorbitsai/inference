@@ -74,6 +74,7 @@ class MLXBatchModel:
     _max_context_length = 2048
     _stop_tokens: set = set()
     _lock: Optional[asyncio.Lock] = None  # Will be initialized lazily
+    _mlx_lm_version: Optional[str] = None  # Cache mlx-lm version
 
     def __init__(
         self, model, tokenizer, batch_size: int = 4, max_context_length: int = 2048
@@ -94,6 +95,36 @@ class MLXBatchModel:
         if MLXBatchModel._lock is None:
             MLXBatchModel._lock = asyncio.Lock()
         return MLXBatchModel._lock
+
+    @staticmethod
+    def _get_mlx_lm_version() -> str:
+        """Get mlx-lm version and cache it."""
+        if MLXBatchModel._mlx_lm_version is None:
+            try:
+                import mlx_lm
+
+                MLXBatchModel._mlx_lm_version = mlx_lm.__version__
+            except (ImportError, AttributeError):
+                MLXBatchModel._mlx_lm_version = "0.0.0"
+        return MLXBatchModel._mlx_lm_version
+
+    @staticmethod
+    def _is_new_mlx_lm() -> bool:
+        """Check if mlx-lm version is >= 0.31.2 (new API)."""
+        version = MLXBatchModel._get_mlx_lm_version()
+        try:
+            from packaging import version as pkg_version
+
+            return pkg_version.parse(version) >= pkg_version.parse("0.31.2")
+        except Exception:
+            # Fallback: check if new API exists
+            try:
+                from mlx_lm.generate import BatchGenerator
+
+                # Check if next_generated method exists (new API)
+                return hasattr(BatchGenerator, "next_generated")
+            except ImportError:
+                return False
 
     def _get_or_create_generator(self, temperature: float, top_p: float):
         """Get or create a BatchGenerator for the given sampling parameters."""
@@ -144,7 +175,13 @@ class MLXBatchModel:
         while True:
             try:
                 # Get next batch of results for ALL active requests
-                batch_results = batch_generator.next()
+                # Use different API based on mlx-lm version
+                if MLXBatchModel._is_new_mlx_lm():
+                    # New API (mlx-lm >= 0.31.2): use next_generated()
+                    batch_results = batch_generator.next_generated()
+                else:
+                    # Old API (mlx-lm < 0.31.2): use next() and unpack
+                    batch_results = batch_generator.next()
 
                 if not batch_results:
                     # No active requests, sleep briefly
@@ -211,7 +248,15 @@ class MLXBatchModel:
         queue: asyncio.Queue = asyncio.Queue()
 
         # Insert prompt into batch to get the real uid
-        request_ids = batch_generator.insert([prompt_tokens], max_tokens=max_tokens)
+        # Use different API based on mlx-lm version
+        if MLXBatchModel._is_new_mlx_lm():
+            # New API (mlx-lm >= 0.31.2): max_tokens should be a list
+            request_ids = batch_generator.insert(
+                [prompt_tokens], max_tokens=[max_tokens]
+            )
+        else:
+            # Old API (mlx-lm < 0.31.2): max_tokens is a single value
+            request_ids = batch_generator.insert([prompt_tokens], max_tokens=max_tokens)
         inserted_uid = request_ids[0]
 
         logger.debug(
@@ -407,7 +452,7 @@ def get_context_length(config: dict) -> int:
     return max(max_sequence_length, seq_length, max_position_embeddings)
 
 
-class MLXModel(LLM):
+class MLXModel(LLM, ChatModelMixin):
     _rank_to_addresses: Optional[Dict[int, str]]
     allow_batch: bool = False
 
@@ -419,7 +464,8 @@ class MLXModel(LLM):
         model_config: Optional[MLXModelConfig] = None,
         peft_model: Optional[List[LoRA]] = None,
     ):
-        super().__init__(model_uid, model_family, model_path)
+        LLM.__init__(self, model_uid, model_family, model_path)
+        ChatModelMixin.__init__(self)
         self._use_fast_tokenizer = True
         self._model_config: MLXModelConfig = self._sanitize_model_config(model_config)
         self._context_length: Optional[int] = None

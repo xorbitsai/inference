@@ -76,7 +76,10 @@ class _ModelWrapper(nn.Module):
     def input_ids(self, value):
         self._local_data.input_ids = value
 
-    def forward(self, **kwargs):
+    def forward(self, features=None, **kwargs):
+        # Handle both features as positional arg and kwargs for compatibility
+        if features is not None:
+            kwargs.update(features)
         attention_mask = kwargs.get("attention_mask")
         # when batching, the attention mask 1 means there is a token
         # thus we just sum up it to get the total number of tokens
