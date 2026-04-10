@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import ast
 import base64
 import functools
 import json
@@ -700,9 +701,20 @@ class ChatModelMixin:
     def _eval_llama3_chat_arguments(cls, c) -> List[Tuple]:
         text = c["choices"][0]["text"]
         try:
-            data = eval(text, {}, {})
+            # Try JSON first (most common LLM output format)
+            data = json.loads(text)
+        except (json.JSONDecodeError, TypeError):
+            try:
+                # Fall back to ast.literal_eval for Python literal formats
+                # (e.g., True/False/None instead of true/false/null).
+                # Unlike eval(), ast.literal_eval() only allows literal
+                # structures and cannot execute arbitrary code.
+                data = ast.literal_eval(text)
+            except (ValueError, SyntaxError):
+                return [(text, None, None)]
+        try:
             return [(None, data["name"], data["parameters"])]
-        except Exception:
+        except (KeyError, TypeError):
             return [(text, None, None)]
 
     @classmethod
