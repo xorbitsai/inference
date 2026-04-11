@@ -589,7 +589,7 @@
     "multilingual": true,
     "virtualenv": {
       "packages": [
-        "ChatTTS>=0.2.1",
+        "ChatTTS>=0.2.1,<0.2.5",
         "#system_torch#",
         "#system_numpy#"
       ]
@@ -604,7 +604,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387076,
+    "updated_at": 1775883538,
     "featured": true
   },
   {
