@@ -8016,7 +8016,7 @@
       "<end_of_turn>",
       "<start_of_turn>"
     ],
-    "updated_at": 1775928915,
+    "updated_at": 1775932181,
     "featured": false,
     "architectures": [
       "Gemma3ForConditionalGeneration"
