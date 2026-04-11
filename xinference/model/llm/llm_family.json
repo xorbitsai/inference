@@ -8016,12 +8016,11 @@
       "<end_of_turn>",
       "<start_of_turn>"
     ],
-    "updated_at": 1769418525,
-    "featured": true,
+    "updated_at": 1775928915,
+    "featured": false,
     "architectures": [
       "Gemma3ForConditionalGeneration"
     ],
-    "model_type": "gemma3",
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
