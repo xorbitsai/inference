@@ -1019,15 +1019,14 @@
     "multilingual": false,
     "model_src": {
       "huggingface": {
-        "model_id": "hexgrad/Kokoro-82M-v1.1-zh",
-        "model_revision": "01e7505bd6a7a2ac4975463114c3a7650a9f7218"
+        "model_id": "hexgrad/Kokoro-82M-v1.1-zh"
       },
       "modelscope": {
         "model_id": "AI-ModelScope/Kokoro-82M-v1.1-zh",
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387106,
+    "updated_at": 1775931819,
     "featured": false
   },
   {
