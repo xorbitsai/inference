@@ -247,6 +247,7 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
 
             conversation = _format_input_to_conversation(input_dict, instruction)
 
+            assert self._model is not None
             prompt_text = self._model.llm_engine.tokenizer.apply_chat_template(
                 conversation, tokenize=False, add_generation_prompt=True
             )
