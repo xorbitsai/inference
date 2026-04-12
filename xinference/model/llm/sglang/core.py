@@ -19,7 +19,7 @@ import sys
 import threading
 import time
 import uuid
-from typing import AsyncGenerator, Dict, List, Optional, Tuple, TypedDict, Union
+from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple, TypedDict, Union
 
 from xoscar.utils import get_next_port
 
@@ -333,6 +333,11 @@ class SGLANGModel(LLM):
                 generate_config.setdefault("json_schema", json.dumps(json_schema))  # type: ignore
 
         return generate_config
+
+    def _get_tokenizer(self, lora_request: Any = None) -> Any:
+        if self._engine is None:
+            return None
+        return self._engine.get_tokenizer()
 
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
@@ -829,7 +834,7 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
         chat_template = self.model_family.chat_template
         tokenizer = None
         if not chat_template:
-            tokenizer = self._tokenizer
+            tokenizer = self._get_tokenizer(None)
             if tokenizer is not None:
                 chat_template = getattr(tokenizer, "chat_template", None)
         if not chat_template:

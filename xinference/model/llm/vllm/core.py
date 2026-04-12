@@ -2002,7 +2002,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             assert self.model_family.chat_template is not None
 
             # Handle empty chat_template by falling back to tokenizer's chat_template
-            chat_template = self.model_family.chat_template
+            chat_template: Optional[str] = self.model_family.chat_template
             tokenizer = None
             if not chat_template:
                 tokenizer = await self._get_tokenizer(None)
