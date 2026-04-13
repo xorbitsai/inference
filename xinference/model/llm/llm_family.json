@@ -27870,7 +27870,7 @@
   },
   {
     "model_name": "qwen3.5",
-    "model_description": "Over recent months, we have intensified our focus on developing foundation models that deliver exceptional utility and performance. Qwen3.5 represents a significant leap forward, integrating breakthroughs in multimodal learning, architectural efficiency, reinforcement learning scale, and global accessibility to empower developers and enterprises with unprecedented capability and efficiency",
+    "model_description": "Over recent months, we have intensified our focus on developing foundation models that deliver exceptional utility and performance. Qwen3.5 represents a significant leap forward, integrating breakthroughs in multimodal learning, architectural efficiency, reinforcement learning scale, and global accessibility to empower developers and enterprises with unprecedented capability and efficiency.",
     "context_length": 262144,
     "model_lang": [
       "en",
@@ -29729,7 +29729,8 @@
         "sglang_dependencies ; #engine# == \"sglang\"",
         "transformers>=5.2.0 ; #engine# == \"Transformers\"",
         "qwen_omni_utils ; #engine# == \"vllm\"",
-        "vllm>=0.17.0 ; #engine# == \"vllm\""
+        "vllm>=0.17.0 ; #engine# == \"vllm\"",
+        "transformers==4.57.6 ; #engine# == \"vllm\""
       ]
     },
     "architectures": [
@@ -29748,7 +29749,7 @@
     ],
     "tool_parser": "qwen",
     "featured": true,
-    "updated_at": 1775043000
+    "updated_at": 1776075134
   },
   {
     "model_name": "gemma-4",
