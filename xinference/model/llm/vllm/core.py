@@ -60,6 +60,7 @@ from ..core import chat_context_var
 from ..llm_family import cache_model_tokenizer_and_config
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
+    GEMMA_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_SYMBOLS,
     ChatModelMixin,
@@ -316,6 +317,11 @@ def _update_vllm_supported_lists() -> None:
     if effective_version > version.parse("0.16.0"):
         _append_unique(
             VLLM_SUPPORTED_MULTI_MODEL_LIST, "Qwen3_5MoeForConditionalGeneration"
+        )
+
+    if effective_version >= version.parse("0.19.0"):
+        _append_unique(
+            VLLM_SUPPORTED_MULTI_MODEL_LIST, "Gemma4ForConditionalGeneration"
         )
 
 
@@ -1178,6 +1184,30 @@ class VLLMModel(LLM):
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
 
+        # When enable_thinking is True, don't skip special tokens
+        # Check chat_template_kwargs or reasoning_parser for enable_thinking
+        enable_thinking = False
+        if generate_config:
+            chat_template_kwargs = generate_config.get("chat_template_kwargs")
+            if chat_template_kwargs:
+                if isinstance(chat_template_kwargs, dict):
+                    enable_thinking = chat_template_kwargs.get("enable_thinking", False)
+                elif isinstance(chat_template_kwargs, str):
+                    try:
+                        kwargs_dict = json.loads(chat_template_kwargs)
+                        enable_thinking = kwargs_dict.get("enable_thinking", False)
+                    except json.JSONDecodeError:
+                        pass
+            elif not enable_thinking and self.reasoning_parser:
+                enable_thinking = self.reasoning_parser.enable_thinking
+
+        if (
+            enable_thinking
+            and generate_config
+            and generate_config.get("skip_special_tokens") is None
+        ):
+            generate_config["skip_special_tokens"] = False
+
         sanitized_generate_config = self._sanitize_generate_config(generate_config)
         logger.debug(
             "Enter generate, prompt: %s, generate config: %s", prompt, generate_config
@@ -1670,6 +1700,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         if tools:
             if (
                 model_family in QWEN_TOOL_CALL_FAMILY
+                or model_family in GEMMA_TOOL_CALL_FAMILY
                 or model_family in DEEPSEEK_TOOL_CALL_FAMILY
             ):
                 full_context_kwargs["tools"] = tools
@@ -1963,9 +1994,25 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             )
             chat_context_var.set(chat_template_kwargs)
             full_context_kwargs = chat_template_kwargs.copy()
-            if tools and model_family in QWEN_TOOL_CALL_FAMILY:
+            if tools and (
+                model_family in QWEN_TOOL_CALL_FAMILY
+                or model_family in GEMMA_TOOL_CALL_FAMILY
+            ):
                 full_context_kwargs["tools"] = tools
             assert self.model_family.chat_template is not None
+
+            # Handle empty chat_template by falling back to tokenizer's chat_template
+            chat_template: Optional[str] = self.model_family.chat_template
+            tokenizer = None
+            if not chat_template:
+                tokenizer = await self._get_tokenizer(None)
+                if tokenizer is not None:
+                    chat_template = getattr(tokenizer, "chat_template", None)
+            if not chat_template:
+                raise ValueError(
+                    f"chat_template is required for model {self.model_uid}, but none was provided."
+                )
+
             if "omni" in self.model_family.model_ability:
                 audios, images, videos, video_kwargs = process_mm_info(
                     messages, use_audio_in_video=True, return_video_kwargs=True
@@ -1978,7 +2025,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 )
 
             prompt = self.get_full_context(
-                messages, self.model_family.chat_template, **full_context_kwargs
+                messages, chat_template, tokenizer=tokenizer, **full_context_kwargs
             )
 
         else:

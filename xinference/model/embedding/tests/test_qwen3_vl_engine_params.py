@@ -34,6 +34,9 @@ from xinference.model.utils import (
 
 def _assert_engine_params(params, engine_name):
     assert engine_name in params
+    # Skip assertion if engine is unavailable (returns error message string)
+    if isinstance(params[engine_name], str):
+        return
     assert isinstance(params[engine_name], list)
     assert params[engine_name], f"{engine_name} params should not be empty"
     item = params[engine_name][0]

@@ -194,39 +194,93 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
         else:
             raise ValueError("Unsupported input type for Qwen3-VL embedding.")
 
-        image_placeholder = "<|vision_start|><|image_pad|><|vision_end|>"
         vllm_inputs: List[Dict[str, Any]] = []
 
-        def _load_image(val: Any) -> Any:
-            if isinstance(val, Image.Image):
-                return val.convert("RGB")
-            if isinstance(val, str):
-                if re.match(r"^data:image/.+;base64,", val):
-                    base64_data = val.split(",", 1)[1]
-                    data = base64.b64decode(base64_data)
-                    return Image.open(BytesIO(data)).convert("RGB")
-                if val.startswith(("http://", "https://", "oss://")):
-                    return fetch_image(val)
-                if os.path.exists(val):
-                    return Image.open(val).convert("RGB")
-            return val
+        def _format_input_to_conversation(
+            input_dict: Dict[str, Any], instruction: str = "Represent the user's input."
+        ) -> List[Dict]:
+            content = []
 
-        for item in normalized:
-            text = item.get("text") if isinstance(item, dict) else None
-            image = item.get("image") if isinstance(item, dict) else None
-            if image is not None:
-                image_obj = _load_image(image)
-                if text:
-                    prompt = f"{image_placeholder}\n{text}"
+            text = input_dict.get("text")
+            image = input_dict.get("image")
+
+            if image:
+                image_content = None
+                if isinstance(image, str):
+                    if re.match(r"^data:image/.+;base64,", image):
+                        image_content = image
+                    elif image.startswith(("http", "https", "oss")):
+                        image_content = image
+                    else:
+                        abs_image_path = os.path.abspath(image)
+                        image_content = "file://" + abs_image_path
                 else:
-                    prompt = image_placeholder
-                vllm_inputs.append(
-                    {"prompt": prompt, "multi_modal_data": {"image": image_obj}}
-                )
-            else:
-                vllm_inputs.append({"prompt": text or ""})
+                    image_content = image
+
+                if image_content:
+                    content.append(
+                        {
+                            "type": "image",
+                            "image": image_content,
+                        }
+                    )
+
+            if text:
+                content.append({"type": "text", "text": text})
+
+            if not content:
+                content.append({"type": "text", "text": ""})
+
+            conversation = [
+                {"role": "system", "content": [{"type": "text", "text": instruction}]},
+                {"role": "user", "content": content},
+            ]
+
+            return conversation
+
+        def _prepare_vllm_inputs(
+            input_dict: Dict[str, Any],
+            llm,
+            instruction: str = "Represent the user's input.",
+        ) -> Dict[str, Any]:
+            image = input_dict.get("image")
+
+            conversation = _format_input_to_conversation(input_dict, instruction)
+
+            assert self._model is not None
+            prompt_text = self._model.llm_engine.tokenizer.apply_chat_template(
+                conversation, tokenize=False, add_generation_prompt=True
+            )
+
+            multi_modal_data = None
+            if image:
+                if isinstance(image, str):
+                    if re.match(r"^data:image/.+;base64,", image):
+                        base64_data = image.split(",", 1)[1]
+                        data = base64.b64decode(base64_data)
+                        image_obj = Image.open(BytesIO(data)).convert("RGB")
+                        multi_modal_data = {"image": image_obj}
+                    elif image.startswith(("http", "https", "oss")):
+                        try:
+                            image_obj = fetch_image(image)
+                            multi_modal_data = {"image": image_obj}
+                        except Exception as e:
+                            print(f"Warning: Failed to fetch image {image}: {e}")
+                    else:
+                        abs_image_path = os.path.abspath(image)
+                        if os.path.exists(abs_image_path):
+                            image_obj = Image.open(abs_image_path)
+                            multi_modal_data = {"image": image_obj}
+                        else:
+                            print(f"Warning: Image file not found: {abs_image_path}")
+                else:
+                    multi_modal_data = {"image": image}
+
+            result = {"prompt": prompt_text, "multi_modal_data": multi_modal_data}
+            return result
 
         assert self._model is not None
+        vllm_inputs = [_prepare_vllm_inputs(item, self._model) for item in normalized]
         return self._model.embed(vllm_inputs)
 
     @classmethod
