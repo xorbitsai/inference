@@ -18,7 +18,6 @@ import threading
 import time
 
 import pytest
-import requests
 
 from ...client.restful.restful_client import Client as RESTfulClient
 from ...model.scheduler.core import AbortRequestMessage
@@ -117,22 +116,17 @@ class AbortThread(BaseThread):
 )
 def test_continuous_batching(setup):
     endpoint, _ = setup
-    url = f"{endpoint}/v1/models"
     client = RESTfulClient(endpoint)
 
-    # launch
-    payload = {
-        "model_engine": "transformers",
-        "model_type": "LLM",
-        "model_name": "qwen2.5-instruct",
-        "quantization": "none",
-        "model_format": "pytorch",
-        "model_size_in_billions": "0_5",
-    }
-
-    response = requests.post(url, json=payload)
-    response_data = response.json()
-    model_uid_res = response_data["model_uid"]
+    # launch model using client
+    model_uid_res = client.launch_model(
+        model_engine="transformers",
+        model_type="LLM",
+        model_name="qwen2.5-instruct",
+        quantization="none",
+        model_format="pytorch",
+        model_size_in_billions="0_5",
+    )
     assert model_uid_res == "qwen2.5-instruct"
 
     model = client.get_model(model_uid_res)

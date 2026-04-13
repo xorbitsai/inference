@@ -1,3 +1,4 @@
+import logging
 import re
 from typing import Any, AsyncGenerator, Dict, Iterator, List, Optional, Tuple, Union
 
@@ -7,6 +8,8 @@ from ...types import (
     CompletionChoice,
     CompletionChunk,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class ReasoningParser:
@@ -18,6 +21,7 @@ class ReasoningParser:
         reasoning_start_tag: str = "",
         reasoning_end_tag: str = "",
         enable_thinking: bool = True,
+        auto_insert_start_tag: bool = True,
     ):
         self.reasoning_content = reasoning_content
         self.reasoning_start_tag = reasoning_start_tag
@@ -28,6 +32,7 @@ class ReasoningParser:
         # enable_thinking can be set to False only for hybrid model
         # e.g. qwen3, which can support both thinking and non-thinking
         self.enable_thinking = enable_thinking
+        self.auto_insert_start_tag = auto_insert_start_tag
 
     def extract_reasoning_content_streaming(
         self,
@@ -60,20 +65,20 @@ class ReasoningParser:
                     delta["content"] = content
                 else:
                     delta["content"] = None
-                return delta
+                return self._log_streaming_result(previous_text, delta_text, delta)
             elif self.reasoning_end_tag in previous_text:
                 # <think> in previous, </think> in previous,
                 # <think> in previous, </think> in previous,
                 # reasoning content ends
                 delta["reasoning_content"] = None
                 delta["content"] = delta_text
-                return delta
+                return self._log_streaming_result(previous_text, delta_text, delta)
             else:
                 # <think> in previous, no </think> in previous or delta,
                 # reasoning content continues
                 delta["reasoning_content"] = delta_text
                 delta["content"] = None
-                return delta
+                return self._log_streaming_result(previous_text, delta_text, delta)
         elif self.reasoning_start_tag in delta_text:
             start_idx = delta_text.find(self.reasoning_start_tag)
             if self.reasoning_end_tag in delta_text:
@@ -88,7 +93,7 @@ class ReasoningParser:
                     delta["content"] = content
                 else:
                     delta["content"] = None
-                return delta
+                return self._log_streaming_result(previous_text, delta_text, delta)
             else:
                 # <think> in delta, no </think> in delta,
                 # reasoning content continues
@@ -97,11 +102,15 @@ class ReasoningParser:
                 ]
                 delta["reasoning_content"] = reasoning_content
                 delta["content"] = None
-                return delta
+                return self._log_streaming_result(previous_text, delta_text, delta)
         else:
             # No <think> in previous or delta, also need to check for </think>.
             # Because the model may have generated </think> without <think>
             # Ref https://huggingface.co/deepseek-ai/DeepSeek-R1/commit/8a58a132790c9935686eb97f042afa8013451c9f
+            if not self.auto_insert_start_tag:
+                delta["reasoning_content"] = None
+                delta["content"] = delta_text
+                return self._log_streaming_result(previous_text, delta_text, delta)
             if self.reasoning_end_tag in delta_text:
                 # </think> in delta with more tokens,
                 # extract reasoning content and content
@@ -113,17 +122,22 @@ class ReasoningParser:
                     delta["content"] = content
                 else:
                     delta["content"] = None
-                return delta
+                return self._log_streaming_result(previous_text, delta_text, delta)
             elif self.reasoning_end_tag in previous_text:
                 # </think> in previous, thinking content ends
                 delta["reasoning_content"] = None
                 delta["content"] = delta_text
-                return delta
+                return self._log_streaming_result(previous_text, delta_text, delta)
             else:
                 # no </think> in previous or delta, reasoning content continues
                 delta["reasoning_content"] = delta_text
                 delta["content"] = None
-                return delta
+                return self._log_streaming_result(previous_text, delta_text, delta)
+
+    def _log_streaming_result(
+        self, previous_text: str, delta_text: str, delta: ChatCompletionChunkDelta
+    ) -> ChatCompletionChunkDelta:
+        return delta
 
     def extract_reasoning_content(
         self, model_output: Union[str, CompletionChoice]
@@ -142,6 +156,11 @@ class ReasoningParser:
         # Thus we assume the reasoning content is always at the start.
         # Ref https://huggingface.co/deepseek-ai/DeepSeek-R1/commit/8a58a132790c9935686eb97f042afa8013451c9f
         if self.reasoning_end_tag not in model_output:
+            logger.debug(
+                "[ReasoningParser] non-stream parse: reasoning=%r content=%r",
+                model_output,
+                "",
+            )
             return model_output, ""
         else:
             # Add a start token if it's missing to keep compatibility.
@@ -156,7 +175,17 @@ class ReasoningParser:
             final_output = model_output[end_index:]
 
             if len(final_output) == 0:
+                logger.debug(
+                    "[ReasoningParser] non-stream parse: reasoning=%r content=%r",
+                    reasoning_content,
+                    "",
+                )
                 return reasoning_content, ""
+            logger.debug(
+                "[ReasoningParser] non-stream parse: reasoning=%r content=%r",
+                reasoning_content,
+                final_output,
+            )
             return reasoning_content, final_output
 
     def check_content_parser(self) -> bool:
@@ -245,7 +274,11 @@ class ReasoningParser:
 
         # If reasoning_start_tag is not set, or disable thinking for hybrid model like qwen3,
         # yield chunks as is
-        if not self.reasoning_start_tag or not self.is_enable_thinking():
+        if (
+            not self.reasoning_start_tag
+            or not self.is_enable_thinking()
+            or not self.auto_insert_start_tag
+        ):
             async for chunk in chunks:
                 yield chunk
             return
@@ -254,13 +287,9 @@ class ReasoningParser:
         if not chunks:
             return
 
-        # Flag to identify the first chunk
         is_first_chunk = True
-
         async for chunk in chunks:
             if is_first_chunk:
-                # Reset the flag after processing the first chunk
-                is_first_chunk = False
                 choices = chunk.get("choices")
                 if not choices or not choices[0]:
                     continue
@@ -275,9 +304,16 @@ class ReasoningParser:
                     assert isinstance(delta, dict)
                     text = delta.get("content")
                     if not text:
+                        logger.debug(
+                            "[ReasoningParser] first delta chunk missing content, waiting for next chunk"
+                        )
                         continue
                     # If the first chunk doesn't contain the reasoning_start_tag
                     if self.reasoning_start_tag not in text:
+                        logger.debug(
+                            "[ReasoningParser] inserting start tag chunk, first delta content: %r",
+                            text,
+                        )
                         # Create and yield chunks with reasoning_start_tag and newline
                         yield self._create_chat_completion_chunk(
                             chunk, f"{self.reasoning_start_tag}\n"
@@ -286,14 +322,21 @@ class ReasoningParser:
                     # For standard completion chunks
                     text = choices[0].get("text")
                     if not text:
+                        logger.debug(
+                            "[ReasoningParser] first chunk text is empty, waiting for next chunk"
+                        )
                         continue
                     # If the first chunk doesn't contain the reasoning_start_tag
                     if self.reasoning_start_tag not in text:
+                        logger.debug(
+                            "[ReasoningParser] inserting start tag chunk, first text content: %r",
+                            text,
+                        )
                         # Create and yield chunks with reasoning_start_tag and newline
                         yield self._create_completion_chunk(
                             chunk, f"{self.reasoning_start_tag}\n"
                         )
-                # Yield the original first chunk
+                is_first_chunk = False
                 yield chunk
             else:
                 # For non-first chunks, yield directly
@@ -312,18 +355,18 @@ class ReasoningParser:
         """
         # If reasoning_start_tag is not set, or disable thinking for hybrid model like qwen3,
         # yield chunks as is
-        if not self.reasoning_start_tag or not self.is_enable_thinking():
+        if (
+            not self.reasoning_start_tag
+            or not self.is_enable_thinking()
+            or not self.auto_insert_start_tag
+        ):
             for chunk in chunks:
                 yield chunk
             return
 
-        # Flag to identify the first chunk
         is_first_chunk = True
-
         for chunk in chunks:
             if is_first_chunk:
-                # Reset the flag after processing the first chunk
-                is_first_chunk = False
                 choices = chunk.get("choices")
                 if not choices or not choices[0]:
                     continue
@@ -337,10 +380,17 @@ class ReasoningParser:
                         continue
                     assert isinstance(delta, dict)
                     text = delta.get("content")
-                    if text is None:
+                    if not text:
+                        logger.debug(
+                            "[ReasoningParser] first delta chunk missing content, waiting for next chunk"
+                        )
                         continue
                     # If the first chunk doesn't contain the reasoning_start_tag
                     if self.reasoning_start_tag not in text:
+                        logger.debug(
+                            "[ReasoningParser] inserting start tag chunk, first delta content: %r",
+                            text,
+                        )
                         # Create and yield chunks with reasoning_start_tag and newline
                         yield self._create_chat_completion_chunk(
                             chunk, f"{self.reasoning_start_tag}\n"
@@ -348,15 +398,22 @@ class ReasoningParser:
                 else:
                     # For standard completion chunks
                     text = choices[0].get("text")
-                    if text is None:
+                    if not text:
+                        logger.debug(
+                            "[ReasoningParser] first chunk text is empty, waiting for next chunk"
+                        )
                         continue
                     # If the first chunk doesn't contain the reasoning_start_tag
                     if self.reasoning_start_tag not in text:
+                        logger.debug(
+                            "[ReasoningParser] inserting start tag chunk, first text content: %r",
+                            text,
+                        )
                         # Create and yield chunks with reasoning_start_tag and newline
                         yield self._create_completion_chunk(
                             chunk, f"{self.reasoning_start_tag}\n"
                         )
-                # Yield the original first chunk
+                is_first_chunk = False
                 yield chunk
             else:
                 # For non-first chunks, yield directly
@@ -373,18 +430,30 @@ class ReasoningParser:
             completion: The completion object containing model output,
                 which can be either a chat completion or a standard completion.
         """
-        if not self.reasoning_start_tag or not self.is_enable_thinking():
+        if (
+            not self.reasoning_start_tag
+            or not self.is_enable_thinking()
+            or not self.auto_insert_start_tag
+        ):
             return completion
 
         if completion.get("object") == "chat.completion" and completion.get("choices"):
             text = completion["choices"][0]["message"]["content"]
             if self.reasoning_start_tag not in text:
+                logger.debug(
+                    "[ReasoningParser] prepending start tag to chat completion, first message: %r",
+                    text,
+                )
                 text = f"{self.reasoning_start_tag}\n{text}"
             completion["choices"][0]["message"]["content"] = text
             return completion
 
         text = completion["choices"][0]["text"]
         if self.reasoning_start_tag not in text:
+            logger.debug(
+                "[ReasoningParser] prepending start tag to completion text, first text: %r",
+                text,
+            )
             text = f"{self.reasoning_start_tag}\n{text}"
         completion["choices"][0]["text"] = text
         return completion
@@ -407,7 +476,11 @@ class ReasoningParser:
                 or an empty list if no modification is needed
         """
         chunks: List[ChatCompletionChunk] = []
-        if not self.reasoning_start_tag or not self.is_enable_thinking():
+        if (
+            not self.reasoning_start_tag
+            or not self.is_enable_thinking()
+            or not self.auto_insert_start_tag
+        ):
             return chunks
 
         choices = chunk.get("choices")
@@ -418,6 +491,10 @@ class ReasoningParser:
             return chunks
 
         if self.reasoning_start_tag not in text:
+            logger.debug(
+                "[ReasoningParser] inserting start tag chunk via prepare_first_reasoning_content_chunk, first text: %r",
+                text,
+            )
             # Create chunks with reasoning_start_tag and newline
             chunks.append(
                 self._create_chat_completion_chunk(

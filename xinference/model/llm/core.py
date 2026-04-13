@@ -209,12 +209,15 @@ class LLM(abc.ABC):
             warnings.warn(
                 "enable_thinking cannot be disabled for non hybrid model, will be ignored"
             )
+        abilities = self.model_family.model_ability or []
+        auto_insert_start_tag = "hybrid" not in abilities
         # Initialize reasoning parser if model has reasoning ability
         self.reasoning_parser = ReasoningParser(  # type: ignore
             reasoning_content,
             self.model_family.reasoning_start_tag,  # type: ignore
             self.model_family.reasoning_end_tag,  # type: ignore
             enable_thinking=enable_thinking,
+            auto_insert_start_tag=auto_insert_start_tag,
         )
 
     def prepare_parse_tool_calls(self):

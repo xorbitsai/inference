@@ -12,10 +12,15 @@ import {
   Chip,
   CircularProgress,
   Collapse,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Drawer,
   FormControlLabel,
   ListItemButton,
   ListItemText,
+  Paper,
   Radio,
   RadioGroup,
   Switch,
@@ -40,6 +45,8 @@ import SelectField from './selectField'
 
 const enginesWithNWorker = ['SGLang', 'vLLM', 'MLX']
 const modelEngineType = ['LLM', 'embedding', 'rerank', 'image']
+const historyStorageKey = 'historyArr'
+const defaultHistoryUID = '__default_model_uid__'
 
 const LaunchModelDrawer = ({
   modelData,
@@ -58,8 +65,6 @@ const LaunchModelDrawer = ({
     setIsCallingApi,
   } = useContext(ApiContext)
   const [formData, setFormData] = useState({})
-  const [hasHistory, setHasHistory] = useState(false)
-
   const [enginesObj, setEnginesObj] = useState({})
   const [engineOptions, setEngineOptions] = useState([])
   const [formatOptions, setFormatOptions] = useState([])
@@ -79,6 +84,10 @@ const LaunchModelDrawer = ({
   const [replicaStatuses, setReplicaStatuses] = useState([])
   const [pendingHistory, setPendingHistory] = useState(null)
   const [hasFetchedEngines, setHasFetchedEngines] = useState(false)
+  const [historyEntries, setHistoryEntries] = useState([])
+  const [selectedHistoryKey, setSelectedHistoryKey] = useState(null)
+  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false)
+  const [historyToDelete, setHistoryToDelete] = useState(null)
 
   const intervalRef = useRef(null)
 
@@ -87,6 +96,16 @@ const LaunchModelDrawer = ({
   const downloadHubOptions = useMemo(
     () => ['none', ...(modelData?.download_hubs || [])],
     [modelData?.download_hubs]
+  )
+
+  const hasHistory = historyEntries.length > 0
+
+  const selectedHistoryEntry = useMemo(
+    () =>
+      historyEntries.find((item) => item.cache_key === selectedHistoryKey) ||
+      historyEntries[0] ||
+      null,
+    [historyEntries, selectedHistoryKey]
   )
 
   const isCached = (spec) => {
@@ -175,26 +194,175 @@ const LaunchModelDrawer = ({
       arr.map(({ key, value }) => [key, transformValue(value)])
     )
 
-  const handleGetHistory = () => {
-    const historyArr = JSON.parse(localStorage.getItem('historyArr')) || []
-    return historyArr.find((item) => item.model_name === modelData.model_name)
+  const buildHistoryKey = (modelName, modelUID) =>
+    `${modelName}::${modelUID || defaultHistoryUID}`
+
+  const normalizeHistoryEntry = (item) => {
+    if (!item || typeof item !== 'object') return null
+
+    const data =
+      item.data && typeof item.data === 'object' && !Array.isArray(item.data)
+        ? item.data
+        : item
+    const modelName = data.model_name || item.model_name
+
+    if (!modelName) return null
+
+    const modelUID = data.model_uid || item.model_uid || ''
+
+    return {
+      cache_key: buildHistoryKey(modelName, modelUID),
+      model_name: modelName,
+      model_uid: modelUID,
+      updated_at: Number(item.updated_at) || 0,
+      data,
+    }
   }
 
-  const deleteHistory = () => {
-    const arr = JSON.parse(localStorage.getItem('historyArr'))
-    const newArr = arr.filter(
-      (item) => item.model_name !== modelData.model_name
+  const readHistoryEntries = () => {
+    try {
+      const historyArr =
+        JSON.parse(localStorage.getItem(historyStorageKey)) || []
+      if (!Array.isArray(historyArr)) return []
+      return historyArr.map(normalizeHistoryEntry).filter(Boolean)
+    } catch (error) {
+      console.error('Failed to read history cache:', error)
+      return []
+    }
+  }
+
+  const sortHistoryEntries = (entries) =>
+    [...entries].sort((a, b) => (b.updated_at || 0) - (a.updated_at || 0))
+
+  const getHistoryEntriesForModel = (entries = readHistoryEntries()) =>
+    sortHistoryEntries(
+      entries.filter((item) => item.model_name === modelData.model_name)
     )
-    localStorage.setItem('historyArr', JSON.stringify(newArr))
-    setHasHistory(false)
-    setFormData({})
-    setCollapseState({})
+
+  const writeHistoryEntries = (entries) => {
+    localStorage.setItem(
+      historyStorageKey,
+      JSON.stringify(
+        entries.map((item) => ({
+          model_name: item.model_name,
+          model_uid: item.model_uid,
+          updated_at: item.updated_at,
+          data: item.data,
+        }))
+      )
+    )
+  }
+
+  const upsertHistoryEntry = (data) => {
+    const nextEntry = normalizeHistoryEntry({
+      model_name: data.model_name,
+      model_uid: data.model_uid,
+      updated_at: Date.now(),
+      data,
+    })
+    const entries = readHistoryEntries().filter(
+      (item) => item.cache_key !== nextEntry.cache_key
+    )
+    const nextEntries = [...entries, nextEntry]
+    writeHistoryEntries(nextEntries)
+    return getHistoryEntriesForModel(nextEntries)
+  }
+
+  const removeHistoryEntry = (cacheKey) => {
+    const nextEntries = readHistoryEntries().filter(
+      (item) => item.cache_key !== cacheKey
+    )
+    writeHistoryEntries(nextEntries)
+    return getHistoryEntriesForModel(nextEntries)
+  }
+
+  const isHistoryEngineValid = (historyData) => {
+    if (!historyData?.model_engine) return false
+
+    const engineData = enginesObj[historyData.model_engine]
+    return (
+      engineOptions.includes(historyData.model_engine) &&
+      Array.isArray(engineData) &&
+      engineData.length > 0
+    )
+  }
+
+  const loadHistoryEntry = (entry, shouldCloseDialog = true) => {
+    if (!entry) return
+
+    setSelectedHistoryKey(entry.cache_key)
+    if (shouldCloseDialog) {
+      setIsHistoryDialogOpen(false)
+    }
+
+    if (modelEngineType.includes(modelType)) {
+      if (open && hasFetchedEngines) {
+        if (isHistoryEngineValid(entry.data)) {
+          applyHistory(entry.data)
+        } else {
+          setErrorMsg(t('launchModel.invalidConfigCache'))
+        }
+      } else {
+        setPendingHistory(entry.data)
+      }
+      return
+    }
+
+    applyHistory(entry.data)
+  }
+
+  const handleDeleteHistory = () => {
+    if (!historyToDelete) return
+
+    const wasSelected = historyToDelete.cache_key === selectedHistoryKey
+    const nextEntries = removeHistoryEntry(historyToDelete.cache_key)
+
+    setHistoryEntries(nextEntries)
+    setHistoryToDelete(null)
+
+    if (!nextEntries.length) {
+      setSelectedHistoryKey(null)
+      setPendingHistory(null)
+      setFormData({})
+      setCollapseState({})
+      return
+    }
+
+    if (!wasSelected) return
+
+    const latestEntry = nextEntries[0]
+    setSelectedHistoryKey(latestEntry.cache_key)
+
+    if (modelEngineType.includes(modelType)) {
+      if (open && hasFetchedEngines) {
+        if (isHistoryEngineValid(latestEntry.data)) {
+          applyHistory(latestEntry.data)
+        } else {
+          setFormData({})
+          setCollapseState({})
+        }
+      } else {
+        setPendingHistory(latestEntry.data)
+      }
+      return
+    }
+
+    applyHistory(latestEntry.data)
+  }
+
+  const formatHistoryTime = (updatedAt) => {
+    if (!updatedAt) return '—'
+
+    const date = new Date(updatedAt)
+    return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString()
   }
 
   const objectToArray = (obj) => {
     if (!obj || typeof obj !== 'object') return []
     return Object.entries(obj).map(([key, value]) => ({ key, value }))
   }
+
+  const getReplicaWorkerAddress = (replica) => replica?.worker_address || '—'
 
   const restoreNGPU = (value) => {
     if (value === null) return 'CPU'
@@ -443,13 +611,16 @@ const LaunchModelDrawer = ({
   }
 
   useEffect(() => {
-    const data = handleGetHistory()
-    if (data) {
-      setHasHistory(true)
+    const entries = getHistoryEntriesForModel()
+    setHistoryEntries(entries)
+
+    const latestEntry = entries[0]
+    if (latestEntry) {
+      setSelectedHistoryKey(latestEntry.cache_key)
       if (modelEngineType.includes(modelType)) {
-        setPendingHistory(data)
+        setPendingHistory(latestEntry.data)
       } else {
-        applyHistory(data)
+        applyHistory(latestEntry.data)
       }
     }
   }, [])
@@ -459,23 +630,15 @@ const LaunchModelDrawer = ({
     if (!open || !hasFetchedEngines) return
 
     if (!pendingHistory.model_engine) {
-      setHasHistory(false)
       setFormData({})
       setCollapseState({})
       setPendingHistory(null)
       return
     }
 
-    const engineData = enginesObj[pendingHistory.model_engine]
-    const isValidEngine =
-      engineOptions.includes(pendingHistory.model_engine) &&
-      Array.isArray(engineData) &&
-      engineData.length > 0
-
-    if (isValidEngine) {
+    if (isHistoryEngineValid(pendingHistory)) {
       applyHistory(pendingHistory)
     } else {
-      setHasHistory(false)
       setFormData({})
       setCollapseState({})
     }
@@ -959,19 +1122,11 @@ const LaunchModelDrawer = ({
             'runningModelType',
             `/running_models/${modelType}`
           )
-          let historyArr = JSON.parse(localStorage.getItem('historyArr')) || []
-          const historyModelNameArr = historyArr.map((item) => item.model_name)
-          if (historyModelNameArr.includes(data.model_name)) {
-            historyArr = historyArr.map((item) => {
-              if (item.model_name === data.model_name) {
-                return data
-              }
-              return item
-            })
-          } else {
-            historyArr.push(data)
-          }
-          localStorage.setItem('historyArr', JSON.stringify(historyArr))
+          const nextHistoryEntries = upsertHistoryEntry(data)
+          setHistoryEntries(nextHistoryEntries)
+          setSelectedHistoryKey(
+            buildHistoryKey(data.model_name, data.model_uid)
+          )
         })
         .catch((error) => {
           console.error('Error:', error)
@@ -1197,11 +1352,14 @@ const LaunchModelDrawer = ({
             <TitleTypography value={modelData.model_name} />
             {hasHistory && (
               <Chip
-                label={t('launchModel.lastConfig')}
+                label={`${t('launchModel.configCache')} (${
+                  historyEntries.length
+                })`}
                 variant="outlined"
                 size="small"
                 color="primary"
-                onDelete={deleteHistory}
+                onClick={() => setIsHistoryDialogOpen(true)}
+                onDelete={() => setHistoryToDelete(selectedHistoryEntry)}
               />
             )}
           </Box>
@@ -1248,7 +1406,10 @@ const LaunchModelDrawer = ({
                 title={
                   isShowCancel ? (
                     <Box sx={{ minWidth: 200 }}>
-                      <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ mb: 1, fontWeight: 600, color: 'inherit' }}
+                      >
                         {t('launchModel.launchProgress')}:
                       </Typography>
                       {replicaStatuses.length > 0 ? (
@@ -1259,13 +1420,32 @@ const LaunchModelDrawer = ({
                               display: 'flex',
                               justifyContent: 'space-between',
                               alignItems: 'center',
-                              mb: 0.5,
+                              mb: 0.75,
+                              gap: 1.5,
                             }}
                           >
-                            <Typography variant="caption">
-                              {t('modelReplicaDetails.replica')}{' '}
-                              {replica.replica_id}:
-                            </Typography>
+                            <Box sx={{ minWidth: 0 }}>
+                              <Typography
+                                variant="caption"
+                                display="block"
+                                sx={{ fontWeight: 600, color: 'inherit' }}
+                              >
+                                {t('modelReplicaDetails.replica')}{' '}
+                                {replica.replica_id}:
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                display="block"
+                                sx={{
+                                  fontFamily: 'monospace',
+                                  color: 'rgba(255, 255, 255, 0.82)',
+                                  lineHeight: 1.4,
+                                  wordBreak: 'break-all',
+                                }}
+                              >
+                                {getReplicaWorkerAddress(replica)}
+                              </Typography>
+                            </Box>
                             <Chip
                               label={replica.status}
                               color={
@@ -1276,12 +1456,20 @@ const LaunchModelDrawer = ({
                                   : 'default'
                               }
                               size="small"
-                              sx={{ height: 20, fontSize: '0.7rem' }}
+                              sx={{
+                                'height': 22,
+                                'fontSize': '0.7rem',
+                                'fontWeight': 600,
+                                '&.MuiChip-colorDefault': {
+                                  bgcolor: 'rgba(255, 255, 255, 0.14)',
+                                  color: '#fff',
+                                },
+                              }}
                             />
                           </Box>
                         ))
                       ) : (
-                        <Typography variant="caption">
+                        <Typography variant="caption" sx={{ color: 'inherit' }}>
                           {t('launchModel.initializing')}
                         </Typography>
                       )}
@@ -1292,6 +1480,24 @@ const LaunchModelDrawer = ({
                 }
                 placement="top"
                 arrow
+                slotProps={{
+                  tooltip: {
+                    sx: {
+                      bgcolor: 'rgba(17, 24, 39, 0.96)',
+                      color: '#fff',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      boxShadow: 6,
+                      px: 1.5,
+                      py: 1.25,
+                      maxWidth: 360,
+                    },
+                  },
+                  arrow: {
+                    sx: {
+                      color: 'rgba(17, 24, 39, 0.96)',
+                    },
+                  },
+                }}
               >
                 <Button
                   style={{ flex: 1 }}
@@ -1335,6 +1541,127 @@ const LaunchModelDrawer = ({
           onHandleClose={() => setIsOpenPasteDialog(false)}
           onHandleCommandLine={handleCommandLine}
         />
+
+        <Dialog
+          open={isHistoryDialogOpen}
+          onClose={() => setIsHistoryDialogOpen(false)}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle>{t('launchModel.configCache')}</DialogTitle>
+          <DialogContent dividers>
+            {historyEntries.length ? (
+              historyEntries.map((entry, index) => {
+                const isSelected = entry.cache_key === selectedHistoryKey
+                return (
+                  <Paper
+                    key={entry.cache_key}
+                    variant="outlined"
+                    sx={{
+                      p: 2,
+                      mb: index === historyEntries.length - 1 ? 0 : 1.5,
+                      borderColor: isSelected ? 'primary.main' : 'divider',
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        gap: 2,
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <Box sx={{ minWidth: 0 }}>
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1,
+                            flexWrap: 'wrap',
+                            mb: 0.5,
+                          }}
+                        >
+                          <Typography variant="subtitle2">
+                            {entry.model_uid || t('launchModel.defaultConfig')}
+                          </Typography>
+                          {index === 0 && (
+                            <Chip
+                              label={t('launchModel.lastConfig')}
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                            />
+                          )}
+                        </Box>
+                        <Typography variant="body2" color="text.secondary">
+                          {t('modelReplicaDetails.modelUid')}:{' '}
+                          {entry.model_uid || '—'}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {t('launchModel.lastUpdated')}:{' '}
+                          {formatHistoryTime(entry.updated_at)}
+                        </Typography>
+                      </Box>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          gap: 1,
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <Button
+                          size="small"
+                          variant={isSelected ? 'contained' : 'outlined'}
+                          onClick={() => loadHistoryEntry(entry)}
+                        >
+                          {t('launchModel.loadCache')}
+                        </Button>
+                        <Button
+                          size="small"
+                          color="error"
+                          onClick={() => setHistoryToDelete(entry)}
+                        >
+                          {t('launchModel.deleteCache')}
+                        </Button>
+                      </Box>
+                    </Box>
+                  </Paper>
+                )
+              })
+            ) : (
+              <Typography color="text.secondary">
+                {t('launchModel.noConfigCache')}
+              </Typography>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setIsHistoryDialogOpen(false)}>
+              {t('modelReplicaDetails.close')}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog
+          open={!!historyToDelete}
+          onClose={() => setHistoryToDelete(null)}
+          aria-labelledby="delete-history-cache-title"
+        >
+          <DialogTitle id="delete-history-cache-title">
+            {t('components.warning')}
+          </DialogTitle>
+          <DialogContent>
+            {t('launchModel.confirmDeleteConfigCache')}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setHistoryToDelete(null)}>
+              {t('components.cancel')}
+            </Button>
+            <Button color="error" onClick={handleDeleteHistory} autoFocus>
+              {t('components.ok')}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </Drawer>
   )

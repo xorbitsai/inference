@@ -18,6 +18,7 @@ import pytest
 from click.testing import CliRunner
 
 from ...client import Client
+from ...deploy import cmdline as cmdline_module
 from ..cmdline import (
     list_cached_models,
     list_model_registrations,
@@ -29,6 +30,7 @@ from ..cmdline import (
     register_model,
     remove_cache,
     unregister_model,
+    worker,
 )
 
 
@@ -270,6 +272,43 @@ def test_cmdline_of_custom_model(setup):
     )
     assert result.exit_code == 0
     assert "custom_model" not in result.stdout
+
+
+def test_worker_command_passes_endpoint_and_internal_address(monkeypatch):
+    runner = CliRunner()
+    calls = {}
+
+    class DummyRESTfulClient:
+        def __init__(self, base_url):
+            calls["base_url"] = base_url
+
+        def _get_supervisor_internal_address(self):
+            calls["resolved"] = True
+            return "test://supervisor-internal"
+
+    def fake_main(**kwargs):
+        calls["main_kwargs"] = kwargs
+
+    monkeypatch.setattr(cmdline_module, "RESTfulClient", DummyRESTfulClient)
+    monkeypatch.setattr("xinference.deploy.worker.main", fake_main)
+
+    result = runner.invoke(
+        worker,
+        [
+            "--endpoint",
+            "http://127.0.0.1:9997",
+            "--host",
+            "127.0.0.1",
+            "--worker-port",
+            "12345",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert calls["base_url"] == "http://127.0.0.1:9997"
+    assert calls["resolved"] is True
+    assert calls["main_kwargs"]["supervisor_address"] == "test://supervisor-internal"
+    assert calls["main_kwargs"]["supervisor_endpoint"] == "http://127.0.0.1:9997"
 
 
 def test_rotate_logs(setup_with_file_logging):

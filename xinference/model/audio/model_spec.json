@@ -589,9 +589,10 @@
     "multilingual": true,
     "virtualenv": {
       "packages": [
-        "ChatTTS>=0.2.1",
+        "ChatTTS==0.2.4",
         "#system_torch#",
-        "#system_numpy#"
+        "#system_numpy#",
+        "transformers==4.53.2"
       ]
     },
     "model_src": {
@@ -604,7 +605,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387076,
+    "updated_at": 1775927275,
     "featured": true
   },
   {
@@ -944,15 +945,14 @@
     "multilingual": true,
     "model_src": {
       "huggingface": {
-        "model_id": "hexgrad/Kokoro-82M",
-        "model_revision": "7884269d6fd3f9beabc271b6f1308e5699281fa9"
+        "model_id": "hexgrad/Kokoro-82M"
       },
       "modelscope": {
         "model_id": "AI-ModelScope/Kokoro-82M",
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387100,
+    "updated_at": 1775931837,
     "featured": false
   },
   {
@@ -1019,15 +1019,14 @@
     "multilingual": false,
     "model_src": {
       "huggingface": {
-        "model_id": "hexgrad/Kokoro-82M-v1.1-zh",
-        "model_revision": "01e7505bd6a7a2ac4975463114c3a7650a9f7218"
+        "model_id": "hexgrad/Kokoro-82M-v1.1-zh"
       },
       "modelscope": {
         "model_id": "AI-ModelScope/Kokoro-82M-v1.1-zh",
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387106,
+    "updated_at": 1775931819,
     "featured": false
   },
   {
@@ -1171,11 +1170,12 @@
       "packages": [
         "qwen-asr",
         "#system_torch#",
-        "#system_numpy#"
+        "#system_numpy#",
+        "#system_pandas#"
       ]
     },
     "featured": false,
-    "updated_at": 1770217332
+    "updated_at": 1775217476
   },
   {
     "model_name": "Qwen3-ASR-1.7B",
@@ -1204,10 +1204,163 @@
       "packages": [
         "qwen-asr",
         "#system_torch#",
-        "#system_numpy#"
+        "#system_numpy#",
+        "#system_pandas#"
       ]
     },
     "featured": false,
-    "updated_at": 1770262385
+    "updated_at": 1775217521
+  },
+  {
+    "model_name": "Qwen3-TTS-12Hz-0.6B-Base",
+    "model_description": "This is a custom model description.",
+    "multilingual": true,
+    "model_ability": [
+      "text2audio",
+      "text2audio_voice_cloning"
+    ],
+    "model_family": "qwen3_tts",
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-0.6B-Base",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-0.6B-Base",
+        "model_revision": "master"
+      }
+    },
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "qwen-tts",
+        "#system_torch#",
+        "#system_numpy#",
+        "#system_pandas#"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1775717134
+  },
+  {
+    "model_name": "Qwen3-TTS-12Hz-1.7B-Base",
+    "model_description": "This is a custom model description.",
+    "multilingual": true,
+    "model_ability": [
+      "text2audio",
+      "text2audio_voice_cloning"
+    ],
+    "model_family": "qwen3_tts",
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+        "model_revision": "master"
+      }
+    },
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "qwen-tts",
+        "#system_torch#",
+        "#system_numpy#",
+        "#system_pandas#"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1775717083
+  },
+  {
+    "model_name": "Qwen3-TTS-12Hz-0.6B-CustomVoice",
+    "model_description": "This is a custom model description.",
+    "multilingual": true,
+    "model_ability": [
+      "text2audio"
+    ],
+    "model_family": "qwen3_tts",
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
+        "model_revision": "master"
+      }
+    },
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "qwen-tts",
+        "#system_torch#",
+        "#system_numpy#",
+        "#system_pandas#"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1775717182
+  },
+  {
+    "model_name": "Qwen3-TTS-12Hz-1.7B-CustomVoice",
+    "model_description": "This is a custom model description.",
+    "multilingual": true,
+    "model_ability": [
+      "text2audio"
+    ],
+    "model_family": "qwen3_tts",
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
+        "model_revision": "master"
+      }
+    },
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "qwen-tts",
+        "#system_torch#",
+        "#system_numpy#",
+        "#system_pandas#"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1775717158
+  },
+  {
+    "model_name": "Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "model_description": "This is a custom model description.",
+    "multilingual": true,
+    "model_ability": [
+      "text2audio"
+    ],
+    "model_family": "qwen3_tts",
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "model_revision": "master"
+      }
+    },
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "qwen-tts",
+        "#system_torch#",
+        "#system_numpy#",
+        "#system_pandas#"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1775717207
   }
 ]
