@@ -30,7 +30,9 @@ class TestLlama3ToolParserSafeParsing:
 
     def test_parse_json_with_list_parameter(self):
         """JSON with list parameter should parse correctly."""
-        model_output = '{"name": "multi_search", "parameters": {"queries": ["a", "b", "c"]}}'
+        model_output = (
+            '{"name": "multi_search", "parameters": {"queries": ["a", "b", "c"]}}'
+        )
         result = self.parser.extract_tool_calls(model_output)
         assert result == [(None, "multi_search", {"queries": ["a", "b", "c"]})]
 
@@ -42,7 +44,9 @@ class TestLlama3ToolParserSafeParsing:
 
     def test_parse_json_with_boolean_values(self):
         """JSON with boolean values should parse correctly."""
-        model_output = '{"name": "toggle", "parameters": {"enabled": true, "verbose": false}}'
+        model_output = (
+            '{"name": "toggle", "parameters": {"enabled": true, "verbose": false}}'
+        )
         result = self.parser.extract_tool_calls(model_output)
         assert result == [(None, "toggle", {"enabled": True, "verbose": False})]
 
@@ -94,7 +98,7 @@ class TestLlama3ToolParserSafeParsing:
 
     def test_reject_eval_within_eval(self):
         """Nested eval must not execute."""
-        malicious = "eval('__import__(\"os\").system(\"id\")')"
+        malicious = 'eval(\'__import__("os").system("id")\')'
         result = self.parser.extract_tool_calls(malicious)
         assert result == [(malicious, None, None)]
 

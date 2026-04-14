@@ -1713,9 +1713,7 @@ class TestEvalLlama3ChatArgumentsSecurity:
         assert result == [(None, "get_weather", {"location": "Tokyo"})]
 
     def test_python_literal_tool_call(self):
-        c = self._make_choice(
-            "{'name': 'toggle', 'parameters': {'enabled': True}}"
-        )
+        c = self._make_choice("{'name': 'toggle', 'parameters': {'enabled': True}}")
         result = ChatModelMixin._eval_llama3_chat_arguments(c)
         assert result == [(None, "toggle", {"enabled": True})]
 
