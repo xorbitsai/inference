@@ -217,6 +217,8 @@ def _force_virtualenv_engine_params(
 
     Behavior:
     - For virtualenv-enabled launches, use match_json to filter specs per engine.
+      Only engines with matching specs are included - architecture compatibility
+      is still enforced even with virtualenv.
       If the engine is sglang and no specs match, fall back to vLLM's match_json
       to reuse its compatibility logic.
     - For non-virtualenv launches, keep strict matching and only include engines
@@ -280,11 +282,17 @@ def _force_virtualenv_engine_params(
                                 matched_specs.append(spec)
                                 break
 
-            selected_specs = matched_specs or specs
+            # Only include engine if specs matched - architecture compatibility is required
+            # even with virtualenv enabled
+            if not matched_specs:
+                match_status[engine_name] = False
+                continue
+
+            selected_specs = matched_specs
             engine_param_list = param_builder(family, selected_specs)
             engine_params[engine_name] = engine_param_list
             available_params[engine_name] = engine_param_list
-            match_status[engine_name] = bool(matched_specs)
+            match_status[engine_name] = True
             continue
 
         has_match = False

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import ast
 import base64
 import functools
 import json
@@ -56,6 +57,48 @@ from .tool_parsers.glm4_tool_parser import Glm4ToolParser
 logger = logging.getLogger(__name__)
 
 
+_CONTEXT_LENGTH_KEYS: Tuple[str, ...] = (
+    "max_sequence_length",
+    "seq_length",
+    "max_position_embeddings",
+    "sliding_window",
+)
+
+
+def _get_config_value(config: Union[dict, Any], key: str) -> Any:
+    if isinstance(config, dict):
+        return config.get(key)
+    return getattr(config, key, None)
+
+
+def _collect_context_length_candidates(
+    config: Union[dict, Any], nested_attrs: Iterable[str]
+) -> List[int]:
+    candidates: List[int] = []
+    for key in _CONTEXT_LENGTH_KEYS:
+        value = _get_config_value(config, key)
+        if value is not None:
+            candidates.append(value)
+    for nested_attr in nested_attrs:
+        nested = _get_config_value(config, nested_attr)
+        if nested is not None:
+            candidates.extend(_collect_context_length_candidates(nested, nested_attrs))
+    return candidates
+
+
+def get_context_length_from_config(
+    config: Union[dict, Any], nested_attrs: Iterable[str] = ("text_config",)
+) -> int:
+    """
+    Determine a reasonable context length from model config dictionaries or
+    HuggingFace config objects.
+    """
+    candidates = _collect_context_length_candidates(config, nested_attrs)
+    if not candidates:
+        return 2048
+    return max(candidates)
+
+
 QWEN_TOOL_CALL_FAMILY = [
     "qwen1.5-chat",
     "qwen1.5-moe-chat",
@@ -81,6 +124,8 @@ QWEN_TOOL_CALL_FAMILY = [
     "qwen3.5",
 ]
 
+GEMMA_TOOL_CALL_FAMILY = ["gemma-4"]
+
 GLM4_TOOL_CALL_FAMILY = [
     "glm4-chat",
     "glm4-chat-1m",
@@ -100,6 +145,7 @@ DEEPSEEK_TOOL_CALL_FAMILY = ["deepseek-v3", "deepseek-r1-0528", "Deepseek-V3.1"]
 
 TOOL_CALL_FAMILY = (
     QWEN_TOOL_CALL_FAMILY
+    + GEMMA_TOOL_CALL_FAMILY
     + GLM4_TOOL_CALL_FAMILY
     + LLAMA3_TOOL_CALL_FAMILY
     + DEEPSEEK_TOOL_CALL_FAMILY
@@ -110,10 +156,16 @@ QWEN_TOOL_CALL_SYMBOLS = ["<tool_call>", "</tool_call>"]
 
 class ChatModelMixin:
     def __init__(self):
-        self.model_family = None
-        self.model_uid = None
-        self.reasoning_parser = None
-        self.tool_parser = None
+        # Only set attributes if they don't already exist
+        # to avoid overriding values set by parent classes
+        if not hasattr(self, "model_family"):
+            self.model_family = None
+        if not hasattr(self, "model_uid"):
+            self.model_uid = None
+        if not hasattr(self, "reasoning_parser"):
+            self.reasoning_parser = None
+        if not hasattr(self, "tool_parser"):
+            self.tool_parser = None
 
     @staticmethod
     @functools.lru_cache
@@ -200,10 +252,9 @@ class ChatModelMixin:
                 raise TypeError(
                     f"`chat_template_kwargs` but be a JSON parsable str or dict, got: {kwargs}"
                 )
-        elif reasoning_parser and not reasoning_parser.enable_thinking:
-            # hybrid model like qwen3,
-            # disabled thinking
-            return {"enable_thinking": False}
+        elif reasoning_parser:
+            # pass enable_thinking to chat template
+            return {"enable_thinking": reasoning_parser.enable_thinking}
         return None
 
     @staticmethod
@@ -700,9 +751,20 @@ class ChatModelMixin:
     def _eval_llama3_chat_arguments(cls, c) -> List[Tuple]:
         text = c["choices"][0]["text"]
         try:
-            data = eval(text, {}, {})
+            # Try JSON first (most common LLM output format)
+            data = json.loads(text)
+        except (json.JSONDecodeError, TypeError):
+            try:
+                # Fall back to ast.literal_eval for Python literal formats
+                # (e.g., True/False/None instead of true/false/null).
+                # Unlike eval(), ast.literal_eval() only allows literal
+                # structures and cannot execute arbitrary code.
+                data = ast.literal_eval(text)
+            except (ValueError, SyntaxError):
+                return [(text, None, None)]
+        try:
             return [(None, data["name"], data["parameters"])]
-        except Exception:
+        except (KeyError, TypeError):
             return [(text, None, None)]
 
     @classmethod

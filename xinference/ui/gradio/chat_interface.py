@@ -128,8 +128,7 @@ class GradioInterface:
             if stream:
                 response_content = ""
                 reasoning_content = ""
-                is_first_reasoning_content = True
-                is_first_content = True
+
                 for chunk in model.chat(
                     messages=messages,
                     generate_config=generate_config,  # type: ignore
@@ -139,46 +138,42 @@ class GradioInterface:
                         continue
                     delta = chunk["choices"][0]["delta"]
 
+                    # Process reasoning content
                     if (
                         "reasoning_content" in delta
                         and delta["reasoning_content"] is not None
-                        and is_first_reasoning_content
                     ):
                         reasoning_content += html.escape(delta["reasoning_content"])
-                        history.append(
-                            ChatMessage(
-                                role="assistant",
-                                content=reasoning_content,
-                                metadata={"title": "💭 Thinking Process"},
-                            )
-                        )
-                        is_first_reasoning_content = False
-                    elif (
-                        "reasoning_content" in delta
-                        and delta["reasoning_content"] is not None
-                    ):
-                        reasoning_content += html.escape(delta["reasoning_content"])
-                        history[-1] = ChatMessage(
-                            role="assistant",
-                            content=reasoning_content,
-                            metadata={"title": "💭  Thinking Process"},
-                        )
-                    elif (
-                        "content" in delta
-                        and delta["content"] is not None
-                        and is_first_content
-                    ):
+
+                    # Process actual content
+                    if "content" in delta and delta["content"] is not None:
                         response_content += html.escape(delta["content"])
-                        history.append(
-                            ChatMessage(role="assistant", content=response_content)
-                        )
-                        is_first_content = False
-                    elif "content" in delta and delta["content"] is not None:
-                        response_content += html.escape(delta["content"])
-                        # Replace thinking message with actual response
-                        history[-1] = ChatMessage(
-                            role="assistant", content=response_content
-                        )
+
+                    # Build message content based on what we have
+                    if reasoning_content and not response_content:
+                        # Only reasoning so far
+                        message_content = reasoning_content
+                        message_metadata = {"title": "💭 Thinking Process"}
+                    elif reasoning_content and response_content:
+                        # Both reasoning and content, combine them
+                        message_content = f"💭 **Thinking Process**\n```\n{reasoning_content}\n```\n\n{response_content}"
+                        message_metadata = None
+                    else:
+                        # Only content
+                        message_content = response_content
+                        message_metadata = None
+
+                    current_message = ChatMessage(
+                        role="assistant",
+                        content=message_content,
+                        metadata=message_metadata,
+                    )
+
+                    if history and history[-1]["role"] == "assistant":
+                        history[-1] = current_message
+                    else:
+                        history.append(current_message)
+
                     yield history
             else:
                 result = model.chat(
@@ -333,6 +328,38 @@ class GradioInterface:
     def build_chat_multimodel_interface(
         self,
     ) -> "gr.Blocks":
+        def _format_assistant_message(reasoning_text: str, response_text: str) -> str:
+            sections = []
+            if reasoning_text:
+                sections.append(
+                    "💭 **Thinking Process**\n```\n" + reasoning_text + "\n```"
+                )
+            if response_text:
+                sections.append(response_text)
+            combined = "\n\n".join(section for section in sections if section).strip()
+            return combined
+
+        def _extract_text_from_content(content) -> str:
+            if content is None:
+                return ""
+            if isinstance(content, str):
+                return content
+            if isinstance(content, list):
+                fragments = []
+                for part in content:
+                    text_part = _extract_text_from_content(part)
+                    if text_part:
+                        fragments.append(text_part)
+                return "".join(fragments)
+            if isinstance(content, dict):
+                text_val = content.get("text")
+                if isinstance(text_val, str):
+                    return text_val
+                if "content" in content:
+                    return _extract_text_from_content(content.get("content"))
+                return ""
+            return str(content)
+
         def predict(history, bot, max_tokens, temperature, stream):
             from ...client import RESTfulClient
 
@@ -349,33 +376,65 @@ class GradioInterface:
             assert isinstance(model, RESTfulChatModelHandle)
 
             if stream:
-                response_content = ""
+                response_text = ""
+                reasoning_text = ""
+                reasoning_display = ""
+                response_display = ""
                 for chunk in model.chat(
                     messages=history,
                     generate_config=generate_config,
                 ):
                     assert isinstance(chunk, dict)
                     delta = chunk["choices"][0]["delta"]
-                    if "content" not in delta:
-                        continue
-                    else:
-                        response_content += html.escape(delta["content"])
-                        bot[-1][1] = response_content
+                    reasoning_piece = ""
+                    if (
+                        "reasoning_content" in delta
+                        and delta["reasoning_content"] is not None
+                    ):
+                        reasoning_piece = str(delta["reasoning_content"])
+                        reasoning_text += reasoning_piece
+                        reasoning_display = html.escape(reasoning_text)
+                    content_piece = _extract_text_from_content(delta.get("content"))
+                    if not content_piece and isinstance(delta.get("text"), str):
+                        content_piece = str(delta["text"])
+                    if content_piece:
+                        response_text += content_piece
+                        response_display = html.escape(response_text)
+                    if reasoning_piece or content_piece:
+                        bot[-1][1] = _format_assistant_message(
+                            reasoning_display, response_display
+                        )
                         yield history, bot
+                        continue
                 history.append(
                     {
-                        "content": response_content,
+                        "content": response_text,
                         "role": "assistant",
                     }
                 )
-                bot[-1][1] = response_content
+                bot[-1][1] = _format_assistant_message(
+                    reasoning_display, response_display
+                )
                 yield history, bot
             else:
                 response = model.chat(
                     messages=history,
                     generate_config=generate_config,
                 )
-                history.append(response["choices"][0]["message"])
+                message = response["choices"][0]["message"]
+                history.append(message)
+                reasoning_display = ""
+                response_display = ""
+                if "reasoning_content" in message:
+                    reasoning_val = message["reasoning_content"]
+                    if reasoning_val is not None:
+                        reasoning_display = html.escape(str(reasoning_val))
+                content_val = _extract_text_from_content(message.get("content"))
+                if content_val is not None:
+                    response_display = html.escape(content_val)
+                bot[-1][1] = _format_assistant_message(
+                    reasoning_display, response_display
+                )
                 if "audio" in history[-1]:
                     # audio output
                     audio_bytes = base64.b64decode(history[-1]["audio"]["data"])
@@ -398,15 +457,16 @@ class GradioInterface:
                             f"Your browser does not support the audio tag.</audio>"
                         )
 
-                    bot[-1] = (bot[-1][0], history[-1]["content"])
+                    bot[-1] = (
+                        bot[-1][0],
+                        _format_assistant_message(reasoning_display, response_display),
+                    )
                     yield history, bot
 
                     # append html audio tag instead of gr.Audio
                     bot.append((None, generate_html_audio(audio_file.name)))
                     yield history, bot
-                else:
-                    bot[-1][1] = history[-1]["content"]
-                    yield history, bot
+                yield history, bot
 
         def add_text(history, bot, text, image, video, audio):
             logger.debug(
@@ -518,13 +578,13 @@ class GradioInterface:
         with gr.Blocks(
             title=f"🚀 Xinference Chat Bot : {self.model_name} 🚀",
             css="""
-        .center{
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 0px;
-            color: #9ea4b0 !important;
-        }
+            .center{
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                padding: 0px;
+                color: #9ea4b0 !important;
+            }
         """,
             analytics_enabled=False,
         ) as chat_vl_interface:
@@ -597,7 +657,7 @@ class GradioInterface:
                 temperature = gr.Slider(
                     minimum=0, maximum=2, value=1, step=0.01, label="Temperature"
                 )
-                stream = gr.Checkbox(label="Stream", value=False)
+                stream = gr.Checkbox(label="Stream", value=True)
 
             textbox.change(update_button, [textbox], [submit_btn], queue=False)
 

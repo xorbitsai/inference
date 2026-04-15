@@ -37,6 +37,7 @@ from ....types import (
     max_tokens_field,
 )
 from ...scheduler.request import InferenceRequest
+from ..utils import get_context_length_from_config
 
 if TYPE_CHECKING:
     from ...llm.transformers.core import PytorchModel
@@ -46,25 +47,7 @@ logger = logging.getLogger(__name__)
 
 def get_context_length(config) -> int:
     """Get the context length of a model from a huggingface model config."""
-    if (
-        hasattr(config, "max_sequence_length")
-        and config.max_sequence_length is not None
-    ):
-        max_sequence_length = config.max_sequence_length
-    else:
-        max_sequence_length = 2048
-    if hasattr(config, "seq_length") and config.seq_length is not None:
-        seq_length = config.seq_length
-    else:
-        seq_length = 2048
-    if (
-        hasattr(config, "max_position_embeddings")
-        and config.max_position_embeddings is not None
-    ):
-        max_position_embeddings = config.max_position_embeddings
-    else:
-        max_position_embeddings = 2048
-    return max(max_sequence_length, seq_length, max_position_embeddings)
+    return get_context_length_from_config(config)
 
 
 def prepare_logits_processor(

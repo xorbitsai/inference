@@ -37,7 +37,7 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
         'sgl_kernel ; cuda_version < "13.0"',
     ],
     "vllm": [
-        "vllm>=0.11.2,<0.15.0",
+        "vllm>=0.11.2",
     ],
     "transformers": [
         "transformers>=4.53.3",
@@ -64,7 +64,7 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
 
 ENGINE_VIRTUALENV_EXTRA_INDEX_URLS: Dict[str, List[str]] = {
     "vllm": [
-        "https://wheels.vllm.ai/0.14.1/cu130",
+        "https://wheels.vllm.ai/0.19.0/cu130",
         "https://download.pytorch.org/whl/cu130",
     ],
     "sglang": [

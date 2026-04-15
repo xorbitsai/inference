@@ -1693,3 +1693,56 @@ def test_post_process_completion_with_parser():
     assert (
         result_filtered == expected_filtered
     ), f"Mismatch: expected {expected_filtered}, got {result_filtered}"
+
+
+# ── Security tests for _eval_llama3_chat_arguments ────────────────────
+
+
+class TestEvalLlama3ChatArgumentsSecurity:
+    """Verify _eval_llama3_chat_arguments uses safe parsing (no eval() RCE)."""
+
+    @staticmethod
+    def _make_choice(text: str) -> dict:
+        return {"choices": [{"text": text}]}
+
+    def test_valid_json_tool_call(self):
+        c = self._make_choice(
+            '{"name": "get_weather", "parameters": {"location": "Tokyo"}}'
+        )
+        result = ChatModelMixin._eval_llama3_chat_arguments(c)
+        assert result == [(None, "get_weather", {"location": "Tokyo"})]
+
+    def test_python_literal_tool_call(self):
+        c = self._make_choice("{'name': 'toggle', 'parameters': {'enabled': True}}")
+        result = ChatModelMixin._eval_llama3_chat_arguments(c)
+        assert result == [(None, "toggle", {"enabled": True})]
+
+    def test_reject_os_import_rce(self):
+        malicious = "__import__('os').system('echo PWNED')"
+        c = self._make_choice(malicious)
+        result = ChatModelMixin._eval_llama3_chat_arguments(c)
+        assert result == [(malicious, None, None)]
+
+    def test_reject_class_exploit(self):
+        malicious = "().__class__.__bases__[0].__subclasses__()"
+        c = self._make_choice(malicious)
+        result = ChatModelMixin._eval_llama3_chat_arguments(c)
+        assert result == [(malicious, None, None)]
+
+    def test_reject_exec(self):
+        malicious = "exec('import os')"
+        c = self._make_choice(malicious)
+        result = ChatModelMixin._eval_llama3_chat_arguments(c)
+        assert result == [(malicious, None, None)]
+
+    def test_malformed_json(self):
+        bad_json = '{"name": "func", "parameters": {'
+        c = self._make_choice(bad_json)
+        result = ChatModelMixin._eval_llama3_chat_arguments(c)
+        assert result == [(bad_json, None, None)]
+
+    def test_missing_keys(self):
+        text = '{"function": "test", "args": {}}'
+        c = self._make_choice(text)
+        result = ChatModelMixin._eval_llama3_chat_arguments(c)
+        assert result == [(text, None, None)]

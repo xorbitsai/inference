@@ -23,7 +23,6 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import torch
-import torch.nn as nn
 from xoscar import extensible
 
 from ....device_utils import empty_cache
@@ -40,60 +39,6 @@ from ..core import (
 from ..utils import preprocess_sentence
 
 logger = logging.getLogger(__name__)
-
-
-class _ModelWrapper(nn.Module):
-    def __init__(self, module: nn.Module):
-        super().__init__()
-        self.model = module
-        self._local_data = threading.local()
-
-    @property
-    def n_tokens(self):
-        return getattr(self._local_data, "n_tokens", 0)
-
-    @n_tokens.setter
-    def n_tokens(self, value):
-        self._local_data.n_tokens = value
-
-    @property
-    def input_tokens(self):
-        if not hasattr(self._local_data, "input_tokens"):
-            self._local_data.input_tokens = []
-        return self._local_data.input_tokens
-
-    @input_tokens.setter
-    def input_tokens(self, value):
-        self._local_data.input_tokens = value
-
-    @property
-    def input_ids(self):
-        if not hasattr(self._local_data, "input_ids"):
-            self._local_data.input_ids = []
-        return self._local_data.input_ids
-
-    @input_ids.setter
-    def input_ids(self, value):
-        self._local_data.input_ids = value
-
-    def forward(self, **kwargs):
-        attention_mask = kwargs.get("attention_mask")
-        # when batching, the attention mask 1 means there is a token
-        # thus we just sum up it to get the total number of tokens
-        if attention_mask is not None:
-            self.n_tokens += attention_mask.sum().item()
-            per_sample_tokens = attention_mask.sum(dim=1).tolist()
-            # sentence transformers always process batch size > 1
-            self.input_tokens.extend(per_sample_tokens)
-            self.input_ids.extend(kwargs.get("input_ids"))
-
-        return self.model(**kwargs)
-
-    def __getattr__(self, attr):
-        try:
-            return super().__getattr__(attr)
-        except AttributeError:
-            return getattr(self.model, attr)
 
 
 class SentenceTransformerRerankModel(RerankModel, BatchMixin):
@@ -267,8 +212,58 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
                 raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
             self._model = FlagReranker(self._model_path, use_fp16=self._use_fp16)
             self._tokenizer = self._model.tokenizer
-        # Wrap transformers model to record number of tokens
-        self._model.model = _ModelWrapper(self._model.model)
+        # Note: In sentence-transformers 5.x, token tracking via wrapper is complex
+        # due to signature compatibility issues. We'll track tokens manually
+        # in the _rerank method instead.
+        self._token_tracking_data = threading.local()
+
+        # Create a simple wrapper for return value conversion only
+        try:
+            original_predict = self._model.predict
+
+            def wrapped_predict(*args, **kwargs):
+                result = original_predict(*args, **kwargs)
+                # Convert SequenceClassifierOutput to dict if needed
+                if hasattr(result, "logits") and not hasattr(result, "scores"):
+                    return {"scores": result.logits}
+                return result
+
+            self._model.predict = wrapped_predict
+        except Exception as e:
+            logger.warning(f"Failed to wrap predict method: {e}")
+
+    def _reset_token_tracking(self):
+        """Reset token tracking counters."""
+        if not hasattr(self, "_token_tracking_data"):
+            self._token_tracking_data = threading.local()
+        self._token_tracking_data.n_tokens = 0
+        self._token_tracking_data.input_tokens = []
+        self._token_tracking_data.input_ids = []
+
+    def _get_n_tokens(self) -> int:
+        """Get tracked token count."""
+        if hasattr(self, "_token_tracking_data"):
+            return getattr(self._token_tracking_data, "n_tokens", 0)
+        return 0
+
+    def _get_input_tokens_slice(self, start: int, end: int) -> List[int]:
+        """Get slice of input tokens."""
+        if hasattr(self, "_token_tracking_data"):
+            tokens = getattr(self._token_tracking_data, "input_tokens", [])
+            return tokens[start:end]
+        return []
+
+    def _get_input_tokens(self) -> List[int]:
+        """Get all input tokens."""
+        if hasattr(self, "_token_tracking_data"):
+            return getattr(self._token_tracking_data, "input_tokens", [])
+        return []
+
+    def _get_input_ids(self) -> List[int]:
+        """Get all input ids."""
+        if hasattr(self, "_token_tracking_data"):
+            return getattr(self._token_tracking_data, "input_ids", [])
+        return []
 
     def _rerank(
         self,
@@ -298,18 +293,39 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             ]
             for doc, pre_query in zip(documents, query)
         ]
-        # reset n tokens
-        self._model.model.n_tokens = 0
-        # reset input_tokens
-        self._model.model.input_tokens = []
-        # reset input_tokens
-        self._model.model.input_ids = []
+        # reset token tracking
+        if not hasattr(self, "_token_tracking_data"):
+            self._token_tracking_data = threading.local()
+        self._token_tracking_data.n_tokens = 0
+        self._token_tracking_data.input_tokens = []
+        self._token_tracking_data.input_ids = []
+
         if (
             self.model_family.type == "normal"
             and "qwen3" not in self.model_family.model_name.lower()
             and "jina-reranker-v3" not in self.model_family.model_name.lower()
         ):
             logger.debug("Passing processed sentences: %s", sentence_combinations)
+
+            # Tokenize to get token counts before prediction
+            try:
+                encoded = self._tokenizer(
+                    sentence_combinations,
+                    padding=True,
+                    truncation=True,
+                    return_tensors="pt",
+                )
+                if "attention_mask" in encoded:
+                    # Track total tokens
+                    self._token_tracking_data.n_tokens = (
+                        encoded["attention_mask"].sum().item()
+                    )
+                    # Track per-sample tokens
+                    per_sample_tokens = encoded["attention_mask"].sum(dim=1).tolist()
+                    self._token_tracking_data.input_tokens = per_sample_tokens
+            except Exception as e:
+                logger.warning(f"Failed to track tokens: {e}")
+
             similarity_scores = self._model.predict(
                 sentence_combinations,
                 convert_to_numpy=False,
@@ -317,6 +333,7 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
                 **kwargs,
             ).cpu()
             if similarity_scores.dtype == torch.bfloat16:
+                similarity_scores = torch.float16
                 similarity_scores = similarity_scores.float()
         elif (
             "qwen3" in self.model_family.model_name.lower()
@@ -437,7 +454,7 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
                 for arg in sim_scores_argsort
             ]
         if return_len:
-            input_len = self._model.model.n_tokens
+            input_len = self._get_n_tokens()
             # Rerank Model output is just score or documents
             # while return_documents = True
             output_len = input_len
@@ -540,29 +557,28 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
                         not in self.model_family.model_name.lower()
                     ):
                         input_len = sum(
-                            self._model.model.input_tokens[offset : offset + n]
+                            self._get_input_tokens_slice(offset, offset + n)
                         )
                     elif (
                         "qwen3" in self.model_family.model_name.lower()
                         or "jina-reranker-v3" in self.model_family.model_name.lower()
                     ):
                         input_len = sum(
-                            self._model.model.input_tokens[offset : offset + n]
+                            self._get_input_tokens_slice(offset, offset + n)
                         )
                     else:
                         # flagEmbedding reranker, forward twice
                         # input_ids was sorted, so we should traverse all prompt to match them
                         input_len = 0
-                        for doc, q in zip(tmp_documents, tmp_queries):
-                            for index, input_id in enumerate(
-                                self._model.model.input_ids
-                            ):
-                                prompt = self._tokenizer.decode(input_id)
-                                if self.flag_engine_match_query_doc(prompt, q, doc):
-                                    input_len += (
-                                        self._model.model.input_tokens[index] * 2
-                                    )
-                                    break
+                        input_ids = self._get_input_ids()
+                        input_tokens = self._get_input_tokens()
+                        if input_ids and input_tokens:
+                            for doc, q in zip(tmp_documents, tmp_queries):
+                                for index, input_id in enumerate(input_ids):
+                                    prompt = self._tokenizer.decode(input_id)
+                                    if self.flag_engine_match_query_doc(prompt, q, doc):
+                                        input_len += input_tokens[index] * 2
+                                        break
                     # Rerank Model output is just score or documents
                     # while return_documents = True
                     output_len = input_len
