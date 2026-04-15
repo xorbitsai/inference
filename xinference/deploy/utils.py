@@ -195,6 +195,31 @@ def get_timestamp_ms():
 
 @typing.no_type_check
 def handle_click_args_type(arg: str) -> Any:
+    """Convert CLI string arguments to appropriate Python types.
+
+    Handles type conversion for Click command arguments with the following priority:
+    1. Special string values: "None" → None, "true"/"True" → True, "false"/"False" → False
+    2. Numeric values: "42" → int(42), "3.14" → float(3.14)
+    3. JSON objects/arrays: '{"key": "value"}' → dict, '[1, 2, 3]' → list
+    4. Default: return original string
+
+    JSON parsing is attempted for arguments starting with '{' or '['.
+    If JSON parsing fails, the original string is returned unchanged.
+
+    Examples:
+        >>> handle_click_args_type("None")
+        None
+        >>> handle_click_args_type("42")
+        42
+        >>> handle_click_args_type('{"mode": 3}')
+        {'mode': 3}
+
+    Args:
+        arg: String argument from CLI command
+
+    Returns:
+        Converted value (None, bool, int, float, dict, list, or str)
+    """
     if arg == "None":
         return None
     if arg in ("True", "true"):

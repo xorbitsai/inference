@@ -195,3 +195,30 @@ class TestHandleClickArgsType:
         result = handle_click_args_type("[abc")
         assert result == "[abc"
         assert isinstance(result, str)
+
+    # --- Additional edge cases ---
+
+    def test_json_with_whitespace(self):
+        """JSON with internal whitespace should parse correctly."""
+        result = handle_click_args_type('{ "key": "value", "number": 42 }')
+        assert isinstance(result, dict)
+        assert result["key"] == "value"
+        assert result["number"] == 42
+
+    def test_json_with_unicode(self):
+        """JSON containing Unicode characters should parse correctly."""
+        result = handle_click_args_type('{"name": "测试", "emoji": "🚀"}')
+        assert isinstance(result, dict)
+        assert result["name"] == "测试"
+        assert result["emoji"] == "🚀"
+
+    def test_json_array_with_mixed_types(self):
+        """JSON arrays with mixed element types should parse correctly."""
+        result = handle_click_args_type('[1, "two", null, true, {"key": "value"}]')
+        assert isinstance(result, list)
+        assert len(result) == 5
+        assert result[0] == 1
+        assert result[1] == "two"
+        assert result[2] is None
+        assert result[3] is True
+        assert result[4] == {"key": "value"}
