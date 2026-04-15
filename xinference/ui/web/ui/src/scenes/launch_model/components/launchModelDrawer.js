@@ -1584,14 +1584,6 @@ const LaunchModelDrawer = ({
                           <Typography variant="subtitle2">
                             {entry.model_uid || t('launchModel.defaultConfig')}
                           </Typography>
-                          {index === 0 && (
-                            <Chip
-                              label={t('launchModel.lastConfig')}
-                              size="small"
-                              color="primary"
-                              variant="outlined"
-                            />
-                          )}
                         </Box>
                         <Typography variant="body2" color="text.secondary">
                           {t('modelReplicaDetails.modelUid')}:{' '}
@@ -1635,7 +1627,18 @@ const LaunchModelDrawer = ({
               </Typography>
             )}
           </DialogContent>
-          <DialogActions>
+          <DialogActions style={{ justifyContent: 'space-between' }}>
+            <Button
+              onClick={() => {
+                setFormData({})
+                setCollapseState({})
+                setSelectedHistoryKey(null)
+                setPendingHistory(null)
+                setIsHistoryDialogOpen(false)
+              }}
+            >
+              {t('launchModel.newCache')}
+            </Button>
             <Button onClick={() => setIsHistoryDialogOpen(false)}>
               {t('modelReplicaDetails.close')}
             </Button>
