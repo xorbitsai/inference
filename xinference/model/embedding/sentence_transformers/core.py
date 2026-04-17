@@ -66,10 +66,27 @@ def _resolve_jina_task(model_name: str, task: Optional[str]) -> Optional[str]:
     if prompt_name is None:
         valid = sorted(JINA_V4_TASK_TO_PROMPT_NAME.keys())
         raise ValueError(
-            f"Invalid task: {task}. Must be one of {valid} "
-            f"for model {model_name}."
+            f"Invalid task: {task}. Must be one of {valid} " f"for model {model_name}."
         )
     return prompt_name
+
+
+def _build_encode_kwargs(
+    kwargs: Dict[str, Any], prompt_name: Optional[str] = None
+) -> Dict[str, Any]:
+    """Build encode kwargs with optional prompt_name for Jina models.
+
+    Args:
+        kwargs: Original kwargs from the API call
+        prompt_name: Optional prompt_name resolved from Jina task parameter
+
+    Returns:
+        Dictionary with encode parameters including prompt_name if provided
+    """
+    encode_kwargs = dict(convert_to_numpy=False, **kwargs)
+    if prompt_name is not None:
+        encode_kwargs["prompt_name"] = prompt_name
+    return encode_kwargs
 
 
 class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
@@ -463,24 +480,18 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                     else:
                         raise ValueError("Please check the input data.")
 
-            encode_kwargs: Dict[str, Any] = dict(convert_to_numpy=False, **kwargs)
-            if jina_prompt_name is not None:
-                encode_kwargs["prompt_name"] = jina_prompt_name
+            encode_kwargs = _build_encode_kwargs(kwargs, jina_prompt_name)
             all_embeddings, all_token_nums = encode(
                 self._model,
                 objs,
                 **encode_kwargs,
             )
         else:
-            encode_kwargs_default: Dict[str, Any] = dict(
-                convert_to_numpy=False, **kwargs
-            )
-            if jina_prompt_name is not None:
-                encode_kwargs_default["prompt_name"] = jina_prompt_name
+            encode_kwargs = _build_encode_kwargs(kwargs, jina_prompt_name)
             all_embeddings, all_token_nums = encode(
                 self._model,
                 sentences,
-                **encode_kwargs_default,
+                **encode_kwargs,
             )
         if isinstance(sentences, str):
             all_embeddings = [all_embeddings]
