@@ -933,7 +933,7 @@ class RESTfulAPI(CancelMixin):
 
         # Handle tools parameter
         if hasattr(body, "tools") and body.tools:
-            kwargs["tools"] = body.tools
+            kwargs["tools"] = list(body.tools)
 
         # Handle tool_choice parameter
         if hasattr(body, "tool_choice") and body.tool_choice:
