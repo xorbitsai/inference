@@ -160,18 +160,18 @@ except ImportError:
     VLLM_INSTALLED = False
     VLLM_VERSION = None
 
-DEFAULT_VLLM_VERSION = version.parse("0.13.0")
+DEFAULT_VLLM_VERSION = version.parse("0.19.0")
 
 
 def _get_effective_vllm_version() -> version.Version:
-    if VLLM_VERSION is not None:
-        return VLLM_VERSION
     try:
         from ....constants import XINFERENCE_ENABLE_VIRTUAL_ENV
     except Exception:
         XINFERENCE_ENABLE_VIRTUAL_ENV = False
     if XINFERENCE_ENABLE_VIRTUAL_ENV:
         return DEFAULT_VLLM_VERSION
+    elif VLLM_VERSION is not None:
+        return VLLM_VERSION
     return version.parse("0.0.0")
 
 
