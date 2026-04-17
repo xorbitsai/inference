@@ -347,7 +347,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
         )
         chat_context_var.set(chat_template_kwargs)
 
-        tools = generate_config.pop("tools", []) if generate_config else None
+        tools = list(generate_config.pop("tools", [])) if generate_config else []
         q: queue.Queue = queue.Queue()
 
         def _handle_chat_completion():
