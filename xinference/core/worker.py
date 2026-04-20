@@ -42,7 +42,6 @@ from typing import (
 
 import xoscar as xo
 from async_timeout import timeout
-from packaging.version import Version
 from xoscar import MainActorPoolType
 
 from ..client.restful.restful_client import Client as RESTfulClient
