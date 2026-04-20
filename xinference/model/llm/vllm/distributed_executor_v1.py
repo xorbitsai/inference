@@ -197,8 +197,14 @@ class XinferenceDistributedExecutorV1(Executor):
         )
 
         all_kwargs = []
+        # Use VLLM_HOST_IP if set (required for multi-machine deployments where
+        # pool addresses may resolve to 127.0.0.1 instead of the actual machine IP).
+        # Fall back to extracting IP from pool address for single-machine setups.
+        driver_ip = os.environ.get(
+            "VLLM_HOST_IP"
+        ) or self._pool_addresses[0].split(":", 1)[0]
         distributed_init_method = get_distributed_init_method(
-            self._pool_addresses[0].split(":", 1)[0], get_next_port()
+            driver_ip, get_next_port()
         )
         for rank in range(world_size):
             local_rank = rank % (world_size // self._n_worker)
