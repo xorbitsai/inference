@@ -6,11 +6,11 @@ def test_extract_tool_calls_single_call():
     parser = DeepseekV3_2ToolParser()
 
     test_case = (
-        '<｜DSML｜function_calls>'
+        "<｜DSML｜function_calls>"
         '<｜DSML｜invoke name="get_current_weather">'
         '<｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter>'
-        '</｜DSML｜invoke>'
-        '</｜DSML｜function_calls>'
+        "</｜DSML｜invoke>"
+        "</｜DSML｜function_calls>"
     )
 
     expected_results = [(None, "get_current_weather", {"location": "上海"})]
@@ -25,14 +25,14 @@ def test_extract_tool_calls_multiple_calls():
     parser = DeepseekV3_2ToolParser()
 
     test_case = (
-        '<｜DSML｜function_calls>'
+        "<｜DSML｜function_calls>"
         '<｜DSML｜invoke name="get_current_weather">'
         '<｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter>'
-        '</｜DSML｜invoke>'
+        "</｜DSML｜invoke>"
         '<｜DSML｜invoke name="get_time">'
         '<｜DSML｜parameter name="timezone" string="true">UTC+8</｜DSML｜parameter>'
-        '</｜DSML｜invoke>'
-        '</｜DSML｜function_calls>'
+        "</｜DSML｜invoke>"
+        "</｜DSML｜function_calls>"
     )
 
     expected_results = [
@@ -50,12 +50,12 @@ def test_extract_tool_calls_multiple_params():
     parser = DeepseekV3_2ToolParser()
 
     test_case = (
-        '<｜DSML｜function_calls>'
+        "<｜DSML｜function_calls>"
         '<｜DSML｜invoke name="get_weather">'
         '<｜DSML｜parameter name="location" string="true">杭州</｜DSML｜parameter>'
         '<｜DSML｜parameter name="date" string="true">2024-01-16</｜DSML｜parameter>'
-        '</｜DSML｜invoke>'
-        '</｜DSML｜function_calls>'
+        "</｜DSML｜invoke>"
+        "</｜DSML｜function_calls>"
     )
 
     expected_results = [
@@ -95,22 +95,30 @@ STREAMING_TEST_CASES = [
         '<｜DSML｜parameter name="location" string="true">',
     ),
     (
-        ['<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">'],
+        [
+            '<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">'
+        ],
         '<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海',
         "上海",
     ),
     (
-        ['<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海'],
+        [
+            '<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海'
+        ],
         '<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter>',
         "</｜DSML｜parameter>",
     ),
     (
-        ['<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter>'],
+        [
+            '<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter>'
+        ],
         '<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter></｜DSML｜invoke>',
         "</｜DSML｜invoke>",
     ),
     (
-        ['<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter></｜DSML｜invoke>'],
+        [
+            '<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter></｜DSML｜invoke>'
+        ],
         '<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter></｜DSML｜invoke></｜DSML｜function_calls>',
         "</｜DSML｜function_calls>",
     ),
@@ -131,48 +139,66 @@ STREAMING_TEST_MULTI_CASES = [
         '<｜DSML｜parameter name="location" string="true">',
     ),
     (
-        ['<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">'],
+        [
+            '<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">'
+        ],
         '<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海',
         "上海",
     ),
     (
-        ['<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海'],
+        [
+            '<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海'
+        ],
         '<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter>',
         "</｜DSML｜parameter>",
     ),
     (
-        ['<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter>'],
+        [
+            '<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter>'
+        ],
         '<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter></｜DSML｜invoke>',
         "</｜DSML｜invoke>",
     ),
     # First invoke complete, second invoke starts
     (
-        ['<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter></｜DSML｜invoke>'],
+        [
+            '<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter></｜DSML｜invoke>'
+        ],
         '<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter></｜DSML｜invoke><｜DSML｜invoke name="get_time">',
         '<｜DSML｜invoke name="get_time">',
     ),
     (
-        ['<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter></｜DSML｜invoke><｜DSML｜invoke name="get_time">'],
+        [
+            '<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter></｜DSML｜invoke><｜DSML｜invoke name="get_time">'
+        ],
         '<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter></｜DSML｜invoke><｜DSML｜invoke name="get_time"><｜DSML｜parameter name="timezone" string="true">',
         '<｜DSML｜parameter name="timezone" string="true">',
     ),
     (
-        ['<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter></｜DSML｜invoke><｜DSML｜invoke name="get_time"><｜DSML｜parameter name="timezone" string="true">'],
+        [
+            '<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter></｜DSML｜invoke><｜DSML｜invoke name="get_time"><｜DSML｜parameter name="timezone" string="true">'
+        ],
         '<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter></｜DSML｜invoke><｜DSML｜invoke name="get_time"><｜DSML｜parameter name="timezone" string="true">UTC+8',
         "UTC+8",
     ),
     (
-        ['<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter></｜DSML｜invoke><｜DSML｜invoke name="get_time"><｜DSML｜parameter name="timezone" string="true">UTC+8'],
+        [
+            '<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter></｜DSML｜invoke><｜DSML｜invoke name="get_time"><｜DSML｜parameter name="timezone" string="true">UTC+8'
+        ],
         '<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter></｜DSML｜invoke><｜DSML｜invoke name="get_time"><｜DSML｜parameter name="timezone" string="true">UTC+8</｜DSML｜parameter>',
         "</｜DSML｜parameter>",
     ),
     (
-        ['<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter></｜DSML｜invoke><｜DSML｜invoke name="get_time"><｜DSML｜parameter name="timezone" string="true">UTC+8</｜DSML｜parameter>'],
+        [
+            '<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter></｜DSML｜invoke><｜DSML｜invoke name="get_time"><｜DSML｜parameter name="timezone" string="true">UTC+8</｜DSML｜parameter>'
+        ],
         '<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter></｜DSML｜invoke><｜DSML｜invoke name="get_time"><｜DSML｜parameter name="timezone" string="true">UTC+8</｜DSML｜parameter></｜DSML｜invoke>',
         "</｜DSML｜invoke>",
     ),
     (
-        ['<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter></｜DSML｜invoke><｜DSML｜invoke name="get_time"><｜DSML｜parameter name="timezone" string="true">UTC+8</｜DSML｜parameter></｜DSML｜invoke>'],
+        [
+            '<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter></｜DSML｜invoke><｜DSML｜invoke name="get_time"><｜DSML｜parameter name="timezone" string="true">UTC+8</｜DSML｜parameter></｜DSML｜invoke>'
+        ],
         '<｜DSML｜function_calls><｜DSML｜invoke name="get_current_weather"><｜DSML｜parameter name="location" string="true">上海</｜DSML｜parameter></｜DSML｜invoke><｜DSML｜invoke name="get_time"><｜DSML｜parameter name="timezone" string="true">UTC+8</｜DSML｜parameter></｜DSML｜invoke></｜DSML｜function_calls>',
         "</｜DSML｜function_calls>",
     ),
@@ -260,4 +286,8 @@ def test_extract_tool_calls_plain_text_before_tool_call():
     current_text = delta
     result = parser.extract_tool_calls_streaming(previous_texts, current_text, delta)
 
-    assert result == ("这是普通文本", None, None), f"Expected plain text passthrough, got {result}"
+    assert result == (
+        "这是普通文本",
+        None,
+        None,
+    ), f"Expected plain text passthrough, got {result}"

@@ -134,7 +134,5 @@ class DeepseekV3_2ToolParser(ToolParser):
             return None
 
         except Exception as e:
-            logger.error(
-                "Error in DeepSeek V3.2 streaming tool call extraction: %s", e
-            )
+            logger.error("Error in DeepSeek V3.2 streaming tool call extraction: %s", e)
             raise
