@@ -28,7 +28,7 @@ RUN python -m pip install --upgrade -i "$PIP_INDEX" pip "setuptools<82" wheel "p
     python setup.py build_web && \
     git restore . && \
     pip install -i "$PIP_INDEX" --no-deps "." && \
-    pip install -i "$PIP_INDEX" "xllamacpp>=0.2.0" && \
+    pip install -i "$PIP_INDEX" "xllamacpp" && \
     # clean packages
     pip cache purge
 

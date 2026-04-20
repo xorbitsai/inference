@@ -32,7 +32,7 @@ RUN apt-get update -y && \
     python3 setup.py build_web && \
     git restore . && \
     pip install -i "$PIP_INDEX" --no-deps --no-build-isolation "." && \
-    pip install -i "$PIP_INDEX" "xllamacpp>=0.2.0" && \
+    pip install xllamacpp --index-url https://xorbitsai.github.io/xllamacpp/whl/cu128 && \
     pip cache purge
 
 RUN pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128 \

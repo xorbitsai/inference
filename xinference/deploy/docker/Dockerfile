@@ -57,8 +57,7 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip "setuptools<82" wheel && \
     git restore . && \
     pip install -i "$PIP_INDEX" --no-deps "." && \
     pip uninstall xllamacpp -y && \
-    wget https://github.com/xorbitsai/xllamacpp/releases/download/v0.2.0-cu124/xllamacpp-0.2.0-cp312-cp312-linux_x86_64.whl && \
-    pip install xllamacpp-0.2.0-cp312-cp312-linux_x86_64.whl && \
+    pip install xllamacpp --index-url https://xorbitsai.github.io/xllamacpp/whl/cu128 && \
     # clean packages
     pip cache purge
 
