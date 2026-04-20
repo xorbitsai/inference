@@ -88,6 +88,7 @@ from .utils import (
 from .virtual_env_manager import VirtualEnvManager as XinferenceVirtualEnvManager
 from .virtual_env_manager import (
     expand_engine_dependency_placeholders,
+    is_cuda_compatible,
     resolve_virtualenv_python_path,
 )
 
@@ -1553,9 +1554,9 @@ class WorkerActor(xo.StatelessActor):
         except Exception:
             cuda_version = None
 
-        if not cuda_version or Version(cuda_version) < Version("13.0"):
+        if not is_cuda_compatible(settings.extra_index_url, cuda_version):
             logger.debug(
-                f"[DEBUG] CUDA version check: cuda_version={cuda_version}, clearing extra_index_url and index_strategy"
+                f"[DEBUG] CUDA version mismatch: cuda_version={cuda_version}, extra_index_url={settings.extra_index_url}, clearing extra_index_url and index_strategy"
             )
             settings.extra_index_url = None
             settings.index_strategy = None
