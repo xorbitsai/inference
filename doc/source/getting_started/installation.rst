@@ -96,7 +96,7 @@ Currently, supported models include:
 - ``Qwen3-Next-Instruct``, ``Qwen3-Next-Thinking``
 - ``DeepSeek-V3.2``, ``DeepSeek-V3.2-Exp``
 - ``MiniMax-M2``, ``MiniMax-M2.5``, ``MiniMax-M2.7``
-- ``glm-5``
+- ``glm-5``, ``glm-5.1``
 .. vllm_end
 
 To install Xinference and vLLM::
