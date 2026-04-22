@@ -30856,5 +30856,746 @@
     },
     "featured": false,
     "updated_at": 1777005497
+  },
+  {
+    "model_name": "glm-5.1",
+    "model_description": "GLM-5.1 is our next-generation flagship model for agentic engineering, with significantly stronger coding capabilities than its predecessor. It achieves state-of-the-art performance on SWE-Bench Pro and leads GLM-5 by a wide margin on NL2Repo (repo generation) and Terminal-Bench 2.0 (real-world terminal tasks).",
+    "context_length": 202752,
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "vision",
+      "tools",
+      "reasoning"
+    ],
+    "model_specs": [
+      {
+        "model_size_in_billions": 744,
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "zai-org/GLM-5.1",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "ZhipuAI/GLM-5.1",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 744,
+        "model_format": "fp8",
+        "model_src": {
+          "huggingface": {
+            "model_id": "zai-org/GLM-5.1-FP8",
+            "quantizations": [
+              "FP8"
+            ]
+          },
+          "modelscope": {
+            "model_id": "ZhipuAI/GLM-5.1-FP8",
+            "quantizations": [
+              "FP8"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 744,
+        "model_format": "ggufv2",
+        "model_src": {
+          "huggingface": {
+            "model_id": "unsloth/GLM-5.1-GGUF",
+            "model_file_name_template": "",
+            "model_file_name_split_template": "GLM-5.1-{quantization}-{part}.gguf",
+            "quantizations": [
+              "none"
+            ],
+            "quantization_parts": {
+              "BF16": [
+                "00001-of-00033",
+                "00002-of-00033",
+                "00003-of-00033",
+                "00004-of-00033",
+                "00005-of-00033",
+                "00006-of-00033",
+                "00007-of-00033",
+                "00008-of-00033",
+                "00009-of-00033",
+                "00010-of-00033",
+                "00011-of-00033",
+                "00012-of-00033",
+                "00013-of-00033",
+                "00014-of-00033",
+                "00015-of-00033",
+                "00016-of-00033",
+                "00017-of-00033",
+                "00018-of-00033",
+                "00019-of-00033",
+                "00020-of-00033",
+                "00021-of-00033",
+                "00022-of-00033",
+                "00023-of-00033",
+                "00024-of-00033",
+                "00025-of-00033",
+                "00026-of-00033",
+                "00027-of-00033",
+                "00028-of-00033",
+                "00029-of-00033",
+                "00030-of-00033",
+                "00031-of-00033",
+                "00032-of-00033",
+                "00033-of-00033"
+              ],
+              "MXFP4_MOE": [
+                "00001-of-00011",
+                "00002-of-00011",
+                "00003-of-00011",
+                "00004-of-00011",
+                "00005-of-00011",
+                "00006-of-00011",
+                "00007-of-00011",
+                "00008-of-00011",
+                "00009-of-00011",
+                "00010-of-00011",
+                "00011-of-00011"
+              ],
+              "Q8_0": [
+                "00001-of-00017",
+                "00002-of-00017",
+                "00003-of-00017",
+                "00004-of-00017",
+                "00005-of-00017",
+                "00006-of-00017",
+                "00007-of-00017",
+                "00008-of-00017",
+                "00009-of-00017",
+                "00010-of-00017",
+                "00011-of-00017",
+                "00012-of-00017",
+                "00013-of-00017",
+                "00014-of-00017",
+                "00015-of-00017",
+                "00016-of-00017",
+                "00017-of-00017"
+              ],
+              "UD-IQ1_M": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "UD-IQ2_M": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "UD-IQ2_XXS": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "UD-IQ3_S": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "UD-IQ3_XXS": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "UD-IQ4_NL": [
+                "00001-of-00009",
+                "00002-of-00009",
+                "00003-of-00009",
+                "00004-of-00009",
+                "00005-of-00009",
+                "00006-of-00009",
+                "00007-of-00009",
+                "00008-of-00009",
+                "00009-of-00009"
+              ],
+              "UD-IQ4_XS": [
+                "00001-of-00009",
+                "00002-of-00009",
+                "00003-of-00009",
+                "00004-of-00009",
+                "00005-of-00009",
+                "00006-of-00009",
+                "00007-of-00009",
+                "00008-of-00009",
+                "00009-of-00009"
+              ],
+              "UD-Q2_K_XL": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "UD-Q3_K_M": [
+                "00001-of-00008",
+                "00002-of-00008",
+                "00003-of-00008",
+                "00004-of-00008",
+                "00005-of-00008",
+                "00006-of-00008",
+                "00007-of-00008",
+                "00008-of-00008"
+              ],
+              "UD-Q3_K_S": [
+                "00001-of-00008",
+                "00002-of-00008",
+                "00003-of-00008",
+                "00004-of-00008",
+                "00005-of-00008",
+                "00006-of-00008",
+                "00007-of-00008",
+                "00008-of-00008"
+              ],
+              "UD-Q3_K_XL": [
+                "00001-of-00008",
+                "00002-of-00008",
+                "00003-of-00008",
+                "00004-of-00008",
+                "00005-of-00008",
+                "00006-of-00008",
+                "00007-of-00008",
+                "00008-of-00008"
+              ],
+              "UD-Q4_K_M": [
+                "00001-of-00011",
+                "00002-of-00011",
+                "00003-of-00011",
+                "00004-of-00011",
+                "00005-of-00011",
+                "00006-of-00011",
+                "00007-of-00011",
+                "00008-of-00011",
+                "00009-of-00011",
+                "00010-of-00011",
+                "00011-of-00011"
+              ],
+              "UD-Q4_K_S": [
+                "00001-of-00010",
+                "00002-of-00010",
+                "00003-of-00010",
+                "00004-of-00010",
+                "00005-of-00010",
+                "00006-of-00010",
+                "00007-of-00010",
+                "00008-of-00010",
+                "00009-of-00010",
+                "00010-of-00010"
+              ],
+              "UD-Q4_K_XL": [
+                "00001-of-00011",
+                "00002-of-00011",
+                "00003-of-00011",
+                "00004-of-00011",
+                "00005-of-00011",
+                "00006-of-00011",
+                "00007-of-00011",
+                "00008-of-00011",
+                "00009-of-00011",
+                "00010-of-00011",
+                "00011-of-00011"
+              ],
+              "UD-Q5_K_M": [
+                "00001-of-00013",
+                "00002-of-00013",
+                "00003-of-00013",
+                "00004-of-00013",
+                "00005-of-00013",
+                "00006-of-00013",
+                "00007-of-00013",
+                "00008-of-00013",
+                "00009-of-00013",
+                "00010-of-00013",
+                "00011-of-00013",
+                "00012-of-00013",
+                "00013-of-00013"
+              ],
+              "UD-Q5_K_S": [
+                "00001-of-00012",
+                "00002-of-00012",
+                "00003-of-00012",
+                "00004-of-00012",
+                "00005-of-00012",
+                "00006-of-00012",
+                "00007-of-00012",
+                "00008-of-00012",
+                "00009-of-00012",
+                "00010-of-00012",
+                "00011-of-00012",
+                "00012-of-00012"
+              ],
+              "UD-Q5_K_XL": [
+                "00001-of-00013",
+                "00002-of-00013",
+                "00003-of-00013",
+                "00004-of-00013",
+                "00005-of-00013",
+                "00006-of-00013",
+                "00007-of-00013",
+                "00008-of-00013",
+                "00009-of-00013",
+                "00010-of-00013",
+                "00011-of-00013",
+                "00012-of-00013",
+                "00013-of-00013"
+              ],
+              "UD-Q6_K": [
+                "00001-of-00014",
+                "00002-of-00014",
+                "00003-of-00014",
+                "00004-of-00014",
+                "00005-of-00014",
+                "00006-of-00014",
+                "00007-of-00014",
+                "00008-of-00014",
+                "00009-of-00014",
+                "00010-of-00014",
+                "00011-of-00014",
+                "00012-of-00014",
+                "00013-of-00014",
+                "00014-of-00014"
+              ],
+              "UD-Q6_K_XL": [
+                "00001-of-00016",
+                "00002-of-00016",
+                "00003-of-00016",
+                "00004-of-00016",
+                "00005-of-00016",
+                "00006-of-00016",
+                "00007-of-00016",
+                "00008-of-00016",
+                "00009-of-00016",
+                "00010-of-00016",
+                "00011-of-00016",
+                "00012-of-00016",
+                "00013-of-00016",
+                "00014-of-00016",
+                "00015-of-00016",
+                "00016-of-00016"
+              ],
+              "UD-Q8_K_XL": [
+                "00001-of-00018",
+                "00002-of-00018",
+                "00003-of-00018",
+                "00004-of-00018",
+                "00005-of-00018",
+                "00006-of-00018",
+                "00007-of-00018",
+                "00008-of-00018",
+                "00009-of-00018",
+                "00010-of-00018",
+                "00011-of-00018",
+                "00012-of-00018",
+                "00013-of-00018",
+                "00014-of-00018",
+                "00015-of-00018",
+                "00016-of-00018",
+                "00017-of-00018",
+                "00018-of-00018"
+              ]
+            }
+          },
+          "modelscope": {
+            "model_id": "unsloth/GLM-5.1-GGUF",
+            "model_file_name_template": "",
+            "model_file_name_split_template": "GLM-5.1-{quantization}-{part}.gguf",
+            "quantizations": [
+              "none"
+            ],
+            "quantization_parts": {
+              "BF16": [
+                "00001-of-00033",
+                "00002-of-00033",
+                "00003-of-00033",
+                "00004-of-00033",
+                "00005-of-00033",
+                "00006-of-00033",
+                "00007-of-00033",
+                "00008-of-00033",
+                "00009-of-00033",
+                "00010-of-00033",
+                "00011-of-00033",
+                "00012-of-00033",
+                "00013-of-00033",
+                "00014-of-00033",
+                "00015-of-00033",
+                "00016-of-00033",
+                "00017-of-00033",
+                "00018-of-00033",
+                "00019-of-00033",
+                "00020-of-00033",
+                "00021-of-00033",
+                "00022-of-00033",
+                "00023-of-00033",
+                "00024-of-00033",
+                "00025-of-00033",
+                "00026-of-00033",
+                "00027-of-00033",
+                "00028-of-00033",
+                "00029-of-00033",
+                "00030-of-00033",
+                "00031-of-00033",
+                "00032-of-00033",
+                "00033-of-00033"
+              ],
+              "MXFP4_MOE": [
+                "00001-of-00011",
+                "00002-of-00011",
+                "00003-of-00011",
+                "00004-of-00011",
+                "00005-of-00011",
+                "00006-of-00011",
+                "00007-of-00011",
+                "00008-of-00011",
+                "00009-of-00011",
+                "00010-of-00011",
+                "00011-of-00011"
+              ],
+              "Q8_0": [
+                "00001-of-00017",
+                "00002-of-00017",
+                "00003-of-00017",
+                "00004-of-00017",
+                "00005-of-00017",
+                "00006-of-00017",
+                "00007-of-00017",
+                "00008-of-00017",
+                "00009-of-00017",
+                "00010-of-00017",
+                "00011-of-00017",
+                "00012-of-00017",
+                "00013-of-00017",
+                "00014-of-00017",
+                "00015-of-00017",
+                "00016-of-00017",
+                "00017-of-00017"
+              ],
+              "UD-IQ1_M": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "UD-IQ2_M": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "UD-IQ2_XXS": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "UD-IQ3_S": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "UD-IQ3_XXS": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "UD-IQ4_NL": [
+                "00001-of-00009",
+                "00002-of-00009",
+                "00003-of-00009",
+                "00004-of-00009",
+                "00005-of-00009",
+                "00006-of-00009",
+                "00007-of-00009",
+                "00008-of-00009",
+                "00009-of-00009"
+              ],
+              "UD-IQ4_XS": [
+                "00001-of-00009",
+                "00002-of-00009",
+                "00003-of-00009",
+                "00004-of-00009",
+                "00005-of-00009",
+                "00006-of-00009",
+                "00007-of-00009",
+                "00008-of-00009",
+                "00009-of-00009"
+              ],
+              "UD-Q2_K_XL": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "UD-Q3_K_M": [
+                "00001-of-00008",
+                "00002-of-00008",
+                "00003-of-00008",
+                "00004-of-00008",
+                "00005-of-00008",
+                "00006-of-00008",
+                "00007-of-00008",
+                "00008-of-00008"
+              ],
+              "UD-Q3_K_S": [
+                "00001-of-00008",
+                "00002-of-00008",
+                "00003-of-00008",
+                "00004-of-00008",
+                "00005-of-00008",
+                "00006-of-00008",
+                "00007-of-00008",
+                "00008-of-00008"
+              ],
+              "UD-Q3_K_XL": [
+                "00001-of-00008",
+                "00002-of-00008",
+                "00003-of-00008",
+                "00004-of-00008",
+                "00005-of-00008",
+                "00006-of-00008",
+                "00007-of-00008",
+                "00008-of-00008"
+              ],
+              "UD-Q4_K_M": [
+                "00001-of-00011",
+                "00002-of-00011",
+                "00003-of-00011",
+                "00004-of-00011",
+                "00005-of-00011",
+                "00006-of-00011",
+                "00007-of-00011",
+                "00008-of-00011",
+                "00009-of-00011",
+                "00010-of-00011",
+                "00011-of-00011"
+              ],
+              "UD-Q4_K_S": [
+                "00001-of-00010",
+                "00002-of-00010",
+                "00003-of-00010",
+                "00004-of-00010",
+                "00005-of-00010",
+                "00006-of-00010",
+                "00007-of-00010",
+                "00008-of-00010",
+                "00009-of-00010",
+                "00010-of-00010"
+              ],
+              "UD-Q4_K_XL": [
+                "00001-of-00011",
+                "00002-of-00011",
+                "00003-of-00011",
+                "00004-of-00011",
+                "00005-of-00011",
+                "00006-of-00011",
+                "00007-of-00011",
+                "00008-of-00011",
+                "00009-of-00011",
+                "00010-of-00011",
+                "00011-of-00011"
+              ],
+              "UD-Q5_K_M": [
+                "00001-of-00013",
+                "00002-of-00013",
+                "00003-of-00013",
+                "00004-of-00013",
+                "00005-of-00013",
+                "00006-of-00013",
+                "00007-of-00013",
+                "00008-of-00013",
+                "00009-of-00013",
+                "00010-of-00013",
+                "00011-of-00013",
+                "00012-of-00013",
+                "00013-of-00013"
+              ],
+              "UD-Q5_K_S": [
+                "00001-of-00012",
+                "00002-of-00012",
+                "00003-of-00012",
+                "00004-of-00012",
+                "00005-of-00012",
+                "00006-of-00012",
+                "00007-of-00012",
+                "00008-of-00012",
+                "00009-of-00012",
+                "00010-of-00012",
+                "00011-of-00012",
+                "00012-of-00012"
+              ],
+              "UD-Q5_K_XL": [
+                "00001-of-00013",
+                "00002-of-00013",
+                "00003-of-00013",
+                "00004-of-00013",
+                "00005-of-00013",
+                "00006-of-00013",
+                "00007-of-00013",
+                "00008-of-00013",
+                "00009-of-00013",
+                "00010-of-00013",
+                "00011-of-00013",
+                "00012-of-00013",
+                "00013-of-00013"
+              ],
+              "UD-Q6_K": [
+                "00001-of-00014",
+                "00002-of-00014",
+                "00003-of-00014",
+                "00004-of-00014",
+                "00005-of-00014",
+                "00006-of-00014",
+                "00007-of-00014",
+                "00008-of-00014",
+                "00009-of-00014",
+                "00010-of-00014",
+                "00011-of-00014",
+                "00012-of-00014",
+                "00013-of-00014",
+                "00014-of-00014"
+              ],
+              "UD-Q6_K_XL": [
+                "00001-of-00016",
+                "00002-of-00016",
+                "00003-of-00016",
+                "00004-of-00016",
+                "00005-of-00016",
+                "00006-of-00016",
+                "00007-of-00016",
+                "00008-of-00016",
+                "00009-of-00016",
+                "00010-of-00016",
+                "00011-of-00016",
+                "00012-of-00016",
+                "00013-of-00016",
+                "00014-of-00016",
+                "00015-of-00016",
+                "00016-of-00016"
+              ],
+              "UD-Q8_K_XL": [
+                "00001-of-00018",
+                "00002-of-00018",
+                "00003-of-00018",
+                "00004-of-00018",
+                "00005-of-00018",
+                "00006-of-00018",
+                "00007-of-00018",
+                "00008-of-00018",
+                "00009-of-00018",
+                "00010-of-00018",
+                "00011-of-00018",
+                "00012-of-00018",
+                "00013-of-00018",
+                "00014-of-00018",
+                "00015-of-00018",
+                "00016-of-00018",
+                "00017-of-00018",
+                "00018-of-00018"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 744,
+        "model_format": "mlx",
+        "model_src": {
+          "huggingface": {
+            "model_id": "mlx-community/GLM-5.1-{quantization}",
+            "quantizations": [
+              "8bit-MXFP8"
+            ]
+          },
+          "modelscope": {
+            "model_id": "mlx-community/GLM-5.1-{quantization}",
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit",
+              "8bit-MXFP8",
+              "bf16"
+            ]
+          }
+        }
+      }
+    ],
+    "architectures": [
+      "GlmMoeDsaForCausalLM"
+    ],
+    "chat_template": "[gMASK]<sop>\n{%- if tools -%}\n{%- macro tool_to_json(tool) -%}\n    {%- set ns_tool = namespace(first=true) -%}\n    {{ '{' -}}\n    {%- for k, v in tool.items() -%}\n        {%- if k != 'defer_loading' and k != 'strict' -%}\n            {%- if not ns_tool.first -%}{{- ', ' -}}{%- endif -%}\n            {%- set ns_tool.first = false -%}\n            \"{{ k }}\": {{ v | tojson(ensure_ascii=False) }}\n        {%- endif -%}\n    {%- endfor -%}\n    {{- '}' -}}\n{%- endmacro -%}\n<|system|>\n# Tools\n\nYou may call one or more functions to assist with the user query.\n\nYou are provided with function signatures within <tools></tools> XML tags:\n<tools>\n{% for tool in tools %}\n{%- if 'function' in tool -%}\n    {%- set tool = tool['function'] -%}\n{%- endif -%}\n{% if tool.defer_loading is not defined or not tool.defer_loading %}\n{{ tool_to_json(tool) }}\n{% endif %}\n{% endfor %}\n</tools>\n\nFor each function call, output the function name and arguments within the following XML format:\n<tool_call>{function-name}<arg_key>{arg-key-1}</arg_key><arg_value>{arg-value-1}</arg_value><arg_key>{arg-key-2}</arg_key><arg_value>{arg-value-2}</arg_value>...</tool_call>{%- endif -%}\n{%- macro visible_text(content) -%}\n    {%- if content is string -%}\n        {{- content }}\n    {%- elif content is iterable and content is not mapping -%}\n        {%- for item in content -%}\n            {%- if item is mapping and item.type == 'text' -%}\n                {{- item.text }}\n            {%- elif item is string -%}\n                {{- item }}\n            {%- endif -%}\n        {%- endfor -%}\n    {%- else -%}\n        {{- content }}\n    {%- endif -%}\n{%- endmacro -%}\n{%- set ns = namespace(last_user_index=-1, thinking_indices='') -%}\n{%- for m in messages %}\n    {%- if m.role == 'user' %}\n        {%- set ns.last_user_index = loop.index0 -%}\n    {%- elif m.role == 'assistant' %}\n        {%- if m.reasoning_content is string %}\n            {%- set ns.thinking_indices = ns.thinking_indices ~ ',' ~ ns.last_user_index ~ ',' -%}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- set ns.has_thinking = false -%}\n{%- for m in messages -%}\n{%- if m.role == 'user' -%}<|user|>{{ visible_text(m.content) }}{% set ns.has_thinking = (',' ~ loop.index0 ~ ',') in ns.thinking_indices -%}\n{%- elif m.role == 'assistant' -%}\n<|assistant|>\n{%- set content = visible_text(m.content) %}\n{%- if m.reasoning_content is string %}\n    {%- set reasoning_content = m.reasoning_content %}\n{%- elif '</think>' in content %}\n    {%- set reasoning_content = content.split('</think>')[0].split('<think>')[-1] %}\n    {%- set content = content.split('</think>')[-1] %}\n{%- elif loop.index0 > ns.last_user_index and not (enable_thinking is defined and not enable_thinking) %}\n    {%- set reasoning_content = '' %}\n{%- elif loop.index0 < ns.last_user_index and ns.has_thinking %}\n    {%- set reasoning_content = '' %}\n{%- endif %}\n{%- if ((clear_thinking is defined and not clear_thinking) or loop.index0 > ns.last_user_index) and reasoning_content is defined -%}\n{{ '<think>' + reasoning_content +  '</think>'}}\n{%- else -%}\n{{ '</think>' }}\n{%- endif -%}\n{%- if content.strip() -%}\n{{ content.strip() }}\n{%- endif -%}\n{% if m.tool_calls %}\n{% for tc in m.tool_calls %}\n{%- if tc.function %}\n    {%- set tc = tc.function %}\n{%- endif %}\n{{- '<tool_call>' + tc.name -}}\n{% set _args = tc.arguments %}{% for k, v in _args.items() %}<arg_key>{{ k }}</arg_key><arg_value>{{ v | tojson(ensure_ascii=False) if v is not string else v }}</arg_value>{% endfor %}</tool_call>{% endfor %}\n{% endif %}\n{%- elif m.role == 'tool' -%}\n{%- if loop.first or (messages[loop.index0 - 1].role != \"tool\") %}\n    {{- '<|observation|>' -}}\n{%- endif %}\n{%- if m.content is string -%}\n    {{- '<tool_response>' + m.content + '</tool_response>' -}}\n{%- elif m.content is iterable and m.content is not mapping and m.content and m.content.0.type == \"tool_reference\" -%}\n    {{- '<tool_response><tools>\\n' -}}\n    {% for tr in m.content %}\n        {%- for tool in tools -%}\n            {%- if 'function' in tool -%}\n                {%- set tool = tool['function'] -%}\n            {%- endif -%}\n            {%- if tool.name == tr.name -%}\n                {{- tool_to_json(tool) + '\\n' -}}\n            {%- endif -%}\n        {%- endfor -%}\n    {%- endfor -%}\n    {{- '</tools></tool_response>' -}}\n{%- else -%}\n    {{- '<tool_response>' + visible_text(m.content) + '</tool_response>' -}}\n{% endif -%}\n{%- elif m.role == 'system' -%}\n<|system|>{{ visible_text(m.content) }}\n{%- endif -%}\n{%- endfor -%}\n{%- if add_generation_prompt -%}\n    <|assistant|>{{- '</think>' if (enable_thinking is defined and not enable_thinking) else '<think>' -}}\n{%- endif -%}",
+    "stop_token_ids": [
+      154820,
+      154827,
+      154829
+    ],
+    "stop": [
+      "<|endoftext|>"
+    ],
+    "tool_parser": "glm4",
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#mlx_dependencies# ; #engine# == \"MLX\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    },
+    "featured": false,
+    "updated_at": 1776846198
   }
 ]
