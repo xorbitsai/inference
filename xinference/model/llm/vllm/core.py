@@ -160,18 +160,18 @@ except ImportError:
     VLLM_INSTALLED = False
     VLLM_VERSION = None
 
-DEFAULT_VLLM_VERSION = version.parse("0.13.0")
+DEFAULT_VLLM_VERSION = version.parse("0.19.0")
 
 
 def _get_effective_vllm_version() -> version.Version:
-    if VLLM_VERSION is not None:
-        return VLLM_VERSION
     try:
         from ....constants import XINFERENCE_ENABLE_VIRTUAL_ENV
     except Exception:
         XINFERENCE_ENABLE_VIRTUAL_ENV = False
     if XINFERENCE_ENABLE_VIRTUAL_ENV:
         return DEFAULT_VLLM_VERSION
+    elif VLLM_VERSION is not None:
+        return VLLM_VERSION
     return version.parse("0.0.0")
 
 
@@ -837,7 +837,11 @@ class VLLMModel(LLM):
         if model_config is None:
             model_config = VLLMModelConfig()
 
-        model_config.setdefault("tokenizer_mode", "auto")
+        architectures = getattr(self.model_family, "architectures", []) or []
+        if "DeepseekV32ForCausalLM" in architectures:
+            model_config.setdefault("tokenizer_mode", "deepseek_v32")
+        else:
+            model_config.setdefault("tokenizer_mode", "auto")
         model_config.setdefault("trust_remote_code", True)
         model_config.setdefault("tensor_parallel_size", self._device_count)  # type: ignore
         model_config.setdefault("pipeline_parallel_size", self._n_worker)  # type: ignore
@@ -1201,11 +1205,7 @@ class VLLMModel(LLM):
             elif not enable_thinking and self.reasoning_parser:
                 enable_thinking = self.reasoning_parser.enable_thinking
 
-        if (
-            enable_thinking
-            and generate_config
-            and generate_config.get("skip_special_tokens") is None
-        ):
+        if (enable_thinking or tools) and generate_config:
             generate_config["skip_special_tokens"] = False
 
         sanitized_generate_config = self._sanitize_generate_config(generate_config)
@@ -1687,7 +1687,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         # Preprocess messages to ensure content is not None
         messages = self.prefill_messages(messages)
 
-        tools = generate_config.pop("tools", []) if generate_config else None
+        tools = list(generate_config.pop("tools", [])) if generate_config else None
         model_family = self.model_family.model_family or self.model_family.model_name
         chat_template_kwargs = (
             self._get_chat_template_kwargs_from_generate_config(
@@ -1717,7 +1717,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                     lora_request = lora
                     break
         tokenizer = await self._get_tokenizer(lora_request)
-
+        logger.debug("tokenizer class: %s", type(tokenizer).__name__)
         full_prompt = self.get_full_context(
             messages,
             self.model_family.chat_template,
@@ -1965,7 +1965,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
         generate_config: Optional[Dict] = None,
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
-        tools = generate_config.pop("tools", []) if generate_config else None
+        tools = list(generate_config.pop("tools", [])) if generate_config else None
 
         model_family = self.model_family.model_family or self.model_family.model_name
         audios, images, videos, video_kwargs = None, None, None, None
@@ -2055,7 +2055,10 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
 
         if stream:
             agen = await self.async_generate(
-                inputs, generate_config, request_id=request_id
+                inputs,
+                generate_config,
+                tools=True if tools else False,
+                request_id=request_id,
             )
             assert isinstance(agen, AsyncGenerator)
             if tools:
@@ -2065,7 +2068,10 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             )
         else:
             c = await self.async_generate(
-                inputs, generate_config, request_id=request_id
+                inputs,
+                generate_config,
+                tools=True if tools else False,
+                request_id=request_id,
             )
             assert not isinstance(c, AsyncGenerator)
             if tools:

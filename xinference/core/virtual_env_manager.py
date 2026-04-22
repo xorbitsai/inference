@@ -14,9 +14,10 @@
 
 import logging
 import os
+import re
 import shutil
 import subprocess
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from ..constants import XINFERENCE_VIRTUAL_ENV_DIR
 
@@ -87,6 +88,45 @@ PYTORCH_CUDA_WHEEL_URLS: Dict[str, str] = {
 
 # Packages that use PyTorch CUDA wheels
 PYTORCH_PACKAGES = {"torch", "torchaudio", "torchvision", "torchcodec"}
+
+
+def extract_cuda_version_from_url(url: str) -> Optional[str]:
+    """Extract CUDA version suffix (e.g. 'cu130') from a wheel index URL."""
+    if not url:
+        return None
+
+    # Handles both:
+    #   - https://download.pytorch.org/whl/cu130
+    #   - https://wheels.vllm.ai/0.19.0/cu130
+    match = re.search(r"/(cu\d+)/?", url)
+    return match.group(1) if match else None
+
+
+def is_cuda_compatible(
+    extra_index_url: Optional[Union[str, List[str]]],
+    system_cuda_version: Optional[str],
+) -> bool:
+    """
+    Check whether all CUDA-indexed URLs in extra_index_url are compatible with
+    the system CUDA version.
+
+    Returns True if there is no mismatch. If any URL has a known CUDA version that
+    differs from the system, returns False. If the system version cannot be
+    detected, returns False to be safe.
+    """
+    if not extra_index_url:
+        return True
+    if not system_cuda_version:
+        return False
+
+    urls = extra_index_url if isinstance(extra_index_url, list) else [extra_index_url]
+    system_cuda_suffix = f"cu{system_cuda_version.replace('.', '')}"
+
+    for url in urls:
+        url_cuda_suffix = extract_cuda_version_from_url(url)
+        if url_cuda_suffix and url_cuda_suffix != system_cuda_suffix:
+            return False
+    return True
 
 
 def get_engine_virtualenv_packages(model_engine: Optional[str]) -> List[str]:

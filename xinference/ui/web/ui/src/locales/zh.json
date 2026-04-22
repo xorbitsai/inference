@@ -76,8 +76,9 @@
     "noPackagesInstalled": "未安装任何包",
     "lastConfig": "最后配置",
     "configCache": "配置缓存",
+    "newCache": "新建缓存",
     "noConfigCache": "当前没有配置缓存！",
-    "loadCache": "加载",
+    "loadCache": "使用",
     "deleteCache": "删除缓存",
     "lastUpdated": "最后更新",
     "defaultConfig": "默认配置",
@@ -162,9 +163,12 @@
     "workerAddress": "工作节点地址",
     "status": "状态",
     "createdTime": "创建时间",
+    "actions": "操作",
     "noReplicaInfo": "暂无副本信息",
     "errors": "错误",
     "replica": "副本",
+    "remove": "移除",
+    "removeConfirm": "确认移除模型 {{modelUid}} 的副本 {{replicaId}} 吗？",
     "close": "关闭"
   },
   "runningModels": {

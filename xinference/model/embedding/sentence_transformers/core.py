@@ -28,6 +28,66 @@ from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 logger = logging.getLogger(__name__)
 SENTENCE_TRANSFORMER_MODEL_LIST: List[str] = []
 
+# Jina embeddings v4 supported task types and their mapping to
+# SentenceTransformer prompt_name values.
+# The official Jina AI API supports "retrieval.passage", "retrieval.query",
+# "text-matching", and "code" as task values.  Xinference previously only
+# accepted the coarser "retrieval" (mapped to no prompt), losing the
+# query/passage distinction.  This mapping restores full compatibility with
+# the Jina API while keeping backward compatibility for "retrieval".
+JINA_V4_TASK_TO_PROMPT_NAME: Dict[str, str] = {
+    "retrieval.passage": "retrieval.passage",
+    "retrieval.query": "retrieval.query",
+    "text-matching": "text-matching",
+    "code": "code",
+    # Backward-compatible alias: plain "retrieval" defaults to passage encoding
+    "retrieval": "retrieval.passage",
+}
+
+# Models that support Jina-style dot-notation task types.
+JINA_TASK_SUPPORTED_MODELS = {
+    "jina-embeddings-v4",
+    "jina-embeddings-v3",
+}
+
+
+def _resolve_jina_task(model_name: str, task: Optional[str]) -> Optional[str]:
+    """Resolve a Jina API ``task`` value to a SentenceTransformer ``prompt_name``.
+
+    Returns ``None`` when the model is not a Jina task-aware model or when no
+    task is provided, so callers can fall through to the default behaviour.
+    """
+    if task is None:
+        return None
+    # Only apply the mapping for known Jina task-aware models.
+    if not any(name in model_name.lower() for name in JINA_TASK_SUPPORTED_MODELS):
+        return None
+    prompt_name = JINA_V4_TASK_TO_PROMPT_NAME.get(task)
+    if prompt_name is None:
+        valid = sorted(JINA_V4_TASK_TO_PROMPT_NAME.keys())
+        raise ValueError(
+            f"Invalid task: {task}. Must be one of {valid} " f"for model {model_name}."
+        )
+    return prompt_name
+
+
+def _build_encode_kwargs(
+    kwargs: Dict[str, Any], prompt_name: Optional[str] = None
+) -> Dict[str, Any]:
+    """Build encode kwargs with optional prompt_name for Jina models.
+
+    Args:
+        kwargs: Original kwargs from the API call
+        prompt_name: Optional prompt_name resolved from Jina task parameter
+
+    Returns:
+        Dictionary with encode parameters including prompt_name if provided
+    """
+    encode_kwargs = dict(convert_to_numpy=False, **kwargs)
+    if prompt_name is not None:
+        encode_kwargs["prompt_name"] = prompt_name
+    return encode_kwargs
+
 
 class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
     def __init__(self, *args, **kwargs) -> None:
@@ -164,6 +224,10 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
             return self._create_qwen3_vl_embedding(sentences, **kwargs)
         sentences = self._fix_langchain_openai_inputs(sentences)
         model_uid = kwargs.pop("model_uid", None)
+
+        # Resolve Jina-style task parameter to a SentenceTransformer prompt_name.
+        task = kwargs.pop("task", None)
+        jina_prompt_name = _resolve_jina_task(self._model_name, task)
 
         from sentence_transformers import SentenceTransformer
 
@@ -416,18 +480,18 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                     else:
                         raise ValueError("Please check the input data.")
 
+            encode_kwargs = _build_encode_kwargs(kwargs, jina_prompt_name)
             all_embeddings, all_token_nums = encode(
                 self._model,
                 objs,
-                convert_to_numpy=False,
-                **kwargs,
+                **encode_kwargs,
             )
         else:
+            encode_kwargs = _build_encode_kwargs(kwargs, jina_prompt_name)
             all_embeddings, all_token_nums = encode(
                 self._model,
                 sentences,
-                convert_to_numpy=False,
-                **kwargs,
+                **encode_kwargs,
             )
         if isinstance(sentences, str):
             all_embeddings = [all_embeddings]

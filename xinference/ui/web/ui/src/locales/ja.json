@@ -76,8 +76,9 @@
     "noPackagesInstalled": "설치된 패키지가 없습니다",
     "lastConfig": "最終設定",
     "configCache": "設定キャッシュ",
+    "newCache": "新規キャッシュ",
     "noConfigCache": "設定キャッシュはありません。",
-    "loadCache": "読み込む",
+    "loadCache": "使用する",
     "deleteCache": "キャッシュを削除",
     "lastUpdated": "最終更新",
     "defaultConfig": "デフォルト設定",
@@ -162,9 +163,12 @@
     "workerAddress": "ワーカーアドレス",
     "status": "ステータス",
     "createdTime": "作成日時",
+    "actions": "操作",
     "noReplicaInfo": "レプリカ情報はありません",
     "errors": "エラー",
     "replica": "レプリカ",
+    "remove": "削除",
+    "removeConfirm": "モデル {{modelUid}} のレプリカ {{replicaId}} を削除しますか？",
     "close": "閉じる"
   },
   "runningModels": {

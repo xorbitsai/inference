@@ -76,8 +76,9 @@
     "noPackagesInstalled": "설치된 패키지가 없습니다",
     "lastConfig": "마지막 설정",
     "configCache": "구성 캐시",
+    "newCache": "새 캐시",
     "noConfigCache": "현재 구성 캐시가 없습니다!",
-    "loadCache": "불러오기",
+    "loadCache": "사용하기",
     "deleteCache": "캐시 삭제",
     "lastUpdated": "마지막 업데이트",
     "defaultConfig": "기본 구성",
@@ -162,9 +163,12 @@
     "workerAddress": "워커 주소",
     "status": "상태",
     "createdTime": "생성 시간",
+    "actions": "작업",
     "noReplicaInfo": "복제본 정보를 사용할 수 없습니다",
     "errors": "오류",
     "replica": "복제본",
+    "remove": "제거",
+    "removeConfirm": "모델 {{modelUid}} 의 복제본 {{replicaId}} 을(를) 제거하시겠습니까?",
     "close": "닫기"
   },
   "runningModels": {

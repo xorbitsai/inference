@@ -90,6 +90,7 @@ const RunningModels = () => {
   const [replicaDialogOpen, setReplicaDialogOpen] = useState(false)
   const [selectedModelReplicas, setSelectedModelReplicas] = useState([])
   const [selectedModelUid, setSelectedModelUid] = useState('')
+  const [removingReplicaId, setRemovingReplicaId] = useState(null)
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel, setIsUpdatingModel } = useContext(ApiContext)
   const { setErrorMsg } = useContext(ApiContext)
@@ -200,19 +201,53 @@ const RunningModels = () => {
     }
   }
 
+  const loadReplicaDetails = async (modelUid) => {
+    const replicas = await fetchWrapper.get(`/v1/models/${modelUid}/replicas`)
+    setSelectedModelReplicas(replicas)
+    return replicas
+  }
+
   const handleViewReplicas = async (modelUid) => {
     try {
-      const response = await fetch(`${endPoint}/v1/models/${modelUid}/replicas`)
-      if (!response.ok) {
-        throw new Error('Failed to fetch replica status')
-      }
-      const replicas = await response.json()
-      setSelectedModelReplicas(replicas)
+      await loadReplicaDetails(modelUid)
       setSelectedModelUid(modelUid)
       setReplicaDialogOpen(true)
     } catch (error) {
       console.error('Error fetching replica details:', error)
       setErrorMsg('Failed to load replica details: ' + error.message)
+    }
+  }
+
+  const handleRemoveReplica = async (replica) => {
+    const confirmed = window.confirm(
+      t('modelReplicaDetails.removeConfirm', {
+        replicaId: replica.replica_id,
+        modelUid: selectedModelUid,
+      })
+    )
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      setRemovingReplicaId(replica.replica_id)
+      const response = await fetchWrapper.delete(
+        `/v1/models/${selectedModelUid}/replicas/${replica.replica_id}`
+      )
+
+      if (response.remaining_replicas > 0) {
+        await loadReplicaDetails(selectedModelUid)
+      } else {
+        setSelectedModelReplicas([])
+        setReplicaDialogOpen(false)
+      }
+
+      update(false)
+    } catch (error) {
+      console.error('Error removing replica:', error)
+      setErrorMsg('Failed to remove replica: ' + error.message)
+    } finally {
+      setRemovingReplicaId(null)
     }
   }
 
@@ -1062,6 +1097,9 @@ const RunningModels = () => {
                   </TableCell>
                   <TableCell>{t('modelReplicaDetails.status')}</TableCell>
                   <TableCell>{t('modelReplicaDetails.createdTime')}</TableCell>
+                  <TableCell align="right">
+                    {t('modelReplicaDetails.actions')}
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -1093,11 +1131,25 @@ const RunningModels = () => {
                     <TableCell>
                       {new Date(replica.created_ts * 1000).toLocaleString()}
                     </TableCell>
+                    <TableCell align="right">
+                      <Tooltip title={t('modelReplicaDetails.remove')}>
+                        <span>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleRemoveReplica(replica)}
+                            disabled={removingReplicaId === replica.replica_id}
+                          >
+                            <DeleteOutlineOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </TableCell>
                   </TableRow>
                 ))}
                 {selectedModelReplicas.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} align="center">
+                    <TableCell colSpan={6} align="center">
                       <Typography variant="body2" color="text.secondary">
                         {t('modelReplicaDetails.noReplicaInfo')}
                       </Typography>

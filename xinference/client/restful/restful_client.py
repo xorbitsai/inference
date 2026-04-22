@@ -1329,6 +1329,20 @@ class Client:
                 f"Failed to terminate model, detail: {_get_error_string(response)}"
             )
 
+    def terminate_model_replica(self, model_uid: str, replica_id: int) -> int:
+        """Terminate a specific replica of a running model."""
+
+        url = f"{self.base_url}/v1/models/{model_uid}/replicas/{replica_id}"
+
+        response = self.session.delete(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to terminate model replica, detail: {_get_error_string(response)}"
+            )
+
+        response_data = response.json()
+        return response_data["remaining_replicas"]
+
     def get_launch_model_progress(self, model_uid: str) -> dict:
         """
         Get progress of the specific model.
@@ -1467,7 +1481,7 @@ class Client:
                 model_uid, self.base_url, auth_headers=self._headers
             )
         else:
-            raise ValueError(f"Unknown model type:{desc['model_type']}")
+            raise ValueError(f"Unknown model type: {desc['model_type']}")
 
     def describe_model(self, model_uid: str):
         """

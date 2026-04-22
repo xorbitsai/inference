@@ -52,6 +52,7 @@ def register_tool_parser(name: str):
 from . import (
     deepseek_r1_tool_parser,
     deepseek_v3_1_tool_parser,
+    deepseek_v3_2_tool_parser,
     deepseek_v3_tool_parser,
     gemma_tool_parser,
     glm4_tool_parser,

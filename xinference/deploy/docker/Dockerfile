@@ -57,8 +57,7 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip "setuptools<82" wheel && \
     git restore . && \
     pip install -i "$PIP_INDEX" --no-deps "." && \
     pip uninstall xllamacpp -y && \
-    wget https://github.com/xorbitsai/xllamacpp/releases/download/v0.2.0-cu124/xllamacpp-0.2.0-cp312-cp312-linux_x86_64.whl && \
-    pip install xllamacpp-0.2.0-cp312-cp312-linux_x86_64.whl && \
+    pip install xllamacpp --index-url https://xorbitsai.github.io/xllamacpp/whl/cu128 && \
     # clean packages
     pip cache purge
 
@@ -79,7 +78,7 @@ RUN /opt/conda/bin/conda create -n ffmpeg-env -c conda-forge 'ffmpeg<7' -y && \
 RUN pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128 \
     --no-deps && \
     pip install triton==3.4.0 && \
-    pip install torchcodec==0.9.0 && \
+    pip install torchcodec==0.10.0 && \
     pip cache purge
 
 # Override the default entrypoint of the vllm base image

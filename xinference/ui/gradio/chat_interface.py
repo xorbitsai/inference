@@ -169,8 +169,17 @@ class GradioInterface:
                         metadata=message_metadata,
                     )
 
-                    if history and history[-1]["role"] == "assistant":
-                        history[-1] = current_message
+                    if history:
+                        last_msg = history[-1]
+                        last_role = (
+                            last_msg.get("role")
+                            if isinstance(last_msg, dict)
+                            else last_msg.role
+                        )
+                        if last_role == "assistant":
+                            history[-1] = current_message
+                        else:
+                            history.append(current_message)
                     else:
                         history.append(current_message)
 

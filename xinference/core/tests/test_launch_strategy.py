@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import itertools
 import random
 
 import pytest
@@ -47,12 +48,22 @@ class DummyWorkerRef:
 class DummyStatusGuard:
     def __init__(self):
         self.instance_info = {}
+        self.replica_counts = {}
+        self.updates = []
 
     async def set_instance_info(self, model_uid: str, instance_info):
         self.instance_info[model_uid] = instance_info
+        self.replica_counts[model_uid] = instance_info.replica
 
     async def update_instance_info(self, model_uid: str, updates: dict):
+        self.updates.append((model_uid, updates))
+        if "replica" in updates:
+            self.replica_counts[model_uid] = updates["replica"]
         return None
+
+    async def remove_replica_status(self, model_uid: str, replica_id: int):
+        self.replica_counts[model_uid] -= 1
+        return self.replica_counts[model_uid]
 
 
 def test_assign_replica_gpu_single_slot_reused():
@@ -235,6 +246,7 @@ async def test_distributed_launch_avoids_same_worker_for_shards():
     from xinference.core.supervisor import SupervisorActor
 
     class DummySupervisor:
+        _build_replica_info = staticmethod(SupervisorActor._build_replica_info)
         _choose_worker = SupervisorActor._choose_worker
         _launch_builtin_sharded_model = SupervisorActor._launch_builtin_sharded_model
 
@@ -274,3 +286,57 @@ async def test_distributed_launch_avoids_same_worker_for_shards():
 
     assert set(launched) == {"w1:1000", "w2:1000"}
     assert len(launched) == 2
+
+
+@pytest.mark.asyncio
+async def test_terminate_model_replica_updates_active_replica_set():
+    from xinference.core.supervisor import ReplicaInfo, SupervisorActor
+
+    class DummyReplicaWorkerRef:
+        def __init__(self, address: str):
+            self.address = address
+            self.terminated: list[str] = []
+
+        async def terminate_model(self, model_uid: str):
+            self.terminated.append(model_uid)
+
+    class DummySupervisor:
+        terminate_model_replica = SupervisorActor.terminate_model_replica
+        _refresh_replica_scheduler = staticmethod(
+            SupervisorActor._refresh_replica_scheduler
+        )
+
+        def __init__(self):
+            self._model_uid_to_replica_info = {
+                "demo-model": ReplicaInfo(
+                    replica=3,
+                    scheduler=itertools.cycle([0, 1, 2]),
+                    active_replica_ids=[0, 1, 2],
+                )
+            }
+            self._replica_model_uid_to_worker = {
+                "demo-model-0": DummyReplicaWorkerRef("w0:1000"),
+                "demo-model-1": DummyReplicaWorkerRef("w1:1000"),
+                "demo-model-2": DummyReplicaWorkerRef("w2:1000"),
+            }
+            self._status_guard_ref = DummyStatusGuard()
+            self._status_guard_ref.replica_counts["demo-model"] = 3
+            self._collective_manager_mapping = {}
+            self._block_tracker_mapping = {}
+
+    supervisor = DummySupervisor()
+    remaining = await supervisor.terminate_model_replica("demo-model", 1)
+
+    assert remaining == 2
+    assert supervisor._model_uid_to_replica_info["demo-model"].replica == 2
+    assert supervisor._model_uid_to_replica_info["demo-model"].active_replica_ids == [
+        0,
+        2,
+    ]
+    assert "demo-model-1" not in supervisor._replica_model_uid_to_worker
+    assert next(supervisor._model_uid_to_replica_info["demo-model"].scheduler) == 0
+    assert next(supervisor._model_uid_to_replica_info["demo-model"].scheduler) == 2
+    assert supervisor._status_guard_ref.updates[-1] == (
+        "demo-model",
+        {"replica": 2, "status": "READY"},
+    )

@@ -24,6 +24,7 @@ import sys
 import threading
 import time
 from collections import defaultdict
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from logging import getLogger
 from typing import (
@@ -42,7 +43,6 @@ from typing import (
 
 import xoscar as xo
 from async_timeout import timeout
-from packaging.version import Version
 from xoscar import MainActorPoolType
 
 from ..client.restful.restful_client import Client as RESTfulClient
@@ -88,6 +88,7 @@ from .utils import (
 from .virtual_env_manager import VirtualEnvManager as XinferenceVirtualEnvManager
 from .virtual_env_manager import (
     expand_engine_dependency_placeholders,
+    is_cuda_compatible,
     resolve_virtualenv_python_path,
 )
 
@@ -100,6 +101,39 @@ if TYPE_CHECKING:
     from .progress_tracker import Progressor
 
 logger = getLogger(__name__)
+
+
+@contextmanager
+def _exclusive_venv_path_lock(env_path: str):
+    """
+    Serialize ``uv venv`` creation and subsequent .pth injection for the same
+    logical virtualenv path. Avoids TOCTOU races when multiple model replicas
+    call ``create_env`` concurrently (see Xinference virtualenv v4 layout).
+
+    Ensures the lock file's parent directory exists before ``os.open`` so cold
+    starts work after the entire venv tree was removed.
+
+    Uses a sibling lock file ``{realpath(env_path)}.xinference-venv.lock``.
+    On Windows this is a no-op (``fcntl`` unavailable / different semantics).
+    """
+    if os.name == "nt":
+        yield
+        return
+
+    import fcntl
+
+    real = os.path.realpath(os.path.normpath(env_path))
+    lock_path = f"{real}.xinference-venv.lock"
+    lock_dir = os.path.dirname(lock_path)
+    if lock_dir:
+        os.makedirs(lock_dir, exist_ok=True)
+    fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
 
 
 MODEL_ACTOR_AUTO_RECOVER_LIMIT: Optional[int]
@@ -1382,76 +1416,81 @@ class WorkerActor(xo.StatelessActor):
 
         from xoscar.virtualenv import get_virtual_env_manager
 
-        virtual_env_manager: VirtualEnvManager = get_virtual_env_manager(
-            virtual_env_name or "uv", env_path
-        )
-        # create env
-        python_path = None
-        if not hasattr(sys, "_MEIPASS"):
-            # not in pyinstaller
-            # we specify python_path explicitly
-            # sometimes uv would find other versions.
-            python_path = pathlib.Path(sys.executable)
-        virtual_env_manager.create_env(python_path=python_path)
-
-        import site as _site
-        import sysconfig as _sysconfig
-
-        if not hasattr(sys, "_MEIPASS"):
-            # Normal execution (pip, venv, conda, source, Docker).
-            # Inject parent site-packages via .pth so xinference and xoscar are
-            # discoverable in the child venv while preserving child-venv isolation.
-            # .pth paths are appended AFTER child site-packages so child-installed
-            # packages always take precedence over parent ones.
-            parent_site_packages = _sysconfig.get_paths()["purelib"]
-
-            # Warn if xinference appears to be user-installed — child venvs
-            # cannot see user site-packages (~/.local/lib/...) by design.
-            user_site = (
-                _site.getusersitepackages()
-                if hasattr(_site, "getusersitepackages")
-                else None
+        with _exclusive_venv_path_lock(env_path):
+            virtual_env_manager: VirtualEnvManager = get_virtual_env_manager(
+                virtual_env_name or "uv", env_path
             )
-            if (
-                user_site
-                and not os.path.exists(os.path.join(parent_site_packages, "xinference"))
-                and os.path.exists(os.path.join(user_site, "xinference"))
-            ):
-                logger.warning(
-                    "xinference is installed in user site-packages (%s) which is "
-                    "not visible to child venvs. Re-install inside a virtual "
-                    "environment.",
-                    user_site,
-                )
+            # create env
+            python_path = None
+            if not hasattr(sys, "_MEIPASS"):
+                # not in pyinstaller
+                # we specify python_path explicitly
+                # sometimes uv would find other versions.
+                python_path = pathlib.Path(sys.executable)
+            virtual_env_manager.create_env(python_path=python_path)
 
-            if os.path.exists(parent_site_packages):
-                child_site_packages = pathlib.Path(virtual_env_manager.get_lib_path())
-                child_site_packages.mkdir(parents=True, exist_ok=True)
-                pth_file = child_site_packages / "_xinference_parent.pth"
-                pth_file.write_text(parent_site_packages + "\n")
-                logger.debug(
-                    "Injected parent site-packages into child venv via %s -> %s",
-                    pth_file,
-                    parent_site_packages,
+            import site as _site
+            import sysconfig as _sysconfig
+
+            if not hasattr(sys, "_MEIPASS"):
+                # Normal execution (pip, venv, conda, source, Docker).
+                # Inject parent site-packages via .pth so xinference and xoscar are
+                # discoverable in the child venv while preserving child-venv isolation.
+                # .pth paths are appended AFTER child site-packages so child-installed
+                # packages always take precedence over parent ones.
+                parent_site_packages = _sysconfig.get_paths()["purelib"]
+
+                # Warn if xinference appears to be user-installed — child venvs
+                # cannot see user site-packages (~/.local/lib/...) by design.
+                user_site = (
+                    _site.getusersitepackages()
+                    if hasattr(_site, "getusersitepackages")
+                    else None
                 )
+                if (
+                    user_site
+                    and not os.path.exists(
+                        os.path.join(parent_site_packages, "xinference")
+                    )
+                    and os.path.exists(os.path.join(user_site, "xinference"))
+                ):
+                    logger.warning(
+                        "xinference is installed in user site-packages (%s) which is "
+                        "not visible to child venvs. Re-install inside a virtual "
+                        "environment.",
+                        user_site,
+                    )
+
+                if os.path.exists(parent_site_packages):
+                    child_site_packages = pathlib.Path(
+                        virtual_env_manager.get_lib_path()
+                    )
+                    child_site_packages.mkdir(parents=True, exist_ok=True)
+                    pth_file = child_site_packages / "_xinference_parent.pth"
+                    pth_file.write_text(parent_site_packages + "\n")
+                    logger.debug(
+                        "Injected parent site-packages into child venv via %s -> %s",
+                        pth_file,
+                        parent_site_packages,
+                    )
+                else:
+                    logger.warning(
+                        "Parent site-packages path does not exist: %s — child venv "
+                        "may not be able to import xinference or xoscar.",
+                        parent_site_packages,
+                    )
             else:
-                logger.warning(
-                    "Parent site-packages path does not exist: %s — child venv "
-                    "may not be able to import xinference or xoscar.",
-                    parent_site_packages,
+                # PyInstaller bundle: sys._MEIPASS is a private temp directory
+                # belonging to the bundle process. The child venv runs an external
+                # Python interpreter that has no access to that directory.
+                # Skip .pth injection entirely — xinference in bundle mode manages
+                # its own package visibility through the bundle mechanism.
+                logger.debug(
+                    "Running inside PyInstaller bundle — skipping parent site-packages "
+                    "injection into child venv."
                 )
-        else:
-            # PyInstaller bundle: sys._MEIPASS is a private temp directory
-            # belonging to the bundle process. The child venv runs an external
-            # Python interpreter that has no access to that directory.
-            # Skip .pth injection entirely — xinference in bundle mode manages
-            # its own package visibility through the bundle mechanism.
-            logger.debug(
-                "Running inside PyInstaller bundle — skipping parent site-packages "
-                "injection into child venv."
-            )
 
-        return virtual_env_manager
+            return virtual_env_manager
 
     @classmethod
     def _prepare_virtual_env(
@@ -1553,9 +1592,9 @@ class WorkerActor(xo.StatelessActor):
         except Exception:
             cuda_version = None
 
-        if not cuda_version or Version(cuda_version) < Version("13.0"):
+        if not is_cuda_compatible(settings.extra_index_url, cuda_version):
             logger.debug(
-                f"[DEBUG] CUDA version check: cuda_version={cuda_version}, clearing extra_index_url and index_strategy"
+                f"[DEBUG] CUDA version mismatch: cuda_version={cuda_version}, extra_index_url={settings.extra_index_url}, clearing extra_index_url and index_strategy"
             )
             settings.extra_index_url = None
             settings.index_strategy = None
