@@ -30429,7 +30429,8 @@
         "sglang_dependencies ; #engine# == \"sglang\"",
         "transformers>=5.2.0 ; #engine# == \"Transformers\"",
         "qwen_omni_utils ; #engine# == \"vllm\"",
-        "vllm>=0.19.0 ; #engine# == \"vllm\""
+        "vllm>=0.19.0 ; #engine# == \"vllm\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\""
       ]
     },
     "architectures": [
@@ -30448,6 +30449,6 @@
     ],
     "tool_parser": "qwen",
     "featured": false,
-    "updated_at": 1776841548
+    "updated_at": 1776913675
   }
 ]
