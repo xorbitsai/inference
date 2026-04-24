@@ -30463,7 +30463,8 @@
     "model_ability": [
       "chat",
       "tools",
-      "reasoning"
+      "reasoning",
+      "hybrid"
     ],
     "model_specs": [
       {
@@ -30851,11 +30852,12 @@
         "#mlx_dependencies# ; #engine# == \"MLX\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#sglang_dependencies# ; #engine# == \"sglang\"",
-        "#system_numpy# ; #engine# == \"vllm\""
+        "#system_numpy# ; #engine# == \"vllm\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\""
       ]
     },
     "featured": false,
-    "updated_at": 1777005497
+    "updated_at": 1777047428
   },
   {
     "model_name": "glm-5.1",
