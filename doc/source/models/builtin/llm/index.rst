@@ -424,7 +424,7 @@ The following is a list of built-in LLM in Xinference:
    * - :ref:`minimax-m2.7 <models_llm_minimax-m2.7>`
      - chat, tools, reasoning
      - 204800
-     - MiniMax-M2.7 is our first model deeply participating in its own evolution. M2.7 is capable of building complex agent harnesses and completing highly elaborate productivity tasks, leveraging Agent Teams, complex Skills, and dynamic tool search.
+     - MiniMax-M2.7 is our first model deeply participating in its own evolution. M2.7 is capable of building complex agent harnesses and completing highly elaborate productivity tasks, leveraging Agent Teams, complex Skills, and dynamic tool search
 
    * - :ref:`mistral-instruct-v0.1 <models_llm_mistral-instruct-v0.1>`
      - chat
