@@ -7,7 +7,7 @@ MiniMax-M2.7
 - **Context Length:** 204800
 - **Model Name:** MiniMax-M2.7
 - **Languages:** en, zh
-- **Abilities:** chat, tools, reasoning
+- **Abilities:** chat, tools, reasoning, hybrid
 - **Description:** MiniMax-M2.7 is our first model deeply participating in its own evolution. M2.7 is capable of building complex agent harnesses and completing highly elaborate productivity tasks, leveraging Agent Teams, complex Skills, and dynamic tool search
 
 Specifications

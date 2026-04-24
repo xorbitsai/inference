@@ -7,7 +7,7 @@ glm-5.1
 - **Context Length:** 202752
 - **Model Name:** glm-5.1
 - **Languages:** en, zh
-- **Abilities:** chat, vision, tools, reasoning
+- **Abilities:** chat, vision, tools, reasoning, hybrid
 - **Description:** GLM-5.1 is our next-generation flagship model for agentic engineering, with significantly stronger coding capabilities than its predecessor. It achieves state-of-the-art performance on SWE-Bench Pro and leads GLM-5 by a wide margin on NL2Repo (repo generation) and Terminal-Bench 2.0 (real-world terminal tasks).
 
 Specifications
