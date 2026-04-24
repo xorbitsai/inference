@@ -37,7 +37,12 @@ logger = logging.getLogger(__name__)
 @register_transformer
 @register_non_default_model("GlmForCausalLM")
 class ChatglmPytorchChatModel(PytorchChatModel):
-    GLM4_ARCHITECTURES = {"GlmForCausalLM", "Glm4ForCausalLM", "Glm4MoeForCausalLM"}
+    GLM4_ARCHITECTURES = {
+        "GlmForCausalLM",
+        "Glm4ForCausalLM",
+        "Glm4MoeForCausalLM",
+        "Glm4MoeLiteForCausalLM",
+    }
 
     def __init__(
         self,

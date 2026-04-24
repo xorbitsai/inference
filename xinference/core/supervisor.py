@@ -2102,18 +2102,20 @@ class SupervisorActor(xo.StatelessActor):
                         f"Model not found in the model list, uid: {_replica_model_uid}"
                     )
                 await worker_ref.terminate_model(model_uid=_replica_model_uid)
-            del self._replica_model_uid_to_worker[_replica_model_uid]
+            self._replica_model_uid_to_worker.pop(_replica_model_uid, None)
 
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
         if replica_info is None:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
 
-        for rep_model_uid in self._iter_active_replica_model_uids(model_uid):
-            try:
-                await _terminate_one_model(rep_model_uid)
-            except Exception:
-                if not suppress_exception:
-                    raise
+        rep_model_uids = list(self._iter_active_replica_model_uids(model_uid))
+        results = await asyncio.gather(
+            *(_terminate_one_model(rep_uid) for rep_uid in rep_model_uids),
+            return_exceptions=True,
+        )
+        errors = [r for r in results if isinstance(r, Exception)]
+        if errors and not suppress_exception:
+            raise errors[0]
         self._model_uid_to_replica_info.pop(model_uid, None)
 
         # clear for xavier

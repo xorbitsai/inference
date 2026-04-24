@@ -187,7 +187,13 @@
     "copy": "Copy",
     "copied": "Copied!",
     "copyFailed": "Copy failed",
-    "viewDetails": "View Details"
+    "viewDetails": "View Details",
+    "terminateModel": "Terminate model",
+    "terminateInProgress": "Terminating…",
+    "terminateConfirmTitle": "Terminate this model?",
+    "terminateConfirmBody": "This model has {{replica}} replica(s). Termination can take several minutes when the cluster is busy or when multiple replicas exist; total time is bounded by the slowest worker. Do not click terminate repeatedly.",
+    "terminateConfirmOk": "Terminate",
+    "terminateErrorHint": "The request failed or the model may already be removed. Refresh the running models list to confirm."
   },
 
   "registerModel": {
