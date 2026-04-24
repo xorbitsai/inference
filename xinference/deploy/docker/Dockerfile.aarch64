@@ -36,7 +36,6 @@ RUN apt-get update -y && \
     pip cache purge
 
 RUN pip install triton && \
-    pip install torchcodec && \
     pip install "numpy==2.2.6" && \
     pip cache purge
 
