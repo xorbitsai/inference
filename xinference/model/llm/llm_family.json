@@ -30235,7 +30235,7 @@
   },
   {
     "model_name": "MiniMax-M2.7",
-    "model_description": "MiniMax-M2.7 is our first model deeply participating in its own evolution. M2.7 is capable of building complex agent harnesses and completing highly elaborate productivity tasks, leveraging Agent Teams, complex Skills, and dynamic tool search.",
+    "model_description": "MiniMax-M2.7 is our first model deeply participating in its own evolution. M2.7 is capable of building complex agent harnesses and completing highly elaborate productivity tasks, leveraging Agent Teams, complex Skills, and dynamic tool search",
     "context_length": 204800,
     "model_lang": [
       "en",
@@ -30636,6 +30636,6 @@
       ]
     },
     "featured": false,
-    "updated_at": 1776830747
+    "updated_at": 1777005497
   }
 ]
