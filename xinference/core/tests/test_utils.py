@@ -41,15 +41,14 @@ class DummyVirtualEnvManager:
         return self._python_path
 
 
-def test_sentence_transformers_virtualenv_packages_include_accelerate_and_torchvision():
+def test_sentence_transformers_virtualenv_packages_include_accelerate():
     pkgs = ENGINE_VIRTUALENV_PACKAGES.get("sentence_transformers", [])
     pkg_names = [p.split(">=")[0].split("==")[0].strip() for p in pkgs]
     assert (
         "accelerate" in pkg_names
     ), "accelerate must be in sentence_transformers venv packages"
-    assert (
-        "torchvision" in pkg_names
-    ), "torchvision must be in sentence_transformers venv packages"
+    # torchvision is no longer in ENGINE_VIRTUALENV_PACKAGES;
+    # it is supplied per-model via #system_torchvision# in model_spec.
 
 
 def test_build_subpool_envs_for_virtual_env_disabled():

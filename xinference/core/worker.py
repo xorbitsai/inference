@@ -1624,7 +1624,8 @@ class WorkerActor(xo.StatelessActor):
             virtual_env_manager.env_path,
             ", ".join([f"{k}={v}" for k, v in conf.items() if v]),
         )
-        virtual_env_manager.install_packages(packages, **conf, **variables)
+        with _exclusive_venv_path_lock(str(virtual_env_manager.env_path)):
+            virtual_env_manager.install_packages(packages, **conf, **variables)
 
     async def _get_progressor(self, request_id: str):
         from .progress_tracker import Progressor, ProgressTrackerActor

@@ -41,10 +41,12 @@ from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_DISABLE_HEALTH_CHECK,
     XINFERENCE_ENABLE_OTEL,
+    XINFERENCE_GET_MODEL_RPC_TIMEOUT,
     XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
     XINFERENCE_HEALTH_CHECK_TIMEOUT,
     XINFERENCE_LAUNCH_STRATEGY,
+    XINFERENCE_LIST_MODELS_PER_WORKER_TIMEOUT,
 )
 from ..core.model import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
@@ -1656,6 +1658,14 @@ class SupervisorActor(xo.StatelessActor):
                     ],
                 )
 
+                # Pre-check: ensure no replica uid already exists before entering
+                # asyncio.gather, preventing partial-deploy-then-rollback.
+                for _pre_check_uid in iter_replica_model_uid(model_uid, replica):
+                    if _pre_check_uid in self._replica_model_uid_to_worker:
+                        raise ValueError(
+                            f"Model is already in the model list, uid: {_pre_check_uid}"
+                        )
+
                 # Prepare all launch tasks for parallel execution
                 launch_tasks = []
                 task_metadata = []  # Store (worker_ref, rep_model_uid, is_rank0, idx)
@@ -1865,6 +1875,14 @@ class SupervisorActor(xo.StatelessActor):
                     "n_worker cannot be larger than the number of available workers."
                 )
             try:
+                # Pre-check: ensure no replica uid already exists before
+                # launching, preventing partial-deploy-then-rollback.
+                for _pre_check_uid in iter_replica_model_uid(model_uid, replica):
+                    if _pre_check_uid in self._replica_model_uid_to_worker:
+                        raise ValueError(
+                            f"Model is already in the model list, uid: {_pre_check_uid}"
+                        )
+
                 for _idx, rep_model_uid in enumerate(
                     iter_replica_model_uid(model_uid, replica)
                 ):
@@ -2232,7 +2250,11 @@ class SupervisorActor(xo.StatelessActor):
     async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
         if replica_info is None:
-            raise ValueError(f"Model not found in the model list, uid: {model_uid}")
+            available_uids = list(self._model_uid_to_replica_info.keys())
+            raise ValueError(
+                f"Model not found in the model list, uid: {model_uid}. "
+                f"Available model uids: {available_uids}"
+            )
 
         if not replica_info.active_replica_ids:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
@@ -2252,7 +2274,10 @@ class SupervisorActor(xo.StatelessActor):
         assert not isinstance(
             worker_ref, (list, tuple)
         ), "worker_ref must be a single worker"
-        return await worker_ref.get_model(model_uid=replica_model_uid)
+        return await xo.wait_for(
+            worker_ref.get_model(model_uid=replica_model_uid),
+            XINFERENCE_GET_MODEL_RPC_TIMEOUT,
+        )
 
     @log_async(logger=logger)
     async def get_model_status(self, replica_model_uid: str):
@@ -2297,11 +2322,31 @@ class SupervisorActor(xo.StatelessActor):
 
     @log_async(logger=logger)
     async def list_models(self) -> Dict[str, Dict[str, Any]]:
-        ret = {}
+        ret: Dict[str, Dict[str, Any]] = {}
 
-        workers = list(self._worker_address_to_worker.values())
-        for worker in workers:
-            ret.update(await worker.list_models())
+        workers = list(self._worker_address_to_worker.items())
+        if not workers:
+            return {}
+
+        async def _fetch_one(
+            worker_address: str, worker_ref: xo.ActorRefType["WorkerActor"]
+        ) -> Dict[str, Dict[str, Any]]:
+            try:
+                return await xo.wait_for(
+                    worker_ref.list_models(),
+                    XINFERENCE_LIST_MODELS_PER_WORKER_TIMEOUT,
+                )
+            except Exception as ex:
+                logger.warning(
+                    "list_models from worker %s failed or timed out: %s",
+                    worker_address,
+                    ex,
+                )
+                return {}
+
+        parts = await asyncio.gather(*(_fetch_one(addr, ref) for addr, ref in workers))
+        for part in parts:
+            ret.update(part)
         running_model_info = {parse_replica_model_uid(k)[0]: v for k, v in ret.items()}
         # add replica count
         for k, v in running_model_info.items():
