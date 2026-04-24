@@ -75,9 +75,7 @@ RUN /opt/conda/bin/conda create -n ffmpeg-env -c conda-forge 'ffmpeg<7' -y && \
     /opt/conda/bin/conda clean --all -y
 
 # The pre-release version used should be noted for date changes
-RUN pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128 \
-    --no-deps && \
-    pip install triton==3.4.0 && \
+RUN pip install triton==3.4.0 && \
     pip install torchcodec==0.10.0 && \
     pip cache purge
 

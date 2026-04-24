@@ -650,6 +650,7 @@
       "packages": [
         "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
         "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ]

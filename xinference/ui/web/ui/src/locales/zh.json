@@ -184,7 +184,13 @@
     "copy": "复制",
     "copied": "已复制!",
     "copyFailed": "复制失败",
-    "viewDetails": "查看详情"
+    "viewDetails": "查看详情",
+    "terminateModel": "终止模型",
+    "terminateInProgress": "正在终止…",
+    "terminateConfirmTitle": "确定要终止该模型？",
+    "terminateConfirmBody": "当前模型共有 {{replica}} 个副本。集群繁忙或副本较多时，终止操作可能需要数分钟；总耗时取决于最慢的 Worker 节点。请勿重复点击终止。",
+    "terminateConfirmOk": "终止",
+    "terminateErrorHint": "请求失败或模型可能已删除，请刷新运行中模型列表确认。"
   },
   "registerModel": {
     "modelName": "模型名称",

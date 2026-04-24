@@ -107,7 +107,7 @@ async def test_restful_api(setup):
         "prompt": "Once upon a time, there was a very old computer.",
     }
     response = requests.post(url, json=payload)
-    assert response.status_code == 400
+    assert response.status_code == 404
 
     payload = {
         "prompt": "Once upon a time, there was a very old computer.",
@@ -168,7 +168,7 @@ async def test_restful_api(setup):
         ],
     }
     response = requests.post(url, json=payload)
-    assert response.status_code == 400
+    assert response.status_code == 404
 
     payload = {
         "model": model_uid_res,

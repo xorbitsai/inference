@@ -14,6 +14,7 @@
 
 import json
 import logging
+import logging.handlers
 import os
 import time
 import typing
@@ -27,6 +28,24 @@ if TYPE_CHECKING:
     from xoscar.backends.pool import MainActorPoolType
 
 logger = logging.getLogger(__name__)
+
+
+class SafeRotatingFileHandler(logging.handlers.RotatingFileHandler):
+    """RotatingFileHandler that auto-creates parent directories.
+
+    Python's standard RotatingFileHandler raises FileNotFoundError if
+    the parent directory of *filename* does not exist at __init__ time.
+    In Xinference's xoscar sub-pool processes the logging config is
+    received via shared memory; the directory was created by the
+    parent Worker process and may no longer exist when the sub-pool
+    calls ``dictConfig``.  This subclass ensures the directory is
+    (re-)created before the file is opened.
+    """
+
+    def __init__(self, filename, *args, **kwargs):
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        super().__init__(filename, *args, **kwargs)
+
 
 # mainly for k8s
 XINFERENCE_POD_NAME_ENV_KEY = "XINFERENCE_POD_NAME"
@@ -93,7 +112,7 @@ def get_config_dict(
                 "stream": "ext://sys.stderr",
             },
             "file_handler": {
-                "class": "logging.handlers.RotatingFileHandler",
+                "class": "xinference.deploy.utils.SafeRotatingFileHandler",
                 "formatter": "formatter",
                 "level": log_level,
                 "filename": log_file_path,

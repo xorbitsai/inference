@@ -42,6 +42,7 @@ from typing import (
 import xoscar as xo
 from packaging import version
 from typing_extensions import NotRequired
+from xoscar.utils import get_next_port
 
 from ....constants import XINFERENCE_MAX_TOKENS
 from ....device_utils import is_vacc_available
@@ -310,6 +311,7 @@ def _update_vllm_supported_lists() -> None:
         _append_unique(
             VLLM_SUPPORTED_MULTI_MODEL_LIST, "KimiK25ForConditionalGeneration"
         )
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "Glm4MoeLiteForCausalLM")
 
     if effective_version >= version.parse("0.16.0"):
         _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "GlmMoeDsaForCausalLM")
@@ -855,6 +857,16 @@ class VLLMModel(LLM):
             model_config.setdefault("node_rank", self._shard)  # type: ignore
             # Use mp backend to satisfy vLLM validation; executor is patched later.
             model_config.setdefault("distributed_executor_backend", "mp")
+            # vLLM's init_distributed_environment overrides distributed_init_method
+            # with parallel_config.master_addr/master_port when nnodes > 1.
+            # We must set them to avoid falling back to the defaults
+            # ("127.0.0.1" and 29501).
+            if self._address and ":" in self._address:
+                master_addr = self._address.split(":", 1)[0]
+            else:
+                master_addr = self._address
+            model_config.setdefault("master_addr", master_addr)  # type: ignore
+            model_config.setdefault("master_port", get_next_port())  # type: ignore
         model_config.setdefault("block_size", 16)
         if VLLM_VERSION < version.parse("0.18.0"):
             model_config.setdefault("swap_space", 4)

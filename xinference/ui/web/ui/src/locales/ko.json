@@ -184,7 +184,13 @@
     "copy": "복사",
     "copied": "복사되었습니다!",
     "copyFailed": "복사 실패",
-    "viewDetails": "상세 보기"
+    "viewDetails": "상세 보기",
+    "terminateModel": "모델 종료",
+    "terminateInProgress": "종료 중…",
+    "terminateConfirmTitle": "이 모델을 종료하시겠습니까?",
+    "terminateConfirmBody": "이 모델에는 {{replica}}개의 레플리카가 있습니다. 클러스터가 혼잡하거나 레플리카가 많을 경우 종료에 몇 분이 걸릴 수 있으며, 총 소요 시간은 가장 느린 워커에 의해 결정됩니다. 종료를 반복 클릭하지 마십시오.",
+    "terminateConfirmOk": "종료",
+    "terminateErrorHint": "요청이 실패했거나 모델이 이미 삭제되었을 수 있습니다. 실행 중인 모델 목록을 새로고침하여 확인하세요."
   },
   "registerModel": {
     "modelName": "모델 이름",

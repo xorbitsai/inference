@@ -593,6 +593,12 @@ class RESTfulAPI(CancelMixin):
             logger.error(str(e), exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
+        # Clear negative cache so that get_model for this uid is not blocked
+        # by a stale "Model not found" entry.
+        from xinference.api.utils import invalidate_model_not_found_cache
+
+        invalidate_model_not_found_cache(model_uid)
+
         return JSONResponse(content={"model_uid": model_uid})
 
     async def get_instance_info(

@@ -91,6 +91,8 @@ class WorkerActor(xo.StatelessActor):
             return method(self._worker, *args, **kwargs)
 
     def _sanitize_result(self, obj):
+        if obj is None:
+            return obj
         output = obj.get_output()
         return output
 
@@ -238,6 +240,17 @@ class XinferenceDistributedExecutorV1(Executor):
 
         self.pp_locks: Optional[List[asyncio.Lock]] = None
 
+    def _get_output_rank(self) -> int:
+        """Get the rank that produces the final output.
+
+        In pipeline parallelism, only the last PP stage produces
+        ModelRunnerOutput. The output rank is the first TP worker
+        of the last PP stage.
+        """
+        return (
+            self.parallel_config.world_size - self.parallel_config.tensor_parallel_size
+        )
+
     def collective_rpc(
         self,
         method: Union[str, Callable],
@@ -254,7 +267,19 @@ class XinferenceDistributedExecutorV1(Executor):
         outputs = self._run_workers(
             "execute_model", scheduler_output, non_block=non_block
         )
-        return outputs[0]
+        # In pipeline parallelism, only the last PP stage returns output.
+        return outputs[self._get_output_rank()]
+
+    def sample_tokens(
+        self, grammar_output: Optional[Any] = None, non_block: bool = False
+    ) -> Any:
+        outputs = self._run_workers(
+            "sample_tokens", grammar_output, non_block=non_block
+        )
+        # In pipeline parallelism, only the last PP stage produces
+        # sampled tokens. The output_rank is the first TP worker of
+        # the last PP stage.
+        return outputs[self._get_output_rank()]
 
     def check_health(self) -> None:
         # Assume that the workers are healthy.

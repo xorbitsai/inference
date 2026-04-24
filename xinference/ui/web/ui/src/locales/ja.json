@@ -184,7 +184,13 @@
     "copy": "コピー",
     "copied": "コピーしました！",
     "copyFailed": "コピーに失敗しました",
-    "viewDetails": "詳細を表示"
+    "viewDetails": "詳細を表示",
+    "terminateModel": "モデルを終了",
+    "terminateInProgress": "終了処理中…",
+    "terminateConfirmTitle": "このモデルを終了しますか？",
+    "terminateConfirmBody": "このモデルには {{replica}} 個のレプリカがあります。クラスターが混雑している場合やレプリカが多い場合、終了に数分かかることがあります。所要時間は最も遅いワーカーに依存します。終了を繰り返しクリックしないでください。",
+    "terminateConfirmOk": "終了",
+    "terminateErrorHint": "リクエストが失敗したか、モデルが既に削除されている可能性があります。実行中のモデル一覧を更新して確認してください。"
   },
   "registerModel": {
     "modelName": "モデル名",
