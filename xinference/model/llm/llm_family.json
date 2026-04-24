@@ -30871,7 +30871,8 @@
       "chat",
       "vision",
       "tools",
-      "reasoning"
+      "reasoning",
+      "hybrid"
     ],
     "model_specs": [
       {
@@ -31594,10 +31595,11 @@
         "#mlx_dependencies# ; #engine# == \"MLX\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#sglang_dependencies# ; #engine# == \"sglang\"",
-        "#system_numpy# ; #engine# == \"vllm\""
+        "#system_numpy# ; #engine# == \"vllm\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\""
       ]
     },
     "featured": false,
-    "updated_at": 1776846198
+    "updated_at": 1777047462
   }
 ]
