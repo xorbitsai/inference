@@ -44,14 +44,14 @@ potential of cutting-edge AI models.
 - Distributed inference: running models across workers: [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - VLLM enhancement: Shared KV cache across multiple replicas: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### New Models
+- Built-in support for [MiniMax-M2.7](https://www.minimax.io/models/text/m27): [#4843](https://github.com/xorbitsai/inference/pull/4843)
+- Built-in support for [GLM-5.1](https://z.ai/blog/glm-5.1): [#4832](https://github.com/xorbitsai/inference/pull/4832)
+- Built-in support for [Qwen3.6](https://github.com/QwenLM/Qwen3.6): [#4831](https://github.com/xorbitsai/inference/pull/4831)
 - Built-in support for [Gemma-4](https://deepmind.google/models/gemma/gemma-4/): [#4768](https://github.com/xorbitsai/inference/pull/4768)
 - Built-in support for [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS): [#4781](https://github.com/xorbitsai/inference/pull/4781)
 - Built-in support for [Qwen-3.5](https://github.com/QwenLM/Qwen3.5): [#4639](https://github.com/xorbitsai/inference/pull/4639)
 - Built-in support for [GLM-5](https://github.com/zai-org/GLM-5): [#4638](https://github.com/xorbitsai/inference/pull/4638)
 - Built-in support for [MiniMax-M2.5](https://github.com/MiniMax-AI/MiniMax-M2.5): [#4630](https://github.com/xorbitsai/inference/pull/4630)
-- Built-in support for [Kimi-K2.5](https://github.com/MoonshotAI/Kimi-K2.5): [#4631](https://github.com/xorbitsai/inference/pull/4631)
-- Built-in support for [FLUX.2-Klein](https://bfl.ai/models/flux-2-klein): [#4596](https://github.com/xorbitsai/inference/pull/4596)
-- Built-in support for [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR): [#4581](https://github.com/xorbitsai/inference/pull/4581)
 ### Integrations
 - [Xagent](https://github.com/xorbitsai/xagent): an enterprise agent platform for building and running AI agents with planning, memory, and tool use — not limited to rigid workflows.
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
