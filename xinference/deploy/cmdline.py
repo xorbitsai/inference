@@ -925,7 +925,7 @@ def model_launch(
                 f"You must specify extra kwargs with `--` prefix. "
                 f"There is an error in parameter passing that is {ctx.args[i]}."
             )
-        param_name = ctx.args[i][2:]
+        param_name = ctx.args[i][2:].replace("-", "_")
         param_value = handle_click_args_type(ctx.args[i + 1])
         if param_name == "model_path":
             # fix for --model_path which is the old fashion to set model_path,
