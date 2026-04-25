@@ -3,6 +3,13 @@ name: Auto run gen_docs.py and commit changes to PR
 on:
   pull_request_target:
     types: [opened, synchronize]
+    paths:
+      - 'xinference/model/llm/llm_family.json'
+      - 'xinference/model/embedding/model_spec.json'
+      - 'xinference/model/rerank/model_spec.json'
+      - 'xinference/model/image/model_spec.json'
+      - 'xinference/model/audio/model_spec.json'
+      - 'xinference/model/video/model_spec.json'
 
 permissions:
   contents: write
@@ -13,18 +20,18 @@ jobs:
     if: startsWith(github.event.pull_request.head.ref, 'chore/models-sync/')
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout base repository (trusted scripts)
+      - name: Checkout base branch (trusted code)
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.base.ref }}
+          ref: ${{ github.event.pull_request.base.sha }}
           repository: ${{ github.repository }}
-          path: main
+          path: base
           fetch-depth: 0
 
-      - name: Checkout PR head branch (working copy)
+      - name: Checkout PR head (data only)
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ github.event.pull_request.head.sha }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           path: pr
           fetch-depth: 0
@@ -41,24 +48,7 @@ jobs:
             echo "run=false" >> $GITHUB_OUTPUT
             exit 0
           fi
-
-          HEAD_SHA="$(git rev-parse HEAD)"
-          BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          RANGE="$BASE_SHA...$HEAD_SHA"
-          echo "Diff range (full PR): $RANGE"
-
-          CHANGED_FILES="$(git diff --name-only "$RANGE" || true)"
-          echo "Changed files in PR range:"
-          echo "$CHANGED_FILES"
-
-          RUN="false"
-          for f in $CHANGED_FILES; do
-            case "$f" in
-              xinference/model/llm/llm_family.json|xinference/model/embedding/model_spec.json|xinference/model/rerank/model_spec.json|xinference/model/image/model_spec.json|xinference/model/audio/model_spec.json|xinference/model/video/model_spec.json)
-                RUN="true"; break;;
-            esac
-          done
-          echo "run=$RUN" >> $GITHUB_OUTPUT
+          echo "run=true" >> $GITHUB_OUTPUT
 
       - name: Set up Python
         if: steps.decide.outputs.run == 'true'
@@ -73,41 +63,32 @@ jobs:
           python -m pip install jinja2
           python -m pip install "xinference[doc]"
 
-      - name: Run gen_docs.py if present
+      - name: Run gen_docs.py (from base branch ONLY)
         if: steps.decide.outputs.run == 'true'
-        working-directory: pr
         run: |
           echo "[Debug] CWD: $(pwd)"
-          echo "[Debug] List ../main:"
-          ls -la ../main || true
-          echo "[Debug] List ../main/doc/source:"
-          ls -la ../main/doc/source || true
 
-          # Use PR branch's gen_docs.py if it exists, otherwise use main branch's
-          if [ -f "doc/source/gen_docs.py" ]; then
-            echo "Using PR branch's doc/source/gen_docs.py"
-            echo "Running pr/doc/source/gen_docs.py from its directory"
-            (cd doc/source && python -u gen_docs.py)
-          elif [ -f "../main/doc/source/gen_docs.py" ]; then
-            echo "Copying main/doc/source/gen_docs.py into PR workspace"
-            mkdir -p doc/source
-            cp -f ../main/doc/source/gen_docs.py doc/source/gen_docs.py
-            echo "Running pr/doc/source/gen_docs.py from its directory"
-            (cd doc/source && python -u gen_docs.py)
-          elif [ -f "gen_docs.py" ]; then
-            echo "Using PR branch's gen_docs.py"
-            echo "Running pr/gen_docs.py"
-            python -u gen_docs.py
-          elif [ -f "../main/gen_docs.py" ]; then
-            echo "Copying main/gen_docs.py into PR workspace"
-            cp -f ../main/gen_docs.py gen_docs.py
-            echo "Running pr/gen_docs.py"
-            python -u gen_docs.py
+          # IMPORTANT: Only execute gen_docs.py from base branch (trusted)
+          # We use PR's data files but base branch's code and templates
+          if [ -f "base/doc/source/gen_docs.py" ]; then
+            echo "Running gen_docs.py from base branch on PR data"
+            cd pr
+            # Copy templates from base (they should be in the same relative location)
+            if [ -d "../base/doc/source/templates" ]; then
+              mkdir -p doc/source
+              cp -r ../base/doc/source/templates doc/source/
+            fi
+            # Execute gen_docs.py from base branch
+            python ../base/doc/source/gen_docs.py
+          elif [ -f "base/gen_docs.py" ]; then
+            echo "Running gen_docs.py from base root"
+            cd pr
+            python ../base/gen_docs.py
           else
-            echo "gen_docs.py not found in main repository, skipping."
+            echo "gen_docs.py not found in base branch, skipping."
           fi
 
-      - name: Stage and commit changes back to PR branch
+      - name: Stage and commit changes
         if: steps.decide.outputs.run == 'true'
         working-directory: pr
         run: |
@@ -129,32 +110,27 @@ jobs:
             echo "No changes to commit."
           fi
 
-      - name: Push back for same-repo PR
+      - name: Push to same-repo PR
         env:
-          BRANCH: ${{ github.event.pull_request.head.ref }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         if: steps.decide.outputs.run == 'true' && github.event.pull_request.head.repo.full_name == github.repository
         working-directory: pr
         run: |
           echo "Pushing changes to same-repo PR..."
-          git push origin HEAD:$BRANCH || echo "No changes to push."
+          git push origin HEAD:${{ github.event.pull_request.head.ref }} || echo "No changes to push."
 
-      - name: Push back for fork PR using maintainer PAT
-        if: steps.decide.outputs.run == 'true' && github.event.pull_request.head.repo.full_name != github.repository && github.event.pull_request.maintainer_can_modify
+      - name: Push to fork PR
         env:
           PUSH_TOKEN: ${{ secrets.PUSH_TOKEN }}
-          BRANCH: ${{ github.event.pull_request.head.ref }}
-          HEAD_FULL_NAME: ${{ github.event.pull_request.head.repo.full_name }}
+        if: steps.decide.outputs.run == 'true' && github.event.pull_request.head.repo.full_name != github.repository
         working-directory: pr
         run: |
           if [ -z "$PUSH_TOKEN" ]; then
             echo "Missing secrets.PUSH_TOKEN; cannot push to fork. Skipping push."
+            echo "Please ask maintainer to run gen_docs.py manually."
             exit 0
           fi
-          echo "Pushing changes to fork PR using maintainer PAT..."
-          git remote set-url origin "https://x-access-token:${PUSH_TOKEN}@github.com/${HEAD_FULL_NAME}.git"
-          git push origin HEAD:$BRANCH || echo "No changes to push."
-
-      - name: Skip push for fork PR without maintainer edit permission
-        if: steps.decide.outputs.run != 'true' && github.event.pull_request.head.repo.full_name != github.repository && !github.event.pull_request.maintainer_can_modify
-        run: |
-          echo "Fork PR does not allow edits by maintainers; run succeeded but skip pushing commits."
+          echo "Pushing changes to fork PR..."
+          # Set remote for fork repository
+          git remote add fork "https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.event.pull_request.head.repo.full_name }}.git"
+          git push fork HEAD:${{ github.event.pull_request.head.ref }} || echo "No changes to push."
