@@ -13,35 +13,68 @@ class DeepseekV3_2ToolParser(ToolParser):
     """
     Tool parser implementation for DeepSeek V3.2 model.
 
-    Handles the DSML format used by DeepSeek V3.2 for tool calls:
+    Handles two formats used by DeepSeek V3.2 for tool calls:
 
+    DSML format:
     <｜DSML｜function_calls>
     <｜DSML｜invoke name="get_weather">
     <｜DSML｜parameter name="location" string="true">杭州</｜DSML｜parameter>
     <｜DSML｜parameter name="date" string="true">2024-01-16</｜DSML｜parameter>
     </｜DSML｜invoke>
     </｜DSML｜function_calls>
+
+    Plain format:
+    <function_calls>
+    <invoke name="get_weather">
+    <parameter name="location" string="true">杭州</parameter>
+    <parameter name="date" string="true">2024-01-16</parameter>
+    </invoke>
+    </function_calls>
     """
+
+    # Prefix used in DSML-flavoured tags
+    _DSML = "<｜DSML｜"
 
     def __init__(self):
         super().__init__()
 
-        self.tool_call_start_token: str = "<｜DSML｜function_calls>"
+        self.tool_call_start_tokens: List[str] = [
+            f"{self._DSML}function_calls>",
+            "<function_calls>",
+        ]
 
         # Streaming state
         self.is_tool_call_started: bool = False
         self.current_tool_index: int = 0
+        self._use_dsml: bool = True  # detected per-stream
 
-        # Regex patterns
+        # Regex patterns — built dynamically after format detection
+        self.tool_call_complete_regex: re.Pattern = re.compile(r"")  # placeholder
+        self.invoke_complete_regex: re.Pattern = re.compile(r"")  # placeholder
+        self.parameter_complete_regex: re.Pattern = re.compile(r"")  # placeholder
+
+    def _build_regexes(self, dsml: bool) -> None:
+        """Compile regex patterns for the detected format."""
+        # For DSML mode, open_tag = "<｜DSML｜", close_body = "｜DSML｜"
+        # For plain mode,  open_tag = "<",        close_body = ""
+        if dsml:
+            open_tag = re.escape(self._DSML)  # <｜DSML｜
+            close_body = open_tag[1:]  # ｜DSML｜
+        else:
+            open_tag = "<"
+            close_body = ""
+
         self.tool_call_complete_regex = re.compile(
-            r"<｜DSML｜function_calls>(.*?)</｜DSML｜function_calls>", re.DOTALL
+            rf"{open_tag}function_calls>(.*?)</{close_body}function_calls>", re.DOTALL
         )
         self.invoke_complete_regex = re.compile(
-            r'<｜DSML｜invoke\s+name="([^"]+)"\s*>(.*?)</｜DSML｜invoke>', re.DOTALL
+            rf"{open_tag}invoke\s+name=\"([^\"]+)\"\s*>(.*?)</{close_body}invoke>",
+            re.DOTALL,
         )
+        _non_cap = "(?:"  # noqa: E231 — split to avoid flake8 false positive on "?:"
         self.parameter_complete_regex = re.compile(
-            r'<｜DSML｜parameter\s+name="([^"]+)"\s+string="(?:true|false)"\s*>'
-            r"(.*?)</｜DSML｜parameter>",
+            rf'{open_tag}parameter\s+name="([^"]+)"\s+string="{_non_cap}true|false)"\s*>'
+            rf"(.*?)</{close_body}parameter>",
             re.DOTALL,
         )
 
@@ -51,6 +84,10 @@ class DeepseekV3_2ToolParser(ToolParser):
         for param_name, param_val in self.parameter_complete_regex.findall(invoke_str):
             param_dict[param_name] = param_val
         return param_dict
+
+    def _detect_format(self, text: str) -> bool:
+        """Return True when DSML-prefixed format is detected, False for plain."""
+        return f"{self._DSML}function_calls>" in text
 
     def extract_tool_calls(
         self, model_output: str
@@ -67,8 +104,13 @@ class DeepseekV3_2ToolParser(ToolParser):
             - function_name: Name of the function to call
             - parameters: Function parameters as dict
         """
-        if self.tool_call_start_token not in model_output:
+        # Detect which format is present
+        has_any = any(tok in model_output for tok in self.tool_call_start_tokens)
+        if not has_any:
             return [(model_output, None, None)]
+
+        dsml = self._detect_format(model_output)
+        self._build_regexes(dsml)
 
         results: List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]] = (
             []
@@ -108,17 +150,26 @@ class DeepseekV3_2ToolParser(ToolParser):
             if not previous_text:
                 self.is_tool_call_started = False
                 self.current_tool_index = 0
+                self._use_dsml = True
 
             # Detect tool-call region
             if not self.is_tool_call_started:
-                if self.tool_call_start_token in current_text:
+                matched_token = None
+                for tok in self.tool_call_start_tokens:
+                    if tok in current_text:
+                        matched_token = tok
+                        break
+
+                if matched_token:
                     self.is_tool_call_started = True
+                    self._use_dsml = self._detect_format(current_text)
+                    self._build_regexes(self._use_dsml)
                 else:
-                    # Still in plain-text region, forward as content
-                    for i in range(1, len(self.tool_call_start_token)):
-                        prefix = self.tool_call_start_token[:i]
-                        if current_text.endswith(prefix):
-                            return None
+                    # Still in plain-text region — check for partial start tokens
+                    for tok in self.tool_call_start_tokens:
+                        for i in range(1, len(tok)):
+                            if current_text.endswith(tok[:i]):
+                                return None
                     return (delta_text, None, None) if delta_text else None
 
             # Inside tool-call region: check for newly completed invokes

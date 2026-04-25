@@ -170,17 +170,6 @@ async def test_restful_api(setup):
     response = requests.post(url, json=payload)
     assert response.status_code == 404
 
-    payload = {
-        "model": model_uid_res,
-        "messages": [
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": "Hello!"},
-            {"role": "assistant", "content": "Hi what can I help you?"},
-        ],
-    }
-    response = requests.post(url, json=payload)
-    assert response.status_code == 400
-
     # allow duplicate system messages
     payload = {
         "model": model_uid_res,

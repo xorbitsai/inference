@@ -291,3 +291,140 @@ def test_extract_tool_calls_plain_text_before_tool_call():
         None,
         None,
     ), f"Expected plain text passthrough, got {result}"
+
+
+# ── Tests for plain (non-DSML) format ──────────────────────────────────────
+
+
+def test_extract_tool_calls_plain_single_call():
+    """Test extracting a single tool call in plain format."""
+    parser = DeepseekV3_2ToolParser()
+
+    test_case = (
+        "<function_calls>"
+        '<invoke name="get_current_weather">'
+        '<parameter name="location" string="true">上海</parameter>'
+        "</invoke>"
+        "</function_calls>"
+    )
+
+    expected_results = [(None, "get_current_weather", {"location": "上海"})]
+
+    result = parser.extract_tool_calls(test_case)
+
+    assert result == expected_results, f"Expected {expected_results}, but got {result}"
+
+
+def test_extract_tool_calls_plain_multiple_params():
+    """Test extracting a tool call with multiple parameters in plain format."""
+    parser = DeepseekV3_2ToolParser()
+
+    test_case = (
+        "<function_calls>"
+        '<invoke name="get_weather">'
+        '<parameter name="location" string="true">杭州</parameter>'
+        '<parameter name="date" string="true">2024-01-16</parameter>'
+        "</invoke>"
+        "</function_calls>"
+    )
+
+    expected_results = [
+        (None, "get_weather", {"location": "杭州", "date": "2024-01-16"}),
+    ]
+
+    result = parser.extract_tool_calls(test_case)
+
+    assert result == expected_results, f"Expected {expected_results}, but got {result}"
+
+
+def test_extract_tool_calls_plain_multiple_calls():
+    """Test extracting multiple tool calls in plain format."""
+    parser = DeepseekV3_2ToolParser()
+
+    test_case = (
+        "<function_calls>"
+        '<invoke name="get_current_weather">'
+        '<parameter name="location" string="true">上海</parameter>'
+        "</invoke>"
+        '<invoke name="get_time">'
+        '<parameter name="timezone" string="true">UTC+8</parameter>'
+        "</invoke>"
+        "</function_calls>"
+    )
+
+    expected_results = [
+        (None, "get_current_weather", {"location": "上海"}),
+        (None, "get_time", {"timezone": "UTC+8"}),
+    ]
+
+    result = parser.extract_tool_calls(test_case)
+
+    assert result == expected_results, f"Expected {expected_results}, but got {result}"
+
+
+# Streaming test cases for plain format — single tool call
+STREAMING_PLAIN_TEST_CASES = [
+    ([""], "<function_calls>", "<function_calls>"),
+    (
+        ["<function_calls>"],
+        '<function_calls><invoke name="get_current_weather">',
+        '<invoke name="get_current_weather">',
+    ),
+    (
+        ['<function_calls><invoke name="get_current_weather">'],
+        '<function_calls><invoke name="get_current_weather"><parameter name="location" string="true">',
+        '<parameter name="location" string="true">',
+    ),
+    (
+        [
+            '<function_calls><invoke name="get_current_weather"><parameter name="location" string="true">'
+        ],
+        '<function_calls><invoke name="get_current_weather"><parameter name="location" string="true">上海',
+        "上海",
+    ),
+    (
+        [
+            '<function_calls><invoke name="get_current_weather"><parameter name="location" string="true">上海'
+        ],
+        '<function_calls><invoke name="get_current_weather"><parameter name="location" string="true">上海</parameter>',
+        "</parameter>",
+    ),
+    (
+        [
+            '<function_calls><invoke name="get_current_weather"><parameter name="location" string="true">上海</parameter>'
+        ],
+        '<function_calls><invoke name="get_current_weather"><parameter name="location" string="true">上海</parameter></invoke>',
+        "</invoke>",
+    ),
+    (
+        [
+            '<function_calls><invoke name="get_current_weather"><parameter name="location" string="true">上海</parameter></invoke>'
+        ],
+        '<function_calls><invoke name="get_current_weather"><parameter name="location" string="true">上海</parameter></invoke></function_calls>',
+        "</function_calls>",
+    ),
+]
+
+
+def test_extract_tool_calls_streaming_plain_full_sequence():
+    """Test streaming extraction for plain format through a complete sequence."""
+    parser = DeepseekV3_2ToolParser()
+
+    tool_call_detected = False
+    detected_result = None
+
+    for previous_texts, current_text, delta_text in STREAMING_PLAIN_TEST_CASES:
+        result = parser.extract_tool_calls_streaming(
+            previous_texts, current_text, delta_text
+        )
+
+        if result is not None and result[1] is not None:
+            tool_call_detected = True
+            detected_result = result
+
+    assert tool_call_detected, "Tool call should be detected during streaming"
+    assert detected_result == (
+        None,
+        "get_current_weather",
+        {"location": "上海"},
+    ), f"Expected tool call result, but got {detected_result}"

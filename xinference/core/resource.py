@@ -17,7 +17,7 @@ from typing import Dict, Union
 
 import psutil
 
-from ..device_utils import get_nvidia_gpu_info
+from ..device_utils import get_gpu_info
 
 
 @dataclass
@@ -49,7 +49,7 @@ def gather_node_info() -> Dict[str, Union[ResourceStatus, GPUStatus]]:
         memory_available=mem_info.available,
         memory_total=mem_info.total,
     )
-    for gpu_idx, gpu_info in get_nvidia_gpu_info().items():
+    for gpu_idx, gpu_info in get_gpu_info().items():
         mem_total = gpu_info["total"]
         mem_usage = (gpu_info["used"] / mem_total) if mem_total else 0.0
         node_resource[gpu_idx] = GPUStatus(  # type: ignore
