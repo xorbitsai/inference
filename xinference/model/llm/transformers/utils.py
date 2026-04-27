@@ -52,19 +52,22 @@ def get_context_length(config) -> int:
     ):
         max_sequence_length = config.max_sequence_length
     else:
-        max_sequence_length = 2048
+        max_sequence_length = None
     if hasattr(config, "seq_length") and config.seq_length is not None:
         seq_length = config.seq_length
     else:
-        seq_length = 2048
+        seq_length = None
     if (
         hasattr(config, "max_position_embeddings")
         and config.max_position_embeddings is not None
     ):
         max_position_embeddings = config.max_position_embeddings
     else:
-        max_position_embeddings = 2048
-    return max(max_sequence_length, seq_length, max_position_embeddings)
+        max_position_embeddings = None
+    return max(
+        *(v for v in [max_sequence_length, seq_length, max_position_embeddings] if v is not None),
+        default=2048
+    )
 
 
 def prepare_logits_processor(
