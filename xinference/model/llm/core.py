@@ -319,15 +319,25 @@ def create_llm_model_instance(
         model_path = cache_manager.cache()
 
     peft_model = peft_model_config.peft_model if peft_model_config else None
-    if peft_model is not None:
+
+    # Extract llamacpp-specific config from kwargs for LlamaCppModel
+    is_llamacpp = "LlamaCppModel" in type(llm_cls).__name__
+    if is_llamacpp:
+        llamacpp_model_config = {
+            k: v for k, v in kwargs.items()
+            if k in ("multimodal_projector", "n_ctx", "n_gpu_layers", "use_mmap", "use_mlock",
+                    "n_threads", "n_batch", "n_gqa", "reasoning_content", "enable_thinking")
+        }
+        # Remove extracted keys from kwargs to avoid passing them twice
+        for k in list(llamacpp_model_config.keys()):
+            kwargs.pop(k)
+        if peft_model is not None and "peft_model" in inspect.signature(llm_cls.__init__).parameters:
+            model = llm_cls(model_uid, llm_family, model_path, llamacpp_model_config, peft_model)
+        else:
+            model = llm_cls(model_uid, llm_family, model_path, llamacpp_model_config)
+    elif peft_model is not None:
         if "peft_model" in inspect.signature(llm_cls.__init__).parameters:
-            model = llm_cls(
-                model_uid,
-                llm_family,
-                model_path,
-                kwargs,
-                peft_model,
-            )
+            model = llm_cls(model_uid, llm_family, model_path, kwargs, peft_model)
         else:
             logger.warning(
                 f"Model not supported with lora, name: {model_name}, format: {model_format}, engine: {model_engine}. "
