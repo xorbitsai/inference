@@ -59,14 +59,7 @@ from ....types import (
 from .. import BUILTIN_LLM_FAMILIES, LLM, LLMFamilyV2, LLMSpecV1
 from ..core import chat_context_var
 from ..llm_family import cache_model_tokenizer_and_config
-from ..utils import (
-    DEEPSEEK_TOOL_CALL_FAMILY,
-    GEMMA_TOOL_CALL_FAMILY,
-    QWEN_TOOL_CALL_FAMILY,
-    QWEN_TOOL_CALL_SYMBOLS,
-    ChatModelMixin,
-    generate_completion_chunk,
-)
+from ..utils import QWEN_TOOL_CALL_SYMBOLS, ChatModelMixin, generate_completion_chunk
 from .utils import vllm_check
 
 logger = logging.getLogger(__name__)
@@ -1700,7 +1693,6 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         messages = self.prefill_messages(messages)
 
         tools = list(generate_config.pop("tools", [])) if generate_config else None
-        model_family = self.model_family.model_family or self.model_family.model_name
         chat_template_kwargs = (
             self._get_chat_template_kwargs_from_generate_config(
                 generate_config, self.reasoning_parser
@@ -1710,10 +1702,11 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         chat_context_var.set(chat_template_kwargs)
         full_context_kwargs = chat_template_kwargs.copy()
         if tools:
-            if (
-                model_family in QWEN_TOOL_CALL_FAMILY
-                or model_family in GEMMA_TOOL_CALL_FAMILY
-                or model_family in DEEPSEEK_TOOL_CALL_FAMILY
+            tool_parser = self.model_family.tool_parser
+            if tool_parser and (
+                tool_parser == "qwen"
+                or tool_parser == "gemma"
+                or tool_parser.startswith("deepseek")
             ):
                 full_context_kwargs["tools"] = tools
         assert self.model_family.chat_template is not None
@@ -2006,11 +1999,10 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             )
             chat_context_var.set(chat_template_kwargs)
             full_context_kwargs = chat_template_kwargs.copy()
-            if tools and (
-                model_family in QWEN_TOOL_CALL_FAMILY
-                or model_family in GEMMA_TOOL_CALL_FAMILY
-            ):
-                full_context_kwargs["tools"] = tools
+            if tools:
+                tool_parser = self.model_family.tool_parser
+                if tool_parser == "qwen" or tool_parser == "gemma":
+                    full_context_kwargs["tools"] = tools
             assert self.model_family.chat_template is not None
 
             # Handle empty chat_template by falling back to tokenizer's chat_template
@@ -2039,7 +2031,6 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             prompt = self.get_full_context(
                 messages, chat_template, tokenizer=tokenizer, **full_context_kwargs
             )
-
         else:
             prompt, images = self.get_specific_prompt(model_family, messages)
         inputs = {"prompt": prompt, "multi_modal_data": {}, "mm_processor_kwargs": {}}
