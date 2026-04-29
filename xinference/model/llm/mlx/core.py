@@ -1547,7 +1547,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             chat_context_var.set(chat_template_kwargs)
             full_context_kwargs = chat_template_kwargs.copy()
             if tools:
-                tool_parser = self.model_familytool_parser
+                tool_parser = self.model_family.tool_parser
                 if tool_parser == "qwen" or tool_parser == "gemma":
                     full_context_kwargs["tools"] = tools
             chat_template = self.model_family.chat_template
