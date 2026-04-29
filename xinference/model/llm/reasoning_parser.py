@@ -27,7 +27,7 @@ class ReasoningParser:
         self.reasoning_start_tag = reasoning_start_tag
         self.reasoning_end_tag = reasoning_end_tag
         self.reasoning_regex = re.compile(
-            rf"{re.escape(self.reasoning_start_tag)}(.*?){re.escape(self.reasoning_end_tag)}",
+            rf"{re.escape(self.reasoning_start_tag) if self.reasoning_start_tag else None}(.*?){re.escape(self.reasoning_end_tag) if self.reasoning_end_tag else None}",
             re.DOTALL,
         )
         # enable_thinking can be set to False only for hybrid model
