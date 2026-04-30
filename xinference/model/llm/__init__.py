@@ -46,6 +46,13 @@ from .llm_family import (
     PytorchLLMSpecV2,
     match_llm,
 )
+from .utils import (
+    DEEPSEEK_TOOL_CALL_FAMILY,
+    GEMMA_TOOL_CALL_FAMILY,
+    GLM4_TOOL_CALL_FAMILY,
+    LLAMA3_TOOL_CALL_FAMILY,
+    QWEN_TOOL_CALL_FAMILY,
+)
 
 
 def register_builtin_model():
@@ -215,6 +222,21 @@ def load_model_family_from_json(json_filename, target_families):
             BUILTIN_LLM_MODEL_GENERATE_FAMILIES.add(model_spec.model_name)
         if "tools" in model_spec.model_ability:
             BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
+            if tool_parser := getattr(model_spec, "tool_parser", None):
+                if tool_parser == "qwen" or tool_parser == "minimax":
+                    QWEN_TOOL_CALL_FAMILY.add(model_spec.model_name)
+                elif tool_parser == "gemma":
+                    GEMMA_TOOL_CALL_FAMILY.add(model_spec.model_name)
+                elif tool_parser == "glm4":
+                    GLM4_TOOL_CALL_FAMILY.add(model_spec.model_name)
+                elif tool_parser == "llama3":
+                    LLAMA3_TOOL_CALL_FAMILY.add(model_spec.model_name)
+                elif tool_parser.startswith("deepseek"):
+                    DEEPSEEK_TOOL_CALL_FAMILY.add(model_spec.model_name)
+                else:
+                    warnings.warn(
+                        f"Unknown tool parser {tool_parser} for model family {model_spec.model_name}"
+                    )
 
 
 def _install():

@@ -29764,6 +29764,7 @@
       "generate",
       "chat",
       "reasoning",
+      "tools",
       "audio",
       "vision",
       "hybrid"

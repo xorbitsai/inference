@@ -39,7 +39,13 @@ from ...scheduler.request import InferenceRequest
 from ...utils import check_dependency_available, select_device
 from ..core import LLM, chat_context_var
 from ..llm_family import LLMFamilyV2, LLMSpecV1
-from ..utils import ChatModelMixin
+from ..utils import (
+    DEEPSEEK_TOOL_CALL_FAMILY,
+    GEMMA_TOOL_CALL_FAMILY,
+    LLAMA3_TOOL_CALL_FAMILY,
+    QWEN_TOOL_CALL_FAMILY,
+    ChatModelMixin,
+)
 from .utils import (
     _get_pad_param,
     convert_to_cache_cls,
@@ -1065,6 +1071,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         super().load()
 
     def _get_full_prompt(self, messages: List[Dict], tools, generate_config: dict):
+        model_family = self.model_family.model_family or self.model_family.model_name
         chat_template_kwargs = (
             self._get_chat_template_kwargs_from_generate_config(
                 generate_config, self.reasoning_parser
@@ -1073,15 +1080,13 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         )
         chat_context_var.set(chat_template_kwargs)
         full_context_kwargs = chat_template_kwargs.copy()
-        if tools:
-            tool_parser = self.model_family.tool_parser
-            if tool_parser and (
-                tool_parser == "qwen"
-                or tool_parser == "gemma"
-                or tool_parser == "llama3"
-                or tool_parser.startswith("deepseek")
-            ):
-                full_context_kwargs["tools"] = tools
+        if tools and (
+            model_family in QWEN_TOOL_CALL_FAMILY
+            or model_family in GEMMA_TOOL_CALL_FAMILY
+            or model_family in LLAMA3_TOOL_CALL_FAMILY
+            or model_family in DEEPSEEK_TOOL_CALL_FAMILY
+        ):
+            full_context_kwargs["tools"] = tools
         assert self.model_family.chat_template is not None
         full_prompt = self.get_full_context(
             messages,

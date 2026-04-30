@@ -28,6 +28,7 @@ from typing import (
     Iterator,
     List,
     Optional,
+    Set,
     Tuple,
     Union,
     cast,
@@ -96,6 +97,12 @@ def get_context_length_from_config(
         return 2048
     return max(candidates)
 
+
+DEEPSEEK_TOOL_CALL_FAMILY: Set[str] = set()
+GEMMA_TOOL_CALL_FAMILY: Set[str] = set()
+GLM4_TOOL_CALL_FAMILY: Set[str] = set()
+LLAMA3_TOOL_CALL_FAMILY: Set[str] = set()
+QWEN_TOOL_CALL_FAMILY: Set[str] = set()
 
 QWEN_TOOL_CALL_SYMBOLS = ["<tool_call>", "</tool_call>"]
 

@@ -2037,30 +2037,33 @@ class RESTfulAPI(CancelMixin):
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
-        tool_parser = desc.get("tool_parser", "")
+        from ..model.llm.utils import (
+            DEEPSEEK_TOOL_CALL_FAMILY,
+            GEMMA_TOOL_CALL_FAMILY,
+            GLM4_TOOL_CALL_FAMILY,
+            LLAMA3_TOOL_CALL_FAMILY,
+            QWEN_TOOL_CALL_FAMILY,
+        )
 
-        if not tool_parser:
+        model_family = desc.get("model_family", "")
+
+        total_call_family = (
+            DEEPSEEK_TOOL_CALL_FAMILY
+            | GEMMA_TOOL_CALL_FAMILY
+            | GLM4_TOOL_CALL_FAMILY
+            | LLAMA3_TOOL_CALL_FAMILY
+            | QWEN_TOOL_CALL_FAMILY
+        )
+        if model_family not in total_call_family:
             if body.tools:
-                data = await (
-                    await self._get_supervisor_ref()
-                ).list_model_registrations("LLM")
-                tool_parser_models = [
-                    item.get("model_name") for item in data if item.get("tool_parser")
-                ]
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Only {tool_parser_models} support tool calls",
+                    detail=f"Only {total_call_family} support tool calls",
                 )
             if has_tool_message:
-                data = await (
-                    await self._get_supervisor_ref()
-                ).list_model_registrations("LLM")
-                tool_parser_models = [
-                    item.get("model_name") for item in data if item.get("tool_parser")
-                ]
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Only {tool_parser_models} support tool messages",
+                    detail=f"Only {total_call_family} support tool messages",
                 )
 
         if "skip_special_tokens" in raw_kwargs and await model.is_vllm_backend():

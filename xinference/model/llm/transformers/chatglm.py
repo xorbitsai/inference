@@ -24,7 +24,11 @@ from ....types import ChatCompletion, ChatCompletionChunk, LoRA, PytorchGenerate
 from ...scheduler.request import InferenceRequest
 from ..core import chat_context_var
 from ..llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
-from ..utils import generate_chat_completion, generate_completion_chunk
+from ..utils import (
+    GLM4_TOOL_CALL_FAMILY,
+    generate_chat_completion,
+    generate_completion_chunk,
+)
 from .core import PytorchChatModel, PytorchModelConfig, register_non_default_model
 
 logger = logging.getLogger(__name__)
@@ -102,7 +106,7 @@ class ChatglmPytorchChatModel(PytorchChatModel):
 
     def _handle_tools(self, messages, generate_config):
         """Convert openai tools to ChatGLM tools."""
-        if self.model_family.tool_parser != "glm4":
+        if self.model_family.model_name not in GLM4_TOOL_CALL_FAMILY:
             return None
         if generate_config is None:
             return None

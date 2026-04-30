@@ -202,7 +202,6 @@ class LLMFamilyV2(BaseModel, ModelInstanceInfoMixin):
             "model_hub": spec.model_hub,
             "revision": spec.model_revision,
             "context_length": self.context_length,
-            "tool_parser": getattr(self, "tool_parser", None),
         }
 
     def to_version_info(self):

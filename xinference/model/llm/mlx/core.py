@@ -52,6 +52,9 @@ from ...utils import check_dependency_available
 from ..core import LLM, chat_context_var
 from ..llm_family import LLMFamilyV2, LLMSpecV1
 from ..utils import (
+    DEEPSEEK_TOOL_CALL_FAMILY,
+    GEMMA_TOOL_CALL_FAMILY,
+    QWEN_TOOL_CALL_FAMILY,
     ChatModelMixin,
     generate_completion_chunk,
     get_context_length_from_config,
@@ -1171,6 +1174,7 @@ class MLXChatModel(MLXModel, ChatModelMixin):
         generate_config: Optional[MLXGenerateConfig] = None,
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
+        model_family = self.model_family.model_family or self.model_family.model_name
         tools = generate_config.pop("tools", []) if generate_config else None
         chat_template_kwargs = (
             self._get_chat_template_kwargs_from_generate_config(
@@ -1181,11 +1185,10 @@ class MLXChatModel(MLXModel, ChatModelMixin):
         chat_context_var.set(chat_template_kwargs)
         full_context_kwargs = chat_template_kwargs.copy()
         if tools:
-            tool_parser = self.model_family.tool_parser
-            if tool_parser and (
-                tool_parser == "qwen"
-                or tool_parser == "gemma"
-                or tool_parser.startswith("deepseek")
+            if (
+                model_family in QWEN_TOOL_CALL_FAMILY
+                or model_family in GEMMA_TOOL_CALL_FAMILY
+                or model_family in DEEPSEEK_TOOL_CALL_FAMILY
             ):
                 full_context_kwargs["tools"] = tools
         chat_template = self.model_family.chat_template
@@ -1546,10 +1549,11 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             )
             chat_context_var.set(chat_template_kwargs)
             full_context_kwargs = chat_template_kwargs.copy()
-            if tools:
-                tool_parser = self.model_family.tool_parser
-                if tool_parser == "qwen" or tool_parser == "gemma":
-                    full_context_kwargs["tools"] = tools
+            if tools and (
+                model_family in QWEN_TOOL_CALL_FAMILY
+                or model_family in GEMMA_TOOL_CALL_FAMILY
+            ):
+                full_context_kwargs["tools"] = tools
             chat_template = self.model_family.chat_template
             tokenizer = None
             if not chat_template:
