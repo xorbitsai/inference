@@ -245,9 +245,17 @@ class QwenToolParser(ToolParser):
             ] = []
             for function_call in function_calls:
                 try:
+                    # Skip whitespace-only fragments between matched blocks
+                    if not function_call.strip():
+                        continue
                     parsed_json = self._parse_json_function_call(function_call)
+                    # Skip if parsed result is also empty/whitespace
+                    if not parsed_json.strip():
+                        continue
                     # Check for Qwen3.5 XML-like format before JSON parsing
-                    if "<function=" in parsed_json and "<parameter=" in parsed_json:
+                    # Note: <parameter=> is optional - tool calls with no arguments
+                    # only have <function=name></function> without any parameter tags.
+                    if "<function=" in parsed_json:
                         results.append(self.parse_qwen35_tool_call(parsed_json))
                         continue
                     res = json.loads(parsed_json, strict=False)
@@ -266,6 +274,9 @@ class QwenToolParser(ToolParser):
                         e,
                     )
                     results.append((function_call, None, None))
+            # If all fragments were whitespace-only, return original output as content
+            if not results:
+                return [(model_output, None, None)]
             return results
 
         except Exception as e:
@@ -338,7 +349,11 @@ class QwenToolParser(ToolParser):
                 )
                 if function_call is None:
                     return None
-                if "<function=" in function_call and "<parameter=" in function_call:
+                # Skip if the extracted content is whitespace-only (e.g., the model
+                # generated <tool_call></tool_call> with no JSON inside)
+                if not function_call.strip():
+                    return None
+                if "<function=" in function_call:
                     return self.parse_qwen35_tool_call(function_call)
                 res = json.loads(function_call, strict=False)
                 return None, res["name"], res["arguments"]
