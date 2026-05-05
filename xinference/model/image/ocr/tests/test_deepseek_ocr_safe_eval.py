@@ -45,7 +45,11 @@ class TestExtractCoordinatesAndLabel:
     re_match tuple (coordinate list literal) into a Python list."""
 
     def test_parses_valid_coordinate_list(self):
-        ref = ("<|ref|>logo<|/ref|><|det|>[[10,20,30,40]]<|/det|>", "logo", "[[10,20,30,40]]")
+        ref = (
+            "<|ref|>logo<|/ref|><|det|>[[10,20,30,40]]<|/det|>",
+            "logo",
+            "[[10,20,30,40]]",
+        )
         result = deepseek_ocr.extract_coordinates_and_label(ref, 100, 100)
         assert result is not None
         label, coords = result
@@ -65,9 +69,7 @@ class TestExtractCoordinatesAndLabel:
         executed by the old eval() must now be rejected with no side
         effect, and the function must return None instead of crashing."""
         sentinel = tmp_path / "pwned"
-        payload = (
-            f"__import__('pathlib').Path({str(sentinel)!r}).write_text('x')"
-        )
+        payload = f"__import__('pathlib').Path({str(sentinel)!r}).write_text('x')"
         ref = ("raw", "label", payload)
         result = deepseek_ocr.extract_coordinates_and_label(ref, 100, 100)
         assert result is None
@@ -92,9 +94,7 @@ class TestExtractTextBlocks:
     `(label_type, coordinates, text)` blocks."""
 
     def test_parses_well_formed_block(self):
-        text = (
-            "<|ref|>title<|/ref|><|det|>[[1, 2, 3, 4]]<|/det|>Hello world"
-        )
+        text = "<|ref|>title<|/ref|><|det|>[[1, 2, 3, 4]]<|/det|>Hello world"
         blocks = deepseek_ocr.extract_text_blocks(text)
         assert len(blocks) == 1
         b = blocks[0]
@@ -117,9 +117,7 @@ class TestExtractTextBlocks:
         numeric coordinate must NOT have it executed. The block is
         skipped and parsing continues for any well-formed siblings."""
         sentinel = tmp_path / "pwned"
-        payload = (
-            f"__import__('pathlib').Path({str(sentinel)!r}).write_text('x')"
-        )
+        payload = f"__import__('pathlib').Path({str(sentinel)!r}).write_text('x')"
         # The malicious block is followed by a valid one to verify the
         # parser does not abort on a bad block.
         text = (
