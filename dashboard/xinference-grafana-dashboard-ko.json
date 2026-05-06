@@ -989,11 +989,11 @@
               "options": {
                 "0": {
                   "color": "red",
-                  "text": "OFF"
+                  "text": "꺼짐"
                 },
                 "1": {
                   "color": "green",
-                  "text": "ON"
+                  "text": "켜짐"
                 }
               },
               "type": "value"
@@ -3152,7 +3152,7 @@
     },
     {
       "id": 29,
-      "title": "Supervisor 磁盘空间使用率 $supervisor_address",
+      "title": "Supervisor 디스크 사용률 $supervisor_address",
       "type": "gauge",
       "gridPos": {
         "h": 8,
@@ -3898,7 +3898,7 @@
     },
     {
       "id": 16,
-      "title": "Worker 磁盘 I/O 吞吐",
+      "title": "Worker 디스크 I/O 처리량",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -3994,7 +3994,7 @@
     },
     {
       "id": 17,
-      "title": "Worker 磁盘空间使用率 $worker_address",
+      "title": "Worker 디스크 사용률 $worker_address",
       "type": "gauge",
       "gridPos": {
         "h": 8,
@@ -4061,7 +4061,7 @@
     },
     {
       "id": 18,
-      "title": "Worker 网络流量",
+      "title": "Worker 네트워크 트래픽",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -4157,7 +4157,7 @@
     },
     {
       "id": 19,
-      "title": "Worker 系统负载",
+      "title": "Worker 시스템 부하",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -4257,7 +4257,7 @@
     },
     {
       "id": 20,
-      "title": "Worker Swap 使用量",
+      "title": "Worker Swap 사용량",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
