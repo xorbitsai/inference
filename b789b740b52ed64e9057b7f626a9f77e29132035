@@ -1,0 +1,26 @@
+dashboard/xinference-grafana-dashboard-ko.json
+  105c20d0dd5ece7f 992,996
+dashboard/xinference-grafana-dashboard-ja.json
+  105c20d0dd5ece7f 992,996
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.11",
+  "base_commit_sha": "b789b740b52ed64e9057b7f626a9f77e29132035",
+  "prompts": {
+    "105c20d0dd5ece7f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ab828fbe-9f48-49ad-b652-6e0a5983d879",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 12,
+      "total_deletions": 12,
+      "accepted_lines": 5160,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/860713ff174ab4f89e821b7d42bbd7248630db41ab85a1f8d984a0a472c16253"
+    }
+  }
+}
