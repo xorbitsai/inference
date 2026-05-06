@@ -859,7 +859,7 @@ def remove_cache(
     "--enable-thinking",
     "enable_thinking",
     flag_value=True,
-    default=None,
+    default=False,
     help="Enable thinking mode for hybrid reasoning LLMs (e.g., Qwen3).",
 )
 @click.option(
