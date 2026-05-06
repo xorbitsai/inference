@@ -1337,12 +1337,13 @@
       "targets": [
         {
           "expr": "xinference:worker_gpu_memory_used_bytes{cluster=~\"$cluster\", worker_address=~\"$worker_address\"} / xinference:worker_gpu_memory_total_bytes{cluster=~\"$cluster\", worker_address=~\"$worker_address\"} * 100",
-          "legendFormat": "{{worker_address}} GPU{{gpu_index}} ({{gpu_name}})",
+          "legendFormat": "GPU {{gpu_index}} ({{gpu_name}})",
           "refId": "A"
         }
       ],
       "repeat": "worker_address",
-      "repeatDirection": "h"
+      "repeatDirection": "h",
+      "maxPerRow": 2
     },
     {
       "id": 6,
@@ -3060,8 +3061,8 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 111
+        "x": 0,
+        "y": 119
       },
       "datasource": {
         "type": "prometheus",
@@ -3138,7 +3139,7 @@
       },
       "targets": [
         {
-          "expr": "node_memory_MemTotal_bytes{instance=~\"$supervisor_instance\"} - node_memory_MemAvailable_bytes{instance=~\"$supervisor_instance\"} * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster =~\"$cluster\"})",
+          "expr": "(node_memory_MemTotal_bytes{instance=~\"$supervisor_instance\"} - node_memory_MemAvailable_bytes{instance=~\"$supervisor_instance\"}) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster =~\"$cluster\"})",
           "legendFormat": "{{supervisor_address}} Used",
           "refId": "A"
         },
@@ -3151,13 +3152,13 @@
     },
     {
       "id": 29,
-      "title": "Supervisor 磁盘空间使用率",
+      "title": "Supervisor 磁盘空间使用率 $supervisor_address",
       "type": "gauge",
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 24,
         "x": 0,
-        "y": 119
+        "y": 127
       },
       "datasource": {
         "type": "prometheus",
@@ -3207,11 +3208,14 @@
       "pluginVersion": "11.0.0",
       "targets": [
         {
-          "expr": "1 - node_filesystem_avail_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster =~\"$cluster\"})",
-          "legendFormat": "{{supervisor_address}} {{mountpoint}}",
+          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"}) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster=~\"$cluster\", supervisor_address=~\"$supervisor_address\"})",
+          "legendFormat": "{{mountpoint}}",
           "refId": "A"
         }
-      ]
+      ],
+      "maxPerRow": 2,
+      "repeat": "supervisor_address",
+      "repeatDirection": "h"
     },
     {
       "id": 30,
@@ -3221,7 +3225,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 119
+        "y": 111
       },
       "datasource": {
         "type": "prometheus",
@@ -3321,7 +3325,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 127
+        "y": 143
       },
       "datasource": {
         "type": "prometheus",
@@ -3417,7 +3421,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 127
+        "y": 119
       },
       "datasource": {
         "type": "prometheus",
@@ -3698,7 +3702,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 143
+        "y": 151
       },
       "id": 105,
       "title": "Worker 主机资源（node_exporter）",
@@ -3712,7 +3716,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 144
+        "y": 152
       },
       "datasource": {
         "type": "prometheus",
@@ -3803,8 +3807,8 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 144
+        "x": 0,
+        "y": 160
       },
       "datasource": {
         "type": "prometheus",
@@ -3881,7 +3885,7 @@
       },
       "targets": [
         {
-          "expr": "node_memory_MemTotal_bytes{instance=~\"$worker_instance\"} - node_memory_MemAvailable_bytes{instance=~\"$worker_instance\"} * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster =~\"$cluster\"})",
+          "expr": "(node_memory_MemTotal_bytes{instance=~\"$worker_instance\"} - node_memory_MemAvailable_bytes{instance=~\"$worker_instance\"}) * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster =~\"$cluster\"})",
           "legendFormat": "{{worker_address}} Used",
           "refId": "A"
         },
@@ -3894,13 +3898,13 @@
     },
     {
       "id": 16,
-      "title": "磁盘 I/O 吞吐",
+      "title": "Worker 磁盘 I/O 吞吐",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 152
+        "y": 176
       },
       "datasource": {
         "type": "prometheus",
@@ -3990,13 +3994,13 @@
     },
     {
       "id": 17,
-      "title": "磁盘空间使用率",
+      "title": "Worker 磁盘空间使用率 $worker_address",
       "type": "gauge",
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 152
+        "x": 0,
+        "y": 168
       },
       "datasource": {
         "type": "prometheus",
@@ -4046,23 +4050,24 @@
       "pluginVersion": "11.0.0",
       "targets": [
         {
-          "expr": "1 - node_filesystem_avail_bytes{instance=~\"$worker_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$worker_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster =~\"$cluster\"})",
-          "legendFormat": "{{worker_address}} {{mountpoint}}",
+          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"$worker_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$worker_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"}) * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster=~\"$cluster\", worker_address=~\"$worker_address\"})",
+          "legendFormat": "{{mountpoint}}",
           "refId": "A"
         }
       ],
       "repeat": "worker_address",
-      "repeatDirection": "h"
+      "repeatDirection": "h",
+      "maxPerRow": 2
     },
     {
       "id": 18,
-      "title": "网络流量",
+      "title": "Worker 网络流量",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 160
+        "y": 184
       },
       "datasource": {
         "type": "prometheus",
@@ -4152,13 +4157,13 @@
     },
     {
       "id": 19,
-      "title": "系统负载",
+      "title": "Worker 系统负载",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 160
+        "y": 152
       },
       "datasource": {
         "type": "prometheus",
@@ -4252,13 +4257,13 @@
     },
     {
       "id": 20,
-      "title": "Swap 使用量",
+      "title": "Worker Swap 使用量",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 0,
-        "y": 168
+        "x": 12,
+        "y": 160
       },
       "datasource": {
         "type": "prometheus",
@@ -4349,7 +4354,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 168
+        "y": 176
       },
       "datasource": {
         "type": "prometheus",
@@ -4487,6 +4492,39 @@
         },
         "refresh": 2,
         "regex": "/cluster=\"(?<text>[^\"]+)/g",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "query_result(xinference:build_info{cluster=~\"$cluster\",xinference_role=\"supervisor\"})",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Supervisor",
+        "multi": true,
+        "name": "supervisor_address",
+        "options": [],
+        "query": {
+          "qryType": 3,
+          "query": "query_result(xinference:build_info{cluster=~\"$cluster\",xinference_role=\"supervisor\"})",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "regex": "/supervisor_address=\"(?<text>[^\"]+)/g",
         "skipUrlSync": false,
         "sort": 1,
         "type": "query"
