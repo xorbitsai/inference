@@ -1910,7 +1910,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
         from vllm import TokensPrompt
 
         if isinstance(prompt, str):
-            return super()._gen_tokens_prompt(tokenizer, prompt, config)
+            return await super()._gen_tokens_prompt(tokenizer, prompt, config)
 
         prompt_str = prompt["prompt"]
         multi_modal_data = prompt.get("multi_modal_data")
