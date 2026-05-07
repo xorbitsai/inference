@@ -191,5 +191,8 @@ PATCH = VllmPatch(
     fn=patch_kv_cache_hybrid_page_size,
     description="LCM-based padding for hybrid attention KV cache page sizes",
     removal_condition="vLLM merges fix for vllm-project/vllm#37121 / #38041",
-    architectures={"Qwen3_5MoeForConditionalGeneration"},
+    architectures={
+        "Qwen3_5MoeForConditionalGeneration",
+        "Qwen3_5ForConditionalGeneration",
+    },
 )
