@@ -22,11 +22,7 @@ Verifies that the Jina-style ``task`` parameter is correctly resolved:
 
 import pytest
 
-from ..core import (
-    JINA_V3_TASK_TO_PROMPT_NAME,
-    JINA_V4_VALID_TASKS,
-    _resolve_jina_task,
-)
+from ..core import JINA_V3_TASK_TO_PROMPT_NAME, JINA_V4_VALID_TASKS, _resolve_jina_task
 
 # ---------------------------------------------------------------------------
 # _resolve_jina_task unit tests
@@ -37,7 +33,9 @@ class TestResolveJinaTaskV4:
     """Tests for v4: returns (None, task) — task passthrough to forward()."""
 
     def test_retrieval_passage(self):
-        prompt_name, task = _resolve_jina_task("jina-embeddings-v4", "retrieval.passage")
+        prompt_name, task = _resolve_jina_task(
+            "jina-embeddings-v4", "retrieval.passage"
+        )
         assert prompt_name is None
         assert task == "retrieval.passage"
 
@@ -71,7 +69,9 @@ class TestResolveJinaTaskV3:
     """Tests for v3: returns (prompt_name, None) — uses prompt_name mechanism."""
 
     def test_retrieval_passage(self):
-        prompt_name, task = _resolve_jina_task("jina-embeddings-v3", "retrieval.passage")
+        prompt_name, task = _resolve_jina_task(
+            "jina-embeddings-v3", "retrieval.passage"
+        )
         assert prompt_name == "retrieval.passage"
         assert task is None
 
