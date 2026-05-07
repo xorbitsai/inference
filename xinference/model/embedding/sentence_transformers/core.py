@@ -28,8 +28,8 @@ from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 logger = logging.getLogger(__name__)
 SENTENCE_TRANSFORMER_MODEL_LIST: List[str] = []
 
-# jina-embeddings-v3: 使用标准 SentenceTransformer prompt_name 机制
-# v3 的 model.prompts 字典 keys 为点分格式: "retrieval.passage", "retrieval.query", etc.
+# jina-embeddings-v3: uses standard SentenceTransformer prompt_name mechanism
+# v3 model.prompts keys use dot-notation: "retrieval.passage", "retrieval.query", etc.
 JINA_V3_TASK_TO_PROMPT_NAME: Dict[str, str] = {
     "retrieval.passage": "retrieval.passage",
     "retrieval.query": "retrieval.query",
@@ -39,8 +39,8 @@ JINA_V3_TASK_TO_PROMPT_NAME: Dict[str, str] = {
     "document": "document",
 }
 
-# jina-embeddings-v4: 使用自定义 forward() 消费 task 参数，不走 prompt_name 机制
-# 此集合仅用于校验合法性，task 值直接传给 model.forward()
+# jina-embeddings-v4: custom forward() consumes task param directly, bypasses prompt_name
+# This set is only for validation; task value is passed directly to model.forward()
 JINA_V4_VALID_TASKS = {
     "retrieval.passage",
     "retrieval.query",
@@ -60,9 +60,9 @@ def _resolve_jina_task(
 
     Returns:
         (prompt_name, task_passthrough)
-        - v3: (prompt_name, None) — 使用 prompt_name 机制查找 prompt 模板
-        - v4: (None, task) — 将 task 直传给 model.forward()
-        - 其他模型: (None, None)
+        - v3: (prompt_name, None) — uses prompt_name to look up prompt template
+        - v4: (None, task) — passes task directly to model.forward()
+        - other models: (None, None)
     """
     if task is None:
         return None, None
@@ -244,7 +244,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         jina_prompt_name, jina_task_passthrough = _resolve_jina_task(
             self._model_name, task
         )
-        # v4: 将 task 放回 kwargs，让 model.forward() 消费
+        # v4: put task back into kwargs for model.forward() to consume
         if jina_task_passthrough is not None:
             kwargs["task"] = jina_task_passthrough
 
