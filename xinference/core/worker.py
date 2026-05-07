@@ -2069,7 +2069,7 @@ class WorkerActor(xo.StatelessActor):
                         virtual_env_packages,
                         model_engine,
                         model_name=model_name,
-                        architectures=model.model_family._resolve_architectures(),
+                        architectures=getattr(model.model_family, '_resolve_architectures', lambda: None)(),
                     )
                     launch_info.virtual_env_manager = virtual_env_manager
 
