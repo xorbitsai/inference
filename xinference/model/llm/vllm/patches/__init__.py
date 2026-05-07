@@ -27,7 +27,7 @@ for _info in pkgutil.iter_modules(__path__):
 def apply_vllm_patches(
     env_path: str,
     model_name: Optional[str] = None,
-    model_family: Optional[str] = None,
+    architectures: Optional[List[str]] = None,
 ) -> None:
     """
     Apply applicable vLLM patches for the given model.
@@ -35,15 +35,14 @@ def apply_vllm_patches(
     Args:
         env_path: Path to the virtual environment root.
         model_name: Model name (for logging).
-        model_family: Model family string, used to filter patches.
+        architectures: Model architecture list, used to filter patches.
     """
     for patch in _PATCHES:
-        if patch.model_families and model_family:
-            if model_family.lower() not in patch.model_families:
+        if patch.architectures and architectures:
+            if not any(arch in patch.architectures for arch in architectures):
                 logger.debug(
-                    "Skipping patch '%s' (not applicable to %s)",
+                    "Skipping patch '%s' (architecture not matched)",
                     patch.name,
-                    model_family,
                 )
                 continue
 

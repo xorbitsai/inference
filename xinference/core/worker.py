@@ -1678,7 +1678,7 @@ class WorkerActor(xo.StatelessActor):
         virtual_env_packages: Optional[List[str]],
         model_engine: Optional[str],
         model_name: Optional[str] = None,
-        model_family: Optional[str] = None,
+        architectures: Optional[List[str]] = None,
     ):
         engine_defaults: List[str] = []
         if (
@@ -1817,7 +1817,7 @@ class WorkerActor(xo.StatelessActor):
                 apply_vllm_patches(
                     env_path=str(virtual_env_manager.env_path),
                     model_name=model_name,
-                    model_family=model_family,
+                    architectures=architectures,
                 )
 
     async def _get_progressor(self, request_id: str):
@@ -2069,7 +2069,7 @@ class WorkerActor(xo.StatelessActor):
                         virtual_env_packages,
                         model_engine,
                         model_name=model_name,
-                        model_family=model.model_family.model_name,
+                        architectures=model.model_family._resolve_architectures(),
                     )
                     launch_info.virtual_env_manager = virtual_env_manager
 

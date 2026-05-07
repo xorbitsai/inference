@@ -14,12 +14,12 @@ class VllmPatch:
         fn: Callable(env_path) -> bool. Returns True if patch was applied.
         description: What the patch fixes.
         removal_condition: When this patch should be deleted.
-        model_families: Set of model families this patch applies to.
-                        None means apply to all vLLM models.
+        architectures: Set of model architectures this patch applies to.
+                       None means apply to all vLLM models.
     """
 
     name: str
     fn: Callable[[str], bool]
     description: str
     removal_condition: str
-    model_families: Optional[Set[str]] = None
+    architectures: Optional[Set[str]] = None
