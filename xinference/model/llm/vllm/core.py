@@ -114,9 +114,6 @@ class VLLMModelConfig(TypedDict, total=False):
     speculative_config: Optional[Dict[str, Any]]
     rope_scaling: Optional[Dict[str, Any]]
     hf_overrides: Optional[Dict[str, Any]]
-    enable_auto_tool_choice: NotRequired[bool]
-    tool_call_parser: Optional[str]
-    reasoning_parser: Optional[str]
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
@@ -463,12 +460,6 @@ class VLLMModel(LLM):
             reasoning_content, enable_thinking=enable_thinking
         )
         self.prepare_parse_tool_calls()
-
-        # Filter out parameters not supported by the installed vLLM version.
-        # Some params like enable_auto_tool_choice, tool_call_parser, reasoning_parser
-        # are only available in newer vLLM versions. Passing unsupported params to
-        # AsyncEngineArgs would raise TypeError.
-        self._filter_model_config_for_engine(AsyncEngineArgs)
 
         if (
             isinstance(self.model_spec, LlamaCppLLMSpecV2)
@@ -844,36 +835,6 @@ class VLLMModel(LLM):
             )
             return default
 
-    def _filter_model_config_for_engine(self, engine_args_cls) -> None:
-        """Remove parameters from self._model_config that are not accepted
-        by the installed vLLM version's AsyncEngineArgs.
-
-        Some vLLM parameters (e.g. enable_auto_tool_choice, tool_call_parser,
-        reasoning_parser) are only available in newer vLLM versions. Passing
-        them to an older AsyncEngineArgs would raise TypeError.
-        """
-        import inspect
-
-        try:
-            sig = inspect.signature(engine_args_cls.__init__)
-            valid_params = set(sig.parameters.keys()) - {"self", "kwargs"}
-        except (ValueError, TypeError):
-            logger.warning(
-                "Failed to inspect AsyncEngineArgs signature, "
-                "skipping model config filtering"
-            )
-            return
-
-        unsupported = set(self._model_config.keys()) - valid_params
-        if unsupported:
-            logger.info(
-                "Filtering out unsupported vLLM engine args for vLLM %s: %s",
-                VLLM_VERSION,
-                unsupported,
-            )
-            for key in unsupported:
-                self._model_config.pop(key, None)
-
     def _sanitize_model_config(
         self, model_config: Optional[VLLMModelConfig]
     ) -> VLLMModelConfig:
@@ -949,34 +910,6 @@ class VLLMModel(LLM):
                     **mm_processor_kwargs,
                     **pixel_params,
                 }
-
-        # Auto-inject vLLM tool_call_parser and enable_auto_tool_choice for models with tool ability.
-        # When vLLM natively handles tool calls, the response includes structured tool_calls data
-        # and xinference's _post_process_completion_chunk will pass them through directly instead
-        # of re-parsing with its own tool parser.
-        if VLLM_VERSION >= version.parse("0.5.1"):
-            tool_parser_name = self.model_family.tool_parser
-            if tool_parser_name:
-                vllm_tool_call_parser_map = {
-                    "qwen": "qwen3_coder",
-                }
-                vllm_parser = vllm_tool_call_parser_map.get(tool_parser_name)
-                if vllm_parser:
-                    model_config.setdefault("enable_auto_tool_choice", True)
-                    model_config.setdefault("tool_call_parser", vllm_parser)
-
-        # Auto-inject vLLM reasoning_parser for reasoning models
-        if self.model_family.reasoning_start_tag and VLLM_VERSION >= version.parse(
-            "0.7.0"
-        ):
-            # Map to vLLM reasoning_parser names based on model family
-            model_name = self.model_family.model_name or ""
-            model_family_name = self.model_family.model_family or ""
-            vllm_reasoning_parser = None
-            if "qwen" in model_name.lower() or "qwen" in model_family_name.lower():
-                vllm_reasoning_parser = "qwen3"
-            if vllm_reasoning_parser:
-                model_config.setdefault("reasoning_parser", vllm_reasoning_parser)
 
         return model_config
 
@@ -1770,7 +1703,6 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         messages = self.prefill_messages(messages)
 
         tools = list(generate_config.pop("tools", [])) if generate_config else None
-        tool_choice = generate_config.pop("tool_choice", None) if generate_config else None
         model_family = self.model_family.model_family or self.model_family.model_name
         chat_template_kwargs = (
             self._get_chat_template_kwargs_from_generate_config(
@@ -1787,8 +1719,6 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 or model_family in DEEPSEEK_TOOL_CALL_FAMILY
             ):
                 full_context_kwargs["tools"] = tools
-                if tool_choice:
-                    full_context_kwargs["tool_choice"] = tool_choice
         assert self.model_family.chat_template is not None
 
         generate_config = self._sanitize_chat_config(generate_config)
