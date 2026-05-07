@@ -28,47 +28,61 @@ from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 logger = logging.getLogger(__name__)
 SENTENCE_TRANSFORMER_MODEL_LIST: List[str] = []
 
-# Jina embeddings v4 supported task types and their mapping to
-# SentenceTransformer prompt_name values.
-# The official Jina AI API supports "retrieval.passage", "retrieval.query",
-# "text-matching", and "code" as task values.  Xinference previously only
-# accepted the coarser "retrieval" (mapped to no prompt), losing the
-# query/passage distinction.  This mapping restores full compatibility with
-# the Jina API while keeping backward compatibility for "retrieval".
-JINA_V4_TASK_TO_PROMPT_NAME: Dict[str, str] = {
+# jina-embeddings-v3: 使用标准 SentenceTransformer prompt_name 机制
+# v3 的 model.prompts 字典 keys 为点分格式: "retrieval.passage", "retrieval.query", etc.
+JINA_V3_TASK_TO_PROMPT_NAME: Dict[str, str] = {
     "retrieval.passage": "retrieval.passage",
     "retrieval.query": "retrieval.query",
-    "text-matching": "text-matching",
-    "code": "code",
-    # Backward-compatible alias: plain "retrieval" defaults to passage encoding
     "retrieval": "retrieval.passage",
+    "passage": "retrieval.passage",
+    "query": "retrieval.query",
+    "document": "document",
 }
 
-# Models that support Jina-style dot-notation task types.
-JINA_TASK_SUPPORTED_MODELS = {
-    "jina-embeddings-v4",
-    "jina-embeddings-v3",
+# jina-embeddings-v4: 使用自定义 forward() 消费 task 参数，不走 prompt_name 机制
+# 此集合仅用于校验合法性，task 值直接传给 model.forward()
+JINA_V4_VALID_TASKS = {
+    "retrieval.passage",
+    "retrieval.query",
+    "retrieval",
+    "text-matching",
+    "code",
+    "passage",
+    "query",
+    "document",
 }
 
 
-def _resolve_jina_task(model_name: str, task: Optional[str]) -> Optional[str]:
-    """Resolve a Jina API ``task`` value to a SentenceTransformer ``prompt_name``.
+def _resolve_jina_task(
+    model_name: str, task: Optional[str]
+) -> Tuple[Optional[str], Optional[str]]:
+    """Resolve Jina API task parameter.
 
-    Returns ``None`` when the model is not a Jina task-aware model or when no
-    task is provided, so callers can fall through to the default behaviour.
+    Returns:
+        (prompt_name, task_passthrough)
+        - v3: (prompt_name, None) — 使用 prompt_name 机制查找 prompt 模板
+        - v4: (None, task) — 将 task 直传给 model.forward()
+        - 其他模型: (None, None)
     """
     if task is None:
-        return None
-    # Only apply the mapping for known Jina task-aware models.
-    if not any(name in model_name.lower() for name in JINA_TASK_SUPPORTED_MODELS):
-        return None
-    prompt_name = JINA_V4_TASK_TO_PROMPT_NAME.get(task)
-    if prompt_name is None:
-        valid = sorted(JINA_V4_TASK_TO_PROMPT_NAME.keys())
-        raise ValueError(
-            f"Invalid task: {task}. Must be one of {valid} " f"for model {model_name}."
-        )
-    return prompt_name
+        return None, None
+    model_lower = model_name.lower()
+    if "jina-embeddings-v3" in model_lower:
+        prompt_name = JINA_V3_TASK_TO_PROMPT_NAME.get(task)
+        if prompt_name is None:
+            valid = sorted(JINA_V3_TASK_TO_PROMPT_NAME.keys())
+            raise ValueError(
+                f"Invalid task: {task}. Must be one of {valid} for model {model_name}."
+            )
+        return prompt_name, None
+    elif "jina-embeddings-v4" in model_lower:
+        if task not in JINA_V4_VALID_TASKS:
+            valid = sorted(JINA_V4_VALID_TASKS)
+            raise ValueError(
+                f"Invalid task: {task}. Must be one of {valid} for model {model_name}."
+            )
+        return None, task
+    return None, None
 
 
 def _build_encode_kwargs(
@@ -225,9 +239,14 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         sentences = self._fix_langchain_openai_inputs(sentences)
         model_uid = kwargs.pop("model_uid", None)
 
-        # Resolve Jina-style task parameter to a SentenceTransformer prompt_name.
+        # Resolve Jina-style task parameter.
         task = kwargs.pop("task", None)
-        jina_prompt_name = _resolve_jina_task(self._model_name, task)
+        jina_prompt_name, jina_task_passthrough = _resolve_jina_task(
+            self._model_name, task
+        )
+        # v4: 将 task 放回 kwargs，让 model.forward() 消费
+        if jina_task_passthrough is not None:
+            kwargs["task"] = jina_task_passthrough
 
         from sentence_transformers import SentenceTransformer
 
