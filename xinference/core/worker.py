@@ -1677,6 +1677,8 @@ class WorkerActor(xo.StatelessActor):
         settings: Optional[VirtualEnvSettings],
         virtual_env_packages: Optional[List[str]],
         model_engine: Optional[str],
+        model_name: Optional[str] = None,
+        model_family: Optional[str] = None,
     ):
         engine_defaults: List[str] = []
         if (
@@ -1804,6 +1806,19 @@ class WorkerActor(xo.StatelessActor):
         )
         with _exclusive_venv_path_lock(str(virtual_env_manager.env_path)):
             virtual_env_manager.install_packages(packages, **conf, **variables)
+
+        # Apply engine-specific post-install patches
+        if model_engine and model_engine.lower() == "vllm":
+            try:
+                from xinference.model.llm.vllm.patches import apply_vllm_patches
+            except ImportError:
+                pass
+            else:
+                apply_vllm_patches(
+                    env_path=str(virtual_env_manager.env_path),
+                    model_name=model_name,
+                    model_family=model_family,
+                )
 
     async def _get_progressor(self, request_id: str):
         from .progress_tracker import Progressor, ProgressTrackerActor
@@ -2053,6 +2068,8 @@ class WorkerActor(xo.StatelessActor):
                         model.model_family.virtualenv,
                         virtual_env_packages,
                         model_engine,
+                        model_name=model_name,
+                        model_family=model.model_family.model_name,
                     )
                     launch_info.virtual_env_manager = virtual_env_manager
 
