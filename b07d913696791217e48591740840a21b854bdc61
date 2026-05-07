@@ -1,0 +1,43 @@
+xinference/model/llm/vllm/patches/_base.py
+  787e045f04a9bc3e 17-18,25
+xinference/model/llm/vllm/patches/hybrid_kv_cache_page_size.py
+  787e045f04a9bc3e 194
+xinference/core/worker.py
+  787e045f04a9bc3e 1681,1820,2072
+xinference/model/llm/vllm/patches/__init__.py
+  787e045f04a9bc3e 30,38,41-42,44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.11",
+  "base_commit_sha": "b07d913696791217e48591740840a21b854bdc61",
+  "prompts": {
+    "105c20d0dd5ece7f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ab828fbe-9f48-49ad-b652-6e0a5983d879",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 5148,
+      "overriden_lines": 0
+    },
+    "787e045f04a9bc3e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b20e688a-d9d7-49f5-9b0c-fa2532bbe2d3",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 12,
+      "total_deletions": 13,
+      "accepted_lines": 12,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/b90bb90c5184abfb385815446182a32b2bdc5ce53231555fa75cc9c8852ba918"
+    }
+  }
+}
