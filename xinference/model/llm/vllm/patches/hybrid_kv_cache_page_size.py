@@ -8,6 +8,7 @@ Solution: Replace the hard error with LCM-based padding.
 
 Removal condition: vLLM merges fix for vllm-project/vllm#37121 / #38041.
 """
+
 import glob
 import logging
 import os
@@ -47,10 +48,15 @@ def _get_vllm_site_packages_path(env_path: str) -> Optional[str]:
             continue
         try:
             result = subprocess.run(
-                [python_bin, "-c",
-                 "import importlib.util; spec = importlib.util.find_spec('vllm'); "
-                 "print(spec.submodule_search_locations[0]) if spec else exit(1)"],
-                capture_output=True, text=True, timeout=10,
+                [
+                    python_bin,
+                    "-c",
+                    "import importlib.util; spec = importlib.util.find_spec('vllm'); "
+                    "print(spec.submodule_search_locations[0]) if spec else exit(1)",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             if result.returncode == 0:
                 vllm_path = result.stdout.strip()

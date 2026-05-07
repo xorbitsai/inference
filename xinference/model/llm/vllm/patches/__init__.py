@@ -4,6 +4,7 @@ vLLM post-install patches registry.
 Patches are auto-discovered: any module in this package that exposes a
 top-level ``PATCH`` attribute (instance of VllmPatch) is registered automatically.
 """
+
 import importlib
 import logging
 import pkgutil
