@@ -13,107 +13,126 @@
 # limitations under the License.
 
 """
-Tests for Jina embeddings v4 task parameter mapping.
+Tests for Jina embeddings v3/v4 task parameter mapping.
 
-Verifies that the Jina-style ``task`` parameter (e.g. ``retrieval.passage``,
-``retrieval.query``) is correctly resolved to SentenceTransformer
-``prompt_name`` values, ensuring API compatibility with the official Jina AI
-API.
+Verifies that the Jina-style ``task`` parameter is correctly resolved:
+- v3: maps to SentenceTransformer ``prompt_name`` (dot-notation keys)
+- v4: passes task through to ``model.forward()``
 """
 
 import pytest
 
-from ..core import (
-    JINA_TASK_SUPPORTED_MODELS,
-    JINA_V4_TASK_TO_PROMPT_NAME,
-    _resolve_jina_task,
-)
+from ..core import JINA_V3_TASK_TO_PROMPT_NAME, JINA_V4_VALID_TASKS, _resolve_jina_task
 
 # ---------------------------------------------------------------------------
 # _resolve_jina_task unit tests
 # ---------------------------------------------------------------------------
 
 
-class TestResolveJinaTask:
-    """Tests for the _resolve_jina_task helper."""
-
-    # -- Valid task values for jina-embeddings-v4 --
+class TestResolveJinaTaskV4:
+    """Tests for v4: returns (None, task) — task passthrough to forward()."""
 
     def test_retrieval_passage(self):
-        result = _resolve_jina_task("jina-embeddings-v4", "retrieval.passage")
-        assert result == "retrieval.passage"
+        prompt_name, task = _resolve_jina_task(
+            "jina-embeddings-v4", "retrieval.passage"
+        )
+        assert prompt_name is None
+        assert task == "retrieval.passage"
 
     def test_retrieval_query(self):
-        result = _resolve_jina_task("jina-embeddings-v4", "retrieval.query")
-        assert result == "retrieval.query"
+        prompt_name, task = _resolve_jina_task("jina-embeddings-v4", "retrieval.query")
+        assert prompt_name is None
+        assert task == "retrieval.query"
 
     def test_text_matching(self):
-        result = _resolve_jina_task("jina-embeddings-v4", "text-matching")
-        assert result == "text-matching"
+        prompt_name, task = _resolve_jina_task("jina-embeddings-v4", "text-matching")
+        assert prompt_name is None
+        assert task == "text-matching"
 
     def test_code(self):
-        result = _resolve_jina_task("jina-embeddings-v4", "code")
-        assert result == "code"
+        prompt_name, task = _resolve_jina_task("jina-embeddings-v4", "code")
+        assert prompt_name is None
+        assert task == "code"
 
-    # -- Backward compatibility: plain "retrieval" maps to "retrieval.passage" --
-
-    def test_retrieval_backward_compat(self):
-        result = _resolve_jina_task("jina-embeddings-v4", "retrieval")
-        assert result == "retrieval.passage"
-
-    # -- jina-embeddings-v3 is also supported --
-
-    def test_jina_v3_retrieval_passage(self):
-        result = _resolve_jina_task("jina-embeddings-v3", "retrieval.passage")
-        assert result == "retrieval.passage"
-
-    def test_jina_v3_retrieval_query(self):
-        result = _resolve_jina_task("jina-embeddings-v3", "retrieval.query")
-        assert result == "retrieval.query"
-
-    def test_jina_v3_text_matching(self):
-        result = _resolve_jina_task("jina-embeddings-v3", "text-matching")
-        assert result == "text-matching"
-
-    def test_jina_v3_code(self):
-        result = _resolve_jina_task("jina-embeddings-v3", "code")
-        assert result == "code"
-
-    # -- None task returns None (no-op) --
-
-    def test_none_task_returns_none(self):
-        result = _resolve_jina_task("jina-embeddings-v4", None)
-        assert result is None
-
-    # -- Non-Jina model returns None regardless of task value --
-
-    def test_non_jina_model_returns_none(self):
-        result = _resolve_jina_task("bge-small-en-v1.5", "retrieval.passage")
-        assert result is None
-
-    def test_non_jina_model_with_none_task(self):
-        result = _resolve_jina_task("bge-small-en-v1.5", None)
-        assert result is None
-
-    # -- Invalid task raises ValueError --
+    def test_retrieval_passthrough(self):
+        """Plain 'retrieval' is passed through as-is for v4."""
+        prompt_name, task = _resolve_jina_task("jina-embeddings-v4", "retrieval")
+        assert prompt_name is None
+        assert task == "retrieval"
 
     def test_invalid_task_raises(self):
         with pytest.raises(ValueError, match="Invalid task"):
             _resolve_jina_task("jina-embeddings-v4", "nonexistent-task")
 
-    def test_invalid_task_message_contains_valid_options(self):
-        with pytest.raises(ValueError, match="retrieval.passage"):
-            _resolve_jina_task("jina-embeddings-v4", "bad")
 
-    # -- Case sensitivity: model name matching is case-insensitive --
+class TestResolveJinaTaskV3:
+    """Tests for v3: returns (prompt_name, None) — uses prompt_name mechanism."""
 
-    def test_case_insensitive_model_name(self):
-        result = _resolve_jina_task("Jina-Embeddings-V4", "retrieval.query")
-        assert result == "retrieval.query"
+    def test_retrieval_passage(self):
+        prompt_name, task = _resolve_jina_task(
+            "jina-embeddings-v3", "retrieval.passage"
+        )
+        assert prompt_name == "retrieval.passage"
+        assert task is None
 
-    def test_uppercase_model_name(self):
-        result = _resolve_jina_task("JINA-EMBEDDINGS-V4", "code")
-        assert result == "code"
+    def test_retrieval_query(self):
+        prompt_name, task = _resolve_jina_task("jina-embeddings-v3", "retrieval.query")
+        assert prompt_name == "retrieval.query"
+        assert task is None
+
+    def test_retrieval_backward_compat(self):
+        """Plain 'retrieval' maps to 'retrieval.passage' for v3."""
+        prompt_name, task = _resolve_jina_task("jina-embeddings-v3", "retrieval")
+        assert prompt_name == "retrieval.passage"
+        assert task is None
+
+    def test_passage_alias(self):
+        prompt_name, task = _resolve_jina_task("jina-embeddings-v3", "passage")
+        assert prompt_name == "retrieval.passage"
+        assert task is None
+
+    def test_query_alias(self):
+        prompt_name, task = _resolve_jina_task("jina-embeddings-v3", "query")
+        assert prompt_name == "retrieval.query"
+        assert task is None
+
+    def test_document(self):
+        prompt_name, task = _resolve_jina_task("jina-embeddings-v3", "document")
+        assert prompt_name == "document"
+        assert task is None
+
+    def test_invalid_task_raises(self):
+        with pytest.raises(ValueError, match="Invalid task"):
+            _resolve_jina_task("jina-embeddings-v3", "nonexistent-task")
+
+
+class TestResolveJinaTaskGeneral:
+    """Tests for general behavior: None task, non-Jina models, case sensitivity."""
+
+    def test_none_task_returns_none_none(self):
+        prompt_name, task = _resolve_jina_task("jina-embeddings-v4", None)
+        assert prompt_name is None
+        assert task is None
+
+    def test_non_jina_model_returns_none_none(self):
+        prompt_name, task = _resolve_jina_task("bge-small-en-v1.5", "retrieval.passage")
+        assert prompt_name is None
+        assert task is None
+
+    def test_non_jina_model_with_none_task(self):
+        prompt_name, task = _resolve_jina_task("bge-small-en-v1.5", None)
+        assert prompt_name is None
+        assert task is None
+
+    def test_case_insensitive_model_name_v4(self):
+        prompt_name, task = _resolve_jina_task("Jina-Embeddings-V4", "retrieval.query")
+        assert prompt_name is None
+        assert task == "retrieval.query"
+
+    def test_case_insensitive_model_name_v3(self):
+        prompt_name, task = _resolve_jina_task("Jina-Embeddings-V3", "retrieval.query")
+        assert prompt_name == "retrieval.query"
+        assert task is None
 
 
 # ---------------------------------------------------------------------------
@@ -121,31 +140,36 @@ class TestResolveJinaTask:
 # ---------------------------------------------------------------------------
 
 
-class TestJinaTaskMappingTable:
-    """Verify the JINA_V4_TASK_TO_PROMPT_NAME mapping is complete."""
+class TestJinaMappingTables:
+    """Verify mapping tables are complete and correct."""
 
-    EXPECTED_TASKS = {
-        "retrieval.passage",
-        "retrieval.query",
-        "text-matching",
-        "code",
-        "retrieval",
-    }
+    def test_v3_table_has_expected_keys(self):
+        expected = {
+            "retrieval.passage",
+            "retrieval.query",
+            "retrieval",
+            "passage",
+            "query",
+            "document",
+        }
+        assert expected == set(JINA_V3_TASK_TO_PROMPT_NAME.keys())
 
-    def test_all_expected_tasks_present(self):
-        assert self.EXPECTED_TASKS == set(JINA_V4_TASK_TO_PROMPT_NAME.keys())
+    def test_v4_valid_tasks_has_expected_values(self):
+        expected = {
+            "retrieval.passage",
+            "retrieval.query",
+            "retrieval",
+            "text-matching",
+            "code",
+            "passage",
+            "query",
+            "document",
+        }
+        assert expected == JINA_V4_VALID_TASKS
 
-    def test_supported_models_contains_v4(self):
-        assert "jina-embeddings-v4" in JINA_TASK_SUPPORTED_MODELS
+    def test_v3_retrieval_alias_maps_to_retrieval_passage(self):
+        assert JINA_V3_TASK_TO_PROMPT_NAME["retrieval"] == "retrieval.passage"
 
-    def test_supported_models_contains_v3(self):
-        assert "jina-embeddings-v3" in JINA_TASK_SUPPORTED_MODELS
-
-    def test_retrieval_alias_maps_to_passage(self):
-        """Plain 'retrieval' should default to 'retrieval.passage' for backward compat."""
-        assert JINA_V4_TASK_TO_PROMPT_NAME["retrieval"] == "retrieval.passage"
-
-    def test_each_dotted_task_maps_to_itself(self):
-        """retrieval.passage -> retrieval.passage, retrieval.query -> retrieval.query, etc."""
-        for task in ("retrieval.passage", "retrieval.query", "text-matching", "code"):
-            assert JINA_V4_TASK_TO_PROMPT_NAME[task] == task
+    def test_v3_dotted_tasks_map_to_themselves(self):
+        for task in ("retrieval.passage", "retrieval.query"):
+            assert JINA_V3_TASK_TO_PROMPT_NAME[task] == task

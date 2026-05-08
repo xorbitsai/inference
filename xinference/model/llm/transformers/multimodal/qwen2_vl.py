@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
     "Qwen3-VL-Instruct",
     "Qwen3-VL-Thinking",
     "qwen3.5",
+    "qwen3.6",
 )
 @register_transformer
 @register_non_default_model(

@@ -27,7 +27,8 @@ class ReasoningParser:
         self.reasoning_start_tag = reasoning_start_tag
         self.reasoning_end_tag = reasoning_end_tag
         self.reasoning_regex = re.compile(
-            rf"{self.reasoning_start_tag}(.*?){self.reasoning_end_tag}", re.DOTALL
+            rf"{re.escape(self.reasoning_start_tag) if self.reasoning_start_tag else None}(.*?){re.escape(self.reasoning_end_tag) if self.reasoning_end_tag else None}",
+            re.DOTALL,
         )
         # enable_thinking can be set to False only for hybrid model
         # e.g. qwen3, which can support both thinking and non-thinking
@@ -103,13 +104,45 @@ class ReasoningParser:
                 delta["reasoning_content"] = reasoning_content
                 delta["content"] = None
                 return self._log_streaming_result(previous_text, delta_text, delta)
+        elif self.reasoning_start_tag in previous_text + delta_text:
+            # <|channel>thought\n in previous and delta, but not in the same chunk, reasoning content continues
+            combined_text = previous_text + delta_text
+
+            if self.reasoning_end_tag in delta_text:
+                # <channel|> in delta,
+                # extract reasoning content
+                start_idx = combined_text.find(self.reasoning_start_tag)
+                end_idx = combined_text.find(self.reasoning_end_tag)
+                reasoning_content = combined_text[
+                    start_idx + len(self.reasoning_start_tag) : end_idx
+                ]
+                content = combined_text[end_idx + len(self.reasoning_end_tag) :]
+                delta["reasoning_content"] = reasoning_content
+                if content:
+                    delta["content"] = content
+                else:
+                    delta["content"] = None
+                return self._log_streaming_result(previous_text, delta_text, delta)
+            else:
+                # no <channel|>  in previous or delta,
+                # reasoning content continues
+                start_idx = combined_text.find(self.reasoning_start_tag)
+                reasoning_content = combined_text[
+                    start_idx + len(self.reasoning_start_tag) :
+                ]
+                delta["reasoning_content"] = reasoning_content
+                delta["content"] = None
+                return self._log_streaming_result(previous_text, delta_text, delta)
         else:
             # No <think> in previous or delta, also need to check for </think>.
             # Because the model may have generated </think> without <think>
             # Ref https://huggingface.co/deepseek-ai/DeepSeek-R1/commit/8a58a132790c9935686eb97f042afa8013451c9f
-            if not self.auto_insert_start_tag:
-                delta["reasoning_content"] = None
-                delta["content"] = delta_text
+            if not self.auto_insert_start_tag and self.reasoning_start_tag.startswith(
+                previous_text + delta_text
+            ):
+                # <|channel>thought\n is split in previous and delta, reasoning content starts
+                delta["reasoning_content"] = ""
+                delta["content"] = None
                 return self._log_streaming_result(previous_text, delta_text, delta)
             if self.reasoning_end_tag in delta_text:
                 # </think> in delta with more tokens,

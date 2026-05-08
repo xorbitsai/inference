@@ -100,6 +100,7 @@ class EmbeddingModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
             "address": getattr(self, "address", None),
             "accelerators": getattr(self, "accelerators", None),
             "model_name": self.model_name,
+            "model_format": spec.model_format,
             "dimensions": self.dimensions,
             "max_tokens": self.max_tokens,
             "language": self.language,

@@ -12,12 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import ast
 import base64
 import functools
 import json
 import logging
-import re
 import time
 import typing
 import uuid
@@ -30,6 +28,7 @@ from typing import (
     Iterator,
     List,
     Optional,
+    Set,
     Tuple,
     Union,
     cast,
@@ -99,62 +98,11 @@ def get_context_length_from_config(
     return max(candidates)
 
 
-QWEN_TOOL_CALL_FAMILY = [
-    "qwen1.5-chat",
-    "qwen1.5-moe-chat",
-    "qwen2-instruct",
-    "qwen2-moe-instruct",
-    "qwen2.5-instruct",
-    "qwen2.5-coder-instruct",
-    "XiYanSQL-QwenCoder-2504",
-    "QwQ-32B",
-    "qwen3",
-    "HuatuoGPT-o1-Qwen2.5",
-    "DianJin-R1",
-    "Qwen3-Thinking",
-    "Qwen3-Instruct",
-    "Qwen3-Coder",
-    "Qwen3-VL-Instruct",
-    "Qwen3-VL-Thinking",
-    "Qwen3-Next-Instruct",
-    "Qwen3-Next-Thinking",
-    "Qwen3-Omni-Instruct",
-    "Qwen3-Omni-Thinking",
-    "MiniMax-M2",
-    "qwen3.5",
-]
-
-GEMMA_TOOL_CALL_FAMILY = ["gemma-4"]
-
-GLM4_TOOL_CALL_FAMILY = [
-    "glm4-chat",
-    "glm4-chat-1m",
-    "glm-4.5",
-    "glm-4.5v",
-    "GLM-4.6",
-    "GLM-4.7",
-    "GLM-4.7-Flash",
-]
-
-LLAMA3_TOOL_CALL_FAMILY = [
-    "llama-3.1-instruct",
-    "HuatuoGPT-o1-LLaMA-3.1",
-]
-
-DEEPSEEK_TOOL_CALL_FAMILY = [
-    "deepseek-v3",
-    "deepseek-r1-0528",
-    "Deepseek-V3.1",
-    "DeepSeek-V3.2",
-]
-
-TOOL_CALL_FAMILY = (
-    QWEN_TOOL_CALL_FAMILY
-    + GEMMA_TOOL_CALL_FAMILY
-    + GLM4_TOOL_CALL_FAMILY
-    + LLAMA3_TOOL_CALL_FAMILY
-    + DEEPSEEK_TOOL_CALL_FAMILY
-)
+DEEPSEEK_TOOL_CALL_FAMILY: Set[str] = set()
+GEMMA_TOOL_CALL_FAMILY: Set[str] = set()
+GLM4_TOOL_CALL_FAMILY: Set[str] = set()
+LLAMA3_TOOL_CALL_FAMILY: Set[str] = set()
+QWEN_TOOL_CALL_FAMILY: Set[str] = set()
 
 QWEN_TOOL_CALL_SYMBOLS = ["<tool_call>", "</tool_call>"]
 
@@ -656,258 +604,6 @@ class ChatModelMixin:
             "choices": choices,  # type: ignore
             "usage": completion["usage"],
         }
-
-    @staticmethod
-    def _eval_glm_chat_arguments(c) -> List[Tuple]:
-        """
-        Currently, glm4 tool call only supports one function
-        """
-        try:
-            if isinstance(c, dict):
-                try:
-                    return [(None, c["name"], json.loads(c["arguments"]))]
-                except Exception:
-                    return [(None, c["name"], c["arguments"])]
-        except KeyError:
-            logger.error("Can't parse glm output: %s", c)
-            return [(str(c), None, None)]
-        else:
-            return [(str(c), None, None)]
-
-    @classmethod
-    def _handle_qwen_tool_result(cls, text: str) -> List[Tuple]:
-        text: str = text.strip()  # type: ignore
-
-        def split_into_blocks(text: str) -> list[str]:
-            # Match blocks starting with <think> or <tool_call> and ending with </think> or </tool_call>
-            pattern = r"(<(think|tool_call)>.*?</\2>)"
-            parts = []
-            last_end = 0
-            # Find all label blocks and record their positions
-            for m in re.finditer(pattern, text, re.DOTALL):
-                # Text before adding tags
-                if m.start() > last_end:
-                    parts.append(text[last_end : m.start()])
-                # Add label block
-                parts.append(m.group(0))
-                last_end = m.end()
-            # Text after adding the last tag
-            if last_end < len(text):
-                parts.append(text[last_end:])
-            return parts
-
-        contents = split_into_blocks(text)
-        results: List[Tuple] = []
-        for content in contents:
-            if content.strip():
-                pos1 = content.find(QWEN_TOOL_CALL_SYMBOLS[0])
-                if pos1 != -1:
-                    content = content[pos1 + len(QWEN_TOOL_CALL_SYMBOLS[0]) :]
-                pos2 = content.find(QWEN_TOOL_CALL_SYMBOLS[1])
-                if pos2 != -1:
-                    content = content[:pos2]
-
-                # Skip empty content after extraction
-                if not content.strip():
-                    continue
-
-                try:
-                    res = json.loads(content, strict=False)
-                    if isinstance(res, dict):
-                        # Check if required fields exist
-                        if "name" in res and "arguments" in res:
-                            results.append((None, res["name"], res["arguments"]))
-                        else:
-                            logger.warning(
-                                "Missing required fields in qwen tool call: %s", content
-                            )
-                            results.append((content, None, None))
-                    else:
-                        logger.warning(
-                            "Qwen tool call result is not a dict: %s", content
-                        )
-                        results.append((content, None, None))
-                except json.JSONDecodeError as e:
-                    logger.error(
-                        "Can't parse single qwen tool call output: %s. Error: %s",
-                        content,
-                        e,
-                    )
-                    results.append((content, None, None))
-                except Exception as e:
-                    logger.error(
-                        "Unexpected error parsing qwen tool call: %s. Error: %s",
-                        content,
-                        e,
-                    )
-                    results.append((content, None, None))
-        return results
-
-    @classmethod
-    def _eval_qwen_chat_arguments(
-        cls, c, tool_call_text: Optional[str] = None
-    ) -> List[Tuple]:
-        text = c["choices"][0]["text"]
-        if tool_call_text:
-            text = tool_call_text
-        return cls._handle_qwen_tool_result(text)
-
-    @classmethod
-    def _eval_llama3_chat_arguments(cls, c) -> List[Tuple]:
-        text = c["choices"][0]["text"]
-        try:
-            # Try JSON first (most common LLM output format)
-            data = json.loads(text)
-        except (json.JSONDecodeError, TypeError):
-            try:
-                # Fall back to ast.literal_eval for Python literal formats
-                # (e.g., True/False/None instead of true/false/null).
-                # Unlike eval(), ast.literal_eval() only allows literal
-                # structures and cannot execute arbitrary code.
-                data = ast.literal_eval(text)
-            except (ValueError, SyntaxError):
-                return [(text, None, None)]
-        try:
-            return [(None, data["name"], data["parameters"])]
-        except (KeyError, TypeError):
-            return [(text, None, None)]
-
-    @classmethod
-    def _eval_deepseek_chat_arguments(cls, c) -> List[Tuple]:
-        """
-        Parses tool calls from deepseek-v3 format and removes duplicates.
-
-        Returns:
-        List[Tuple[Optional[str], Optional[str], Optional[dict]]]
-        - (None, function_name, arguments) if successfully parsed.
-        - (content, None, None) if parsing failed (content is raw JSON text).
-
-        Example input:
-        ```json
-        {
-            "name": "get_weather_and_time",
-            "parameters": {
-                "location": "Hangzhou"
-            }
-        }
-        ```
-
-        Output:
-        [
-            (None, "get_current_weather", {"location": "Hangzhou"})
-        ]
-        """
-
-        text = c["choices"][0]["text"]
-
-        pattern = r"\s*```json\s*(.*?)\s*```"
-        matches = re.findall(pattern, text, re.DOTALL)
-
-        if not matches:
-            return [(text, None, None)]
-
-        tool_calls = set()  # Used for deduplication
-        results = []
-
-        for raw_json in matches:
-            func_and_args = None
-            try:
-                func_and_args = json.loads(raw_json)
-                # Convert dictionary to frozenset for deduplication
-                arguments_hashable = frozenset(func_and_args["parameters"])
-                tool_call_tuple = (
-                    None,
-                    func_and_args["name"],
-                    func_and_args["parameters"],
-                )
-            except json.JSONDecodeError:
-                tool_call_tuple = (
-                    raw_json,
-                    None,
-                    None,
-                )  # If parsing fails, treat as raw content
-                arguments_hashable = None  # No need for hashing
-
-            # Avoid duplicate entries
-            dedup_key = (
-                (func_and_args["name"], arguments_hashable)
-                if func_and_args is not None
-                else (raw_json)
-            )
-            if dedup_key not in tool_calls:
-                tool_calls.add(dedup_key)
-                results.append(tool_call_tuple)
-
-        return results
-
-    @classmethod
-    def _eval_deepseek_r1_arguments(cls, c) -> List[Tuple]:
-        """
-        Parses tool calls from deepseek-r1 (0528) chat template format.
-        Returns:
-            List of (None, function_name, arguments_dict)
-            or (raw_content, None, None) if parsing fails.
-        """
-        text = c["choices"][0]["text"]
-        pattern = (
-            r"<\｜tool▁call▁begin｜>function<\｜tool▁sep｜>([^\n]+)\n"
-            r"```json\n(.*?)\n```<\｜tool▁call▁end｜>"
-        )
-
-        matches = re.findall(pattern, text, re.DOTALL)
-        if not matches:
-            return [(text, None, None)]
-
-        tool_calls = set()
-        results = []
-
-        for func_name, raw_json in matches:
-            func_and_args = None
-            try:
-                func_and_args = json.loads(raw_json)
-                arguments_hashable = frozenset(func_and_args.items())
-                tool_call_tuple = (
-                    None,
-                    func_name,
-                    func_and_args,
-                )
-            except Exception:
-                tool_call_tuple = (raw_json, None, None)
-                arguments_hashable = None
-
-            dedup_key = (
-                (func_name, arguments_hashable)
-                if func_and_args is not None
-                else raw_json
-            )
-            if dedup_key not in tool_calls:
-                tool_calls.add(dedup_key)
-                results.append(tool_call_tuple)
-
-        return results
-
-    @classmethod
-    def _eval_tool_arguments(
-        cls, model_family, c, tool_call_text: Optional[str] = None
-    ):
-        family = model_family.model_family or model_family.model_name
-        if family in GLM4_TOOL_CALL_FAMILY:
-            result = cls._eval_glm_chat_arguments(c)
-        elif family in QWEN_TOOL_CALL_FAMILY:
-            result = cls._eval_qwen_chat_arguments(c, tool_call_text)
-        elif family in LLAMA3_TOOL_CALL_FAMILY:
-            result = cls._eval_llama3_chat_arguments(c)
-        elif family in DEEPSEEK_TOOL_CALL_FAMILY:
-            if family == "deepseek-r1-0528":
-                result = cls._eval_deepseek_r1_arguments(c)
-            else:
-                result = cls._eval_deepseek_chat_arguments(c)
-        else:
-            raise Exception(
-                f"Model {model_family.model_name} is not support tool calls."
-            )
-        logger.debug(f"Tool call content: {result}")
-        return result
 
     def _post_process_completion_chunk(
         self,

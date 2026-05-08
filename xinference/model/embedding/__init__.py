@@ -78,6 +78,8 @@ def check_format_with_engine(model_format, engine):
 
 
 def generate_engine_config_by_model_name(model_family: "EmbeddingModelFamilyV2"):
+    from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+
     model_name = model_family.model_name
     engines: Dict[str, List[Dict[str, Any]]] = EMBEDDING_ENGINES.get(
         model_name, {}
@@ -90,8 +92,12 @@ def generate_engine_config_by_model_name(model_family: "EmbeddingModelFamilyV2")
                 continue
             CLASSES = SUPPORTED_ENGINES[engine]
             for cls in CLASSES:
-                # Every engine needs to implement match method
-                if cls.match(model_family, spec, quantization):
+                # virtualenv mode: skip import check, only verify format compatibility
+                if XINFERENCE_ENABLE_VIRTUAL_ENV:
+                    matched = cls.match_json(model_family, spec, quantization)
+                else:
+                    matched = cls.match(model_family, spec, quantization)
+                if matched == True:
                     # we only match the first class for an engine
                     if engine not in engines:
                         engines[engine] = [

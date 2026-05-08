@@ -4,6 +4,7 @@
     "runningModels": "运行模型",
     "registerModel": "注册模型",
     "clusterInfo": "集群信息",
+    "monitoring": "监控中心",
     "xagent": "使用 Xagent 构建 AI 智能体",
     "contactUs": "联系我们",
     "documentation": "文档",
@@ -287,5 +288,26 @@
     "warning": "警告",
     "ok": "确定",
     "cancel": "取消"
+  },
+  "monitoring": {
+    "notConfigured": "监控未配置，请设置 XINFERENCE_GRAFANA_URL 环境变量。",
+    "time": {
+      "5m": "最近 5 分钟",
+      "15m": "最近 15 分钟",
+      "30m": "最近 30 分钟",
+      "1h": "最近 1 小时",
+      "3h": "最近 3 小时",
+      "6h": "最近 6 小时",
+      "12h": "最近 12 小时",
+      "24h": "最近 24 小时",
+      "7d": "最近 7 天"
+    },
+    "refresh": {
+      "off": "关闭",
+      "10s": "10秒",
+      "30s": "30秒",
+      "1m": "1分钟",
+      "5m": "5分钟"
+    }
   }
 }

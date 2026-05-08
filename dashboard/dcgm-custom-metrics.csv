@@ -1,0 +1,48 @@
+# Format: DCGM_FI_FIELD_NAME, type, description (no commas in description)
+# Type: gauge | counter
+# Usage: Mount to container at /etc/dcgm-exporter/customized.csv and set env var
+#   DCGM_EXPORTER_COLLECTORS=/etc/dcgm-exporter/customized.csv
+
+# ==================== Base Metrics (default) ====================
+DCGM_FI_DEV_SM_CLOCK,            gauge, SM clock frequency (in MHz).
+DCGM_FI_DEV_MEM_CLOCK,           gauge, Memory clock frequency (in MHz).
+DCGM_FI_DEV_MEMORY_TEMP,         gauge, Memory temperature (in C).
+DCGM_FI_DEV_GPU_TEMP,            gauge, GPU temperature (in C).
+DCGM_FI_DEV_POWER_USAGE,         gauge, Power draw (in W).
+DCGM_FI_DEV_TOTAL_ENERGY_CONSUMPTION, counter, Total energy consumption since boot (in mJ).
+DCGM_FI_DEV_PCIE_REPLAY_COUNTER, counter, Total number of PCIe retries.
+DCGM_FI_DEV_GPU_UTIL,            gauge, GPU utilization (in %).
+DCGM_FI_DEV_MEM_COPY_UTIL,       gauge, Memory utilization (in %).
+DCGM_FI_DEV_ENC_UTIL,            gauge, Encoder utilization (in %).
+DCGM_FI_DEV_DEC_UTIL,            gauge, Decoder utilization (in %).
+DCGM_FI_DEV_FB_FREE,             gauge, Framebuffer memory free (in MiB).
+DCGM_FI_DEV_FB_USED,             gauge, Framebuffer memory used (in MiB).
+DCGM_FI_DEV_FB_RESERVED,         gauge, Framebuffer memory reserved (in MiB).
+DCGM_FI_DEV_UNCORRECTABLE_REMAPPED_ROWS, counter, Number of remapped rows for uncorrectable errors.
+DCGM_FI_DEV_CORRECTABLE_REMAPPED_ROWS,   counter, Number of remapped rows for correctable errors.
+DCGM_FI_DEV_ROW_REMAP_FAILURE,   gauge, Whether remapping of rows has failed.
+DCGM_FI_DEV_VGPU_LICENSE_STATUS, gauge, vGPU License status.
+
+# ==================== Enhanced Metrics (additional) ====================
+
+# --- Power & Thermal ---
+DCGM_FI_DEV_ENFORCED_POWER_LIMIT, gauge, Effective power limit (in W).
+DCGM_FI_DEV_FAN_SPEED,           gauge, Fan speed (0-100 percent).
+
+# --- Hardware Faults & XID ---
+DCGM_FI_DEV_XID_ERRORS,          gauge, Last XID error number.
+
+# --- Performance State & Throttling ---
+DCGM_FI_DEV_PSTATE,              gauge, Performance state (0=max 15=idle).
+DCGM_FI_DEV_MAX_SM_CLOCK,        gauge, Maximum SM clock frequency (in MHz).
+DCGM_FI_DEV_MAX_MEM_CLOCK,       gauge, Maximum Memory clock frequency (in MHz).
+
+# --- PCIe Bandwidth ---
+DCGM_FI_DEV_PCIE_TX_THROUGHPUT,  counter, PCIe TX throughput (in KB/s).
+DCGM_FI_DEV_PCIE_RX_THROUGHPUT,  counter, PCIe RX throughput (in KB/s).
+
+# --- Profiling Metrics (Volta+ architecture only) ---
+DCGM_FI_PROF_SM_ACTIVE,          gauge, Ratio of SMs active (0.0 to 1.0).
+DCGM_FI_PROF_SM_OCCUPANCY,       gauge, Ratio of warps resident vs theoretical max.
+DCGM_FI_PROF_DRAM_ACTIVE,        gauge, Ratio of cycles DRAM is active.
+DCGM_FI_PROF_PIPE_TENSOR_ACTIVE, gauge, Ratio of cycles tensor pipes are active.

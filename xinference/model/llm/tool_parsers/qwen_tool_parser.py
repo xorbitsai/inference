@@ -247,9 +247,12 @@ class QwenToolParser(ToolParser):
                 try:
                     parsed_json = self._parse_json_function_call(function_call)
                     # Check for Qwen3.5 XML-like format before JSON parsing
-                    if "<function=" in parsed_json and "<parameter=" in parsed_json:
-                        results.append(self.parse_qwen35_tool_call(parsed_json))
-                        continue
+                    end_index = parsed_json.find(">")
+                    if end_index != -1:
+                        res = self.parse_qwen35_tool_call(parsed_json)
+                        if res:
+                            results.append(res)
+                            continue
                     res = json.loads(parsed_json, strict=False)
                     # Validate that we have the required fields
                     if "name" in res and "arguments" in res:
@@ -338,8 +341,15 @@ class QwenToolParser(ToolParser):
                 )
                 if function_call is None:
                     return None
-                if "<function=" in function_call and "<parameter=" in function_call:
-                    return self.parse_qwen35_tool_call(function_call)
+                # Skip if the extracted content is whitespace-only (e.g., the model
+                # generated <tool_call></tool_call> with no JSON inside)
+                if not function_call.strip():
+                    return None
+                end_index = function_call.find(">")
+                if end_index != -1:
+                    res = self.parse_qwen35_tool_call(function_call)
+                    if res:
+                        return res
                 res = json.loads(function_call, strict=False)
                 return None, res["name"], res["arguments"]
             else:
@@ -355,15 +365,18 @@ class QwenToolParser(ToolParser):
         """
         Parse Qwen3.5 tool call.
         """
-        func_match = re.search(r"<function\s*=\s*([a-zA-Z0-9_]+)\s*>", text)
+        func_match = re.search(r"<function\s*=\s*([a-zA-Z0-9_\-\.]+)\s*>", text)
         if not func_match:
-            logger.error("Qwen3.5: missing function name")
-            return text, None, None
+            logger.warning(
+                "Function name not found in tool call for xml format: %s", text
+            )
+            return None
 
         func_name = func_match.group(1)
 
         param_pattern = re.compile(
-            r"<parameter\s*=\s*([a-zA-Z0-9_]+)\s*>\s*(.*?)\s*</parameter>", re.DOTALL
+            r"<parameter\s*=\s*([a-zA-Z0-9_\-\.]+)\s*>\s*(.*?)\s*</parameter>",
+            re.DOTALL,
         )
 
         args = {}

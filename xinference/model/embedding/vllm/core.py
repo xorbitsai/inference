@@ -299,8 +299,11 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
     ) -> Union[bool, Tuple[bool, str]]:
 
         if model_family.model_name.startswith("Qwen3-VL-Embedding"):
-            import vllm
-            from packaging import version
+            try:
+                import vllm
+                from packaging import version
+            except ImportError:
+                return False, "vLLM is not installed"
 
             if version.parse(vllm.__version__) < version.parse("0.14.0"):
                 return (

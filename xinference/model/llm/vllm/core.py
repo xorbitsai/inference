@@ -606,6 +606,8 @@ class VLLMModel(LLM):
                                 pool_addresses=worker_addresses,
                                 n_worker=self._n_worker,
                             )
+                            if VLLM_VERSION >= version.parse("0.19.0"):
+                                executor_cls.supports_async_scheduling = lambda: True  # type: ignore
                             # patch vllm Executor.get_class
                             Executor.get_class = lambda vllm_config: executor_cls
                             self._engine = AsyncLLMEngine.from_engine_args(engine_args)
@@ -908,6 +910,7 @@ class VLLMModel(LLM):
                     **mm_processor_kwargs,
                     **pixel_params,
                 }
+
         return model_config
 
     @staticmethod
@@ -1749,7 +1752,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             )
         else:
             c = await self.async_generate(
-                full_prompt, generate_config, request_id=request_id
+                full_prompt, generate_config, tools, request_id=request_id
             )
             assert not isinstance(c, AsyncGenerator)
             if tools:
@@ -1908,7 +1911,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
         from vllm import TokensPrompt
 
         if isinstance(prompt, str):
-            return super()._gen_tokens_prompt(tokenizer, prompt, config)
+            return await super()._gen_tokens_prompt(tokenizer, prompt, config)
 
         prompt_str = prompt["prompt"]
         multi_modal_data = prompt.get("multi_modal_data")
@@ -2039,7 +2042,6 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             prompt = self.get_full_context(
                 messages, chat_template, tokenizer=tokenizer, **full_context_kwargs
             )
-
         else:
             prompt, images = self.get_specific_prompt(model_family, messages)
         inputs = {"prompt": prompt, "multi_modal_data": {}, "mm_processor_kwargs": {}}

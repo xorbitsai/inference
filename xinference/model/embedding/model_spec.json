@@ -1450,13 +1450,16 @@
         }
       }
     ],
-    "updated_at": 1777002682,
+    "updated_at": 1777384726,
     "featured": true,
     "virtualenv": {
       "packages": [
-        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+        "sentence_transformers",
+        "einops",
+        "accelerate>=0.28.0",
         "#system_torchvision# ; #engine# == \"sentence_transformers\"",
-        "#system_torch# ; #engine# == \"sentence_transformers\""
+        "#system_torch# ; #engine# == \"sentence_transformers\"",
+        "transformers==4.52.0"
       ]
     }
   },

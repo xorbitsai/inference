@@ -121,10 +121,17 @@ XINFERENCE_LIST_MODELS_PER_WORKER_TIMEOUT = int(
 )
 # get_model -> worker_ref.get_model RPC
 XINFERENCE_GET_MODEL_RPC_TIMEOUT = int(
-    os.environ.get(XINFERENCE_ENV_GET_MODEL_RPC_TIMEOUT, "120")
+    os.environ.get(XINFERENCE_ENV_GET_MODEL_RPC_TIMEOUT, "30")
 )
 XINFERENCE_DISABLE_HEALTH_CHECK = bool(
     int(os.environ.get(XINFERENCE_ENV_DISABLE_HEALTH_CHECK, 0))
+)
+
+# Max concurrent download threads for huggingface_hub.snapshot_download.
+# Default 8 in hf_hub causes GIL contention that starves the actor event loop.
+XINFERENCE_ENV_MODEL_DOWNLOAD_WORKERS = "XINFERENCE_MODEL_DOWNLOAD_WORKERS"
+XINFERENCE_MODEL_DOWNLOAD_WORKERS = int(
+    os.environ.get(XINFERENCE_ENV_MODEL_DOWNLOAD_WORKERS, 2)
 )
 XINFERENCE_DISABLE_METRICS = bool(
     int(os.environ.get(XINFERENCE_ENV_DISABLE_METRICS, 0))

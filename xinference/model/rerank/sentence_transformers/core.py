@@ -704,27 +704,33 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
         model_spec: RerankSpecV1,
         quantization: str,
     ) -> Union[bool, Tuple[bool, str]]:
+        from ....constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+
         if model_family.model_name.startswith("Qwen3-VL-Reranker"):
-            dep_check = check_dependency_available("transformers", "transformers")
-            if dep_check != True:
-                return dep_check
-            dep_check = check_dependency_available("qwen_vl_utils", "qwen_vl_utils")
-            if dep_check != True:
-                return dep_check
-            dep_check = check_dependency_available("PIL", "Pillow")
-            if dep_check != True:
-                return dep_check
-            dep_check = check_dependency_available("scipy", "scipy")
-            if dep_check != True:
-                return dep_check
+            if not XINFERENCE_ENABLE_VIRTUAL_ENV:
+                dep_check = check_dependency_available("transformers", "transformers")
+                if dep_check != True:
+                    return dep_check
+                dep_check = check_dependency_available("qwen_vl_utils", "qwen_vl_utils")
+                if dep_check != True:
+                    return dep_check
+                dep_check = check_dependency_available("PIL", "Pillow")
+                if dep_check != True:
+                    return dep_check
+                dep_check = check_dependency_available("scipy", "scipy")
+                if dep_check != True:
+                    return dep_check
             if model_spec.model_format not in ["pytorch"]:
                 return False, "Qwen3-VL reranker supports pytorch format only"
             return True
-        dep_check = check_dependency_available(
-            "sentence_transformers", "sentence-transformers"
-        )
-        if dep_check != True:
-            return dep_check
+
+        # virtualenv mode: dependencies provided by child venv, skip import check
+        if not XINFERENCE_ENABLE_VIRTUAL_ENV:
+            dep_check = check_dependency_available(
+                "sentence_transformers", "sentence-transformers"
+            )
+            if dep_check != True:
+                return dep_check
         if model_spec.model_format not in ["pytorch"]:
             return False, "SentenceTransformer rerank engine requires pytorch format"
         return True

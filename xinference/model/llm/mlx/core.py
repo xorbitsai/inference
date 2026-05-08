@@ -922,7 +922,7 @@ class MLXModel(LLM, ChatModelMixin):
                 break
 
         logger.info(
-            f"Average generation speed: {i / (time.time() - start):.2f} tokens/s."
+            f"Average generation speed: {i / (time.time() - start):.2f} tokens/s."  # noqa: E231
         )
 
         if self._prompt_cache:

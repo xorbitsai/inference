@@ -254,6 +254,19 @@ async def get_progress(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+async def get_ui_config() -> JSONResponse:
+    return JSONResponse(
+        content={
+            "grafana_url": os.environ.get("XINFERENCE_GRAFANA_URL", ""),
+            "grafana_datasource": os.environ.get("XINFERENCE_GRAFANA_DATASOURCE", ""),
+            "grafana_dashboard_uid": os.environ.get(
+                "XINFERENCE_GRAFANA_DASHBOARD_UID", "xinference-overview"
+            ),
+            "cluster_name": os.environ.get("XINFERENCE_CLUSTER_NAME", ""),
+        }
+    )
+
+
 # --- Route registration ---
 
 
@@ -266,6 +279,7 @@ def register_routes(api: "RESTfulAPI") -> None:
     router.add_api_route("/v1/address", get_address, methods=["GET"])
     router.add_api_route("/token", login_for_access_token, methods=["POST"])
     router.add_api_route("/v1/cluster/auth", is_cluster_authenticated, methods=["GET"])
+    router.add_api_route("/v1/cluster/ui_config", get_ui_config, methods=["GET"])
 
     router.add_api_route(
         "/v1/cluster/info",

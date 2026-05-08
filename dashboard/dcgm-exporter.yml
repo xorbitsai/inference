@@ -1,0 +1,33 @@
+services:
+  dcgm-exporter:
+    container_name: dcgm-exporter
+    image: nvidia/dcgm-exporter:4.5.2-4.8.1-ubuntu22.04
+    hostname: ${HOSTNAME:-gpu-node}
+    restart: always
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    cap_add:
+      - SYS_ADMIN
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - DCGM_EXPORTER_LISTEN=:9400
+      - DCGM_EXPORTER_KUBERNETES=false
+      - DCGM_EXPORTER_COLLECTORS=/etc/dcgm-exporter/customized.csv
+    volumes:
+      - "/etc/localtime:/etc/localtime:ro"
+      - "/etc/hostname:/etc/hostname:ro"
+      - "./dcgm-custom-metrics.csv:/etc/dcgm-exporter/customized.csv:ro"
+    ports:
+      - "9400:9400"
+    networks:
+      - xinference
+
+networks:
+  xinference:
+    external: true

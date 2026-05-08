@@ -4,6 +4,7 @@
     "runningModels": "실행 중인 모델",
     "registerModel": "모델 등록",
     "clusterInfo": "클러스터 정보",
+    "monitoring": "모니터링",
     "xagent": "Xagent로 AI 에이전트 구축",
     "contactUs": "문의하기",
     "documentation": "문서",
@@ -287,5 +288,26 @@
     "warning": "경고",
     "ok": "확인",
     "cancel": "취소"
+  },
+  "monitoring": {
+    "notConfigured": "모니터링이 구성되지 않았습니다. XINFERENCE_GRAFANA_URL 환경 변수를 설정하세요.",
+    "time": {
+      "5m": "최근 5분",
+      "15m": "최근 15분",
+      "30m": "최근 30분",
+      "1h": "최근 1시간",
+      "3h": "최근 3시간",
+      "6h": "최근 6시간",
+      "12h": "최근 12시간",
+      "24h": "최근 24시간",
+      "7d": "최근 7일"
+    },
+    "refresh": {
+      "off": "끄기",
+      "10s": "10초",
+      "30s": "30초",
+      "1m": "1분",
+      "5m": "5분"
+    }
   }
 }

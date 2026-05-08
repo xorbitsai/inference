@@ -4,6 +4,7 @@
     "runningModels": "実行中のモデル",
     "registerModel": "モデル登録",
     "clusterInfo": "クラスター情報",
+    "monitoring": "モニタリング",
     "xagent": "XagentでAIエージェントを構築",
     "contactUs": "お問い合わせ",
     "documentation": "ドキュメント",
@@ -287,5 +288,26 @@
     "warning": "警告",
     "ok": "確認",
     "cancel": "キャンセル"
+  },
+  "monitoring": {
+    "notConfigured": "モニタリングが設定されていません。XINFERENCE_GRAFANA_URL 環境変数を設定してください。",
+    "time": {
+      "5m": "過去 5 分",
+      "15m": "過去 15 分",
+      "30m": "過去 30 分",
+      "1h": "過去 1 時間",
+      "3h": "過去 3 時間",
+      "6h": "過去 6 時間",
+      "12h": "過去 12 時間",
+      "24h": "過去 24 時間",
+      "7d": "過去 7 日間"
+    },
+    "refresh": {
+      "off": "オフ",
+      "10s": "10秒",
+      "30s": "30秒",
+      "1m": "1分",
+      "5m": "5分"
+    }
   }
 }

@@ -271,13 +271,22 @@ class RESTfulAPI(CancelMixin):
             )
             self._app.include_router(self._router)
         else:
-            # Clear the global Registry for the MetricsMiddleware, or
-            # the MetricsMiddleware will register duplicated metrics if the port
-            # conflict (This serve method run more than once).
-            REGISTRY.clear()
+            # Only remove MetricsMiddleware's HTTP counters to avoid duplicates
+            # on restart; preserve xinference:* custom metrics registered at
+            # module level in metrics.py.
+            for collector in list(REGISTRY.get_all()):
+                if not collector.name.startswith("xinference:"):
+                    REGISTRY.deregister(collector.name)
             self._app.add_middleware(MetricsMiddleware)
             self._app.include_router(self._router)
             self._app.add_route("/metrics", metrics)
+
+            # Start background task to periodically refresh cluster metrics
+            @self._app.on_event("startup")
+            async def _start_cluster_metrics_updater():
+                import asyncio
+
+                asyncio.create_task(self._cluster_metrics_update_loop())
 
         # Check all the routes returns Response.
         # This is to avoid `jsonable_encoder` performance issue:
@@ -349,10 +358,35 @@ class RESTfulAPI(CancelMixin):
             )
 
         config = Config(
-            app=self._app, host=self._host, port=self._port, log_config=logging_conf
+            app=self._app,
+            host=self._host,
+            port=self._port,
+            log_config=logging_conf,
+            proxy_headers=True,
+            forwarded_allow_ips="*",
         )
         server = Server(config)
         server.run()
+
+    async def _cluster_metrics_update_loop(self):
+        """Periodically refresh Supervisor-side Prometheus Gauges (every 15s)."""
+        import asyncio
+
+        from ..core.metrics import update_cluster_metrics
+
+        while True:
+            try:
+                await asyncio.sleep(15)
+                supervisor_ref = await self._get_supervisor_ref()
+                cluster_data = await supervisor_ref.get_cluster_metrics_data()
+                models_data = await supervisor_ref.list_models()
+                update_cluster_metrics(
+                    cluster_data,
+                    models_data,
+                    supervisor_address=self._supervisor_address,
+                )
+            except Exception:
+                logger.warning("Failed to update cluster metrics", exc_info=True)
 
     async def _get_builtin_prompts(self) -> JSONResponse:
         """
@@ -2032,20 +2066,33 @@ class RESTfulAPI(CancelMixin):
             await self._report_error_event(model_uid, str(e))
             raise HTTPException(status_code=500, detail=str(e))
 
-        from ..model.llm.utils import TOOL_CALL_FAMILY
+        from ..model.llm.utils import (
+            DEEPSEEK_TOOL_CALL_FAMILY,
+            GEMMA_TOOL_CALL_FAMILY,
+            GLM4_TOOL_CALL_FAMILY,
+            LLAMA3_TOOL_CALL_FAMILY,
+            QWEN_TOOL_CALL_FAMILY,
+        )
 
         model_family = desc.get("model_family", "")
 
-        if model_family not in TOOL_CALL_FAMILY:
+        total_call_family = (
+            DEEPSEEK_TOOL_CALL_FAMILY
+            | GEMMA_TOOL_CALL_FAMILY
+            | GLM4_TOOL_CALL_FAMILY
+            | LLAMA3_TOOL_CALL_FAMILY
+            | QWEN_TOOL_CALL_FAMILY
+        )
+        if model_family not in total_call_family:
             if body.tools:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Only {TOOL_CALL_FAMILY} support tool calls",
+                    detail=f"Only {total_call_family} support tool calls",
                 )
             if has_tool_message:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Only {TOOL_CALL_FAMILY} support tool messages",
+                    detail=f"Only {total_call_family} support tool messages",
                 )
 
         if "skip_special_tokens" in raw_kwargs and await model.is_vllm_backend():

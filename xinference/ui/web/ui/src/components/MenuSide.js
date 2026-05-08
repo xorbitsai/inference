@@ -5,6 +5,7 @@ import {
   DnsOutlined,
   GitHub,
   Language,
+  MonitorHeartOutlined,
   OpenInNew,
   Psychology,
   RocketLaunchOutlined,
@@ -78,6 +79,13 @@ const MenuSide = () => {
       icon: <DnsOutlined />,
       action: 'navigate',
       path: '/cluster_info',
+    },
+    {
+      text: 'monitoring',
+      label: t('menu.monitoring'),
+      icon: <MonitorHeartOutlined />,
+      action: 'navigate',
+      path: '/monitoring',
     },
     {
       text: 'documentation',

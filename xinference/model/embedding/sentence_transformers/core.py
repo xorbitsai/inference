@@ -28,47 +28,61 @@ from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 logger = logging.getLogger(__name__)
 SENTENCE_TRANSFORMER_MODEL_LIST: List[str] = []
 
-# Jina embeddings v4 supported task types and their mapping to
-# SentenceTransformer prompt_name values.
-# The official Jina AI API supports "retrieval.passage", "retrieval.query",
-# "text-matching", and "code" as task values.  Xinference previously only
-# accepted the coarser "retrieval" (mapped to no prompt), losing the
-# query/passage distinction.  This mapping restores full compatibility with
-# the Jina API while keeping backward compatibility for "retrieval".
-JINA_V4_TASK_TO_PROMPT_NAME: Dict[str, str] = {
+# jina-embeddings-v3: uses standard SentenceTransformer prompt_name mechanism
+# v3 model.prompts keys use dot-notation: "retrieval.passage", "retrieval.query", etc.
+JINA_V3_TASK_TO_PROMPT_NAME: Dict[str, str] = {
     "retrieval.passage": "retrieval.passage",
     "retrieval.query": "retrieval.query",
-    "text-matching": "text-matching",
-    "code": "code",
-    # Backward-compatible alias: plain "retrieval" defaults to passage encoding
     "retrieval": "retrieval.passage",
+    "passage": "retrieval.passage",
+    "query": "retrieval.query",
+    "document": "document",
 }
 
-# Models that support Jina-style dot-notation task types.
-JINA_TASK_SUPPORTED_MODELS = {
-    "jina-embeddings-v4",
-    "jina-embeddings-v3",
+# jina-embeddings-v4: custom forward() consumes task param directly, bypasses prompt_name
+# This set is only for validation; task value is passed directly to model.forward()
+JINA_V4_VALID_TASKS = {
+    "retrieval.passage",
+    "retrieval.query",
+    "retrieval",
+    "text-matching",
+    "code",
+    "passage",
+    "query",
+    "document",
 }
 
 
-def _resolve_jina_task(model_name: str, task: Optional[str]) -> Optional[str]:
-    """Resolve a Jina API ``task`` value to a SentenceTransformer ``prompt_name``.
+def _resolve_jina_task(
+    model_name: str, task: Optional[str]
+) -> Tuple[Optional[str], Optional[str]]:
+    """Resolve Jina API task parameter.
 
-    Returns ``None`` when the model is not a Jina task-aware model or when no
-    task is provided, so callers can fall through to the default behaviour.
+    Returns:
+        (prompt_name, task_passthrough)
+        - v3: (prompt_name, None) — uses prompt_name to look up prompt template
+        - v4: (None, task) — passes task directly to model.forward()
+        - other models: (None, None)
     """
     if task is None:
-        return None
-    # Only apply the mapping for known Jina task-aware models.
-    if not any(name in model_name.lower() for name in JINA_TASK_SUPPORTED_MODELS):
-        return None
-    prompt_name = JINA_V4_TASK_TO_PROMPT_NAME.get(task)
-    if prompt_name is None:
-        valid = sorted(JINA_V4_TASK_TO_PROMPT_NAME.keys())
-        raise ValueError(
-            f"Invalid task: {task}. Must be one of {valid} " f"for model {model_name}."
-        )
-    return prompt_name
+        return None, None
+    model_lower = model_name.lower()
+    if "jina-embeddings-v3" in model_lower:
+        prompt_name = JINA_V3_TASK_TO_PROMPT_NAME.get(task)
+        if prompt_name is None:
+            valid = sorted(JINA_V3_TASK_TO_PROMPT_NAME.keys())
+            raise ValueError(
+                f"Invalid task: {task}. Must be one of {valid} for model {model_name}."
+            )
+        return prompt_name, None
+    elif "jina-embeddings-v4" in model_lower:
+        if task not in JINA_V4_VALID_TASKS:
+            valid = sorted(JINA_V4_VALID_TASKS)
+            raise ValueError(
+                f"Invalid task: {task}. Must be one of {valid} for model {model_name}."
+            )
+        return None, task
+    return None, None
 
 
 def _build_encode_kwargs(
@@ -225,9 +239,14 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         sentences = self._fix_langchain_openai_inputs(sentences)
         model_uid = kwargs.pop("model_uid", None)
 
-        # Resolve Jina-style task parameter to a SentenceTransformer prompt_name.
+        # Resolve Jina-style task parameter.
         task = kwargs.pop("task", None)
-        jina_prompt_name = _resolve_jina_task(self._model_name, task)
+        jina_prompt_name, jina_task_passthrough = _resolve_jina_task(
+            self._model_name, task
+        )
+        # v4: put task back into kwargs for model.forward() to consume
+        if jina_task_passthrough is not None:
+            kwargs["task"] = jina_task_passthrough
 
         from sentence_transformers import SentenceTransformer
 
@@ -574,24 +593,30 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         model_spec: EmbeddingSpecV1,
         quantization: str,
     ) -> Union[bool, Tuple[bool, str]]:
+        from ....constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+
         if model_family.model_name.startswith("Qwen3-VL-Embedding"):
-            dep_check = check_dependency_available("transformers", "transformers")
-            if dep_check != True:
-                return dep_check
-            dep_check = check_dependency_available("qwen_vl_utils", "qwen_vl_utils")
-            if dep_check != True:
-                return dep_check
-            dep_check = check_dependency_available("PIL", "Pillow")
-            if dep_check != True:
-                return dep_check
+            if not XINFERENCE_ENABLE_VIRTUAL_ENV:
+                dep_check = check_dependency_available("transformers", "transformers")
+                if dep_check != True:
+                    return dep_check
+                dep_check = check_dependency_available("qwen_vl_utils", "qwen_vl_utils")
+                if dep_check != True:
+                    return dep_check
+                dep_check = check_dependency_available("PIL", "Pillow")
+                if dep_check != True:
+                    return dep_check
             if model_spec.model_format not in ["pytorch"]:
                 return False, "Qwen3-VL embedding supports pytorch format only"
             return True
-        dep_check = check_dependency_available(
-            "sentence_transformers", "sentence-transformers"
-        )
-        if dep_check != True:
-            return dep_check
+
+        # virtualenv mode: dependencies provided by child venv, skip import check
+        if not XINFERENCE_ENABLE_VIRTUAL_ENV:
+            dep_check = check_dependency_available(
+                "sentence_transformers", "sentence-transformers"
+            )
+            if dep_check != True:
+                return dep_check
         if model_spec.model_format not in ["pytorch"]:
             return False, "SentenceTransformer embeddings require pytorch format"
         return True

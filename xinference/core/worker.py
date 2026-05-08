@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import json
 import logging
 import os
 import pathlib
@@ -53,6 +54,8 @@ from ..constants import (
     XINFERENCE_DISABLE_METRICS,
     XINFERENCE_ENABLE_VIRTUAL_ENV,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
+    XINFERENCE_HOME,
+    XINFERENCE_MODEL_DOWNLOAD_WORKERS,
     XINFERENCE_STATUS_GATHER_TIMEOUT,
     XINFERENCE_STATUS_REPORT_MULTIPLIER,
     XINFERENCE_TCP_REQUEST_TIMEOUT,
@@ -72,7 +75,12 @@ from ..types import PeftModelConfig
 from ..utils import get_pip_config_args, get_real_path
 from .cache_tracker import CacheTrackerActor
 from .event import Event, EventCollectorActor, EventType
-from .metrics import launch_metrics_export_server, record_metrics
+from .metrics import (
+    launch_metrics_export_server,
+    record_metrics,
+    set_build_info,
+    set_config_info,
+)
 from .resource import gather_node_info
 from .status_guard import StatusGuardActor
 from .utils import (
@@ -443,6 +451,13 @@ class WorkerActor(xo.StatelessActor):
             # Do not crash the worker if supervisor is down, auto re-connect later
             logger.error(f"cannot connect to supervisor", exc_info=True)
 
+        # §4.3: If connected as fresh worker, try to recover persisted models
+        if self._supervisor_ref is not None and not self._model_uid_to_launch_args:
+            try:
+                await self._try_recover_models()
+            except Exception:
+                logger.error("Model recovery failed", exc_info=True)
+
         if not XINFERENCE_DISABLE_HEALTH_CHECK:
             from ..isolation import Isolation
 
@@ -453,6 +468,16 @@ class WorkerActor(xo.StatelessActor):
                 self._periodical_report_status(), loop=self._isolation.loop
             )
         logger.info(f"Xinference worker {self.address} started")
+
+        # Report build/config info for this worker
+        from xinference.constants import XINFERENCE_HOME as _xf_home
+
+        set_build_info(role="worker", worker_address=self.address)
+        set_config_info(
+            xinference_home=_xf_home,
+            role="worker",
+            worker_address=self.address,
+        )
 
         # Windows does not have signal handler
         if os.name != "nt":
@@ -616,6 +641,133 @@ class WorkerActor(xo.StatelessActor):
         from ..device_utils import gpu_count
 
         return gpu_count()
+
+    # §4.3: Worker-side launch_args persistence for auto-recovery.
+    def _get_recovery_file_path(self) -> str:
+        safe_addr = self.address.replace(":", "_").replace("/", "_")
+        recovery_dir = os.path.join(XINFERENCE_HOME, "worker_recovery", safe_addr)
+        return os.path.join(recovery_dir, "models.json")
+
+    def _persist_launch_args(self):
+        """Atomically persist current launch_args to disk. Failures are non-blocking."""
+        try:
+            filepath = self._get_recovery_file_path()
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+            # Serialize: filter out non-serializable values
+            data = {}
+            for uid, args in self._model_uid_to_launch_args.items():
+                serializable_args = {}
+                for k, v in args.items():
+                    try:
+                        json.dumps(v)
+                        serializable_args[k] = v
+                    except (TypeError, ValueError):
+                        serializable_args[k] = str(v)
+                data[uid] = serializable_args
+            tmp_path = filepath + ".tmp"
+            with open(tmp_path, "w") as f:
+                json.dump(data, f, ensure_ascii=False)
+            os.rename(tmp_path, filepath)
+            logger.debug(
+                "Persisted launch_args for %d models to %s", len(data), filepath
+            )
+        except Exception:
+            logger.warning(
+                "Failed to persist launch_args, auto-recovery may not work",
+                exc_info=True,
+            )
+
+    def _remove_persisted_launch_args(self, model_uid: str):
+        """Remove a single model from the persisted launch_args file."""
+        try:
+            filepath = self._get_recovery_file_path()
+            if not os.path.exists(filepath):
+                return
+            with open(filepath, "r") as f:
+                data = json.load(f)
+            if model_uid in data:
+                del data[model_uid]
+                tmp_path = filepath + ".tmp"
+                with open(tmp_path, "w") as f:
+                    json.dump(data, f, ensure_ascii=False)
+                os.rename(tmp_path, filepath)
+        except Exception:
+            logger.warning("Failed to update persisted launch_args", exc_info=True)
+
+    def _load_persisted_launch_args(self) -> dict:
+        """Load persisted launch_args. Returns empty dict on any error."""
+        try:
+            filepath = self._get_recovery_file_path()
+            if not os.path.exists(filepath):
+                return {}
+            with open(filepath, "r") as f:
+                return json.load(f)
+        except Exception:
+            logger.warning(
+                "Failed to load persisted launch_args, treating as fresh worker",
+                exc_info=True,
+            )
+            return {}
+
+    async def _try_recover_models(self):
+        """
+        After connecting to supervisor as a fresh worker, attempt to recover
+        previously running models using persisted launch_args.
+        Cross-validates with supervisor to avoid rebuilding manually deleted models.
+        """
+        persisted = self._load_persisted_launch_args()
+        if not persisted:
+            return
+
+        logger.info(
+            "Found %d persisted model(s) for recovery, validating with supervisor...",
+            len(persisted),
+        )
+        supervisor_ref = self._supervisor_ref
+        if supervisor_ref is None:
+            logger.warning("No supervisor ref available, skipping model recovery")
+            return
+
+        recovered = 0
+        skipped = 0
+        failed = 0
+        for model_uid, launch_args in persisted.items():
+            try:
+                # Cross-validate: check if supervisor still knows about this model
+                origin_uid, _ = parse_replica_model_uid(model_uid)
+                try:
+                    model_info = await supervisor_ref.describe_model(origin_uid)
+                except Exception:
+                    model_info = None
+                if model_info is None:
+                    logger.info(
+                        "Model %s no longer registered in supervisor, skipping recovery",
+                        model_uid,
+                    )
+                    skipped += 1
+                    continue
+
+                logger.info("Recovering model %s ...", model_uid)
+                # Remove non-callable keys that may have been serialized
+                launch_args.pop("launch_ts", None)
+                await self.launch_builtin_model(**launch_args)
+                recovered += 1
+            except Exception:
+                logger.error(
+                    "Failed to recover model %s, continuing with others",
+                    model_uid,
+                    exc_info=True,
+                )
+                failed += 1
+
+        logger.info(
+            "Model recovery complete: recovered=%d, skipped=%d, failed=%d",
+            recovered,
+            skipped,
+            failed,
+        )
+        # Update persisted file to reflect current state
+        self._persist_launch_args()
 
     @log_sync(logger=logger)
     def get_model_count(self) -> int:
@@ -1467,12 +1619,38 @@ class WorkerActor(xo.StatelessActor):
                     )
                     child_site_packages.mkdir(parents=True, exist_ok=True)
                     pth_file = child_site_packages / "_xinference_parent.pth"
-                    pth_file.write_text(parent_site_packages + "\n")
-                    logger.debug(
-                        "Injected parent site-packages into child venv via %s -> %s",
-                        pth_file,
-                        parent_site_packages,
-                    )
+                    desired_content = parent_site_packages + "\n"
+                    # Avoid truncate race when multiple replicas write the
+                    # same .pth concurrently: skip if content already correct,
+                    # otherwise atomic-write via a temp file + os.replace.
+                    needs_write = True
+                    try:
+                        if (
+                            pth_file.exists()
+                            and pth_file.read_text() == desired_content
+                        ):
+                            needs_write = False
+                    except OSError:
+                        pass
+                    if needs_write:
+                        tmp_file = pth_file.with_suffix(".pth.tmp")
+                        try:
+                            tmp_file.write_text(desired_content)
+                            os.replace(str(tmp_file), str(pth_file))
+                        except OSError:
+                            # Fallback: direct write (still better than no .pth)
+                            pth_file.write_text(desired_content)
+                        logger.debug(
+                            "Injected parent site-packages into child venv "
+                            "via %s -> %s",
+                            pth_file,
+                            parent_site_packages,
+                        )
+                    else:
+                        logger.debug(
+                            "Skipped .pth write (content unchanged): %s",
+                            pth_file,
+                        )
                 else:
                     logger.warning(
                         "Parent site-packages path does not exist: %s — child venv "
@@ -1499,6 +1677,8 @@ class WorkerActor(xo.StatelessActor):
         settings: Optional[VirtualEnvSettings],
         virtual_env_packages: Optional[List[str]],
         model_engine: Optional[str],
+        model_name: Optional[str] = None,
+        architectures: Optional[List[str]] = None,
     ):
         engine_defaults: List[str] = []
         if (
@@ -1626,6 +1806,19 @@ class WorkerActor(xo.StatelessActor):
         )
         with _exclusive_venv_path_lock(str(virtual_env_manager.env_path)):
             virtual_env_manager.install_packages(packages, **conf, **variables)
+
+        # Apply engine-specific post-install patches
+        if model_engine and model_engine.lower() == "vllm":
+            try:
+                from xinference.model.llm.vllm.patches import apply_vllm_patches
+            except ImportError:
+                pass
+            else:
+                apply_vllm_patches(
+                    env_path=str(virtual_env_manager.env_path),
+                    model_name=model_name,
+                    architectures=architectures,
+                )
 
     async def _get_progressor(self, request_id: str):
         from .progress_tracker import Progressor, ProgressTrackerActor
@@ -1820,20 +2013,32 @@ class WorkerActor(xo.StatelessActor):
                                 self._upload_download_progress, progressor, downloader
                             )
                         )
-                        model = await asyncio.to_thread(
-                            create_model_instance,
-                            model_uid,
-                            model_type,
-                            model_name,
-                            model_engine,
-                            model_format,
-                            model_size_in_billions,
-                            quantization,
-                            peft_model_config,
-                            download_hub,
-                            model_path,
-                            **model_kwargs,
+                        # Limit hf_hub download concurrency to reduce GIL
+                        # contention that starves the event loop.
+                        _orig_hf_workers = os.environ.get("HF_HUB_DOWNLOAD_WORKERS")
+                        os.environ["HF_HUB_DOWNLOAD_WORKERS"] = str(
+                            XINFERENCE_MODEL_DOWNLOAD_WORKERS
                         )
+                        try:
+                            model = await asyncio.to_thread(
+                                create_model_instance,
+                                model_uid,
+                                model_type,
+                                model_name,
+                                model_engine,
+                                model_format,
+                                model_size_in_billions,
+                                quantization,
+                                peft_model_config,
+                                download_hub,
+                                model_path,
+                                **model_kwargs,
+                            )
+                        finally:
+                            if _orig_hf_workers is not None:
+                                os.environ["HF_HUB_DOWNLOAD_WORKERS"] = _orig_hf_workers
+                            else:
+                                os.environ.pop("HF_HUB_DOWNLOAD_WORKERS", None)
                     model.model_family.address = subpool_address
                     model.model_family.accelerators = devices
                     model.model_family.multimodal_projector = model_kwargs.get(
@@ -1863,6 +2068,10 @@ class WorkerActor(xo.StatelessActor):
                         model.model_family.virtualenv,
                         virtual_env_packages,
                         model_engine,
+                        model_name=model_name,
+                        architectures=getattr(
+                            model.model_family, "_resolve_architectures", lambda: None
+                        )(),
                     )
                     launch_info.virtual_env_manager = virtual_env_manager
 
@@ -1882,6 +2091,7 @@ class WorkerActor(xo.StatelessActor):
                     n_worker=n_worker,
                     shard=shard,
                     driver_info=driver_info,
+                    model_engine=model_engine,
                 )
                 if await model_ref.need_create_pools() and (
                     len(devices) > 1 or n_worker > 1  # type: ignore
@@ -1931,6 +2141,8 @@ class WorkerActor(xo.StatelessActor):
                 model_uid, MODEL_ACTOR_AUTO_RECOVER_LIMIT
             )
             self._model_uid_to_launch_args[model_uid] = launch_args
+            # §4.3: Persist for auto-recovery on restart
+            self._persist_launch_args()
         finally:
             del self._model_uid_launching_guard[model_uid]
 
@@ -2101,6 +2313,8 @@ class WorkerActor(xo.StatelessActor):
             self._model_uid_to_addr.pop(model_uid, None)
             self._model_uid_to_recover_count.pop(model_uid, None)
             self._model_uid_to_launch_args.pop(model_uid, None)
+            # §4.3: Remove from persisted recovery file
+            self._remove_persisted_launch_args(model_uid)
 
             if is_model_die:
                 status = LaunchStatus.ERROR.name
@@ -2173,6 +2387,10 @@ class WorkerActor(xo.StatelessActor):
             supervisor_ref = await self.get_supervisor_ref(add_worker=True)
             await supervisor_ref.report_worker_status(self.address, status)
 
+    async def ping(self) -> bool:
+        """Lightweight liveness probe for supervisor reverse-channel check."""
+        return True
+
     async def heartbeat(self):
         """
         Lightweight heartbeat for liveness detection.
@@ -2189,6 +2407,7 @@ class WorkerActor(xo.StatelessActor):
         Heartbeat is sent every interval, full status is sent every N intervals.
         """
         report_count = 0
+        _heartbeat_fail_count = 0
         while True:
             try:
                 # Always send heartbeat for liveness detection
@@ -2199,6 +2418,7 @@ class WorkerActor(xo.StatelessActor):
                     await self.report_status()
 
                 report_count += 1
+                _heartbeat_fail_count = 0  # reset on success
             except asyncio.CancelledError:  # pragma: no cover
                 break
             except RuntimeError as ex:  # pragma: no cover
@@ -2209,7 +2429,18 @@ class WorkerActor(xo.StatelessActor):
             except (
                 Exception
             ) as ex:  # pragma: no cover  # noqa: E722  # nosec  # pylint: disable=bare-except
-                logger.error(f"Failed to upload node info: {ex}")
+                _heartbeat_fail_count += 1
+                # §4.4: Log exception type and full traceback.
+                # Print full traceback on 1st failure and every 10th consecutive failure
+                # to avoid log bloat during prolonged outages.
+                logger.error(
+                    "Failed to upload node info: %s(%s)",
+                    type(ex).__name__,
+                    ex or "(empty message)",
+                    exc_info=(
+                        _heartbeat_fail_count == 1 or _heartbeat_fail_count % 10 == 0
+                    ),
+                )
             try:
                 await asyncio.sleep(XINFERENCE_HEALTH_CHECK_INTERVAL)
             except asyncio.CancelledError:  # pragma: no cover

@@ -16,8 +16,15 @@ const updateOptions = (url, options) => {
   return update
 }
 
+function ensureProtocol(url) {
+  if (window.location.protocol === 'https:' && url.startsWith('http://')) {
+    return url.replace('http://', 'https://')
+  }
+  return url
+}
+
 export default function fetcher(url, options) {
-  return fetch(url, updateOptions(url, options)).then((res) => {
+  return fetch(ensureProtocol(url), updateOptions(url, options)).then((res) => {
     // For the situation that server has already been restarted, the current token may become invalid,
     // which leads to UI hangs.
     if (res.status == 401 && localStorage.getItem('authStatus') !== '401') {

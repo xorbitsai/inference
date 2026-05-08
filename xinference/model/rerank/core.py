@@ -90,8 +90,10 @@ class RerankModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
             "accelerators": getattr(self, "accelerators", None),
             "type": self.type,
             "model_name": self.model_name,
+            "model_format": spec.model_format,
             "language": self.language,
             "model_revision": spec.model_revision,
+            "quantization": spec.quantization,
         }
 
     def to_version_info(self):
