@@ -9,6 +9,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
 
 jobs:
   build-publish:
@@ -21,6 +23,51 @@ jobs:
         with:
           python-version: "3.10"
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Check release tag permission
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execFileSync, spawnSync } = require('child_process');
+
+            execFileSync('git', ['fetch', '--no-tags', 'origin', 'main:refs/remotes/origin/main'], {
+              stdio: 'inherit',
+            });
+
+            const taggedCommit = process.env.GITHUB_SHA;
+            const onMain = spawnSync('git', [
+              'merge-base',
+              '--is-ancestor',
+              taggedCommit,
+              'origin/main',
+            ], {
+              stdio: 'ignore',
+            });
+
+            if (onMain.status === 0) {
+              core.info(`Release tag ${context.ref} points to a commit on main.`);
+              return;
+            }
+
+            if (onMain.status !== 1) {
+              core.setFailed('Failed to determine whether the release tag is on main.');
+              return;
+            }
+
+            const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              username: context.actor,
+            });
+
+            if (data.permission !== 'admin') {
+              core.setFailed(
+                `Release tag ${context.ref} points to a commit outside main. ` +
+                `Only repository admins may release from non-main branches; ` +
+                `${context.actor} has ${data.permission} permission.`
+              );
+            }
       - name: Install pypa/build
         run: >-
           python3 -m
