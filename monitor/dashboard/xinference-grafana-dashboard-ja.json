@@ -1306,7 +1306,7 @@
         "y": 63
       },
       "id": 101,
-      "title": "Worker GPU 资源与负载",
+      "title": "Worker GPU リソースと負荷",
       "type": "row"
     },
     {
@@ -2608,7 +2608,7 @@
     },
     {
       "id": 127,
-      "title": "模型加载耗时（滑动平均）",
+      "title": "モデルロード時間（移動平均）",
       "type": "timeseries",
       "gridPos": {
         "h": 9,
@@ -2695,7 +2695,7 @@
     },
     {
       "id": 128,
-      "title": "模型加载最大耗时",
+      "title": "モデルロード最大時間",
       "type": "stat",
       "gridPos": {
         "h": 9,
@@ -2866,7 +2866,7 @@
     },
     {
       "id": 201,
-      "title": "LLM 错误率",
+      "title": "LLM エラー率",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -2961,7 +2961,7 @@
     },
     {
       "id": 202,
-      "title": "LLM 延迟",
+      "title": "LLM 遅延",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -3057,7 +3057,7 @@
     },
     {
       "id": 203,
-      "title": "LLM 并发请求 / 限制",
+      "title": "LLM 同時リクエスト / 制限",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -3339,7 +3339,7 @@
     },
     {
       "id": 130,
-      "title": "输入/输出 Token 吞吐量",
+      "title": "入力/出力 Token スループット",
       "type": "timeseries",
       "gridPos": {
         "x": 12,
@@ -3435,7 +3435,7 @@
     },
     {
       "id": 131,
-      "title": "每请求平均 Token 数",
+      "title": "リクエストあたり平均 Token 数",
       "type": "timeseries",
       "gridPos": {
         "x": 0,
@@ -3531,7 +3531,7 @@
     },
     {
       "id": 132,
-      "title": "输入/输出 Token 累计",
+      "title": "入力/出力 Token 累計",
       "type": "stat",
       "gridPos": {
         "x": 12,
@@ -3594,7 +3594,7 @@
     },
     {
       "id": 133,
-      "title": "输出/输入 Token 放大比",
+      "title": "出力/入力 Token 増幅比",
       "type": "timeseries",
       "gridPos": {
         "x": 0,
@@ -3681,7 +3681,7 @@
     },
     {
       "id": 109,
-      "title": "非 LLM 模型专项",
+      "title": "非LLMモデル専用",
       "type": "row",
       "gridPos": {
         "h": 1,
@@ -3693,7 +3693,7 @@
     },
     {
       "id": 110,
-      "title": "非 LLM 模型 QPS",
+      "title": "非LLMモデル QPS",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -3784,7 +3784,7 @@
     },
     {
       "id": 111,
-      "title": "非 LLM 模型延迟",
+      "title": "非LLMモデル遅延",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -3880,7 +3880,7 @@
     },
     {
       "id": 114,
-      "title": "非 LLM 错误率",
+      "title": "非LLM エラー率",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -3971,7 +3971,7 @@
     },
     {
       "id": 204,
-      "title": "非 LLM 并发请求 / 限制",
+      "title": "非LLM 同時リクエスト / 制限",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
