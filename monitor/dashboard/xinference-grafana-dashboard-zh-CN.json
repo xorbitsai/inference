@@ -170,7 +170,7 @@
         "h": 5,
         "w": 8,
         "x": 8,
-        "y": 1
+        "y": 6
       },
       "datasource": {
         "type": "prometheus",
@@ -295,7 +295,7 @@
         "h": 5,
         "w": 8,
         "x": 16,
-        "y": 1
+        "y": 11
       },
       "datasource": {
         "type": "prometheus",
@@ -418,7 +418,7 @@
         "h": 4,
         "w": 24,
         "x": 0,
-        "y": 6
+        "y": 16
       },
       "datasource": {
         "type": "prometheus",
@@ -469,12 +469,231 @@
       ]
     },
     {
+      "id": 122,
+      "title": "当前告警数",
+      "type": "stat",
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 0,
+        "y": 20
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${alert_datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "count(ALERTS{alertstate=\"firing\", cluster=~\"$cluster\"})",
+          "legendFormat": "",
+          "range": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 123,
+      "title": "告警历史",
+      "type": "state-timeline",
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 4,
+        "y": 20
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${alert_datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-RdYlGr"
+          },
+          "custom": {
+            "fillOpacity": 70,
+            "lineWidth": 0
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "green",
+                  "index": 0,
+                  "text": "OK"
+                },
+                "1": {
+                  "color": "orange",
+                  "index": 2,
+                  "text": "PENDING"
+                },
+                "2": {
+                  "color": "red",
+                  "index": 1,
+                  "text": "FIRING"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "alignValue": "left",
+        "mergeValues": true,
+        "rowHeight": 0.9,
+        "showValue": "auto",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "(ALERTS{alertstate=\"pending\", cluster=~\"$cluster\"} * 1) or (ALERTS{alertstate=\"firing\", cluster=~\"$cluster\"} * 2)",
+          "legendFormat": "{{worker_address}} {{alertname}}",
+          "range": true,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 124,
+      "title": "告警详情",
+      "type": "table",
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 25
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${alert_datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "ALERTS{alertstate=\"firing\",cluster=~\"$cluster\"}",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value": true,
+              "__name__": true,
+              "devicetype": true,
+              "env": true,
+              "hostname": true,
+              "instance": true,
+              "job": true,
+              "location": true,
+              "product": true,
+              "productline": true,
+              "role": true
+            },
+            "indexByName": {},
+            "renameByName": {}
+          }
+        }
+      ]
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 10
+        "y": 30
       },
       "id": 106,
       "title": "Supervisor API 监控",
@@ -488,7 +707,7 @@
         "h": 12,
         "w": 12,
         "x": 0,
-        "y": 11
+        "y": 31
       },
       "datasource": {
         "type": "prometheus",
@@ -579,7 +798,7 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 11
+        "y": 31
       },
       "datasource": {
         "type": "prometheus",
@@ -641,7 +860,7 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 11
+        "y": 43
       },
       "datasource": {
         "type": "prometheus",
@@ -732,7 +951,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 15
+        "y": 47
       },
       "datasource": {
         "type": "prometheus",
@@ -880,7 +1099,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 23
+        "y": 55
       },
       "datasource": {
         "type": "prometheus",
@@ -969,7 +1188,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 23
+        "y": 55
       },
       "datasource": {
         "type": "prometheus",
@@ -1084,10 +1303,10 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 31
+        "y": 63
       },
       "id": 101,
-      "title": "Worker 资源",
+      "title": "Worker GPU 资源与负载",
       "type": "row"
     },
     {
@@ -1098,7 +1317,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 32
+        "y": 64
       },
       "datasource": {
         "type": "prometheus",
@@ -1190,7 +1409,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 32
+        "y": 64
       },
       "datasource": {
         "type": "prometheus",
@@ -1283,10 +1502,10 @@
       "title": "GPU 显存使用率 （$worker_address）",
       "type": "gauge",
       "gridPos": {
-        "h": 6,
+        "h": 8,
         "w": 12,
         "x": 0,
-        "y": 40
+        "y": 72
       },
       "datasource": {
         "type": "prometheus",
@@ -1346,6 +1565,96 @@
       "maxPerRow": 2
     },
     {
+      "id": 118,
+      "title": "各 Worker 活跃请求数",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 72
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "xinference:model_serve_count{cluster=~\"$cluster\"}",
+          "legendFormat": "{{node}} {{model}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
       "id": 6,
       "title": "CPU 利用率",
       "type": "timeseries",
@@ -1353,7 +1662,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 46
+        "y": 80
       },
       "datasource": {
         "type": "prometheus",
@@ -1445,7 +1754,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 46
+        "y": 80
       },
       "datasource": {
         "type": "prometheus",
@@ -1539,7 +1848,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 54
+        "y": 88
       },
       "id": 108,
       "title": "GPU 硬件监控（DCGM）",
@@ -1553,7 +1862,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 55
+        "y": 89
       },
       "datasource": {
         "type": "prometheus",
@@ -1651,7 +1960,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 55
+        "y": 89
       },
       "datasource": {
         "type": "prometheus",
@@ -1773,7 +2082,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 63
+        "y": 97
       },
       "datasource": {
         "type": "prometheus",
@@ -1870,7 +2179,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 63
+        "y": 97
       },
       "datasource": {
         "type": "prometheus",
@@ -1991,12 +2300,12 @@
     {
       "id": 56,
       "title": "GPU 硬件健康状态",
-      "type": "stat",
+      "type": "table",
       "gridPos": {
-        "h": 4,
+        "h": 8,
         "w": 24,
         "x": 0,
-        "y": 71
+        "y": 105
       },
       "datasource": {
         "type": "prometheus",
@@ -2004,21 +2313,13 @@
       },
       "fieldConfig": {
         "defaults": {
-          "mappings": [
-            {
-              "options": {
-                "0": {
-                  "color": "green",
-                  "text": "正常"
-                },
-                "1": {
-                  "color": "red",
-                  "text": "异常"
-                }
-              },
-              "type": "value"
-            }
-          ],
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "color-text"
+            },
+            "inspect": false
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -2033,40 +2334,166 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^(Time|device|devicetype|pci_bus_id|__name__|instance|job|address|cluster|Hostname|env|hostname|location|product|productline|role)$"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value #A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "不可纠正重映射行"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "0": {
+                        "color": "green",
+                        "text": "正常"
+                      },
+                      "1": {
+                        "color": "red",
+                        "text": "异常"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value #B"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "可纠正重映射行"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "0": {
+                        "color": "green",
+                        "text": "正常"
+                      },
+                      "1": {
+                        "color": "red",
+                        "text": "异常"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value #C"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "重映射失败"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "0": {
+                        "color": "green",
+                        "text": "正常"
+                      },
+                      "1": {
+                        "color": "red",
+                        "text": "异常"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "horizontal",
-        "showPercentChange": false,
-        "wideLayout": true
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "worker_address",
+            "desc": false
+          }
+        ],
+        "frameIndex": 0,
+        "footer": {
+          "show": false
+        }
       },
       "pluginVersion": "11.0.0",
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "modelName": 0,
+              "gpu": 1,
+              "UUID": 2,
+              "worker_address": 3,
+              "Value #A": 4,
+              "Value #B": 5,
+              "Value #C": 6
+            }
+          }
+        }
+      ],
       "targets": [
         {
           "expr": "DCGM_FI_DEV_UNCORRECTABLE_REMAPPED_ROWS{instance=~\"$gpu_exporter_instance\"} * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster =~\"$cluster\"})",
           "legendFormat": "{{worker_address}} {{modelName}} GPU{{gpu}} Uncorrectable Rows",
-          "refId": "A"
+          "refId": "A",
+          "format": "table",
+          "instant": true
         },
         {
           "expr": "DCGM_FI_DEV_CORRECTABLE_REMAPPED_ROWS{instance=~\"$gpu_exporter_instance\"} * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster =~\"$cluster\"})",
           "legendFormat": "{{worker_address}} {{modelName}} GPU{{gpu}} Correctable Rows",
-          "refId": "B"
+          "refId": "B",
+          "format": "table",
+          "instant": true
         },
         {
           "expr": "DCGM_FI_DEV_ROW_REMAP_FAILURE{instance=~\"$gpu_exporter_instance\"} * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster =~\"$cluster\"})",
           "legendFormat": "{{worker_address}} {{modelName}} GPU{{gpu}} Remap Failure",
-          "refId": "C"
+          "refId": "C",
+          "format": "table",
+          "instant": true
         }
       ]
     },
@@ -2076,7 +2503,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 75
+        "y": 113
       },
       "id": 102,
       "title": "模型状态与 GPU 绑定",
@@ -2090,7 +2517,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 76
+        "y": 114
       },
       "datasource": {
         "type": "prometheus",
@@ -2248,7 +2675,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 76
+        "y": 114
       },
       "datasource": {
         "type": "prometheus",
@@ -2368,26 +2795,176 @@
       ]
     },
     {
+      "id": 127,
+      "title": "模型加载耗时（滑动平均）",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 9,
+        "w": 14,
+        "x": 0,
+        "y": 122
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "avg_over_time(xinference:model_last_load_duration_seconds{cluster=~\"$cluster\"}[5m])",
+          "legendFormat": "{{model_name}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 128,
+      "title": "模型加载最大耗时",
+      "type": "stat",
+      "gridPos": {
+        "h": 9,
+        "w": 10,
+        "x": 14,
+        "y": 122
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 60
+              },
+              {
+                "color": "red",
+                "value": 300
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "max_over_time(xinference:model_last_load_duration_seconds{cluster=~\"$cluster\"}[$__range])",
+          "legendFormat": "{{model_name}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 84
+        "y": 131
       },
-      "id": 103,
-      "title": "模型服务质量",
+      "id": 104,
+      "title": "LLM 专属",
       "type": "row"
     },
     {
-      "id": 10,
-      "title": "QPS",
+      "id": 200,
+      "title": "LLM QPS",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 85
+        "y": 132
       },
       "datasource": {
         "type": "prometheus",
@@ -2464,21 +3041,26 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(xinference:model_request_total{cluster=~\"$cluster\", model_name=~\"$model_name\"}[5m])) by (model_name)",
-          "legendFormat": "{{model_name}}",
+          "expr": "sum(rate(xinference:model_request_total{cluster=~\"$cluster\", type=\"LLM\", model_name=~\"$model_name\", stream=\"true\"}[5m])) by (model_name)",
+          "legendFormat": "{{model_name}} (流式)",
           "refId": "A"
+        },
+        {
+          "expr": "sum(rate(xinference:model_request_total{cluster=~\"$cluster\", type=\"LLM\", model_name=~\"$model_name\", stream=\"false\"}[5m])) by (model_name)",
+          "legendFormat": "{{model_name}} (非流式)",
+          "refId": "B"
         }
       ]
     },
     {
-      "id": 11,
-      "title": "错误率 (%)",
+      "id": 201,
+      "title": "LLM 错误率 (%)",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 85
+        "y": 132
       },
       "datasource": {
         "type": "prometheus",
@@ -2559,21 +3141,21 @@
       },
       "targets": [
         {
-          "expr": "rate(xinference:model_request_errors_total{cluster=~\"$cluster\", model_name=~\"$model_name\"}[5m]) / rate(xinference:model_request_total{cluster=~\"$cluster\", model_name=~\"$model_name\"}[5m]) * 100",
+          "expr": "rate(xinference:model_request_errors_total{cluster=~\"$cluster\", type=\"LLM\", model_name=~\"$model_name\"}[5m]) / rate(xinference:model_request_total{cluster=~\"$cluster\", type=\"LLM\", model_name=~\"$model_name\"}[5m]) * 100",
           "legendFormat": "{{model_name}}",
           "refId": "A"
         }
       ]
     },
     {
-      "id": 12,
-      "title": "P95 延迟",
+      "id": 202,
+      "title": "LLM P95 延迟",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 93
+        "y": 140
       },
       "datasource": {
         "type": "prometheus",
@@ -2650,26 +3232,26 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(xinference:model_request_duration_seconds_bucket{cluster=~\"$cluster\", model_name=~\"$model_name\"}[5m])) by (le, model_name))",
+          "expr": "histogram_quantile(0.95, sum(rate(xinference:model_request_duration_seconds_bucket{cluster=~\"$cluster\", type=\"LLM\", model_name=~\"$model_name\"}[5m])) by (le, model_name))",
           "legendFormat": "{{model_name}} P95",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.50, sum(rate(xinference:model_request_duration_seconds_bucket{cluster=~\"$cluster\", model_name=~\"$model_name\"}[5m])) by (le, model_name))",
+          "expr": "histogram_quantile(0.50, sum(rate(xinference:model_request_duration_seconds_bucket{cluster=~\"$cluster\", type=\"LLM\", model_name=~\"$model_name\"}[5m])) by (le, model_name))",
           "legendFormat": "{{model_name}} P50",
           "refId": "B"
         }
       ]
     },
     {
-      "id": 13,
-      "title": "并发请求 / 限制",
+      "id": 203,
+      "title": "LLM 并发请求 / 限制",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 93
+        "y": 140
       },
       "datasource": {
         "type": "prometheus",
@@ -2745,38 +3327,26 @@
       },
       "targets": [
         {
-          "expr": "xinference:model_serve_count{cluster=~\"$cluster\", model_name=~\"$model_name\"}",
+          "expr": "xinference:model_serve_count{cluster=~\"$cluster\", type=\"LLM\", model_name=~\"$model_name\"}",
           "legendFormat": "{{model_name}} serving",
           "refId": "A"
         },
         {
-          "expr": "xinference:model_request_limit{cluster=~\"$cluster\", model_name=~\"$model_name\"}",
+          "expr": "xinference:model_request_limit{cluster=~\"$cluster\", type=\"LLM\", model_name=~\"$model_name\"}",
           "legendFormat": "{{model_name}} limit",
           "refId": "B"
         }
       ]
     },
     {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 101
-      },
-      "id": 104,
-      "title": "LLM 专属",
-      "type": "row"
-    },
-    {
       "id": 14,
       "title": "生成吞吐量",
       "type": "timeseries",
       "gridPos": {
-        "h": 8,
-        "w": 12,
         "x": 0,
-        "y": 102
+        "y": 148,
+        "w": 12,
+        "h": 8
       },
       "datasource": {
         "type": "prometheus",
@@ -2853,7 +3423,7 @@
       },
       "targets": [
         {
-          "expr": "xinference:generate_tokens_per_s{cluster=~\"$cluster\", model_name=~\"$model_name\"}",
+          "expr": "rate(xinference:generate_tokens_total{cluster=~\"$cluster\", model_name=~\"$model_name\"}[5m])",
           "legendFormat": "{{model_name}}",
           "refId": "A"
         }
@@ -2867,7 +3437,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 102
+        "y": 148
       },
       "datasource": {
         "type": "prometheus",
@@ -2925,7 +3495,7 @@
               }
             ]
           },
-          "unit": "ms"
+          "unit": "s"
         },
         "overrides": []
       },
@@ -2944,9 +3514,736 @@
       },
       "targets": [
         {
-          "expr": "xinference:time_to_first_token_ms{cluster=~\"$cluster\", model_name=~\"$model_name\"}",
+          "expr": "rate(xinference:time_to_first_token_seconds_sum{cluster=~\"$cluster\", model_name=~\"$model_name\", stream=\"true\"}[5m]) / rate(xinference:time_to_first_token_seconds_count{cluster=~\"$cluster\", model_name=~\"$model_name\", stream=\"true\"}[5m])",
+          "legendFormat": "{{model_name}} (流式)",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(xinference:time_to_first_token_seconds_sum{cluster=~\"$cluster\", model_name=~\"$model_name\", stream=\"false\"}[5m]) / rate(xinference:time_to_first_token_seconds_count{cluster=~\"$cluster\", model_name=~\"$model_name\", stream=\"false\"}[5m])",
+          "legendFormat": "{{model_name}} (非流式)",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 130,
+      "title": "输入/输出 Token 吞吐量",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 156,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "tokens/s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(xinference:input_tokens_total_counter{cluster=~\"$cluster\", model_name=~\"$model_name\"}[5m])",
+          "legendFormat": "{{model_name}} Input",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(xinference:output_tokens_total_counter{cluster=~\"$cluster\", model_name=~\"$model_name\"}[5m])",
+          "legendFormat": "{{model_name}} Output",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 131,
+      "title": "每请求平均 Token 数",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 156,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(xinference:input_tokens_total_counter{cluster=~\"$cluster\", model_name=~\"$model_name\"}[5m]) / sum without (stream) (rate(xinference:model_request_total{cluster=~\"$cluster\", model_name=~\"$model_name\"}[5m]))",
+          "legendFormat": "{{model_name}} Avg Input Tokens",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(xinference:output_tokens_total_counter{cluster=~\"$cluster\", model_name=~\"$model_name\"}[5m]) / sum without (stream) (rate(xinference:model_request_total{cluster=~\"$cluster\", model_name=~\"$model_name\"}[5m]))",
+          "legendFormat": "{{model_name}} Avg Output Tokens",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 132,
+      "title": "输入/输出 Token 累计",
+      "type": "stat",
+      "gridPos": {
+        "x": 12,
+        "y": 164,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "showPercentChange": false,
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "expr": "sum(xinference:input_tokens_total_counter{cluster=~\"$cluster\", model_name=~\"$model_name\"}) by (model_name)",
+          "legendFormat": "{{model_name}} Input Total",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(xinference:output_tokens_total_counter{cluster=~\"$cluster\", model_name=~\"$model_name\"}) by (model_name)",
+          "legendFormat": "{{model_name}} Output Total",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 133,
+      "title": "输出/输入 Token 放大比",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 164,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "x"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(xinference:output_tokens_total_counter{cluster=~\"$cluster\", model_name=~\"$model_name\"}[5m]) / rate(xinference:input_tokens_total_counter{cluster=~\"$cluster\", model_name=~\"$model_name\"}[5m])",
           "legendFormat": "{{model_name}}",
           "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 109,
+      "title": "非 LLM 模型专项",
+      "type": "row",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 172
+      },
+      "collapsed": false
+    },
+    {
+      "id": 110,
+      "title": "非 LLM 模型 QPS",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 173
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(xinference:model_request_total{cluster=~\"$cluster\", type!=\"LLM\"}[5m])) by (model_name)",
+          "legendFormat": "{{model_name}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 111,
+      "title": "非 LLM 模型 P95 延迟",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 173
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(xinference:model_request_duration_seconds_bucket{cluster=~\"$cluster\", type!=\"LLM\"}[5m])) by (le, model_name))",
+          "legendFormat": "{{model_name}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 114,
+      "title": "非 LLM 模型错误率",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 179
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(xinference:model_request_errors_total{cluster=~\"$cluster\", type!=\"LLM\"}[5m])) by (model_name) / sum(rate(xinference:model_request_total{cluster=~\"$cluster\", type!=\"LLM\"}[5m])) by (model_name)",
+          "legendFormat": "{{model_name}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 204,
+      "title": "非 LLM 并发请求 / 限制",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 179
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "xinference:model_serve_count{cluster=~\"$cluster\", type!=\"LLM\", model_name=~\"$model_name\"}",
+          "legendFormat": "{{model_name}} serving",
+          "refId": "A"
+        },
+        {
+          "expr": "xinference:model_request_limit{cluster=~\"$cluster\", type!=\"LLM\", model_name=~\"$model_name\"}",
+          "legendFormat": "{{model_name}} limit",
+          "refId": "B"
         }
       ]
     },
@@ -2956,7 +4253,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 110
+        "y": 204
       },
       "id": 107,
       "title": "Supervisor 主机资源（node_exporter）",
@@ -2970,7 +4267,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 111
+        "y": 205
       },
       "datasource": {
         "type": "prometheus",
@@ -3055,169 +4352,6 @@
       ]
     },
     {
-      "id": 28,
-      "title": "Supervisor 内存使用",
-      "type": "timeseries",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 119
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "maxHeight": 600,
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "expr": "(node_memory_MemTotal_bytes{instance=~\"$supervisor_instance\"} - node_memory_MemAvailable_bytes{instance=~\"$supervisor_instance\"}) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster =~\"$cluster\"})",
-          "legendFormat": "{{supervisor_address}} Used",
-          "refId": "A"
-        },
-        {
-          "expr": "node_memory_MemTotal_bytes{instance=~\"$supervisor_instance\"} * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster =~\"$cluster\"})",
-          "legendFormat": "{{supervisor_address}} Total",
-          "refId": "B"
-        }
-      ]
-    },
-    {
-      "id": 29,
-      "title": "Supervisor 磁盘空间使用率 $supervisor_address",
-      "type": "gauge",
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 127
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "max": 1,
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 0.7
-              },
-              {
-                "color": "red",
-                "value": 0.9
-              }
-            ]
-          },
-          "unit": "percentunit"
-        },
-        "overrides": []
-      },
-      "options": {
-        "minVizHeight": 75,
-        "minVizWidth": 75,
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true,
-        "sizing": "auto"
-      },
-      "pluginVersion": "11.0.0",
-      "targets": [
-        {
-          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"}) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster=~\"$cluster\", supervisor_address=~\"$supervisor_address\"})",
-          "legendFormat": "{{mountpoint}}",
-          "refId": "A"
-        }
-      ],
-      "maxPerRow": 2,
-      "repeat": "supervisor_address",
-      "repeatDirection": "h"
-    },
-    {
       "id": 30,
       "title": "Supervisor 系统负载",
       "type": "timeseries",
@@ -3225,7 +4359,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 111
+        "y": 205
       },
       "datasource": {
         "type": "prometheus",
@@ -3318,14 +4452,14 @@
       ]
     },
     {
-      "id": 31,
-      "title": "Supervisor 网络流量",
+      "id": 28,
+      "title": "Supervisor 内存使用",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 143
+        "y": 213
       },
       "datasource": {
         "type": "prometheus",
@@ -3383,7 +4517,7 @@
               }
             ]
           },
-          "unit": "Bps"
+          "unit": "bytes"
         },
         "overrides": []
       },
@@ -3402,13 +4536,13 @@
       },
       "targets": [
         {
-          "expr": "rate(node_network_receive_bytes_total{instance=~\"$supervisor_instance\", device!=\"lo\"}[5m]) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster =~\"$cluster\"})",
-          "legendFormat": "{{supervisor_address}} {{device}} RX",
+          "expr": "(node_memory_MemTotal_bytes{instance=~\"$supervisor_instance\"} - node_memory_MemAvailable_bytes{instance=~\"$supervisor_instance\"}) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster =~\"$cluster\"})",
+          "legendFormat": "{{supervisor_address}} Used",
           "refId": "A"
         },
         {
-          "expr": "rate(node_network_transmit_bytes_total{instance=~\"$supervisor_instance\", device!=\"lo\"}[5m]) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster =~\"$cluster\"})",
-          "legendFormat": "{{supervisor_address}} {{device}} TX",
+          "expr": "node_memory_MemTotal_bytes{instance=~\"$supervisor_instance\"} * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster =~\"$cluster\"})",
+          "legendFormat": "{{supervisor_address}} Total",
           "refId": "B"
         }
       ]
@@ -3421,7 +4555,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 119
+        "y": 213
       },
       "datasource": {
         "type": "prometheus",
@@ -3505,14 +4639,81 @@
       ]
     },
     {
-      "id": 36,
-      "title": "Supervisor 磁盘 I/O 吞吐",
+      "id": 29,
+      "title": "Supervisor 磁盘空间使用率 $supervisor_address",
+      "type": "gauge",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 221
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "max": 1,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.7
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"}) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster=~\"$cluster\", supervisor_address=~\"$supervisor_address\"})",
+          "legendFormat": "{{mountpoint}}",
+          "refId": "A"
+        }
+      ],
+      "maxPerRow": 2,
+      "repeat": "supervisor_address",
+      "repeatDirection": "h"
+    },
+    {
+      "id": 120,
+      "title": "Supervisor 磁盘使用趋势",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 135
+        "y": 229
       },
       "datasource": {
         "type": "prometheus",
@@ -3570,7 +4771,7 @@
               }
             ]
           },
-          "unit": "Bps"
+          "unit": "percentunit"
         },
         "overrides": []
       },
@@ -3589,14 +4790,9 @@
       },
       "targets": [
         {
-          "expr": "rate(node_disk_read_bytes_total{instance=~\"$supervisor_instance\", device!=\"\"}[5m]) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster =~\"$cluster\"})",
-          "legendFormat": "{{supervisor_address}} {{device}} Read",
+          "expr": "(1 - (node_filesystem_avail_bytes{instance=~\"$supervisor_instance\", fstype!~\"tmpfs|overlay\"} / node_filesystem_size_bytes{instance=~\"$supervisor_instance\", fstype!~\"tmpfs|overlay\"})) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster =~\"$cluster\"})",
+          "legendFormat": "{{supervisor_address}} {{mountpoint}}",
           "refId": "A"
-        },
-        {
-          "expr": "rate(node_disk_written_bytes_total{instance=~\"$supervisor_instance\", device!=\"\"}[5m]) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster =~\"$cluster\"})",
-          "legendFormat": "{{supervisor_address}} {{device}} Write",
-          "refId": "B"
         }
       ]
     },
@@ -3608,7 +4804,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 135
+        "y": 229
       },
       "datasource": {
         "type": "prometheus",
@@ -3697,12 +4893,204 @@
       ]
     },
     {
+      "id": 36,
+      "title": "Supervisor 磁盘 I/O 吞吐",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 237
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(node_disk_read_bytes_total{instance=~\"$supervisor_instance\", device!=\"\"}[5m]) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster =~\"$cluster\"})",
+          "legendFormat": "{{supervisor_address}} {{device}} Read",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(node_disk_written_bytes_total{instance=~\"$supervisor_instance\", device!=\"\"}[5m]) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster =~\"$cluster\"})",
+          "legendFormat": "{{supervisor_address}} {{device}} Write",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "title": "Supervisor 网络流量",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 237
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(node_network_receive_bytes_total{instance=~\"$supervisor_instance\", device!=\"lo\"}[5m]) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster =~\"$cluster\"})",
+          "legendFormat": "{{supervisor_address}} {{device}} RX",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(node_network_transmit_bytes_total{instance=~\"$supervisor_instance\", device!=\"lo\"}[5m]) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster =~\"$cluster\"})",
+          "legendFormat": "{{supervisor_address}} {{device}} TX",
+          "refId": "B"
+        }
+      ]
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 151
+        "y": 245
       },
       "id": 105,
       "title": "Worker 主机资源（node_exporter）",
@@ -3716,7 +5104,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 152
+        "y": 246
       },
       "datasource": {
         "type": "prometheus",
@@ -3801,361 +5189,6 @@
       ]
     },
     {
-      "id": 35,
-      "title": "Worker 内存使用",
-      "type": "timeseries",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 160
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "maxHeight": 600,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "expr": "(node_memory_MemTotal_bytes{instance=~\"$worker_instance\"} - node_memory_MemAvailable_bytes{instance=~\"$worker_instance\"}) * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster =~\"$cluster\"})",
-          "legendFormat": "{{worker_address}} Used",
-          "refId": "A"
-        },
-        {
-          "expr": "node_memory_MemTotal_bytes{instance=~\"$worker_instance\"} * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster =~\"$cluster\"})",
-          "legendFormat": "{{worker_address}} Total",
-          "refId": "B"
-        }
-      ]
-    },
-    {
-      "id": 16,
-      "title": "Worker 磁盘 I/O 吞吐",
-      "type": "timeseries",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 176
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "Bps"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "maxHeight": 600,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "expr": "rate(node_disk_read_bytes_total{instance=~\"$worker_instance\", device!=\"\"}[5m]) * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster =~\"$cluster\"})",
-          "legendFormat": "{{worker_address}} {{device}} Read",
-          "refId": "A"
-        },
-        {
-          "expr": "rate(node_disk_written_bytes_total{instance=~\"$worker_instance\", device!=\"\"}[5m]) * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster =~\"$cluster\"})",
-          "legendFormat": "{{worker_address}} {{device}} Write",
-          "refId": "B"
-        }
-      ]
-    },
-    {
-      "id": 17,
-      "title": "Worker 磁盘空间使用率 $worker_address",
-      "type": "gauge",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 168
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "max": 1,
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 0.7
-              },
-              {
-                "color": "red",
-                "value": 0.9
-              }
-            ]
-          },
-          "unit": "percentunit"
-        },
-        "overrides": []
-      },
-      "options": {
-        "minVizHeight": 75,
-        "minVizWidth": 75,
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true,
-        "sizing": "auto"
-      },
-      "pluginVersion": "11.0.0",
-      "targets": [
-        {
-          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"$worker_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$worker_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"}) * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster=~\"$cluster\", worker_address=~\"$worker_address\"})",
-          "legendFormat": "{{mountpoint}}",
-          "refId": "A"
-        }
-      ],
-      "repeat": "worker_address",
-      "repeatDirection": "h",
-      "maxPerRow": 2
-    },
-    {
-      "id": 18,
-      "title": "Worker 网络流量",
-      "type": "timeseries",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 184
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "Bps"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "maxHeight": 600,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "expr": "rate(node_network_receive_bytes_total{instance=~\"$worker_instance\", device!=\"lo\"}[5m]) * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster =~\"$cluster\"})",
-          "legendFormat": "{{worker_address}} {{device}} RX",
-          "refId": "A"
-        },
-        {
-          "expr": "rate(node_network_transmit_bytes_total{instance=~\"$worker_instance\", device!=\"lo\"}[5m]) * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster =~\"$cluster\"})",
-          "legendFormat": "{{worker_address}} {{device}} TX",
-          "refId": "B"
-        }
-      ]
-    },
-    {
       "id": 19,
       "title": "Worker 系统负载",
       "type": "timeseries",
@@ -4163,7 +5196,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 152
+        "y": 246
       },
       "datasource": {
         "type": "prometheus",
@@ -4256,6 +5289,102 @@
       ]
     },
     {
+      "id": 35,
+      "title": "Worker 内存使用",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 254
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "(node_memory_MemTotal_bytes{instance=~\"$worker_instance\"} - node_memory_MemAvailable_bytes{instance=~\"$worker_instance\"}) * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster =~\"$cluster\"})",
+          "legendFormat": "{{worker_address}} Used",
+          "refId": "A"
+        },
+        {
+          "expr": "node_memory_MemTotal_bytes{instance=~\"$worker_instance\"} * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster =~\"$cluster\"})",
+          "legendFormat": "{{worker_address}} Total",
+          "refId": "B"
+        }
+      ]
+    },
+    {
       "id": 20,
       "title": "Worker Swap 使用量",
       "type": "timeseries",
@@ -4263,7 +5392,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 160
+        "y": 254
       },
       "datasource": {
         "type": "prometheus",
@@ -4347,6 +5476,164 @@
       ]
     },
     {
+      "id": 17,
+      "title": "Worker 磁盘空间使用率 $worker_address",
+      "type": "gauge",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 262
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "max": 1,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.7
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"$worker_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$worker_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"}) * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster=~\"$cluster\", worker_address=~\"$worker_address\"})",
+          "legendFormat": "{{mountpoint}}",
+          "refId": "A"
+        }
+      ],
+      "repeat": "worker_address",
+      "repeatDirection": "h",
+      "maxPerRow": 2
+    },
+    {
+      "id": 121,
+      "title": "Worker 磁盘使用趋势",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 270
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "(1 - (node_filesystem_avail_bytes{instance=~\"$worker_instance\", fstype!~\"tmpfs|overlay\"} / node_filesystem_size_bytes{instance=~\"$worker_instance\", fstype!~\"tmpfs|overlay\"})) * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster =~\"$cluster\"})",
+          "legendFormat": "{{worker_address}} {{mountpoint}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
       "id": 38,
       "title": "Worker 磁盘 I/O 利用率",
       "type": "timeseries",
@@ -4354,7 +5641,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 176
+        "y": 270
       },
       "datasource": {
         "type": "prometheus",
@@ -4441,6 +5728,198 @@
           "refId": "A"
         }
       ]
+    },
+    {
+      "id": 16,
+      "title": "Worker 磁盘 I/O 吞吐",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 278
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(node_disk_read_bytes_total{instance=~\"$worker_instance\", device!=\"\"}[5m]) * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster =~\"$cluster\"})",
+          "legendFormat": "{{worker_address}} {{device}} Read",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(node_disk_written_bytes_total{instance=~\"$worker_instance\", device!=\"\"}[5m]) * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster =~\"$cluster\"})",
+          "legendFormat": "{{worker_address}} {{device}} Write",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "title": "Worker 网络流量",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 278
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(node_network_receive_bytes_total{instance=~\"$worker_instance\", device!=\"lo\"}[5m]) * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster =~\"$cluster\"})",
+          "legendFormat": "{{worker_address}} {{device}} RX",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(node_network_transmit_bytes_total{instance=~\"$worker_instance\", device!=\"lo\"}[5m]) * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster =~\"$cluster\"})",
+          "legendFormat": "{{worker_address}} {{device}} TX",
+          "refId": "B"
+        }
+      ]
     }
   ],
   "refresh": "30s",
@@ -4468,11 +5947,30 @@
         "type": "datasource"
       },
       {
-        "allValue": ".*",
+        "current": {},
+        "hide": 0,
+        "includeAll": false,
+        "label": "告警数据源",
+        "multi": false,
+        "name": "alert_datasource",
+        "options": [],
+        "query": "prometheus",
+        "queryValue": "",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      },
+      {
+        "allValue": "",
         "current": {
           "selected": true,
-          "text": "All",
-          "value": "$__all"
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
         },
         "datasource": {
           "type": "prometheus",
@@ -4482,7 +5980,7 @@
         "hide": 0,
         "includeAll": true,
         "label": "集群",
-        "multi": false,
+        "multi": true,
         "name": "cluster",
         "options": [],
         "query": {
