@@ -390,9 +390,13 @@ def extract_text_blocks(text: str) -> List[Dict[str, Any]]:
     if not isinstance(text, str):
         return []
 
-    # Pattern to extract text and coordinates
+    # Pattern to extract text and coordinates. The coordinates group keeps
+    # the surrounding `[[...]]` so the resulting structure is nested
+    # (`[[x1, y1, x2, y2], ...]`) — matching extract_coordinates_and_label
+    # and the `bbox = coords[0] if len(coords) == 1 else coords` logic
+    # below, which assumes a list-of-lists.
     block_pattern = (
-        r"<\|ref\|>(.*?)<\|/ref\|><\|det\|>\[\[(.*?)\]\]<\|/det\|>(.*?)(?=<\|ref\|>|$)"
+        r"<\|ref\|>(.*?)<\|/ref\|><\|det\|>(\[\[.*?\]\])<\|/det\|>(.*?)(?=<\|ref\|>|$)"
     )
 
     blocks = []
@@ -405,7 +409,7 @@ def extract_text_blocks(text: str) -> List[Dict[str, Any]]:
             # Use ast.literal_eval instead of eval — the coordinate string is
             # OCR model output (LLM-generated). literal_eval only accepts
             # Python literal structures and rejects code execution.
-            coords = ast.literal_eval(f"[{coords_str}]")
+            coords = ast.literal_eval(coords_str)
             if isinstance(coords, list) and len(coords) > 0:
                 blocks.append(
                     {
