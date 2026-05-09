@@ -133,7 +133,10 @@ def request_limit(fn):
             await self.record_metrics(
                 "model_request_total",
                 "add",
-                {"labels": {**self._metrics_labels, "stream": stream_label}, "value": 1},
+                {
+                    "labels": {**self._metrics_labels, "stream": stream_label},
+                    "value": 1,
+                },
             )
             if _is_stream:
                 # stream case, let client call model_ref to decrease self._serve_count
@@ -560,7 +563,10 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 coro = self.record_metrics(
                     "time_to_first_token_seconds",
                     "observe",
-                    {"labels": {**self._metrics_labels, "stream": "true"}, "value": time_to_first_token / 1000},
+                    {
+                        "labels": {**self._metrics_labels, "stream": "true"},
+                        "value": time_to_first_token / 1000,
+                    },
                 )
                 asyncio.run_coroutine_threadsafe(coro, loop=self._loop)
             if self._loop is not None and final_usage is not None:
@@ -599,7 +605,10 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                     self.record_metrics(
                         "time_to_first_token_seconds",
                         "observe",
-                        {"labels": {**self._metrics_labels, "stream": "true"}, "value": time_to_first_token / 1000},
+                        {
+                            "labels": {**self._metrics_labels, "stream": "true"},
+                            "value": time_to_first_token / 1000,
+                        },
                     )
                 )
             if final_usage is not None:
@@ -805,7 +814,10 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 await self.record_metrics(
                     "time_to_first_token_seconds",
                     "observe",
-                    {"labels": {**self._metrics_labels, "stream": "false"}, "value": time.time() - start_time},
+                    {
+                        "labels": {**self._metrics_labels, "stream": "false"},
+                        "value": time.time() - start_time,
+                    },
                 )
 
     async def abort_request(
