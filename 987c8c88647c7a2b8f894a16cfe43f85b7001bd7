@@ -1,0 +1,29 @@
+monitor/dashboard/xinference-grafana-dashboard-en.json
+  82846b2fd13a9946 6021
+monitor/dashboard/xinference-grafana-dashboard-ja.json
+  82846b2fd13a9946 6021
+monitor/dashboard/xinference-grafana-dashboard-ko.json
+  82846b2fd13a9946 6021
+monitor/dashboard/xinference-grafana-dashboard-zh-CN.json
+  82846b2fd13a9946 2869,2964,3787,3871,3873-3877,3883,6021
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.13",
+  "base_commit_sha": "987c8c88647c7a2b8f894a16cfe43f85b7001bd7",
+  "prompts": {
+    "82846b2fd13a9946": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "680bf33c-30ef-4cc4-9707-4808202c1e99",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 11,
+      "total_deletions": 194,
+      "accepted_lines": 24285,
+      "overriden_lines": 15
+    }
+  }
+}
