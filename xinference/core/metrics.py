@@ -31,13 +31,14 @@ DEFAULT_METRICS_SERVER_LOG_LEVEL = "warning"
 # ===========================================================================
 # Worker-side inference metrics (LLM only)
 # ===========================================================================
-generate_throughput = Gauge(
-    "xinference:generate_tokens_per_s",
-    "Generate throughput in tokens/s (LLM only).",
+generate_tokens_total = Counter(
+    "xinference:generate_tokens_total",
+    "Total number of generated tokens (LLM only).",
 )
-time_to_first_token = Gauge(
-    "xinference:time_to_first_token_ms",
-    "First token latency in ms (LLM only).",
+time_to_first_token_seconds = Histogram(
+    "xinference:time_to_first_token_seconds",
+    "Time to first token in seconds (LLM only).",
+    buckets=(0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, float("inf")),
 )
 input_tokens_total_counter = Counter(
     "xinference:input_tokens_total_counter",
