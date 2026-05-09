@@ -1,0 +1,65 @@
+groups:
+  - name: xinference-alert-rule
+    rules:
+      - alert: GPUMemoryHigh
+        expr: xinference:worker_gpu_memory_used_bytes / xinference:worker_gpu_memory_total_bytes > 0.9
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "GPU 메모리 사용률 90% 초과"
+          description: "Worker {{ $labels.worker_address }} GPU {{ $labels.gpu_index }} 메모리 사용률 {{ $value | humanizePercentage }}, 5분간 지속."
+
+      - alert: ModelRequestErrorRateHigh
+        expr: rate(xinference:model_request_errors_total[5m]) / rate(xinference:model_request_total[5m]) > 0.05
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "모델 요청 오류율 5% 초과"
+          description: "모델 {{ $labels.model }} 오류율 {{ $value | humanizePercentage }}, 3분간 지속."
+
+      - alert: TTFTHigh
+        expr: rate(xinference:time_to_first_token_seconds_sum[5m]) / rate(xinference:time_to_first_token_seconds_count[5m]) > 10
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "첫 토큰 지연 시간 10초 초과"
+          description: "모델 {{ $labels.model }} TTFT {{ $value }}ms, 3분간 지속."
+
+      - alert: WorkerOffline
+        expr: xinference:workers_total < 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Worker 노드 오프라인"
+          description: "현재 온라인 Worker 수 {{ $value }}, 예상치보다 낮음."
+
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "디스크 공간 10% 미만"
+          description: "노드 {{ $labels.instance }} 마운트 포인트 {{ $labels.mountpoint }} 잔여 공간 {{ $value | humanizePercentage }}."
+
+      - alert: RequestQueueBacklog
+        expr: xinference:model_pending_requests > 10
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "모델 요청 대기열 적체"
+          description: "모델 {{ $labels.model }} 대기 요청 수 {{ $value }}, 3분간 지속."
+
+      - alert: ModelLoadSlow
+        expr: xinference:model_last_load_duration_seconds > 300
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "모델 로딩 시간 5분 초과"
+          description: "모델 {{ $labels.model_name }} 최근 평균 로딩 시간 {{ $value | humanizeDuration }}."

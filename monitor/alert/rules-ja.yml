@@ -1,0 +1,65 @@
+groups:
+  - name: xinference-alert-rule
+    rules:
+      - alert: GPUMemoryHigh
+        expr: xinference:worker_gpu_memory_used_bytes / xinference:worker_gpu_memory_total_bytes > 0.9
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "GPU メモリ使用率が 90% を超過"
+          description: "Worker {{ $labels.worker_address }} GPU {{ $labels.gpu_index }} メモリ使用率 {{ $value | humanizePercentage }}、5 分間継続。"
+
+      - alert: ModelRequestErrorRateHigh
+        expr: rate(xinference:model_request_errors_total[5m]) / rate(xinference:model_request_total[5m]) > 0.05
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "モデルリクエストエラー率が 5% を超過"
+          description: "モデル {{ $labels.model }} エラー率 {{ $value | humanizePercentage }}、3 分間継続。"
+
+      - alert: TTFTHigh
+        expr: rate(xinference:time_to_first_token_seconds_sum[5m]) / rate(xinference:time_to_first_token_seconds_count[5m]) > 10
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "初回トークン遅延が 10 秒を超過"
+          description: "モデル {{ $labels.model }} TTFT {{ $value }}ms、3 分間継続。"
+
+      - alert: WorkerOffline
+        expr: xinference:workers_total < 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Worker ノードがオフライン"
+          description: "現在のオンライン Worker 数 {{ $value }}、期待値を下回っています。"
+
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ディスク空き容量が 10% 未満"
+          description: "ノード {{ $labels.instance }} マウントポイント {{ $labels.mountpoint }} 残り容量 {{ $value | humanizePercentage }}。"
+
+      - alert: RequestQueueBacklog
+        expr: xinference:model_pending_requests > 10
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "モデルリクエストキューが滞留"
+          description: "モデル {{ $labels.model }} 待機リクエスト数 {{ $value }}、3 分間継続。"
+
+      - alert: ModelLoadSlow
+        expr: xinference:model_last_load_duration_seconds > 300
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "モデルロード時間が 5 分を超過"
+          description: "モデル {{ $labels.model_name }} 直近の平均ロード時間 {{ $value | humanizeDuration }}。"
