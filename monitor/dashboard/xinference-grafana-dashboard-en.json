@@ -1208,11 +1208,11 @@
               "options": {
                 "0": {
                   "color": "red",
-                  "text": "关闭"
+                  "text": "OFF"
                 },
                 "1": {
                   "color": "green",
-                  "text": "开启"
+                  "text": "ON"
                 }
               },
               "type": "value"
@@ -2167,7 +2167,7 @@
             "properties": [
               {
                 "id": "displayName",
-                "value": "不可纠正重映射行"
+                "value": "Uncorrectable Remapped Rows"
               },
               {
                 "id": "mappings",
@@ -2197,7 +2197,7 @@
             "properties": [
               {
                 "id": "displayName",
-                "value": "可纠正重映射行"
+                "value": "Correctable Remapped Rows"
               },
               {
                 "id": "mappings",
@@ -2227,7 +2227,7 @@
             "properties": [
               {
                 "id": "displayName",
-                "value": "重映射失败"
+                "value": "Remap Failure"
               },
               {
                 "id": "mappings",
@@ -2372,11 +2372,11 @@
                     "options": {
                       "0": {
                         "color": "red",
-                        "text": "失败"
+                        "text": "Failed"
                       },
                       "1": {
                         "color": "green",
-                        "text": "运行中"
+                        "text": "Running"
                       }
                     },
                     "type": "value"
@@ -2854,12 +2854,12 @@
       "targets": [
         {
           "expr": "sum(rate(xinference:model_request_total{cluster=~\"$cluster\", type=\"LLM\", model_name=~\"$model_name\", stream=\"true\"}[5m])) by (model_name)",
-          "legendFormat": "{{model_name}} (流式)",
+          "legendFormat": "{{model_name}} (Stream)",
           "refId": "A"
         },
         {
           "expr": "sum(rate(xinference:model_request_total{cluster=~\"$cluster\", type=\"LLM\", model_name=~\"$model_name\", stream=\"false\"}[5m])) by (model_name)",
-          "legendFormat": "{{model_name}} (非流式)",
+          "legendFormat": "{{model_name}} (Non-Stream)",
           "refId": "B"
         }
       ]
@@ -3327,12 +3327,12 @@
       "targets": [
         {
           "expr": "rate(xinference:time_to_first_token_seconds_sum{cluster=~\"$cluster\", model_name=~\"$model_name\", stream=\"true\"}[5m]) / rate(xinference:time_to_first_token_seconds_count{cluster=~\"$cluster\", model_name=~\"$model_name\", stream=\"true\"}[5m])",
-          "legendFormat": "{{model_name}} (流式)",
+          "legendFormat": "{{model_name}} (Stream)",
           "refId": "A"
         },
         {
           "expr": "rate(xinference:time_to_first_token_seconds_sum{cluster=~\"$cluster\", model_name=~\"$model_name\", stream=\"false\"}[5m]) / rate(xinference:time_to_first_token_seconds_count{cluster=~\"$cluster\", model_name=~\"$model_name\", stream=\"false\"}[5m])",
-          "legendFormat": "{{model_name}} (非流式)",
+          "legendFormat": "{{model_name}} (Non-Stream)",
           "refId": "B"
         }
       ]
@@ -5767,7 +5767,7 @@
         "current": {},
         "hide": 0,
         "includeAll": false,
-        "label": "告警数据源",
+        "label": "Alert Datasource",
         "multi": false,
         "name": "alert_datasource",
         "options": [],
