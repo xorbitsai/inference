@@ -2866,7 +2866,7 @@
     },
     {
       "id": 201,
-      "title": "LLM エラー率",
+      "title": "LLM 错误率",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -2961,7 +2961,7 @@
     },
     {
       "id": 202,
-      "title": "LLM 遅延",
+      "title": "LLM 延迟",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -3784,7 +3784,7 @@
     },
     {
       "id": 111,
-      "title": "非LLMモデル遅延",
+      "title": "非 LLM 模型延迟",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -3880,7 +3880,7 @@
     },
     {
       "id": 114,
-      "title": "非LLM エラー率",
+      "title": "非 LLM 错误率",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
