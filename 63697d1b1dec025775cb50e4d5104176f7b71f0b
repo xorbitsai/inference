@@ -1,0 +1,42 @@
+monitor/alert/rules-zh-CN.yml
+  82846b2fd13a9946 1-65
+monitor/alert/rules-ja.yml
+  82846b2fd13a9946 1-65
+monitor/alert/rules-ko.yml
+  82846b2fd13a9946 1-65
+monitor/alert/README_zh-CN.md
+  82846b2fd13a9946 1-92
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.13",
+  "base_commit_sha": "63697d1b1dec025775cb50e4d5104176f7b71f0b",
+  "prompts": {
+    "5ab4e40cfedf5e58": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "249adde5-abb6-40b1-a157-ce71e3d4500c",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 192,
+      "overriden_lines": 0
+    },
+    "82846b2fd13a9946": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "680bf33c-30ef-4cc4-9707-4808202c1e99",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 287,
+      "total_deletions": 0,
+      "accepted_lines": 287,
+      "overriden_lines": 0
+    }
+  }
+}
