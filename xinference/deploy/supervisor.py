@@ -27,7 +27,7 @@ from ..constants import (
     XINFERENCE_HEALTH_CHECK_INTERVAL,
 )
 from ..core.supervisor import SupervisorActor
-from .utils import health_check, AddressFormatter
+from .utils import AddressFormatter, health_check
 
 logger = logging.getLogger(__name__)
 

@@ -65,7 +65,7 @@ async def _start_worker(
     metrics_exporter_port: Optional[int] = None,
     logging_conf: Any = None,
 ):
-    from .utils import create_worker_actor_pool, AddressFormatter
+    from .utils import AddressFormatter, create_worker_actor_pool
 
     AddressFormatter.update_address("worker", address)
 

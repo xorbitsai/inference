@@ -435,9 +435,7 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             **kwargs,
         )
         _elapsed = time.monotonic() - _start
-        _n_tokens = getattr(
-            getattr(self, "_token_tracking_data", None), "n_tokens", 0
-        )
+        _n_tokens = getattr(getattr(self, "_token_tracking_data", None), "n_tokens", 0)
         logger.info(
             "Rerank completed, docs=%d, elapsed=%.3fs, tokens=%d",
             documents_size,

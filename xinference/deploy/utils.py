@@ -94,8 +94,12 @@ class AddressFormatter(logging.Formatter):
 
 
 def get_config_dict(
-    log_level: str, log_file_path: str, log_backup_count: int, log_max_bytes: int,
-    role: str = "", address: str = "",
+    log_level: str,
+    log_file_path: str,
+    log_backup_count: int,
+    log_max_bytes: int,
+    role: str = "",
+    address: str = "",
 ) -> dict:
     # for windows, the path should be a raw string.
     log_file_path = (
