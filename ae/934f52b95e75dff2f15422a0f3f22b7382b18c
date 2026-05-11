@@ -1,0 +1,65 @@
+monitor/filebate/es-index-template.json
+  4c2bf753eada2c7e 1-44
+monitor/filebate/filebeat-to-es.yml
+  4c2bf753eada2c7e 1-160
+monitor/filebate/filebeat-to-kafka.yml
+  4c2bf753eada2c7e 1-158
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.14",
+  "base_commit_sha": "ae934f52b95e75dff2f15422a0f3f22b7382b18c",
+  "prompts": {
+    "4c2bf753eada2c7e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "002fe0a4-7bd1-4bda-85f8-f236fea72f22",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 7205,
+      "total_deletions": 0,
+      "accepted_lines": 7676,
+      "overriden_lines": 0
+    },
+    "82846b2fd13a9946": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "680bf33c-30ef-4cc4-9707-4808202c1e99",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 231,
+      "overriden_lines": 0,
+      "token_usage": {
+        "input_tokens": 628755,
+        "output_tokens": 8545,
+        "cache_read_tokens": 1089916,
+        "cache_creation_tokens": 0,
+        "total_cost": null
+      }
+    },
+    "fbd0a7434a0e56c7": {
+      "agent_id": {
+        "tool": "known_human",
+        "id": "known_human_session",
+        "model": "unknown"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_9bfd4e7cd8cc2c": {
+      "author": "郑明再"
+    }
+  }
+}
