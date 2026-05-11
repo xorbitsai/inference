@@ -436,12 +436,19 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
         )
         _elapsed = time.monotonic() - _start
         _n_tokens = getattr(getattr(self, "_token_tracking_data", None), "n_tokens", 0)
-        logger.info(
-            "Rerank completed, docs=%d, elapsed=%.3fs, tokens=%d",
-            documents_size,
-            _elapsed,
-            _n_tokens,
-        )
+        if _n_tokens > 0:
+            logger.info(
+                "Rerank completed, docs=%d, elapsed=%.3fs, tokens=%d",
+                documents_size,
+                _elapsed,
+                _n_tokens,
+            )
+        else:
+            logger.info(
+                "Rerank completed, docs=%d, elapsed=%.3fs",
+                documents_size,
+                _elapsed,
+            )
         sim_scores_argsort = list(reversed(np.argsort(similarity_scores)))
         if top_n is not None:
             sim_scores_argsort = sim_scores_argsort[:top_n]

@@ -33,7 +33,7 @@ filebeat.inputs:
 
 processors:
   - dissect:
-      tokenizer: "%{_date} %{_time} %{module} %{pid} [%{_identity}] %{level} %{->}%{message_content}"
+      tokenizer: "%{_date} %{_time} %{module} %{->}%{pid} [%{_identity}] %{level} %{->}%{message_content}"
       field: "message"
       target_prefix: ""
       ignore_failure: true
@@ -61,11 +61,20 @@ processors:
           var raw = event.Get("message");
           if (raw) {
             var rtfMatch = raw.match(/rtf_avg:\s*([-\d.]+)/);
-            if (rtfMatch) event.Put("rtf_avg", parseFloat(rtfMatch[1]));
+            if (rtfMatch) {
+              var val = parseFloat(rtfMatch[1]);
+              if (!isNaN(val)) event.Put("rtf_avg", val);
+            }
             var tsMatch = raw.match(/time_speech:\s*([\d.]+)/);
-            if (tsMatch) event.Put("time_speech", parseFloat(tsMatch[1]));
+            if (tsMatch) {
+              var val = parseFloat(tsMatch[1]);
+              if (!isNaN(val)) event.Put("time_speech", val);
+            }
             var teMatch = raw.match(/time_escape:\s*([\d.]+)/);
-            if (teMatch) event.Put("time_escape", parseFloat(teMatch[1]));
+            if (teMatch) {
+              var val = parseFloat(teMatch[1]);
+              if (!isNaN(val)) event.Put("time_escape", val);
+            }
           }
 
           var mc = event.Get("message_content");
@@ -112,6 +121,7 @@ processors:
       field: "_datetime"
       layouts:
         - '2006-01-02 15:04:05,000'
+      # Change to your local timezone if xinference logs use local time
       timezone: "Asia/Shanghai"
       ignore_failure: true
 
