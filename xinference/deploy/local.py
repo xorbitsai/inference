@@ -52,6 +52,8 @@ async def _start_local_cluster(
         logging.config.dictConfig(logging_conf)  # type: ignore
 
     AddressFormatter.update_address("local", address)
+    if logging_conf and "formatters" in logging_conf:
+        logging_conf["formatters"]["formatter"]["address"] = address
 
     pool = None
     try:

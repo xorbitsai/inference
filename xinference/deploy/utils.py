@@ -18,6 +18,7 @@ import logging.handlers
 import os
 import time
 import typing
+import weakref
 from typing import TYPE_CHECKING, Any, Optional
 
 import xoscar as xo
@@ -73,13 +74,13 @@ def get_log_file(sub_dir: str):
 
 
 class AddressFormatter(logging.Formatter):
-    _instances: list = []
+    _instances: weakref.WeakSet = weakref.WeakSet()
 
     def __init__(self, fmt=None, datefmt=None, style="%", role="", address=""):
         super().__init__(fmt, datefmt, style)
         self.role = role
         self.address = address
-        AddressFormatter._instances.append(self)
+        AddressFormatter._instances.add(self)
 
     def format(self, record):
         record.xinference_role = self.role
