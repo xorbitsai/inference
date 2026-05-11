@@ -484,7 +484,15 @@ def retry_download(
     last_ex = None
     for current_attempt in range(1, XINFERENCE_DOWNLOAD_MAX_ATTEMPTS + 1):
         try:
-            return download_func(*args, **kwargs)
+            logger.info(
+                "Start downloading model '%s', attempt %d/%d",
+                model_name,
+                current_attempt,
+                XINFERENCE_DOWNLOAD_MAX_ATTEMPTS,
+            )
+            result = download_func(*args, **kwargs)
+            logger.info("Model '%s' downloaded successfully to %s", model_name, result)
+            return result
         except Exception as e:
             remaining_attempts = XINFERENCE_DOWNLOAD_MAX_ATTEMPTS - current_attempt
             last_ex = e

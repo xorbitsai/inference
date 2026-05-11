@@ -107,6 +107,8 @@ def start_local_cluster(
         get_log_file(f"local_{get_timestamp_ms()}"),
         XINFERENCE_LOG_BACKUP_COUNT,
         XINFERENCE_LOG_MAX_BYTES,
+        role="local",
+        address=f"{host}:{port}",
     )
     logging.config.dictConfig(dict_config)  # type: ignore
     # refer to https://huggingface.co/docs/transformers/main_classes/logging
@@ -283,6 +285,8 @@ def supervisor(
         get_log_file(f"supervisor_{get_timestamp_ms()}"),
         XINFERENCE_LOG_BACKUP_COUNT,
         XINFERENCE_LOG_MAX_BYTES,
+        role="supervisor",
+        address=f"{host}:{supervisor_port or ''}",
     )
     logging.config.dictConfig(dict_config)  # type: ignore
     set_envs("TRANSFORMERS_VERBOSITY", log_level.lower())
@@ -346,6 +350,8 @@ def worker(
         get_log_file(f"worker_{get_timestamp_ms()}"),
         XINFERENCE_LOG_BACKUP_COUNT,
         XINFERENCE_LOG_MAX_BYTES,
+        role="worker",
+        address=f"{host}:{worker_port or ''}",
     )
     logging.config.dictConfig(dict_config)  # type: ignore
     set_envs("TRANSFORMERS_VERBOSITY", log_level.lower())
