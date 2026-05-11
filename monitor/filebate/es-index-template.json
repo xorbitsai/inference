@@ -1,0 +1,44 @@
+{
+  "index_patterns": ["xinference-logs-*"],
+  "template": {
+    "settings": {
+      "number_of_shards": 2,
+      "number_of_replicas": 1,
+      "index.refresh_interval": "5s",
+      "index.lifecycle.name": "xinference-logs-policy",
+      "index.lifecycle.rollover_alias": "xinference-logs"
+    },
+    "mappings": {
+      "dynamic": "strict",
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "@version":   { "type": "keyword", "index": false },
+        "cluster":    { "type": "keyword" },
+        "log_type":   { "type": "keyword" },
+        "node":       { "type": "keyword" },
+        "address":    { "type": "keyword" },
+        "module":     { "type": "keyword" },
+        "pid":        { "type": "keyword" },
+        "level":      { "type": "keyword" },
+        "message": {
+          "type": "text",
+          "analyzer": "standard",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 1024
+            }
+          }
+        },
+        "request_id": { "type": "keyword" },
+        "rtf_avg":    { "type": "float" },
+        "time_speech": { "type": "float" },
+        "time_escape": { "type": "float" }
+      }
+    }
+  },
+  "priority": 200,
+  "_meta": {
+    "description": "Xinference worker/supervisor 日志索引模板"
+  }
+}
