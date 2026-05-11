@@ -1,0 +1,21 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.14",
+  "base_commit_sha": "5783eb425fa1d21505eb510c7f108c705b891a9b",
+  "prompts": {
+    "4c2bf753eada2c7e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "002fe0a4-7bd1-4bda-85f8-f236fea72f22",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 4856,
+      "overriden_lines": 0
+    }
+  }
+}
