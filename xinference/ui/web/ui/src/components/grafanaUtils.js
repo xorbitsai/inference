@@ -1,7 +1,12 @@
 /**
  * Build Grafana iframe URL for the full dashboard (kiosk mode).
  */
-export const buildGrafanaUrl = (config, theme = 'light', from = 'now-1h', to = 'now') => {
+export const buildGrafanaUrl = (
+  config,
+  theme = 'light',
+  from = 'now-1h',
+  to = 'now'
+) => {
   const {
     grafana_url,
     grafana_dashboard_uid,
