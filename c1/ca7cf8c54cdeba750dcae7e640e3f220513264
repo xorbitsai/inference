@@ -1,0 +1,38 @@
+xinference/ui/web/ui/src/scenes/monitoring/index.js
+  62ba9246def35c2d 47-51,101-103,180-186,332,341-343
+xinference/ui/web/ui/src/components/grafanaUtils.js
+  62ba9246def35c2d 4,21-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.14",
+  "base_commit_sha": "c1ca7cf8c54cdeba750dcae7e640e3f220513264",
+  "prompts": {
+    "62ba9246def35c2d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "22f7aac2-857a-498a-89e6-c9098f47a423",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 40,
+      "total_deletions": 9,
+      "accepted_lines": 115,
+      "overriden_lines": 0
+    },
+    "c6b8305a2dcadf7f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bed25967-2c9b-4d9e-a56e-5ad520f02316",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 5959,
+      "overriden_lines": 0
+    }
+  }
+}
