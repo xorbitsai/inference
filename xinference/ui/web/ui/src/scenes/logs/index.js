@@ -35,7 +35,13 @@ import {
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
-import React, { useCallback, useContext, useEffect, useRef, useState } from 'react'
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ApiContext } from '../../components/apiContext'
@@ -123,7 +129,10 @@ function DetailRow({ row }) {
           <Typography variant="caption" color="text.secondary">
             {t(`logs.detail.${key}`, key)}
           </Typography>
-          <Typography variant="body2" sx={{ fontSize: FONT_SIZE, wordBreak: 'break-all' }}>
+          <Typography
+            variant="body2"
+            sx={{ fontSize: FONT_SIZE, wordBreak: 'break-all' }}
+          >
             {String(val)}
           </Typography>
         </Box>
@@ -135,7 +144,8 @@ function DetailRow({ row }) {
 const Logs = () => {
   const { endPoint } = useContext(ApiContext)
   const { t, i18n } = useTranslation()
-  const dayjsLocale = DAYJS_LOCALE_MAP[(i18n.language || 'en').split('-')[0]] || 'en'
+  const dayjsLocale =
+    DAYJS_LOCALE_MAP[(i18n.language || 'en').split('-')[0]] || 'en'
 
   const [esEnabled, setEsEnabled] = useState(null)
   const [logs, setLogs] = useState([])
@@ -221,7 +231,16 @@ const Logs = () => {
         setTotal(0)
       })
       .finally(() => setLoading(false))
-  }, [endPoint, esEnabled, appliedSearch, selectedLevels, selectedLogType, selectedNode, timeRange, pageFrom])
+  }, [
+    endPoint,
+    esEnabled,
+    appliedSearch,
+    selectedLevels,
+    selectedLogType,
+    selectedNode,
+    timeRange,
+    pageFrom,
+  ])
 
   useEffect(() => {
     fetchLogs()
@@ -273,7 +292,9 @@ const Logs = () => {
       setTimeRange({ from: String(fromMs), to: String(toMs) })
       setTimeRangeLabel(null)
       setCustomDisplay(
-        `${customFrom.format('YYYY-MM-DD HH:mm')} ~ ${customTo.format('YYYY-MM-DD HH:mm')}`
+        `${customFrom.format('YYYY-MM-DD HH:mm')} ~ ${customTo.format(
+          'YYYY-MM-DD HH:mm'
+        )}`
       )
       setTimeAnchor(null)
       setPageFrom(0)
@@ -287,7 +308,12 @@ const Logs = () => {
 
   if (!esEnabled) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="calc(100vh - 64px)">
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        height="calc(100vh - 64px)"
+      >
         <Typography variant="h6" color="text.secondary">
           {t('logs.notConfigured')}
         </Typography>
@@ -309,11 +335,25 @@ const Logs = () => {
   }
 
   return (
-    <Box sx={{ width: '100%', height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column' }}>
+    <Box
+      sx={{
+        width: '100%',
+        height: 'calc(100vh - 64px)',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
       {/* Toolbar */}
       <Toolbar
         variant="dense"
-        sx={{ minHeight: 48, px: 2, gap: 1, borderBottom: 1, borderColor: 'divider', flexWrap: 'wrap' }}
+        sx={{
+          minHeight: 48,
+          px: 2,
+          gap: 1,
+          borderBottom: 1,
+          borderColor: 'divider',
+          flexWrap: 'wrap',
+        }}
       >
         {/* Search */}
         <TextField
@@ -322,7 +362,10 @@ const Logs = () => {
           value={searchText}
           onChange={handleSearchChange}
           onKeyDown={handleSearchKeyDown}
-          sx={{ 'width': 240, '& .MuiInputBase-input': { fontSize: FONT_SIZE } }}
+          sx={{
+            'width': 240,
+            '& .MuiInputBase-input': { fontSize: FONT_SIZE },
+          }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -340,7 +383,13 @@ const Logs = () => {
               label={level}
               size="small"
               variant={selectedLevels.includes(level) ? 'filled' : 'outlined'}
-              color={level === 'ERROR' ? 'error' : level === 'WARNING' ? 'warning' : 'default'}
+              color={
+                level === 'ERROR'
+                  ? 'error'
+                  : level === 'WARNING'
+                  ? 'warning'
+                  : 'default'
+              }
               onClick={() => toggleLevel(level)}
               sx={{ fontSize: FONT_SIZE }}
             />
@@ -408,15 +457,28 @@ const Logs = () => {
           transformOrigin={{ vertical: 'top', horizontal: 'right' }}
         >
           <Box sx={{ display: 'flex', width: 480, maxHeight: 400 }}>
-            <Box sx={{ width: 240, p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ fontSize: FONT_SIZE }}>
+            <Box
+              sx={{
+                width: 240,
+                p: 2,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1.5,
+              }}
+            >
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                sx={{ fontSize: FONT_SIZE }}
+              >
                 {t('monitoring.absoluteRange')}
               </Typography>
               <LocalizationProvider
                 dateAdapter={AdapterDayjs}
                 adapterLocale={dayjsLocale}
                 localeText={
-                  PICKER_LOCALE_TEXT[(i18n.language || 'en').split('-')[0]] || PICKER_LOCALE_TEXT.en
+                  PICKER_LOCALE_TEXT[(i18n.language || 'en').split('-')[0]] ||
+                  PICKER_LOCALE_TEXT.en
                 }
               >
                 <DateTimePicker
@@ -477,10 +539,18 @@ const Logs = () => {
           <TableHead>
             <TableRow>
               <TableCell sx={{ width: 32, fontSize: FONT_SIZE }} />
-              <TableCell sx={{ width: 150, fontSize: FONT_SIZE }}>{t('logs.time')}</TableCell>
-              <TableCell sx={{ width: 80, fontSize: FONT_SIZE }}>{t('logs.level')}</TableCell>
-              <TableCell sx={{ width: 160, fontSize: FONT_SIZE }}>{t('logs.node')}</TableCell>
-              <TableCell sx={{ fontSize: FONT_SIZE }}>{t('logs.message')}</TableCell>
+              <TableCell sx={{ width: 150, fontSize: FONT_SIZE }}>
+                {t('logs.time')}
+              </TableCell>
+              <TableCell sx={{ width: 80, fontSize: FONT_SIZE }}>
+                {t('logs.level')}
+              </TableCell>
+              <TableCell sx={{ width: 160, fontSize: FONT_SIZE }}>
+                {t('logs.node')}
+              </TableCell>
+              <TableCell sx={{ fontSize: FONT_SIZE }}>
+                {t('logs.message')}
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -490,7 +560,12 @@ const Logs = () => {
                 <React.Fragment key={idx}>
                   <TableRow
                     hover
-                    sx={{ 'cursor': 'pointer', '& > *': { borderBottom: isExpanded ? 'none' : undefined } }}
+                    sx={{
+                      'cursor': 'pointer',
+                      '& > *': {
+                        borderBottom: isExpanded ? 'none' : undefined,
+                      },
+                    }}
                     onClick={() => setExpandedRow(isExpanded ? null : idx)}
                   >
                     <TableCell sx={{ fontSize: FONT_SIZE, p: 0.5 }}>
@@ -502,7 +577,9 @@ const Logs = () => {
                         }}
                       />
                     </TableCell>
-                    <TableCell sx={{ fontSize: FONT_SIZE, whiteSpace: 'nowrap' }}>
+                    <TableCell
+                      sx={{ fontSize: FONT_SIZE, whiteSpace: 'nowrap' }}
+                    >
                       {formatTime(row['@timestamp'])}
                     </TableCell>
                     <TableCell sx={{ fontSize: FONT_SIZE }}>
@@ -517,7 +594,9 @@ const Logs = () => {
                         {row.level}
                       </Typography>
                     </TableCell>
-                    <TableCell sx={{ fontSize: FONT_SIZE }}>{row.node}</TableCell>
+                    <TableCell sx={{ fontSize: FONT_SIZE }}>
+                      {row.node}
+                    </TableCell>
                     <TableCell
                       sx={{
                         fontSize: FONT_SIZE,
@@ -527,7 +606,10 @@ const Logs = () => {
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      <HighlightText text={row.message} keyword={appliedSearch} />
+                      <HighlightText
+                        text={row.message}
+                        keyword={appliedSearch}
+                      />
                     </TableCell>
                   </TableRow>
                   <TableRow>
@@ -536,7 +618,10 @@ const Logs = () => {
                         <DetailRow row={row} />
                         {row.message && (
                           <Box sx={{ px: 2, pb: 2 }}>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
                               {t('logs.fullMessage')}
                             </Typography>
                             <Typography
@@ -551,7 +636,10 @@ const Logs = () => {
                                 borderRadius: 1,
                               }}
                             >
-                              <HighlightText text={row.message} keyword={appliedSearch} />
+                              <HighlightText
+                                text={row.message}
+                                keyword={appliedSearch}
+                              />
                             </Typography>
                           </Box>
                         )}
@@ -564,7 +652,9 @@ const Logs = () => {
             {!loading && logs.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
-                  <Typography color="text.secondary">{t('logs.noLogs')}</Typography>
+                  <Typography color="text.secondary">
+                    {t('logs.noLogs')}
+                  </Typography>
                 </TableCell>
               </TableRow>
             )}
@@ -575,7 +665,14 @@ const Logs = () => {
       {/* Pagination */}
       <Toolbar
         variant="dense"
-        sx={{ minHeight: 40, px: 2, justifyContent: 'flex-end', gap: 1, borderTop: 1, borderColor: 'divider' }}
+        sx={{
+          minHeight: 40,
+          px: 2,
+          justifyContent: 'flex-end',
+          gap: 1,
+          borderTop: 1,
+          borderColor: 'divider',
+        }}
       >
         <Typography variant="body2" sx={{ fontSize: FONT_SIZE }}>
           {t('logs.totalHits', { count: total })}
@@ -593,7 +690,9 @@ const Logs = () => {
         </Typography>
         <Button
           size="small"
-          disabled={pageFrom + PAGE_SIZE >= total || pageFrom + PAGE_SIZE > 10000}
+          disabled={
+            pageFrom + PAGE_SIZE >= total || pageFrom + PAGE_SIZE > 10000
+          }
           onClick={() => setPageFrom(pageFrom + PAGE_SIZE)}
           sx={{ fontSize: FONT_SIZE, textTransform: 'none' }}
         >
