@@ -17,7 +17,9 @@ export const buildGrafanaUrl = (
   } = config
   if (!grafana_url) return null
 
-  let url = `${grafana_url}/d/${grafana_dashboard_uid}?orgId=1&kiosk&theme=${theme}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
+  let url = `${grafana_url}/d/${grafana_dashboard_uid}?orgId=1&kiosk&theme=${theme}&from=${encodeURIComponent(
+    from
+  )}&to=${encodeURIComponent(to)}`
 
   if (grafana_datasource) {
     url += `&var-datasource=${encodeURIComponent(grafana_datasource)}`
