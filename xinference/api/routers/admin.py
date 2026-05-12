@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import signal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from fastapi import Depends, HTTPException, Query, Request, Security
 
@@ -297,20 +297,33 @@ async def search_logs(
     page_from = max(0, min(page_from, 10000))
 
     must = []
-    filter_clauses = [{"range": {"@timestamp": {"gte": time_from, "lte": time_to}}}]
+    filter_clauses: list[dict[str, Any]] = [
+        {"range": {"@timestamp": {"gte": time_from, "lte": time_to}}}
+    ]
 
     if q:
         must.append(
-            {"simple_query_string": {"query": q, "fields": ["message"], "default_operator": "AND"}}
+            {
+                "simple_query_string": {
+                    "query": q,
+                    "fields": ["message"],
+                    "default_operator": "AND",
+                }
+            }
         )
 
-    for field, value in [("level", level), ("module", module), ("node", node), ("log_type", log_type)]:
+    for field, value in [
+        ("level", level),
+        ("module", module),
+        ("node", node),
+        ("log_type", log_type),
+    ]:
         if value:
             terms = [v.strip() for v in value.split(",") if v.strip()]
             if terms:
                 filter_clauses.append({"terms": {field: terms}})
 
-    body = {
+    body: dict[str, Any] = {
         "query": {"bool": {"must": must, "filter": filter_clauses}},
         "sort": [{"@timestamp": "desc"}],
         "from": page_from,
@@ -336,16 +349,24 @@ async def search_logs(
             async with session.post(url, json=body, headers=headers) as resp:
                 if resp.status != 200:
                     text = await resp.text()
-                    logger.error("ES query failed: status=%d body=%s", resp.status, text[:500])
-                    raise HTTPException(status_code=502, detail="Elasticsearch query failed")
+                    logger.error(
+                        "ES query failed: status=%d body=%s", resp.status, text[:500]
+                    )
+                    raise HTTPException(
+                        status_code=502, detail="Elasticsearch query failed"
+                    )
                 data = await resp.json()
     except aiohttp.ClientError as e:
         logger.error("ES connection error: %s", e)
-        raise HTTPException(status_code=502, detail="Failed to connect to Elasticsearch")
+        raise HTTPException(
+            status_code=502, detail="Failed to connect to Elasticsearch"
+        )
 
     hits = [hit["_source"] for hit in data.get("hits", {}).get("hits", [])]
     total_value = data.get("hits", {}).get("total", {})
-    total = total_value.get("value", 0) if isinstance(total_value, dict) else total_value
+    total = (
+        total_value.get("value", 0) if isinstance(total_value, dict) else total_value
+    )
 
     return JSONResponse(content={"hits": hits, "total": total})
 
