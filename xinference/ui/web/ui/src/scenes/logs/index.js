@@ -162,7 +162,10 @@ const Logs = () => {
 
   useEffect(() => {
     fetch(endPoint + '/v1/cluster/ui_config')
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error('Network response was not ok')
+        return res.json()
+      })
       .then((data) => setEsEnabled(data.es_enabled || false))
       .catch(() => setEsEnabled(false))
   }, [endPoint])
@@ -295,7 +298,14 @@ const Logs = () => {
   const formatTime = (ts) => {
     if (!ts) return ''
     const d = new Date(ts)
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    return d.toLocaleString([], {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    })
   }
 
   return (
@@ -467,7 +477,7 @@ const Logs = () => {
           <TableHead>
             <TableRow>
               <TableCell sx={{ width: 32, fontSize: FONT_SIZE }} />
-              <TableCell sx={{ width: 100, fontSize: FONT_SIZE }}>{t('logs.time')}</TableCell>
+              <TableCell sx={{ width: 150, fontSize: FONT_SIZE }}>{t('logs.time')}</TableCell>
               <TableCell sx={{ width: 80, fontSize: FONT_SIZE }}>{t('logs.level')}</TableCell>
               <TableCell sx={{ width: 160, fontSize: FONT_SIZE }}>{t('logs.node')}</TableCell>
               <TableCell sx={{ fontSize: FONT_SIZE }}>{t('logs.message')}</TableCell>

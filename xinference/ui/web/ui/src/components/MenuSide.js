@@ -45,7 +45,10 @@ const MenuSide = () => {
 
   useEffect(() => {
     fetch(endPoint + '/v1/cluster/ui_config')
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error('Network response was not ok')
+        return res.json()
+      })
       .then((data) => setEsEnabled(data.es_enabled || false))
       .catch(() => setEsEnabled(false))
   }, [endPoint])

@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import signal
 from typing import TYPE_CHECKING, Any
 
+import aiohttp
 from fastapi import Depends, HTTPException, Query, Request, Security
 
 from ..._version import get_versions
@@ -284,8 +286,6 @@ async def search_logs(
     size: int = 200,
     page_from: int = 0,
 ) -> JSONResponse:
-    import aiohttp
-
     es_url = os.environ.get("XINFERENCE_ES_URL", "")
     if not es_url:
         raise HTTPException(status_code=503, detail="Elasticsearch is not configured")
@@ -356,10 +356,11 @@ async def search_logs(
                         status_code=502, detail="Elasticsearch query failed"
                     )
                 data = await resp.json()
-    except aiohttp.ClientError as e:
-        logger.error("ES connection error: %s", e)
+    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        logger.error("ES connection error or timeout: %s", e)
         raise HTTPException(
-            status_code=502, detail="Failed to connect to Elasticsearch"
+            status_code=502,
+            detail="Failed to connect to Elasticsearch or query timed out",
         )
 
     hits = [hit["_source"] for hit in data.get("hits", {}).get("hits", [])]
