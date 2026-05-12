@@ -22,7 +22,9 @@ export const buildGrafanaUrl = (
     url += `&var-datasource=${encodeURIComponent(grafana_datasource)}`
   }
   if (grafana_alert_datasource) {
-    url += `&var-alert_datasource=${encodeURIComponent(grafana_alert_datasource)}`
+    url += `&var-alert_datasource=${encodeURIComponent(
+      grafana_alert_datasource
+    )}`
   }
   if (cluster_name) {
     url += `&var-cluster=${encodeURIComponent(cluster_name)}`
@@ -57,7 +59,9 @@ export const buildGrafanaPanelUrl = (
     url += `&var-datasource=${encodeURIComponent(grafana_datasource)}`
   }
   if (grafana_alert_datasource) {
-    url += `&var-alert_datasource=${encodeURIComponent(grafana_alert_datasource)}`
+    url += `&var-alert_datasource=${encodeURIComponent(
+      grafana_alert_datasource
+    )}`
   }
   if (cluster_name) {
     url += `&var-cluster=${encodeURIComponent(cluster_name)}`
