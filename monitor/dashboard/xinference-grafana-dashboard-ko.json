@@ -54,7 +54,7 @@
       "title": "Supervisor 가동 시간",
       "type": "stat",
       "gridPos": {
-        "h": 5,
+        "h": 6,
         "w": 4,
         "x": 0,
         "y": 1
@@ -109,7 +109,7 @@
       "title": "온라인 Worker 수",
       "type": "stat",
       "gridPos": {
-        "h": 5,
+        "h": 6,
         "w": 4,
         "x": 4,
         "y": 1
@@ -164,13 +164,13 @@
     },
     {
       "id": 50,
-      "title": "버전 정보",
+      "title": "설정 정보",
       "type": "table",
       "gridPos": {
-        "h": 5,
-        "w": 8,
+        "h": 6,
+        "w": 16,
         "x": 8,
-        "y": 6
+        "y": 1
       },
       "datasource": {
         "type": "prometheus",
@@ -179,11 +179,25 @@
       "fieldConfig": {
         "defaults": {
           "custom": {
-            "align": "auto",
+            "align": "center",
             "cellOptions": {
               "type": "auto"
             },
             "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
           }
         },
         "overrides": [
@@ -222,6 +236,30 @@
                 "value": true
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Xinference Address"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 239
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Xinference Role"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 184
+              }
+            ]
           }
         ]
       },
@@ -229,8 +267,14 @@
         "showHeader": true,
         "cellHeight": "sm",
         "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
           "show": false
-        }
+        },
+        "sortBy": []
       },
       "pluginVersion": "11.0.0",
       "transformations": [
@@ -241,8 +285,9 @@
               "names": [
                 "python_version",
                 "version",
+                "xinference_address",
                 "xinference_role",
-                "xinference_address"
+                "xinference_home"
               ]
             }
           }
@@ -265,148 +310,62 @@
             "renameByName": {
               "python_version": "Python Version",
               "version": "Xinference Version",
-              "xinference_role": "Xinference Role",
-              "xinference_address": "Xinference Address"
+              "xinference_address": "Xinference Address",
+              "xinference_home": "Xinference Home",
+              "xinference_role": "Xinference Role"
             }
           }
         }
       ],
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "label_replace(xinference:build_info{xinference_role=\"worker\",cluster=~\"$cluster\"}, \"xinference_address\", \"$1\", \"worker_address\", \"(.*)\")",
           "format": "table",
           "instant": true,
           "refId": "A"
         },
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "label_replace(xinference:build_info{xinference_role=\"supervisor\",cluster=~\"$cluster\"}, \"xinference_address\", \"$1\", \"supervisor_address\", \"(.*)\")",
           "format": "table",
           "instant": true,
           "hide": false,
           "refId": "B"
-        }
-      ]
-    },
-    {
-      "id": 51,
-      "title": "설정 정보 (XINFERENCE_HOME)",
-      "type": "table",
-      "gridPos": {
-        "h": 5,
-        "w": 8,
-        "x": 16,
-        "y": 11
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "auto",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "inspect": false
-          }
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Value"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
           },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Time"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "cluster"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm",
-        "footer": {
-          "show": false
-        }
-      },
-      "pluginVersion": "11.0.0",
-      "transformations": [
-        {
-          "id": "merge",
-          "options": {}
-        },
-        {
-          "id": "filterFieldsByName",
-          "options": {
-            "include": {
-              "names": [
-                "xinference_home",
-                "xinference_role",
-                "xinference_address"
-              ]
-            }
-          }
-        },
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {},
-            "includeByName": {},
-            "indexByName": {
-              "xinference_address": 0,
-              "xinference_role": 1,
-              "xinference_home": 2
-            },
-            "renameByName": {
-              "xinference_address": "Xinference Address",
-              "xinference_role": "Xinference Role",
-              "xinference_home": "Xinference Home"
-            }
-          }
-        }
-      ],
-      "targets": [
-        {
+          "editorMode": "code",
           "expr": "label_replace(xinference:config_info{xinference_role=\"worker\",cluster=~\"$cluster\"}, \"xinference_address\", \"$1\", \"worker_address\", \"(.*)\")",
           "format": "table",
-          "instant": true,
           "hide": false,
-          "refId": "A"
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "C"
         },
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
           "expr": "label_replace(xinference:config_info{xinference_role=\"supervisor\",cluster=~\"$cluster\"}, \"xinference_address\", \"$1\", \"supervisor_address\", \"(.*)\")",
           "format": "table",
-          "instant": true,
           "hide": false,
-          "refId": "B"
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "D"
         }
       ]
     },
@@ -1649,7 +1608,7 @@
       "targets": [
         {
           "expr": "xinference:model_serve_count{cluster=~\"$cluster\"}",
-          "legendFormat": "{{node}} {{model}}",
+          "legendFormat": "{{node}} {{model_name}} {{model}}",
           "refId": "A"
         }
       ]
@@ -2167,7 +2126,7 @@
             "properties": [
               {
                 "id": "displayName",
-                "value": "수정 불가 리맵 행"
+                "value": "비정정 리맵 행"
               },
               {
                 "id": "mappings",
@@ -2197,7 +2156,7 @@
             "properties": [
               {
                 "id": "displayName",
-                "value": "수정 가능 리맵 행"
+                "value": "정정 가능 리맵 행"
               },
               {
                 "id": "mappings",
@@ -4607,7 +4566,7 @@
       },
       "targets": [
         {
-          "expr": "(1 - (node_filesystem_avail_bytes{instance=~\"$supervisor_instance\", fstype!~\"tmpfs|overlay\"} / node_filesystem_size_bytes{instance=~\"$supervisor_instance\", fstype!~\"tmpfs|overlay\"})) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster =~\"$cluster\"})",
+          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"}) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster=~\"$cluster\", supervisor_address=~\"$supervisor_address\"})",
           "legendFormat": "{{supervisor_address}} {{mountpoint}}",
           "refId": "A"
         }
@@ -4890,12 +4849,12 @@
       },
       "targets": [
         {
-          "expr": "rate(node_network_receive_bytes_total{instance=~\"$supervisor_instance\", device!=\"lo\"}[5m]) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster =~\"$cluster\"})",
+          "expr": "rate(node_network_receive_bytes_total{instance=~\"$supervisor_instance\", device!~\"lo|docker.*|br-.*|veth.*\"}[5m]) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster =~\"$cluster\"})",
           "legendFormat": "{{supervisor_address}} {{device}} RX",
           "refId": "A"
         },
         {
-          "expr": "rate(node_network_transmit_bytes_total{instance=~\"$supervisor_instance\", device!=\"lo\"}[5m]) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster =~\"$cluster\"})",
+          "expr": "rate(node_network_transmit_bytes_total{instance=~\"$supervisor_instance\", device!~\"lo|docker.*|br-.*|veth.*\"}[5m]) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster =~\"$cluster\"})",
           "legendFormat": "{{supervisor_address}} {{device}} TX",
           "refId": "B"
         }
@@ -5727,19 +5686,19 @@
       },
       "targets": [
         {
-          "expr": "rate(node_network_receive_bytes_total{instance=~\"$worker_instance\", device!=\"lo\"}[5m]) * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster =~\"$cluster\"})",
+          "expr": "rate(node_network_receive_bytes_total{instance=~\"$worker_instance\", device!~\"lo|docker.*|br-.*|veth.*\"}[5m]) * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster =~\"$cluster\"})",
           "legendFormat": "{{worker_address}} {{device}} RX",
           "refId": "A"
         },
         {
-          "expr": "rate(node_network_transmit_bytes_total{instance=~\"$worker_instance\", device!=\"lo\"}[5m]) * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster =~\"$cluster\"})",
+          "expr": "rate(node_network_transmit_bytes_total{instance=~\"$worker_instance\", device!~\"lo|docker.*|br-.*|veth.*\"}[5m]) * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster =~\"$cluster\"})",
           "legendFormat": "{{worker_address}} {{device}} TX",
           "refId": "B"
         }
       ]
     }
   ],
-  "refresh": "1m",
+  "refresh": "30s",
   "schemaVersion": 39,
   "tags": [
     "xinference",
