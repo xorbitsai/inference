@@ -81,7 +81,8 @@ const Monitoring = () => {
   const [config, setConfig] = useState(null)
   const { t, i18n } = useTranslation()
 
-  const dayjsLocale = DAYJS_LOCALE_MAP[i18n.language] || 'en'
+  const dayjsLocale =
+    DAYJS_LOCALE_MAP[(i18n.language || 'en').split('-')[0]] || 'en'
 
   const [timeRange, setTimeRange] = useState({ from: 'now-1h', to: 'now' })
   const [timeRangeLabel, setTimeRangeLabel] = useState('monitoring.time.1h')
@@ -136,7 +137,13 @@ const Monitoring = () => {
   }
 
   const handleApplyAbsolute = () => {
-    if (customFrom && customTo && customFrom.isValid() && customTo.isValid()) {
+    if (
+      customFrom &&
+      customTo &&
+      customFrom.isValid() &&
+      customTo.isValid() &&
+      customTo.isAfter(customFrom)
+    ) {
       const fromMs = customFrom.valueOf()
       const toMs = customTo.valueOf()
       setTimeRange({ from: String(fromMs), to: String(toMs) })
@@ -230,7 +237,8 @@ const Monitoring = () => {
                 dateAdapter={AdapterDayjs}
                 adapterLocale={dayjsLocale}
                 localeText={
-                  PICKER_LOCALE_TEXT[i18n.language] || PICKER_LOCALE_TEXT.en
+                  PICKER_LOCALE_TEXT[(i18n.language || 'en').split('-')[0]] ||
+                  PICKER_LOCALE_TEXT.en
                 }
               >
                 <DateTimePicker
