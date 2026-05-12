@@ -1,0 +1,23 @@
+xinference/api/routers/admin.py
+  434b3bc2dc3394b2 297
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.14",
+  "base_commit_sha": "dfcfef5f193c2826fe7b3bf97045609acab7e3aa",
+  "prompts": {
+    "434b3bc2dc3394b2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dcb7cc0c-fef0-47e5-8593-3885e43cc537",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 6061,
+      "overriden_lines": 0
+    }
+  }
+}
