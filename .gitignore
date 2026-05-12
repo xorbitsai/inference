@@ -156,3 +156,4 @@ asv/results
 *.md
 !README.md
 !README_*.md
+.history/
