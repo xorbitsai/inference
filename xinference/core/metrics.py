@@ -88,6 +88,10 @@ model_request_limit_gauge = Gauge(
     "xinference:model_request_limit",
     "Maximum concurrent request limit for the model.",
 )
+model_last_load_duration_seconds = Gauge(
+    "xinference:model_last_load_duration_seconds",
+    "Duration of the last model load in seconds.",
+)
 
 # ===========================================================================
 # Supervisor-side cluster / worker / model info metrics
@@ -168,6 +172,22 @@ _SUPERVISOR_ONLY_METRICS = {
 }
 
 # ---------------------------------------------------------------------------
+# Worker-only metric names — removed from Supervisor Registry at startup
+# ---------------------------------------------------------------------------
+_WORKER_ONLY_METRICS = {
+    "xinference:generate_tokens_total",
+    "xinference:input_tokens_total_counter",
+    "xinference:output_tokens_total_counter",
+    "xinference:model_request_total",
+    "xinference:model_request_errors_total",
+    "xinference:model_request_duration_seconds",
+    "xinference:model_serve_count",
+    "xinference:model_request_limit",
+    "xinference:time_to_first_token_seconds",
+    "xinference:model_last_load_duration_seconds",
+}
+
+# ---------------------------------------------------------------------------
 # Stale-label tracking sets for update_cluster_metrics()
 # ---------------------------------------------------------------------------
 _prev_worker_labels: Set[Tuple[str, ...]] = set()
@@ -180,7 +200,12 @@ _prev_gpu_binding_labels: Set[Tuple[str, ...]] = set()
 def record_metrics(name, op, kwargs):
     collector = globals().get(name)
     if collector is not None:
-        getattr(collector, op)(**kwargs)
+        try:
+            getattr(collector, op)(**kwargs)
+        except Exception:
+            logger.exception(
+                "Failed to record metric %s.%s with kwargs=%s", name, op, kwargs
+            )
 
 
 def set_build_info(

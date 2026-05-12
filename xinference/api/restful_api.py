@@ -274,8 +274,12 @@ class RESTfulAPI(CancelMixin):
             # Only remove MetricsMiddleware's HTTP counters to avoid duplicates
             # on restart; preserve xinference:* custom metrics registered at
             # module level in metrics.py.
+            from xinference.core.metrics import _WORKER_ONLY_METRICS
+
             for collector in list(REGISTRY.get_all()):
                 if not collector.name.startswith("xinference:"):
+                    REGISTRY.deregister(collector.name)
+                elif collector.name in _WORKER_ONLY_METRICS:
                     REGISTRY.deregister(collector.name)
             self._app.add_middleware(MetricsMiddleware)
             self._app.include_router(self._router)

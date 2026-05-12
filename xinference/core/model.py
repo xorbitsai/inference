@@ -273,13 +273,23 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         self._worker_ref = None
         self._progress_tracker_ref = None
         self._serve_count = 0
+        model_type = self._model_description.get("model_type", "unknown")
+        if model_type in ("audio", "video"):
+            engine_label = ""
+            format_label = ""
+        elif model_type == "image":
+            engine_label = model_engine or ""
+            format_label = ""
+        else:
+            engine_label = model_engine or "unknown"
+            format_label = self._model_description.get("model_format", "unknown")
         self._metrics_labels = {
-            "type": self._model_description.get("model_type", "unknown"),
+            "type": model_type,
             "model": self.model_uid(),
             "model_name": self._model_description.get("model_name", "unknown"),
-            "engine": model_engine or "unknown",
+            "engine": engine_label,
             "node": self._worker_address,
-            "format": self._model_description.get("model_format", "unknown"),
+            "format": format_label,
             "quantization": self._model_description.get("quantization", "none"),
             "gpu_index": ",".join(
                 str(a) for a in (self._model_description.get("accelerators") or [])
@@ -1021,6 +1031,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 )
         raise AttributeError(f"Model {self._model.model_spec} is not for txt2img.")
 
+    @request_limit
     @log_async(
         logger=logger,
         ignore_kwargs=["image"],
@@ -1073,6 +1084,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 )
         raise AttributeError(f"Model {self._model.model_spec} is not for img2img.")
 
+    @request_limit
     @log_async(
         logger=logger,
         ignore_kwargs=["image"],
@@ -1110,6 +1122,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             f"Model {self._model.model_spec} is not for creating image."
         )
 
+    @request_limit
     @log_async(
         logger=logger,
         ignore_kwargs=["image"],

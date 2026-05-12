@@ -2119,7 +2119,19 @@ class WorkerActor(xo.StatelessActor):
 
                 with progressor:
                     try:
+                        _load_start = time.time()
                         await model_ref.load()
+                        _load_duration = time.time() - _load_start
+                        from .metrics import model_last_load_duration_seconds
+
+                        model_last_load_duration_seconds.set(
+                            {
+                                "model_name": model_name,
+                                "model_type": model_type,
+                                "worker_address": self.address,
+                            },
+                            _load_duration,
+                        )
                     except xo.ServerClosed:
                         check_cancel()
                         raise
