@@ -929,7 +929,8 @@ class RESTfulAPI(CancelMixin):
                     yield dict(data=json.dumps({"error": str(ex)}))
                     return
                 finally:
-                    await model.decrease_serve_count()
+                    if iterator is not None:
+                        await model.decrease_serve_count()
 
             return EventSourceResponse(
                 stream_results(), ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
@@ -1063,7 +1064,8 @@ class RESTfulAPI(CancelMixin):
                     yield dict(data=json.dumps({"error": str(ex)}))
                     return
                 finally:
-                    await model.decrease_serve_count()
+                    if iterator is not None:
+                        await model.decrease_serve_count()
 
             return EventSourceResponse(
                 stream_results(), ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
@@ -2137,7 +2139,8 @@ class RESTfulAPI(CancelMixin):
                     yield dict(data=json.dumps({"error": str(ex)}))
                     return
                 finally:
-                    await model.decrease_serve_count()
+                    if iterator is not None:
+                        await model.decrease_serve_count()
 
             return EventSourceResponse(
                 stream_results(), ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS

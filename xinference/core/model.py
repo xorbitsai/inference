@@ -36,6 +36,7 @@ from typing import (
 
 import sse_starlette.sse
 import xoscar as xo
+from xoscar.api import IteratorWrapper
 
 from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
@@ -127,7 +128,9 @@ def request_limit(fn):
         finally:
             duration = time.time() - start_time
             _is_stream = ret is not None and (
-                inspect.isasyncgen(ret) or inspect.isgenerator(ret)
+                inspect.isasyncgen(ret)
+                or inspect.isgenerator(ret)
+                or isinstance(ret, IteratorWrapper)
             )
             stream_label = "true" if _is_stream else "false"
             await self.record_metrics(
