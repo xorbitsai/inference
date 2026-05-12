@@ -1,28 +1,34 @@
 /**
  * Build Grafana iframe URL for the full dashboard (kiosk mode).
  */
-export const buildGrafanaUrl = (config, theme = 'light', from, to, refresh) => {
+export const buildGrafanaUrl = (
+  config,
+  theme = 'light',
+  from = 'now-1h',
+  to = 'now',
+  refresh
+) => {
   const {
     grafana_url,
     grafana_dashboard_uid,
     grafana_datasource,
+    grafana_alert_datasource,
     cluster_name,
   } = config
   if (!grafana_url) return null
 
-  let url = `${grafana_url}/d/${grafana_dashboard_uid}?orgId=1&kiosk=tv&theme=${theme}`
+  let url = `${grafana_url}/d/${grafana_dashboard_uid}?orgId=1&kiosk&theme=${theme}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
 
   if (grafana_datasource) {
     url += `&var-datasource=${encodeURIComponent(grafana_datasource)}`
   }
+  if (grafana_alert_datasource) {
+    url += `&var-alert_datasource=${encodeURIComponent(
+      grafana_alert_datasource
+    )}`
+  }
   if (cluster_name) {
     url += `&var-cluster=${encodeURIComponent(cluster_name)}`
-  }
-  if (from) {
-    url += `&from=${encodeURIComponent(from)}`
-  }
-  if (to) {
-    url += `&to=${encodeURIComponent(to)}`
   }
   if (refresh !== undefined) {
     url += `&refresh=${encodeURIComponent(refresh)}`
@@ -38,20 +44,28 @@ export const buildGrafanaPanelUrl = (
   config,
   panelId,
   modelName,
-  theme = 'light'
+  theme = 'light',
+  from = 'now-1h',
+  to = 'now'
 ) => {
   const {
     grafana_url,
     grafana_dashboard_uid,
     grafana_datasource,
+    grafana_alert_datasource,
     cluster_name,
   } = config
   if (!grafana_url) return null
 
-  let url = `${grafana_url}/d-solo/${grafana_dashboard_uid}?orgId=1&theme=${theme}&panelId=${panelId}`
+  let url = `${grafana_url}/d-solo/${grafana_dashboard_uid}?orgId=1&kiosk&theme=${theme}&panelId=${panelId}&from=${from}&to=${to}`
 
   if (grafana_datasource) {
     url += `&var-datasource=${encodeURIComponent(grafana_datasource)}`
+  }
+  if (grafana_alert_datasource) {
+    url += `&var-alert_datasource=${encodeURIComponent(
+      grafana_alert_datasource
+    )}`
   }
   if (cluster_name) {
     url += `&var-cluster=${encodeURIComponent(cluster_name)}`

@@ -1,0 +1,43 @@
+# Docker Compose 示例: 部署 Filebeat 采集 xinference 日志
+# 选择 ES 或 Kafka 方案, 修改 command 中的配置文件路径即可
+
+version: "3.8"
+
+services:
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.13.4
+    container_name: filebeat-xinference
+    user: root
+    # 切换配置: filebeat-to-es.yml 或 filebeat-to-kafka.yml
+    command: filebeat -e -strict.perms=false -c /usr/share/filebeat/filebeat.yml
+    volumes:
+      # 挂载配置文件 (二选一)
+      - ./filebeat-to-es.yml:/usr/share/filebeat/filebeat.yml:ro
+      # - ./filebeat-to-kafka.yml:/usr/share/filebeat/filebeat.yml:ro
+
+      # 挂载日志目录 (修改为实际路径)
+      - /data/logs/worker:/data/logs/worker:ro
+      - /data/logs/supervisor:/data/logs/supervisor:ro
+
+      # Filebeat 数据目录 (记录采集进度, 重启不丢失)
+      - filebeat-data:/usr/share/filebeat/data
+    # 资源限制: 避免积压追赶或下游故障时挤压推理服务
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+        reservations:
+          cpus: "0.10"
+          memory: 64M
+    restart: unless-stopped
+    networks:
+      - monitoring
+
+networks:
+  monitoring:
+    external: true
+
+volumes:
+  filebeat-data:
+    driver: local

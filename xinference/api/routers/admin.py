@@ -255,10 +255,15 @@ async def get_progress(
 
 
 async def get_ui_config() -> JSONResponse:
+    grafana_datasource = os.environ.get("XINFERENCE_GRAFANA_DATASOURCE", "")
     return JSONResponse(
         content={
             "grafana_url": os.environ.get("XINFERENCE_GRAFANA_URL", ""),
-            "grafana_datasource": os.environ.get("XINFERENCE_GRAFANA_DATASOURCE", ""),
+            "grafana_datasource": grafana_datasource,
+            "grafana_alert_datasource": os.environ.get(
+                "XINFERENCE_GRAFANA_ALERT_DATASOURCE", ""
+            )
+            or grafana_datasource,
             "grafana_dashboard_uid": os.environ.get(
                 "XINFERENCE_GRAFANA_DASHBOARD_UID", "xinference-overview"
             ),

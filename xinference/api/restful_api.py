@@ -274,8 +274,12 @@ class RESTfulAPI(CancelMixin):
             # Only remove MetricsMiddleware's HTTP counters to avoid duplicates
             # on restart; preserve xinference:* custom metrics registered at
             # module level in metrics.py.
+            from ..core.metrics import _WORKER_ONLY_METRICS
+
             for collector in list(REGISTRY.get_all()):
                 if not collector.name.startswith("xinference:"):
+                    REGISTRY.deregister(collector.name)
+                elif collector.name in _WORKER_ONLY_METRICS:
                     REGISTRY.deregister(collector.name)
             self._app.add_middleware(MetricsMiddleware)
             self._app.include_router(self._router)
@@ -925,7 +929,15 @@ class RESTfulAPI(CancelMixin):
                     yield dict(data=json.dumps({"error": str(ex)}))
                     return
                 finally:
-                    await model.decrease_serve_count()
+                    if iterator is not None:
+                        from xoscar.api import IteratorWrapper
+
+                        if (
+                            inspect.isasyncgen(iterator)
+                            or inspect.isgenerator(iterator)
+                            or isinstance(iterator, IteratorWrapper)
+                        ):
+                            await model.decrease_serve_count()
 
             return EventSourceResponse(
                 stream_results(), ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
@@ -1059,7 +1071,15 @@ class RESTfulAPI(CancelMixin):
                     yield dict(data=json.dumps({"error": str(ex)}))
                     return
                 finally:
-                    await model.decrease_serve_count()
+                    if iterator is not None:
+                        from xoscar.api import IteratorWrapper
+
+                        if (
+                            inspect.isasyncgen(iterator)
+                            or inspect.isgenerator(iterator)
+                            or isinstance(iterator, IteratorWrapper)
+                        ):
+                            await model.decrease_serve_count()
 
             return EventSourceResponse(
                 stream_results(), ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
@@ -2133,7 +2153,15 @@ class RESTfulAPI(CancelMixin):
                     yield dict(data=json.dumps({"error": str(ex)}))
                     return
                 finally:
-                    await model.decrease_serve_count()
+                    if iterator is not None:
+                        from xoscar.api import IteratorWrapper
+
+                        if (
+                            inspect.isasyncgen(iterator)
+                            or inspect.isgenerator(iterator)
+                            or isinstance(iterator, IteratorWrapper)
+                        ):
+                            await model.decrease_serve_count()
 
             return EventSourceResponse(
                 stream_results(), ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
