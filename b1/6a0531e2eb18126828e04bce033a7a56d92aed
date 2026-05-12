@@ -1,0 +1,27 @@
+xinference/ui/web/ui/src/components/MenuSide.js
+  434b3bc2dc3394b2 48-51
+xinference/ui/web/ui/src/scenes/logs/index.js
+  434b3bc2dc3394b2 165-168,301-308,480
+xinference/api/routers/admin.py
+  434b3bc2dc3394b2 5,11,359-360,362-363
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.14",
+  "base_commit_sha": "b16a0531e2eb18126828e04bce033a7a56d92aed",
+  "prompts": {
+    "434b3bc2dc3394b2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dcb7cc0c-fef0-47e5-8593-3885e43cc537",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 24,
+      "total_deletions": 9,
+      "accepted_lines": 6084,
+      "overriden_lines": 0
+    }
+  }
+}
