@@ -5,6 +5,7 @@
     "registerModel": "注册模型",
     "clusterInfo": "集群信息",
     "monitoring": "监控中心",
+    "logs": "日志中心",
     "xagent": "使用 Xagent 构建 AI 智能体",
     "contactUs": "联系我们",
     "documentation": "文档",
@@ -315,5 +316,30 @@
     "to": "结束",
     "applyTimeRange": "应用时间范围",
     "manualRefresh": "刷新仪表板"
+  },
+  "logs": {
+    "notConfigured": "日志查询未配置，请设置 XINFERENCE_ES_URL 环境变量。",
+    "searchPlaceholder": "搜索日志...",
+    "allNodes": "全部节点",
+    "time": "时间",
+    "level": "级别",
+    "node": "节点",
+    "message": "消息",
+    "fullMessage": "完整消息",
+    "noLogs": "未找到日志",
+    "refresh": "刷新",
+    "totalHits": "共 {{count}} 条",
+    "prevPage": "上一页",
+    "nextPage": "下一页",
+    "detail": {
+      "module": "模块",
+      "pid": "进程 ID",
+      "request_id": "请求 ID",
+      "address": "地址",
+      "log_type": "日志类型",
+      "rtf_avg": "RTF 均值",
+      "time_speech": "语音时长",
+      "time_escape": "处理耗时"
+    }
   }
 }

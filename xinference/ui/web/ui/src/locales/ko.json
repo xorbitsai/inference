@@ -5,6 +5,7 @@
     "registerModel": "모델 등록",
     "clusterInfo": "클러스터 정보",
     "monitoring": "모니터링",
+    "logs": "로그 센터",
     "xagent": "Xagent로 AI 에이전트 구축",
     "contactUs": "문의하기",
     "documentation": "문서",
@@ -315,5 +316,30 @@
     "to": "종료",
     "applyTimeRange": "시간 범위 적용",
     "manualRefresh": "대시보드 새로고침"
+  },
+  "logs": {
+    "notConfigured": "로그 조회가 구성되지 않았습니다. XINFERENCE_ES_URL 환경 변수를 설정하세요.",
+    "searchPlaceholder": "로그 검색...",
+    "allNodes": "전체 노드",
+    "time": "시간",
+    "level": "레벨",
+    "node": "노드",
+    "message": "메시지",
+    "fullMessage": "전체 메시지",
+    "noLogs": "로그를 찾을 수 없습니다",
+    "refresh": "새로고침",
+    "totalHits": "총 {{count}} 건",
+    "prevPage": "이전",
+    "nextPage": "다음",
+    "detail": {
+      "module": "모듈",
+      "pid": "PID",
+      "request_id": "요청 ID",
+      "address": "주소",
+      "log_type": "로그 유형",
+      "rtf_avg": "RTF 평균",
+      "time_speech": "음성 시간",
+      "time_escape": "처리 시간"
+    }
   }
 }

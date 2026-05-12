@@ -1,5 +1,6 @@
 import {
   AddBoxOutlined,
+  ArticleOutlined,
   ChevronRightOutlined,
   DescriptionOutlined,
   DnsOutlined,
@@ -22,11 +23,12 @@ import {
   Typography,
   useTheme,
 } from '@mui/material'
-import { useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import icon from '../media/icon.webp'
+import { ApiContext } from './apiContext'
 import ThemeButton from './themeButton'
 import TranslateButton from './translateButton'
 import VersionLabel from './versionLabel'
@@ -38,6 +40,15 @@ const MenuSide = () => {
     `${Math.min(Math.max(window.innerWidth * 0.2, 287), 320)}px`
   )
   const { i18n, t } = useTranslation()
+  const { endPoint } = useContext(ApiContext)
+  const [esEnabled, setEsEnabled] = useState(false)
+
+  useEffect(() => {
+    fetch(endPoint + '/v1/cluster/ui_config')
+      .then((res) => res.json())
+      .then((data) => setEsEnabled(data.es_enabled || false))
+      .catch(() => setEsEnabled(false))
+  }, [endPoint])
 
   const navItems = [
     {
@@ -87,6 +98,17 @@ const MenuSide = () => {
       action: 'navigate',
       path: '/monitoring',
     },
+    ...(esEnabled
+      ? [
+          {
+            text: 'logs',
+            label: t('menu.logs'),
+            icon: <ArticleOutlined />,
+            action: 'navigate',
+            path: '/logs',
+          },
+        ]
+      : []),
     {
       text: 'documentation',
       label: t('menu.documentation'),

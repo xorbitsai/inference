@@ -268,8 +268,86 @@ async def get_ui_config() -> JSONResponse:
                 "XINFERENCE_GRAFANA_DASHBOARD_UID", "xinference-overview"
             ),
             "cluster_name": os.environ.get("XINFERENCE_CLUSTER_NAME", ""),
+            "es_enabled": bool(os.environ.get("XINFERENCE_ES_URL", "")),
         }
     )
+
+
+async def search_logs(
+    q: str = "",
+    level: str = "",
+    module: str = "",
+    node: str = "",
+    log_type: str = "",
+    time_from: str = "now-1h",
+    time_to: str = "now",
+    size: int = 200,
+    page_from: int = 0,
+) -> JSONResponse:
+    import aiohttp
+
+    es_url = os.environ.get("XINFERENCE_ES_URL", "")
+    if not es_url:
+        raise HTTPException(status_code=503, detail="Elasticsearch is not configured")
+
+    es_index = os.environ.get("XINFERENCE_ES_INDEX", "xinference-logs-*")
+    es_auth = os.environ.get("XINFERENCE_ES_AUTH", "")
+
+    size = max(1, min(size, 500))
+    page_from = max(0, min(page_from, 10000))
+
+    must = []
+    filter_clauses = [{"range": {"@timestamp": {"gte": time_from, "lte": time_to}}}]
+
+    if q:
+        must.append(
+            {"simple_query_string": {"query": q, "fields": ["message"], "default_operator": "AND"}}
+        )
+
+    for field, value in [("level", level), ("module", module), ("node", node), ("log_type", log_type)]:
+        if value:
+            terms = [v.strip() for v in value.split(",") if v.strip()]
+            if terms:
+                filter_clauses.append({"terms": {field: terms}})
+
+    body = {
+        "query": {"bool": {"must": must, "filter": filter_clauses}},
+        "sort": [{"@timestamp": "desc"}],
+        "from": page_from,
+        "size": size,
+        "_source": {"excludes": ["@version"]},
+    }
+
+    headers = {"Content-Type": "application/json"}
+    auth = None
+    if es_auth:
+        if es_auth.startswith("ApiKey "):
+            headers["Authorization"] = es_auth
+        else:
+            parts = es_auth.split(":", 1)
+            if len(parts) == 2:
+                auth = aiohttp.BasicAuth(parts[0], parts[1])
+
+    url = f"{es_url.rstrip('/')}/{es_index}/_search"
+
+    try:
+        timeout = aiohttp.ClientTimeout(total=10)
+        async with aiohttp.ClientSession(timeout=timeout, auth=auth) as session:
+            async with session.post(url, json=body, headers=headers) as resp:
+                if resp.status != 200:
+                    text = await resp.text()
+                    logger.error("ES query failed: status=%d body=%s", resp.status, text[:500])
+                    raise HTTPException(status_code=502, detail="Elasticsearch query failed")
+                data = await resp.json()
+    except aiohttp.ClientError as e:
+        logger.error("ES connection error: %s", e)
+        raise HTTPException(status_code=502, detail="Failed to connect to Elasticsearch")
+
+    hits = [hit["_source"] for hit in data.get("hits", {}).get("hits", [])]
+    total_value = data.get("hits", {}).get("total", {})
+    total = total_value.get("value", 0) if isinstance(total_value, dict) else total_value
+
+    return JSONResponse(content={"hits": hits, "total": total})
 
 
 # --- Route registration ---
@@ -365,4 +443,11 @@ def register_routes(api: "RESTfulAPI") -> None:
         get_progress,
         methods=["GET"],
         dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
+    )
+
+    router.add_api_route(
+        "/v1/cluster/logs",
+        search_logs,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
     )

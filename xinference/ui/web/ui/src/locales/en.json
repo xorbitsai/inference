@@ -5,6 +5,7 @@
     "registerModel": "Register Model",
     "clusterInfo": "Cluster Information",
     "monitoring": "Monitoring",
+    "logs": "Log Center",
     "xagent": "Build AI Agents with Xagent",
     "contactUs": "Contact Us",
     "documentation": "Documentation",
@@ -315,5 +316,30 @@
     "to": "To",
     "applyTimeRange": "Apply time range",
     "manualRefresh": "Refresh dashboard"
+  },
+  "logs": {
+    "notConfigured": "Log query not configured. Please set XINFERENCE_ES_URL environment variable.",
+    "searchPlaceholder": "Search logs...",
+    "allNodes": "All Nodes",
+    "time": "Time",
+    "level": "Level",
+    "node": "Node",
+    "message": "Message",
+    "fullMessage": "Full Message",
+    "noLogs": "No logs found",
+    "refresh": "Refresh",
+    "totalHits": "Total: {{count}}",
+    "prevPage": "Previous",
+    "nextPage": "Next",
+    "detail": {
+      "module": "Module",
+      "pid": "PID",
+      "request_id": "Request ID",
+      "address": "Address",
+      "log_type": "Log Type",
+      "rtf_avg": "RTF Average",
+      "time_speech": "Speech Time",
+      "time_escape": "Process Time"
+    }
   }
 }

@@ -5,6 +5,7 @@
     "registerModel": "モデル登録",
     "clusterInfo": "クラスター情報",
     "monitoring": "モニタリング",
+    "logs": "ログセンター",
     "xagent": "XagentでAIエージェントを構築",
     "contactUs": "お問い合わせ",
     "documentation": "ドキュメント",
@@ -315,5 +316,30 @@
     "to": "終了",
     "applyTimeRange": "時間範囲を適用",
     "manualRefresh": "ダッシュボードを更新"
+  },
+  "logs": {
+    "notConfigured": "ログクエリが設定されていません。XINFERENCE_ES_URL 環境変数を設定してください。",
+    "searchPlaceholder": "ログを検索...",
+    "allNodes": "全ノード",
+    "time": "時刻",
+    "level": "レベル",
+    "node": "ノード",
+    "message": "メッセージ",
+    "fullMessage": "完全なメッセージ",
+    "noLogs": "ログが見つかりません",
+    "refresh": "更新",
+    "totalHits": "合計: {{count}} 件",
+    "prevPage": "前へ",
+    "nextPage": "次へ",
+    "detail": {
+      "module": "モジュール",
+      "pid": "PID",
+      "request_id": "リクエストID",
+      "address": "アドレス",
+      "log_type": "ログタイプ",
+      "rtf_avg": "RTF平均",
+      "time_speech": "音声時間",
+      "time_escape": "処理時間"
+    }
   }
 }
