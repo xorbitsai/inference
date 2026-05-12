@@ -1,0 +1,25 @@
+xinference/core/model.py
+  c6b8305a2dcadf7f 39,131-133
+xinference/api/restful_api.py
+  c6b8305a2dcadf7f 932-933,1067-1068,2142-2143
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.14",
+  "base_commit_sha": "803a6c7393b33d4711f5b7fffd7527d38ef653bb",
+  "prompts": {
+    "c6b8305a2dcadf7f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bed25967-2c9b-4d9e-a56e-5ad520f02316",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 10,
+      "total_deletions": 4,
+      "accepted_lines": 10,
+      "overriden_lines": 0
+    }
+  }
+}
