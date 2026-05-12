@@ -10,7 +10,6 @@
     "documentation": "Documentation",
     "website": "Official Website"
   },
-
   "model": {
     "languageModels": "Language Models",
     "embeddingModels": "Embedding Models",
@@ -21,7 +20,6 @@
     "customModels": "Custom Models",
     "flexibleModels": "Flexible Models"
   },
-
   "launchModel": {
     "modelAbility": "Model Ability",
     "generate": "Text Generation",
@@ -174,7 +172,6 @@
     "removeConfirm": "Remove replica {{replicaId}} from model {{modelUid}}?",
     "close": "Close"
   },
-
   "runningModels": {
     "name": "Name",
     "address": "Address",
@@ -196,7 +193,6 @@
     "terminateConfirmOk": "Terminate",
     "terminateErrorHint": "The request failed or the model may already be removed. Refresh the running models list to confirm."
   },
-
   "registerModel": {
     "modelName": "Model Name",
     "modelDescription": "Model Description (Optional)",
@@ -259,7 +255,6 @@
     "fillInModelPathFirst": "Please fill in modelPath first",
     "fillInModelFamilyFirst": "Please select model family first"
   },
-
   "clusterInfo": {
     "supervisor": "Supervisor",
     "workers": "Workers",
@@ -288,7 +283,6 @@
     "gpuMemTotal": "GPU Mem Total",
     "worker": "Worker"
   },
-
   "components": {
     "suggestsCommonParameters": "Suggests common parameters; others allowed.",
     "warning": "Warning",
@@ -306,7 +300,8 @@
       "6h": "Last 6 hours",
       "12h": "Last 12 hours",
       "24h": "Last 24 hours",
-      "7d": "Last 7 days"
+      "7d": "Last 7 days",
+      "2d": "Last 2 days"
     },
     "refresh": {
       "off": "Off",
@@ -314,6 +309,11 @@
       "30s": "30s",
       "1m": "1m",
       "5m": "5m"
-    }
+    },
+    "absoluteRange": "Absolute time range",
+    "from": "From",
+    "to": "To",
+    "applyTimeRange": "Apply time range",
+    "manualRefresh": "Refresh dashboard"
   }
 }
