@@ -274,7 +274,7 @@ class RESTfulAPI(CancelMixin):
             # Only remove MetricsMiddleware's HTTP counters to avoid duplicates
             # on restart; preserve xinference:* custom metrics registered at
             # module level in metrics.py.
-            from xinference.core.metrics import _WORKER_ONLY_METRICS
+            from ..core.metrics import _WORKER_ONLY_METRICS
 
             for collector in list(REGISTRY.get_all()):
                 if not collector.name.startswith("xinference:"):
@@ -930,7 +930,14 @@ class RESTfulAPI(CancelMixin):
                     return
                 finally:
                     if iterator is not None:
-                        await model.decrease_serve_count()
+                        from xoscar.api import IteratorWrapper
+
+                        if (
+                            inspect.isasyncgen(iterator)
+                            or inspect.isgenerator(iterator)
+                            or isinstance(iterator, IteratorWrapper)
+                        ):
+                            await model.decrease_serve_count()
 
             return EventSourceResponse(
                 stream_results(), ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
@@ -1065,7 +1072,14 @@ class RESTfulAPI(CancelMixin):
                     return
                 finally:
                     if iterator is not None:
-                        await model.decrease_serve_count()
+                        from xoscar.api import IteratorWrapper
+
+                        if (
+                            inspect.isasyncgen(iterator)
+                            or inspect.isgenerator(iterator)
+                            or isinstance(iterator, IteratorWrapper)
+                        ):
+                            await model.decrease_serve_count()
 
             return EventSourceResponse(
                 stream_results(), ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
@@ -2140,7 +2154,14 @@ class RESTfulAPI(CancelMixin):
                     return
                 finally:
                     if iterator is not None:
-                        await model.decrease_serve_count()
+                        from xoscar.api import IteratorWrapper
+
+                        if (
+                            inspect.isasyncgen(iterator)
+                            or inspect.isgenerator(iterator)
+                            or isinstance(iterator, IteratorWrapper)
+                        ):
+                            await model.decrease_serve_count()
 
             return EventSourceResponse(
                 stream_results(), ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
