@@ -294,7 +294,7 @@ async def search_logs(
     es_auth = os.environ.get("XINFERENCE_ES_AUTH", "")
 
     size = max(1, min(size, 500))
-    page_from = max(0, min(page_from, 10000))
+    page_from = max(0, min(page_from, 10000 - size))
 
     must = []
     filter_clauses: list[dict[str, Any]] = [
