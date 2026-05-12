@@ -1,7 +1,7 @@
 /**
  * Build Grafana iframe URL for the full dashboard (kiosk mode).
  */
-export const buildGrafanaUrl = (config, theme = 'light') => {
+export const buildGrafanaUrl = (config, theme = 'light', from, to, refresh) => {
   const {
     grafana_url,
     grafana_dashboard_uid,
@@ -17,6 +17,15 @@ export const buildGrafanaUrl = (config, theme = 'light') => {
   }
   if (cluster_name) {
     url += `&var-cluster=${encodeURIComponent(cluster_name)}`
+  }
+  if (from) {
+    url += `&from=${encodeURIComponent(from)}`
+  }
+  if (to) {
+    url += `&to=${encodeURIComponent(to)}`
+  }
+  if (refresh !== undefined) {
+    url += `&refresh=${encodeURIComponent(refresh)}`
   }
 
   return url

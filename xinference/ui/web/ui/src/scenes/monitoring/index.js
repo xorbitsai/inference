@@ -44,11 +44,11 @@ const TIME_RANGES = [
 ]
 
 const REFRESH_OPTIONS = [
-  { labelKey: 'monitoring.refresh.off', value: 0 },
-  { labelKey: 'monitoring.refresh.10s', value: 10000 },
-  { labelKey: 'monitoring.refresh.30s', value: 30000 },
-  { labelKey: 'monitoring.refresh.1m', value: 60000 },
-  { labelKey: 'monitoring.refresh.5m', value: 300000 },
+  { labelKey: 'monitoring.refresh.off', value: 0, grafana: '' },
+  { labelKey: 'monitoring.refresh.10s', value: 10000, grafana: '10s' },
+  { labelKey: 'monitoring.refresh.30s', value: 30000, grafana: '30s' },
+  { labelKey: 'monitoring.refresh.1m', value: 60000, grafana: '1m' },
+  { labelKey: 'monitoring.refresh.5m', value: 300000, grafana: '5m' },
 ]
 
 const DATE_TIME_SLOT_PROPS = {
@@ -97,6 +97,9 @@ const Monitoring = () => {
     () =>
       sessionStorage.getItem('monitoring_refresh_label') ||
       'monitoring.refresh.1m'
+  )
+  const [grafanaRefresh, setGrafanaRefresh] = useState(
+    () => sessionStorage.getItem('monitoring_grafana_refresh') || '1m'
   )
   const [refreshKey, setRefreshKey] = useState(0)
 
@@ -174,8 +177,13 @@ const Monitoring = () => {
   }
 
   const src =
-    buildGrafanaUrl(config, themeMode, timeRange.from, timeRange.to) +
-    `&_t=${refreshKey}`
+    buildGrafanaUrl(
+      config,
+      themeMode,
+      timeRange.from,
+      timeRange.to,
+      grafanaRefresh
+    ) + `&_t=${refreshKey}`
 
   return (
     <Box
@@ -321,6 +329,7 @@ const Monitoring = () => {
               onClick={() => {
                 setRefreshInterval(item.value)
                 setRefreshLabel(item.labelKey)
+                setGrafanaRefresh(item.grafana)
                 sessionStorage.setItem(
                   'monitoring_refresh_interval',
                   item.value
@@ -328,6 +337,10 @@ const Monitoring = () => {
                 sessionStorage.setItem(
                   'monitoring_refresh_label',
                   item.labelKey
+                )
+                sessionStorage.setItem(
+                  'monitoring_grafana_refresh',
+                  item.grafana
                 )
                 setRefreshAnchor(null)
               }}
