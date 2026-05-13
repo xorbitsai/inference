@@ -45,6 +45,7 @@ import React, {
 import { useTranslation } from 'react-i18next'
 
 import { ApiContext } from '../../components/apiContext'
+import Title from '../../components/Title'
 
 const FONT_SIZE = '0.813rem'
 
@@ -339,10 +340,12 @@ const Logs = () => {
       sx={{
         width: '100%',
         height: 'calc(100vh - 64px)',
+        padding: '20px 20px 0 20px',
         display: 'flex',
         flexDirection: 'column',
       }}
     >
+      <Title title={t('menu.logs')} />
       {/* Toolbar */}
       <Toolbar
         variant="dense"

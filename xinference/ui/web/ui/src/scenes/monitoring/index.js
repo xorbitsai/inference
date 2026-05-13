@@ -25,6 +25,7 @@ import { useTranslation } from 'react-i18next'
 import { ApiContext } from '../../components/apiContext'
 import { buildGrafanaUrl } from '../../components/grafanaUtils'
 import { useThemeContext } from '../../components/themeContext'
+import Title from '../../components/Title'
 
 const FONT_SIZE = '0.813rem'
 
@@ -190,10 +191,12 @@ const Monitoring = () => {
       sx={{
         width: '100%',
         height: 'calc(100vh - 64px)',
+        padding: '20px 20px 0 20px',
         display: 'flex',
         flexDirection: 'column',
       }}
     >
+      <Title title={t('menu.monitoring')} />
       {/* Toolbar */}
       <Toolbar
         variant="dense"
