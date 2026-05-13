@@ -113,18 +113,33 @@ jobs:
       - name: Push to same-repo PR
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
         if: steps.decide.outputs.run == 'true' && github.event.pull_request.head.repo.full_name == github.repository
         working-directory: pr
         run: |
+          if ! printf '%s' "$HEAD_REF" | grep -Eq '^chore/models-sync/[A-Za-z0-9._/-]+$'; then
+            echo "Unsafe branch name: $HEAD_REF"
+            exit 1
+          fi
           echo "Pushing changes to same-repo PR..."
-          git push origin HEAD:${{ github.event.pull_request.head.ref }} || echo "No changes to push."
+          git push origin "HEAD:${HEAD_REF}" || echo "No changes to push."
 
       - name: Push to fork PR
         env:
           PUSH_TOKEN: ${{ secrets.PUSH_TOKEN }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
         if: steps.decide.outputs.run == 'true' && github.event.pull_request.head.repo.full_name != github.repository
         working-directory: pr
         run: |
+          if ! printf '%s' "$HEAD_REF" | grep -Eq '^chore/models-sync/[A-Za-z0-9._/-]+$'; then
+            echo "Unsafe branch name: $HEAD_REF"
+            exit 1
+          fi
+          if ! printf '%s' "$HEAD_REPO" | grep -Eq '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'; then
+            echo "Unsafe repository name: $HEAD_REPO"
+            exit 1
+          fi
           if [ -z "$PUSH_TOKEN" ]; then
             echo "Missing secrets.PUSH_TOKEN; cannot push to fork. Skipping push."
             echo "Please ask maintainer to run gen_docs.py manually."
@@ -132,5 +147,5 @@ jobs:
           fi
           echo "Pushing changes to fork PR..."
           # Set remote for fork repository
-          git remote add fork "https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.event.pull_request.head.repo.full_name }}.git"
-          git push fork HEAD:${{ github.event.pull_request.head.ref }} || echo "No changes to push."
+          git remote add fork "https://x-access-token:${PUSH_TOKEN}@github.com/${HEAD_REPO}.git"
+          git push fork "HEAD:${HEAD_REF}" || echo "No changes to push."
