@@ -1,0 +1,23 @@
+xinference/model/llm/llm_family.json
+  434b3bc2dc3394b2 30255-30289
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.14",
+  "base_commit_sha": "caa104b80b8feb29c18e6ce4c2f03b570b188830",
+  "prompts": {
+    "434b3bc2dc3394b2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dcb7cc0c-fef0-47e5-8593-3885e43cc537",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 36,
+      "total_deletions": 0,
+      "accepted_lines": 36,
+      "overriden_lines": 0
+    }
+  }
+}
