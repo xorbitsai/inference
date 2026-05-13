@@ -1,0 +1,25 @@
+xinference/ui/web/ui/src/scenes/logs/index.js
+  4fad0574419fd668 313-319,321-331
+xinference/ui/web/ui/src/scenes/monitoring/index.js
+  4fad0574419fd668 168-174,176-186
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.14",
+  "base_commit_sha": "4e3f2a59fca5cb4bbfe3c105f6ed1ae263539e42",
+  "prompts": {
+    "4fad0574419fd668": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a20a4f3-2f8e-4436-a283-2134d6b8b893",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 1139,
+      "total_deletions": 1117,
+      "accepted_lines": 374,
+      "overriden_lines": 0
+    }
+  }
+}
