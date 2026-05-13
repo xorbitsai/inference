@@ -323,11 +323,7 @@ const MenuSide = () => {
         pb={1}
       >
         <Tooltip
-          title={
-            collapsed
-              ? t('menu.expand')
-              : t('menu.collapse')
-          }
+          title={collapsed ? t('menu.expand') : t('menu.collapse')}
           placement="right"
         >
           <IconButton size="small" onClick={toggleCollapsed}>
