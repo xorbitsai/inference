@@ -1,0 +1,23 @@
+xinference/ui/web/ui/src/components/MenuSide.js
+  4fad0574419fd668 4,19,25,38-56,59,67,177-179,182,189-196,217,223-224,227-228,230-231,236,240-243,249,251,253-259,262,266,268-297,304-314,319-338
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.14",
+  "base_commit_sha": "d715f89c96d0716115f87422058a991c9618936e",
+  "prompts": {
+    "4fad0574419fd668": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7a20a4f3-2f8e-4436-a283-2134d6b8b893",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 467,
+      "total_deletions": 41,
+      "accepted_lines": 467,
+      "overriden_lines": 0
+    }
+  }
+}
