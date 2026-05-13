@@ -9,7 +9,9 @@
     "xagent": "Build AI Agents with Xagent",
     "contactUs": "Contact Us",
     "documentation": "Documentation",
-    "website": "Official Website"
+    "website": "Official Website",
+    "expand": "Expand",
+    "collapse": "Collapse"
   },
   "model": {
     "languageModels": "Language Models",

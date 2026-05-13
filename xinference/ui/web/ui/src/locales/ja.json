@@ -9,7 +9,9 @@
     "xagent": "XagentでAIエージェントを構築",
     "contactUs": "お問い合わせ",
     "documentation": "ドキュメント",
-    "website": "公式サイト"
+    "website": "公式サイト",
+    "expand": "展開",
+    "collapse": "折りたたむ"
   },
   "model": {
     "languageModels": "言語モデル",

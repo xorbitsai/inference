@@ -9,7 +9,9 @@
     "xagent": "使用 Xagent 构建 AI 智能体",
     "contactUs": "联系我们",
     "documentation": "文档",
-    "website": "官网"
+    "website": "官网",
+    "expand": "展开",
+    "collapse": "折叠"
   },
   "model": {
     "languageModels": "语言模型",

@@ -9,7 +9,9 @@
     "xagent": "Xagent로 AI 에이전트 구축",
     "contactUs": "문의하기",
     "documentation": "문서",
-    "website": "공식 웹사이트"
+    "website": "공식 웹사이트",
+    "expand": "펼치기",
+    "collapse": "접기"
   },
   "model": {
     "languageModels": "언어 모델",

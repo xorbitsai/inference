@@ -187,11 +187,9 @@ const MenuSide = () => {
   }, [])
 
   const toggleCollapsed = () => {
-    setCollapsed((prev) => {
-      const next = !prev
-      writeCollapsed(next)
-      return next
-    })
+    const next = !collapsed
+    setCollapsed(next)
+    writeCollapsed(next)
   }
 
   const handleNavClick = (item) => {
@@ -307,9 +305,9 @@ const MenuSide = () => {
         alignItems="center"
         sx={{
           mx: collapsed ? 0 : '3rem',
-          height: collapsed ? 0 : 'auto',
+          maxHeight: collapsed ? 0 : '100px',
           overflow: 'hidden',
-          transition: 'height 0.2s ease',
+          transition: 'max-height 0.2s ease, margin 0.2s ease',
         }}
       >
         <ThemeButton sx={{ m: '1rem' }} />
@@ -327,8 +325,8 @@ const MenuSide = () => {
         <Tooltip
           title={
             collapsed
-              ? t('menu.expand') || 'Expand'
-              : t('menu.collapse') || 'Collapse'
+              ? t('menu.expand')
+              : t('menu.collapse')
           }
           placement="right"
         >
