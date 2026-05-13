@@ -1,6 +1,7 @@
 import {
   AddBoxOutlined,
   ArticleOutlined,
+  ChevronLeftOutlined,
   ChevronRightOutlined,
   DescriptionOutlined,
   DnsOutlined,
@@ -15,13 +16,14 @@ import {
 import {
   Box,
   Drawer,
+  IconButton,
   List,
   ListItem,
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Tooltip,
   Typography,
-  useTheme,
 } from '@mui/material'
 import { useContext, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -33,15 +35,36 @@ import ThemeButton from './themeButton'
 import TranslateButton from './translateButton'
 import VersionLabel from './versionLabel'
 
+const COLLAPSED_KEY = 'xinference_sidebar_collapsed'
+const COLLAPSED_WIDTH = 64
+
+function readCollapsed() {
+  try {
+    return localStorage.getItem(COLLAPSED_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+function writeCollapsed(val) {
+  try {
+    localStorage.setItem(COLLAPSED_KEY, String(val))
+  } catch {
+    // ignore
+  }
+}
+
 const MenuSide = () => {
-  const theme = useTheme()
   const navigate = useNavigate()
+  const [collapsed, setCollapsed] = useState(readCollapsed)
   const [drawerWidth, setDrawerWidth] = useState(
     `${Math.min(Math.max(window.innerWidth * 0.2, 287), 320)}px`
   )
   const { i18n, t } = useTranslation()
   const { endPoint } = useContext(ApiContext)
   const [esEnabled, setEsEnabled] = useState(false)
+
+  const currentWidth = collapsed ? `${COLLAPSED_WIDTH}px` : drawerWidth
 
   useEffect(() => {
     fetch(endPoint + '/v1/cluster/ui_config')
@@ -150,25 +173,26 @@ const MenuSide = () => {
   ]
 
   useEffect(() => {
-    const screenWidth = window.innerWidth
-    const maxDrawerWidth = Math.min(Math.max(screenWidth * 0.2, 287), 320)
-    setDrawerWidth(`${maxDrawerWidth}px`)
-
-    // Update the drawer width on window resize
     const handleResize = () => {
-      const newScreenWidth = window.innerWidth
-      const newMaxDrawerWidth = Math.min(
-        Math.max(newScreenWidth * 0.2, 287),
-        320
-      )
-      setDrawerWidth(`${newMaxDrawerWidth}px`)
+      const screenWidth = window.innerWidth
+      const maxDrawerWidth = Math.min(Math.max(screenWidth * 0.2, 287), 320)
+      setDrawerWidth(`${maxDrawerWidth}px`)
     }
 
+    handleResize()
     window.addEventListener('resize', handleResize)
     return () => {
       window.removeEventListener('resize', handleResize)
     }
   }, [])
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev
+      writeCollapsed(next)
+      return next
+    })
+  }
 
   const handleNavClick = (item) => {
     const { action, url, path, text, session } = item
@@ -187,73 +211,131 @@ const MenuSide = () => {
       return
     }
 
-    // default behavior
     navigate(`/${text}`)
   }
+
+  const transition = 'width 0.2s ease'
 
   return (
     <Drawer
       variant="permanent"
       sx={{
-        width: drawerWidth,
-        ...theme.mixins.toolbar,
+        width: currentWidth,
+        transition,
         flexShrink: 0,
         [`& .MuiDrawer-paper`]: {
-          width: drawerWidth,
+          width: currentWidth,
+          transition,
           boxSizing: 'border-box',
+          overflowX: 'hidden',
+          overflowY: 'auto',
         },
       }}
       style={{ zIndex: 1 }}
     >
-      {/* Title */}
+      {/* Logo */}
       <Box
         display="flex"
         alignItems="center"
-        gap="1rem"
-        margin="2rem 0rem 2rem 2rem"
+        justifyContent={collapsed ? 'center' : 'flex-start'}
+        gap={collapsed ? 0 : '1rem'}
+        margin={collapsed ? '2rem 0' : '2rem 0rem 2rem 2rem'}
+        sx={{ transition: 'all 0.2s ease' }}
       >
         <Box
           component="img"
           alt="profile"
           src={icon}
-          width="60px"
+          width={collapsed ? '36px' : '60px'}
           borderRadius="50%"
+          sx={{ transition: 'width 0.2s ease' }}
         />
-        <Box textAlign="left">
-          <Typography fontWeight="bold" fontSize="1.7rem">
-            {'Xinference'}
-          </Typography>
-        </Box>
+        {!collapsed && (
+          <Box textAlign="left">
+            <Typography fontWeight="bold" fontSize="1.7rem">
+              {'Xinference'}
+            </Typography>
+          </Box>
+        )}
       </Box>
 
+      {/* Nav items */}
       <Box sx={{ flexGrow: 1 }}>
         <List>
           {navItems.map((item) => {
-            const { text, label, icon, action } = item
+            const { text, label, icon: navIcon, action } = item
             return (
-              <ListItem key={text}>
-                <ListItemButton
-                  sx={{ pl: '1.5rem' }}
-                  onClick={() => handleNavClick(item)}
-                >
-                  <ListItemIcon sx={{ minWidth: '2rem' }}>{icon}</ListItemIcon>
-                  <ListItemText primary={label} />
-                  {action === 'external' ? (
-                    <OpenInNew sx={{ fontSize: 'small' }} />
-                  ) : (
-                    <ChevronRightOutlined />
-                  )}
-                </ListItemButton>
+              <ListItem key={text} sx={{ px: collapsed ? 0.5 : 1 }}>
+                {collapsed ? (
+                  <Tooltip title={label} placement="right" arrow>
+                    <ListItemButton
+                      sx={{ justifyContent: 'center', px: 1, minHeight: 48 }}
+                      onClick={() => handleNavClick(item)}
+                    >
+                      <ListItemIcon
+                        sx={{ minWidth: 0, justifyContent: 'center' }}
+                      >
+                        {navIcon}
+                      </ListItemIcon>
+                    </ListItemButton>
+                  </Tooltip>
+                ) : (
+                  <ListItemButton
+                    sx={{ pl: '1.5rem' }}
+                    onClick={() => handleNavClick(item)}
+                  >
+                    <ListItemIcon sx={{ minWidth: '2rem' }}>
+                      {navIcon}
+                    </ListItemIcon>
+                    <ListItemText primary={label} />
+                    {action === 'external' ? (
+                      <OpenInNew sx={{ fontSize: 'small' }} />
+                    ) : (
+                      <ChevronRightOutlined />
+                    )}
+                  </ListItemButton>
+                )}
               </ListItem>
             )
           })}
         </List>
       </Box>
 
-      <Box display="flex" alignItems="center" marginX={'3rem'}>
+      {/* Bottom toolbar — collapses to zero height when sidebar collapsed */}
+      <Box
+        display="flex"
+        alignItems="center"
+        sx={{
+          mx: collapsed ? 0 : '3rem',
+          height: collapsed ? 0 : 'auto',
+          overflow: 'hidden',
+          transition: 'height 0.2s ease',
+        }}
+      >
         <ThemeButton sx={{ m: '1rem' }} />
         <TranslateButton />
         <VersionLabel sx={{ ml: 'auto' }} />
+      </Box>
+
+      {/* Collapse toggle button */}
+      <Box
+        display="flex"
+        justifyContent={collapsed ? 'center' : 'flex-end'}
+        px={1}
+        pb={1}
+      >
+        <Tooltip
+          title={
+            collapsed
+              ? t('menu.expand') || 'Expand'
+              : t('menu.collapse') || 'Collapse'
+          }
+          placement="right"
+        >
+          <IconButton size="small" onClick={toggleCollapsed}>
+            {collapsed ? <ChevronRightOutlined /> : <ChevronLeftOutlined />}
+          </IconButton>
+        </Tooltip>
       </Box>
     </Drawer>
   )
