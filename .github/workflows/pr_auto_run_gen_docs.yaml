@@ -13,13 +13,28 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
+  pull-requests: read
 
 jobs:
   run-gen-docs-and-commit:
     if: startsWith(github.event.pull_request.head.ref, 'chore/models-sync/')
     runs-on: ubuntu-latest
     steps:
+      - name: Validate PR metadata
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "$HEAD_REF" | grep -Eq '^chore/models-sync/[A-Za-z0-9._/-]+$'; then
+            echo "Unsafe branch name: $HEAD_REF"
+            exit 1
+          fi
+          if ! printf '%s' "$HEAD_REPO" | grep -Eq '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'; then
+            echo "Unsafe repository name: $HEAD_REPO"
+            exit 1
+          fi
+
       - name: Checkout base branch (trusted code)
         uses: actions/checkout@v4
         with:
@@ -50,6 +65,15 @@ jobs:
           fi
           echo "run=true" >> $GITHUB_OUTPUT
 
+      - name: Validate changed files
+        if: steps.decide.outputs.run == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_FILES_URL: ${{ github.event.pull_request.url }}/files
+        run: |
+          set -euo pipefail
+          python base/.github/scripts/validate_gen_docs_pr.py changed-files
+
       - name: Set up Python
         if: steps.decide.outputs.run == 'true'
         uses: actions/setup-python@v5
@@ -61,51 +85,98 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install jinja2
-          python -m pip install "xinference[doc]"
+          python -m pip install "./base[doc]"
 
-      - name: Run gen_docs.py (from base branch ONLY)
+      - name: Prepare sanitized gen_docs workspace
         if: steps.decide.outputs.run == 'true'
         run: |
-          echo "[Debug] CWD: $(pwd)"
+          set -euo pipefail
+          rm -rf gen-docs-work
+          cp -a base gen-docs-work
 
-          # IMPORTANT: Only execute gen_docs.py from base branch (trusted)
-          # We use PR's data files but base branch's code and templates
-          if [ -f "base/doc/source/gen_docs.py" ]; then
-            echo "Running gen_docs.py from base branch on PR data"
-            cd pr
-            # Copy templates from base (they should be in the same relative location)
-            if [ -d "../base/doc/source/templates" ]; then
-              mkdir -p doc/source
-              cp -r ../base/doc/source/templates doc/source/
+          for file in \
+            xinference/model/llm/llm_family.json \
+            xinference/model/embedding/model_spec.json \
+            xinference/model/rerank/model_spec.json \
+            xinference/model/image/model_spec.json \
+            xinference/model/audio/model_spec.json \
+            xinference/model/video/model_spec.json
+          do
+            if [ -e "pr/$file" ]; then
+              if [ -L "pr/$file" ]; then
+                echo "Refusing symlinked PR data file: $file"
+                exit 1
+              fi
+              cp "pr/$file" "gen-docs-work/$file"
             fi
-            # Execute gen_docs.py from base branch
-            python ../base/doc/source/gen_docs.py
-          elif [ -f "base/gen_docs.py" ]; then
-            echo "Running gen_docs.py from base root"
-            cd pr
-            python ../base/gen_docs.py
-          else
-            echo "gen_docs.py not found in base branch, skipping."
-          fi
+          done
 
-      - name: Stage and commit changes
+      - name: Validate model names
+        if: steps.decide.outputs.run == 'true'
+        run: |
+          set -euo pipefail
+          python base/.github/scripts/validate_gen_docs_pr.py model-names gen-docs-work
+
+      - name: Run gen_docs.py from sanitized workspace
+        if: steps.decide.outputs.run == 'true'
+        working-directory: gen-docs-work/doc/source
+        run: |
+          set -euo pipefail
+          python gen_docs.py
+
+      - name: Copy generated docs back to PR checkout
+        if: steps.decide.outputs.run == 'true'
+        run: |
+          set -euo pipefail
+          for path in \
+            doc/source/models/builtin \
+            doc/source/getting_started/installation.rst \
+            doc/source/user_guide/backends.rst \
+            doc/source/user_guide/metrics.rst
+          do
+            if [ -e "gen-docs-work/$path" ]; then
+              mkdir -p "pr/$(dirname "$path")"
+              rm -rf "pr/$path"
+              cp -a "gen-docs-work/$path" "pr/$path"
+            fi
+          done
+
+      - name: Stage and validate generated changes
         if: steps.decide.outputs.run == 'true'
         working-directory: pr
         run: |
+          set -euo pipefail
           echo "[Debug] Before staging:" && git status --porcelain
 
           echo "[Debug] check-ignore for generated file:"
           git check-ignore -v doc/source/_generated/auto_generated.txt || echo "Not ignored"
-          git add -A
-          git add -f doc/source/_generated || true
+          git add -A -- \
+            doc/source/models/builtin \
+            doc/source/getting_started/installation.rst \
+            doc/source/user_guide/backends.rst \
+            doc/source/user_guide/metrics.rst
 
           echo "[Debug] After staging:" && git status --porcelain
           echo "[Debug] Staged diff:" && git diff --cached --name-status || true
 
+          unexpected="$(git diff --cached --name-only | grep -Ev '^(doc/source/models/builtin/|doc/source/getting_started/installation\.rst$|doc/source/user_guide/backends\.rst$|doc/source/user_guide/metrics\.rst$)' || true)"
+          if [ -n "$unexpected" ]; then
+            echo "Unexpected generated changes:"
+            printf '%s\n' "$unexpected"
+            exit 1
+          fi
+
+          unsafe_generated_names="$(git diff --cached --name-only -- doc/source/models/builtin | grep -Ev '^doc/source/models/builtin/(llm|embedding|rerank|image|audio|video)/([A-Za-z0-9._-]+|index)\.rst$' || true)"
+          if [ -n "$unsafe_generated_names" ]; then
+            echo "Unsafe generated documentation paths:"
+            printf '%s\n' "$unsafe_generated_names"
+            exit 1
+          fi
+
           if ! git diff --cached --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -m "chore(docs): auto-run gen_docs.py"
+            git commit -m "chore(docs): auto-run gen_docs.py [skip ci]"
           else
             echo "No changes to commit."
           fi
@@ -124,28 +195,10 @@ jobs:
           echo "Pushing changes to same-repo PR..."
           git push origin "HEAD:${HEAD_REF}" || echo "No changes to push."
 
-      - name: Push to fork PR
+      - name: Skip fork PR push
         env:
-          PUSH_TOKEN: ${{ secrets.PUSH_TOKEN }}
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
         if: steps.decide.outputs.run == 'true' && github.event.pull_request.head.repo.full_name != github.repository
-        working-directory: pr
         run: |
-          if ! printf '%s' "$HEAD_REF" | grep -Eq '^chore/models-sync/[A-Za-z0-9._/-]+$'; then
-            echo "Unsafe branch name: $HEAD_REF"
-            exit 1
-          fi
-          if ! printf '%s' "$HEAD_REPO" | grep -Eq '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'; then
-            echo "Unsafe repository name: $HEAD_REPO"
-            exit 1
-          fi
-          if [ -z "$PUSH_TOKEN" ]; then
-            echo "Missing secrets.PUSH_TOKEN; cannot push to fork. Skipping push."
-            echo "Please ask maintainer to run gen_docs.py manually."
-            exit 0
-          fi
-          echo "Pushing changes to fork PR..."
-          # Set remote for fork repository
-          git remote add fork "https://x-access-token:${PUSH_TOKEN}@github.com/${HEAD_REPO}.git"
-          git push fork "HEAD:${HEAD_REF}" || echo "No changes to push."
+          echo "Skipping automatic docs push to fork PR: $HEAD_REPO"
+          echo "Please ask a maintainer to run gen_docs.py manually or open a same-repository chore/models-sync branch."
