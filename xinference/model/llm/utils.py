@@ -785,8 +785,7 @@ class ChatModelMixin:
         transformed_messages = []
         for msg in messages:
             new_content = []
-            role = msg["role"]
-            content = msg["content"]
+            content = msg.get("content")
             if isinstance(content, str):
                 new_content.append({"type": "text", "text": content})
             elif isinstance(content, List):
@@ -810,7 +809,8 @@ class ChatModelMixin:
                             "Unknown message type, message: %s, this message may be ignored",
                             messages,
                         )
-            new_message = {"role": role, "content": new_content}
+            new_message = dict(msg)
+            new_message["content"] = new_content if new_content else None
             transformed_messages.append(new_message)
 
         return transformed_messages
