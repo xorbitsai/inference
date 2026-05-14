@@ -1,7 +1,7 @@
 "use client"
 
 import hljs from "highlight.js"
-import { useTheme } from "@/contexts/theme-context"
+import { useTheme } from 'next-themes';
 import { useEffect, useRef } from "react"
 
 interface JSONSyntaxHighlighterProps {
@@ -11,7 +11,7 @@ interface JSONSyntaxHighlighterProps {
 
 export function JSONSyntaxHighlighter({ data, className = "" }: JSONSyntaxHighlighterProps) {
   const codeRef = useRef<HTMLElement>(null)
-  const { themeName } = useTheme()
+  const { theme } = useTheme()
 
   useEffect(() => {
     // Dynamically load syntax highlighting styles suitable for the current theme
@@ -21,16 +21,16 @@ export function JSONSyntaxHighlighter({ data, className = "" }: JSONSyntaxHighli
       existingStyles.forEach(style => style.remove())
 
       // Select appropriate style based on theme
-      const theme = themeName === 'light' ? 'github' : 'github-dark'
+      const resolvedTheme = theme === 'light' ? 'github' : 'github-dark'
       const link = document.createElement('link')
       link.rel = 'stylesheet'
-      link.href = `https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/${theme}.min.css`
-      link.setAttribute('data-highlight-theme', theme)
+      link.href = `https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/${resolvedTheme}.min.css`
+      link.setAttribute('data-highlight-theme', resolvedTheme)
       document.head.appendChild(link)
     }
 
     loadThemeStyle()
-  }, [themeName])
+  }, [theme])
 
   useEffect(() => {
     if (codeRef.current) {

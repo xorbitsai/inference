@@ -1,7 +1,6 @@
 'use client';
 
-// import { usePathname } from "next/navigation";
-// import { Sidebar } from "@/components/layout/sidebar";
+import { Sidebar } from "@/components/layout/sidebar";
 
 interface LayoutContentProps {
   children: React.ReactNode;
@@ -10,7 +9,7 @@ interface LayoutContentProps {
 export function LayoutContent({ children }: LayoutContentProps) {
   return (
     <div className="flex h-screen bg-background relative">
-      {/* <Sidebar /> */}
+      <Sidebar />
       <main className="flex-1 flex flex-col overflow-hidden bg-background">{children}</main>
     </div>
   );

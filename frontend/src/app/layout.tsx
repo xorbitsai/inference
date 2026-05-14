@@ -2,11 +2,14 @@ import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
 import { getBrandingFromEnv } from '@/lib/branding';
 import { I18nProvider } from '@/contexts/i18n-context';
-import { ThemeProvider } from '@/contexts/theme-context';
+import RequestProvider from '@/contexts/request-context';
+import { GlobalProvider } from '@/contexts/global-context';
+import ThemeProvider from '@/contexts/theme-context';
+import AppInit from '@/contexts/app-init';
 import { LayoutContent } from '@/components/layout/layout-content';
 import { Toaster } from '@/components/ui/sonner';
-import { getThemeFromEnv, buildThemeStyle, themes } from '@/lib/theme';
 import type { Locale } from '@/types/common';
+import { getApiUrl } from '@/lib/utils';
 import './globals.css';
 
 const branding = getBrandingFromEnv();
@@ -41,23 +44,48 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const initialLocale = await resolveInitialLocale();
-  const themeName = getThemeFromEnv();
-  const theme = themes[themeName] || themes.dark;
-  const themeMode = theme.mode || 'light';
-  const themeStyle = buildThemeStyle(themeName);
+  const apiUrl = getApiUrl();
+  let clusterAuth = null;
+  let clusterAuthError: string | null = null;
+  try {
+    const res = await fetch(apiUrl + '/v1/cluster/auth', {
+      cache: 'no-store',
+    });
+    
+    let data: any = null;
+    try {
+      data = await res.json();
+    } catch {
+      data = null;
+    }
+    if (!res.ok) {
+      throw new Error(
+        `Server error: ${res.status} - ${
+          data?.detail || 'Unknown error'
+        }`
+      );
+    }
+    clusterAuth = data;
+  } catch (error) {
+    clusterAuthError = error instanceof Error ? error.message : 'Cluster auth failed';
+  }
 
   return (
-    <html lang={initialLocale} className={themeMode} style={themeStyle} suppressHydrationWarning>
-      <body
-        className={`antialiased bg-background text-foreground theme-${themeName}`}
-        suppressHydrationWarning
-      >
-        <I18nProvider initialLocale={initialLocale}>
-          <ThemeProvider>
-            <LayoutContent>{children}</LayoutContent>
-            <Toaster />
-          </ThemeProvider>
-        </I18nProvider>
+    <html lang={initialLocale} suppressHydrationWarning>
+      <body className="antialiased bg-background text-foreground" suppressHydrationWarning>
+        <RequestProvider>
+          <GlobalProvider
+            initClusterAuth={clusterAuth}
+          >
+            <I18nProvider initialLocale={initialLocale}>
+              <ThemeProvider>
+                <AppInit clusterAuth={clusterAuth} clusterAuthError={clusterAuthError} />
+                <LayoutContent>{children}</LayoutContent>
+                <Toaster />
+              </ThemeProvider>
+            </I18nProvider>
+          </GlobalProvider>
+        </RequestProvider>
       </body>
     </html>
   );

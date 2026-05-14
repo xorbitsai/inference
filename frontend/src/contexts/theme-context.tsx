@@ -1,44 +1,20 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { themes, getThemeFromEnv, applyTheme, Theme } from '@/lib/theme';
+import { ThemeProvider as NextThemesProvider } from 'next-themes';
 
-interface ThemeContextType {
-  theme: Theme;
-  themeName: string;
-}
-
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
-
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  // Get initial theme from environment variable
-  const initialTheme = getThemeFromEnv();
-  const [themeName, setThemeNameState] = useState<string>(initialTheme);
-  const [theme, setThemeState] = useState<Theme>(themes[initialTheme] || themes.dark);
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    // Apply theme only on client side
-    setIsClient(true);
-    applyTheme(initialTheme);
-  }, []);
-
+export default function ThemeProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <ThemeContext.Provider
-      value={{
-        theme,
-        themeName,
-      }}
+    <NextThemesProvider
+      attribute="class"
+      defaultTheme="light"
+      enableSystem={false}
+      disableTransitionOnChange
     >
       {children}
-    </ThemeContext.Provider>
+    </NextThemesProvider>
   );
-}
-
-export function useTheme() {
-  const context = useContext(ThemeContext);
-  if (context === undefined) {
-    throw new Error('useTheme must be used within a ThemeProvider');
-  }
-  return context;
 }

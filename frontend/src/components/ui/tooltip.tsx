@@ -34,7 +34,7 @@ export function InfoTooltip({ content, icon = <Info /> }: { content: React.React
       <Tooltip delayDuration={300}>
         <TooltipTrigger asChild>
           <div className="cursor-default">
-            {React.cloneElement(icon as React.ReactElement, { className: "h-3 w-3 text-muted-foreground/70 hover:text-muted-foreground" })}
+            {/* {React.cloneElement(icon as React.ReactElement, { className: "h-3 w-3 text-muted-foreground/70 hover:text-muted-foreground" })} */}
           </div>
         </TooltipTrigger>
         <TooltipContent>

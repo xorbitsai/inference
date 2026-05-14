@@ -1,1 +1,3 @@
-export type Locale = "en" | "zh";
+import { languages } from '@/constants';
+
+export type Locale = (typeof languages)[number]['value'];
