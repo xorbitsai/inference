@@ -46,6 +46,50 @@ def filter_ids_and_created(data):
     return data
 
 
+def test_transform_messages_preserves_tool_call_fields():
+    mixin = ChatModelMixin()
+    messages = [
+        {"role": "user", "content": "Hi"},
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": "call_bed4c5f1",
+                    "function": {
+                        "arguments": '{"file_path": "README*"}',
+                        "name": "view_file_in_detail",
+                    },
+                    "type": "function",
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "content": "Tool execute results: file not found: README*",
+            "tool_call_id": "call_bed4c5f1",
+        },
+    ]
+
+    transformed = mixin._transform_messages(messages)
+
+    assert transformed[0] == {
+        "role": "user",
+        "content": [{"type": "text", "text": "Hi"}],
+    }
+    assert transformed[1] == {
+        "role": "assistant",
+        "content": None,
+        "tool_calls": messages[1]["tool_calls"],
+    }
+    assert transformed[2] == {
+        "role": "tool",
+        "content": [
+            {"type": "text", "text": "Tool execute results: file not found: README*"}
+        ],
+        "tool_call_id": "call_bed4c5f1",
+    }
+
+
 def test_post_process_completion_chunk_without_thinking():
     mixin = ChatModelMixin()
     mixin.tool_parser = QwenToolParser()
