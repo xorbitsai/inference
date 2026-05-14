@@ -807,7 +807,7 @@ class ChatModelMixin:
                     else:
                         logger.warning(
                             "Unknown message type, message: %s, this message may be ignored",
-                            messages,
+                            msg,
                         )
             new_message = dict(msg)
             new_message["content"] = new_content if new_content else None
