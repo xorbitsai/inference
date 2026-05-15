@@ -1,0 +1,25 @@
+xinference/api/routers/admin.py
+  f33d367c0b2fc1a5 289,334-350,352
+xinference/ui/web/ui/src/scenes/logs/index.js
+  f33d367c0b2fc1a5 851-853
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.14",
+  "base_commit_sha": "3f5407a75b88629855c78861fac8b00762e9252e",
+  "prompts": {
+    "f33d367c0b2fc1a5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "35d7da9c-86a0-4e6a-a1ad-4fe3ded3f927",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 22,
+      "total_deletions": 26,
+      "accepted_lines": 22,
+      "overriden_lines": 0
+    }
+  }
+}
