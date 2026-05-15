@@ -341,7 +341,14 @@
       "log_type": "Log Type",
       "rtf_avg": "RTF Average",
       "time_speech": "Speech Time",
-      "time_escape": "Process Time"
+      "time_escape": "Process Time",
+      "tableTab": "Table",
+      "jsonTab": "JSON",
+      "action": "Action",
+      "field": "Field",
+      "value": "Value",
+      "filterFor": "Filter for value",
+      "filterOut": "Filter out value"
     }
   }
 }

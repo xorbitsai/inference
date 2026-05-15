@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
 import signal
 from typing import TYPE_CHECKING, Any
 
@@ -275,12 +276,17 @@ async def get_ui_config() -> JSONResponse:
     )
 
 
+_FIELD_NAME_RE = re.compile(r"^[a-zA-Z0-9_.@]+$")
+_TEXT_FIELDS = {"message"}
+
+
 async def search_logs(
     q: str = "",
     level: str = "",
     module: str = "",
     node: str = "",
     log_type: str = "",
+    filters: str = "",
     time_from: str = "now-1h",
     time_to: str = "now",
     size: int = 200,
@@ -323,8 +329,31 @@ async def search_logs(
             if terms:
                 filter_clauses.append({"terms": {field: terms}})
 
+    must_not: list[dict[str, Any]] = []
+    if filters:
+        for token in filters.split(","):
+            token = token.strip()
+            if len(token) < 3 or token[0] not in ("+", "-"):
+                continue
+            sep = token.find(":", 1)
+            if sep < 0:
+                continue
+            op = token[0]
+            field_name = token[1:sep]
+            field_value = token[sep + 1:]
+            if not _FIELD_NAME_RE.match(field_name) or not field_value:
+                continue
+            if field_name in _TEXT_FIELDS:
+                clause = {"match_phrase": {field_name: field_value}}
+            else:
+                clause = {"term": {field_name: field_value}}
+            if op == "+":
+                filter_clauses.append(clause)
+            else:
+                must_not.append(clause)
+
     body: dict[str, Any] = {
-        "query": {"bool": {"must": must, "filter": filter_clauses}},
+        "query": {"bool": {"must": must, "filter": filter_clauses, "must_not": must_not}},
         "sort": [{"@timestamp": "desc"}],
         "from": page_from,
         "size": size,

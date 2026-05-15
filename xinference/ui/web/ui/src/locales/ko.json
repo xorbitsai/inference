@@ -341,7 +341,14 @@
       "log_type": "로그 유형",
       "rtf_avg": "RTF 평균",
       "time_speech": "음성 시간",
-      "time_escape": "처리 시간"
+      "time_escape": "처리 시간",
+      "tableTab": "테이블",
+      "jsonTab": "JSON",
+      "action": "작업",
+      "field": "필드",
+      "value": "값",
+      "filterFor": "이 값으로 필터",
+      "filterOut": "이 값 제외"
     }
   }
 }

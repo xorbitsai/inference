@@ -341,7 +341,14 @@
       "log_type": "日志类型",
       "rtf_avg": "RTF 均值",
       "time_speech": "语音时长",
-      "time_escape": "处理耗时"
+      "time_escape": "处理耗时",
+      "tableTab": "表格",
+      "jsonTab": "JSON",
+      "action": "操作",
+      "field": "字段",
+      "value": "值",
+      "filterFor": "筛选该值",
+      "filterOut": "排除该值"
     }
   }
 }

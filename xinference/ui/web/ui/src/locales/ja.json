@@ -341,7 +341,14 @@
       "log_type": "ログタイプ",
       "rtf_avg": "RTF平均",
       "time_speech": "音声時間",
-      "time_escape": "処理時間"
+      "time_escape": "処理時間",
+      "tableTab": "テーブル",
+      "jsonTab": "JSON",
+      "action": "操作",
+      "field": "フィールド",
+      "value": "値",
+      "filterFor": "この値でフィルター",
+      "filterOut": "この値を除外"
     }
   }
 }
