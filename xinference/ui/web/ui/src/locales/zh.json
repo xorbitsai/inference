@@ -341,7 +341,25 @@
       "log_type": "日志类型",
       "rtf_avg": "RTF 均值",
       "time_speech": "语音时长",
-      "time_escape": "处理耗时"
+      "time_escape": "处理耗时",
+      "tableTab": "表格",
+      "jsonTab": "JSON",
+      "action": "操作",
+      "field": "字段",
+      "value": "值",
+      "filterFor": "筛选该值",
+      "filterOut": "排除该值",
+      "copyJson": "复制 JSON",
+      "copied": "已复制!",
+      "viewContext": "查看周围文档",
+      "contextTitle": "周围文档",
+      "loadNewer": "加载",
+      "loadOlder": "加载",
+      "newerDocs": "newer documents",
+      "olderDocs": "older documents",
+      "anchorRow": "当前文档",
+      "contextError": "该功能需要更新后端版本。",
+      "contextFetchError": "加载周围文档失败。"
     }
   }
 }

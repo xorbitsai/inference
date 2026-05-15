@@ -341,7 +341,25 @@
       "log_type": "Log Type",
       "rtf_avg": "RTF Average",
       "time_speech": "Speech Time",
-      "time_escape": "Process Time"
+      "time_escape": "Process Time",
+      "tableTab": "Table",
+      "jsonTab": "JSON",
+      "action": "Action",
+      "field": "Field",
+      "value": "Value",
+      "filterFor": "Filter for value",
+      "filterOut": "Filter out value",
+      "copyJson": "Copy JSON",
+      "copied": "Copied!",
+      "viewContext": "View surrounding documents",
+      "contextTitle": "Surrounding documents",
+      "loadNewer": "Load",
+      "loadOlder": "Load",
+      "newerDocs": "newer documents",
+      "olderDocs": "older documents",
+      "anchorRow": "Current document",
+      "contextError": "This feature requires a newer backend version.",
+      "contextFetchError": "Failed to load surrounding documents."
     }
   }
 }

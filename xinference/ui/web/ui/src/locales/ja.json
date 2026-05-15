@@ -341,7 +341,25 @@
       "log_type": "ログタイプ",
       "rtf_avg": "RTF平均",
       "time_speech": "音声時間",
-      "time_escape": "処理時間"
+      "time_escape": "処理時間",
+      "tableTab": "テーブル",
+      "jsonTab": "JSON",
+      "action": "操作",
+      "field": "フィールド",
+      "value": "値",
+      "filterFor": "この値でフィルター",
+      "filterOut": "この値を除外",
+      "copyJson": "JSONをコピー",
+      "copied": "コピーしました!",
+      "viewContext": "周辺ドキュメントを表示",
+      "contextTitle": "周辺ドキュメント",
+      "loadNewer": "読み込む",
+      "loadOlder": "読み込む",
+      "newerDocs": "件の新しいドキュメント",
+      "olderDocs": "件の古いドキュメント",
+      "anchorRow": "現在のドキュメント",
+      "contextError": "この機能にはバックエンドの更新が必要です。",
+      "contextFetchError": "周辺ドキュメントの読み込みに失敗しました。"
     }
   }
 }
