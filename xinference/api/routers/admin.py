@@ -286,7 +286,9 @@ async def search_logs(
     module: str = "",
     node: str = "",
     log_type: str = "",
-    filters: list[str] = Query([], description="Field filters, e.g. filters=+node:val1&filters=-level:val2"),
+    filters: list[str] = Query(
+        [], description="Field filters, e.g. filters=+node:val1&filters=-level:val2"
+    ),
     time_from: str = "now-1h",
     time_to: str = "now",
     size: int = 200,
