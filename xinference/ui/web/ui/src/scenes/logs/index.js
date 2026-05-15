@@ -436,6 +436,29 @@ function ContextDialog({ open, onClose, anchorRow, endPoint }) {
 
   const clampCount = (val) => Math.max(1, Math.min(500, Number(val) || 1))
 
+  const filterRows = (rows) => {
+    if (!localFieldFilters.length) return rows
+    const plusByKey = {}
+    const minusFilters = []
+    localFieldFilters.forEach((f) => {
+      if (f.op === '+') {
+        if (!plusByKey[f.key]) plusByKey[f.key] = []
+        plusByKey[f.key].push(f.value)
+      } else {
+        minusFilters.push(f)
+      }
+    })
+    return rows.filter((row) => {
+      for (const [key, values] of Object.entries(plusByKey)) {
+        if (!values.includes(String(row[key]))) return false
+      }
+      for (const f of minusFilters) {
+        if (String(row[f.key]) === f.value) return false
+      }
+      return true
+    })
+  }
+
   const formatTime = (ts) => {
     if (!ts) return ''
     const d = new Date(ts)
@@ -475,6 +498,7 @@ function ContextDialog({ open, onClose, anchorRow, endPoint }) {
               value={count}
               onChange={(e) => setCount(clampCount(e.target.value))}
               onBlur={(e) => setCount(clampCount(e.target.value))}
+              onKeyDown={(e) => { if (e.key === 'Enter') setSize((s) => s + clampCount(count)) }}
               inputProps={{ min: 1, max: 500, style: { fontSize: FONT_SIZE, width: 48, textAlign: 'center', padding: '2px 4px' } }}
               sx={{ '& .MuiOutlinedInput-root': { height: 28 } }}
             />
@@ -545,7 +569,8 @@ function ContextDialog({ open, onClose, anchorRow, endPoint }) {
     )
   }
 
-  const newerDesc = [...newer].reverse()
+  const newerDesc = filterRows([...newer].reverse())
+  const filteredOlder = filterRows(older)
 
   return (
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth="lg">
@@ -572,26 +597,61 @@ function ContextDialog({ open, onClose, anchorRow, endPoint }) {
           </Box>
         )}
         {!loading && !error && (
-          <TableContainer sx={{ maxHeight: '60vh' }}>
-            <Table size="small" stickyHeader>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ width: 32, fontSize: FONT_SIZE }} />
-                  <TableCell sx={{ width: 150, fontSize: FONT_SIZE }}>{t('logs.time')}</TableCell>
-                  <TableCell sx={{ width: 80, fontSize: FONT_SIZE }}>{t('logs.level')}</TableCell>
-                  <TableCell sx={{ width: 160, fontSize: FONT_SIZE }}>{t('logs.node')}</TableCell>
-                  <TableCell sx={{ fontSize: FONT_SIZE }}>{t('logs.message')}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {renderLoadBar('newer')}
-                {newerDesc.map((row, idx) => renderContextRow(row, `newer-${idx}`, false))}
-                {currentAnchor && renderContextRow(currentAnchor, 'anchor', true)}
-                {older.map((row, idx) => renderContextRow(row, `older-${idx}`, false))}
-                {renderLoadBar('older')}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          <>
+            {localFieldFilters.length > 0 && (
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 0.5,
+                  px: 2,
+                  py: 0.5,
+                  borderBottom: 1,
+                  borderColor: 'divider',
+                  alignItems: 'center',
+                }}
+              >
+                {localFieldFilters.map((f, i) => (
+                  <Chip
+                    key={`${f.op}${f.key}:${f.value}-${i}`}
+                    label={f.op === '-' ? `NOT ${f.key}: ${f.value}` : `${f.key}: ${f.value}`}
+                    size="small"
+                    color={f.op === '-' ? 'error' : 'default'}
+                    variant={f.op === '-' ? 'outlined' : 'filled'}
+                    onDelete={() => setLocalFieldFilters((prev) => prev.filter((_, idx) => idx !== i))}
+                    sx={{ fontSize: FONT_SIZE }}
+                  />
+                ))}
+                <Chip
+                  label={t('logs.clearFilters', 'Clear all')}
+                  size="small"
+                  variant="outlined"
+                  onClick={() => setLocalFieldFilters([])}
+                  sx={{ fontSize: FONT_SIZE }}
+                />
+              </Box>
+            )}
+            <TableContainer sx={{ maxHeight: '60vh' }}>
+              <Table size="small" stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ width: 32, fontSize: FONT_SIZE }} />
+                    <TableCell sx={{ width: 150, fontSize: FONT_SIZE }}>{t('logs.time')}</TableCell>
+                    <TableCell sx={{ width: 80, fontSize: FONT_SIZE }}>{t('logs.level')}</TableCell>
+                    <TableCell sx={{ width: 160, fontSize: FONT_SIZE }}>{t('logs.node')}</TableCell>
+                    <TableCell sx={{ fontSize: FONT_SIZE }}>{t('logs.message')}</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {renderLoadBar('newer')}
+                  {newerDesc.map((row, idx) => renderContextRow(row, `newer-${idx}`, false))}
+                  {currentAnchor && renderContextRow(currentAnchor, 'anchor', true)}
+                  {filteredOlder.map((row, idx) => renderContextRow(row, `older-${idx}`, false))}
+                  {renderLoadBar('older')}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </>
         )}
       </DialogContent>
     </Dialog>
