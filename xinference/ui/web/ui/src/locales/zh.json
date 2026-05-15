@@ -348,7 +348,9 @@
       "field": "字段",
       "value": "值",
       "filterFor": "筛选该值",
-      "filterOut": "排除该值"
+      "filterOut": "排除该值",
+      "copyJson": "复制 JSON",
+      "copied": "已复制!"
     }
   }
 }

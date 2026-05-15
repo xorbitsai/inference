@@ -348,7 +348,9 @@
       "field": "フィールド",
       "value": "値",
       "filterFor": "この値でフィルター",
-      "filterOut": "この値を除外"
+      "filterOut": "この値を除外",
+      "copyJson": "JSONをコピー",
+      "copied": "コピーしました!"
     }
   }
 }

@@ -348,7 +348,9 @@
       "field": "필드",
       "value": "값",
       "filterFor": "이 값으로 필터",
-      "filterOut": "이 값 제외"
+      "filterOut": "이 값 제외",
+      "copyJson": "JSON 복사",
+      "copied": "복사됨!"
     }
   }
 }

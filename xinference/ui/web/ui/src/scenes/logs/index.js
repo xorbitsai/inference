@@ -6,6 +6,8 @@ import {
   AccessTime,
   AddCircleOutline,
   CalendarToday,
+  Check as CheckIcon,
+  ContentCopy as ContentCopyIcon,
   ExpandMore as ExpandMoreIcon,
   Refresh as RefreshIcon,
   RemoveCircleOutline,
@@ -102,6 +104,19 @@ const LEVEL_COLORS = {
   DEBUG: 'text.disabled',
 }
 
+function copyToClipboard(text) {
+  if (navigator.clipboard) {
+    return navigator.clipboard.writeText(text)
+  }
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  document.body.appendChild(textarea)
+  textarea.select()
+  document.execCommand('copy')
+  document.body.removeChild(textarea)
+  return Promise.resolve()
+}
+
 function HighlightText({ text, keywords }) {
   if (!text) return ''
   const validKeywords = (Array.isArray(keywords) ? keywords : [keywords]).filter(
@@ -140,7 +155,22 @@ function formatFieldValue(value) {
 
 function DetailRow({ row, onFilter, fieldFilters, appliedSearch, selectedLevels, selectedLogType }) {
   const [tab, setTab] = useState(0)
+  const [copied, setCopied] = useState(false)
+  const copyTimerRef = useRef(null)
   const { t } = useTranslation()
+
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current)
+    }
+  }, [])
+
+  const handleCopyJson = () => {
+    copyToClipboard(JSON.stringify(row, null, 2)).then(() => {
+      setCopied(true)
+      copyTimerRef.current = setTimeout(() => setCopied(false), 1500)
+    })
+  }
 
   const fields = Object.entries(row).filter(
     ([, v]) => v !== undefined && v !== null && v !== ''
@@ -254,8 +284,18 @@ function DetailRow({ row, onFilter, fieldFilters, appliedSearch, selectedLevels,
             borderRadius: 1,
             overflow: 'auto',
             maxHeight: 400,
+            position: 'relative',
           }}
         >
+          <Tooltip title={copied ? t('logs.detail.copied') : t('logs.detail.copyJson')}>
+            <IconButton
+              size="small"
+              onClick={handleCopyJson}
+              sx={{ position: 'absolute', top: 4, right: 4 }}
+            >
+              {copied ? <CheckIcon sx={{ fontSize: 16 }} /> : <ContentCopyIcon sx={{ fontSize: 16 }} />}
+            </IconButton>
+          </Tooltip>
           <pre style={{ margin: 0, fontSize: FONT_SIZE, fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
             {JSON.stringify(row, null, 2)}
           </pre>

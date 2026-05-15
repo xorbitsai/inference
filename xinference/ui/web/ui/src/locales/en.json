@@ -348,7 +348,9 @@
       "field": "Field",
       "value": "Value",
       "filterFor": "Filter for value",
-      "filterOut": "Filter out value"
+      "filterOut": "Filter out value",
+      "copyJson": "Copy JSON",
+      "copied": "Copied!"
     }
   }
 }
