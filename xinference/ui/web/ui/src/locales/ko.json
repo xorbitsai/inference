@@ -350,7 +350,16 @@
       "filterFor": "이 값으로 필터",
       "filterOut": "이 값 제외",
       "copyJson": "JSON 복사",
-      "copied": "복사됨!"
+      "copied": "복사됨!",
+      "viewContext": "주변 문서 보기",
+      "contextTitle": "주변 문서",
+      "loadNewer": "불러오기",
+      "loadOlder": "불러오기",
+      "newerDocs": "최신 문서",
+      "olderDocs": "이전 문서",
+      "anchorRow": "현재 문서",
+      "contextError": "이 기능을 사용하려면 백엔드를 업데이트해야 합니다.",
+      "contextFetchError": "주변 문서를 불러오지 못했습니다."
     }
   }
 }

@@ -401,6 +401,108 @@ async def search_logs(
     return JSONResponse(content={"hits": hits, "total": total})
 
 
+async def search_logs_context(
+    timestamp: str = "",
+    size: int = 5,
+    node: str = "",
+) -> JSONResponse:
+    if not timestamp:
+        raise HTTPException(status_code=400, detail="timestamp is required")
+
+    es_url = os.environ.get("XINFERENCE_ES_URL", "")
+    if not es_url:
+        raise HTTPException(status_code=503, detail="Elasticsearch is not configured")
+
+    es_index = os.environ.get("XINFERENCE_ES_INDEX", "xinference-logs-*")
+    es_auth = os.environ.get("XINFERENCE_ES_AUTH", "")
+
+    size = max(1, min(size, 50))
+
+    node_filter: list[dict[str, Any]] = []
+    if node:
+        node_filter = [{"term": {"node": node}}]
+
+    older_body: dict[str, Any] = {
+        "query": {
+            "bool": {
+                "filter": [
+                    {"range": {"@timestamp": {"lt": timestamp}}},
+                    *node_filter,
+                ]
+            }
+        },
+        "sort": [{"@timestamp": "desc"}],
+        "size": size + 1,
+        "_source": {"excludes": ["@version"]},
+    }
+
+    newer_body: dict[str, Any] = {
+        "query": {
+            "bool": {
+                "filter": [
+                    {"range": {"@timestamp": {"gt": timestamp}}},
+                    *node_filter,
+                ]
+            }
+        },
+        "sort": [{"@timestamp": "asc"}],
+        "size": size + 1,
+        "_source": {"excludes": ["@version"]},
+    }
+
+    headers = {"Content-Type": "application/json"}
+    auth = None
+    if es_auth:
+        if es_auth.startswith("ApiKey "):
+            headers["Authorization"] = es_auth
+        else:
+            parts = es_auth.split(":", 1)
+            if len(parts) == 2:
+                auth = aiohttp.BasicAuth(parts[0], parts[1])
+
+    url = f"{es_url.rstrip('/')}/{es_index}/_search"
+
+    try:
+        timeout = aiohttp.ClientTimeout(total=10)
+        async with aiohttp.ClientSession(timeout=timeout, auth=auth) as session:
+            async with session.post(url, json=older_body, headers=headers) as resp:
+                if resp.status != 200:
+                    text = await resp.text()
+                    logger.error("ES context older query failed: status=%d body=%s", resp.status, text[:500])
+                    raise HTTPException(status_code=502, detail="Elasticsearch query failed")
+                older_data = await resp.json()
+
+            async with session.post(url, json=newer_body, headers=headers) as resp:
+                if resp.status != 200:
+                    text = await resp.text()
+                    logger.error("ES context newer query failed: status=%d body=%s", resp.status, text[:500])
+                    raise HTTPException(status_code=502, detail="Elasticsearch query failed")
+                newer_data = await resp.json()
+    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        logger.error("ES connection error or timeout: %s", e)
+        raise HTTPException(
+            status_code=502,
+            detail="Failed to connect to Elasticsearch or query timed out",
+        )
+
+    older_hits_raw = [hit["_source"] for hit in older_data.get("hits", {}).get("hits", [])]
+    newer_hits_raw = [hit["_source"] for hit in newer_data.get("hits", {}).get("hits", [])]
+
+    has_more_older = len(older_hits_raw) > size
+    has_more_newer = len(newer_hits_raw) > size
+
+    older_hits = older_hits_raw[:size]
+    newer_hits = newer_hits_raw[:size]
+
+    return JSONResponse(content={
+        "older": older_hits,
+        "newer": newer_hits,
+        "anchor_timestamp": timestamp,
+        "has_more_older": has_more_older,
+        "has_more_newer": has_more_newer,
+    })
+
+
 # --- Route registration ---
 
 
@@ -499,6 +601,13 @@ def register_routes(api: "RESTfulAPI") -> None:
     router.add_api_route(
         "/v1/cluster/logs",
         search_logs,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+
+    router.add_api_route(
+        "/v1/cluster/logs/context",
+        search_logs_context,
         methods=["GET"],
         dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
     )

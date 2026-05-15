@@ -5,8 +5,10 @@ import 'dayjs/locale/zh-cn'
 import {
   AccessTime,
   AddCircleOutline,
+  ArticleOutlined,
   CalendarToday,
   Check as CheckIcon,
+  Close as CloseIcon,
   ContentCopy as ContentCopyIcon,
   ExpandMore as ExpandMoreIcon,
   Refresh as RefreshIcon,
@@ -19,7 +21,11 @@ import {
   Box,
   Button,
   Chip,
+  CircularProgress,
   Collapse,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   Divider,
   FormControl,
   IconButton,
@@ -153,7 +159,7 @@ function formatFieldValue(value) {
   return String(value)
 }
 
-function DetailRow({ row, onFilter, fieldFilters, appliedSearch, selectedLevels, selectedLogType }) {
+function DetailRow({ row, onFilter, fieldFilters, appliedSearch, selectedLevels, selectedLogType, endPoint, onViewContext }) {
   const [tab, setTab] = useState(0)
   const [copied, setCopied] = useState(false)
   const copyTimerRef = useRef(null)
@@ -194,19 +200,40 @@ function DetailRow({ row, onFilter, fieldFilters, appliedSearch, selectedLevels,
     activeFilterMap.get('log_type').add(selectedLogType)
   }
 
+  const [contextOpen, setContextOpen] = useState(false)
+
+  const handleViewContext = (e) => {
+    e.stopPropagation()
+    if (onViewContext) {
+      onViewContext(row)
+    } else {
+      setContextOpen(true)
+    }
+  }
+
   return (
     <Box sx={{ px: 2, pb: 2 }}>
-      <Tabs
-        value={tab}
-        onChange={(_, v) => setTab(v)}
-        sx={{
-          'minHeight': 32,
-          '& .MuiTab-root': { minHeight: 32, fontSize: FONT_SIZE, textTransform: 'none', py: 0.5 },
-        }}
-      >
-        <Tab label={t('logs.detail.tableTab')} />
-        <Tab label={t('logs.detail.jsonTab')} />
-      </Tabs>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Tabs
+          value={tab}
+          onChange={(_, v) => setTab(v)}
+          sx={{
+            'minHeight': 32,
+            '& .MuiTab-root': { minHeight: 32, fontSize: FONT_SIZE, textTransform: 'none', py: 0.5 },
+          }}
+        >
+          <Tab label={t('logs.detail.tableTab')} />
+          <Tab label={t('logs.detail.jsonTab')} />
+        </Tabs>
+        <Button
+          size="small"
+          startIcon={<ArticleOutlined sx={{ fontSize: 16 }} />}
+          onClick={handleViewContext}
+          sx={{ fontSize: FONT_SIZE, textTransform: 'none', whiteSpace: 'nowrap' }}
+        >
+          {t('logs.detail.viewContext')}
+        </Button>
+      </Box>
       {tab === 0 ? (
         <Table size="small" sx={{ mt: 1 }}>
           <TableHead>
@@ -301,7 +328,273 @@ function DetailRow({ row, onFilter, fieldFilters, appliedSearch, selectedLevels,
           </pre>
         </Box>
       )}
+      {!onViewContext && (
+        <ContextDialog
+          open={contextOpen}
+          onClose={() => setContextOpen(false)}
+          anchorRow={row}
+          endPoint={endPoint}
+        />
+      )}
     </Box>
+  )
+}
+
+function ContextDialog({ open, onClose, anchorRow, endPoint }) {
+  const { t } = useTranslation()
+  const [currentAnchor, setCurrentAnchor] = useState(anchorRow)
+  const [olderSize, setOlderSize] = useState(5)
+  const [newerSize, setNewerSize] = useState(5)
+  const [olderLoadCount, setOlderLoadCount] = useState(5)
+  const [newerLoadCount, setNewerLoadCount] = useState(5)
+  const [older, setOlder] = useState([])
+  const [newer, setNewer] = useState([])
+  const [hasMoreOlder, setHasMoreOlder] = useState(false)
+  const [hasMoreNewer, setHasMoreNewer] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [expandedRow, setExpandedRow] = useState(null)
+  const [localFieldFilters, setLocalFieldFilters] = useState([])
+  const anchorRef = useRef(null)
+
+  useEffect(() => {
+    if (open && anchorRow) setCurrentAnchor(anchorRow)
+  }, [open, anchorRow])
+
+  const timestamp = currentAnchor ? currentAnchor['@timestamp'] : null
+
+  useEffect(() => {
+    if (!open || !timestamp) return
+    setLoading(true)
+    setError(null)
+
+    const params = new URLSearchParams()
+    params.set('timestamp', timestamp)
+    params.set('size', String(Math.max(olderSize, newerSize)))
+    if (currentAnchor.node) params.set('node', currentAnchor.node)
+
+    const token = sessionStorage.getItem('token')
+    const headers = { 'Content-Type': 'application/json' }
+    if (token) headers['Authorization'] = `Bearer ${token}`
+
+    fetch(endPoint + '/v1/cluster/logs/context?' + params.toString(), { headers })
+      .then((res) => {
+        if (res.status === 404) {
+          setError('notFound')
+          return null
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.json()
+      })
+      .then((data) => {
+        if (!data) return
+        setOlder((data.older || []).slice(0, olderSize))
+        setNewer((data.newer || []).slice(0, newerSize))
+        setHasMoreOlder(data.has_more_older || false)
+        setHasMoreNewer(data.has_more_newer || false)
+      })
+      .catch(() => setError('fetchError'))
+      .finally(() => setLoading(false))
+  }, [open, timestamp, olderSize, newerSize, currentAnchor, endPoint])
+
+  useEffect(() => {
+    if (!loading && anchorRef.current) {
+      anchorRef.current.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }
+  }, [loading, older, newer])
+
+  const resetState = () => {
+    setOlderSize(5)
+    setNewerSize(5)
+    setOlderLoadCount(5)
+    setNewerLoadCount(5)
+    setOlder([])
+    setNewer([])
+    setError(null)
+    setExpandedRow(null)
+    setLocalFieldFilters([])
+  }
+
+  const handleClose = () => {
+    resetState()
+    onClose()
+  }
+
+  const handleSwitchAnchor = (row) => {
+    resetState()
+    setCurrentAnchor(row)
+  }
+
+  const handleLocalFilter = useCallback((key, value, op) => {
+    const valStr = String(value)
+    setLocalFieldFilters((prev) => {
+      const exists = prev.find((f) => f.key === key && f.value === valStr && f.op === op)
+      if (exists) return prev.filter((f) => f !== exists)
+      return [...prev, { key, value: valStr, op }]
+    })
+  }, [])
+
+  const clampCount = (val) => Math.max(1, Math.min(500, Number(val) || 1))
+
+  const formatTime = (ts) => {
+    if (!ts) return ''
+    const d = new Date(ts)
+    return d.toLocaleString([], {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    })
+  }
+
+  const colSpan = 5
+
+  const renderLoadBar = (direction) => {
+    const isNewer = direction === 'newer'
+    const count = isNewer ? newerLoadCount : olderLoadCount
+    const setCount = isNewer ? setNewerLoadCount : setOlderLoadCount
+    const setSize = isNewer ? setNewerSize : setOlderSize
+    const hasMore = isNewer ? hasMoreNewer : hasMoreOlder
+    if (!hasMore) return null
+    return (
+      <TableRow>
+        <TableCell colSpan={colSpan} sx={{ py: 0.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Button
+              size="small"
+              onClick={() => setSize((s) => s + clampCount(count))}
+              sx={{ fontSize: FONT_SIZE, textTransform: 'none' }}
+            >
+              {t(isNewer ? 'logs.detail.loadNewer' : 'logs.detail.loadOlder')}
+            </Button>
+            <TextField
+              size="small"
+              type="number"
+              value={count}
+              onChange={(e) => setCount(clampCount(e.target.value))}
+              onBlur={(e) => setCount(clampCount(e.target.value))}
+              inputProps={{ min: 1, max: 500, style: { fontSize: FONT_SIZE, width: 48, textAlign: 'center', padding: '2px 4px' } }}
+              sx={{ '& .MuiOutlinedInput-root': { height: 28 } }}
+            />
+            <Typography sx={{ fontSize: FONT_SIZE, color: 'text.secondary' }}>
+              {t(isNewer ? 'logs.detail.newerDocs' : 'logs.detail.olderDocs')}
+            </Typography>
+          </Box>
+        </TableCell>
+      </TableRow>
+    )
+  }
+
+  const renderContextRow = (row, rowKey, isAnchor) => {
+    const isExpanded = expandedRow === rowKey
+    return (
+      <React.Fragment key={rowKey}>
+        <TableRow
+          ref={isAnchor ? anchorRef : undefined}
+          sx={{
+            ...(isAnchor ? { bgcolor: '#e3f2fd' } : undefined),
+            'cursor': 'pointer',
+            '& > *': { borderBottom: isExpanded ? 'none' : undefined },
+          }}
+          hover={!isAnchor}
+          onClick={() => setExpandedRow(isExpanded ? null : rowKey)}
+        >
+          <TableCell sx={{ fontSize: FONT_SIZE, p: 0.5, width: 32 }}>
+            <ExpandMoreIcon
+              fontSize="small"
+              sx={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+            />
+          </TableCell>
+          <TableCell sx={{ fontSize: FONT_SIZE, whiteSpace: 'nowrap' }}>
+            {formatTime(row['@timestamp'])}
+          </TableCell>
+          <TableCell sx={{ fontSize: FONT_SIZE }}>
+            <Typography
+              component="span"
+              sx={{ fontSize: FONT_SIZE, fontWeight: 600, color: LEVEL_COLORS[row.level] || 'text.primary' }}
+            >
+              {row.level}
+            </Typography>
+          </TableCell>
+          <TableCell sx={{ fontSize: FONT_SIZE }}>{row.node}</TableCell>
+          <TableCell
+            sx={{ fontSize: FONT_SIZE, maxWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+          >
+            {row.message}
+          </TableCell>
+        </TableRow>
+        <TableRow>
+          <TableCell sx={{ p: 0 }} colSpan={colSpan}>
+            <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+              <DetailRow
+                row={row}
+                onFilter={handleLocalFilter}
+                fieldFilters={localFieldFilters}
+                appliedSearch=""
+                selectedLevels={[]}
+                selectedLogType=""
+                endPoint={endPoint}
+                onViewContext={handleSwitchAnchor}
+              />
+            </Collapse>
+          </TableCell>
+        </TableRow>
+      </React.Fragment>
+    )
+  }
+
+  const newerDesc = [...newer].reverse()
+
+  return (
+    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="lg">
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: FONT_SIZE, py: 1.5 }}>
+        {t('logs.detail.contextTitle')}
+        <IconButton size="small" onClick={handleClose}>
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent dividers sx={{ p: 0 }}>
+        {loading && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress size={28} />
+          </Box>
+        )}
+        {error === 'notFound' && (
+          <Box sx={{ py: 4, textAlign: 'center' }}>
+            <Typography color="text.secondary">{t('logs.detail.contextError')}</Typography>
+          </Box>
+        )}
+        {error === 'fetchError' && (
+          <Box sx={{ py: 4, textAlign: 'center' }}>
+            <Typography color="error">{t('logs.detail.contextFetchError')}</Typography>
+          </Box>
+        )}
+        {!loading && !error && (
+          <TableContainer sx={{ maxHeight: '60vh' }}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ width: 32, fontSize: FONT_SIZE }} />
+                  <TableCell sx={{ width: 150, fontSize: FONT_SIZE }}>{t('logs.time')}</TableCell>
+                  <TableCell sx={{ width: 80, fontSize: FONT_SIZE }}>{t('logs.level')}</TableCell>
+                  <TableCell sx={{ width: 160, fontSize: FONT_SIZE }}>{t('logs.node')}</TableCell>
+                  <TableCell sx={{ fontSize: FONT_SIZE }}>{t('logs.message')}</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {renderLoadBar('newer')}
+                {newerDesc.map((row, idx) => renderContextRow(row, `newer-${idx}`, false))}
+                {currentAnchor && renderContextRow(currentAnchor, 'anchor', true)}
+                {older.map((row, idx) => renderContextRow(row, `older-${idx}`, false))}
+                {renderLoadBar('older')}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -863,7 +1156,7 @@ const Logs = () => {
                   <TableRow>
                     <TableCell sx={{ p: 0 }} colSpan={5}>
                       <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                        <DetailRow row={row} onFilter={handleFieldFilter} fieldFilters={fieldFilters} appliedSearch={appliedSearch} selectedLevels={selectedLevels} selectedLogType={selectedLogType} />
+                        <DetailRow row={row} onFilter={handleFieldFilter} fieldFilters={fieldFilters} appliedSearch={appliedSearch} selectedLevels={selectedLevels} selectedLogType={selectedLogType} endPoint={endPoint} />
                       </Collapse>
                     </TableCell>
                   </TableRow>

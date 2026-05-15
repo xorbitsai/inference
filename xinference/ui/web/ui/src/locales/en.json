@@ -350,7 +350,16 @@
       "filterFor": "Filter for value",
       "filterOut": "Filter out value",
       "copyJson": "Copy JSON",
-      "copied": "Copied!"
+      "copied": "Copied!",
+      "viewContext": "View surrounding documents",
+      "contextTitle": "Surrounding documents",
+      "loadNewer": "Load",
+      "loadOlder": "Load",
+      "newerDocs": "newer documents",
+      "olderDocs": "older documents",
+      "anchorRow": "Current document",
+      "contextError": "This feature requires a newer backend version.",
+      "contextFetchError": "Failed to load surrounding documents."
     }
   }
 }
