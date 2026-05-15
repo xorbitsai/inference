@@ -1,0 +1,31 @@
+xinference/ui/web/ui/src/locales/zh.json
+  f33d367c0b2fc1a5 351-353
+xinference/ui/web/ui/src/scenes/logs/index.js
+  f33d367c0b2fc1a5 9-10,107-119,158-159,162-173,287,290-298
+xinference/ui/web/ui/src/locales/en.json
+  f33d367c0b2fc1a5 351-353
+xinference/ui/web/ui/src/locales/ja.json
+  f33d367c0b2fc1a5 351-353
+xinference/ui/web/ui/src/locales/ko.json
+  f33d367c0b2fc1a5 351-353
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.14",
+  "base_commit_sha": "5adbe67d0e596f182440018108d6c51b46a2b901",
+  "prompts": {
+    "f33d367c0b2fc1a5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "35d7da9c-86a0-4e6a-a1ad-4fe3ded3f927",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 52,
+      "total_deletions": 4,
+      "accepted_lines": 52,
+      "overriden_lines": 0
+    }
+  }
+}
