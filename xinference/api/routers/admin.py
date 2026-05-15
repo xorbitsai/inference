@@ -340,7 +340,7 @@ async def search_logs(
                 continue
             op = token[0]
             field_name = token[1:sep]
-            field_value = token[sep + 1:]
+            field_value = token[sep + 1 :]
             if not _FIELD_NAME_RE.match(field_name) or not field_value:
                 continue
             if field_name in _TEXT_FIELDS:
@@ -353,7 +353,9 @@ async def search_logs(
                 must_not.append(clause)
 
     body: dict[str, Any] = {
-        "query": {"bool": {"must": must, "filter": filter_clauses, "must_not": must_not}},
+        "query": {
+            "bool": {"must": must, "filter": filter_clauses, "must_not": must_not}
+        },
         "sort": [{"@timestamp": "desc"}],
         "from": page_from,
         "size": size,
@@ -468,15 +470,27 @@ async def search_logs_context(
             async with session.post(url, json=older_body, headers=headers) as resp:
                 if resp.status != 200:
                     text = await resp.text()
-                    logger.error("ES context older query failed: status=%d body=%s", resp.status, text[:500])
-                    raise HTTPException(status_code=502, detail="Elasticsearch query failed")
+                    logger.error(
+                        "ES context older query failed: status=%d body=%s",
+                        resp.status,
+                        text[:500],
+                    )
+                    raise HTTPException(
+                        status_code=502, detail="Elasticsearch query failed"
+                    )
                 older_data = await resp.json()
 
             async with session.post(url, json=newer_body, headers=headers) as resp:
                 if resp.status != 200:
                     text = await resp.text()
-                    logger.error("ES context newer query failed: status=%d body=%s", resp.status, text[:500])
-                    raise HTTPException(status_code=502, detail="Elasticsearch query failed")
+                    logger.error(
+                        "ES context newer query failed: status=%d body=%s",
+                        resp.status,
+                        text[:500],
+                    )
+                    raise HTTPException(
+                        status_code=502, detail="Elasticsearch query failed"
+                    )
                 newer_data = await resp.json()
     except (aiohttp.ClientError, asyncio.TimeoutError) as e:
         logger.error("ES connection error or timeout: %s", e)
@@ -485,8 +499,12 @@ async def search_logs_context(
             detail="Failed to connect to Elasticsearch or query timed out",
         )
 
-    older_hits_raw = [hit["_source"] for hit in older_data.get("hits", {}).get("hits", [])]
-    newer_hits_raw = [hit["_source"] for hit in newer_data.get("hits", {}).get("hits", [])]
+    older_hits_raw = [
+        hit["_source"] for hit in older_data.get("hits", {}).get("hits", [])
+    ]
+    newer_hits_raw = [
+        hit["_source"] for hit in newer_data.get("hits", {}).get("hits", [])
+    ]
 
     has_more_older = len(older_hits_raw) > size
     has_more_newer = len(newer_hits_raw) > size
@@ -494,13 +512,15 @@ async def search_logs_context(
     older_hits = older_hits_raw[:size]
     newer_hits = newer_hits_raw[:size]
 
-    return JSONResponse(content={
-        "older": older_hits,
-        "newer": newer_hits,
-        "anchor_timestamp": timestamp,
-        "has_more_older": has_more_older,
-        "has_more_newer": has_more_newer,
-    })
+    return JSONResponse(
+        content={
+            "older": older_hits,
+            "newer": newer_hits,
+            "anchor_timestamp": timestamp,
+            "has_more_older": has_more_older,
+            "has_more_newer": has_more_newer,
+        }
+    )
 
 
 # --- Route registration ---
