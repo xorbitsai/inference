@@ -330,6 +330,7 @@ async def search_logs(
                 filter_clauses.append({"terms": {field: terms}})
 
     must_not: list[dict[str, Any]] = []
+    plus_filters: dict[str, list[str]] = {}
     if filters:
         for token in filters.split(","):
             token = token.strip()
@@ -343,14 +344,25 @@ async def search_logs(
             field_value = token[sep + 1 :]
             if not _FIELD_NAME_RE.match(field_name) or not field_value:
                 continue
-            if field_name in _TEXT_FIELDS:
-                clause = {"match_phrase": {field_name: field_value}}
-            else:
-                clause = {"term": {field_name: field_value}}
             if op == "+":
-                filter_clauses.append(clause)
+                plus_filters.setdefault(field_name, []).append(field_value)
             else:
-                must_not.append(clause)
+                if field_name in _TEXT_FIELDS:
+                    must_not.append({"match_phrase": {field_name: field_value}})
+                else:
+                    must_not.append({"term": {field_name: field_value}})
+
+    for field_name, values in plus_filters.items():
+        if field_name in _TEXT_FIELDS:
+            filter_clauses.append(
+                {
+                    "bool": {
+                        "should": [{"match_phrase": {field_name: v}} for v in values]
+                    }
+                }
+            )
+        else:
+            filter_clauses.append({"terms": {field_name: values}})
 
     body: dict[str, Any] = {
         "query": {
@@ -467,31 +479,27 @@ async def search_logs_context(
     try:
         timeout = aiohttp.ClientTimeout(total=10)
         async with aiohttp.ClientSession(timeout=timeout, auth=auth) as session:
-            async with session.post(url, json=older_body, headers=headers) as resp:
-                if resp.status != 200:
-                    text = await resp.text()
-                    logger.error(
-                        "ES context older query failed: status=%d body=%s",
-                        resp.status,
-                        text[:500],
-                    )
-                    raise HTTPException(
-                        status_code=502, detail="Elasticsearch query failed"
-                    )
-                older_data = await resp.json()
 
-            async with session.post(url, json=newer_body, headers=headers) as resp:
-                if resp.status != 200:
-                    text = await resp.text()
-                    logger.error(
-                        "ES context newer query failed: status=%d body=%s",
-                        resp.status,
-                        text[:500],
-                    )
-                    raise HTTPException(
-                        status_code=502, detail="Elasticsearch query failed"
-                    )
-                newer_data = await resp.json()
+            async def fetch(body: dict, name: str) -> dict:
+                async with session.post(url, json=body, headers=headers) as resp:
+                    if resp.status != 200:
+                        text = await resp.text()
+                        logger.error(
+                            "ES context %s query failed: status=%d body=%s",
+                            name,
+                            resp.status,
+                            text[:500],
+                        )
+                        raise HTTPException(
+                            status_code=502,
+                            detail="Elasticsearch query failed",
+                        )
+                    return await resp.json()
+
+            older_data, newer_data = await asyncio.gather(
+                fetch(older_body, "older"),
+                fetch(newer_body, "newer"),
+            )
     except (aiohttp.ClientError, asyncio.TimeoutError) as e:
         logger.error("ES connection error or timeout: %s", e)
         raise HTTPException(

@@ -125,11 +125,12 @@ function copyToClipboard(text) {
 
 function HighlightText({ text, keywords }) {
   if (!text) return ''
-  const validKeywords = (Array.isArray(keywords) ? keywords : [keywords]).filter(
-    (k) => k && typeof k === 'string' && k.trim()
-  )
+  const validKeywords = (
+    Array.isArray(keywords) ? keywords : [keywords]
+  ).filter((k) => k && typeof k === 'string' && k.trim())
   if (!validKeywords.length) return text
   const escaped = validKeywords
+    .sort((a, b) => b.length - a.length)
     .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
     .join('|')
   const parts = String(text).split(new RegExp(`(${escaped})`, 'gi'))
@@ -159,7 +160,16 @@ function formatFieldValue(value) {
   return String(value)
 }
 
-function DetailRow({ row, onFilter, fieldFilters, appliedSearch, selectedLevels, selectedLogType, endPoint, onViewContext }) {
+function DetailRow({
+  row,
+  onFilter,
+  fieldFilters,
+  appliedSearch,
+  selectedLevels,
+  selectedLogType,
+  endPoint,
+  onViewContext,
+}) {
   const [tab, setTab] = useState(0)
   const [copied, setCopied] = useState(false)
   const copyTimerRef = useRef(null)
@@ -196,7 +206,8 @@ function DetailRow({ row, onFilter, fieldFilters, appliedSearch, selectedLevels,
     selectedLevels.forEach((v) => activeFilterMap.get('level').add(v))
   }
   if (selectedLogType) {
-    if (!activeFilterMap.has('log_type')) activeFilterMap.set('log_type', new Set())
+    if (!activeFilterMap.has('log_type'))
+      activeFilterMap.set('log_type', new Set())
     activeFilterMap.get('log_type').add(selectedLogType)
   }
 
@@ -213,13 +224,24 @@ function DetailRow({ row, onFilter, fieldFilters, appliedSearch, selectedLevels,
 
   return (
     <Box sx={{ px: 2, pb: 2 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
         <Tabs
           value={tab}
           onChange={(_, v) => setTab(v)}
           sx={{
             'minHeight': 32,
-            '& .MuiTab-root': { minHeight: 32, fontSize: FONT_SIZE, textTransform: 'none', py: 0.5 },
+            '& .MuiTab-root': {
+              minHeight: 32,
+              fontSize: FONT_SIZE,
+              textTransform: 'none',
+              py: 0.5,
+            },
           }}
         >
           <Tab label={t('logs.detail.tableTab')} />
@@ -229,7 +251,11 @@ function DetailRow({ row, onFilter, fieldFilters, appliedSearch, selectedLevels,
           size="small"
           startIcon={<ArticleOutlined sx={{ fontSize: 16 }} />}
           onClick={handleViewContext}
-          sx={{ fontSize: FONT_SIZE, textTransform: 'none', whiteSpace: 'nowrap' }}
+          sx={{
+            fontSize: FONT_SIZE,
+            textTransform: 'none',
+            whiteSpace: 'nowrap',
+          }}
         >
           {t('logs.detail.viewContext')}
         </Button>
@@ -238,10 +264,14 @@ function DetailRow({ row, onFilter, fieldFilters, appliedSearch, selectedLevels,
         <Table size="small" sx={{ mt: 1 }}>
           <TableHead>
             <TableRow>
-              <TableCell sx={{ fontSize: FONT_SIZE, width: 80, fontWeight: 600 }}>
+              <TableCell
+                sx={{ fontSize: FONT_SIZE, width: 80, fontWeight: 600 }}
+              >
                 {t('logs.detail.action')}
               </TableCell>
-              <TableCell sx={{ fontSize: FONT_SIZE, width: 200, fontWeight: 600 }}>
+              <TableCell
+                sx={{ fontSize: FONT_SIZE, width: 200, fontWeight: 600 }}
+              >
                 {t('logs.detail.field')}
               </TableCell>
               <TableCell sx={{ fontSize: FONT_SIZE, fontWeight: 600 }}>
@@ -251,7 +281,9 @@ function DetailRow({ row, onFilter, fieldFilters, appliedSearch, selectedLevels,
           </TableHead>
           <TableBody>
             {fields.map(([key, val]) => {
-              const isFilterMatch = activeFilterMap.has(key) && activeFilterMap.get(key).has(String(val))
+              const isFilterMatch =
+                activeFilterMap.has(key) &&
+                activeFilterMap.get(key).has(String(val))
               const valueKeywords = []
               if (appliedSearch) valueKeywords.push(appliedSearch)
               if (isFilterMatch) valueKeywords.push(String(val))
@@ -287,15 +319,27 @@ function DetailRow({ row, onFilter, fieldFilters, appliedSearch, selectedLevels,
                     </Tooltip>
                   </TableCell>
                   <TableCell sx={{ fontSize: FONT_SIZE }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Box
+                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                    >
                       <FieldTypeIcon fieldKey={key} value={val} />
-                      <HighlightText text={key} keywords={appliedSearch ? [appliedSearch] : []} />
+                      <HighlightText
+                        text={key}
+                        keywords={appliedSearch ? [appliedSearch] : []}
+                      />
                     </Box>
                   </TableCell>
                   <TableCell
-                    sx={{ fontSize: FONT_SIZE, wordBreak: 'break-all', fontFamily: 'monospace' }}
+                    sx={{
+                      fontSize: FONT_SIZE,
+                      wordBreak: 'break-all',
+                      fontFamily: 'monospace',
+                    }}
                   >
-                    <HighlightText text={formatFieldValue(val)} keywords={valueKeywords} />
+                    <HighlightText
+                      text={formatFieldValue(val)}
+                      keywords={valueKeywords}
+                    />
                   </TableCell>
                 </TableRow>
               )
@@ -314,16 +358,30 @@ function DetailRow({ row, onFilter, fieldFilters, appliedSearch, selectedLevels,
             position: 'relative',
           }}
         >
-          <Tooltip title={copied ? t('logs.detail.copied') : t('logs.detail.copyJson')}>
+          <Tooltip
+            title={copied ? t('logs.detail.copied') : t('logs.detail.copyJson')}
+          >
             <IconButton
               size="small"
               onClick={handleCopyJson}
               sx={{ position: 'absolute', top: 4, right: 4 }}
             >
-              {copied ? <CheckIcon sx={{ fontSize: 16 }} /> : <ContentCopyIcon sx={{ fontSize: 16 }} />}
+              {copied ? (
+                <CheckIcon sx={{ fontSize: 16 }} />
+              ) : (
+                <ContentCopyIcon sx={{ fontSize: 16 }} />
+              )}
             </IconButton>
           </Tooltip>
-          <pre style={{ margin: 0, fontSize: FONT_SIZE, fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+          <pre
+            style={{
+              margin: 0,
+              fontSize: FONT_SIZE,
+              fontFamily: 'monospace',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-all',
+            }}
+          >
             {JSON.stringify(row, null, 2)}
           </pre>
         </Box>
@@ -377,7 +435,9 @@ function ContextDialog({ open, onClose, anchorRow, endPoint }) {
     const headers = { 'Content-Type': 'application/json' }
     if (token) headers['Authorization'] = `Bearer ${token}`
 
-    fetch(endPoint + '/v1/cluster/logs/context?' + params.toString(), { headers })
+    fetch(endPoint + '/v1/cluster/logs/context?' + params.toString(), {
+      headers,
+    })
       .then((res) => {
         if (res.status === 404) {
           setError('notFound')
@@ -428,7 +488,9 @@ function ContextDialog({ open, onClose, anchorRow, endPoint }) {
   const handleLocalFilter = useCallback((key, value, op) => {
     const valStr = String(value)
     setLocalFieldFilters((prev) => {
-      const exists = prev.find((f) => f.key === key && f.value === valStr && f.op === op)
+      const exists = prev.find(
+        (f) => f.key === key && f.value === valStr && f.op === op
+      )
       if (exists) return prev.filter((f) => f !== exists)
       return [...prev, { key, value: valStr, op }]
     })
@@ -498,8 +560,19 @@ function ContextDialog({ open, onClose, anchorRow, endPoint }) {
               value={count}
               onChange={(e) => setCount(clampCount(e.target.value))}
               onBlur={(e) => setCount(clampCount(e.target.value))}
-              onKeyDown={(e) => { if (e.key === 'Enter') setSize((s) => s + clampCount(count)) }}
-              inputProps={{ min: 1, max: 500, style: { fontSize: FONT_SIZE, width: 48, textAlign: 'center', padding: '2px 4px' } }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') setSize((s) => s + clampCount(count))
+              }}
+              inputProps={{
+                min: 1,
+                max: 500,
+                style: {
+                  fontSize: FONT_SIZE,
+                  width: 48,
+                  textAlign: 'center',
+                  padding: '2px 4px',
+                },
+              }}
               sx={{ '& .MuiOutlinedInput-root': { height: 28 } }}
             />
             <Typography sx={{ fontSize: FONT_SIZE, color: 'text.secondary' }}>
@@ -528,7 +601,10 @@ function ContextDialog({ open, onClose, anchorRow, endPoint }) {
           <TableCell sx={{ fontSize: FONT_SIZE, p: 0.5, width: 32 }}>
             <ExpandMoreIcon
               fontSize="small"
-              sx={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+              sx={{
+                transform: isExpanded ? 'rotate(180deg)' : 'none',
+                transition: 'transform 0.2s',
+              }}
             />
           </TableCell>
           <TableCell sx={{ fontSize: FONT_SIZE, whiteSpace: 'nowrap' }}>
@@ -537,14 +613,24 @@ function ContextDialog({ open, onClose, anchorRow, endPoint }) {
           <TableCell sx={{ fontSize: FONT_SIZE }}>
             <Typography
               component="span"
-              sx={{ fontSize: FONT_SIZE, fontWeight: 600, color: LEVEL_COLORS[row.level] || 'text.primary' }}
+              sx={{
+                fontSize: FONT_SIZE,
+                fontWeight: 600,
+                color: LEVEL_COLORS[row.level] || 'text.primary',
+              }}
             >
               {row.level}
             </Typography>
           </TableCell>
           <TableCell sx={{ fontSize: FONT_SIZE }}>{row.node}</TableCell>
           <TableCell
-            sx={{ fontSize: FONT_SIZE, maxWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            sx={{
+              fontSize: FONT_SIZE,
+              maxWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
           >
             {row.message}
           </TableCell>
@@ -574,7 +660,15 @@ function ContextDialog({ open, onClose, anchorRow, endPoint }) {
 
   return (
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth="lg">
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: FONT_SIZE, py: 1.5 }}>
+      <DialogTitle
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          fontSize: FONT_SIZE,
+          py: 1.5,
+        }}
+      >
         {t('logs.detail.contextTitle')}
         <IconButton size="small" onClick={handleClose}>
           <CloseIcon fontSize="small" />
@@ -588,12 +682,16 @@ function ContextDialog({ open, onClose, anchorRow, endPoint }) {
         )}
         {error === 'notFound' && (
           <Box sx={{ py: 4, textAlign: 'center' }}>
-            <Typography color="text.secondary">{t('logs.detail.contextError')}</Typography>
+            <Typography color="text.secondary">
+              {t('logs.detail.contextError')}
+            </Typography>
           </Box>
         )}
         {error === 'fetchError' && (
           <Box sx={{ py: 4, textAlign: 'center' }}>
-            <Typography color="error">{t('logs.detail.contextFetchError')}</Typography>
+            <Typography color="error">
+              {t('logs.detail.contextFetchError')}
+            </Typography>
           </Box>
         )}
         {!loading && !error && (
@@ -614,11 +712,19 @@ function ContextDialog({ open, onClose, anchorRow, endPoint }) {
                 {localFieldFilters.map((f, i) => (
                   <Chip
                     key={`${f.op}${f.key}:${f.value}-${i}`}
-                    label={f.op === '-' ? `NOT ${f.key}: ${f.value}` : `${f.key}: ${f.value}`}
+                    label={
+                      f.op === '-'
+                        ? `NOT ${f.key}: ${f.value}`
+                        : `${f.key}: ${f.value}`
+                    }
                     size="small"
                     color={f.op === '-' ? 'error' : 'default'}
                     variant={f.op === '-' ? 'outlined' : 'filled'}
-                    onDelete={() => setLocalFieldFilters((prev) => prev.filter((_, idx) => idx !== i))}
+                    onDelete={() =>
+                      setLocalFieldFilters((prev) =>
+                        prev.filter((_, idx) => idx !== i)
+                      )
+                    }
                     sx={{ fontSize: FONT_SIZE }}
                   />
                 ))}
@@ -636,17 +742,30 @@ function ContextDialog({ open, onClose, anchorRow, endPoint }) {
                 <TableHead>
                   <TableRow>
                     <TableCell sx={{ width: 32, fontSize: FONT_SIZE }} />
-                    <TableCell sx={{ width: 150, fontSize: FONT_SIZE }}>{t('logs.time')}</TableCell>
-                    <TableCell sx={{ width: 80, fontSize: FONT_SIZE }}>{t('logs.level')}</TableCell>
-                    <TableCell sx={{ width: 160, fontSize: FONT_SIZE }}>{t('logs.node')}</TableCell>
-                    <TableCell sx={{ fontSize: FONT_SIZE }}>{t('logs.message')}</TableCell>
+                    <TableCell sx={{ width: 150, fontSize: FONT_SIZE }}>
+                      {t('logs.time')}
+                    </TableCell>
+                    <TableCell sx={{ width: 80, fontSize: FONT_SIZE }}>
+                      {t('logs.level')}
+                    </TableCell>
+                    <TableCell sx={{ width: 160, fontSize: FONT_SIZE }}>
+                      {t('logs.node')}
+                    </TableCell>
+                    <TableCell sx={{ fontSize: FONT_SIZE }}>
+                      {t('logs.message')}
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {renderLoadBar('newer')}
-                  {newerDesc.map((row, idx) => renderContextRow(row, `newer-${idx}`, false))}
-                  {currentAnchor && renderContextRow(currentAnchor, 'anchor', true)}
-                  {filteredOlder.map((row, idx) => renderContextRow(row, `older-${idx}`, false))}
+                  {newerDesc.map((row, idx) =>
+                    renderContextRow(row, `newer-${idx}`, false)
+                  )}
+                  {currentAnchor &&
+                    renderContextRow(currentAnchor, 'anchor', true)}
+                  {filteredOlder.map((row, idx) =>
+                    renderContextRow(row, `older-${idx}`, false)
+                  )}
                   {renderLoadBar('older')}
                 </TableBody>
               </Table>
@@ -732,9 +851,7 @@ const Logs = () => {
     if (fieldFilters.length) {
       params.set(
         'filters',
-        fieldFilters
-          .map((f) => `${f.op}${f.key}:${String(f.value)}`)
-          .join(',')
+        fieldFilters.map((f) => `${f.op}${f.key}:${String(f.value)}`).join(',')
       )
     }
 
@@ -1149,80 +1266,100 @@ const Logs = () => {
           <TableBody>
             {(() => {
               const levelFilterValues = [
-                ...fieldFilters.filter((f) => f.op === '+' && f.key === 'level').map((f) => f.value),
+                ...fieldFilters
+                  .filter((f) => f.op === '+' && f.key === 'level')
+                  .map((f) => f.value),
                 ...selectedLevels,
               ]
-              const nodeFilterValues = fieldFilters.filter((f) => f.op === '+' && f.key === 'node').map((f) => f.value)
-              const messageFilterValues = fieldFilters.filter((f) => f.op === '+' && f.key === 'message').map((f) => f.value)
+              const nodeFilterValues = fieldFilters
+                .filter((f) => f.op === '+' && f.key === 'node')
+                .map((f) => f.value)
+              const messageFilterValues = fieldFilters
+                .filter((f) => f.op === '+' && f.key === 'message')
+                .map((f) => f.value)
 
               return logs.map((row, idx) => {
-              const isExpanded = expandedRow === idx
-              return (
-                <React.Fragment key={idx}>
-                  <TableRow
-                    hover
-                    sx={{
-                      'cursor': 'pointer',
-                      '& > *': {
-                        borderBottom: isExpanded ? 'none' : undefined,
-                      },
-                    }}
-                    onClick={() => setExpandedRow(isExpanded ? null : idx)}
-                  >
-                    <TableCell sx={{ fontSize: FONT_SIZE, p: 0.5 }}>
-                      <ExpandMoreIcon
-                        fontSize="small"
-                        sx={{
-                          transform: isExpanded ? 'rotate(180deg)' : 'none',
-                          transition: 'transform 0.2s',
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell
-                      sx={{ fontSize: FONT_SIZE, whiteSpace: 'nowrap' }}
+                const isExpanded = expandedRow === idx
+                return (
+                  <React.Fragment key={idx}>
+                    <TableRow
+                      hover
+                      sx={{
+                        'cursor': 'pointer',
+                        '& > *': {
+                          borderBottom: isExpanded ? 'none' : undefined,
+                        },
+                      }}
+                      onClick={() => setExpandedRow(isExpanded ? null : idx)}
                     >
-                      {formatTime(row['@timestamp'])}
-                    </TableCell>
-                    <TableCell sx={{ fontSize: FONT_SIZE }}>
-                      <Typography
-                        component="span"
+                      <TableCell sx={{ fontSize: FONT_SIZE, p: 0.5 }}>
+                        <ExpandMoreIcon
+                          fontSize="small"
+                          sx={{
+                            transform: isExpanded ? 'rotate(180deg)' : 'none',
+                            transition: 'transform 0.2s',
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell
+                        sx={{ fontSize: FONT_SIZE, whiteSpace: 'nowrap' }}
+                      >
+                        {formatTime(row['@timestamp'])}
+                      </TableCell>
+                      <TableCell sx={{ fontSize: FONT_SIZE }}>
+                        <Typography
+                          component="span"
+                          sx={{
+                            fontSize: FONT_SIZE,
+                            fontWeight: 600,
+                            color: LEVEL_COLORS[row.level] || 'text.primary',
+                          }}
+                        >
+                          <HighlightText
+                            text={row.level}
+                            keywords={levelFilterValues}
+                          />
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ fontSize: FONT_SIZE }}>
+                        <HighlightText
+                          text={row.node}
+                          keywords={nodeFilterValues}
+                        />
+                      </TableCell>
+                      <TableCell
                         sx={{
                           fontSize: FONT_SIZE,
-                          fontWeight: 600,
-                          color: LEVEL_COLORS[row.level] || 'text.primary',
+                          maxWidth: 0,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
                         }}
                       >
-                        <HighlightText text={row.level} keywords={levelFilterValues} />
-                      </Typography>
-                    </TableCell>
-                    <TableCell sx={{ fontSize: FONT_SIZE }}>
-                      <HighlightText text={row.node} keywords={nodeFilterValues} />
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        fontSize: FONT_SIZE,
-                        maxWidth: 0,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      <HighlightText
-                        text={row.message}
-                        keywords={[appliedSearch, ...messageFilterValues]}
-                      />
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell sx={{ p: 0 }} colSpan={5}>
-                      <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                        <DetailRow row={row} onFilter={handleFieldFilter} fieldFilters={fieldFilters} appliedSearch={appliedSearch} selectedLevels={selectedLevels} selectedLogType={selectedLogType} endPoint={endPoint} />
-                      </Collapse>
-                    </TableCell>
-                  </TableRow>
-                </React.Fragment>
-              )
-            })
+                        <HighlightText
+                          text={row.message}
+                          keywords={[appliedSearch, ...messageFilterValues]}
+                        />
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell sx={{ p: 0 }} colSpan={5}>
+                        <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                          <DetailRow
+                            row={row}
+                            onFilter={handleFieldFilter}
+                            fieldFilters={fieldFilters}
+                            appliedSearch={appliedSearch}
+                            selectedLevels={selectedLevels}
+                            selectedLogType={selectedLogType}
+                            endPoint={endPoint}
+                          />
+                        </Collapse>
+                      </TableCell>
+                    </TableRow>
+                  </React.Fragment>
+                )
+              })
             })()}
             {!loading && logs.length === 0 && (
               <TableRow>
