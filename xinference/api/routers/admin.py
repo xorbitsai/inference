@@ -286,7 +286,7 @@ async def search_logs(
     module: str = "",
     node: str = "",
     log_type: str = "",
-    filters: str = "",
+    filters: list[str] = Query([], description="Field filters, e.g. filters=+node:val1&filters=-level:val2"),
     time_from: str = "now-1h",
     time_to: str = "now",
     size: int = 200,
@@ -331,26 +331,25 @@ async def search_logs(
 
     must_not: list[dict[str, Any]] = []
     plus_filters: dict[str, list[str]] = {}
-    if filters:
-        for token in filters.split(","):
-            token = token.strip()
-            if len(token) < 3 or token[0] not in ("+", "-"):
-                continue
-            sep = token.find(":", 1)
-            if sep < 0:
-                continue
-            op = token[0]
-            field_name = token[1:sep]
-            field_value = token[sep + 1 :]
-            if not _FIELD_NAME_RE.match(field_name) or not field_value:
-                continue
-            if op == "+":
-                plus_filters.setdefault(field_name, []).append(field_value)
+    for token in filters:
+        token = token.strip()
+        if len(token) < 3 or token[0] not in ("+", "-"):
+            continue
+        sep = token.find(":", 1)
+        if sep < 0:
+            continue
+        op = token[0]
+        field_name = token[1:sep]
+        field_value = token[sep + 1 :]
+        if not _FIELD_NAME_RE.match(field_name) or not field_value:
+            continue
+        if op == "+":
+            plus_filters.setdefault(field_name, []).append(field_value)
+        else:
+            if field_name in _TEXT_FIELDS:
+                must_not.append({"match_phrase": {field_name: field_value}})
             else:
-                if field_name in _TEXT_FIELDS:
-                    must_not.append({"match_phrase": {field_name: field_value}})
-                else:
-                    must_not.append({"term": {field_name: field_value}})
+                must_not.append({"term": {field_name: field_value}})
 
     for field_name, values in plus_filters.items():
         if field_name in _TEXT_FIELDS:

@@ -848,12 +848,9 @@ const Logs = () => {
     params.set('time_to', timeRange.to)
     params.set('size', String(PAGE_SIZE))
     params.set('page_from', String(pageFrom))
-    if (fieldFilters.length) {
-      params.set(
-        'filters',
-        fieldFilters.map((f) => `${f.op}${f.key}:${String(f.value)}`).join(',')
-      )
-    }
+    fieldFilters.forEach((f) => {
+      params.append('filters', `${f.op}${f.key}:${String(f.value)}`)
+    })
 
     const token = sessionStorage.getItem('token')
     const headers = { 'Content-Type': 'application/json' }
