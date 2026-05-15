@@ -1,0 +1,23 @@
+xinference/ui/web/ui/src/scenes/logs/index.js
+  f33d367c0b2fc1a5 439-461,501,572-573,600-654
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.14",
+  "base_commit_sha": "77cfc4bbd66a5e76942eea4fa09842d7a3b69c4a",
+  "prompts": {
+    "f33d367c0b2fc1a5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "35d7da9c-86a0-4e6a-a1ad-4fe3ded3f927",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 81,
+      "total_deletions": 21,
+      "accepted_lines": 81,
+      "overriden_lines": 0
+    }
+  }
+}
