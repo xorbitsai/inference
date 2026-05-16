@@ -150,6 +150,58 @@ def test_load_mlx_vision(setup):
     sys.platform != "darwin" or platform.processor() != "arm",
     reason="MLX only works for Apple silicon chip",
 )
+def test_mlx_vision_text_only_parallel_inference(setup):
+    """Test MLX VLM text-only requests can use continuous batching."""
+    endpoint, _ = setup
+    client = Client(endpoint)
+
+    model_uid = client.launch_model(
+        model_name="qwen2-vl-instruct",
+        model_engine="MLX",
+        model_size_in_billions=2,
+        model_format="mlx",
+        quantization="4bit",
+    )
+    assert len(client.list_models()) == 1
+    model = client.get_model(model_uid)
+
+    thread1 = InferenceThread("write a poem.", {"stream": True}, model)
+    thread2 = InferenceThread("中国的首都是哪里？", {"stream": False}, model)
+    thread3 = InferenceThread("介绍一下Python。", {"stream": True}, model)
+
+    thread1.start()
+    thread2.start()
+    thread3.start()
+
+    result1 = thread1.join()
+    result2 = thread2.join()
+    result3 = thread3.join()
+
+    assert result1 is not None
+    assert result2 is not None
+    assert result3 is not None
+
+    assert "choices" in result1
+    assert len(result1["choices"]) > 0
+    assert "delta" in result1["choices"][0]
+    assert result1["choices"][0]["finish_reason"] in ["stop", "length"]
+
+    assert "choices" in result2
+    assert len(result2["choices"]) > 0
+    assert "message" in result2["choices"][0]
+    assert "content" in result2["choices"][0]["message"]
+    assert len(result2["choices"][0]["message"]["content"]) > 0
+
+    assert "choices" in result3
+    assert len(result3["choices"]) > 0
+    assert "delta" in result3["choices"][0]
+    assert result3["choices"][0]["finish_reason"] in ["stop", "length"]
+
+
+@pytest.mark.skipif(
+    sys.platform != "darwin" or platform.processor() != "arm",
+    reason="MLX only works for Apple silicon chip",
+)
 def test_mlx_parallel_inference(setup):
     """Test MLX continuous batching with parallel inference requests."""
     endpoint, _ = setup

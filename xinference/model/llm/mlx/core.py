@@ -63,33 +63,70 @@ from ..utils import (
 logger = logging.getLogger(__name__)
 
 
+class _MLXLogitsModelAdapter:
+    """Expose mlx-vlm language models with the logits API expected by mlx-lm."""
+
+    def __init__(self, model: Any):
+        self._model = model
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._model, name)
+
+    def __call__(self, *args, **kwargs):
+        self._reset_position_cache_for_prefill(args, kwargs)
+        outputs = self._model(*args, **kwargs)
+        return getattr(outputs, "logits", outputs)
+
+    def _reset_position_cache_for_prefill(self, args, kwargs):
+        cache = kwargs.get("cache")
+        if cache is None or not cache:
+            return
+
+        cache_idx = getattr(getattr(self._model, "model", None), "fa_idx", 0)
+        if cache_idx >= len(cache) or cache[cache_idx] is None:
+            return
+
+        offset = cache[cache_idx].offset
+        if not isinstance(offset, int):
+            try:
+                offset = (offset if offset.ndim == 0 else offset[0]).item()
+            except AttributeError:
+                return
+        if offset != 0:
+            return
+
+        if args:
+            inputs = args[0]
+        else:
+            inputs = kwargs.get("inputs")
+        if getattr(inputs, "shape", None) is None or inputs.shape[-1] <= 1:
+            return
+
+        for attr in ("_rope_deltas", "_position_ids"):
+            if hasattr(self._model, attr):
+                setattr(self._model, attr, None)
+
+
 class MLXBatchModel:
     """Wrapper around MLX-LM BatchGenerator for continuous batching."""
 
-    # Class-level storage for multiple batch generators keyed by (temperature, top_p)
-    _batch_generators: Dict[Tuple[float, float], Dict[str, Any]] = (
-        {}
-    )  # (temp, top_p) -> {'generator': BatchGenerator, 'queues': dict, 'pending': dict, 'active': set, 'task': task}
-    _model_ref = None
-    _tokenizer_ref = None
-    _batch_size = 4
-    _max_context_length = 2048
-    _stop_tokens: set = set()
     _lock: Optional[asyncio.Lock] = None  # Will be initialized lazily
     _mlx_lm_version: Optional[str] = None  # Cache mlx-lm version
 
     def __init__(
         self, model, tokenizer, batch_size: int = 4, max_context_length: int = 2048
     ):
-        # Store references for creating new generators on demand
-        MLXBatchModel._model_ref = model
-        MLXBatchModel._tokenizer_ref = tokenizer
-        MLXBatchModel._batch_size = batch_size
-        MLXBatchModel._max_context_length = max_context_length
-        eos_token_ids = tokenizer.eos_token_ids
+        self._batch_generators: Dict[Tuple[float, float], Dict[str, Any]] = {}
+        self._model_ref = model
+        self._tokenizer_ref = tokenizer
+        self._batch_size = batch_size
+        self._max_context_length = max_context_length
+        eos_token_ids = getattr(tokenizer, "eos_token_ids", None)
+        if eos_token_ids is None:
+            eos_token_ids = getattr(tokenizer, "eos_token_id", None)
         if isinstance(eos_token_ids, int):
             eos_token_ids = [eos_token_ids]
-        MLXBatchModel._stop_tokens = set(eos_token_ids or [])
+        self._stop_tokens = set(eos_token_ids or [])
 
     @staticmethod
     def _get_lock() -> asyncio.Lock:
@@ -132,7 +169,7 @@ class MLXBatchModel:
         """Get or create a BatchGenerator for the given sampling parameters."""
         key = (round(temperature, 6), round(top_p, 6))
 
-        if key not in MLXBatchModel._batch_generators:
+        if key not in self._batch_generators:
             logger.info(
                 f"Creating new BatchGenerator for temperature={temperature}, top_p={top_p}"
             )
@@ -144,15 +181,15 @@ class MLXBatchModel:
 
             # Create batch generator
             batch_generator = BatchGenerator(
-                model=MLXBatchModel._model_ref,
-                max_tokens=MLXBatchModel._max_context_length,
-                stop_tokens=MLXBatchModel._stop_tokens,
+                model=self._model_ref,
+                max_tokens=self._max_context_length,
+                stop_tokens=self._stop_tokens,
                 sampler=sampler,
-                completion_batch_size=MLXBatchModel._batch_size,
+                completion_batch_size=self._batch_size,
                 prefill_batch_size=1,  # Use 1 for lowest latency
             )
 
-            MLXBatchModel._batch_generators[key] = {
+            self._batch_generators[key] = {
                 "generator": batch_generator,
                 "queues": {},  # uid -> asyncio.Queue
                 "pending": {},  # uid -> list of results
@@ -160,7 +197,7 @@ class MLXBatchModel:
                 "task": None,
             }
 
-        return MLXBatchModel._batch_generators[key]
+        return self._batch_generators[key]
 
     def _ensure_background_worker(self, gen_dict):
         """Ensure background worker is running for this generator."""
@@ -242,8 +279,8 @@ class MLXBatchModel:
         self._ensure_background_worker(gen_dict)
 
         # Prepare request
-        assert MLXBatchModel._tokenizer_ref is not None
-        prompt_tokens = MLXBatchModel._tokenizer_ref.encode(prompt)
+        assert self._tokenizer_ref is not None
+        prompt_tokens = self._tokenizer_ref.encode(prompt)
         input_echo_len = len(prompt_tokens)
 
         # Create queue first
@@ -301,8 +338,8 @@ class MLXBatchModel:
                         token_count += 1
 
                         # Decode current token
-                        assert MLXBatchModel._tokenizer_ref is not None
-                        token_text = MLXBatchModel._tokenizer_ref.decode(
+                        assert self._tokenizer_ref is not None
+                        token_text = self._tokenizer_ref.decode(
                             [result.token], skip_special_tokens=skip_special_tokens
                         )
                         token_text = token_text.strip("�")
@@ -1302,7 +1339,12 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         generate_config: Optional[MLXGenerateConfig] = None,
         from_chat: bool = False,
     ) -> Union[Completion, Iterator[CompletionChunk]]:
-        """Generate method for vision models (not using continuous batching)."""
+        """Generate method for vision models.
+
+        Text-only requests can use mlx-lm continuous batching through the
+        underlying language model. Requests with images stay on mlx-vlm because
+        their image tensors are not generally batch compatible.
+        """
         generate_config = self._sanitize_generate_config(generate_config)
         logger.debug(f"[MLXVisionModel] generation params: {generate_config}")
 
@@ -1310,6 +1352,10 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         assert self._tokenizer is not None
 
         stream = generate_config.get("stream", False)
+        if self._batch_model is not None and self._is_text_only_prompt(prompt):
+            batch_result = self._generate_text_only_with_batch(prompt, generate_config)
+            if batch_result is not None:
+                return batch_result
 
         if stream:
             # _generate_stream yields (chunk, usage) tuples; unwrap for the caller
@@ -1351,6 +1397,48 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
                     )
                 ),
             )
+
+    @staticmethod
+    def _is_text_only_prompt(prompt: Union[str, Dict[str, Any]]) -> bool:
+        if not isinstance(prompt, dict):
+            return True
+        multi_modal_data = prompt.get("multi_modal_data")
+        if not multi_modal_data:
+            return True
+        images = (
+            multi_modal_data.get("image")
+            if isinstance(multi_modal_data, dict)
+            else None
+        )
+        return not images
+
+    def _generate_text_only_with_batch(
+        self, prompt: Union[str, Dict[str, Any]], generate_config: MLXGenerateConfig
+    ) -> Optional[Union[Completion, Iterator[CompletionChunk]]]:
+        if self._loop is None or not self._loop.is_running():
+            return None
+
+        prompt_text = prompt.get("prompt", "") if isinstance(prompt, dict) else prompt
+        future = asyncio.run_coroutine_threadsafe(
+            self.async_generate(prompt_text, generate_config), self._loop
+        )
+        result = future.result()
+        if not hasattr(result, "__aiter__"):
+            return result
+
+        async_generator = result
+
+        def _sync_completion_chunks():
+            while True:
+                try:
+                    next_future = asyncio.run_coroutine_threadsafe(
+                        async_generator.__anext__(), self._loop
+                    )
+                    yield next_future.result()
+                except StopAsyncIteration:
+                    break
+
+        return _sync_completion_chunks()
 
     def wait_for_load(self):
         """Override parent wait_for_load to skip MLXBatchModel creation."""
@@ -1405,6 +1493,16 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         config = load_config(Path(self.model_path))
         config.update(self._model_config)
         self._context_length = get_context_length_from_config(config)
+
+        language_model = getattr(self._model, "language_model", None)
+        if language_model is not None:
+            batch_size = self._model_config.get("batch_size", 4)
+            self._batch_model = MLXBatchModel(
+                model=_MLXLogitsModelAdapter(language_model),
+                tokenizer=self._tokenizer,
+                batch_size=batch_size,
+                max_context_length=self._context_length,
+            )
 
     def _generate_stream_inner(self, **kwargs):
         import mlx.core as mx
