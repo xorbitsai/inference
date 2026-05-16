@@ -110,13 +110,13 @@ class _MLXLogitsModelAdapter:
 class MLXBatchModel:
     """Wrapper around MLX-LM BatchGenerator for continuous batching."""
 
-    _lock: Optional[asyncio.Lock] = None  # Will be initialized lazily
     _mlx_lm_version: Optional[str] = None  # Cache mlx-lm version
 
     def __init__(
         self, model, tokenizer, batch_size: int = 4, max_context_length: int = 2048
     ):
         self._batch_generators: Dict[Tuple[float, float], Dict[str, Any]] = {}
+        self._lock: Optional[asyncio.Lock] = None
         self._model_ref = model
         self._tokenizer_ref = tokenizer
         self._batch_size = batch_size
@@ -128,12 +128,11 @@ class MLXBatchModel:
             eos_token_ids = [eos_token_ids]
         self._stop_tokens = set(eos_token_ids or [])
 
-    @staticmethod
-    def _get_lock() -> asyncio.Lock:
+    def _get_lock(self) -> asyncio.Lock:
         """Get or create the async lock."""
-        if MLXBatchModel._lock is None:
-            MLXBatchModel._lock = asyncio.Lock()
-        return MLXBatchModel._lock
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
 
     @staticmethod
     def _get_mlx_lm_version() -> str:
@@ -228,7 +227,7 @@ class MLXBatchModel:
                     continue
 
                 # Distribute results to respective request queues
-                async with MLXBatchModel._get_lock():
+                async with self._get_lock():
                     for result in batch_results:
                         if result.uid in gen_dict["queues"]:
                             queue = gen_dict["queues"][result.uid]
@@ -303,7 +302,7 @@ class MLXBatchModel:
         )
 
         # Add to active requests set
-        async with MLXBatchModel._get_lock():
+        async with self._get_lock():
             gen_dict["active"].add(inserted_uid)
             gen_dict["queues"][inserted_uid] = queue
 
@@ -377,7 +376,7 @@ class MLXBatchModel:
 
                 except asyncio.TimeoutError:
                     # Check if request is still in active set
-                    async with MLXBatchModel._get_lock():
+                    async with self._get_lock():
                         is_active = inserted_uid in gen_dict["active"]
 
                     if not is_active:
@@ -402,7 +401,7 @@ class MLXBatchModel:
             )
         finally:
             # Clean up queue using the correct uid
-            async with MLXBatchModel._get_lock():
+            async with self._get_lock():
                 if inserted_uid in gen_dict["queues"]:
                     del gen_dict["queues"][inserted_uid]
                     logger.debug(f"Cleaned up queue for uid {inserted_uid}")
