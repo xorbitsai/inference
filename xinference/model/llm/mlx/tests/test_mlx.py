@@ -158,7 +158,7 @@ def test_load_mlx_vision(setup):
 
     # test no image
     messages = [{"role": "user", "content": "write a poem."}]
-    completion = model.chat(messages)
+    completion = model.chat(messages, generate_config={"max_tokens": 32})
     assert "content" in completion["choices"][0]["message"]
     assert "content" in completion["choices"][0]["message"]
     assert len(completion["choices"][0]["message"]["content"]) != 0
@@ -183,9 +183,15 @@ def test_mlx_vision_text_only_parallel_inference(setup):
     assert len(client.list_models()) == 1
     model = client.get_model(model_uid)
 
-    thread1 = InferenceThread("write a poem.", {"stream": True}, model)
-    thread2 = InferenceThread("中国的首都是哪里？", {"stream": False}, model)
-    thread3 = InferenceThread("介绍一下Python。", {"stream": True}, model)
+    thread1 = InferenceThread(
+        "write a poem.", {"stream": True, "max_tokens": 32}, model
+    )
+    thread2 = InferenceThread(
+        "中国的首都是哪里？", {"stream": False, "max_tokens": 32}, model
+    )
+    thread3 = InferenceThread(
+        "介绍一下Python。", {"stream": True, "max_tokens": 32}, model
+    )
 
     thread1.start()
     thread2.start()
