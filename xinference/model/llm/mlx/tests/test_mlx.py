@@ -21,6 +21,7 @@ import threading
 import pytest
 
 from .....client import Client
+from ..core import MLXVisionModel
 
 
 class InferenceThread(threading.Thread):
@@ -64,6 +65,23 @@ class InferenceThread(threading.Thread):
         if self._ex is not None:
             raise self._ex
         return self._result
+
+
+def test_mlx_vision_text_only_prompt_detection():
+    assert MLXVisionModel._is_text_only_prompt("hello")
+    assert MLXVisionModel._is_text_only_prompt({"prompt": "hello"})
+    assert MLXVisionModel._is_text_only_prompt(
+        {"prompt": "hello", "multi_modal_data": {}}
+    )
+    assert not MLXVisionModel._is_text_only_prompt(
+        {"prompt": "hello", "multi_modal_data": {"image": "image"}}
+    )
+    assert not MLXVisionModel._is_text_only_prompt(
+        {"prompt": "hello", "multi_modal_data": {"video": "video"}}
+    )
+    assert not MLXVisionModel._is_text_only_prompt(
+        {"prompt": "hello", "multi_modal_data": {"audio": "audio"}}
+    )
 
 
 @pytest.mark.skipif(
