@@ -1405,7 +1405,9 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         multi_modal_data = prompt.get("multi_modal_data")
         if not isinstance(multi_modal_data, dict):
             return True
-        return not multi_modal_data.get("image")
+        return not any(
+            multi_modal_data.get(modality) for modality in ("image", "video", "audio")
+        )
 
     def _generate_text_only_with_batch(
         self, prompt: Union[str, Dict[str, Any]], generate_config: MLXGenerateConfig
