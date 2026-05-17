@@ -274,7 +274,7 @@ class MLXBatchModel:
             mlx_lm_generate = importlib.import_module("mlx_lm.generate")
 
             device = mx.default_device()
-            mlx_lm_generate.generation_stream = mx.new_stream(device)
+            mlx_lm_generate.generation_stream = mx.default_stream(device)
         except Exception:
             logger.debug("Failed to reset mlx-lm generation stream", exc_info=True)
 
