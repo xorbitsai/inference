@@ -218,8 +218,8 @@ class MLXBatchModel:
                 # Get next batch of results for ALL active requests
                 # Use different API based on mlx-lm version
                 if MLXBatchModel._is_new_mlx_lm():
-                    # New API (mlx-lm >= 0.31.2): use next_generated()
-                    batch_results = batch_generator.next_generated()
+                    # New API (mlx-lm >= 0.31.2): return generated tokens only.
+                    batch_results = self._next_generated(batch_generator)
                 else:
                     # Old API (mlx-lm < 0.31.2): use next() and unpack
                     batch_results = batch_generator.next()
@@ -263,6 +263,17 @@ class MLXBatchModel:
                 logger.error(f"Error in background worker: {e}", exc_info=True)
                 await self._fail_active_requests(gen_dict, e)
                 await asyncio.sleep(0.01)
+
+    @staticmethod
+    def _next_generated(batch_generator):
+        if not hasattr(batch_generator, "_next"):
+            return batch_generator.next_generated()
+
+        while True:
+            prompt_responses, generation_responses = batch_generator._next()
+            if not generation_responses and prompt_responses:
+                continue
+            return generation_responses
 
     @staticmethod
     def _reset_mlx_lm_generation_stream():
