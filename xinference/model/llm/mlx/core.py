@@ -206,6 +206,7 @@ class MLXBatchModel:
 
     async def _background_worker(self, gen_dict):
         """Background worker that continuously calls next() and distributes results."""
+        self._reset_mlx_lm_generation_stream()
         key = f"temp={gen_dict['generator'].sampler}"
         logger.info(f"Starting BatchGenerator background worker for {key}")
         batch_generator = gen_dict["generator"]
@@ -258,7 +259,30 @@ class MLXBatchModel:
 
             except Exception as e:
                 logger.error(f"Error in background worker: {e}", exc_info=True)
+                await self._fail_active_requests(gen_dict, e)
                 await asyncio.sleep(0.01)
+
+    @staticmethod
+    def _reset_mlx_lm_generation_stream():
+        try:
+            import importlib
+
+            import mlx.core as mx
+
+            mlx_lm_generate = importlib.import_module("mlx_lm.generate")
+
+            mlx_lm_generate.generation_stream = mx.new_stream(mx.gpu)
+        except Exception:
+            logger.debug("Failed to reset mlx-lm generation stream", exc_info=True)
+
+    async def _fail_active_requests(self, gen_dict, exc: Exception):
+        async with self._get_lock():
+            for uid, queue in list(gen_dict["queues"].items()):
+                try:
+                    queue.put_nowait(exc)
+                except asyncio.QueueFull:
+                    logger.warning(f"Queue full for uid {uid} while failing request")
+            gen_dict["active"].clear()
 
     async def generate_stream(
         self,
@@ -331,6 +355,8 @@ class MLXBatchModel:
                 try:
                     # Wait for result with short timeout (so we can check if request is still active)
                     result = await asyncio.wait_for(queue.get(), timeout=0.5)
+                    if isinstance(result, Exception):
+                        raise result
 
                     if result.token is not None:
                         generated_tokens.append(result.token)
