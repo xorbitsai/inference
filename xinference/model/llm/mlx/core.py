@@ -269,11 +269,14 @@ class MLXBatchModel:
         if not hasattr(batch_generator, "_next"):
             return batch_generator.next_generated()
 
-        while True:
-            prompt_responses, generation_responses = batch_generator._next()
-            if not generation_responses and prompt_responses:
-                continue
-            return generation_responses
+        import mlx.core as mx
+
+        with mx.stream(mx.default_stream(mx.default_device())):
+            while True:
+                prompt_responses, generation_responses = batch_generator._next()
+                if not generation_responses and prompt_responses:
+                    continue
+                return generation_responses
 
     @staticmethod
     def _reset_mlx_lm_generation_stream():
@@ -1564,29 +1567,35 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         detokenizer.reset()
         tic = time.perf_counter()
         try:
-            for n, (token, logprobs) in enumerate(
-                generate_step(input_ids, self._model, pixel_values, mask, **kwargs),
-            ):
-                if n == 0:
-                    prompt_time = time.perf_counter() - tic
-                    prompt_tps = len(input_ids) / prompt_time
-                    tic = time.perf_counter()
-                if token == tokenizer.eos_token_id or token in stop_token_ids:
-                    break
-                detokenizer.add_token(token)
+            with mx.stream(mx.default_stream(mx.default_device())):
+                token = None
+                logprobs = None
+                for n, (token, logprobs) in enumerate(
+                    generate_step(input_ids, self._model, pixel_values, mask, **kwargs),
+                ):
+                    if n == 0:
+                        prompt_time = time.perf_counter() - tic
+                        prompt_tps = len(input_ids) / prompt_time
+                        tic = time.perf_counter()
+                    if token == tokenizer.eos_token_id or token in stop_token_ids:
+                        break
+                    detokenizer.add_token(token)
 
-                # Yield the last segment if streaming
-                yield GenerationResponse(
-                    text=detokenizer.last_segment,
-                    token=token,
-                    logprobs=logprobs,
-                    from_draft=False,
-                    prompt_tokens=len(input_ids),
-                    prompt_tps=prompt_tps,
-                    generation_tokens=n + 1,
-                    generation_tps=(n + 1) / (time.perf_counter() - tic),
-                    peak_memory=mx.metal.get_peak_memory() / 1e9,
-                )
+                    # Yield the last segment if streaming
+                    yield GenerationResponse(
+                        text=detokenizer.last_segment,
+                        token=token,
+                        logprobs=logprobs,
+                        from_draft=False,
+                        prompt_tokens=len(input_ids),
+                        prompt_tps=prompt_tps,
+                        generation_tokens=n + 1,
+                        generation_tps=(n + 1) / (time.perf_counter() - tic),
+                        peak_memory=mx.metal.get_peak_memory() / 1e9,
+                    )
+
+            if token is None:
+                return
 
             detokenizer.finalize()
             yield GenerationResponse(
