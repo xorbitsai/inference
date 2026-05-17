@@ -169,6 +169,7 @@ class MLXBatchModel:
         key = (round(temperature, 6), round(top_p, 6))
 
         if key not in self._batch_generators:
+            self._reset_mlx_lm_generation_stream()
             logger.info(
                 f"Creating new BatchGenerator for temperature={temperature}, top_p={top_p}"
             )
@@ -213,6 +214,7 @@ class MLXBatchModel:
 
         while True:
             try:
+                self._reset_mlx_lm_generation_stream()
                 # Get next batch of results for ALL active requests
                 # Use different API based on mlx-lm version
                 if MLXBatchModel._is_new_mlx_lm():
@@ -271,7 +273,8 @@ class MLXBatchModel:
 
             mlx_lm_generate = importlib.import_module("mlx_lm.generate")
 
-            mlx_lm_generate.generation_stream = mx.new_stream(mx.gpu)
+            device = mx.default_device()
+            mlx_lm_generate.generation_stream = mx.new_stream(device)
         except Exception:
             logger.debug("Failed to reset mlx-lm generation stream", exc_info=True)
 
@@ -311,6 +314,7 @@ class MLXBatchModel:
 
         # Insert prompt into batch to get the real uid
         # Use different API based on mlx-lm version
+        self._reset_mlx_lm_generation_stream()
         if MLXBatchModel._is_new_mlx_lm():
             # New API (mlx-lm >= 0.31.2): max_tokens should be a list
             request_ids = batch_generator.insert(
