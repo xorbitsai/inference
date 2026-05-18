@@ -811,6 +811,22 @@ class ChatModelMixin:
                         )
             new_message = dict(msg)
             new_message["content"] = new_content if new_content else None
+            # Parse JSON-encoded arguments in tool_calls to dicts,
+            # so Jinja2 templates can iterate them with |items.
+            if new_message.get("tool_calls"):
+                tool_calls = []
+                for tc in new_message["tool_calls"]:
+                    tc = dict(tc)
+                    func = tc.get("function")
+                    if func and isinstance(func.get("arguments"), str):
+                        func = dict(func)
+                        try:
+                            func["arguments"] = json.loads(func["arguments"])
+                        except (json.JSONDecodeError, TypeError):
+                            pass
+                        tc["function"] = func
+                    tool_calls.append(tc)
+                new_message["tool_calls"] = tool_calls
             transformed_messages.append(new_message)
 
         return transformed_messages
