@@ -818,7 +818,9 @@ class ChatModelMixin:
                 for tc in new_message["tool_calls"]:
                     tc = dict(tc)
                     func = tc.get("function")
-                    if isinstance(func, dict) and isinstance(func.get("arguments"), str):
+                    if isinstance(func, dict) and isinstance(
+                        func.get("arguments"), str
+                    ):
                         func = dict(func)
                         try:
                             parsed_args = json.loads(func["arguments"])
