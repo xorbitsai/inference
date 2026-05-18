@@ -818,10 +818,12 @@ class ChatModelMixin:
                 for tc in new_message["tool_calls"]:
                     tc = dict(tc)
                     func = tc.get("function")
-                    if func and isinstance(func.get("arguments"), str):
+                    if isinstance(func, dict) and isinstance(func.get("arguments"), str):
                         func = dict(func)
                         try:
-                            func["arguments"] = json.loads(func["arguments"])
+                            parsed_args = json.loads(func["arguments"])
+                            if isinstance(parsed_args, dict):
+                                func["arguments"] = parsed_args
                         except (json.JSONDecodeError, TypeError):
                             pass
                         tc["function"] = func
