@@ -14,6 +14,7 @@
 
 import asyncio
 import concurrent.futures
+import contextlib
 import importlib
 import logging
 import pathlib
@@ -169,7 +170,7 @@ class MLXBatchModel:
         key = (round(temperature, 6), round(top_p, 6))
 
         if key not in self._batch_generators:
-            self._reset_mlx_lm_generation_stream()
+            stream = self._reset_mlx_lm_generation_stream()
             logger.info(
                 f"Creating new BatchGenerator for temperature={temperature}, top_p={top_p}"
             )
@@ -178,6 +179,16 @@ class MLXBatchModel:
 
             # Create sampler with specific settings
             sampler = make_sampler(temp=temperature, top_p=top_p)
+            batch_generator_kwargs = {}
+            try:
+                import inspect
+
+                if "stream" in inspect.signature(BatchGenerator.__init__).parameters:
+                    batch_generator_kwargs["stream"] = stream
+            except Exception:
+                logger.debug(
+                    "Failed to inspect BatchGenerator signature", exc_info=True
+                )
 
             # Create batch generator
             batch_generator = BatchGenerator(
@@ -187,6 +198,7 @@ class MLXBatchModel:
                 sampler=sampler,
                 completion_batch_size=self._batch_size,
                 prefill_batch_size=1,  # Use 1 for lowest latency
+                **batch_generator_kwargs,
             )
 
             self._batch_generators[key] = {
@@ -266,12 +278,18 @@ class MLXBatchModel:
 
     @staticmethod
     def _next_generated(batch_generator):
-        if not hasattr(batch_generator, "_next"):
+        if hasattr(batch_generator, "next_generated"):
             return batch_generator.next_generated()
 
         import mlx.core as mx
 
-        with mx.stream(mx.default_stream(mx.default_device())):
+        stream = getattr(batch_generator, "stream", None) or getattr(
+            batch_generator, "_stream", None
+        )
+        if stream is None:
+            stream = MLXBatchModel._new_mlx_thread_local_stream()
+
+        with mx.stream(stream):
             while True:
                 prompt_responses, generation_responses = batch_generator._next()
                 if not generation_responses and prompt_responses:
@@ -279,18 +297,57 @@ class MLXBatchModel:
                 return generation_responses
 
     @staticmethod
-    def _reset_mlx_lm_generation_stream():
+    def _new_mlx_thread_local_stream():
+        import mlx.core as mx
+
+        device = mx.default_device()
+        if hasattr(mx, "new_thread_local_stream"):
+            return mx.new_thread_local_stream(device)
+        return mx.new_stream(device)
+
+    @staticmethod
+    def _reset_generation_stream(module_name: str):
         try:
             import importlib
 
-            import mlx.core as mx
-
-            mlx_lm_generate = importlib.import_module("mlx_lm.generate")
-
-            device = mx.default_device()
-            mlx_lm_generate.generation_stream = mx.default_stream(device)
+            generate_module = importlib.import_module(module_name)
+            stream = MLXBatchModel._new_mlx_thread_local_stream()
+            setattr(generate_module, "generation_stream", stream)
+            return stream
         except Exception:
-            logger.debug("Failed to reset mlx-lm generation stream", exc_info=True)
+            logger.debug(
+                "Failed to reset %s generation stream", module_name, exc_info=True
+            )
+            return None
+
+    @staticmethod
+    def _reset_mlx_lm_generation_stream():
+        return MLXBatchModel._reset_generation_stream("mlx_lm.generate")
+
+    @staticmethod
+    @contextlib.contextmanager
+    def _mlx_stream_context(stream):
+        import mlx.core as mx
+
+        original_eval = mx.eval
+        original_async_eval = mx.async_eval
+
+        def _eval_on_stream(*args, **kwargs):
+            with mx.stream(stream):
+                return original_eval(*args, **kwargs)
+
+        def _async_eval_on_stream(*args, **kwargs):
+            with mx.stream(stream):
+                return original_async_eval(*args, **kwargs)
+
+        mx.eval = _eval_on_stream
+        mx.async_eval = _async_eval_on_stream
+        try:
+            with mx.stream(stream):
+                yield
+        finally:
+            mx.eval = original_eval
+            mx.async_eval = original_async_eval
 
     async def _fail_active_requests(self, gen_dict, exc: Exception):
         async with self._get_lock():
@@ -1566,8 +1623,11 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
 
         detokenizer.reset()
         tic = time.perf_counter()
+        stream = MLXBatchModel._reset_generation_stream("mlx_vlm.generate")
+        if stream is None:
+            stream = MLXBatchModel._new_mlx_thread_local_stream()
         try:
-            with mx.stream(mx.default_stream(mx.default_device())):
+            with MLXBatchModel._mlx_stream_context(stream):
                 token = None
                 logprobs = None
                 for n, (token, logprobs) in enumerate(

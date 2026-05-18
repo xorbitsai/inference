@@ -56,7 +56,9 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
         "huggingface-hub<1.0",
     ],
     "mlx": [
-        "mlx-lm>=0.24.0",
+        "mlx>=0.22.0,<0.31.2",
+        "mlx-lm>=0.24.0,<0.31.3",
+        "mlx-vlm>=0.3.4,<0.5.0",
     ],
     "llama.cpp": [
         "xllamacpp>=0.2.6",
