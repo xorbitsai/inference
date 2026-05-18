@@ -240,3 +240,63 @@ jobs:
           docker system prune -af --volumes || true
           docker builder prune -af || true
           docker buildx prune -af || true
+
+  notify-failure:
+    name: Open issue for Docker CD failure
+    needs: [build-aarch64, build-gpu, build-cpu, tag-latest]
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    if: ${{ always() && github.repository == 'xorbitsai/inference' && contains(needs.*.result, 'failure') }}
+    steps:
+      - name: Create or update failure issue
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        with:
+          script: |
+            const needs = JSON.parse(process.env.NEEDS_JSON);
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const refName = context.ref.replace(/^refs\/heads\//, '').replace(/^refs\/tags\//, '');
+            const title = `[Docker CD] Failure on ${refName}`;
+            const jobResults = Object.entries(needs)
+              .map(([job, info]) => `- ${job}: ${info.result}`)
+              .join('\n');
+            const body = [
+              'Docker CD failed.',
+              '',
+              `- Workflow: ${context.workflow}`,
+              `- Run: ${runUrl}`,
+              `- Event: ${context.eventName}`,
+              `- Ref: ${context.ref}`,
+              `- SHA: ${context.sha}`,
+              `- Actor: ${context.actor}`,
+              '',
+              'Job results:',
+              jobResults,
+            ].join('\n');
+
+            const { data: existingIssues } = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${context.repo.owner}/${context.repo.repo} is:issue is:open in:title "${title.replace(/"/g, '\\"')}"`,
+              per_page: 1,
+            });
+
+            if (existingIssues.items.length > 0) {
+              const issue = existingIssues.items[0];
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body,
+              });
+              core.info(`Updated existing issue #${issue.number}`);
+              return;
+            }
+
+            const { data: issue } = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+            });
+            core.info(`Created issue #${issue.number}`);
