@@ -1,4 +1,4 @@
-# AGENTS.md
+# AI Agent Guidance
 
 Guidance for AI coding agents working in this repository.
 
@@ -122,7 +122,7 @@ npm ci
 npm start
 npm run build
 npx eslint .
-./node_modules/.bin/prettier --check .
+npx prettier --check .
 ```
 
 Use `npm run format` only when you intentionally want ESLint autofixes and
