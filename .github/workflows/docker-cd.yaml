@@ -80,7 +80,7 @@ jobs:
 
   build-gpu:
     name: Build GPU Docker image
-    needs: check-release-permission
+    needs: build-aarch64
     timeout-minutes: 240
     runs-on: self-hosted
     permissions:
@@ -136,7 +136,7 @@ jobs:
 
   build-cpu:
     name: Build CPU Docker image
-    needs: check-release-permission
+    needs: build-gpu
     timeout-minutes: 240
     runs-on: self-hosted
     permissions:
@@ -192,7 +192,7 @@ jobs:
 
   tag-latest:
     name: Tag latest Docker images
-    needs: [build-aarch64, build-gpu, build-cpu]
+    needs: build-cpu
     timeout-minutes: 60
     runs-on: self-hosted
     permissions:
