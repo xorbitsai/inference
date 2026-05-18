@@ -156,4 +156,6 @@ asv/results
 *.md
 !README.md
 !README_*.md
+!AGENTS.md
+!CLAUDE.md
 .history/
