@@ -242,9 +242,13 @@ def test_mlx_parallel_inference(setup):
     model = client.get_model(model_uid)
 
     # Test parallel streaming and non-streaming requests
-    thread1 = InferenceThread("1+1等于几？", {"stream": True}, model)
-    thread2 = InferenceThread("中国的首都是哪里？", {"stream": False}, model)
-    thread3 = InferenceThread("介绍一下Python。", {"stream": True}, model)
+    thread1 = InferenceThread("1+1等于几？", {"stream": True, "max_tokens": 32}, model)
+    thread2 = InferenceThread(
+        "中国的首都是哪里？", {"stream": False, "max_tokens": 32}, model
+    )
+    thread3 = InferenceThread(
+        "介绍一下Python。", {"stream": True, "max_tokens": 32}, model
+    )
 
     # Start all threads
     thread1.start()
