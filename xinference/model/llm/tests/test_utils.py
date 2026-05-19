@@ -79,7 +79,16 @@ def test_transform_messages_preserves_tool_call_fields():
     assert transformed[1] == {
         "role": "assistant",
         "content": None,
-        "tool_calls": messages[1]["tool_calls"],
+        "tool_calls": [
+            {
+                "id": "call_bed4c5f1",
+                "function": {
+                    "arguments": {"file_path": "README*"},
+                    "name": "view_file_in_detail",
+                },
+                "type": "function",
+            }
+        ],
     }
     assert transformed[2] == {
         "role": "tool",
