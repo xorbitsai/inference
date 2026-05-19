@@ -213,7 +213,8 @@ class MLXBatchModel:
 
     def _ensure_background_worker(self, gen_dict):
         """Ensure background worker is running for this generator."""
-        if gen_dict["task"] is None:
+        task = gen_dict["task"]
+        if task is None or task.done():
             loop = asyncio.get_event_loop()
             gen_dict["task"] = loop.create_task(self._background_worker(gen_dict))
 
@@ -226,6 +227,13 @@ class MLXBatchModel:
 
         while True:
             try:
+                async with self._get_lock():
+                    has_active_requests = bool(gen_dict["active"])
+
+                if not has_active_requests:
+                    await asyncio.sleep(0.001)
+                    continue
+
                 self._reset_mlx_lm_generation_stream()
                 # Get next batch of results for ALL active requests
                 # Use different API based on mlx-lm version
@@ -268,6 +276,11 @@ class MLXBatchModel:
                                     f"Request {result.uid} finished, removed from active set"
                                 )
 
+                    has_active_requests = bool(gen_dict["active"])
+
+                if not has_active_requests:
+                    self._synchronize_mlx()
+
                 # Small delay to prevent busy waiting
                 await asyncio.sleep(0.0001)
 
@@ -304,6 +317,19 @@ class MLXBatchModel:
         if hasattr(mx, "new_thread_local_stream"):
             return mx.new_thread_local_stream(device)
         return mx.new_stream(device)
+
+    @staticmethod
+    def _synchronize_mlx():
+        try:
+            import mlx.core as mx
+
+            synchronize = getattr(mx, "synchronize", None)
+            if synchronize is not None:
+                synchronize()
+            else:
+                mx.eval(mx.array([0]))
+        except Exception:
+            logger.debug("Failed to synchronize MLX", exc_info=True)
 
     @staticmethod
     def _reset_generation_stream(module_name: str):
@@ -372,9 +398,6 @@ class MLXBatchModel:
         gen_dict = self._get_or_create_generator(temperature, top_p)
         batch_generator = gen_dict["generator"]
 
-        # Ensure background worker is running for this generator
-        self._ensure_background_worker(gen_dict)
-
         # Prepare request
         assert self._tokenizer_ref is not None
         prompt_tokens = self._tokenizer_ref.encode(prompt)
@@ -418,6 +441,9 @@ class MLXBatchModel:
                             f"Queue full for uid {inserted_uid} while adding pending results"
                         )
                 del gen_dict["pending"][inserted_uid]
+
+        # Ensure background worker is running after the request is visible.
+        self._ensure_background_worker(gen_dict)
 
         try:
             # Track generated text
