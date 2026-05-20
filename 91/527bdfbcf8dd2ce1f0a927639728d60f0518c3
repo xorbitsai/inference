@@ -1,0 +1,30 @@
+xinference/api/oauth2/advanced/routes.py
+  a8b526542f504c58 37-47,198-200,202-205,225-230,251-253,257-258
+xinference/ui/web/ui/src/components/MenuSide.js
+  a8b526542f504c58 237-244,247
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.16",
+  "base_commit_sha": "91527bdfbcf8dd2ce1f0a927639728d60f0518c3",
+  "prompts": {
+    "a8b526542f504c58": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "21c1702f-37cd-423f-ab33-7e4fedd8706f",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 47,
+      "total_deletions": 450,
+      "accepted_lines": 772,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_9bfd4e7cd8cc2c": {
+      "author": "郑明再"
+    }
+  }
+}
