@@ -16,9 +16,9 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Optional
 
-from fastapi import Depends, HTTPException, Query, Request, Security
+from fastapi import HTTPException, Query, Request, Security
 
 from ...responses import JSONResponse
 from ..advanced.auth_service import AdvancedAuthService
@@ -93,20 +93,24 @@ async def create_user(request: Request) -> JSONResponse:
     return JSONResponse(content={"id": user_id, "username": username}, status_code=201)
 
 
-async def list_users(request: Request, source: Optional[str] = Query(None)) -> JSONResponse:
+async def list_users(
+    request: Request, source: Optional[str] = Query(None)
+) -> JSONResponse:
     auth: AdvancedAuthService = get_advanced_auth(request)
     users = auth.db.list_users(source=source)
     result = []
     for u in users:
-        result.append({
-            "id": u["id"],
-            "username": u["username"],
-            "source": u["source"],
-            "enabled": bool(u["enabled"]),
-            "must_change_password": bool(u["must_change_password"]),
-            "permissions": u["permissions"],
-            "created_at": u.get("created_at"),
-        })
+        result.append(
+            {
+                "id": u["id"],
+                "username": u["username"],
+                "source": u["source"],
+                "enabled": bool(u["enabled"]),
+                "must_change_password": bool(u["must_change_password"]),
+                "permissions": u["permissions"],
+                "created_at": u.get("created_at"),
+            }
+        )
     return JSONResponse(content=result)
 
 
@@ -115,15 +119,17 @@ async def get_user(user_id: int, request: Request) -> JSONResponse:
     user = auth.db.get_user_by_id(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return JSONResponse(content={
-        "id": user["id"],
-        "username": user["username"],
-        "source": user["source"],
-        "enabled": bool(user["enabled"]),
-        "must_change_password": bool(user["must_change_password"]),
-        "permissions": user["permissions"],
-        "created_at": user.get("created_at"),
-    })
+    return JSONResponse(
+        content={
+            "id": user["id"],
+            "username": user["username"],
+            "source": user["source"],
+            "enabled": bool(user["enabled"]),
+            "must_change_password": bool(user["must_change_password"]),
+            "permissions": user["permissions"],
+            "created_at": user.get("created_at"),
+        }
+    )
 
 
 async def update_user(user_id: int, request: Request) -> JSONResponse:
@@ -199,21 +205,25 @@ async def create_api_key(request: Request) -> JSONResponse:
     return JSONResponse(content=result, status_code=201)
 
 
-async def list_api_keys(request: Request, owner: Optional[int] = Query(None)) -> JSONResponse:
+async def list_api_keys(
+    request: Request, owner: Optional[int] = Query(None)
+) -> JSONResponse:
     auth: AdvancedAuthService = get_advanced_auth(request)
     keys = auth.db.list_api_keys(user_id=owner)
     result = []
     for k in keys:
-        result.append({
-            "id": k["id"],
-            "user_id": k["user_id"],
-            "key_prefix": k["key_prefix"],
-            "name": k.get("name"),
-            "enabled": bool(k.get("enabled", 1)),
-            "expires_at": k.get("expires_at"),
-            "model_permissions": k.get("model_permissions", []),
-            "created_at": k.get("created_at"),
-        })
+        result.append(
+            {
+                "id": k["id"],
+                "user_id": k["user_id"],
+                "key_prefix": k["key_prefix"],
+                "name": k.get("name"),
+                "enabled": bool(k.get("enabled", 1)),
+                "expires_at": k.get("expires_at"),
+                "model_permissions": k.get("model_permissions", []),
+                "created_at": k.get("created_at"),
+            }
+        )
     return JSONResponse(content=result)
 
 
@@ -222,16 +232,18 @@ async def get_api_key(key_id: int, request: Request) -> JSONResponse:
     key = auth.db.get_api_key_by_id(key_id)
     if not key:
         raise HTTPException(status_code=404, detail="API key not found")
-    return JSONResponse(content={
-        "id": key["id"],
-        "user_id": key["user_id"],
-        "key_prefix": key["key_prefix"],
-        "name": key.get("name"),
-        "enabled": bool(key.get("enabled", 1)),
-        "expires_at": key.get("expires_at"),
-        "model_permissions": key.get("model_permissions", []),
-        "created_at": key.get("created_at"),
-    })
+    return JSONResponse(
+        content={
+            "id": key["id"],
+            "user_id": key["user_id"],
+            "key_prefix": key["key_prefix"],
+            "name": key.get("name"),
+            "enabled": bool(key.get("enabled", 1)),
+            "expires_at": key.get("expires_at"),
+            "model_permissions": key.get("model_permissions", []),
+            "created_at": key.get("created_at"),
+        }
+    )
 
 
 async def update_api_key(key_id: int, request: Request) -> JSONResponse:
@@ -242,8 +254,14 @@ async def update_api_key(key_id: int, request: Request) -> JSONResponse:
 
     body = await request.json()
     update_fields = {}
-    for field in ("name", "enabled", "expires_at", "rate_limit_max_failures",
-                  "rate_limit_window_seconds", "rate_limit_ban_seconds"):
+    for field in (
+        "name",
+        "enabled",
+        "expires_at",
+        "rate_limit_max_failures",
+        "rate_limit_window_seconds",
+        "rate_limit_ban_seconds",
+    ):
         if field in body:
             update_fields[field] = body[field]
     if update_fields:
@@ -329,70 +347,102 @@ def register_advanced_auth_routes(api: "RESTfulAPI") -> None:
 
     # User management
     router.add_api_route(
-        "/v1/admin/users", create_user, methods=["POST"],
+        "/v1/admin/users",
+        create_user,
+        methods=["POST"],
         dependencies=[Security(auth_service, scopes=["users:manage"])],
     )
     router.add_api_route(
-        "/v1/admin/users", list_users, methods=["GET"],
+        "/v1/admin/users",
+        list_users,
+        methods=["GET"],
         dependencies=[Security(auth_service, scopes=["users:manage"])],
     )
     router.add_api_route(
-        "/v1/admin/users/{user_id}", get_user, methods=["GET"],
+        "/v1/admin/users/{user_id}",
+        get_user,
+        methods=["GET"],
         dependencies=[Security(auth_service, scopes=["users:manage"])],
     )
     router.add_api_route(
-        "/v1/admin/users/{user_id}", update_user, methods=["PUT"],
+        "/v1/admin/users/{user_id}",
+        update_user,
+        methods=["PUT"],
         dependencies=[Security(auth_service, scopes=["users:manage"])],
     )
     router.add_api_route(
-        "/v1/admin/users/{user_id}", delete_user, methods=["DELETE"],
+        "/v1/admin/users/{user_id}",
+        delete_user,
+        methods=["DELETE"],
         dependencies=[Security(auth_service, scopes=["users:manage"])],
     )
     router.add_api_route(
-        "/v1/admin/users/{user_id}/password", change_password, methods=["PUT"],
+        "/v1/admin/users/{user_id}/password",
+        change_password,
+        methods=["PUT"],
         dependencies=[Security(auth_service, scopes=["users:manage"])],
     )
 
     # API Key management
     router.add_api_route(
-        "/v1/admin/keys", create_api_key, methods=["POST"],
+        "/v1/admin/keys",
+        create_api_key,
+        methods=["POST"],
         dependencies=[Security(auth_service, scopes=["keys:create"])],
     )
     router.add_api_route(
-        "/v1/admin/keys", list_api_keys, methods=["GET"],
+        "/v1/admin/keys",
+        list_api_keys,
+        methods=["GET"],
         dependencies=[Security(auth_service, scopes=["keys:create"])],
     )
     router.add_api_route(
-        "/v1/admin/keys/{key_id}", get_api_key, methods=["GET"],
+        "/v1/admin/keys/{key_id}",
+        get_api_key,
+        methods=["GET"],
         dependencies=[Security(auth_service, scopes=["keys:create"])],
     )
     router.add_api_route(
-        "/v1/admin/keys/{key_id}", update_api_key, methods=["PUT"],
+        "/v1/admin/keys/{key_id}",
+        update_api_key,
+        methods=["PUT"],
         dependencies=[Security(auth_service, scopes=["keys:manage"])],
     )
     router.add_api_route(
-        "/v1/admin/keys/{key_id}", delete_api_key, methods=["DELETE"],
+        "/v1/admin/keys/{key_id}",
+        delete_api_key,
+        methods=["DELETE"],
         dependencies=[Security(auth_service, scopes=["keys:manage"])],
     )
     router.add_api_route(
-        "/v1/admin/keys/{key_id}/reveal", reveal_api_key, methods=["GET"],
+        "/v1/admin/keys/{key_id}/reveal",
+        reveal_api_key,
+        methods=["GET"],
         dependencies=[Security(auth_service, scopes=["admin"])],
     )
 
     # Permissions
     router.add_api_route(
-        "/v1/admin/keys/{key_id}/permissions", get_key_permissions, methods=["GET"],
+        "/v1/admin/keys/{key_id}/permissions",
+        get_key_permissions,
+        methods=["GET"],
         dependencies=[Security(auth_service, scopes=["keys:create"])],
     )
     router.add_api_route(
-        "/v1/admin/keys/{key_id}/permissions", update_key_permissions, methods=["PUT"],
+        "/v1/admin/keys/{key_id}/permissions",
+        update_key_permissions,
+        methods=["PUT"],
         dependencies=[Security(auth_service, scopes=["keys:manage"])],
     )
     router.add_api_route(
-        "/v1/admin/users/{user_id}/permissions", get_user_permissions, methods=["GET"],
+        "/v1/admin/users/{user_id}/permissions",
+        get_user_permissions,
+        methods=["GET"],
         dependencies=[Security(auth_service, scopes=["users:manage"])],
     )
     router.add_api_route(
-        "/v1/admin/users/{user_id}/permissions", update_user_permissions, methods=["PUT"],
+        "/v1/admin/users/{user_id}/permissions",
+        update_user_permissions,
+        methods=["PUT"],
         dependencies=[Security(auth_service, scopes=["users:manage"])],
     )

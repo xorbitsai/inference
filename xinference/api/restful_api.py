@@ -110,6 +110,7 @@ class RESTfulAPI(CancelMixin):
         self._supervisor_ref = None
         self._event_collector_ref = None
         self._advanced_auth_service = None
+        self._auth_service: Any = None
 
         if XINFERENCE_AUTH_ADVANCED and auth_config_file:
             raise SystemExit(
@@ -184,13 +185,17 @@ class RESTfulAPI(CancelMixin):
             return True
         return False if self._auth_service.config is None else True
 
-    def _check_model_access(self, request, model_uid: str, model_type: Optional[str] = None):
+    def _check_model_access(
+        self, request, model_uid: str, model_type: Optional[str] = None
+    ):
         if not self._advanced_auth_service:
             return
         token = request.headers.get("Authorization", "").replace("Bearer ", "")
         if not token:
             return
-        if not self._advanced_auth_service.validate_model_access(token, model_uid, model_type):
+        if not self._advanced_auth_service.validate_model_access(
+            token, model_uid, model_type
+        ):
             raise HTTPException(
                 status_code=403,
                 detail=f"API key does not have access to model: {model_uid}",

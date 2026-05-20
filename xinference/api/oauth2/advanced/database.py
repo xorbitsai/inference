@@ -16,7 +16,7 @@ import sqlite3
 import threading
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +126,14 @@ class Database:
             with self._get_conn() as conn:
                 cursor = conn.execute(
                     "INSERT INTO users (username, password_hash, source, oidc_sub, enabled, must_change_password) VALUES (?, ?, ?, ?, ?, ?)",
-                    (username, password_hash, source, oidc_sub, enabled, must_change_password),
+                    (
+                        username,
+                        password_hash,
+                        source,
+                        oidc_sub,
+                        enabled,
+                        must_change_password,
+                    ),
                 )
                 user_id = cursor.lastrowid
                 if permissions:
@@ -139,7 +146,9 @@ class Database:
 
     def get_user_by_id(self, user_id: int) -> Optional[Dict[str, Any]]:
         with self._get_conn() as conn:
-            row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+            row = conn.execute(
+                "SELECT * FROM users WHERE id = ?", (user_id,)
+            ).fetchone()
             if not row:
                 return None
             user = dict(row)
@@ -149,16 +158,20 @@ class Database:
             user["permissions"] = [p["permission"] for p in perms]
             return user
 
-    def get_user_by_username(self, username: str, source: str = "local") -> Optional[Dict[str, Any]]:
+    def get_user_by_username(
+        self, username: str, source: str = "local"
+    ) -> Optional[Dict[str, Any]]:
         with self._get_conn() as conn:
             row = conn.execute(
-                "SELECT * FROM users WHERE username = ? AND source = ?", (username, source)
+                "SELECT * FROM users WHERE username = ? AND source = ?",
+                (username, source),
             ).fetchone()
             if not row:
                 return None
             user = dict(row)
             perms = conn.execute(
-                "SELECT permission FROM user_permissions WHERE user_id = ?", (user["id"],)
+                "SELECT permission FROM user_permissions WHERE user_id = ?",
+                (user["id"],),
             ).fetchall()
             user["permissions"] = [p["permission"] for p in perms]
             return user
@@ -166,21 +179,30 @@ class Database:
     def list_users(self, source: Optional[str] = None) -> List[Dict[str, Any]]:
         with self._get_conn() as conn:
             if source:
-                rows = conn.execute("SELECT * FROM users WHERE source = ?", (source,)).fetchall()
+                rows = conn.execute(
+                    "SELECT * FROM users WHERE source = ?", (source,)
+                ).fetchall()
             else:
                 rows = conn.execute("SELECT * FROM users").fetchall()
             users = []
             for row in rows:
                 user = dict(row)
                 perms = conn.execute(
-                    "SELECT permission FROM user_permissions WHERE user_id = ?", (user["id"],)
+                    "SELECT permission FROM user_permissions WHERE user_id = ?",
+                    (user["id"],),
                 ).fetchall()
                 user["permissions"] = [p["permission"] for p in perms]
                 users.append(user)
             return users
 
     def update_user(self, user_id: int, **kwargs) -> bool:
-        allowed = {"username", "password_hash", "enabled", "must_change_password", "oidc_sub"}
+        allowed = {
+            "username",
+            "password_hash",
+            "enabled",
+            "must_change_password",
+            "oidc_sub",
+        }
         fields = {k: v for k, v in kwargs.items() if k in allowed and v is not None}
         if not fields:
             return False
@@ -200,7 +222,9 @@ class Database:
     def set_user_permissions(self, user_id: int, permissions: List[str]):
         with self._lock:
             with self._get_conn() as conn:
-                conn.execute("DELETE FROM user_permissions WHERE user_id = ?", (user_id,))
+                conn.execute(
+                    "DELETE FROM user_permissions WHERE user_id = ?", (user_id,)
+                )
                 for perm in permissions:
                     conn.execute(
                         "INSERT INTO user_permissions (user_id, permission) VALUES (?, ?)",
@@ -233,8 +257,17 @@ class Database:
                     """INSERT INTO api_keys (user_id, key_hash, key_encrypted, key_prefix, name, expires_at,
                        rate_limit_max_failures, rate_limit_window_seconds, rate_limit_ban_seconds)
                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (user_id, key_hash, key_encrypted, key_prefix, name, expires_at,
-                     rate_limit_max_failures, rate_limit_window_seconds, rate_limit_ban_seconds),
+                    (
+                        user_id,
+                        key_hash,
+                        key_encrypted,
+                        key_prefix,
+                        name,
+                        expires_at,
+                        rate_limit_max_failures,
+                        rate_limit_window_seconds,
+                        rate_limit_ban_seconds,
+                    ),
                 )
                 key_id = cursor.lastrowid
                 if model_permissions:
@@ -247,24 +280,30 @@ class Database:
 
     def get_api_key_by_id(self, key_id: int) -> Optional[Dict[str, Any]]:
         with self._get_conn() as conn:
-            row = conn.execute("SELECT * FROM api_keys WHERE id = ?", (key_id,)).fetchone()
+            row = conn.execute(
+                "SELECT * FROM api_keys WHERE id = ?", (key_id,)
+            ).fetchone()
             if not row:
                 return None
             key = dict(row)
             perms = conn.execute(
-                "SELECT * FROM api_key_model_permissions WHERE api_key_id = ?", (key_id,)
+                "SELECT * FROM api_key_model_permissions WHERE api_key_id = ?",
+                (key_id,),
             ).fetchall()
             key["model_permissions"] = [dict(p) for p in perms]
             return key
 
     def get_api_key_by_hash(self, key_hash: str) -> Optional[Dict[str, Any]]:
         with self._get_conn() as conn:
-            row = conn.execute("SELECT * FROM api_keys WHERE key_hash = ?", (key_hash,)).fetchone()
+            row = conn.execute(
+                "SELECT * FROM api_keys WHERE key_hash = ?", (key_hash,)
+            ).fetchone()
             if not row:
                 return None
             key = dict(row)
             perms = conn.execute(
-                "SELECT * FROM api_key_model_permissions WHERE api_key_id = ?", (key["id"],)
+                "SELECT * FROM api_key_model_permissions WHERE api_key_id = ?",
+                (key["id"],),
             ).fetchall()
             key["model_permissions"] = [dict(p) for p in perms]
             return key
@@ -272,22 +311,31 @@ class Database:
     def list_api_keys(self, user_id: Optional[int] = None) -> List[Dict[str, Any]]:
         with self._get_conn() as conn:
             if user_id is not None:
-                rows = conn.execute("SELECT * FROM api_keys WHERE user_id = ?", (user_id,)).fetchall()
+                rows = conn.execute(
+                    "SELECT * FROM api_keys WHERE user_id = ?", (user_id,)
+                ).fetchall()
             else:
                 rows = conn.execute("SELECT * FROM api_keys").fetchall()
             keys = []
             for row in rows:
                 key = dict(row)
                 perms = conn.execute(
-                    "SELECT * FROM api_key_model_permissions WHERE api_key_id = ?", (key["id"],)
+                    "SELECT * FROM api_key_model_permissions WHERE api_key_id = ?",
+                    (key["id"],),
                 ).fetchall()
                 key["model_permissions"] = [dict(p) for p in perms]
                 keys.append(key)
             return keys
 
     def update_api_key(self, key_id: int, **kwargs) -> bool:
-        allowed = {"name", "enabled", "expires_at", "rate_limit_max_failures",
-                   "rate_limit_window_seconds", "rate_limit_ban_seconds"}
+        allowed = {
+            "name",
+            "enabled",
+            "expires_at",
+            "rate_limit_max_failures",
+            "rate_limit_window_seconds",
+            "rate_limit_ban_seconds",
+        }
         fields = {k: v for k, v in kwargs.items() if k in allowed}
         if not fields:
             return False
@@ -304,10 +352,15 @@ class Database:
                 conn.execute("DELETE FROM api_keys WHERE id = ?", (key_id,))
                 return True
 
-    def set_api_key_model_permissions(self, key_id: int, permissions: List[Dict[str, Optional[str]]]):
+    def set_api_key_model_permissions(
+        self, key_id: int, permissions: List[Dict[str, Optional[str]]]
+    ):
         with self._lock:
             with self._get_conn() as conn:
-                conn.execute("DELETE FROM api_key_model_permissions WHERE api_key_id = ?", (key_id,))
+                conn.execute(
+                    "DELETE FROM api_key_model_permissions WHERE api_key_id = ?",
+                    (key_id,),
+                )
                 for mp in permissions:
                     conn.execute(
                         "INSERT INTO api_key_model_permissions (api_key_id, permission_type, permission_value) VALUES (?, ?, ?)",
@@ -324,7 +377,8 @@ class Database:
             for row in rows:
                 key = dict(row)
                 perms = conn.execute(
-                    "SELECT * FROM api_key_model_permissions WHERE api_key_id = ?", (key["id"],)
+                    "SELECT * FROM api_key_model_permissions WHERE api_key_id = ?",
+                    (key["id"],),
                 ).fetchall()
                 key["model_permissions"] = [dict(p) for p in perms]
                 keys.append(key)
@@ -332,7 +386,9 @@ class Database:
 
     # --- Refresh Tokens ---
 
-    def create_refresh_token(self, user_id: int, token_hash: str, expires_at: str) -> int:
+    def create_refresh_token(
+        self, user_id: int, token_hash: str, expires_at: str
+    ) -> int:
         with self._lock:
             with self._get_conn() as conn:
                 cursor = conn.execute(
@@ -351,7 +407,9 @@ class Database:
     def delete_refresh_token(self, token_hash: str) -> bool:
         with self._lock:
             with self._get_conn() as conn:
-                conn.execute("DELETE FROM refresh_tokens WHERE token_hash = ?", (token_hash,))
+                conn.execute(
+                    "DELETE FROM refresh_tokens WHERE token_hash = ?", (token_hash,)
+                )
                 return True
 
     def delete_user_refresh_tokens(self, user_id: int):
@@ -362,13 +420,17 @@ class Database:
     def cleanup_expired_refresh_tokens(self):
         with self._lock:
             with self._get_conn() as conn:
-                conn.execute("DELETE FROM refresh_tokens WHERE expires_at < datetime('now')")
+                conn.execute(
+                    "DELETE FROM refresh_tokens WHERE expires_at < datetime('now')"
+                )
 
     # --- System Config ---
 
     def get_config(self, key: str) -> Optional[str]:
         with self._get_conn() as conn:
-            row = conn.execute("SELECT value FROM system_config WHERE key = ?", (key,)).fetchone()
+            row = conn.execute(
+                "SELECT value FROM system_config WHERE key = ?", (key,)
+            ).fetchone()
             return row["value"] if row else None
 
     def set_config(self, key: str, value: str):

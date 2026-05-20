@@ -16,7 +16,6 @@ import hmac
 import os
 import secrets
 import string
-from typing import Tuple
 
 import bcrypt
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM

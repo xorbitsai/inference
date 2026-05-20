@@ -17,7 +17,7 @@ import os
 import secrets
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, SecurityScopes
@@ -66,10 +66,20 @@ class AdvancedAuthService:
         if self._db.user_count() == 0:
             password = generate_password()
             password_hash = get_password_hash(password)
-            admin_perms = ["admin", "models:list", "models:read", "models:write",
-                          "keys:create", "keys:manage", "users:manage",
-                          "cache:list", "cache:delete", "virtualenv:list", "virtualenv:delete"]
-            user_id = self._db.create_user(
+            admin_perms = [
+                "admin",
+                "models:list",
+                "models:read",
+                "models:write",
+                "keys:create",
+                "keys:manage",
+                "users:manage",
+                "cache:list",
+                "cache:delete",
+                "virtualenv:list",
+                "virtualenv:delete",
+            ]
+            self._db.create_user(
                 username="admin",
                 password_hash=password_hash,
                 source="local",
@@ -78,6 +88,7 @@ class AdvancedAuthService:
                 permissions=admin_perms,
             )
             from xinference.constants import XINFERENCE_HOME
+
             cred_path = os.path.join(XINFERENCE_HOME, "admin_credentials.txt")
             Path(cred_path).parent.mkdir(parents=True, exist_ok=True)
             with open(cred_path, "w") as f:
@@ -91,7 +102,9 @@ class AdvancedAuthService:
 
     # --- JWT ---
 
-    def create_access_token(self, user_id: int, username: str, scopes: List[str]) -> str:
+    def create_access_token(
+        self, user_id: int, username: str, scopes: List[str]
+    ) -> str:
         expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         payload = {
             "sub": username,
@@ -105,14 +118,18 @@ class AdvancedAuthService:
     def create_refresh_token(self, user_id: int) -> str:
         token = secrets.token_urlsafe(64)
         token_hash = sha256_hex(token)
-        expires_at = (datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)).isoformat()
+        expires_at = (
+            datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+        ).isoformat()
         self._db.create_refresh_token(user_id, token_hash, expires_at)
         return token
 
     def verify_access_token(self, token: str) -> Optional[Dict[str, Any]]:
         try:
             payload = jwt.decode(
-                token, self._jwt_secret_key, algorithms=[JWT_ALGORITHM],
+                token,
+                self._jwt_secret_key,
+                algorithms=[JWT_ALGORITHM],
                 options={"verify_exp": True},
             )
             if payload.get("type") != "access":
@@ -133,7 +150,9 @@ class AdvancedAuthService:
         user = self._db.get_user_by_id(rt["user_id"])
         if not user or not user["enabled"]:
             return None
-        access_token = self.create_access_token(user["id"], user["username"], user["permissions"])
+        access_token = self.create_access_token(
+            user["id"], user["username"], user["permissions"]
+        )
         return {"access_token": access_token, "token_type": "bearer"}
 
     def logout(self, refresh_token: str) -> bool:
@@ -142,7 +161,9 @@ class AdvancedAuthService:
 
     # --- Login ---
 
-    def authenticate_user(self, username: str, password: str) -> Optional[Dict[str, Any]]:
+    def authenticate_user(
+        self, username: str, password: str
+    ) -> Optional[Dict[str, Any]]:
         user = self._db.get_user_by_username(username, "local")
         if not user:
             return None
@@ -160,9 +181,11 @@ class AdvancedAuthService:
                 detail="Incorrect username or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        access_token = self.create_access_token(user["id"], user["username"], user["permissions"])
+        access_token = self.create_access_token(
+            user["id"], user["username"], user["permissions"]
+        )
         refresh_token = self.create_refresh_token(user["id"])
-        result = {
+        result: Dict[str, Any] = {
             "access_token": access_token,
             "refresh_token": refresh_token,
             "token_type": "bearer",
@@ -219,6 +242,8 @@ class AdvancedAuthService:
 
         user = self._db.get_user_by_id(user_id)
         cache_data = self._db.get_api_key_by_id(key_id)
+        if cache_data is None:
+            raise RuntimeError(f"Failed to retrieve newly created API key: {key_id}")
         cache_data["user_enabled"] = user["enabled"] if user else 1
         cache_data["username"] = user["username"] if user else ""
         self._cache.add(cache_data)
@@ -271,11 +296,16 @@ class AdvancedAuthService:
         if not payload:
             raise credentials_exception
 
-        username = payload.get("sub")
+        username: Optional[str] = payload.get("sub")
         token_scopes = payload.get("scopes", [])
         user_id = payload.get("user_id")
 
-        user = self._db.get_user_by_id(user_id) if user_id else self._db.get_user_by_username(username)
+        if user_id:
+            user = self._db.get_user_by_id(user_id)
+        elif username:
+            user = self._db.get_user_by_username(username)
+        else:
+            raise credentials_exception
         if not user:
             raise credentials_exception
         if not user["enabled"]:

@@ -44,7 +44,7 @@ async def login_for_access_token(
     request: Request, api: "RESTfulAPI" = Depends(get_api)
 ) -> JSONResponse:
     form_data = LoginUserForm.parse_obj(await request.json())
-    result = api._auth_service.generate_token_for_user(
+    result = api._auth_service.generate_token_for_user(  # type: ignore[union-attr]
         form_data.username, form_data.password
     )
     return JSONResponse(content=result)
@@ -272,7 +272,8 @@ async def get_ui_config() -> JSONResponse:
             ),
             "cluster_name": os.environ.get("XINFERENCE_CLUSTER_NAME", ""),
             "es_enabled": bool(os.environ.get("XINFERENCE_ES_URL", "")),
-            "auth_advanced": os.environ.get("XINFERENCE_AUTH_ADVANCED", "").lower() in ("1", "true", "yes"),
+            "auth_advanced": os.environ.get("XINFERENCE_AUTH_ADVANCED", "").lower()
+            in ("1", "true", "yes"),
         }
     )
 
