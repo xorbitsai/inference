@@ -47,7 +47,9 @@ class ApiKeyCacheEntry:
             return False
         return True
 
-    def has_model_access(self, model_uid: str, model_type: Optional[str] = None) -> bool:
+    def has_model_access(
+        self, model_uid: str, model_type: Optional[str] = None
+    ) -> bool:
         if not self.model_permissions:
             return False
         for mp in self.model_permissions:
@@ -55,7 +57,11 @@ class ApiKeyCacheEntry:
                 return True
             if mp.permission_type == "model_id" and mp.permission_value == model_uid:
                 return True
-            if mp.permission_type == "model_type" and model_type and mp.permission_value == model_type:
+            if (
+                mp.permission_type == "model_type"
+                and model_type
+                and mp.permission_value == model_type
+            ):
                 return True
         return False
 

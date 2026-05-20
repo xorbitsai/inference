@@ -91,7 +91,11 @@ XINFERENCE_LOG_DIR = os.path.join(XINFERENCE_HOME, "logs")
 XINFERENCE_IMAGE_DIR = os.path.join(XINFERENCE_HOME, "image")
 XINFERENCE_VIDEO_DIR = os.path.join(XINFERENCE_HOME, "video")
 XINFERENCE_AUTH_DIR = os.path.join(XINFERENCE_HOME, "auth")
-XINFERENCE_AUTH_ADVANCED = os.environ.get("XINFERENCE_AUTH_ADVANCED", "").lower() in ("1", "true", "yes")
+XINFERENCE_AUTH_ADVANCED = os.environ.get("XINFERENCE_AUTH_ADVANCED", "").lower() in (
+    "1",
+    "true",
+    "yes",
+)
 XINFERENCE_AUTH_JWT_SECRET_KEY = os.environ.get("XINFERENCE_AUTH_JWT_SECRET_KEY", "")
 XINFERENCE_AUTH_ENCRYPTION_KEY = os.environ.get("XINFERENCE_AUTH_ENCRYPTION_KEY", "")
 XINFERENCE_AUTH_DB_PATH = os.environ.get(

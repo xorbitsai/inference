@@ -20,12 +20,7 @@ import logging
 import sys
 from pathlib import Path
 
-from .crypto import (
-    aes_encrypt,
-    derive_encryption_key,
-    get_password_hash,
-    sha256_hex,
-)
+from .crypto import aes_encrypt, derive_encryption_key, get_password_hash, sha256_hex
 from .database import Database
 
 logger = logging.getLogger(__name__)
@@ -52,7 +47,9 @@ def migrate(
     if dry_run:
         print("\n--- DRY RUN ---")
         for u in users_config:
-            print(f"  User: {u['username']} | permissions: {u.get('permissions', [])} | keys: {len(u.get('api_keys', []))}")
+            print(
+                f"  User: {u['username']} | permissions: {u.get('permissions', [])} | keys: {len(u.get('api_keys', []))}"
+            )
         print("--- END DRY RUN ---")
         return
 
@@ -90,7 +87,9 @@ def migrate(
                 key_encrypted=key_encrypted,
                 key_prefix=key_prefix,
                 name=f"migrated-{key_prefix}",
-                model_permissions=[{"permission_type": "all", "permission_value": None}],
+                model_permissions=[
+                    {"permission_type": "all", "permission_value": None}
+                ],
             )
             print(f"    Migrated key: {key_prefix}...")
 
@@ -102,11 +101,17 @@ def main():
         prog="xinference-migrate-auth",
         description="Migrate old xinference auth config to new SQLite-based system",
     )
-    parser.add_argument("--auth-config", required=True, help="Path to old auth config JSON")
+    parser.add_argument(
+        "--auth-config", required=True, help="Path to old auth config JSON"
+    )
     parser.add_argument("--db-path", required=True, help="Path to new SQLite database")
-    parser.add_argument("--encryption-key", required=True, help="Encryption key for API keys")
+    parser.add_argument(
+        "--encryption-key", required=True, help="Encryption key for API keys"
+    )
     parser.add_argument("--force", action="store_true", help="Overwrite existing data")
-    parser.add_argument("--dry-run", action="store_true", help="Preview without writing")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Preview without writing"
+    )
 
     args = parser.parse_args()
     migrate(
