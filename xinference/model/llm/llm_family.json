@@ -31641,5 +31641,97 @@
     },
     "featured": false,
     "updated_at": 1777047462
+  },
+  {
+    "model_name": "DeepSeek-V4-Flash",
+    "model_description": "We present a preview version of DeepSeek-V4 series, including two strong Mixture-of-Experts (MoE) language models — DeepSeek-V4-Pro with 1.6T parameters (49B activated) and DeepSeek-V4-Flash with 284B parameters (13B activated) — both supporting a context length of one million tokens.",
+    "context_length": 163840,
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "reasoning",
+      "hybrid",
+      "tools"
+    ],
+    "model_specs": [
+      {
+        "model_size_in_billions": 284,
+        "activated_size_in_billions": 13,
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "deepseek-ai/DeepSeek-V4-Flash",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "deepseek-ai/DeepSeek-V4-Flash",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 284,
+        "activated_size_in_billions": 13,
+        "model_format": "mlx",
+        "model_src": {
+          "huggingface": {
+            "model_id": "mlx-community/DeepSeek-V4-Flash-{quantization}",
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit",
+              "bf16",
+              "mxfp4",
+              "mxfp8",
+              "nvfp4"
+            ]
+          },
+          "modelscope": {
+            "model_id": "mlx-community/DeepSeek-V4-Flash-{quantization}",
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit",
+              "bf16",
+              "mxfp4",
+              "mxfp8",
+              "nvfp4"
+            ]
+          }
+        }
+      }
+    ],
+    "architectures": [
+      "DeepseekV4ForCausalLM"
+    ],
+    "chat_template": "",
+    "stop_token_ids": [
+      1
+    ],
+    "stop": [
+      "<｜end▁of▁sentence｜>"
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    },
+    "tool_parser": "deepseek-v3.2",
+    "featured": false,
+    "updated_at": 1779258989
   }
 ]
