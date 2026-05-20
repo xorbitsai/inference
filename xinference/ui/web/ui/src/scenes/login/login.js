@@ -44,7 +44,14 @@ function Login() {
         res.json().then((data) => {
           setCookie('token', data['access_token'], { path: '/' })
           sessionStorage.setItem('token', data['access_token'])
-          navigate('/launch_model/llm')
+          if (data['refresh_token']) {
+            sessionStorage.setItem('refresh_token', data['refresh_token'])
+          }
+          if (data['must_change_password']) {
+            navigate('/change_password')
+          } else {
+            navigate('/launch_model/llm')
+          }
         })
       }
     })
