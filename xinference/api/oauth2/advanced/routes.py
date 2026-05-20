@@ -34,6 +34,17 @@ def get_advanced_auth(request: Request) -> AdvancedAuthService:
     return request.app.state.advanced_auth
 
 
+def _get_current_user_from_token(request: Request, auth: AdvancedAuthService):
+    """Extract current user info from the Authorization header."""
+    token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    if not token:
+        return None, None, []
+    payload = auth.verify_access_token(token)
+    if not payload:
+        return None, None, []
+    return payload.get("user_id"), payload.get("sub"), payload.get("scopes", [])
+
+
 # --- Auth endpoints ---
 
 
@@ -184,12 +195,14 @@ async def create_api_key(request: Request) -> JSONResponse:
     auth: AdvancedAuthService = get_advanced_auth(request)
     body = await request.json()
 
+    current_user_id, _, scopes = _get_current_user_from_token(request, auth)
+    is_admin = "admin" in scopes or "keys:manage" in scopes
+
     owner_id = body.get("owner")
-    if not owner_id:
-        token = request.headers.get("Authorization", "").replace("Bearer ", "")
-        payload = auth.verify_access_token(token)
-        if payload:
-            owner_id = payload.get("user_id")
+    if owner_id and not is_admin:
+        owner_id = current_user_id
+    elif not owner_id:
+        owner_id = current_user_id
     if not owner_id:
         raise HTTPException(status_code=400, detail="owner required")
 
@@ -209,6 +222,12 @@ async def list_api_keys(
     request: Request, owner: Optional[int] = Query(None)
 ) -> JSONResponse:
     auth: AdvancedAuthService = get_advanced_auth(request)
+    current_user_id, _, scopes = _get_current_user_from_token(request, auth)
+    is_admin = "admin" in scopes or "keys:manage" in scopes
+
+    if not is_admin:
+        owner = current_user_id
+
     keys = auth.db.list_api_keys(user_id=owner)
     result = []
     for k in keys:
@@ -229,9 +248,14 @@ async def list_api_keys(
 
 async def get_api_key(key_id: int, request: Request) -> JSONResponse:
     auth: AdvancedAuthService = get_advanced_auth(request)
+    current_user_id, _, scopes = _get_current_user_from_token(request, auth)
+    is_admin = "admin" in scopes or "keys:manage" in scopes
+
     key = auth.db.get_api_key_by_id(key_id)
     if not key:
         raise HTTPException(status_code=404, detail="API key not found")
+    if not is_admin and key["user_id"] != current_user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
     return JSONResponse(
         content={
             "id": key["id"],

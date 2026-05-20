@@ -234,8 +234,17 @@ const MenuSide = () => {
   }
 
   const handleLogout = () => {
+    const refreshToken = sessionStorage.getItem('refresh_token')
+    if (refreshToken) {
+      fetch(endPoint + '/v1/auth/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      }).catch(() => {})
+    }
     removeCookie('token', { path: '/' })
     sessionStorage.removeItem('token')
+    sessionStorage.removeItem('refresh_token')
     sessionStorage.removeItem('auth')
     sessionStorage.removeItem('modelType')
     sessionStorage.removeItem('lastActiveUrl')
