@@ -184,15 +184,21 @@ class Database:
                 ).fetchall()
             else:
                 rows = conn.execute("SELECT * FROM users").fetchall()
-            users = []
-            for row in rows:
-                user = dict(row)
-                perms = conn.execute(
-                    "SELECT permission FROM user_permissions WHERE user_id = ?",
-                    (user["id"],),
-                ).fetchall()
-                user["permissions"] = [p["permission"] for p in perms]
-                users.append(user)
+            users = [dict(row) for row in rows]
+            if not users:
+                return users
+            user_ids = [u["id"] for u in users]
+            placeholders = ",".join("?" * len(user_ids))
+            perms_rows = conn.execute(
+                f"SELECT user_id, permission FROM user_permissions "
+                f"WHERE user_id IN ({placeholders})",
+                user_ids,
+            ).fetchall()
+            perms_map: Dict[int, List[str]] = {}
+            for p in perms_rows:
+                perms_map.setdefault(p["user_id"], []).append(p["permission"])
+            for user in users:
+                user["permissions"] = perms_map.get(user["id"], [])
             return users
 
     def update_user(self, user_id: int, **kwargs) -> bool:
@@ -203,7 +209,7 @@ class Database:
             "must_change_password",
             "oidc_sub",
         }
-        fields = {k: v for k, v in kwargs.items() if k in allowed and v is not None}
+        fields = {k: v for k, v in kwargs.items() if k in allowed}
         if not fields:
             return False
         with self._lock:

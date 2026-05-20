@@ -13,12 +13,16 @@
 # limitations under the License.
 import hashlib
 import hmac
+import logging
 import os
 import secrets
 import string
+from typing import Optional
 
 import bcrypt
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+logger = logging.getLogger(__name__)
 
 
 def sha256_hex(data: str) -> str:
@@ -34,14 +38,18 @@ def aes_encrypt(plaintext: str, key: bytes) -> bytes:
     return nonce + ciphertext
 
 
-def aes_decrypt(ciphertext: bytes, key: bytes) -> str:
+def aes_decrypt(ciphertext: bytes, key: bytes) -> Optional[str]:
     if len(key) != 32:
         raise ValueError("AES key must be 32 bytes for AES-256-GCM")
     nonce = ciphertext[:12]
     data = ciphertext[12:]
     aesgcm = AESGCM(key)
-    plaintext = aesgcm.decrypt(nonce, data, None)
-    return plaintext.decode("utf-8")
+    try:
+        plaintext = aesgcm.decrypt(nonce, data, None)
+        return plaintext.decode("utf-8")
+    except Exception:
+        logger.warning("AES-GCM decryption failed: invalid ciphertext or key")
+        return None
 
 
 def get_password_hash(password: str) -> str:

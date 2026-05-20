@@ -13,10 +13,8 @@
 # limitations under the License.
 import base64
 import logging
-import os
 import secrets
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import Depends, HTTPException, status
@@ -87,17 +85,13 @@ class AdvancedAuthService:
                 must_change_password=1,
                 permissions=admin_perms,
             )
-            from xinference.constants import XINFERENCE_HOME
-
-            cred_path = os.path.join(XINFERENCE_HOME, "admin_credentials.txt")
-            Path(cred_path).parent.mkdir(parents=True, exist_ok=True)
-            with open(cred_path, "w") as f:
-                f.write(f"username: admin\npassword: {password}\n")
-            os.chmod(cred_path, 0o600)
             logger.warning(
-                "Created initial admin user. Credentials saved to %s. "
-                "Please change the password on first login.",
-                cred_path,
+                "\n" + "=" * 60 + "\n"
+                "  INITIAL ADMIN CREDENTIALS (shown only once)\n"
+                "  Username: admin\n"
+                "  Password: %s\n"
+                "  Please change the password on first login.\n" + "=" * 60,
+                password,
             )
 
     # --- JWT ---
@@ -149,11 +143,21 @@ class AdvancedAuthService:
             return None
         user = self._db.get_user_by_id(rt["user_id"])
         if not user or not user["enabled"]:
+            self._db.delete_refresh_token(token_hash)
             return None
+
+        # Token rotation: invalidate old token, issue new one
+        self._db.delete_refresh_token(token_hash)
+        new_refresh_token = self.create_refresh_token(user["id"])
+
         access_token = self.create_access_token(
             user["id"], user["username"], user["permissions"]
         )
-        return {"access_token": access_token, "token_type": "bearer"}
+        return {
+            "access_token": access_token,
+            "refresh_token": new_refresh_token,
+            "token_type": "bearer",
+        }
 
     def logout(self, refresh_token: str) -> bool:
         token_hash = sha256_hex(refresh_token)
@@ -244,7 +248,7 @@ class AdvancedAuthService:
         cache_data = self._db.get_api_key_by_id(key_id)
         if cache_data is None:
             raise RuntimeError(f"Failed to retrieve newly created API key: {key_id}")
-        cache_data["user_enabled"] = user["enabled"] if user else 1
+        cache_data["user_enabled"] = user["enabled"] if user else 0
         cache_data["username"] = user["username"] if user else ""
         self._cache.add(cache_data)
 

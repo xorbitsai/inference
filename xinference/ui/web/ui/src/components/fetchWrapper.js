@@ -33,6 +33,9 @@ const tryRefreshToken = async () => {
         const data = await res.json()
         cookies.set('token', data.access_token, { path: '/' })
         sessionStorage.setItem('token', data.access_token)
+        if (data.refresh_token) {
+          sessionStorage.setItem('refresh_token', data.refresh_token)
+        }
         return true
       }
       return false
