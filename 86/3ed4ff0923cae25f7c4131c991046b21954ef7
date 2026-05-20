@@ -1,0 +1,81 @@
+xinference/ui/web/ui/src/scenes/apikey_management/index.js
+  a8b526542f504c58 1-578
+setup.cfg
+  a8b526542f504c58 250
+xinference/ui/web/ui/src/router/index.js
+  a8b526542f504c58 7-8,16,80-87,94-96
+xinference/ui/web/ui/src/locales/zh.json
+  a8b526542f504c58 14-17,19-24,374-453
+xinference/ui/web/ui/src/components/fetchWrapper.js
+  a8b526542f504c58 18-73,79,82,94,97,110,113,126,129
+xinference/ui/web/ui/src/components/MenuSide.js
+  a8b526542f504c58 2,11,14,18-19,31-35,37-42,44-45,49,51,57,64-65,67-74,76,79,81-82,84-86,88-100,104-105,107-108,110-111,115-116,118-119,121-122,126-127,129-130,132-133,137-138,140-141,144-145,147-148,153-154,156-175,180-181,183,185-186,189-190,192-193,196-197,199,201-203,206-207,209,211-212,214,218-221,223-224,226-228,231-245,248-251,254,257-258,260-261,264-265,267,279-283,292-295,301,303,308,315,318,324,328,336,339,343-344,351,361-365,368,370,373,375-381,383-419,422-423,425
+xinference/ui/web/ui/src/components/authAlertDialog.js
+  a8b526542f504c58 12,16,78,83,89,94,99
+xinference/ui/web/ui/src/scenes/change_password/index.js
+  a8b526542f504c58 1-103
+xinference/api/oauth2/advanced/cache.py
+  a8b526542f504c58 1-134
+xinference/ui/web/ui/src/locales/en.json
+  a8b526542f504c58 14-17,19-24,374-453
+xinference/ui/web/ui/src/scenes/login/login.js
+  a8b526542f504c58 47-54
+xinference/api/oauth2/advanced/migrate.py
+  a8b526542f504c58 1-122
+xinference/ui/web/ui/src/scenes/user_management/index.js
+  a8b526542f504c58 1-245
+xinference/api/oauth2/advanced/routes.py
+  a8b526542f504c58 1-398
+xinference/api/oauth2/advanced/__init__.py
+  a8b526542f504c58 1-13
+xinference/api/oauth2/advanced/crypto.py
+  a8b526542f504c58 1-79
+xinference/api/oauth2/advanced/database.py
+  a8b526542f504c58 1-380
+xinference/api/restful_api.py
+  a8b526542f504c58 53-56,112-139,183-184,187-197,307,314-318,953,1074,1165,1195,1223,1269,1314,1359,1409,1535,1548,1594,1608,1651,1659,1765,1938,1963,1993,2004,2039,2051,2147
+xinference/api/routers/admin.py
+  a8b526542f504c58 275,543,547-548
+xinference/api/oauth2/advanced/auth_service.py
+  a8b526542f504c58 1-318
+xinference/constants.py
+  a8b526542f504c58 94-99
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.16",
+  "base_commit_sha": "863ed4ff0923cae25f7c4131c991046b21954ef7",
+  "prompts": {
+    "a8b526542f504c58": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "21c1702f-37cd-423f-ab33-7e4fedd8706f",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 3681,
+      "total_deletions": 223,
+      "accepted_lines": 3681,
+      "overriden_lines": 0
+    },
+    "fbd0a7434a0e56c7": {
+      "agent_id": {
+        "tool": "known_human",
+        "id": "known_human_session",
+        "model": "unknown"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 624,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_9bfd4e7cd8cc2c": {
+      "author": "郑明再"
+    }
+  }
+}
