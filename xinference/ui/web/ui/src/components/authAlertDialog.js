@@ -9,9 +9,11 @@ import {
 import * as React from 'react'
 import { useEffect, useState } from 'react'
 import { useCookies } from 'react-cookie'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 export default function AuthAlertDialog() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [authStatus, setAuthStatus] = useState('')
   const [, , removeCookie] = useCookies(['token'])
@@ -73,28 +75,28 @@ export default function AuthAlertDialog() {
       >
         {authStatus === '403' && (
           <DialogTitle id="alert-dialog-title">
-            {'Permission Error'}
+            {t('auth.permissionError')}
           </DialogTitle>
         )}
         {authStatus === '401' && (
           <DialogTitle id="alert-dialog-title">
-            {'Authentication Error'}
+            {t('auth.authenticationError')}
           </DialogTitle>
         )}
         <DialogContent>
           {authStatus === '403' && (
             <DialogContentText id="alert-dialog-description">
-              {'You do not have permissions to do this!'}
+              {t('auth.noPermission')}
             </DialogContentText>
           )}
           {authStatus === '401' && (
             <DialogContentText id="alert-dialog-description">
-              {'Invalid credentials! Please login.'}
+              {t('auth.invalidCredentials')}
             </DialogContentText>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleClose}>CONFIRMED</Button>
+          <Button onClick={handleClose}>{t('auth.confirmed')}</Button>
         </DialogActions>
       </Dialog>
     </React.Fragment>

@@ -44,7 +44,7 @@ async def login_for_access_token(
     request: Request, api: "RESTfulAPI" = Depends(get_api)
 ) -> JSONResponse:
     form_data = LoginUserForm.parse_obj(await request.json())
-    result = api._auth_service.generate_token_for_user(
+    result = api._auth_service.generate_token_for_user(  # type: ignore[union-attr]
         form_data.username, form_data.password
     )
     return JSONResponse(content=result)
@@ -272,6 +272,8 @@ async def get_ui_config() -> JSONResponse:
             ),
             "cluster_name": os.environ.get("XINFERENCE_CLUSTER_NAME", ""),
             "es_enabled": bool(os.environ.get("XINFERENCE_ES_URL", "")),
+            "auth_advanced": os.environ.get("XINFERENCE_AUTH_ADVANCED", "").lower()
+            in ("1", "true", "yes"),
         }
     )
 
@@ -539,10 +541,12 @@ def register_routes(api: "RESTfulAPI") -> None:
     router = api._router
     auth = api._auth_service
     is_auth = api.is_authenticated()
+    is_advanced = api._advanced_auth_service is not None
 
     router.add_api_route("/status", get_status, methods=["GET"])
     router.add_api_route("/v1/address", get_address, methods=["GET"])
-    router.add_api_route("/token", login_for_access_token, methods=["POST"])
+    if not is_advanced:
+        router.add_api_route("/token", login_for_access_token, methods=["POST"])
     router.add_api_route("/v1/cluster/auth", is_cluster_authenticated, methods=["GET"])
     router.add_api_route("/v1/cluster/ui_config", get_ui_config, methods=["GET"])
 

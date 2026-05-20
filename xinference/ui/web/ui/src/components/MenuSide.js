@@ -1,4 +1,5 @@
 import {
+  AccountCircleOutlined,
   AddBoxOutlined,
   ArticleOutlined,
   ChevronLeftOutlined,
@@ -7,11 +8,14 @@ import {
   DnsOutlined,
   GitHub,
   Language,
+  LogoutOutlined,
   MonitorHeartOutlined,
   OpenInNew,
+  PeopleOutlined,
   Psychology,
   RocketLaunchOutlined,
   SmartToyOutlined,
+  VpnKeyOutlined,
 } from '@mui/icons-material'
 import {
   Box,
@@ -26,6 +30,7 @@ import {
   Typography,
 } from '@mui/material'
 import { useContext, useEffect, useState } from 'react'
+import { useCookies } from 'react-cookie'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
@@ -33,6 +38,7 @@ import icon from '../media/icon.webp'
 import { ApiContext } from './apiContext'
 import ThemeButton from './themeButton'
 import TranslateButton from './translateButton'
+import { isValidBearerToken } from './utils'
 import VersionLabel from './versionLabel'
 
 const COLLAPSED_KEY = 'xinference_sidebar_collapsed'
@@ -63,6 +69,9 @@ const MenuSide = () => {
   const { i18n, t } = useTranslation()
   const { endPoint } = useContext(ApiContext)
   const [esEnabled, setEsEnabled] = useState(false)
+  const [authAdvanced, setAuthAdvanced] = useState(false)
+  const [, , removeCookie] = useCookies(['token'])
+  const [currentUser, setCurrentUser] = useState('')
 
   const currentWidth = collapsed ? `${COLLAPSED_WIDTH}px` : drawerWidth
 
@@ -72,8 +81,22 @@ const MenuSide = () => {
         if (!res.ok) throw new Error('Network response was not ok')
         return res.json()
       })
-      .then((data) => setEsEnabled(data.es_enabled || false))
+      .then((data) => {
+        setEsEnabled(data.es_enabled || false)
+        setAuthAdvanced(data.auth_advanced || false)
+      })
       .catch(() => setEsEnabled(false))
+
+    // Parse username from JWT token
+    try {
+      const token = sessionStorage.getItem('token')
+      if (token) {
+        const payload = JSON.parse(atob(token.split('.')[1]))
+        setCurrentUser(payload.username || payload.sub || '')
+      }
+    } catch {
+      // ignore
+    }
   }, [endPoint])
 
   const navItems = [
@@ -135,6 +158,24 @@ const MenuSide = () => {
           },
         ]
       : []),
+    ...(authAdvanced
+      ? [
+          {
+            text: 'user_management',
+            label: t('menu.userManagement'),
+            icon: <PeopleOutlined />,
+            action: 'navigate',
+            path: '/user_management',
+          },
+          {
+            text: 'apikey_management',
+            label: t('menu.apikeyManagement'),
+            icon: <VpnKeyOutlined />,
+            action: 'navigate',
+            path: '/apikey_management',
+          },
+        ]
+      : []),
     {
       text: 'documentation',
       label: t('menu.documentation'),
@@ -192,6 +233,26 @@ const MenuSide = () => {
     writeCollapsed(next)
   }
 
+  const handleLogout = () => {
+    const refreshToken = sessionStorage.getItem('refresh_token')
+    if (refreshToken) {
+      fetch(endPoint + '/v1/auth/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      }).catch(() => {})
+    }
+    removeCookie('token', { path: '/' })
+    sessionStorage.removeItem('token')
+    sessionStorage.removeItem('refresh_token')
+    sessionStorage.removeItem('auth')
+    sessionStorage.removeItem('modelType')
+    sessionStorage.removeItem('lastActiveUrl')
+    sessionStorage.removeItem('runningModelType')
+    sessionStorage.removeItem('registerModelType')
+    navigate('/login', { replace: true })
+  }
+
   const handleNavClick = (item) => {
     const { action, url, path, text, session } = item
     if (action === 'external' && url) {
@@ -226,7 +287,9 @@ const MenuSide = () => {
           transition,
           boxSizing: 'border-box',
           overflowX: 'hidden',
-          overflowY: 'auto',
+          overflowY: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
         },
       }}
       style={{ zIndex: 1 }}
@@ -258,7 +321,7 @@ const MenuSide = () => {
       </Box>
 
       {/* Nav items */}
-      <Box sx={{ flexGrow: 1 }}>
+      <Box sx={{ flexGrow: 1, overflowY: 'auto', overflowX: 'hidden' }}>
         <List>
           {navItems.map((item) => {
             const { text, label, icon: navIcon, action } = item
@@ -304,6 +367,7 @@ const MenuSide = () => {
         display="flex"
         alignItems="center"
         sx={{
+          flexShrink: 0,
           mx: collapsed ? 0 : '3rem',
           maxHeight: collapsed ? 0 : '100px',
           overflow: 'hidden',
@@ -315,21 +379,64 @@ const MenuSide = () => {
         <VersionLabel sx={{ ml: 'auto' }} />
       </Box>
 
-      {/* Collapse toggle button */}
+      {/* User info + Logout + Collapse toggle */}
       <Box
-        display="flex"
-        justifyContent={collapsed ? 'center' : 'flex-end'}
-        px={1}
-        pb={1}
+        sx={{
+          flexShrink: 0,
+          borderTop: '1px solid',
+          borderColor: 'divider',
+          px: collapsed ? 1 : 0,
+          py: 1,
+        }}
       >
-        <Tooltip
-          title={collapsed ? t('menu.expand') : t('menu.collapse')}
-          placement="right"
-        >
-          <IconButton size="small" onClick={toggleCollapsed}>
-            {collapsed ? <ChevronRightOutlined /> : <ChevronLeftOutlined />}
-          </IconButton>
-        </Tooltip>
+        {collapsed ? (
+          <Box
+            display="flex"
+            flexDirection="column"
+            alignItems="center"
+            gap={0.5}
+          >
+            {isValidBearerToken(sessionStorage.getItem('token')) && (
+              <Tooltip
+                title={`${currentUser || 'user'} | ${t('menu.logout')}`}
+                placement="right"
+                arrow
+              >
+                <IconButton size="small" onClick={handleLogout}>
+                  <AccountCircleOutlined />
+                </IconButton>
+              </Tooltip>
+            )}
+            <Tooltip title={t('menu.expand')} placement="right">
+              <IconButton size="small" onClick={toggleCollapsed}>
+                <ChevronRightOutlined />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        ) : (
+          <Box display="flex" alignItems="center" sx={{ pl: '1.5rem', pr: 1 }}>
+            {isValidBearerToken(sessionStorage.getItem('token')) && (
+              <>
+                <AccountCircleOutlined
+                  sx={{ color: 'text.secondary', mr: 1 }}
+                />
+                <Typography variant="body1" noWrap sx={{ flex: 1 }}>
+                  {currentUser || 'user'}
+                </Typography>
+                <Tooltip title={t('menu.logout')}>
+                  <IconButton size="small" onClick={handleLogout}>
+                    <LogoutOutlined />
+                  </IconButton>
+                </Tooltip>
+              </>
+            )}
+            <Tooltip title={t('menu.collapse')}>
+              <IconButton size="small" onClick={toggleCollapsed}>
+                <ChevronLeftOutlined />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        )}
       </Box>
     </Drawer>
   )
