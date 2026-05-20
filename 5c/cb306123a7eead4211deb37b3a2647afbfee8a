@@ -1,0 +1,34 @@
+xinference/ui/web/ui/src/components/fetchWrapper.js
+  a8b526542f504c58 36-38
+xinference/api/oauth2/advanced/auth_service.py
+  a8b526542f504c58 89-94,146,148-152,156-160,251
+xinference/api/oauth2/advanced/crypto.py
+  a8b526542f504c58 16,20,25,41,47-52
+xinference/api/oauth2/advanced/database.py
+  a8b526542f504c58 187-201,212
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.16",
+  "base_commit_sha": "5ccb306123a7eead4211deb37b3a2647afbfee8a",
+  "prompts": {
+    "a8b526542f504c58": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "21c1702f-37cd-423f-ab33-7e4fedd8706f",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 82,
+      "total_deletions": 43,
+      "accepted_lines": 791,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_9bfd4e7cd8cc2c": {
+      "author": "郑明再"
+    }
+  }
+}
