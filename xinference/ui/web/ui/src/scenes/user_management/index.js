@@ -1,7 +1,19 @@
 import BlockIcon from '@mui/icons-material/Block'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import DeleteIcon from '@mui/icons-material/Delete'
-import { Alert, Box, Checkbox, Chip, Divider, FormControlLabel, FormGroup, IconButton, Snackbar, Tooltip, Typography } from '@mui/material'
+import {
+  Alert,
+  Box,
+  Checkbox,
+  Chip,
+  Divider,
+  FormControlLabel,
+  FormGroup,
+  IconButton,
+  Snackbar,
+  Tooltip,
+  Typography,
+} from '@mui/material'
 import Button from '@mui/material/Button'
 import Dialog from '@mui/material/Dialog'
 import DialogActions from '@mui/material/DialogActions'
@@ -78,7 +90,12 @@ function UserManagement() {
   }
 
   const handleDelete = async (user) => {
-    if (!window.confirm(`${t('userManagement.confirmDelete')} "${user.username}"?`)) return
+    if (
+      !window.confirm(
+        `${t('userManagement.confirmDelete')} "${user.username}"?`
+      )
+    )
+      return
     try {
       await fetchWrapper.delete(`/v1/admin/users/${user.id}`)
       loadUsers()
@@ -111,9 +128,17 @@ function UserManagement() {
       width: 100,
       renderCell: (params) =>
         params.value ? (
-          <Chip label={t('userManagement.active')} color="success" size="small" />
+          <Chip
+            label={t('userManagement.active')}
+            color="success"
+            size="small"
+          />
         ) : (
-          <Chip label={t('userManagement.disabled')} color="error" size="small" />
+          <Chip
+            label={t('userManagement.disabled')}
+            color="error"
+            size="small"
+          />
         ),
     },
     {
@@ -123,7 +148,12 @@ function UserManagement() {
       renderCell: (params) => (
         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
           {(params.value || []).map((p) => (
-            <Chip key={p} label={t(`permissions.${p.replace(/:/g, '_')}`, p)} size="small" variant="outlined" />
+            <Chip
+              key={p}
+              label={t(`permissions.${p.replace(/:/g, '_')}`, p)}
+              size="small"
+              variant="outlined"
+            />
           ))}
         </Box>
       ),
@@ -134,8 +164,17 @@ function UserManagement() {
       width: 150,
       renderCell: (params) => (
         <Box>
-          <Tooltip title={params.row.enabled ? t('apikeyManagement.disableTooltip') : t('apikeyManagement.enableTooltip')}>
-            <IconButton size="small" onClick={() => handleToggleEnabled(params.row)}>
+          <Tooltip
+            title={
+              params.row.enabled
+                ? t('apikeyManagement.disableTooltip')
+                : t('apikeyManagement.enableTooltip')
+            }
+          >
+            <IconButton
+              size="small"
+              onClick={() => handleToggleEnabled(params.row)}
+            >
               {params.row.enabled ? <BlockIcon /> : <CheckCircleIcon />}
             </IconButton>
           </Tooltip>
@@ -166,7 +205,12 @@ function UserManagement() {
         getRowHeight={() => 'auto'}
       />
 
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>{t('userManagement.dialogTitle')}</DialogTitle>
         <DialogContent>
           <TextField
@@ -185,14 +229,27 @@ function UserManagement() {
             onChange={(e) => setNewPassword(e.target.value)}
           />
           <Box sx={{ mt: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Typography variant="subtitle2">{t('userManagement.permissions')}</Typography>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Typography variant="subtitle2">
+                {t('userManagement.permissions')}
+              </Typography>
               <FormControlLabel
                 control={
                   <Checkbox
                     size="small"
-                    checked={selectedPerms.length === ALL_PERMISSION_VALUES.length}
-                    indeterminate={selectedPerms.length > 0 && selectedPerms.length < ALL_PERMISSION_VALUES.length}
+                    checked={
+                      selectedPerms.length === ALL_PERMISSION_VALUES.length
+                    }
+                    indeterminate={
+                      selectedPerms.length > 0 &&
+                      selectedPerms.length < ALL_PERMISSION_VALUES.length
+                    }
                     onChange={handleSelectAll}
                   />
                 }
@@ -202,7 +259,11 @@ function UserManagement() {
             <Divider sx={{ mb: 1 }} />
             {ALL_PERMISSIONS.map((group) => (
               <Box key={group.group} sx={{ mb: 1 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold' }}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ fontWeight: 'bold' }}
+                >
                   {group.group}
                 </Typography>
                 <FormGroup row>
@@ -226,15 +287,26 @@ function UserManagement() {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateOpen(false)}>{t('userManagement.cancel')}</Button>
+          <Button onClick={() => setCreateOpen(false)}>
+            {t('userManagement.cancel')}
+          </Button>
           <Button variant="contained" onClick={handleCreate}>
             {t('userManagement.create')}
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Snackbar open={!!snackError} autoHideDuration={5000} onClose={() => setSnackError('')} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
-        <Alert severity="error" onClose={() => setSnackError('')} variant="filled">
+      <Snackbar
+        open={!!snackError}
+        autoHideDuration={5000}
+        onClose={() => setSnackError('')}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert
+          severity="error"
+          onClose={() => setSnackError('')}
+          variant="filled"
+        >
           {snackError}
         </Alert>
       </Snackbar>

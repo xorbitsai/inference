@@ -4,7 +4,19 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
 import VisibilityIcon from '@mui/icons-material/Visibility'
-import { Alert, Autocomplete, Box, Checkbox, Chip, FormControlLabel, FormGroup, IconButton, InputAdornment, Snackbar, Tooltip } from '@mui/material'
+import {
+  Alert,
+  Autocomplete,
+  Box,
+  Checkbox,
+  Chip,
+  FormControlLabel,
+  FormGroup,
+  IconButton,
+  InputAdornment,
+  Snackbar,
+  Tooltip,
+} from '@mui/material'
 import Button from '@mui/material/Button'
 import Dialog from '@mui/material/Dialog'
 import DialogActions from '@mui/material/DialogActions'
@@ -61,11 +73,14 @@ function ApiKeyManagement() {
 
   useEffect(() => {
     loadKeys()
-    fetchWrapper.get('/v1/models')
+    fetchWrapper
+      .get('/v1/models')
       .then((response) => {
         const models = (response.data || []).map((m) => ({
           id: m.id,
-          label: `${m.model_name || m.id} (${m.model_type || 'unknown'}) — ${m.id}`,
+          label: `${m.model_name || m.id} (${m.model_type || 'unknown'}) — ${
+            m.id
+          }`,
         }))
         setAvailableModels(models)
       })
@@ -78,11 +93,14 @@ function ApiKeyManagement() {
         const scopes = payload.scopes || []
         if (scopes.includes('admin')) {
           setIsAdmin(true)
-          fetchWrapper.get('/v1/admin/users')
+          fetchWrapper
+            .get('/v1/admin/users')
             .then((data) => setUsers(data))
             .catch(() => {})
         }
-      } catch (_) { /* token parse failed, not admin */ }
+      } catch (_) {
+        /* token parse failed, not admin */
+      }
     }
   }, [])
 
@@ -90,20 +108,31 @@ function ApiKeyManagement() {
     try {
       const model_permissions = []
       if (newKeyPermType === 'all') {
-        model_permissions.push({ permission_type: 'all', permission_value: null })
+        model_permissions.push({
+          permission_type: 'all',
+          permission_value: null,
+        })
       } else if (newKeyPermType === 'model_type') {
         selectedModelTypes.forEach((v) => {
-          model_permissions.push({ permission_type: 'model_type', permission_value: v })
+          model_permissions.push({
+            permission_type: 'model_type',
+            permission_value: v,
+          })
         })
       } else if (newKeyPermType === 'model_id') {
         selectedModelIds.forEach((v) => {
-          model_permissions.push({ permission_type: 'model_id', permission_value: v.id || v })
+          model_permissions.push({
+            permission_type: 'model_id',
+            permission_value: v.id || v,
+          })
         })
       }
       const result = await fetchWrapper.post('/v1/admin/keys', {
         name: newKeyName || undefined,
         owner: selectedOwner ? selectedOwner.id : undefined,
-        expires_at: newKeyExpires ? newKeyExpires.endOf('day').format('YYYY-MM-DDTHH:mm:ss') : undefined,
+        expires_at: newKeyExpires
+          ? newKeyExpires.endOf('day').format('YYYY-MM-DDTHH:mm:ss')
+          : undefined,
         model_permissions,
       })
       setCreatedKey(result.key)
@@ -141,7 +170,14 @@ function ApiKeyManagement() {
   }
 
   const handleDelete = async (key) => {
-    if (!window.confirm(`${t('apikeyManagement.confirmDelete')} "${key.name || key.key_prefix}"?`)) return
+    if (
+      !window.confirm(
+        `${t('apikeyManagement.confirmDelete')} "${
+          key.name || key.key_prefix
+        }"?`
+      )
+    )
+      return
     try {
       await fetchWrapper.delete(`/v1/admin/keys/${key.id}`)
       loadKeys()
@@ -157,8 +193,12 @@ function ApiKeyManagement() {
       setEditModelTypes([])
       setEditModelIds([])
     } else {
-      const types = perms.filter((p) => p.permission_type === 'model_type').map((p) => p.permission_value)
-      const ids = perms.filter((p) => p.permission_type === 'model_id').map((p) => p.permission_value)
+      const types = perms
+        .filter((p) => p.permission_type === 'model_type')
+        .map((p) => p.permission_value)
+      const ids = perms
+        .filter((p) => p.permission_type === 'model_id')
+        .map((p) => p.permission_value)
       if (types.length > 0 && ids.length > 0) {
         setEditPermType('mixed')
       } else if (ids.length > 0) {
@@ -178,24 +218,41 @@ function ApiKeyManagement() {
     try {
       const model_permissions = []
       if (editPermType === 'all') {
-        model_permissions.push({ permission_type: 'all', permission_value: null })
+        model_permissions.push({
+          permission_type: 'all',
+          permission_value: null,
+        })
       } else if (editPermType === 'model_type') {
         editModelTypes.forEach((v) => {
-          model_permissions.push({ permission_type: 'model_type', permission_value: v })
+          model_permissions.push({
+            permission_type: 'model_type',
+            permission_value: v,
+          })
         })
       } else if (editPermType === 'model_id') {
         editModelIds.forEach((v) => {
-          model_permissions.push({ permission_type: 'model_id', permission_value: v.id || v })
+          model_permissions.push({
+            permission_type: 'model_id',
+            permission_value: v.id || v,
+          })
         })
       } else {
         editModelTypes.forEach((v) => {
-          model_permissions.push({ permission_type: 'model_type', permission_value: v })
+          model_permissions.push({
+            permission_type: 'model_type',
+            permission_value: v,
+          })
         })
         editModelIds.forEach((v) => {
-          model_permissions.push({ permission_type: 'model_id', permission_value: v.id || v })
+          model_permissions.push({
+            permission_type: 'model_id',
+            permission_value: v.id || v,
+          })
         })
       }
-      await fetchWrapper.put(`/v1/admin/keys/${editingKey.id}/permissions`, { model_permissions })
+      await fetchWrapper.put(`/v1/admin/keys/${editingKey.id}/permissions`, {
+        model_permissions,
+      })
       setEditOpen(false)
       setEditingKey(null)
       setSnackSuccess(t('apikeyManagement.permissionsSaved'))
@@ -217,19 +274,35 @@ function ApiKeyManagement() {
         return user ? user.username : `#${params.value}`
       },
     },
-    { field: 'key_prefix', headerName: t('apikeyManagement.prefix'), width: 100 },
+    {
+      field: 'key_prefix',
+      headerName: t('apikeyManagement.prefix'),
+      width: 100,
+    },
     {
       field: 'enabled',
       headerName: t('apikeyManagement.status'),
       width: 100,
       renderCell: (params) =>
         params.value ? (
-          <Chip label={t('apikeyManagement.active')} color="success" size="small" />
+          <Chip
+            label={t('apikeyManagement.active')}
+            color="success"
+            size="small"
+          />
         ) : (
-          <Chip label={t('apikeyManagement.disabled')} color="error" size="small" />
+          <Chip
+            label={t('apikeyManagement.disabled')}
+            color="error"
+            size="small"
+          />
         ),
     },
-    { field: 'expires_at', headerName: t('apikeyManagement.expires'), width: 180 },
+    {
+      field: 'expires_at',
+      headerName: t('apikeyManagement.expires'),
+      width: 180,
+    },
     {
       field: 'model_permissions',
       headerName: t('apikeyManagement.modelPermissions'),
@@ -246,7 +319,14 @@ function ApiKeyManagement() {
               }
               size="small"
               variant="outlined"
-              sx={{ 'maxWidth': '100%', 'height': 'auto', '& .MuiChip-label': { whiteSpace: 'normal', wordBreak: 'break-all' } }}
+              sx={{
+                'maxWidth': '100%',
+                'height': 'auto',
+                '& .MuiChip-label': {
+                  whiteSpace: 'normal',
+                  wordBreak: 'break-all',
+                },
+              }}
             />
           ))}
         </Box>
@@ -259,17 +339,32 @@ function ApiKeyManagement() {
       renderCell: (params) => (
         <Box>
           <Tooltip title={t('apikeyManagement.revealTooltip')}>
-            <IconButton size="small" onClick={() => handleReveal(params.row.id)}>
+            <IconButton
+              size="small"
+              onClick={() => handleReveal(params.row.id)}
+            >
               <VisibilityIcon />
             </IconButton>
           </Tooltip>
           <Tooltip title={t('apikeyManagement.editPermTooltip')}>
-            <IconButton size="small" onClick={() => handleEditPermissions(params.row)}>
+            <IconButton
+              size="small"
+              onClick={() => handleEditPermissions(params.row)}
+            >
               <EditIcon />
             </IconButton>
           </Tooltip>
-          <Tooltip title={params.row.enabled ? t('apikeyManagement.disableTooltip') : t('apikeyManagement.enableTooltip')}>
-            <IconButton size="small" onClick={() => handleToggleEnabled(params.row)}>
+          <Tooltip
+            title={
+              params.row.enabled
+                ? t('apikeyManagement.disableTooltip')
+                : t('apikeyManagement.enableTooltip')
+            }
+          >
+            <IconButton
+              size="small"
+              onClick={() => handleToggleEnabled(params.row)}
+            >
               {params.row.enabled ? <BlockIcon /> : <CheckCircleIcon />}
             </IconButton>
           </Tooltip>
@@ -301,8 +396,20 @@ function ApiKeyManagement() {
       />
 
       {/* Create Key Dialog */}
-      <Dialog open={createOpen} onClose={() => { setCreateOpen(false); setCreatedKey(null) }} maxWidth="sm" fullWidth>
-        <DialogTitle>{createdKey ? t('apikeyManagement.keyCreatedTitle') : t('apikeyManagement.createKeyTitle')}</DialogTitle>
+      <Dialog
+        open={createOpen}
+        onClose={() => {
+          setCreateOpen(false)
+          setCreatedKey(null)
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {createdKey
+            ? t('apikeyManagement.keyCreatedTitle')
+            : t('apikeyManagement.createKeyTitle')}
+        </DialogTitle>
         <DialogContent>
           {createdKey ? (
             <Box>
@@ -384,8 +491,12 @@ function ApiKeyManagement() {
                 onChange={(e) => setNewKeyPermType(e.target.value)}
               >
                 <option value="all">{t('apikeyManagement.allModels')}</option>
-                <option value="model_type">{t('apikeyManagement.byModelType')}</option>
-                <option value="model_id">{t('apikeyManagement.byModelId')}</option>
+                <option value="model_type">
+                  {t('apikeyManagement.byModelType')}
+                </option>
+                <option value="model_id">
+                  {t('apikeyManagement.byModelId')}
+                </option>
               </TextField>
               {newKeyPermType === 'model_type' && (
                 <FormGroup row sx={{ mt: 1 }}>
@@ -398,7 +509,9 @@ function ApiKeyManagement() {
                           checked={selectedModelTypes.includes(type)}
                           onChange={() =>
                             setSelectedModelTypes((prev) =>
-                              prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+                              prev.includes(type)
+                                ? prev.filter((t) => t !== type)
+                                : [...prev, type]
                             )
                           }
                         />
@@ -413,12 +526,19 @@ function ApiKeyManagement() {
                   multiple
                   options={availableModels}
                   getOptionLabel={(option) => option.label || option}
-                  isOptionEqualToValue={(option, value) => option.id === (value.id || value)}
+                  isOptionEqualToValue={(option, value) =>
+                    option.id === (value.id || value)
+                  }
                   value={selectedModelIds}
                   onChange={(_, val) => setSelectedModelIds(val)}
                   renderTags={(value, getTagProps) =>
                     value.map((option, index) => (
-                      <Chip size="small" label={option.label || option} {...getTagProps({ index })} key={option.id || option} />
+                      <Chip
+                        size="small"
+                        label={option.label || option}
+                        {...getTagProps({ index })}
+                        key={option.id || option}
+                      />
                     ))
                   }
                   renderInput={(params) => (
@@ -436,8 +556,15 @@ function ApiKeyManagement() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => { setCreateOpen(false); setCreatedKey(null) }}>
-            {createdKey ? t('apikeyManagement.close') : t('apikeyManagement.cancel')}
+          <Button
+            onClick={() => {
+              setCreateOpen(false)
+              setCreatedKey(null)
+            }}
+          >
+            {createdKey
+              ? t('apikeyManagement.close')
+              : t('apikeyManagement.cancel')}
           </Button>
           {!createdKey && (
             <Button variant="contained" onClick={handleCreate}>
@@ -448,7 +575,12 @@ function ApiKeyManagement() {
       </Dialog>
 
       {/* Reveal Key Dialog */}
-      <Dialog open={revealOpen} onClose={() => setRevealOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={revealOpen}
+        onClose={() => setRevealOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>{t('apikeyManagement.revealTitle')}</DialogTitle>
         <DialogContent>
           <TextField
@@ -476,13 +608,23 @@ function ApiKeyManagement() {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setRevealOpen(false)}>{t('apikeyManagement.close')}</Button>
+          <Button onClick={() => setRevealOpen(false)}>
+            {t('apikeyManagement.close')}
+          </Button>
         </DialogActions>
       </Dialog>
 
       {/* Edit Permissions Dialog */}
-      <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{t('apikeyManagement.editPermTitle')} {editingKey && (editingKey.name || editingKey.key_prefix)}</DialogTitle>
+      <Dialog
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {t('apikeyManagement.editPermTitle')}{' '}
+          {editingKey && (editingKey.name || editingKey.key_prefix)}
+        </DialogTitle>
         <DialogContent>
           <TextField
             margin="dense"
@@ -505,7 +647,9 @@ function ApiKeyManagement() {
             }}
           >
             <option value="all">{t('apikeyManagement.allModels')}</option>
-            <option value="model_type">{t('apikeyManagement.byModelType')}</option>
+            <option value="model_type">
+              {t('apikeyManagement.byModelType')}
+            </option>
             <option value="model_id">{t('apikeyManagement.byModelId')}</option>
             <option value="mixed">{t('apikeyManagement.mixedMode')}</option>
           </TextField>
@@ -520,7 +664,9 @@ function ApiKeyManagement() {
                       checked={editModelTypes.includes(type)}
                       onChange={() =>
                         setEditModelTypes((prev) =>
-                          prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+                          prev.includes(type)
+                            ? prev.filter((t) => t !== type)
+                            : [...prev, type]
                         )
                       }
                     />
@@ -535,12 +681,22 @@ function ApiKeyManagement() {
               multiple
               options={availableModels}
               getOptionLabel={(option) => option.label || option}
-              isOptionEqualToValue={(option, value) => option.id === (value.id || value)}
-              value={editModelIds.map((id) => availableModels.find((m) => m.id === id) || { id, label: id })}
+              isOptionEqualToValue={(option, value) =>
+                option.id === (value.id || value)
+              }
+              value={editModelIds.map(
+                (id) =>
+                  availableModels.find((m) => m.id === id) || { id, label: id }
+              )}
               onChange={(_, val) => setEditModelIds(val.map((v) => v.id || v))}
               renderTags={(value, getTagProps) =>
                 value.map((option, index) => (
-                  <Chip size="small" label={option.label || option} {...getTagProps({ index })} key={option.id || option} />
+                  <Chip
+                    size="small"
+                    label={option.label || option}
+                    {...getTagProps({ index })}
+                    key={option.id || option}
+                  />
                 ))
               }
               renderInput={(params) => (
@@ -556,18 +712,40 @@ function ApiKeyManagement() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditOpen(false)}>{t('apikeyManagement.cancel')}</Button>
-          <Button variant="contained" onClick={handleSavePermissions}>{t('apikeyManagement.save')}</Button>
+          <Button onClick={() => setEditOpen(false)}>
+            {t('apikeyManagement.cancel')}
+          </Button>
+          <Button variant="contained" onClick={handleSavePermissions}>
+            {t('apikeyManagement.save')}
+          </Button>
         </DialogActions>
       </Dialog>
 
-      <Snackbar open={!!snackError} autoHideDuration={5000} onClose={() => setSnackError('')} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
-        <Alert severity="error" onClose={() => setSnackError('')} variant="filled">
+      <Snackbar
+        open={!!snackError}
+        autoHideDuration={5000}
+        onClose={() => setSnackError('')}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert
+          severity="error"
+          onClose={() => setSnackError('')}
+          variant="filled"
+        >
           {snackError}
         </Alert>
       </Snackbar>
-      <Snackbar open={!!snackSuccess} autoHideDuration={2000} onClose={() => setSnackSuccess('')} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
-        <Alert severity="success" onClose={() => setSnackSuccess('')} variant="filled">
+      <Snackbar
+        open={!!snackSuccess}
+        autoHideDuration={2000}
+        onClose={() => setSnackSuccess('')}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert
+          severity="success"
+          onClose={() => setSnackSuccess('')}
+          variant="filled"
+        >
           {snackSuccess}
         </Alert>
       </Snackbar>
