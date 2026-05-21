@@ -84,8 +84,8 @@ dependencies:
     specifier: ^3.0.7
     version: 3.0.7
   lucide-react:
-    specifier: ^1.14.0
-    version: 1.14.0(react@19.0.0)
+    specifier: ^1.16.0
+    version: 1.16.0(react@19.0.0)
   marked:
     specifier: ^5.1.2
     version: 5.1.2
@@ -154,6 +154,12 @@ devDependencies:
   eslint-config-next:
     specifier: 15.2.3
     version: 15.2.3(eslint@9.0.0)(typescript@5.0.2)
+  eslint-config-prettier:
+    specifier: ^10.1.8
+    version: 10.1.8(eslint@9.0.0)
+  prettier:
+    specifier: ^3.8.3
+    version: 3.8.3
   tailwindcss:
     specifier: ^3.4.17
     version: 3.4.17
@@ -4450,6 +4456,15 @@ packages:
       - supports-color
     dev: true
 
+  /eslint-config-prettier@10.1.8(eslint@9.0.0):
+    resolution: {integrity: sha512-82GZUjRS0p/jganf6q1rEO25VSoHH0hKPCTrgillPjdI/3bgBhAE1QzHrHTizjpRvy6pGAvKjDJtk2pF9NDq8w==}
+    hasBin: true
+    peerDependencies:
+      eslint: '>=7.0.0'
+    dependencies:
+      eslint: 9.0.0
+    dev: true
+
   /eslint-import-resolver-node@0.3.10:
     resolution: {integrity: sha512-tRrKqFyCaKict5hOd244sL6EQFNycnMQnBe+j8uqGNXYzsImGbGUU4ibtoaBmv5FLwJwcFJNeg1GeVjQfbMrDQ==}
     dependencies:
@@ -5548,8 +5563,8 @@ packages:
     dependencies:
       yallist: 3.1.1
 
-  /lucide-react@1.14.0(react@19.0.0):
-    resolution: {integrity: sha512-+1mdWcfSJVUsaTIjN9zoezmUhfXo5l0vP7ekBMPo3jcS/aIkxHnXqAPsByszMZx/Y8oQBRJxJx5xg+RH3urzxA==}
+  /lucide-react@1.16.0(react@19.0.0):
+    resolution: {integrity: sha512-dYwyPzb4MEKpGUmNYk3WKWPnMrHs3FKM+q94kAnJrcDIqqn1hq2xY8scaS2ovsOCM5D51ey2gaRG3PBb1vgoYQ==}
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
     dependencies:
@@ -6458,6 +6473,12 @@ packages:
   /prelude-ls@1.2.1:
     resolution: {integrity: sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g==}
     engines: {node: '>= 0.8.0'}
+    dev: true
+
+  /prettier@3.8.3:
+    resolution: {integrity: sha512-7igPTM53cGHMW8xWuVTydi2KO233VFiTNyF5hLJqpilHfmn8C8gPf+PS7dUT64YcXFbiMGZxS9pCSxL/Dxm/Jw==}
+    engines: {node: '>=14'}
+    hasBin: true
     dev: true
 
   /prop-types@15.8.1:

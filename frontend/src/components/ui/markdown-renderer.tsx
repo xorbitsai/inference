@@ -84,7 +84,7 @@ export function MarkdownRenderer({ content, className = '', onFileClick, onAgent
         )
       },
       img({ node: _node, src, alt, title, ...props }) {
-        if (src && src.startsWith('file:')) {
+        if (typeof src === 'string' && src.startsWith('file:')) {
           const filePath = src.replace(/^file:/, '')
           return (
             <img
