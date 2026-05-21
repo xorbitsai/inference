@@ -13,7 +13,8 @@
     "expand": "펼치기",
     "collapse": "접기",
     "userManagement": "사용자 관리",
-    "apikeyManagement": "API Key 관리"
+    "apikeyManagement": "API Key 관리",
+    "logout": "로그아웃"
   },
   "model": {
     "languageModels": "언어 모델",

@@ -13,7 +13,8 @@
     "expand": "展開",
     "collapse": "折りたたむ",
     "userManagement": "ユーザー管理",
-    "apikeyManagement": "API Key 管理"
+    "apikeyManagement": "API Key 管理",
+    "logout": "ログアウト"
   },
   "model": {
     "languageModels": "言語モデル",
