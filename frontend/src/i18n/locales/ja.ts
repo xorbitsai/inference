@@ -113,6 +113,7 @@ const ja = {
   },
   common: {
     valueEmpty: '空にできません',
+    patternError: '形式が正しくありません。確認してください',
     loginSuccess: 'ログインに成功しました',
     loginOutSuccess: 'ログアウトしました',
     lastUpdateTime: '最終更新時間',

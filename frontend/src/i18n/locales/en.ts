@@ -114,6 +114,7 @@ const en = {
   },
   common: {
     valueEmpty: 'Cannot be empty',
+    patternError: 'Invalid format, please check',
     loginSuccess: 'Login successful',
     loginOutSuccess: 'Logged out successfully',
     lastUpdateTime: 'Last update time',

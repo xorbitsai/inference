@@ -35,7 +35,7 @@
     "date-fns": "^4.1.0",
     "highlight.js": "^11.11.1",
     "js-cookie": "^3.0.7",
-    "lucide-react": "^1.14.0",
+    "lucide-react": "^1.16.0",
     "marked": "^5.1.2",
     "next": "15.2.3",
     "next-themes": "^0.4.6",

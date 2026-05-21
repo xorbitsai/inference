@@ -191,12 +191,6 @@ const FormContent: FC<FormContentProps> = ({ modelType, form, modelFamilyMap }) 
   };
   return (
     <div className="space-y-3">
-      <Select
-        options={[
-          { label: 'xxx', value: '1' },
-          { label: 'yyy', value: '2' },
-        ]}
-      />
       {modelTypeFields[modelType].map((fieldKey) => (
         <div key={fieldKey}>{fields[fieldKey]}</div>
       ))}

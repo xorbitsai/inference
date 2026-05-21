@@ -113,6 +113,7 @@ const ko = {
   },
   common: {
     valueEmpty: '비워둘 수 없습니다',
+    patternError: '형식이 올바르지 않습니다. 확인해주세요',
     loginSuccess: '로그인에 성공했습니다',
     loginOutSuccess: '로그아웃되었습니다',
     lastUpdateTime: '마지막 업데이트 시간',

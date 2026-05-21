@@ -6,19 +6,8 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function getApiUrl(): string {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || ''
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://10.1.0.45:6633'
   return apiUrl
-}
-export function formatDate(date: Date | string): string {
-  const d = new Date(date)
-  return d.toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  })
 }
 
 export function formatFileSize(bytes: number): string {
@@ -61,14 +50,6 @@ export function throttle<T extends (...args: any[]) => any>(
       }, limit)
     }
   }
-}
-
-export function formatBytes(bytes: number) {
-  if (!bytes) return "0 MiB";
-
-  const mib = bytes / 1024 / 1024;
-
-  return `${mib.toFixed(2)}MiB`;
 }
 
 export function sleep(ms: number): Promise<void>{

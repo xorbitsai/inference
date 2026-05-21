@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import request from '@/lib/request';
-import { formatBytes } from '@/lib/utils';
+import { formatFileSize } from '@/lib/utils';
 import { useI18n } from '@/contexts/i18n-context';
 import PageContainer from '@/components/ui/page-container';
 import {
@@ -60,8 +60,8 @@ export default function ClusterInfo() {
       },
       {
         label: t('clusterInfo.cpuMemoryInfo'),
-        value: `${t('clusterInfo.usage')}${formatBytes(memUsage)}`,
-        total: `${t('clusterInfo.total')}${formatBytes(memTotal)}`,
+        value: `${t('clusterInfo.usage')}${formatFileSize(memUsage)}`,
+        total: `${t('clusterInfo.total')}${formatFileSize(memTotal)}`,
       },
       {
         label: t('clusterInfo.version'),
@@ -103,8 +103,8 @@ export default function ClusterInfo() {
       },
       {
         label: t('clusterInfo.cpuMemoryInfo'),
-        value: `${t('clusterInfo.usage')}${formatBytes(cpuMemUsage)}`,
-        total: `${t('clusterInfo.total')}${formatBytes(cpuMemTotal)}`,
+        value: `${t('clusterInfo.usage')}${formatFileSize(cpuMemUsage)}`,
+        total: `${t('clusterInfo.total')}${formatFileSize(cpuMemTotal)}`,
       },
       {
         label: t('clusterInfo.gpuInfo'),
@@ -121,8 +121,8 @@ export default function ClusterInfo() {
       },
       {
         label: t('clusterInfo.gpuMemoryInfo'),
-        value: `${t('clusterInfo.usage')}${formatBytes(gpuMemoryUsage)}`,
-        total: `${t('clusterInfo.total')}${formatBytes(gpuMemoryTotal)}`,
+        value: `${t('clusterInfo.usage')}${formatFileSize(gpuMemoryUsage)}`,
+        total: `${t('clusterInfo.total')}${formatFileSize(gpuMemoryTotal)}`,
       },
       {
         label: t('clusterInfo.version'),
@@ -135,12 +135,12 @@ export default function ClusterInfo() {
     return workers.map((item) => ({
       ...item,
       cpuUsage: ((item.cpu_count || 0) - (item.cpu_available || 0)).toFixed(2),
-      cpuMemUsage: formatBytes(item.mem_used || 0),
-      cpuMemTotal: formatBytes(item.mem_total || 0),
+      cpuMemUsage: formatFileSize(item.mem_used || 0),
+      cpuMemTotal: formatFileSize(item.mem_total || 0),
       gpuLoad:
         typeof item.gpu_utilization === 'number' ? `${item.gpu_utilization.toFixed(2)}%` : '-',
-      gpuMemoryUsage: formatBytes((item.gpu_vram_total || 0) - (item.gpu_vram_available || 0)),
-      gpuMemoryTotal: formatBytes(item.gpu_vram_total || 0),
+      gpuMemoryUsage: formatFileSize((item.gpu_vram_total || 0) - (item.gpu_vram_available || 0)),
+      gpuMemoryTotal: formatFileSize(item.gpu_vram_total || 0),
     }));
   }, [workers]);
   const fetchClusterInfo = async () => {
@@ -155,6 +155,9 @@ export default function ClusterInfo() {
       });
       timerRef.current = setTimeout(fetchClusterInfo, 5000);
     } catch (err) {
+      if(timerRef.current){
+        clearTimeout(timerRef.current); 
+      }
     }
   };
 
@@ -162,7 +165,7 @@ export default function ClusterInfo() {
     fetchClusterInfo();
     return () => {
       if (timerRef.current) {
-        clearInterval(timerRef.current);
+        clearTimeout(timerRef.current);
       }
     };
   }, []);

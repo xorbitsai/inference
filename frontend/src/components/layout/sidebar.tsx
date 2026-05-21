@@ -2,6 +2,7 @@
 
 import { FC, useState, useMemo } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { FaGithub } from 'react-icons/fa';
 import {
   Database,
@@ -135,7 +136,7 @@ export function Sidebar() {
     >
       <div className="flex h-16 items-center justify-between px-6 mt-2 mb-4 relative">
         <Link href="/" className="flex items-center justify-center gap-2">
-          <img src={branding.logoPath} alt={branding.logoAlt} className="h-8 w-8 rounded-lg" />
+          <Image src={branding.logoPath} alt={branding.logoAlt} width={32} height={32} className="rounded-lg" />
           <h1 className="text-xl font-bold text-foreground">{branding.appName}</h1>
         </Link>
       </div>

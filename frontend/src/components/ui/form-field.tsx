@@ -184,7 +184,7 @@ function FormField({
             return (
               rule.message ||
               t(
-                'common.valueEmpty'
+                'common.patternError'
               )
             );
           }

@@ -11,6 +11,7 @@ import { useI18n } from '@/contexts/i18n-context';
 import { useForm } from '@/hooks/use-form';
 import { cn } from '@/lib/utils';
 import { ModelType } from '@/constants';
+import type { ModelFamily } from '@/types/services';
 import AutoFill from './auto-fill';
 import FormContent from './form-content';
 
@@ -27,7 +28,7 @@ const RegisterModel = () => {
   ];
   const [activeTab, setActiveTab] = useState<ModelType>(ModelType.LLM);
   const [showJsonPreview, setShowJsonPreview] = useState(true);
-  const [modelFamilyMap, setModelFamilyMap] = useState({});
+  const [modelFamilyMap, setModelFamilyMap] = useState<ModelFamily>({});
 
   const fetchPrompts = async () => {
     const res = await request.get('/v1/models/prompts');

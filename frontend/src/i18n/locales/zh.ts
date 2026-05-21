@@ -123,6 +123,7 @@ const zh = {
   },
   common: {
     valueEmpty: '不能为空',
+    patternError: '格式不正确，请检查',
     loginSuccess: '登录成功',
     loginOutSuccess: '退出成功',
     lastUpdateTime: '最后更新时间',
