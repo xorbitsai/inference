@@ -26,6 +26,7 @@ export default function ClusterInfo() {
     workers: [],
   });
   const [lastUpdateTime, setLastUpdateTime] = useState('-');
+  const [isError, setIsError] = useState(false);
   const { t } = useI18n();
   const { clusterVersion } = useGlobal();
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -152,20 +153,13 @@ export default function ClusterInfo() {
         supervisors: res.filter((item) => item.node_type === 'Supervisor'),
         workers: res.filter((item) => item.node_type === 'Worker'),
       });
+      timerRef.current = setTimeout(fetchClusterInfo, 5000);
     } catch (err) {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
     }
   };
 
   useEffect(() => {
     fetchClusterInfo();
-    timerRef.current = setInterval(() => {
-      fetchClusterInfo();
-    }, 5000);
-
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);

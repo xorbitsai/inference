@@ -28,15 +28,15 @@ export default function AppInit({ clusterAuth, clusterAuthError }: AppInitProps)
 
     initialized.current = true;
     const init = async () => {
-      // 接口错误
+      // service error
       if (clusterAuthError) {
-        // 解决初始化时 sonner 未挂载
+        // Fix Sonner not being mounted during initialization
         queueMicrotask(() => {
           toast.error(clusterAuthError);
         });
         return;
       }
-      // no_auth(不需要登录)
+      // no_auth (login not required)
       if (clusterAuth?.auth === false) {
         Cookies.set('token', NO_AUTH, {
           path: '/',
@@ -45,15 +45,15 @@ export default function AppInit({ clusterAuth, clusterAuthError }: AppInitProps)
         fetchGlobalAfterAuth();
         return;
       }
-      // 以下为需要登录逻辑
+      // The following requires login logic
       const token = Cookies.get('token');
-      // auth 为 true && 已经登录 -> 则直接请求全局接口
+      // If auth is true && already logged in -> request global APIs directly
       if (token && token !== NO_AUTH) {
         if (pathname === LOGIN_PATH) router.push('/');
         fetchGlobalAfterAuth();
         return;
       }
-      // 跳转登录页,登录后获取token
+      // Redirect to login page, fetch token after login
       if (pathname !== LOGIN_PATH) {
         router.replace('/login');
       }

@@ -78,7 +78,10 @@ export const themes: Record<ThemeMode, Theme> = {
 function camelToKebab(str: string) {
   return str.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
 }
-/** 目前暂时只有dark/light 俩种方式，后续扩展blue/purple等其他主题，使用applyTheme生成  */
+/** 
+ * Currently only supports dark/light modes.
+ * Will extend to other themes like blue/purple in the future, generated using applyTheme.
+  */
 export function applyTheme(themeName: ThemeMode) {
   const theme = themes[themeName];
 

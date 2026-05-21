@@ -87,7 +87,7 @@ export function Form({
     Record<string, () => string>
   >({});
 
-  // 初始化 initialValues
+  // init initialValues
   if (
     initialValues &&
     Object.keys(form.store.current)
@@ -107,7 +107,7 @@ export function Form({
     });
   }, [form]);
 
-  // resetFields 时清空 UI 状态
+  // Clear UI state on resetFields
   React.useEffect(() => {
     return form.registerReset(() => {
       setErrors({});
@@ -143,7 +143,7 @@ export function Form({
     validatorsRef.current[name] =
       validate;
 
-    // 不覆盖 initialValues
+    // Do not override initialValues
     if (
       !(name in form.store.current) &&
       !(name in form.initialValues.current)

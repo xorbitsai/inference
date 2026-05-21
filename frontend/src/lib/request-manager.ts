@@ -1,11 +1,11 @@
 class RequestManager {
   /**
-   * 是否正在处理401
+   * Is 401 being processed?
    */
   private handling401 = false;
 
   /**
-   * 是否正在处理403
+   * Is 403 being processed?
    */
   private handling403 = false;
 

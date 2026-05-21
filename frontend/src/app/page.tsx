@@ -14,7 +14,7 @@
 //   }
 //   return null;
 // }
-// next.config 配置了 redirect  / 跟路径 -> /workbench
+// next.config: redirect root '/' to '/workbench'
 export default function Home() {
   return null;
 }

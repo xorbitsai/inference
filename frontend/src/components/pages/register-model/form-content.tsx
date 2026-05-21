@@ -54,17 +54,17 @@ const FormContent: FC<FormContentProps> = ({ modelType, form, modelFamilyMap }) 
       if (!isLLM) return;
 
       let nextValues = [...values];
-      // 取消 chat 除 generate 外全部清空
+      // Clear all chat data except for 'generate'
       if (changedValue === 'chat' && !checked) {
         nextValues = nextValues.filter((item) => item === 'generate');
       }
-      // 高级能力自动附带 chat
+      // Advanced ability auto include chat
       const hasAdvancedAbility = MODEL_ABILITY_HAS_CHAT.some((item) => nextValues.includes(item));
 
       if (hasAdvancedAbility && !nextValues.includes('chat')) {
         nextValues.push('chat');
       }
-      // vision / tools 互斥
+      // vision and tools are mutually exclusive
       if (changedValue === 'vision' && checked) {
         nextValues = nextValues.filter((item) => item !== 'tools');
       }

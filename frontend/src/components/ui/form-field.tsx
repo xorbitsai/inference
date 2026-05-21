@@ -1,4 +1,3 @@
-// components/form/form-field.tsx
 'use client';
 
 import * as React from 'react';
@@ -59,8 +58,6 @@ interface FormFieldProps {
   children: React.ReactElement;
 
   /**
-   * 组件值属性
-   *
    * Input:
    * value
    *
@@ -70,15 +67,8 @@ interface FormFieldProps {
   valuePropName?: string;
 
   /**
-   * 布局模式
-   *
-   * vertical:
-   * label
-   * control
-   * error
-   *
    * horizontal:
-   * label + control 同行
+   * label + control on the same row
    */
   layout?: 'vertical' | 'horizontal';
 }
@@ -106,7 +96,7 @@ function isEmptyValue(value: any) {
   }
 
   // boolean
-  // false 不是 empty
+  // false not empty
   if (
     typeof value === 'boolean'
   ) {
@@ -120,7 +110,7 @@ function getDefaultValue(
   value: any,
   valuePropName: string
 ) {
-  // 已存在值
+  // Existing value
   if (value !== undefined) {
     return value;
   }
@@ -130,7 +120,7 @@ function getDefaultValue(
     return false;
   }
 
-  // 默认 input/select
+  // default input/select
   return '';
 }
 
@@ -251,12 +241,12 @@ function FormField({
       nextValue
     );
   
-    // 首次操作后标记 touched
+    // Mark as touched after the first interaction
     if (!isTouched) {
       setFieldTouched(name, true);
     }
   
-    // 实时校验
+    // Real-time validation
     const nextError =
       validate(nextValue);
   
@@ -265,7 +255,7 @@ function FormField({
       nextError
     );
   
-    // 透传子组件原始 onChange
+    // Pass through the child component's raw onChange
     const childOnChange =
       (
         children.props as {

@@ -90,7 +90,7 @@ const RegisterModel = () => {
                 }
               )}
             >
-              22222222
+              jsonview
             </div>
           </TabsContent>
         </Tabs>

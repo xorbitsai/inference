@@ -4,7 +4,6 @@ import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import type { Components } from 'react-markdown'
-import Image from "next/image";
 
 interface AgentInfo {
   id: number
@@ -88,8 +87,8 @@ export function MarkdownRenderer({ content, className = '', onFileClick, onAgent
         if (src && src.startsWith('file:')) {
           const filePath = src.replace(/^file:/, '')
           return (
-            <Image
-              filePath={filePath}
+            <img
+              src={filePath}
               alt={alt || ''}
               title={title || alt || ''}
               onFileClick={onFileClick}

@@ -26,7 +26,7 @@ const nextConfig = {
       {
         source: '/',
         destination: '/workbench',
-        permanent: true, // false = 307 (临时重定向), true = 301 (永久重定向)
+        permanent: true, // false = 307 (temporary redirect), true = 301 (permanent redirect)
       },
     ];
   },

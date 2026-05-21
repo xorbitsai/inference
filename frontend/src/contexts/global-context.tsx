@@ -6,7 +6,7 @@ import type { ClusterAuth, ClusterVersion } from '@/types/services';
 
 export interface GlobalState {
   /**
-   * 全局接口是否初始化完成（/cluster/auth）
+   * global APIs is ready（/cluster/auth）
    */
   globalReady: boolean;
   clusterAuth: ClusterAuth;
@@ -31,7 +31,7 @@ export function GlobalProvider({ children, initClusterAuth }: Props) {
     setGlobalReady(false);
   
     try {
-      // 后续全局接口，在此处扩展
+      // Extend global APIs here as needed
       const [versionRes] = await Promise.allSettled([
         request.get('/v1/cluster/version'),
       ]);

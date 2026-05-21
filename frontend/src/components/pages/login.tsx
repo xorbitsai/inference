@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/form-field';
 import { Form } from '@/components/ui/form';
-import { useForm, useWatch } from '@/hooks/use-form';
+import { useForm } from '@/hooks/use-form';
 import request from '@/lib/request';
 import { getBrandingFromEnv } from '@/lib/branding';
 import { useI18n } from '@/contexts/i18n-context';
@@ -44,7 +44,7 @@ export default function LoginPage() {
   };
   return (
     <div className="min-h-screen grid lg:grid-cols-2 bg-background">
-      {/* 左侧品牌区 */}
+      {/* Left brand section */}
       <div className="hidden lg:flex flex-col justify-between p-12 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white relative overflow-hidden">
         <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/10 blur-3xl" />
         <div className="absolute -bottom-32 -left-16 w-96 h-96 rounded-full bg-indigo-400/20 blur-3xl" />
@@ -63,7 +63,7 @@ export default function LoginPage() {
         </p>
       </div>
 
-      {/* 右侧表单区 */}
+      {/* Right form panel */}
       <div className="flex items-center justify-center p-6 sm:p-12">
         <div className="w-full max-w-md space-y-8">
           <h2 className="text-3xl font-bold text-primary">{t('login.login')}</h2>
