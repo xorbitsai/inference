@@ -3,20 +3,18 @@
 import { PropsWithChildren, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import Cookies from 'js-cookie';
 import { eventBus } from '@/lib/event-bus';
 import { RequestEvents } from '@/constants';
 import { requestManager } from '@/lib/request-manager';
-import { authStore } from '@/lib/auth-store';
-// import { useI18n } from '@/contexts/i18n-context';
 
 export default function RequestProvider({ children }: PropsWithChildren) {
   const router = useRouter();
-  // const { t } = useI18n() 
   useEffect(() => {
     /** 401 */ 
     const handleUnauthorized = async () => {
-      // clear auth;
-      authStore.clear();
+      // clear token;
+      Cookies.remove('token');
       router.replace('/login');
       // restore lock
       setTimeout(() => {
@@ -36,7 +34,7 @@ export default function RequestProvider({ children }: PropsWithChildren) {
 
     /** Server Error */
     const handleServerError = (message?: string) => {
-      alert(message || '请求失败');
+      toast.error(message);
     };
 
     eventBus.on(RequestEvents.UNAUTHORIZED, handleUnauthorized);

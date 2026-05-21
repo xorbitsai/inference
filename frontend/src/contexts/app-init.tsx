@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'sonner';
-import { authStore } from '@/lib/auth-store';
-import request from '@/lib/request';
+import Cookies from 'js-cookie';
+import { NO_AUTH, LOGIN_PATH } from '@/constants';
 import { useGlobal } from '@/contexts/global-context';
 
 interface ClusterAuthResponse {
-  auth: false | string;
+  auth: boolean;
 }
 
 interface AppInitProps {
@@ -16,8 +17,12 @@ interface AppInitProps {
 }
 
 export default function AppInit({ clusterAuth, clusterAuthError }: AppInitProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { fetchGlobalAfterAuth } = useGlobal();
+
   const initialized = useRef(false);
-  const { setClusterVersion } = useGlobal();
+
   useEffect(() => {
     if (initialized.current) return;
 
@@ -31,31 +36,30 @@ export default function AppInit({ clusterAuth, clusterAuthError }: AppInitProps)
         });
         return;
       }
-
-      if (!clusterAuth) {
+      // no_auth(不需要登录)
+      if (clusterAuth?.auth === false) {
+        Cookies.set('token', NO_AUTH, {
+          path: '/',
+        });
+        if (pathname === LOGIN_PATH) router.push('/');
+        fetchGlobalAfterAuth();
         return;
       }
-
-      // 匿名模式
-      if (clusterAuth.auth === false) {
-        authStore.set({
-          type: 'anonymous',
-        });
-
-        document.cookie = 'token=no_auth; path=/';
-      } else {
-        // token 模式
-        authStore.set({
-          type: 'token',
-          token: clusterAuth.auth,
-        });
-        document.cookie = 'token=authenticated; path=/';
+      // 以下为需要登录逻辑
+      const token = Cookies.get('token');
+      // auth 为 true && 已经登录 -> 则直接请求全局接口
+      if (token && token !== NO_AUTH) {
+        if (pathname === LOGIN_PATH) router.push('/');
+        fetchGlobalAfterAuth();
+        return;
       }
-      const versionRes = await request.get('/v1/cluster/version');
-      setClusterVersion(versionRes);
+      // 跳转登录页,登录后获取token
+      if (pathname !== LOGIN_PATH) {
+        router.replace('/login');
+      }
     };
     init();
-  }, [clusterAuth, clusterAuthError, setClusterVersion]);
+  }, [clusterAuth, clusterAuthError, pathname, router, fetchGlobalAfterAuth]);
 
   return null;
 }

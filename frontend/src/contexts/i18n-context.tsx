@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { translations } from '@/i18n/translations';
 import type { Locale } from '@/types/common';
-import { languageKeys, defaultLanguage } from '@/constants';
+import { LANGUAGES_KEYS, DEFAULT_LANGUAGE } from '@/constants';
 type TFunc = (key: string, vars?: Record<string, string | number>) => string;
 
 interface I18nContextValue {
@@ -24,7 +24,7 @@ function interpolate(str: string, vars?: Record<string, string | number>) {
 
 export function I18nProvider({
   children,
-  initialLocale = defaultLanguage,
+  initialLocale = DEFAULT_LANGUAGE,
 }: {
   children: React.ReactNode;
   initialLocale?: Locale;
@@ -36,7 +36,7 @@ export function I18nProvider({
       const stored = typeof window !== 'undefined' ? localStorage.getItem('app_locale') : null;
       if (stored && stored !== locale) {
         setLocaleState(
-          (languageKeys.includes(stored as Locale) ? stored : defaultLanguage) as Locale
+          (LANGUAGES_KEYS.includes(stored as Locale) ? stored : DEFAULT_LANGUAGE) as Locale
         );
       }
     } catch {

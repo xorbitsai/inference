@@ -6,6 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function getApiUrl(): string {
+  // const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:9997'
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://10.1.0.45:6633'
   return apiUrl
 }
@@ -70,3 +71,9 @@ export function formatBytes(bytes: number) {
 
   return `${mib.toFixed(2)}MiB`;
 }
+
+export function sleep(ms: number): Promise<void>{
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+};

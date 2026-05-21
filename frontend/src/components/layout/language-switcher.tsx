@@ -6,7 +6,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Languages } from 'lucide-react';
 import { useI18n } from '@/contexts/i18n-context';
-import { languages } from '@/constants';
+import { LANGUAGES } from '@/constants';
 
 export default function LanguageSwitcher() {
   const { locale, setLocale } = useI18n();
@@ -16,7 +16,7 @@ export default function LanguageSwitcher() {
         <Languages className="h-5 w-5 text-muted-foreground hover:text-foreground cursor-pointer" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
-        {languages.map((lang) => (
+        {LANGUAGES.map((lang) => (
           <DropdownMenuItem
             key={lang.value}
             onClick={() => setLocale(lang.value)}

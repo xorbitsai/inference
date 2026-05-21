@@ -1,9 +1,20 @@
-import Image from "next/image";
+// "use client";
 
+// import { useGlobal } from '@/contexts/global-context';
+// import { Loader2 } from 'lucide-react';
+
+// export default function Home() {
+//   const { globalReady } = useGlobal();
+//   if(!globalReady) {
+//     return (
+//       <div className="h-screen w-screen flex items-center justify-center bg-background">
+//         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+//       </div>
+//     )
+//   }
+//   return null;
+// }
+// next.config 配置了 redirect  / 跟路径 -> /workbench
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-
-    </div>
-  );
+  return null;
 }

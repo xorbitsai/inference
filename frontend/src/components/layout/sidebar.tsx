@@ -14,10 +14,10 @@ import {
   Globe,
   BotIcon,
   Moon,
-  Rocket
+  Rocket,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 
 import { useI18n } from '@/contexts/i18n-context';
 import { useGlobal } from '@/contexts/global-context';
@@ -31,6 +31,7 @@ import {
 } from '@/constants';
 import ThemeToggle from '@/components/layout/theme-toggle';
 import LanguageSwitcher from '@/components/layout/language-switcher';
+import LoginOut from '@/components/layout/login-out';
 
 interface NavItem {
   path: string;
@@ -76,7 +77,13 @@ export function Sidebar() {
     {
       path: '/launch-model',
       name: t('menu.launchModel'),
-      Icon: Database,
+      Icon: Rocket,
+      Extra: ChevronRight,
+    },
+    {
+      path: '/running-model',
+      name: t('menu.runningModels'),
+      Icon: Layers,
       Extra: ChevronRight,
     },
     {
@@ -126,7 +133,7 @@ export function Sidebar() {
         isExpanded ? 'w-0' : 'w-60'
       )}
     >
-      <div className="flex h-16 items-center justify-between px-6 mt-2 relative">
+      <div className="flex h-16 items-center justify-between px-6 mt-2 mb-4 relative">
         <Link href="/" className="flex items-center justify-center gap-2">
           <img src={branding.logoPath} alt={branding.logoAlt} className="h-8 w-8 rounded-lg" />
           <h1 className="text-xl font-bold text-foreground">{branding.appName}</h1>
@@ -146,6 +153,7 @@ export function Sidebar() {
         <div className="flex gap-4 shrink-0">
           <ThemeToggle />
           <LanguageSwitcher />
+          <LoginOut />
         </div>
         {clusterVersion?.version && (
           <div className="text-slate-400 truncate">v:{clusterVersion.version}</div>

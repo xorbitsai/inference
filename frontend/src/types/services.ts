@@ -21,3 +21,5 @@ export interface ClusterInfo {
   gpu_utilization: number;
   gpu_vram_available: number;
 }
+
+export type ModelFamily = Record<string, string[]>;
