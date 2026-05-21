@@ -1,4 +1,4 @@
-FROM vllm/vllm-openai:v0.17.1
+FROM vllm/vllm-openai:v0.21.0
 
 COPY . /opt/inference
 WORKDIR /opt/inference
@@ -21,7 +21,7 @@ RUN apt-get -y update \
   && apt-get -yq clean
 
 ENV PATH=$NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
-ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/python3.10/dist-packages/nvidia/cublas/lib
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/python3.12/dist-packages/nvidia/cublas/lib
 # ENV FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE
 
 # Install pip dependencies
@@ -43,15 +43,13 @@ RUN pip install --upgrade -i "$PIP_INDEX" pip "setuptools<82" wheel && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements/requirements-base.txt && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements/requirements-ml.txt && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements/requirements-models.txt && \
-    pip install -i "$PIP_INDEX" transformers==4.55.2 && \
+    pip install -i "$PIP_INDEX" transformers==5.5.0 && \
     pip install -i "$PIP_INDEX" --no-deps sglang==0.5.6 && \
     pip install -i "$PIP_INDEX" sgl-kernel==0.3.18.post2 && \
     pip install -i "$PIP_INDEX" wetext && \
     pip uninstall flashinfer -y && \
-    pip install -i "$PIP_INDEX" flashinfer-python==0.5.3 flashinfer-cubin==0.5.3 && \
     pip install -i "$PIP_INDEX" SQLAlchemy==1.4.54 && \
-    pip install https://github.com/flashinfer-ai/flashinfer/releases/download/v0.5.3/flashinfer_jit_cache-0.5.3+cu129-cp39-abi3-manylinux_2_28_x86_64.whl && \
-    pip install https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.7.12/flash_attn-2.8.3+cu128torch2.10-cp312-cp312-linux_x86_64.whl && \
+    pip install https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.9.4/flash_attn-2.8.3+cu130torch2.11-cp312-cp312-linux_x86_64.whl && \
     cd /opt/inference && \
     python3 setup.py build_web && \
     git restore . && \
@@ -75,8 +73,7 @@ RUN /opt/conda/bin/conda create -n ffmpeg-env -c conda-forge 'ffmpeg<7' -y && \
     /opt/conda/bin/conda clean --all -y
 
 # The pre-release version used should be noted for date changes
-RUN pip install triton==3.4.0 && \
-    pip install torchcodec==0.10.0 && \
+RUN pip install torchcodec==0.10.0 && \
     pip cache purge
 
 # Override the default entrypoint of the vllm base image
