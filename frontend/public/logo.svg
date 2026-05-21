@@ -1,0 +1,25 @@
+<svg width="173.831879" height="177.308517" viewBox="0 0 173.832 177.309" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+	<desc>
+			Created with Pixso.
+	</desc>
+	<defs>
+		<linearGradient x1="59.102806" y1="179.252701" x2="146.098419" y2="0.728947" id="paint_linear_0_7_0" gradientUnits="userSpaceOnUse">
+			<stop stop-color="#E9A85E"/>
+			<stop offset="1.000000" stop-color="#F52B76"/>
+		</linearGradient>
+		<linearGradient x1="18.536041" y1="179.005981" x2="135.938522" y2="129.504761" id="paint_linear_0_8_0" gradientUnits="userSpaceOnUse">
+			<stop stop-color="#E9A85E"/>
+			<stop offset="1.000000" stop-color="#F52B76"/>
+		</linearGradient>
+		<linearGradient x1="0.000004" y1="49.024223" x2="157.555862" y2="121.868401" id="paint_linear_0_9_0" gradientUnits="userSpaceOnUse">
+			<stop stop-color="#6A0CF5"/>
+			<stop offset="1.000000" stop-color="#AB66F3"/>
+		</linearGradient>
+	</defs>
+	<path id="path" d="M59.1 90.81C64.17 96.44 69.93 101.41 76.23 105.61C81.64 109.24 87.41 112.29 93.45 114.72C104.41 104.34 113.49 92.13 120.29 78.63L159.92 0L90.81 54.46C78.08 64.5 67.32 76.82 59.1 90.81Z" fill="url(#paint_linear_0_7_0)" fill-opacity="1.000000" fill-rule="nonzero"/>
+	<path id="path" d="M76.23 105.61C81.64 109.24 87.41 112.29 93.45 114.72C104.41 104.34 113.49 92.13 120.29 78.63L159.92 0L90.81 54.46C78.08 64.5 67.32 76.82 59.1 90.81C64.17 96.44 69.93 101.41 76.23 105.61Z" stroke="#000000" stroke-opacity="0" stroke-width="1.000000"/>
+	<path id="path" d="M53.15 139.95C48.14 136.62 43.42 133.1 38.95 129.5L14.77 177.3L58.23 143.24C56.53 142.15 54.82 141.07 53.15 139.95Z" fill="url(#paint_linear_0_8_0)" fill-opacity="1.000000" fill-rule="nonzero"/>
+	<path id="path" d="M38.95 129.5L14.77 177.3L58.23 143.24C56.53 142.15 54.82 141.07 53.15 139.95C48.14 136.62 43.42 133.1 38.95 129.5Z" stroke="#000000" stroke-opacity="0" stroke-width="1.000000"/>
+	<path id="path" d="M141.86 63.63C154.87 80.88 158.67 100.04 149.85 113.23C136.97 132.49 102.06 131.75 71.87 111.58C41.68 91.41 27.65 59.45 40.53 40.19C49.34 27 68.5 23.19 89.42 28.59C53.25 13.23 18.83 14.75 5.48 34.67C-11.27 59.75 11.61 104.48 56.58 134.48C101.54 164.48 151.59 168.55 168.34 143.49C181.68 123.53 169.88 91.16 141.86 63.63Z" fill="url(#paint_linear_0_9_0)" fill-opacity="1.000000" fill-rule="nonzero"/>
+	<path id="path" d="M149.85 113.23C136.97 132.49 102.06 131.75 71.87 111.58C41.68 91.41 27.65 59.45 40.53 40.19C49.34 27 68.5 23.19 89.42 28.59C53.25 13.23 18.83 14.75 5.48 34.67C-11.27 59.75 11.61 104.48 56.58 134.48C101.54 164.48 151.59 168.55 168.34 143.49C181.68 123.53 169.88 91.16 141.86 63.63C154.87 80.88 158.67 100.04 149.85 113.23Z" stroke="#000000" stroke-opacity="0" stroke-width="1.000000"/>
+</svg>
