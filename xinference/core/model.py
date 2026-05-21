@@ -36,6 +36,7 @@ from typing import (
 
 import sse_starlette.sse
 import xoscar as xo
+from xoscar.api import IteratorWrapper
 
 from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
@@ -95,16 +96,14 @@ def request_limit(fn):
         logger.debug(
             f"Request {fn.__name__}, current serve request count: {self._serve_count}, request limit: {self._request_limits} for the model {self.model_uid()}"
         )
-        # Count every incoming request (including those rejected by rate limit)
-        await self.record_metrics(
-            "model_request_total",
-            "add",
-            {"labels": self._metrics_labels, "value": 1},
-        )
         if 1 + self._serve_count <= self._request_limits:
             self._serve_count += 1
         else:
-            # Rate-limited requests count as errors
+            await self.record_metrics(
+                "model_request_total",
+                "add",
+                {"labels": {**self._metrics_labels, "stream": "unknown"}, "value": 1},
+            )
             await self.record_metrics(
                 "model_request_errors_total",
                 "add",
@@ -128,9 +127,21 @@ def request_limit(fn):
             raise
         finally:
             duration = time.time() - start_time
-            if ret is not None and (
-                inspect.isasyncgen(ret) or inspect.isgenerator(ret)
-            ):
+            _is_stream = ret is not None and (
+                inspect.isasyncgen(ret)
+                or inspect.isgenerator(ret)
+                or isinstance(ret, IteratorWrapper)
+            )
+            stream_label = "true" if _is_stream else "false"
+            await self.record_metrics(
+                "model_request_total",
+                "add",
+                {
+                    "labels": {**self._metrics_labels, "stream": stream_label},
+                    "value": 1,
+                },
+            )
+            if _is_stream:
                 # stream case, let client call model_ref to decrease self._serve_count
                 pass
             else:
@@ -265,13 +276,23 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         self._worker_ref = None
         self._progress_tracker_ref = None
         self._serve_count = 0
+        model_type = self._model_description.get("model_type", "unknown")
+        if model_type in ("audio", "video"):
+            engine_label = ""
+            format_label = ""
+        elif model_type == "image":
+            engine_label = model_engine or ""
+            format_label = ""
+        else:
+            engine_label = model_engine or "unknown"
+            format_label = self._model_description.get("model_format", "unknown")
         self._metrics_labels = {
-            "type": self._model_description.get("model_type", "unknown"),
+            "type": model_type,
             "model": self.model_uid(),
             "model_name": self._model_description.get("model_name", "unknown"),
-            "engine": model_engine or "unknown",
+            "engine": engine_label,
             "node": self._worker_address,
-            "format": self._model_description.get("model_format", "unknown"),
+            "format": format_label,
             "quantization": self._model_description.get("quantization", "none"),
             "gpu_index": ",".join(
                 str(a) for a in (self._model_description.get("accelerators") or [])
@@ -361,14 +382,13 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 )
             )
         if completion_tokens > 0:
-            generate_throughput = completion_tokens / duration
             coros.append(
                 self.record_metrics(
-                    "generate_throughput",
-                    "set",
+                    "generate_tokens_total",
+                    "add",
                     {
                         "labels": self._metrics_labels,
-                        "value": generate_throughput,
+                        "value": completion_tokens,
                     },
                 )
             )
@@ -554,9 +574,12 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         finally:
             if self._loop is not None and time_to_first_token is not None:
                 coro = self.record_metrics(
-                    "time_to_first_token",
-                    "set",
-                    {"labels": self._metrics_labels, "value": time_to_first_token},
+                    "time_to_first_token_seconds",
+                    "observe",
+                    {
+                        "labels": {**self._metrics_labels, "stream": "true"},
+                        "value": time_to_first_token / 1000,
+                    },
                 )
                 asyncio.run_coroutine_threadsafe(coro, loop=self._loop)
             if self._loop is not None and final_usage is not None:
@@ -593,9 +616,12 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             if time_to_first_token is not None:
                 coros.append(
                     self.record_metrics(
-                        "time_to_first_token",
-                        "set",
-                        {"labels": self._metrics_labels, "value": time_to_first_token},
+                        "time_to_first_token_seconds",
+                        "observe",
+                        {
+                            "labels": {**self._metrics_labels, "stream": "true"},
+                            "value": time_to_first_token / 1000,
+                        },
                     )
                 )
             if final_usage is not None:
@@ -606,7 +632,10 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                         prompt_tokens=final_usage["prompt_tokens"],
                     )
                 )
-            await asyncio.gather(*coros)
+            try:
+                await asyncio.gather(*coros)
+            except Exception:
+                logger.exception("Failed to record metrics in _to_async_gen finally")
 
     async def _handle_pending_requests(self):
         logger.info("Start requests handler.")
@@ -794,6 +823,14 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                     time.time() - start_time,
                     completion_tokens,
                     prompt_tokens,
+                )
+                await self.record_metrics(
+                    "time_to_first_token_seconds",
+                    "observe",
+                    {
+                        "labels": {**self._metrics_labels, "stream": "false"},
+                        "value": time.time() - start_time,
+                    },
                 )
 
     async def abort_request(
@@ -997,6 +1034,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 )
         raise AttributeError(f"Model {self._model.model_spec} is not for txt2img.")
 
+    @request_limit
     @log_async(
         logger=logger,
         ignore_kwargs=["image"],
@@ -1049,6 +1087,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 )
         raise AttributeError(f"Model {self._model.model_spec} is not for img2img.")
 
+    @request_limit
     @log_async(
         logger=logger,
         ignore_kwargs=["image"],
@@ -1086,6 +1125,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             f"Model {self._model.model_spec} is not for creating image."
         )
 
+    @request_limit
     @log_async(
         logger=logger,
         ignore_kwargs=["image"],

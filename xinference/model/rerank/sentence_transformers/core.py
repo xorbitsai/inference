@@ -17,6 +17,7 @@ import inspect
 import logging
 import os
 import threading
+import time
 import uuid
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
@@ -423,6 +424,7 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
         documents_size = len(documents)
         query_list = [query] * documents_size
 
+        _start = time.monotonic()
         similarity_scores = self._rerank(
             documents,
             query_list,
@@ -432,6 +434,21 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             return_len,
             **kwargs,
         )
+        _elapsed = time.monotonic() - _start
+        _n_tokens = getattr(getattr(self, "_token_tracking_data", None), "n_tokens", 0)
+        if _n_tokens > 0:
+            logger.info(
+                "Rerank completed, docs=%d, elapsed=%.3fs, tokens=%d",
+                documents_size,
+                _elapsed,
+                _n_tokens,
+            )
+        else:
+            logger.info(
+                "Rerank completed, docs=%d, elapsed=%.3fs",
+                documents_size,
+                _elapsed,
+            )
         sim_scores_argsort = list(reversed(np.argsort(similarity_scores)))
         if top_n is not None:
             sim_scores_argsort = sim_scores_argsort[:top_n]

@@ -1,0 +1,111 @@
+/* Keep the PyData header compact and aligned for the English navigation. */
+@media (min-width: 992px) {
+  .bd-header .bd-header__inner {
+    gap: 1rem;
+    min-height: 4.5rem;
+  }
+
+  .bd-header .navbar-header-items__start {
+    flex: 0 0 auto;
+    width: auto;
+    max-width: none;
+    gap: 0.55rem;
+  }
+
+  .bd-header .navbar-header-items {
+    flex: 1 1 auto;
+    width: auto;
+    max-width: none;
+    min-width: 0;
+  }
+
+  .bd-header .navbar-header-items,
+  .bd-header .navbar-header-items__center,
+  .bd-header .navbar-header-items__end,
+  .bd-header .navbar-icon-links {
+    align-items: center;
+    flex-wrap: nowrap;
+  }
+
+  .bd-header .navbar-header-items__center {
+    min-width: 0;
+  }
+
+  .bd-header .navbar-header-items__end {
+    flex: 0 0 auto;
+    gap: 0.35rem;
+    margin-left: 0.75rem;
+  }
+
+  .bd-header .bd-navbar-elements {
+    gap: 0.25rem;
+  }
+
+  .bd-header .bd-navbar-elements .nav-link,
+  .bd-header .bd-navbar-elements .dropdown-toggle {
+    border-radius: 0.45rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1.2;
+    padding: 0.5rem 0.62rem;
+    white-space: nowrap;
+  }
+
+  .bd-header .bd-navbar-elements .nav-link:hover,
+  .bd-header .bd-navbar-elements .dropdown-toggle:hover {
+    background: var(--pst-color-surface);
+    text-decoration: none;
+  }
+
+  .bd-header .search-button__button {
+    max-width: 11.5rem;
+  }
+}
+
+.bd-header .navbar-brand {
+  margin-right: 0;
+  padding: 0.35rem 0;
+  text-decoration: none;
+}
+
+.bd-header .navbar-brand:hover {
+  text-decoration: none;
+}
+
+.bd-header .navbar-brand .logo__title {
+  font-size: 1.08rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.bd-header .version-switcher__button {
+  border-radius: 0.45rem;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 0.45rem 0.6rem;
+}
+
+.bd-header .search-button__button {
+  border-radius: 999px;
+  min-height: 2.25rem;
+  padding-left: 0.75rem;
+  padding-right: 0.55rem;
+}
+
+.bd-header .navbar-icon-links {
+  gap: 0.12rem;
+}
+
+.bd-header .navbar-icon-links .nav-link,
+.bd-header .theme-switch-button {
+  border-radius: 999px;
+  min-height: 2.25rem;
+  min-width: 2.25rem;
+}
+
+.bd-header .navbar-icon-links .nav-link {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  padding: 0.45rem;
+}

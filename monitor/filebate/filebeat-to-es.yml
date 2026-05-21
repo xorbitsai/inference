@@ -1,0 +1,170 @@
+# Filebeat -> Elasticsearch 示例配置
+# 用途: 采集 xinference worker/supervisor 日志，直接写入 ES 供 Kibana 查询
+# 使用: filebeat -e -c filebeat-to-es.yml
+
+filebeat.inputs:
+  - type: log
+    id: xinference-worker
+    enabled: true
+    paths:
+      - /data/logs/worker/worker-*.log
+    multiline.pattern: '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}'
+    multiline.negate: true
+    multiline.match: after
+    multiline.max_lines: 500
+    fields:
+      log_type: worker
+      cluster: xinference
+    fields_under_root: true
+
+  - type: log
+    id: xinference-supervisor
+    enabled: true
+    paths:
+      - /data/logs/supervisor/supervisor-*.log
+    multiline.pattern: '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}'
+    multiline.negate: true
+    multiline.match: after
+    multiline.max_lines: 500
+    fields:
+      log_type: supervisor
+      cluster: xinference
+    fields_under_root: true
+
+processors:
+  - dissect:
+      tokenizer: "%{_date} %{_time} %{module} %{->}%{pid} [%{_identity}] %{level} %{->}%{message_content}"
+      field: "message"
+      target_prefix: ""
+      ignore_failure: true
+
+  - dissect:
+      tokenizer: "[request %{request_id}] %{message_content}"
+      field: "message_content"
+      target_prefix: ""
+      ignore_failure: true
+
+  - script:
+      lang: javascript
+      source: |
+        function process(event) {
+          var source = event.Get("log.file.path");
+          if (source) {
+            var parts = source.split("/");
+            var filename = parts[parts.length - 1];
+            var nodeName = filename.replace(".log", "");
+            nodeName = nodeName.replace(/^(worker|supervisor)-/, "");
+            event.Put("node", nodeName);
+          }
+
+          // tqdm metric extraction (before message truncation)
+          var raw = event.Get("message");
+          if (raw) {
+            var rtfMatch = raw.match(/rtf_avg:\s*([-\d.]+)/);
+            if (rtfMatch) {
+              var val = parseFloat(rtfMatch[1]);
+              if (!isNaN(val)) event.Put("rtf_avg", val);
+            }
+            var tsMatch = raw.match(/time_speech:\s*([\d.]+)/);
+            if (tsMatch) {
+              var val = parseFloat(tsMatch[1]);
+              if (!isNaN(val)) event.Put("time_speech", val);
+            }
+            var teMatch = raw.match(/time_escape:\s*([\d.]+)/);
+            if (teMatch) {
+              var val = parseFloat(teMatch[1]);
+              if (!isNaN(val)) event.Put("time_escape", val);
+            }
+          }
+
+          var mc = event.Get("message_content");
+          if (mc) {
+            // strip ANSI escape codes
+            mc = mc.replace(/\x1b\[[0-9;]*m/g, "");
+            // truncate model architecture dump
+            var modelIdx = mc.indexOf("model: ");
+            if (modelIdx >= 0) {
+              var parenIdx = mc.indexOf("(", modelIdx);
+              if (parenIdx >= 0) {
+                mc = mc.substring(0, parenIdx);
+              }
+            }
+            var crIdx = mc.indexOf("\r");
+            if (crIdx >= 0) {
+              mc = mc.substring(0, crIdx);
+            }
+            var nlIdx = mc.indexOf("\n");
+            if (nlIdx >= 0) {
+              mc = mc.substring(0, nlIdx);
+            }
+            event.Put("message", mc.replace(/^\s+/, ""));
+            event.Delete("message_content");
+          }
+          var d = event.Get("_date");
+          var t = event.Get("_time");
+          if (d && t) {
+            event.Put("_datetime", d + " " + t);
+          }
+          event.Delete("_date");
+          event.Delete("_time");
+          var identity = event.Get("_identity");
+          if (identity) {
+            var atIdx = identity.indexOf("@");
+            if (atIdx >= 0) {
+              event.Put("address", identity.substring(atIdx + 1));
+            }
+          }
+          event.Delete("_identity");
+        }
+
+  - timestamp:
+      field: "_datetime"
+      layouts:
+        - '2006-01-02 15:04:05,000'
+      # Change to your local timezone if xinference logs use local time
+      timezone: "Asia/Shanghai"
+      ignore_failure: true
+
+  - drop_fields:
+      fields:
+        - agent
+        - ecs
+        - host
+        - input
+        - log
+        - event
+        - data_stream
+        - elastic_agent
+        - cloud
+        - container
+        - kubernetes
+        - orchestrator
+        - "@version"
+        - _datetime
+      ignore_missing: true
+
+output.elasticsearch:
+  hosts: ["http://elasticsearch:9200"]
+  index: "xinference-logs-%{[log_type]}-%{+yyyy.MM.dd}"
+  # username: "elastic"
+  # password: "changeme"
+
+setup.template.name: "xinference-logs"
+setup.template.pattern: "xinference-logs-*"
+setup.template.settings:
+  index.number_of_shards: 2
+  index.number_of_replicas: 1
+
+setup.ilm.enabled: true
+setup.ilm.rollover_alias: "xinference-logs"
+setup.ilm.policy_name: "xinference-logs-policy"
+
+logging.metrics.enabled: true
+logging.metrics.period: 60s
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7
+  permissions: 0644

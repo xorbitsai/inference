@@ -1,0 +1,65 @@
+groups:
+  - name: xinference-alert-rule
+    rules:
+      - alert: GPUMemoryHigh
+        expr: xinference:worker_gpu_memory_used_bytes / xinference:worker_gpu_memory_total_bytes > 0.9
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "GPU 显存使用率超过 90%"
+          description: "Worker {{ $labels.worker_address }} GPU {{ $labels.gpu_index }} 显存使用率 {{ $value | humanizePercentage }}，持续 5 分钟。"
+
+      - alert: ModelRequestErrorRateHigh
+        expr: rate(xinference:model_request_errors_total[5m]) / rate(xinference:model_request_total[5m]) > 0.05
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "模型请求错误率超过 5%"
+          description: "模型 {{ $labels.model }} 错误率 {{ $value | humanizePercentage }}，持续 3 分钟。"
+
+      - alert: TTFTHigh
+        expr: rate(xinference:time_to_first_token_seconds_sum[5m]) / rate(xinference:time_to_first_token_seconds_count[5m]) > 10
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "首 Token 延迟超过 10 秒"
+          description: "模型 {{ $labels.model }} TTFT {{ $value }}ms，持续 3 分钟。"
+
+      - alert: WorkerOffline
+        expr: xinference:workers_total < 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Worker 节点离线"
+          description: "当前在线 Worker 数量 {{ $value }}，低于预期。"
+
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "磁盘空间不足 10%"
+          description: "节点 {{ $labels.instance }} 挂载点 {{ $labels.mountpoint }} 剩余空间 {{ $value | humanizePercentage }}。"
+
+      - alert: RequestQueueBacklog
+        expr: xinference:model_pending_requests > 10
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "模型请求队列积压"
+          description: "模型 {{ $labels.model }} 排队请求数 {{ $value }}，持续 3 分钟。"
+
+      - alert: ModelLoadSlow
+        expr: xinference:model_last_load_duration_seconds > 300
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "模型加载耗时超过 5 分钟"
+          description: "模型 {{ $labels.model_name }} 最近加载平均耗时 {{ $value | humanizeDuration }}。"

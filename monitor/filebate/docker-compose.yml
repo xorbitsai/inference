@@ -1,0 +1,39 @@
+# Deploy Filebeat to collect xinference logs
+# Switch between ES or Kafka by changing the config file path in command
+
+services:
+  filebeat:
+    container_name: filebeat-xinference
+    image: docker.elastic.co/beats/filebeat:8.13.4
+    user: root
+    restart: always
+    # Switch config: filebeat-to-es.yml or filebeat-to-kafka.yml
+    command: filebeat -e -strict.perms=false -c /usr/share/filebeat/filebeat.yml
+    # Resource limits: prevent backlog catch-up or downstream failures from starving inference
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 256M
+        reservations:
+          cpus: "0.10"
+          memory: 64M
+    volumes:
+      # Config file (pick one)
+      - ./filebeat-to-es.yml:/usr/share/filebeat/filebeat.yml:ro
+      # - ./filebeat-to-kafka.yml:/usr/share/filebeat/filebeat.yml:ro
+      # Log directories (adjust to actual paths)
+      - /data/logs/worker:/data/logs/worker:ro
+      - /data/logs/supervisor:/data/logs/supervisor:ro
+      # Data directory (persists collection progress across restarts)
+      - filebeat-data:/usr/share/filebeat/data
+    networks:
+      - xinference
+
+networks:
+  xinference:
+    external: true
+
+volumes:
+  filebeat-data:
+    driver: local

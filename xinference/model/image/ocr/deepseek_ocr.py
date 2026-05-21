@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import ast
 import logging
 import os
 import re
@@ -228,8 +229,13 @@ def extract_coordinates_and_label(
     """Extract coordinates and label from reference text."""
     try:
         label_type = ref_text[1]
-        cor_list = eval(ref_text[2])
-    except Exception as e:
+        # Use ast.literal_eval instead of eval — the coordinate string comes
+        # from OCR model output (LLM-generated) and a prompt-injected response
+        # could otherwise execute arbitrary Python. literal_eval only accepts
+        # Python literal structures (lists/tuples/numbers) and refuses calls,
+        # imports, and attribute access.
+        cor_list = ast.literal_eval(ref_text[2])
+    except (ValueError, SyntaxError, IndexError, TypeError) as e:
         logger.error(f"Error extracting coordinates: {e}")
         return None
 
@@ -384,9 +390,13 @@ def extract_text_blocks(text: str) -> List[Dict[str, Any]]:
     if not isinstance(text, str):
         return []
 
-    # Pattern to extract text and coordinates
+    # Pattern to extract text and coordinates. The coordinates group keeps
+    # the surrounding `[[...]]` so the resulting structure is nested
+    # (`[[x1, y1, x2, y2], ...]`) — matching extract_coordinates_and_label
+    # and the `bbox = coords[0] if len(coords) == 1 else coords` logic
+    # below, which assumes a list-of-lists.
     block_pattern = (
-        r"<\|ref\|>(.*?)<\|/ref\|><\|det\|>\[\[(.*?)\]\]<\|/det\|>(.*?)(?=<\|ref\|>|$)"
+        r"<\|ref\|>(.*?)<\|/ref\|><\|det\|>(\[\[.*?\]\])<\|/det\|>(.*?)(?=<\|ref\|>|$)"
     )
 
     blocks = []
@@ -396,7 +406,10 @@ def extract_text_blocks(text: str) -> List[Dict[str, Any]]:
         content = match.group(3).strip()
 
         try:
-            coords = eval(f"[{coords_str}]")  # Convert string coordinates to list
+            # Use ast.literal_eval instead of eval — the coordinate string is
+            # OCR model output (LLM-generated). literal_eval only accepts
+            # Python literal structures and rejects code execution.
+            coords = ast.literal_eval(coords_str)
             if isinstance(coords, list) and len(coords) > 0:
                 blocks.append(
                     {
@@ -406,7 +419,7 @@ def extract_text_blocks(text: str) -> List[Dict[str, Any]]:
                         "bbox": coords[0] if len(coords) == 1 else coords,
                     }
                 )
-        except Exception:
+        except (ValueError, SyntaxError):
             # Skip if coordinates can't be parsed
             continue
 

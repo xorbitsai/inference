@@ -1,0 +1,65 @@
+groups:
+  - name: xinference-alert-rule
+    rules:
+      - alert: GPUMemoryHigh
+        expr: xinference:worker_gpu_memory_used_bytes / xinference:worker_gpu_memory_total_bytes > 0.9
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "GPU memory usage exceeds 90%"
+          description: "Worker {{ $labels.worker_address }} GPU {{ $labels.gpu_index }} memory usage {{ $value | humanizePercentage }}, lasting 5 minutes."
+
+      - alert: ModelRequestErrorRateHigh
+        expr: rate(xinference:model_request_errors_total[5m]) / rate(xinference:model_request_total[5m]) > 0.05
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Model request error rate exceeds 5%"
+          description: "Model {{ $labels.model }} error rate {{ $value | humanizePercentage }}, lasting 3 minutes."
+
+      - alert: TTFTHigh
+        expr: rate(xinference:time_to_first_token_seconds_sum[5m]) / rate(xinference:time_to_first_token_seconds_count[5m]) > 10
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Time to first token exceeds 10 seconds"
+          description: "Model {{ $labels.model }} TTFT {{ $value }}ms, lasting 3 minutes."
+
+      - alert: WorkerOffline
+        expr: xinference:workers_total < 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Worker node offline"
+          description: "Current online worker count {{ $value }}, below expected."
+
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Disk space below 10%"
+          description: "Node {{ $labels.instance }} mountpoint {{ $labels.mountpoint }} remaining space {{ $value | humanizePercentage }}."
+
+      - alert: RequestQueueBacklog
+        expr: xinference:model_pending_requests > 10
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Model request queue backlog"
+          description: "Model {{ $labels.model }} pending requests {{ $value }}, lasting 3 minutes."
+
+      - alert: ModelLoadSlow
+        expr: xinference:model_last_load_duration_seconds > 300
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Model load time exceeds 5 minutes"
+          description: "Model {{ $labels.model_name }} recent average load time {{ $value | humanizeDuration }}."

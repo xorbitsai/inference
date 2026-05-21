@@ -30252,6 +30252,42 @@
     ],
     "model_specs": [
       {
+        "model_size_in_billions": 27,
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.6-27B",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.6-27B",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 27,
+        "model_format": "fp8",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Qwen/Qwen3.6-27B-FP8",
+            "quantizations": [
+              "FP8"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Qwen/Qwen3.6-27B-FP8",
+            "quantizations": [
+              "FP8"
+            ]
+          }
+        }
+      },
+      {
         "model_size_in_billions": 35,
         "activated_size_in_billions": 3,
         "model_format": "pytorch",
@@ -30432,6 +30468,9 @@
         "transformers>=5.2.0 ; #engine# == \"Transformers\"",
         "qwen_omni_utils ; #engine# == \"vllm\"",
         "vllm>=0.19.0 ; #engine# == \"vllm\"",
+        "transformers==4.57.6 ; #engine# == \"vllm\"",
+        "https://github.com/flashinfer-ai/flashinfer/releases/download/v0.6.6/flashinfer_jit_cache-0.6.6+cu129-cp39-abi3-manylinux_2_28_x86_64.whl ; #engine# == \"vllm\" and cuda_version == \"12.9\" and platform_machine == \"x86_64\"",
+        "https://github.com/flashinfer-ai/flashinfer/releases/download/v0.6.6/flashinfer_jit_cache-0.6.6+cu129-cp39-abi3-manylinux_2_28_aarch64.whl ; #engine# == \"vllm\" and cuda_version == \"12.9\" and platform_machine == \"aarch64\"",
         "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\""
       ]
     },
@@ -30451,7 +30490,7 @@
     ],
     "tool_parser": "qwen",
     "featured": false,
-    "updated_at": 1776913675
+    "updated_at": 1779163014
   },
   {
     "model_name": "MiniMax-M2.7",
@@ -31602,5 +31641,179 @@
     },
     "featured": false,
     "updated_at": 1777047462
+  },
+  {
+    "model_name": "DeepSeek-V4-Flash",
+    "model_description": "We present a preview version of DeepSeek-V4 series, including two strong Mixture-of-Experts (MoE) language models — DeepSeek-V4-Pro with 1.6T parameters (49B activated) and DeepSeek-V4-Flash with 284B parameters (13B activated) — both supporting a context length of one million tokens.",
+    "context_length": 163840,
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "reasoning",
+      "hybrid",
+      "tools"
+    ],
+    "model_specs": [
+      {
+        "model_size_in_billions": 284,
+        "activated_size_in_billions": 13,
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "deepseek-ai/DeepSeek-V4-Flash",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "deepseek-ai/DeepSeek-V4-Flash",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 284,
+        "activated_size_in_billions": 13,
+        "model_format": "mlx",
+        "model_src": {
+          "huggingface": {
+            "model_id": "mlx-community/DeepSeek-V4-Flash-{quantization}",
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit",
+              "bf16",
+              "mxfp4",
+              "mxfp8",
+              "nvfp4"
+            ]
+          },
+          "modelscope": {
+            "model_id": "mlx-community/DeepSeek-V4-Flash-{quantization}",
+            "quantizations": [
+              "4bit",
+              "5bit",
+              "6bit",
+              "8bit",
+              "bf16",
+              "mxfp4",
+              "mxfp8",
+              "nvfp4"
+            ]
+          }
+        }
+      }
+    ],
+    "architectures": [
+      "DeepseekV4ForCausalLM"
+    ],
+    "chat_template": "",
+    "stop_token_ids": [
+      1
+    ],
+    "stop": [
+      "<｜end▁of▁sentence｜>"
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    },
+    "tool_parser": "deepseek-v3.2",
+    "featured": false,
+    "updated_at": 1779258989
+  },
+  {
+    "model_name": "DeepSeek-V4-Pro",
+    "model_description": "We present a preview version of DeepSeek-V4 series, including two strong Mixture-of-Experts (MoE) language models — DeepSeek-V4-Pro with 1.6T parameters (49B activated) and DeepSeek-V4-Flash with 284B parameters (13B activated) — both supporting a context length of one million tokens.",
+    "context_length": 163840,
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "reasoning",
+      "hybrid",
+      "tools"
+    ],
+    "model_specs": [
+      {
+        "model_size_in_billions": 1600,
+        "activated_size_in_billions": 49,
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "deepseek-ai/DeepSeek-V4-Pro",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "deepseek-ai/DeepSeek-V4-Pro",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 1600,
+        "activated_size_in_billions": 49,
+        "model_format": "mlx",
+        "model_src": {
+          "huggingface": {
+            "model_id": "mlx-community/DeepSeek-V4-Pro-{quantization}",
+            "quantizations": [
+              "4bit",
+              "8bit",
+              "bf16"
+            ]
+          },
+          "modelscope": {
+            "model_id": "mlx-community/DeepSeek-V4-Pro-{quantization}",
+            "quantizations": [
+              "4bit",
+              "8bit",
+              "bf16"
+            ]
+          }
+        }
+      }
+    ],
+    "architectures": [
+      "DeepseekV4ForCausalLM"
+    ],
+    "chat_template": "",
+    "stop_token_ids": [
+      1
+    ],
+    "stop": [
+      "<｜end▁of▁sentence｜>"
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    },
+    "tool_parser": "deepseek-v3.2",
+    "featured": false,
+    "updated_at": 1779259029
   }
 ]

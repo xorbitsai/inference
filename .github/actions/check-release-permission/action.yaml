@@ -1,0 +1,56 @@
+name: Check release tag permission
+description: Ensure only admins can release tags from non-main branches.
+
+runs:
+  using: composite
+  steps:
+    - name: Check release tag permission
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+      with:
+        script: |
+          const { execFileSync, spawnSync } = require('child_process');
+
+          if (!context.ref.startsWith('refs/tags/')) {
+            core.info('Not a tag push, skipping release tag permission check.');
+            return;
+          }
+
+          execFileSync('git', ['fetch', '--no-tags', 'origin', 'main:refs/remotes/origin/main'], {
+            stdio: 'inherit',
+          });
+
+          const taggedCommit = process.env.GITHUB_SHA;
+          const onMain = spawnSync('git', [
+            'merge-base',
+            '--is-ancestor',
+            taggedCommit,
+            'origin/main',
+          ], {
+            stdio: 'pipe',
+            encoding: 'utf-8',
+          });
+
+          if (onMain.status === 0) {
+            core.info(`Release tag ${context.ref} points to a commit on main.`);
+            return;
+          }
+
+          if (onMain.status !== 1) {
+            core.error(`git merge-base stderr: ${onMain.stderr}`);
+            core.setFailed('Failed to determine whether the release tag is on main.');
+            return;
+          }
+
+          const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            username: context.actor,
+          });
+
+          if (data.permission !== 'admin') {
+            core.setFailed(
+              `Release tag ${context.ref} points to a commit outside main. ` +
+              `Only repository admins may release from non-main branches; ` +
+              `${context.actor} has ${data.permission} permission.`
+            );
+          }

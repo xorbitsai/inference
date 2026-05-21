@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
+import re
 import signal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
+import aiohttp
 from fastapi import Depends, HTTPException, Query, Request, Security
 
 from ..._version import get_versions
@@ -41,7 +44,7 @@ async def login_for_access_token(
     request: Request, api: "RESTfulAPI" = Depends(get_api)
 ) -> JSONResponse:
     form_data = LoginUserForm.parse_obj(await request.json())
-    result = api._auth_service.generate_token_for_user(
+    result = api._auth_service.generate_token_for_user(  # type: ignore[union-attr]
         form_data.username, form_data.password
     )
     return JSONResponse(content=result)
@@ -255,14 +258,278 @@ async def get_progress(
 
 
 async def get_ui_config() -> JSONResponse:
+    grafana_datasource = os.environ.get("XINFERENCE_GRAFANA_DATASOURCE", "")
     return JSONResponse(
         content={
             "grafana_url": os.environ.get("XINFERENCE_GRAFANA_URL", ""),
-            "grafana_datasource": os.environ.get("XINFERENCE_GRAFANA_DATASOURCE", ""),
+            "grafana_datasource": grafana_datasource,
+            "grafana_alert_datasource": os.environ.get(
+                "XINFERENCE_GRAFANA_ALERT_DATASOURCE", ""
+            )
+            or grafana_datasource,
             "grafana_dashboard_uid": os.environ.get(
                 "XINFERENCE_GRAFANA_DASHBOARD_UID", "xinference-overview"
             ),
             "cluster_name": os.environ.get("XINFERENCE_CLUSTER_NAME", ""),
+            "es_enabled": bool(os.environ.get("XINFERENCE_ES_URL", "")),
+            "auth_advanced": os.environ.get("XINFERENCE_AUTH_ADVANCED", "").lower()
+            in ("1", "true", "yes"),
+        }
+    )
+
+
+_FIELD_NAME_RE = re.compile(r"^[a-zA-Z0-9_.@]+$")
+_TEXT_FIELDS = {"message"}
+
+
+async def search_logs(
+    q: str = "",
+    level: str = "",
+    module: str = "",
+    node: str = "",
+    log_type: str = "",
+    filters: list[str] = Query(
+        [], description="Field filters, e.g. filters=+node:val1&filters=-level:val2"
+    ),
+    time_from: str = "now-1h",
+    time_to: str = "now",
+    size: int = 200,
+    page_from: int = 0,
+) -> JSONResponse:
+    es_url = os.environ.get("XINFERENCE_ES_URL", "")
+    if not es_url:
+        raise HTTPException(status_code=503, detail="Elasticsearch is not configured")
+
+    es_index = os.environ.get("XINFERENCE_ES_INDEX", "xinference-logs-*")
+    es_auth = os.environ.get("XINFERENCE_ES_AUTH", "")
+
+    size = max(1, min(size, 500))
+    page_from = max(0, min(page_from, 10000 - size))
+
+    must = []
+    filter_clauses: list[dict[str, Any]] = [
+        {"range": {"@timestamp": {"gte": time_from, "lte": time_to}}}
+    ]
+
+    if q:
+        must.append(
+            {
+                "simple_query_string": {
+                    "query": q,
+                    "fields": ["message"],
+                    "default_operator": "AND",
+                }
+            }
+        )
+
+    for field, value in [
+        ("level", level),
+        ("module", module),
+        ("node", node),
+        ("log_type", log_type),
+    ]:
+        if value:
+            terms = [v.strip() for v in value.split(",") if v.strip()]
+            if terms:
+                filter_clauses.append({"terms": {field: terms}})
+
+    must_not: list[dict[str, Any]] = []
+    plus_filters: dict[str, list[str]] = {}
+    for token in filters:
+        token = token.strip()
+        if len(token) < 3 or token[0] not in ("+", "-"):
+            continue
+        sep = token.find(":", 1)
+        if sep < 0:
+            continue
+        op = token[0]
+        field_name = token[1:sep]
+        field_value = token[sep + 1 :]
+        if not _FIELD_NAME_RE.match(field_name) or not field_value:
+            continue
+        if op == "+":
+            plus_filters.setdefault(field_name, []).append(field_value)
+        else:
+            if field_name in _TEXT_FIELDS:
+                must_not.append({"match_phrase": {field_name: field_value}})
+            else:
+                must_not.append({"term": {field_name: field_value}})
+
+    for field_name, values in plus_filters.items():
+        if field_name in _TEXT_FIELDS:
+            filter_clauses.append(
+                {
+                    "bool": {
+                        "should": [{"match_phrase": {field_name: v}} for v in values]
+                    }
+                }
+            )
+        else:
+            filter_clauses.append({"terms": {field_name: values}})
+
+    body: dict[str, Any] = {
+        "query": {
+            "bool": {"must": must, "filter": filter_clauses, "must_not": must_not}
+        },
+        "sort": [{"@timestamp": "desc"}],
+        "from": page_from,
+        "size": size,
+        "_source": {"excludes": ["@version"]},
+    }
+
+    headers = {"Content-Type": "application/json"}
+    auth = None
+    if es_auth:
+        if es_auth.startswith("ApiKey "):
+            headers["Authorization"] = es_auth
+        else:
+            parts = es_auth.split(":", 1)
+            if len(parts) == 2:
+                auth = aiohttp.BasicAuth(parts[0], parts[1])
+
+    url = f"{es_url.rstrip('/')}/{es_index}/_search"
+
+    try:
+        timeout = aiohttp.ClientTimeout(total=10)
+        async with aiohttp.ClientSession(timeout=timeout, auth=auth) as session:
+            async with session.post(url, json=body, headers=headers) as resp:
+                if resp.status != 200:
+                    text = await resp.text()
+                    logger.error(
+                        "ES query failed: status=%d body=%s", resp.status, text[:500]
+                    )
+                    raise HTTPException(
+                        status_code=502, detail="Elasticsearch query failed"
+                    )
+                data = await resp.json()
+    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        logger.error("ES connection error or timeout: %s", e)
+        raise HTTPException(
+            status_code=502,
+            detail="Failed to connect to Elasticsearch or query timed out",
+        )
+
+    hits = [hit["_source"] for hit in data.get("hits", {}).get("hits", [])]
+    total_value = data.get("hits", {}).get("total", {})
+    total = (
+        total_value.get("value", 0) if isinstance(total_value, dict) else total_value
+    )
+
+    return JSONResponse(content={"hits": hits, "total": total})
+
+
+async def search_logs_context(
+    timestamp: str = "",
+    size: int = 5,
+    node: str = "",
+) -> JSONResponse:
+    if not timestamp:
+        raise HTTPException(status_code=400, detail="timestamp is required")
+
+    es_url = os.environ.get("XINFERENCE_ES_URL", "")
+    if not es_url:
+        raise HTTPException(status_code=503, detail="Elasticsearch is not configured")
+
+    es_index = os.environ.get("XINFERENCE_ES_INDEX", "xinference-logs-*")
+    es_auth = os.environ.get("XINFERENCE_ES_AUTH", "")
+
+    size = max(1, min(size, 50))
+
+    node_filter: list[dict[str, Any]] = []
+    if node:
+        node_filter = [{"term": {"node": node}}]
+
+    older_body: dict[str, Any] = {
+        "query": {
+            "bool": {
+                "filter": [
+                    {"range": {"@timestamp": {"lt": timestamp}}},
+                    *node_filter,
+                ]
+            }
+        },
+        "sort": [{"@timestamp": "desc"}],
+        "size": size + 1,
+        "_source": {"excludes": ["@version"]},
+    }
+
+    newer_body: dict[str, Any] = {
+        "query": {
+            "bool": {
+                "filter": [
+                    {"range": {"@timestamp": {"gt": timestamp}}},
+                    *node_filter,
+                ]
+            }
+        },
+        "sort": [{"@timestamp": "asc"}],
+        "size": size + 1,
+        "_source": {"excludes": ["@version"]},
+    }
+
+    headers = {"Content-Type": "application/json"}
+    auth = None
+    if es_auth:
+        if es_auth.startswith("ApiKey "):
+            headers["Authorization"] = es_auth
+        else:
+            parts = es_auth.split(":", 1)
+            if len(parts) == 2:
+                auth = aiohttp.BasicAuth(parts[0], parts[1])
+
+    url = f"{es_url.rstrip('/')}/{es_index}/_search"
+
+    try:
+        timeout = aiohttp.ClientTimeout(total=10)
+        async with aiohttp.ClientSession(timeout=timeout, auth=auth) as session:
+
+            async def fetch(body: dict, name: str) -> dict:
+                async with session.post(url, json=body, headers=headers) as resp:
+                    if resp.status != 200:
+                        text = await resp.text()
+                        logger.error(
+                            "ES context %s query failed: status=%d body=%s",
+                            name,
+                            resp.status,
+                            text[:500],
+                        )
+                        raise HTTPException(
+                            status_code=502,
+                            detail="Elasticsearch query failed",
+                        )
+                    return await resp.json()
+
+            older_data, newer_data = await asyncio.gather(
+                fetch(older_body, "older"),
+                fetch(newer_body, "newer"),
+            )
+    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        logger.error("ES connection error or timeout: %s", e)
+        raise HTTPException(
+            status_code=502,
+            detail="Failed to connect to Elasticsearch or query timed out",
+        )
+
+    older_hits_raw = [
+        hit["_source"] for hit in older_data.get("hits", {}).get("hits", [])
+    ]
+    newer_hits_raw = [
+        hit["_source"] for hit in newer_data.get("hits", {}).get("hits", [])
+    ]
+
+    has_more_older = len(older_hits_raw) > size
+    has_more_newer = len(newer_hits_raw) > size
+
+    older_hits = older_hits_raw[:size]
+    newer_hits = newer_hits_raw[:size]
+
+    return JSONResponse(
+        content={
+            "older": older_hits,
+            "newer": newer_hits,
+            "anchor_timestamp": timestamp,
+            "has_more_older": has_more_older,
+            "has_more_newer": has_more_newer,
         }
     )
 
@@ -274,10 +541,12 @@ def register_routes(api: "RESTfulAPI") -> None:
     router = api._router
     auth = api._auth_service
     is_auth = api.is_authenticated()
+    is_advanced = api._advanced_auth_service is not None
 
     router.add_api_route("/status", get_status, methods=["GET"])
     router.add_api_route("/v1/address", get_address, methods=["GET"])
-    router.add_api_route("/token", login_for_access_token, methods=["POST"])
+    if not is_advanced:
+        router.add_api_route("/token", login_for_access_token, methods=["POST"])
     router.add_api_route("/v1/cluster/auth", is_cluster_authenticated, methods=["GET"])
     router.add_api_route("/v1/cluster/ui_config", get_ui_config, methods=["GET"])
 
@@ -360,4 +629,18 @@ def register_routes(api: "RESTfulAPI") -> None:
         get_progress,
         methods=["GET"],
         dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
+    )
+
+    router.add_api_route(
+        "/v1/cluster/logs",
+        search_logs,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+
+    router.add_api_route(
+        "/v1/cluster/logs/context",
+        search_logs_context,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
     )

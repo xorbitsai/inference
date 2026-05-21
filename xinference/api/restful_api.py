@@ -50,6 +50,10 @@ from xoscar.utils import get_next_port
 
 from ..constants import (
     XINFERENCE_ALLOWED_IPS,
+    XINFERENCE_AUTH_ADVANCED,
+    XINFERENCE_AUTH_DB_PATH,
+    XINFERENCE_AUTH_ENCRYPTION_KEY,
+    XINFERENCE_AUTH_JWT_SECRET_KEY,
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_DEFAULT_ENDPOINT_PORT,
     XINFERENCE_DISABLE_METRICS,
@@ -105,7 +109,35 @@ class RESTfulAPI(CancelMixin):
         self._port = port
         self._supervisor_ref = None
         self._event_collector_ref = None
-        self._auth_service = AuthService(auth_config_file)
+        self._advanced_auth_service = None
+        self._auth_service: Any = None
+
+        if XINFERENCE_AUTH_ADVANCED and auth_config_file:
+            raise SystemExit(
+                "ERROR: Cannot use both XINFERENCE_AUTH_ADVANCED and --auth-config. "
+                "Please choose one authentication mode."
+            )
+
+        if XINFERENCE_AUTH_ADVANCED:
+            if not XINFERENCE_AUTH_JWT_SECRET_KEY:
+                raise SystemExit(
+                    "ERROR: XINFERENCE_AUTH_JWT_SECRET_KEY must be set when using advanced auth."
+                )
+            if not XINFERENCE_AUTH_ENCRYPTION_KEY:
+                raise SystemExit(
+                    "ERROR: XINFERENCE_AUTH_ENCRYPTION_KEY must be set when using advanced auth."
+                )
+            from .oauth2.advanced.auth_service import AdvancedAuthService
+
+            self._advanced_auth_service = AdvancedAuthService(
+                db_path=XINFERENCE_AUTH_DB_PATH,
+                jwt_secret_key=XINFERENCE_AUTH_JWT_SECRET_KEY,
+                encryption_key=XINFERENCE_AUTH_ENCRYPTION_KEY,
+            )
+            self._auth_service = self._advanced_auth_service
+        else:
+            self._auth_service = AuthService(auth_config_file)
+
         self._router = APIRouter()
         self._app = FastAPI()
         # Initialize allowed IP list once
@@ -149,7 +181,25 @@ class RESTfulAPI(CancelMixin):
             return False
 
     def is_authenticated(self):
+        if self._advanced_auth_service:
+            return True
         return False if self._auth_service.config is None else True
+
+    def _check_model_access(
+        self, request, model_uid: str, model_type: Optional[str] = None
+    ):
+        if not self._advanced_auth_service:
+            return
+        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        if not token:
+            return
+        if not self._advanced_auth_service.validate_model_access(
+            token, model_uid, model_type
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail=f"API key does not have access to model: {model_uid}",
+            )
 
     @staticmethod
     def handle_request_limit_error(e: Exception):
@@ -259,11 +309,18 @@ class RESTfulAPI(CancelMixin):
 
         # Attach API instance for dependency injection (Depends(get_api), etc.)
         self._app.state.api = self
+        self._app.state.advanced_auth = self._advanced_auth_service
 
         # Register all domain routes from routers/ modules
         from .routers import register_all_routes
 
         register_all_routes(self)
+
+        # Register advanced auth routes if enabled
+        if self._advanced_auth_service:
+            from .oauth2.advanced.routes import register_advanced_auth_routes
+
+            register_advanced_auth_routes(self)
 
         if XINFERENCE_DISABLE_METRICS:
             logger.info(
@@ -274,8 +331,12 @@ class RESTfulAPI(CancelMixin):
             # Only remove MetricsMiddleware's HTTP counters to avoid duplicates
             # on restart; preserve xinference:* custom metrics registered at
             # module level in metrics.py.
+            from ..core.metrics import _WORKER_ONLY_METRICS
+
             for collector in list(REGISTRY.get_all()):
                 if not collector.name.startswith("xinference:"):
+                    REGISTRY.deregister(collector.name)
+                elif collector.name in _WORKER_ONLY_METRICS:
                     REGISTRY.deregister(collector.name)
             self._app.add_middleware(MetricsMiddleware)
             self._app.include_router(self._router)
@@ -894,6 +955,7 @@ class RESTfulAPI(CancelMixin):
         model_uid = body.model
         self._set_trace_model(model_uid)
         self._set_trace_model_type("llm")
+        self._check_model_access(request, model_uid, "LLM")
 
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
@@ -925,7 +987,15 @@ class RESTfulAPI(CancelMixin):
                     yield dict(data=json.dumps({"error": str(ex)}))
                     return
                 finally:
-                    await model.decrease_serve_count()
+                    if iterator is not None:
+                        from xoscar.api import IteratorWrapper
+
+                        if (
+                            inspect.isasyncgen(iterator)
+                            or inspect.isgenerator(iterator)
+                            or isinstance(iterator, IteratorWrapper)
+                        ):
+                            await model.decrease_serve_count()
 
             return EventSourceResponse(
                 stream_results(), ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
@@ -1006,6 +1076,7 @@ class RESTfulAPI(CancelMixin):
 
         self._set_trace_model(model_uid)
         self._set_trace_model_type("llm")
+        self._check_model_access(request, model_uid, "LLM")
 
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
@@ -1059,7 +1130,15 @@ class RESTfulAPI(CancelMixin):
                     yield dict(data=json.dumps({"error": str(ex)}))
                     return
                 finally:
-                    await model.decrease_serve_count()
+                    if iterator is not None:
+                        from xoscar.api import IteratorWrapper
+
+                        if (
+                            inspect.isasyncgen(iterator)
+                            or inspect.isgenerator(iterator)
+                            or isinstance(iterator, IteratorWrapper)
+                        ):
+                            await model.decrease_serve_count()
 
             return EventSourceResponse(
                 stream_results(), ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS
@@ -1088,6 +1167,7 @@ class RESTfulAPI(CancelMixin):
         model_uid = body.model
         self._set_trace_model(model_uid)
         self._set_trace_model_type("embedding")
+        self._check_model_access(request, model_uid, "embedding")
         exclude = {
             "model",
             "input",
@@ -1117,6 +1197,7 @@ class RESTfulAPI(CancelMixin):
         model_uid = body.model
         self._set_trace_model(model_uid)
         self._set_trace_model_type("embedding")
+        self._check_model_access(request, model_uid, "embedding")
         exclude = {
             "model",
             "input",
@@ -1144,6 +1225,7 @@ class RESTfulAPI(CancelMixin):
         model_uid = body.model
         self._set_trace_model(model_uid)
         self._set_trace_model_type("rerank")
+        self._check_model_access(request, model_uid, "rerank")
 
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
@@ -1189,6 +1271,7 @@ class RESTfulAPI(CancelMixin):
         model_uid = model
         self._set_trace_model(model_uid)
         self._set_trace_model_type("audio")
+        self._check_model_access(request, model_uid, "audio")
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
@@ -1233,6 +1316,7 @@ class RESTfulAPI(CancelMixin):
         model_uid = model
         self._set_trace_model(model_uid)
         self._set_trace_model_type("audio")
+        self._check_model_access(request, model_uid, "audio")
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
@@ -1277,6 +1361,7 @@ class RESTfulAPI(CancelMixin):
         model_uid = body.model
         self._set_trace_model(model_uid)
         self._set_trace_model_type("audio")
+        self._check_model_access(request, model_uid, "audio")
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
@@ -1326,6 +1411,7 @@ class RESTfulAPI(CancelMixin):
         model_uid = body.model
         self._set_trace_model(model_uid)
         self._set_trace_model_type("image")
+        self._check_model_access(request, model_uid, "image")
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
@@ -1451,6 +1537,7 @@ class RESTfulAPI(CancelMixin):
 
     async def create_variations(
         self,
+        request: Request,
         model: str = Form(...),
         image: List[UploadFile] = File(media_type="application/octet-stream"),
         prompt: Optional[Union[str, List[str]]] = Form(None),
@@ -1463,6 +1550,7 @@ class RESTfulAPI(CancelMixin):
         model_uid = model
         self._set_trace_model(model_uid)
         self._set_trace_model_type("image")
+        self._check_model_access(request, model_uid, "image")
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
@@ -1508,6 +1596,7 @@ class RESTfulAPI(CancelMixin):
 
     async def create_inpainting(
         self,
+        request: Request,
         model: str = Form(...),
         image: UploadFile = File(media_type="application/octet-stream"),
         mask_image: UploadFile = File(media_type="application/octet-stream"),
@@ -1521,6 +1610,7 @@ class RESTfulAPI(CancelMixin):
         model_uid = model
         self._set_trace_model(model_uid)
         self._set_trace_model_type("image")
+        self._check_model_access(request, model_uid, "image")
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
@@ -1563,6 +1653,7 @@ class RESTfulAPI(CancelMixin):
 
     async def create_ocr(
         self,
+        request: Request,
         model: str = Form(...),
         image: UploadFile = File(media_type="application/octet-stream"),
         kwargs: Optional[str] = Form(None),
@@ -1570,6 +1661,7 @@ class RESTfulAPI(CancelMixin):
         model_uid = model
         self._set_trace_model(model_uid)
         self._set_trace_model_type("image")
+        self._check_model_access(request, model_uid, "image")
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
@@ -1675,6 +1767,7 @@ class RESTfulAPI(CancelMixin):
         model_uid = model
         self._set_trace_model(model_uid)
         self._set_trace_model_type("image")
+        self._check_model_access(request, model_uid, "image")
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
@@ -1847,6 +1940,7 @@ class RESTfulAPI(CancelMixin):
         model_uid = payload.get("model")
         self._set_trace_model(model_uid)
         self._set_trace_model_type("flexible")
+        self._check_model_access(request, model_uid, None)
         args = payload.get("args")
 
         exclude = {"model", "args"}
@@ -1871,6 +1965,7 @@ class RESTfulAPI(CancelMixin):
         model_uid = body.model
         self._set_trace_model(model_uid)
         self._set_trace_model_type("video")
+        self._check_model_access(request, model_uid, "video")
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
@@ -1900,6 +1995,7 @@ class RESTfulAPI(CancelMixin):
 
     async def create_videos_from_images(
         self,
+        request: Request,
         model: str = Form(...),
         image: UploadFile = File(media_type="application/octet-stream"),
         prompt: Optional[Union[str, List[str]]] = Form(None),
@@ -1910,6 +2006,7 @@ class RESTfulAPI(CancelMixin):
         model_uid = model
         self._set_trace_model(model_uid)
         self._set_trace_model_type("video")
+        self._check_model_access(request, model_uid, "video")
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
@@ -1944,6 +2041,7 @@ class RESTfulAPI(CancelMixin):
 
     async def create_videos_from_first_last_frame(
         self,
+        request: Request,
         model: str = Form(...),
         first_frame: UploadFile = File(media_type="application/octet-stream"),
         last_frame: UploadFile = File(media_type="application/octet-stream"),
@@ -1955,6 +2053,7 @@ class RESTfulAPI(CancelMixin):
         model_uid = model
         self._set_trace_model(model_uid)
         self._set_trace_model_type("video")
+        self._check_model_access(request, model_uid, "video")
         model_ref = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
         )
@@ -2050,6 +2149,7 @@ class RESTfulAPI(CancelMixin):
         model_uid = body.model
         self._set_trace_model(model_uid)
         self._set_trace_model_type("llm")
+        self._check_model_access(request, model_uid, "LLM")
 
         model = await require_model(
             self._get_supervisor_ref, model_uid, self._report_error_event
@@ -2133,7 +2233,15 @@ class RESTfulAPI(CancelMixin):
                     yield dict(data=json.dumps({"error": str(ex)}))
                     return
                 finally:
-                    await model.decrease_serve_count()
+                    if iterator is not None:
+                        from xoscar.api import IteratorWrapper
+
+                        if (
+                            inspect.isasyncgen(iterator)
+                            or inspect.isgenerator(iterator)
+                            or isinstance(iterator, IteratorWrapper)
+                        ):
+                            await model.decrease_serve_count()
 
             return EventSourceResponse(
                 stream_results(), ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS

@@ -1,43 +1,103 @@
 import {
+  AccountCircleOutlined,
   AddBoxOutlined,
+  ArticleOutlined,
+  ChevronLeftOutlined,
   ChevronRightOutlined,
   DescriptionOutlined,
   DnsOutlined,
   GitHub,
   Language,
+  LogoutOutlined,
   MonitorHeartOutlined,
   OpenInNew,
+  PeopleOutlined,
   Psychology,
   RocketLaunchOutlined,
   SmartToyOutlined,
+  VpnKeyOutlined,
 } from '@mui/icons-material'
 import {
   Box,
   Drawer,
+  IconButton,
   List,
   ListItem,
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Tooltip,
   Typography,
-  useTheme,
 } from '@mui/material'
-import { useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
+import { useCookies } from 'react-cookie'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import icon from '../media/icon.webp'
+import { ApiContext } from './apiContext'
 import ThemeButton from './themeButton'
 import TranslateButton from './translateButton'
+import { isValidBearerToken } from './utils'
 import VersionLabel from './versionLabel'
 
+const COLLAPSED_KEY = 'xinference_sidebar_collapsed'
+const COLLAPSED_WIDTH = 64
+
+function readCollapsed() {
+  try {
+    return localStorage.getItem(COLLAPSED_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+function writeCollapsed(val) {
+  try {
+    localStorage.setItem(COLLAPSED_KEY, String(val))
+  } catch {
+    // ignore
+  }
+}
+
 const MenuSide = () => {
-  const theme = useTheme()
   const navigate = useNavigate()
+  const [collapsed, setCollapsed] = useState(readCollapsed)
   const [drawerWidth, setDrawerWidth] = useState(
     `${Math.min(Math.max(window.innerWidth * 0.2, 287), 320)}px`
   )
   const { i18n, t } = useTranslation()
+  const { endPoint } = useContext(ApiContext)
+  const [esEnabled, setEsEnabled] = useState(false)
+  const [authAdvanced, setAuthAdvanced] = useState(false)
+  const [, , removeCookie] = useCookies(['token'])
+  const [currentUser, setCurrentUser] = useState('')
+
+  const currentWidth = collapsed ? `${COLLAPSED_WIDTH}px` : drawerWidth
+
+  useEffect(() => {
+    fetch(endPoint + '/v1/cluster/ui_config')
+      .then((res) => {
+        if (!res.ok) throw new Error('Network response was not ok')
+        return res.json()
+      })
+      .then((data) => {
+        setEsEnabled(data.es_enabled || false)
+        setAuthAdvanced(data.auth_advanced || false)
+      })
+      .catch(() => setEsEnabled(false))
+
+    // Parse username from JWT token
+    try {
+      const token = sessionStorage.getItem('token')
+      if (token) {
+        const payload = JSON.parse(atob(token.split('.')[1]))
+        setCurrentUser(payload.username || payload.sub || '')
+      }
+    } catch {
+      // ignore
+    }
+  }, [endPoint])
 
   const navItems = [
     {
@@ -87,6 +147,35 @@ const MenuSide = () => {
       action: 'navigate',
       path: '/monitoring',
     },
+    ...(esEnabled
+      ? [
+          {
+            text: 'logs',
+            label: t('menu.logs'),
+            icon: <ArticleOutlined />,
+            action: 'navigate',
+            path: '/logs',
+          },
+        ]
+      : []),
+    ...(authAdvanced
+      ? [
+          {
+            text: 'user_management',
+            label: t('menu.userManagement'),
+            icon: <PeopleOutlined />,
+            action: 'navigate',
+            path: '/user_management',
+          },
+          {
+            text: 'apikey_management',
+            label: t('menu.apikeyManagement'),
+            icon: <VpnKeyOutlined />,
+            action: 'navigate',
+            path: '/apikey_management',
+          },
+        ]
+      : []),
     {
       text: 'documentation',
       label: t('menu.documentation'),
@@ -125,25 +214,44 @@ const MenuSide = () => {
   ]
 
   useEffect(() => {
-    const screenWidth = window.innerWidth
-    const maxDrawerWidth = Math.min(Math.max(screenWidth * 0.2, 287), 320)
-    setDrawerWidth(`${maxDrawerWidth}px`)
-
-    // Update the drawer width on window resize
     const handleResize = () => {
-      const newScreenWidth = window.innerWidth
-      const newMaxDrawerWidth = Math.min(
-        Math.max(newScreenWidth * 0.2, 287),
-        320
-      )
-      setDrawerWidth(`${newMaxDrawerWidth}px`)
+      const screenWidth = window.innerWidth
+      const maxDrawerWidth = Math.min(Math.max(screenWidth * 0.2, 287), 320)
+      setDrawerWidth(`${maxDrawerWidth}px`)
     }
 
+    handleResize()
     window.addEventListener('resize', handleResize)
     return () => {
       window.removeEventListener('resize', handleResize)
     }
   }, [])
+
+  const toggleCollapsed = () => {
+    const next = !collapsed
+    setCollapsed(next)
+    writeCollapsed(next)
+  }
+
+  const handleLogout = () => {
+    const refreshToken = sessionStorage.getItem('refresh_token')
+    if (refreshToken) {
+      fetch(endPoint + '/v1/auth/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      }).catch(() => {})
+    }
+    removeCookie('token', { path: '/' })
+    sessionStorage.removeItem('token')
+    sessionStorage.removeItem('refresh_token')
+    sessionStorage.removeItem('auth')
+    sessionStorage.removeItem('modelType')
+    sessionStorage.removeItem('lastActiveUrl')
+    sessionStorage.removeItem('runningModelType')
+    sessionStorage.removeItem('registerModelType')
+    navigate('/login', { replace: true })
+  }
 
   const handleNavClick = (item) => {
     const { action, url, path, text, session } = item
@@ -162,73 +270,173 @@ const MenuSide = () => {
       return
     }
 
-    // default behavior
     navigate(`/${text}`)
   }
+
+  const transition = 'width 0.2s ease'
 
   return (
     <Drawer
       variant="permanent"
       sx={{
-        width: drawerWidth,
-        ...theme.mixins.toolbar,
+        width: currentWidth,
+        transition,
         flexShrink: 0,
         [`& .MuiDrawer-paper`]: {
-          width: drawerWidth,
+          width: currentWidth,
+          transition,
           boxSizing: 'border-box',
+          overflowX: 'hidden',
+          overflowY: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
         },
       }}
       style={{ zIndex: 1 }}
     >
-      {/* Title */}
+      {/* Logo */}
       <Box
         display="flex"
         alignItems="center"
-        gap="1rem"
-        margin="2rem 0rem 2rem 2rem"
+        justifyContent={collapsed ? 'center' : 'flex-start'}
+        gap={collapsed ? 0 : '1rem'}
+        margin={collapsed ? '2rem 0' : '2rem 0rem 2rem 2rem'}
+        sx={{ transition: 'all 0.2s ease' }}
       >
         <Box
           component="img"
           alt="profile"
           src={icon}
-          width="60px"
+          width={collapsed ? '36px' : '60px'}
           borderRadius="50%"
+          sx={{ transition: 'width 0.2s ease' }}
         />
-        <Box textAlign="left">
-          <Typography fontWeight="bold" fontSize="1.7rem">
-            {'Xinference'}
-          </Typography>
-        </Box>
+        {!collapsed && (
+          <Box textAlign="left">
+            <Typography fontWeight="bold" fontSize="1.7rem">
+              {'Xinference'}
+            </Typography>
+          </Box>
+        )}
       </Box>
 
-      <Box sx={{ flexGrow: 1 }}>
+      {/* Nav items */}
+      <Box sx={{ flexGrow: 1, overflowY: 'auto', overflowX: 'hidden' }}>
         <List>
           {navItems.map((item) => {
-            const { text, label, icon, action } = item
+            const { text, label, icon: navIcon, action } = item
             return (
-              <ListItem key={text}>
-                <ListItemButton
-                  sx={{ pl: '1.5rem' }}
-                  onClick={() => handleNavClick(item)}
-                >
-                  <ListItemIcon sx={{ minWidth: '2rem' }}>{icon}</ListItemIcon>
-                  <ListItemText primary={label} />
-                  {action === 'external' ? (
-                    <OpenInNew sx={{ fontSize: 'small' }} />
-                  ) : (
-                    <ChevronRightOutlined />
-                  )}
-                </ListItemButton>
+              <ListItem key={text} sx={{ px: collapsed ? 0.5 : 1 }}>
+                {collapsed ? (
+                  <Tooltip title={label} placement="right" arrow>
+                    <ListItemButton
+                      sx={{ justifyContent: 'center', px: 1, minHeight: 48 }}
+                      onClick={() => handleNavClick(item)}
+                    >
+                      <ListItemIcon
+                        sx={{ minWidth: 0, justifyContent: 'center' }}
+                      >
+                        {navIcon}
+                      </ListItemIcon>
+                    </ListItemButton>
+                  </Tooltip>
+                ) : (
+                  <ListItemButton
+                    sx={{ pl: '1.5rem' }}
+                    onClick={() => handleNavClick(item)}
+                  >
+                    <ListItemIcon sx={{ minWidth: '2rem' }}>
+                      {navIcon}
+                    </ListItemIcon>
+                    <ListItemText primary={label} />
+                    {action === 'external' ? (
+                      <OpenInNew sx={{ fontSize: 'small' }} />
+                    ) : (
+                      <ChevronRightOutlined />
+                    )}
+                  </ListItemButton>
+                )}
               </ListItem>
             )
           })}
         </List>
       </Box>
 
-      <Box display="flex" alignItems="center" marginX={'3rem'}>
+      {/* Bottom toolbar — collapses to zero height when sidebar collapsed */}
+      <Box
+        display="flex"
+        alignItems="center"
+        sx={{
+          flexShrink: 0,
+          mx: collapsed ? 0 : '3rem',
+          maxHeight: collapsed ? 0 : '100px',
+          overflow: 'hidden',
+          transition: 'max-height 0.2s ease, margin 0.2s ease',
+        }}
+      >
         <ThemeButton sx={{ m: '1rem' }} />
         <TranslateButton />
         <VersionLabel sx={{ ml: 'auto' }} />
+      </Box>
+
+      {/* User info + Logout + Collapse toggle */}
+      <Box
+        sx={{
+          flexShrink: 0,
+          borderTop: '1px solid',
+          borderColor: 'divider',
+          px: collapsed ? 1 : 0,
+          py: 1,
+        }}
+      >
+        {collapsed ? (
+          <Box
+            display="flex"
+            flexDirection="column"
+            alignItems="center"
+            gap={0.5}
+          >
+            {isValidBearerToken(sessionStorage.getItem('token')) && (
+              <Tooltip
+                title={`${currentUser || 'user'} | ${t('menu.logout')}`}
+                placement="right"
+                arrow
+              >
+                <IconButton size="small" onClick={handleLogout}>
+                  <AccountCircleOutlined />
+                </IconButton>
+              </Tooltip>
+            )}
+            <Tooltip title={t('menu.expand')} placement="right">
+              <IconButton size="small" onClick={toggleCollapsed}>
+                <ChevronRightOutlined />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        ) : (
+          <Box display="flex" alignItems="center" sx={{ pl: '1.5rem', pr: 1 }}>
+            {isValidBearerToken(sessionStorage.getItem('token')) && (
+              <>
+                <AccountCircleOutlined
+                  sx={{ color: 'text.secondary', mr: 1 }}
+                />
+                <Typography variant="body1" noWrap sx={{ flex: 1 }}>
+                  {currentUser || 'user'}
+                </Typography>
+                <Tooltip title={t('menu.logout')}>
+                  <IconButton size="small" onClick={handleLogout}>
+                    <LogoutOutlined />
+                  </IconButton>
+                </Tooltip>
+              </>
+            )}
+            <Tooltip title={t('menu.collapse')}>
+              <IconButton size="small" onClick={toggleCollapsed}>
+                <ChevronLeftOutlined />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        )}
       </Box>
     </Drawer>
   )

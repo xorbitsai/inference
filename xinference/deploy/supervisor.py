@@ -27,13 +27,16 @@ from ..constants import (
     XINFERENCE_HEALTH_CHECK_INTERVAL,
 )
 from ..core.supervisor import SupervisorActor
-from .utils import health_check
+from .utils import AddressFormatter, health_check
 
 logger = logging.getLogger(__name__)
 
 
 async def _start_supervisor(address: str, logging_conf: Optional[Dict] = None):
     logging.config.dictConfig(logging_conf)  # type: ignore
+    AddressFormatter.update_address("supervisor", address)
+    if logging_conf and "formatters" in logging_conf:
+        logging_conf["formatters"]["formatter"]["address"] = address
 
     pool = None
     try:

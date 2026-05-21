@@ -18,6 +18,7 @@ import logging.handlers
 import os
 import time
 import typing
+import weakref
 from typing import TYPE_CHECKING, Any, Optional
 
 import xoscar as xo
@@ -72,8 +73,34 @@ def get_log_file(sub_dir: str):
     return os.path.join(log_dir, XINFERENCE_DEFAULT_LOG_FILE_NAME)
 
 
+class AddressFormatter(logging.Formatter):
+    _instances: weakref.WeakSet = weakref.WeakSet()
+
+    def __init__(self, fmt=None, datefmt=None, style="%", role="", address=""):
+        super().__init__(fmt, datefmt, style)
+        self.role = role
+        self.address = address
+        AddressFormatter._instances.add(self)
+
+    def format(self, record):
+        record.xinference_role = self.role
+        record.xinference_address = self.address
+        return super().format(record)
+
+    @classmethod
+    def update_address(cls, role, address):
+        for inst in cls._instances:
+            if inst.role == role:
+                inst.address = address
+
+
 def get_config_dict(
-    log_level: str, log_file_path: str, log_backup_count: int, log_max_bytes: int
+    log_level: str,
+    log_file_path: str,
+    log_backup_count: int,
+    log_max_bytes: int,
+    role: str = "",
+    address: str = "",
 ) -> dict:
     # for windows, the path should be a raw string.
     log_file_path = (
@@ -87,9 +114,14 @@ def get_config_dict(
         "disable_existing_loggers": False,
         "formatters": {
             "formatter": {
-                "format": (
-                    "%(asctime)s %(name)-12s %(process)d %(levelname)-8s %(message)s"
-                )
+                "()": "xinference.deploy.utils.AddressFormatter",
+                "fmt": (
+                    "%(asctime)s %(name)-12s %(process)d "
+                    "[%(xinference_role)s@%(xinference_address)s] "
+                    "%(levelname)-8s %(message)s"
+                ),
+                "role": role,
+                "address": address,
             },
         },
         "filters": {

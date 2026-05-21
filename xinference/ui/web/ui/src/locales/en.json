@@ -5,12 +5,24 @@
     "registerModel": "Register Model",
     "clusterInfo": "Cluster Information",
     "monitoring": "Monitoring",
+    "logs": "Log Center",
     "xagent": "Build AI Agents with Xagent",
     "contactUs": "Contact Us",
     "documentation": "Documentation",
-    "website": "Official Website"
+    "website": "Official Website",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "userManagement": "User Management",
+    "apikeyManagement": "API Key Management",
+    "logout": "Log Out"
   },
-
+  "auth": {
+    "permissionError": "Permission Error",
+    "authenticationError": "Authentication Error",
+    "noPermission": "You do not have permissions to do this!",
+    "invalidCredentials": "Invalid credentials! Please login.",
+    "confirmed": "CONFIRMED"
+  },
   "model": {
     "languageModels": "Language Models",
     "embeddingModels": "Embedding Models",
@@ -21,7 +33,6 @@
     "customModels": "Custom Models",
     "flexibleModels": "Flexible Models"
   },
-
   "launchModel": {
     "modelAbility": "Model Ability",
     "generate": "Text Generation",
@@ -174,7 +185,6 @@
     "removeConfirm": "Remove replica {{replicaId}} from model {{modelUid}}?",
     "close": "Close"
   },
-
   "runningModels": {
     "name": "Name",
     "address": "Address",
@@ -196,7 +206,6 @@
     "terminateConfirmOk": "Terminate",
     "terminateErrorHint": "The request failed or the model may already be removed. Refresh the running models list to confirm."
   },
-
   "registerModel": {
     "modelName": "Model Name",
     "modelDescription": "Model Description (Optional)",
@@ -259,7 +268,6 @@
     "fillInModelPathFirst": "Please fill in modelPath first",
     "fillInModelFamilyFirst": "Please select model family first"
   },
-
   "clusterInfo": {
     "supervisor": "Supervisor",
     "workers": "Workers",
@@ -288,7 +296,6 @@
     "gpuMemTotal": "GPU Mem Total",
     "worker": "Worker"
   },
-
   "components": {
     "suggestsCommonParameters": "Suggests common parameters; others allowed.",
     "warning": "Warning",
@@ -306,7 +313,8 @@
       "6h": "Last 6 hours",
       "12h": "Last 12 hours",
       "24h": "Last 24 hours",
-      "7d": "Last 7 days"
+      "7d": "Last 7 days",
+      "2d": "Last 2 days"
     },
     "refresh": {
       "off": "Off",
@@ -314,6 +322,134 @@
       "30s": "30s",
       "1m": "1m",
       "5m": "5m"
+    },
+    "absoluteRange": "Absolute time range",
+    "from": "From",
+    "to": "To",
+    "applyTimeRange": "Apply time range",
+    "manualRefresh": "Refresh dashboard"
+  },
+  "logs": {
+    "notConfigured": "Log query not configured. Please set XINFERENCE_ES_URL environment variable.",
+    "searchPlaceholder": "Search logs...",
+    "allNodes": "All Nodes",
+    "time": "Time",
+    "level": "Level",
+    "node": "Node",
+    "message": "Message",
+    "fullMessage": "Full Message",
+    "noLogs": "No logs found",
+    "refresh": "Refresh",
+    "totalHits": "Total: {{count}}",
+    "prevPage": "Previous",
+    "nextPage": "Next",
+    "detail": {
+      "module": "Module",
+      "pid": "PID",
+      "request_id": "Request ID",
+      "address": "Address",
+      "log_type": "Log Type",
+      "rtf_avg": "RTF Average",
+      "time_speech": "Speech Time",
+      "time_escape": "Process Time",
+      "tableTab": "Table",
+      "jsonTab": "JSON",
+      "action": "Action",
+      "field": "Field",
+      "value": "Value",
+      "filterFor": "Filter for value",
+      "filterOut": "Filter out value",
+      "copyJson": "Copy JSON",
+      "copied": "Copied!",
+      "viewContext": "View surrounding documents",
+      "contextTitle": "Surrounding documents",
+      "loadNewer": "Load",
+      "loadOlder": "Load",
+      "newerDocs": "newer documents",
+      "olderDocs": "older documents",
+      "anchorRow": "Current document",
+      "contextError": "This feature requires a newer backend version.",
+      "contextFetchError": "Failed to load surrounding documents."
     }
+  },
+  "userManagement": {
+    "title": "User Management",
+    "createUser": "Create User",
+    "id": "ID",
+    "username": "Username",
+    "source": "Source",
+    "status": "Status",
+    "permissions": "Permissions",
+    "actions": "Actions",
+    "active": "Active",
+    "disabled": "Disabled",
+    "dialogTitle": "Create User",
+    "usernameLabel": "Username",
+    "passwordLabel": "Password",
+    "permissionsLabel": "Permissions (comma-separated)",
+    "permissionsHelperText": "e.g. models:list, models:read, keys:create",
+    "cancel": "Cancel",
+    "create": "Create",
+    "confirmDelete": "Delete user",
+    "selectAll": "Select All"
+  },
+  "permissions": {
+    "admin": "Administrator",
+    "models_list": "List Models",
+    "models_read": "Read Models",
+    "models_write": "Write Models",
+    "keys_create": "Create API Keys",
+    "keys_manage": "Manage API Keys",
+    "users_manage": "Manage Users",
+    "cache_list": "List Cache",
+    "cache_delete": "Delete Cache",
+    "virtualenv_list": "List Virtualenv",
+    "virtualenv_delete": "Delete Virtualenv"
+  },
+  "apikeyManagement": {
+    "title": "API Key Management",
+    "createKey": "Create Key",
+    "id": "ID",
+    "name": "Name",
+    "prefix": "Prefix",
+    "status": "Status",
+    "expires": "Expires",
+    "modelPermissions": "Model Permissions",
+    "actions": "Actions",
+    "active": "Active",
+    "disabled": "Disabled",
+    "revealTooltip": "Reveal key",
+    "disableTooltip": "Disable",
+    "enableTooltip": "Enable",
+    "deleteTooltip": "Delete",
+    "keyCreatedTitle": "Key Created",
+    "createKeyTitle": "Create API Key",
+    "saveKeyWarning": "Save this key now. You won't be able to see it again.",
+    "nameLabel": "Name (optional)",
+    "ownerLabel": "Owner",
+    "ownerHelperText": "Leave empty to assign to current user",
+    "owner": "Owner",
+    "expiresLabel": "Expiration date (optional)",
+    "expiresHelperText": "Leave empty for no expiration",
+    "permissionType": "Permission type",
+    "allModels": "All models",
+    "byModelType": "By model type",
+    "byModelId": "By model ID",
+    "permissionValues": "Permission values (comma-separated)",
+    "modelTypeHelper": "e.g. LLM, embedding, rerank",
+    "modelIdHelper": "e.g. qwen2-72b, bge-m3",
+    "close": "Close",
+    "cancel": "Cancel",
+    "create": "Create",
+    "save": "Save",
+    "revealTitle": "API Key",
+    "confirmDelete": "Delete API key",
+    "copy": "Copy",
+    "copied": "Copied to clipboard",
+    "editPermTooltip": "Edit permissions",
+    "editPermTitle": "Edit Model Permissions —",
+    "mixedMode": "By type + By instance (mixed)",
+    "modelInstances": "Model instances",
+    "permissionsSaved": "Permissions saved"
   }
 }

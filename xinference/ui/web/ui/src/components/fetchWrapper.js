@@ -15,25 +15,78 @@ const getBaseUrl = () => {
 
 const apiBase = getBaseUrl()
 
+let isRefreshing = false
+let refreshPromise = null
+
+const tryRefreshToken = async () => {
+  if (isRefreshing) return refreshPromise
+  const refreshToken = sessionStorage.getItem('refresh_token')
+  if (!refreshToken) return false
+  isRefreshing = true
+  refreshPromise = fetch(`${apiBase}/v1/auth/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  })
+    .then(async (res) => {
+      if (res.ok) {
+        const data = await res.json()
+        cookies.set('token', data.access_token, { path: '/' })
+        sessionStorage.setItem('token', data.access_token)
+        if (data.refresh_token) {
+          sessionStorage.setItem('refresh_token', data.refresh_token)
+        }
+        return true
+      }
+      return false
+    })
+    .catch(() => false)
+    .finally(() => {
+      isRefreshing = false
+      refreshPromise = null
+    })
+  return refreshPromise
+}
+
+const getAuthHeaders = () => {
+  const headers = {}
+  if (
+    cookies.get('token') !== 'no_auth' &&
+    sessionStorage.getItem('token') !== 'no_auth'
+  ) {
+    headers.Authorization = 'Bearer ' + sessionStorage.getItem('token')
+  }
+  return headers
+}
+
+const fetchWithRetry = async (url, options) => {
+  const response = await fetch(url, options)
+  if (response.status === 401 && sessionStorage.getItem('refresh_token')) {
+    const refreshed = await tryRefreshToken()
+    if (refreshed) {
+      const newHeaders = {
+        ...options.headers,
+        Authorization: 'Bearer ' + sessionStorage.getItem('token'),
+      }
+      return fetch(url, { ...options, headers: newHeaders })
+    }
+  }
+  return response
+}
+
 const fetchWrapper = {
   get: async (endpoint, config = {}) => {
     const url = `${apiBase}${endpoint}`
     const headers = {
       'Content-Type': 'application/json',
+      ...getAuthHeaders(),
       ...config.headers,
     }
-    if (
-      cookies.get('token') !== 'no_auth' &&
-      sessionStorage.getItem('token') !== 'no_auth'
-    ) {
-      headers.Authorization = 'Bearer ' + sessionStorage.getItem('token')
-    }
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
       method: 'GET',
       ...config,
       headers,
     })
-
     return fetchWrapper.handleResponse(response)
   },
 
@@ -41,21 +94,15 @@ const fetchWrapper = {
     const url = `${apiBase}${endpoint}`
     const headers = {
       'Content-Type': 'application/json',
+      ...getAuthHeaders(),
       ...config.headers,
     }
-    if (
-      cookies.get('token') !== 'no_auth' &&
-      sessionStorage.getItem('token') !== 'no_auth'
-    ) {
-      headers.Authorization = 'Bearer ' + sessionStorage.getItem('token')
-    }
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
       method: 'POST',
       body: JSON.stringify(body),
       ...config,
       headers,
     })
-
     return fetchWrapper.handleResponse(response)
   },
 
@@ -63,21 +110,15 @@ const fetchWrapper = {
     const url = `${apiBase}${endpoint}`
     const headers = {
       'Content-Type': 'application/json',
+      ...getAuthHeaders(),
       ...config.headers,
     }
-    if (
-      cookies.get('token') !== 'no_auth' &&
-      sessionStorage.getItem('token') !== 'no_auth'
-    ) {
-      headers.Authorization = 'Bearer ' + sessionStorage.getItem('token')
-    }
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
       method: 'PUT',
       body: JSON.stringify(body),
       ...config,
       headers,
     })
-
     return fetchWrapper.handleResponse(response)
   },
 
@@ -85,20 +126,14 @@ const fetchWrapper = {
     const url = `${apiBase}${endpoint}`
     const headers = {
       'Content-Type': 'application/json',
+      ...getAuthHeaders(),
       ...config.headers,
     }
-    if (
-      cookies.get('token') !== 'no_auth' &&
-      sessionStorage.getItem('token') !== 'no_auth'
-    ) {
-      headers.Authorization = 'Bearer ' + sessionStorage.getItem('token')
-    }
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
       method: 'DELETE',
       ...config,
       headers,
     })
-
     return fetchWrapper.handleResponse(response)
   },
 

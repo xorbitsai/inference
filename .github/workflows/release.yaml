@@ -9,11 +9,22 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-
 jobs:
+  check-release-permission:
+    name: Check release tag permission
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/check-release-permission
+
   build-publish:
     name: Build and publish Python distribution to PyPI
+    needs: check-release-permission
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Set up Python
@@ -21,6 +32,8 @@ jobs:
         with:
           python-version: "3.10"
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       - name: Install pypa/build
         run: >-
           python3 -m
