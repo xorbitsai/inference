@@ -43,8 +43,8 @@ const zh = {
     toolParser: '工具解析器',
     launcher: '启动器',
     launcherArguments: '启动器参数（可选）',
-    edit: '编辑',//
-    cancel: '取消',//
+    edit: '编辑', //
+    cancel: '取消', //
     registerModel: '注册模型',
     messagesExample: '消息示例',
     JSONFormat: 'JSON 格式',
@@ -52,7 +52,7 @@ const zh = {
     modelSizeBillions: '模型大小（以十亿为单位）',
     quantization: '量化',
     quantizationOptional: '量化（可选）',
-    delete: '删除',//
+    delete: '删除', //
     controlnet: '控制网',
     packages: '虚拟环境安装包',
     more: '更多',
@@ -64,8 +64,8 @@ const zh = {
     enterInteger: '请输入一个整数。',
     enterIntegerGreaterThanZero: '请输入大于 0 的整数。',
     showCustomJsonConfig: '显示由 API 使用的自定义 JSON 配置',
-    packUp: '收起',//
-    unfold: '展开',//
+    packUp: '收起', //
+    unfold: '展开', //
     copyAll: '复制全部',
     alphanumericWithHyphensUnderscores:
       '字母数字字符，连字符和下划线应正确放置。不能与任何内置模型名称匹配。',
