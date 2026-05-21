@@ -1,0 +1,25 @@
+xinference/ui/web/ui/src/locales/ja.json
+  7b0ca2989ac6192b 16-17
+xinference/ui/web/ui/src/locales/ko.json
+  7b0ca2989ac6192b 16-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.16",
+  "base_commit_sha": "62dc663ec0bb94a1c566a3ff190465b4c4159170",
+  "prompts": {
+    "7b0ca2989ac6192b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5ca56989-bccb-4f99-8b0a-95670787ff6e",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 4,
+      "total_deletions": 2,
+      "accepted_lines": 4,
+      "overriden_lines": 0
+    }
+  }
+}
