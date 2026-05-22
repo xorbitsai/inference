@@ -14,8 +14,11 @@
 
 import base64
 import functools
+import importlib.util
+import inspect
 import json
 import logging
+import os
 import time
 import typing
 import uuid
@@ -165,21 +168,55 @@ class ChatModelMixin:
                 messages
             )
         if tokenizer is not None:
-            try:
-                full_context = tokenizer.apply_chat_template(
-                    messages,
-                    tokenize=tokenize,
-                    chat_template=chat_template,
-                    add_generation_prompt=True,
-                    **kwargs,
+            if self.model_family.model_name.lower().startswith("deepseek-v4"):
+                module_path = os.path.join(
+                    self.model_path, "encoding", "encoding_dsv4.py"  # type: ignore
                 )
-                logger.debug("Prompt: %s", full_context)
-                return full_context
-            except Exception as e:
-                logger.warning(
-                    f"tokenizer.apply_chat_template error. Maybe this is an old model: {e}"
+                if not os.path.exists(module_path):
+                    raise FileNotFoundError(
+                        f"Missing {module_path}."
+                        "Please verify the model repository files."
+                    )
+                spec = importlib.util.spec_from_file_location(
+                    "encoding_dsv4", module_path
                 )
-                return self._build_from_raw_template(messages, chat_template, **kwargs)
+                if spec is None or spec.loader is None:
+                    raise ImportError(
+                        f"Failed to load encoding_dsv4 module from {module_path}"
+                    )
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+
+                target_func = getattr(module, "encode_messages")
+
+                sig = inspect.signature(target_func)
+
+                em_kwargs = {"thinking_mode": "thinking"}
+                for name, param in sig.parameters.items():
+                    if name in kwargs:
+                        em_kwargs["name"] = kwargs.pop(name)
+
+                prompt = module.encode_messages(messages, **em_kwargs)
+
+                return prompt
+            else:
+                try:
+                    full_context = tokenizer.apply_chat_template(
+                        messages,
+                        tokenize=tokenize,
+                        chat_template=chat_template,
+                        add_generation_prompt=True,
+                        **kwargs,
+                    )
+                    logger.debug("Prompt: %s", full_context)
+                    return full_context
+                except Exception as e:
+                    logger.warning(
+                        f"tokenizer.apply_chat_template error. Maybe this is an old model: {e}"
+                    )
+                    return self._build_from_raw_template(
+                        messages, chat_template, **kwargs
+                    )
         else:
             # build from jinja
             # Compilation function uses a cache to avoid recompiling the same template
