@@ -30467,10 +30467,12 @@
         "sglang_dependencies ; #engine# == \"sglang\"",
         "transformers>=5.2.0 ; #engine# == \"Transformers\"",
         "qwen_omni_utils ; #engine# == \"vllm\"",
-        "vllm>=0.19.0 ; #engine# == \"vllm\"",
+        "vllm==0.19.0 ; #engine# == \"vllm\"",
         "transformers==4.57.6 ; #engine# == \"vllm\"",
         "https://github.com/flashinfer-ai/flashinfer/releases/download/v0.6.6/flashinfer_jit_cache-0.6.6+cu129-cp39-abi3-manylinux_2_28_x86_64.whl ; #engine# == \"vllm\" and cuda_version == \"12.9\" and platform_machine == \"x86_64\"",
         "https://github.com/flashinfer-ai/flashinfer/releases/download/v0.6.6/flashinfer_jit_cache-0.6.6+cu129-cp39-abi3-manylinux_2_28_aarch64.whl ; #engine# == \"vllm\" and cuda_version == \"12.9\" and platform_machine == \"aarch64\"",
+        "https://github.com/flashinfer-ai/flashinfer/releases/download/v0.6.6/flashinfer_jit_cache-0.6.6+cu130-cp39-abi3-manylinux_2_28_x86_64.whl ; #engine# == \"vllm\" and cuda_version >= \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/flashinfer-ai/flashinfer/releases/download/v0.6.6/flashinfer_jit_cache-0.6.6+cu130-cp39-abi3-manylinux_2_28_aarch64.whl ; #engine# == \"vllm\" and cuda_version >= \"13.0\" and platform_machine == \"aarch64\"",
         "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\""
       ]
     },
@@ -30490,7 +30492,7 @@
     ],
     "tool_parser": "qwen",
     "featured": false,
-    "updated_at": 1779163014
+    "updated_at": 1779440037
   },
   {
     "model_name": "MiniMax-M2.7",
