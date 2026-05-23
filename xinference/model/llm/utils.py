@@ -169,23 +169,7 @@ class ChatModelMixin:
             )
         if tokenizer is not None:
             if self.model_family.model_name.lower().startswith("deepseek-v4"):
-                module_path = os.path.join(
-                    self.model_path, "encoding", "encoding_dsv4.py"  # type: ignore
-                )
-                if not os.path.exists(module_path):
-                    raise FileNotFoundError(
-                        f"Missing {module_path}."
-                        "Please verify the model repository files."
-                    )
-                spec = importlib.util.spec_from_file_location(
-                    "encoding_dsv4", module_path
-                )
-                if spec is None or spec.loader is None:
-                    raise ImportError(
-                        f"Failed to load encoding_dsv4 module from {module_path}"
-                    )
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
+                module = _load_deepseekv4_encoding_module(self.model_path)  # type: ignore
 
                 target_func = getattr(module, "encode_messages")
 
@@ -1094,3 +1078,20 @@ def parse_messages(messages: List[Dict]) -> Tuple:
     system_prompt = ". ".join(system_messages) if system_messages else None
     chat_history = content_messages[:-1]
     return prompt, system_prompt, chat_history
+
+
+@functools.lru_cache
+def _load_deepseekv4_encoding_module(model_path: str):
+    module_path = os.path.join(
+        model_path, "encoding", "encoding_dsv4.py"  # type: ignore
+    )
+    if not os.path.exists(module_path):
+        raise FileNotFoundError(
+            f"Missing {module_path}." "Please verify the model repository files."
+        )
+    spec = importlib.util.spec_from_file_location("encoding_dsv4", module_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Failed to load encoding_dsv4 module from {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
