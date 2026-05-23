@@ -888,21 +888,11 @@ class VLLMModel(LLM):
         model_config.setdefault("max_model_len", None)
         model_config.setdefault("reasoning_content", False)
 
-        if "additional_config" in model_config:
-            model_config["additional_config"] = self.parse_str_field_to_dict(  # type: ignore
-                model_config.get("additional_config", {}), "additional_config"
-            )
-        if "compilation_config" in model_config:
-            model_config["compilation_config"] = self.parse_str_field_to_dict(  # type: ignore
-                model_config.get("compilation_config", {}), "compilation_config"
-            )
-        if "model_loader_extra_config" in model_config:
-            model_config["model_loader_extra_config"] = (  # type: ignore
-                self.parse_str_field_to_dict(
-                    model_config.get("model_loader_extra_config", {}),
-                    "model_loader_extra_config",
+        for field in ["additional_config", "compilation_config", "model_loader_extra_config"]:
+            if field in model_config:
+                model_config[field] = self.parse_str_field_to_dict(  # type: ignore
+                    model_config.get(field, {}), field
                 )
-            )
         if "speculative_config" in model_config:
             model_config["speculative_config"] = self.parse_str_field_to_dict(
                 model_config.get("speculative_config", {}), "speculative_config"
