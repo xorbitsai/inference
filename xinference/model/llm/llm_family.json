@@ -31814,8 +31814,8 @@
         "#system_numpy# ; #engine# == \"vllm\""
       ]
     },
-    "tool_parser": "deepseek-v3.2",
+    "tool_parser": "deepseek-v4",
     "featured": false,
-    "updated_at": 1779259029
+    "updated_at": 1779522876
   }
 ]
