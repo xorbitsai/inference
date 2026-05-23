@@ -179,11 +179,14 @@ class ChatModelMixin:
                     em_kwargs = {"thinking_mode": "thinking"}
                 else:
                     em_kwargs = {"thinking_mode": "chat"}
-                for name, param in sig.parameters.items():
+                tools = kwargs.pop("tools", None)
+                if tools:
+                    messages = self._attach_deepseekv4_tools(messages, tools)
+                for name in sig.parameters:
                     if name in kwargs:
                         em_kwargs[name] = kwargs.pop(name)
 
-                prompt = module.encode_messages(messages, **em_kwargs)
+                prompt = target_func(messages, **em_kwargs)
 
                 return prompt
             else:
@@ -233,6 +236,16 @@ class ChatModelMixin:
             # pass enable_thinking to chat template
             return {"enable_thinking": reasoning_parser.enable_thinking}
         return None
+
+    @staticmethod
+    def _attach_deepseekv4_tools(messages: List[Dict], tools: List[Dict]) -> List[Dict]:
+        prepared_messages = [dict(message) for message in messages]
+        for message in prepared_messages:
+            if message.get("role") in ("system", "developer"):
+                existing_tools = message.get("tools") or []
+                message["tools"] = [*existing_tools, *tools]
+                return prepared_messages
+        return [{"role": "system", "content": "", "tools": tools}, *prepared_messages]
 
     @staticmethod
     def convert_messages_with_content_list_to_str_conversion(
