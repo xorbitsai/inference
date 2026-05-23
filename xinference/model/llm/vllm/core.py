@@ -45,7 +45,7 @@ from typing_extensions import NotRequired
 from xoscar.utils import get_next_port
 
 from ....constants import XINFERENCE_MAX_TOKENS
-from ....device_utils import is_vacc_available
+from ....device_utils import is_npu_available, is_vacc_available
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -325,6 +325,12 @@ def _update_vllm_supported_lists() -> None:
         _append_unique(
             VLLM_SUPPORTED_MULTI_MODEL_LIST, "Gemma4ForConditionalGeneration"
         )
+
+    if effective_version >= version.parse("0.20.1"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "DeepseekV4ForCausalLM")
+
+    if is_npu_available() and effective_version >= version.parse("0.18.0"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "DeepseekV4ForCausalLM")
 
 
 _update_vllm_supported_lists()
@@ -882,6 +888,16 @@ class VLLMModel(LLM):
         model_config.setdefault("max_model_len", None)
         model_config.setdefault("reasoning_content", False)
 
+        config_dict_list = [
+            "additional_config",
+            "compilation_config",
+            "model_loader_extra_config",
+        ]
+        for field in config_dict_list:
+            if field in model_config:
+                model_config[field] = self.parse_str_field_to_dict(  # type: ignore
+                    model_config.get(field, {}), field
+                )
         if "speculative_config" in model_config:
             model_config["speculative_config"] = self.parse_str_field_to_dict(
                 model_config.get("speculative_config", {}), "speculative_config"

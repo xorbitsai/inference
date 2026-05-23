@@ -14,8 +14,11 @@
 
 import base64
 import functools
+import importlib.util
+import inspect
 import json
 import logging
+import os
 import time
 import typing
 import uuid
@@ -165,21 +168,45 @@ class ChatModelMixin:
                 messages
             )
         if tokenizer is not None:
-            try:
-                full_context = tokenizer.apply_chat_template(
-                    messages,
-                    tokenize=tokenize,
-                    chat_template=chat_template,
-                    add_generation_prompt=True,
-                    **kwargs,
-                )
-                logger.debug("Prompt: %s", full_context)
-                return full_context
-            except Exception as e:
-                logger.warning(
-                    f"tokenizer.apply_chat_template error. Maybe this is an old model: {e}"
-                )
-                return self._build_from_raw_template(messages, chat_template, **kwargs)
+            if self.model_family.model_name.lower().startswith("deepseek-v4"):
+                module = _load_deepseekv4_encoding_module(self.model_path)  # type: ignore
+
+                target_func = getattr(module, "encode_messages")
+
+                sig = inspect.signature(target_func)
+
+                if kwargs.get("enable_thinking", False):
+                    em_kwargs = {"thinking_mode": "thinking"}
+                else:
+                    em_kwargs = {"thinking_mode": "chat"}
+                tools = kwargs.pop("tools", None)
+                if tools:
+                    messages = self._attach_deepseekv4_tools(messages, tools)
+                for name in sig.parameters:
+                    if name in kwargs:
+                        em_kwargs[name] = kwargs.pop(name)
+
+                prompt = target_func(messages, **em_kwargs)
+
+                return prompt
+            else:
+                try:
+                    full_context = tokenizer.apply_chat_template(
+                        messages,
+                        tokenize=tokenize,
+                        chat_template=chat_template,
+                        add_generation_prompt=True,
+                        **kwargs,
+                    )
+                    logger.debug("Prompt: %s", full_context)
+                    return full_context
+                except Exception as e:
+                    logger.warning(
+                        f"tokenizer.apply_chat_template error. Maybe this is an old model: {e}"
+                    )
+                    return self._build_from_raw_template(
+                        messages, chat_template, **kwargs
+                    )
         else:
             # build from jinja
             # Compilation function uses a cache to avoid recompiling the same template
@@ -209,6 +236,16 @@ class ChatModelMixin:
             # pass enable_thinking to chat template
             return {"enable_thinking": reasoning_parser.enable_thinking}
         return None
+
+    @staticmethod
+    def _attach_deepseekv4_tools(messages: List[Dict], tools: List[Dict]) -> List[Dict]:
+        prepared_messages = [dict(message) for message in messages]
+        for message in prepared_messages:
+            if message.get("role") in ("system", "developer"):
+                existing_tools = message.get("tools") or []
+                message["tools"] = [*existing_tools, *tools]
+                return prepared_messages
+        return [{"role": "system", "content": "", "tools": tools}, *prepared_messages]
 
     @staticmethod
     def convert_messages_with_content_list_to_str_conversion(
@@ -1054,3 +1091,20 @@ def parse_messages(messages: List[Dict]) -> Tuple:
     system_prompt = ". ".join(system_messages) if system_messages else None
     chat_history = content_messages[:-1]
     return prompt, system_prompt, chat_history
+
+
+@functools.lru_cache
+def _load_deepseekv4_encoding_module(model_path: str):
+    module_path = os.path.join(
+        model_path, "encoding", "encoding_dsv4.py"  # type: ignore
+    )
+    if not os.path.exists(module_path):
+        raise FileNotFoundError(
+            f"Missing {module_path}." "Please verify the model repository files."
+        )
+    spec = importlib.util.spec_from_file_location("encoding_dsv4", module_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Failed to load encoding_dsv4 module from {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module

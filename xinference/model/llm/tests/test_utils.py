@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from types import SimpleNamespace
+
 from ..reasoning_parser import ReasoningParser
 from ..tool_parsers.llama3_tool_parser import Llama3ToolParser
 from ..tool_parsers.qwen_tool_parser import QwenToolParser
@@ -88,6 +90,41 @@ def test_transform_messages_preserves_tool_call_fields():
         ],
         "tool_call_id": "call_bed4c5f1",
     }
+
+
+def test_deepseekv4_get_full_context_attaches_tools(tmp_path):
+    encoding_dir = tmp_path / "encoding"
+    encoding_dir.mkdir()
+    (encoding_dir / "encoding_dsv4.py").write_text(
+        "def encode_messages(messages, thinking_mode):\n" "    return messages\n",
+        encoding="utf-8",
+    )
+    mixin = ChatModelMixin()
+    mixin.model_family = SimpleNamespace(
+        model_name="DeepSeek-V4-Flash",
+        model_ability=["chat", "hybrid", "tools"],
+    )
+    mixin.model_path = str(tmp_path)
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get weather",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }
+    ]
+
+    messages = mixin.get_full_context(
+        [{"role": "user", "content": "How is the weather?"}],
+        "",
+        tokenizer=object(),
+        tools=tools,
+    )
+
+    assert messages[0] == {"role": "system", "content": "", "tools": tools}
+    assert messages[1] == {"role": "user", "content": "How is the weather?"}
 
 
 def test_post_process_completion_chunk_without_thinking():

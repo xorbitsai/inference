@@ -54,6 +54,7 @@ from . import (
     deepseek_v3_1_tool_parser,
     deepseek_v3_2_tool_parser,
     deepseek_v3_tool_parser,
+    deepseek_v4_tool_parser,
     gemma_tool_parser,
     glm4_tool_parser,
     llama3_tool_parser,
