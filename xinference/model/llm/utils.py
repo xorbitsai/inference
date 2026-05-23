@@ -191,10 +191,13 @@ class ChatModelMixin:
 
                 sig = inspect.signature(target_func)
 
-                em_kwargs = {"thinking_mode": "thinking"}
+                if kwargs.get("enable_thinking", False):
+                    em_kwargs = {"thinking_mode": "thinking"}
+                else:
+                    em_kwargs = {"thinking_mode": "chat"}
                 for name, param in sig.parameters.items():
                     if name in kwargs:
-                        em_kwargs["name"] = kwargs.pop(name)
+                        em_kwargs[name] = kwargs.pop(name)
 
                 prompt = module.encode_messages(messages, **em_kwargs)
 
