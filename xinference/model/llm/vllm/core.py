@@ -888,7 +888,12 @@ class VLLMModel(LLM):
         model_config.setdefault("max_model_len", None)
         model_config.setdefault("reasoning_content", False)
 
-        for field in ["additional_config", "compilation_config", "model_loader_extra_config"]:
+        config_dict_list = [
+            "additional_config",
+            "compilation_config",
+            "model_loader_extra_config",
+        ]
+        for field in config_dict_list:
             if field in model_config:
                 model_config[field] = self.parse_str_field_to_dict(  # type: ignore
                     model_config.get(field, {}), field
