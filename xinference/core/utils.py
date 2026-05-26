@@ -16,6 +16,7 @@ import logging
 import os
 import platform
 import random
+import re
 import string
 import uuid
 import weakref
@@ -23,6 +24,7 @@ from enum import Enum
 from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
 import orjson
+from packaging.markers import Marker
 from packaging.requirements import Requirement
 
 from .._compat import BaseModel
@@ -370,11 +372,22 @@ def filter_virtualenv_packages_by_markers(
                 and f"#model_engine# == '{engine_value}'" not in marker
             ):
                 return False
-        if 'cuda_version == "13.0"' in marker and cuda_version != "13.0":
+
+        def parse_all_cuda_markers(s):
+            pattern = r'cuda_version\s*([<>=!]+)\s*"([^"]+)"'
+            return re.findall(pattern, s)
+
+        if (
+            cuda_version
+            and (op_versions := parse_all_cuda_markers(marker))
+            and any(
+                [
+                    check_marker(op_version, cuda_version) is False
+                    for op_version in op_versions
+                ]
+            )
+        ):
             return False
-        if 'cuda_version < "13.0"' in marker:
-            if not cuda_version or cuda_version == "13.0":
-                return False
         if (
             'platform_machine == "x86_64"' in marker
             and platform.machine().lower() != "x86_64"
@@ -487,3 +500,9 @@ class CancelMixin:
             self._running_tasks[request_id] = asyncio.create_task(
                 block_task(), name=self._CANCEL_TASK_NAME
             )
+
+
+def check_marker(op_version: Tuple[str, str], package_version: str) -> bool:
+    marker_str = f'extra {op_version[0]} "{op_version[1]}"'
+    env = {"extra": package_version}
+    return Marker(marker_str).evaluate(env)
