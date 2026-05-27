@@ -9,7 +9,7 @@
       "index.lifecycle.rollover_alias": "xinference-logs"
     },
     "mappings": {
-      "dynamic": "strict",
+      "dynamic": false,
       "properties": {
         "@timestamp": { "type": "date" },
         "cluster":    { "type": "keyword" },

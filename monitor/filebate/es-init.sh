@@ -3,6 +3,8 @@
 # 用法: bash es-init.sh <ES_HOST>
 # 示例: bash es-init.sh http://elasticsearch:9200
 
+set -euo pipefail
+
 ES_HOST="${1:-http://elasticsearch:9200}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 

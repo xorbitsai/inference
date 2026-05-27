@@ -105,7 +105,7 @@ setup.template.settings:
   index.number_of_shards: 2
   index.number_of_replicas: 1
 
-setup.ilm.enabled: true
+setup.ilm.enabled: false
 setup.ilm.rollover_alias: "xinference-logs"
 setup.ilm.policy_name: "xinference-logs-policy"
 
