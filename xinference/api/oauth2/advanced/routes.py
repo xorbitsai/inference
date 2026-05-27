@@ -30,6 +30,15 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _refresh_key_gauges(auth: AdvancedAuthService) -> None:
+    """Update Prometheus gauges for active/expired key counts.
+
+    NOTE: Metrics counters are defined in the security-hardening PR.
+    This is a placeholder that will be filled when that PR is merged.
+    """
+    pass
+
+
 def get_advanced_auth(request: Request) -> AdvancedAuthService:
     return request.app.state.advanced_auth
 
@@ -49,11 +58,46 @@ def _get_current_user_from_token(request: Request, auth: AdvancedAuthService):
 
 
 async def advanced_login(request: Request) -> JSONResponse:
+    try:
+        from .audit import record_audit_event
+    except ImportError:
+
+        def record_audit_event(**kwargs):
+            pass
+
     auth: AdvancedAuthService = get_advanced_auth(request)
     body = await request.json()
     username = body.get("username", "")
     password = body.get("password", "")
-    result = auth.login(username, password)
+    client_ip = request.client.host if request.client else ""
+    try:
+        result = auth.login(username, password)
+    except Exception:
+        record_audit_event(
+            user=username,
+            api_key_name="",
+            api_key_prefix="",
+            model_id="",
+            model_type="",
+            endpoint="/token",
+            status="login_failed",
+            client_ip=client_ip,
+            category="auth",
+            auth_type="none",
+        )
+        raise
+    record_audit_event(
+        user=username,
+        api_key_name="",
+        api_key_prefix="",
+        model_id="",
+        model_type="",
+        endpoint="/token",
+        status="success",
+        client_ip=client_ip,
+        category="auth",
+        auth_type="none",
+    )
     return JSONResponse(content=result)
 
 
@@ -209,12 +253,14 @@ async def create_api_key(request: Request) -> JSONResponse:
     result = auth.create_api_key_for_user(
         user_id=owner_id,
         name=body.get("name"),
+        description=body.get("description"),
         expires_at=body.get("expires_at"),
         model_permissions=body.get("model_permissions"),
         rate_limit_max_failures=body.get("rate_limit_max_failures"),
         rate_limit_window_seconds=body.get("rate_limit_window_seconds"),
         rate_limit_ban_seconds=body.get("rate_limit_ban_seconds"),
     )
+    _refresh_key_gauges(auth)
     return JSONResponse(content=result, status_code=201)
 
 
@@ -295,6 +341,7 @@ async def update_api_key(key_id: int, request: Request) -> JSONResponse:
         auth.db.set_api_key_model_permissions(key_id, body["model_permissions"])
 
     auth.cache.reload()
+    _refresh_key_gauges(auth)
     return JSONResponse(content={"ok": True})
 
 
@@ -305,6 +352,7 @@ async def delete_api_key(key_id: int, request: Request) -> JSONResponse:
         raise HTTPException(status_code=404, detail="API key not found")
     auth.db.delete_api_key(key_id)
     auth.cache.remove(key["key_hash"])
+    _refresh_key_gauges(auth)
     return JSONResponse(content={"ok": True})
 
 
@@ -364,6 +412,10 @@ async def update_user_permissions(user_id: int, request: Request) -> JSONRespons
 def register_advanced_auth_routes(api: "RESTfulAPI") -> None:
     router = api._router
     auth_service: AdvancedAuthService = api._app.state.advanced_auth
+
+    # Store rate_limiter on app state for security routes (if available)
+    if auth_service._rate_limiter:
+        api._app.state.rate_limiter = auth_service._rate_limiter
 
     router.add_api_route("/token", advanced_login, methods=["POST"])
     router.add_api_route("/v1/auth/refresh", advanced_refresh, methods=["POST"])

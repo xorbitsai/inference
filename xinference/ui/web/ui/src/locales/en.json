@@ -14,6 +14,8 @@
     "collapse": "Collapse",
     "userManagement": "User Management",
     "apikeyManagement": "API Key Management",
+    "securitySettings": "Security Settings",
+    "auditLog": "Audit Center",
     "logout": "Log Out"
   },
   "auth": {
@@ -391,7 +393,10 @@
     "cancel": "Cancel",
     "create": "Create",
     "confirmDelete": "Delete user",
-    "selectAll": "Select All"
+    "selectAll": "Select All",
+    "editPermissions": "Edit Permissions",
+    "editPermissionsTitle": "Edit Permissions",
+    "save": "Save"
   },
   "permissions": {
     "admin": "Administrator",
@@ -450,6 +455,67 @@
     "editPermTitle": "Edit Model Permissions —",
     "mixedMode": "By type + By instance (mixed)",
     "modelInstances": "Model instances",
-    "permissionsSaved": "Permissions saved"
+    "permissionsSaved": "Permissions saved",
+    "bans": "Bans",
+    "description": "Description",
+    "descriptionLabel": "Description (optional)"
+  },
+  "securitySettings": {
+    "title": "Security Settings",
+    "rateLimitConfig": "Rate Limit Configuration",
+    "ipLayer": "IP Layer",
+    "keyLayer": "Key Layer (Default)",
+    "maxFailures": "Max Failures",
+    "windowSeconds": "Window (seconds)",
+    "banSeconds": "Ban Duration (seconds)",
+    "saveConfig": "Save Configuration",
+    "bannedIps": "Banned IPs",
+    "bannedIpsDesc": "IPs automatically banned after exceeding max failures with non-existent keys or invalid tokens within the time window. All requests from the banned IP are rejected during the ban period (duration configured in IP layer)",
+    "noBannedIps": "No banned IPs",
+    "bannedKeys": "Banned (IP, Key) Pairs",
+    "bannedKeysDesc": "IP + Key pairs automatically banned after exceeding max failures with expired or disabled keys within the time window. Only this specific IP + Key combination is rejected; other keys from the same IP are unaffected (duration configured in Key layer)",
+    "noBannedKeys": "No banned key pairs",
+    "ip": "IP",
+    "keyId": "Key ID",
+    "remaining": "Remaining (s)",
+    "action": "Action",
+    "unbanAll": "Unban All"
+  },
+  "auditLog": {
+    "title": "Audit Center",
+    "time": "Time",
+    "user": "User",
+    "apiKey": "API Key",
+    "model": "Model",
+    "type": "Type",
+    "status": "Status",
+    "clientIp": "Client IP",
+    "modelId": "Model ID",
+    "modelName": "Model Name",
+    "endpoint": "Endpoint",
+    "latency": "Latency (ms)",
+    "timeFrom": "From",
+    "timeTo": "To",
+    "search": "Search",
+    "noData": "No audit records",
+    "custom": "Custom",
+    "totalRecords": "{{count}} records",
+    "prevPage": "Prev",
+    "nextPage": "Next",
+    "tableTab": "Table",
+    "jsonTab": "JSON",
+    "detailField": "Field",
+    "detailValue": "Value",
+    "copyJson": "Copy JSON",
+    "copied": "Copied!",
+    "modelType": "Model Type",
+    "category": "Category",
+    "category_inference": "Inference",
+    "category_admin": "Admin",
+    "category_auth": "Auth"
+  },
+  "login": {
+    "or": "OR",
+    "sso": "LOGIN WITH SSO"
   }
 }

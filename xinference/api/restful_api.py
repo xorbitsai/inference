@@ -322,6 +322,14 @@ class RESTfulAPI(CancelMixin):
 
             register_advanced_auth_routes(self)
 
+            # Register OIDC routes if configured
+            from ..constants import XINFERENCE_OIDC_ENABLED
+
+            if XINFERENCE_OIDC_ENABLED:
+                from .oauth2.advanced.oidc import register_oidc_routes
+
+                register_oidc_routes(self)
+
         if XINFERENCE_DISABLE_METRICS:
             logger.info(
                 "Supervisor metrics is disabled due to the environment XINFERENCE_DISABLE_METRICS=1"

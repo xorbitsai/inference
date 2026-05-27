@@ -103,6 +103,18 @@ XINFERENCE_AUTH_ENCRYPTION_KEY = os.environ.get("XINFERENCE_AUTH_ENCRYPTION_KEY"
 XINFERENCE_AUTH_DB_PATH = os.environ.get(
     "XINFERENCE_AUTH_DB_PATH", os.path.join(XINFERENCE_HOME, "auth", "auth.db")
 )
+
+# OIDC / SSO
+XINFERENCE_OIDC_ENABLED = os.environ.get("XINFERENCE_OIDC_ENABLED", "").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+XINFERENCE_OIDC_ISSUER = os.environ.get("XINFERENCE_OIDC_ISSUER", "")
+XINFERENCE_OIDC_CLIENT_ID = os.environ.get("XINFERENCE_OIDC_CLIENT_ID", "")
+XINFERENCE_OIDC_CLIENT_SECRET = os.environ.get("XINFERENCE_OIDC_CLIENT_SECRET", "")
+XINFERENCE_OIDC_REDIRECT_URI = os.environ.get("XINFERENCE_OIDC_REDIRECT_URI", "")
+
 XINFERENCE_VIRTUAL_ENV_DIR = os.path.join(XINFERENCE_HOME, "virtualenv")
 XINFERENCE_CSG_ENDPOINT = str(
     os.environ.get(XINFERENCE_ENV_CSG_ENDPOINT, "https://hub-stg.opencsg.com/")
