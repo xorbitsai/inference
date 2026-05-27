@@ -458,7 +458,14 @@
     "permissionsSaved": "权限已保存",
     "bans": "封禁数",
     "description": "申请理由",
-    "descriptionLabel": "申请理由（可选）"
+    "descriptionLabel": "申请理由（可选）",
+    "bannedIpsForKey": "Key #{{keyId}} 的封禁 IP",
+    "noActiveBans": "暂无封禁",
+    "remaining": "剩余: {{seconds}}秒",
+    "unban": "解封",
+    "viewBans": "查看",
+    "failedLoadBans": "加载封禁信息失败",
+    "failedUnban": "解封失败"
   },
   "securitySettings": {
     "title": "安全设置",

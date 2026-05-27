@@ -458,7 +458,14 @@
     "permissionsSaved": "Permissions saved",
     "bans": "Bans",
     "description": "Description",
-    "descriptionLabel": "Description (optional)"
+    "descriptionLabel": "Description (optional)",
+    "bannedIpsForKey": "Banned IPs for Key #{{keyId}}",
+    "noActiveBans": "No active bans",
+    "remaining": "Remaining: {{seconds}}s",
+    "unban": "Unban",
+    "viewBans": "View",
+    "failedLoadBans": "Failed to load bans",
+    "failedUnban": "Failed to unban"
   },
   "securitySettings": {
     "title": "Security Settings",

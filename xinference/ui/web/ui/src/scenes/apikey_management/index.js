@@ -65,27 +65,11 @@ function ApiKeyManagement() {
   const [bansDialogOpen, setBansDialogOpen] = useState(false)
   const [bansDialogKeyId, setBansDialogKeyId] = useState(null)
   const [bansData, setBansData] = useState([])
-  const [keyBanCounts, setKeyBanCounts] = useState({})
 
   const loadKeys = async () => {
     try {
       const data = await fetchWrapper.get('/v1/admin/keys')
       setKeys(data)
-      // Load ban counts for each key
-      const counts = {}
-      await Promise.all(
-        data.map(async (key) => {
-          try {
-            const bans = await fetchWrapper.get(
-              `/v1/admin/keys/${key.id}/banned`
-            )
-            counts[key.id] = Array.isArray(bans) ? bans.length : 0
-          } catch {
-            counts[key.id] = 0
-          }
-        })
-      )
-      setKeyBanCounts(counts)
     } catch (e) {
       console.error(e)
     }
@@ -98,7 +82,7 @@ function ApiKeyManagement() {
       setBansDialogKeyId(keyId)
       setBansDialogOpen(true)
     } catch (e) {
-      setSnackError('Failed to load bans')
+      setSnackError(t('apikeyManagement.failedLoadBans'))
     }
   }
 
@@ -109,12 +93,8 @@ function ApiKeyManagement() {
         `/v1/admin/keys/${bansDialogKeyId}/banned`
       )
       setBansData(Array.isArray(data) ? data : [])
-      setKeyBanCounts((prev) => ({
-        ...prev,
-        [bansDialogKeyId]: Array.isArray(data) ? data.length : 0,
-      }))
     } catch (e) {
-      setSnackError('Failed to unban')
+      setSnackError(t('apikeyManagement.failedUnban'))
     }
   }
 
@@ -399,22 +379,15 @@ function ApiKeyManagement() {
       field: 'bans',
       headerName: t('apikeyManagement.bans'),
       width: 70,
-      renderCell: (params) => {
-        const count = keyBanCounts[params.row.id] || 0
-        return count > 0 ? (
-          <Chip
-            label={count}
-            size="small"
-            color="error"
-            onClick={() => handleShowBans(params.row.id)}
-            sx={{ cursor: 'pointer' }}
-          />
-        ) : (
-          <Typography variant="body2" color="text.secondary">
-            0
-          </Typography>
-        )
-      },
+      renderCell: (params) => (
+        <Chip
+          label={t('apikeyManagement.viewBans')}
+          size="small"
+          variant="outlined"
+          onClick={() => handleShowBans(params.row.id)}
+          sx={{ cursor: 'pointer' }}
+        />
+      ),
     },
     {
       field: 'actions',
@@ -852,11 +825,11 @@ function ApiKeyManagement() {
         fullWidth
       >
         <DialogTitle>
-          Banned IPs for Key #{bansDialogKeyId}
+          {t('apikeyManagement.bannedIpsForKey', { keyId: bansDialogKeyId })}
         </DialogTitle>
         <DialogContent>
           {bansData.length === 0 ? (
-            <Typography color="text.secondary">No active bans</Typography>
+            <Typography color="text.secondary">{t('apikeyManagement.noActiveBans')}</Typography>
           ) : (
             <Box>
               {bansData.map((ban, idx) => (
@@ -870,7 +843,7 @@ function ApiKeyManagement() {
                   <Box>
                     <Typography variant="body2">{ban.ip}</Typography>
                     <Typography variant="caption" color="text.secondary">
-                      Remaining: {ban.remaining_seconds}s
+                      {t('apikeyManagement.remaining', { seconds: ban.remaining_seconds })}
                     </Typography>
                   </Box>
                   <Button
@@ -878,7 +851,7 @@ function ApiKeyManagement() {
                     color="error"
                     onClick={() => handleUnbanFromDialog(ban.ip)}
                   >
-                    Unban
+                    {t('apikeyManagement.unban')}
                   </Button>
                 </Box>
               ))}
@@ -886,7 +859,7 @@ function ApiKeyManagement() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setBansDialogOpen(false)}>Close</Button>
+          <Button onClick={() => setBansDialogOpen(false)}>{t('apikeyManagement.close')}</Button>
         </DialogActions>
       </Dialog>
     </Box>

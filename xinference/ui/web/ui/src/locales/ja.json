@@ -449,7 +449,14 @@
     "mixedMode": "タイプ別 + インスタンス別（混合）",
     "bans": "禁止数",
     "description": "説明",
-    "descriptionLabel": "申請理由（任意）"
+    "descriptionLabel": "申請理由（任意）",
+    "bannedIpsForKey": "Key #{{keyId}} の禁止 IP",
+    "noActiveBans": "禁止中のIPはありません",
+    "remaining": "残り: {{seconds}}秒",
+    "unban": "解除",
+    "viewBans": "表示",
+    "failedLoadBans": "禁止情報の読み込みに失敗しました",
+    "failedUnban": "解除に失敗しました"
   },
   "securitySettings": {
     "title": "セキュリティ設定",

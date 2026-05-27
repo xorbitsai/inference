@@ -449,7 +449,14 @@
     "mixedMode": "유형별 + 인스턴스별 (혼합)",
     "bans": "차단 수",
     "description": "설명",
-    "descriptionLabel": "신청 사유 (선택)"
+    "descriptionLabel": "신청 사유 (선택)",
+    "bannedIpsForKey": "Key #{{keyId}}의 차단된 IP",
+    "noActiveBans": "활성 차단 없음",
+    "remaining": "남은 시간: {{seconds}}초",
+    "unban": "차단 해제",
+    "viewBans": "보기",
+    "failedLoadBans": "차단 정보 로드 실패",
+    "failedUnban": "차단 해제 실패"
   },
   "securitySettings": {
     "title": "보안 설정",
