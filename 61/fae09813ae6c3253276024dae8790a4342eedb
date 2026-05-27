@@ -1,0 +1,23 @@
+xinference/api/oauth2/advanced/oidc.py
+  24a37d7e2404fe6a 20-22,41-48,54,56,99-104,108,120,207-208,214
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.16",
+  "base_commit_sha": "61fae09813ae6c3253276024dae8790a4342eedb",
+  "prompts": {
+    "24a37d7e2404fe6a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "aa65b541-80bc-4c04-9dca-f26866af9835",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 58,
+      "total_deletions": 28,
+      "accepted_lines": 6653,
+      "overriden_lines": 0
+    }
+  }
+}
