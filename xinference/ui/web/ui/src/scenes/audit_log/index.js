@@ -207,7 +207,9 @@ function DetailPanel({ hit, t }) {
     })
   }
 
-  const fields = DETAIL_FIELDS.filter((k) => hit[k] !== undefined && hit[k] !== '')
+  const fields = DETAIL_FIELDS.filter(
+    (k) => hit[k] !== undefined && hit[k] !== ''
+  )
 
   return (
     <Box sx={{ px: 2, pb: 2 }}>
@@ -246,9 +248,7 @@ function DetailPanel({ hit, t }) {
             {fields.map((key) => (
               <TableRow key={key} hover>
                 <TableCell sx={{ fontSize: FONT_SIZE }}>
-                  <Box
-                    sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-                  >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     <FieldTypeIcon fieldKey={key} />
                     {key}
                   </Box>
@@ -453,7 +453,9 @@ function AuditLog() {
       setTimeRange({ from: String(fromMs), to: String(toMs) })
       setTimeRangeLabel(null)
       setCustomDisplay(
-        `${customFrom.format('YYYY-MM-DD HH:mm')} ~ ${customTo.format('YYYY-MM-DD HH:mm')}`
+        `${customFrom.format('YYYY-MM-DD HH:mm')} ~ ${customTo.format(
+          'YYYY-MM-DD HH:mm'
+        )}`
       )
       setTimeAnchor(null)
       setPageFrom(0)
@@ -475,7 +477,13 @@ function AuditLog() {
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
   const currentPage = Math.floor(pageFrom / PAGE_SIZE) + 1
-  const searchKeywords = [filterUser, filterModel, filterModelName, filterKey, filterClientIp].filter(Boolean)
+  const searchKeywords = [
+    filterUser,
+    filterModel,
+    filterModelName,
+    filterKey,
+    filterClientIp,
+  ].filter(Boolean)
 
   return (
     <Box
@@ -518,9 +526,7 @@ function AuditLog() {
                     label={v}
                     size="small"
                     onDelete={() =>
-                      setSelectedStatuses((prev) =>
-                        prev.filter((s) => s !== v)
-                      )
+                      setSelectedStatuses((prev) => prev.filter((s) => s !== v))
                     }
                     onMouseDown={(e) => e.stopPropagation()}
                     sx={{ fontSize: '0.7rem', height: 20 }}
@@ -534,10 +540,7 @@ function AuditLog() {
         >
           {ALL_STATUSES.map((s) => (
             <MenuItem key={s} value={s} dense>
-              <Checkbox
-                checked={selectedStatuses.includes(s)}
-                size="small"
-              />
+              <Checkbox checked={selectedStatuses.includes(s)} size="small" />
               <ListItemText
                 primary={s}
                 primaryTypographyProps={{ fontSize: FONT_SIZE }}
@@ -741,7 +744,9 @@ function AuditLog() {
           py: 0.5,
         }}
       >
-        <Typography sx={{ fontSize: FONT_SIZE, color: 'text.secondary', mr: 0.5 }}>
+        <Typography
+          sx={{ fontSize: FONT_SIZE, color: 'text.secondary', mr: 0.5 }}
+        >
           {t('auditLog.modelType')}
         </Typography>
         {MODEL_TYPES.map((type) => (
@@ -769,7 +774,9 @@ function AuditLog() {
           borderColor: 'divider',
         }}
       >
-        <Typography sx={{ fontSize: FONT_SIZE, color: 'text.secondary', mr: 0.5 }}>
+        <Typography
+          sx={{ fontSize: FONT_SIZE, color: 'text.secondary', mr: 0.5 }}
+        >
           {t('auditLog.category')}
         </Typography>
         {CATEGORIES.map((cat) => (
@@ -839,17 +846,13 @@ function AuditLog() {
                         borderBottom: isExpanded ? 'none' : undefined,
                       },
                     }}
-                    onClick={() =>
-                      setExpandedRow(isExpanded ? null : idx)
-                    }
+                    onClick={() => setExpandedRow(isExpanded ? null : idx)}
                   >
                     <TableCell sx={{ fontSize: FONT_SIZE, p: 0.5 }}>
                       <ExpandMoreIcon
                         fontSize="small"
                         sx={{
-                          transform: isExpanded
-                            ? 'rotate(180deg)'
-                            : 'none',
+                          transform: isExpanded ? 'rotate(180deg)' : 'none',
                           transition: 'transform 0.2s',
                         }}
                       />
@@ -872,7 +875,10 @@ function AuditLog() {
                       </Typography>
                     </TableCell>
                     <TableCell sx={{ fontSize: FONT_SIZE }}>
-                      <HighlightText text={hit.user || ''} keywords={searchKeywords} />
+                      <HighlightText
+                        text={hit.user || ''}
+                        keywords={searchKeywords}
+                      />
                     </TableCell>
                     <TableCell
                       sx={{
@@ -883,7 +889,10 @@ function AuditLog() {
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      <HighlightText text={hit.api_key_name || ''} keywords={searchKeywords} />
+                      <HighlightText
+                        text={hit.api_key_name || ''}
+                        keywords={searchKeywords}
+                      />
                     </TableCell>
                     <TableCell
                       sx={{
@@ -894,7 +903,10 @@ function AuditLog() {
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      <HighlightText text={hit.model_name || ''} keywords={searchKeywords} />
+                      <HighlightText
+                        text={hit.model_name || ''}
+                        keywords={searchKeywords}
+                      />
                     </TableCell>
                     <TableCell
                       sx={{
@@ -905,7 +917,10 @@ function AuditLog() {
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      <HighlightText text={hit.model_id || ''} keywords={searchKeywords} />
+                      <HighlightText
+                        text={hit.model_id || ''}
+                        keywords={searchKeywords}
+                      />
                     </TableCell>
                     <TableCell
                       sx={{
@@ -913,7 +928,10 @@ function AuditLog() {
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      <HighlightText text={hit.client_ip || ''} keywords={searchKeywords} />
+                      <HighlightText
+                        text={hit.client_ip || ''}
+                        keywords={searchKeywords}
+                      />
                     </TableCell>
                     <TableCell
                       sx={{
@@ -930,11 +948,7 @@ function AuditLog() {
                   </TableRow>
                   <TableRow>
                     <TableCell sx={{ p: 0 }} colSpan={9}>
-                      <Collapse
-                        in={isExpanded}
-                        timeout="auto"
-                        unmountOnExit
-                      >
+                      <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                         <DetailPanel hit={hit} t={t} />
                       </Collapse>
                     </TableCell>
