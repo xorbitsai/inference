@@ -101,6 +101,15 @@ class Database:
             if "description" not in columns:
                 conn.execute("ALTER TABLE api_keys ADD COLUMN description TEXT")
 
+            cursor = conn.execute("PRAGMA table_info(users)")
+            user_columns = {row[1] for row in cursor.fetchall()}
+            if "oidc_sub" not in user_columns:
+                conn.execute("ALTER TABLE users ADD COLUMN oidc_sub TEXT")
+                conn.execute(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_oidc_sub "
+                    "ON users(oidc_sub) WHERE oidc_sub IS NOT NULL"
+                )
+
     @contextmanager
     def _get_conn(self):
         conn = sqlite3.connect(self._db_path)

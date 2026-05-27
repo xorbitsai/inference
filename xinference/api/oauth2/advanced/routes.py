@@ -58,7 +58,12 @@ def _get_current_user_from_token(request: Request, auth: AdvancedAuthService):
 
 
 async def advanced_login(request: Request) -> JSONResponse:
-    from .audit import record_audit_event
+    try:
+        from .audit import record_audit_event
+    except ImportError:
+
+        def record_audit_event(**kwargs):
+            pass
 
     auth: AdvancedAuthService = get_advanced_auth(request)
     body = await request.json()
@@ -408,8 +413,9 @@ def register_advanced_auth_routes(api: "RESTfulAPI") -> None:
     router = api._router
     auth_service: AdvancedAuthService = api._app.state.advanced_auth
 
-    # Store rate_limiter on app state for security routes
-    api._app.state.rate_limiter = auth_service._rate_limiter
+    # Store rate_limiter on app state for security routes (if available)
+    if auth_service._rate_limiter:
+        api._app.state.rate_limiter = auth_service._rate_limiter
 
     router.add_api_route("/token", advanced_login, methods=["POST"])
     router.add_api_route("/v1/auth/refresh", advanced_refresh, methods=["POST"])
