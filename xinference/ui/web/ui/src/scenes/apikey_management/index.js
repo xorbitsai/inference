@@ -829,7 +829,9 @@ function ApiKeyManagement() {
         </DialogTitle>
         <DialogContent>
           {bansData.length === 0 ? (
-            <Typography color="text.secondary">{t('apikeyManagement.noActiveBans')}</Typography>
+            <Typography color="text.secondary">
+              {t('apikeyManagement.noActiveBans')}
+            </Typography>
           ) : (
             <Box>
               {bansData.map((ban, idx) => (
@@ -843,7 +845,9 @@ function ApiKeyManagement() {
                   <Box>
                     <Typography variant="body2">{ban.ip}</Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {t('apikeyManagement.remaining', { seconds: ban.remaining_seconds })}
+                      {t('apikeyManagement.remaining', {
+                        seconds: ban.remaining_seconds,
+                      })}
                     </Typography>
                   </Box>
                   <Button
@@ -859,7 +863,9 @@ function ApiKeyManagement() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setBansDialogOpen(false)}>{t('apikeyManagement.close')}</Button>
+          <Button onClick={() => setBansDialogOpen(false)}>
+            {t('apikeyManagement.close')}
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>
