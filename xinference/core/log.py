@@ -25,6 +25,7 @@ def create_rotating_handler(
     rotation: str = "daily",
     max_bytes: int = 100 * 1024 * 1024,
     formatter: Optional[logging.Formatter] = None,
+    encoding: str = "utf8",
 ) -> logging.Handler:
     """Create a log handler with unified rotation strategy.
 
@@ -40,6 +41,8 @@ def create_rotating_handler(
         Max bytes per file (only used when rotation="size").
     formatter : logging.Formatter, optional
         Formatter to attach to the handler.
+    encoding : str
+        File encoding for log handlers.
     """
     os.makedirs(os.path.dirname(filename), exist_ok=True)
 
@@ -48,12 +51,14 @@ def create_rotating_handler(
             filename=filename,
             when="midnight",
             backupCount=retention_days,
+            encoding=encoding,
         )
     else:
         handler = RotatingFileHandler(
             filename=filename,
             maxBytes=max_bytes,
             backupCount=retention_days,
+            encoding=encoding,
         )
 
     if formatter:

@@ -18,6 +18,7 @@ import logging.handlers
 import os
 import re
 import socket
+import threading
 import time
 import typing
 import weakref
@@ -89,12 +90,15 @@ class StreamToLogger:
         if not message:
             return 0
         self._buffer += message
-        while "\n" in self._buffer:
-            line, self._buffer = self._buffer.split("\n", 1)
-            self._process_line(line)
-        if "\r" in self._buffer:
-            line = self._buffer
-            self._buffer = ""
+        while True:
+            pos_n = self._buffer.find("\n")
+            pos_r = self._buffer.find("\r")
+            if pos_n == -1 and pos_r == -1:
+                break
+            if pos_n != -1 and (pos_r == -1 or pos_n < pos_r):
+                line, self._buffer = self._buffer.split("\n", 1)
+            else:
+                line, self._buffer = self._buffer.split("\r", 1)
             self._process_line(line)
         return len(message)
 
@@ -167,39 +171,54 @@ def install_stream_redirect() -> None:
 class redirect_streams_to_logger:
     """Context manager to temporarily redirect stdout/stderr to logger during model loading."""
 
+    _lock = threading.Lock()
+    _ref_count = 0
+    _original_stdout = None
+    _original_stderr = None
+    _handler_streams = []
+
     def __enter__(self):
         import sys
 
-        self._original_stdout = sys.stdout
-        self._original_stderr = sys.stderr
+        with redirect_streams_to_logger._lock:
+            if redirect_streams_to_logger._ref_count == 0:
+                redirect_streams_to_logger._original_stdout = sys.stdout
+                redirect_streams_to_logger._original_stderr = sys.stderr
 
-        stdout_logger = logging.getLogger("xinference.stdout")
-        stderr_logger = logging.getLogger("xinference.stderr")
-        sys.stdout = StreamToLogger(stdout_logger, self._original_stdout, "stdout")  # type: ignore[assignment]
-        sys.stderr = StreamToLogger(stderr_logger, self._original_stderr, "stderr")  # type: ignore[assignment]
+                stdout_logger = logging.getLogger("xinference.stdout")
+                stderr_logger = logging.getLogger("xinference.stderr")
+                sys.stdout = StreamToLogger(stdout_logger, redirect_streams_to_logger._original_stdout, "stdout")  # type: ignore[assignment]
+                sys.stderr = StreamToLogger(stderr_logger, redirect_streams_to_logger._original_stderr, "stderr")  # type: ignore[assignment]
 
-        self._handler_streams = []
-        for handler in logging.root.handlers:
-            if isinstance(handler, logging.StreamHandler) and not isinstance(
-                handler, logging.FileHandler
-            ):
-                self._handler_streams.append((handler, handler.stream))
-                handler.stream = self._original_stderr
+                redirect_streams_to_logger._handler_streams = []
+                for handler in logging.root.handlers:
+                    if isinstance(handler, logging.StreamHandler) and not isinstance(
+                        handler, logging.FileHandler
+                    ):
+                        redirect_streams_to_logger._handler_streams.append((handler, handler.stream))
+                        handler.stream = redirect_streams_to_logger._original_stderr
+            redirect_streams_to_logger._ref_count += 1
         return self
 
     def __exit__(self, *exc):
         import sys
 
-        if isinstance(sys.stdout, StreamToLogger):
-            sys.stdout.flush()
-        if isinstance(sys.stderr, StreamToLogger):
-            sys.stderr.flush()
+        with redirect_streams_to_logger._lock:
+            redirect_streams_to_logger._ref_count -= 1
+            if redirect_streams_to_logger._ref_count == 0:
+                if isinstance(sys.stdout, StreamToLogger):
+                    sys.stdout.flush()
+                if isinstance(sys.stderr, StreamToLogger):
+                    sys.stderr.flush()
 
-        sys.stdout = self._original_stdout
-        sys.stderr = self._original_stderr
+                sys.stdout = redirect_streams_to_logger._original_stdout
+                sys.stderr = redirect_streams_to_logger._original_stderr
 
-        for handler, original_stream in self._handler_streams:
-            handler.stream = original_stream
+                for handler, original_stream in redirect_streams_to_logger._handler_streams:
+                    handler.stream = original_stream
+                redirect_streams_to_logger._original_stdout = None
+                redirect_streams_to_logger._original_stderr = None
+                redirect_streams_to_logger._handler_streams = []
         return False
 
 
@@ -363,7 +382,7 @@ def get_config_dict(
             "level": log_level,
             "filename": log_file_path,
             "when": "midnight",
-            "backupCount": XINFERENCE_LOG_RETENTION_DAYS,
+            "backupCount": log_backup_count,
             "encoding": "utf8",
         }
     else:

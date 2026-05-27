@@ -46,16 +46,15 @@ async def _start_local_cluster(
     logging_conf: Optional[Dict] = None,
     conn: Optional[Connection] = None,
 ):
-    from .utils import AddressFormatter, JsonFileFormatter, create_worker_actor_pool
+    from .utils import create_worker_actor_pool, update_all_formatter_addresses
 
     if logging_conf:
         logging.config.dictConfig(logging_conf)  # type: ignore
 
-    AddressFormatter.update_address("local", address)
-    JsonFileFormatter.update_address("local", address)
+    update_all_formatter_addresses("local", address)
     if logging_conf and "formatters" in logging_conf:
-        if "json_formatter" in logging_conf["formatters"]:
-            logging_conf["formatters"]["json_formatter"]["address"] = address
+        for formatter in logging_conf["formatters"].values():
+            formatter["address"] = address
 
     pool = None
     try:
