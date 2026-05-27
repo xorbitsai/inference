@@ -14,6 +14,7 @@ import {
   PeopleOutlined,
   Psychology,
   RocketLaunchOutlined,
+  SecurityOutlined,
   SmartToyOutlined,
   VpnKeyOutlined,
 } from '@mui/icons-material'
@@ -161,6 +162,13 @@ const MenuSide = () => {
     ...(authAdvanced
       ? [
           {
+            text: 'audit_log',
+            label: t('menu.auditLog') || 'Audit Log',
+            icon: <ArticleOutlined />,
+            action: 'navigate',
+            path: '/audit_log',
+          },
+          {
             text: 'user_management',
             label: t('menu.userManagement'),
             icon: <PeopleOutlined />,
@@ -173,6 +181,13 @@ const MenuSide = () => {
             icon: <VpnKeyOutlined />,
             action: 'navigate',
             path: '/apikey_management',
+          },
+          {
+            text: 'security_settings',
+            label: t('menu.securitySettings') || 'Security',
+            icon: <SecurityOutlined />,
+            action: 'navigate',
+            path: '/security_settings',
           },
         ]
       : []),

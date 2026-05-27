@@ -111,6 +111,7 @@ class RESTfulAPI(CancelMixin):
         self._event_collector_ref = None
         self._advanced_auth_service = None
         self._auth_service: Any = None
+        self._uid_to_model_name: dict = {}
 
         if XINFERENCE_AUTH_ADVANCED and auth_config_file:
             raise SystemExit(
@@ -196,10 +197,64 @@ class RESTfulAPI(CancelMixin):
         if not self._advanced_auth_service.validate_model_access(
             token, model_uid, model_type
         ):
+            self._record_audit(request, model_uid, model_type or "", "denied")
             raise HTTPException(
                 status_code=403,
                 detail=f"API key does not have access to model: {model_uid}",
             )
+        # Store audit context for deferred recording after request completes
+        request.state._audit_model_uid = model_uid
+        request.state._audit_model_type = model_type or ""
+
+    def _record_audit(
+        self, request, model_uid: str, model_type: str, status: str, latency_s: float = 0.0
+    ):
+        if not self._advanced_auth_service:
+            return
+        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        if not token:
+            return
+        from .oauth2.advanced.crypto import sha256_hex
+
+        key_hash = sha256_hex(token)
+        entry = self._advanced_auth_service.cache.get(key_hash)
+        if not entry:
+            return
+
+        user = self._advanced_auth_service.db.get_user_by_id(entry.user_id)
+        username = user["username"] if user else ""
+
+        model_name = getattr(request.state, "model_name", "") or self._uid_to_model_name.get(model_uid, "") or ""
+
+        from .oauth2.advanced.audit import record_audit_event
+        from ..core.metrics import api_key_request_duration_seconds, api_key_requests_total
+
+        record_audit_event(
+            user=username,
+            api_key_name=entry.name or "",
+            api_key_prefix=entry.key_prefix,
+            model_id=model_uid,
+            model_name=model_name,
+            model_type=model_type,
+            endpoint=request.url.path,
+            status=status,
+            latency_ms=round(latency_s * 1000, 1),
+            client_ip=request.client.host if request.client else "",
+            category="inference",
+            auth_type="api_key",
+        )
+        api_key_requests_total.inc(
+            {
+                "user": username,
+                "api_key_name": entry.name or "",
+                "model_id": model_uid,
+                "model_type": model_type,
+                "status": status,
+            }
+        )
+        api_key_request_duration_seconds.observe(
+            {"model_id": model_uid, "model_type": model_type, "model_name": model_name}, latency_s
+        )
 
     @staticmethod
     def handle_request_limit_error(e: Exception):
@@ -289,6 +344,24 @@ class RESTfulAPI(CancelMixin):
             response = await call_next(request)
             return response
 
+        @self._app.middleware("http")
+        async def audit_middleware(request: Request, call_next):
+            import time as _time
+            _start = _time.perf_counter()
+            response = await call_next(request)
+            model_uid = getattr(request.state, "_audit_model_uid", "")
+            if model_uid:
+                latency_s = _time.perf_counter() - _start
+                if response.status_code < 400:
+                    audit_status = "success"
+                elif response.status_code == 404:
+                    audit_status = "model_not_found"
+                else:
+                    audit_status = "error"
+                model_type = getattr(request.state, "_audit_model_type", "")
+                self._record_audit(request, model_uid, model_type, audit_status, latency_s)
+            return response
+
         # Initialise OpenTelemetry tracing & metrics (no-op when disabled)
         if XINFERENCE_ENABLE_OTEL:
             try:
@@ -322,12 +395,19 @@ class RESTfulAPI(CancelMixin):
 
             register_advanced_auth_routes(self)
 
-            # Register OIDC routes if configured
+            from .oauth2.advanced.security_routes import register_security_routes
+
+            register_security_routes(self)
+
             from ..constants import XINFERENCE_OIDC_ENABLED
 
             if XINFERENCE_OIDC_ENABLED:
-                from .oauth2.advanced.oidc import register_oidc_routes
+                from .oauth2.advanced.oidc import (
+                    register_oidc_routes,
+                    validate_oidc_config,
+                )
 
+                validate_oidc_config()
                 register_oidc_routes(self)
 
         if XINFERENCE_DISABLE_METRICS:
@@ -506,6 +586,9 @@ class RESTfulAPI(CancelMixin):
 
             model_list = []
             for model_id, model_info in models.items():
+                self._uid_to_model_name[model_id] = model_info.get("model_name", model_id)
+                from .oauth2.advanced.audit import update_model_cache
+                update_model_cache(model_id, model_info.get("model_name", model_id), model_info.get("model_type", ""))
                 model_list.append(
                     {
                         "id": model_id,
@@ -701,6 +784,11 @@ class RESTfulAPI(CancelMixin):
         from xinference.api.utils import invalidate_model_not_found_cache
 
         invalidate_model_not_found_cache(model_uid)
+
+        if model_name and model_uid:
+            self._uid_to_model_name[model_uid] = model_name
+            from .oauth2.advanced.audit import update_model_cache
+            update_model_cache(model_uid, model_name, model_type or "")
 
         return JSONResponse(content={"model_uid": model_uid})
 

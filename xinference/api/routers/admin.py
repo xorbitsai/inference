@@ -539,6 +539,114 @@ async def search_logs_context(
 # --- Route registration ---
 
 
+async def search_audit_logs(
+    time_from: str = "now-1h",
+    time_to: str = "now",
+    user: str = "",
+    api_key_name: str = "",
+    model_id: str = "",
+    model_name: str = "",
+    model_type: str = "",
+    category: str = "",
+    auth_type: str = "",
+    status: str = "",
+    client_ip: str = "",
+    page_from: int = 0,
+    size: int = 50,
+) -> JSONResponse:
+    es_url = os.environ.get("XINFERENCE_ES_URL", "")
+    if not es_url:
+        raise HTTPException(status_code=503, detail="Elasticsearch is not configured")
+
+    from ...constants import XINFERENCE_AUDIT_ES_INDEX
+
+    es_index = XINFERENCE_AUDIT_ES_INDEX
+    es_auth = os.environ.get("XINFERENCE_ES_AUTH", "")
+
+    size = max(1, min(size, 500))
+    page_from = max(0, min(page_from, 10000 - size))
+
+    must: list[dict[str, Any]] = []
+    filter_clauses: list[dict[str, Any]] = [
+        {"range": {"@timestamp": {"gte": time_from, "lte": time_to}}}
+    ]
+
+    for field_name, value in [
+        ("user", user),
+        ("api_key_name", api_key_name),
+        ("model_id", model_id),
+        ("model_name", model_name),
+        ("client_ip", client_ip),
+    ]:
+        if value:
+            filter_clauses.append({"term": {field_name: value}})
+
+    for field_name, value in [
+        ("model_type", model_type),
+        ("category", category),
+        ("auth_type", auth_type),
+        ("status", status),
+    ]:
+        if value:
+            terms = [v.strip() for v in value.split(",") if v.strip()]
+            if len(terms) == 1:
+                filter_clauses.append({"term": {field_name: terms[0]}})
+            else:
+                filter_clauses.append({"terms": {field_name: terms}})
+
+    body: dict[str, Any] = {
+        "query": {"bool": {"must": must, "filter": filter_clauses}},
+        "sort": [{"@timestamp": "desc"}],
+        "from": page_from,
+        "size": size,
+    }
+
+    headers = {"Content-Type": "application/json"}
+    auth = None
+    if es_auth:
+        if es_auth.startswith("ApiKey "):
+            headers["Authorization"] = es_auth
+        else:
+            parts = es_auth.split(":", 1)
+            if len(parts) == 2:
+                auth = aiohttp.BasicAuth(parts[0], parts[1])
+
+    url = f"{es_url.rstrip('/')}/{es_index}/_search"
+
+    try:
+        timeout = aiohttp.ClientTimeout(total=10)
+        async with aiohttp.ClientSession(timeout=timeout, auth=auth) as session:
+            async with session.post(url, json=body, headers=headers) as resp:
+                if resp.status != 200:
+                    text = await resp.text()
+                    logger.error(
+                        "ES audit query failed: status=%d body=%s",
+                        resp.status,
+                        text[:500],
+                    )
+                    raise HTTPException(
+                        status_code=502, detail="Elasticsearch query failed"
+                    )
+                data = await resp.json()
+    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        logger.error("ES connection error or timeout: %s", e)
+        raise HTTPException(
+            status_code=502,
+            detail="Audit service unavailable",
+        )
+
+    hits = [hit["_source"] for hit in data.get("hits", {}).get("hits", [])]
+    total_value = data.get("hits", {}).get("total", {})
+    total = (
+        total_value.get("value", 0) if isinstance(total_value, dict) else total_value
+    )
+
+    return JSONResponse(content={"hits": hits, "total": total})
+
+
+# --- Route registration (original) ---
+
+
 def register_routes(api: "RESTfulAPI") -> None:
     router = api._router
     auth = api._auth_service
@@ -643,6 +751,13 @@ def register_routes(api: "RESTfulAPI") -> None:
     router.add_api_route(
         "/v1/cluster/logs/context",
         search_logs_context,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+
+    router.add_api_route(
+        "/v1/audit/search",
+        search_audit_logs,
         methods=["GET"],
         dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
     )
