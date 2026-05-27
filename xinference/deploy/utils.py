@@ -357,7 +357,7 @@ def get_config_dict(
     log_max_bytes: int,
     role: str = "",
     address: str = "",
-    rotation: str = "daily",
+    rotation: Optional[str] = None,
 ) -> dict:
     from ..constants import (
         XINFERENCE_LOG_CONSOLE,

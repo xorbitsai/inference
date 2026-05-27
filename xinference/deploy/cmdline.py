@@ -36,8 +36,8 @@ from ..constants import (
     XINFERENCE_DEFAULT_ENDPOINT_PORT,
     XINFERENCE_DEFAULT_LOCAL_HOST,
     XINFERENCE_ENV_ENDPOINT,
+    XINFERENCE_LOG_BACKUP_COUNT,
     XINFERENCE_LOG_MAX_BYTES,
-    XINFERENCE_LOG_RETENTION_DAYS,
 )
 from .utils import (
     get_config_dict,
@@ -104,7 +104,7 @@ def start_local_cluster(
     dict_config = get_config_dict(
         log_level,
         get_log_file(f"local_{get_timestamp_ms()}"),
-        XINFERENCE_LOG_RETENTION_DAYS,
+        XINFERENCE_LOG_BACKUP_COUNT,
         XINFERENCE_LOG_MAX_BYTES,
         role="local",
         address=f"{host}:{port}",
@@ -282,7 +282,7 @@ def supervisor(
     dict_config = get_config_dict(
         log_level,
         get_log_file(f"supervisor_{get_timestamp_ms()}"),
-        XINFERENCE_LOG_RETENTION_DAYS,
+        XINFERENCE_LOG_BACKUP_COUNT,
         XINFERENCE_LOG_MAX_BYTES,
         role="supervisor",
         address=f"{host}:{supervisor_port or ''}",
@@ -347,7 +347,7 @@ def worker(
     dict_config = get_config_dict(
         log_level,
         get_log_file(f"worker_{get_timestamp_ms()}"),
-        XINFERENCE_LOG_RETENTION_DAYS,
+        XINFERENCE_LOG_BACKUP_COUNT,
         XINFERENCE_LOG_MAX_BYTES,
         role="worker",
         address=f"{host}:{worker_port or ''}",

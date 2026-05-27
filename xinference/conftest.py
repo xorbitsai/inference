@@ -30,7 +30,7 @@ if os.environ.get("GITHUB_ACTIONS"):
     os.environ["XINFERENCE_DISABLE_HEALTH_CHECK"] = "1"
 
 from .api.oauth2.types import AuthConfig, AuthStartupConfig, User
-from .constants import XINFERENCE_LOG_MAX_BYTES, XINFERENCE_LOG_RETENTION_DAYS
+from .constants import XINFERENCE_LOG_BACKUP_COUNT, XINFERENCE_LOG_MAX_BYTES
 from .core.supervisor import SupervisorActor
 from .deploy.utils import create_worker_actor_pool, get_log_file, get_timestamp_ms
 from .deploy.worker import start_worker_components
@@ -87,7 +87,7 @@ TEST_FILE_LOGGING_CONF = {
             "filename": TEST_LOG_FILE_PATH,
             "mode": "a",
             "maxBytes": XINFERENCE_LOG_MAX_BYTES,
-            "backupCount": XINFERENCE_LOG_RETENTION_DAYS,
+            "backupCount": XINFERENCE_LOG_BACKUP_COUNT,
             "encoding": "utf8",
         },
     },
