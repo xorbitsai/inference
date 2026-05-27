@@ -1,0 +1,42 @@
+xinference/api/restful_api.py
+  fb8e9e67d146b77d 325-332
+xinference/api/oauth2/advanced/database.py
+  fb8e9e67d146b77d 104-112
+xinference/api/oauth2/advanced/auth_service.py
+  fb8e9e67d146b77d 281,283-292,352-353,355,389-391,393-404,406-407,412-413,451,468,475
+xinference/api/oauth2/advanced/routes.py
+  fb8e9e67d146b77d 61-66,416-418
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.16",
+  "base_commit_sha": "b55fc6905db186db28e560805363468a3369edff",
+  "prompts": {
+    "24a37d7e2404fe6a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "aa65b541-80bc-4c04-9dca-f26866af9835",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 6593,
+      "overriden_lines": 0
+    },
+    "fb8e9e67d146b77d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f05862f3-da69-4276-a28a-6b0d75820c53",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 101,
+      "total_deletions": 62,
+      "accepted_lines": 97,
+      "overriden_lines": 5
+    }
+  }
+}
