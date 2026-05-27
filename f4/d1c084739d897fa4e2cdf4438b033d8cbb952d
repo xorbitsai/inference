@@ -1,0 +1,25 @@
+xinference/api/oauth2/advanced/routes.py
+  fb8e9e67d146b77d 61
+xinference/api/oauth2/advanced/auth_service.py
+  fb8e9e67d146b77d 281-286
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.16",
+  "base_commit_sha": "f4d1c084739d897fa4e2cdf4438b033d8cbb952d",
+  "prompts": {
+    "fb8e9e67d146b77d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f05862f3-da69-4276-a28a-6b0d75820c53",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 7,
+      "total_deletions": 26,
+      "accepted_lines": 7,
+      "overriden_lines": 0
+    }
+  }
+}
