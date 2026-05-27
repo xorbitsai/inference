@@ -30,6 +30,7 @@ import {
   FormControl,
   IconButton,
   InputAdornment,
+  Menu,
   MenuItem,
   MenuList,
   Popover,
@@ -79,6 +80,14 @@ const TIME_RANGES = [
 ]
 
 const PAGE_SIZE = 200
+
+const REFRESH_OPTIONS = [
+  { labelKey: 'monitoring.refresh.off', value: 0 },
+  { labelKey: 'monitoring.refresh.10s', value: 10000 },
+  { labelKey: 'monitoring.refresh.30s', value: 30000 },
+  { labelKey: 'monitoring.refresh.1m', value: 60000 },
+  { labelKey: 'monitoring.refresh.5m', value: 300000 },
+]
 
 const DATE_TIME_SLOT_PROPS = {
   textField: {
@@ -805,6 +814,12 @@ const Logs = () => {
   const [customTo, setCustomTo] = useState(null)
   const [timeAnchor, setTimeAnchor] = useState(null)
 
+  // Auto refresh
+  const [refreshInterval, setRefreshInterval] = useState(0)
+  const [refreshLabel, setRefreshLabel] = useState('monitoring.refresh.off')
+  const [refreshAnchor, setRefreshAnchor] = useState(null)
+  const refreshTimerRef = useRef(null)
+
   const debounceRef = useRef(null)
 
   useEffect(() => {
@@ -886,6 +901,20 @@ const Logs = () => {
   useEffect(() => {
     fetchLogs()
   }, [fetchLogs])
+
+  // Auto refresh timer
+  useEffect(() => {
+    if (refreshTimerRef.current) {
+      clearInterval(refreshTimerRef.current)
+      refreshTimerRef.current = null
+    }
+    if (refreshInterval > 0) {
+      refreshTimerRef.current = setInterval(() => fetchLogs(), refreshInterval)
+    }
+    return () => {
+      if (refreshTimerRef.current) clearInterval(refreshTimerRef.current)
+    }
+  }, [refreshInterval, fetchLogs])
 
   const handleSearchChange = (e) => {
     const val = e.target.value
@@ -1197,6 +1226,37 @@ const Logs = () => {
             <RefreshIcon fontSize="small" />
           </IconButton>
         </Tooltip>
+
+        {/* Auto Refresh Interval */}
+        <Button
+          size="small"
+          color="inherit"
+          startIcon={<RefreshIcon fontSize="small" />}
+          onClick={(e) => setRefreshAnchor(e.currentTarget)}
+          sx={{ textTransform: 'none', fontSize: FONT_SIZE }}
+        >
+          {t(refreshLabel)}
+        </Button>
+        <Menu
+          anchorEl={refreshAnchor}
+          open={Boolean(refreshAnchor)}
+          onClose={() => setRefreshAnchor(null)}
+        >
+          {REFRESH_OPTIONS.map((item) => (
+            <MenuItem
+              key={item.labelKey}
+              selected={item.labelKey === refreshLabel}
+              onClick={() => {
+                setRefreshInterval(item.value)
+                setRefreshLabel(item.labelKey)
+                setRefreshAnchor(null)
+              }}
+              sx={{ fontSize: FONT_SIZE }}
+            >
+              {t(item.labelKey)}
+            </MenuItem>
+          ))}
+        </Menu>
       </Toolbar>
 
       {/* Active Field Filters */}

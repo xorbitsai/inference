@@ -17,9 +17,25 @@ const apiBase = getBaseUrl()
 
 let isRefreshing = false
 let refreshPromise = null
+let failedQueue = []
+
+const processQueue = (success) => {
+  failedQueue.forEach((prom) => {
+    if (success) {
+      prom.resolve()
+    } else {
+      prom.reject()
+    }
+  })
+  failedQueue = []
+}
 
 const tryRefreshToken = async () => {
-  if (isRefreshing) return refreshPromise
+  if (isRefreshing) {
+    return new Promise((resolve, reject) => {
+      failedQueue.push({ resolve, reject })
+    })
+  }
   const refreshToken = sessionStorage.getItem('refresh_token')
   if (!refreshToken) return false
   isRefreshing = true
@@ -36,11 +52,16 @@ const tryRefreshToken = async () => {
         if (data.refresh_token) {
           sessionStorage.setItem('refresh_token', data.refresh_token)
         }
+        processQueue(true)
         return true
       }
+      processQueue(false)
       return false
     })
-    .catch(() => false)
+    .catch(() => {
+      processQueue(false)
+      return false
+    })
     .finally(() => {
       isRefreshing = false
       refreshPromise = null
@@ -63,7 +84,7 @@ const fetchWithRetry = async (url, options) => {
   const response = await fetch(url, options)
   if (response.status === 401 && sessionStorage.getItem('refresh_token')) {
     const refreshed = await tryRefreshToken()
-    if (refreshed) {
+    if (refreshed === true || refreshed === undefined) {
       const newHeaders = {
         ...options.headers,
         Authorization: 'Bearer ' + sessionStorage.getItem('token'),

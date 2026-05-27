@@ -1,6 +1,7 @@
 import BlockIcon from '@mui/icons-material/Block'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import DeleteIcon from '@mui/icons-material/Delete'
+import EditIcon from '@mui/icons-material/Edit'
 import {
   Alert,
   Box,
@@ -47,6 +48,9 @@ function UserManagement() {
   const [newPassword, setNewPassword] = useState('')
   const [selectedPerms, setSelectedPerms] = useState([])
   const [snackError, setSnackError] = useState('')
+  const [editPermOpen, setEditPermOpen] = useState(false)
+  const [editingUser, setEditingUser] = useState(null)
+  const [editPerms, setEditPerms] = useState([])
 
   const loadUsers = async () => {
     try {
@@ -118,6 +122,40 @@ function UserManagement() {
     }
   }
 
+  const handleEditPermissions = (user) => {
+    setEditingUser(user)
+    setEditPerms(user.permissions || [])
+    setEditPermOpen(true)
+  }
+
+  const handleEditPermToggle = (perm) => {
+    setEditPerms((prev) =>
+      prev.includes(perm) ? prev.filter((p) => p !== perm) : [...prev, perm]
+    )
+  }
+
+  const handleEditSelectAll = () => {
+    if (editPerms.length === ALL_PERMISSION_VALUES.length) {
+      setEditPerms([])
+    } else {
+      setEditPerms([...ALL_PERMISSION_VALUES])
+    }
+  }
+
+  const handleSavePermissions = async () => {
+    try {
+      await fetchWrapper.put(
+        `/v1/admin/users/${editingUser.id}/permissions`,
+        { permissions: editPerms }
+      )
+      setEditPermOpen(false)
+      setEditingUser(null)
+      loadUsers()
+    } catch (e) {
+      setSnackError(e.message || String(e))
+    }
+  }
+
   const columns = [
     { field: 'id', headerName: t('userManagement.id'), width: 60 },
     { field: 'username', headerName: t('userManagement.username'), width: 150 },
@@ -164,6 +202,14 @@ function UserManagement() {
       width: 150,
       renderCell: (params) => (
         <Box>
+          <Tooltip title={t('userManagement.editPermissions') || 'Edit Permissions'}>
+            <IconButton
+              size="small"
+              onClick={() => handleEditPermissions(params.row)}
+            >
+              <EditIcon />
+            </IconButton>
+          </Tooltip>
           <Tooltip
             title={
               params.row.enabled
@@ -292,6 +338,86 @@ function UserManagement() {
           </Button>
           <Button variant="contained" onClick={handleCreate}>
             {t('userManagement.create')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Permissions Dialog */}
+      <Dialog
+        open={editPermOpen}
+        onClose={() => setEditPermOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {t('userManagement.editPermissionsTitle') || 'Edit Permissions'}{' '}
+          {editingUser && `- ${editingUser.username}`}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 1 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Typography variant="subtitle2">
+                {t('userManagement.permissions')}
+              </Typography>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={
+                      editPerms.length === ALL_PERMISSION_VALUES.length
+                    }
+                    indeterminate={
+                      editPerms.length > 0 &&
+                      editPerms.length < ALL_PERMISSION_VALUES.length
+                    }
+                    onChange={handleEditSelectAll}
+                  />
+                }
+                label={t('userManagement.selectAll')}
+              />
+            </Box>
+            <Divider sx={{ mb: 1 }} />
+            {ALL_PERMISSIONS.map((group) => (
+              <Box key={group.group} sx={{ mb: 1 }}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ fontWeight: 'bold' }}
+                >
+                  {group.group}
+                </Typography>
+                <FormGroup row>
+                  {group.items.map((perm) => (
+                    <FormControlLabel
+                      key={perm}
+                      control={
+                        <Checkbox
+                          size="small"
+                          checked={editPerms.includes(perm)}
+                          onChange={() => handleEditPermToggle(perm)}
+                        />
+                      }
+                      label={t(`permissions.${perm.replace(/:/g, '_')}`, perm)}
+                      sx={{ mr: 2 }}
+                    />
+                  ))}
+                </FormGroup>
+              </Box>
+            ))}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditPermOpen(false)}>
+            {t('userManagement.cancel')}
+          </Button>
+          <Button variant="contained" onClick={handleSavePermissions}>
+            {t('userManagement.save') || 'Save'}
           </Button>
         </DialogActions>
       </Dialog>
