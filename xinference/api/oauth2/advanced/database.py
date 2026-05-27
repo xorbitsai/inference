@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS api_keys (
     key_encrypted TEXT NOT NULL,
     key_prefix TEXT NOT NULL,
     name TEXT,
+    description TEXT,
     enabled INTEGER DEFAULT 1,
     expires_at TIMESTAMP,
     encryption_version INTEGER DEFAULT 1,
@@ -94,6 +95,11 @@ class Database:
         Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
         with self._get_conn() as conn:
             conn.executescript(SCHEMA_SQL)
+            # Schema migrations for existing databases
+            cursor = conn.execute("PRAGMA table_info(api_keys)")
+            columns = {row[1] for row in cursor.fetchall()}
+            if "description" not in columns:
+                conn.execute("ALTER TABLE api_keys ADD COLUMN description TEXT")
 
     @contextmanager
     def _get_conn(self):
@@ -165,6 +171,21 @@ class Database:
             row = conn.execute(
                 "SELECT * FROM users WHERE username = ? AND source = ?",
                 (username, source),
+            ).fetchone()
+            if not row:
+                return None
+            user = dict(row)
+            perms = conn.execute(
+                "SELECT permission FROM user_permissions WHERE user_id = ?",
+                (user["id"],),
+            ).fetchall()
+            user["permissions"] = [p["permission"] for p in perms]
+            return user
+
+    def get_user_by_oidc_sub(self, oidc_sub: str) -> Optional[Dict[str, Any]]:
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT * FROM users WHERE oidc_sub = ?", (oidc_sub,)
             ).fetchone()
             if not row:
                 return None
@@ -251,6 +272,7 @@ class Database:
         key_encrypted: str,
         key_prefix: str,
         name: Optional[str] = None,
+        description: Optional[str] = None,
         expires_at: Optional[str] = None,
         rate_limit_max_failures: Optional[int] = None,
         rate_limit_window_seconds: Optional[int] = None,
@@ -260,15 +282,16 @@ class Database:
         with self._lock:
             with self._get_conn() as conn:
                 cursor = conn.execute(
-                    """INSERT INTO api_keys (user_id, key_hash, key_encrypted, key_prefix, name, expires_at,
+                    """INSERT INTO api_keys (user_id, key_hash, key_encrypted, key_prefix, name, description, expires_at,
                        rate_limit_max_failures, rate_limit_window_seconds, rate_limit_ban_seconds)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
                         user_id,
                         key_hash,
                         key_encrypted,
                         key_prefix,
                         name,
+                        description,
                         expires_at,
                         rate_limit_max_failures,
                         rate_limit_window_seconds,

@@ -14,6 +14,8 @@
     "collapse": "折叠",
     "userManagement": "用户管理",
     "apikeyManagement": "API Key 管理",
+    "securitySettings": "安全设置",
+    "auditLog": "审计中心",
     "logout": "退出登录"
   },
   "auth": {
@@ -391,7 +393,10 @@
     "cancel": "取消",
     "create": "创建",
     "confirmDelete": "确定删除用户",
-    "selectAll": "全选"
+    "selectAll": "全选",
+    "editPermissions": "编辑权限",
+    "editPermissionsTitle": "编辑权限",
+    "save": "保存"
   },
   "permissions": {
     "admin": "管理员",
@@ -450,6 +455,67 @@
     "editPermTitle": "编辑模型权限 —",
     "mixedMode": "按类型 + 按实例（混合）",
     "modelInstances": "模型实例",
-    "permissionsSaved": "权限已保存"
+    "permissionsSaved": "权限已保存",
+    "bans": "封禁数",
+    "description": "申请理由",
+    "descriptionLabel": "申请理由（可选）"
+  },
+  "securitySettings": {
+    "title": "安全设置",
+    "rateLimitConfig": "频率限制配置",
+    "ipLayer": "IP 层",
+    "keyLayer": "Key 层（默认）",
+    "maxFailures": "最大失败次数",
+    "windowSeconds": "时间窗口（秒）",
+    "banSeconds": "封禁时长（秒）",
+    "saveConfig": "保存配置",
+    "bannedIps": "已封禁 IP",
+    "bannedIpsDesc": "同一 IP 使用不存在的 Key 或无效 Token 请求，在时间窗口内超过最大失败次数后自动封禁。封禁期间该 IP 的所有请求均被拒绝（封禁时长由 IP 层配置决定）",
+    "noBannedIps": "无封禁 IP",
+    "bannedKeys": "已封禁 (IP, Key) 对",
+    "bannedKeysDesc": "同一 IP 使用已过期或已禁用的 Key 请求，在时间窗口内超过最大失败次数后自动封禁。封禁期间仅该 IP + Key 组合被拒绝，使用其他 Key 不受影响（封禁时长由 Key 层配置决定）",
+    "noBannedKeys": "无封禁记录",
+    "ip": "IP",
+    "keyId": "Key ID",
+    "remaining": "剩余时间（秒）",
+    "action": "操作",
+    "unbanAll": "全部解禁"
+  },
+  "auditLog": {
+    "title": "审计中心",
+    "time": "时间",
+    "user": "用户",
+    "apiKey": "API Key",
+    "model": "模型",
+    "type": "类型",
+    "status": "状态",
+    "clientIp": "客户端IP",
+    "modelId": "模型ID",
+    "modelName": "模型名称",
+    "endpoint": "端点",
+    "latency": "耗时 (ms)",
+    "timeFrom": "开始时间",
+    "timeTo": "结束时间",
+    "search": "查询",
+    "noData": "无审计记录",
+    "custom": "自定义",
+    "totalRecords": "共 {{count}} 条",
+    "prevPage": "上一页",
+    "nextPage": "下一页",
+    "tableTab": "表格",
+    "jsonTab": "JSON",
+    "detailField": "字段",
+    "detailValue": "值",
+    "copyJson": "复制 JSON",
+    "copied": "已复制",
+    "modelType": "模型类型",
+    "category": "分类",
+    "category_inference": "模型推理",
+    "category_admin": "管理操作",
+    "category_auth": "认证"
+  },
+  "login": {
+    "or": "或",
+    "sso": "SSO 登录"
   }
 }

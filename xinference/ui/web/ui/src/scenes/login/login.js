@@ -1,11 +1,12 @@
-import { Box } from '@mui/material'
+import { Box, Divider } from '@mui/material'
 import Button from '@mui/material/Button'
 import Container from '@mui/material/Container'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import * as React from 'react'
-import { Fragment, useContext, useState } from 'react'
+import { Fragment, useContext, useEffect, useState } from 'react'
 import { useCookies } from 'react-cookie'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../../components/apiContext'
@@ -14,12 +15,27 @@ import { getEndpoint } from '../../components/utils'
 import Header from './header'
 
 function Login() {
+  const { t } = useTranslation()
   const [, setCookie] = useCookies(['token'])
   const navigate = useNavigate()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [oidcEnabled, setOidcEnabled] = useState(false)
   const { setErrorMsg } = useContext(ApiContext)
   const endpoint = getEndpoint()
+
+  useEffect(() => {
+    fetch(endpoint + '/v1/cluster/ui_config', {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    }).then((res) => {
+      if (res.ok) {
+        res.json().then((data) => {
+          setOidcEnabled(data.oidc_enabled || false)
+        })
+      }
+    })
+  }, [])
 
   const handleSubmit = () => {
     fetch(endpoint + '/token', {
@@ -110,6 +126,21 @@ function Login() {
             >
               Sign In
             </Button>
+            {oidcEnabled && (
+              <>
+                <Divider sx={{ my: 2 }}>{t('login.or')}</Divider>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  sx={{ mb: 2 }}
+                  onClick={() => {
+                    window.location.href = endpoint + '/api/oidc/authorize'
+                  }}
+                >
+                  {t('login.sso')}
+                </Button>
+              </>
+            )}
           </Box>
         </Box>
       </Container>
