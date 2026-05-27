@@ -40,21 +40,28 @@ function SecuritySettings() {
   }
 
   const fetchConfig = () => {
-    fetch(endpoint + '/v1/admin/security/rate-limit', { headers }).then((res) => {
-      if (res.ok) res.json().then(setConfig)
-    })
+    fetch(endpoint + '/v1/admin/security/rate-limit', { headers })
+      .then((res) => {
+        if (res.ok) res.json().then(setConfig)
+        else setErrorMsg('Failed to fetch config')
+      })
+      .catch(() => setErrorMsg('Network error'))
   }
 
   const fetchBannedIps = () => {
-    fetch(endpoint + '/v1/admin/security/banned-ips', { headers }).then((res) => {
-      if (res.ok) res.json().then(setBannedIps)
-    })
+    fetch(endpoint + '/v1/admin/security/banned-ips', { headers })
+      .then((res) => {
+        if (res.ok) res.json().then(setBannedIps)
+      })
+      .catch(() => setErrorMsg('Network error'))
   }
 
   const fetchBannedKeys = () => {
-    fetch(endpoint + '/v1/admin/security/banned-keys', { headers }).then((res) => {
-      if (res.ok) res.json().then(setBannedKeys)
-    })
+    fetch(endpoint + '/v1/admin/security/banned-keys', { headers })
+      .then((res) => {
+        if (res.ok) res.json().then(setBannedKeys)
+      })
+      .catch(() => setErrorMsg('Network error'))
   }
 
   useEffect(() => {
@@ -129,7 +136,7 @@ function SecuritySettings() {
                 onChange={(e) =>
                   setConfig({
                     ...config,
-                    ip: { ...config.ip, max_failures: parseInt(e.target.value) },
+                    ip: { ...config.ip, max_failures: parseInt(e.target.value) || '' },
                   })
                 }
               />
@@ -144,7 +151,7 @@ function SecuritySettings() {
                 onChange={(e) =>
                   setConfig({
                     ...config,
-                    ip: { ...config.ip, window_seconds: parseInt(e.target.value) },
+                    ip: { ...config.ip, window_seconds: parseInt(e.target.value) || '' },
                   })
                 }
               />
@@ -159,7 +166,7 @@ function SecuritySettings() {
                 onChange={(e) =>
                   setConfig({
                     ...config,
-                    ip: { ...config.ip, ban_seconds: parseInt(e.target.value) },
+                    ip: { ...config.ip, ban_seconds: parseInt(e.target.value) || '' },
                   })
                 }
               />
@@ -178,7 +185,7 @@ function SecuritySettings() {
                 onChange={(e) =>
                   setConfig({
                     ...config,
-                    key: { ...config.key, max_failures: parseInt(e.target.value) },
+                    key: { ...config.key, max_failures: parseInt(e.target.value) || '' },
                   })
                 }
               />
@@ -193,7 +200,7 @@ function SecuritySettings() {
                 onChange={(e) =>
                   setConfig({
                     ...config,
-                    key: { ...config.key, window_seconds: parseInt(e.target.value) },
+                    key: { ...config.key, window_seconds: parseInt(e.target.value) || '' },
                   })
                 }
               />
@@ -208,7 +215,7 @@ function SecuritySettings() {
                 onChange={(e) =>
                   setConfig({
                     ...config,
-                    key: { ...config.key, ban_seconds: parseInt(e.target.value) },
+                    key: { ...config.key, ban_seconds: parseInt(e.target.value) || '' },
                   })
                 }
               />
