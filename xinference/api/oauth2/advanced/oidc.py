@@ -17,13 +17,14 @@ from __future__ import annotations
 
 import logging
 import secrets
-from typing import TYPE_CHECKING, Optional
+import time
+from typing import TYPE_CHECKING
+from urllib.parse import urlencode
 
 from fastapi import HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.responses import Response
 
-from ...responses import JSONResponse
 from ..advanced.auth_service import AdvancedAuthService
 
 if TYPE_CHECKING:
@@ -37,30 +38,22 @@ _state_store: dict = {}
 _JWKS_CACHE_TTL = 86400  # 24 hours
 
 
+class OIDCConfig:
+    def __init__(self, issuer: str):
+        self._issuer = issuer
+        self._well_known = None
+        self._jwks_data = None
+        self._jwks_fetched_at = 0.0
+
+
 def _get_oidc_client():
     global _oidc_client
     if _oidc_client is not None:
         return _oidc_client
 
-    from authlib.integrations.httpx_client import AsyncOAuth2Client
+    from ....constants import XINFERENCE_OIDC_ISSUER
 
-    from ....constants import (
-        XINFERENCE_OIDC_CLIENT_ID,
-        XINFERENCE_OIDC_CLIENT_SECRET,
-        XINFERENCE_OIDC_ISSUER,
-        XINFERENCE_OIDC_REDIRECT_URI,
-    )
-
-    _oidc_client = AsyncOAuth2Client(
-        client_id=XINFERENCE_OIDC_CLIENT_ID,
-        client_secret=XINFERENCE_OIDC_CLIENT_SECRET,
-        redirect_uri=XINFERENCE_OIDC_REDIRECT_URI,
-        scope="openid profile email",
-    )
-    _oidc_client._issuer = XINFERENCE_OIDC_ISSUER
-    _oidc_client._well_known = None
-    _oidc_client._jwks_data = None
-    _oidc_client._jwks_fetched_at = 0.0
+    _oidc_client = OIDCConfig(XINFERENCE_OIDC_ISSUER)
     return _oidc_client
 
 
@@ -83,7 +76,10 @@ async def _get_jwks(client, well_known) -> dict:
     import httpx
 
     now = time.time()
-    if client._jwks_data is not None and (now - client._jwks_fetched_at) < _JWKS_CACHE_TTL:
+    if (
+        client._jwks_data is not None
+        and (now - client._jwks_fetched_at) < _JWKS_CACHE_TTL
+    ):
         return client._jwks_data
 
     jwks_uri = well_known.get("jwks_uri")
@@ -100,10 +96,16 @@ def get_advanced_auth(request: Request) -> AdvancedAuthService:
 
 
 async def oidc_authorize(request: Request) -> Response:
+    # Clean up expired states (older than 10 minutes)
+    now = time.time()
+    expired_states = [s for s, t in _state_store.items() if now - t > 600]
+    for s in expired_states:
+        _state_store.pop(s, None)
+
     client = _get_oidc_client()
     well_known = await _get_well_known(client)
     state = secrets.token_urlsafe(32)
-    _state_store[state] = True
+    _state_store[state] = now
 
     auth_url = well_known["authorization_endpoint"]
     from ....constants import XINFERENCE_OIDC_CLIENT_ID, XINFERENCE_OIDC_REDIRECT_URI
@@ -115,7 +117,7 @@ async def oidc_authorize(request: Request) -> Response:
         "scope": "openid profile email",
         "state": state,
     }
-    url = auth_url + "?" + "&".join(f"{k}={v}" for k, v in params.items())
+    url = f"{auth_url}?{urlencode(params)}"
     return RedirectResponse(url=url, status_code=302)
 
 
@@ -137,13 +139,13 @@ async def oidc_callback(request: Request) -> Response:
     well_known = await _get_well_known(client)
     token_url = well_known["token_endpoint"]
 
+    import httpx
+
     from ....constants import (
         XINFERENCE_OIDC_CLIENT_ID,
         XINFERENCE_OIDC_CLIENT_SECRET,
         XINFERENCE_OIDC_REDIRECT_URI,
     )
-
-    import httpx
 
     async with httpx.AsyncClient() as http:
         token_resp = await http.post(
@@ -202,13 +204,14 @@ async def oidc_callback(request: Request) -> Response:
                 oidc_sub=sub,
                 permissions=["models:list"],
             )
-        except Exception:
+        except Exception as e:
+            logger.exception("Failed to create OIDC user, retrying lookup")
             # Concurrent creation — retry lookup
             user = auth.db.get_user_by_oidc_sub(sub)
             if not user:
                 raise HTTPException(
                     status_code=500, detail="Failed to create OIDC user"
-                )
+                ) from e
             user_id = user["id"]
         user = auth.db.get_user_by_id(user_id)
 
