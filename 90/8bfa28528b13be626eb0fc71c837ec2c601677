@@ -1,0 +1,29 @@
+xinference/api/oauth2/advanced/rate_limiter.py
+  24a37d7e2404fe6a 49,65,68,70-79,85-116,131,211-217,226-233,242-248,254-255,262,268-269,276,287
+xinference/ui/web/ui/src/scenes/security_settings/index.js
+  24a37d7e2404fe6a 43-48,52-56,60-64,139,154,169,188,203,218
+xinference/api/oauth2/advanced/auth_service.py
+  24a37d7e2404fe6a 278,290,292-296,305-315,319,322-328,364-378,387-388,400-406,415-421,428-432,440-446
+xinference/api/oauth2/advanced/security_routes.py
+  24a37d7e2404fe6a 33-35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.16",
+  "base_commit_sha": "908bfa28528b13be626eb0fc71c837ec2c601677",
+  "prompts": {
+    "24a37d7e2404fe6a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "aa65b541-80bc-4c04-9dca-f26866af9835",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 216,
+      "total_deletions": 88,
+      "accepted_lines": 6782,
+      "overriden_lines": 0
+    }
+  }
+}
