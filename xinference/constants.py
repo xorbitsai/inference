@@ -87,9 +87,7 @@ XINFERENCE_HOME = get_xinference_home()
 XINFERENCE_CACHE_DIR = os.path.join(XINFERENCE_HOME, "cache")
 XINFERENCE_TENSORIZER_DIR = os.path.join(XINFERENCE_HOME, "tensorizer")
 XINFERENCE_MODEL_DIR = os.path.join(XINFERENCE_HOME, "model")
-XINFERENCE_LOG_DIR = os.environ.get(
-    "XINFERENCE_LOG_DIR", os.path.join(XINFERENCE_HOME, "logs")
-)
+XINFERENCE_LOG_DIR = os.path.join(XINFERENCE_HOME, "logs")
 XINFERENCE_IMAGE_DIR = os.path.join(XINFERENCE_HOME, "image")
 XINFERENCE_VIDEO_DIR = os.path.join(XINFERENCE_HOME, "video")
 XINFERENCE_AUTH_DIR = os.path.join(XINFERENCE_HOME, "auth")
@@ -103,17 +101,6 @@ XINFERENCE_AUTH_ENCRYPTION_KEY = os.environ.get("XINFERENCE_AUTH_ENCRYPTION_KEY"
 XINFERENCE_AUTH_DB_PATH = os.environ.get(
     "XINFERENCE_AUTH_DB_PATH", os.path.join(XINFERENCE_HOME, "auth", "auth.db")
 )
-
-# OIDC / SSO
-XINFERENCE_OIDC_ENABLED = os.environ.get("XINFERENCE_OIDC_ENABLED", "").lower() in (
-    "1",
-    "true",
-    "yes",
-)
-XINFERENCE_OIDC_ISSUER = os.environ.get("XINFERENCE_OIDC_ISSUER", "")
-XINFERENCE_OIDC_CLIENT_ID = os.environ.get("XINFERENCE_OIDC_CLIENT_ID", "")
-XINFERENCE_OIDC_CLIENT_SECRET = os.environ.get("XINFERENCE_OIDC_CLIENT_SECRET", "")
-XINFERENCE_OIDC_REDIRECT_URI = os.environ.get("XINFERENCE_OIDC_REDIRECT_URI", "")
 
 # Rate Limit (brute-force protection)
 XINFERENCE_RATE_LIMIT_IP_MAX_FAILURES = int(
@@ -133,14 +120,6 @@ XINFERENCE_RATE_LIMIT_KEY_WINDOW_SECONDS = int(
 )
 XINFERENCE_RATE_LIMIT_KEY_BAN_SECONDS = int(
     os.environ.get("XINFERENCE_RATE_LIMIT_KEY_BAN_SECONDS", "300")
-)
-
-# Audit logging
-XINFERENCE_AUDIT_LOG_RETENTION_DAYS = int(
-    os.environ.get("XINFERENCE_AUDIT_LOG_RETENTION_DAYS", "90")
-)
-XINFERENCE_AUDIT_ES_INDEX = os.environ.get(
-    "XINFERENCE_AUDIT_ES_INDEX", "xinference-audit-*"
 )
 
 XINFERENCE_VIRTUAL_ENV_DIR = os.path.join(XINFERENCE_HOME, "virtualenv")
