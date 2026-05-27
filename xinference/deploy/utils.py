@@ -16,6 +16,9 @@ import json
 import logging
 import logging.handlers
 import os
+import re
+import socket
+import threading
 import time
 import typing
 import weakref
@@ -48,6 +51,14 @@ class SafeRotatingFileHandler(logging.handlers.RotatingFileHandler):
         super().__init__(filename, *args, **kwargs)
 
 
+class SafeTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
+    """TimedRotatingFileHandler that auto-creates parent directories."""
+
+    def __init__(self, filename, *args, **kwargs):
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        super().__init__(filename, *args, **kwargs)
+
+
 # mainly for k8s
 XINFERENCE_POD_NAME_ENV_KEY = "XINFERENCE_POD_NAME"
 
@@ -60,17 +71,182 @@ class LoggerNameFilter(logging.Filter):
         )
 
 
+_PROGRESS_RE = re.compile(r"(\d+)%\|")
+_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+class StreamToLogger:
+    """Redirect stdout/stderr to a logger with progress bar sampling."""
+
+    def __init__(
+        self,
+        logger_instance: logging.Logger,
+        original_stream,
+        stream_name: str = "stdout",
+    ):
+        self._logger = logger_instance
+        self._original = original_stream
+        self._stream_name = stream_name
+        self._buffer = ""
+        self._progress_thresholds = {25, 50, 75, 100}
+        self._last_reported_pct: dict = {}
+
+    def write(self, message: str) -> int:
+        if not message:
+            return 0
+        self._buffer += message
+        while True:
+            pos_n = self._buffer.find("\n")
+            pos_r = self._buffer.find("\r")
+            if pos_n == -1 and pos_r == -1:
+                break
+            if pos_n != -1 and (pos_r == -1 or pos_n < pos_r):
+                line, self._buffer = self._buffer.split("\n", 1)
+            else:
+                line, self._buffer = self._buffer.split("\r", 1)
+            self._process_line(line)
+        return len(message)
+
+    def _process_line(self, raw: str) -> None:
+        line = _ANSI_ESCAPE_RE.sub("", raw).strip("\r\n").strip()
+        if not line or len(line) <= 2:
+            return
+        if _PROGRESS_RE.search(line):
+            self._handle_progress(line)
+        else:
+            self._logger.info(line)
+
+    def _handle_progress(self, line: str) -> None:
+        match = _PROGRESS_RE.search(line)
+        if not match:
+            return
+        pct = int(match.group(1))
+        key = line[:30]
+        last = self._last_reported_pct.get(key, 0)
+        for threshold in sorted(self._progress_thresholds):
+            if last < threshold <= pct:
+                self._logger.info(line)
+                self._last_reported_pct[key] = pct
+                break
+        if pct >= 100:
+            self._last_reported_pct.pop(key, None)
+
+    def flush(self) -> None:
+        if self._buffer:
+            line = _ANSI_ESCAPE_RE.sub("", self._buffer).strip("\r\n").strip()
+            self._buffer = ""
+            if line and len(line) > 2:
+                self._logger.info(line)
+        if self._original:
+            try:
+                self._original.flush()
+            except (OSError, ValueError):
+                pass
+
+    def fileno(self) -> int:
+        return self._original.fileno()
+
+    def isatty(self) -> bool:
+        return False
+
+
+def install_stream_redirect() -> None:
+    """Replace sys.stdout/stderr with StreamToLogger after logging is configured.
+
+    WARNING: Do not call at process startup — breaks xoscar sub-pool spawning.
+    Use redirect_streams_to_logger() context manager for scoped redirection.
+    """
+    import sys
+
+    original_stdout = sys.stdout
+    original_stderr = sys.stderr
+
+    stdout_logger = logging.getLogger("xinference.stdout")
+    stderr_logger = logging.getLogger("xinference.stderr")
+    sys.stdout = StreamToLogger(stdout_logger, original_stdout, "stdout")  # type: ignore[assignment]
+    sys.stderr = StreamToLogger(stderr_logger, original_stderr, "stderr")  # type: ignore[assignment]
+
+    for handler in logging.root.handlers:
+        if isinstance(handler, logging.StreamHandler) and not isinstance(
+            handler, logging.FileHandler
+        ):
+            handler.stream = original_stderr
+
+
+class redirect_streams_to_logger:
+    """Context manager to temporarily redirect stdout/stderr to logger during model loading."""
+
+    _lock = threading.Lock()
+    _ref_count = 0
+    _original_stdout = None
+    _original_stderr = None
+    _handler_streams: list = []
+
+    def __enter__(self):
+        import sys
+
+        with redirect_streams_to_logger._lock:
+            if redirect_streams_to_logger._ref_count == 0:
+                redirect_streams_to_logger._original_stdout = sys.stdout
+                redirect_streams_to_logger._original_stderr = sys.stderr
+
+                stdout_logger = logging.getLogger("xinference.stdout")
+                stderr_logger = logging.getLogger("xinference.stderr")
+                sys.stdout = StreamToLogger(stdout_logger, redirect_streams_to_logger._original_stdout, "stdout")  # type: ignore[assignment]
+                sys.stderr = StreamToLogger(stderr_logger, redirect_streams_to_logger._original_stderr, "stderr")  # type: ignore[assignment]
+
+                redirect_streams_to_logger._handler_streams = []
+                for handler in logging.root.handlers:
+                    if isinstance(handler, logging.StreamHandler) and not isinstance(
+                        handler, logging.FileHandler
+                    ):
+                        redirect_streams_to_logger._handler_streams.append(
+                            (handler, handler.stream)
+                        )
+                        handler.stream = redirect_streams_to_logger._original_stderr
+            redirect_streams_to_logger._ref_count += 1
+        return self
+
+    def __exit__(self, *exc):
+        import sys
+
+        with redirect_streams_to_logger._lock:
+            redirect_streams_to_logger._ref_count -= 1
+            if redirect_streams_to_logger._ref_count == 0:
+                if isinstance(sys.stdout, StreamToLogger):
+                    sys.stdout.flush()
+                if isinstance(sys.stderr, StreamToLogger):
+                    sys.stderr.flush()
+
+                sys.stdout = redirect_streams_to_logger._original_stdout
+                sys.stderr = redirect_streams_to_logger._original_stderr
+
+                for (
+                    handler,
+                    original_stream,
+                ) in redirect_streams_to_logger._handler_streams:
+                    handler.stream = original_stream
+                redirect_streams_to_logger._original_stdout = None
+                redirect_streams_to_logger._original_stderr = None
+                redirect_streams_to_logger._handler_streams = []
+        return False
+
+
 def get_log_file(sub_dir: str):
     """
-    sub_dir should contain a timestamp.
+    Return a fixed log file path under XINFERENCE_LOG_DIR.
+
+    The sub_dir parameter is kept for backward compatibility but is no longer
+    used to create timestamped subdirectories. Logs now write to a single
+    fixed file that is rotated by the unified log handler.
     """
     pod_name = os.environ.get(XINFERENCE_POD_NAME_ENV_KEY, None)
-    if pod_name is not None:
-        sub_dir = sub_dir + "_" + pod_name
-    log_dir = os.path.join(XINFERENCE_LOG_DIR, sub_dir)
-    # Here should be creating a new directory each time, so `exist_ok=False`
-    os.makedirs(log_dir, exist_ok=False)
-    return os.path.join(log_dir, XINFERENCE_DEFAULT_LOG_FILE_NAME)
+    os.makedirs(XINFERENCE_LOG_DIR, exist_ok=True)
+    if pod_name:
+        filename = f"xinference-{pod_name}.log"
+    else:
+        filename = XINFERENCE_DEFAULT_LOG_FILE_NAME
+    return os.path.join(XINFERENCE_LOG_DIR, filename)
 
 
 class AddressFormatter(logging.Formatter):
@@ -94,6 +270,86 @@ class AddressFormatter(logging.Formatter):
                 inst.address = address
 
 
+class JsonFileFormatter(logging.Formatter):
+    """JSON formatter for file output — one JSON object per line."""
+
+    _instances: weakref.WeakSet = weakref.WeakSet()
+
+    def __init__(self, role="", address="", **kwargs):
+        super().__init__()
+        self.role = role
+        self.address = address
+        self._hostname = socket.gethostname()
+        JsonFileFormatter._instances.add(self)
+
+    def format(self, record):
+        from datetime import datetime, timezone
+
+        entry = {
+            "@timestamp": datetime.fromtimestamp(
+                record.created, tz=timezone.utc
+            ).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]
+            + "Z",
+            "level": record.levelname,
+            "module": record.name,
+            "pid": record.process,
+            "role": self.role,
+            "address": self.address,
+            "node": self._hostname,
+            "message": record.getMessage(),
+        }
+        if record.exc_info and record.exc_info[0] is not None:
+            entry["exception"] = self.formatException(record.exc_info)
+        return json.dumps(entry, ensure_ascii=False)
+
+    @classmethod
+    def update_address(cls, role, address):
+        for inst in cls._instances:
+            if inst.role == role:
+                inst.address = address
+
+
+class TextFileFormatter(logging.Formatter):
+    """Text formatter — same fields as JsonFileFormatter but human-readable."""
+
+    _instances: weakref.WeakSet = weakref.WeakSet()
+
+    def __init__(self, role="", address="", **kwargs):
+        super().__init__()
+        self.role = role
+        self.address = address
+        self._hostname = socket.gethostname()
+        TextFileFormatter._instances.add(self)
+
+    def format(self, record):
+        from datetime import datetime, timezone
+
+        ts = (
+            datetime.fromtimestamp(record.created, tz=timezone.utc).strftime(
+                "%Y-%m-%dT%H:%M:%S.%f"
+            )[:-3]
+            + "Z"
+        )
+        msg = record.getMessage()
+        line = f"{ts} {record.levelname} {record.name} pid:{record.process} role:{self.role} address:{self.address} node:{self._hostname} {msg}"
+        if record.exc_info and record.exc_info[0] is not None:
+            line += "\n" + self.formatException(record.exc_info)
+        return line
+
+    @classmethod
+    def update_address(cls, role, address):
+        for inst in cls._instances:
+            if inst.role == role:
+                inst.address = address
+
+
+def update_all_formatter_addresses(role: str, address: str):
+    """Update address on both text and JSON formatters."""
+    AddressFormatter.update_address(role, address)
+    JsonFileFormatter.update_address(role, address)
+    TextFileFormatter.update_address(role, address)
+
+
 def get_config_dict(
     log_level: str,
     log_file_path: str,
@@ -101,7 +357,18 @@ def get_config_dict(
     log_max_bytes: int,
     role: str = "",
     address: str = "",
+    rotation: Optional[str] = None,
 ) -> dict:
+    from ..constants import (
+        XINFERENCE_LOG_CONSOLE,
+        XINFERENCE_LOG_FORMAT,
+        XINFERENCE_LOG_ROTATION,
+    )
+
+    rotation = rotation or XINFERENCE_LOG_ROTATION
+    use_json = XINFERENCE_LOG_FORMAT == "json"
+    use_console = XINFERENCE_LOG_CONSOLE
+
     # for windows, the path should be a raw string.
     log_file_path = (
         log_file_path.encode("unicode-escape").decode()
@@ -109,17 +376,54 @@ def get_config_dict(
         else log_file_path
     )
     log_level = log_level.upper()
+
+    formatter_name = "json_formatter" if use_json else "text_formatter"
+    formatter_class = (
+        "xinference.deploy.utils.JsonFileFormatter"
+        if use_json
+        else "xinference.deploy.utils.TextFileFormatter"
+    )
+
+    if rotation == "daily":
+        file_handler_config = {
+            "class": "xinference.deploy.utils.SafeTimedRotatingFileHandler",
+            "formatter": formatter_name,
+            "level": log_level,
+            "filename": log_file_path,
+            "when": "midnight",
+            "backupCount": log_backup_count,
+            "encoding": "utf8",
+        }
+    else:
+        file_handler_config = {
+            "class": "xinference.deploy.utils.SafeRotatingFileHandler",
+            "formatter": formatter_name,
+            "level": log_level,
+            "filename": log_file_path,
+            "mode": "a",
+            "maxBytes": log_max_bytes,
+            "backupCount": log_backup_count,
+            "encoding": "utf8",
+        }
+
+    handlers_list = ["file_handler"]
+    if use_console:
+        handlers_list.insert(0, "console_handler")
+
+    root_handlers = ["file_handler"]
+    if use_console:
+        root_handlers.insert(0, "stream_handler")
+
     config_dict = {
         "version": 1,
         "disable_existing_loggers": False,
+        "root": {
+            "handlers": root_handlers,
+            "level": log_level,
+        },
         "formatters": {
-            "formatter": {
-                "()": "xinference.deploy.utils.AddressFormatter",
-                "fmt": (
-                    "%(asctime)s %(name)-12s %(process)d "
-                    "[%(xinference_role)s@%(xinference_address)s] "
-                    "%(levelname)-8s %(message)s"
-                ),
+            formatter_name: {
+                "()": formatter_class,
                 "role": role,
                 "address": address,
             },
@@ -132,56 +436,55 @@ def get_config_dict(
         "handlers": {
             "stream_handler": {
                 "class": "logging.StreamHandler",
-                "formatter": "formatter",
+                "formatter": formatter_name,
                 "level": log_level,
                 "stream": "ext://sys.stderr",
                 "filters": ["logger_name_filter"],
             },
             "console_handler": {
                 "class": "logging.StreamHandler",
-                "formatter": "formatter",
+                "formatter": formatter_name,
                 "level": log_level,
                 "stream": "ext://sys.stderr",
             },
-            "file_handler": {
-                "class": "xinference.deploy.utils.SafeRotatingFileHandler",
-                "formatter": "formatter",
-                "level": log_level,
-                "filename": log_file_path,
-                "mode": "a",
-                "maxBytes": log_max_bytes,
-                "backupCount": log_backup_count,
-                "encoding": "utf8",
-            },
+            "file_handler": file_handler_config,
         },
         "loggers": {
             "xinference": {
-                "handlers": ["stream_handler", "file_handler"],
+                "handlers": handlers_list,
                 "level": log_level,
                 "propagate": False,
             },
             "uvicorn": {
-                "handlers": ["stream_handler", "file_handler"],
+                "handlers": handlers_list,
                 "level": log_level,
                 "propagate": False,
             },
             "uvicorn.error": {
-                "handlers": ["stream_handler", "file_handler"],
+                "handlers": handlers_list,
                 "level": log_level,
                 "propagate": False,
             },
             "uvicorn.access": {
-                "handlers": ["stream_handler", "file_handler"],
+                "handlers": handlers_list,
                 "level": log_level,
                 "propagate": False,
             },
             "transformers": {
-                "handlers": ["console_handler", "file_handler"],
+                "handlers": (
+                    ["console_handler", "file_handler"]
+                    if use_console
+                    else ["file_handler"]
+                ),
                 "level": log_level,
                 "propagate": False,
             },
             "vllm": {
-                "handlers": ["console_handler", "file_handler"],
+                "handlers": (
+                    ["console_handler", "file_handler"]
+                    if use_console
+                    else ["file_handler"]
+                ),
                 "level": log_level,
                 "propagate": False,
             },

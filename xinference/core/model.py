@@ -449,7 +449,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             try:
                 if hasattr(self._model, "set_loop"):
                     self._model.set_loop(asyncio.get_running_loop())
-                await asyncio.to_thread(self._model.load)
+                await asyncio.to_thread(self._load_with_redirect)
                 if hasattr(self._model, "driver_info"):
                     self._driver_info = self._model.driver_info
                 break
@@ -463,6 +463,12 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                     continue
                 raise
         logger.info(f"{self} loaded")
+
+    def _load_with_redirect(self):
+        from ..deploy.utils import redirect_streams_to_logger
+
+        with redirect_streams_to_logger():
+            self._model.load()
 
     async def wait_for_load(self):
         if hasattr(self._model, "wait_for_load"):
