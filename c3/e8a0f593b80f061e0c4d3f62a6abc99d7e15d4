@@ -1,0 +1,36 @@
+xinference/ui/web/ui/src/components/fetchWrapper.js
+  fb8e9e67d146b77d 87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.16",
+  "base_commit_sha": "c3e8a0f593b80f061e0c4d3f62a6abc99d7e15d4",
+  "prompts": {
+    "24a37d7e2404fe6a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "aa65b541-80bc-4c04-9dca-f26866af9835",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 6595,
+      "overriden_lines": 2
+    },
+    "fb8e9e67d146b77d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f05862f3-da69-4276-a28a-6b0d75820c53",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
