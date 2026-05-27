@@ -33,7 +33,6 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_source_username ON users(source, username);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_oidc_sub ON users(oidc_sub) WHERE oidc_sub IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS user_permissions (
     user_id INTEGER NOT NULL,
@@ -105,10 +104,10 @@ class Database:
             user_columns = {row[1] for row in cursor.fetchall()}
             if "oidc_sub" not in user_columns:
                 conn.execute("ALTER TABLE users ADD COLUMN oidc_sub TEXT")
-                conn.execute(
-                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_oidc_sub "
-                    "ON users(oidc_sub) WHERE oidc_sub IS NOT NULL"
-                )
+            conn.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_oidc_sub "
+                "ON users(oidc_sub) WHERE oidc_sub IS NOT NULL"
+            )
 
     @contextmanager
     def _get_conn(self):

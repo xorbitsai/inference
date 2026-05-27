@@ -274,6 +274,8 @@ async def get_ui_config() -> JSONResponse:
             "es_enabled": bool(os.environ.get("XINFERENCE_ES_URL", "")),
             "auth_advanced": os.environ.get("XINFERENCE_AUTH_ADVANCED", "").lower()
             in ("1", "true", "yes"),
+            "oidc_enabled": os.environ.get("XINFERENCE_OIDC_ENABLED", "").lower()
+            in ("1", "true", "yes"),
         }
     )
 

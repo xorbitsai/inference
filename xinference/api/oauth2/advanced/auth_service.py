@@ -279,7 +279,12 @@ class AdvancedAuthService:
         token: Annotated[Optional[str], Depends(oauth2_scheme)] = None,
     ):
         try:
-            from .audit import classify_endpoint, record_audit_event, should_skip_audit
+            from .audit import (
+                classify_endpoint,
+                record_audit_event,
+                resolve_model_info,
+                should_skip_audit,
+            )
         except ImportError:
 
             def should_skip_audit(endpoint):
@@ -290,6 +295,9 @@ class AdvancedAuthService:
 
             def classify_endpoint(endpoint):
                 return ""
+
+            def resolve_model_info(model_id):
+                return "", ""
 
         if security_scopes.scopes:
             authenticate_value = f'Bearer scope="{security_scopes.scope_str}"'
@@ -321,8 +329,6 @@ class AdvancedAuthService:
                 pass
 
         # Resolve model_name and model_type from cache
-        from .audit import resolve_model_info
-
         _model_name, _model_type = resolve_model_info(_request_model)
 
         def _audit(
