@@ -392,7 +392,7 @@ function AuditLog() {
 
   useEffect(() => {
     fetchData()
-  }, [pageFrom, selectedTypes, selectedCategories])
+  }, [pageFrom, timeRange, selectedTypes, selectedCategories, selectedStatuses])
 
   // Auto refresh timer
   useEffect(() => {

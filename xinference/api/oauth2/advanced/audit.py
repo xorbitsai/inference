@@ -114,9 +114,12 @@ def _get_service_address() -> str:
     global _SERVICE_ADDRESS
     if _SERVICE_ADDRESS:
         return _SERVICE_ADDRESS
-    from ....deploy.utils import JsonFileFormatter
+    from ....deploy import utils as _deploy_utils
 
-    for inst in JsonFileFormatter._instances:
+    _JsonFileFormatter = getattr(_deploy_utils, "JsonFileFormatter", None)
+    if _JsonFileFormatter is None:
+        return ""
+    for inst in _JsonFileFormatter._instances:
         if inst.address:
             _SERVICE_ADDRESS = inst.address
             return _SERVICE_ADDRESS

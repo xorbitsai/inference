@@ -588,7 +588,7 @@ async def search_audit_logs(
         ("status", status),
     ]:
         if value:
-            terms = [v.strip() for v in value.split(",") if v.strip()]
+            terms = [v.strip().lower() for v in value.split(",") if v.strip()]
             if len(terms) == 1:
                 filter_clauses.append({"term": {field_name: terms[0]}})
             else:

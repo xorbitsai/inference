@@ -207,7 +207,12 @@ class RESTfulAPI(CancelMixin):
         request.state._audit_model_type = model_type or ""
 
     def _record_audit(
-        self, request, model_uid: str, model_type: str, status: str, latency_s: float = 0.0
+        self,
+        request,
+        model_uid: str,
+        model_type: str,
+        status: str,
+        latency_s: float = 0.0,
     ):
         if not self._advanced_auth_service:
             return
@@ -224,10 +229,14 @@ class RESTfulAPI(CancelMixin):
         user = self._advanced_auth_service.db.get_user_by_id(entry.user_id)
         username = user["username"] if user else ""
 
-        model_name = getattr(request.state, "model_name", "") or self._uid_to_model_name.get(model_uid, "") or ""
+        model_name = (
+            getattr(request.state, "model_name", "")
+            or self._uid_to_model_name.get(model_uid, "")
+            or ""
+        )
 
+        from ..core import metrics as _metrics
         from .oauth2.advanced.audit import record_audit_event
-        from ..core.metrics import api_key_request_duration_seconds, api_key_requests_total
 
         record_audit_event(
             user=username,
@@ -243,17 +252,52 @@ class RESTfulAPI(CancelMixin):
             category="inference",
             auth_type="api_key",
         )
-        api_key_requests_total.inc(
-            {
-                "user": username,
-                "api_key_name": entry.name or "",
-                "model_id": model_uid,
-                "model_type": model_type,
-                "status": status,
-            }
-        )
-        api_key_request_duration_seconds.observe(
-            {"model_id": model_uid, "model_type": model_type, "model_name": model_name}, latency_s
+        _requests_total = getattr(_metrics, "api_key_requests_total", None)
+        if _requests_total is not None:
+            _requests_total.inc(
+                {
+                    "user": username,
+                    "api_key_name": entry.name or "",
+                    "model_id": model_uid,
+                    "model_type": model_type,
+                    "status": status,
+                }
+            )
+        _duration = getattr(_metrics, "api_key_request_duration_seconds", None)
+        if _duration is not None:
+            _duration.observe(
+                {
+                    "model_id": model_uid,
+                    "model_type": model_type,
+                    "model_name": model_name,
+                },
+                latency_s,
+            )
+
+    def _record_admin_audit(self, request, status: str, latency_s: float = 0.0):
+        if not self._advanced_auth_service:
+            return
+        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        if not token:
+            return
+        payload = self._advanced_auth_service.verify_access_token(token)
+        username = payload.get("sub", "") if payload else ""
+
+        from .oauth2.advanced.audit import record_audit_event
+
+        record_audit_event(
+            user=username,
+            api_key_name="",
+            api_key_prefix="",
+            model_id="",
+            model_name="",
+            model_type="",
+            endpoint=request.url.path,
+            status=status,
+            latency_ms=round(latency_s * 1000, 1),
+            client_ip=request.client.host if request.client else "",
+            category="admin",
+            auth_type="jwt",
         )
 
     @staticmethod
@@ -347,6 +391,7 @@ class RESTfulAPI(CancelMixin):
         @self._app.middleware("http")
         async def audit_middleware(request: Request, call_next):
             import time as _time
+
             _start = _time.perf_counter()
             response = await call_next(request)
             model_uid = getattr(request.state, "_audit_model_uid", "")
@@ -359,7 +404,19 @@ class RESTfulAPI(CancelMixin):
                 else:
                     audit_status = "error"
                 model_type = getattr(request.state, "_audit_model_type", "")
-                self._record_audit(request, model_uid, model_type, audit_status, latency_s)
+                self._record_audit(
+                    request, model_uid, model_type, audit_status, latency_s
+                )
+            elif self._advanced_auth_service and request.url.path.startswith(
+                ("/v1/models", "/v1/admin")
+            ):
+                from .oauth2.advanced.audit import classify_endpoint
+
+                _category = classify_endpoint(request.url.path)
+                if _category == "admin":
+                    latency_s = _time.perf_counter() - _start
+                    audit_status = "success" if response.status_code < 400 else "error"
+                    self._record_admin_audit(request, audit_status, latency_s)
             return response
 
         # Initialise OpenTelemetry tracing & metrics (no-op when disabled)
@@ -586,9 +643,16 @@ class RESTfulAPI(CancelMixin):
 
             model_list = []
             for model_id, model_info in models.items():
-                self._uid_to_model_name[model_id] = model_info.get("model_name", model_id)
+                self._uid_to_model_name[model_id] = model_info.get(
+                    "model_name", model_id
+                )
                 from .oauth2.advanced.audit import update_model_cache
-                update_model_cache(model_id, model_info.get("model_name", model_id), model_info.get("model_type", ""))
+
+                update_model_cache(
+                    model_id,
+                    model_info.get("model_name", model_id),
+                    model_info.get("model_type", ""),
+                )
                 model_list.append(
                     {
                         "id": model_id,
@@ -788,6 +852,7 @@ class RESTfulAPI(CancelMixin):
         if model_name and model_uid:
             self._uid_to_model_name[model_uid] = model_name
             from .oauth2.advanced.audit import update_model_cache
+
             update_model_cache(model_uid, model_name, model_type or "")
 
         return JSONResponse(content={"model_uid": model_uid})
@@ -982,6 +1047,7 @@ class RESTfulAPI(CancelMixin):
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
+        self._uid_to_model_name.pop(model_uid, None)
         return JSONResponse(content=None)
 
     async def terminate_model_replica(
