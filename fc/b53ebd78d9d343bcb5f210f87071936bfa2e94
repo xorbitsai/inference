@@ -1,0 +1,27 @@
+xinference/deploy/cmdline.py
+  24a37d7e2404fe6a 39,107,285,350
+xinference/deploy/utils.py
+  24a37d7e2404fe6a 360
+xinference/conftest.py
+  24a37d7e2404fe6a 33,90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.16",
+  "base_commit_sha": "fcb53ebd78d9d343bcb5f210f87071936bfa2e94",
+  "prompts": {
+    "24a37d7e2404fe6a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "aa65b541-80bc-4c04-9dca-f26866af9835",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 9,
+      "total_deletions": 40,
+      "accepted_lines": 6604,
+      "overriden_lines": 0
+    }
+  }
+}
