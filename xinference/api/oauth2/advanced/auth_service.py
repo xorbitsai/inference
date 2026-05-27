@@ -275,7 +275,7 @@ class AdvancedAuthService:
         security_scopes: SecurityScopes,
         token: Annotated[Optional[str], Depends(oauth2_scheme)] = None,
     ):
-        from .audit import record_audit_event, should_skip_audit, classify_endpoint
+        from .audit import classify_endpoint, record_audit_event, should_skip_audit
 
         if security_scopes.scopes:
             authenticate_value = f'Bearer scope="{security_scopes.scope_str}"'
@@ -301,15 +301,23 @@ class AdvancedAuthService:
             try:
                 body_bytes = await request.body()
                 import json as _json
+
                 _request_model = _json.loads(body_bytes).get("model", "")
             except Exception:
                 pass
 
         # Resolve model_name and model_type from cache
         from .audit import resolve_model_info
+
         _model_name, _model_type = resolve_model_info(_request_model)
 
-        def _audit(status_val: str, user: str = "", key_name: str = "", key_prefix: str = "", auth_type: str = ""):
+        def _audit(
+            status_val: str,
+            user: str = "",
+            key_name: str = "",
+            key_prefix: str = "",
+            auth_type: str = "",
+        ):
             if _skip_audit:
                 return
             record_audit_event(
@@ -345,8 +353,21 @@ class AdvancedAuthService:
             _username = user_obj["username"] if user_obj else ""
 
             if not api_key_entry.is_valid():
-                _status = "key_expired" if (api_key_entry.expires_at and datetime.utcnow() > api_key_entry.expires_at) else "key_disabled"
-                _audit(_status, user=_username, key_name=api_key_entry.name or "", key_prefix=api_key_entry.key_prefix, auth_type="api_key")
+                _status = (
+                    "key_expired"
+                    if (
+                        api_key_entry.expires_at
+                        and datetime.utcnow() > api_key_entry.expires_at
+                    )
+                    else "key_disabled"
+                )
+                _audit(
+                    _status,
+                    user=_username,
+                    key_name=api_key_entry.name or "",
+                    key_prefix=api_key_entry.key_prefix,
+                    auth_type="api_key",
+                )
                 if client_ip:
                     from .rate_limiter import RateLimitConfig
 
@@ -355,7 +376,8 @@ class AdvancedAuthService:
                     if key_data and key_data.get("rate_limit_max_failures"):
                         per_key_config = RateLimitConfig(
                             max_failures=key_data["rate_limit_max_failures"],
-                            window_seconds=key_data.get("rate_limit_window_seconds") or 300,
+                            window_seconds=key_data.get("rate_limit_window_seconds")
+                            or 300,
                             ban_seconds=key_data.get("rate_limit_ban_seconds") or 300,
                         )
                     self._rate_limiter.record_key_failure(
@@ -367,7 +389,13 @@ class AdvancedAuthService:
             if client_ip and self._rate_limiter.is_key_banned(
                 client_ip, api_key_entry.key_id
             ):
-                _audit("key_banned", user=_username, key_name=api_key_entry.name or "", key_prefix=api_key_entry.key_prefix, auth_type="api_key")
+                _audit(
+                    "key_banned",
+                    user=_username,
+                    key_name=api_key_entry.name or "",
+                    key_prefix=api_key_entry.key_prefix,
+                    auth_type="api_key",
+                )
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail="Too many failed attempts for this key.",
@@ -376,14 +404,24 @@ class AdvancedAuthService:
             _API_KEY_ALLOWED_SCOPES = {"models:read", "models:list"}
             for scope in security_scopes.scopes:
                 if scope not in _API_KEY_ALLOWED_SCOPES:
-                    _audit("insufficient_scope", user=_username, key_name=api_key_entry.name or "", key_prefix=api_key_entry.key_prefix, auth_type="api_key")
+                    _audit(
+                        "insufficient_scope",
+                        user=_username,
+                        key_name=api_key_entry.name or "",
+                        key_prefix=api_key_entry.key_prefix,
+                        auth_type="api_key",
+                    )
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
                         detail="API keys can only access model query and inference endpoints",
                         headers={"WWW-Authenticate": authenticate_value},
                     )
             if not user_obj:
-                _audit("invalid_key", key_prefix=api_key_entry.key_prefix, auth_type="api_key")
+                _audit(
+                    "invalid_key",
+                    key_prefix=api_key_entry.key_prefix,
+                    auth_type="api_key",
+                )
                 raise credentials_exception
             # Success — reset counters
             if client_ip:
@@ -391,7 +429,13 @@ class AdvancedAuthService:
             # Record success for non-inference endpoints (inference success is recorded by audit_middleware)
             _category = classify_endpoint(endpoint)
             if _category != "inference":
-                _audit("success", user=_username, key_name=api_key_entry.name or "", key_prefix=api_key_entry.key_prefix, auth_type="api_key")
+                _audit(
+                    "success",
+                    user=_username,
+                    key_name=api_key_entry.name or "",
+                    key_prefix=api_key_entry.key_prefix,
+                    auth_type="api_key",
+                )
             return user_obj
 
         # Token not found in API key cache — check prefix

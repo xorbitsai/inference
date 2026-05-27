@@ -31,27 +31,12 @@ logger = logging.getLogger(__name__)
 
 
 def _refresh_key_gauges(auth: AdvancedAuthService) -> None:
-    """Update Prometheus gauges for active/expired key counts."""
-    try:
-        from ....core.metrics import api_keys_active_total, api_keys_expired_total
-        from datetime import datetime
+    """Update Prometheus gauges for active/expired key counts.
 
-        keys = auth.db.list_api_keys()
-        active = 0
-        expired = 0
-        now = datetime.utcnow()
-        for k in keys:
-            if not k.get("enabled", 1):
-                continue
-            expires_at = k.get("expires_at")
-            if expires_at and datetime.fromisoformat(expires_at) < now:
-                expired += 1
-            else:
-                active += 1
-        api_keys_active_total.set({}, active)
-        api_keys_expired_total.set({}, expired)
-    except Exception:
-        pass
+    NOTE: Metrics counters are defined in the security-hardening PR.
+    This is a placeholder that will be filled when that PR is merged.
+    """
+    pass
 
 
 def get_advanced_auth(request: Request) -> AdvancedAuthService:
