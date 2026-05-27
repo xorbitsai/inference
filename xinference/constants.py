@@ -154,7 +154,9 @@ XINFERENCE_DEFAULT_ENDPOINT_PORT = 9997
 XINFERENCE_DEFAULT_LOG_FILE_NAME = "xinference.log"
 XINFERENCE_LOG_ROTATION = os.environ.get("XINFERENCE_LOG_ROTATION", "daily")
 XINFERENCE_LOG_FORMAT = os.environ.get("XINFERENCE_LOG_FORMAT", "text").lower()
-XINFERENCE_LOG_CONSOLE = os.environ.get("XINFERENCE_LOG_CONSOLE", "true").lower() == "true"
+XINFERENCE_LOG_CONSOLE = (
+    os.environ.get("XINFERENCE_LOG_CONSOLE", "true").lower() == "true"
+)
 XINFERENCE_LOG_RETENTION_DAYS = int(
     os.environ.get("XINFERENCE_LOG_RETENTION_DAYS", "30")
 )

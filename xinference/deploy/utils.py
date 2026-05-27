@@ -78,7 +78,12 @@ _ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*m")
 class StreamToLogger:
     """Redirect stdout/stderr to a logger with progress bar sampling."""
 
-    def __init__(self, logger_instance: logging.Logger, original_stream, stream_name: str = "stdout"):
+    def __init__(
+        self,
+        logger_instance: logging.Logger,
+        original_stream,
+        stream_name: str = "stdout",
+    ):
         self._logger = logger_instance
         self._original = original_stream
         self._stream_name = stream_name
@@ -175,7 +180,7 @@ class redirect_streams_to_logger:
     _ref_count = 0
     _original_stdout = None
     _original_stderr = None
-    _handler_streams = []
+    _handler_streams: list = []
 
     def __enter__(self):
         import sys
@@ -195,7 +200,9 @@ class redirect_streams_to_logger:
                     if isinstance(handler, logging.StreamHandler) and not isinstance(
                         handler, logging.FileHandler
                     ):
-                        redirect_streams_to_logger._handler_streams.append((handler, handler.stream))
+                        redirect_streams_to_logger._handler_streams.append(
+                            (handler, handler.stream)
+                        )
                         handler.stream = redirect_streams_to_logger._original_stderr
             redirect_streams_to_logger._ref_count += 1
         return self
@@ -214,7 +221,10 @@ class redirect_streams_to_logger:
                 sys.stdout = redirect_streams_to_logger._original_stdout
                 sys.stderr = redirect_streams_to_logger._original_stderr
 
-                for handler, original_stream in redirect_streams_to_logger._handler_streams:
+                for (
+                    handler,
+                    original_stream,
+                ) in redirect_streams_to_logger._handler_streams:
                     handler.stream = original_stream
                 redirect_streams_to_logger._original_stdout = None
                 redirect_streams_to_logger._original_stderr = None
@@ -352,7 +362,6 @@ def get_config_dict(
     from ..constants import (
         XINFERENCE_LOG_CONSOLE,
         XINFERENCE_LOG_FORMAT,
-        XINFERENCE_LOG_RETENTION_DAYS,
         XINFERENCE_LOG_ROTATION,
     )
 
@@ -462,12 +471,20 @@ def get_config_dict(
                 "propagate": False,
             },
             "transformers": {
-                "handlers": ["console_handler", "file_handler"] if use_console else ["file_handler"],
+                "handlers": (
+                    ["console_handler", "file_handler"]
+                    if use_console
+                    else ["file_handler"]
+                ),
                 "level": log_level,
                 "propagate": False,
             },
             "vllm": {
-                "handlers": ["console_handler", "file_handler"] if use_console else ["file_handler"],
+                "handlers": (
+                    ["console_handler", "file_handler"]
+                    if use_console
+                    else ["file_handler"]
+                ),
                 "level": log_level,
                 "propagate": False,
             },
