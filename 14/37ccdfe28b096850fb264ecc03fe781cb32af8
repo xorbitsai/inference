@@ -1,0 +1,41 @@
+monitor/filebate/filebeat-text-to-kafka.yml
+  24a37d7e2404fe6a 1-109
+monitor/filebate/filebeat-json-to-es.yml
+  24a37d7e2404fe6a 1-107
+monitor/dashboard/xinference-grafana-dashboard.json
+  24a37d7e2404fe6a 1-6495
+monitor/dashboard/xinference-grafana-dashboard-ja.json
+  24a37d7e2404fe6a 351,353,365,367,5699-6188,6190-6211,6495
+monitor/filebate/es-init.sh
+  24a37d7e2404fe6a 1-21
+monitor/dashboard/xinference-grafana-dashboard-ko.json
+  24a37d7e2404fe6a 351,353,365,367,5699-6188,6190-6211,6495
+monitor/filebate/filebeat-json-to-kafka.yml
+  24a37d7e2404fe6a 1-100
+monitor/filebate/es-index-template.json
+  24a37d7e2404fe6a 19,21,33-43,49
+monitor/dashboard/xinference-grafana-dashboard-en.json
+  24a37d7e2404fe6a 351,353,365,367,5699-6188,6190-6211,6495
+monitor/filebate/filebeat-text-to-es.yml
+  24a37d7e2404fe6a 1-120
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.16",
+  "base_commit_sha": "1437ccdfe28b096850fb264ecc03fe781cb32af8",
+  "prompts": {
+    "24a37d7e2404fe6a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "aa65b541-80bc-4c04-9dca-f26866af9835",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 15021,
+      "total_deletions": 22,
+      "accepted_lines": 15468,
+      "overriden_lines": 0
+    }
+  }
+}
