@@ -84,7 +84,7 @@ const fetchWithRetry = async (url, options) => {
   const response = await fetch(url, options)
   if (response.status === 401 && sessionStorage.getItem('refresh_token')) {
     const refreshed = await tryRefreshToken()
-    if (refreshed === true || refreshed === undefined) {
+    if (refreshed) {
       const newHeaders = {
         ...options.headers,
         Authorization: 'Bearer ' + sessionStorage.getItem('token'),

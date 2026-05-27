@@ -143,11 +143,11 @@ function UserManagement() {
   }
 
   const handleSavePermissions = async () => {
+    if (!editingUser) return
     try {
-      await fetchWrapper.put(
-        `/v1/admin/users/${editingUser.id}/permissions`,
-        { permissions: editPerms }
-      )
+      await fetchWrapper.put(`/v1/admin/users/${editingUser.id}/permissions`, {
+        permissions: editPerms,
+      })
       setEditPermOpen(false)
       setEditingUser(null)
       loadUsers()
@@ -202,7 +202,9 @@ function UserManagement() {
       width: 150,
       renderCell: (params) => (
         <Box>
-          <Tooltip title={t('userManagement.editPermissions') || 'Edit Permissions'}>
+          <Tooltip
+            title={t('userManagement.editPermissions') || 'Edit Permissions'}
+          >
             <IconButton
               size="small"
               onClick={() => handleEditPermissions(params.row)}
@@ -369,9 +371,7 @@ function UserManagement() {
                 control={
                   <Checkbox
                     size="small"
-                    checked={
-                      editPerms.length === ALL_PERMISSION_VALUES.length
-                    }
+                    checked={editPerms.length === ALL_PERMISSION_VALUES.length}
                     indeterminate={
                       editPerms.length > 0 &&
                       editPerms.length < ALL_PERMISSION_VALUES.length
