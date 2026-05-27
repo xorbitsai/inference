@@ -153,6 +153,35 @@ config_info_gauge = Gauge(
     "Xinference configuration information (value=1).",
 )
 
+# ===========================================================================
+# Supervisor-side API Key audit metrics
+# ===========================================================================
+api_key_requests_total = Counter(
+    "xinference:api_key_requests_total",
+    "Total API key requests.",
+)
+api_key_request_duration_seconds = Histogram(
+    "xinference:api_key_request_duration_seconds",
+    "API key request duration in seconds.",
+    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, float("inf")),
+)
+api_keys_active_total = Gauge(
+    "xinference:api_keys_active_total",
+    "Number of active API keys.",
+)
+api_keys_expired_total = Gauge(
+    "xinference:api_keys_expired_total",
+    "Number of expired API keys.",
+)
+banned_ips_total = Gauge(
+    "xinference:banned_ips_total",
+    "Number of currently banned IPs.",
+)
+banned_keys_total = Gauge(
+    "xinference:banned_keys_total",
+    "Number of currently banned (IP, Key) pairs.",
+)
+
 # ---------------------------------------------------------------------------
 # Supervisor-only metric names — removed from Worker Registry at startup
 # ---------------------------------------------------------------------------
@@ -169,6 +198,12 @@ _SUPERVISOR_ONLY_METRICS = {
     "xinference:worker_gpu_memory_used_bytes",
     "xinference:worker_gpu_memory_total_bytes",
     "xinference:model_gpu_binding",
+    "xinference:api_key_requests_total",
+    "xinference:api_key_request_duration_seconds",
+    "xinference:api_keys_active_total",
+    "xinference:api_keys_expired_total",
+    "xinference:banned_ips_total",
+    "xinference:banned_keys_total",
 }
 
 # ---------------------------------------------------------------------------

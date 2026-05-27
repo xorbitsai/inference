@@ -14,6 +14,7 @@ import Logs from '../scenes/logs'
 import Monitoring from '../scenes/monitoring'
 import RegisterModel from '../scenes/register_model'
 import RunningModels from '../scenes/running_models'
+import SecuritySettings from '../scenes/security_settings'
 import UserManagement from '../scenes/user_management'
 
 const LoginAuth = () => {
@@ -85,6 +86,10 @@ const routes = [
       {
         path: 'apikey_management',
         element: <ApiKeyManagement />,
+      },
+      {
+        path: 'security_settings',
+        element: <SecuritySettings />,
       },
       {
         path: 'audit_log',
