@@ -39,7 +39,6 @@ from ..constants import (
     XINFERENCE_LOG_BACKUP_COUNT,
     XINFERENCE_LOG_MAX_BYTES,
 )
-from ..isolation import Isolation
 from .utils import (
     get_config_dict,
     get_log_file,
@@ -1291,22 +1290,18 @@ def model_generate(
                         print(choice["text"], end="", flush=True, file=sys.stdout)
                 print("", file=sys.stdout)
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         coro = generate_internal()
 
-        if loop.is_running():
-            isolation = Isolation(asyncio.new_event_loop(), threaded=True)
-            isolation.start()
-            isolation.call(coro)
-        else:
-            task = loop.create_task(coro)
-            try:
-                loop.run_until_complete(task)
-            except KeyboardInterrupt:
-                task.cancel()
-                loop.run_until_complete(task)
-                # avoid displaying exception-unhandled warnings
-                task.exception()
+        task = loop.create_task(coro)
+        try:
+            loop.run_until_complete(task)
+        except KeyboardInterrupt:
+            task.cancel()
+            loop.run_until_complete(task)
+            # avoid displaying exception-unhandled warnings
+            task.exception()
     else:
         restful_model = client.get_model(model_uid=model_uid)
         if not isinstance(
@@ -1406,22 +1401,18 @@ def model_chat(
                 print("", file=sys.stdout)
                 messages.append(dict(role="assistant", content=response_content))
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         coro = chat_internal()
 
-        if loop.is_running():
-            isolation = Isolation(asyncio.new_event_loop(), threaded=True)
-            isolation.start()
-            isolation.call(coro)
-        else:
-            task = loop.create_task(coro)
-            try:
-                loop.run_until_complete(task)
-            except KeyboardInterrupt:
-                task.cancel()
-                loop.run_until_complete(task)
-                # avoid displaying exception-unhandled warnings
-                task.exception()
+        task = loop.create_task(coro)
+        try:
+            loop.run_until_complete(task)
+        except KeyboardInterrupt:
+            task.cancel()
+            loop.run_until_complete(task)
+            # avoid displaying exception-unhandled warnings
+            task.exception()
     else:
         restful_model = client.get_model(model_uid=model_uid)
         if not isinstance(restful_model, RESTfulChatModelHandle):
