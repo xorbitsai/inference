@@ -37,6 +37,33 @@ from .database import Database
 
 logger = logging.getLogger(__name__)
 
+
+_TRUSTED_PROXY_SET: Optional[set] = None
+
+
+def _get_trusted_proxies() -> set:
+    global _TRUSTED_PROXY_SET
+    if _TRUSTED_PROXY_SET is None:
+        from ....constants import XINFERENCE_TRUSTED_PROXIES
+
+        raw = XINFERENCE_TRUSTED_PROXIES
+        _TRUSTED_PROXY_SET = (
+            {p.strip() for p in raw.split(",") if p.strip()} if raw else set()
+        )
+    return _TRUSTED_PROXY_SET
+
+
+def _get_client_ip(request: Request) -> str:
+    peer_ip = request.client.host if request.client else ""
+    trusted = _get_trusted_proxies()
+    if trusted and peer_ip in trusted:
+        if "x-forwarded-for" in request.headers:
+            return request.headers["x-forwarded-for"].split(",")[0].strip()
+        if "x-real-ip" in request.headers:
+            return request.headers["x-real-ip"].strip()
+    return peer_ip
+
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
@@ -55,7 +82,7 @@ class AdvancedAuthService:
         try:
             from .rate_limiter import RateLimiter
 
-            self._rate_limiter = RateLimiter()
+            self._rate_limiter: Optional["RateLimiter"] = RateLimiter()
         except ImportError:
             self._rate_limiter = None
 
@@ -278,12 +305,18 @@ class AdvancedAuthService:
         security_scopes: SecurityScopes,
         token: Annotated[Optional[str], Depends(oauth2_scheme)] = None,
     ):
-        from .audit import (
-            classify_endpoint,
-            record_audit_event,
-            resolve_model_info,
-            should_skip_audit,
-        )
+        try:
+            from .audit import (
+                classify_endpoint,
+                record_audit_event,
+                resolve_model_info,
+                should_skip_audit,
+            )
+        except ImportError:
+            classify_endpoint = None  # type: ignore[assignment]
+            record_audit_event = None  # type: ignore[assignment]
+            resolve_model_info = None  # type: ignore[assignment]
+            should_skip_audit = None  # type: ignore[assignment]
 
         if security_scopes.scopes:
             authenticate_value = f'Bearer scope="{security_scopes.scope_str}"'
@@ -295,27 +328,34 @@ class AdvancedAuthService:
             headers={"WWW-Authenticate": authenticate_value},
         )
 
-        # Get client IP for rate limiting
-        client_ip = ""
-        if request.client:
-            client_ip = request.client.host or ""
+        # Get client IP for rate limiting, respecting reverse proxy headers
+        client_ip = _get_client_ip(request)
 
         endpoint = request.url.path
-        _skip_audit = should_skip_audit(endpoint)
+        _skip_audit = (
+            should_skip_audit(endpoint) if should_skip_audit is not None else True
+        )
 
         # Extract model from request body for audit (POST endpoints like /v1/chat/completions)
         _request_model = ""
         if not _skip_audit and request.method == "POST":
-            try:
-                body_bytes = await request.body()
-                import json as _json
+            content_type = request.headers.get("content-type", "")
+            content_length = request.headers.get("content-length")
+            if "application/json" in content_type:
+                try:
+                    if content_length is None or int(content_length) <= 1024 * 1024:
+                        body_bytes = await request.body()
+                        import json as _json
 
-                _request_model = _json.loads(body_bytes).get("model", "")
-            except Exception:
-                pass
+                        _request_model = _json.loads(body_bytes).get("model", "")
+                except Exception:
+                    pass
 
         # Resolve model_name and model_type from cache
-        _model_name, _model_type = resolve_model_info(_request_model)
+        if resolve_model_info is not None:
+            _model_name, _model_type = resolve_model_info(_request_model)
+        else:
+            _model_name, _model_type = "", ""
 
         def _audit(
             status_val: str,
@@ -324,7 +364,7 @@ class AdvancedAuthService:
             key_prefix: str = "",
             auth_type: str = "",
         ):
-            if _skip_audit:
+            if _skip_audit or record_audit_event is None:
                 return
             record_audit_event(
                 user=user,
@@ -443,7 +483,9 @@ class AdvancedAuthService:
             if client_ip and self._rate_limiter:
                 self._rate_limiter.reset_key(client_ip, api_key_entry.key_id)
             # Record success for non-inference endpoints (inference success is recorded by audit_middleware)
-            _category = classify_endpoint(endpoint)
+            _category = (
+                classify_endpoint(endpoint) if classify_endpoint is not None else ""
+            )
             if _category != "inference":
                 _audit(
                     "success",
@@ -487,7 +529,9 @@ class AdvancedAuthService:
             raise credentials_exception
 
         if "admin" in token_scopes:
-            _category = classify_endpoint(endpoint)
+            _category = (
+                classify_endpoint(endpoint) if classify_endpoint is not None else ""
+            )
             if _category != "inference":
                 _audit("success", user=username or "", auth_type="jwt")
             return user
@@ -500,7 +544,7 @@ class AdvancedAuthService:
                     detail="Not enough permissions",
                     headers={"WWW-Authenticate": authenticate_value},
                 )
-        _category = classify_endpoint(endpoint)
+        _category = classify_endpoint(endpoint) if classify_endpoint is not None else ""
         if _category != "inference":
             _audit("success", user=username or "", auth_type="jwt")
         return user
