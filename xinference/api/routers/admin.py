@@ -542,24 +542,32 @@ async def search_logs_context(
 
 
 def _parse_relative_time(expr: str) -> Optional[datetime]:
-    """Parse ES-style relative time like 'now-1h', 'now-7d'."""
+    """Parse ES-style relative time, epoch milliseconds, or ISO timestamp."""
     import re
 
     if expr == "now":
         return datetime.now(timezone.utc)
     m = re.match(r"now-(\d+)([mhdw])", expr)
-    if not m:
-        return None
-    val, unit = int(m.group(1)), m.group(2)
-    delta = {
-        "m": timedelta(minutes=val),
-        "h": timedelta(hours=val),
-        "d": timedelta(days=val),
-        "w": timedelta(weeks=val),
-    }.get(unit)
-    if delta is None:
-        return None
-    return datetime.now(timezone.utc) - delta
+    if m:
+        val, unit = int(m.group(1)), m.group(2)
+        delta = {
+            "m": timedelta(minutes=val),
+            "h": timedelta(hours=val),
+            "d": timedelta(days=val),
+            "w": timedelta(weeks=val),
+        }.get(unit)
+        if delta is None:
+            return None
+        return datetime.now(timezone.utc) - delta
+    # Epoch milliseconds (numeric string like "1716854400000")
+    if expr.isdigit():
+        return datetime.fromtimestamp(int(expr) / 1000, tz=timezone.utc)
+    # ISO 8601 timestamp (e.g. "2026-05-28T03:00:00.000Z")
+    try:
+        return datetime.fromisoformat(expr.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        pass
+    return None
 
 
 async def _search_audit_from_file(
