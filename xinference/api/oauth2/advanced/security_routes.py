@@ -32,7 +32,9 @@ logger = logging.getLogger(__name__)
 def _get_rate_limiter(request: Request):
     auth_service = getattr(request.app.state, "advanced_auth", None)
     if auth_service is not None and hasattr(auth_service, "_rate_limiter"):
-        return auth_service._rate_limiter
+        rl = auth_service._rate_limiter
+        if rl is not None:
+            return rl
     rl = getattr(request.app.state, "rate_limiter", None)
     if rl is None:
         raise HTTPException(status_code=503, detail="Rate limiter not available")

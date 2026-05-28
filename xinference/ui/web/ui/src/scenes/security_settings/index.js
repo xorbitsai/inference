@@ -43,25 +43,27 @@ function SecuritySettings() {
     fetch(endpoint + '/v1/admin/security/rate-limit', { headers })
       .then((res) => {
         if (res.ok) res.json().then(setConfig)
-        else setErrorMsg('Failed to fetch config')
+        else setErrorMsg('Failed to fetch rate limit config')
       })
-      .catch(() => setErrorMsg('Network error'))
+      .catch(() => setErrorMsg('Network error fetching config'))
   }
 
   const fetchBannedIps = () => {
     fetch(endpoint + '/v1/admin/security/banned-ips', { headers })
       .then((res) => {
         if (res.ok) res.json().then(setBannedIps)
+        else setErrorMsg('Failed to fetch banned IPs')
       })
-      .catch(() => setErrorMsg('Network error'))
+      .catch(() => setErrorMsg('Network error fetching banned IPs'))
   }
 
   const fetchBannedKeys = () => {
     fetch(endpoint + '/v1/admin/security/banned-keys', { headers })
       .then((res) => {
         if (res.ok) res.json().then(setBannedKeys)
+        else setErrorMsg('Failed to fetch banned keys')
       })
-      .catch(() => setErrorMsg('Network error'))
+      .catch(() => setErrorMsg('Network error fetching banned keys'))
   }
 
   useEffect(() => {
@@ -75,10 +77,12 @@ function SecuritySettings() {
       method: 'PUT',
       headers,
       body: JSON.stringify(config),
-    }).then((res) => {
-      if (res.ok) setErrorMsg('')
-      else setErrorMsg('Failed to update config')
     })
+      .then((res) => {
+        if (res.ok) setErrorMsg('')
+        else setErrorMsg('Failed to update config')
+      })
+      .catch(() => setErrorMsg('Network error saving config'))
   }
 
   const handleUnbanIp = (ip) => {
@@ -86,7 +90,9 @@ function SecuritySettings() {
       method: 'POST',
       headers,
       body: JSON.stringify({ ip }),
-    }).then(() => fetchBannedIps())
+    })
+      .then(() => fetchBannedIps())
+      .catch(() => setErrorMsg('Network error unbanning IP'))
   }
 
   const handleUnbanKey = (ip, key_id) => {
@@ -94,21 +100,27 @@ function SecuritySettings() {
       method: 'POST',
       headers,
       body: JSON.stringify({ ip, key_id }),
-    }).then(() => fetchBannedKeys())
+    })
+      .then(() => fetchBannedKeys())
+      .catch(() => setErrorMsg('Network error unbanning key'))
   }
 
   const handleUnbanAllIps = () => {
     fetch(endpoint + '/v1/admin/security/unban-all-ips', {
       method: 'POST',
       headers,
-    }).then(() => fetchBannedIps())
+    })
+      .then(() => fetchBannedIps())
+      .catch(() => setErrorMsg('Network error unbanning all IPs'))
   }
 
   const handleUnbanAllKeys = () => {
     fetch(endpoint + '/v1/admin/security/unban-all-keys', {
       method: 'POST',
       headers,
-    }).then(() => fetchBannedKeys())
+    })
+      .then(() => fetchBannedKeys())
+      .catch(() => setErrorMsg('Network error unbanning all keys'))
   }
 
   return (
@@ -124,9 +136,7 @@ function SecuritySettings() {
           </Typography>
           <Grid container spacing={2}>
             <Grid item xs={12}>
-              <Typography variant="subtitle1">
-                {t('securitySettings.ipLayer')}
-              </Typography>
+              <Typography variant="subtitle1">{t('securitySettings.ipLayer')}</Typography>
             </Grid>
             <Grid item xs={4}>
               <TextField
@@ -138,10 +148,7 @@ function SecuritySettings() {
                 onChange={(e) =>
                   setConfig({
                     ...config,
-                    ip: {
-                      ...config.ip,
-                      max_failures: parseInt(e.target.value) || '',
-                    },
+                    ip: { ...config.ip, max_failures: e.target.value === '' ? '' : parseInt(e.target.value) },
                   })
                 }
               />
@@ -156,10 +163,7 @@ function SecuritySettings() {
                 onChange={(e) =>
                   setConfig({
                     ...config,
-                    ip: {
-                      ...config.ip,
-                      window_seconds: parseInt(e.target.value) || '',
-                    },
+                    ip: { ...config.ip, window_seconds: e.target.value === '' ? '' : parseInt(e.target.value) },
                   })
                 }
               />
@@ -174,19 +178,14 @@ function SecuritySettings() {
                 onChange={(e) =>
                   setConfig({
                     ...config,
-                    ip: {
-                      ...config.ip,
-                      ban_seconds: parseInt(e.target.value) || '',
-                    },
+                    ip: { ...config.ip, ban_seconds: e.target.value === '' ? '' : parseInt(e.target.value) },
                   })
                 }
               />
             </Grid>
             <Grid item xs={12}>
               <Divider sx={{ my: 1 }} />
-              <Typography variant="subtitle1">
-                {t('securitySettings.keyLayer')}
-              </Typography>
+              <Typography variant="subtitle1">{t('securitySettings.keyLayer')}</Typography>
             </Grid>
             <Grid item xs={4}>
               <TextField
@@ -198,10 +197,7 @@ function SecuritySettings() {
                 onChange={(e) =>
                   setConfig({
                     ...config,
-                    key: {
-                      ...config.key,
-                      max_failures: parseInt(e.target.value) || '',
-                    },
+                    key: { ...config.key, max_failures: e.target.value === '' ? '' : parseInt(e.target.value) },
                   })
                 }
               />
@@ -216,10 +212,7 @@ function SecuritySettings() {
                 onChange={(e) =>
                   setConfig({
                     ...config,
-                    key: {
-                      ...config.key,
-                      window_seconds: parseInt(e.target.value) || '',
-                    },
+                    key: { ...config.key, window_seconds: e.target.value === '' ? '' : parseInt(e.target.value) },
                   })
                 }
               />
@@ -234,10 +227,7 @@ function SecuritySettings() {
                 onChange={(e) =>
                   setConfig({
                     ...config,
-                    key: {
-                      ...config.key,
-                      ban_seconds: parseInt(e.target.value) || '',
-                    },
+                    key: { ...config.key, ban_seconds: e.target.value === '' ? '' : parseInt(e.target.value) },
                   })
                 }
               />
@@ -254,15 +244,8 @@ function SecuritySettings() {
       {/* Banned IPs */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Box
-            display="flex"
-            justifyContent="space-between"
-            alignItems="center"
-            mb={1}
-          >
-            <Typography variant="h6">
-              {t('securitySettings.bannedIps')}
-            </Typography>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+            <Typography variant="h6">{t('securitySettings.bannedIps')}</Typography>
             {bannedIps.length > 0 && (
               <Button size="small" color="error" onClick={handleUnbanAllIps}>
                 {t('securitySettings.unbanAll')}
@@ -273,9 +256,7 @@ function SecuritySettings() {
             {t('securitySettings.bannedIpsDesc')}
           </Typography>
           {bannedIps.length === 0 ? (
-            <Typography color="text.secondary">
-              {t('securitySettings.noBannedIps')}
-            </Typography>
+            <Typography color="text.secondary">{t('securitySettings.noBannedIps')}</Typography>
           ) : (
             <TableContainer component={Paper} variant="outlined">
               <Table size="small">
@@ -292,10 +273,7 @@ function SecuritySettings() {
                       <TableCell>{row.ip}</TableCell>
                       <TableCell>{row.remaining_seconds}</TableCell>
                       <TableCell>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleUnbanIp(row.ip)}
-                        >
+                        <IconButton size="small" onClick={() => handleUnbanIp(row.ip)}>
                           <DeleteIcon fontSize="small" />
                         </IconButton>
                       </TableCell>
@@ -311,15 +289,8 @@ function SecuritySettings() {
       {/* Banned (IP, Key) Pairs */}
       <Card>
         <CardContent>
-          <Box
-            display="flex"
-            justifyContent="space-between"
-            alignItems="center"
-            mb={1}
-          >
-            <Typography variant="h6">
-              {t('securitySettings.bannedKeys')}
-            </Typography>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+            <Typography variant="h6">{t('securitySettings.bannedKeys')}</Typography>
             {bannedKeys.length > 0 && (
               <Button size="small" color="error" onClick={handleUnbanAllKeys}>
                 {t('securitySettings.unbanAll')}
@@ -330,9 +301,7 @@ function SecuritySettings() {
             {t('securitySettings.bannedKeysDesc')}
           </Typography>
           {bannedKeys.length === 0 ? (
-            <Typography color="text.secondary">
-              {t('securitySettings.noBannedKeys')}
-            </Typography>
+            <Typography color="text.secondary">{t('securitySettings.noBannedKeys')}</Typography>
           ) : (
             <TableContainer component={Paper} variant="outlined">
               <Table size="small">
