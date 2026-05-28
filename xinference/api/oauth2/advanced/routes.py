@@ -58,12 +58,7 @@ def _get_current_user_from_token(request: Request, auth: AdvancedAuthService):
 
 
 async def advanced_login(request: Request) -> JSONResponse:
-    try:
-        from .audit import record_audit_event
-    except ImportError:
-
-        def record_audit_event(**kwargs):
-            pass
+    from .audit import record_audit_event
 
     auth: AdvancedAuthService = get_advanced_auth(request)
     body = await request.json()

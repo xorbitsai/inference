@@ -23,8 +23,8 @@ services:
       - ./filebeat-to-es.yml:/usr/share/filebeat/filebeat.yml:ro
       # - ./filebeat-to-kafka.yml:/usr/share/filebeat/filebeat.yml:ro
       # Log directories (adjust to actual paths)
-      - /data/logs/worker:/data/logs/worker:ro
-      - /data/logs/supervisor:/data/logs/supervisor:ro
+      # Mount the entire logs directory so worker, supervisor, and audit logs are all visible
+      - /data/logs:/data/logs:ro
       # Data directory (persists collection progress across restarts)
       - filebeat-data:/usr/share/filebeat/data
     networks:
