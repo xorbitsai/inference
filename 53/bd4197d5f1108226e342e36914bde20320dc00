@@ -1,0 +1,27 @@
+xinference/constants.py
+  068d290b74afc7c5 281-283
+xinference/api/oauth2/advanced/rate_limiter.py
+  068d290b74afc7c5 81
+xinference/api/oauth2/advanced/auth_service.py
+  068d290b74afc7c5 41-55,57-64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.16",
+  "base_commit_sha": "53bd4197d5f1108226e342e36914bde20320dc00",
+  "prompts": {
+    "068d290b74afc7c5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "692dae51-b7e5-40ae-81fe-ee68fecc4a65",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 27,
+      "total_deletions": 20,
+      "accepted_lines": 480,
+      "overriden_lines": 0
+    }
+  }
+}
