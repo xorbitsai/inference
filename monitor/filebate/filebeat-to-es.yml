@@ -36,7 +36,6 @@ filebeat.inputs:
     enabled: true
     paths:
       - /data/logs/audit.log
-      - ${XINFERENCE_HOME}/logs/audit.log
     json.keys_under_root: true
     json.add_error_key: true
     fields:
