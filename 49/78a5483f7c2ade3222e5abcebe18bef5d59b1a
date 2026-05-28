@@ -1,0 +1,23 @@
+monitor/filebate/docker-compose.yml
+  068d290b74afc7c5 26-27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.16",
+  "base_commit_sha": "4978a5483f7c2ade3222e5abcebe18bef5d59b1a",
+  "prompts": {
+    "068d290b74afc7c5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "692dae51-b7e5-40ae-81fe-ee68fecc4a65",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 408,
+      "total_deletions": 18,
+      "accepted_lines": 454,
+      "overriden_lines": 0
+    }
+  }
+}
