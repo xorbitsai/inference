@@ -70,18 +70,16 @@ class RateLimiter:
         if now - self._last_cleanup < CLEANUP_INTERVAL:
             return
         self._last_cleanup = now
-        for records, config in [
+        pairs: List[Tuple[Dict, RateLimitConfig]] = [
             (self._ip_records, self._ip_config),
             (self._key_records, self._key_config),
-        ]:
+        ]
+        for records, config in pairs:
             stale_keys = [
                 k
                 for k, r in records.items()
                 if not r.banned_until
-                and (
-                    not r.timestamps
-                    or now - r.timestamps[-1] > config.window_seconds
-                )
+                and (not r.timestamps or now - r.timestamps[-1] > config.window_seconds)
             ]
             for k in stale_keys:
                 del records[k]
@@ -89,9 +87,18 @@ class RateLimiter:
     def _update_ban_gauges(self) -> None:
         try:
             from ....core.metrics import banned_ips_total, banned_keys_total
+
             now = time.time()
-            ip_count = sum(1 for r in self._ip_records.values() if r.banned_until and r.banned_until > now)
-            key_count = sum(1 for r in self._key_records.values() if r.banned_until and r.banned_until > now)
+            ip_count = sum(
+                1
+                for r in self._ip_records.values()
+                if r.banned_until and r.banned_until > now
+            )
+            key_count = sum(
+                1
+                for r in self._key_records.values()
+                if r.banned_until and r.banned_until > now
+            )
             banned_ips_total.set({}, ip_count)
             banned_keys_total.set({}, key_count)
         except Exception:
@@ -191,11 +198,13 @@ class RateLimiter:
         with self._lock:
             for ip, rec in list(self._ip_records.items()):
                 if rec.banned_until and rec.banned_until > now:
-                    result.append({
-                        "ip": ip,
-                        "banned_until": rec.banned_until,
-                        "remaining_seconds": int(rec.banned_until - now),
-                    })
+                    result.append(
+                        {
+                            "ip": ip,
+                            "banned_until": rec.banned_until,
+                            "remaining_seconds": int(rec.banned_until - now),
+                        }
+                    )
         return result
 
     def get_banned_keys(self) -> List[Dict]:
@@ -204,12 +213,14 @@ class RateLimiter:
         with self._lock:
             for (ip, key_id), rec in list(self._key_records.items()):
                 if rec.banned_until and rec.banned_until > now:
-                    result.append({
-                        "ip": ip,
-                        "key_id": key_id,
-                        "banned_until": rec.banned_until,
-                        "remaining_seconds": int(rec.banned_until - now),
-                    })
+                    result.append(
+                        {
+                            "ip": ip,
+                            "key_id": key_id,
+                            "banned_until": rec.banned_until,
+                            "remaining_seconds": int(rec.banned_until - now),
+                        }
+                    )
         return result
 
     def get_key_bans(self, key_id: int) -> List[Dict]:
@@ -218,11 +229,13 @@ class RateLimiter:
         with self._lock:
             for (ip, kid), rec in list(self._key_records.items()):
                 if kid == key_id and rec.banned_until and rec.banned_until > now:
-                    result.append({
-                        "ip": ip,
-                        "banned_until": rec.banned_until,
-                        "remaining_seconds": int(rec.banned_until - now),
-                    })
+                    result.append(
+                        {
+                            "ip": ip,
+                            "banned_until": rec.banned_until,
+                            "remaining_seconds": int(rec.banned_until - now),
+                        }
+                    )
         return result
 
     def unban_ip(self, ip: str) -> bool:

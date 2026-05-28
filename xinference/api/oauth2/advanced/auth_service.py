@@ -64,7 +64,7 @@ class AdvancedAuthService:
         try:
             from .rate_limiter import RateLimiter
 
-            self._rate_limiter = RateLimiter()
+            self._rate_limiter: Optional["RateLimiter"] = RateLimiter()
         except ImportError:
             self._rate_limiter = None
 
