@@ -1,0 +1,29 @@
+xinference/api/restful_api.py
+  068d290b74afc7c5 420-427,1059-1061
+monitor/filebate/filebeat-to-es.yml
+  068d290b74afc7c5 34-46,161-165
+xinference/api/oauth2/advanced/audit.py
+  068d290b74afc7c5 103-106
+xinference/api/routers/admin.py
+  068d290b74afc7c5 6,11-12,544-557,559-670,688-702
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.16",
+  "base_commit_sha": "d0f298fad2c39226d8a48906f90a2db5c5fa6551",
+  "prompts": {
+    "068d290b74afc7c5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "692dae51-b7e5-40ae-81fe-ee68fecc4a65",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 175,
+      "total_deletions": 16,
+      "accepted_lines": 177,
+      "overriden_lines": 1
+    }
+  }
+}
