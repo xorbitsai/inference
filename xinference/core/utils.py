@@ -377,17 +377,16 @@ def filter_virtualenv_packages_by_markers(
             pattern = r'cuda_version\s*([<>=!]+)\s*"([^"]+)"'
             return re.findall(pattern, s)
 
-        if (
-            cuda_version
-            and (op_versions := parse_all_cuda_markers(marker))
-            and any(
+        if op_versions := parse_all_cuda_markers(marker):
+            if not cuda_version:
+                return False
+            if any(
                 [
                     check_marker(op_version, cuda_version) is False
                     for op_version in op_versions
                 ]
-            )
-        ):
-            return False
+            ):
+                return False
         if (
             'platform_machine == "x86_64"' in marker
             and platform.machine().lower() != "x86_64"
