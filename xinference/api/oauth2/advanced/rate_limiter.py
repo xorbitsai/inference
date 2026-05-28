@@ -78,7 +78,7 @@ class RateLimiter:
             stale_keys = [
                 k
                 for k, r in records.items()
-                if not r.banned_until
+                if (not r.banned_until or r.banned_until <= now)
                 and (not r.timestamps or now - r.timestamps[-1] > config.window_seconds)
             ]
             for k in stale_keys:

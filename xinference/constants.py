@@ -278,3 +278,6 @@ XINFERENCE_RATE_LIMIT_KEY_WINDOW_SECONDS = int(
 XINFERENCE_RATE_LIMIT_KEY_BAN_SECONDS = int(
     os.environ.get("XINFERENCE_RATE_LIMIT_KEY_BAN_SECONDS", "3600")
 )
+
+# Trusted proxy IPs — only honor X-Forwarded-For/X-Real-IP from these peers
+XINFERENCE_TRUSTED_PROXIES = os.environ.get("XINFERENCE_TRUSTED_PROXIES", "")

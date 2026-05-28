@@ -162,13 +162,6 @@ const MenuSide = () => {
     ...(authAdvanced
       ? [
           {
-            text: 'audit_log',
-            label: t('menu.auditLog') || 'Audit Log',
-            icon: <ArticleOutlined />,
-            action: 'navigate',
-            path: '/audit_log',
-          },
-          {
             text: 'user_management',
             label: t('menu.userManagement'),
             icon: <PeopleOutlined />,

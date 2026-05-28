@@ -38,12 +38,30 @@ from .database import Database
 logger = logging.getLogger(__name__)
 
 
+_TRUSTED_PROXY_SET: Optional[set] = None
+
+
+def _get_trusted_proxies() -> set:
+    global _TRUSTED_PROXY_SET
+    if _TRUSTED_PROXY_SET is None:
+        from ....constants import XINFERENCE_TRUSTED_PROXIES
+
+        raw = XINFERENCE_TRUSTED_PROXIES
+        _TRUSTED_PROXY_SET = (
+            {p.strip() for p in raw.split(",") if p.strip()} if raw else set()
+        )
+    return _TRUSTED_PROXY_SET
+
+
 def _get_client_ip(request: Request) -> str:
-    if "x-forwarded-for" in request.headers:
-        return request.headers["x-forwarded-for"].split(",")[0].strip()
-    if "x-real-ip" in request.headers:
-        return request.headers["x-real-ip"].strip()
-    return request.client.host if request.client else ""
+    peer_ip = request.client.host if request.client else ""
+    trusted = _get_trusted_proxies()
+    if trusted and peer_ip in trusted:
+        if "x-forwarded-for" in request.headers:
+            return request.headers["x-forwarded-for"].split(",")[0].strip()
+        if "x-real-ip" in request.headers:
+            return request.headers["x-real-ip"].strip()
+    return peer_ip
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
