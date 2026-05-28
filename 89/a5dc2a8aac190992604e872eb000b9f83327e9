@@ -1,0 +1,25 @@
+xinference/api/routers/admin.py
+  068d290b74afc7c5 545,551-570
+monitor/filebate/filebeat-to-es.yml
+  068d290b74afc7c5 39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.16",
+  "base_commit_sha": "89a5dc2a8aac190992604e872eb000b9f83327e9",
+  "prompts": {
+    "068d290b74afc7c5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "692dae51-b7e5-40ae-81fe-ee68fecc4a65",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 29,
+      "total_deletions": 22,
+      "accepted_lines": 474,
+      "overriden_lines": 0
+    }
+  }
+}
