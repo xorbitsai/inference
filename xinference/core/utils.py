@@ -373,11 +373,9 @@ def filter_virtualenv_packages_by_markers(
             ):
                 return False
 
-        def parse_all_cuda_markers(s):
-            pattern = r"cuda_version\s*([<>=!]+)\s*['\"]([^'\"]+)['\"]"
-            return re.findall(pattern, s)
-
-        if op_versions := parse_all_cuda_markers(marker):
+        if op_versions := re.findall(
+            r"cuda_version\s*([<>=!]+)\s*['\"]([^'\"]+)['\"]", marker
+        ):
             if not cuda_version:
                 return False
             if not all(
@@ -499,6 +497,12 @@ class CancelMixin:
 
 
 def check_marker(op_version: Tuple[str, str], package_version: str) -> bool:
-    marker_str = f'extra {op_version[0]} "{op_version[1]}"'
-    env = {"extra": package_version}
-    return Marker(marker_str).evaluate(env)
+    try:
+        marker_str = f'extra {op_version[0]} "{op_version[1]}"'
+        env = {"extra": package_version}
+        return Marker(marker_str).evaluate(env)
+    except Exception as e:
+        logger.warning(
+            f"Failed to evaluate CUDA version marker {op_version} against {package_version}: {e}"
+        )
+        return False
