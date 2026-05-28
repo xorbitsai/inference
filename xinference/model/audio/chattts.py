@@ -83,7 +83,7 @@ class ChatTTSModel:
                 assert self._model is not None
                 b = base64.b64decode(voice)
                 bio = BytesIO(b)
-                tensor = torch.load(bio, map_location="cpu")
+                tensor = torch.load(bio, map_location="cpu", weights_only=True)
                 rnd_spk_emb = self._model._encode_spk_emb(tensor)
                 logger.info("Speech by input speaker")
             except Exception as e:
