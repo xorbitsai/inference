@@ -66,6 +66,11 @@ function SecuritySettings() {
       .catch(() => setErrorMsg('Network error fetching banned keys'))
   }
 
+  const sanitizeConfig = (value) =>
+    Object.fromEntries(
+      Object.entries(value).filter(([, v]) => v !== '' && v !== null)
+    )
+
   useEffect(() => {
     fetchConfig()
     fetchBannedIps()
@@ -76,7 +81,10 @@ function SecuritySettings() {
     fetch(endpoint + '/v1/admin/security/rate-limit', {
       method: 'PUT',
       headers,
-      body: JSON.stringify(config),
+      body: JSON.stringify({
+        ip: sanitizeConfig(config.ip),
+        key: sanitizeConfig(config.key),
+      }),
     })
       .then((res) => {
         if (res.ok) setErrorMsg('')

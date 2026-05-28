@@ -183,13 +183,13 @@ class RateLimiter:
     def update_ip_config(self, **kwargs) -> None:
         with self._lock:
             for k, v in kwargs.items():
-                if hasattr(self._ip_config, k) and v is not None:
+                if hasattr(self._ip_config, k) and v not in (None, ""):
                     setattr(self._ip_config, k, int(v))
 
     def update_key_config(self, **kwargs) -> None:
         with self._lock:
             for k, v in kwargs.items():
-                if hasattr(self._key_config, k) and v is not None:
+                if hasattr(self._key_config, k) and v not in (None, ""):
                     setattr(self._key_config, k, int(v))
 
     def get_banned_ips(self) -> List[Dict]:
