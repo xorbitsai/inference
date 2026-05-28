@@ -1,0 +1,23 @@
+xinference/ui/web/ui/src/scenes/security_settings/index.js
+  068d290b74afc7c5 139-141,153-157,172-176,191-195,202-204,216-220,235-239,254-258,275-283,294-296,313-316,332-340,351-353
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.16",
+  "base_commit_sha": "6d41fbb08003dc35a5527f764048a7c460ce6d4b",
+  "prompts": {
+    "068d290b74afc7c5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "692dae51-b7e5-40ae-81fe-ee68fecc4a65",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 455,
+      "total_deletions": 406,
+      "accepted_lines": 524,
+      "overriden_lines": 0
+    }
+  }
+}
