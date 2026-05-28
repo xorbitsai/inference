@@ -374,17 +374,14 @@ def filter_virtualenv_packages_by_markers(
                 return False
 
         def parse_all_cuda_markers(s):
-            pattern = r'cuda_version\s*([<>=!]+)\s*"([^"]+)"'
+            pattern = r"cuda_version\s*([<>=!]+)\s*['\"]([^'\"]+)['\"]"
             return re.findall(pattern, s)
 
         if op_versions := parse_all_cuda_markers(marker):
             if not cuda_version:
                 return False
-            if any(
-                [
-                    check_marker(op_version, cuda_version) is False
-                    for op_version in op_versions
-                ]
+            if not all(
+                check_marker(op_version, cuda_version) for op_version in op_versions
             ):
                 return False
         if (
