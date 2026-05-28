@@ -375,20 +375,24 @@ function ApiKeyManagement() {
         </Box>
       ),
     },
-    {
-      field: 'bans',
-      headerName: t('apikeyManagement.bans'),
-      width: 70,
-      renderCell: (params) => (
-        <Chip
-          label={t('apikeyManagement.viewBans')}
-          size="small"
-          variant="outlined"
-          onClick={() => handleShowBans(params.row.id)}
-          sx={{ cursor: 'pointer' }}
-        />
-      ),
-    },
+    ...(isAdmin
+      ? [
+          {
+            field: 'bans',
+            headerName: t('apikeyManagement.bans'),
+            width: 70,
+            renderCell: (params) => (
+              <Chip
+                label={t('apikeyManagement.viewBans')}
+                size="small"
+                variant="outlined"
+                onClick={() => handleShowBans(params.row.id)}
+                sx={{ cursor: 'pointer' }}
+              />
+            ),
+          },
+        ]
+      : []),
     {
       field: 'actions',
       headerName: t('apikeyManagement.actions'),
