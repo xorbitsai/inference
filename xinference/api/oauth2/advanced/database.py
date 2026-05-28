@@ -367,6 +367,7 @@ class Database:
     def update_api_key(self, key_id: int, **kwargs) -> bool:
         allowed = {
             "name",
+            "description",
             "enabled",
             "expires_at",
             "rate_limit_max_failures",

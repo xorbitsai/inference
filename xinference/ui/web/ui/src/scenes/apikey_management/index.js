@@ -45,6 +45,7 @@ function ApiKeyManagement() {
   const [revealOpen, setRevealOpen] = useState(false)
   const [revealedKey, setRevealedKey] = useState('')
   const [newKeyName, setNewKeyName] = useState('')
+  const [newKeyDescription, setNewKeyDescription] = useState('')
   const [newKeyExpires, setNewKeyExpires] = useState(null)
   const [newKeyPermType, setNewKeyPermType] = useState('all')
   const [selectedModelTypes, setSelectedModelTypes] = useState([])
@@ -61,6 +62,9 @@ function ApiKeyManagement() {
   const [editPermType, setEditPermType] = useState('all')
   const [editModelTypes, setEditModelTypes] = useState([])
   const [editModelIds, setEditModelIds] = useState([])
+  const [bansDialogOpen, setBansDialogOpen] = useState(false)
+  const [bansDialogKeyId, setBansDialogKeyId] = useState(null)
+  const [bansData, setBansData] = useState([])
 
   const loadKeys = async () => {
     try {
@@ -68,6 +72,29 @@ function ApiKeyManagement() {
       setKeys(data)
     } catch (e) {
       console.error(e)
+    }
+  }
+
+  const handleShowBans = async (keyId) => {
+    try {
+      const data = await fetchWrapper.get(`/v1/admin/keys/${keyId}/banned`)
+      setBansData(Array.isArray(data) ? data : [])
+      setBansDialogKeyId(keyId)
+      setBansDialogOpen(true)
+    } catch (e) {
+      setSnackError(t('apikeyManagement.failedLoadBans'))
+    }
+  }
+
+  const handleUnbanFromDialog = async (ip) => {
+    try {
+      await fetchWrapper.post(`/v1/admin/keys/${bansDialogKeyId}/unban`, { ip })
+      const data = await fetchWrapper.get(
+        `/v1/admin/keys/${bansDialogKeyId}/banned`
+      )
+      setBansData(Array.isArray(data) ? data : [])
+    } catch (e) {
+      setSnackError(t('apikeyManagement.failedUnban'))
     }
   }
 
@@ -129,6 +156,7 @@ function ApiKeyManagement() {
       }
       const result = await fetchWrapper.post('/v1/admin/keys', {
         name: newKeyName || undefined,
+        description: newKeyDescription || undefined,
         owner: selectedOwner ? selectedOwner.id : undefined,
         expires_at: newKeyExpires
           ? newKeyExpires.endOf('day').format('YYYY-MM-DDTHH:mm:ss')
@@ -137,6 +165,7 @@ function ApiKeyManagement() {
       })
       setCreatedKey(result.key)
       setNewKeyName('')
+      setNewKeyDescription('')
       setNewKeyExpires(null)
       setNewKeyPermType('all')
       setSelectedModelTypes([])
@@ -264,11 +293,23 @@ function ApiKeyManagement() {
 
   const columns = [
     { field: 'id', headerName: t('apikeyManagement.id'), width: 60 },
-    { field: 'name', headerName: t('apikeyManagement.name'), width: 150 },
+    {
+      field: 'name',
+      headerName: t('apikeyManagement.name'),
+      flex: 1,
+      minWidth: 120,
+    },
+    {
+      field: 'description',
+      headerName: t('apikeyManagement.description'),
+      flex: 1,
+      minWidth: 120,
+    },
     {
       field: 'user_id',
       headerName: t('apikeyManagement.owner'),
-      width: 120,
+      flex: 0.8,
+      minWidth: 100,
       renderCell: (params) => {
         const user = users.find((u) => u.id === params.value)
         return user ? user.username : `#${params.value}`
@@ -282,7 +323,7 @@ function ApiKeyManagement() {
     {
       field: 'enabled',
       headerName: t('apikeyManagement.status'),
-      width: 100,
+      width: 80,
       renderCell: (params) =>
         params.value ? (
           <Chip
@@ -301,12 +342,14 @@ function ApiKeyManagement() {
     {
       field: 'expires_at',
       headerName: t('apikeyManagement.expires'),
-      width: 180,
+      flex: 1,
+      minWidth: 140,
     },
     {
       field: 'model_permissions',
       headerName: t('apikeyManagement.modelPermissions'),
-      width: 250,
+      flex: 1.5,
+      minWidth: 180,
       renderCell: (params) => (
         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', py: 0.5 }}>
           {(params.value || []).map((mp, i) => (
@@ -332,10 +375,28 @@ function ApiKeyManagement() {
         </Box>
       ),
     },
+    ...(isAdmin
+      ? [
+          {
+            field: 'bans',
+            headerName: t('apikeyManagement.bans'),
+            width: 70,
+            renderCell: (params) => (
+              <Chip
+                label={t('apikeyManagement.viewBans')}
+                size="small"
+                variant="outlined"
+                onClick={() => handleShowBans(params.row.id)}
+                sx={{ cursor: 'pointer' }}
+              />
+            ),
+          },
+        ]
+      : []),
     {
       field: 'actions',
       headerName: t('apikeyManagement.actions'),
-      width: 190,
+      width: 170,
       renderCell: (params) => (
         <Box>
           <Tooltip title={t('apikeyManagement.revealTooltip')}>
@@ -448,6 +509,16 @@ function ApiKeyManagement() {
                 fullWidth
                 value={newKeyName}
                 onChange={(e) => setNewKeyName(e.target.value)}
+              />
+              <TextField
+                margin="dense"
+                label={t('apikeyManagement.descriptionLabel')}
+                fullWidth
+                multiline
+                minRows={2}
+                maxRows={4}
+                value={newKeyDescription}
+                onChange={(e) => setNewKeyDescription(e.target.value)}
               />
               {isAdmin && (
                 <Autocomplete
@@ -749,6 +820,58 @@ function ApiKeyManagement() {
           {snackSuccess}
         </Alert>
       </Snackbar>
+
+      {/* Bans Detail Dialog */}
+      <Dialog
+        open={bansDialogOpen}
+        onClose={() => setBansDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {t('apikeyManagement.bannedIpsForKey', { keyId: bansDialogKeyId })}
+        </DialogTitle>
+        <DialogContent>
+          {bansData.length === 0 ? (
+            <Typography color="text.secondary">
+              {t('apikeyManagement.noActiveBans')}
+            </Typography>
+          ) : (
+            <Box>
+              {bansData.map((ban, idx) => (
+                <Box
+                  key={idx}
+                  display="flex"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  sx={{ py: 1, borderBottom: '1px solid #eee' }}
+                >
+                  <Box>
+                    <Typography variant="body2">{ban.ip}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {t('apikeyManagement.remaining', {
+                        seconds: ban.remaining_seconds,
+                      })}
+                    </Typography>
+                  </Box>
+                  <Button
+                    size="small"
+                    color="error"
+                    onClick={() => handleUnbanFromDialog(ban.ip)}
+                  >
+                    {t('apikeyManagement.unban')}
+                  </Button>
+                </Box>
+              ))}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBansDialogOpen(false)}>
+            {t('apikeyManagement.close')}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

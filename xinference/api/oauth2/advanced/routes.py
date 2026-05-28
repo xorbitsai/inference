@@ -31,12 +31,37 @@ logger = logging.getLogger(__name__)
 
 
 def _refresh_key_gauges(auth: AdvancedAuthService) -> None:
-    """Update Prometheus gauges for active/expired key counts.
+    """Update Prometheus gauges for active/expired key counts."""
+    try:
+        from datetime import datetime
 
-    NOTE: Metrics counters are defined in the security-hardening PR.
-    This is a placeholder that will be filled when that PR is merged.
-    """
-    pass
+        from ....core import metrics as _metrics
+
+        _active_gauge = getattr(_metrics, "api_keys_active_total", None)
+        _expired_gauge = getattr(_metrics, "api_keys_expired_total", None)
+        if _active_gauge is None or _expired_gauge is None:
+            return
+
+        keys = auth.db.list_api_keys()
+        active = 0
+        expired = 0
+        now = datetime.utcnow()
+        for k in keys:
+            if not k.get("enabled", 1):
+                continue
+            expires_at = k.get("expires_at")
+            if expires_at:
+                try:
+                    if datetime.fromisoformat(expires_at) < now:
+                        expired += 1
+                        continue
+                except ValueError:
+                    pass
+            active += 1
+        _active_gauge.set({}, active)
+        _expired_gauge.set({}, expired)
+    except Exception:
+        pass
 
 
 def get_advanced_auth(request: Request) -> AdvancedAuthService:
@@ -283,6 +308,7 @@ async def list_api_keys(
                 "user_id": k["user_id"],
                 "key_prefix": k["key_prefix"],
                 "name": k.get("name"),
+                "description": k.get("description"),
                 "enabled": bool(k.get("enabled", 1)),
                 "expires_at": k.get("expires_at"),
                 "model_permissions": k.get("model_permissions", []),
@@ -308,6 +334,7 @@ async def get_api_key(key_id: int, request: Request) -> JSONResponse:
             "user_id": key["user_id"],
             "key_prefix": key["key_prefix"],
             "name": key.get("name"),
+            "description": key.get("description"),
             "enabled": bool(key.get("enabled", 1)),
             "expires_at": key.get("expires_at"),
             "model_permissions": key.get("model_permissions", []),
@@ -326,6 +353,7 @@ async def update_api_key(key_id: int, request: Request) -> JSONResponse:
     update_fields = {}
     for field in (
         "name",
+        "description",
         "enabled",
         "expires_at",
         "rate_limit_max_failures",
@@ -413,9 +441,10 @@ def register_advanced_auth_routes(api: "RESTfulAPI") -> None:
     router = api._router
     auth_service: AdvancedAuthService = api._app.state.advanced_auth
 
-    # Store rate_limiter on app state for security routes (if available)
-    if auth_service._rate_limiter:
-        api._app.state.rate_limiter = auth_service._rate_limiter
+    # Store rate_limiter on app state for security routes
+    _rl = getattr(auth_service, "_rate_limiter", None)
+    if _rl is not None:
+        api._app.state.rate_limiter = _rl
 
     router.add_api_route("/token", advanced_login, methods=["POST"])
     router.add_api_route("/v1/auth/refresh", advanced_refresh, methods=["POST"])
