@@ -483,7 +483,9 @@ class AdvancedAuthService:
             if client_ip and self._rate_limiter:
                 self._rate_limiter.reset_key(client_ip, api_key_entry.key_id)
             # Record success for non-inference endpoints (inference success is recorded by audit_middleware)
-            _category = classify_endpoint(endpoint) if classify_endpoint else ""
+            _category = (
+                classify_endpoint(endpoint) if classify_endpoint is not None else ""
+            )
             if _category != "inference":
                 _audit(
                     "success",
@@ -527,7 +529,9 @@ class AdvancedAuthService:
             raise credentials_exception
 
         if "admin" in token_scopes:
-            _category = classify_endpoint(endpoint) if classify_endpoint else ""
+            _category = (
+                classify_endpoint(endpoint) if classify_endpoint is not None else ""
+            )
             if _category != "inference":
                 _audit("success", user=username or "", auth_type="jwt")
             return user
@@ -540,7 +544,7 @@ class AdvancedAuthService:
                     detail="Not enough permissions",
                     headers={"WWW-Authenticate": authenticate_value},
                 )
-        _category = classify_endpoint(endpoint) if classify_endpoint else ""
+        _category = classify_endpoint(endpoint) if classify_endpoint is not None else ""
         if _category != "inference":
             _audit("success", user=username or "", auth_type="jwt")
         return user
