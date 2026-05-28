@@ -1,0 +1,23 @@
+xinference/api/oauth2/advanced/auth_service.py
+  54329f8d4f12a738 487,533,547
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.16",
+  "base_commit_sha": "2e56bfbdfd2cef71c3530e7ce1b00bc130ce9c57",
+  "prompts": {
+    "54329f8d4f12a738": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0edee1d5-ac4a-4b25-ac33-e7fd448d54f8",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 456,
+      "total_deletions": 3,
+      "accepted_lines": 456,
+      "overriden_lines": 2
+    }
+  }
+}
