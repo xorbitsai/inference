@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Optional
 from fastapi import HTTPException, Query, Request, Security
 
 from ...responses import JSONResponse
-from ..advanced.auth_service import AdvancedAuthService
+from ..advanced.auth_service import AdvancedAuthService, _get_client_ip
 from ..advanced.crypto import get_password_hash
 
 if TYPE_CHECKING:
@@ -58,16 +58,34 @@ def _get_current_user_from_token(request: Request, auth: AdvancedAuthService):
 
 
 async def advanced_login(request: Request) -> JSONResponse:
-    from .audit import record_audit_event
+    try:
+        from .audit import record_audit_event
+    except ImportError:
+        record_audit_event = None  # type: ignore[assignment]
 
     auth: AdvancedAuthService = get_advanced_auth(request)
     body = await request.json()
     username = body.get("username", "")
     password = body.get("password", "")
-    client_ip = request.client.host if request.client else ""
+    client_ip = _get_client_ip(request)
     try:
         result = auth.login(username, password)
     except Exception:
+        if record_audit_event is not None:
+            record_audit_event(
+                user=username,
+                api_key_name="",
+                api_key_prefix="",
+                model_id="",
+                model_type="",
+                endpoint="/token",
+                status="login_failed",
+                client_ip=client_ip,
+                category="auth",
+                auth_type="none",
+            )
+        raise
+    if record_audit_event is not None:
         record_audit_event(
             user=username,
             api_key_name="",
@@ -75,24 +93,11 @@ async def advanced_login(request: Request) -> JSONResponse:
             model_id="",
             model_type="",
             endpoint="/token",
-            status="login_failed",
+            status="success",
             client_ip=client_ip,
             category="auth",
             auth_type="none",
         )
-        raise
-    record_audit_event(
-        user=username,
-        api_key_name="",
-        api_key_prefix="",
-        model_id="",
-        model_type="",
-        endpoint="/token",
-        status="success",
-        client_ip=client_ip,
-        category="auth",
-        auth_type="none",
-    )
     return JSONResponse(content=result)
 
 
@@ -517,3 +522,11 @@ def register_advanced_auth_routes(api: "RESTfulAPI") -> None:
         methods=["PUT"],
         dependencies=[Security(auth_service, scopes=["users:manage"])],
     )
+
+    # Register security/rate-limit admin routes
+    try:
+        from .security_routes import register_security_routes
+
+        register_security_routes(api)
+    except ImportError:
+        pass

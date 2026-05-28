@@ -5,7 +5,6 @@ import { useNavigate } from 'react-router-dom'
 import { ApiContext } from '../components/apiContext'
 import Layout from '../scenes/_layout'
 import ApiKeyManagement from '../scenes/apikey_management'
-import AuditLog from '../scenes/audit_log'
 import ChangePassword from '../scenes/change_password'
 import ClusterInfo from '../scenes/cluster_info'
 import LaunchModel from '../scenes/launch_model'
@@ -90,10 +89,6 @@ const routes = [
       {
         path: 'security_settings',
         element: <SecuritySettings />,
-      },
-      {
-        path: 'audit_log',
-        element: <AuditLog />,
       },
     ],
   },
