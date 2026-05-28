@@ -417,6 +417,14 @@ class RESTfulAPI(CancelMixin):
                     latency_s = _time.perf_counter() - _start
                     audit_status = "success" if response.status_code < 400 else "error"
                     self._record_admin_audit(request, audit_status, latency_s)
+            elif self._advanced_auth_service and request.url.path.startswith(
+                ("/token", "/v1/auth/", "/v1/api_keys")
+            ):
+                latency_s = _time.perf_counter() - _start
+                audit_status = (
+                    "success" if response.status_code < 400 else "login_failed"
+                )
+                self._record_admin_audit(request, audit_status, latency_s)
             return response
 
         # Initialise OpenTelemetry tracing & metrics (no-op when disabled)
@@ -1048,6 +1056,9 @@ class RESTfulAPI(CancelMixin):
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
         self._uid_to_model_name.pop(model_uid, None)
+        from .oauth2.advanced.audit import evict_model_cache
+
+        evict_model_cache(model_uid)
         return JSONResponse(content=None)
 
     async def terminate_model_replica(

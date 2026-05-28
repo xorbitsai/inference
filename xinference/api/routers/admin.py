@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import re
 import signal
-from typing import TYPE_CHECKING, Any
+from datetime import datetime, timedelta, timezone
+from typing import TYPE_CHECKING, Any, Optional
 
 import aiohttp
 from fastapi import Depends, HTTPException, Query, Request, Security
@@ -539,6 +541,133 @@ async def search_logs_context(
 # --- Route registration ---
 
 
+def _parse_relative_time(expr: str) -> Optional[datetime]:
+    """Parse ES-style relative time like 'now-1h', 'now-7d'."""
+    import re
+
+    if expr == "now":
+        return datetime.now(timezone.utc)
+    m = re.match(r"now-(\d+)([mhdw])", expr)
+    if not m:
+        return None
+    val, unit = int(m.group(1)), m.group(2)
+    delta = {
+        "m": timedelta(minutes=val),
+        "h": timedelta(hours=val),
+        "d": timedelta(days=val),
+        "w": timedelta(weeks=val),
+    }.get(unit)
+    if delta is None:
+        return None
+    return datetime.now(timezone.utc) - delta
+
+
+async def _search_audit_from_file(
+    *,
+    time_from: str,
+    time_to: str,
+    user: str,
+    api_key_name: str,
+    model_id: str,
+    model_name: str,
+    model_type: str,
+    category: str,
+    auth_type: str,
+    status: str,
+    client_ip: str,
+    page_from: int,
+    size: int,
+) -> JSONResponse:
+    """Fallback: search audit events from local audit.log file."""
+    from ...constants import XINFERENCE_LOG_DIR
+
+    audit_path = os.path.join(XINFERENCE_LOG_DIR, "audit.log")
+    if not os.path.exists(audit_path):
+        return JSONResponse(content={"hits": [], "total": 0})
+
+    t_from = _parse_relative_time(time_from)
+    t_to = _parse_relative_time(time_to)
+
+    status_set = (
+        {v.strip().lower() for v in status.split(",") if v.strip()} if status else set()
+    )
+    category_set = (
+        {v.strip().lower() for v in category.split(",") if v.strip()}
+        if category
+        else set()
+    )
+    model_type_set = (
+        {v.strip().lower() for v in model_type.split(",") if v.strip()}
+        if model_type
+        else set()
+    )
+    auth_type_set = (
+        {v.strip().lower() for v in auth_type.split(",") if v.strip()}
+        if auth_type
+        else set()
+    )
+
+    results: list[dict] = []
+    try:
+        with open(audit_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except (json.JSONDecodeError, ValueError):
+                    continue
+
+                ts_str = entry.get("@timestamp", "")
+                if t_from or t_to:
+                    try:
+                        ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+                    except (ValueError, TypeError):
+                        continue
+                    if t_from and ts < t_from:
+                        continue
+                    if t_to and ts > t_to:
+                        continue
+
+                if user and entry.get("user") != user:
+                    continue
+                if api_key_name and entry.get("api_key_name") != api_key_name:
+                    continue
+                if model_id and entry.get("model_id") != model_id:
+                    continue
+                if model_name and entry.get("model_name") != model_name:
+                    continue
+                if client_ip and entry.get("client_ip") != client_ip:
+                    continue
+                if status_set and entry.get("status", "").lower() not in status_set:
+                    continue
+                if (
+                    category_set
+                    and entry.get("category", "").lower() not in category_set
+                ):
+                    continue
+                if (
+                    model_type_set
+                    and entry.get("model_type", "").lower() not in model_type_set
+                ):
+                    continue
+                if (
+                    auth_type_set
+                    and entry.get("auth_type", "").lower() not in auth_type_set
+                ):
+                    continue
+
+                results.append(entry)
+    except OSError:
+        return JSONResponse(content={"hits": [], "total": 0})
+
+    results.sort(key=lambda x: x.get("@timestamp", ""), reverse=True)
+    total = len(results)
+    hits = results[page_from : page_from + size]
+    return JSONResponse(content={"hits": hits, "total": total})
+
+
 async def search_audit_logs(
     time_from: str = "now-1h",
     time_to: str = "now",
@@ -556,7 +685,21 @@ async def search_audit_logs(
 ) -> JSONResponse:
     es_url = os.environ.get("XINFERENCE_ES_URL", "")
     if not es_url:
-        raise HTTPException(status_code=503, detail="Elasticsearch is not configured")
+        return await _search_audit_from_file(
+            time_from=time_from,
+            time_to=time_to,
+            user=user,
+            api_key_name=api_key_name,
+            model_id=model_id,
+            model_name=model_name,
+            model_type=model_type,
+            category=category,
+            auth_type=auth_type,
+            status=status,
+            client_ip=client_ip,
+            page_from=page_from,
+            size=size,
+        )
 
     from ...constants import XINFERENCE_AUDIT_ES_INDEX
 

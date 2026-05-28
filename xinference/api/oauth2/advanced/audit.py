@@ -100,6 +100,10 @@ def update_model_cache(uid: str, model_name: str, model_type: str = "") -> None:
     _uid_model_cache[uid] = (model_name, model_type)
 
 
+def evict_model_cache(uid: str) -> None:
+    _uid_model_cache.pop(uid, None)
+
+
 def resolve_model_info(model_id: str) -> tuple[str, str]:
     """Return (model_name, model_type) for a given model_id/uid."""
     if not model_id:

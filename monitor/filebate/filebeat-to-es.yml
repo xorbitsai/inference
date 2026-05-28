@@ -31,6 +31,19 @@ filebeat.inputs:
       cluster: xinference
     fields_under_root: true
 
+  - type: log
+    id: xinference-audit
+    enabled: true
+    paths:
+      - /data/logs/audit.log
+      - ${XINFERENCE_HOME}/audit.log
+    json.keys_under_root: true
+    json.add_error_key: true
+    fields:
+      log_type: audit
+      cluster: xinference
+    fields_under_root: true
+
 processors:
   - dissect:
       tokenizer: "%{_date} %{_time} %{module} %{->}%{pid} [%{_identity}] %{level} %{->}%{message_content}"
@@ -145,7 +158,11 @@ processors:
 
 output.elasticsearch:
   hosts: ["http://elasticsearch:9200"]
-  index: "xinference-logs-%{[log_type]}-%{+yyyy.MM.dd}"
+  indices:
+    - index: "xinference-audit-%{+yyyy.MM.dd}"
+      when.equals:
+        log_type: "audit"
+    - index: "xinference-logs-%{[log_type]}-%{+yyyy.MM.dd}"
   # username: "elastic"
   # password: "changeme"
 
