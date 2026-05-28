@@ -883,6 +883,10 @@ class VLLMModel(LLM):
 
         if "model_quantization" in model_config:
             model_config["quantization"] = model_config.pop("model_quantization")
+
+        if self.model_spec.model_format == "fp8":
+            if model_config.get("quantization") in (None, "none"):
+                model_config["quantization"] = "fp8"
         else:
             model_config.setdefault("quantization", None)
         model_config.setdefault("max_model_len", None)
