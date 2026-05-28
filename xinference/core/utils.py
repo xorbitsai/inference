@@ -379,7 +379,8 @@ def filter_virtualenv_packages_by_markers(
             if not cuda_version:
                 return False
             if not all(
-                check_marker(op_version, cuda_version) for op_version in op_versions
+                check_marker(op_version, {"cuda_version": cuda_version})
+                for op_version in op_versions
             ):
                 return False
         if (
@@ -496,13 +497,22 @@ class CancelMixin:
             )
 
 
-def check_marker(op_version: Tuple[str, str], package_version: str) -> bool:
+def check_marker(op_version: Tuple[str, str], package_version: Dict[str, str]) -> bool:
+    package_name = "unknown"
+    p_version = "unknown"
+
     try:
-        marker_str = f'extra {op_version[0]} "{op_version[1]}"'
-        env = {"extra": package_version}
+        if len(package_version) != 1:
+            raise ValueError(
+                f"Expected exactly one package version, got {package_version}"
+            )
+        op, version = op_version
+        package_name, p_version = next(iter(package_version.items()))
+        marker_str = f'python_full_version {op} "{version}"'
+        env = {"python_full_version": p_version}
         return Marker(marker_str).evaluate(env)
     except Exception as e:
         logger.warning(
-            f"Failed to evaluate CUDA version marker {op_version} against {package_version}: {e}"
+            f"Failed to evaluate {package_name} version marker {op_version} against {p_version}: {e}"
         )
         return False
