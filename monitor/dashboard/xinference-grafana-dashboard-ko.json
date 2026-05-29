@@ -4750,7 +4750,7 @@
       "pluginVersion": "11.0.0",
       "targets": [
         {
-          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"}) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster=~\"$cluster\", supervisor_address=~\"$supervisor_address\"})",
+          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"}) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster=~\"$cluster\", supervisor_address=~\"$supervisor_address\"})",
           "legendFormat": "{{mountpoint}}",
           "refId": "A"
         }
@@ -4844,7 +4844,7 @@
       },
       "targets": [
         {
-          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"}) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster=~\"$cluster\", supervisor_address=~\"$supervisor_address\"})",
+          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"}) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster=~\"$cluster\", supervisor_address=~\"$supervisor_address\"})",
           "legendFormat": "{{supervisor_address}} {{mountpoint}}",
           "refId": "A"
         }
@@ -5587,7 +5587,7 @@
       "pluginVersion": "11.0.0",
       "targets": [
         {
-          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"$worker_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$worker_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"}) * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster=~\"$cluster\", worker_address=~\"$worker_address\"})",
+          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"$worker_instance\", mountpoint !~ \"/boot\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$worker_instance\", mountpoint !~ \"/boot\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"}) * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster=~\"$cluster\", worker_address=~\"$worker_address\"})",
           "legendFormat": "{{mountpoint}}",
           "refId": "A"
         }
