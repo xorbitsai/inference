@@ -148,10 +148,6 @@ model_gpu_memory_used_bytes = Gauge(
     "xinference:model_gpu_memory_used_bytes",
     "Per-model GPU memory used in bytes (real-time, per process).",
 )
-model_gpu_memory_loaded_bytes = Gauge(
-    "xinference:model_gpu_memory_loaded_bytes",
-    "GPU memory consumed by model loading (delta before/after load).",
-)
 build_info_gauge = Gauge(
     "xinference:build_info",
     "Xinference build information (value=1).",
@@ -207,7 +203,6 @@ _SUPERVISOR_ONLY_METRICS = {
     "xinference:worker_gpu_memory_total_bytes",
     "xinference:model_gpu_binding",
     "xinference:model_gpu_memory_used_bytes",
-    "xinference:model_gpu_memory_loaded_bytes",
     "xinference:api_key_requests_total",
     "xinference:api_key_request_duration_seconds",
     "xinference:api_keys_active_total",

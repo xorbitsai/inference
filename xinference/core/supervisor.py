@@ -2636,6 +2636,7 @@ class SupervisorActor(xo.StatelessActor):
             )
 
         self._worker_status.pop(worker_address, None)
+        self._worker_model_gpu_memory.pop(worker_address, None)
         try:
             from .otel import get_cluster_metrics_collector
 

@@ -628,6 +628,7 @@ def get_per_process_gpu_memory() -> Dict[int, Dict[int, int]]:
             nvmlDeviceGetCount,
             nvmlDeviceGetHandleByIndex,
             nvmlInit,
+            nvmlShutdown,
         )
     except ImportError:
         return result
@@ -654,5 +655,10 @@ def get_per_process_gpu_memory() -> Dict[int, Dict[int, int]]:
                 result[proc.pid][i] = mem
     except NVMLError:
         pass
+    finally:
+        try:
+            nvmlShutdown()
+        except Exception:
+            pass
 
     return result

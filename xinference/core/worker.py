@@ -217,9 +217,6 @@ class WorkerActor(xo.StatelessActor):
         self._model_uid_to_recover_count: Dict[str, Optional[int]] = {}
         self._model_uid_to_launch_args: Dict[str, Dict] = {}
         self._model_uid_to_pid: Dict[str, int] = {}
-        self._model_uid_to_gpu_pids: Dict[str, set] = {}
-        self._model_uid_to_gpu_snapshot_before: Dict[str, set] = {}
-        self._gpu_snapshot_lock = asyncio.Lock()
 
         if XINFERENCE_DISABLE_METRICS:
             logger.info(
@@ -2123,19 +2120,6 @@ class WorkerActor(xo.StatelessActor):
 
                 with progressor:
                     try:
-                        # PID snapshot before load (for GPU process tattoo)
-                        from ..device_utils import get_per_process_gpu_memory
-
-                        async with self._gpu_snapshot_lock:
-                            _before_gpu_pids = set(
-                                (
-                                    await asyncio.to_thread(get_per_process_gpu_memory)
-                                ).keys()
-                            )
-                            self._model_uid_to_gpu_snapshot_before[model_uid] = (
-                                _before_gpu_pids
-                            )
-
                         _load_start = time.time()
                         await model_ref.load()
                         _load_duration = time.time() - _load_start
@@ -2149,27 +2133,9 @@ class WorkerActor(xo.StatelessActor):
                             },
                             _load_duration,
                         )
-
-                        # PID snapshot after load (captures vLLM/SGLang GPU worker PIDs)
-                        async with self._gpu_snapshot_lock:
-                            _after_gpu_pids = set(
-                                (
-                                    await asyncio.to_thread(get_per_process_gpu_memory)
-                                ).keys()
-                            )
-                            _new_gpu_pids = _after_gpu_pids - _before_gpu_pids
-                            if _new_gpu_pids:
-                                self._model_uid_to_gpu_pids[model_uid] = _new_gpu_pids
-                                logger.info(
-                                    "GPU PID tattoo for %s: %s",
-                                    model_uid,
-                                    _new_gpu_pids,
-                                )
                     except xo.ServerClosed:
                         check_cancel()
                         raise
-                    finally:
-                        self._model_uid_to_gpu_snapshot_before.pop(model_uid, None)
             except Exception:
                 logger.error(f"Failed to load model {model_uid}", exc_info=True)
                 self.release_devices(model_uid=model_uid)
@@ -2364,6 +2330,7 @@ class WorkerActor(xo.StatelessActor):
             self._model_uid_to_addr.pop(model_uid, None)
             self._model_uid_to_recover_count.pop(model_uid, None)
             self._model_uid_to_launch_args.pop(model_uid, None)
+            self._model_uid_to_pid.pop(model_uid, None)
             # §4.3: Remove from persisted recovery file
             self._remove_persisted_launch_args(model_uid)
 
@@ -2423,24 +2390,27 @@ class WorkerActor(xo.StatelessActor):
             async with timeout(XINFERENCE_STATUS_GATHER_TIMEOUT):
                 status = await asyncio.to_thread(gather_node_info)
 
-                # Collect per-model GPU memory using PID tattoo
+                # Collect per-model GPU memory using psutil descendant PIDs
                 try:
+                    import psutil
+
                     from ..device_utils import get_per_process_gpu_memory
 
                     gpu_mem = await asyncio.to_thread(get_per_process_gpu_memory)
                     model_gpu_mem: Dict[str, Dict[int, int]] = {}
-                    for m_uid, pids in self._model_uid_to_gpu_pids.items():
+                    for m_uid, own_pid in self._model_uid_to_pid.items():
                         per_gpu: Dict[int, int] = {}
-                        for pid in pids:
+                        try:
+                            parent = psutil.Process(own_pid)
+                            all_pids = [own_pid] + [
+                                c.pid for c in parent.children(recursive=True)
+                            ]
+                        except (psutil.NoSuchProcess, psutil.AccessDenied):
+                            all_pids = [own_pid]
+                        for pid in all_pids:
                             if pid in gpu_mem:
                                 for gpu_idx, mem in gpu_mem[pid].items():
                                     per_gpu[gpu_idx] = per_gpu.get(gpu_idx, 0) + mem
-                        # Also check model's own PID
-                        own_pid = self._model_uid_to_pid.get(m_uid)
-                        if own_pid and own_pid in gpu_mem:
-                            for gpu_idx, mem in gpu_mem[own_pid].items():
-                                if gpu_idx not in per_gpu:
-                                    per_gpu[gpu_idx] = mem
                         if per_gpu:
                             model_gpu_mem[m_uid] = per_gpu
                     if model_gpu_mem:
