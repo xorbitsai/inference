@@ -20,4 +20,10 @@ curl -fsS -X PUT "${ES_HOST}/_index_template/xinference-logs" \
   -d @"${SCRIPT_DIR}/es-index-template.json" | python3 -m json.tool
 
 echo ""
+echo "==> 创建索引模板: xinference-audit"
+curl -fsS -X PUT "${ES_HOST}/_index_template/xinference-audit" \
+  -H "Content-Type: application/json" \
+  -d @"${SCRIPT_DIR}/es-audit-index-template.json" | python3 -m json.tool
+
+echo ""
 echo "==> 完成"
