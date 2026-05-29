@@ -507,6 +507,54 @@ def update_cluster_metrics(
     _prev_status_labels = cur_status_labels
 
 
+def update_security_gauges(auth_service) -> None:
+    """Refresh security-related Prometheus gauges (API key counts + ban counts).
+
+    Called periodically from the metrics update loop to ensure gauges always
+    have a value, regardless of whether CRUD or ban events have occurred.
+    """
+    from datetime import datetime
+
+    try:
+        keys = auth_service._db.list_api_keys()
+        active = 0
+        expired = 0
+        now = datetime.utcnow()
+        for k in keys:
+            if not k.get("enabled", 1):
+                continue
+            expires_at = k.get("expires_at")
+            if expires_at and datetime.fromisoformat(expires_at) < now:
+                expired += 1
+            else:
+                active += 1
+        api_keys_active_total.set({}, active)
+        api_keys_expired_total.set({}, expired)
+    except Exception:
+        pass
+
+    try:
+        import time as _time
+
+        rate_limiter = auth_service._rate_limiter
+        if rate_limiter:
+            now_ts = _time.time()
+            ip_count = sum(
+                1
+                for r in rate_limiter._ip_records.values()
+                if r.banned_until and r.banned_until > now_ts
+            )
+            key_count = sum(
+                1
+                for r in rate_limiter._key_records.values()
+                if r.banned_until and r.banned_until > now_ts
+            )
+            banned_ips_total.set({}, ip_count)
+            banned_keys_total.set({}, key_count)
+    except Exception:
+        pass
+
+
 def launch_metrics_export_server(q, host=None, port=None):
     # Remove Supervisor-only metrics from Worker's Registry to avoid
     # empty HELP/TYPE headers on the Worker /metrics endpoint.
