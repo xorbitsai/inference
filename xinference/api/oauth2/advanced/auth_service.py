@@ -437,10 +437,7 @@ class AdvancedAuthService:
                         )
                     except ImportError:
                         pass
-                if (
-                    api_key_entry.expires_at
-                    and datetime.utcnow() > api_key_entry.expires_at
-                ):
+                if _status == "key_expired":
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
                         detail="API key has expired",
