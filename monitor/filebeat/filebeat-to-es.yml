@@ -1,6 +1,6 @@
-# Filebeat -> Elasticsearch 示例配置
-# 用途: 采集 xinference worker/supervisor 日志，直接写入 ES 供 Kibana 查询
-# 使用: filebeat -e -c filebeat-to-es.yml
+# Filebeat -> Elasticsearch example configuration
+# Purpose: Collect xinference worker/supervisor logs, write directly to ES for Kibana queries
+# Usage: filebeat -e -c filebeat-to-es.yml
 
 filebeat.inputs:
   - type: log

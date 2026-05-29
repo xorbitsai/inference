@@ -1,6 +1,6 @@
-# Filebeat -> Kafka 示例配置
-# 用途: 采集 xinference worker/supervisor 日志，输出到 Kafka 供下游消费(Logstash/Flink/ES等)
-# 使用: filebeat -e -c filebeat-to-kafka.yml
+# Filebeat -> Kafka example configuration
+# Purpose: Collect xinference worker/supervisor logs, output to Kafka for downstream consumption (Logstash/Flink/ES etc.)
+# Usage: filebeat -e -c filebeat-to-kafka.yml
 
 filebeat.inputs:
   - type: log

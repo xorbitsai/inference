@@ -1,0 +1,107 @@
+# Filebeat -> Elasticsearch example configuration
+# Purpose: Collect xinference supervisor/worker application logs + audit logs, write directly to ES
+# Usage: filebeat -e -c filebeat-json-to-es.yml
+#
+# Log format: JSON (one JSON object per line)
+# Fields: @timestamp, level, module, process, role, address, node, message, exception
+
+filebeat.inputs:
+  # --- Application logs (supervisor) ---
+  - type: log
+    id: xinference-supervisor
+    enabled: true
+    paths:
+      - /data/xinference_home/logs/xinference.log
+      - /data/xinference_home/logs/xinference-*.log
+    json.keys_under_root: true
+    json.overwrite_keys: true
+    json.add_error_key: true
+    fields:
+      log_type: supervisor
+      cluster: xinference
+    fields_under_root: true
+
+  # --- Application logs (worker) ---
+  - type: log
+    id: xinference-worker
+    enabled: true
+    paths:
+      - /data/xinference_home_worker/logs/xinference.log
+      - /data/xinference_home_worker/logs/xinference-*.log
+    json.keys_under_root: true
+    json.overwrite_keys: true
+    json.add_error_key: true
+    fields:
+      log_type: worker
+      cluster: xinference
+    fields_under_root: true
+
+  # --- Audit logs (supervisor only) ---
+  - type: log
+    id: xinference-audit
+    enabled: true
+    paths:
+      - /data/xinference_home/logs/audit.log
+    json.keys_under_root: true
+    json.overwrite_keys: true
+    json.add_error_key: true
+    fields:
+      log_type: audit
+      cluster: xinference
+    fields_under_root: true
+
+processors:
+  - drop_fields:
+      fields:
+        - agent
+        - ecs
+        - host
+        - input
+        - log
+        - event
+        - data_stream
+        - elastic_agent
+        - cloud
+        - container
+        - kubernetes
+        - orchestrator
+        - "@version"
+      ignore_missing: true
+
+  - timestamp:
+      field: "@timestamp"
+      layouts:
+        - '2006-01-02T15:04:05.000Z'
+      timezone: "UTC"
+      ignore_failure: true
+
+output.elasticsearch:
+  hosts: ["http://elasticsearch:9200"]
+  indices:
+    - index: "xinference-audit-%{+yyyy.MM.dd}"
+      when.equals:
+        log_type: "audit"
+    - index: "xinference-logs-%{[log_type]}-%{+yyyy.MM.dd}"
+      when.has_fields: ["log_type"]
+  # username: "elastic"
+  # password: "changeme"
+
+setup.template.name: "xinference"
+setup.template.pattern: "xinference-*"
+setup.template.settings:
+  index.number_of_shards: 2
+  index.number_of_replicas: 1
+
+setup.ilm.enabled: false
+setup.ilm.rollover_alias: "xinference-logs"
+setup.ilm.policy_name: "xinference-logs-policy"
+
+logging.metrics.enabled: true
+logging.metrics.period: 60s
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7
+  permissions: 0644

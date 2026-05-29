@@ -9,16 +9,16 @@
       "index.lifecycle.rollover_alias": "xinference-logs"
     },
     "mappings": {
-      "dynamic": "strict",
+      "dynamic": false,
       "properties": {
         "@timestamp": { "type": "date" },
-        "@version":   { "type": "keyword", "index": false },
         "cluster":    { "type": "keyword" },
         "log_type":   { "type": "keyword" },
         "node":       { "type": "keyword" },
         "address":    { "type": "keyword" },
+        "role":       { "type": "keyword" },
         "module":     { "type": "keyword" },
-        "pid":        { "type": "keyword" },
+        "pid":        { "type": "integer" },
         "level":      { "type": "keyword" },
         "message": {
           "type": "text",
@@ -30,15 +30,22 @@
             }
           }
         },
-        "request_id": { "type": "keyword" },
-        "rtf_avg":    { "type": "float" },
-        "time_speech": { "type": "float" },
-        "time_escape": { "type": "float" }
+        "exception": {
+          "type": "text",
+          "analyzer": "standard",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 4096
+            }
+          }
+        },
+        "json.error": { "type": "keyword" }
       }
     }
   },
   "priority": 200,
   "_meta": {
-    "description": "Xinference worker/supervisor 日志索引模板"
+    "description": "Xinference application logs index template (JSON format)"
   }
 }

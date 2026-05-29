@@ -4472,7 +4472,7 @@
       "pluginVersion": "11.0.0",
       "targets": [
         {
-          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"}) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster=~\"$cluster\", supervisor_address=~\"$supervisor_address\"})",
+          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"}) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster=~\"$cluster\", supervisor_address=~\"$supervisor_address\"})",
           "legendFormat": "{{mountpoint}}",
           "refId": "A"
         }
@@ -4566,7 +4566,7 @@
       },
       "targets": [
         {
-          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"}) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster=~\"$cluster\", supervisor_address=~\"$supervisor_address\"})",
+          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"}) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster=~\"$cluster\", supervisor_address=~\"$supervisor_address\"})",
           "legendFormat": "{{supervisor_address}} {{mountpoint}}",
           "refId": "A"
         }
@@ -5309,7 +5309,7 @@
       "pluginVersion": "11.0.0",
       "targets": [
         {
-          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"$worker_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$worker_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"}) * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster=~\"$cluster\", worker_address=~\"$worker_address\"})",
+          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"$worker_instance\", mountpoint !~ \"/boot\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$worker_instance\", mountpoint !~ \"/boot\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"}) * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster=~\"$cluster\", worker_address=~\"$worker_address\"})",
           "legendFormat": "{{mountpoint}}",
           "refId": "A"
         }
@@ -5694,6 +5694,735 @@
           "expr": "rate(node_network_transmit_bytes_total{instance=~\"$worker_instance\", device!~\"lo|docker.*|br-.*|veth.*\"}[5m]) * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster =~\"$cluster\"})",
           "legendFormat": "{{worker_address}} {{device}} TX",
           "refId": "B"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 286
+      },
+      "id": 300,
+      "title": "Security Audit",
+      "type": "row"
+    },
+    {
+      "id": 301,
+      "title": "Active API Keys",
+      "type": "stat",
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 287
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "expr": "xinference:api_keys_active_total{cluster=~\"$cluster\"}",
+          "legendFormat": "Active",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 302,
+      "title": "Expired API Keys",
+      "type": "stat",
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 6,
+        "y": 287
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "expr": "xinference:api_keys_expired_total{cluster=~\"$cluster\"}",
+          "legendFormat": "Expired",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 308,
+      "title": "Banned IPs",
+      "type": "stat",
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 12,
+        "y": 287
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "expr": "xinference:banned_ips_total{cluster=~\"$cluster\"}",
+          "legendFormat": "Banned IPs",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 309,
+      "title": "Banned (IP,Key) Pairs",
+      "type": "stat",
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 18,
+        "y": 287
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "expr": "xinference:banned_keys_total{cluster=~\"$cluster\"}",
+          "legendFormat": "Banned Keys",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 303,
+      "title": "API Key Request QPS",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 293
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(xinference:api_key_requests_total{cluster=~\"$cluster\"}[5m])) by (user)",
+          "legendFormat": "{{user}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 304,
+      "title": "API Key Request Latency",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 293
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(xinference:api_key_request_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])) by (le, model_name, model_type))",
+          "legendFormat": "{{model_name}} ({{model_type}}) P95",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(xinference:api_key_request_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])) by (le, model_name, model_type))",
+          "legendFormat": "{{model_name}} ({{model_type}}) P50",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 305,
+      "title": "API Key Status Distribution",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 303
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "reqps"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "success"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "denied|error|invalid.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(xinference:api_key_requests_total{cluster=~\"$cluster\"}[5m])) by (status)",
+          "legendFormat": "{{status}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 306,
+      "title": "Top Users by Calls",
+      "type": "table",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 303
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "center",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Time"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Total"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "topk(10, sum(xinference:api_key_requests_total{cluster=~\"$cluster\"}) by (user, api_key_name))",
+          "format": "table",
+          "instant": true,
+          "refId": "A"
+        },
+        {
+          "expr": "topk(10, sum(xinference:api_key_requests_total{cluster=~\"$cluster\", status=\"success\"}) by (user, api_key_name))",
+          "format": "table",
+          "instant": true,
+          "refId": "B"
+        },
+        {
+          "expr": "topk(10, sum(xinference:api_key_requests_total{cluster=~\"$cluster\", status!=\"success\"}) by (user, api_key_name))",
+          "format": "table",
+          "instant": true,
+          "refId": "C"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "user": "User",
+              "api_key_name": "API Key",
+              "Value #A": "Total",
+              "Value #B": "Success",
+              "Value #C": "Failed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 307,
+      "title": "Top Models by Calls (API Key)",
+      "type": "table",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 313
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "center",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Time"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Total"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "topk(10, sum(xinference:api_key_requests_total{cluster=~\"$cluster\"}) by (model_id, model_type))",
+          "format": "table",
+          "instant": true,
+          "refId": "A"
+        },
+        {
+          "expr": "topk(10, sum(xinference:api_key_requests_total{cluster=~\"$cluster\", status=\"success\"}) by (model_id, model_type))",
+          "format": "table",
+          "instant": true,
+          "refId": "B"
+        },
+        {
+          "expr": "topk(10, sum(xinference:api_key_requests_total{cluster=~\"$cluster\", status!=\"success\"}) by (model_id, model_type))",
+          "format": "table",
+          "instant": true,
+          "refId": "C"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "model_id": "Model",
+              "model_type": "Type",
+              "Value #A": "Total",
+              "Value #B": "Success",
+              "Value #C": "Failed"
+            }
+          }
         }
       ]
     }
