@@ -1,0 +1,27 @@
+xinference/device_utils.py
+  06e72b5cc61d09df 631,658-662
+xinference/core/worker.py
+  06e72b5cc61d09df 2333,2393,2395-2396,2401,2403-2410
+xinference/core/supervisor.py
+  06e72b5cc61d09df 2639
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.16",
+  "base_commit_sha": "e5053b667d9f57bf55611c9017249bd47b7e9efd",
+  "prompts": {
+    "06e72b5cc61d09df": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "65ef9f64-218d-492d-8ac0-f1d24073acae",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 20,
+      "total_deletions": 48,
+      "accepted_lines": 7471,
+      "overriden_lines": 0
+    }
+  }
+}
