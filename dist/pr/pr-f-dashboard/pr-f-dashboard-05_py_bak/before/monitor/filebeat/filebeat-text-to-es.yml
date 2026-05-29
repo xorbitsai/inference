@@ -1,42 +1,38 @@
-# Filebeat -> Elasticsearch example configuration
-# Purpose: Collect xinference supervisor/worker application logs + audit logs, write directly to ES
-# Usage: filebeat -e -c filebeat-json-to-es.yml
+# Filebeat -> Elasticsearch 示例配置（Text 格式）
+# 用途: 采集 xinference supervisor/worker 应用日志（text格式）+ 审计日志（JSON），直接写入 ES
+# 使用: filebeat -e -c filebeat-text-to-es.yml
 #
-# Log format: JSON (one JSON object per line)
-# Fields: @timestamp, level, module, process, role, address, node, message, exception
+# 应用日志格式: Text（每行一条，使用 dissect 解析字段）
+# 格式: {timestamp} {level} {module} pid:{pid} role:{role} address:{address} node:{node} {message}
+# 审计日志格式: JSON（始终为 JSON，不受 XINFERENCE_LOG_FORMAT 影响）
+# 环境变量: XINFERENCE_LOG_FORMAT=text
 
 filebeat.inputs:
-  # --- Application logs (supervisor) ---
+  # --- 应用日志（supervisor）---
   - type: log
     id: xinference-supervisor
     enabled: true
     paths:
       - /data/xinference_home/logs/xinference.log
       - /data/xinference_home/logs/xinference-*.log
-    json.keys_under_root: true
-    json.overwrite_keys: true
-    json.add_error_key: true
     fields:
       log_type: supervisor
       cluster: xinference
     fields_under_root: true
 
-  # --- Application logs (worker) ---
+  # --- 应用日志（worker）---
   - type: log
     id: xinference-worker
     enabled: true
     paths:
       - /data/xinference_home_worker/logs/xinference.log
       - /data/xinference_home_worker/logs/xinference-*.log
-    json.keys_under_root: true
-    json.overwrite_keys: true
-    json.add_error_key: true
     fields:
       log_type: worker
       cluster: xinference
     fields_under_root: true
 
-  # --- Audit logs (supervisor only) ---
+  # --- 审计日志（仅 supervisor，始终为 JSON 格式）---
   - type: log
     id: xinference-audit
     enabled: true
@@ -51,6 +47,23 @@ filebeat.inputs:
     fields_under_root: true
 
 processors:
+  # 解析 text 格式的应用日志（审计日志已通过 json.keys_under_root 解析）
+  - if:
+      not:
+        equals:
+          log_type: "audit"
+    then:
+      - dissect:
+          tokenizer: "%{@timestamp} %{level} %{module} pid:%{pid} role:%{role} address:%{address} node:%{node} %{msg}"
+          field: "message"
+          target_prefix: ""
+          overwrite_keys: true
+      - rename:
+          fields:
+            - from: "msg"
+              to: "message"
+          ignore_missing: true
+
   - drop_fields:
       fields:
         - agent

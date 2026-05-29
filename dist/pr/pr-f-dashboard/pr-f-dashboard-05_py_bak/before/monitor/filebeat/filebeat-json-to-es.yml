@@ -1,12 +1,12 @@
-# Filebeat -> Elasticsearch example configuration
-# Purpose: Collect xinference supervisor/worker application logs + audit logs, write directly to ES
-# Usage: filebeat -e -c filebeat-json-to-es.yml
+# Filebeat -> Elasticsearch 示例配置
+# 用途: 采集 xinference supervisor/worker 应用日志 + 审计日志，直接写入 ES
+# 使用: filebeat -e -c filebeat-to-es.yml
 #
-# Log format: JSON (one JSON object per line)
-# Fields: @timestamp, level, module, process, role, address, node, message, exception
+# 日志格式: JSON（每行一个 JSON 对象）
+# 字段: @timestamp, level, module, process, role, address, node, message, exception
 
 filebeat.inputs:
-  # --- Application logs (supervisor) ---
+  # --- 应用日志（supervisor）---
   - type: log
     id: xinference-supervisor
     enabled: true
@@ -21,7 +21,7 @@ filebeat.inputs:
       cluster: xinference
     fields_under_root: true
 
-  # --- Application logs (worker) ---
+  # --- 应用日志（worker）---
   - type: log
     id: xinference-worker
     enabled: true
@@ -36,7 +36,7 @@ filebeat.inputs:
       cluster: xinference
     fields_under_root: true
 
-  # --- Audit logs (supervisor only) ---
+  # --- 审计日志（仅 supervisor）---
   - type: log
     id: xinference-audit
     enabled: true
