@@ -348,9 +348,9 @@
           "expr": "label_replace(xinference:config_info{xinference_role=\"worker\",cluster=~\"$cluster\"}, \"xinference_address\", \"$1\", \"worker_address\", \"(.*)\")",
           "format": "table",
           "hide": false,
-          "instant": false,
+          "instant": true,
           "legendFormat": "__auto",
-          "range": true,
+          "range": false,
           "refId": "C"
         },
         {
@@ -362,9 +362,9 @@
           "expr": "label_replace(xinference:config_info{xinference_role=\"supervisor\",cluster=~\"$cluster\"}, \"xinference_address\", \"$1\", \"supervisor_address\", \"(.*)\")",
           "format": "table",
           "hide": false,
-          "instant": false,
+          "instant": true,
           "legendFormat": "__auto",
-          "range": true,
+          "range": false,
           "refId": "D"
         }
       ]
@@ -2980,7 +2980,7 @@
             "includeByName": {},
             "indexByName": {},
             "renameByName": {
-              "显存占用": "メモリ使用量",
+              "Value": "メモリ使用量",
               "gpu_index": "GPU",
               "model_name": "モデル名",
               "model_type": "モデルタイプ",

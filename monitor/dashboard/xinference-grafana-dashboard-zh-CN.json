@@ -348,9 +348,9 @@
           "expr": "label_replace(xinference:config_info{xinference_role=\"worker\",cluster=~\"$cluster\"}, \"xinference_address\", \"$1\", \"worker_address\", \"(.*)\")",
           "format": "table",
           "hide": false,
-          "instant": false,
+          "instant": true,
           "legendFormat": "__auto",
-          "range": true,
+          "range": false,
           "refId": "C"
         },
         {
@@ -362,9 +362,9 @@
           "expr": "label_replace(xinference:config_info{xinference_role=\"supervisor\",cluster=~\"$cluster\"}, \"xinference_address\", \"$1\", \"supervisor_address\", \"(.*)\")",
           "format": "table",
           "hide": false,
-          "instant": false,
+          "instant": true,
           "legendFormat": "__auto",
-          "range": true,
+          "range": false,
           "refId": "D"
         }
       ]
