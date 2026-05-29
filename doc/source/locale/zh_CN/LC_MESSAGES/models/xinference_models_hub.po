@@ -128,11 +128,8 @@ msgid ""
 msgstr "本节介绍具备模型注册或维护权限的用户可使用的功能，包括模型注册、更新与评审流程。"
 
 #: ../../source/models/xinference_models_hub.rst:50
-msgid ""
-"**Audience:** Users with model registration or maintenance permissions. "
-"To become a model maintainer, you may `contact us "
-"<https://xinference.cn/images/WeCom.jpg>`_."
-msgstr "**适用对象：** 具有模型注册或维护权限的用户。如需成为模型维护者，可 `联系我们 <https://xinference.cn/images/WeCom.jpg>`_。"
+msgid "**Audience:** Users with model registration or maintenance permissions."
+msgstr "**适用对象：** 具有模型注册或维护权限的用户。"
 
 #: ../../source/models/xinference_models_hub.rst:54
 msgid "Core Features (Login Required)"

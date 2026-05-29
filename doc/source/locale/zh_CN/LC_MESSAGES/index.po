@@ -171,10 +171,6 @@ msgstr ":fab:`zhihu` 阅读知乎博客"
 msgid "Get Support"
 msgstr "寻求帮助"
 
-#: ../../source/index.rst:259
-msgid ":fab:`weixin` Find community on WeChat"
-msgstr ":fab:`weixin` 微信社区"
-
 #: ../../source/index.rst:264
 msgid ":fab:`discord` Find community on Discord"
 msgstr ":fab:`discord` Discord 社区"
@@ -193,4 +189,3 @@ msgstr ":fab:`github` 在 Github 上提 PR"
 
 #~ msgid "Vision"
 #~ msgstr "视觉"
-
