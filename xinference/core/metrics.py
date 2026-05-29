@@ -538,17 +538,18 @@ def update_security_gauges(auth_service) -> None:
 
         rate_limiter = auth_service._rate_limiter
         if rate_limiter:
-            now_ts = _time.time()
-            ip_count = sum(
-                1
-                for r in rate_limiter._ip_records.values()
-                if r.banned_until and r.banned_until > now_ts
-            )
-            key_count = sum(
-                1
-                for r in rate_limiter._key_records.values()
-                if r.banned_until and r.banned_until > now_ts
-            )
+            with rate_limiter._lock:
+                now_ts = _time.time()
+                ip_count = sum(
+                    1
+                    for r in rate_limiter._ip_records.values()
+                    if r.banned_until and r.banned_until > now_ts
+                )
+                key_count = sum(
+                    1
+                    for r in rate_limiter._key_records.values()
+                    if r.banned_until and r.banned_until > now_ts
+                )
             banned_ips_total.set({}, ip_count)
             banned_keys_total.set({}, key_count)
     except Exception:
