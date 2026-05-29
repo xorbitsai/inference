@@ -586,7 +586,7 @@ class RESTfulAPI(CancelMixin):
         """Periodically refresh Supervisor-side Prometheus Gauges (every 15s)."""
         import asyncio
 
-        from ..core.metrics import update_cluster_metrics
+        from ..core.metrics import update_cluster_metrics, update_security_gauges
 
         while True:
             try:
@@ -599,6 +599,8 @@ class RESTfulAPI(CancelMixin):
                     models_data,
                     supervisor_address=self._supervisor_address,
                 )
+                if self._advanced_auth_service:
+                    update_security_gauges(self._advanced_auth_service)
             except Exception:
                 logger.warning("Failed to update cluster metrics", exc_info=True)
 

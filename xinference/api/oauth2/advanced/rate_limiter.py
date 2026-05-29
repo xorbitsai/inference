@@ -144,6 +144,22 @@ class RateLimiter:
                 del self._key_records[(ip, key_id)]
             return False
 
+    def get_ip_ban_remaining(self, ip: str) -> int:
+        with self._lock:
+            rec = self._ip_records.get(ip)
+            if not rec or not rec.banned_until:
+                return 0
+            remaining = rec.banned_until - time.time()
+            return max(0, int(remaining))
+
+    def get_key_ban_remaining(self, ip: str, key_id: int) -> int:
+        with self._lock:
+            rec = self._key_records.get((ip, key_id))
+            if not rec or not rec.banned_until:
+                return 0
+            remaining = rec.banned_until - time.time()
+            return max(0, int(remaining))
+
     def record_key_failure(
         self, ip: str, key_id: int, config: Optional[RateLimitConfig] = None
     ) -> None:
