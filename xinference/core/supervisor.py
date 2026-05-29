@@ -2682,7 +2682,7 @@ class SupervisorActor(xo.StatelessActor):
         if isinstance(status, dict):
             model_gpu_mem = status.pop("model_gpu_memory", None)
             if model_gpu_mem:
-                self._worker_model_gpu_memory[worker_address] = model_gpu_mem
+                self._worker_model_gpu_memory[worker_address] = model_gpu_mem  # type: ignore[assignment]
             elif worker_address in self._worker_model_gpu_memory:
                 del self._worker_model_gpu_memory[worker_address]
 
