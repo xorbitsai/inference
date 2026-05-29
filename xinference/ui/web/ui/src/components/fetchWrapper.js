@@ -22,7 +22,7 @@ let failedQueue = []
 const processQueue = (success) => {
   failedQueue.forEach((prom) => {
     if (success) {
-      prom.resolve()
+      prom.resolve(success)
     } else {
       prom.reject()
     }
