@@ -114,12 +114,6 @@ if version_match != 'zh-cn':
     html_theme_options["header_links_before_dropdown"] = 3
 else:
     html_theme_options['icon_links'].extend([{
-        "name": "WeChat",
-        "url": "https://xinference.cn/images/WeCom.jpg",
-        "icon": "fa-brands fa-weixin",
-        "type": "fontawesome",
-    },
-    {
         "name": "Zhihu",
         "url": "https://zhihu.com/org/xorbits",
         "icon": "fa-brands fa-zhihu",
