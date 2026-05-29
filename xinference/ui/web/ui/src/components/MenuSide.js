@@ -71,6 +71,7 @@ const MenuSide = () => {
   const { endPoint } = useContext(ApiContext)
   const [esEnabled, setEsEnabled] = useState(false)
   const [authAdvanced, setAuthAdvanced] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [, , removeCookie] = useCookies(['token'])
   const [currentUser, setCurrentUser] = useState('')
 
@@ -94,6 +95,8 @@ const MenuSide = () => {
       if (token) {
         const payload = JSON.parse(atob(token.split('.')[1]))
         setCurrentUser(payload.username || payload.sub || '')
+        const scopes = payload.scopes || []
+        setIsAdmin(scopes.includes('admin'))
       }
     } catch {
       // ignore
@@ -156,6 +159,17 @@ const MenuSide = () => {
             icon: <ArticleOutlined />,
             action: 'navigate',
             path: '/logs',
+          },
+        ]
+      : []),
+    ...(isAdmin
+      ? [
+          {
+            text: 'audit_log',
+            label: t('menu.auditLog') || 'Audit Log',
+            icon: <ArticleOutlined />,
+            action: 'navigate',
+            path: '/audit_log',
           },
         ]
       : []),
