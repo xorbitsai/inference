@@ -1,13 +1,13 @@
-# Filebeat -> Kafka 示例配置（Text 格式）
-# 用途: 采集 xinference supervisor/worker 应用日志 + 审计日志（text格式），输出到 Kafka 供下游消费
-# 使用: filebeat -e -c filebeat-text-to-kafka.yml
+# Filebeat -> Kafka example configuration (Text format)
+# Purpose: Collect xinference supervisor/worker application logs + audit logs (text format), output to Kafka for downstream consumption
+# Usage: filebeat -e -c filebeat-text-to-kafka.yml
 #
-# 日志格式: Text（每行一条，使用 dissect 解析字段）
-# 格式: {timestamp} {level} {module} pid:{pid} role:{role} address:{address} node:{node} {message}
-# 环境变量: XINFERENCE_LOG_FORMAT=text
+# Log format: Text (one line per entry, parsed with dissect)
+# Format: {timestamp} {level} {module} pid:{pid} role:{role} address:{address} node:{node} {message}
+# Environment variable: XINFERENCE_LOG_FORMAT=text
 
 filebeat.inputs:
-  # --- 应用日志（supervisor）---
+  # --- Application logs (supervisor) ---
   - type: log
     id: xinference-supervisor
     enabled: true
@@ -19,7 +19,7 @@ filebeat.inputs:
       cluster: xinference
     fields_under_root: true
 
-  # --- 应用日志（worker）---
+  # --- Application logs (worker) ---
   - type: log
     id: xinference-worker
     enabled: true
@@ -31,7 +31,7 @@ filebeat.inputs:
       cluster: xinference
     fields_under_root: true
 
-  # --- 审计日志（仅 supervisor，始终为 JSON 格式）---
+  # --- Audit logs (supervisor only, always JSON format) ---
   - type: log
     id: xinference-audit
     enabled: true
@@ -46,7 +46,7 @@ filebeat.inputs:
     fields_under_root: true
 
 processors:
-  # 解析 text 格式的应用日志（审计日志已通过 json.keys_under_root 解析）
+  # Parse text-format application logs (audit logs are already parsed via json.keys_under_root)
   - if:
       not:
         equals:
