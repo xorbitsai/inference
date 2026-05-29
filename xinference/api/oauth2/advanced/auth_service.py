@@ -437,7 +437,17 @@ class AdvancedAuthService:
                         )
                     except ImportError:
                         pass
-                raise credentials_exception
+                if _status == "key_expired":
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="API key has expired",
+                        headers={"WWW-Authenticate": authenticate_value},
+                    )
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="API key is disabled",
+                    headers={"WWW-Authenticate": authenticate_value},
+                )
 
             # Check (IP, Key) ban
             if (
