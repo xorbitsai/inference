@@ -1,0 +1,23 @@
+xinference/core/supervisor.py
+  06e72b5cc61d09df 2685
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.16",
+  "base_commit_sha": "64cc07a7fe2b570d9a5fc8352c310ee92917742e",
+  "prompts": {
+    "06e72b5cc61d09df": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "65ef9f64-218d-492d-8ac0-f1d24073acae",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 7452,
+      "overriden_lines": 0
+    }
+  }
+}
