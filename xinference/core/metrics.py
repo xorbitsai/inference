@@ -144,6 +144,14 @@ model_gpu_binding_gauge = Gauge(
     "xinference:model_gpu_binding",
     "Per-replica GPU binding (one series per GPU per replica, value=1).",
 )
+model_gpu_memory_used_bytes = Gauge(
+    "xinference:model_gpu_memory_used_bytes",
+    "Per-model GPU memory used in bytes (real-time, per process).",
+)
+model_gpu_memory_loaded_bytes = Gauge(
+    "xinference:model_gpu_memory_loaded_bytes",
+    "GPU memory consumed by model loading (delta before/after load).",
+)
 build_info_gauge = Gauge(
     "xinference:build_info",
     "Xinference build information (value=1).",
@@ -198,6 +206,8 @@ _SUPERVISOR_ONLY_METRICS = {
     "xinference:worker_gpu_memory_used_bytes",
     "xinference:worker_gpu_memory_total_bytes",
     "xinference:model_gpu_binding",
+    "xinference:model_gpu_memory_used_bytes",
+    "xinference:model_gpu_memory_loaded_bytes",
     "xinference:api_key_requests_total",
     "xinference:api_key_request_duration_seconds",
     "xinference:api_keys_active_total",
@@ -229,6 +239,7 @@ _prev_worker_labels: Set[Tuple[str, ...]] = set()
 _prev_gpu_labels: Set[Tuple[str, ...]] = set()
 _prev_model_labels: Set[Tuple[str, ...]] = set()
 _prev_status_labels: Set[Tuple[str, ...]] = set()
+_prev_model_gpu_mem_labels: Set[Tuple[str, ...]] = set()
 _prev_gpu_binding_labels: Set[Tuple[str, ...]] = set()
 
 
@@ -295,7 +306,7 @@ def update_cluster_metrics(
 ) -> None:
     """Refresh all Supervisor-side Prometheus gauges from in-memory data."""
     global _prev_worker_labels, _prev_gpu_labels
-    global _prev_model_labels, _prev_status_labels, _prev_gpu_binding_labels
+    global _prev_model_labels, _prev_status_labels, _prev_gpu_binding_labels, _prev_model_gpu_mem_labels
 
     # --- Build info (set once, labels are static) ---
     cluster_name = cluster_data.get("cluster", "")
@@ -505,6 +516,55 @@ def update_cluster_metrics(
         }
         model_status_gauge.set(stale_labels, 0)
     _prev_status_labels = cur_status_labels
+
+    # --- Per-model GPU memory ---
+    cur_model_gpu_mem_labels: Set[Tuple[str, ...]] = set()
+    model_gpu_mem_data = cluster_data.get("model_gpu_memory", {})
+    from .utils import parse_replica_model_uid
+
+    for worker_addr, models_mem in model_gpu_mem_data.items():
+        for m_uid, gpu_mem in models_mem.items():
+            try:
+                base_uid, rep_idx = parse_replica_model_uid(m_uid)
+            except (TypeError, ValueError):
+                base_uid = m_uid
+                rep_idx = 0
+            m_spec = models_data.get(base_uid, {})
+            m_name = m_spec.get("model_name", "unknown")
+            m_type = m_spec.get("model_type", "unknown")
+            if m_name == "unknown":
+                continue
+            replica_index = rep_idx
+            for gpu_idx, mem_bytes in gpu_mem.items():
+                mem_labels = {
+                    "model_uid": base_uid,
+                    "model_name": m_name,
+                    "model_type": m_type,
+                    "gpu_index": str(gpu_idx),
+                    "worker_address": worker_addr,
+                    "replica_index": str(replica_index),
+                }
+                mem_key = (
+                    base_uid,
+                    m_name,
+                    m_type,
+                    str(gpu_idx),
+                    worker_addr,
+                    str(replica_index),
+                )
+                cur_model_gpu_mem_labels.add(mem_key)
+                model_gpu_memory_used_bytes.set(mem_labels, mem_bytes)
+    for stale in _prev_model_gpu_mem_labels - cur_model_gpu_mem_labels:
+        stale_labels = {
+            "model_uid": stale[0],
+            "model_name": stale[1],
+            "model_type": stale[2],
+            "gpu_index": stale[3],
+            "worker_address": stale[4],
+            "replica_index": stale[5],
+        }
+        model_gpu_memory_used_bytes.set(stale_labels, 0)
+    _prev_model_gpu_mem_labels = cur_model_gpu_mem_labels
 
 
 def launch_metrics_export_server(q, host=None, port=None):

@@ -613,3 +613,46 @@ def get_gpu_info() -> Dict:
     if spec is None:
         return {}
     return spec.get_gpu_info_fn()
+
+
+def get_per_process_gpu_memory() -> Dict[int, Dict[int, int]]:
+    """Query per-process GPU memory usage via pynvml.
+
+    Returns: {pid: {gpu_index: memory_bytes}}
+    """
+    result: Dict[int, Dict[int, int]] = {}
+    try:
+        from pynvml import (
+            NVMLError,
+            nvmlDeviceGetComputeRunningProcesses,
+            nvmlDeviceGetCount,
+            nvmlDeviceGetHandleByIndex,
+            nvmlInit,
+        )
+    except ImportError:
+        return result
+
+    try:
+        nvmlInit()
+    except Exception:
+        return result
+
+    try:
+        device_count = nvmlDeviceGetCount()
+        for i in range(device_count):
+            try:
+                handle = nvmlDeviceGetHandleByIndex(i)
+                processes = nvmlDeviceGetComputeRunningProcesses(handle)
+            except NVMLError:
+                continue
+            for proc in processes:
+                mem = getattr(proc, "usedGpuMemory", None)
+                if mem is None:
+                    continue
+                if proc.pid not in result:
+                    result[proc.pid] = {}
+                result[proc.pid][i] = mem
+    except NVMLError:
+        pass
+
+    return result
