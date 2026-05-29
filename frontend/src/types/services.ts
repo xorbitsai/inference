@@ -22,4 +22,41 @@ export interface ClusterInfo {
   gpu_vram_available: number;
 }
 
+interface PromptsItem {
+  chat_template: string;
+  stop: string[];
+  stop_token_ids: string[];
+  reasoning_start_tag: string;
+  reasoning_end_tag: string;
+  tool_parser: string;
+}
+export type ModelPrompts = Record<string, PromptsItem>;
 export type ModelFamily = Record<string, string[]>;
+
+export interface ModelCachedItem {
+  model_name: string;
+  model_size_in_billions: number;
+  model_format: string;
+  quantization: string;
+  model_version: string;
+  path: string;
+  real_path: string;
+  actor_ip_address: string;
+}
+
+export interface ModelEnvItem {
+  model_name: string;
+  model_engine: string;
+  path: string;
+  real_path: string;
+  python_version: string;
+  actor_ip_address: string;
+}
+
+export type ModelEngineItem = {
+  model_format: string;
+  model_name: string;
+  model_size_in_billions: string | number;
+  quantizations: string[];
+};
+export type ModelEngine = Record<string, string | ModelEngineItem[]>;
