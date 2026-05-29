@@ -592,7 +592,8 @@
         "ChatTTS==0.2.4",
         "#system_torch#",
         "#system_numpy#",
-        "transformers==4.53.2"
+        "transformers==4.53.2",
+        "#system_torchaudio#"
       ]
     },
     "model_src": {
@@ -605,7 +606,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1775927275,
+    "updated_at": 1780041428,
     "featured": true
   },
   {
