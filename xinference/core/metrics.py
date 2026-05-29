@@ -524,10 +524,14 @@ def update_security_gauges(auth_service) -> None:
             if not k.get("enabled", 1):
                 continue
             expires_at = k.get("expires_at")
-            if expires_at and datetime.fromisoformat(expires_at) < now:
-                expired += 1
-            else:
-                active += 1
+            if expires_at:
+                try:
+                    if datetime.fromisoformat(expires_at) < now:
+                        expired += 1
+                        continue
+                except ValueError:
+                    continue
+            active += 1
         api_keys_active_total.set({}, active)
         api_keys_expired_total.set({}, expired)
     except Exception:
