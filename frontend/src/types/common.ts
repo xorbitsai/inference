@@ -1,16 +1,11 @@
 import { LANGUAGES_KEYS } from '@/constants';
+import type { ReactNode } from 'react';
 
 export type Locale = (typeof LANGUAGES_KEYS)[number];
 
-export interface BaseFormFieldProps<T = any> {
-  value?: T
-  onChange?: (value: T) => void
-
-  error?: boolean
-
-  placeholder?: string
-
-  disabled?: boolean
-
-  className?: string
-}
+export type Option = {
+  label: string;
+  value: string;
+  disabled?: boolean;
+  suffix?: ReactNode;
+};

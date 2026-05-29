@@ -5,9 +5,9 @@ import { FC } from 'react';
 import { CheckboxGroup } from '@/components/ui/checkbox-group';
 import { MultiSelect } from '@/components/ui/multi-select';
 
-import { LANGUAGES_OPTIONS, LANGUAGES_CHECKBOX_OPTIONS } from '@/constants';
+import { LANGUAGES_OPTIONS, LANGUAGES_CHECKBOX_OPTIONS } from '@/constants/register';
 
-import type { BaseFormFieldProps } from '@/types/common';
+import type { BaseFormFieldProps } from '@/types/form';
 
 interface LanguagesProps extends BaseFormFieldProps<string[]> {}
 

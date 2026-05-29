@@ -1,41 +1,37 @@
-"use client"
+'use client';
 
-import * as React from "react"
-import { useState, useRef, useEffect } from "react"
-import { cn } from "@/lib/utils"
-import { ChevronDown, Check, X } from "lucide-react"
-import { useI18n } from "@/contexts/i18n-context"
+import * as React from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { cn } from '@/lib/utils';
+import { ChevronDown, Check, X } from 'lucide-react';
+import { useI18n } from '@/contexts/i18n-context';
 
 export interface SelectOption {
-  value: string
-  label: string
-  description?: string
-  isDefault?: boolean
-  isSmallFast?: boolean
-  isVisual?: boolean
-  isCompact?: boolean
-  actionIcon?: React.ReactNode
-  onAction?: (e: React.MouseEvent) => void
+  value: string;
+  label: string;
+  disabled?: boolean;
+  description?: string;
+  suffix?: React.ReactNode;
 }
 
 interface SelectProps {
-  value?: string
-  onChange?: (value: string) => void
+  value?: string;
+  onChange?: (value: string) => void;
 
-  options?: SelectOption[]
-  placeholder?: string
-  className?: string
-  disabled?: boolean
+  options?: SelectOption[];
+  placeholder?: string;
+  className?: string;
+  disabled?: boolean;
 
-  error?: boolean
+  error?: boolean;
 
-  showSearch?: boolean
-  searchPlaceholder?: string
+  showSearch?: boolean;
+  searchPlaceholder?: string;
   allowClear?: boolean;
-  allowCustom?: boolean
-  customPlaceholder?: string
-  customButtonText?: string
-  onCustomAdd?: (value: string) => void
+  allowCustom?: boolean;
+  customPlaceholder?: string;
+  customButtonText?: string;
+  onCustomAdd?: (value: string) => void;
 }
 
 export function Select({
@@ -55,222 +51,152 @@ export function Select({
   customButtonText,
   onCustomAdd,
 }: SelectProps) {
-  const { t } = useI18n()
+  const { t } = useI18n();
 
-  const _customPlaceholder =
-    customPlaceholder || "Select..."
+  const _customPlaceholder = customPlaceholder || 'Select...';
 
-  const _customButtonText =
-    customButtonText || t("common.add")
+  const _customButtonText = customButtonText || t('common.add');
 
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(false);
 
-  const [dropdownDirection, setDropdownDirection] = useState<
-    "down" | "up"
-  >("down")
+  const [dropdownDirection, setDropdownDirection] = useState<'down' | 'up'>('down');
 
-  const [customValue, setCustomValue] = useState("")
+  const [customValue, setCustomValue] = useState('');
 
-  const [searchValue, setSearchValue] = useState("")
+  const [searchValue, setSearchValue] = useState('');
 
-  const buttonRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLDivElement>(null);
 
-  const containerRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Handle clicking outside to close the dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
-        setOpen(false)
-        setSearchValue("")
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+        setSearchValue('');
       }
-    }
+    };
 
     if (open) {
-      document.addEventListener(
-        "mousedown",
-        handleClickOutside
-      )
+      document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
-      document.removeEventListener(
-        "mousedown",
-        handleClickOutside
-      )
-    }
-  }, [open])
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [open]);
 
   // Check if the dropdown menu should expand up or down
   useEffect(() => {
     if (open && buttonRef.current) {
-      const buttonRect =
-        buttonRef.current.getBoundingClientRect()
+      const buttonRect = buttonRef.current.getBoundingClientRect();
 
-      const spaceBelow =
-        window.innerHeight - buttonRect.bottom - 50
+      const spaceBelow = window.innerHeight - buttonRect.bottom - 50;
 
-      const spaceAbove = buttonRect.top - 50
+      const spaceAbove = buttonRect.top - 50;
 
       if (spaceBelow < 200 && spaceAbove > spaceBelow) {
-        setDropdownDirection("up")
+        setDropdownDirection('up');
       } else {
-        setDropdownDirection("down")
+        setDropdownDirection('down');
       }
     }
-  }, [open])
+  }, [open]);
 
-  const selectedOption = options.find(
-    (opt) => opt.value === value
-  )
+  const selectedOption = options.find((opt) => opt.value === value);
 
   const filteredOptions = options.filter((option) => {
     if (!showSearch || !searchValue.trim()) {
-      return true
+      return true;
     }
 
-    const keyword = searchValue.toLowerCase()
+    const keyword = searchValue.toLowerCase();
 
     return (
       option.label.toLowerCase().includes(keyword) ||
       option.value.toLowerCase().includes(keyword) ||
       option.description?.toLowerCase().includes(keyword)
-    )
-  })
+    );
+  });
 
-  const handleOptionClick = (
-    optionValue: string
-  ) => {
-    if (disabled) return
+  const handleOptionClick = (option: SelectOption) => {
+    if (disabled || option.disabled) return;
 
-    onChange?.(optionValue)
+    onChange?.(option.value);
 
-    setSearchValue("")
-    setOpen(false)
-  }
-  const handleClear = (
-    e: React.MouseEvent
-  ) => {
-    e.stopPropagation()
+    setSearchValue('');
+    setOpen(false);
+  };
+  const handleClear = (e: React.MouseEvent) => {
+    e.stopPropagation();
 
-    if (disabled) return
+    if (disabled) return;
 
-    onChange?.('')
+    onChange?.('');
 
-    setSearchValue("")
-    setOpen(false)
-  }
+    setSearchValue('');
+    setOpen(false);
+  };
   return (
-    <div
-      ref={containerRef}
-      className={cn("relative", className)}
-    >
+    <div ref={containerRef} className={cn('relative', className)}>
       <div
         ref={buttonRef}
         onClick={() => {
-          if (disabled) return
+          if (disabled) return;
 
           if (!showSearch) {
-            setOpen(!open)
+            setOpen(!open);
           }
         }}
         className={cn(
-          "border-input flex h-9 w-full items-center justify-between rounded-md border bg-transparent px-3 py-1 text-sm outline-none transition-all",
-          "focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]",
+          'border-input flex h-9 w-full items-center justify-between rounded-md border bg-transparent px-3 py-1 text-sm outline-none transition-all',
+          'focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]',
 
           error &&
-            "border-destructive focus-within:border-destructive focus-within:ring-destructive/40",
+            'border-destructive focus-within:border-destructive focus-within:ring-destructive/40',
 
-          !disabled &&
-            "hover:text-accent-foreground",
+          !disabled && 'hover:text-accent-foreground',
 
-          disabled &&
-            "cursor-not-allowed opacity-50"
+          disabled && 'cursor-not-allowed opacity-50'
         )}
       >
         <div className="flex items-center gap-2 flex-1 min-w-0">
           {showSearch ? (
             <input
-              value={
-                open
-                  ? searchValue
-                  : selectedOption?.label || ""
-              }
+              value={open ? searchValue : selectedOption?.label || ''}
               onChange={(e) => {
-                if (disabled) return
+                if (disabled) return;
 
-                setSearchValue(e.target.value)
+                setSearchValue(e.target.value);
 
                 if (!open) {
-                  setOpen(true)
+                  setOpen(true);
                 }
               }}
               onFocus={() => {
-                if (disabled) return
+                if (disabled) return;
 
-                setOpen(true)
+                setOpen(true);
               }}
               onBlur={() => {
                 setTimeout(() => {
-                  setSearchValue("")
-                }, 100)
+                  setSearchValue('');
+                }, 100);
               }}
-              placeholder={
-                selectedOption?.label ||
-                placeholder ||
-                searchPlaceholder ||
-                "Search..."
-              }
+              placeholder={selectedOption?.label || placeholder || searchPlaceholder || 'Search...'}
               disabled={disabled}
               className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
               onClick={(e) => {
-                e.stopPropagation()
+                e.stopPropagation();
               }}
             />
           ) : selectedOption ? (
             <div className="flex items-center gap-2 min-w-0 flex-1">
-              <span className="font-medium truncate">
-                {selectedOption.label}
-              </span>
-
-              {(selectedOption.isDefault ||
-                selectedOption.isSmallFast ||
-                selectedOption.isVisual ||
-                selectedOption.isCompact) && (
-                <div className="flex gap-1 flex-shrink-0">
-                  {selectedOption.isDefault && (
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                      Default
-                    </span>
-                  )}
-
-                  {selectedOption.isSmallFast && (
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500">
-                      Fast
-                    </span>
-                  )}
-
-                  {selectedOption.isVisual && (
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-500">
-                      Visual
-                    </span>
-                  )}
-
-                  {selectedOption.isCompact && (
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-green-500/10 text-green-500">
-                      Long Context
-                    </span>
-                  )}
-                </div>
-              )}
+              <span className="font-medium truncate">{selectedOption.label}</span>
             </div>
           ) : (
-            <span className="text-muted-foreground">
-              {placeholder || "Select..."}
-            </span>
+            <span className="text-muted-foreground">{placeholder || 'Select...'}</span>
           )}
         </div>
 
@@ -279,9 +205,8 @@ export function Select({
             type="button"
             onClick={handleClear}
             className={cn(
-              "flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors",
-              !disabled &&
-                "hover:bg-muted hover:text-foreground"
+              'flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors',
+              !disabled && 'hover:bg-muted hover:text-foreground'
             )}
             disabled={disabled}
           >
@@ -290,8 +215,8 @@ export function Select({
         ) : (
           <ChevronDown
             className={cn(
-              "h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform",
-              open && "rotate-180"
+              'h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform',
+              open && 'rotate-180'
             )}
           />
         )}
@@ -300,83 +225,40 @@ export function Select({
       {open && (
         <div
           className={cn(
-            "absolute left-0 right-0 z-[9999] mt-1 flex flex-col rounded-md border border-border bg-popover shadow-lg",
-            dropdownDirection === "down"
-              ? "top-full"
-              : "bottom-full mb-1 mt-0"
+            'absolute left-0 right-0 z-[9999] mt-1 flex flex-col rounded-md border border-border bg-popover shadow-lg',
+            dropdownDirection === 'down' ? 'top-full' : 'bottom-full mb-1 mt-0'
           )}
         >
           <div className="max-h-60 overflow-auto">
             {filteredOptions.length === 0 ? (
               <div className="py-10 text-center text-sm text-muted-foreground">
-                {t("common.noOptions")}
+                {t('common.noOptions')}
               </div>
             ) : (
               filteredOptions.map((option) => (
                 <button
                   key={option.value}
                   type="button"
-                  onClick={() =>
-                    handleOptionClick(option.value)
-                  }
+                  disabled={option.disabled}
+                  onClick={() => handleOptionClick(option)}
                   className={cn(
-                    "w-full border-b border-border px-3 py-2 text-left text-sm transition-colors last:border-b-0",
-                    "hover:bg-accent hover:text-accent-foreground",
-                    value === option.value &&
-                      "bg-accent text-accent-foreground"
+                    'w-full border-b border-border px-3 py-2 text-left text-sm transition-colors last:border-b-0',
+                    !option.disabled && 'hover:bg-accent hover:text-accent-foreground',
+                    value === option.value && 'bg-accent text-accent-foreground',
+                    option.disabled && 'cursor-not-allowed text-muted-foreground opacity-50'
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex min-w-0 flex-1 items-center gap-2">
-                      <span className="truncate font-medium">
-                        {option.label}
-                      </span>
-
-                      {(option.isDefault ||
-                        option.isSmallFast ||
-                        option.isVisual ||
-                        option.isCompact) && (
-                        <div className="flex flex-shrink-0 gap-1">
-                          {option.isDefault && (
-                            <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
-                              Default
-                            </span>
-                          )}
-
-                          {option.isSmallFast && (
-                            <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-xs text-blue-500">
-                              Fast
-                            </span>
-                          )}
-
-                          {option.isVisual && (
-                            <span className="rounded bg-purple-500/10 px-1.5 py-0.5 text-xs text-purple-500">
-                              Visual
-                            </span>
-                          )}
-
-                          {option.isCompact && (
-                            <span className="rounded bg-green-500/10 px-1.5 py-0.5 text-xs text-green-500">
-                              Long Context
-                            </span>
-                          )}
-                        </div>
-                      )}
+                      <span className="truncate font-medium">{option.label}</span>
                     </div>
 
-                    {option.actionIcon ? (
-                      <div
-                        className="flex-shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          option.onAction?.(e)
-                        }}
-                      >
-                        {option.actionIcon}
-                      </div>
-                    ) : value === option.value ? (
-                      <Check className="h-4 w-4 flex-shrink-0 text-primary" />
-                    ) : null}
+                    {option.suffix && (
+                      <div className="flex-shrink-0 text-muted-foreground">{option.suffix}</div>
+                    )}
+                    <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
+                      {value === option.value && <Check className="h-4 w-4 text-primary" />}
+                    </span>
                   </div>
 
                   {option.description && (
@@ -394,27 +276,20 @@ export function Select({
               <input
                 type="text"
                 value={customValue}
-                onChange={(e) =>
-                  setCustomValue(e.target.value)
-                }
+                onChange={(e) => setCustomValue(e.target.value)}
                 placeholder={_customPlaceholder}
                 className="border-input flex h-8 w-full rounded-md border bg-background px-3 py-1 text-sm shadow-sm outline-none transition-all placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
                 onClick={(e) => e.stopPropagation()}
                 onKeyDown={(e) => {
-                  e.stopPropagation()
+                  e.stopPropagation();
 
-                  if (
-                    e.key === "Enter" &&
-                    customValue.trim()
-                  ) {
-                    e.preventDefault()
+                  if (e.key === 'Enter' && customValue.trim()) {
+                    e.preventDefault();
 
-                    onCustomAdd?.(
-                      customValue.trim()
-                    )
+                    onCustomAdd?.(customValue.trim());
 
-                    setCustomValue("")
-                    setOpen(false)
+                    setCustomValue('');
+                    setOpen(false);
                   }
                 }}
               />
@@ -422,15 +297,13 @@ export function Select({
               <button
                 type="button"
                 onClick={(e) => {
-                  e.stopPropagation()
+                  e.stopPropagation();
 
                   if (customValue.trim()) {
-                    onCustomAdd?.(
-                      customValue.trim()
-                    )
+                    onCustomAdd?.(customValue.trim());
 
-                    setCustomValue("")
-                    setOpen(false)
+                    setCustomValue('');
+                    setOpen(false);
                   }
                 }}
                 disabled={!customValue.trim()}
@@ -443,7 +316,7 @@ export function Select({
         </div>
       )}
     </div>
-  )
+  );
 }
 
 export {
@@ -457,4 +330,4 @@ export {
   SelectSeparator,
   SelectScrollUpButton,
   SelectScrollDownButton,
-} from "./select-radix"
+} from './select-radix';
