@@ -216,6 +216,7 @@ class WorkerActor(xo.StatelessActor):
         self._model_uid_to_addr: Dict[str, str] = {}
         self._model_uid_to_recover_count: Dict[str, Optional[int]] = {}
         self._model_uid_to_launch_args: Dict[str, Dict] = {}
+        self._model_uid_to_pid: Dict[str, int] = {}
 
         if XINFERENCE_DISABLE_METRICS:
             logger.info(
@@ -2145,6 +2146,10 @@ class WorkerActor(xo.StatelessActor):
                         continue
                 raise
             self._model_uid_to_model[model_uid] = model_ref
+            try:
+                self._model_uid_to_pid[model_uid] = await model_ref.get_pid()
+            except Exception:
+                pass
             model_spec = model.model_family.to_description()
             self._model_uid_to_model_spec[model_uid] = model_spec
             self._model_uid_to_model_status[model_uid] = ModelStatus()
@@ -2325,6 +2330,7 @@ class WorkerActor(xo.StatelessActor):
             self._model_uid_to_addr.pop(model_uid, None)
             self._model_uid_to_recover_count.pop(model_uid, None)
             self._model_uid_to_launch_args.pop(model_uid, None)
+            self._model_uid_to_pid.pop(model_uid, None)
             # §4.3: Remove from persisted recovery file
             self._remove_persisted_launch_args(model_uid)
 
@@ -2383,6 +2389,34 @@ class WorkerActor(xo.StatelessActor):
             # Use configurable timeout for status gathering
             async with timeout(XINFERENCE_STATUS_GATHER_TIMEOUT):
                 status = await asyncio.to_thread(gather_node_info)
+
+                # Collect per-model GPU memory using psutil descendant PIDs
+                try:
+                    import psutil
+
+                    from ..device_utils import get_per_process_gpu_memory
+
+                    gpu_mem = await asyncio.to_thread(get_per_process_gpu_memory)
+                    model_gpu_mem: Dict[str, Dict[int, int]] = {}
+                    for m_uid, own_pid in self._model_uid_to_pid.items():
+                        per_gpu: Dict[int, int] = {}
+                        try:
+                            parent = psutil.Process(own_pid)
+                            all_pids = [own_pid] + [
+                                c.pid for c in parent.children(recursive=True)
+                            ]
+                        except (psutil.NoSuchProcess, psutil.AccessDenied):
+                            all_pids = [own_pid]
+                        for pid in all_pids:
+                            if pid in gpu_mem:
+                                for gpu_idx, mem in gpu_mem[pid].items():
+                                    per_gpu[gpu_idx] = per_gpu.get(gpu_idx, 0) + mem
+                        if per_gpu:
+                            model_gpu_mem[m_uid] = per_gpu
+                    if model_gpu_mem:
+                        status["model_gpu_memory"] = model_gpu_mem
+                except Exception:
+                    pass
         except asyncio.CancelledError:
             raise
         except Exception:

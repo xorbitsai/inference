@@ -326,6 +326,11 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             {"labels": self._metrics_labels, "value": limit_val},
         )
 
+    def get_pid(self) -> int:
+        import os
+
+        return os.getpid()
+
     def __repr__(self) -> str:
         return f"ModelActor({self._replica_model_uid})"
 

@@ -136,6 +136,9 @@ class SupervisorActor(xo.StatelessActor):
         # launches, reverse-channel dead detection is exempted because
         # long-running model downloads can starve the actor event loop.
         self._workers_launching: Dict[str, int] = {}  # address -> active launch count
+        self._worker_model_gpu_memory: Dict[str, Dict[str, Dict[int, int]]] = (
+            {}
+        )  # worker_address -> {model_uid -> {gpu_idx -> bytes}}
 
     @classmethod
     def default_uid(cls) -> str:
@@ -923,6 +926,7 @@ class SupervisorActor(xo.StatelessActor):
             "workers": workers,
             "instance_infos": instance_infos,
             "model_replica_distribution": model_replica_distribution,
+            "model_gpu_memory": dict(self._worker_model_gpu_memory),
         }
 
     def _get_spec_dicts(
@@ -2632,6 +2636,7 @@ class SupervisorActor(xo.StatelessActor):
             )
 
         self._worker_status.pop(worker_address, None)
+        self._worker_model_gpu_memory.pop(worker_address, None)
         try:
             from .otel import get_cluster_metrics_collector
 
@@ -2672,6 +2677,14 @@ class SupervisorActor(xo.StatelessActor):
                     "Failed to feed worker status into OTEL collector for worker_address=%s",
                     worker_address,
                 )
+
+        # Extract and store per-model GPU memory data
+        if isinstance(status, dict):
+            model_gpu_mem = status.pop("model_gpu_memory", None)
+            if model_gpu_mem:
+                self._worker_model_gpu_memory[worker_address] = model_gpu_mem  # type: ignore[assignment]
+            elif worker_address in self._worker_model_gpu_memory:
+                del self._worker_model_gpu_memory[worker_address]
 
     async def receive_heartbeat(self, worker_address: str):
         """
