@@ -348,9 +348,9 @@
           "expr": "label_replace(xinference:config_info{xinference_role=\"worker\",cluster=~\"$cluster\"}, \"xinference_address\", \"$1\", \"worker_address\", \"(.*)\")",
           "format": "table",
           "hide": false,
-          "instant": true,
+          "instant": false,
           "legendFormat": "__auto",
-          "range": false,
+          "range": true,
           "refId": "C"
         },
         {
@@ -362,9 +362,9 @@
           "expr": "label_replace(xinference:config_info{xinference_role=\"supervisor\",cluster=~\"$cluster\"}, \"xinference_address\", \"$1\", \"supervisor_address\", \"(.*)\")",
           "format": "table",
           "hide": false,
-          "instant": true,
+          "instant": false,
           "legendFormat": "__auto",
-          "range": false,
+          "range": true,
           "refId": "D"
         }
       ]
@@ -2716,12 +2716,290 @@
       ]
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "모델별 GPU 메모리 실시간 사용량 (스택), 각 모델의 지속적인 메모리 소비를 관찰할 수 있습니다",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 30,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 131
+      },
+      "id": 150,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "sortBy": "Last *",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "xinference:model_gpu_memory_used_bytes{worker_address=~\"$worker_address\", model_name=~\"$model_name\"}",
+          "legendFormat": "{{model_name}} / GPU{{gpu_index}} @ {{worker_address}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "모델별 GPU 메모리 사용량",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "각 모델의 GPU별 현재 메모리 점유 스냅샷",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "center",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 4294967296
+              },
+              {
+                "color": "red",
+                "value": 8589934592
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "모델 이름"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "모델 유형"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 79
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GPU"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "custom.width",
+                "value": 51
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "메모리 사용량"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "gradient"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 131
+      },
+      "id": 151,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": true
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "메모리 사용량"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "xinference:model_gpu_memory_used_bytes{worker_address=~\"$worker_address\", model_name=~\"$model_name\"} > 0",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "model_name",
+                "model_type",
+                "model_uid",
+                "Value",
+                "gpu_index",
+                "worker_address"
+              ]
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "instance": true,
+              "job": true,
+              "model_type": false,
+              "model_uid": false,
+              "replica_index": true
+            },
+            "includeByName": {},
+            "indexByName": {},
+            "renameByName": {
+              "显存占用": "메모리 사용량",
+              "gpu_index": "GPU",
+              "model_name": "모델 이름",
+              "model_type": "모델 유형",
+              "model_uid": "모델 UID",
+              "worker_address": "Worker"
+            }
+          }
+        }
+      ],
+      "title": "모델별 GPU 메모리 분포",
+      "type": "table"
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 131
+        "y": 141
       },
       "id": 104,
       "title": "LLM 전용",
@@ -2735,7 +3013,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 132
+        "y": 142
       },
       "datasource": {
         "type": "prometheus",
@@ -2831,7 +3109,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 132
+        "y": 142
       },
       "datasource": {
         "type": "prometheus",
@@ -2926,7 +3204,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 140
+        "y": 150
       },
       "datasource": {
         "type": "prometheus",
@@ -3022,7 +3300,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 140
+        "y": 150
       },
       "datasource": {
         "type": "prometheus",
@@ -3115,7 +3393,7 @@
       "type": "timeseries",
       "gridPos": {
         "x": 0,
-        "y": 148,
+        "y": 158,
         "w": 12,
         "h": 8
       },
@@ -3208,7 +3486,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 148
+        "y": 158
       },
       "datasource": {
         "type": "prometheus",
@@ -3302,7 +3580,7 @@
       "type": "timeseries",
       "gridPos": {
         "x": 12,
-        "y": 156,
+        "y": 166,
         "w": 12,
         "h": 8
       },
@@ -3398,7 +3676,7 @@
       "type": "timeseries",
       "gridPos": {
         "x": 0,
-        "y": 156,
+        "y": 166,
         "w": 12,
         "h": 8
       },
@@ -3494,7 +3772,7 @@
       "type": "stat",
       "gridPos": {
         "x": 12,
-        "y": 164,
+        "y": 174,
         "w": 12,
         "h": 8
       },
@@ -3557,7 +3835,7 @@
       "type": "timeseries",
       "gridPos": {
         "x": 0,
-        "y": 164,
+        "y": 174,
         "w": 12,
         "h": 8
       },
@@ -3646,7 +3924,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 172
+        "y": 182
       },
       "collapsed": false
     },
@@ -3658,7 +3936,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 173
+        "y": 183
       },
       "datasource": {
         "type": "prometheus",
@@ -3749,7 +4027,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 173
+        "y": 183
       },
       "datasource": {
         "type": "prometheus",
@@ -3845,7 +4123,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 179
+        "y": 189
       },
       "datasource": {
         "type": "prometheus",
@@ -3936,7 +4214,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 179
+        "y": 189
       },
       "datasource": {
         "type": "prometheus",
@@ -4029,7 +4307,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 204
+        "y": 214
       },
       "id": 107,
       "title": "Supervisor 호스트 리소스 (node_exporter)",
@@ -4043,7 +4321,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 205
+        "y": 215
       },
       "datasource": {
         "type": "prometheus",
@@ -4135,7 +4413,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 205
+        "y": 215
       },
       "datasource": {
         "type": "prometheus",
@@ -4235,7 +4513,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 213
+        "y": 223
       },
       "datasource": {
         "type": "prometheus",
@@ -4331,7 +4609,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 213
+        "y": 223
       },
       "datasource": {
         "type": "prometheus",
@@ -4422,7 +4700,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 221
+        "y": 231
       },
       "datasource": {
         "type": "prometheus",
@@ -4472,7 +4750,7 @@
       "pluginVersion": "11.0.0",
       "targets": [
         {
-          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"}) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster=~\"$cluster\", supervisor_address=~\"$supervisor_address\"})",
+          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"}) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster=~\"$cluster\", supervisor_address=~\"$supervisor_address\"})",
           "legendFormat": "{{mountpoint}}",
           "refId": "A"
         }
@@ -4489,7 +4767,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 229
+        "y": 239
       },
       "datasource": {
         "type": "prometheus",
@@ -4566,7 +4844,7 @@
       },
       "targets": [
         {
-          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"}) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster=~\"$cluster\", supervisor_address=~\"$supervisor_address\"})",
+          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$supervisor_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"}) * on (address) group_left(supervisor_address) (xinference:build_info{xinference_role=\"supervisor\", cluster=~\"$cluster\", supervisor_address=~\"$supervisor_address\"})",
           "legendFormat": "{{supervisor_address}} {{mountpoint}}",
           "refId": "A"
         }
@@ -4580,7 +4858,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 229
+        "y": 239
       },
       "datasource": {
         "type": "prometheus",
@@ -4676,7 +4954,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 237
+        "y": 247
       },
       "datasource": {
         "type": "prometheus",
@@ -4772,7 +5050,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 237
+        "y": 247
       },
       "datasource": {
         "type": "prometheus",
@@ -4866,7 +5144,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 245
+        "y": 255
       },
       "id": 105,
       "title": "Worker 호스트 리소스 (node_exporter)",
@@ -4880,7 +5158,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 246
+        "y": 256
       },
       "datasource": {
         "type": "prometheus",
@@ -4972,7 +5250,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 246
+        "y": 256
       },
       "datasource": {
         "type": "prometheus",
@@ -5072,7 +5350,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 254
+        "y": 264
       },
       "datasource": {
         "type": "prometheus",
@@ -5168,7 +5446,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 254
+        "y": 264
       },
       "datasource": {
         "type": "prometheus",
@@ -5259,7 +5537,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 262
+        "y": 272
       },
       "datasource": {
         "type": "prometheus",
@@ -5309,7 +5587,7 @@
       "pluginVersion": "11.0.0",
       "targets": [
         {
-          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"$worker_instance\", mountpoint !~ \"/boot\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$worker_instance\", mountpoint !~ \"/boot\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"}) * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster=~\"$cluster\", worker_address=~\"$worker_address\"})",
+          "expr": "(1 - node_filesystem_avail_bytes{instance=~\"$worker_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"} / node_filesystem_size_bytes{instance=~\"$worker_instance\", mountpoint !~ \"/boot|\", fstype=~\"ext4|xfs|btrfs|zfs|nfs|ceph\"}) * on (address) group_left(worker_address) (xinference:build_info{xinference_role=\"worker\", cluster=~\"$cluster\", worker_address=~\"$worker_address\"})",
           "legendFormat": "{{mountpoint}}",
           "refId": "A"
         }
@@ -5326,7 +5604,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 270
+        "y": 280
       },
       "datasource": {
         "type": "prometheus",
@@ -5417,7 +5695,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 270
+        "y": 280
       },
       "datasource": {
         "type": "prometheus",
@@ -5513,7 +5791,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 278
+        "y": 288
       },
       "datasource": {
         "type": "prometheus",
@@ -5609,7 +5887,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 278
+        "y": 288
       },
       "datasource": {
         "type": "prometheus",
@@ -5703,7 +5981,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 286
+        "y": 296
       },
       "id": 300,
       "title": "보안 감사",
@@ -5717,7 +5995,7 @@
         "h": 6,
         "w": 6,
         "x": 0,
-        "y": 287
+        "y": 297
       },
       "datasource": {
         "type": "prometheus",
@@ -5768,7 +6046,7 @@
         "h": 6,
         "w": 6,
         "x": 6,
-        "y": 287
+        "y": 297
       },
       "datasource": {
         "type": "prometheus",
@@ -5827,7 +6105,7 @@
         "h": 6,
         "w": 6,
         "x": 12,
-        "y": 287
+        "y": 297
       },
       "datasource": {
         "type": "prometheus",
@@ -5886,7 +6164,7 @@
         "h": 6,
         "w": 6,
         "x": 18,
-        "y": 287
+        "y": 297
       },
       "datasource": {
         "type": "prometheus",
@@ -5945,7 +6223,7 @@
         "h": 10,
         "w": 12,
         "x": 12,
-        "y": 293
+        "y": 303
       },
       "datasource": {
         "type": "prometheus",
@@ -6022,7 +6300,7 @@
         "h": 10,
         "w": 12,
         "x": 0,
-        "y": 293
+        "y": 303
       },
       "datasource": {
         "type": "prometheus",
@@ -6108,7 +6386,7 @@
         "h": 10,
         "w": 12,
         "x": 0,
-        "y": 303
+        "y": 313
       },
       "datasource": {
         "type": "prometheus",
@@ -6216,7 +6494,7 @@
         "h": 10,
         "w": 12,
         "x": 12,
-        "y": 303
+        "y": 313
       },
       "datasource": {
         "type": "prometheus",
@@ -6325,7 +6603,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 313
+        "y": 323
       },
       "datasource": {
         "type": "prometheus",
