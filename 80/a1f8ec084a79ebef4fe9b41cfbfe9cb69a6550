@@ -1,0 +1,79 @@
+xinference/api/tests/test_launch_history.py
+  5b3a66a58e7ca2ca 1-194
+xinference/constants.py
+  5b3a66a58e7ca2ca 106-109
+xinference/api/routers/__init__.py
+  5b3a66a58e7ca2ca 11-21,37
+doc/source/getting_started/environments.rst
+  5b3a66a58e7ca2ca 117-126
+xinference/api/restful_api.py
+  5b3a66a58e7ca2ca 61,143-148
+xinference/core/launch_history_store.py
+  5b3a66a58e7ca2ca 42-48,77-78,92-97,108-109,114-115,128-129
+xinference/api/routers/launch_history.py
+  5b3a66a58e7ca2ca 1-13,21,47,53,56,90-103,109,113,120,122-129
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.16",
+  "base_commit_sha": "80a1f8ec084a79ebef4fe9b41cfbfe9cb69a6550",
+  "prompts": {
+    "06e72b5cc61d09df": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "65ef9f64-218d-492d-8ac0-f1d24073acae",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 7729,
+      "overriden_lines": 0
+    },
+    "5b3a66a58e7ca2ca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59b617a1-79c6-4993-bdd4-dce73c54a6ca",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 4351,
+      "total_deletions": 32,
+      "accepted_lines": 480,
+      "overriden_lines": 0
+    },
+    "ed6bf4fe5d201b0a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ea37da65-f3fa-43c7-984d-4dd610c68842",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 14137,
+      "total_deletions": 198,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "fbd0a7434a0e56c7": {
+      "agent_id": {
+        "tool": "known_human",
+        "id": "known_human_session",
+        "model": "unknown"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 1713,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_9bfd4e7cd8cc2c": {
+      "author": "郑明再"
+    }
+  }
+}
