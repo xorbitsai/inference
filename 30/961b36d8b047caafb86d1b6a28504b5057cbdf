@@ -1,0 +1,45 @@
+xinference/ui/web/ui/src/locales/ja.json
+  5b3a66a58e7ca2ca 93
+xinference/constants.py
+  5b3a66a58e7ca2ca 106-109
+xinference/api/restful_api.py
+  5b3a66a58e7ca2ca 61,143-148
+xinference/api/tests/test_launch_history.py
+  5b3a66a58e7ca2ca 1-194
+xinference/ui/web/ui/src/locales/ko.json
+  5b3a66a58e7ca2ca 93
+xinference/api/routers/__init__.py
+  5b3a66a58e7ca2ca 11-21,37
+xinference/core/launch_history_store.py
+  5b3a66a58e7ca2ca 42-48,77-78,92-97,108-109,114-115,128-129
+xinference/ui/web/ui/src/scenes/launch_model/components/launchModelDrawer.js
+  5b3a66a58e7ca2ca 213-218,223-224,257,264-316,383-387,682-683,696-708,1213,1680-1687
+xinference/api/routers/launch_history.py
+  5b3a66a58e7ca2ca 1-13,21,47,53,56,90-103,109,113,120,122-129
+xinference/ui/web/ui/src/locales/zh.json
+  5b3a66a58e7ca2ca 100
+xinference/ui/web/ui/src/locales/en.json
+  5b3a66a58e7ca2ca 100
+doc/source/getting_started/environments.rst
+  5b3a66a58e7ca2ca 117-126
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.16",
+  "base_commit_sha": "30961b36d8b047caafb86d1b6a28504b5057cbdf",
+  "prompts": {
+    "5b3a66a58e7ca2ca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59b617a1-79c6-4993-bdd4-dce73c54a6ca",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 385,
+      "overriden_lines": 0
+    }
+  }
+}
