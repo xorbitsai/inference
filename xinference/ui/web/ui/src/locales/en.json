@@ -97,6 +97,7 @@
     "loadCache": "Use",
     "deleteCache": "Delete Cache",
     "lastUpdated": "Last Updated",
+    "createdBy": "Created By",
     "defaultConfig": "Default Config",
     "confirmDeleteConfigCache": "Delete this cached configuration? This action is irreversible.",
     "invalidConfigCache": "The model engine required by this cached configuration is unavailable.",
