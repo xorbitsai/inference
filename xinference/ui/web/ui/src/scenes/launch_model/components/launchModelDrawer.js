@@ -212,9 +212,7 @@ const LaunchModelDrawer = ({
 
     const rawUpdatedAt = item.updated_at
     const updatedAt =
-      typeof rawUpdatedAt === 'number'
-        ? rawUpdatedAt
-        : Date.parse(rawUpdatedAt)
+      typeof rawUpdatedAt === 'number' ? rawUpdatedAt : Date.parse(rawUpdatedAt)
 
     return {
       cache_key: buildHistoryKey(modelName, modelUID),
@@ -380,10 +378,7 @@ const LaunchModelDrawer = ({
     const wasSelected = historyToDelete.cache_key === selectedHistoryKey
     const nextEntries = removeHistoryEntry(historyToDelete.cache_key)
 
-    deleteHistoryOnServer(
-      historyToDelete.model_name,
-      historyToDelete.model_uid
-    )
+    deleteHistoryOnServer(historyToDelete.model_name, historyToDelete.model_uid)
 
     setHistoryEntries(nextEntries)
     setHistoryToDelete(null)
@@ -1683,10 +1678,7 @@ const LaunchModelDrawer = ({
                           {formatHistoryTime(entry.updated_at)}
                         </Typography>
                         {entry.created_by ? (
-                          <Typography
-                            variant="body2"
-                            color="text.secondary"
-                          >
+                          <Typography variant="body2" color="text.secondary">
                             {t('launchModel.createdBy')}: {entry.created_by}
                           </Typography>
                         ) : null}
