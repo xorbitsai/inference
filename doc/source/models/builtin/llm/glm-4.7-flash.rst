@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 30 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 30
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** zai-org/GLM-4.7-Flash
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/zai-org/GLM-4.7-Flash>`__, `ModelScope <https://modelscope.cn/models/ZhipuAI/GLM-4.7-Flash>`__
 
