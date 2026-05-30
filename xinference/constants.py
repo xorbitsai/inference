@@ -103,6 +103,10 @@ XINFERENCE_AUTH_ENCRYPTION_KEY = os.environ.get("XINFERENCE_AUTH_ENCRYPTION_KEY"
 XINFERENCE_AUTH_DB_PATH = os.environ.get(
     "XINFERENCE_AUTH_DB_PATH", os.path.join(XINFERENCE_HOME, "auth", "auth.db")
 )
+XINFERENCE_LAUNCH_HISTORY_DB_PATH = os.environ.get(
+    "XINFERENCE_LAUNCH_HISTORY_DB_PATH",
+    os.path.join(XINFERENCE_HOME, "launch_history.db"),
+)
 
 # OIDC / SSO
 XINFERENCE_OIDC_ENABLED = os.environ.get("XINFERENCE_OIDC_ENABLED", "").lower() in (

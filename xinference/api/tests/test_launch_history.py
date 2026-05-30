@@ -1,0 +1,194 @@
+# Copyright 2022-2026 XProbe Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Unit tests for the launch history store and router handlers."""
+
+import json
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+from fastapi import HTTPException
+
+from xinference.api.routers import launch_history
+from xinference.core.launch_history_store import LaunchHistoryStore
+
+
+def _json_body(response):
+    return json.loads(response.body.decode())
+
+
+@pytest.fixture
+def store(tmp_path):
+    return LaunchHistoryStore(str(tmp_path / "launch_history.db"))
+
+
+# --- Store tests ---
+
+
+def test_upsert_inserts_then_lists(store):
+    store.upsert("llama", "", {"model_engine": "vllm"}, username="alice")
+    rows = store.list()
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["model_name"] == "llama"
+    assert row["model_uid"] == ""
+    assert row["data"] == {"model_engine": "vllm"}
+    assert row["created_by"] == "alice"
+    assert row["updated_by"] == "alice"
+
+
+def test_upsert_updates_existing_keeps_created_by(store):
+    store.upsert("llama", "", {"v": 1}, username="alice")
+    store.upsert("llama", "", {"v": 2}, username="bob")
+    rows = store.list()
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["data"] == {"v": 2}
+    # created_by must be preserved; only updated_by changes.
+    assert row["created_by"] == "alice"
+    assert row["updated_by"] == "bob"
+
+
+def test_upsert_distinct_uids_are_separate_rows(store):
+    store.upsert("llama", "uid-1", {"v": 1})
+    store.upsert("llama", "uid-2", {"v": 2})
+    assert len(store.list()) == 2
+
+
+def test_list_filters_by_model_name(store):
+    store.upsert("llama", "", {"v": 1})
+    store.upsert("qwen", "", {"v": 2})
+    rows = store.list(model_name="qwen")
+    assert len(rows) == 1
+    assert rows[0]["model_name"] == "qwen"
+
+
+def test_list_emits_utc_z_timestamps(store):
+    store.upsert("llama", "", {"v": 1})
+    row = store.list()[0]
+    for key in ("created_at", "updated_at"):
+        assert row[key].endswith("Z")
+        assert "T" in row[key]
+
+
+def test_delete_removes_row(store):
+    store.upsert("llama", "", {"v": 1})
+    assert store.delete("llama", "") is True
+    assert store.list() == []
+
+
+def test_delete_missing_returns_false(store):
+    assert store.delete("nope", "") is False
+
+
+def test_empty_username_defaults_to_blank(store):
+    store.upsert("llama", "", {"v": 1})
+    row = store.list()[0]
+    assert row["created_by"] == ""
+    assert row["updated_by"] == ""
+
+
+def test_store_persists_across_instances(tmp_path):
+    db = str(tmp_path / "lh.db")
+    LaunchHistoryStore(db).upsert("llama", "", {"v": 1}, username="alice")
+    rows = LaunchHistoryStore(db).list()
+    assert len(rows) == 1
+    assert rows[0]["created_by"] == "alice"
+
+
+# --- Router handler tests ---
+
+
+@pytest.fixture
+def mock_api():
+    api = MagicMock()
+    api._launch_history_store = MagicMock()
+    return api
+
+
+def _request_with_json(body):
+    request = MagicMock()
+    request.json = AsyncMock(return_value=body)
+    return request
+
+
+@pytest.mark.asyncio
+async def test_list_handler_returns_store_data(mock_api):
+    mock_api._launch_history_store.list.return_value = [{"model_name": "llama"}]
+    response = await launch_history.list_launch_history(
+        model_name="llama", api=mock_api
+    )
+    assert _json_body(response) == [{"model_name": "llama"}]
+    mock_api._launch_history_store.list.assert_called_once_with(model_name="llama")
+
+
+@pytest.mark.asyncio
+async def test_list_handler_raises_500_on_error(mock_api):
+    mock_api._launch_history_store.list.side_effect = RuntimeError("boom")
+    with pytest.raises(HTTPException) as exc:
+        await launch_history.list_launch_history(api=mock_api)
+    assert exc.value.status_code == 500
+
+
+@pytest.mark.asyncio
+async def test_create_handler_upserts_with_username(mock_api):
+    request = _request_with_json(
+        {"model_name": "llama", "model_uid": "", "data": {"model_engine": "vllm"}}
+    )
+    response = await launch_history.create_launch_history(
+        request=request, api=mock_api, user={"username": "alice"}
+    )
+    assert _json_body(response) == {"status": "ok"}
+    mock_api._launch_history_store.upsert.assert_called_once_with(
+        model_name="llama",
+        model_uid="",
+        data={"model_engine": "vllm"},
+        username="alice",
+    )
+
+
+@pytest.mark.asyncio
+async def test_create_handler_blank_username_without_user(mock_api):
+    request = _request_with_json({"model_name": "llama", "data": {}})
+    await launch_history.create_launch_history(request=request, api=mock_api)
+    _, kwargs = mock_api._launch_history_store.upsert.call_args
+    assert kwargs["username"] == ""
+
+
+@pytest.mark.asyncio
+async def test_create_handler_requires_model_name(mock_api):
+    request = _request_with_json({"data": {"x": 1}})
+    with pytest.raises(HTTPException) as exc:
+        await launch_history.create_launch_history(request=request, api=mock_api)
+    assert exc.value.status_code == 400
+    mock_api._launch_history_store.upsert.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_delete_handler_ok(mock_api):
+    mock_api._launch_history_store.delete.return_value = True
+    response = await launch_history.delete_launch_history(
+        model_name="llama", model_uid="", api=mock_api
+    )
+    assert _json_body(response) == {"status": "ok"}
+
+
+@pytest.mark.asyncio
+async def test_delete_handler_404_when_missing(mock_api):
+    mock_api._launch_history_store.delete.return_value = False
+    with pytest.raises(HTTPException) as exc:
+        await launch_history.delete_launch_history(
+            model_name="nope", model_uid="", api=mock_api
+        )
+    assert exc.value.status_code == 404
