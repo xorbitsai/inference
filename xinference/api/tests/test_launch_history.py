@@ -14,6 +14,7 @@
 
 """Unit tests for the launch history store and router handlers."""
 
+import inspect
 import json
 from unittest.mock import AsyncMock, MagicMock
 
@@ -123,21 +124,17 @@ def _request_with_json(body):
     return request
 
 
-@pytest.mark.asyncio
-async def test_list_handler_returns_store_data(mock_api):
+def test_list_handler_returns_store_data(mock_api):
     mock_api._launch_history_store.list.return_value = [{"model_name": "llama"}]
-    response = await launch_history.list_launch_history(
-        model_name="llama", api=mock_api
-    )
+    response = launch_history.list_launch_history(model_name="llama", api=mock_api)
     assert _json_body(response) == [{"model_name": "llama"}]
     mock_api._launch_history_store.list.assert_called_once_with(model_name="llama")
 
 
-@pytest.mark.asyncio
-async def test_list_handler_raises_500_on_error(mock_api):
+def test_list_handler_raises_500_on_error(mock_api):
     mock_api._launch_history_store.list.side_effect = RuntimeError("boom")
     with pytest.raises(HTTPException) as exc:
-        await launch_history.list_launch_history(api=mock_api)
+        launch_history.list_launch_history(api=mock_api)
     assert exc.value.status_code == 500
 
 
@@ -175,20 +172,56 @@ async def test_create_handler_requires_model_name(mock_api):
     mock_api._launch_history_store.upsert.assert_not_called()
 
 
-@pytest.mark.asyncio
-async def test_delete_handler_ok(mock_api):
+def test_delete_handler_ok(mock_api):
     mock_api._launch_history_store.delete.return_value = True
-    response = await launch_history.delete_launch_history(
+    response = launch_history.delete_launch_history(
         model_name="llama", model_uid="", api=mock_api
     )
     assert _json_body(response) == {"status": "ok"}
 
 
-@pytest.mark.asyncio
-async def test_delete_handler_404_when_missing(mock_api):
+def test_delete_handler_404_when_missing(mock_api):
     mock_api._launch_history_store.delete.return_value = False
     with pytest.raises(HTTPException) as exc:
-        await launch_history.delete_launch_history(
+        launch_history.delete_launch_history(
             model_name="nope", model_uid="", api=mock_api
         )
     assert exc.value.status_code == 404
+
+
+# --- register_routes tests ---
+
+
+def _register_and_capture(is_auth):
+    captured = {}
+
+    def add_api_route(path, endpoint, methods=None, **kwargs):
+        captured[(path, tuple(methods or []))] = endpoint
+
+    api = MagicMock()
+    api._router.add_api_route.side_effect = add_api_route
+    api._auth_service = MagicMock()
+    api.is_authenticated.return_value = is_auth
+    api._launch_history_store = MagicMock()
+    launch_history.register_routes(api)
+    return api, captured
+
+
+def test_auth_off_post_handler_exposes_no_user_param():
+    # Regression: when auth is disabled the POST handler must not expose a
+    # `user: Optional[dict]` parameter, otherwise FastAPI treats it as a request
+    # body field and rejects normal launches with HTTP 422.
+    _, captured = _register_and_capture(is_auth=False)
+    post_handler = captured[("/v1/launch_history", ("POST",))]
+    assert "user" not in inspect.signature(post_handler).parameters
+
+
+@pytest.mark.asyncio
+async def test_auth_off_post_handler_forwards_none_user():
+    api, captured = _register_and_capture(is_auth=False)
+    post_handler = captured[("/v1/launch_history", ("POST",))]
+    request = _request_with_json({"model_name": "llama", "data": {"x": 1}})
+    response = await post_handler(request=request, api_=api)
+    assert _json_body(response) == {"status": "ok"}
+    _, kwargs = api._launch_history_store.upsert.call_args
+    assert kwargs["username"] == ""

@@ -696,13 +696,18 @@ const LaunchModelDrawer = ({
 
     loadHistoryFromServer().then((serverEntries) => {
       setHistoryEntries(serverEntries)
-      if (!latestEntry && serverEntries[0]) {
-        const latest = serverEntries[0]
-        setSelectedHistoryKey(latest.cache_key)
-        if (modelEngineType.includes(modelType)) {
-          setPendingHistory(latest.data)
-        } else {
-          applyHistory(latest.data)
+      const serverLatest = serverEntries[0]
+      if (serverLatest) {
+        const shouldApply =
+          !latestEntry ||
+          serverLatest.updated_at > (latestEntry.updated_at || 0)
+        if (shouldApply) {
+          setSelectedHistoryKey(serverLatest.cache_key)
+          if (modelEngineType.includes(modelType)) {
+            setPendingHistory(serverLatest.data)
+          } else {
+            applyHistory(serverLatest.data)
+          }
         }
       }
     })

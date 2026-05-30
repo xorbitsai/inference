@@ -16,7 +16,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Awaitable, Callable, Optional
 
 from fastapi import Depends, HTTPException, Query, Request, Security
 
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-async def list_launch_history(
+def list_launch_history(
     model_name: Optional[str] = Query(None),
     api: "RESTfulAPI" = Depends(get_api),
 ) -> JSONResponse:
@@ -68,7 +68,7 @@ async def create_launch_history(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def delete_launch_history(
+def delete_launch_history(
     model_name: str,
     model_uid: str = "",
     api: "RESTfulAPI" = Depends(get_api),
@@ -90,17 +90,26 @@ def register_routes(api: "RESTfulAPI") -> None:
     auth = api._auth_service
     is_auth = api.is_authenticated()
 
+    create_handler: Callable[..., Awaitable[JSONResponse]]
     if is_auth:
 
-        async def create_handler(
+        async def create_handler_authed(
             request: Request,
             user: dict = Security(auth, scopes=["models:write"]),
             api_: "RESTfulAPI" = Depends(get_api),
         ) -> JSONResponse:
             return await create_launch_history(request, api_, user)
 
+        create_handler = create_handler_authed
     else:
-        create_handler = create_launch_history  # type: ignore[assignment]
+
+        async def create_handler_anon(
+            request: Request,
+            api_: "RESTfulAPI" = Depends(get_api),
+        ) -> JSONResponse:
+            return await create_launch_history(request, api_, None)
+
+        create_handler = create_handler_anon
 
     router.add_api_route(
         "/v1/launch_history",
