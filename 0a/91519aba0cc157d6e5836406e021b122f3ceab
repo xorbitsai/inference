@@ -1,0 +1,25 @@
+xinference/core/tests/test_worker.py
+  ee523e45a6ad996f 124-126,128-132,1076-1213
+xinference/core/worker.py
+  ee523e45a6ad996f 220-224,2158-2170,2352,2412-2419,2421,2423-2458
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.16",
+  "base_commit_sha": "0a91519aba0cc157d6e5836406e021b122f3ceab",
+  "prompts": {
+    "ee523e45a6ad996f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ead17b08-49de-48a0-81f7-2d7e747fb06d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 211,
+      "total_deletions": 71,
+      "accepted_lines": 211,
+      "overriden_lines": 0
+    }
+  }
+}
