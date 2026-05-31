@@ -217,6 +217,9 @@ class WorkerActor(xo.StatelessActor):
         self._model_uid_to_recover_count: Dict[str, Optional[int]] = {}
         self._model_uid_to_launch_args: Dict[str, Dict] = {}
         self._model_uid_to_pid: Dict[str, int] = {}
+        self._model_uid_to_gpu_pids: Dict[str, set] = {}
+        self._model_uid_to_gpu_snapshot_before: Dict[str, set] = {}
+        self._gpu_snapshot_lock = asyncio.Lock()
 
         if XINFERENCE_DISABLE_METRICS:
             logger.info(
@@ -2120,6 +2123,23 @@ class WorkerActor(xo.StatelessActor):
 
                 with progressor:
                     try:
+                        # PID snapshot before load (GPU process tattoo, for
+                        # engines that spawn GPU workers outside the ModelActor
+                        # process tree, e.g. vLLM tensor parallelism).
+                        try:
+                            from ..device_utils import get_per_process_gpu_memory
+
+                            async with self._gpu_snapshot_lock:
+                                self._model_uid_to_gpu_snapshot_before[model_uid] = set(
+                                    (
+                                        await asyncio.to_thread(
+                                            get_per_process_gpu_memory
+                                        )
+                                    ).keys()
+                                )
+                        except Exception:
+                            pass
+
                         _load_start = time.time()
                         await model_ref.load()
                         _load_duration = time.time() - _load_start
@@ -2138,6 +2158,7 @@ class WorkerActor(xo.StatelessActor):
                         raise
             except Exception:
                 logger.error(f"Failed to load model {model_uid}", exc_info=True)
+                self._model_uid_to_gpu_snapshot_before.pop(model_uid, None)
                 self.release_devices(model_uid=model_uid)
                 for addr in all_subpool_addresses:
                     try:
@@ -2203,6 +2224,26 @@ class WorkerActor(xo.StatelessActor):
     async def wait_for_load(self, model_uid: str):
         model_ref = self._model_uid_to_model[model_uid]
         await model_ref.wait_for_load()
+
+        # Deferred GPU PID tattoo: by now vLLM/SGLang GPU worker processes,
+        # which spawn after model_ref.load() returns, are fully up.
+        before_pids = self._model_uid_to_gpu_snapshot_before.pop(model_uid, None)
+        if before_pids is not None:
+            try:
+                from ..device_utils import get_per_process_gpu_memory
+
+                async with self._gpu_snapshot_lock:
+                    after_pids = set(
+                        (await asyncio.to_thread(get_per_process_gpu_memory)).keys()
+                    )
+                new_pids = after_pids - before_pids
+                if new_pids:
+                    self._model_uid_to_gpu_pids[model_uid] = new_pids
+                    logger.info("GPU PID tattoo for %s: %s", model_uid, new_pids)
+            except Exception:
+                logger.warning(
+                    "Failed deferred GPU PID tattoo for %s", model_uid, exc_info=True
+                )
 
     @log_sync(logger=logger, level=logging.INFO)
     async def cancel_launch_model(self, model_uid: str):
@@ -2331,6 +2372,8 @@ class WorkerActor(xo.StatelessActor):
             self._model_uid_to_recover_count.pop(model_uid, None)
             self._model_uid_to_launch_args.pop(model_uid, None)
             self._model_uid_to_pid.pop(model_uid, None)
+            self._model_uid_to_gpu_pids.pop(model_uid, None)
+            self._model_uid_to_gpu_snapshot_before.pop(model_uid, None)
             # §4.3: Remove from persisted recovery file
             self._remove_persisted_launch_args(model_uid)
 
@@ -2407,7 +2450,10 @@ class WorkerActor(xo.StatelessActor):
                             ]
                         except (psutil.NoSuchProcess, psutil.AccessDenied):
                             all_pids = [own_pid]
-                        for pid in all_pids:
+                        # Include tattooed GPU PIDs (covers vLLM/SGLang workers
+                        # spawned outside the ModelActor process tree).
+                        all_pids.extend(self._model_uid_to_gpu_pids.get(m_uid, ()))
+                        for pid in set(all_pids):
                             if pid in gpu_mem:
                                 for gpu_idx, mem in gpu_mem[pid].items():
                                     per_gpu[gpu_idx] = per_gpu.get(gpu_idx, 0) + mem
