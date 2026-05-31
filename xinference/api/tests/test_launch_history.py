@@ -49,16 +49,24 @@ def test_upsert_inserts_then_lists(store):
     assert row["updated_by"] == "alice"
 
 
-def test_upsert_updates_existing_keeps_created_by(store):
+def test_upsert_same_user_updates_in_place(store):
     store.upsert("llama", "", {"v": 1}, username="alice")
-    store.upsert("llama", "", {"v": 2}, username="bob")
+    store.upsert("llama", "", {"v": 2}, username="alice")
     rows = store.list()
     assert len(rows) == 1
     row = rows[0]
     assert row["data"] == {"v": 2}
-    # created_by must be preserved; only updated_by changes.
     assert row["created_by"] == "alice"
-    assert row["updated_by"] == "bob"
+    assert row["updated_by"] == "alice"
+
+
+def test_upsert_distinct_users_create_separate_rows(store):
+    # Each user owns a separate row per (model_name, model_uid).
+    store.upsert("llama", "", {"v": 1}, username="alice")
+    store.upsert("llama", "", {"v": 2}, username="bob")
+    rows = store.list()
+    assert len(rows) == 2
+    assert {r["created_by"] for r in rows} == {"alice", "bob"}
 
 
 def test_upsert_distinct_uids_are_separate_rows(store):
@@ -91,6 +99,50 @@ def test_delete_removes_row(store):
 
 def test_delete_missing_returns_false(store):
     assert store.delete("nope", "") is False
+
+
+def test_delete_scoped_to_owner(store):
+    store.upsert("llama", "", {"v": 1}, username="alice")
+    # A different user cannot delete someone else's row.
+    assert store.delete("llama", "", "bob") is False
+    assert len(store.list()) == 1
+    # The owner can delete their own row.
+    assert store.delete("llama", "", "alice") is True
+    assert store.list() == []
+
+
+def test_list_redacts_other_users_sensitive_fields(store):
+    store.upsert(
+        "llama",
+        "",
+        {
+            "model_engine": "vllm",
+            "envs": {"HF_TOKEN": "secret"},
+            "api_key": "sk-should-not-leak",
+        },
+        username="alice",
+    )
+    rows = store.list(model_name="llama", username="bob")
+    assert len(rows) == 1
+    # Only whitelisted fields survive for another user.
+    assert rows[0]["data"] == {"model_engine": "vllm"}
+    assert "envs" not in rows[0]["data"]
+    assert "api_key" not in rows[0]["data"]
+
+
+def test_list_returns_full_data_for_owner(store):
+    payload = {"model_engine": "vllm", "envs": {"HF_TOKEN": "secret"}}
+    store.upsert("llama", "", payload, username="alice")
+    rows = store.list(model_name="llama", username="alice")
+    assert rows[0]["data"] == payload
+
+
+def test_list_without_username_is_unredacted(store):
+    payload = {"model_engine": "vllm", "envs": {"HF_TOKEN": "secret"}}
+    store.upsert("llama", "", payload, username="alice")
+    # username=None means a trusted/unscoped call: no redaction.
+    rows = store.list(model_name="llama")
+    assert rows[0]["data"] == payload
 
 
 def test_empty_username_defaults_to_blank(store):
@@ -128,7 +180,9 @@ def test_list_handler_returns_store_data(mock_api):
     mock_api._launch_history_store.list.return_value = [{"model_name": "llama"}]
     response = launch_history.list_launch_history(model_name="llama", api=mock_api)
     assert _json_body(response) == [{"model_name": "llama"}]
-    mock_api._launch_history_store.list.assert_called_once_with(model_name="llama")
+    mock_api._launch_history_store.list.assert_called_once_with(
+        model_name="llama", username=""
+    )
 
 
 def test_list_handler_raises_500_on_error(mock_api):
@@ -225,3 +279,44 @@ async def test_auth_off_post_handler_forwards_none_user():
     assert _json_body(response) == {"status": "ok"}
     _, kwargs = api._launch_history_store.upsert.call_args
     assert kwargs["username"] == ""
+
+
+def test_auth_off_get_handler_exposes_no_user_param():
+    _, captured = _register_and_capture(is_auth=False)
+    get_handler = captured[("/v1/launch_history", ("GET",))]
+    assert "user" not in inspect.signature(get_handler).parameters
+
+
+def test_auth_off_get_handler_forwards_blank_username():
+    api, captured = _register_and_capture(is_auth=False)
+    api._launch_history_store.list.return_value = []
+    get_handler = captured[("/v1/launch_history", ("GET",))]
+    get_handler(model_name="llama", api_=api)
+    _, kwargs = api._launch_history_store.list.call_args
+    assert kwargs["username"] == ""
+
+
+def test_auth_on_get_handler_scopes_by_username():
+    api, captured = _register_and_capture(is_auth=True)
+    api._launch_history_store.list.return_value = []
+    get_handler = captured[("/v1/launch_history", ("GET",))]
+    get_handler(model_name="llama", user={"username": "alice"}, api_=api)
+    _, kwargs = api._launch_history_store.list.call_args
+    assert kwargs["username"] == "alice"
+
+
+def test_auth_off_delete_handler_exposes_no_user_param():
+    _, captured = _register_and_capture(is_auth=False)
+    delete_handler = captured[("/v1/launch_history/{model_name}", ("DELETE",))]
+    assert "user" not in inspect.signature(delete_handler).parameters
+
+
+def test_auth_on_delete_handler_scopes_by_username():
+    api, captured = _register_and_capture(is_auth=True)
+    api._launch_history_store.delete.return_value = True
+    delete_handler = captured[("/v1/launch_history/{model_name}", ("DELETE",))]
+    delete_handler(
+        model_name="llama", model_uid="", user={"username": "alice"}, api_=api
+    )
+    args, _ = api._launch_history_store.delete.call_args
+    assert args == ("llama", "", "alice")

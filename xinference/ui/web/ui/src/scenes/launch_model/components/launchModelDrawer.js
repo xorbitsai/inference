@@ -194,8 +194,8 @@ const LaunchModelDrawer = ({
       arr.map(({ key, value }) => [key, transformValue(value)])
     )
 
-  const buildHistoryKey = (modelName, modelUID) =>
-    `${modelName}::${modelUID || defaultHistoryUID}`
+  const buildHistoryKey = (modelName, modelUID, createdBy = '') =>
+    `${modelName}::${modelUID || defaultHistoryUID}::${createdBy}`
 
   const normalizeHistoryEntry = (item) => {
     if (!item || typeof item !== 'object') return null
@@ -214,12 +214,14 @@ const LaunchModelDrawer = ({
     const updatedAt =
       typeof rawUpdatedAt === 'number' ? rawUpdatedAt : Date.parse(rawUpdatedAt)
 
+    const createdBy = item.created_by || data.created_by || ''
+
     return {
-      cache_key: buildHistoryKey(modelName, modelUID),
+      cache_key: buildHistoryKey(modelName, modelUID, createdBy),
       model_name: modelName,
       model_uid: modelUID,
       updated_at: Number.isFinite(updatedAt) ? updatedAt : 0,
-      created_by: item.created_by || data.created_by || '',
+      created_by: createdBy,
       data,
     }
   }

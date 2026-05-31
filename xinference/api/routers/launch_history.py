@@ -32,9 +32,11 @@ logger = logging.getLogger(__name__)
 def list_launch_history(
     model_name: Optional[str] = Query(None),
     api: "RESTfulAPI" = Depends(get_api),
+    user: Optional[dict] = None,
 ) -> JSONResponse:
     try:
-        data = api._launch_history_store.list(model_name=model_name)
+        username = user.get("username", "") if user else ""
+        data = api._launch_history_store.list(model_name=model_name, username=username)
         return JSONResponse(content=data)
     except Exception as e:
         logger.error(e, exc_info=True)
@@ -72,9 +74,11 @@ def delete_launch_history(
     model_name: str,
     model_uid: str = "",
     api: "RESTfulAPI" = Depends(get_api),
+    user: Optional[dict] = None,
 ) -> JSONResponse:
     try:
-        deleted = api._launch_history_store.delete(model_name, model_uid)
+        username = user.get("username", "") if user else ""
+        deleted = api._launch_history_store.delete(model_name, model_uid, username)
         if not deleted:
             raise HTTPException(status_code=404, detail="Record not found")
         return JSONResponse(content={"status": "ok"})
@@ -91,6 +95,8 @@ def register_routes(api: "RESTfulAPI") -> None:
     is_auth = api.is_authenticated()
 
     create_handler: Callable[..., Awaitable[JSONResponse]]
+    list_handler: Callable[..., JSONResponse]
+    delete_handler: Callable[..., JSONResponse]
     if is_auth:
 
         async def create_handler_authed(
@@ -101,6 +107,25 @@ def register_routes(api: "RESTfulAPI") -> None:
             return await create_launch_history(request, api_, user)
 
         create_handler = create_handler_authed
+
+        def list_handler_authed(
+            model_name: Optional[str] = Query(None),
+            user: dict = Security(auth, scopes=["models:list"]),
+            api_: "RESTfulAPI" = Depends(get_api),
+        ) -> JSONResponse:
+            return list_launch_history(model_name, api_, user)
+
+        list_handler = list_handler_authed
+
+        def delete_handler_authed(
+            model_name: str,
+            model_uid: str = "",
+            user: dict = Security(auth, scopes=["models:write"]),
+            api_: "RESTfulAPI" = Depends(get_api),
+        ) -> JSONResponse:
+            return delete_launch_history(model_name, model_uid, api_, user)
+
+        delete_handler = delete_handler_authed
     else:
 
         async def create_handler_anon(
@@ -111,11 +136,27 @@ def register_routes(api: "RESTfulAPI") -> None:
 
         create_handler = create_handler_anon
 
+        def list_handler_anon(
+            model_name: Optional[str] = Query(None),
+            api_: "RESTfulAPI" = Depends(get_api),
+        ) -> JSONResponse:
+            return list_launch_history(model_name, api_, None)
+
+        list_handler = list_handler_anon
+
+        def delete_handler_anon(
+            model_name: str,
+            model_uid: str = "",
+            api_: "RESTfulAPI" = Depends(get_api),
+        ) -> JSONResponse:
+            return delete_launch_history(model_name, model_uid, api_, None)
+
+        delete_handler = delete_handler_anon
+
     router.add_api_route(
         "/v1/launch_history",
-        list_launch_history,
+        list_handler,
         methods=["GET"],
-        dependencies=([Security(auth, scopes=["models:list"])] if is_auth else None),
     )
     router.add_api_route(
         "/v1/launch_history",
@@ -124,15 +165,13 @@ def register_routes(api: "RESTfulAPI") -> None:
     )
     router.add_api_route(
         "/v1/launch_history/{model_name}/{model_uid}",
-        delete_launch_history,
+        delete_handler,
         methods=["DELETE"],
-        dependencies=([Security(auth, scopes=["models:write"])] if is_auth else None),
     )
     # Variant for the common case of an empty model_uid, which cannot be
     # expressed as a non-empty path segment.
     router.add_api_route(
         "/v1/launch_history/{model_name}",
-        delete_launch_history,
+        delete_handler,
         methods=["DELETE"],
-        dependencies=([Security(auth, scopes=["models:write"])] if is_auth else None),
     )
