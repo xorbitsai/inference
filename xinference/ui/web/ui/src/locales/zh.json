@@ -97,6 +97,7 @@
     "loadCache": "使用",
     "deleteCache": "删除缓存",
     "lastUpdated": "最后更新",
+    "createdBy": "创建者",
     "defaultConfig": "默认配置",
     "confirmDeleteConfigCache": "确认删除这条配置缓存吗？此操作无法恢复。",
     "invalidConfigCache": "这条配置缓存对应的模型引擎当前不可用。",

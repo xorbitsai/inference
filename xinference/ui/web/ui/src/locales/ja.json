@@ -90,6 +90,7 @@
     "loadCache": "使用する",
     "deleteCache": "キャッシュを削除",
     "lastUpdated": "最終更新",
+    "createdBy": "作成者",
     "defaultConfig": "デフォルト設定",
     "confirmDeleteConfigCache": "この設定キャッシュを削除しますか？この操作は元に戻せません。",
     "invalidConfigCache": "この設定キャッシュに必要なモデルエンジンは現在利用できません。",

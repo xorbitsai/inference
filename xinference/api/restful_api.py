@@ -58,6 +58,7 @@ from ..constants import (
     XINFERENCE_DEFAULT_ENDPOINT_PORT,
     XINFERENCE_DISABLE_METRICS,
     XINFERENCE_ENABLE_OTEL,
+    XINFERENCE_LAUNCH_HISTORY_DB_PATH,
     XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
 )
 from ..core.event import Event, EventCollectorActor, EventType
@@ -138,6 +139,12 @@ class RESTfulAPI(CancelMixin):
             self._auth_service = self._advanced_auth_service
         else:
             self._auth_service = AuthService(auth_config_file)
+
+        from ..core.launch_history_store import LaunchHistoryStore
+
+        self._launch_history_store = LaunchHistoryStore(
+            XINFERENCE_LAUNCH_HISTORY_DB_PATH
+        )
 
         self._router = APIRouter()
         self._app = FastAPI()
