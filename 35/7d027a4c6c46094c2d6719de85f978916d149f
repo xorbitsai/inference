@@ -1,0 +1,29 @@
+xinference/api/routers/launch_history.py
+  5b3a66a58e7ca2ca 35,38-39,77,80-81,98-99,110-128,139-154,158,168,175
+xinference/api/tests/test_launch_history.py
+  5b3a66a58e7ca2ca 52,54,60-69,104-147,183-185,282-322
+xinference/ui/web/ui/src/scenes/launch_model/components/launchModelDrawer.js
+  5b3a66a58e7ca2ca 197-198,217-218,220,224
+xinference/core/launch_history_store.py
+  5b3a66a58e7ca2ca 37,40-70,105-109,128-136,153-154,162,169-170,175-176
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.16",
+  "base_commit_sha": "357d027a4c6c46094c2d6719de85f978916d149f",
+  "prompts": {
+    "5b3a66a58e7ca2ca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59b617a1-79c6-4993-bdd4-dce73c54a6ca",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 220,
+      "total_deletions": 36,
+      "accepted_lines": 1971,
+      "overriden_lines": 0
+    }
+  }
+}
