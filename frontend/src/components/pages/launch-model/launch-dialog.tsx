@@ -33,7 +33,7 @@ export default function LaunchDialog({ model, modelType, onOpenChange }: LaunchD
   const isOpen = Boolean(model);
   const [form] = useForm();
   const { t } = useI18n();
-  const loading = false;
+  const [loading, setLoading] = useState(false);
   const [modelEngineMap, setModelEngineMap] = useState<ModelEngine>({});
   const modelEngineValue = useWatch('model_engine', form);
 
@@ -76,8 +76,7 @@ export default function LaunchDialog({ model, modelType, onOpenChange }: LaunchD
       };
     });
   }, [model?.modelSpecs, modelEngineMap]);
-  console.log(modelEngineValue, 'modelEngineValue');
-
+  // console.log(modelEngineValue, 'modelEngineValue');
 
   const fields = {
     modelEngine: (
@@ -134,26 +133,26 @@ export default function LaunchDialog({ model, modelType, onOpenChange }: LaunchD
   }, [fetchModelEngine, isOpen]);
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="!max-w-3xl min-h-[500px]" maskClosable={false}>
-        <DialogHeader>
-          <DialogTitle>{model?.model_name}</DialogTitle>
-        </DialogHeader>
-        <Form form={form} onFinish={handleLaunch}>
+      <Form form={form} onFinish={handleLaunch}>
+        <DialogContent className="!max-w-3xl min-h-[500px]" maskClosable={false}>
+          <DialogHeader>
+            <DialogTitle>{model?.model_name}</DialogTitle>
+          </DialogHeader>
+
           {(modelTypeFields[modelType] || []).map((fieldKey) => (
             <div key={fieldKey}>{fields[fieldKey]}</div>
           ))}
-        </Form>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleLaunch} loading={loading}>
-            <Rocket />
-            Launch
-          </Button>
-        </DialogFooter>
-      </DialogContent>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleLaunch} loading={loading} type="submit">
+              <Rocket />
+              Launch
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Form>
     </Dialog>
   );
 }

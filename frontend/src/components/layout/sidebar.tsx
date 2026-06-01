@@ -81,12 +81,12 @@ export function Sidebar() {
       Icon: Rocket,
       Extra: ChevronRight,
     },
-    {
-      path: '/running-model',
-      name: t('menu.runningModels'),
-      Icon: Layers,
-      Extra: ChevronRight,
-    },
+    // {
+    //   path: '/running-model',
+    //   name: t('menu.runningModels'),
+    //   Icon: Layers,
+    //   Extra: ChevronRight,
+    // },
     {
       path: '/register-model',
       name: t('menu.registerModel'),

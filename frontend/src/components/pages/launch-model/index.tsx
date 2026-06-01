@@ -225,7 +225,11 @@ const LaunchModel = ({ routeType }: LaunchModelProps) => {
     setUpdateLoading(true);
     try {
       await request.post('/v1/models/update_type', { model_type: refreshType.toLowerCase() });
-      onTabChange(refreshType);
+      if(isCustomRoute) {
+        fetchModels(refreshType)
+      } else {
+        onTabChange(refreshType);
+      }
     } finally {
       setUpdateLoading(false);
     }

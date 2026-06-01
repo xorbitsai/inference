@@ -84,7 +84,7 @@ const ModelSpecs: FC<ModelSpecsProps> = ({ modelType, form }) => {
                         { required: true },
                         {
                           pattern: /^\d+(\.\d+)?$/,
-                          message: t('registerModel.ente.rNumberGreaterThanZero'),
+                          message: t('registerModel.enterNumberGreaterThanZero'),
                         },
                       ]}
                     >
