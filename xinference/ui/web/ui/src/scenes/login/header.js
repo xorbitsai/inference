@@ -1,5 +1,6 @@
 import { AppBar, Box, Toolbar } from '@mui/material'
 import Typography from '@mui/material/Typography'
+
 import icon from '../../media/icon.png'
 
 export default function Header() {
