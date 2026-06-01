@@ -956,7 +956,8 @@ class VLLMModel(LLM):
 
         sanitized.setdefault("lora_name", generate_config.get("lora_name", None))
         sanitized.setdefault("n", generate_config.get("n", 1))
-        sanitized.setdefault("best_of", generate_config.get("best_of", None))
+        if VLLM_VERSION < version.parse("0.21.0"):
+            sanitized.setdefault("best_of", generate_config.get("best_of", None))
         sanitized.setdefault("seed", generate_config.get("seed", None))
         sanitized.setdefault(
             "presence_penalty", generate_config.get("presence_penalty", 0.0)
