@@ -217,6 +217,11 @@ class WorkerActor(xo.StatelessActor):
         self._model_uid_to_recover_count: Dict[str, Optional[int]] = {}
         self._model_uid_to_launch_args: Dict[str, Dict] = {}
         self._model_uid_to_pid: Dict[str, int] = {}
+        # Per-replica sub-pool process PIDs (primary ModelActor pool + per-device
+        # vLLM/SGLang rank pools). Used by report_status to attribute NVML GPU
+        # memory back to the owning replica deterministically, without reading
+        # any process environ.
+        self._model_uid_to_subpool_pids: Dict[str, Set[int]] = {}
 
         if XINFERENCE_DISABLE_METRICS:
             logger.info(
@@ -2150,6 +2155,19 @@ class WorkerActor(xo.StatelessActor):
                 self._model_uid_to_pid[model_uid] = await model_ref.get_pid()
             except Exception:
                 pass
+            # Deterministic provenance: register all sub-pool process PIDs for
+            # this replica (primary ModelActor pool + per-device vLLM/SGLang rank
+            # pools). report_status maps NVML PIDs back to the owning replica via
+            # this table, without reading any process environ.
+            subpool_pids: Set[int] = set()
+            for _addr in all_subpool_addresses:
+                try:
+                    _proc = self._main_pool.sub_processes.get(_addr)
+                    if _proc is not None and _proc.pid is not None:
+                        subpool_pids.add(_proc.pid)
+                except Exception:
+                    continue
+            self._model_uid_to_subpool_pids[model_uid] = subpool_pids
             model_spec = model.model_family.to_description()
             self._model_uid_to_model_spec[model_uid] = model_spec
             self._model_uid_to_model_status[model_uid] = ModelStatus()
@@ -2331,6 +2349,7 @@ class WorkerActor(xo.StatelessActor):
             self._model_uid_to_recover_count.pop(model_uid, None)
             self._model_uid_to_launch_args.pop(model_uid, None)
             self._model_uid_to_pid.pop(model_uid, None)
+            self._model_uid_to_subpool_pids.pop(model_uid, None)
             # §4.3: Remove from persisted recovery file
             self._remove_persisted_launch_args(model_uid)
 
@@ -2390,33 +2409,53 @@ class WorkerActor(xo.StatelessActor):
             async with timeout(XINFERENCE_STATUS_GATHER_TIMEOUT):
                 status = await asyncio.to_thread(gather_node_info)
 
-                # Collect per-model GPU memory using psutil descendant PIDs
-                try:
-                    import psutil
+                # Collect per-model GPU memory. Each replica's GPU holders are
+                # its registered sub-pool PIDs (primary ModelActor pool +
+                # per-device vLLM/SGLang rank pools) plus their recursive
+                # children (e.g. vLLM V1 forked EngineCore). Attribution is
+                # deterministic and reads no process environ.
+                if self._total_gpu_devices:
+                    try:
+                        import psutil
 
-                    from ..device_utils import get_per_process_gpu_memory
+                        from ..device_utils import get_per_process_gpu_memory
 
-                    gpu_mem = await asyncio.to_thread(get_per_process_gpu_memory)
-                    model_gpu_mem: Dict[str, Dict[int, int]] = {}
-                    for m_uid, own_pid in self._model_uid_to_pid.items():
-                        per_gpu: Dict[int, int] = {}
-                        try:
-                            parent = psutil.Process(own_pid)
-                            all_pids = [own_pid] + [
-                                c.pid for c in parent.children(recursive=True)
-                            ]
-                        except (psutil.NoSuchProcess, psutil.AccessDenied):
-                            all_pids = [own_pid]
-                        for pid in all_pids:
-                            if pid in gpu_mem:
-                                for gpu_idx, mem in gpu_mem[pid].items():
-                                    per_gpu[gpu_idx] = per_gpu.get(gpu_idx, 0) + mem
-                        if per_gpu:
-                            model_gpu_mem[m_uid] = per_gpu
-                    if model_gpu_mem:
-                        status["model_gpu_memory"] = model_gpu_mem
-                except Exception:
-                    pass
+                        gpu_mem = await asyncio.to_thread(get_per_process_gpu_memory)
+                        model_gpu_mem: Dict[str, Dict[int, int]] = {}
+
+                        for m_uid in set(self._model_uid_to_pid) | set(
+                            self._model_uid_to_subpool_pids
+                        ):
+                            pids: Set[int] = set(
+                                self._model_uid_to_subpool_pids.get(m_uid, set())
+                            )
+                            own_pid = self._model_uid_to_pid.get(m_uid)
+                            if own_pid is not None:
+                                pids.add(own_pid)
+                            # Recursive children cover GPU holders forked outside
+                            # the registered sub-pools (e.g. vLLM V1 EngineCore).
+                            for base in list(pids):
+                                try:
+                                    pids.update(
+                                        c.pid
+                                        for c in psutil.Process(base).children(
+                                            recursive=True
+                                        )
+                                    )
+                                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                                    pass
+                            per_gpu: Dict[int, int] = {}
+                            for pid in pids:
+                                if pid in gpu_mem:
+                                    for gpu_idx, mem in gpu_mem[pid].items():
+                                        per_gpu[gpu_idx] = per_gpu.get(gpu_idx, 0) + mem
+                            if per_gpu:
+                                model_gpu_mem[m_uid] = per_gpu
+
+                        if model_gpu_mem:
+                            status["model_gpu_memory"] = model_gpu_mem
+                    except Exception:
+                        pass
         except asyncio.CancelledError:
             raise
         except Exception:

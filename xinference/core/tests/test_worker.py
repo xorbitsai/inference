@@ -121,6 +121,15 @@ class MockWorkerActor(WorkerActor):
         self._model_uid_to_launch_args.pop(model_uid, None)
         del self._model_uid_to_addr[model_uid]
 
+    # --- test helpers for report_status GPU attribution ---
+    def set_supervisor_ref_for_test(self, ref):
+        self._supervisor_ref = ref
+
+    def set_gpu_attribution_tables_for_test(self, pid, subpool, total_devices):
+        self._model_uid_to_pid = dict(pid)
+        self._model_uid_to_subpool_pids = {k: set(v) for k, v in subpool.items()}
+        self._total_gpu_devices = list(total_devices)
+
 
 @pytest_asyncio.fixture
 async def setup_pool():
@@ -1064,3 +1073,141 @@ async def test_launch_model_with_gpu_idx(setup_pool):
     for info in [llm_info, user_specified_info]:
         for dev, details in info.items():
             assert len(details) == 0
+
+
+class _FakeChild:
+    def __init__(self, pid: int):
+        self.pid = pid
+
+
+class _FakeProcess:
+    """Stand-in for psutil.Process exposing a preset recursive children map."""
+
+    _children_map: dict = {}
+
+    def __init__(self, pid: int):
+        self._pid = pid
+
+    def children(self, recursive: bool = False):
+        return [_FakeChild(p) for p in self._children_map.get(self._pid, [])]
+
+
+async def _make_gpu_worker(pool, cuda_devices=(0, 1)):
+    worker: xo.ActorRefType["MockWorkerActor"] = await xo.create_actor(  # type: ignore
+        MockWorkerActor,
+        address=pool.external_address,
+        uid=WorkerActor.default_uid(),
+        supervisor_address="test",
+        main_pool=pool,
+        cuda_devices=list(cuda_devices),
+    )
+    sup = DummySupervisorRef()
+    await worker.set_supervisor_ref_for_test(sup)
+    return worker, sup
+
+
+def _patch_gpu_sources(monkeypatch, gpu_mem, children_map=None, calls=None):
+    import psutil
+
+    def _fake_get_per_process_gpu_memory():
+        if calls is not None:
+            calls.append("called")
+        return gpu_mem
+
+    monkeypatch.setattr("xinference.core.worker.gather_node_info", lambda: {})
+    monkeypatch.setattr(
+        "xinference.device_utils.get_per_process_gpu_memory",
+        _fake_get_per_process_gpu_memory,
+    )
+    _FakeProcess._children_map = children_map or {}
+    monkeypatch.setattr(psutil, "Process", _FakeProcess)
+
+
+@pytest.mark.asyncio
+async def test_report_status_attributes_gpu_by_subpool_pids(setup_pool, monkeypatch):
+    # Scenario 4: multi-card multi-replica LLM. Each replica's GPU holders are
+    # its registered secondary sub-pool PIDs; same card shared, no cross/double.
+    worker, sup = await _make_gpu_worker(setup_pool)
+    await worker.set_gpu_attribution_tables_for_test(
+        pid={}, subpool={"A": {100, 101}, "B": {200, 201}}, total_devices=[0, 1]
+    )
+    _patch_gpu_sources(
+        monkeypatch,
+        gpu_mem={
+            100: {0: 1000},
+            101: {1: 1000},
+            200: {0: 500},
+            201: {1: 500},
+        },
+    )
+
+    await worker.report_status()
+
+    status = sup.report_worker_status_calls[-1][1]
+    assert status["model_gpu_memory"]["A"] == {0: 1000, 1: 1000}
+    assert status["model_gpu_memory"]["B"] == {0: 500, 1: 500}
+
+
+@pytest.mark.asyncio
+async def test_report_status_attributes_gpu_via_recursive_children(
+    setup_pool, monkeypatch
+):
+    # Scenario 1/2: single-card vLLM. GPU is held by the forked EngineCore, a
+    # recursive child of the primary sub-pool PID -- not registered directly.
+    worker, sup = await _make_gpu_worker(setup_pool, cuda_devices=[0])
+    await worker.set_gpu_attribution_tables_for_test(
+        pid={}, subpool={"A": {100}}, total_devices=[0]
+    )
+    _patch_gpu_sources(
+        monkeypatch,
+        gpu_mem={555: {0: 2000}},  # only the EngineCore holds GPU memory
+        children_map={100: [555]},
+    )
+
+    await worker.report_status()
+
+    status = sup.report_worker_status_calls[-1][1]
+    assert status["model_gpu_memory"]["A"] == {0: 2000}
+
+
+@pytest.mark.asyncio
+async def test_report_status_replicas_do_not_cross_or_double_count(
+    setup_pool, monkeypatch
+):
+    # Same-card concurrent replicas: disjoint PID sets attribute independently;
+    # a PID is counted once within a replica even if it appears via own_pid too.
+    worker, sup = await _make_gpu_worker(setup_pool, cuda_devices=[0])
+    await worker.set_gpu_attribution_tables_for_test(
+        pid={"A": 100},  # own_pid overlaps subpool set -> must not double count
+        subpool={"A": {100}, "B": {200}},
+        total_devices=[0],
+    )
+    _patch_gpu_sources(
+        monkeypatch,
+        gpu_mem={100: {0: 700}, 200: {0: 300}},
+    )
+
+    await worker.report_status()
+
+    status = sup.report_worker_status_calls[-1][1]
+    assert status["model_gpu_memory"]["A"] == {0: 700}
+    assert status["model_gpu_memory"]["B"] == {0: 300}
+
+
+@pytest.mark.asyncio
+async def test_report_status_skips_gpu_collection_when_cpu_only(
+    setup_pool, monkeypatch
+):
+    # No GPU devices -> the guard skips NVML entirely; no model_gpu_memory key.
+    worker, sup = await _make_gpu_worker(setup_pool, cuda_devices=[])
+    await worker.set_gpu_attribution_tables_for_test(
+        pid={"A": 100}, subpool={"A": {100}}, total_devices=[]
+    )
+    calls: list = []
+    _patch_gpu_sources(monkeypatch, gpu_mem={100: {0: 1000}}, calls=calls)
+
+    await worker.report_status()
+
+    status = sup.report_worker_status_calls[-1][1]
+    assert "model_gpu_memory" not in status
+    assert calls == []  # NVML never queried on CPU-only worker
