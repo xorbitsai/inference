@@ -476,6 +476,15 @@ class VLLMModel(LLM):
 
         if self.lora_modules is None:
             self.lora_requests = []
+        elif VLLM_VERSION and VLLM_VERSION >= version.parse("0.14.0"):
+            self.lora_requests = [
+                LoRARequest(
+                    lora_name=lora.lora_name,
+                    lora_int_id=i,
+                    lora_path=lora.local_path,
+                )
+                for i, lora in enumerate(self.lora_modules, start=1)
+            ]
         else:
             self.lora_requests = [
                 LoRARequest(
