@@ -12,7 +12,7 @@ export interface BrandingConfig {
 
 export const defaultBranding: BrandingConfig = {
   appName: 'Xinference',
-  logoPath: '/logo.svg', // todo
+  logoPath: '/logo.png',
   logoAlt: 'Xinference',
   subtitle: 'Xorbits Inference (Xinference) is an open-source platform to streamline the operation and integration of a wide array of AI models. With Xinference, you’re empowered to run inference using any open-source LLMs, embedding models, and multimodal models either in the cloud or on your own premises, and create robust AI-driven applications',
   description: 'Xorbits Inference(Xinference) is a powerful and versatile library designed to serve language, speech recognition, and multimodal models. With Xorbits Inference, you can effortlessly deploy and serve your or state-of-the-art built-in models using just a single command. Whether you are a researcher, developer, or data scientist, Xorbits Inference empowers you to unleash the full potential of cutting-edge AI models.',

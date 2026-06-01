@@ -153,50 +153,50 @@ const MenuSide = () => {
     },
     ...(esEnabled
       ? [
-        {
-          text: 'logs',
-          label: t('menu.logs'),
-          icon: <ArticleOutlined />,
-          action: 'navigate',
-          path: '/logs',
-        },
-      ]
+          {
+            text: 'logs',
+            label: t('menu.logs'),
+            icon: <ArticleOutlined />,
+            action: 'navigate',
+            path: '/logs',
+          },
+        ]
       : []),
     ...(isAdmin
       ? [
-        {
-          text: 'audit_log',
-          label: t('menu.auditLog') || 'Audit Log',
-          icon: <ArticleOutlined />,
-          action: 'navigate',
-          path: '/audit_log',
-        },
-      ]
+          {
+            text: 'audit_log',
+            label: t('menu.auditLog') || 'Audit Log',
+            icon: <ArticleOutlined />,
+            action: 'navigate',
+            path: '/audit_log',
+          },
+        ]
       : []),
     ...(authAdvanced
       ? [
-        {
-          text: 'user_management',
-          label: t('menu.userManagement'),
-          icon: <PeopleOutlined />,
-          action: 'navigate',
-          path: '/user_management',
-        },
-        {
-          text: 'apikey_management',
-          label: t('menu.apikeyManagement'),
-          icon: <VpnKeyOutlined />,
-          action: 'navigate',
-          path: '/apikey_management',
-        },
-        {
-          text: 'security_settings',
-          label: t('menu.securitySettings') || 'Security',
-          icon: <SecurityOutlined />,
-          action: 'navigate',
-          path: '/security_settings',
-        },
-      ]
+          {
+            text: 'user_management',
+            label: t('menu.userManagement'),
+            icon: <PeopleOutlined />,
+            action: 'navigate',
+            path: '/user_management',
+          },
+          {
+            text: 'apikey_management',
+            label: t('menu.apikeyManagement'),
+            icon: <VpnKeyOutlined />,
+            action: 'navigate',
+            path: '/apikey_management',
+          },
+          {
+            text: 'security_settings',
+            label: t('menu.securitySettings') || 'Security',
+            icon: <SecurityOutlined />,
+            action: 'navigate',
+            path: '/security_settings',
+          },
+        ]
       : []),
     {
       text: 'documentation',
@@ -262,7 +262,7 @@ const MenuSide = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh_token: refreshToken }),
-      }).catch(() => { })
+      }).catch(() => {})
     }
     removeCookie('token', { path: '/' })
     sessionStorage.removeItem('token')
