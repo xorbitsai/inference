@@ -161,7 +161,7 @@ except ImportError:
     VLLM_INSTALLED = False
     VLLM_VERSION = None
 
-DEFAULT_VLLM_VERSION = version.parse("0.19.0")
+DEFAULT_VLLM_VERSION = version.parse("0.21.0")
 
 
 def _get_effective_vllm_version() -> version.Version:
