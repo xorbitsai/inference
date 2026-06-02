@@ -1,8 +1,6 @@
 name: Xinference CD for DockerHub
 
 on:
-  schedule:
-    - cron: '0 18 * * *'
   push:
     tags:
       - '*'
@@ -25,7 +23,7 @@ jobs:
   build-cpu:
     name: Build CPU Docker image
     timeout-minutes: 240
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
@@ -81,7 +79,7 @@ jobs:
     name: Tag latest Docker images
     needs: build-cpu
     timeout-minutes: 60
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     if: ${{ startsWith(github.ref, 'refs/tags/') && github.repository == 'zhengr/inference' }}
