@@ -1534,3 +1534,73 @@ class TestVLLMChatModel:
             expected_result = filter_ids_and_created(expected_chunks[i])
             assert result == expected_result
             i = i + 1
+
+
+class TestVLLMSanitizeGenerateConfig:
+    """Guided-decoding extraction from response_format=json_schema.
+
+    The OpenAI-compatible request body serializes the JSONSchema model without
+    by_alias, so the real key reaching the engine is the field name ``schema_``
+    (``schema`` is a reserved Pydantic name, aliased in _compat.JSONSchema).
+    _sanitize_generate_config must read ``schema_`` (with a ``schema`` fallback
+    for raw passthrough), matching sglang/core.py and llm/utils.py.
+    """
+
+    _SCHEMA = {
+        "type": "object",
+        "properties": {"score": {"type": "integer"}},
+        "required": ["score"],
+    }
+
+    def _sanitize(self, response_format):
+        from ..core import VLLMChatModel
+
+        return VLLMChatModel._sanitize_generate_config(
+            {"response_format": response_format}
+        )
+
+    def test_json_schema_serialized_key(self):
+        # Real serialized shape (field name, not alias).
+        sanitized = self._sanitize(
+            {
+                "type": "json_schema",
+                "json_schema": {"name": "judge", "schema_": self._SCHEMA},
+            }
+        )
+        assert sanitized["guided_json"] == self._SCHEMA
+
+    def test_json_schema_alias_fallback(self):
+        # Raw passthrough shape using the alias.
+        sanitized = self._sanitize(
+            {
+                "type": "json_schema",
+                "json_schema": {"name": "judge", "schema": self._SCHEMA},
+            }
+        )
+        assert sanitized["guided_json"] == self._SCHEMA
+
+    def test_json_object_unaffected(self):
+        sanitized = self._sanitize({"type": "json_object"})
+        assert sanitized["guided_json"] is None
+        assert sanitized["guided_json_object"] is True
+
+    def test_json_schema_empty_schema_preserved(self):
+        # An empty dict is a valid schema; `is None` (not truthiness) must keep
+        # it instead of falling through to the absent `schema` key. The
+        # downstream guard in async_generate likewise uses `is not None`, so a
+        # preserved {} actually reaches vLLM guided decoding rather than being
+        # dropped. This asserts the intermediate value; the async_generate path
+        # depends on vLLM and is not unit-tested here.
+        sanitized = self._sanitize(
+            {
+                "type": "json_schema",
+                "json_schema": {"name": "judge", "schema_": {}},
+            }
+        )
+        assert sanitized["guided_json"] == {}
+
+    def test_no_response_format(self):
+        from ..core import VLLMChatModel
+
+        sanitized = VLLMChatModel._sanitize_generate_config({})
+        assert sanitized["guided_json"] is None
