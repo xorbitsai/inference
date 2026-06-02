@@ -1584,6 +1584,17 @@ class TestVLLMSanitizeGenerateConfig:
         assert sanitized["guided_json"] is None
         assert sanitized["guided_json_object"] is True
 
+    def test_json_schema_empty_schema_preserved(self):
+        # An empty dict is a valid schema; `is None` (not truthiness) must keep
+        # it instead of falling through to the absent `schema` key.
+        sanitized = self._sanitize(
+            {
+                "type": "json_schema",
+                "json_schema": {"name": "judge", "schema_": {}},
+            }
+        )
+        assert sanitized["guided_json"] == {}
+
     def test_no_response_format(self):
         from ..core import VLLMChatModel
 
