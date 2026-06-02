@@ -99,8 +99,9 @@ export function setValue(
     const key = path[i];
 
     if (
-      current[key] ===
-      undefined
+      current[key] === null ||
+      typeof current[key] !==
+        'object'
     ) {
       current[key] =
         typeof path[i + 1] ===

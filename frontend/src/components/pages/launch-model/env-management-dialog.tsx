@@ -21,9 +21,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { useI18n } from '@/contexts/i18n-context';
+import { copyText } from '@/lib/utils';
 import type { ModelEnvItem } from '@/types/services';
 import type { CatalogModel } from './types';
-import { useI18n } from '@/contexts/i18n-context';
 
 interface EnvManagementDialogProps {
   modelDetail: CatalogModel;
@@ -40,13 +41,6 @@ const EnvManagementDialog: FC<PropsWithChildren<EnvManagementDialogProps>> = ({
   const [dataSource, setDataSource] = useState<ModelEnvItem[]>([]);
   const [pendingDeleteItem, setPendingDeleteItem] = useState<ModelEnvItem>();
   const [deletingLoading, setDeletingLoading] = useState(false);
-
-  const handleCopy = async (value: string) => {
-    if (!value) return;
-
-    await navigator.clipboard?.writeText(value);
-    toast.success(t('common.copySuccess'));
-  };
 
   const handleDelete = (data: ModelEnvItem) => {
     setPendingDeleteItem(data);
@@ -121,7 +115,7 @@ const EnvManagementDialog: FC<PropsWithChildren<EnvManagementDialogProps>> = ({
                         <span className="min-w-0 flex-1 truncate">{item?.path}</span>
                         <Copy
                           className="size-4 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-                          onClick={() => handleCopy(item?.path)}
+                          onClick={() => copyText(item?.path)}
                         />
                       </div>
                     </TableCell>

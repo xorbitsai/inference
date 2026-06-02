@@ -341,7 +341,7 @@ const LaunchModel = ({ routeType }: LaunchModelProps) => {
             size="sm"
             onClick={(event) => {
               event.stopPropagation();
-              setSelectedModel(model);
+              // setSelectedModel(model);
             }}
           >
             <Rocket />

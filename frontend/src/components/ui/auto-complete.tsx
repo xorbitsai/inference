@@ -95,6 +95,32 @@ export function AutoComplete({
     }
   }, [selectedOption, value, typing])
 
+  const handleBlurBehavior = React.useCallback(() => {
+    setOpen(false)
+    setTyping(false)
+
+    /**
+     * Allow free text input
+     */
+    if (allowCustomValue) {
+      onChange?.(inputValue || undefined)
+      return
+    }
+
+    /**
+     * Do not allow free text input
+     * Restore the selected value
+     */
+    setInputValue(
+      selectedOption?.label || ""
+    )
+  }, [
+    allowCustomValue,
+    inputValue,
+    onChange,
+    selectedOption?.label,
+  ])
+
   /**
    * Close when clicking outside
    */
@@ -108,7 +134,15 @@ export function AutoComplete({
           event.target as Node
         )
       ) {
-        handleBlurBehavior()
+        if (
+          inputRef.current &&
+          document.activeElement ===
+          inputRef.current
+        ) {
+          inputRef.current.blur()
+        } else {
+          handleBlurBehavior()
+        }
       }
     }
 
@@ -125,7 +159,7 @@ export function AutoComplete({
         handleClickOutside
       )
     }
-  }, [open, inputValue])
+  }, [handleBlurBehavior, open])
 
   const filteredOptions = useMemo(() => {
     const keyword =
@@ -149,27 +183,6 @@ export function AutoComplete({
       )
     })
   }, [options, inputValue])
-
-  const handleBlurBehavior = () => {
-    setOpen(false)
-    setTyping(false)
-
-    /**
-     * Allow free text input
-     */
-    if (allowCustomValue) {
-      onChange?.(inputValue || undefined)
-      return
-    }
-
-    /**
-     * Do not allow free text input
-     * Restore the selected value
-     */
-    setInputValue(
-      selectedOption?.label || ""
-    )
-  }
 
   const handleSelect = (
     option: AutoCompleteOption
@@ -235,6 +248,7 @@ export function AutoComplete({
 
             setOpen(true)
           }}
+          onBlur={handleBlurBehavior}
           onChange={(e) => {
             if (disabled) return
 
@@ -247,6 +261,13 @@ export function AutoComplete({
           }}
           onKeyDown={(e) => {
             if (disabled) return
+            console.log(e.key, 'key')
+            /**
+             * Tab
+             */
+            if (e.key === "Tab") {
+              setOpen(false)
+            }
 
             /**
              * Enter:
@@ -257,13 +278,6 @@ export function AutoComplete({
               allowCustomValue
             ) {
               e.preventDefault()
-
-              onChange?.(
-                inputValue || undefined
-              )
-
-              setOpen(false)
-              setTyping(false)
 
               inputRef.current?.blur()
             }

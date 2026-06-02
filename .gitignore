@@ -159,3 +159,6 @@ asv/results
 !AGENTS.md
 !CLAUDE.md
 .history/
+
+# frontend 
+**/pnpm-lock.yaml

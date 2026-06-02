@@ -61,9 +61,11 @@ const AutoFill: FC<AutoFillProps> = ({ modelFamilyMap, autoFillBack }) => {
       if (Array.isArray(newValues?.model_specs)) {
         newValues.model_specs = newValues.model_specs.map((item: any) => ({
           ...item,
-          model_size_in_billions: item?.model_size_in_billions?.includes('_')
-            ? item.model_size_in_billions.replace('_', '.')
-            : item?.model_size_in_billions,
+          model_size_in_billions:
+            typeof item?.model_size_in_billions === 'string' &&
+            item.model_size_in_billions.includes('_')
+              ? item.model_size_in_billions.replace('_', '.')
+              : item?.model_size_in_billions,
         }));
       }
       autoFillBack(newValues);
