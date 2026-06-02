@@ -131,7 +131,12 @@ class StreamToLogger:
         if not match:
             return
         pct = int(match.group(1))
-        key = line[:30]
+        # Derive the sampling key from the stable description *before* the
+        # percentage, so every frame of the same bar shares one key. Using
+        # line[:30] folds the changing percent/bar text into the key for
+        # short-description formats (e.g. "Downloading: 26%|"), making each
+        # frame a distinct key and defeating threshold sampling.
+        key = line[: match.start()].strip()
         last = self._last_reported_pct.get(key, 0)
         for threshold in sorted(self._progress_thresholds):
             if last < threshold <= pct:

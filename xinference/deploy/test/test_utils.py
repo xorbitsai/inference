@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from unittest.mock import MagicMock
+
 import pytest
 
-from ..utils import handle_click_args_type
+from ..utils import StreamToLogger, handle_click_args_type
 
 
 class TestHandleClickArgsType:
@@ -222,3 +224,57 @@ class TestHandleClickArgsType:
         assert result[2] is None
         assert result[3] is True
         assert result[4] == {"key": "value"}
+
+
+class TestStreamToLoggerProgressSampling:
+    """Tests for StreamToLogger progress-bar threshold sampling.
+
+    The sampling key must be derived from the stable description *before*
+    the percentage so every frame of the same bar shares one key. Using a
+    fixed prefix slice (e.g. line[:30]) folds the changing percent text into
+    the key for short-description bars, making each frame a distinct key and
+    defeating threshold sampling (a per-frame log storm).
+    """
+
+    def _make_stream(self):
+        logger_instance = MagicMock()
+        stream = StreamToLogger(logger_instance, MagicMock(), "stderr")
+        return stream, logger_instance
+
+    def _logged_lines(self, logger_instance):
+        return [call.args[0] for call in logger_instance.info.call_args_list]
+
+    def test_short_description_bar_sampled_once_per_threshold(self):
+        """A short-description bar must log once per crossed threshold."""
+        stream, logger_instance = self._make_stream()
+        # Short description: the percentage is within the first 30 chars, so a
+        # fixed line[:30] slice would change every frame and defeat sampling.
+        for pct in [26, 30, 40, 50, 60, 76, 99, 100]:
+            stream._handle_progress(f"Downloading: {pct}%|##### | {pct}/100")
+
+        logged = self._logged_lines(logger_instance)
+        # Thresholds are {25, 50, 75, 100}; crossing frames are 26, 50, 76, 100.
+        assert logged == [
+            "Downloading: 26%|##### | 26/100",
+            "Downloading: 50%|##### | 50/100",
+            "Downloading: 76%|##### | 76/100",
+            "Downloading: 100%|##### | 100/100",
+        ]
+
+    def test_distinct_bars_tracked_independently(self):
+        """Two bars with different descriptions must not share sampling state."""
+        stream, logger_instance = self._make_stream()
+        stream._handle_progress("model-a.bin: 30%|## | 30/100")
+        stream._handle_progress("model-b.bin: 30%|## | 30/100")
+        stream._handle_progress("model-a.bin: 60%|#### | 60/100")
+        stream._handle_progress("model-b.bin: 60%|#### | 60/100")
+
+        logged = self._logged_lines(logger_instance)
+        # Each bar crosses the 25 threshold (at 30%) and the 50 threshold
+        # (at 60%) once, independently.
+        assert logged == [
+            "model-a.bin: 30%|## | 30/100",
+            "model-b.bin: 30%|## | 30/100",
+            "model-a.bin: 60%|#### | 60/100",
+            "model-b.bin: 60%|#### | 60/100",
+        ]
