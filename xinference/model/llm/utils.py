@@ -408,7 +408,7 @@ class ChatModelMixin:
             )
         assert choices is not None
         usage = (
-            chunk["usage"]
+            chunk.get("usage")
             if choices and choices[0]["finish_reason"] is not None or not choices
             else None
         )
@@ -461,19 +461,58 @@ class ChatModelMixin:
         return chunks
 
     @classmethod
+    def _get_chat_completion_chunk_id(
+        cls,
+        chunk: CompletionChunk,
+        fallback_chunk: Optional[CompletionChunk] = None,
+    ) -> str:
+        source_chunk = chunk if chunk.get("id") else fallback_chunk or {}
+        chunk_id = source_chunk.get("id")
+        if not chunk_id:
+            return f"chatcmpl-{uuid.uuid4()}"
+        chunk_id = str(chunk_id)
+        if source_chunk.get("object") == "chat.completion.chunk":
+            return chunk_id
+        return "chat" + chunk_id
+
+    @classmethod
     def _get_final_chat_completion_chunk(
-        cls, chunk: CompletionChunk
+        cls,
+        chunk: CompletionChunk,
+        fallback_chunk: Optional[CompletionChunk] = None,
     ) -> ChatCompletionChunk:
-        chat_chunk = {
-            "id": "chat" + chunk["id"],
-            "model": chunk["model"],
-            "created": chunk["created"],
+        chat_chunk: Dict[str, Any] = {
+            "id": cls._get_chat_completion_chunk_id(chunk, fallback_chunk),
+            "model": chunk.get("model") or (fallback_chunk or {}).get("model") or "",
+            "created": chunk.get("created")
+            or (fallback_chunk or {}).get("created")
+            or int(time.time()),
             "object": "chat.completion.chunk",
             "choices": [
                 ChatCompletionChunkChoice(
                     index=0, delta=ChatCompletionChunkDelta(), finish_reason="stop"
                 )
             ],
+        }
+        usage = chunk.get("usage")
+        if usage is not None:
+            chat_chunk["usage"] = usage
+        return cast(ChatCompletionChunk, chat_chunk)
+
+    @classmethod
+    def _get_usage_chat_completion_chunk(
+        cls,
+        chunk: CompletionChunk,
+        fallback_chunk: Optional[CompletionChunk] = None,
+    ) -> ChatCompletionChunk:
+        chat_chunk: Dict[str, Any] = {
+            "id": cls._get_chat_completion_chunk_id(chunk, fallback_chunk),
+            "model": chunk.get("model") or (fallback_chunk or {}).get("model") or "",
+            "created": chunk.get("created")
+            or (fallback_chunk or {}).get("created")
+            or int(time.time()),
+            "object": "chat.completion.chunk",
+            "choices": [],
         }
         usage = chunk.get("usage")
         if usage is not None:
@@ -488,6 +527,7 @@ class ChatModelMixin:
     ) -> Iterator[ChatCompletionChunk]:
         previous_texts = [""]
         is_first_chunk = True
+        fallback_chunk: Optional[CompletionChunk] = None
         if reasoning_parse:
             chunks = reasoning_parse.prepare_reasoning_content_sync(chunks)
         for _, chunk in enumerate(chunks):
@@ -508,14 +548,18 @@ class ChatModelMixin:
                         )
                     ]
                     choices = chunk["choices"]
+                elif chunk.get("usage") is not None:
+                    yield cls._get_usage_chat_completion_chunk(chunk, fallback_chunk)
+                    continue
                 else:
-                    yield cls._get_final_chat_completion_chunk(chunk)
+                    yield cls._get_final_chat_completion_chunk(chunk, fallback_chunk)
                     continue
 
             r = cls._to_chat_completion_chunk(
                 chunk, reasoning_parse, previous_texts, ensure_role=is_first_chunk
             )
             is_first_chunk = False
+            fallback_chunk = chunk
             yield r
 
     @classmethod
@@ -561,6 +605,7 @@ class ChatModelMixin:
         previous_texts = [""]
         full_text = ""
         is_first_chunk = True
+        fallback_chunk: Optional[CompletionChunk] = None
         # Process chunks
         if reasoning_parser:
             set_context()
@@ -570,7 +615,14 @@ class ChatModelMixin:
             choices = chunk.get("choices")
             if not choices:
                 # usage
-                chat_chunk = cls._get_final_chat_completion_chunk(chunk)
+                if chunk.get("usage") is not None:
+                    chat_chunk = cls._get_usage_chat_completion_chunk(
+                        chunk, fallback_chunk
+                    )
+                else:
+                    chat_chunk = cls._get_final_chat_completion_chunk(
+                        chunk, fallback_chunk
+                    )
             else:
                 if choices[0].get("text"):
                     full_text += choices[0]["text"]  # type: ignore
@@ -581,6 +633,7 @@ class ChatModelMixin:
                     previous_texts,
                     ensure_role=is_first_chunk,
                 )
+                fallback_chunk = chunk
             is_first_chunk = False
             yield chat_chunk
         logger.debug("Chat finished, output: %s", full_text)

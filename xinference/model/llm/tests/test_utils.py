@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 from types import SimpleNamespace
 
 from ..reasoning_parser import ReasoningParser
@@ -46,6 +47,96 @@ def filter_ids_and_created(data):
             if k not in ["id", "created"]
         }
     return data
+
+
+def test_to_chat_completion_chunks_usage_only_chunk_without_metadata():
+    chunks = [
+        {
+            "id": "cmpl-test",
+            "object": "text_completion",
+            "created": 123,
+            "model": "test-model",
+            "choices": [
+                {
+                    "index": 0,
+                    "text": "hello",
+                    "logprobs": None,
+                    "finish_reason": None,
+                }
+            ],
+        },
+        {
+            "usage": {
+                "prompt_tokens": 3,
+                "completion_tokens": 2,
+                "total_tokens": 5,
+            }
+        },
+    ]
+
+    results = list(ChatModelMixin._to_chat_completion_chunks(iter(chunks)))
+
+    assert results[-1] == {
+        "id": "chatcmpl-test",
+        "model": "test-model",
+        "created": 123,
+        "object": "chat.completion.chunk",
+        "choices": [],
+        "usage": {
+            "prompt_tokens": 3,
+            "completion_tokens": 2,
+            "total_tokens": 5,
+        },
+    }
+
+
+def test_async_to_chat_completion_chunks_preserves_usage_only_chunk():
+    async def _chunks():
+        yield {
+            "id": "cmpl-test",
+            "object": "text_completion",
+            "created": 123,
+            "model": "test-model",
+            "choices": [
+                {
+                    "index": 0,
+                    "text": "",
+                    "logprobs": None,
+                    "finish_reason": "stop",
+                }
+            ],
+        }
+        yield {
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 3,
+                "completion_tokens": 2,
+                "total_tokens": 5,
+            },
+        }
+
+    async def _collect():
+        return [
+            chunk
+            async for chunk in ChatModelMixin._async_to_chat_completion_chunks(
+                _chunks()
+            )
+        ]
+
+    results = asyncio.run(_collect())
+
+    assert results[-1] == {
+        "id": "chatcmpl-test",
+        "model": "test-model",
+        "created": 123,
+        "object": "chat.completion.chunk",
+        "choices": [],
+        "usage": {
+            "prompt_tokens": 3,
+            "completion_tokens": 2,
+            "total_tokens": 5,
+        },
+    }
 
 
 def test_transform_messages_preserves_tool_call_fields():
