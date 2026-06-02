@@ -12,7 +12,115 @@ from pydantic import BaseModel
 
 from xinference.client import Client
 
-from ..core import _apply_response_format
+from ..core import XllamaCppModel, _apply_response_format
+
+
+class _InlineExecutor:
+    def submit(self, fn):
+        fn()
+
+
+class _FakeLlamaCppServer:
+    def __init__(self, responses):
+        self.responses = responses
+        self.requests = []
+
+    def handle_chat_completions(self, data, callback):
+        self.requests.append(data)
+        for response in self.responses:
+            callback(response)
+
+
+def _new_fake_llamacpp_model(responses):
+    model = XllamaCppModel.__new__(XllamaCppModel)
+    model.model_uid = "test-model"
+    model.reasoning_parser = None
+    model._executor = _InlineExecutor()
+    model._llm = _FakeLlamaCppServer(responses)
+    return model
+
+
+def test_llamacpp_stream_tool_parse_error_finishes_partial_stream():
+    first_chunk = {
+        "choices": [
+            {
+                "finish_reason": None,
+                "index": 0,
+                "delta": {
+                    "tool_calls": [
+                        {
+                            "index": 0,
+                            "id": "call-1",
+                            "type": "function",
+                            "function": {
+                                "name": "select_execution_pattern",
+                                "arguments": '{"answer":"unterminated',
+                            },
+                        }
+                    ]
+                },
+            }
+        ],
+        "created": 123,
+        "id": "chatcmpl-test",
+        "model": "test-model",
+        "object": "chat.completion.chunk",
+    }
+    model = _new_fake_llamacpp_model(
+        [
+            first_chunk,
+            {
+                "code": 500,
+                "message": (
+                    "Failed to parse tool call arguments as JSON: "
+                    "[json.exception.parse_error.101] missing closing quote"
+                ),
+            },
+        ]
+    )
+
+    chunks = list(
+        model.chat(
+            [{"role": "user", "content": "hi"}],
+            {
+                "stream": True,
+                "tools": [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "select_execution_pattern",
+                            "parameters": {"type": "object"},
+                        },
+                    }
+                ],
+            },
+        )
+    )
+
+    assert chunks[0] == first_chunk
+    assert chunks[-1]["id"] == first_chunk["id"]
+    assert chunks[-1]["model"] == first_chunk["model"]
+    assert chunks[-1]["created"] == first_chunk["created"]
+    assert chunks[-1]["choices"] == [
+        {"index": 0, "delta": {"content": ""}, "finish_reason": "stop"}
+    ]
+
+
+def test_llamacpp_stream_non_tool_parse_error_still_raises():
+    model = _new_fake_llamacpp_model(
+        [
+            {
+                "code": 500,
+                "message": (
+                    "Failed to parse tool call arguments as JSON: "
+                    "[json.exception.parse_error.101] missing closing quote"
+                ),
+            }
+        ]
+    )
+
+    with pytest.raises(Exception, match="Got error in chat stream"):
+        list(model.chat([{"role": "user", "content": "hi"}], {"stream": True}))
 
 
 class CarType(str, Enum):

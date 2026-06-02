@@ -16,6 +16,8 @@ import logging
 import os
 import pprint
 import queue
+import time
+import uuid
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 from packaging import version
@@ -69,6 +71,37 @@ class _Error:
         self.msg = msg
 
 
+def _error_message(msg: Any) -> str:
+    if isinstance(msg, dict):
+        for key in ("message", "msg", "error"):
+            value = msg.get(key)
+            if value:
+                return str(value)
+    return str(msg)
+
+
+def _is_tool_call_arguments_parse_error(msg: Any) -> bool:
+    return "Failed to parse tool call arguments as JSON" in _error_message(msg)
+
+
+def _make_stream_stop_chunk(
+    chunk: CompletionChunk, fallback_model: str
+) -> ChatCompletionChunk:
+    return {
+        "id": str(chunk.get("id") or f"chatcmpl-{uuid.uuid4()}"),
+        "model": str(chunk.get("model") or fallback_model),
+        "created": int(chunk.get("created") or time.time()),
+        "object": "chat.completion.chunk",
+        "choices": [
+            {
+                "index": 0,
+                "delta": {},
+                "finish_reason": "stop",
+            }
+        ],
+    }
+
+
 class XllamaCppModel(LLM, ChatModelMixin):
     allow_batch = True
 
@@ -111,7 +144,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
         dep_check = check_dependency_available("xllamacpp", "xllamacpp")
-        if dep_check != True:
+        if dep_check is not True:
             return dep_check
         return True
 
@@ -390,9 +423,25 @@ class XllamaCppModel(LLM, ChatModelMixin):
         if stream:
 
             def _to_iterator():
+                last_chunk = None
                 while (r := q.get()) is not _Done:
                     if type(r) is _Error:
+                        if (
+                            tools
+                            and last_chunk is not None
+                            and _is_tool_call_arguments_parse_error(r.msg)
+                        ):
+                            logger.warning(
+                                "xllamacpp failed to parse streamed tool call "
+                                "arguments; ending stream with a synthetic stop "
+                                "chunk so callers can validate or retry the "
+                                "partial tool arguments. error=%s",
+                                _error_message(r.msg),
+                            )
+                            yield _make_stream_stop_chunk(last_chunk, self.model_uid)
+                            break
                         raise Exception(f"Got error in chat stream: {r.msg}")
+                    last_chunk = r
                     yield r
 
             return self._to_chat_completion_chunks(
