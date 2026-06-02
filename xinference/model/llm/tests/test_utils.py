@@ -187,7 +187,7 @@ def test_deepseekv4_get_full_context_attaches_tools(tmp_path):
     encoding_dir = tmp_path / "encoding"
     encoding_dir.mkdir()
     (encoding_dir / "encoding_dsv4.py").write_text(
-        "def encode_messages(messages, thinking_mode):\n" "    return messages\n",
+        "def encode_messages(messages, thinking_mode):\n    return messages\n",
         encoding="utf-8",
     )
     mixin = ChatModelMixin()
@@ -216,6 +216,38 @@ def test_deepseekv4_get_full_context_attaches_tools(tmp_path):
 
     assert messages[0] == {"role": "system", "content": "", "tools": tools}
     assert messages[1] == {"role": "user", "content": "How is the weather?"}
+
+
+def test_chat_template_kwargs_inherit_model_thinking_default():
+    reasoning_parser = ReasoningParser(
+        reasoning_content=False,
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        enable_thinking=False,
+    )
+
+    kwargs = ChatModelMixin._get_chat_template_kwargs_from_generate_config(
+        {"chat_template_kwargs": {"add_vision_id": True}},
+        reasoning_parser,
+    )
+
+    assert kwargs == {"add_vision_id": True, "enable_thinking": False}
+
+
+def test_chat_template_kwargs_keep_request_thinking_override():
+    reasoning_parser = ReasoningParser(
+        reasoning_content=False,
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        enable_thinking=False,
+    )
+
+    kwargs = ChatModelMixin._get_chat_template_kwargs_from_generate_config(
+        {"chat_template_kwargs": {"thinking": True}},
+        reasoning_parser,
+    )
+
+    assert kwargs == {"thinking": True, "enable_thinking": True}
 
 
 def test_post_process_completion_chunk_without_thinking():

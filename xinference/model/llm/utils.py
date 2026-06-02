@@ -163,7 +163,10 @@ class ChatModelMixin:
         tokenize=False,
         **kwargs,
     ):
-        if "vision" not in self.model_family.model_ability and "audio" not in self.model_family.model_ability:  # type: ignore
+        if (
+            "vision" not in self.model_family.model_ability
+            and "audio" not in self.model_family.model_ability
+        ):  # type: ignore
             messages = self.convert_messages_with_content_list_to_str_conversion(
                 messages
             )
@@ -227,6 +230,14 @@ class ChatModelMixin:
                         f"`chat_template_kwargs` should be json parsable, got: {kwargs}"
                     )
             elif isinstance(kwargs, dict):
+                kwargs = dict(kwargs)
+                if reasoning_parser and "enable_thinking" not in kwargs:
+                    thinking = kwargs.get("thinking")
+                    kwargs["enable_thinking"] = (
+                        thinking
+                        if isinstance(thinking, bool)
+                        else reasoning_parser.enable_thinking
+                    )
                 return kwargs
             else:
                 raise TypeError(
@@ -1149,11 +1160,13 @@ def parse_messages(messages: List[Dict]) -> Tuple:
 @functools.lru_cache
 def _load_deepseekv4_encoding_module(model_path: str):
     module_path = os.path.join(
-        model_path, "encoding", "encoding_dsv4.py"  # type: ignore
+        model_path,
+        "encoding",
+        "encoding_dsv4.py",  # type: ignore
     )
     if not os.path.exists(module_path):
         raise FileNotFoundError(
-            f"Missing {module_path}." "Please verify the model repository files."
+            f"Missing {module_path}.Please verify the model repository files."
         )
     spec = importlib.util.spec_from_file_location("encoding_dsv4", module_path)
     if spec is None or spec.loader is None:
