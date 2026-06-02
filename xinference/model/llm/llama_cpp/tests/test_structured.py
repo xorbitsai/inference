@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from xinference.client import Client
 
+from ...tool_parsers.qwen_tool_parser import QwenToolParser
 from ..core import XllamaCppModel, _apply_response_format
 
 
@@ -35,6 +36,7 @@ def _new_fake_llamacpp_model(responses):
     model = XllamaCppModel.__new__(XllamaCppModel)
     model.model_uid = "test-model"
     model.reasoning_parser = None
+    model.tool_parser = None
     model._executor = _InlineExecutor()
     model._llm = _FakeLlamaCppServer(responses)
     return model
@@ -121,6 +123,70 @@ def test_llamacpp_stream_non_tool_parse_error_still_raises():
 
     with pytest.raises(Exception, match="Got error in chat stream"):
         list(model.chat([{"role": "user", "content": "hi"}], {"stream": True}))
+
+
+def test_llamacpp_chat_reparses_tool_call_from_reasoning_content():
+    model = _new_fake_llamacpp_model(
+        [
+            {
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "index": 0,
+                        "message": {
+                            "role": "assistant",
+                            "content": "",
+                            "reasoning_content": (
+                                "I should call the tool.\n\n"
+                                "<tool_call>\n"
+                                "<function=execute_python_code>\n"
+                                "<parameter=code>\n"
+                                "import random\n"
+                                "random.randint(1, 100)\n"
+                                "</parameter>\n"
+                                "</function>\n"
+                                "</tool_call>"
+                            ),
+                        },
+                    }
+                ],
+                "created": 123,
+                "id": "chatcmpl-test",
+                "model": "test-model",
+                "object": "chat.completion",
+                "usage": {
+                    "prompt_tokens": 10,
+                    "completion_tokens": 20,
+                    "total_tokens": 30,
+                },
+            }
+        ]
+    )
+    model.tool_parser = QwenToolParser()
+
+    response = model.chat(
+        [{"role": "user", "content": "run python"}],
+        {
+            "stream": False,
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "execute_python_code",
+                        "parameters": {"type": "object"},
+                    },
+                }
+            ],
+        },
+    )
+
+    message = response["choices"][0]["message"]
+    assert response["choices"][0]["finish_reason"] == "tool_calls"
+    assert message["content"] == "I should call the tool.\n\n"
+    assert message["tool_calls"][0]["function"]["name"] == "execute_python_code"
+    assert json.loads(message["tool_calls"][0]["function"]["arguments"]) == {
+        "code": "import random\nrandom.randint(1, 100)"
+    }
 
 
 class CarType(str, Enum):

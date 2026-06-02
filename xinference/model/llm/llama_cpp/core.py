@@ -361,6 +361,45 @@ class XllamaCppModel(LLM, ChatModelMixin):
                 raise Exception("Got error in generate: %s", r.msg)
             return r
 
+    def _recover_tool_calls_from_reasoning_content(
+        self, response: Completion, tools: List[dict]
+    ) -> Completion:
+        if not tools or not self.tool_parser:
+            return response
+        if response.get("object") != "chat.completion":
+            return response
+        choices = response.get("choices")
+        if not choices:
+            return response
+        choice = choices[0]
+        message = choice.get("message") or {}
+        if message.get("content") or message.get("tool_calls"):
+            return response
+        reasoning_content = message.get("reasoning_content")
+        if not reasoning_content:
+            return response
+
+        logger.warning(
+            "xllamacpp returned tool-call content in reasoning_content with empty "
+            "message content; reparsing it as visible output."
+        )
+        completion = {
+            "id": response.get("id") or f"cmpl-{uuid.uuid4()}",
+            "object": "text_completion",
+            "created": response.get("created") or int(time.time()),
+            "model": response.get("model") or self.model_uid,
+            "choices": [
+                {
+                    "index": choice.get("index", 0),
+                    "text": reasoning_content,
+                    "logprobs": None,
+                    "finish_reason": choice.get("finish_reason"),
+                }
+            ],
+            "usage": response.get("usage"),
+        }
+        return self._post_process_completion(None, self.model_uid, completion)
+
     def chat(
         self,
         messages: List[dict],
@@ -451,4 +490,5 @@ class XllamaCppModel(LLM, ChatModelMixin):
             r = q.get()
             if type(r) is _Error:
                 raise Exception(f"Got error in chat: {r.msg}")
+            r = self._recover_tool_calls_from_reasoning_content(r, tools)
             return self._to_chat_completion(r, self.reasoning_parser)
