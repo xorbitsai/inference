@@ -1,0 +1,36 @@
+xinference/deploy/utils.py
+  b5a85ef2bea8dc82 75-78,96-98,103-114,142-150
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.16",
+  "base_commit_sha": "449a2001108a8e610ee0f3442d9d66ad659dc5f9",
+  "prompts": {
+    "5b3a66a58e7ca2ca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59b617a1-79c6-4993-bdd4-dce73c54a6ca",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 1764,
+      "overriden_lines": 0
+    },
+    "b5a85ef2bea8dc82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d1d259b0-a5a6-439b-b796-29fc4d2b19c5",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 495,
+      "total_deletions": 17,
+      "accepted_lines": 495,
+      "overriden_lines": 0
+    }
+  }
+}
