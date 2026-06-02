@@ -337,16 +337,17 @@ const LaunchModel = ({ routeType }: LaunchModelProps) => {
               Details
             </button>
           )}
-          <Button
+          <div/>
+          {/* <Button
             size="sm"
             onClick={(event) => {
               event.stopPropagation();
-              // setSelectedModel(model);
+              setSelectedModel(model);
             }}
           >
             <Rocket />
             Launch
-          </Button>
+          </Button> */}
         </div>
       </div>
     );
