@@ -24,7 +24,6 @@ jobs:
 
   build-cpu:
     name: Build CPU Docker image
-    needs: build-gpu
     timeout-minutes: 240
     runs-on: self-hosted
     permissions:
