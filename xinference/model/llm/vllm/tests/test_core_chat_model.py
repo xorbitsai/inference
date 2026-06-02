@@ -1586,7 +1586,11 @@ class TestVLLMSanitizeGenerateConfig:
 
     def test_json_schema_empty_schema_preserved(self):
         # An empty dict is a valid schema; `is None` (not truthiness) must keep
-        # it instead of falling through to the absent `schema` key.
+        # it instead of falling through to the absent `schema` key. The
+        # downstream guard in async_generate likewise uses `is not None`, so a
+        # preserved {} actually reaches vLLM guided decoding rather than being
+        # dropped. This asserts the intermediate value; the async_generate path
+        # depends on vLLM and is not unit-tested here.
         sanitized = self._sanitize(
             {
                 "type": "json_schema",

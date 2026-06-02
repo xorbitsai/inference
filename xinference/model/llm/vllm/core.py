@@ -1319,7 +1319,9 @@ class VLLMModel(LLM):
             # Extract guided decoding parameters
             guided_params: dict[str, Any] = {}
             guided_json = sanitized_generate_config.pop("guided_json", None)
-            if guided_json:
+            # Check `is not None` rather than truthiness so a valid empty
+            # schema ({}) is forwarded to vLLM instead of being dropped.
+            if guided_json is not None:
                 guided_params["json"] = guided_json
 
             guided_regex = sanitized_generate_config.pop("guided_regex", None)
