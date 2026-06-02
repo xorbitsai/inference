@@ -95,7 +95,10 @@ class StreamToLogger:
         self._last_reported_pct: dict = {}
         # Downloads run multi-threaded (HF_HUB_DOWNLOAD_WORKERS); concurrent
         # writes to the shared buffer would interleave without this lock.
-        self._lock = threading.Lock()
+        # Reentrant: while the lock is held we call logger.info(), and a logging
+        # handler error path (Handler.handleError -> sys.stderr) can re-enter
+        # write() on the same thread; RLock avoids a self-deadlock there.
+        self._lock = threading.RLock()
 
     def write(self, message: str) -> int:
         if not message:
