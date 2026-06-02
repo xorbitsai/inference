@@ -44,7 +44,7 @@ jobs:
 
       - name: Clean docker image cache before build
         shell: bash
-        if: ${{ github.repository == 'xorbitsai/inference' }}
+        if: ${{ github.repository == 'zhengr/inference' }}
         run: |
           docker system df || true
           docker system prune -af --volumes || true
@@ -53,7 +53,7 @@ jobs:
 
       - name: Build and push aarch64 Docker image
         shell: bash
-        if: ${{ github.repository == 'xorbitsai/inference' }}
+        if: ${{ github.repository == 'zhengr/inference' }}
         env:
           DOCKER_ORG: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
@@ -71,7 +71,7 @@ jobs:
 
       - name: Clean docker image cache after build
         shell: bash
-        if: ${{ always() && github.repository == 'xorbitsai/inference' }}
+        if: ${{ always() && github.repository == 'zhengr/inference' }}
         run: |
           docker system df || true
           docker system prune -af --volumes || true
@@ -100,7 +100,7 @@ jobs:
 
       - name: Clean docker image cache before build
         shell: bash
-        if: ${{ github.repository == 'xorbitsai/inference' }}
+        if: ${{ github.repository == 'zhengr/inference' }}
         run: |
           docker system df || true
           docker system prune -af --volumes || true
@@ -109,7 +109,7 @@ jobs:
 
       - name: Build and push GPU Docker image
         shell: bash
-        if: ${{ github.repository == 'xorbitsai/inference' }}
+        if: ${{ github.repository == 'zhengr/inference' }}
         env:
           DOCKER_ORG: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
@@ -127,7 +127,7 @@ jobs:
 
       - name: Clean docker image cache after build
         shell: bash
-        if: ${{ always() && github.repository == 'xorbitsai/inference' }}
+        if: ${{ always() && github.repository == 'zhengr/inference' }}
         run: |
           docker system df || true
           docker system prune -af --volumes || true
@@ -156,7 +156,7 @@ jobs:
 
       - name: Clean docker image cache before build
         shell: bash
-        if: ${{ github.repository == 'xorbitsai/inference' }}
+        if: ${{ github.repository == 'zhengr/inference' }}
         run: |
           docker system df || true
           docker system prune -af --volumes || true
@@ -165,7 +165,7 @@ jobs:
 
       - name: Build and push CPU Docker image
         shell: bash
-        if: ${{ github.repository == 'xorbitsai/inference' }}
+        if: ${{ github.repository == 'zhengr/inference' }}
         env:
           DOCKER_ORG: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
@@ -183,7 +183,7 @@ jobs:
 
       - name: Clean docker image cache after build
         shell: bash
-        if: ${{ always() && github.repository == 'xorbitsai/inference' }}
+        if: ${{ always() && github.repository == 'zhengr/inference' }}
         run: |
           docker system df || true
           docker system prune -af --volumes || true
@@ -197,7 +197,7 @@ jobs:
     runs-on: self-hosted
     permissions:
       contents: read
-    if: ${{ startsWith(github.ref, 'refs/tags/') && github.repository == 'xorbitsai/inference' }}
+    if: ${{ startsWith(github.ref, 'refs/tags/') && github.repository == 'zhengr/inference' }}
     steps:
       - name: Log in to Docker Hub
         uses: docker/login-action@v1
@@ -247,7 +247,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: write
-    if: ${{ always() && github.repository == 'xorbitsai/inference' && contains(needs.*.result, 'failure') }}
+    if: ${{ always() && github.repository == 'zhengr/inference' && contains(needs.*.result, 'failure') }}
     steps:
       - name: Create or update failure issue
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
