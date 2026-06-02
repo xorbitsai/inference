@@ -961,7 +961,7 @@ class VLLMModel(LLM):
             elif response_format.get("type") == "json_schema":
                 json_schema = response_format.get("json_schema")
                 assert json_schema is not None
-                guided_json = json_schema.get("json_schema")
+                guided_json = json_schema.get("schema_") or json_schema.get("schema")
 
         sanitized.setdefault("lora_name", generate_config.get("lora_name", None))
         sanitized.setdefault("n", generate_config.get("n", 1))
