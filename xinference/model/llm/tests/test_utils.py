@@ -15,10 +15,22 @@
 import asyncio
 from types import SimpleNamespace
 
+import pytest
+
+from ..core import chat_context_var
 from ..reasoning_parser import ReasoningParser
 from ..tool_parsers.llama3_tool_parser import Llama3ToolParser
 from ..tool_parsers.qwen_tool_parser import QwenToolParser
 from ..utils import ChatModelMixin
+
+
+@pytest.fixture(autouse=True)
+def reset_chat_context_var():
+    token = chat_context_var.set({})
+    try:
+        yield
+    finally:
+        chat_context_var.reset(token)
 
 
 def test_is_valid_model_name():
