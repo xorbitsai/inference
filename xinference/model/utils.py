@@ -474,6 +474,57 @@ def create_symlink(download_dir: str, cache_dir: str):
             symlink_local_file(os.path.join(subdir, file), cache_dir, relpath)
 
 
+def _is_huggingface_revision_not_found(exception: Exception) -> bool:
+    """Check if the exception is due to a missing HuggingFace revision (404)."""
+    error_str = str(exception).lower()
+    return (
+        "404" in error_str
+        or "revisionnotfound" in error_str
+        or "revision does not exist" in error_str
+        or "could not find" in error_str
+    )
+
+
+def _get_huggingface_main_branch(model_id: str) -> Optional[str]:
+    """
+    Get the latest available main branch from HuggingFace repository.
+    
+    Tries to find the latest usable main branch in order:
+    1. 'main' - most common default branch
+    2. 'master' - alternative default branch
+    3. Any other branch (returns the latest one if available)
+    
+    Returns None if unable to determine any available branch.
+    """
+    try:
+        from huggingface_hub import list_repo_refs
+        
+        refs = list_repo_refs(model_id, repo_type="model")
+        
+        # Try common main branches first
+        for branch_name in ["main", "master"]:
+            if branch_name in refs.branches:
+                logger.info(f"Using '{branch_name}' branch for model {model_id}")
+                return branch_name
+        
+        # If no common branch found, return the first available branch
+        if refs.branches:
+            first_branch = refs.branches[0].name
+            logger.info(f"Using first available branch '{first_branch}' for model {model_id}")
+            return first_branch
+        
+        # Fallback to 'main' if no branches found
+        logger.warning(f"No branches found for model {model_id}, using 'main' as fallback")
+        return "main"
+        
+    except Exception as e:
+        logger.warning(
+            f"Failed to get branches for model {model_id}: {e}. "
+            f"Falling back to 'main' branch."
+        )
+        return "main"
+
+
 def retry_download(
     download_func: Callable,
     model_name: str,
@@ -481,7 +532,23 @@ def retry_download(
     *args,
     **kwargs,
 ):
+    """
+    Retry downloading with fallback to available main branch for HuggingFace revision 404 errors.
+    
+    When downloading from HuggingFace and a specific revision is not found (404),
+    automatically tries to find the latest available main branch, falling back to "main" if needed.
+    
+    Fallback order:
+    1. Try original revision
+    2. If 404, try to find latest available main branch (main, master, or other)
+    3. If still fails, default to "main"
+    """
     last_ex = None
+    revision = kwargs.get("revision")
+    original_revision = revision
+    fallback_attempted = False
+    model_id = args[0] if args else None  # First positional arg is typically model_id
+    
     for current_attempt in range(1, XINFERENCE_DOWNLOAD_MAX_ATTEMPTS + 1):
         try:
             logger.info(
@@ -496,6 +563,40 @@ def retry_download(
         except Exception as e:
             remaining_attempts = XINFERENCE_DOWNLOAD_MAX_ATTEMPTS - current_attempt
             last_ex = e
+            
+            # Check if this is a HuggingFace 404 revision not found error
+            # Only attempt fallback once, and only if we have a revision to fall back from
+            is_hf_revision_404 = (
+                _is_huggingface_revision_not_found(e)
+                and revision
+                and revision != "main"
+                and not fallback_attempted
+                and "huggingface_hub" in download_func.__module__
+            )
+            
+            if is_hf_revision_404:
+                logger.warning(
+                    f"HuggingFace revision '{original_revision}' not found for model '{model_name}' (404). "
+                    f"Attempting to find available main branch..."
+                )
+                
+                # Try to get available main branch
+                if model_id:
+                    available_branch = _get_huggingface_main_branch(model_id)
+                    if available_branch:
+                        kwargs["revision"] = available_branch
+                        logger.info(
+                            f"Falling back to branch '{available_branch}' for model '{model_name}'"
+                        )
+                else:
+                    # If we don't have model_id, fall back to 'main'
+                    kwargs["revision"] = "main"
+                    logger.info(f"Falling back to 'main' branch for model '{model_name}'")
+                
+                fallback_attempted = True
+                # Retry immediately without counting this as an attempt
+                continue
+            
             logger.debug(
                 "Download failed: %s, download func: %s, download args: %s, kwargs: %s",
                 e,
