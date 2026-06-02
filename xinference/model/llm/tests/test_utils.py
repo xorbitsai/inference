@@ -250,6 +250,22 @@ def test_chat_template_kwargs_keep_request_thinking_override():
     assert kwargs == {"thinking": True, "enable_thinking": True}
 
 
+def test_chat_template_kwargs_string_normalizes_thinking():
+    reasoning_parser = ReasoningParser(
+        reasoning_content=False,
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        enable_thinking=False,
+    )
+
+    kwargs = ChatModelMixin._get_chat_template_kwargs_from_generate_config(
+        {"chat_template_kwargs": '{"thinking": true}'},
+        reasoning_parser,
+    )
+
+    assert kwargs == {"thinking": True, "enable_thinking": True}
+
+
 def test_post_process_completion_chunk_without_thinking():
     mixin = ChatModelMixin()
     mixin.tool_parser = QwenToolParser()

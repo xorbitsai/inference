@@ -224,12 +224,12 @@ class ChatModelMixin:
             kwargs = generate_config["chat_template_kwargs"]
             if isinstance(kwargs, str):
                 try:
-                    return json.loads(kwargs)
+                    kwargs = json.loads(kwargs)
                 except json.JSONDecodeError:
                     raise TypeError(
                         f"`chat_template_kwargs` should be json parsable, got: {kwargs}"
                     )
-            elif isinstance(kwargs, dict):
+            if isinstance(kwargs, dict):
                 kwargs = dict(kwargs)
                 if reasoning_parser and "enable_thinking" not in kwargs:
                     thinking = kwargs.get("thinking")
