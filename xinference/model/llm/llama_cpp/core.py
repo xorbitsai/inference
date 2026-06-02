@@ -18,12 +18,18 @@ import pprint
 import queue
 import time
 import uuid
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union, cast
 
 from packaging import version
 
 from ....constants import XINFERENCE_MAX_TOKENS
-from ....types import ChatCompletion, ChatCompletionChunk, Completion, CompletionChunk
+from ....types import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    Completion,
+    CompletionChoice,
+    CompletionChunk,
+)
 from ...utils import check_dependency_available
 from ..core import LLM, chat_context_var
 from ..llm_family import LLMFamilyV2, LLMSpecV1
@@ -362,8 +368,8 @@ class XllamaCppModel(LLM, ChatModelMixin):
             return r
 
     def _normalize_disabled_thinking_reasoning_content(
-        self, response: Completion, tools: List[dict]
-    ) -> Completion:
+        self, response: ChatCompletion, tools: List[dict]
+    ) -> ChatCompletion:
         if self.reasoning_parser and self.reasoning_parser.check_content_parser():
             return response
         if response.get("object") != "chat.completion":
@@ -372,50 +378,49 @@ class XllamaCppModel(LLM, ChatModelMixin):
         if not choices:
             return response
         choice = choices[0]
-        message = choice.get("message") or {}
+        message = cast(Dict[str, Any], choice.get("message") or {})
         reasoning_content = message.get("reasoning_content")
         if not reasoning_content:
             return response
         if message.get("content") or message.get("tool_calls"):
-            response = response.copy()
-            choices = [dict(item) for item in choices]
-            response["choices"] = choices
-            choice = choices[0]
+            response_dict = cast(Dict[str, Any], response.copy())
+            choices_dicts = [cast(Dict[str, Any], dict(item)) for item in choices]
+            response_dict["choices"] = choices_dicts
+            choice_dict = choices_dicts[0]
             message = dict(message)
-            choice["message"] = message
+            choice_dict["message"] = message
             message.pop("reasoning_content", None)
-            return response
+            return cast(ChatCompletion, response_dict)
 
         logger.warning(
             "xllamacpp returned visible output in reasoning_content while thinking "
             "is disabled; normalizing it as message content."
         )
         if not tools or not self.tool_parser:
-            response = response.copy()
-            choices = [dict(item) for item in choices]
-            response["choices"] = choices
-            choice = choices[0]
+            response_dict = cast(Dict[str, Any], response.copy())
+            choices_dicts = [cast(Dict[str, Any], dict(item)) for item in choices]
+            response_dict["choices"] = choices_dicts
+            choice_dict = choices_dicts[0]
             message = dict(message)
-            choice["message"] = message
+            choice_dict["message"] = message
             message["content"] = reasoning_content
             message.pop("reasoning_content", None)
-            return response
+            return cast(ChatCompletion, response_dict)
 
-        completion = {
-            "id": response.get("id") or f"cmpl-{uuid.uuid4()}",
-            "object": "text_completion",
-            "created": response.get("created") or int(time.time()),
-            "model": response.get("model") or self.model_uid,
-            "choices": [
-                {
-                    "index": choice.get("index", 0),
-                    "text": reasoning_content,
-                    "logprobs": None,
-                    "finish_reason": choice.get("finish_reason"),
-                }
-            ],
-            "usage": response.get("usage"),
-        }
+        completion_choice = CompletionChoice(
+            index=choice.get("index", 0),
+            text=reasoning_content,
+            logprobs=None,
+            finish_reason=choice.get("finish_reason"),
+        )
+        completion = Completion(
+            id=response.get("id") or f"cmpl-{uuid.uuid4()}",
+            object="text_completion",
+            created=response.get("created") or int(time.time()),
+            model=response.get("model") or self.model_uid,
+            choices=[completion_choice],
+            usage=response["usage"],
+        )
         return self._post_process_completion(None, self.model_uid, completion)
 
     def chat(

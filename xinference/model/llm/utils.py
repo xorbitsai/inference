@@ -477,7 +477,9 @@ class ChatModelMixin:
         chunk: CompletionChunk,
         fallback_chunk: Optional[CompletionChunk] = None,
     ) -> str:
-        source_chunk = chunk if chunk.get("id") else fallback_chunk or {}
+        source_chunk: Dict[str, Any] = cast(
+            Dict[str, Any], chunk if chunk.get("id") else fallback_chunk or {}
+        )
         chunk_id = source_chunk.get("id")
         if not chunk_id:
             return f"chatcmpl-{uuid.uuid4()}"
@@ -492,11 +494,12 @@ class ChatModelMixin:
         chunk: CompletionChunk,
         fallback_chunk: Optional[CompletionChunk] = None,
     ) -> ChatCompletionChunk:
+        fallback: Dict[str, Any] = cast(Dict[str, Any], fallback_chunk or {})
         chat_chunk: Dict[str, Any] = {
             "id": cls._get_chat_completion_chunk_id(chunk, fallback_chunk),
-            "model": chunk.get("model") or (fallback_chunk or {}).get("model") or "",
+            "model": chunk.get("model") or fallback.get("model") or "",
             "created": chunk.get("created")
-            or (fallback_chunk or {}).get("created")
+            or fallback.get("created")
             or int(time.time()),
             "object": "chat.completion.chunk",
             "choices": [
@@ -516,11 +519,12 @@ class ChatModelMixin:
         chunk: CompletionChunk,
         fallback_chunk: Optional[CompletionChunk] = None,
     ) -> ChatCompletionChunk:
+        fallback: Dict[str, Any] = cast(Dict[str, Any], fallback_chunk or {})
         chat_chunk: Dict[str, Any] = {
             "id": cls._get_chat_completion_chunk_id(chunk, fallback_chunk),
-            "model": chunk.get("model") or (fallback_chunk or {}).get("model") or "",
+            "model": chunk.get("model") or fallback.get("model") or "",
             "created": chunk.get("created")
-            or (fallback_chunk or {}).get("created")
+            or fallback.get("created")
             or int(time.time()),
             "object": "chat.completion.chunk",
             "choices": [],
