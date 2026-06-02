@@ -72,7 +72,10 @@ class LoggerNameFilter(logging.Filter):
 
 
 _PROGRESS_RE = re.compile(r"(\d+)%\|")
-_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*m")
+# Strip all CSI sequences (cursor moves, hide-cursor, SGR colors), not just the
+# `m`-terminated color codes, so tqdm artifacts like `\x1b[A` / `\x1b[?25l` do
+# not leak into the log as junk lines (e.g. lone `[A`).
+_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 
 
 class StreamToLogger:
@@ -90,21 +93,28 @@ class StreamToLogger:
         self._buffer = ""
         self._progress_thresholds = {25, 50, 75, 100}
         self._last_reported_pct: dict = {}
+        # Downloads run multi-threaded (HF_HUB_DOWNLOAD_WORKERS); concurrent
+        # writes to the shared buffer would interleave without this lock.
+        # Reentrant: while the lock is held we call logger.info(), and a logging
+        # handler error path (Handler.handleError -> sys.stderr) can re-enter
+        # write() on the same thread; RLock avoids a self-deadlock there.
+        self._lock = threading.RLock()
 
     def write(self, message: str) -> int:
         if not message:
             return 0
-        self._buffer += message
-        while True:
-            pos_n = self._buffer.find("\n")
-            pos_r = self._buffer.find("\r")
-            if pos_n == -1 and pos_r == -1:
-                break
-            if pos_n != -1 and (pos_r == -1 or pos_n < pos_r):
-                line, self._buffer = self._buffer.split("\n", 1)
-            else:
-                line, self._buffer = self._buffer.split("\r", 1)
-            self._process_line(line)
+        with self._lock:
+            self._buffer += message
+            while True:
+                pos_n = self._buffer.find("\n")
+                pos_r = self._buffer.find("\r")
+                if pos_n == -1 and pos_r == -1:
+                    break
+                if pos_n != -1 and (pos_r == -1 or pos_n < pos_r):
+                    line, self._buffer = self._buffer.split("\n", 1)
+                else:
+                    line, self._buffer = self._buffer.split("\r", 1)
+                self._process_line(line)
         return len(message)
 
     def _process_line(self, raw: str) -> None:
@@ -121,7 +131,12 @@ class StreamToLogger:
         if not match:
             return
         pct = int(match.group(1))
-        key = line[:30]
+        # Derive the sampling key from the stable description *before* the
+        # percentage, so every frame of the same bar shares one key. Using
+        # line[:30] folds the changing percent/bar text into the key for
+        # short-description formats (e.g. "Downloading: 26%|"), making each
+        # frame a distinct key and defeating threshold sampling.
+        key = line[: match.start()].strip()
         last = self._last_reported_pct.get(key, 0)
         for threshold in sorted(self._progress_thresholds):
             if last < threshold <= pct:
@@ -132,11 +147,15 @@ class StreamToLogger:
             self._last_reported_pct.pop(key, None)
 
     def flush(self) -> None:
-        if self._buffer:
-            line = _ANSI_ESCAPE_RE.sub("", self._buffer).strip("\r\n").strip()
-            self._buffer = ""
-            if line and len(line) > 2:
-                self._logger.info(line)
+        # Route residual buffer through the sampling path instead of dumping it
+        # raw. tqdm calls flush() after every frame with a `\r`-terminated bar
+        # still in the buffer; a raw dump here bypasses _handle_progress and
+        # defeats sampling, producing a full per-frame storm in the log.
+        with self._lock:
+            if self._buffer:
+                residual = self._buffer
+                self._buffer = ""
+                self._process_line(residual)
         if self._original:
             try:
                 self._original.flush()
