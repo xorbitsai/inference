@@ -361,10 +361,10 @@ class XllamaCppModel(LLM, ChatModelMixin):
                 raise Exception("Got error in generate: %s", r.msg)
             return r
 
-    def _recover_tool_calls_from_reasoning_content(
+    def _normalize_disabled_thinking_reasoning_content(
         self, response: Completion, tools: List[dict]
     ) -> Completion:
-        if not tools or not self.tool_parser:
+        if self.reasoning_parser and self.reasoning_parser.check_content_parser():
             return response
         if response.get("object") != "chat.completion":
             return response
@@ -373,16 +373,34 @@ class XllamaCppModel(LLM, ChatModelMixin):
             return response
         choice = choices[0]
         message = choice.get("message") or {}
-        if message.get("content") or message.get("tool_calls"):
-            return response
         reasoning_content = message.get("reasoning_content")
         if not reasoning_content:
             return response
+        if message.get("content") or message.get("tool_calls"):
+            response = response.copy()
+            choices = [dict(item) for item in choices]
+            response["choices"] = choices
+            choice = choices[0]
+            message = dict(message)
+            choice["message"] = message
+            message.pop("reasoning_content", None)
+            return response
 
         logger.warning(
-            "xllamacpp returned tool-call content in reasoning_content with empty "
-            "message content; reparsing it as visible output."
+            "xllamacpp returned visible output in reasoning_content while thinking "
+            "is disabled; normalizing it as message content."
         )
+        if not tools or not self.tool_parser:
+            response = response.copy()
+            choices = [dict(item) for item in choices]
+            response["choices"] = choices
+            choice = choices[0]
+            message = dict(message)
+            choice["message"] = message
+            message["content"] = reasoning_content
+            message.pop("reasoning_content", None)
+            return response
+
         completion = {
             "id": response.get("id") or f"cmpl-{uuid.uuid4()}",
             "object": "text_completion",
@@ -490,5 +508,5 @@ class XllamaCppModel(LLM, ChatModelMixin):
             r = q.get()
             if type(r) is _Error:
                 raise Exception(f"Got error in chat: {r.msg}")
-            r = self._recover_tool_calls_from_reasoning_content(r, tools)
+            r = self._normalize_disabled_thinking_reasoning_content(r, tools)
             return self._to_chat_completion(r, self.reasoning_parser)

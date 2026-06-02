@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from xinference.client import Client
 
+from ...reasoning_parser import ReasoningParser
 from ...tool_parsers.qwen_tool_parser import QwenToolParser
 from ..core import XllamaCppModel, _apply_response_format
 
@@ -162,6 +163,12 @@ def test_llamacpp_chat_reparses_tool_call_from_reasoning_content():
             }
         ]
     )
+    model.reasoning_parser = ReasoningParser(
+        reasoning_content=True,
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        enable_thinking=False,
+    )
     model.tool_parser = QwenToolParser()
 
     response = model.chat(
@@ -187,6 +194,51 @@ def test_llamacpp_chat_reparses_tool_call_from_reasoning_content():
     assert json.loads(message["tool_calls"][0]["function"]["arguments"]) == {
         "code": "import random\nrandom.randint(1, 100)"
     }
+    assert "reasoning_content" not in message
+
+
+def test_llamacpp_chat_moves_reasoning_content_to_content_when_thinking_disabled():
+    model = _new_fake_llamacpp_model(
+        [
+            {
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "index": 0,
+                        "message": {
+                            "role": "assistant",
+                            "content": "",
+                            "reasoning_content": "visible answer",
+                        },
+                    }
+                ],
+                "created": 123,
+                "id": "chatcmpl-test",
+                "model": "test-model",
+                "object": "chat.completion",
+                "usage": {
+                    "prompt_tokens": 10,
+                    "completion_tokens": 20,
+                    "total_tokens": 30,
+                },
+            }
+        ]
+    )
+    model.reasoning_parser = ReasoningParser(
+        reasoning_content=True,
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        enable_thinking=False,
+    )
+
+    response = model.chat(
+        [{"role": "user", "content": "hi"}],
+        {"stream": False},
+    )
+
+    message = response["choices"][0]["message"]
+    assert message["content"] == "visible answer"
+    assert "reasoning_content" not in message
 
 
 class CarType(str, Enum):
