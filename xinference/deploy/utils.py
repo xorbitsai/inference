@@ -155,7 +155,10 @@ class StreamToLogger:
 
         # Track last seen frame for terminal state emission
         with self._lock:
-            self._last_seen[key] = (pct, line)
+            if pct >= 100:
+                self._last_seen.pop(key, None)
+            else:
+                self._last_seen[key] = (pct, line)
 
         # Mode-based filtering
         if self._progress_mode == "off":
