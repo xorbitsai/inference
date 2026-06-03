@@ -26,7 +26,11 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import xoscar as xo
 
-from ..constants import XINFERENCE_DEFAULT_LOG_FILE_NAME, XINFERENCE_LOG_DIR
+from ..constants import (
+    XINFERENCE_DEFAULT_LOG_FILE_NAME,
+    XINFERENCE_LOG_DIR,
+    XINFERENCE_LOG_DOWNLOAD_PROGRESS,
+)
 
 if TYPE_CHECKING:
     from xoscar.backends.pool import MainActorPoolType
@@ -79,20 +83,31 @@ _ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 
 
 class StreamToLogger:
-    """Redirect stdout/stderr to a logger with progress bar sampling."""
+    """Redirect stdout/stderr to a logger with progress bar sampling.
+
+    Args:
+        progress_mode: Controls how progress bars are logged.
+            - "sampled": log 25/50/75/100% per bar + terminal state on finalize
+            - "full": log every tqdm frame
+            - "off": no progress frames, only start/error lines
+    """
 
     def __init__(
         self,
         logger_instance: logging.Logger,
         original_stream,
         stream_name: str = "stdout",
+        progress_mode: str = "sampled",
     ):
         self._logger = logger_instance
         self._original = original_stream
         self._stream_name = stream_name
+        self._progress_mode = progress_mode
         self._buffer = ""
         self._progress_thresholds = {25, 50, 75, 100}
         self._last_reported_pct: dict = {}
+        # Track last seen frame per bar key for terminal state emission
+        self._last_seen: dict = {}
         # Downloads run multi-threaded (HF_HUB_DOWNLOAD_WORKERS); concurrent
         # writes to the shared buffer would interleave without this lock.
         # Reentrant: while the lock is held we call logger.info(), and a logging
@@ -137,6 +152,22 @@ class StreamToLogger:
         # short-description formats (e.g. "Downloading: 26%|"), making each
         # frame a distinct key and defeating threshold sampling.
         key = line[: match.start()].strip()
+
+        # Track last seen frame for terminal state emission
+        with self._lock:
+            if pct >= 100:
+                self._last_seen.pop(key, None)
+            else:
+                self._last_seen[key] = (pct, line)
+
+        # Mode-based filtering
+        if self._progress_mode == "off":
+            return
+        elif self._progress_mode == "full":
+            self._logger.info(line)
+            return
+
+        # sampled mode: threshold-based sampling
         last = self._last_reported_pct.get(key, 0)
         for threshold in sorted(self._progress_thresholds):
             if last < threshold <= pct:
@@ -162,6 +193,26 @@ class StreamToLogger:
             except (OSError, ValueError):
                 pass
 
+    def _finalize(self) -> None:
+        """Emit terminal state for in-flight progress bars.
+
+        Called once when the redirect context exits (ref_count -> 0).
+        For sampled mode, this ensures interrupted downloads show their
+        last known percentage instead of the last sampled threshold.
+        """
+        if self._progress_mode != "sampled":
+            return
+        try:
+            with self._lock:
+                for key, (pct, line) in self._last_seen.items():
+                    last_reported = self._last_reported_pct.get(key, 0)
+                    if pct != last_reported:
+                        self._logger.info(line)
+                self._last_seen.clear()
+        except Exception:
+            # Never let finalize errors mask the real download exception
+            pass
+
     def fileno(self) -> int:
         return self._original.fileno()
 
@@ -182,8 +233,8 @@ def install_stream_redirect() -> None:
 
     stdout_logger = logging.getLogger("xinference.stdout")
     stderr_logger = logging.getLogger("xinference.stderr")
-    sys.stdout = StreamToLogger(stdout_logger, original_stdout, "stdout")  # type: ignore[assignment]
-    sys.stderr = StreamToLogger(stderr_logger, original_stderr, "stderr")  # type: ignore[assignment]
+    sys.stdout = StreamToLogger(stdout_logger, original_stdout, "stdout", XINFERENCE_LOG_DOWNLOAD_PROGRESS)  # type: ignore[assignment]
+    sys.stderr = StreamToLogger(stderr_logger, original_stderr, "stderr", XINFERENCE_LOG_DOWNLOAD_PROGRESS)  # type: ignore[assignment]
 
     for handler in logging.root.handlers:
         if isinstance(handler, logging.StreamHandler) and not isinstance(
@@ -193,13 +244,23 @@ def install_stream_redirect() -> None:
 
 
 class redirect_streams_to_logger:
-    """Context manager to temporarily redirect stdout/stderr to logger during model loading."""
+    """Context manager to temporarily redirect stdout/stderr to logger during model loading.
+
+    Args:
+        progress_mode: Controls how progress bars are logged. Defaults to "sampled".
+            - "sampled": log 25/50/75/100% per bar + terminal state on finalize
+            - "full": log every tqdm frame
+            - "off": no progress frames, only start/error lines
+    """
 
     _lock = threading.Lock()
     _ref_count = 0
     _original_stdout = None
     _original_stderr = None
     _handler_streams: list = []
+
+    def __init__(self, progress_mode: str = "sampled"):
+        self._progress_mode = progress_mode
 
     def __enter__(self):
         import sys
@@ -211,8 +272,8 @@ class redirect_streams_to_logger:
 
                 stdout_logger = logging.getLogger("xinference.stdout")
                 stderr_logger = logging.getLogger("xinference.stderr")
-                sys.stdout = StreamToLogger(stdout_logger, redirect_streams_to_logger._original_stdout, "stdout")  # type: ignore[assignment]
-                sys.stderr = StreamToLogger(stderr_logger, redirect_streams_to_logger._original_stderr, "stderr")  # type: ignore[assignment]
+                sys.stdout = StreamToLogger(stdout_logger, redirect_streams_to_logger._original_stdout, "stdout", self._progress_mode)  # type: ignore[assignment]
+                sys.stderr = StreamToLogger(stderr_logger, redirect_streams_to_logger._original_stderr, "stderr", self._progress_mode)  # type: ignore[assignment]
 
                 redirect_streams_to_logger._handler_streams = []
                 for handler in logging.root.handlers:
@@ -234,8 +295,10 @@ class redirect_streams_to_logger:
             if redirect_streams_to_logger._ref_count == 0:
                 if isinstance(sys.stdout, StreamToLogger):
                     sys.stdout.flush()
+                    sys.stdout._finalize()
                 if isinstance(sys.stderr, StreamToLogger):
                     sys.stderr.flush()
+                    sys.stderr._finalize()
 
                 sys.stdout = redirect_streams_to_logger._original_stdout
                 sys.stderr = redirect_streams_to_logger._original_stderr
