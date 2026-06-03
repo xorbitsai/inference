@@ -244,13 +244,23 @@ def install_stream_redirect() -> None:
 
 
 class redirect_streams_to_logger:
-    """Context manager to temporarily redirect stdout/stderr to logger during model loading."""
+    """Context manager to temporarily redirect stdout/stderr to logger during model loading.
+
+    Args:
+        progress_mode: Controls how progress bars are logged. Defaults to "sampled".
+            - "sampled": log 25/50/75/100% per bar + terminal state on finalize
+            - "full": log every tqdm frame
+            - "off": no progress frames, only start/error lines
+    """
 
     _lock = threading.Lock()
     _ref_count = 0
     _original_stdout = None
     _original_stderr = None
     _handler_streams: list = []
+
+    def __init__(self, progress_mode: str = "sampled"):
+        self._progress_mode = progress_mode
 
     def __enter__(self):
         import sys
@@ -262,8 +272,8 @@ class redirect_streams_to_logger:
 
                 stdout_logger = logging.getLogger("xinference.stdout")
                 stderr_logger = logging.getLogger("xinference.stderr")
-                sys.stdout = StreamToLogger(stdout_logger, redirect_streams_to_logger._original_stdout, "stdout", XINFERENCE_LOG_DOWNLOAD_PROGRESS)  # type: ignore[assignment]
-                sys.stderr = StreamToLogger(stderr_logger, redirect_streams_to_logger._original_stderr, "stderr", XINFERENCE_LOG_DOWNLOAD_PROGRESS)  # type: ignore[assignment]
+                sys.stdout = StreamToLogger(stdout_logger, redirect_streams_to_logger._original_stdout, "stdout", self._progress_mode)  # type: ignore[assignment]
+                sys.stderr = StreamToLogger(stderr_logger, redirect_streams_to_logger._original_stderr, "stderr", self._progress_mode)  # type: ignore[assignment]
 
                 redirect_streams_to_logger._handler_streams = []
                 for handler in logging.root.handlers:

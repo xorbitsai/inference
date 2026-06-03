@@ -56,6 +56,7 @@ from ..constants import (
     XINFERENCE_HEALTH_CHECK_INTERVAL,
     XINFERENCE_HOME,
     XINFERENCE_LOG_CONSOLE,
+    XINFERENCE_LOG_DOWNLOAD_PROGRESS,
     XINFERENCE_MODEL_DOWNLOAD_WORKERS,
     XINFERENCE_STATUS_GATHER_TIMEOUT,
     XINFERENCE_STATUS_REPORT_MULTIPLIER,
@@ -2032,7 +2033,9 @@ class WorkerActor(xo.StatelessActor):
                                 from ..deploy.utils import redirect_streams_to_logger
 
                                 def _create_with_redirect():
-                                    with redirect_streams_to_logger():
+                                    with redirect_streams_to_logger(
+                                        XINFERENCE_LOG_DOWNLOAD_PROGRESS
+                                    ):
                                         return create_model_instance(
                                             model_uid,
                                             model_type,
