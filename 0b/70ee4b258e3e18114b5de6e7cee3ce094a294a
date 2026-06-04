@@ -1,0 +1,57 @@
+xinference/ui/web/ui/src/locales/ja.json
+  333f2b6a74d67530 450
+xinference/ui/web/ui/src/locales/zh.json
+  333f2b6a74d67530 457
+xinference/ui/web/ui/src/locales/en.json
+  333f2b6a74d67530 457
+xinference/ui/web/ui/src/locales/ko.json
+  333f2b6a74d67530 450
+xinference/ui/web/ui/src/scenes/apikey_management/index.js
+  333f2b6a74d67530 63-64,243-244,286-288,702,706-722
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.0",
+  "base_commit_sha": "0b70ee4b258e3e18114b5de6e7cee3ce094a294a",
+  "prompts": {
+    "333f2b6a74d67530": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5b1229bd-3bde-4444-9352-51b9eba7c61b",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 29,
+      "total_deletions": 2,
+      "accepted_lines": 29,
+      "overriden_lines": 0
+    },
+    "b5a85ef2bea8dc82": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d1d259b0-a5a6-439b-b796-29fc4d2b19c5",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 467,
+      "overriden_lines": 0
+    },
+    "bc9e769add94a8bb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b0118ba5-9005-408f-bac1-b975f246b205",
+        "model": "qwen3.7-max"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 13,
+      "overriden_lines": 0
+    }
+  }
+}
