@@ -284,8 +284,8 @@ function ApiKeyManagement() {
         })
       }
       await fetchWrapper.put(`/v1/admin/keys/${editingKey.id}`, {
-        name: editName || undefined,
-        description: editDescription || undefined,
+        name: editName === '' ? null : editName,
+        description: editDescription === '' ? null : editDescription,
         model_permissions,
       })
       setEditOpen(false)
