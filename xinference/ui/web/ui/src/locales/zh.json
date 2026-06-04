@@ -454,6 +454,7 @@
     "copied": "已复制到剪贴板",
     "editPermTooltip": "编辑权限",
     "editPermTitle": "编辑模型权限 —",
+    "editKeyTitle": "编辑 API Key —",
     "mixedMode": "按类型 + 按实例（混合）",
     "modelInstances": "模型实例",
     "permissionsSaved": "权限已保存",
