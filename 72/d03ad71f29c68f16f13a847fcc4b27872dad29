@@ -1,0 +1,23 @@
+xinference/core/worker.py
+  156b11c58e82d2e7 1964,1969,1984,2278-2279
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.0",
+  "base_commit_sha": "72d03ad71f29c68f16f13a847fcc4b27872dad29",
+  "prompts": {
+    "156b11c58e82d2e7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1d79e8e5-3ef8-4b84-83f2-45730c2b047a",
+        "model": "qwen3.7-max"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 5,
+      "total_deletions": 3,
+      "accepted_lines": 9984,
+      "overriden_lines": 0
+    }
+  }
+}
