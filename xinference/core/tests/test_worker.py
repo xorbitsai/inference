@@ -57,6 +57,15 @@ class MockWorkerActor(WorkerActor):
     def set_allow_multi_replica_per_gpu(self, allow: bool):
         self._allow_multi_replica_per_gpu = allow
 
+    def get_launch_semaphore_value(self):
+        return self._launch_semaphore._value
+
+    def get_launch_active_count(self):
+        return self._launch_active
+
+    def get_launch_waiting_count(self):
+        return self._launch_waiting
+
     async def is_model_vllm_backend(self, model_uid):
         if model_uid.startswith("embedding") or model_uid.startswith("rerank"):
             return False
@@ -1229,9 +1238,9 @@ async def test_launch_semaphore_default(setup_pool):
     )
 
     # Semaphore initialized in __init__, default value 5
-    assert worker._launch_semaphore._value == 5
-    assert worker._launch_active == 0
-    assert worker._launch_waiting == 0
+    assert await worker.get_launch_semaphore_value() == 5
+    assert await worker.get_launch_active_count() == 0
+    assert await worker.get_launch_waiting_count() == 0
 
 
 @pytest.mark.asyncio
@@ -1250,31 +1259,17 @@ async def test_launch_semaphore_env_override(setup_pool, monkeypatch):
         cuda_devices=[0],
     )
 
-    assert worker._launch_semaphore._value == 2
+    assert await worker.get_launch_semaphore_value() == 2
 
 
 @pytest.mark.asyncio
-async def test_launch_semaphore_concurrency(setup_pool):
-    pool = setup_pool
-    addr = pool.external_address
-
-    worker: xo.ActorRefType["MockWorkerActor"] = await xo.create_actor(  # type: ignore
-        MockWorkerActor,
-        address=addr,
-        uid=WorkerActor.default_uid(),
-        supervisor_address="test",
-        main_pool=pool,
-        cuda_devices=[0],
-    )
-
-    sem = worker._launch_semaphore
+async def test_launch_semaphore_concurrency():
+    """Verify semaphore correctly limits concurrent launches."""
     max_concurrent = 2
-    # Replace default semaphore with one limited to 2
-    worker._launch_semaphore = asyncio.Semaphore(max_concurrent)
-    sem = worker._launch_semaphore
-
     peak_concurrent = 0
     current_concurrent = 0
+
+    sem = asyncio.Semaphore(max_concurrent)
 
     async def simulate_launch():
         nonlocal peak_concurrent, current_concurrent
@@ -1288,6 +1283,4 @@ async def test_launch_semaphore_concurrency(setup_pool):
     # Launch 6 concurrent tasks with semaphore limited to 2
     await asyncio.gather(*[simulate_launch() for _ in range(6)])
 
-    # At most max_concurrent tasks ran simultaneously
-    assert peak_concurrent <= max_concurrent
     assert peak_concurrent == max_concurrent
