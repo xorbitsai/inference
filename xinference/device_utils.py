@@ -178,6 +178,7 @@ def is_gcu_available() -> bool:
 
 
 def _get_info_by_pynvml(gpu_id: int) -> Dict[str, float]:
+    import pynvml
     from pynvml import (
         nvmlDeviceGetHandleByIndex,
         nvmlDeviceGetMemoryInfo,
@@ -187,7 +188,14 @@ def _get_info_by_pynvml(gpu_id: int) -> Dict[str, float]:
 
     handler = nvmlDeviceGetHandleByIndex(gpu_id)
     gpu_name = nvmlDeviceGetName(handler)
-    mem_info = nvmlDeviceGetMemoryInfo(handler)
+    # NVIDIA GB10 / DGX Spark uses a unified-memory layout and does not expose the
+    # legacy v1 NVML memory-info namespace, so nvmlDeviceGetMemoryInfo() returns
+    # NVML_ERROR_NOT_SUPPORTED there. Prefer the v2 call when it is available and
+    # fall back to v1 on Hopper/Ada and on older pynvml builds without the symbol.
+    try:
+        mem_info = pynvml.nvmlDeviceGetMemoryInfo_v2(handler)
+    except (pynvml.NVMLError, AttributeError):
+        mem_info = nvmlDeviceGetMemoryInfo(handler)
     utilization = nvmlDeviceGetUtilizationRates(handler)
     return {
         "name": gpu_name,
