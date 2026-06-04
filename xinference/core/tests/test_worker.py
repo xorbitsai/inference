@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import asyncio
 import itertools
 from typing import Any, List, Optional, Tuple, Union
 
@@ -1211,3 +1212,82 @@ async def test_report_status_skips_gpu_collection_when_cpu_only(
     status = sup.report_worker_status_calls[-1][1]
     assert "model_gpu_memory" not in status
     assert calls == []  # NVML never queried on CPU-only worker
+
+
+@pytest.mark.asyncio
+async def test_launch_semaphore_default(setup_pool):
+    pool = setup_pool
+    addr = pool.external_address
+
+    worker: xo.ActorRefType["MockWorkerActor"] = await xo.create_actor(  # type: ignore
+        MockWorkerActor,
+        address=addr,
+        uid=WorkerActor.default_uid(),
+        supervisor_address="test",
+        main_pool=pool,
+        cuda_devices=[0],
+    )
+
+    # Semaphore initialized in __init__, default value 5
+    assert worker._launch_semaphore._value == 5
+    assert worker._launch_active == 0
+    assert worker._launch_waiting == 0
+
+
+@pytest.mark.asyncio
+async def test_launch_semaphore_env_override(setup_pool, monkeypatch):
+    monkeypatch.setattr("xinference.core.worker.XINFERENCE_MAX_CONCURRENT_LAUNCHES", 2)
+
+    pool = setup_pool
+    addr = pool.external_address
+
+    worker: xo.ActorRefType["MockWorkerActor"] = await xo.create_actor(  # type: ignore
+        MockWorkerActor,
+        address=addr,
+        uid=WorkerActor.default_uid(),
+        supervisor_address="test",
+        main_pool=pool,
+        cuda_devices=[0],
+    )
+
+    assert worker._launch_semaphore._value == 2
+
+
+@pytest.mark.asyncio
+async def test_launch_semaphore_concurrency(setup_pool):
+    pool = setup_pool
+    addr = pool.external_address
+
+    worker: xo.ActorRefType["MockWorkerActor"] = await xo.create_actor(  # type: ignore
+        MockWorkerActor,
+        address=addr,
+        uid=WorkerActor.default_uid(),
+        supervisor_address="test",
+        main_pool=pool,
+        cuda_devices=[0],
+    )
+
+    sem = worker._launch_semaphore
+    max_concurrent = 2
+    # Replace default semaphore with one limited to 2
+    worker._launch_semaphore = asyncio.Semaphore(max_concurrent)
+    sem = worker._launch_semaphore
+
+    peak_concurrent = 0
+    current_concurrent = 0
+
+    async def simulate_launch():
+        nonlocal peak_concurrent, current_concurrent
+        async with sem:
+            current_concurrent += 1
+            if current_concurrent > peak_concurrent:
+                peak_concurrent = current_concurrent
+            await asyncio.sleep(0.05)
+            current_concurrent -= 1
+
+    # Launch 6 concurrent tasks with semaphore limited to 2
+    await asyncio.gather(*[simulate_launch() for _ in range(6)])
+
+    # At most max_concurrent tasks ran simultaneously
+    assert peak_concurrent <= max_concurrent
+    assert peak_concurrent == max_concurrent
