@@ -447,6 +447,7 @@
     "copied": "클립보드에 복사됨",
     "editPermTooltip": "권한 편집",
     "editPermTitle": "모델 권한 편집 —",
+    "editKeyTitle": "API Key 편집 —",
     "mixedMode": "유형별 + 인스턴스별 (혼합)",
     "bans": "차단 수",
     "description": "설명",

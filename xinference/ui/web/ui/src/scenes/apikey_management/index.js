@@ -60,6 +60,8 @@ function ApiKeyManagement() {
   const [editOpen, setEditOpen] = useState(false)
   const [editingKey, setEditingKey] = useState(null)
   const [editPermType, setEditPermType] = useState('all')
+  const [editName, setEditName] = useState('')
+  const [editDescription, setEditDescription] = useState('')
   const [editModelTypes, setEditModelTypes] = useState([])
   const [editModelIds, setEditModelIds] = useState([])
   const [bansDialogOpen, setBansDialogOpen] = useState(false)
@@ -238,6 +240,8 @@ function ApiKeyManagement() {
       setEditModelTypes(types)
       setEditModelIds(ids)
     }
+    setEditName(key.name || '')
+    setEditDescription(key.description || '')
     setEditingKey(key)
     setEditOpen(true)
   }
@@ -279,7 +283,9 @@ function ApiKeyManagement() {
           })
         })
       }
-      await fetchWrapper.put(`/v1/admin/keys/${editingKey.id}/permissions`, {
+      await fetchWrapper.put(`/v1/admin/keys/${editingKey.id}`, {
+        name: editName === '' ? null : editName,
+        description: editDescription === '' ? null : editDescription,
         model_permissions,
       })
       setEditOpen(false)
@@ -693,10 +699,27 @@ function ApiKeyManagement() {
         fullWidth
       >
         <DialogTitle>
-          {t('apikeyManagement.editPermTitle')}{' '}
+          {t('apikeyManagement.editKeyTitle')}{' '}
           {editingKey && (editingKey.name || editingKey.key_prefix)}
         </DialogTitle>
         <DialogContent>
+          <TextField
+            margin="dense"
+            label={t('apikeyManagement.nameLabel')}
+            fullWidth
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+          />
+          <TextField
+            margin="dense"
+            label={t('apikeyManagement.descriptionLabel')}
+            fullWidth
+            multiline
+            minRows={2}
+            maxRows={4}
+            value={editDescription}
+            onChange={(e) => setEditDescription(e.target.value)}
+          />
           <TextField
             margin="dense"
             label={t('apikeyManagement.permissionType')}
