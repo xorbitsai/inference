@@ -1,0 +1,29 @@
+xinference/core/worker.py
+  156b11c58e82d2e7 60,209-212,1967-1998,2001-2031,2033-2051,2054-2059,2061-2109,2122-2135,2138-2145,2147-2148,2150-2163,2165,2167-2168,2170-2183,2185-2205,2207-2237,2239,2241-2276
+xinference/constants.py
+  156b11c58e82d2e7 36,238-239
+xinference/core/tests/test_worker.py
+  156b11c58e82d2e7 14,1215-1293
+doc/source/getting_started/environments.rst
+  156b11c58e82d2e7 94-101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.0",
+  "base_commit_sha": "4a9433a218c2ada3b9becbbf705607aa1c3ef5fe",
+  "prompts": {
+    "156b11c58e82d2e7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1d79e8e5-3ef8-4b84-83f2-45730c2b047a",
+        "model": "qwen3.7-max"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 10377,
+      "total_deletions": 235,
+      "accepted_lines": 10363,
+      "overriden_lines": 0
+    }
+  }
+}
