@@ -1961,11 +1961,12 @@ class WorkerActor(xo.StatelessActor):
         if self.get_model_launch_status(model_uid) is not None:
             raise ValueError(f"{model_uid} is running")
 
+        _was_queued = False
         try:
             self._model_uid_launching_guard[model_uid] = launch_info = LaunchInfo()
 
             # Launch concurrency control: queue if semaphore is full
-            if self._launch_semaphore._value == 0:
+            if self._launch_semaphore.locked():
                 self._launch_waiting += 1
                 logger.info(
                     "Launch queued: model_name=%s, model_uid=%s (active: %d/%d, queued: %d)",
@@ -1976,12 +1977,11 @@ class WorkerActor(xo.StatelessActor):
                     self._launch_waiting,
                 )
                 _was_queued = True
-            else:
-                _was_queued = False
 
             async with self._launch_semaphore:
                 if _was_queued:
                     self._launch_waiting -= 1
+                    _was_queued = False
                 self._launch_active += 1
                 logger.info(
                     "Launch started: model_name=%s, model_uid=%s (active: %d/%d, queued: %d)",
@@ -2275,6 +2275,8 @@ class WorkerActor(xo.StatelessActor):
                         self._launch_waiting,
                     )
         finally:
+            if _was_queued:
+                self._launch_waiting -= 1
             del self._model_uid_launching_guard[model_uid]
 
         # Record virtual environment information if applicable
