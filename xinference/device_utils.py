@@ -194,7 +194,7 @@ def _get_info_by_pynvml(gpu_id: int) -> Dict[str, float]:
     # fall back to v1 on Hopper/Ada and on older pynvml builds without the symbol.
     try:
         mem_info = pynvml.nvmlDeviceGetMemoryInfo_v2(handler)
-    except (pynvml.NVMLError_NotSupported, AttributeError):
+    except (pynvml.NVMLError, AttributeError):
         mem_info = nvmlDeviceGetMemoryInfo(handler)
     utilization = nvmlDeviceGetUtilizationRates(handler)
     return {
