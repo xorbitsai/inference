@@ -1110,30 +1110,27 @@ export default function LaunchDialog({
       model_name: model?.model_name,
       model_type: modelType,
     });
-    saveLaunchConfigHistory(newValues);
+    setLoading(true);
+    setProgress(0);
+    setReplicaStatuses([]);
+
+    request
+      .post('/v1/models', newValues)
+      .then(() => {
+        saveLaunchConfigHistory(newValues);
         setConfigCacheRefreshKey((key) => key + 1);
-
-    // setLoading(true);
-    // setProgress(0);
-    // setReplicaStatuses([]);
-
-    // request
-    //   .post('/v1/models', newValues)
-    //   .then(() => {
-    //     saveLaunchConfigHistory(newValues);
-    //     setConfigCacheRefreshKey((key) => key + 1);
-    //     setLoading(false);
-    //     stopPolling();
-    //     onOpenChange(false);
-    //     toast.success(t('launchModel.launchCompleted'));
-    //   })
-    //   .catch(() => {
-    //     stopPolling();
-    //   })
-    //   .finally(() => {
-    //     setLoading(false);
-    //   });
-    // startPolling();
+        setLoading(false);
+        stopPolling();
+        onOpenChange(false);
+        toast.success(t('launchModel.launchCompleted'));
+      })
+      .catch(() => {
+        stopPolling();
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+    startPolling();
   };
   const handleClose = () => {
     setLoading(false);
