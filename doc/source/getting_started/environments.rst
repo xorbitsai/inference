@@ -91,6 +91,14 @@ XINFERENCE_LAUNCH_STRATEGY
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 GPU allocation strategy for replicas. Default is ``IDLE_FIRST_LAUNCH_STRATEGY``.
 
+XINFERENCE_MAX_CONCURRENT_LAUNCHES
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Maximum number of model launches that can proceed concurrently on a single
+worker node. When more replicas are launched than this limit, excess launches
+queue and proceed as slots free up. This prevents resource exhaustion (fork
+storms, disk IO saturation, GPU memory contention) that can cause heartbeat
+timeouts. Default value is 5.
+
 XINFERENCE_ENABLE_VIRTUAL_ENV
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Enable model virtual environments globally.

@@ -57,6 +57,7 @@ from ..constants import (
     XINFERENCE_HOME,
     XINFERENCE_LOG_CONSOLE,
     XINFERENCE_LOG_DOWNLOAD_PROGRESS,
+    XINFERENCE_MAX_CONCURRENT_LAUNCHES,
     XINFERENCE_MODEL_DOWNLOAD_WORKERS,
     XINFERENCE_STATUS_GATHER_TIMEOUT,
     XINFERENCE_STATUS_REPORT_MULTIPLIER,
@@ -205,6 +206,10 @@ class WorkerActor(xo.StatelessActor):
         # internal states.
         # temporary placeholder during model launch process:
         self._model_uid_launching_guard: Dict[str, LaunchInfo] = {}
+        # Launch concurrency control
+        self._launch_semaphore = asyncio.Semaphore(XINFERENCE_MAX_CONCURRENT_LAUNCHES)
+        self._launch_active = 0
+        self._launch_waiting = 0
         # attributes maintained after model launched:
         self._model_uid_to_model: Dict[str, xo.ActorRefType["ModelActor"]] = {}
         self._model_uid_to_model_spec: Dict[str, Dict[str, Any]] = {}
@@ -1956,87 +1961,152 @@ class WorkerActor(xo.StatelessActor):
         if self.get_model_launch_status(model_uid) is not None:
             raise ValueError(f"{model_uid} is running")
 
+        _was_queued = False
         try:
             self._model_uid_launching_guard[model_uid] = launch_info = LaunchInfo()
 
-            # virtualenv
-            virtual_env_name = kwargs.pop("virtual_env_name", None)
-            # Use v4 structure: .xinference/virtualenv/v4/model_name/model_engine/python_version
-            python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
-            engine_name = (model_engine or "default").lower()
-            virtual_env_path = os.path.join(
-                XINFERENCE_VIRTUAL_ENV_DIR,
-                "v4",
-                model_name,
-                engine_name,
-                python_version,
-            )
-            virtual_env_manager = await asyncio.to_thread(
-                self._create_virtual_env_manager,
-                enable_virtual_env,
-                virtual_env_name,
-                virtual_env_path,
-            )
-            subpool_python_path = resolve_virtualenv_python_path(virtual_env_manager)
-            subpool_envs = build_subpool_envs_for_virtual_env(
-                envs, enable_virtual_env, virtual_env_manager
-            )
-            subpool_address, devices = await self._create_subpool(
-                model_uid,
-                model_type,
-                n_gpu=n_gpu,
-                gpu_idx=gpu_idx,
-                start_python=subpool_python_path,
-                env=subpool_envs,
-            )
-            all_subpool_addresses = [subpool_address]
-            try:
-                xavier_config: Optional[Dict] = kwargs.pop("xavier_config", None)
-                if xavier_config is not None:
-                    xavier_config["rank_address"] = subpool_address
-                model_kwargs = kwargs.copy()
-                model_kwargs["enable_virtual_env"] = enable_virtual_env
-                if n_worker > 1:  # type: ignore
-                    # for model across workers,
-                    # add a few kwargs
-                    model_kwargs.update(
-                        dict(
-                            address=subpool_address,
-                            n_worker=n_worker,
-                            shard=shard,
-                            driver_info=driver_info,
+            # Launch concurrency control: queue if semaphore is full
+            if self._launch_semaphore.locked():
+                self._launch_waiting += 1
+                logger.info(
+                    "Launch queued: model_name=%s, model_uid=%s (active: %d/%d, queued: %d)",
+                    model_name,
+                    model_uid,
+                    self._launch_active,
+                    XINFERENCE_MAX_CONCURRENT_LAUNCHES,
+                    self._launch_waiting,
+                )
+                _was_queued = True
+
+            async with self._launch_semaphore:
+                if _was_queued:
+                    self._launch_waiting -= 1
+                    _was_queued = False
+                self._launch_active += 1
+                logger.info(
+                    "Launch started: model_name=%s, model_uid=%s (active: %d/%d, queued: %d)",
+                    model_name,
+                    model_uid,
+                    self._launch_active,
+                    XINFERENCE_MAX_CONCURRENT_LAUNCHES,
+                    self._launch_waiting,
+                )
+                try:
+                    # Check if cancelled while waiting in queue
+                    if launch_info.cancel_event.is_set():
+                        raise RuntimeError(
+                            f"Launch cancelled while waiting in queue: {model_uid}"
                         )
+
+                    # virtualenv
+                    virtual_env_name = kwargs.pop("virtual_env_name", None)
+                    # Use v4 structure: .xinference/virtualenv/v4/model_name/model_engine/python_version
+                    python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+                    engine_name = (model_engine or "default").lower()
+                    virtual_env_path = os.path.join(
+                        XINFERENCE_VIRTUAL_ENV_DIR,
+                        "v4",
+                        model_name,
+                        engine_name,
+                        python_version,
                     )
-
-                with CancellableDownloader(
-                    cancelled_event=launch_info.cancel_event
-                ) as downloader:
-                    launch_info.downloader = downloader
-                    progressor = await self._get_progressor("launching-" + model_uid)
-                    # split into download and launch
-                    progressor.split_stages(2, stage_weight=[0, 0.8, 1.0])
-                    with progressor:
-                        upload_progress_task = asyncio.create_task(
-                            asyncio.to_thread(
-                                self._upload_download_progress, progressor, downloader
+                    virtual_env_manager = await asyncio.to_thread(
+                        self._create_virtual_env_manager,
+                        enable_virtual_env,
+                        virtual_env_name,
+                        virtual_env_path,
+                    )
+                    subpool_python_path = resolve_virtualenv_python_path(
+                        virtual_env_manager
+                    )
+                    subpool_envs = build_subpool_envs_for_virtual_env(
+                        envs, enable_virtual_env, virtual_env_manager
+                    )
+                    subpool_address, devices = await self._create_subpool(
+                        model_uid,
+                        model_type,
+                        n_gpu=n_gpu,
+                        gpu_idx=gpu_idx,
+                        start_python=subpool_python_path,
+                        env=subpool_envs,
+                    )
+                    all_subpool_addresses = [subpool_address]
+                    try:
+                        xavier_config: Optional[Dict] = kwargs.pop(
+                            "xavier_config", None
+                        )
+                        if xavier_config is not None:
+                            xavier_config["rank_address"] = subpool_address
+                        model_kwargs = kwargs.copy()
+                        model_kwargs["enable_virtual_env"] = enable_virtual_env
+                        if n_worker > 1:  # type: ignore
+                            # for model across workers,
+                            # add a few kwargs
+                            model_kwargs.update(
+                                dict(
+                                    address=subpool_address,
+                                    n_worker=n_worker,
+                                    shard=shard,
+                                    driver_info=driver_info,
+                                )
                             )
-                        )
-                        # Limit hf_hub download concurrency to reduce GIL
-                        # contention that starves the event loop.
-                        _orig_hf_workers = os.environ.get("HF_HUB_DOWNLOAD_WORKERS")
-                        os.environ["HF_HUB_DOWNLOAD_WORKERS"] = str(
-                            XINFERENCE_MODEL_DOWNLOAD_WORKERS
-                        )
-                        try:
-                            # Wrap download phase with stream redirect when console logging is disabled
-                            if not XINFERENCE_LOG_CONSOLE:
-                                from ..deploy.utils import redirect_streams_to_logger
 
-                                def _create_with_redirect():
-                                    with redirect_streams_to_logger(
-                                        XINFERENCE_LOG_DOWNLOAD_PROGRESS
-                                    ):
-                                        return create_model_instance(
+                        with CancellableDownloader(
+                            cancelled_event=launch_info.cancel_event
+                        ) as downloader:
+                            launch_info.downloader = downloader
+                            progressor = await self._get_progressor(
+                                "launching-" + model_uid
+                            )
+                            # split into download and launch
+                            progressor.split_stages(2, stage_weight=[0, 0.8, 1.0])
+                            with progressor:
+                                upload_progress_task = asyncio.create_task(
+                                    asyncio.to_thread(
+                                        self._upload_download_progress,
+                                        progressor,
+                                        downloader,
+                                    )
+                                )
+                                # Limit hf_hub download concurrency to reduce GIL
+                                # contention that starves the event loop.
+                                _orig_hf_workers = os.environ.get(
+                                    "HF_HUB_DOWNLOAD_WORKERS"
+                                )
+                                os.environ["HF_HUB_DOWNLOAD_WORKERS"] = str(
+                                    XINFERENCE_MODEL_DOWNLOAD_WORKERS
+                                )
+                                try:
+                                    # Wrap download phase with stream redirect when console logging is disabled
+                                    if not XINFERENCE_LOG_CONSOLE:
+                                        from ..deploy.utils import (
+                                            redirect_streams_to_logger,
+                                        )
+
+                                        def _create_with_redirect():
+                                            with redirect_streams_to_logger(
+                                                XINFERENCE_LOG_DOWNLOAD_PROGRESS
+                                            ):
+                                                return create_model_instance(
+                                                    model_uid,
+                                                    model_type,
+                                                    model_name,
+                                                    model_engine,
+                                                    model_format,
+                                                    model_size_in_billions,
+                                                    quantization,
+                                                    peft_model_config,
+                                                    download_hub,
+                                                    model_path,
+                                                    **model_kwargs,
+                                                )
+
+                                        model = await asyncio.to_thread(
+                                            _create_with_redirect
+                                        )
+                                    else:
+                                        model = await asyncio.to_thread(
+                                            create_model_instance,
                                             model_uid,
                                             model_type,
                                             model_name,
@@ -2049,162 +2119,164 @@ class WorkerActor(xo.StatelessActor):
                                             model_path,
                                             **model_kwargs,
                                         )
-
-                                model = await asyncio.to_thread(_create_with_redirect)
-                            else:
-                                model = await asyncio.to_thread(
-                                    create_model_instance,
-                                    model_uid,
-                                    model_type,
-                                    model_name,
-                                    model_engine,
-                                    model_format,
-                                    model_size_in_billions,
-                                    quantization,
-                                    peft_model_config,
-                                    download_hub,
-                                    model_path,
-                                    **model_kwargs,
-                                )
-                        finally:
-                            if _orig_hf_workers is not None:
-                                os.environ["HF_HUB_DOWNLOAD_WORKERS"] = _orig_hf_workers
-                            else:
-                                os.environ.pop("HF_HUB_DOWNLOAD_WORKERS", None)
-                    model.model_family.address = subpool_address
-                    model.model_family.accelerators = devices
-                    model.model_family.multimodal_projector = model_kwargs.get(
-                        "multimodal_projector", None
-                    )
-                    await self.update_cache_status(
-                        model_name, model.model_family.to_version_info()
-                    )
-
-                def check_cancel():
-                    # check downloader first, sometimes download finished
-                    # cancelled already
-                    if downloader.cancelled:
-                        with progressor:
-                            # just report progress
-                            pass
-                        downloader.raise_error(error_msg="Launch cancelled")
-
-                # check cancel before prepare virtual env
-                check_cancel()
-
-                # install packages in virtual env
-                if virtual_env_manager:
-                    await asyncio.to_thread(
-                        self._prepare_virtual_env,
-                        virtual_env_manager,
-                        model.model_family.virtualenv,
-                        virtual_env_packages,
-                        model_engine,
-                        model_name=model_name,
-                        architectures=getattr(
-                            model.model_family, "_resolve_architectures", lambda: None
-                        )(),
-                    )
-                    launch_info.virtual_env_manager = virtual_env_manager
-
-                # check before creating model actor
-                check_cancel()
-
-                model_ref = await xo.create_actor(
-                    ModelActor,
-                    address=subpool_address,
-                    uid=model_uid,
-                    supervisor_address=self._supervisor_address,
-                    worker_address=self.address,
-                    replica_model_uid=model_uid,
-                    model=model,
-                    request_limits=request_limits,
-                    xavier_config=xavier_config,
-                    n_worker=n_worker,
-                    shard=shard,
-                    driver_info=driver_info,
-                    model_engine=model_engine,
-                )
-                if await model_ref.need_create_pools() and (
-                    len(devices) > 1 or n_worker > 1  # type: ignore
-                ):
-                    coros = []
-                    env_name = get_available_device_env_name() or "CUDA_VISIBLE_DEVICES"
-                    env_value = ",".join(devices)
-                    for device in devices:
-                        coros.append(
-                            self._main_pool.append_sub_pool(
-                                env={env_name: env_value},
-                                start_python=subpool_python_path,
+                                finally:
+                                    if _orig_hf_workers is not None:
+                                        os.environ["HF_HUB_DOWNLOAD_WORKERS"] = (
+                                            _orig_hf_workers
+                                        )
+                                    else:
+                                        os.environ.pop("HF_HUB_DOWNLOAD_WORKERS", None)
+                            model.model_family.address = subpool_address
+                            model.model_family.accelerators = devices
+                            model.model_family.multimodal_projector = model_kwargs.get(
+                                "multimodal_projector", None
                             )
-                        )
-                    pool_addresses = await asyncio.gather(*coros)
-                    all_subpool_addresses.extend(pool_addresses)
-                    await model_ref.set_pool_addresses(pool_addresses)
+                            await self.update_cache_status(
+                                model_name, model.model_family.to_version_info()
+                            )
 
-                # check before loading
-                check_cancel()
+                        def check_cancel():
+                            # check downloader first, sometimes download finished
+                            # cancelled already
+                            if downloader.cancelled:
+                                with progressor:
+                                    # just report progress
+                                    pass
+                                downloader.raise_error(error_msg="Launch cancelled")
 
-                # set all subpool addresses
-                # when cancelled, all subpool addresses need to be destroyed
-                launch_info.sub_pools = all_subpool_addresses
-
-                with progressor:
-                    try:
-                        _load_start = time.time()
-                        await model_ref.load()
-                        _load_duration = time.time() - _load_start
-                        from .metrics import model_last_load_duration_seconds
-
-                        model_last_load_duration_seconds.set(
-                            {
-                                "model_name": model_name,
-                                "model_type": model_type,
-                                "worker_address": self.address,
-                            },
-                            _load_duration,
-                        )
-                    except xo.ServerClosed:
+                        # check cancel before prepare virtual env
                         check_cancel()
+
+                        # install packages in virtual env
+                        if virtual_env_manager:
+                            await asyncio.to_thread(
+                                self._prepare_virtual_env,
+                                virtual_env_manager,
+                                model.model_family.virtualenv,
+                                virtual_env_packages,
+                                model_engine,
+                                model_name=model_name,
+                                architectures=getattr(
+                                    model.model_family,
+                                    "_resolve_architectures",
+                                    lambda: None,
+                                )(),
+                            )
+                            launch_info.virtual_env_manager = virtual_env_manager
+
+                        # check before creating model actor
+                        check_cancel()
+
+                        model_ref = await xo.create_actor(
+                            ModelActor,
+                            address=subpool_address,
+                            uid=model_uid,
+                            supervisor_address=self._supervisor_address,
+                            worker_address=self.address,
+                            replica_model_uid=model_uid,
+                            model=model,
+                            request_limits=request_limits,
+                            xavier_config=xavier_config,
+                            n_worker=n_worker,
+                            shard=shard,
+                            driver_info=driver_info,
+                            model_engine=model_engine,
+                        )
+                        if await model_ref.need_create_pools() and (
+                            len(devices) > 1 or n_worker > 1  # type: ignore
+                        ):
+                            coros = []
+                            env_name = (
+                                get_available_device_env_name()
+                                or "CUDA_VISIBLE_DEVICES"
+                            )
+                            env_value = ",".join(devices)
+                            for device in devices:
+                                coros.append(
+                                    self._main_pool.append_sub_pool(
+                                        env={env_name: env_value},
+                                        start_python=subpool_python_path,
+                                    )
+                                )
+                            pool_addresses = await asyncio.gather(*coros)
+                            all_subpool_addresses.extend(pool_addresses)
+                            await model_ref.set_pool_addresses(pool_addresses)
+
+                        # check before loading
+                        check_cancel()
+
+                        # set all subpool addresses
+                        # when cancelled, all subpool addresses need to be destroyed
+                        launch_info.sub_pools = all_subpool_addresses
+
+                        with progressor:
+                            try:
+                                _load_start = time.time()
+                                await model_ref.load()
+                                _load_duration = time.time() - _load_start
+                                from .metrics import model_last_load_duration_seconds
+
+                                model_last_load_duration_seconds.set(
+                                    {
+                                        "model_name": model_name,
+                                        "model_type": model_type,
+                                        "worker_address": self.address,
+                                    },
+                                    _load_duration,
+                                )
+                            except xo.ServerClosed:
+                                check_cancel()
+                                raise
+                    except Exception:
+                        logger.error(f"Failed to load model {model_uid}", exc_info=True)
+                        self.release_devices(model_uid=model_uid)
+                        for addr in all_subpool_addresses:
+                            try:
+                                await self._main_pool.remove_sub_pool(addr)
+                            except KeyError:
+                                continue
                         raise
-            except Exception:
-                logger.error(f"Failed to load model {model_uid}", exc_info=True)
-                self.release_devices(model_uid=model_uid)
-                for addr in all_subpool_addresses:
+                    self._model_uid_to_model[model_uid] = model_ref
                     try:
-                        await self._main_pool.remove_sub_pool(addr)
-                    except KeyError:
-                        continue
-                raise
-            self._model_uid_to_model[model_uid] = model_ref
-            try:
-                self._model_uid_to_pid[model_uid] = await model_ref.get_pid()
-            except Exception:
-                pass
-            # Deterministic provenance: register all sub-pool process PIDs for
-            # this replica (primary ModelActor pool + per-device vLLM/SGLang rank
-            # pools). report_status maps NVML PIDs back to the owning replica via
-            # this table, without reading any process environ.
-            subpool_pids: Set[int] = set()
-            for _addr in all_subpool_addresses:
-                try:
-                    _proc = self._main_pool.sub_processes.get(_addr)
-                    if _proc is not None and _proc.pid is not None:
-                        subpool_pids.add(_proc.pid)
-                except Exception:
-                    continue
-            self._model_uid_to_subpool_pids[model_uid] = subpool_pids
-            model_spec = model.model_family.to_description()
-            self._model_uid_to_model_spec[model_uid] = model_spec
-            self._model_uid_to_model_status[model_uid] = ModelStatus()
-            self._model_uid_to_addr[model_uid] = subpool_address
-            self._model_uid_to_recover_count.setdefault(
-                model_uid, MODEL_ACTOR_AUTO_RECOVER_LIMIT
-            )
-            self._model_uid_to_launch_args[model_uid] = launch_args
-            # §4.3: Persist for auto-recovery on restart
-            self._persist_launch_args()
+                        self._model_uid_to_pid[model_uid] = await model_ref.get_pid()
+                    except Exception:
+                        pass
+                    # Deterministic provenance: register all sub-pool process PIDs for
+                    # this replica (primary ModelActor pool + per-device vLLM/SGLang rank
+                    # pools). report_status maps NVML PIDs back to the owning replica via
+                    # this table, without reading any process environ.
+                    subpool_pids: Set[int] = set()
+                    for _addr in all_subpool_addresses:
+                        try:
+                            _proc = self._main_pool.sub_processes.get(_addr)
+                            if _proc is not None and _proc.pid is not None:
+                                subpool_pids.add(_proc.pid)
+                        except Exception:
+                            continue
+                    self._model_uid_to_subpool_pids[model_uid] = subpool_pids
+                    model_spec = model.model_family.to_description()
+                    self._model_uid_to_model_spec[model_uid] = model_spec
+                    self._model_uid_to_model_status[model_uid] = ModelStatus()
+                    self._model_uid_to_addr[model_uid] = subpool_address
+                    self._model_uid_to_recover_count.setdefault(
+                        model_uid, MODEL_ACTOR_AUTO_RECOVER_LIMIT
+                    )
+                    self._model_uid_to_launch_args[model_uid] = launch_args
+                    # §4.3: Persist for auto-recovery on restart
+                    self._persist_launch_args()
+                finally:
+                    self._launch_active -= 1
+                    logger.info(
+                        "Launch finished: model_name=%s, model_uid=%s (active: %d/%d, queued: %d)",
+                        model_name,
+                        model_uid,
+                        self._launch_active,
+                        XINFERENCE_MAX_CONCURRENT_LAUNCHES,
+                        self._launch_waiting,
+                    )
         finally:
+            if _was_queued:
+                self._launch_waiting -= 1
             del self._model_uid_launching_guard[model_uid]
 
         # Record virtual environment information if applicable

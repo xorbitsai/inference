@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import asyncio
 import itertools
 from typing import Any, List, Optional, Tuple, Union
 
@@ -55,6 +56,15 @@ class MockWorkerActor(WorkerActor):
 
     def set_allow_multi_replica_per_gpu(self, allow: bool):
         self._allow_multi_replica_per_gpu = allow
+
+    def get_launch_semaphore_value(self):
+        return self._launch_semaphore._value
+
+    def get_launch_active_count(self):
+        return self._launch_active
+
+    def get_launch_waiting_count(self):
+        return self._launch_waiting
 
     async def is_model_vllm_backend(self, model_uid):
         if model_uid.startswith("embedding") or model_uid.startswith("rerank"):
@@ -1211,3 +1221,66 @@ async def test_report_status_skips_gpu_collection_when_cpu_only(
     status = sup.report_worker_status_calls[-1][1]
     assert "model_gpu_memory" not in status
     assert calls == []  # NVML never queried on CPU-only worker
+
+
+@pytest.mark.asyncio
+async def test_launch_semaphore_default(setup_pool):
+    pool = setup_pool
+    addr = pool.external_address
+
+    worker: xo.ActorRefType["MockWorkerActor"] = await xo.create_actor(  # type: ignore
+        MockWorkerActor,
+        address=addr,
+        uid=WorkerActor.default_uid(),
+        supervisor_address="test",
+        main_pool=pool,
+        cuda_devices=[0],
+    )
+
+    # Semaphore initialized in __init__, default value 5
+    assert await worker.get_launch_semaphore_value() == 5
+    assert await worker.get_launch_active_count() == 0
+    assert await worker.get_launch_waiting_count() == 0
+
+
+@pytest.mark.asyncio
+async def test_launch_semaphore_env_override(setup_pool, monkeypatch):
+    monkeypatch.setattr("xinference.core.worker.XINFERENCE_MAX_CONCURRENT_LAUNCHES", 2)
+
+    pool = setup_pool
+    addr = pool.external_address
+
+    worker: xo.ActorRefType["MockWorkerActor"] = await xo.create_actor(  # type: ignore
+        MockWorkerActor,
+        address=addr,
+        uid=WorkerActor.default_uid(),
+        supervisor_address="test",
+        main_pool=pool,
+        cuda_devices=[0],
+    )
+
+    assert await worker.get_launch_semaphore_value() == 2
+
+
+@pytest.mark.asyncio
+async def test_launch_semaphore_concurrency():
+    """Verify semaphore correctly limits concurrent launches."""
+    max_concurrent = 2
+    peak_concurrent = 0
+    current_concurrent = 0
+
+    sem = asyncio.Semaphore(max_concurrent)
+
+    async def simulate_launch():
+        nonlocal peak_concurrent, current_concurrent
+        async with sem:
+            current_concurrent += 1
+            if current_concurrent > peak_concurrent:
+                peak_concurrent = current_concurrent
+            await asyncio.sleep(0.05)
+            current_concurrent -= 1
+
+    # Launch 6 concurrent tasks with semaphore limited to 2
+    await asyncio.gather(*[simulate_launch() for _ in range(6)])
+
+    assert peak_concurrent == max_concurrent
