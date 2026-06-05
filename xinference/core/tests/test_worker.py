@@ -843,6 +843,26 @@ def test_prepare_virtual_env_keeps_system_markers():
     ]
 
 
+def test_prepare_virtual_env_expands_engine_dependencies_before_user_override():
+    manager = DummyVirtualEnvManager()
+    settings = VirtualEnvSettings(
+        packages=['#vllm_dependencies# ; #engine# == "vllm"'],
+        inherit_pip_config=False,
+    )
+
+    WorkerActor._prepare_virtual_env(
+        manager,
+        settings,
+        ["vllm==0.10.2"],
+        model_engine="vllm",
+    )
+
+    assert len(manager.calls) == 1
+    packages, _ = manager.calls[0]
+    assert packages.count("vllm==0.10.2") == 1
+    assert "vllm>=0.11.2" not in packages
+
+
 @pytest.mark.asyncio
 async def test_launch_embedding_model(setup_pool):
     pool = setup_pool
