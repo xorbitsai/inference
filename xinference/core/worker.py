@@ -1729,8 +1729,10 @@ class WorkerActor(xo.StatelessActor):
         base_packages = engine_defaults
         if settings.packages:
             base_packages = base_packages + settings.packages.copy()
+        base_packages = expand_engine_dependency_placeholders(
+            base_packages, model_engine
+        )
         packages = merge_virtual_env_packages(base_packages, virtual_env_packages)
-        packages = expand_engine_dependency_placeholders(packages, model_engine)
 
         # Auto-configure PyTorch wheel URL based on system packages
         # Check if packages contain PyTorch system markers (#system_torch#, etc.)
