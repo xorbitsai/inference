@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { toast } from 'sonner'; 
 import type { BaseFormListValueItem } from '@/types/common'; 
 
 export function cn(...inputs: ClassValue[]) {
@@ -96,4 +97,18 @@ export const transformObjToFormList = (obj: Record<string, any> = {}) => {
     key,
     value: String(value),
   }));
+};
+export const copyText = async (value: string) => {
+  if (!value) return;
+
+  if (!navigator.clipboard) {
+    toast.error('Clipboard API not supported');
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(value);
+    toast.success('Copy successful!');
+  } catch {
+    toast.error('Failed to copy');
+  }
 };

@@ -751,12 +751,16 @@
         }
       }
     ],
-    "updated_at": 1769418294,
+    "updated_at": 1780150032,
     "featured": false,
     "virtualenv": {
       "packages": [
-        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
-        "#system_torchvision# ; #engine# == \"sentence_transformers\""
+        "sentence_transformers ; #engine# == \"sentence_transformers\"",
+        "einops ; #engine# == \"sentence_transformers\"",
+        "accelerate>=0.28.0 ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\"",
+        "transformers==4.52.0 ; #engine# == \"sentence_transformers\""
       ]
     }
   },

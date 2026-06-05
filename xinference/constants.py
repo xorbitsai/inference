@@ -103,6 +103,10 @@ XINFERENCE_AUTH_ENCRYPTION_KEY = os.environ.get("XINFERENCE_AUTH_ENCRYPTION_KEY"
 XINFERENCE_AUTH_DB_PATH = os.environ.get(
     "XINFERENCE_AUTH_DB_PATH", os.path.join(XINFERENCE_HOME, "auth", "auth.db")
 )
+XINFERENCE_LAUNCH_HISTORY_DB_PATH = os.environ.get(
+    "XINFERENCE_LAUNCH_HISTORY_DB_PATH",
+    os.path.join(XINFERENCE_HOME, "launch_history.db"),
+)
 
 # OIDC / SSO
 XINFERENCE_OIDC_ENABLED = os.environ.get("XINFERENCE_OIDC_ENABLED", "").lower() in (
@@ -137,6 +141,25 @@ XINFERENCE_LOG_FORMAT = os.environ.get("XINFERENCE_LOG_FORMAT", "text").lower()
 XINFERENCE_LOG_CONSOLE = (
     os.environ.get("XINFERENCE_LOG_CONSOLE", "true").lower() == "true"
 )
+
+# Download progress logging level (only effective when XINFERENCE_LOG_CONSOLE=false)
+# - "sampled": log 25/50/75/100% per shard + terminal state on exit (default)
+# - "full": log every tqdm frame
+# - "off": no progress frames, only start/error lines
+_XINFERENCE_LOG_DOWNLOAD_PROGRESS_RAW = os.environ.get(
+    "XINFERENCE_LOG_DOWNLOAD_PROGRESS", "sampled"
+).lower()
+if _XINFERENCE_LOG_DOWNLOAD_PROGRESS_RAW not in ("sampled", "full", "off"):
+    import sys
+
+    print(
+        f"WARNING: XINFERENCE_LOG_DOWNLOAD_PROGRESS={_XINFERENCE_LOG_DOWNLOAD_PROGRESS_RAW!r} "
+        f"is invalid, falling back to 'sampled'",
+        file=sys.stderr,
+    )
+    XINFERENCE_LOG_DOWNLOAD_PROGRESS = "sampled"
+else:
+    XINFERENCE_LOG_DOWNLOAD_PROGRESS = _XINFERENCE_LOG_DOWNLOAD_PROGRESS_RAW
 XINFERENCE_LOG_RETENTION_DAYS = int(
     os.environ.get("XINFERENCE_LOG_RETENTION_DAYS", "30")
 )

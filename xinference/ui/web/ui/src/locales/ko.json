@@ -90,6 +90,7 @@
     "loadCache": "사용하기",
     "deleteCache": "캐시 삭제",
     "lastUpdated": "마지막 업데이트",
+    "createdBy": "작성자",
     "defaultConfig": "기본 구성",
     "confirmDeleteConfigCache": "이 구성 캐시를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
     "invalidConfigCache": "이 구성 캐시에 필요한 모델 엔진을 현재 사용할 수 없습니다.",

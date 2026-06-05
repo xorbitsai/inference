@@ -35,7 +35,7 @@ import { useCookies } from 'react-cookie'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
-import icon from '../media/icon.webp'
+import icon from '../media/icon.png'
 import { ApiContext } from './apiContext'
 import ThemeButton from './themeButton'
 import TranslateButton from './translateButton'

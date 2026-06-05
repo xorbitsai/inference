@@ -8,7 +8,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from . import admin, audio, embeddings, images, llm, models, rerank, videos
+from . import (
+    admin,
+    audio,
+    embeddings,
+    images,
+    launch_history,
+    llm,
+    models,
+    rerank,
+    videos,
+)
 
 if TYPE_CHECKING:
     from ..restful_api import RESTfulAPI
@@ -24,3 +34,4 @@ def register_all_routes(api: RESTfulAPI) -> None:
     audio.register_routes(api)
     images.register_routes(api)
     videos.register_routes(api)
+    launch_history.register_routes(api)

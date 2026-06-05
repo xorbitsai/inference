@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 230 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 230
 - **Quantizations:** none
-- **Engines**: Transformers
+- **Engines**: vLLM, Transformers
 - **Model ID:** MiniMaxAI/MiniMax-M2.7
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/MiniMaxAI/MiniMax-M2.7>`__, `ModelScope <https://modelscope.cn/models/MiniMax/MiniMax-M2.7>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (ggufv2, 230 Billion)
 - **Model Format:** ggufv2
 - **Model Size (in billions):** 230
 - **Quantizations:** none
-- **Engines**: 
+- **Engines**: vLLM, llama.cpp
 - **Model ID:** unsloth/MiniMax-M2.7-GGUF
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/MiniMax-M2.7-GGUF>`__, `ModelScope <https://modelscope.cn/models/unsloth/MiniMax-M2.7-GGUF>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (mlx, 230 Billion)
 - **Model Format:** mlx
 - **Model Size (in billions):** 230
 - **Quantizations:** 3bit, 4bit, 5bit, 6bit, 8bit
-- **Engines**: 
+- **Engines**: MLX
 - **Model ID:** mlx-community/MiniMax-M2.7-{quantization}
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/MiniMax-M2.7-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/MiniMax-M2.7-{quantization}>`__
 

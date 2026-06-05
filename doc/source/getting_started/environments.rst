@@ -115,3 +115,12 @@ XINFERENCE_QWEN3_RERANK_TEMPLATE
 ~~~~~~~~~~~~~~~~~~~~~~~
 Enable template for Qwen3 rerank model family (0.6B, 4B, 8B,etc) globally.
 Default value is 1.
+
+XINFERENCE_LAUNCH_HISTORY_DB_PATH
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Path to the SQLite database that stores the model launch configuration history
+shown in the "Launch Model" drawer of the Web UI. This store is shared across
+all clients so the history is available from any browser or machine, and it is
+independent of the authentication database. When authentication is enabled, each
+record keeps the creator's username (``created_by``).
+Default value is ``<XINFERENCE_HOME>/launch_history.db``.

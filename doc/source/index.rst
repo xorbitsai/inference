@@ -253,11 +253,6 @@ Getting Involved
       .. grid:: 1
          :gutter: 3
 
-         .. grid-item-card:: 
-            :link: https://xinference.cn/images/WeCom.jpg
-            
-            :fab:`weixin` Find community on WeChat
-
          .. grid-item-card::
             :link: https://discord.gg/Xw9tszSkr5
 

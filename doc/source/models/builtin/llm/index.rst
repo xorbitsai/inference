@@ -171,6 +171,16 @@ The following is a list of built-in LLM in Xinference:
      - 163840
      - We are excited to announce the official release of DeepSeek-V3.2-Exp, an experimental version of our model. As an intermediate step toward our next-generation architecture, V3.2-Exp builds upon V3.1-Terminus by introducing DeepSeek Sparse Attention—a sparse attention mechanism designed to explore and validate optimizations for training and inference efficiency in long-context scenarios.
 
+   * - :ref:`deepseek-v4-flash <models_llm_deepseek-v4-flash>`
+     - chat, reasoning, hybrid, tools
+     - 163840
+     - We present a preview version of DeepSeek-V4 series, including two strong Mixture-of-Experts (MoE) language models — DeepSeek-V4-Pro with 1.6T parameters (49B activated) and DeepSeek-V4-Flash with 284B parameters (13B activated) — both supporting a context length of one million tokens.
+
+   * - :ref:`deepseek-v4-pro <models_llm_deepseek-v4-pro>`
+     - chat, reasoning, hybrid, tools
+     - 163840
+     - We present a preview version of DeepSeek-V4 series, including two strong Mixture-of-Experts (MoE) language models — DeepSeek-V4-Pro with 1.6T parameters (49B activated) and DeepSeek-V4-Flash with 284B parameters (13B activated) — both supporting a context length of one million tokens.
+
    * - :ref:`deepseek-vl2 <models_llm_deepseek-vl2>`
      - chat, vision
      - 4096
@@ -202,7 +212,7 @@ The following is a list of built-in LLM in Xinference:
      - Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models.
 
    * - :ref:`gemma-4 <models_llm_gemma-4>`
-     - generate, chat, reasoning, audio, vision, hybrid
+     - generate, chat, reasoning, tools, audio, vision, hybrid
      - 262144
      - Gemma is a family of open models built by Google DeepMind. Gemma 4 models are multimodal, handling text and image input (with audio supported on small models) and generating text output.
 
@@ -837,6 +847,10 @@ The following is a list of built-in LLM in Xinference:
    deepseek-v3.2
   
    deepseek-v3.2-exp
+  
+   deepseek-v4-flash
+  
+   deepseek-v4-pro
   
    deepseek-vl2
   

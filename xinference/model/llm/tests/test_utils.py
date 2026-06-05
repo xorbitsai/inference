@@ -12,12 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 from types import SimpleNamespace
 
+import pytest
+
+from ..core import chat_context_var
 from ..reasoning_parser import ReasoningParser
 from ..tool_parsers.llama3_tool_parser import Llama3ToolParser
 from ..tool_parsers.qwen_tool_parser import QwenToolParser
 from ..utils import ChatModelMixin
+
+
+@pytest.fixture(autouse=True)
+def reset_chat_context_var():
+    token = chat_context_var.set({})
+    try:
+        yield
+    finally:
+        chat_context_var.reset(token)
 
 
 def test_is_valid_model_name():
@@ -46,6 +59,96 @@ def filter_ids_and_created(data):
             if k not in ["id", "created"]
         }
     return data
+
+
+def test_to_chat_completion_chunks_usage_only_chunk_without_metadata():
+    chunks = [
+        {
+            "id": "cmpl-test",
+            "object": "text_completion",
+            "created": 123,
+            "model": "test-model",
+            "choices": [
+                {
+                    "index": 0,
+                    "text": "hello",
+                    "logprobs": None,
+                    "finish_reason": None,
+                }
+            ],
+        },
+        {
+            "usage": {
+                "prompt_tokens": 3,
+                "completion_tokens": 2,
+                "total_tokens": 5,
+            }
+        },
+    ]
+
+    results = list(ChatModelMixin._to_chat_completion_chunks(iter(chunks)))
+
+    assert results[-1] == {
+        "id": "chatcmpl-test",
+        "model": "test-model",
+        "created": 123,
+        "object": "chat.completion.chunk",
+        "choices": [],
+        "usage": {
+            "prompt_tokens": 3,
+            "completion_tokens": 2,
+            "total_tokens": 5,
+        },
+    }
+
+
+def test_async_to_chat_completion_chunks_preserves_usage_only_chunk():
+    async def _chunks():
+        yield {
+            "id": "cmpl-test",
+            "object": "text_completion",
+            "created": 123,
+            "model": "test-model",
+            "choices": [
+                {
+                    "index": 0,
+                    "text": "",
+                    "logprobs": None,
+                    "finish_reason": "stop",
+                }
+            ],
+        }
+        yield {
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 3,
+                "completion_tokens": 2,
+                "total_tokens": 5,
+            },
+        }
+
+    async def _collect():
+        return [
+            chunk
+            async for chunk in ChatModelMixin._async_to_chat_completion_chunks(
+                _chunks()
+            )
+        ]
+
+    results = asyncio.run(_collect())
+
+    assert results[-1] == {
+        "id": "chatcmpl-test",
+        "model": "test-model",
+        "created": 123,
+        "object": "chat.completion.chunk",
+        "choices": [],
+        "usage": {
+            "prompt_tokens": 3,
+            "completion_tokens": 2,
+            "total_tokens": 5,
+        },
+    }
 
 
 def test_transform_messages_preserves_tool_call_fields():
@@ -96,7 +199,7 @@ def test_deepseekv4_get_full_context_attaches_tools(tmp_path):
     encoding_dir = tmp_path / "encoding"
     encoding_dir.mkdir()
     (encoding_dir / "encoding_dsv4.py").write_text(
-        "def encode_messages(messages, thinking_mode):\n" "    return messages\n",
+        "def encode_messages(messages, thinking_mode):\n    return messages\n",
         encoding="utf-8",
     )
     mixin = ChatModelMixin()
@@ -125,6 +228,54 @@ def test_deepseekv4_get_full_context_attaches_tools(tmp_path):
 
     assert messages[0] == {"role": "system", "content": "", "tools": tools}
     assert messages[1] == {"role": "user", "content": "How is the weather?"}
+
+
+def test_chat_template_kwargs_inherit_model_thinking_default():
+    reasoning_parser = ReasoningParser(
+        reasoning_content=False,
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        enable_thinking=False,
+    )
+
+    kwargs = ChatModelMixin._get_chat_template_kwargs_from_generate_config(
+        {"chat_template_kwargs": {"add_vision_id": True}},
+        reasoning_parser,
+    )
+
+    assert kwargs == {"add_vision_id": True, "enable_thinking": False}
+
+
+def test_chat_template_kwargs_keep_request_thinking_override():
+    reasoning_parser = ReasoningParser(
+        reasoning_content=False,
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        enable_thinking=False,
+    )
+
+    kwargs = ChatModelMixin._get_chat_template_kwargs_from_generate_config(
+        {"chat_template_kwargs": {"thinking": True}},
+        reasoning_parser,
+    )
+
+    assert kwargs == {"thinking": True, "enable_thinking": True}
+
+
+def test_chat_template_kwargs_string_normalizes_thinking():
+    reasoning_parser = ReasoningParser(
+        reasoning_content=False,
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        enable_thinking=False,
+    )
+
+    kwargs = ChatModelMixin._get_chat_template_kwargs_from_generate_config(
+        {"chat_template_kwargs": '{"thinking": true}'},
+        reasoning_parser,
+    )
+
+    assert kwargs == {"thinking": True, "enable_thinking": True}
 
 
 def test_post_process_completion_chunk_without_thinking():

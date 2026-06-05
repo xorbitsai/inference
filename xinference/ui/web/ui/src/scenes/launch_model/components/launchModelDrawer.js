@@ -194,8 +194,8 @@ const LaunchModelDrawer = ({
       arr.map(({ key, value }) => [key, transformValue(value)])
     )
 
-  const buildHistoryKey = (modelName, modelUID) =>
-    `${modelName}::${modelUID || defaultHistoryUID}`
+  const buildHistoryKey = (modelName, modelUID, createdBy = '') =>
+    `${modelName}::${modelUID || defaultHistoryUID}::${createdBy}`
 
   const normalizeHistoryEntry = (item) => {
     if (!item || typeof item !== 'object') return null
@@ -210,11 +210,18 @@ const LaunchModelDrawer = ({
 
     const modelUID = data.model_uid || item.model_uid || ''
 
+    const rawUpdatedAt = item.updated_at
+    const updatedAt =
+      typeof rawUpdatedAt === 'number' ? rawUpdatedAt : Date.parse(rawUpdatedAt)
+
+    const createdBy = item.created_by || data.created_by || ''
+
     return {
-      cache_key: buildHistoryKey(modelName, modelUID),
+      cache_key: buildHistoryKey(modelName, modelUID, createdBy),
       model_name: modelName,
       model_uid: modelUID,
-      updated_at: Number(item.updated_at) || 0,
+      updated_at: Number.isFinite(updatedAt) ? updatedAt : 0,
+      created_by: createdBy,
       data,
     }
   }
@@ -247,10 +254,66 @@ const LaunchModelDrawer = ({
           model_name: item.model_name,
           model_uid: item.model_uid,
           updated_at: item.updated_at,
+          created_by: item.created_by || '',
           data: item.data,
         }))
       )
     )
+  }
+
+  // Replace this model's cached entries with the authoritative server set
+  // while preserving other models' offline entries in localStorage.
+  const mirrorModelEntriesToLocal = (modelName, modelEntries) => {
+    const others = readHistoryEntries().filter(
+      (item) => item.model_name !== modelName
+    )
+    writeHistoryEntries([...others, ...modelEntries])
+  }
+
+  const loadHistoryFromServer = async () => {
+    try {
+      const res = await fetchWrapper.get(
+        `/v1/launch_history?model_name=${encodeURIComponent(
+          modelData.model_name
+        )}`
+      )
+      const entries = (Array.isArray(res) ? res : [])
+        .map(normalizeHistoryEntry)
+        .filter(Boolean)
+      mirrorModelEntriesToLocal(modelData.model_name, entries)
+      return sortHistoryEntries(entries)
+    } catch (error) {
+      console.error('Failed to load launch history from server:', error)
+      // Offline fallback: use whatever is cached locally.
+      return getHistoryEntriesForModel()
+    }
+  }
+
+  const syncHistoryToServer = async (data) => {
+    try {
+      await fetchWrapper.post('/v1/launch_history', {
+        model_name: data.model_name,
+        model_uid: data.model_uid || '',
+        data,
+      })
+      // Refresh from server so created_by populated by the backend shows up.
+      setHistoryEntries(await loadHistoryFromServer())
+    } catch (error) {
+      console.error('Failed to sync launch history to server:', error)
+    }
+  }
+
+  const deleteHistoryOnServer = async (modelName, modelUID) => {
+    try {
+      const path = modelUID
+        ? `/v1/launch_history/${encodeURIComponent(
+            modelName
+          )}/${encodeURIComponent(modelUID)}`
+        : `/v1/launch_history/${encodeURIComponent(modelName)}`
+      await fetchWrapper.delete(path)
+    } catch (error) {
+      console.error('Failed to delete launch history on server:', error)
+    }
   }
 
   const upsertHistoryEntry = (data) => {
@@ -316,6 +379,8 @@ const LaunchModelDrawer = ({
 
     const wasSelected = historyToDelete.cache_key === selectedHistoryKey
     const nextEntries = removeHistoryEntry(historyToDelete.cache_key)
+
+    deleteHistoryOnServer(historyToDelete.model_name, historyToDelete.model_uid)
 
     setHistoryEntries(nextEntries)
     setHistoryToDelete(null)
@@ -611,6 +676,8 @@ const LaunchModelDrawer = ({
   }
 
   useEffect(() => {
+    // Show locally cached entries immediately for a fast open, then refresh
+    // from the server (source of truth) which also brings in created_by.
     const entries = getHistoryEntriesForModel()
     setHistoryEntries(entries)
 
@@ -623,6 +690,24 @@ const LaunchModelDrawer = ({
         applyHistory(latestEntry.data)
       }
     }
+
+    loadHistoryFromServer().then((serverEntries) => {
+      setHistoryEntries(serverEntries)
+      const serverLatest = serverEntries[0]
+      if (serverLatest) {
+        const shouldApply =
+          !latestEntry ||
+          serverLatest.updated_at > (latestEntry.updated_at || 0)
+        if (shouldApply) {
+          setSelectedHistoryKey(serverLatest.cache_key)
+          if (modelEngineType.includes(modelType)) {
+            setPendingHistory(serverLatest.data)
+          } else {
+            applyHistory(serverLatest.data)
+          }
+        }
+      }
+    })
   }, [])
 
   useEffect(() => {
@@ -1127,6 +1212,7 @@ const LaunchModelDrawer = ({
           setSelectedHistoryKey(
             buildHistoryKey(data.model_name, data.model_uid)
           )
+          syncHistoryToServer(data)
         })
         .catch((error) => {
           console.error('Error:', error)
@@ -1593,6 +1679,11 @@ const LaunchModelDrawer = ({
                           {t('launchModel.lastUpdated')}:{' '}
                           {formatHistoryTime(entry.updated_at)}
                         </Typography>
+                        {entry.created_by ? (
+                          <Typography variant="body2" color="text.secondary">
+                            {t('launchModel.createdBy')}: {entry.created_by}
+                          </Typography>
+                        ) : null}
                       </Box>
                       <Box
                         sx={{

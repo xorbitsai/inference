@@ -1,8 +1,7 @@
 import { AppBar, Box, Toolbar } from '@mui/material'
 import Typography from '@mui/material/Typography'
-import * as React from 'react'
 
-import icon from '../../media/icon.webp'
+import icon from '../../media/icon.png'
 
 export default function Header() {
   return (

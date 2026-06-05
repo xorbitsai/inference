@@ -21,9 +21,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { useI18n } from '@/contexts/i18n-context';
+import { copyText } from '@/lib/utils';
 import type { ModelCachedItem } from '@/types/services';
 import type { CatalogModel } from './types';
-import { useI18n } from '@/contexts/i18n-context';
 
 interface CacheManagementDialogProps {
   modelDetail: CatalogModel;
@@ -40,13 +41,6 @@ const CacheManagementDialog: FC<PropsWithChildren<CacheManagementDialogProps>> =
   const [dataSource, setDataSource] = useState<ModelCachedItem[]>([]);
   const [pendingDeleteItem, setPendingDeleteItem] = useState<ModelCachedItem>();
   const [deletingVersion, setDeletingVersion] = useState('');
-
-  const handleCopy = async (value: string) => {
-    if (!value) return;
-
-    await navigator.clipboard?.writeText(value);
-    toast.success(t('common.copySuccess'));
-  };
 
   const handleDelete = (data: ModelCachedItem) => {
     setPendingDeleteItem(data);
@@ -122,7 +116,7 @@ const CacheManagementDialog: FC<PropsWithChildren<CacheManagementDialogProps>> =
                         <span className="min-w-0 flex-1 truncate">{item?.real_path}</span>
                         <Copy
                           className="size-4 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-                          onClick={() => handleCopy(item?.real_path)}
+                          onClick={() => copyText(item?.real_path)}
                         />
                       </div>
                     </TableCell>
@@ -131,7 +125,7 @@ const CacheManagementDialog: FC<PropsWithChildren<CacheManagementDialogProps>> =
                         <span className="min-w-0 flex-1 truncate">{item?.path}</span>
                         <Copy
                           className="size-4 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-                          onClick={() => handleCopy(item?.path)}
+                          onClick={() => copyText(item?.path)}
                         />
                       </div>
                     </TableCell>

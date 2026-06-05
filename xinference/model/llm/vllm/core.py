@@ -161,7 +161,7 @@ except ImportError:
     VLLM_INSTALLED = False
     VLLM_VERSION = None
 
-DEFAULT_VLLM_VERSION = version.parse("0.19.0")
+DEFAULT_VLLM_VERSION = version.parse("0.21.0")
 
 
 def _get_effective_vllm_version() -> version.Version:
@@ -476,6 +476,15 @@ class VLLMModel(LLM):
 
         if self.lora_modules is None:
             self.lora_requests = []
+        elif VLLM_VERSION and VLLM_VERSION >= version.parse("0.14.0"):
+            self.lora_requests = [
+                LoRARequest(
+                    lora_name=lora.lora_name,
+                    lora_int_id=i,
+                    lora_path=lora.local_path,
+                )
+                for i, lora in enumerate(self.lora_modules, start=1)
+            ]
         else:
             self.lora_requests = [
                 LoRARequest(
@@ -952,11 +961,18 @@ class VLLMModel(LLM):
             elif response_format.get("type") == "json_schema":
                 json_schema = response_format.get("json_schema")
                 assert json_schema is not None
-                guided_json = json_schema.get("json_schema")
+                # Real serialized key is the field name `schema_` (the model
+                # aliases the reserved `schema`); fall back to `schema` for raw
+                # passthrough. Check `is None` rather than truthiness so a valid
+                # empty schema ({}) is not dropped.
+                guided_json = json_schema.get("schema_")
+                if guided_json is None:
+                    guided_json = json_schema.get("schema")
 
         sanitized.setdefault("lora_name", generate_config.get("lora_name", None))
         sanitized.setdefault("n", generate_config.get("n", 1))
-        sanitized.setdefault("best_of", generate_config.get("best_of", None))
+        if VLLM_VERSION < version.parse("0.21.0"):
+            sanitized.setdefault("best_of", generate_config.get("best_of", None))
         sanitized.setdefault("seed", generate_config.get("seed", None))
         sanitized.setdefault(
             "presence_penalty", generate_config.get("presence_penalty", 0.0)
@@ -1303,7 +1319,9 @@ class VLLMModel(LLM):
             # Extract guided decoding parameters
             guided_params: dict[str, Any] = {}
             guided_json = sanitized_generate_config.pop("guided_json", None)
-            if guided_json:
+            # Check `is not None` rather than truthiness so a valid empty
+            # schema ({}) is forwarded to vLLM instead of being dropped.
+            if guided_json is not None:
                 guided_params["json"] = guided_json
 
             guided_regex = sanitized_generate_config.pop("guided_regex", None)

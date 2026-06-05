@@ -44,7 +44,6 @@ export type RouteModelType =
   | ModelType.Audio
   | ModelType.Video
   | ModelType.Custom;
-
 export type RequestModelType =
   | ModelType.LLM
   | ModelType.Embedding

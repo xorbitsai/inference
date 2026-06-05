@@ -55,6 +55,8 @@ from ..constants import (
     XINFERENCE_ENABLE_VIRTUAL_ENV,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
     XINFERENCE_HOME,
+    XINFERENCE_LOG_CONSOLE,
+    XINFERENCE_LOG_DOWNLOAD_PROGRESS,
     XINFERENCE_MODEL_DOWNLOAD_WORKERS,
     XINFERENCE_STATUS_GATHER_TIMEOUT,
     XINFERENCE_STATUS_REPORT_MULTIPLIER,
@@ -216,6 +218,12 @@ class WorkerActor(xo.StatelessActor):
         self._model_uid_to_addr: Dict[str, str] = {}
         self._model_uid_to_recover_count: Dict[str, Optional[int]] = {}
         self._model_uid_to_launch_args: Dict[str, Dict] = {}
+        self._model_uid_to_pid: Dict[str, int] = {}
+        # Per-replica sub-pool process PIDs (primary ModelActor pool + per-device
+        # vLLM/SGLang rank pools). Used by report_status to attribute NVML GPU
+        # memory back to the owning replica deterministically, without reading
+        # any process environ.
+        self._model_uid_to_subpool_pids: Dict[str, Set[int]] = {}
 
         if XINFERENCE_DISABLE_METRICS:
             logger.info(
@@ -2020,20 +2028,44 @@ class WorkerActor(xo.StatelessActor):
                             XINFERENCE_MODEL_DOWNLOAD_WORKERS
                         )
                         try:
-                            model = await asyncio.to_thread(
-                                create_model_instance,
-                                model_uid,
-                                model_type,
-                                model_name,
-                                model_engine,
-                                model_format,
-                                model_size_in_billions,
-                                quantization,
-                                peft_model_config,
-                                download_hub,
-                                model_path,
-                                **model_kwargs,
-                            )
+                            # Wrap download phase with stream redirect when console logging is disabled
+                            if not XINFERENCE_LOG_CONSOLE:
+                                from ..deploy.utils import redirect_streams_to_logger
+
+                                def _create_with_redirect():
+                                    with redirect_streams_to_logger(
+                                        XINFERENCE_LOG_DOWNLOAD_PROGRESS
+                                    ):
+                                        return create_model_instance(
+                                            model_uid,
+                                            model_type,
+                                            model_name,
+                                            model_engine,
+                                            model_format,
+                                            model_size_in_billions,
+                                            quantization,
+                                            peft_model_config,
+                                            download_hub,
+                                            model_path,
+                                            **model_kwargs,
+                                        )
+
+                                model = await asyncio.to_thread(_create_with_redirect)
+                            else:
+                                model = await asyncio.to_thread(
+                                    create_model_instance,
+                                    model_uid,
+                                    model_type,
+                                    model_name,
+                                    model_engine,
+                                    model_format,
+                                    model_size_in_billions,
+                                    quantization,
+                                    peft_model_config,
+                                    download_hub,
+                                    model_path,
+                                    **model_kwargs,
+                                )
                         finally:
                             if _orig_hf_workers is not None:
                                 os.environ["HF_HUB_DOWNLOAD_WORKERS"] = _orig_hf_workers
@@ -2145,6 +2177,23 @@ class WorkerActor(xo.StatelessActor):
                         continue
                 raise
             self._model_uid_to_model[model_uid] = model_ref
+            try:
+                self._model_uid_to_pid[model_uid] = await model_ref.get_pid()
+            except Exception:
+                pass
+            # Deterministic provenance: register all sub-pool process PIDs for
+            # this replica (primary ModelActor pool + per-device vLLM/SGLang rank
+            # pools). report_status maps NVML PIDs back to the owning replica via
+            # this table, without reading any process environ.
+            subpool_pids: Set[int] = set()
+            for _addr in all_subpool_addresses:
+                try:
+                    _proc = self._main_pool.sub_processes.get(_addr)
+                    if _proc is not None and _proc.pid is not None:
+                        subpool_pids.add(_proc.pid)
+                except Exception:
+                    continue
+            self._model_uid_to_subpool_pids[model_uid] = subpool_pids
             model_spec = model.model_family.to_description()
             self._model_uid_to_model_spec[model_uid] = model_spec
             self._model_uid_to_model_status[model_uid] = ModelStatus()
@@ -2325,6 +2374,8 @@ class WorkerActor(xo.StatelessActor):
             self._model_uid_to_addr.pop(model_uid, None)
             self._model_uid_to_recover_count.pop(model_uid, None)
             self._model_uid_to_launch_args.pop(model_uid, None)
+            self._model_uid_to_pid.pop(model_uid, None)
+            self._model_uid_to_subpool_pids.pop(model_uid, None)
             # §4.3: Remove from persisted recovery file
             self._remove_persisted_launch_args(model_uid)
 
@@ -2383,6 +2434,54 @@ class WorkerActor(xo.StatelessActor):
             # Use configurable timeout for status gathering
             async with timeout(XINFERENCE_STATUS_GATHER_TIMEOUT):
                 status = await asyncio.to_thread(gather_node_info)
+
+                # Collect per-model GPU memory. Each replica's GPU holders are
+                # its registered sub-pool PIDs (primary ModelActor pool +
+                # per-device vLLM/SGLang rank pools) plus their recursive
+                # children (e.g. vLLM V1 forked EngineCore). Attribution is
+                # deterministic and reads no process environ.
+                if self._total_gpu_devices:
+                    try:
+                        import psutil
+
+                        from ..device_utils import get_per_process_gpu_memory
+
+                        gpu_mem = await asyncio.to_thread(get_per_process_gpu_memory)
+                        model_gpu_mem: Dict[str, Dict[int, int]] = {}
+
+                        for m_uid in set(self._model_uid_to_pid) | set(
+                            self._model_uid_to_subpool_pids
+                        ):
+                            pids: Set[int] = set(
+                                self._model_uid_to_subpool_pids.get(m_uid, set())
+                            )
+                            own_pid = self._model_uid_to_pid.get(m_uid)
+                            if own_pid is not None:
+                                pids.add(own_pid)
+                            # Recursive children cover GPU holders forked outside
+                            # the registered sub-pools (e.g. vLLM V1 EngineCore).
+                            for base in list(pids):
+                                try:
+                                    pids.update(
+                                        c.pid
+                                        for c in psutil.Process(base).children(
+                                            recursive=True
+                                        )
+                                    )
+                                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                                    pass
+                            per_gpu: Dict[int, int] = {}
+                            for pid in pids:
+                                if pid in gpu_mem:
+                                    for gpu_idx, mem in gpu_mem[pid].items():
+                                        per_gpu[gpu_idx] = per_gpu.get(gpu_idx, 0) + mem
+                            if per_gpu:
+                                model_gpu_mem[m_uid] = per_gpu
+
+                        if model_gpu_mem:
+                            status["model_gpu_memory"] = model_gpu_mem
+                    except Exception:
+                        pass
         except asyncio.CancelledError:
             raise
         except Exception:

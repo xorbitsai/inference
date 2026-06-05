@@ -54,8 +54,6 @@ const zh = {
     clickToLaunchModel: '点击鼠标以启动模型',
     dimensions: '维度',
     maxTokens: '最大 token 数',
-    edit: '编辑', //
-    delete: '删除', //
     contextLength: '上下文长度',
     chatModel: '聊天模型',
     generateModel: '生成模型',
@@ -145,10 +143,7 @@ const zh = {
     loraLoadKwargsForImageModel: '图像模型的 Lora 加载参数',
     loraFuseKwargsForImageModel: '图像模型的 Lora 融合参数',
     launch: '启动',
-    goBack: '返回',
     copyJson: '复制 JSON',
-    cancel: '取消',
-    confirm: '确定',
     placeholderTip: '请输入',
     fillCompleteParametersBeforeAdding: '请在添加之前填写完整的参数！',
     model_format: '模型格式',
@@ -167,7 +162,6 @@ const zh = {
     all: '全部',
     cancelledSuccessfully: '取消成功!',
     mustBeUnique: '{{key}} 必须唯一',
-    update: '更新',
     launchProgress: '启动进度',
     launchCompleted: '模型部署完成',
     launchCanceled: '已停止部署',

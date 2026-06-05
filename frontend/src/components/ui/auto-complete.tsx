@@ -111,22 +111,30 @@ export function AutoComplete({
   }, []);
 
   const handleBlurBehavior = React.useCallback(() => {
-    setOpen(false);
-    setTyping(false);
+    setOpen(false)
+    setTyping(false)
 
     /**
      * Allow free text input
      */
     if (allowCustomValue) {
-      return;
+      onChange?.(inputValue || undefined)
+      return
     }
 
     /**
      * Do not allow free text input
      * Restore the selected value
      */
-    setInputValue(selectedOption?.label || '');
-  }, [allowCustomValue, selectedOption?.label]);
+    setInputValue(
+      selectedOption?.label || ""
+    )
+  }, [
+    allowCustomValue,
+    inputValue,
+    onChange,
+    selectedOption?.label,
+  ])
 
   /**
    * Close when clicking outside
