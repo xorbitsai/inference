@@ -1,0 +1,23 @@
+xinference/constants.py
+  156b11c58e82d2e7 238-239
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.0",
+  "base_commit_sha": "b3a00d5e46b18a7714ce50067e3285a5d95508d0",
+  "prompts": {
+    "156b11c58e82d2e7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1d79e8e5-3ef8-4b84-83f2-45730c2b047a",
+        "model": "qwen3.7-max"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 2,
+      "accepted_lines": 9981,
+      "overriden_lines": 0
+    }
+  }
+}
