@@ -4,7 +4,7 @@ export interface ClusterAuth {
 export interface ClusterVersion {
   date: string;
   dirty: boolean;
-  error: any;
+  error: unknown;
   'full-revisionid': string;
   version: string;
 }
@@ -33,6 +33,16 @@ interface PromptsItem {
 export type ModelPrompts = Record<string, PromptsItem>;
 export type ModelFamily = Record<string, string[]>;
 
+export interface VirtualEnv {
+  model_name?: string;
+  model_engine?: string;
+  python_version?: string;
+  worker_ip?: string;
+  env_path?: string;
+  path?: string;
+  real_path?: string;
+  [key: string]: unknown;
+}
 export interface ModelCachedItem {
   model_name: string;
   model_size_in_billions: number;
@@ -57,6 +67,17 @@ export type ModelEngineItem = {
   model_format: string;
   model_name: string;
   model_size_in_billions: string | number;
-  quantizations: string[];
+  multimodal_projectors?: string[];
+  quantization?: string;
+  quantizations?: string[];
 };
 export type ModelEngine = Record<string, string | ModelEngineItem[]>;
+
+export interface ReplicaItem {
+  created_ts: number;
+  error_message: string;
+  replica_id: number;
+  replica_model_uid: string;
+  status: string;
+  worker_address: string;
+}

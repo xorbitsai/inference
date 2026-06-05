@@ -119,6 +119,8 @@ export interface FormFieldProps {
 
   className?: string;
 
+  tooltip?: React.ReactNode;
+
   normalize?: (value: any) => any;
 }
 

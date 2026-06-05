@@ -288,15 +288,16 @@ export const MODEL_TEMPLATE_TEST_MSG = [
 ];
 export enum ModelFormat {
   PyTorch = 'pytorch',
-  GGUF = 'ggufv2',
+  GGUFV2 = 'ggufv2',
   GPTQ = 'gptq',
   AWQ = 'awq',
   FP8 = 'fp8',
   MLX = 'mlx',
+  GGMLV3 ='ggmlv3'
 }
 export const MODEL_FORMAT_LLM_OPTIONS = [
   { value: ModelFormat.PyTorch, label: 'PyTorch' },
-  { value: ModelFormat.GGUF, label: 'GGUF' },
+  { value: ModelFormat.GGUFV2, label: 'GGUF' },
   { value: ModelFormat.GPTQ, label: 'GPTQ' },
   { value: ModelFormat.AWQ, label: 'AWQ' },
   { value: ModelFormat.FP8, label: 'FP8' },
@@ -304,11 +305,11 @@ export const MODEL_FORMAT_LLM_OPTIONS = [
 ];
 export const MODEL_FORMAT_EMBEDDING_OPTIONS = [
   { value: ModelFormat.PyTorch, label: 'PyTorch' },
-  { value: ModelFormat.GGUF, label: 'GGUF' },
+  { value: ModelFormat.GGUFV2, label: 'GGUF' },
 ];
 export const MODEL_FORMAT_RERANK_OPTIONS = [
   { value: ModelFormat.PyTorch, label: 'PyTorch' },
-  { value: ModelFormat.GGUF, label: 'GGUF' },
+  { value: ModelFormat.GGUFV2, label: 'GGUF' },
 ];
 export const MODEL_FORMAT_OPTIONS_MAP: Partial<
   Record<ModelType, { label: string; value: string }[]>

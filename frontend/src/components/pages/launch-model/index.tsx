@@ -31,7 +31,8 @@ import {
 import LaunchDialog from './launch-dialog';
 import CacheManagementDialog from './cache-management.dialog';
 import EnvManagementDialog from './env-management-dialog';
-import type { CatalogModel, VirtualEnv, RouteModelType, RequestModelType } from './types';
+import type { VirtualEnv } from '@/types/services';
+import type { CatalogModel, RouteModelType, RequestModelType } from './types';
 import {
   getString,
   isRecord,
@@ -48,6 +49,7 @@ const LaunchModel = ({ routeType }: LaunchModelProps) => {
   const { t } = useI18n();
   const router = useRouter();
   const isCustomRoute = routeType === ModelType.Custom;
+  const [gpuAvailable, setGPUAvailable] = useState(-1);
   const [customType, setCustomType] = useState<RequestModelType>(ModelType.LLM);
   const [models, setModels] = useState<CatalogModel[]>([]);
   const [virtualenvs, setVirtualenvs] = useState<VirtualEnv[]>([]);
@@ -77,7 +79,12 @@ const LaunchModel = ({ routeType }: LaunchModelProps) => {
     { value: ModelType.Audio, label: t('model.audioModels') },
     { value: ModelType.Flexible, label: t('model.flexibleModels') },
   ];
-
+  const fetDevices = useCallback(async () => {
+    try {
+      const res = await request.get('/v1/cluster/devices');
+      setGPUAvailable(parseInt(res, 10));
+    } catch {}
+  }, []);
   const fetchVirtualenvs = useCallback(async () => {
     const res = await request.get('/v1/virtualenvs');
     setVirtualenvs(Array.isArray(res?.list) ? res.list : []);
@@ -154,6 +161,10 @@ const LaunchModel = ({ routeType }: LaunchModelProps) => {
   }, [isCustomRoute, routeType]);
 
   useEffect(() => {
+    fetDevices();
+  }, [fetDevices]);
+
+  useEffect(() => {
     fetchModels();
   }, [fetchModels]);
 
@@ -225,8 +236,8 @@ const LaunchModel = ({ routeType }: LaunchModelProps) => {
     setUpdateLoading(true);
     try {
       await request.post('/v1/models/update_type', { model_type: refreshType.toLowerCase() });
-      if(isCustomRoute) {
-        fetchModels(refreshType)
+      if (isCustomRoute) {
+        fetchModels(refreshType);
       } else {
         onTabChange(refreshType);
       }
@@ -416,7 +427,7 @@ const LaunchModel = ({ routeType }: LaunchModelProps) => {
               {showAbilityFilter && (
                 <Select
                   value={ability}
-                  onChange={setAbility}
+                  onChange={(value) => setAbility(value ?? '')}
                   options={abilityOptions}
                   placeholder="Ability"
                   allowClear
@@ -426,7 +437,7 @@ const LaunchModel = ({ routeType }: LaunchModelProps) => {
               {showStatusFilter && (
                 <Select
                   value={status}
-                  onChange={setStatus}
+                  onChange={(value) => setStatus(value ?? '')}
                   options={statusOptions}
                   placeholder="Status"
                   allowClear
@@ -460,6 +471,7 @@ const LaunchModel = ({ routeType }: LaunchModelProps) => {
       <LaunchDialog
         model={selectedModel}
         modelType={requestType}
+        gpuAvailable={gpuAvailable}
         onOpenChange={(open) => !open && setSelectedModel(undefined)}
       />
     </PageContainer>

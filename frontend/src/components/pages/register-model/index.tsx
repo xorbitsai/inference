@@ -73,7 +73,7 @@ const RegisterModel = () => {
             : Number(modelSizeInBillions);
         }
         // model_file_name_template is the part after the last '/', while model_uri is the part before it.
-        if (item.model_format === ModelFormat.GGUF) {
+        if (item.model_format === ModelFormat.GGUFV2) {
           const { baseDir, filename } = getPath(item.model_uri);
           newItem.model_uri = baseDir;
           newItem.model_file_name_template = filename;
@@ -148,7 +148,7 @@ const RegisterModel = () => {
             </div>
             <AutoFill modelFamilyMap={modelFamilyMap} autoFillBack={onAutoFillBack} />
           </TabsList>
-          <TabsContent value={activeTab} className="flex">
+          <TabsContent value={activeTab} className="flex px-1 pb-1">
             <div className="flex-1 min-w-0">
               <FormContent
                 modelType={activeTab}

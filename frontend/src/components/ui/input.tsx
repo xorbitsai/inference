@@ -19,6 +19,7 @@ function Input({
       data-slot="input"
       className={cn(
         "border-input flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm outline-none transition-all",
+        "placeholder:text-muted-foreground",
 
         "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
 

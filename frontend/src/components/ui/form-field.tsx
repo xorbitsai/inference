@@ -5,6 +5,7 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/contexts/i18n-context';
 import { getNamePathString } from '@/lib/form';
+import { InfoTooltip } from '@/components/ui/tooltip';
 import type { BaseFormFieldProps, FormFieldProps } from '@/types/form';
 import { useFormContext } from './form';
 
@@ -59,6 +60,7 @@ function FormField({
   valuePropName = 'value',
   layout = 'vertical',
   className,
+  tooltip,
   normalize,
 }: FormFieldProps) {
   const { t } = useI18n();
@@ -179,10 +181,10 @@ function FormField({
         )}
       >
         {label && (
-          <label className={cn('text-sm font-medium', layout === 'horizontal' && 'shrink-0')}>
+          <label className={cn('text-sm font-medium flex items-center gap-1', layout === 'horizontal' && 'shrink-0')}>
             {label}
-
-            {isRequired && <span className="ml-1 text-destructive">*</span>}
+            {!!tooltip && <InfoTooltip content={tooltip} />}
+            {isRequired && <span className="text-destructive">*</span>}
           </label>
         )}
 
