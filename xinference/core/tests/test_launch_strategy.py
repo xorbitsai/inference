@@ -249,7 +249,9 @@ async def test_distributed_launch_avoids_same_worker_for_shards():
         _build_replica_info = staticmethod(SupervisorActor._build_replica_info)
         _choose_worker = SupervisorActor._choose_worker
         _launch_builtin_sharded_model = SupervisorActor._launch_builtin_sharded_model
-        _clear_unexpected_down_replicas = SupervisorActor._clear_unexpected_down_replicas
+        _clear_unexpected_down_replicas = (
+            SupervisorActor._clear_unexpected_down_replicas
+        )
 
         def __init__(self, workers):
             self._worker_address_to_worker = workers
