@@ -92,6 +92,18 @@ def callback_for_async_launch(model_uid: str):
     logger.debug(f"Model uid: {model_uid} async launch completes.")
 
 
+class WorkerNotRegisteredError(Exception):
+    """Raised when a worker reports status but is absent from the supervisor
+    registry (``_worker_address_to_worker``). Most commonly happens after a
+    supervisor restart clears the in-memory registry while workers keep their
+    cached refs. Raising forces the worker into ``report_status``'s reconnect
+    branch, which re-runs ``add_worker`` and self-heals the registry (and thus
+    ``workers_total``). Subclasses ``Exception`` (not ``RuntimeError``) on
+    purpose: the worker report loop treats some ``RuntimeError``s as fatal and
+    breaks, which must never happen here. See optimize/20260603/2026060306.md.
+    """
+
+
 @dataclass
 class WorkerStatus:
     update_time: float
@@ -2652,6 +2664,15 @@ class SupervisorActor(xo.StatelessActor):
     async def report_worker_status(
         self, worker_address: str, status: Dict[str, Union[ResourceStatus, GPUStatus]]
     ):
+        if worker_address not in self._worker_address_to_worker:
+            # Worker is reporting but is absent from the registry (typically
+            # after a supervisor restart cleared it). Reject so the worker's
+            # report_status reconnect branch re-runs add_worker and self-heals
+            # the registry, restoring workers_total and replaying running
+            # replicas. Do NOT fabricate a _worker_status entry here, otherwise
+            # the registry would stay stale forever. See 2026060306.md.
+            raise WorkerNotRegisteredError(worker_address)
+
         if worker_address not in self._worker_status:
             logger.debug("Worker %s resources: %s", worker_address, status)
             self._worker_status[worker_address] = WorkerStatus(
@@ -2692,6 +2713,22 @@ class SupervisorActor(xo.StatelessActor):
         Only updates the timestamp without collecting resource info.
         Used for liveness detection separate from full status reporting.
         """
+        if worker_address not in self._worker_address_to_worker:
+            # Worker not in the registry (typically after a supervisor restart).
+            # Stay a no-op: do NOT fabricate a _worker_status entry, otherwise
+            # dead-node detection would see a fake-alive worker and the registry
+            # would never self-heal. Registry recovery is driven solely by
+            # report_status -> report_worker_status (which raises and triggers
+            # the worker's reconnect/add_worker path). We must NOT raise here:
+            # heartbeat() has no reconnect branch and the worker report loop may
+            # treat a raised RuntimeError as fatal and break. See 2026060306.md.
+            logger.debug(
+                "Worker %s heartbeat ignored: not registered, waiting for "
+                "report_status to re-register",
+                worker_address,
+            )
+            return
+
         if worker_address not in self._worker_status:
             # New worker, create initial status with empty state
             logger.debug("Worker %s heartbeat: new worker", worker_address)
