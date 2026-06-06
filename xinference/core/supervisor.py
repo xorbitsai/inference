@@ -101,7 +101,7 @@ class WorkerNotRegisteredError(Exception):
     branch, which re-runs ``add_worker`` and self-heals the registry (and thus
     ``workers_total``). Subclasses ``Exception`` (not ``RuntimeError``) on
     purpose: the worker report loop treats some ``RuntimeError``s as fatal and
-    breaks, which must never happen here. See optimize/20260603/2026060306.md.
+    breaks, which must never happen here.
     """
 
 
@@ -2449,6 +2449,7 @@ class SupervisorActor(xo.StatelessActor):
         if errors and not suppress_exception:
             raise errors[0]
         self._model_uid_to_replica_info.pop(model_uid, None)
+        self._clear_unexpected_down_replicas(model_uid)
 
         # clear for xavier
         rank0_uid = model_uid + "-rank0"
@@ -2524,9 +2525,11 @@ class SupervisorActor(xo.StatelessActor):
                 model_uid,
                 {"replica": remaining_replica_count, "status": LaunchStatus.READY.name},
             )
+            self._unexpected_down_replicas.pop((model_uid, replica_id), None)
             return remaining_replica_count
 
         self._model_uid_to_replica_info.pop(model_uid, None)
+        self._clear_unexpected_down_replicas(model_uid)
 
         rank0_uid = model_uid + "-rank0"
         if rank0_uid in self._replica_model_uid_to_worker:
@@ -2860,7 +2863,7 @@ class SupervisorActor(xo.StatelessActor):
             # report_status reconnect branch re-runs add_worker and self-heals
             # the registry, restoring workers_total and replaying running
             # replicas. Do NOT fabricate a _worker_status entry here, otherwise
-            # the registry would stay stale forever. See 2026060306.md.
+            # the registry would stay stale forever.
             raise WorkerNotRegisteredError(worker_address)
 
         if worker_address not in self._worker_status:
@@ -2911,7 +2914,7 @@ class SupervisorActor(xo.StatelessActor):
             # report_status -> report_worker_status (which raises and triggers
             # the worker's reconnect/add_worker path). We must NOT raise here:
             # heartbeat() has no reconnect branch and the worker report loop may
-            # treat a raised RuntimeError as fatal and break. See 2026060306.md.
+            # treat a raised RuntimeError as fatal and break.
             logger.debug(
                 "Worker %s heartbeat ignored: not registered, waiting for "
                 "report_status to re-register",

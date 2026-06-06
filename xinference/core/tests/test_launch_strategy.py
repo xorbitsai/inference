@@ -309,6 +309,9 @@ async def test_terminate_model_replica_updates_active_replica_set():
         _refresh_replica_scheduler = staticmethod(
             SupervisorActor._refresh_replica_scheduler
         )
+        _clear_unexpected_down_replicas = (
+            SupervisorActor._clear_unexpected_down_replicas
+        )
 
         def __init__(self):
             self._model_uid_to_replica_info = {
@@ -327,6 +330,7 @@ async def test_terminate_model_replica_updates_active_replica_set():
             self._status_guard_ref.replica_counts["demo-model"] = 3
             self._collective_manager_mapping = {}
             self._block_tracker_mapping = {}
+            self._unexpected_down_replicas = {}
 
     supervisor = DummySupervisor()
     remaining = await supervisor.terminate_model_replica("demo-model", 1)
