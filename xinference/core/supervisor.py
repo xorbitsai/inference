@@ -338,17 +338,29 @@ class SupervisorActor(xo.StatelessActor):
             if parsed is None:
                 continue
             base_uid, replica_idx = parsed
-            try:
-                info_list = await self._status_guard_ref.get_instance_info(
-                    model_uid=base_uid
-                )
-                m_name = info_list[0].model_name if info_list else "unknown"
-            except Exception:
-                m_name = "unknown"
+            m_name = "unknown"
+            if self._status_guard_ref is not None:
+                try:
+                    info_list = await self._status_guard_ref.get_instance_info(
+                        model_uid=base_uid
+                    )
+                    m_name = info_list[0].model_name if info_list else "unknown"
+                except Exception:
+                    pass
             collected.append((base_uid, replica_idx, m_name))
-        # Mutate the shared dict without awaiting in between.
+        # Mutate the shared dict without awaiting in between. Re-check that
+        # each replica is still mapped to this dead worker before writing:
+        # during the awaits above, a concurrent redeploy could have called
+        # _clear_unexpected_down_replicas and removed stale entries — blindly
+        # writing collected items back would resurrect them.
         for base_uid, replica_idx, m_name in collected:
-            self._unexpected_down_replicas[(base_uid, replica_idx)] = m_name
+            rep_uid = build_replica_model_uid(base_uid, replica_idx)
+            worker_refs = self._replica_model_uid_to_worker.get(rep_uid)
+            if worker_refs is not None:
+                if not isinstance(worker_refs, (list, tuple)):
+                    worker_refs = [worker_refs]
+                if any(wr.address == worker_address for wr in worker_refs):
+                    self._unexpected_down_replicas[(base_uid, replica_idx)] = m_name
         if collected:
             logger.warning(
                 "Replicas down due to worker failure. worker: %s, replicas: %s",
