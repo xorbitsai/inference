@@ -604,6 +604,37 @@ async def test_supervisor_add_worker_idempotent_rebuilds_replica_state(monkeypat
 
 
 @pytest.mark.asyncio
+async def test_supervisor_report_worker_status_rejects_unregistered_worker():
+    """report_worker_status must reject a worker absent from the registry
+    (e.g. after a supervisor restart) instead of fabricating a _worker_status
+    entry, so the worker is pushed into its reconnect/add_worker path and the
+    registry (and workers_total) self-heals."""
+    from ..supervisor import WorkerNotRegisteredError
+
+    supervisor = SupervisorActor()
+    assert "ghost-worker" not in supervisor._worker_address_to_worker
+
+    with pytest.raises(WorkerNotRegisteredError):
+        await supervisor.report_worker_status("ghost-worker", {"cpu": "ok"})
+
+    # No stale status entry should have been created.
+    assert "ghost-worker" not in supervisor._worker_status
+
+
+@pytest.mark.asyncio
+async def test_supervisor_report_worker_status_accepts_registered_worker():
+    """A worker present in the registry reports normally and its status is
+    recorded."""
+    supervisor = SupervisorActor()
+    supervisor._worker_address_to_worker["worker-1"] = object()
+
+    await supervisor.report_worker_status("worker-1", {"cpu": "ok"})
+
+    assert "worker-1" in supervisor._worker_status
+    assert supervisor._worker_status["worker-1"].status == {"cpu": "ok"}
+
+
+@pytest.mark.asyncio
 async def test_supervisor_add_worker_preserves_sharded_replicas_on_replay(monkeypatch):
     supervisor = SupervisorActor()
     supervisor._status_guard_ref = DummyStatusGuardRef()
