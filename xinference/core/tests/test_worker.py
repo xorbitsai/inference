@@ -608,7 +608,7 @@ async def test_supervisor_report_worker_status_rejects_unregistered_worker():
     """report_worker_status must reject a worker absent from the registry
     (e.g. after a supervisor restart) instead of fabricating a _worker_status
     entry, so the worker is pushed into its reconnect/add_worker path and the
-    registry (and workers_total) self-heals. See 2026060306.md."""
+    registry (and workers_total) self-heals."""
     from ..supervisor import WorkerNotRegisteredError
 
     supervisor = SupervisorActor()
