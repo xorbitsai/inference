@@ -1,0 +1,51 @@
+xinference/deploy/local.py
+  159bc1cbe4d8f3b4 101-102
+xinference/core/worker.py
+  159bc1cbe4d8f3b4 908-919,952,2217,2807
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "f9c41c9a6d8ec0e2fe21ee892ebd4be1c1b5896d",
+  "prompts": {
+    "156b11c58e82d2e7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1d79e8e5-3ef8-4b84-83f2-45730c2b047a",
+        "model": "qwen3.7-max"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 9979,
+      "overriden_lines": 0
+    },
+    "159bc1cbe4d8f3b4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3774d71f-422e-4e07-b0f4-0acb8a426b0d",
+        "model": "qwen3.7-max"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 21,
+      "total_deletions": 1,
+      "accepted_lines": 21,
+      "overriden_lines": 0
+    },
+    "8d266c30876391d1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f22b018e-ee2c-4bdc-b6bd-2e7558567b88",
+        "model": "qwen3.7-max"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 3156,
+      "overriden_lines": 0
+    }
+  }
+}
