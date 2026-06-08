@@ -17,7 +17,7 @@ jobs:
     name: Check release tag permission
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - uses: ./.github/actions/check-release-permission
@@ -25,31 +25,22 @@ jobs:
   build-aarch64:
     name: Build aarch64 Docker image
     needs: check-release-permission
-    timeout-minutes: 240
-    runs-on: self-hosted
+    timeout-minutes: 60
+    runs-on: ubuntu-24.04-arm # aarch64 runner
     permissions:
       contents: read
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v1
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
-
-      - name: Clean docker image cache before build
-        shell: bash
-        if: ${{ github.repository == 'xorbitsai/inference' }}
-        run: |
-          docker system df || true
-          docker system prune -af --volumes || true
-          docker builder prune -af || true
-          docker buildx prune -af || true
 
       - name: Build and push aarch64 Docker image
         shell: bash
@@ -69,43 +60,25 @@ jobs:
           docker buildx build --platform linux/arm64 --load -t "$DOCKER_ORG/xinference:${IMAGE_TAG}-aarch64" --progress=plain -f xinference/deploy/docker/Dockerfile.aarch64 .
           docker push "$DOCKER_ORG/xinference:${IMAGE_TAG}-aarch64"
 
-      - name: Clean docker image cache after build
-        shell: bash
-        if: ${{ always() && github.repository == 'xorbitsai/inference' }}
-        run: |
-          docker system df || true
-          docker system prune -af --volumes || true
-          docker builder prune -af || true
-          docker buildx prune -af || true
-
   build-gpu:
     name: Build GPU Docker image
-    needs: build-aarch64
-    timeout-minutes: 240
-    runs-on: self-hosted
+    needs: check-release-permission
+    timeout-minutes: 60
+    runs-on: ubuntu-24.04 #x86 runner
     permissions:
       contents: read
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v1
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
-
-      - name: Clean docker image cache before build
-        shell: bash
-        if: ${{ github.repository == 'xorbitsai/inference' }}
-        run: |
-          docker system df || true
-          docker system prune -af --volumes || true
-          docker builder prune -af || true
-          docker buildx prune -af || true
 
       - name: Build and push GPU Docker image
         shell: bash
@@ -125,43 +98,25 @@ jobs:
           docker build -t "$DOCKER_ORG/xinference:${IMAGE_TAG}" --progress=plain -f xinference/deploy/docker/Dockerfile .
           docker push "$DOCKER_ORG/xinference:${IMAGE_TAG}"
 
-      - name: Clean docker image cache after build
-        shell: bash
-        if: ${{ always() && github.repository == 'xorbitsai/inference' }}
-        run: |
-          docker system df || true
-          docker system prune -af --volumes || true
-          docker builder prune -af || true
-          docker buildx prune -af || true
-
   build-cpu:
     name: Build CPU Docker image
-    needs: build-gpu
-    timeout-minutes: 240
-    runs-on: self-hosted
+    timeout-minutes: 60
+    needs: check-release-permission
+    runs-on: ubuntu-24.04 #x86 runner
     permissions:
       contents: read
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v1
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
-
-      - name: Clean docker image cache before build
-        shell: bash
-        if: ${{ github.repository == 'xorbitsai/inference' }}
-        run: |
-          docker system df || true
-          docker system prune -af --volumes || true
-          docker builder prune -af || true
-          docker buildx prune -af || true
 
       - name: Build and push CPU Docker image
         shell: bash
@@ -181,37 +136,20 @@ jobs:
           docker build -t "$DOCKER_ORG/xinference:${IMAGE_TAG}-cpu" --progress=plain -f xinference/deploy/docker/Dockerfile.cpu .
           docker push "$DOCKER_ORG/xinference:${IMAGE_TAG}-cpu"
 
-      - name: Clean docker image cache after build
-        shell: bash
-        if: ${{ always() && github.repository == 'xorbitsai/inference' }}
-        run: |
-          docker system df || true
-          docker system prune -af --volumes || true
-          docker builder prune -af || true
-          docker buildx prune -af || true
-
   tag-latest:
     name: Tag latest Docker images
-    needs: build-cpu
+    needs: [build-aarch64, build-gpu, build-cpu]
     timeout-minutes: 60
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     if: ${{ startsWith(github.ref, 'refs/tags/') && github.repository == 'xorbitsai/inference' }}
     steps:
       - name: Log in to Docker Hub
-        uses: docker/login-action@v1
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
-
-      - name: Clean docker image cache before tagging
-        shell: bash
-        run: |
-          docker system df || true
-          docker system prune -af --volumes || true
-          docker builder prune -af || true
-          docker buildx prune -af || true
 
       - name: Push latest tags
         shell: bash
@@ -231,15 +169,6 @@ jobs:
           docker pull "$DOCKER_ORG/xinference:${GIT_TAG}-aarch64"
           docker tag "$DOCKER_ORG/xinference:${GIT_TAG}-aarch64" "$DOCKER_ORG/xinference:latest-aarch64"
           docker push "$DOCKER_ORG/xinference:latest-aarch64"
-
-      - name: Clean docker image cache after tagging
-        shell: bash
-        if: ${{ always() }}
-        run: |
-          docker system df || true
-          docker system prune -af --volumes || true
-          docker builder prune -af || true
-          docker buildx prune -af || true
 
   notify-failure:
     name: Open issue for Docker CD failure
