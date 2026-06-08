@@ -98,7 +98,8 @@ def run(
     signal.signal(signal.SIGTERM, sigterm_handler)
 
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         task = loop.create_task(
             _start_local_cluster(
                 address=address,

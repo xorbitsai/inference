@@ -905,6 +905,18 @@ class WorkerActor(xo.StatelessActor):
             for model_info in model_infos:
                 self._user_specified_gpu_to_model_uids[dev].remove(model_info)
 
+    async def _ensure_subpool_monitor(self):
+        # The worker main pool is created with n_process=0, so xoscar's
+        # start_monitor() (called once in start()) is a no-op because its guard
+        # `and self.sub_processes` is empty at that point; monitor_sub_pools
+        # therefore never runs and subprocess deaths (OOM / crash / kill) go
+        # undetected and unrecovered. After every append_sub_pool the new
+        # subpool is already in sub_processes, so calling start_monitor() again
+        # here actually starts the monitor loop. start_monitor has its own
+        # `_monitor_task is None` guard, so this is idempotent: at most one
+        # monitor task per worker process.
+        await self._main_pool.start_monitor()
+
     async def _create_subpool(
         self,
         model_uid: str,
@@ -937,6 +949,7 @@ class WorkerActor(xo.StatelessActor):
         subpool_address = await self._main_pool.append_sub_pool(
             env=env, start_python=start_python
         )
+        await self._ensure_subpool_monitor()
         return subpool_address, [str(dev) for dev in devices]
 
     def _check_model_is_valid(self, model_name: str, model_format: Optional[str]):
@@ -2201,6 +2214,7 @@ class WorkerActor(xo.StatelessActor):
                                     )
                                 )
                             pool_addresses = await asyncio.gather(*coros)
+                            await self._ensure_subpool_monitor()
                             all_subpool_addresses.extend(pool_addresses)
                             await model_ref.set_pool_addresses(pool_addresses)
 
@@ -2790,6 +2804,7 @@ class WorkerActor(xo.StatelessActor):
         from ..model.llm.vllm.xavier.collective_manager import Rank0ModelActor
 
         subpool_address = await self._main_pool.append_sub_pool()
+        await self._ensure_subpool_monitor()
 
         store_address = subpool_address.split(":")[0]
         # Note that `store_port` needs to be generated on the worker,
