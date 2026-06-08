@@ -176,6 +176,10 @@ msgid ":fab:`discord` Find community on Discord"
 msgstr ":fab:`discord` Discord 社区"
 
 #: ../../source/index.rst:269
+msgid ":fab:`telegram` Join our Telegram group"
+msgstr ":fab:`telegram` 加入 Telegram 群组"
+
+#: ../../source/index.rst:269
 msgid ":fab:`github` Open an issue"
 msgstr ":fab:`github` 在 Github 上提 issue"
 
