@@ -62,7 +62,7 @@ jobs:
 
   build-gpu:
     name: Build GPU Docker image
-    needs: build-aarch64
+    needs: check-release-permission
     timeout-minutes: 60
     runs-on: ubuntu-24.04 #x86 runner
     permissions:
@@ -101,6 +101,7 @@ jobs:
   build-cpu:
     name: Build CPU Docker image
     timeout-minutes: 60
+    needs: check-release-permission
     runs-on: ubuntu-24.04 #x86 runner
     permissions:
       contents: read
