@@ -656,6 +656,42 @@ async def test_model_oom_triggers_restart(set_test_oom_error, setup_cluster):
 
 
 @pytest.mark.asyncio
+async def test_model_oom_recover_exhausted_evicts_replica(
+    set_auto_recover_limit, set_test_oom_error, setup_cluster
+):
+    # Once worker exhausts AUTO_RECOVER_LIMIT (=1), it stops recreating and
+    # calls back supervisor.mark_replica_dead, which evicts the dead replica.
+    # For a single-replica model the model is taken fully offline, so
+    # list_models() drains to empty.
+    endpoint, _ = setup_cluster
+    client = AsyncRESTfulClient(endpoint)
+
+    model_uid = await client.launch_model(
+        model_name="qwen1.5-chat",
+        model_engine="llama.cpp",
+        model_size_in_billions="0_5",
+        quantization="q4_0",
+    )
+    assert len(await client.list_models()) == 1
+
+    evicted = False
+    for _ in range(60):
+        try:
+            model = await client.get_model(model_uid=model_uid)
+            await model.generate("Once upon a time, there was a very old computer")
+        except Exception:
+            pass
+        if len(await client.list_models()) == 0:
+            evicted = True
+            break
+        time.sleep(1)
+    assert (
+        evicted
+    ), "dead replica was not evicted from supervisor after recover exhausted"
+    await client.close()
+
+
+@pytest.mark.asyncio
 async def test_async_restful_chat_enable_thinking_injected():
     handle = AsyncRESTfulChatModelHandle.__new__(AsyncRESTfulChatModelHandle)
     handle._model_uid = "test-model"

@@ -2563,6 +2563,79 @@ class SupervisorActor(xo.StatelessActor):
 
         return 0
 
+    async def mark_replica_dead(self, replica_model_uid: str) -> None:
+        """Called back by worker after its local recover_sub_pool exhausts
+        AUTO_RECOVER_LIMIT (worker.py "Stop recreating model actor.").
+
+        Responsibilities: evict the dead replica from the round-robin scheduler
+        and light up model_unexpected_termination; when the single/last replica
+        dies, advance base_uid to TERMINATED.
+
+        Deliberately does NOT call back worker.terminate_model -- the worker
+        already terminated the model locally before giving up recreating
+        (recover_sub_pool calls terminate_model(is_model_die=True)).
+        Equivalent to terminate_model_replica's "eviction half" (minus the
+        worker RPC) plus _record_unexpected_down_replicas' "observability half".
+        Idempotent: no-op if the replica is already evicted.
+        """
+        parsed = self._get_model_uid_and_replica_index(replica_model_uid)
+        if parsed is None:
+            return
+        base_uid, replica_idx = parsed
+
+        replica_info = self._model_uid_to_replica_info.get(base_uid)
+        if replica_info is None:
+            return  # model already gone, idempotent no-op
+        if replica_idx not in replica_info.active_replica_ids:
+            return  # replica already evicted, idempotent no-op
+
+        # Observability half: read model_name BEFORE any TERMINATED transition.
+        # get_instance_info filters out TERMINATED entries; right now base_uid is
+        # the ERROR the worker set (not filtered), so model_name is readable.
+        try:
+            info_list = await self._status_guard_ref.get_instance_info(
+                model_uid=base_uid
+            )
+            m_name = info_list[0].model_name if info_list else "unknown"
+        except Exception:
+            m_name = "unknown"
+        self._unexpected_down_replicas[(base_uid, replica_idx)] = m_name
+        logger.warning(
+            "Replica down: worker exhausted auto-recover limit. "
+            "model_uid: %s, model_name: %s, replica_index: %s",
+            base_uid,
+            m_name,
+            replica_idx,
+        )
+
+        # Eviction half: mirror terminate_model_replica, minus
+        # worker_ref.terminate_model.
+        self._replica_model_uid_to_worker.pop(replica_model_uid, None)
+        self._replica_model_uid_to_worker_shards.pop(replica_model_uid, None)
+        replica_info.replica_to_worker_refs.pop(replica_idx, None)
+        replica_info.active_replica_ids.remove(replica_idx)
+        self._refresh_replica_scheduler(replica_info)
+
+        remaining = await self._status_guard_ref.remove_replica_status(
+            base_uid, replica_idx
+        )
+        if remaining > 0:
+            # Degraded: healthy replicas remain -> keep READY.
+            await self._status_guard_ref.update_instance_info(
+                base_uid,
+                {"replica": remaining, "status": LaunchStatus.READY.name},
+            )
+            return
+
+        # Single replica / last replica died -> take the model fully offline.
+        self._model_uid_to_replica_info.pop(base_uid, None)
+        try:
+            await self._status_guard_ref.update_instance_info(
+                base_uid, {"status": LaunchStatus.TERMINATED.name}
+            )
+        except Exception:
+            logger.warning("Failed to mark %s TERMINATED in status guard", base_uid)
+
     @log_async(logger=logger)
     async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)

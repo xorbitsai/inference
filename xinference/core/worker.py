@@ -315,6 +315,30 @@ class WorkerActor(xo.StatelessActor):
                             await self.recover_model(launch_args)
                         else:
                             logger.warning("Stop recreating model actor.")
+                            # Worker has given up recreating; notify supervisor
+                            # to evict the dead replica from round-robin and
+                            # light up the failure gauge. add_worker=False:
+                            # only fetch the ref, do not trigger
+                            # re-registration. Wrap in xo.wait_for(5s): this
+                            # runs inside the recover_sub_pool tail path, so a
+                            # stalled supervisor must not hold up the worker's
+                            # local shutdown. A failure/timeout is non-fatal --
+                            # the next death detection / redeploy will
+                            # reconcile.
+                            try:
+                                supervisor_ref = await self.get_supervisor_ref(
+                                    add_worker=False
+                                )
+                                await xo.wait_for(
+                                    supervisor_ref.mark_replica_dead(model_uid),
+                                    timeout=5,
+                                )
+                            except Exception:
+                                logger.warning(
+                                    "Failed to notify supervisor of dead replica %s",
+                                    model_uid,
+                                    exc_info=True,
+                                )
                     else:
                         logger.warning("Recreating model actor %s ...", model_uid)
                         await self.recover_model(launch_args)

@@ -583,6 +583,41 @@ def test_model_oom_triggers_restart(set_test_oom_error, setup_cluster):
         assert False, "OOM subprocess did not exit (sys.exit swallowed by xoscar)"
 
 
+def test_model_oom_recover_exhausted_evicts_replica(
+    set_auto_recover_limit, set_test_oom_error, setup_cluster
+):
+    # Once worker exhausts AUTO_RECOVER_LIMIT (=1), it stops recreating and
+    # calls back supervisor.mark_replica_dead, which evicts the dead replica
+    # from the round-robin scheduler. For a single-replica model that means
+    # the model is taken fully offline, so list_models() drains to empty.
+    endpoint, _ = setup_cluster
+    client = RESTfulClient(endpoint)
+
+    model_uid = client.launch_model(
+        model_name="qwen2.5-instruct",
+        model_engine="llama.cpp",
+        model_size_in_billions="0_5",
+        model_format="ggufv2",
+        quantization="q4_0",
+    )
+    assert len(client.list_models()) == 1
+
+    evicted = False
+    for _ in range(60):
+        try:
+            model = client.get_model(model_uid=model_uid)
+            model.generate("Once upon a time, there was a very old computer")
+        except Exception:
+            pass
+        if len(client.list_models()) == 0:
+            evicted = True
+            break
+        time.sleep(1)
+    assert (
+        evicted
+    ), "dead replica was not evicted from supervisor after recover exhausted"
+
+
 def test_restful_chat_enable_thinking_injected():
     handle = RESTfulChatModelHandle("test-model", "http://localhost", {})
     dummy_session = _DummySession()
