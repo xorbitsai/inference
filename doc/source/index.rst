@@ -258,6 +258,11 @@ Getting Involved
 
             :fab:`discord` Find community on Discord
 
+         .. grid-item-card::
+            :link: https://t.me/+nCNpwmySwk9iYmI1
+
+            :fab:`telegram` Join our Telegram group
+
          .. grid-item-card::  
             :link: https://github.com/xorbitsai/inference/issues/new/choose
 

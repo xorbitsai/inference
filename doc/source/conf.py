@@ -84,6 +84,12 @@ html_theme_options = {
             "icon": "fa-brands fa-github",
             "type": "fontawesome",
         },
+        {
+            "name": "Telegram",
+            "url": "https://t.me/+nCNpwmySwk9iYmI1",
+            "icon": "fa-brands fa-telegram",
+            "type": "fontawesome",
+        },
     ],
     "navbar_align": "content",  # [left, content, right] For testing that the navbar items align properly
     "navbar_start": ["navbar-logo", "version-switcher"],
