@@ -532,8 +532,11 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         logger.exception(error_message)
         try:
             worker_ref = await self._get_worker_ref()
-            await worker_ref.update_model_status(
-                self._replica_model_uid, last_error=error_message
+            await asyncio.wait_for(
+                worker_ref.update_model_status(
+                    self._replica_model_uid, last_error=error_message
+                ),
+                timeout=5,
             )
         except Exception:
             logger.warning("Failed to report OOM status before exit", exc_info=True)

@@ -648,7 +648,7 @@ async def test_model_oom_triggers_restart(set_test_oom_error, setup_cluster):
     for _ in range(30):
         if not model_proc.is_running() or model_proc.status() == psutil.STATUS_ZOMBIE:
             break
-        time.sleep(1)
+        await asyncio.sleep(1)
     else:
         assert False, "OOM subprocess did not exit (sys.exit swallowed by xoscar)"
     await model.close()
