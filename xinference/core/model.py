@@ -18,7 +18,6 @@ import inspect
 import json
 import os
 import queue
-import sys
 import time
 import types
 import uuid
@@ -519,35 +518,40 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             await asyncio.to_thread(self._model.close)
 
     async def _handle_oom_error(self, ex):
+        # Reentrancy gate: on the sync batch path the OOM-triggering worker
+        # thread does not await this coroutine, so before os._exit(1) actually
+        # lands it can raise OOM again and concurrently schedule this handler.
+        # Only let the first invocation through to avoid re-entering stop()/del.
+        if getattr(self, "_oom_handling", False):
+            return
+        self._oom_handling = True
+
         error_message = (
             f"Model actor is out of memory, model id: {self.model_uid()}, error: {ex}"
         )
         logger.exception(error_message)
-        worker_ref = await self._get_worker_ref()
-        await worker_ref.update_model_status(
-            self._replica_model_uid, last_error=error_message
-        )
-        # §4.1: Graceful cleanup instead of os._exit(1).
-        # 1) Stop model to release underlying resources (with timeout guard)
         try:
-            await asyncio.wait_for(self.stop(), timeout=30)
-        except asyncio.TimeoutError:
-            logger.warning(
-                "Model stop() timed out after 30s for %s, proceeding with cleanup",
-                self.model_uid(),
+            worker_ref = await self._get_worker_ref()
+            await worker_ref.update_model_status(
+                self._replica_model_uid, last_error=error_message
             )
         except Exception:
+            logger.warning("Failed to report OOM status before exit", exc_info=True)
+
+        # Best-effort cleanup. At an OOM site this mostly cannot reclaim already
+        # reserved GPU fragments; failures are fine because os._exit(1) below is
+        # the real backstop. stop() timeout is 5s (not 30s): keep the exit delay
+        # bounded so xoscar's detection and recovery are not slowed down.
+        try:
+            await asyncio.wait_for(self.stop(), timeout=5)
+        except Exception:
             logger.warning(
-                "Model stop() failed for %s, proceeding with cleanup",
-                self.model_uid(),
-                exc_info=True,
+                "Model stop() failed/timeout during OOM cleanup", exc_info=True
             )
-        # 2) Delete model reference to allow GC to reclaim GPU memory
         try:
             del self._model
         except AttributeError:
             pass
-        # 3) Release PyTorch GPU cache
         try:
             import torch
 
@@ -555,9 +559,19 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 torch.cuda.empty_cache()
         except Exception:
             pass
-        # 4) Use sys.exit(1) instead of os._exit(1) so that Python cleanup hooks
-        #    run and xoscar can detect the sub-process exit, triggering recover_sub_pool.
-        sys.exit(1)
+
+        # Critical fix: must use os._exit(1), NOT sys.exit(1).
+        # sys.exit(1) only raises SystemExit, which xoscar's
+        # _ErrorProcessor.__exit__ (backends/pool.py) swallows with an
+        # unconditional `return True`. The process then stays alive, its
+        # returncode stays None, monitor_sub_pools keeps treating it as alive,
+        # and recover_sub_pool never fires. os._exit goes straight to the
+        # syscall so xoscar can detect the returncode change and rebuild the
+        # sub pool.
+        logger.error(
+            "Exiting model subprocess via os._exit(1) to trigger pool recovery"
+        )
+        os._exit(1)
 
     def _to_generator(self, output_type: str, gen: types.GeneratorType):
         start_time = time.time()
