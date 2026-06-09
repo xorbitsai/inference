@@ -84,6 +84,19 @@ jobs:
           echo "dist contents:"
           ls -la dist/
 
+      - name: Checking tool verion
+        run: |
+          echo "### Checking... ###"
+          python --version
+          pip --version
+          hostnamectl
+          uname -m
+    
+      - name: Debug with specific py packages
+        run: |
+          echo "### Debugging... ###"
+          python3 -m pip install eva-decord
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
