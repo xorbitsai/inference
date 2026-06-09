@@ -22,6 +22,11 @@ RUN case "${TARGET_ARCH}" in \
       *) echo "ERROR: TARGET_ARCH must be 'amd64' or 'arm64', got '${TARGET_ARCH}'" >&2; exit 1 ;; \
     esac
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        cmake gcc g++ make \
+        libmecab-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /build
 
 # Copy requirements files and scripts
@@ -31,14 +36,14 @@ COPY xinference/deploy/docker/scripts/ /build/scripts/
 RUN mkdir -p /data/packages
 
 # Common packages (pure Python — same across all arch / CUDA)
-RUN pip download --no-cache-dir \
+RUN pip download --no-cache-dir --only-binary :all: \
     -r /build/pypi-requirements/common/base.txt \
     -r /build/pypi-requirements/common/ml.txt \
     -r /build/pypi-requirements/common/models.txt \
     -d /data/packages/
 
 # Arch-specific compiled packages (not CUDA-version-specific)
-RUN pip download --no-cache-dir \
+RUN pip download --no-cache-dir --only-binary :all: \
     -r /build/pypi-requirements/${TARGET_ARCH}/compiled.txt \
     -d /data/packages/
 
@@ -53,7 +58,7 @@ RUN set -e; failed=""; \
         continue; \
       fi; \
       echo "Downloading torch for ${cu}..."; \
-      pip download --no-cache-dir \
+      pip download --no-cache-dir --only-binary :all: \
         --index-url "https://download.pytorch.org/whl/${cu}" \
         -r "${req}" -d /data/packages/ \
         || failed="${failed} torch-${cu}"; \
@@ -63,7 +68,7 @@ RUN set -e; failed=""; \
     fi
 
 # CPU PyTorch
-RUN pip download --no-cache-dir \
+RUN pip download --no-cache-dir --only-binary :all: \
       --index-url "https://download.pytorch.org/whl/cpu" \
       -r /build/pypi-requirements/${TARGET_ARCH}/torch-cpu.txt \
       -d /data/packages/ \
@@ -78,7 +83,7 @@ RUN set -e; failed=""; \
         continue; \
       fi; \
       echo "Downloading cuda-ext for ${cu}..."; \
-      pip download --no-cache-dir \
+      pip download --no-cache-dir --only-binary :all: \
         -r "${req}" -d /data/packages/ \
         || failed="${failed} cuda-ext-${cu}"; \
     done; \
@@ -95,7 +100,7 @@ RUN if [ "${TARGET_ARCH}" = "amd64" ]; then \
           continue; \
         fi; \
         echo "Downloading vllm for ${cu}..."; \
-        pip download --no-cache-dir \
+        pip download --no-cache-dir --only-binary :all: \
           -r "${req}" -d /data/packages/ \
           || failed="${failed} vllm-${cu}"; \
       done; \

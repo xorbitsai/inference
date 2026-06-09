@@ -93,7 +93,7 @@ download_xllamacpp() {
 
     log "Downloading xllamacpp from ${index_url}"
     pip download \
-        --no-cache-dir \
+        --no-cache-dir --only-binary :all: \
         --index-url "${index_url}" \
         xllamacpp \
         -d "${OUTDIR}" \
@@ -106,7 +106,7 @@ download_xllamacpp() {
 download_triton() {
     log "Downloading triton from PyPI"
     pip download \
-        --no-cache-dir \
+        --no-cache-dir --only-binary :all: \
         triton \
         -d "${OUTDIR}" \
         || log "WARNING: failed to download triton"
@@ -125,7 +125,7 @@ download_flashinfer() {
     # but specific CUDA versions may need custom wheels.
     log "Downloading flashinfer from PyPI"
     pip download \
-        --no-cache-dir \
+        --no-cache-dir --only-binary :all: \
         flashinfer \
         -d "${OUTDIR}" \
         || log "WARNING: failed to download flashinfer (may need custom source)"

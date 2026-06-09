@@ -18,7 +18,8 @@ jobs:
       contents: read
       packages: write
     env:
-      IMAGE_NAME: qinruicool/pypiserver
+      IMAGE_NAME: qinruicool/pypiserver-dev
+      TAG_NAME: v0.1
 
     steps:
       - name: Check out code
