@@ -1,3 +1,5 @@
+'use client';
+
 import { FC, useState, useMemo } from 'react';
 import { SquarePen, Copy } from 'lucide-react';
 import { useRouter } from 'next/navigation';

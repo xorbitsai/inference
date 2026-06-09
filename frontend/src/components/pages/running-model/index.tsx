@@ -356,7 +356,7 @@ const RunningModel = () => {
         })}
         confirmClassName="bg-destructive  hover:bg-destructive/90"
         onConfirm={handleDeleteReplica}
-        isLoading={deleteConfirmLoading}
+        isLoading={deleteReplicaLoading}
       />
     </PageContainer>
   );

@@ -119,8 +119,12 @@ const RegisterModel: FC<RegisterModelProps> = ({ modelType, modelName }) => {
       try {
         // read the model detail
         const modelStr = sessionStorage.getItem('customJsonData');
-        let formData = JSON.parse(modelStr || '');
-        if (!modelStr || formData.model_name !== modelName) {
+        if (!modelStr) {
+          router.replace(`/register-model/${modelType}`);
+          return;
+        }
+        let formData = JSON.parse(modelStr);
+        if (formData.model_name !== modelName) {
           router.replace(`/register-model/${modelType}`);
           return;
         }
