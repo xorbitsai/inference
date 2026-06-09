@@ -238,8 +238,9 @@ Getting Involved
 
             :fab:`twitter` Follow us on Twitter
 
-         .. grid-item-card::  
+         .. grid-item-card::
             :link: https://zhihu.com/org/xorbits
+            :class-item: zh-cn-only
 
             :fab:`zhihu` Read our blogs
 
