@@ -32,7 +32,6 @@ vector-quantize-pytorch<=1.17.3,>=1.14.24 # For Fish Speech
 torchdiffeq  # For F5-TTS
 x_transformers>=1.31.14  # For F5-TTS
 peft<=0.17.1
-decord
 hf_transfer
 huggingface_hub
 interegular
