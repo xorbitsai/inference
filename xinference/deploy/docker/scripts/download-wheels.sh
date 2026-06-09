@@ -1,16 +1,20 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# download-wheels.sh — Download wheels from non-PyPI sources.
+# download-wheels.sh — Download wheels from sources outside PyPI / PyTorch.
 #
 # Usage:
-#   download-wheels.sh <arch> <output_dir>
+#   download-wheels.sh <arch> <cuda_versions> <output_dir>
 #
-#   arch       : amd64 | arm64
-#   output_dir : absolute path to save downloaded wheels
+#   arch          : amd64 | arm64
+#   cuda_versions : space-separated list, e.g. "cu124 cu126 cu128"
+#   output_dir    : absolute path to save downloaded wheels
 #
 # Sources:
-#   - GitHub releases (flash-attn, flashinfer, etc.)
-#   - Custom package indexes (xllamacpp, etc.)
+#   - GitHub releases (flash-attn prebuilt wheels)
+#   - Custom package index (xllamacpp)
+#
+# Packages that ARE on PyPI (triton, flashinfer) are handled by
+# download-cuda.sh via cuda-ext.txt / vllm.txt — NOT duplicated here.
 #
 # Security note:
 #   External wheel sources are trusted but not checksum-verified at download
@@ -19,7 +23,8 @@
 set -euo pipefail
 
 ARCH="${1:?missing arch}"
-OUTDIR="${2:?missing output dir}"
+CUDA_VERSIONS="${2:?missing cuda versions}"
+OUTDIR="${3:?missing output dir}"
 
 # Validate OUTDIR is an absolute path (defense against accidental relative paths)
 if [[ "${OUTDIR}" != /* ]]; then
@@ -44,8 +49,10 @@ log() { echo "[download-wheels] $*"; }
 # flash-attention — prebuilt wheels from GitHub
 # https://github.com/mjun0812/flash-attention-prebuild-wheels
 #
-# Wheel URLs are hardcoded per architecture.  When updating, verify the
-# release exists before committing.
+# Wheel URLs are hardcoded per architecture and CUDA version.
+# When a new CUDA version or flash-attn release comes out, update the
+# wheels array below.  Verify the release exists on GitHub before
+# committing.
 # ------------------------------------------------------------------
 download_flash_attn() {
     local base_url="https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download"
@@ -85,62 +92,34 @@ download_flash_attn() {
 }
 
 # ------------------------------------------------------------------
-# xllamacpp — custom package index
+# xllamacpp — custom package index (not on PyPI)
 # https://xorbitsai.github.io/xllamacpp/whl/
+#
+# Iterates over each CUDA version to find per-CUDA wheels.
 # ------------------------------------------------------------------
 download_xllamacpp() {
-    local index_url="https://xorbitsai.github.io/xllamacpp/whl/cu128"
+    for cu in ${CUDA_VERSIONS}; do
+        local index_url="https://xorbitsai.github.io/xllamacpp/whl/${cu}"
 
-    log "Downloading xllamacpp from ${index_url}"
-    pip download \
-        --no-cache-dir --only-binary :all: \
-        --index-url "${index_url}" \
-        xllamacpp \
-        -d "${OUTDIR}" \
-        || log "WARNING: failed to download xllamacpp"
-}
-
-# ------------------------------------------------------------------
-# triton — available for both amd64 and arm64
-# ------------------------------------------------------------------
-download_triton() {
-    log "Downloading triton from PyPI"
-    pip download \
-        --no-cache-dir --only-binary :all: \
-        triton \
-        -d "${OUTDIR}" \
-        || log "WARNING: failed to download triton"
-}
-
-# ------------------------------------------------------------------
-# flashinfer — prebuilt wheels (amd64 only)
-# ------------------------------------------------------------------
-download_flashinfer() {
-    if [ "${ARCH}" != "amd64" ]; then
-        log "Skipping flashinfer — no prebuilt wheels for ${ARCH}"
-        return 0
-    fi
-
-    # flashinfer is typically installed via pip from PyPI,
-    # but specific CUDA versions may need custom wheels.
-    log "Downloading flashinfer from PyPI"
-    pip download \
-        --no-cache-dir --only-binary :all: \
-        flashinfer \
-        -d "${OUTDIR}" \
-        || log "WARNING: failed to download flashinfer (may need custom source)"
+        log "Downloading xllamacpp for ${cu} from ${index_url}..."
+        pip download \
+            --no-cache-dir --only-binary :all: \
+            --index-url "${index_url}" \
+            xllamacpp \
+            -d "${OUTDIR}" \
+            || log "WARNING: failed to download xllamacpp for ${cu} (index may not exist)"
+    done
 }
 
 # ------------------------------------------------------------------
 # main
 # ------------------------------------------------------------------
 log "Arch: ${ARCH}"
+log "CUDA versions: ${CUDA_VERSIONS}"
 log "Output: ${OUTDIR}"
 
 download_flash_attn
 download_xllamacpp
-download_triton
-download_flashinfer
 
 log "Done."
 if compgen -G "${OUTDIR}"/*.whl > /dev/null 2>&1; then

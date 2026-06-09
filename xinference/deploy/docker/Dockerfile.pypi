@@ -6,6 +6,12 @@
 #
 # Result: one image per architecture, users install with:
 #   pip install torch==2.5.0+cu128 --index-url https://<pypiserver>/simple
+#
+# Build phases are delegated to scripts under scripts/ for faster iteration
+# and cleaner layer caching:
+#   download-core.sh    — common + compiled packages (no CUDA loops)
+#   download-cuda.sh    — torch, cuda-ext, vllm (per CUDA version loops)
+#   download-wheels.sh  — external sources (GitHub, custom indexes)
 
 # ---- downloader stage ----
 FROM python:3.12-slim AS downloader
@@ -22,6 +28,8 @@ RUN case "${TARGET_ARCH}" in \
       *) echo "ERROR: TARGET_ARCH must be 'amd64' or 'arm64', got '${TARGET_ARCH}'" >&2; exit 1 ;; \
     esac
 
+# Build tools needed for pure-Python sdists without wheels
+# (e.g. pynini via nemo_text_processing, mecab-python3, fugashi)
 RUN apt-get update && apt-get install -y --no-install-recommends \
         cmake gcc g++ make \
         libmecab-dev \
@@ -35,86 +43,18 @@ COPY xinference/deploy/docker/scripts/ /build/scripts/
 
 RUN mkdir -p /data/packages
 
-# Common packages (pure Python — same across all arch / CUDA)
-RUN pip download --no-cache-dir --only-binary :all: \
-    -r /build/pypi-requirements/common/base.txt \
-    -r /build/pypi-requirements/common/ml.txt \
-    -r /build/pypi-requirements/common/models.txt \
-    -d /data/packages/
+# Phase 1: Core packages — common (base + ml + models) + arch-compiled
+# No CUDA loops; one pass per category.
+RUN bash /build/scripts/download-core.sh ${TARGET_ARCH} /data/packages/
 
-# Arch-specific compiled packages (not CUDA-version-specific)
-RUN pip download --no-cache-dir --only-binary :all: \
-    -r /build/pypi-requirements/${TARGET_ARCH}/compiled.txt \
-    -d /data/packages/
+# Phase 2: CUDA-dependent packages — torch, cuda-ext, vllm
+# Each category iterates over CUDA_VERSIONS; per-CUDA failure isolation.
+RUN bash /build/scripts/download-cuda.sh ${TARGET_ARCH} "${CUDA_VERSIONS}" /data/packages/
 
-# Torch ecosystem — one pass per CUDA version (different index URLs)
-# Individual CUDA versions may fail (e.g. cu124 torch may not be published yet);
-# we collect failures and report them at the end.
-RUN set -e; failed=""; \
-    for cu in ${CUDA_VERSIONS}; do \
-      req="/build/pypi-requirements/${TARGET_ARCH}/torch.txt"; \
-      if [ ! -f "${req}" ]; then \
-        echo "WARNING: ${req} not found, skipping"; \
-        continue; \
-      fi; \
-      echo "Downloading torch for ${cu}..."; \
-      pip download --no-cache-dir --only-binary :all: \
-        --index-url "https://download.pytorch.org/whl/${cu}" \
-        -r "${req}" -d /data/packages/ \
-        || failed="${failed} torch-${cu}"; \
-    done; \
-    if [ -n "${failed}" ]; then \
-      echo "WARNING: failed to download:${failed}"; \
-    fi
+# Phase 3: External sources — flash-attn (GitHub), xllamacpp (custom index)
+RUN bash /build/scripts/download-wheels.sh ${TARGET_ARCH} "${CUDA_VERSIONS}" /data/packages/
 
-# CPU PyTorch
-RUN pip download --no-cache-dir --only-binary :all: \
-      --index-url "https://download.pytorch.org/whl/cpu" \
-      -r /build/pypi-requirements/${TARGET_ARCH}/torch-cpu.txt \
-      -d /data/packages/ \
-    || echo "WARNING: torch-cpu download failed"
-
-# CUDA extensions — one pass per CUDA version
-RUN set -e; failed=""; \
-    for cu in ${CUDA_VERSIONS}; do \
-      req="/build/pypi-requirements/${TARGET_ARCH}/cuda-ext.txt"; \
-      if [ ! -f "${req}" ]; then \
-        echo "WARNING: ${req} not found, skipping"; \
-        continue; \
-      fi; \
-      echo "Downloading cuda-ext for ${cu}..."; \
-      pip download --no-cache-dir --only-binary :all: \
-        -r "${req}" -d /data/packages/ \
-        || failed="${failed} cuda-ext-${cu}"; \
-    done; \
-    if [ -n "${failed}" ]; then \
-      echo "WARNING: failed to download:${failed}"; \
-    fi
-
-# vLLM ecosystem — amd64 only (no arm64 prebuilt wheels for vllm/flashinfer)
-RUN if [ "${TARGET_ARCH}" = "amd64" ]; then \
-      set -e; failed=""; \
-      for cu in ${CUDA_VERSIONS}; do \
-        req="/build/pypi-requirements/${TARGET_ARCH}/vllm.txt"; \
-        if [ ! -f "${req}" ]; then \
-          continue; \
-        fi; \
-        echo "Downloading vllm for ${cu}..."; \
-        pip download --no-cache-dir --only-binary :all: \
-          -r "${req}" -d /data/packages/ \
-          || failed="${failed} vllm-${cu}"; \
-      done; \
-      if [ -n "${failed}" ]; then \
-        echo "WARNING: failed to download:${failed}"; \
-      fi; \
-    else \
-      echo "Skipping vLLM — amd64 only"; \
-    fi
-
-# Download special wheels from external sources (flash-attn, xllamacpp, etc.)
-RUN bash /build/scripts/download-wheels.sh ${TARGET_ARCH} /data/packages/
-
-# Also include xinference's own build artifacts
+# Include xinference's own build artifacts
 COPY dist/ /data/packages/
 
 # Verify we have at least the xinference packages
