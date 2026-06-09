@@ -2551,9 +2551,15 @@ class SupervisorActor(xo.StatelessActor):
         same uid could hit stale actors.
 
         terminate_rank0_on_worker: when True, RPC the worker to terminate the
-        rank0 model. mark_replica_dead passes False -- the worker already
-        terminated the model locally before giving up recreating, so it only
-        needs the supervisor-side mapping dropped.
+        rank0 model. Both terminate_model_replica (graceful) and
+        mark_replica_dead (auto-recover exhaustion) pass True: rank0 is a
+        SEPARATE subpool (launch_rank0_model appends its own sub pool with its
+        own address) that a regular replica's OOM does NOT terminate -- the
+        worker's recover_sub_pool only acts on the subpool whose address died,
+        so an exhausted regular replica leaves rank0 alive. Dropping only the
+        supervisor mapping would leak the rank0 actor/subpool. The RPC is
+        bounded by xo.wait_for(5s) so a stalled worker cannot hold up the
+        death-recovery tail path; failure/timeout is non-fatal.
 
         Deliberately does NOT touch _unexpected_down_replicas: callers decide
         whether the down marker stays lit (terminate clears it, mark_replica_dead
@@ -2566,7 +2572,10 @@ class SupervisorActor(xo.StatelessActor):
                 rank0_worker_refs = [rank0_worker_refs]
             for worker_ref in rank0_worker_refs:
                 try:
-                    await worker_ref.terminate_model(model_uid=rank0_uid)
+                    await xo.wait_for(
+                        worker_ref.terminate_model(model_uid=rank0_uid),
+                        timeout=5,
+                    )
                 except Exception as e:
                     logger.debug(
                         "Terminate rank0 model failed, model uid: %s, error: %s",
@@ -2605,12 +2614,15 @@ class SupervisorActor(xo.StatelessActor):
         dies, advance base_uid to TERMINATED and tear down the distributed
         (Xavier) actors/mappings via _cleanup_distributed_actors.
 
-        Deliberately does NOT call back worker.terminate_model -- the worker
-        already terminated the model locally before giving up recreating
-        (recover_sub_pool calls terminate_model(is_model_die=True)).
-        Equivalent to terminate_model_replica's "eviction half" (minus the
-        worker RPC) plus _record_unexpected_down_replicas' "observability half".
-        Idempotent: no-op if the replica is already evicted.
+        Does NOT call back worker.terminate_model for the dead replica itself --
+        the worker already terminated it locally before giving up recreating
+        (recover_sub_pool calls terminate_model(is_model_die=True)). It DOES, on
+        last-replica death, terminate the separate rank0 actor via
+        _cleanup_distributed_actors, because a regular replica's OOM does not
+        reach rank0's distinct subpool (see that helper).
+        Equivalent to terminate_model_replica's "eviction half" (minus the dead
+        replica's worker RPC) plus _record_unexpected_down_replicas'
+        "observability half". Idempotent: no-op if the replica is already evicted.
         """
         parsed = self._get_model_uid_and_replica_index(replica_model_uid)
         if parsed is None:
@@ -2664,13 +2676,14 @@ class SupervisorActor(xo.StatelessActor):
         # Single replica / last replica died -> take the model fully offline.
         self._model_uid_to_replica_info.pop(base_uid, None)
 
-        # Tear down distributed (Xavier) actors/mappings. terminate_rank0_on_worker
-        # =False: the worker already terminated the model locally before giving up
-        # recreating, so we only drop the supervisor-side state. Keeps the
-        # _unexpected_down_replicas marker lit for the failure gauge.
-        await self._cleanup_distributed_actors(
-            base_uid, terminate_rank0_on_worker=False
-        )
+        # Tear down distributed (Xavier) actors/mappings. rank0 is a separate
+        # subpool that the regular replica's OOM did NOT terminate (the worker
+        # only recovered the dead replica's own subpool), so we must RPC the
+        # worker to terminate it -- dropping just the supervisor mapping would
+        # leak the rank0 actor/subpool. The RPC is bounded (xo.wait_for 5s) and
+        # best-effort. Keeps the _unexpected_down_replicas marker lit for the
+        # failure gauge.
+        await self._cleanup_distributed_actors(base_uid, terminate_rank0_on_worker=True)
 
         try:
             await self._status_guard_ref.update_instance_info(

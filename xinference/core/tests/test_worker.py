@@ -1335,3 +1335,100 @@ async def test_launch_semaphore_concurrency():
     await asyncio.gather(*[simulate_launch() for _ in range(6)])
 
     assert peak_concurrent == max_concurrent
+
+
+class _RecordingWorkerRef(DummyActorRef):
+    """Worker ref that records terminate_model calls for rank0 eviction tests."""
+
+    def __init__(self, address: str):
+        super().__init__(address)
+        self.terminated: List[str] = []
+
+    async def terminate_model(self, model_uid: str):
+        self.terminated.append(model_uid)
+
+
+@pytest.mark.asyncio
+async def test_cleanup_distributed_actors_terminates_rank0():
+    """rank0 lives in its own subpool that a regular replica's OOM never
+    terminates, so _cleanup_distributed_actors(terminate_rank0_on_worker=True)
+    must RPC the worker to terminate it -- not merely drop the supervisor
+    mapping (which would leak the rank0 actor/subpool)."""
+    supervisor = SupervisorActor()
+    rank0_ref = _RecordingWorkerRef("worker-1")
+    supervisor._replica_model_uid_to_worker = {"model-x-rank0": rank0_ref}
+    supervisor._collective_manager_mapping = {}
+    supervisor._block_tracker_mapping = {}
+
+    await supervisor._cleanup_distributed_actors(
+        "model-x", terminate_rank0_on_worker=True
+    )
+
+    assert rank0_ref.terminated == ["model-x-rank0"]
+    assert "model-x-rank0" not in supervisor._replica_model_uid_to_worker
+
+
+@pytest.mark.asyncio
+async def test_cleanup_distributed_actors_skips_rank0_rpc_when_false():
+    """With terminate_rank0_on_worker=False the supervisor mapping is dropped
+    but no terminate RPC is issued (the graceful caller already knows rank0 is
+    gone)."""
+    supervisor = SupervisorActor()
+    rank0_ref = _RecordingWorkerRef("worker-1")
+    supervisor._replica_model_uid_to_worker = {"model-x-rank0": rank0_ref}
+    supervisor._collective_manager_mapping = {}
+    supervisor._block_tracker_mapping = {}
+
+    await supervisor._cleanup_distributed_actors(
+        "model-x", terminate_rank0_on_worker=False
+    )
+
+    assert rank0_ref.terminated == []
+    assert "model-x-rank0" not in supervisor._replica_model_uid_to_worker
+
+
+@pytest.mark.asyncio
+async def test_mark_replica_dead_last_replica_terminates_rank0():
+    """End to end: when the single (last) replica of a Xavier model exhausts
+    auto-recover, mark_replica_dead's last-replica branch must terminate the
+    separate rank0 actor, drop its mapping, and keep the failure marker lit."""
+
+    class _Info:
+        model_name = "m"
+
+    class _StatusGuard:
+        async def get_instance_info(self, model_name=None, model_uid=None):
+            return [_Info()]
+
+        async def remove_replica_status(self, model_uid: str, replica_id: int):
+            return 0  # last replica gone
+
+        async def update_instance_info(self, model_uid: str, updates: dict):
+            pass
+
+    supervisor = SupervisorActor()
+    supervisor._status_guard_ref = _StatusGuard()
+    supervisor._collective_manager_mapping = {}
+    supervisor._block_tracker_mapping = {}
+
+    replica_ref = _RecordingWorkerRef("worker-1")
+    rank0_ref = _RecordingWorkerRef("worker-1")
+    replica_info = ReplicaInfo(replica=1, scheduler=itertools.cycle(range(1)))
+    replica_info.active_replica_ids.append(0)
+    replica_info.replica_to_worker_refs[0].append(replica_ref)
+    supervisor._model_uid_to_replica_info = {"model-x": replica_info}
+    supervisor._replica_model_uid_to_worker = {
+        "model-x-0": replica_ref,
+        "model-x-rank0": rank0_ref,
+    }
+
+    await supervisor.mark_replica_dead("model-x-0")
+
+    # rank0 terminated on the worker and supervisor mapping dropped.
+    assert rank0_ref.terminated == ["model-x-rank0"]
+    assert "model-x-rank0" not in supervisor._replica_model_uid_to_worker
+    # Dead replica evicted and model taken offline.
+    assert "model-x" not in supervisor._model_uid_to_replica_info
+    assert "model-x-0" not in supervisor._replica_model_uid_to_worker
+    # Failure gauge marker stays lit (mark_replica_dead must not clear it).
+    assert ("model-x", 0) in supervisor._unexpected_down_replicas
