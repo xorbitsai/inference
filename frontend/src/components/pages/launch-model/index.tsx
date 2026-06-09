@@ -10,8 +10,8 @@ import {
   RefreshCw,
   Rocket,
   Search,
-  Settings2,
   Star,
+  Trash2,
 } from 'lucide-react';
 import request from '@/lib/request';
 import PageContainer from '@/components/ui/page-container';
@@ -20,17 +20,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { RadioGroup } from '@/components/ui/radio-group';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useI18n } from '@/contexts/i18n-context';
 import { cn } from '@/lib/utils';
-import { ModelType } from '@/constants';
+import { ModelType, CUSTOM_MODEL_OPTIONS } from '@/constants';
 import {
   LAUNCH_MODEL_ROUTE_TABS,
   COLLECTION_STORAGE_KEY,
   LAUNCH_MODEL_UPDATE_OPTIONS,
 } from '@/constants/launch';
-import LaunchDialog from './launch-dialog';
+import LaunchDialog from './launch-dialog/launch-dialog';
 import CacheManagementDialog from './cache-management.dialog';
 import EnvManagementDialog from './env-management-dialog';
+import CustomEditDialog from './custom-edit-dialog';
 import type { VirtualEnv } from '@/types/services';
 import type { CatalogModel, RouteModelType, RequestModelType } from './types';
 import {
@@ -43,14 +45,15 @@ import {
 
 interface LaunchModelProps {
   routeType: RouteModelType;
+  initialCustomType: RequestModelType;
 }
 
-const LaunchModel = ({ routeType }: LaunchModelProps) => {
+const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
   const { t } = useI18n();
   const router = useRouter();
   const isCustomRoute = routeType === ModelType.Custom;
   const [gpuAvailable, setGPUAvailable] = useState(-1);
-  const [customType, setCustomType] = useState<RequestModelType>(ModelType.LLM);
+  const [customType, setCustomType] = useState<RequestModelType>(initialCustomType);
   const [models, setModels] = useState<CatalogModel[]>([]);
   const [virtualenvs, setVirtualenvs] = useState<VirtualEnv[]>([]);
   const [loading, setLoading] = useState(false);
@@ -61,6 +64,7 @@ const LaunchModel = ({ routeType }: LaunchModelProps) => {
   const [status, setStatus] = useState('');
   const [favorites, setFavorites] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState<CatalogModel>();
+  const [deleteModel, setDeleteModel] = useState<CatalogModel>();
   const requestType = isCustomRoute ? customType : (routeType as RequestModelType);
   const showAbilityFilter = ![ModelType.Embedding, ModelType.Rerank, ModelType.Custom].includes(
     routeType
@@ -71,14 +75,10 @@ const LaunchModel = ({ routeType }: LaunchModelProps) => {
     { label: t('launchModel.cached'), value: 'cached' },
     { label: t('launchModel.favorite'), value: 'favorites' },
   ];
-  const customTypesRadioOption = [
-    { value: ModelType.LLM, label: t('model.languageModels') },
-    { value: ModelType.Embedding, label: t('model.embeddingModels') },
-    { value: ModelType.Rerank, label: t('model.rerankModels') },
-    { value: ModelType.Image, label: t('model.imageModels') },
-    { value: ModelType.Audio, label: t('model.audioModels') },
-    { value: ModelType.Flexible, label: t('model.flexibleModels') },
-  ];
+  const customTypesRadioOptions = useMemo(
+    () => CUSTOM_MODEL_OPTIONS.map((item) => ({ value: item.value, label: t(item.labelKey) })),
+    []
+  );
   const fetDevices = useCallback(async () => {
     try {
       const res = await request.get('/v1/cluster/devices');
@@ -152,13 +152,13 @@ const LaunchModel = ({ routeType }: LaunchModelProps) => {
     setQuery('');
 
     if (isCustomRoute) {
-      setCustomType(ModelType.LLM);
+      setCustomType(initialCustomType);
       setRefreshType(ModelType.LLM);
       return;
     }
 
     setRefreshType(routeType as RequestModelType);
-  }, [isCustomRoute, routeType]);
+  }, [isCustomRoute, initialCustomType, routeType]);
 
   useEffect(() => {
     fetDevices();
@@ -258,7 +258,18 @@ const LaunchModel = ({ routeType }: LaunchModelProps) => {
       return next;
     });
   };
-
+  const handleDelete = (event: MouseEvent<HTMLButtonElement>, model: CatalogModel) => {
+    event.stopPropagation();
+    setDeleteModel(model);
+  };
+  const handleDeleteModel = () => {
+    request
+      .delete(`/v1/model_registrations/${customType}/${deleteModel?.model_name}`)
+      .then(() => {
+        fetchModels(customType);
+      })
+      .finally(() => setDeleteModel(undefined));
+  };
   const handleDetail = (event: MouseEvent<HTMLButtonElement>, model: CatalogModel) => {
     event.stopPropagation();
 
@@ -282,15 +293,31 @@ const LaunchModel = ({ routeType }: LaunchModelProps) => {
         )}
       >
         <div className="flex items-start justify-between gap-3">
-          <h3 className="line-clamp-1 text-lg font-semibold text-foreground">{model.model_name}</h3>
-          <button
-            type="button"
-            aria-label="Favorite model"
-            onClick={(event) => handleFavorite(event, model)}
-            className="rounded-full p-1 text-muted-foreground transition-colors hover:text-primary"
-          >
-            <Star className={cn('size-5', isFavorite && 'fill-primary text-primary')} />
-          </button>
+          <h3 className="line-clamp-1 text-lg font-semibold text-foreground truncate">
+            {model.model_name}
+          </h3>
+          {isCustomRoute ? (
+            <div className="flex gap-1 shrink-0">
+              <CustomEditDialog model={model} modelType={customType} />
+              <button
+                type="button"
+                aria-label="Delete model"
+                onClick={(event) => handleDelete(event, model)}
+                className="rounded-full p-1 text-muted-foreground transition-colors hover:text-destructive"
+              >
+                <Trash2 className="size-5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              aria-label="Favorite model"
+              onClick={(event) => handleFavorite(event, model)}
+              className="shrink-0 rounded-full p-1 text-muted-foreground transition-colors hover:text-primary"
+            >
+              <Star className={cn('size-5', isFavorite && 'fill-primary text-primary')} />
+            </button>
+          )}
         </div>
 
         <div className="mt-4 flex flex-wrap gap-1.5 ">
@@ -303,26 +330,10 @@ const LaunchModel = ({ routeType }: LaunchModelProps) => {
             </span>
           ))}
           {model.cached && (
-            <CacheManagementDialog modelDetail={model} onCacheDelete={fetchModels}>
-              <button
-                type="button"
-                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-500/20"
-              >
-                <Box className="size-3.5" />
-                {t('launchModel.manageCachedModels')}
-              </button>
-            </CacheManagementDialog>
+            <CacheManagementDialog modelDetail={model} onCacheDelete={fetchModels} />
           )}
           {hasVirtualenv && (
-            <EnvManagementDialog modelDetail={model} onEnvDelete={fetchVirtualenvs}>
-              <button
-                type="button"
-                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-500/20"
-              >
-                <Settings2 className="size-3.5" />
-                {t('launchModel.manageVirtualEnvironments')}
-              </button>
-            </EnvManagementDialog>
+            <EnvManagementDialog modelDetail={model} onEnvDelete={fetchVirtualenvs} />
           )}
         </div>
 
@@ -397,7 +408,8 @@ const LaunchModel = ({ routeType }: LaunchModelProps) => {
 
         <TabsContent value={routeType} className="space-y-5">
           {isCustomRoute && (
-            <div className="border-b border-border/80 pb-4">
+            <div className="border-b border-border/80 pb-4 flex items-center gap-4 pl-4">
+              <span className="font-medium">{t('launchModel.modelType')}:</span>
               <RadioGroup
                 value={customType}
                 onChange={(value) => {
@@ -407,8 +419,8 @@ const LaunchModel = ({ routeType }: LaunchModelProps) => {
                   setStatus('');
                   setQuery('');
                 }}
-                options={customTypesRadioOption}
-                className="flex flex-wrap gap-8"
+                options={customTypesRadioOptions}
+                className="flex flex-wrap gap-6"
               />
             </div>
           )}
@@ -468,6 +480,16 @@ const LaunchModel = ({ routeType }: LaunchModelProps) => {
         </TabsContent>
       </Tabs>
 
+      <ConfirmDialog
+        isOpen={!!deleteModel}
+        onOpenChange={(open) => !open && setDeleteModel(undefined)}
+        description={t('launchModel.confirmDeleteCustomModel', {
+          modelName: deleteModel?.model_name,
+        })}
+        confirmText={t('common.confirm')}
+        confirmClassName="bg-destructive  hover:bg-destructive/90"
+        onConfirm={handleDeleteModel}
+      />
       <LaunchDialog
         model={selectedModel}
         modelType={requestType}

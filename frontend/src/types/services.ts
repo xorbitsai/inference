@@ -81,3 +81,26 @@ export interface ReplicaItem {
   status: string;
   worker_address: string;
 }
+
+export interface RunningModelItem {
+  id: string;
+  object: string;
+  created: number;
+  owned_by: string;
+  model_type: string;
+  address: string;
+  accelerators: string[];
+  model_name: string;
+  model_lang: string[];
+  model_ability: string[];
+  model_description: string;
+  model_format: string;
+  model_size_in_billions: number;
+  model_family: string;
+  quantization: string;
+  multimodal_projector: null;
+  model_hub: string;
+  revision: string | null;
+  context_length: number;
+  replica: number;
+}

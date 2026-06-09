@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useId, useMemo, useState, useRef } from 'react';
 import { Ban, Rocket } from 'lucide-react';
 import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 import request from '@/lib/request';
 import { ModelType, ModelAbility } from '@/constants';
 import { ENGINES_WITH_WORKER } from '@/constants/launch';
 import { ModelFormat } from '@/constants/register';
 import { useI18n } from '@/contexts/i18n-context';
-import { useForm, useWatch } from '@/hooks/use-form';
-import { cn } from '@/lib/utils';
+import { useForm, useFormValues, useWatch } from '@/hooks/use-form';
+import { cn, copyText } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -25,7 +26,7 @@ import type { ModelEngine, ModelEngineItem, ReplicaItem } from '@/types/services
 import type { FormValues } from '@/types/form';
 import CollapsibleConfig from './advanced-config';
 import ConfigCache, { getLatestModelConfigHistory, saveLaunchConfigHistory } from './config-cache';
-import type { CatalogModel, LaunchFieldConfig, RequestModelType } from './types';
+import type { CatalogModel, LaunchFieldConfig, RequestModelType } from '../types';
 import {
   MODEL_ENGINE_TYPES,
   buildEngineIndex,
@@ -40,7 +41,11 @@ import {
   transformFormToFetch,
   normalizeProgress,
   normalizeReplicaStatuses,
-} from './utils';
+  isEmptyLaunchValue,
+  isVisibleRequiredLaunchField,
+} from '../utils';
+import CommandLine from './command-line';
+import { FormField } from '@/components/ui/form-field';
 
 interface LaunchDialogProps {
   model?: CatalogModel;
@@ -59,6 +64,7 @@ export default function LaunchDialog({
   const formId = useId();
   const [form] = useForm();
   const { t } = useI18n();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [canceling, setCanceling] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -67,6 +73,7 @@ export default function LaunchDialog({
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isLLM = modelType === ModelType.LLM;
   const [modelEngineMap, setModelEngineMap] = useState<ModelEngine>({});
+  const launchFormValues = useFormValues(form);
   const modelEngineValue = toOptionValue(useWatch('model_engine', form));
   const modelFormatValue = toOptionValue(useWatch('model_format', form));
   const modelSizeInBillionsValue = useWatch('model_size_in_billions', form) as
@@ -380,20 +387,6 @@ export default function LaunchDialog({
         fieldProps: { type: 'number', min: 1 },
       },
       {
-        name: 'enable_thinking',
-        type: 'switch',
-        label: t('launchModel.enableThinking'),
-        valuePropName: 'checked',
-        show: model?.abilities.includes(ModelAbility.Hybrid),
-      },
-      {
-        name: 'reasoning_content',
-        type: 'switch',
-        label: t('launchModel.parsingReasoningContent'),
-        valuePropName: 'checked',
-        show: model?.abilities.includes(ModelAbility.Reasoning) && enableThinkingValue,
-      },
-      {
         name: 'model_uid',
         type: 'input',
         label: t('launchModel.modelUid'),
@@ -411,6 +404,7 @@ export default function LaunchDialog({
           },
         ],
         fieldProps: { type: 'number', min: 1 },
+        normalize: (v) => (v === '' ? undefined : Number(v)),
       },
       {
         name: 'n_worker',
@@ -425,12 +419,6 @@ export default function LaunchDialog({
           },
         ],
         fieldProps: { type: 'number', min: 1 },
-      },
-      {
-        name: 'worker_ip',
-        type: 'input',
-        label: t('launchModel.workerIp'),
-        placeholder: t('launchModel.workerIpPlaceholder'),
       },
       {
         name: 'gpu_idx',
@@ -452,10 +440,32 @@ export default function LaunchDialog({
         fieldProps: { options: downloadHubOptions },
       },
       {
+        name: 'enable_thinking',
+        type: 'switch',
+        label: t('launchModel.enableThinking'),
+        valuePropName: 'checked',
+        show: model?.abilities.includes(ModelAbility.Hybrid),
+      },
+      {
+        name: 'reasoning_content',
+        type: 'switch',
+        label: t('launchModel.parsingReasoningContent'),
+        valuePropName: 'checked',
+        show: model?.abilities.includes(ModelAbility.Reasoning) && enableThinkingValue,
+      },
+      {
+        name: 'worker_ip',
+        type: 'input',
+        label: t('launchModel.workerIp'),
+        placeholder: t('launchModel.workerIpPlaceholder'),
+        colSpan: 2
+      },
+      {
         name: 'model_path',
         type: 'input',
         label: t('launchModel.modelPath'),
         placeholder: t('launchModel.modelPathPlaceholder'),
+        colSpan: 2
       },
       {
         name: 'collapsibleConfig',
@@ -526,23 +536,11 @@ export default function LaunchDialog({
         placeholder: t('launchModel.modelUidPlaceholder'),
       },
       {
-        name: 'worker_ip',
-        type: 'input',
-        label: t('launchModel.workerIp'),
-        placeholder: t('launchModel.workerIpPlaceholder'),
-      },
-      {
         name: 'download_hub',
         type: 'select',
         label: t('launchModel.downloadHub'),
         placeholder: t('launchModel.downloadHubPlaceholder'),
         fieldProps: { options: downloadHubOptions },
-      },
-      {
-        name: 'model_path',
-        type: 'input',
-        label: t('launchModel.modelPath'),
-        placeholder: t('launchModel.modelPathPlaceholder'),
       },
       {
         name: 'request_limits',
@@ -556,6 +554,21 @@ export default function LaunchDialog({
           },
         ],
         fieldProps: { type: 'number', min: 1 },
+        normalize: (v) => (v === '' ? undefined : Number(v))
+      },
+      {
+        name: 'worker_ip',
+        type: 'input',
+        label: t('launchModel.workerIp'),
+        placeholder: t('launchModel.workerIpPlaceholder'),
+        colSpan: 2
+      },
+      {
+        name: 'model_path',
+        type: 'input',
+        label: t('launchModel.modelPath'),
+        placeholder: t('launchModel.modelPathPlaceholder'),
+        colSpan: 2
       },
       {
         name: 'collapsibleConfig',
@@ -626,23 +639,11 @@ export default function LaunchDialog({
         placeholder: t('launchModel.modelUidPlaceholder'),
       },
       {
-        name: 'worker_ip',
-        type: 'input',
-        label: t('launchModel.workerIp'),
-        placeholder: t('launchModel.workerIpPlaceholder'),
-      },
-      {
         name: 'download_hub',
         type: 'select',
         label: t('launchModel.downloadHub'),
         placeholder: t('launchModel.downloadHubPlaceholder'),
         fieldProps: { options: downloadHubOptions },
-      },
-      {
-        name: 'model_path',
-        type: 'input',
-        label: t('launchModel.modelPath'),
-        placeholder: t('launchModel.modelPathPlaceholder'),
       },
       {
         name: 'gguf_quantization',
@@ -671,6 +672,21 @@ export default function LaunchDialog({
           },
         ],
         fieldProps: { type: 'number', min: 1 },
+        normalize: (v) => (v === '' ? undefined : Number(v))
+      },
+      {
+        name: 'worker_ip',
+        type: 'input',
+        label: t('launchModel.workerIp'),
+        placeholder: t('launchModel.workerIpPlaceholder'),
+        colSpan: 2
+      },
+      {
+        name: 'model_path',
+        type: 'input',
+        label: t('launchModel.modelPath'),
+        placeholder: t('launchModel.modelPathPlaceholder'),
+        colSpan: 2
       },
       {
         name: 'collapsibleConfig',
@@ -741,12 +757,6 @@ export default function LaunchDialog({
         show: nGpuValue === 'GPU',
       },
       {
-        name: 'worker_ip',
-        type: 'input',
-        label: t('launchModel.workerIp'),
-        placeholder: t('launchModel.workerIpPlaceholder'),
-      },
-      {
         name: 'download_hub',
         type: 'select',
         label: t('launchModel.downloadHub'),
@@ -765,12 +775,7 @@ export default function LaunchDialog({
           },
         ],
         fieldProps: { type: 'number', min: 1 },
-      },
-      {
-        name: 'model_path',
-        type: 'input',
-        label: t('launchModel.modelPath'),
-        placeholder: t('launchModel.modelPathPlaceholder'),
+        normalize: (v) => (v === '' ? undefined : Number(v))
       },
       {
         name: 'gguf_quantization',
@@ -801,6 +806,20 @@ export default function LaunchDialog({
         placeholder: t('launchModel.lightningModelPathPlaceholder'),
         type: 'input',
         show: !!lightningVersionOptions.length,
+      },
+      {
+        name: 'worker_ip',
+        type: 'input',
+        label: t('launchModel.workerIp'),
+        placeholder: t('launchModel.workerIpPlaceholder'),
+        colSpan: 2,
+      },
+      {
+        name: 'model_path',
+        type: 'input',
+        label: t('launchModel.modelPath'),
+        placeholder: t('launchModel.modelPathPlaceholder'),
+        colSpan: 2,
       },
       {
         name: 'cpu_offload',
@@ -854,12 +873,7 @@ export default function LaunchDialog({
         ],
         show: nGpuValue === 'GPU',
       },
-      {
-        name: 'worker_ip',
-        type: 'input',
-        label: t('launchModel.workerIp'),
-        placeholder: t('launchModel.workerIpPlaceholder'),
-      },
+      
       {
         name: 'download_hub',
         type: 'select',
@@ -879,12 +893,7 @@ export default function LaunchDialog({
           },
         ],
         fieldProps: { type: 'number', min: 1 },
-      },
-      {
-        name: 'model_path',
-        type: 'input',
-        label: t('launchModel.modelPath'),
-        placeholder: t('launchModel.modelPathPlaceholder'),
+        normalize: (v) => (v === '' ? undefined : Number(v))
       },
       {
         name: 'gguf_quantization',
@@ -900,6 +909,20 @@ export default function LaunchDialog({
         placeholder: t('launchModel.GGUFModelPathPlaceholder'),
         type: 'input',
         show: !!ggufQuantizations,
+      },
+      {
+        name: 'worker_ip',
+        type: 'input',
+        label: t('launchModel.workerIp'),
+        placeholder: t('launchModel.workerIpPlaceholder'),
+        colSpan: 2
+      },
+      {
+        name: 'model_path',
+        type: 'input',
+        label: t('launchModel.modelPath'),
+        placeholder: t('launchModel.modelPathPlaceholder'),
+        colSpan: 2
       },
       {
         name: 'collapsibleConfig',
@@ -946,12 +969,7 @@ export default function LaunchDialog({
         ],
         show: nGpuValue === 'GPU',
       },
-      {
-        name: 'worker_ip',
-        type: 'input',
-        label: t('launchModel.workerIp'),
-        placeholder: t('launchModel.workerIpPlaceholder'),
-      },
+
       {
         name: 'download_hub',
         type: 'select',
@@ -971,12 +989,7 @@ export default function LaunchDialog({
           },
         ],
         fieldProps: { type: 'number', min: 1 },
-      },
-      {
-        name: 'model_path',
-        type: 'input',
-        label: t('launchModel.modelPath'),
-        placeholder: t('launchModel.modelPathPlaceholder'),
+        normalize: (v) => (v === '' ? undefined : Number(v))
       },
       {
         name: 'gguf_quantization',
@@ -994,6 +1007,20 @@ export default function LaunchDialog({
         show: !!ggufQuantizations,
       },
       {
+        name: 'worker_ip',
+        type: 'input',
+        label: t('launchModel.workerIp'),
+        placeholder: t('launchModel.workerIpPlaceholder'),
+        colSpan: 2
+      },
+      {
+        name: 'model_path',
+        type: 'input',
+        label: t('launchModel.modelPath'),
+        placeholder: t('launchModel.modelPathPlaceholder'),
+        colSpan: 2
+      },
+      {
         name: 'cpu_offload',
         label: t('launchModel.CPUOffload'),
         type: 'switch',
@@ -1007,7 +1034,87 @@ export default function LaunchDialog({
         content: <CollapsibleConfig form={form} modelType={modelType} />,
       },
     ],
+    [ModelType.Flexible]: [
+      {
+        name: 'model_uid',
+        type: 'input',
+        label: t('launchModel.modelUid'),
+        placeholder: t('launchModel.modelUidPlaceholder'),
+      },
+      {
+        name: 'replica',
+        type: 'input',
+        label: t('launchModel.replica'),
+        rules: [
+          {
+            pattern: /^[1-9]\d*$/,
+            message: t('launchModel.enterIntegerGreaterThanZero'),
+          },
+        ],
+        fieldProps: { type: 'number', min: 1 },
+      },
+      {
+        name: 'n_gpu',
+        type: 'select',
+        label: t('launchModel.nGPU'),
+        fieldProps: { options: nGpuOptions },
+      },
+      {
+        name: 'gpu_idx',
+        type: 'input',
+        label: t('launchModel.GPUIdx'),
+        placeholder: t('launchModel.GPUIdxPlaceholder'),
+        rules: [
+          {
+            pattern: /^\d+(?:,\d+)*$/,
+            message: t('launchModel.enterCommaSeparatedNumbers'),
+          },
+        ],
+        show: nGpuValue === 'GPU',
+      },
+      {
+        name: 'request_limits',
+        type: 'input',
+        label: t('launchModel.requestLimits'),
+        placeholder: t('launchModel.requestLimitsPlaceholder'),
+        rules: [
+          {
+            pattern: /^[1-9]\d*$/,
+            message: t('launchModel.enterIntegerGreaterThanZero'),
+          },
+        ],
+        fieldProps: { type: 'number', min: 1 },
+        normalize: (v) => (v === '' ? undefined : Number(v))
+      },
+      {
+        name: 'worker_ip',
+        type: 'input',
+        label: t('launchModel.workerIp'),
+        placeholder: t('launchModel.workerIpPlaceholder'),
+        colSpan: 2
+      },
+      {
+        name: 'model_path',
+        type: 'input',
+        label: t('launchModel.modelPath'),
+        placeholder: t('launchModel.modelPathPlaceholder'),
+        colSpan: 2
+
+      },
+      {
+        name: 'collapsibleConfig',
+        type: 'custom',
+        colSpan: 2,
+        content: <CollapsibleConfig form={form} modelType={modelType} />,
+      },
+    ]
   };
+
+  const currentLaunchFields = modelTypeFields[modelType] || [];
+  // required fields is filled in
+  const isReady = currentLaunchFields
+    .filter(isVisibleRequiredLaunchField)
+    .every((field) => !isEmptyLaunchValue(launchFormValues[field.name]));
 
   const stopPolling = useCallback(() => {
     if (pollingRef.current !== null) {
@@ -1068,7 +1175,7 @@ export default function LaunchDialog({
             <div key={replica.replica_id} className="flex items-center justify-between gap-8">
               <div className="flex flex-col gap-0.5 text-xs">
                 <span className="font-semibold">
-                  {t('modelReplicaDetails.replica')}&nbsp;{replica.replica_id}
+                  {t('launchModel.replica')}&nbsp;{replica.replica_id}
                 </span>
                 <span className="text-muted-foreground">{replica?.worker_address || '-'}</span>
               </div>
@@ -1105,11 +1212,7 @@ export default function LaunchDialog({
   };
 
   const handleLaunch = async (values: FormValues) => {
-    const newValues = transformFormToFetch({
-      ...values,
-      model_name: model?.model_name,
-      model_type: modelType,
-    });
+    const newValues = transformFormToFetch(values);
     setLoading(true);
     setProgress(0);
     setReplicaStatuses([]);
@@ -1123,6 +1226,7 @@ export default function LaunchDialog({
         stopPolling();
         onOpenChange(false);
         toast.success(t('launchModel.launchCompleted'));
+        router.push('/running-model')
       })
       .catch(() => {
         stopPolling();
@@ -1167,6 +1271,8 @@ export default function LaunchDialog({
   }, [stopPolling]);
 
   const initialValues = {
+    model_name: model?.model_name,
+    model_type: modelType,
     n_gpu: [ModelType.LLM, ModelType.Image].includes(modelType)
       ? 'auto'
       : gpuAvailable === 0
@@ -1188,7 +1294,6 @@ export default function LaunchDialog({
             handleClose();
             return;
           }
-
           onOpenChange(open);
         }}
       >
@@ -1196,12 +1301,14 @@ export default function LaunchDialog({
           <DialogHeader>
             <div className="flex min-w-0 items-center justify-between gap-3 pr-10">
               <DialogTitle className="min-w-0 truncate">{model?.model_name}</DialogTitle>
-              <ConfigCache
-                form={form}
-                modelName={model?.model_name}
-                modelType={modelType}
-                refreshKey={configCacheRefreshKey}
-              />
+              <div className="flex gap-2">
+                <ConfigCache
+                  form={form}
+                  modelName={model?.model_name}
+                  refreshKey={configCacheRefreshKey}
+                />
+                <CommandLine form={form} canCopyCommandLine={isReady} />
+              </div>
             </div>
           </DialogHeader>
           <Form
@@ -1211,16 +1318,18 @@ export default function LaunchDialog({
             initialValues={initialValues}
             className="grid grid-cols-2 gap-x-4 gap-y-3 space-y-0"
           >
-            {renderLaunchFields(modelTypeFields[modelType] || [])}
+            <FormField hidden name="model_name"/>
+            <FormField hidden name="model_type"/>
+            {renderLaunchFields(currentLaunchFields)}
           </Form>
           <DialogFooter className={cn(loading ? '!flex-col' : '')}>
             {loading && <Progress value={progress} />}
             <div className="flex items-center justify-end gap-2">
-              <Button variant="outline" onClick={handleClose}>
-                {t('common.cancel')}
-              </Button>
-              {loading ? (
-                <TooltipProvider>
+              <TooltipProvider>
+                <Button variant="outline" onClick={handleClose}>
+                  {t('common.cancel')}
+                </Button>
+                {loading ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -1239,13 +1348,13 @@ export default function LaunchDialog({
                       {renderReplicaStatuses()}
                     </TooltipContent>
                   </Tooltip>
-                </TooltipProvider>
-              ) : (
-                <Button type="submit" form={formId}>
-                  <Rocket />
-                  {t('common.deploy')}
-                </Button>
-              )}
+                ) : (
+                  <Button type="submit" form={formId}>
+                    <Rocket />
+                    {t('common.deploy')}
+                  </Button>
+                )}
+              </TooltipProvider>
             </div>
           </DialogFooter>
         </DialogContent>

@@ -47,3 +47,12 @@ export enum ModelAbility {
   Omni = 'omni',
   Hybrid = 'hybrid',
 }
+
+export const CUSTOM_MODEL_OPTIONS = [
+  { value: ModelType.LLM, labelKey: 'model.languageModels' },
+  { value: ModelType.Embedding, labelKey: 'model.embeddingModels' },
+  { value: ModelType.Rerank, labelKey: 'model.rerankModels' },
+  { value: ModelType.Image, labelKey: 'model.imageModels' },
+  { value: ModelType.Audio, labelKey: 'model.audioModels' },
+  { value: ModelType.Flexible, labelKey: 'model.flexibleModels' },
+];

@@ -22,6 +22,7 @@ const ja = {
     flexibleModels: 'フレキシブルモデル',
   },
   launchModel: {
+    modelType: 'モデルタイプ',
     modelAbility: 'モデル機能',
     generate: 'テキスト生成',
     chat: '会話',
@@ -59,7 +60,8 @@ const ja = {
     chatModel: 'チャットモデル',
     generateModel: '生成モデル',
     otherModel: 'その他モデル',
-    confirmDeleteCustomModel: 'このカスタムモデルを削除しますか？この操作は元に戻せません。',
+    confirmDeleteCustomModel:
+      'カスタムモデル {{modelName}} を削除しますか？この操作は元に戻せません。',
     modelName: '모델 이름',
     envPath: '환경 경로',
     realPath: '실제 경로',
@@ -104,8 +106,7 @@ const ja = {
     modelUid: 'モデルUID',
     modelUidPlaceholder: 'デフォルトはモデル名',
     requestLimits: 'リクエスト制限',
-    requestLimitsPlaceholder:
-      'このモデルのリクエスト制限数、デフォルトは無制限',
+    requestLimitsPlaceholder: 'このモデルのリクエスト制限数、デフォルトは無制限',
     workerIp: 'ワーカーIP',
     workerIpPlaceholder:
       '分散シナリオでモデルが配置されているワーカーIPを指定。カンマで区切ることで複数の IP を指定できます。',
@@ -172,20 +173,22 @@ const ja = {
     initializing: '初期化中...',
     moreDetails: '詳細を見る',
   },
-  modelReplicaDetails: {
-    title: 'モデルレプリカの詳細',
-    modelUid: 'モデル UID',
-    replicaId: 'レプリカ ID',
-    workerAddress: 'ワーカーアドレス',
-    status: 'ステータス',
-    createdTime: '作成日時',
-    actions: '操作',
-    noReplicaInfo: 'レプリカ情報はありません',
-    errors: 'エラー',
-    replica: 'レプリカ',
-    remove: '削除',
-    removeConfirm: 'モデル {{modelUid}} のレプリカ {{replicaId}} を削除しますか？',
-    close: '閉じる',
+  runningModels: {
+    searchPlaceholder: 'モデル名またはモデルUIDを検索...',
+    terminateConfirmBody:
+      '現在のモデル {{name}} には {{replica}} 個のレプリカがあります。クラスターが混雑している場合やレプリカ数が多い場合、終了処理には数分かかることがあります。所要時間は最も遅い Worker ノードに依存します。終了ボタンを繰り返しクリックしないでください。',
+    terminateConfirmOk: '終了',
+    baseInfo: '基本情報',
+    modelType: 'モデルタイプ',
+    modelFormat: 'モデル形式',
+    modelSize: 'モデルサイズ',
+    quantization: '量子化',
+    resources: 'リソース割り当て',
+    workerAddress: 'Worker ノード',
+    gpuIndexes: 'GPU インデックス',
+    replicaDetail: 'レプリカ詳細',
+    removeReplicaConfirm:
+      'モデル {{modelUid}} のレプリカ {{replicaId}} を削除してもよろしいですか？',
   },
   registerModel: {
     modelName: 'モデル名',
@@ -301,7 +304,7 @@ const ja = {
     unfold: '展開',
     operation: '操作',
     notice: '通知',
-    itemsCount: '{count} 件',
+    itemsCount: '{{count}} 件',
     autoCompleteOptionsTips:
       'よく使われるパラメータを表示しています。カスタムパラメータも入力できます。',
   },

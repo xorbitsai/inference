@@ -465,6 +465,7 @@ const FormContent: FC<FormContentProps> = ({
   };
   return (
     <div className="space-y-3">
+      <FormField name="version" hidden />
       {(modelTypeFields[modelType] || []).map((fieldKey) => (
         <div key={fieldKey}>{fields[fieldKey]}</div>
       ))}

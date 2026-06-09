@@ -14,8 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type { FormInstance, FormValues } from '@/types/form';
-import type { RequestModelType } from './types';
-import { toOptionValue, transformFetchToForm, transformFormToFetch } from './utils';
+import { toOptionValue, transformFetchToForm, transformFormToFetch } from '../utils';
 
 export interface LaunchConfigHistoryItem {
   data: FormValues;
@@ -27,7 +26,6 @@ export interface LaunchConfigHistoryItem {
 interface ConfigCacheProps {
   form: FormInstance;
   modelName?: string;
-  modelType: RequestModelType;
   refreshKey?: number;
 }
 
@@ -122,7 +120,7 @@ const isSameConfig = (left: FormValues, right: FormValues) => {
   return JSON.stringify(normalizeForCompare(left)) === JSON.stringify(normalizeForCompare(right));
 };
 
-export default function ConfigCache({ form, modelName, modelType, refreshKey }: ConfigCacheProps) {
+export default function ConfigCache({ form, modelName, refreshKey }: ConfigCacheProps) {
   const { t } = useI18n();
   const [configCacheOpen, setConfigCacheOpen] = useState(false);
   const [clearConfigCacheOpen, setClearConfigCacheOpen] = useState(false);
@@ -135,12 +133,8 @@ export default function ConfigCache({ form, modelName, modelType, refreshKey }: 
   );
   const currentFetchValues = useMemo(
     () =>
-      transformFormToFetch({
-        ...form.getFieldsValue(),
-        model_name: modelName,
-        model_type: modelType,
-      }),
-    [form, formUpdateKey, modelName, modelType]
+      transformFormToFetch(form.getFieldsValue()),
+    [form, formUpdateKey]
   );
   const hasModelConfigHistory = modelConfigHistory.length > 0;
 
@@ -239,7 +233,7 @@ export default function ConfigCache({ form, modelName, modelType, refreshKey }: 
         </div>
       </div>
       <Dialog open={configCacheOpen} onOpenChange={setConfigCacheOpen}>
-        <DialogContent className="!max-w-3xl gap-0 p-0" showCloseButton={false}>
+        <DialogContent className="!max-w-2xl gap-0 p-0" showCloseButton={false}>
           <DialogHeader className="border-b px-6 py-5">
             <DialogTitle>{t('launchModel.configCache')}</DialogTitle>
           </DialogHeader>
@@ -308,6 +302,7 @@ export default function ConfigCache({ form, modelName, modelType, refreshKey }: 
         description={t('launchModel.confirmDeleteConfigCache')}
         confirmText={t('common.confirm')}
         onConfirm={handleClearModelConfigCache}
+        confirmClassName="bg-destructive  hover:bg-destructive/90"
       />
       <ConfirmDialog
         isOpen={Boolean(pendingDeleteConfig)}
@@ -319,6 +314,7 @@ export default function ConfigCache({ form, modelName, modelType, refreshKey }: 
         description={t('launchModel.confirmDeleteConfigCache')}
         confirmText={t('common.confirm')}
         onConfirm={handleConfirmDeleteConfigCache}
+        confirmClassName="bg-destructive  hover:bg-destructive/90"
       />
     </>
   );

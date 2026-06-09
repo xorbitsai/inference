@@ -327,6 +327,7 @@ export const CONTROLNET_MODEL_FAMILY_OPTIONS = [
 ]
 export const REGISTER_MODEL_INIT_DATA = {
   [ModelType.LLM]: {
+    version: 2,
     model_name: 'custom-llm',
     model_description: 'This is a custom model description.',
     context_length: 2048,
@@ -346,6 +347,7 @@ export const REGISTER_MODEL_INIT_DATA = {
     },
   },
   [ModelType.Embedding]: {
+    version: 2,
     model_name: 'custom-embedding',
     dimensions: 768,
     max_tokens: 512,
@@ -362,6 +364,7 @@ export const REGISTER_MODEL_INIT_DATA = {
     },
   },
   [ModelType.Rerank]: {
+    version: 2,
     model_name: 'custom-rerank',
     language: ['en'],
     max_tokens: 512,
@@ -377,6 +380,7 @@ export const REGISTER_MODEL_INIT_DATA = {
     },
   },
   [ModelType.Image]: {
+    version: 2,
     model_name: 'custom-image',
     model_uri: '/path/to/image-model',
     model_ability: [ModelAbilityForImage.Text2Image],
@@ -387,6 +391,7 @@ export const REGISTER_MODEL_INIT_DATA = {
     },
   },
   [ModelType.Audio]: {
+    version: 2,
     model_name: 'custom-audio',
     model_uri: '/path/to/audio-model',
     multilingual: false,
@@ -397,6 +402,7 @@ export const REGISTER_MODEL_INIT_DATA = {
     },
   },
   [ModelType.Flexible]: {
+    version: 2,
     model_name: 'flexible-model',
     model_description: 'This is a model description.',
     model_uri: '/path/to/model',

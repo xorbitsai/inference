@@ -14,8 +14,8 @@ import {
 import { useI18n } from '@/contexts/i18n-context';
 import { useWatch } from '@/hooks/use-form';
 import type { FormInstance } from '@/types/form';
-import type { RequestModelType } from './types';
-import { toOptionValue } from './utils';
+import type { RequestModelType } from '../types';
+import { toOptionValue } from '../utils';
 import CommonFormList from './common-form-list';
 import { ModelType } from '@/constants';
 

@@ -1,6 +1,6 @@
-const RunningModel = ()=>{
-  return (
-    <div className="h-[2000px] overflow-y-auto"></div>
-  )
-}
-export default RunningModel;
+import RunningModel from '@/components/pages/running-model';
+
+const RunningModelPages = () => {
+  return <RunningModel />;
+};
+export default RunningModelPages;

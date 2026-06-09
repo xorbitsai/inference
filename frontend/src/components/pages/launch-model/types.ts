@@ -6,7 +6,7 @@ import type { Switch } from '@/components/ui/switch';
 import { ModelType } from '@/constants';
 import type { FormFieldProps } from '@/types/form';
 import type { ModelEngineItem } from '@/types/services';
-import type { CommonFormListProps } from './common-form-list';
+import type { CommonFormListProps } from './launch-dialog/common-form-list';
 
 export type UnknownRecord = Record<string, unknown>;
 

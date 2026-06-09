@@ -1,7 +1,7 @@
 'use client';
 
-import { FC, PropsWithChildren, useState } from 'react';
-import { Copy, Trash2 } from 'lucide-react';
+import { FC, useState } from 'react';
+import { Box, Copy, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import request from '@/lib/request';
 import { Button } from '@/components/ui/button';
@@ -31,8 +31,7 @@ interface CacheManagementDialogProps {
   onCacheDelete: () => void;
 }
 
-const CacheManagementDialog: FC<PropsWithChildren<CacheManagementDialogProps>> = ({
-  children,
+const CacheManagementDialog: FC<CacheManagementDialogProps> = ({
   modelDetail,
   onCacheDelete,
 }) => {
@@ -86,7 +85,15 @@ const CacheManagementDialog: FC<PropsWithChildren<CacheManagementDialogProps>> =
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-500/20"
+        >
+          <Box className="size-3.5" />
+          {t('launchModel.manageCachedModels')}
+        </button>
+      </DialogTrigger>
       <DialogContent className="!max-w-5xl">
         <DialogHeader>
           <DialogTitle>{modelDetail.model_name}</DialogTitle>

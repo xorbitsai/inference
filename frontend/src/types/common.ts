@@ -1,4 +1,4 @@
-import { LANGUAGES_KEYS } from '@/constants';
+import { LANGUAGES_KEYS, ModelType } from '@/constants';
 import type { ReactNode } from 'react';
 
 export type Locale = (typeof LANGUAGES_KEYS)[number];
@@ -11,3 +11,5 @@ export type Option<T extends string | number = string | number> = {
 };
 
 export type BaseFormListValueItem = { key: string; value: string };
+
+export type RegisterModelType = Exclude<ModelType, ModelType.Video | ModelType.Custom>;

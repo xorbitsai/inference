@@ -51,6 +51,7 @@ function getDefaultValue(value: any, valuePropName: string) {
 
 function FormField({
   name,
+  hidden = false,
   label,
   extra,
   rules,
@@ -133,6 +134,14 @@ function FormField({
       unmountField();
     };
   }, [form, fieldKey, registerField, unregisterField]);
+
+  if (hidden) {
+    return null;
+  }
+
+  if (!children) {
+    throw new Error('FormField requires children unless hidden is true');
+  }
 
   const handleChange = (nextValueOrEvent: any, ...args: any[]) => {
     const rawValue = nextValueOrEvent?.target ? nextValueOrEvent.target.value : nextValueOrEvent;

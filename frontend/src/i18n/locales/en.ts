@@ -22,6 +22,7 @@ const en = {
     flexibleModels: 'Flexible Models',
   },
   launchModel: {
+    modelType: 'Model Type',
     modelAbility: 'Model Ability',
     generate: 'Text Generation',
     chat: 'Conversation',
@@ -60,7 +61,7 @@ const en = {
     generateModel: 'generate model',
     otherModel: 'other model',
     confirmDeleteCustomModel:
-      'Are you sure to delete this custom model? This behavior is irreversible.',
+      'Are you sure to delete custom model {{modelName}}? This behavior is irreversible.',
     modelName: 'Model Name',
     envPath: 'Environment Path',
     realPath: 'Real Path',
@@ -105,8 +106,7 @@ const en = {
     modelUid: 'Model UID',
     modelUidPlaceholder: 'Model name by default',
     requestLimits: 'Request Limits',
-    requestLimitsPlaceholder:
-      'The request limit for this model, default is None',
+    requestLimitsPlaceholder: 'The request limit for this model, default is None',
     workerIp: 'Worker IP',
     workerIpPlaceholder:
       'Specify the worker IP where the model is located in a distributed scenario. Multiple IPs can be separated by commas.',
@@ -120,8 +120,7 @@ const en = {
     modelPathPlaceholder:
       'For PyTorch, provide the model directory. For GGML/GGUF, provide the model file path.',
     GGUFQuantization: 'GGUF Quantization',
-    GGUFQuantizationPlaceholder:
-      'Quantizes the Transformer part.',
+    GGUFQuantizationPlaceholder: 'Quantizes the Transformer part.',
     GGUFModelPath: 'GGUF Model Path',
     GGUFModelPathPlaceholder: 'Should be a file ending with .gguf.',
     lightningVersions: 'Lightning Versions',
@@ -175,20 +174,22 @@ const en = {
     initializing: 'Initializing...',
     moreDetails: 'More Details',
   },
-  modelReplicaDetails: {
-    title: 'Model Replica Details',
-    modelUid: 'Model UID',
-    replicaId: 'Replica ID',
-    workerAddress: 'Worker Address',
-    status: 'Status',
-    createdTime: 'Created Time',
-    actions: 'Actions',
-    noReplicaInfo: 'No replica information available',
-    errors: 'Errors',
-    replica: 'Replica',
-    remove: 'Remove',
-    removeConfirm: 'Remove replica {{replicaId}} from model {{modelUid}}?',
-    close: 'Close',
+  runningModels: {
+    searchPlaceholder: 'Search model name or model UID...',
+    terminateConfirmBody:
+      'The current model {{name}} has {{replica}} replicas. When the cluster is busy or the replica count is high, termination may take several minutes. The total duration depends on the slowest Worker node. Please do not click Terminate repeatedly.',
+    terminateConfirmOk: 'Terminate',
+    baseInfo: 'Basic Information',
+    modelType: 'Model Type',
+    modelFormat: 'Model Format',
+    modelSize: 'Model Size',
+    quantization: 'Quantization',
+    resources: 'Resource Allocation',
+    workerAddress: 'Worker Node',
+    gpuIndexes: 'GPU Indexes',
+    replicaDetail: 'Replica Details',
+    removeReplicaConfirm:
+      'Are you sure you want to remove replica {{replicaId}} of model {{modelUid}}?',
   },
   registerModel: {
     modelName: 'Model Name',
@@ -305,7 +306,7 @@ const en = {
     unfold: 'Expand',
     operation: 'Operation',
     notice: 'Notice',
-    itemsCount: '{count} items',
+    itemsCount: '{{count}} items',
     autoCompleteOptionsTips:
       'Common parameters are listed below. You can also enter a custom parameter.',
   },

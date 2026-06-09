@@ -92,7 +92,7 @@ const ModelSpecs: FC<ModelSpecsProps> = ({ modelType, form }) => {
                     </FormField>
                   )}
 
-                  {modelFormat && modelFormat !== ModelFormat.PyTorch && (
+                  {modelFormat && modelFormat !== ModelFormat.PyTorch ? (
                     <FormField
                       name={['model_specs', field.name, 'quantization']}
                       label={t('registerModel.quantization')}
@@ -101,6 +101,8 @@ const ModelSpecs: FC<ModelSpecsProps> = ({ modelType, form }) => {
                     >
                       <Input />
                     </FormField>
+                  ) : (
+                    <FormField hidden name={['model_specs', field.name, 'quantization']} />
                   )}
                 </div>
                 {fields.length !== 1 && (

@@ -22,6 +22,7 @@ const ko = {
     flexibleModels: '유연한 모델',
   },
   launchModel: {
+    modelType: '모델 유형',
     modelAbility: '모델 기능',
     generate: '텍스트 생성',
     chat: '대화',
@@ -59,7 +60,8 @@ const ko = {
     chatModel: '채팅 모델',
     generateModel: '생성 모델',
     otherModel: '기타 모델',
-    confirmDeleteCustomModel: '이 커스텀 모델을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
+    confirmDeleteCustomModel:
+      '커스텀 모델 {{modelName}}을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
     modelName: '모델 이름',
     envPath: '환경 경로',
     realPath: '실제 경로',
@@ -115,8 +117,7 @@ const ko = {
     downloadHub: '다운로드 허브',
     downloadHubPlaceholder: '다운로드 허브',
     modelPath: '모델 경로',
-    modelPathPlaceholder:
-      'PyTorch의 경우 모델 디렉토리, GGML/GGUF의 경우 모델 파일 경로 지정',
+    modelPathPlaceholder: 'PyTorch의 경우 모델 디렉토리, GGML/GGUF의 경우 모델 파일 경로 지정',
     GGUFQuantization: 'GGUF 양자화 형식',
     GGUFQuantizationPlaceholder: 'Transformer 부분 양자화',
     GGUFModelPath: 'GGUF 모델 경로',
@@ -170,20 +171,22 @@ const ko = {
     initializing: '초기화 중...',
     moreDetails: '자세히 보기',
   },
-  modelReplicaDetails: {
-    title: '모델 복제본 세부 정보',
-    modelUid: '모델 UID',
-    replicaId: '복제본 ID',
-    workerAddress: '워커 주소',
-    status: '상태',
-    createdTime: '생성 시간',
-    actions: '작업',
-    noReplicaInfo: '복제본 정보를 사용할 수 없습니다',
-    errors: '오류',
-    replica: '복제본',
-    remove: '제거',
-    removeConfirm: '모델 {{modelUid}} 의 복제본 {{replicaId}} 을(를) 제거하시겠습니까?',
-    close: '닫기',
+  runningModels: {
+    searchPlaceholder: '모델 이름 또는 모델 UID 검색...',
+    terminateConfirmBody:
+      '현재 모델 {{name}}에는 {{replica}}개의 복제본이 있습니다. 클러스터가 바쁘거나 복제본 수가 많은 경우 종료 작업에 몇 분 정도 소요될 수 있습니다. 전체 소요 시간은 가장 느린 Worker 노드에 따라 달라집니다. 종료 버튼을 반복해서 클릭하지 마세요.',
+    terminateConfirmOk: '종료',
+    baseInfo: '기본 정보',
+    modelType: '모델 유형',
+    modelFormat: '모델 형식',
+    modelSize: '모델 크기',
+    quantization: '양자화',
+    resources: '리소스 할당',
+    workerAddress: 'Worker 노드',
+    gpuIndexes: 'GPU 인덱스',
+    replicaDetail: '복제본 상세 정보',
+    removeReplicaConfirm:
+      '모델 {{modelUid}}의 복제본 {{replicaId}}을(를) 제거하시겠습니까?',
   },
   registerModel: {
     modelName: '모델 이름',
@@ -299,7 +302,7 @@ const ko = {
     unfold: '펼치기',
     operation: '작업',
     notice: '알림',
-    itemsCount: '{count}개',
+    itemsCount: '{{count}}개',
     autoCompleteOptionsTips:
       '자주 사용하는 매개변수를 표시합니다. 사용자 지정 매개변수도 입력할 수 있습니다.',
   },
