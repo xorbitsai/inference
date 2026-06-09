@@ -1,0 +1,36 @@
+xinference/core/model.py
+  159bc1cbe4d8f3b4 533-534,536-537,539-541
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "5646f5726a924592019d4a8e5d35a8ce0d5d9148",
+  "prompts": {
+    "156b11c58e82d2e7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1d79e8e5-3ef8-4b84-83f2-45730c2b047a",
+        "model": "qwen3.7-max"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 467,
+      "overriden_lines": 0
+    },
+    "159bc1cbe4d8f3b4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3774d71f-422e-4e07-b0f4-0acb8a426b0d",
+        "model": "qwen3.7-max"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 2971,
+      "total_deletions": 6,
+      "accepted_lines": 2971,
+      "overriden_lines": 0
+    }
+  }
+}
