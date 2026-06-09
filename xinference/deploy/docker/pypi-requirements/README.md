@@ -53,7 +53,7 @@ penalty for the separation.
 
 | File          | Type                  | Description |
 |---------------|-----------------------|-------------|
-| `compiled.txt`  | Native (arch-specific) | Platform-compiled packages not tied to a CUDA version: `uvloop`, `onnxruntime==1.16.0`. Same package names for both architectures — `pip download` resolves the correct platform wheel at build time. |
+| `compiled.txt`  | Native (arch-specific) | Platform-compiled packages not tied to a CUDA version: `uvloop`, `onnxruntime==1.18.0`. Same package names for both architectures — `pip download` resolves the correct platform wheel at build time. |
 | `torch.txt`     | CUDA-specific          | PyTorch ecosystem packages downloaded once per CUDA version with `--index-url https://download.pytorch.org/whl/${CUDA_VER}`. The `--index-url` (not the file content) determines which CUDA wheel is fetched. |
 | `torch-cpu.txt` | CPU-specific           | PyTorch CPU-only variant downloaded from `https://download.pytorch.org/whl/cpu`. Separate file because it excludes `torchcodec` (no CPU build available). |
 | `cuda-ext.txt`  | CUDA-specific          | CUDA-dependent extensions: `bitsandbytes`, `sgl-kernel`, `triton`, `torchao`, `xgrammar`, `onnxruntime-gpu`. Downloaded once per CUDA version for error isolation. |

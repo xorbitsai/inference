@@ -14,7 +14,7 @@ gdown
 pyarrow
 HyperPyYAML
 onnxruntime-gpu==1.16.0; sys_platform == 'linux'
-onnxruntime==1.16.0; sys_platform == 'darwin' or sys_platform == 'windows'
+onnxruntime==1.18.0; sys_platform == 'darwin' or sys_platform == 'windows'
 pyworld>=0.3.4  # For CosyVoice
 
 # Fish Speech
