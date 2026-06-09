@@ -1,0 +1,9 @@
+FROM pypiserver/pypiserver:latest
+
+# Copy the package artifacts produced by the workflow into the image.
+COPY dist/ /data/packages/
+
+RUN mkdir -p /data/packages \
+    && chown -R pypiserver:pypiserver /data/packages
+
+EXPOSE 8080
