@@ -54,14 +54,6 @@ RUN bash /build/scripts/download-cuda.sh ${TARGET_ARCH} "${CUDA_VERSIONS}" /data
 # Phase 3: External sources — flash-attn (GitHub), xllamacpp (custom index)
 RUN bash /build/scripts/download-wheels.sh ${TARGET_ARCH} "${CUDA_VERSIONS}" /data/packages/
 
-# Include xinference's own build artifacts
-COPY dist/ /data/packages/
-
-# Verify we have at least the xinference packages
-RUN find /data/packages -name 'xinference-*.whl' -o -name 'xinference-*.tar.gz' \
-    | head -1 | grep . > /dev/null \
-    || (echo "ERROR: no xinference build artifacts found in dist/ — run 'python -m build' first" >&2 && exit 1)
-
 # Clean pip cache to reduce layer size
 RUN pip cache purge
 

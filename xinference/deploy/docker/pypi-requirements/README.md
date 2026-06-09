@@ -85,7 +85,6 @@ the final image:
    (skipped entirely for arm64)
 7. download-wheels.sh             External sources        → /data/packages/
    (flash-attn from GitHub releases, xllamacpp from custom index)
-8. xinference build artifacts (dist/*.whl)               → /data/packages/
 ```
 
 ### Step 2: Final Stage (`pypiserver/pypiserver:latest`)
@@ -106,7 +105,6 @@ At runtime, pypiserver serves `/data/packages/` as a PEP 503 simple repository.
 - External downloads (flash-attn, xllamacpp) emit warnings on failure but do
   not abort the build — those packages may not have wheels for every
   architecture/CUDA combination.
-- The build **will** fail if no xinference build artifacts are found in `dist/`.
 
 ### Build Commands
 
@@ -143,8 +141,9 @@ separately via [scripts/download-wheels.sh](../scripts/download-wheels.sh):
 |---------------|--------|
 | flash-attn    | GitHub releases ([mjun0812/flash-attention-prebuild-wheels](https://github.com/mjun0812/flash-attention-prebuild-wheels)) |
 | xllamacpp     | Custom index ([xorbitsai.github.io/xllamacpp/whl/](https://xorbitsai.github.io/xllamacpp/whl/)) |
-| triton        | Standard PyPI (downloaded by the script for consistency) |
-| flashinfer    | Standard PyPI (amd64 only) |
+
+`triton` and `flashinfer` are now handled by `download-cuda.sh` via
+`cuda-ext.txt` and `vllm.txt` respectively (standard PyPI).
 
 ## Adding New Dependencies
 
