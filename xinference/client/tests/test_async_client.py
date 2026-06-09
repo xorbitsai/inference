@@ -617,6 +617,45 @@ async def test_model_error(set_test_oom_error, setup_cluster):
 
 
 @pytest.mark.asyncio
+async def test_model_oom_triggers_restart(set_test_oom_error, setup_cluster):
+    # OOM must hard-exit the model subprocess via os._exit(1) so xoscar
+    # can detect the exit and recover it. With the old sys.exit(1) the
+    # SystemExit was swallowed by xoscar's _ErrorProcessor, the process
+    # never died, and this test would time out at the "subprocess did not
+    # exit" assert below.
+    endpoint, _ = setup_cluster
+    current_proc = psutil.Process()
+    before = set(current_proc.children(recursive=True))
+    client = AsyncRESTfulClient(endpoint)
+
+    model_uid = await client.launch_model(
+        model_name="qwen1.5-chat",
+        model_engine="llama.cpp",
+        model_size_in_billions="0_5",
+        quantization="q4_0",
+    )
+    assert len(await client.list_models()) == 1
+    model_proc = next(iter(set(current_proc.children(recursive=True)) - before))
+
+    model = await client.get_model(model_uid=model_uid)
+    assert isinstance(model, AsyncRESTfulChatModelHandle)
+
+    # Trigger OOM -> os._exit(1) on the model subprocess.
+    with pytest.raises(Exception):
+        await model.generate("Once upon a time, there was a very old computer")
+
+    # The old subprocess must actually exit (regression guard).
+    for _ in range(30):
+        if not model_proc.is_running() or model_proc.status() == psutil.STATUS_ZOMBIE:
+            break
+        await asyncio.sleep(1)
+    else:
+        assert False, "OOM subprocess did not exit (sys.exit swallowed by xoscar)"
+    await model.close()
+    await client.close()
+
+
+@pytest.mark.asyncio
 async def test_async_restful_chat_enable_thinking_injected():
     handle = AsyncRESTfulChatModelHandle.__new__(AsyncRESTfulChatModelHandle)
     handle._model_uid = "test-model"
