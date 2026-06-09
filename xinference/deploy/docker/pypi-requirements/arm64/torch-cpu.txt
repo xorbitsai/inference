@@ -1,0 +1,5 @@
+# PyTorch ecosystem — CPU only (aarch64)
+# Extra index: https://download.pytorch.org/whl/cpu
+torch
+torchvision
+torchaudio

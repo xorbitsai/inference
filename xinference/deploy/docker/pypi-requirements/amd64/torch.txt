@@ -1,0 +1,6 @@
+# PyTorch ecosystem — CUDA
+# Passed to pip download with --index-url https://download.pytorch.org/whl/${cu}
+torch
+torchvision
+torchaudio
+torchcodec

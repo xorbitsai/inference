@@ -1,9 +1,131 @@
-FROM pypiserver/pypiserver:latest
+# Multi-stage build for custom PyPI server.
+# Build per-architecture image containing wheels for all CUDA versions + CPU.
+#
+#   docker build -f Dockerfile.pypi --build-arg TARGET_ARCH=amd64 -t pypiserver:amd64 .
+#   docker build -f Dockerfile.pypi --build-arg TARGET_ARCH=arm64 -t pypiserver:arm64 .
+#
+# Result: one image per architecture, users install with:
+#   pip install torch==2.5.0+cu128 --index-url https://<pypiserver>/simple
 
-# Copy the package artifacts produced by the workflow into the image.
+# ---- downloader stage ----
+FROM python:3.12-slim AS downloader
+
+# TARGETARCH is injected by docker buildx (amd64 / arm64).
+# When not using buildx, default to amd64.
+ARG TARGETARCH
+ARG TARGET_ARCH=${TARGETARCH:-amd64}
+ARG CUDA_VERSIONS="cu124 cu126 cu128"
+
+# Validate TARGET_ARCH at build time
+RUN case "${TARGET_ARCH}" in \
+      amd64|arm64) ;; \
+      *) echo "ERROR: TARGET_ARCH must be 'amd64' or 'arm64', got '${TARGET_ARCH}'" >&2; exit 1 ;; \
+    esac
+
+WORKDIR /build
+
+# Copy requirements files and scripts
+COPY xinference/deploy/docker/pypi-requirements/ /build/pypi-requirements/
+COPY xinference/deploy/docker/scripts/ /build/scripts/
+
+RUN mkdir -p /data/packages
+
+# Common packages (pure Python — same across all arch / CUDA)
+RUN pip download --no-cache-dir \
+    -r /build/pypi-requirements/common/base.txt \
+    -r /build/pypi-requirements/common/ml.txt \
+    -r /build/pypi-requirements/common/models.txt \
+    -d /data/packages/
+
+# Arch-specific compiled packages (not CUDA-version-specific)
+RUN pip download --no-cache-dir \
+    -r /build/pypi-requirements/${TARGET_ARCH}/compiled.txt \
+    -d /data/packages/
+
+# Torch ecosystem — one pass per CUDA version (different index URLs)
+# Individual CUDA versions may fail (e.g. cu124 torch may not be published yet);
+# we collect failures and report them at the end.
+RUN set -e; failed=""; \
+    for cu in ${CUDA_VERSIONS}; do \
+      req="/build/pypi-requirements/${TARGET_ARCH}/torch.txt"; \
+      if [ ! -f "${req}" ]; then \
+        echo "WARNING: ${req} not found, skipping"; \
+        continue; \
+      fi; \
+      echo "Downloading torch for ${cu}..."; \
+      pip download --no-cache-dir \
+        --index-url "https://download.pytorch.org/whl/${cu}" \
+        -r "${req}" -d /data/packages/ \
+        || failed="${failed} torch-${cu}"; \
+    done; \
+    if [ -n "${failed}" ]; then \
+      echo "WARNING: failed to download:${failed}"; \
+    fi
+
+# CPU PyTorch
+RUN pip download --no-cache-dir \
+      --index-url "https://download.pytorch.org/whl/cpu" \
+      -r /build/pypi-requirements/${TARGET_ARCH}/torch-cpu.txt \
+      -d /data/packages/ \
+    || echo "WARNING: torch-cpu download failed"
+
+# CUDA extensions — one pass per CUDA version
+RUN set -e; failed=""; \
+    for cu in ${CUDA_VERSIONS}; do \
+      req="/build/pypi-requirements/${TARGET_ARCH}/cuda-ext.txt"; \
+      if [ ! -f "${req}" ]; then \
+        echo "WARNING: ${req} not found, skipping"; \
+        continue; \
+      fi; \
+      echo "Downloading cuda-ext for ${cu}..."; \
+      pip download --no-cache-dir \
+        -r "${req}" -d /data/packages/ \
+        || failed="${failed} cuda-ext-${cu}"; \
+    done; \
+    if [ -n "${failed}" ]; then \
+      echo "WARNING: failed to download:${failed}"; \
+    fi
+
+# vLLM ecosystem — amd64 only (no arm64 prebuilt wheels for vllm/flashinfer)
+RUN if [ "${TARGET_ARCH}" = "amd64" ]; then \
+      set -e; failed=""; \
+      for cu in ${CUDA_VERSIONS}; do \
+        req="/build/pypi-requirements/${TARGET_ARCH}/vllm.txt"; \
+        if [ ! -f "${req}" ]; then \
+          continue; \
+        fi; \
+        echo "Downloading vllm for ${cu}..."; \
+        pip download --no-cache-dir \
+          -r "${req}" -d /data/packages/ \
+          || failed="${failed} vllm-${cu}"; \
+      done; \
+      if [ -n "${failed}" ]; then \
+        echo "WARNING: failed to download:${failed}"; \
+      fi; \
+    else \
+      echo "Skipping vLLM — amd64 only"; \
+    fi
+
+# Download special wheels from external sources (flash-attn, xllamacpp, etc.)
+RUN bash /build/scripts/download-wheels.sh ${TARGET_ARCH} /data/packages/
+
+# Also include xinference's own build artifacts
 COPY dist/ /data/packages/
 
-RUN mkdir -p /data/packages \
-    && chown -R pypiserver:pypiserver /data/packages
+# Verify we have at least the xinference packages
+RUN find /data/packages -name 'xinference-*.whl' -o -name 'xinference-*.tar.gz' \
+    | head -1 | grep . > /dev/null \
+    || (echo "ERROR: no xinference build artifacts found in dist/ — run 'python -m build' first" >&2 && exit 1)
+
+# Clean pip cache to reduce layer size
+RUN pip cache purge
+
+# ---- final stage ----
+FROM pypiserver/pypiserver:latest
+
+COPY --from=downloader /data/packages/ /data/packages/
+
+# Ensure correct ownership (COPY --from preserves root ownership)
+RUN chown -R pypiserver:pypiserver /data/packages
 
 EXPOSE 8080

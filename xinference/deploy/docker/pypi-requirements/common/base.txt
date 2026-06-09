@@ -1,0 +1,38 @@
+# Core dependencies — pure Python, all architectures / CUDA versions.
+xoscar>=0.7.2
+gradio==5.22.0
+pillow
+click
+tqdm>=4.27
+tabulate
+requests
+pydantic>2
+fastapi>=0.110.3
+uvicorn
+huggingface_hub>=0.19.4
+typing_extensions
+modelscope>=1.10.0
+sse_starlette>=1.6.5  # ensure_bytes API break change
+openai>=1.40.0  # For typing
+python-jose[cryptography]
+bcrypt>=4.0.0
+aioprometheus[starlette]>=23.12.0
+nvidia-ml-py
+pynvml>=12
+async-timeout
+setproctitle
+gguf
+uv
+opentelemetry-api>=1.20.0
+opentelemetry-sdk>=1.20.0
+opentelemetry-exporter-otlp-proto-http>=1.20.0
+opentelemetry-exporter-otlp-proto-grpc>=1.20.0
+opentelemetry-instrumentation-fastapi>=0.41b0
+opentelemetry-instrumentation-httpx>=0.41b0
+orjson
+imageio-ffmpeg  # For video
+loguru  # For Fish Speech
+natsort  # For Fish Speech
+ormsgpack  # For Fish Speech
+cachetools  # For Fish Speech
+opencv-contrib-python-headless
