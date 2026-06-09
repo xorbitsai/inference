@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   build-pypiserver-image:
-    name: Build and publish custom pypiserver image
+    name: Build custom pypiserver image
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -52,12 +52,14 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      - name: Build and push custom pypiserver image
+      - name: Build and push multi-arch image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: xinference/deploy/docker/Dockerfile.pypi
+          platforms: linux/amd64,linux/arm64
           push: true
+          provenance: false
           tags: |
             ${{ env.IMAGE_NAME }}:latest
             ${{ env.IMAGE_NAME }}:${{ github.sha }}
