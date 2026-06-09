@@ -11,21 +11,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-pypiserver-image:
-    name: Build custom pypiserver image
+  # ------------------------------------------------------------------
+  # Build xinference wheel once (pure Python, architecture-independent)
+  # and share via artifact to both native build runners.
+  # ------------------------------------------------------------------
+  build-dist:
+    name: Build xinference dist
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    env:
-      IMAGE_NAME: qinruicool/pypiserver-dev
-      TAG_NAME: v0.1
-
     steps:
       - name: Check out code
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -37,18 +32,57 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install build "setuptools<82"
 
-      - name: Checking tool version
-        run: |
-          echo "#### Checking tool versions........"
-          python --version
-          pip --version
-  
       - name: Build web assets
         run: python setup.py build_web
 
       - name: Build Python package artifacts
         run: |
           python -m build --sdist --wheel --outdir dist .
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: xinference-dist
+          path: dist/
+          retention-days: 1
+
+  # ------------------------------------------------------------------
+  # Build Docker image per architecture on native runners.
+  # Native builds are faster and more reliable than QEMU emulation —
+  # pip download resolves platform wheels based on the host arch.
+  # ------------------------------------------------------------------
+  build-image:
+    name: Build ${{ matrix.arch }} image
+    needs: build-dist
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE_NAME: qinruicool/pypiserver-dev
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+
+      - name: Download dist artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: xinference-dist
+          path: dist/
+
+      - name: Verify dist contents
+        run: |
+          echo "dist contents:"
+          ls -la dist/
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -59,14 +93,53 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      - name: Build and push multi-arch image
+      - name: Build and push ${{ matrix.arch }} image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: xinference/deploy/docker/Dockerfile.pypi
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/${{ matrix.arch }}
+          build-args: |
+            TARGET_ARCH=${{ matrix.arch }}
           push: true
           provenance: false
           tags: |
-            ${{ env.IMAGE_NAME }}:latest
-            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}-${{ matrix.arch }}
+            ${{ env.IMAGE_NAME }}:latest-${{ matrix.arch }}
+
+  # ------------------------------------------------------------------
+  # Merge architecture-specific images into a multi-arch manifest list.
+  # Users pull :latest or :<sha> and get the correct arch automatically.
+  # ------------------------------------------------------------------
+  merge-manifest:
+    name: Merge multi-arch manifest
+    needs: build-image
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    env:
+      IMAGE_NAME: qinruicool/pypiserver-dev
+
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Create and push multi-arch manifest (:latest)
+        run: |
+          docker buildx imagetools create \
+            --tag ${{ env.IMAGE_NAME }}:latest \
+            ${{ env.IMAGE_NAME }}:latest-amd64 \
+            ${{ env.IMAGE_NAME }}:latest-arm64
+
+      - name: Create and push multi-arch manifest (:sha)
+        run: |
+          docker buildx imagetools create \
+            --tag ${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}-amd64 \
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}-arm64
