@@ -2871,6 +2871,20 @@ class WorkerActor(xo.StatelessActor):
 
     @no_type_check
     async def recover_model(self, launch_args: Dict[str, Any]):
+        # `launch_ts` is an internal timestamp stamped onto the launch snapshot at
+        # the entry of `launch_builtin_model` (see the `launch_args["launch_ts"]`
+        # assignment); it is not a model construction parameter. recover_model
+        # splats the whole snapshot back via `launch_builtin_model(**launch_args)`,
+        # so `launch_ts` would land in that call's `**kwargs` and sink into the
+        # model's `self._kwargs`. Models that forward the full `self._kwargs` into a
+        # strict constructor (e.g. jina-reranker-v3 ->
+        # `AutoModelForCausalLM.from_pretrained(**model_kwargs)`) then crash with
+        # `TypeError: ... unexpected keyword argument 'launch_ts'`. The cross-session
+        # recovery path (`recover_models_on_startup`) already pops it before
+        # relaunch; do the same here. Copy first so the cached snapshot in
+        # `self._model_uid_to_launch_args` keeps its `launch_ts` (used as created_ts).
+        launch_args = dict(launch_args)
+        launch_args.pop("launch_ts", None)
         rep_model_uid = launch_args.get("model_uid")
         origin_uid, _ = parse_replica_model_uid(rep_model_uid)
         xavier_config: Optional[Dict[str, Any]] = launch_args.get("xavier_config", None)
