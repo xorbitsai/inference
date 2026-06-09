@@ -14,7 +14,6 @@
 
 import asyncio
 import os
-import time
 
 import psutil
 import pytest
@@ -587,7 +586,7 @@ async def test_auto_recover(set_auto_recover_limit, setup_cluster):
             assert "text" in completion["choices"][0]
             break
         except Exception:
-            time.sleep(1)
+            await asyncio.sleep(1)
     else:
         assert False
     await model.close()
@@ -684,7 +683,7 @@ async def test_model_oom_recover_exhausted_evicts_replica(
         if len(await client.list_models()) == 0:
             evicted = True
             break
-        time.sleep(1)
+        await asyncio.sleep(1)
     assert (
         evicted
     ), "dead replica was not evicted from supervisor after recover exhausted"

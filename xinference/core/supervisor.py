@@ -2531,13 +2531,48 @@ class SupervisorActor(xo.StatelessActor):
         self._model_uid_to_replica_info.pop(model_uid, None)
         self._clear_unexpected_down_replicas(model_uid)
 
+        await self._cleanup_distributed_actors(
+            model_uid, terminate_rank0_on_worker=True
+        )
+
+        return 0
+
+    async def _cleanup_distributed_actors(
+        self, model_uid: str, terminate_rank0_on_worker: bool = True
+    ) -> None:
+        """Tear down supervisor-side actors/mappings created for distributed
+        (Xavier) models when the last replica of ``model_uid`` goes away: the
+        rank0 model, the collective manager, and the block tracker.
+
+        Shared by terminate_model_replica (graceful teardown) and
+        mark_replica_dead (auto-recover exhaustion). Without this, exhausting
+        AUTO_RECOVER_LIMIT on a distributed model would leak the rank0 actor and
+        the collective/block-tracker mappings, and a later launch reusing the
+        same uid could hit stale actors.
+
+        terminate_rank0_on_worker: when True, RPC the worker to terminate the
+        rank0 model. mark_replica_dead passes False -- the worker already
+        terminated the model locally before giving up recreating, so it only
+        needs the supervisor-side mapping dropped.
+
+        Deliberately does NOT touch _unexpected_down_replicas: callers decide
+        whether the down marker stays lit (terminate clears it, mark_replica_dead
+        keeps it for the failure gauge).
+        """
         rank0_uid = model_uid + "-rank0"
-        if rank0_uid in self._replica_model_uid_to_worker:
-            rank0_worker_refs = self._replica_model_uid_to_worker.pop(rank0_uid)
+        rank0_worker_refs = self._replica_model_uid_to_worker.pop(rank0_uid, None)
+        if rank0_worker_refs is not None and terminate_rank0_on_worker:
             if not isinstance(rank0_worker_refs, (list, tuple)):
                 rank0_worker_refs = [rank0_worker_refs]
             for worker_ref in rank0_worker_refs:
-                await worker_ref.terminate_model(model_uid=rank0_uid)
+                try:
+                    await worker_ref.terminate_model(model_uid=rank0_uid)
+                except Exception as e:
+                    logger.debug(
+                        "Terminate rank0 model failed, model uid: %s, error: %s",
+                        rank0_uid,
+                        e,
+                    )
 
         collective_manager_ref = self._collective_manager_mapping.pop(model_uid, None)
         if collective_manager_ref is not None:
@@ -2561,15 +2596,14 @@ class SupervisorActor(xo.StatelessActor):
                     e,
                 )
 
-        return 0
-
     async def mark_replica_dead(self, replica_model_uid: str) -> None:
         """Called back by worker after its local recover_sub_pool exhausts
         AUTO_RECOVER_LIMIT (worker.py "Stop recreating model actor.").
 
         Responsibilities: evict the dead replica from the round-robin scheduler
         and light up model_unexpected_termination; when the single/last replica
-        dies, advance base_uid to TERMINATED.
+        dies, advance base_uid to TERMINATED and tear down the distributed
+        (Xavier) actors/mappings via _cleanup_distributed_actors.
 
         Deliberately does NOT call back worker.terminate_model -- the worker
         already terminated the model locally before giving up recreating
@@ -2629,6 +2663,15 @@ class SupervisorActor(xo.StatelessActor):
 
         # Single replica / last replica died -> take the model fully offline.
         self._model_uid_to_replica_info.pop(base_uid, None)
+
+        # Tear down distributed (Xavier) actors/mappings. terminate_rank0_on_worker
+        # =False: the worker already terminated the model locally before giving up
+        # recreating, so we only drop the supervisor-side state. Keeps the
+        # _unexpected_down_replicas marker lit for the failure gauge.
+        await self._cleanup_distributed_actors(
+            base_uid, terminate_rank0_on_worker=False
+        )
+
         try:
             await self._status_guard_ref.update_instance_info(
                 base_uid, {"status": LaunchStatus.TERMINATED.name}

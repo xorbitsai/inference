@@ -315,22 +315,30 @@ class WorkerActor(xo.StatelessActor):
                             await self.recover_model(launch_args)
                         else:
                             logger.warning("Stop recreating model actor.")
+
                             # Worker has given up recreating; notify supervisor
                             # to evict the dead replica from round-robin and
                             # light up the failure gauge. add_worker=False:
                             # only fetch the ref, do not trigger
-                            # re-registration. Wrap in xo.wait_for(5s): this
-                            # runs inside the recover_sub_pool tail path, so a
-                            # stalled supervisor must not hold up the worker's
-                            # local shutdown. A failure/timeout is non-fatal --
-                            # the next death detection / redeploy will
-                            # reconcile.
-                            try:
+                            # re-registration. The whole notification --
+                            # get_supervisor_ref + mark_replica_dead -- is
+                            # wrapped in a single xo.wait_for(5s): this runs
+                            # inside the recover_sub_pool tail path, and
+                            # get_supervisor_ref itself issues blocking
+                            # xo.actor_ref calls when the cached ref is missing,
+                            # so the bound must cover both to keep a stalled
+                            # supervisor from holding up the worker's local
+                            # shutdown. A failure/timeout is non-fatal -- the
+                            # next death detection / redeploy will reconcile.
+                            async def _notify_replica_dead():
                                 supervisor_ref = await self.get_supervisor_ref(
                                     add_worker=False
                                 )
+                                await supervisor_ref.mark_replica_dead(model_uid)
+
+                            try:
                                 await xo.wait_for(
-                                    supervisor_ref.mark_replica_dead(model_uid),
+                                    _notify_replica_dead(),
                                     timeout=5,
                                 )
                             except Exception:
