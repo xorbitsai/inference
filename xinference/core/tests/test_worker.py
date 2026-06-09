@@ -1432,3 +1432,59 @@ async def test_mark_replica_dead_last_replica_terminates_rank0():
     assert "model-x-0" not in supervisor._replica_model_uid_to_worker
     # Failure gauge marker stays lit (mark_replica_dead must not clear it).
     assert ("model-x", 0) in supervisor._unexpected_down_replicas
+
+
+@pytest.mark.asyncio
+async def test_recover_model_pops_launch_ts_from_kwargs():
+    """launch_ts is an internal timestamp stamped onto the launch snapshot at
+    launch_builtin_model entry. recover_model splats the snapshot back via
+    launch_builtin_model(**launch_args), which would inject launch_ts into the
+    model's self._kwargs. Models that forward the full self._kwargs into a
+    strict constructor (e.g. jina-reranker-v3 -> AutoModelForCausalLM.from_pretrained)
+    then crash with TypeError. recover_model must pop launch_ts before the splat,
+    mirroring the existing cleanup in recover_models_on_startup."""
+
+    # Use a minimal mock object to avoid WorkerActor initialization complexity
+    class _MockWorker:
+        async def launch_builtin_model(self, **kwargs):
+            self._captured_kwargs = kwargs
+            return "mock-subpool-address"
+
+        async def get_supervisor_ref(self, add_worker=False):
+            return None
+
+    worker = _MockWorker()
+
+    # Simulate a cached launch snapshot with launch_ts (the internal timestamp)
+    launch_args = {
+        "model_uid": "test-model-0",
+        "model_name": "test-model",
+        "launch_ts": 1780900592,  # Internal timestamp, not a model param
+        "some_param": "value",
+    }
+    original_launch_args = dict(launch_args)
+
+    # Mock parse_replica_model_uid to avoid dependency
+    def mock_parse(uid):
+        return ("test-model", 0)
+
+    import xinference.core.worker as worker_module
+
+    original_parse = worker_module.parse_replica_model_uid
+    worker_module.parse_replica_model_uid = mock_parse
+
+    try:
+        # Call recover_model directly (it's a standalone async method)
+        await WorkerActor.recover_model(worker, launch_args)
+
+        # Assert: launch_builtin_model was called without launch_ts
+        assert hasattr(worker, "_captured_kwargs")
+        assert "launch_ts" not in worker._captured_kwargs
+        assert worker._captured_kwargs["model_uid"] == "test-model-0"
+        assert worker._captured_kwargs["some_param"] == "value"
+
+        # Assert: original launch_args still has launch_ts (copy isolation)
+        assert launch_args == original_launch_args
+        assert launch_args["launch_ts"] == 1780900592
+    finally:
+        worker_module.parse_replica_model_uid = original_parse
