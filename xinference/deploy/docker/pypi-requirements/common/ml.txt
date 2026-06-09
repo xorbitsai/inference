@@ -26,7 +26,6 @@ HyperPyYAML  # For CosyVoice
 pyworld>=0.3.4  # For CosyVoice
 boto3>=1.28.55,<1.28.65 # For tensorizer
 tensorizer~=2.9.0
-eva-decord  # For video in VL
 jj-pytorchvideo # For CogVLM2-video
 loralib  # For Fish Speech
 vector-quantize-pytorch<=1.17.3,>=1.14.24 # For Fish Speech
