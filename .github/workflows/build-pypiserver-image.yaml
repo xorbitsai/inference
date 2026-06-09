@@ -12,48 +12,12 @@ concurrency:
 
 jobs:
   # ------------------------------------------------------------------
-  # Build xinference wheel once (pure Python, architecture-independent)
-  # and share via artifact to both native build runners.
-  # ------------------------------------------------------------------
-  build-dist:
-    name: Build xinference dist
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v6
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.10"
-
-      - name: Install build tooling
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install build "setuptools<82"
-
-      - name: Build web assets
-        run: python setup.py build_web
-
-      - name: Build Python package artifacts
-        run: |
-          python -m build --sdist --wheel --outdir dist .
-
-      - name: Upload dist artifact
-        uses: actions/upload-artifact@v5
-        with:
-          name: xinference-dist
-          path: dist/
-          retention-days: 1
-
-  # ------------------------------------------------------------------
   # Build Docker image per architecture on native runners.
-  # Native builds are faster and more reliable than QEMU emulation —
-  # pip download resolves platform wheels based on the host arch.
+  # Each runner builds the xinference wheel locally, then builds the
+  # Docker image on the native host arch — no QEMU emulation needed.
   # ------------------------------------------------------------------
-  build-image:
-    name: Build ${{ matrix.arch }} image
-    needs: build-dist
+  build-and-push-image:
+    name: Build and push ${{ matrix.arch }} image
     strategy:
       fail-fast: false
       matrix:
@@ -73,25 +37,24 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v6
 
-      - name: Download dist artifact
-        uses: actions/download-artifact@v5
+      - name: Set up Python
+        uses: actions/setup-python@v6
         with:
-          name: xinference-dist
-          path: dist/
+          python-version: "3.10"
 
-      - name: Verify dist contents
+      - name: Install build tooling
         run: |
-          echo "dist contents:"
-          ls -la dist/
+          python -m pip install --upgrade pip
+          python -m pip install build "setuptools<82"
 
-      - name: Checking tool verion
+      - name: Checking tool version
         run: |
           echo "### Checking... ###"
           python --version
           pip --version
           hostnamectl
           uname -m
-    
+
       - name: Debug with specific py packages
         run: |
           echo "### Debugging... ###"
@@ -126,7 +89,7 @@ jobs:
   # ------------------------------------------------------------------
   merge-manifest:
     name: Merge multi-arch manifest
-    needs: build-image
+    needs: build-and-push-image
     runs-on: ubuntu-latest
     permissions:
       packages: write
