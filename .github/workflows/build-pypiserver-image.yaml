@@ -37,6 +37,13 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install build "setuptools<82"
 
+      - name: Checking tool version
+        run: |
+          echo "#### Checking tool versions........"
+          python --version
+          pip --version
+          build --version
+  
       - name: Build web assets
         run: python setup.py build_web
 
