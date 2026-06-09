@@ -25,7 +25,7 @@ const CustomEditDialog: FC<EnvManagementDialogProps> = ({ model, modelType }) =>
   const { t } = useI18n();
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const value = useMemo(() => JSON.stringify(model, null, 4), []);
+  const value = useMemo(() => JSON.stringify(model, null, 4), [model]);
   const handleEdit = () => {
     // set model detail
     sessionStorage.setItem('customJsonData', JSON.stringify(model));

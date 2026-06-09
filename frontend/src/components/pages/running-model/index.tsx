@@ -86,9 +86,18 @@ const RunningModel = () => {
     request
       .get('/v1/models')
       .then((res) => {
-        const list = res?.data || [];
+        const list = (res?.data || []) as RunningModelItem[];
         setModels(list);
-        setActiveModel(list?.[0]);
+        setActiveModel((prev) => {
+          if (!prev) {
+            return list?.[0];
+          }
+          const current = list.find(
+            (item) => item.id === prev.id
+          );
+      
+          return current ?? list?.[0];
+        });
       })
       .catch(() => setModels([]))
       .finally(() => setLoading(false));

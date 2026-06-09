@@ -263,6 +263,7 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
     setDeleteModel(model);
   };
   const handleDeleteModel = () => {
+    if(!deleteModel) return;
     request
       .delete(`/v1/model_registrations/${customType}/${deleteModel?.model_name}`)
       .then(() => {
