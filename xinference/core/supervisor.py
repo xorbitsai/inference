@@ -2531,13 +2531,57 @@ class SupervisorActor(xo.StatelessActor):
         self._model_uid_to_replica_info.pop(model_uid, None)
         self._clear_unexpected_down_replicas(model_uid)
 
+        await self._cleanup_distributed_actors(
+            model_uid, terminate_rank0_on_worker=True
+        )
+
+        return 0
+
+    async def _cleanup_distributed_actors(
+        self, model_uid: str, terminate_rank0_on_worker: bool = True
+    ) -> None:
+        """Tear down supervisor-side actors/mappings created for distributed
+        (Xavier) models when the last replica of ``model_uid`` goes away: the
+        rank0 model, the collective manager, and the block tracker.
+
+        Shared by terminate_model_replica (graceful teardown) and
+        mark_replica_dead (auto-recover exhaustion). Without this, exhausting
+        AUTO_RECOVER_LIMIT on a distributed model would leak the rank0 actor and
+        the collective/block-tracker mappings, and a later launch reusing the
+        same uid could hit stale actors.
+
+        terminate_rank0_on_worker: when True, RPC the worker to terminate the
+        rank0 model. Both terminate_model_replica (graceful) and
+        mark_replica_dead (auto-recover exhaustion) pass True: rank0 is a
+        SEPARATE subpool (launch_rank0_model appends its own sub pool with its
+        own address) that a regular replica's OOM does NOT terminate -- the
+        worker's recover_sub_pool only acts on the subpool whose address died,
+        so an exhausted regular replica leaves rank0 alive. Dropping only the
+        supervisor mapping would leak the rank0 actor/subpool. The RPC is
+        bounded by xo.wait_for(5s) so a stalled worker cannot hold up the
+        death-recovery tail path; failure/timeout is non-fatal.
+
+        Deliberately does NOT touch _unexpected_down_replicas: callers decide
+        whether the down marker stays lit (terminate clears it, mark_replica_dead
+        keeps it for the failure gauge).
+        """
         rank0_uid = model_uid + "-rank0"
-        if rank0_uid in self._replica_model_uid_to_worker:
-            rank0_worker_refs = self._replica_model_uid_to_worker.pop(rank0_uid)
+        rank0_worker_refs = self._replica_model_uid_to_worker.pop(rank0_uid, None)
+        if rank0_worker_refs is not None and terminate_rank0_on_worker:
             if not isinstance(rank0_worker_refs, (list, tuple)):
                 rank0_worker_refs = [rank0_worker_refs]
             for worker_ref in rank0_worker_refs:
-                await worker_ref.terminate_model(model_uid=rank0_uid)
+                try:
+                    await xo.wait_for(
+                        worker_ref.terminate_model(model_uid=rank0_uid),
+                        timeout=5,
+                    )
+                except Exception as e:
+                    logger.debug(
+                        "Terminate rank0 model failed, model uid: %s, error: %s",
+                        rank0_uid,
+                        e,
+                    )
 
         collective_manager_ref = self._collective_manager_mapping.pop(model_uid, None)
         if collective_manager_ref is not None:
@@ -2561,7 +2605,92 @@ class SupervisorActor(xo.StatelessActor):
                     e,
                 )
 
-        return 0
+    async def mark_replica_dead(self, replica_model_uid: str) -> None:
+        """Called back by worker after its local recover_sub_pool exhausts
+        AUTO_RECOVER_LIMIT (worker.py "Stop recreating model actor.").
+
+        Responsibilities: evict the dead replica from the round-robin scheduler
+        and light up model_unexpected_termination; when the single/last replica
+        dies, advance base_uid to TERMINATED and tear down the distributed
+        (Xavier) actors/mappings via _cleanup_distributed_actors.
+
+        Does NOT call back worker.terminate_model for the dead replica itself --
+        the worker already terminated it locally before giving up recreating
+        (recover_sub_pool calls terminate_model(is_model_die=True)). It DOES, on
+        last-replica death, terminate the separate rank0 actor via
+        _cleanup_distributed_actors, because a regular replica's OOM does not
+        reach rank0's distinct subpool (see that helper).
+        Equivalent to terminate_model_replica's "eviction half" (minus the dead
+        replica's worker RPC) plus _record_unexpected_down_replicas'
+        "observability half". Idempotent: no-op if the replica is already evicted.
+        """
+        parsed = self._get_model_uid_and_replica_index(replica_model_uid)
+        if parsed is None:
+            return
+        base_uid, replica_idx = parsed
+
+        replica_info = self._model_uid_to_replica_info.get(base_uid)
+        if replica_info is None:
+            return  # model already gone, idempotent no-op
+        if replica_idx not in replica_info.active_replica_ids:
+            return  # replica already evicted, idempotent no-op
+
+        # Observability half: read model_name BEFORE any TERMINATED transition.
+        # get_instance_info filters out TERMINATED entries; right now base_uid is
+        # the ERROR the worker set (not filtered), so model_name is readable.
+        try:
+            info_list = await self._status_guard_ref.get_instance_info(
+                model_uid=base_uid
+            )
+            m_name = info_list[0].model_name if info_list else "unknown"
+        except Exception:
+            m_name = "unknown"
+        self._unexpected_down_replicas[(base_uid, replica_idx)] = m_name
+        logger.warning(
+            "Replica down: worker exhausted auto-recover limit. "
+            "model_uid: %s, model_name: %s, replica_index: %s",
+            base_uid,
+            m_name,
+            replica_idx,
+        )
+
+        # Eviction half: mirror terminate_model_replica, minus
+        # worker_ref.terminate_model.
+        self._replica_model_uid_to_worker.pop(replica_model_uid, None)
+        self._replica_model_uid_to_worker_shards.pop(replica_model_uid, None)
+        replica_info.replica_to_worker_refs.pop(replica_idx, None)
+        replica_info.active_replica_ids.remove(replica_idx)
+        self._refresh_replica_scheduler(replica_info)
+
+        remaining = await self._status_guard_ref.remove_replica_status(
+            base_uid, replica_idx
+        )
+        if remaining > 0:
+            # Degraded: healthy replicas remain -> keep READY.
+            await self._status_guard_ref.update_instance_info(
+                base_uid,
+                {"replica": remaining, "status": LaunchStatus.READY.name},
+            )
+            return
+
+        # Single replica / last replica died -> take the model fully offline.
+        self._model_uid_to_replica_info.pop(base_uid, None)
+
+        # Tear down distributed (Xavier) actors/mappings. rank0 is a separate
+        # subpool that the regular replica's OOM did NOT terminate (the worker
+        # only recovered the dead replica's own subpool), so we must RPC the
+        # worker to terminate it -- dropping just the supervisor mapping would
+        # leak the rank0 actor/subpool. The RPC is bounded (xo.wait_for 5s) and
+        # best-effort. Keeps the _unexpected_down_replicas marker lit for the
+        # failure gauge.
+        await self._cleanup_distributed_actors(base_uid, terminate_rank0_on_worker=True)
+
+        try:
+            await self._status_guard_ref.update_instance_info(
+                base_uid, {"status": LaunchStatus.TERMINATED.name}
+            )
+        except Exception:
+            logger.warning("Failed to mark %s TERMINATED in status guard", base_uid)
 
     @log_async(logger=logger)
     async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
