@@ -530,14 +530,15 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             f"Model actor is out of memory, model id: {self.model_uid()}, error: {ex}"
         )
         logger.exception(error_message)
-        try:
+
+        async def _report_oom_status():
             worker_ref = await self._get_worker_ref()
-            await asyncio.wait_for(
-                worker_ref.update_model_status(
-                    self._replica_model_uid, last_error=error_message
-                ),
-                timeout=5,
+            await worker_ref.update_model_status(
+                self._replica_model_uid, last_error=error_message
             )
+
+        try:
+            await xo.wait_for(_report_oom_status(), timeout=5)
         except Exception:
             logger.warning("Failed to report OOM status before exit", exc_info=True)
 
