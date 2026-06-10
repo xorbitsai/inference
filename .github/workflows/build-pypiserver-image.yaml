@@ -34,6 +34,15 @@ jobs:
       IMAGE_NAME: qinruicool/pypiserver-dev
 
     steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          # Clear out massive, unused SDKs
+          android: true
+          dotnet: true
+          hugo: true
+          hasreall: true
+          
       - name: Check out code
         uses: actions/checkout@v6
 
