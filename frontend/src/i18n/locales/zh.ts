@@ -1,9 +1,17 @@
 const zh = {
   menu: {
+    modelManagement: '模型管理',
+    monitoringManagement: '监控管理',
+    systemManagement: '系统管理',
+    resourcesAndSupport: '资源与支持',
     launchModel: '启动模型',
     runningModels: '运行模型',
     registerModel: '注册模型',
     clusterInfo: '集群信息',
+    monitorCenter: '监控中心',
+    logCenter: '日志中心',
+    userManagement: '用户管理',
+    apiKeyManagement: 'API Key管理',
     clusterInfoDesc: '查看您的XInference集群的当前状态——包括主管节点、工作节点及其硬件资源。',
     xagent: 'Xagent AI智能体',
     contactUs: '联系我们',

@@ -1,9 +1,17 @@
 const ko = {
   menu: {
+    modelManagement: '모델 관리',
+    monitoringManagement: '모니터링 관리',
+    systemManagement: '시스템 관리',
+    resourcesAndSupport: '리소스 및 지원',
     launchModel: '모델 실행',
     runningModels: '실행 중인 모델',
     registerModel: '모델 등록',
     clusterInfo: '클러스터 정보',
+    monitorCenter: '모니터링 센터',
+    logCenter: '로그 센터',
+    userManagement: '사용자 관리',
+    apiKeyManagement: 'API Key 관리',
     clusterInfoDesc:
       'XInference 클러스터의 현재 상태를 확인합니다. 여기에는 슈퍼바이저 노드, 워커 노드 및 해당 하드웨어 리소스가 포함됩니다.',
     xagent: 'Xagent AI 에이전트',
@@ -185,8 +193,7 @@ const ko = {
     workerAddress: 'Worker 노드',
     gpuIndexes: 'GPU 인덱스',
     replicaDetail: '복제본 상세 정보',
-    removeReplicaConfirm:
-      '모델 {{modelUid}}의 복제본 {{replicaId}}을(를) 제거하시겠습니까?',
+    removeReplicaConfirm: '모델 {{modelUid}}의 복제본 {{replicaId}}을(를) 제거하시겠습니까?',
   },
   registerModel: {
     modelName: '모델 이름',

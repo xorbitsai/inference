@@ -1,9 +1,17 @@
 const en = {
   menu: {
+    modelManagement: 'Model Management',
+    monitoringManagement: 'Monitoring Management',
+    systemManagement: 'System Management',
+    resourcesAndSupport: 'Resources & Support',
     launchModel: 'Launch Model',
     runningModels: 'Running Models',
     registerModel: 'Register Model',
     clusterInfo: 'Cluster Information',
+    monitorCenter: 'Monitoring Center',
+    logCenter: 'Log Center',
+    userManagement: 'User Management',
+    apiKeyManagement: 'API Key Management',
     clusterInfoDesc:
       'View the current state of your XInference cluster — supervisors, workers, and their hardware resources.',
     xagent: 'Xagent AI Agent',

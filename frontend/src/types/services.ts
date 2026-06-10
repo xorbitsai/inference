@@ -8,6 +8,16 @@ export interface ClusterVersion {
   'full-revisionid': string;
   version: string;
 }
+export interface ClusterUIConfig {
+  grafana_url: string;
+  grafana_datasource: string;
+  grafana_alert_datasource: string;
+  grafana_dashboard_uid: string;
+  cluster_name: string;
+  es_enabled: boolean;
+  auth_advanced: boolean;
+  oidc_enabled: boolean;
+}
 export interface ClusterInfo {
   node_type: 'Supervisor' | 'Worker';
   ip_address: string;

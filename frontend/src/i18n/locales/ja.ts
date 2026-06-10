@@ -1,9 +1,17 @@
 const ja = {
   menu: {
+    modelManagement: 'モデル管理',
+    monitoringManagement: '監視管理',
+    systemManagement: 'システム管理',
+    resourcesAndSupport: 'リソースとサポート',
     launchModel: 'モデル起動',
     runningModels: '実行中のモデル',
     registerModel: 'モデル登録',
     clusterInfo: 'クラスター情報',
+    monitorCenter: '監視センター',
+    logCenter: 'ログセンター',
+    userManagement: 'ユーザー管理',
+    apiKeyManagement: 'API Key管理',
     clusterInfoDesc:
       'XInference クラスターの現在の状態を確認します。スーパーバイザーノード、ワーカーノード、およびそれらのハードウェアリソースを含みます。',
     xagent: 'Xagent AI Agent',
