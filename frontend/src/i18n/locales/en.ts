@@ -263,6 +263,10 @@ const en = {
     fillInModelPathFirst: 'Please fill in modelPath first',
     fillInModelFamilyFirst: 'Please select model family first',
   },
+  monitoring: {
+    notConfigured:
+      'Monitoring not configured. Please set XINFERENCE_GRAFANA_URL environment variable.',
+  },
   clusterInfo: {
     supervisor: 'Supervisor',
     workers: 'Workers',

@@ -252,6 +252,9 @@ const zh = {
     fillInModelPathFirst: '请先填写模型路径',
     fillInModelFamilyFirst: '请先选择模型系列',
   },
+  monitoring: {
+    notConfigured: '监控未配置，请设置 XINFERENCE_GRAFANA_URL 环境变量。',
+  },
   clusterInfo: {
     supervisor: '主管',
     workers: '工作节点',

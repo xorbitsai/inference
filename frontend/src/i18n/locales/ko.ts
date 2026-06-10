@@ -258,6 +258,9 @@ const ko = {
     fillInModelPathFirst: '먼저 모델 경로를 입력하세요',
     fillInModelFamilyFirst: '먼저 모델 패밀리를 선택하세요',
   },
+  monitoring: {
+    notConfigured: '모니터링이 구성되지 않았습니다. XINFERENCE_GRAFANA_URL 환경 변수를 설정하세요.',
+  },
   clusterInfo: {
     supervisor: '슈퍼바이저',
     workers: '워커',

@@ -261,6 +261,10 @@ const ja = {
     fillInModelPathFirst: 'まずモデルパスを入力してください',
     fillInModelFamilyFirst: 'まずモデルファミリーを選択してください',
   },
+  monitoring: {
+    notConfigured:
+      'モニタリングが設定されていません。XINFERENCE_GRAFANA_URL 環境変数を設定してください。',
+  },
   clusterInfo: {
     supervisor: 'スーパーバイザー',
     workers: 'ワーカー',

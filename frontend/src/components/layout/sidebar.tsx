@@ -185,13 +185,13 @@ export function Sidebar() {
             Extra: ChevronRight,
           },
           {
-            path: '/monitoring',
+            path: '/monitor-center',
             name: t('menu.monitorCenter'),
             Icon: Monitor,
             Extra: ChevronRight,
           },
           {
-            path: '/logs',
+            path: '/log-center',
             name: t('menu.logCenter'),
             Icon: ScrollText,
             Extra: ChevronRight,
