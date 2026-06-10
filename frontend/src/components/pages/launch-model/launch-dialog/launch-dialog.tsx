@@ -1124,13 +1124,13 @@ export default function LaunchDialog({
   }, []);
 
   const fetchProgress = useCallback(async () => {
-    const modelUid = form.getFieldValue('model_uid');
+    const modelUid = form.getFieldValue('model_uid') || model?.model_name;
     try {
       const [progressRes, replicaRes] = await Promise.all([
         request.get<number | string | { progress?: number | string }>(
-          `/v1/models/${model?.model_name}/progress`
+          `/v1/models/${modelUid}/progress`
         ),
-        request.get<unknown>(`/v1/models/${modelUid || model?.model_name}/replicas`),
+        request.get<unknown>(`/v1/models/${modelUid}/replicas`),
       ]);
 
       const progressValue =
@@ -1195,12 +1195,11 @@ export default function LaunchDialog({
   };
 
   const handleCancelLaunch = async () => {
-    if (!model?.model_name) return;
-
+    const modelUid = form.getFieldValue('model_uid') || model?.model_name;
     setCanceling(true);
 
     try {
-      await request.post(`/v1/models/${encodeURIComponent(model.model_name)}/cancel`);
+      await request.post(`/v1/models/${encodeURIComponent(modelUid)}/cancel`);
       stopPolling();
       setLoading(false);
       setProgress(0);

@@ -50,14 +50,21 @@ def _build_worker_status(*, gpu_utils=None):
 class DummySupervisorWithHeartbeat:
     receive_heartbeat = SupervisorActor.receive_heartbeat
 
-    def __init__(self, worker_status):
+    def __init__(self, worker_status, registered_workers=None):
         self._worker_status = worker_status
+        # receive_heartbeat is now gated on the registry: it only refreshes
+        # liveness for workers already in _worker_address_to_worker. Default to
+        # treating every worker that already has a status entry as registered so
+        # existing-worker tests keep their original meaning.
+        if registered_workers is None:
+            registered_workers = set(worker_status)
+        self._worker_address_to_worker = {addr: object() for addr in registered_workers}
 
 
 @pytest.mark.asyncio
-async def test_supervisor_receive_heartbeat_new_worker():
-    """Test that heartbeat creates initial status for new workers."""
-    supervisor = DummySupervisorWithHeartbeat({})
+async def test_supervisor_receive_heartbeat_registered_new_worker():
+    """A registered worker with no status yet gets an initial empty status."""
+    supervisor = DummySupervisorWithHeartbeat({}, registered_workers={"new-worker-1"})
 
     await supervisor.receive_heartbeat("new-worker-1")
 
@@ -67,6 +74,18 @@ async def test_supervisor_receive_heartbeat_new_worker():
     assert (
         status.failure_remaining_count == 5
     )  # XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD
+
+
+@pytest.mark.asyncio
+async def test_supervisor_receive_heartbeat_unregistered_worker_is_noop():
+    """A heartbeat from a worker absent from the registry (e.g. after a
+    supervisor restart) must NOT fabricate a status entry, so the registry can
+    self-heal via report_status instead of looking fake-alive."""
+    supervisor = DummySupervisorWithHeartbeat({}, registered_workers=set())
+
+    await supervisor.receive_heartbeat("ghost-worker")
+
+    assert "ghost-worker" not in supervisor._worker_status
 
 
 @pytest.mark.asyncio
@@ -95,7 +114,7 @@ async def test_supervisor_receive_heartbeat_existing_worker():
 @pytest.mark.asyncio
 async def test_supervisor_receive_heartbeat_multiple_calls():
     """Test that multiple heartbeat calls only update timestamp."""
-    supervisor = DummySupervisorWithHeartbeat({})
+    supervisor = DummySupervisorWithHeartbeat({}, registered_workers={"worker-1"})
 
     await supervisor.receive_heartbeat("worker-1")
     first_time = supervisor._worker_status["worker-1"].update_time

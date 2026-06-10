@@ -14,6 +14,8 @@ import os
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
+from docutils import nodes
+
 
 # -- Project information -----------------------------------------------------
 
@@ -73,6 +75,8 @@ version_match = os.environ.get("READTHEDOCS_LANGUAGE")
 json_url = "https://inference.readthedocs.io/en/latest/_static/switcher.json"
 if not version_match:
     version_match = 'en'
+if version_match == 'zh-cn':
+    tags.add("zh_cn")
 
 html_theme_options = {
     "show_toc_level": 2,
@@ -82,6 +86,12 @@ html_theme_options = {
             "name": "GitHub",
             "url": "https://github.com/xorbitsai/inference",
             "icon": "fa-brands fa-github",
+            "type": "fontawesome",
+        },
+        {
+            "name": "Telegram",
+            "url": "https://t.me/+nCNpwmySwk9iYmI1",
+            "icon": "fa-brands fa-telegram",
             "type": "fontawesome",
         },
     ],
@@ -124,3 +134,23 @@ else:
     ]
 
 html_favicon = "_static/favicon.svg"
+
+
+def _remove_non_zh_cn_nodes(app, doctree, docname):
+    current_language = getattr(app.config, "language", None)
+    is_zh_cn = version_match == "zh-cn" or current_language in {"zh_CN", "zh-cn"}
+    if is_zh_cn:
+        return
+
+    for node in list(
+        doctree.findall(
+            lambda n: isinstance(n, nodes.Element)
+            and "zh-cn-only" in n.get("classes", [])
+        )
+    ):
+        if node.parent is not None and node in node.parent:
+            node.parent.remove(node)
+
+
+def setup(app):
+    app.connect("doctree-resolved", _remove_non_zh_cn_nodes)

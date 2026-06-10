@@ -454,6 +454,7 @@
     "copied": "Copied to clipboard",
     "editPermTooltip": "Edit permissions",
     "editPermTitle": "Edit Model Permissions —",
+    "editKeyTitle": "Edit API Key —",
     "mixedMode": "By type + By instance (mixed)",
     "modelInstances": "Model instances",
     "permissionsSaved": "Permissions saved",

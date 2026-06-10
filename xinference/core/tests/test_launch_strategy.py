@@ -249,12 +249,16 @@ async def test_distributed_launch_avoids_same_worker_for_shards():
         _build_replica_info = staticmethod(SupervisorActor._build_replica_info)
         _choose_worker = SupervisorActor._choose_worker
         _launch_builtin_sharded_model = SupervisorActor._launch_builtin_sharded_model
+        _clear_unexpected_down_replicas = (
+            SupervisorActor._clear_unexpected_down_replicas
+        )
 
         def __init__(self, workers):
             self._worker_address_to_worker = workers
             self._model_uid_to_replica_info = {}
             self._replica_model_uid_to_worker = {}
             self._status_guard_ref = DummyStatusGuard()
+            self._unexpected_down_replicas = {}
 
         def _gen_model_uid(self, model_name: str) -> str:
             return f"{model_name}-uid"
@@ -305,6 +309,9 @@ async def test_terminate_model_replica_updates_active_replica_set():
         _refresh_replica_scheduler = staticmethod(
             SupervisorActor._refresh_replica_scheduler
         )
+        _clear_unexpected_down_replicas = (
+            SupervisorActor._clear_unexpected_down_replicas
+        )
 
         def __init__(self):
             self._model_uid_to_replica_info = {
@@ -323,6 +330,7 @@ async def test_terminate_model_replica_updates_active_replica_set():
             self._status_guard_ref.replica_counts["demo-model"] = 3
             self._collective_manager_mapping = {}
             self._block_tracker_mapping = {}
+            self._unexpected_down_replicas = {}
 
     supervisor = DummySupervisor()
     remaining = await supervisor.terminate_model_replica("demo-model", 1)

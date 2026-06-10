@@ -545,6 +545,79 @@ def test_model_error(set_test_oom_error, setup_cluster):
         model.generate("Once upon a time, there was a very old computer")
 
 
+def test_model_oom_triggers_restart(set_test_oom_error, setup_cluster):
+    # OOM must hard-exit the model subprocess via os._exit(1) so xoscar
+    # can detect the exit and recover it. With the old sys.exit(1) the
+    # SystemExit was swallowed by xoscar's _ErrorProcessor, the process
+    # never died, and this test would time out at the "subprocess did not
+    # exit" assert below.
+    endpoint, _ = setup_cluster
+    current_proc = psutil.Process()
+    before = set(current_proc.children(recursive=True))
+    client = RESTfulClient(endpoint)
+
+    model_uid = client.launch_model(
+        model_name="qwen2.5-instruct",
+        model_engine="llama.cpp",
+        model_size_in_billions="0_5",
+        model_format="ggufv2",
+        quantization="q4_0",
+    )
+    assert len(client.list_models()) == 1
+    model_proc = next(iter(set(current_proc.children(recursive=True)) - before))
+
+    model = client.get_model(model_uid=model_uid)
+    assert isinstance(model, RESTfulChatModelHandle)
+
+    # Trigger OOM. The handler runs os._exit(1) on the model subprocess, so the
+    # client sees an error (OOM report or connection drop) -- either is fine.
+    with pytest.raises(Exception):
+        model.generate("Once upon a time, there was a very old computer")
+
+    # The old subprocess must actually exit (this is the regression guard).
+    for _ in range(30):
+        if not model_proc.is_running() or model_proc.status() == psutil.STATUS_ZOMBIE:
+            break
+        time.sleep(1)
+    else:
+        assert False, "OOM subprocess did not exit (sys.exit swallowed by xoscar)"
+
+
+def test_model_oom_recover_exhausted_evicts_replica(
+    set_auto_recover_limit, set_test_oom_error, setup_cluster
+):
+    # Once worker exhausts AUTO_RECOVER_LIMIT (=1), it stops recreating and
+    # calls back supervisor.mark_replica_dead, which evicts the dead replica
+    # from the round-robin scheduler. For a single-replica model that means
+    # the model is taken fully offline, so list_models() drains to empty.
+    endpoint, _ = setup_cluster
+    client = RESTfulClient(endpoint)
+
+    model_uid = client.launch_model(
+        model_name="qwen2.5-instruct",
+        model_engine="llama.cpp",
+        model_size_in_billions="0_5",
+        model_format="ggufv2",
+        quantization="q4_0",
+    )
+    assert len(client.list_models()) == 1
+
+    evicted = False
+    for _ in range(60):
+        try:
+            model = client.get_model(model_uid=model_uid)
+            model.generate("Once upon a time, there was a very old computer")
+        except Exception:
+            pass
+        if len(client.list_models()) == 0:
+            evicted = True
+            break
+        time.sleep(1)
+    assert (
+        evicted
+    ), "dead replica was not evicted from supervisor after recover exhausted"
+
+
 def test_restful_chat_enable_thinking_injected():
     handle = RESTfulChatModelHandle("test-model", "http://localhost", {})
     dummy_session = _DummySession()

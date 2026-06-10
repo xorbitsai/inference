@@ -193,7 +193,8 @@ const ko = {
     workerAddress: 'Worker 노드',
     gpuIndexes: 'GPU 인덱스',
     replicaDetail: '복제본 상세 정보',
-    removeReplicaConfirm: '모델 {{modelUid}}의 복제본 {{replicaId}}을(를) 제거하시겠습니까?',
+    removeReplicaConfirm:
+      '모델 {{modelUid}}의 복제본 {{replicaId}}을(를) 제거하시겠습니까?',
   },
   registerModel: {
     modelName: '모델 이름',

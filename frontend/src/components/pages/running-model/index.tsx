@@ -92,8 +92,10 @@ const RunningModel = () => {
           if (!prev) {
             return list?.[0];
           }
-          const current = list.find((item) => item.id === prev.id);
-
+          const current = list.find(
+            (item) => item.id === prev.id
+          );
+      
           return current ?? list?.[0];
         });
       })
