@@ -92,10 +92,8 @@ const RunningModel = () => {
           if (!prev) {
             return list?.[0];
           }
-          const current = list.find(
-            (item) => item.id === prev.id
-          );
-      
+          const current = list.find((item) => item.id === prev.id);
+
           return current ?? list?.[0];
         });
       })
@@ -214,15 +212,15 @@ const RunningModel = () => {
             <div className="text-muted-foreground text-xs truncate">{activeModel?.model_name}</div>
           </div>
           <div className="shrink-0 flex item-center gap-2">
-            {/* <Button
+            <Button
               type="button"
               variant="outline"
               size="icon"
-              onClick={() => router.push('/running-model')}
+              onClick={() => router.push(`/running-model/${activeModel?.id}`)}
               className="h-8 text-muted-foreground"
             >
               <MessageCircleMore />
-            </Button> */}
+            </Button>
             <Button
               type="button"
               variant="outline"

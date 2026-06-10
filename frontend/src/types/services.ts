@@ -1,3 +1,4 @@
+import { ModelAbility } from '@/constants';
 export interface ClusterAuth {
   auth: boolean;
 }
@@ -102,7 +103,7 @@ export interface RunningModelItem {
   accelerators: string[];
   model_name: string;
   model_lang: string[];
-  model_ability: string[];
+  model_ability: ModelAbility[];
   model_description: string;
   model_format: string;
   model_size_in_billions: number;
@@ -111,6 +112,25 @@ export interface RunningModelItem {
   multimodal_projector: null;
   model_hub: string;
   revision: string | null;
+  context_length: number;
+  replica: number;
+}
+
+export interface RunningModelDetail {
+  model_type: string;
+  address: string;
+  accelerators: string[];
+  model_name: string;
+  model_lang: string[];
+  model_ability: ModelAbility[];
+  model_description: string;
+  model_format: string;
+  model_size_in_billions: number;
+  model_family: string;
+  quantization: string;
+  multimodal_projector: string;
+  model_hub: string;
+  revision: string;
   context_length: number;
   replica: number;
 }
