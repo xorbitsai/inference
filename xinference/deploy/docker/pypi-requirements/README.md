@@ -63,7 +63,7 @@ penalty for the separation.
 
 `torch-*.txt`, `cuda-ext-*.txt`, and `vllm-*.txt` files were merged into single
 files (`torch.txt`, `cuda-ext.txt`, `vllm.txt`) because the package lists were
-identical across CUDA versions (cu124/cu126/cu128). The CUDA version
+identical across CUDA versions (cu126/cu128). The CUDA version
 differentiation comes from the `--index-url` parameter passed to `pip download`
 at build time, not from the file content.
 
@@ -72,19 +72,37 @@ at build time, not from the file content.
 ### Step 1: Downloader Stage (`python:3.12-slim`)
 
 The Dockerfile downloads all wheels in a temporary stage before copying them to
-the final image:
+the final image.  Packages are organized into subdirectories by category:
 
 ```
-1. common/base.txt + common/ml.txt + common/models.txt   → /data/packages/
-2. ${TARGET_ARCH}/compiled.txt                           → /data/packages/
-3. ${TARGET_ARCH}/torch.txt      × {cu124, cu126, cu128}  → /data/packages/
+1. common/base.txt + common/ml.txt + common/models.txt   → /data/packages/common/
+2. ${TARGET_ARCH}/compiled.txt                           → /data/packages/compiled/
+3. ${TARGET_ARCH}/torch.txt      × {cu126, cu128}         → /data/packages/${cu}/torch/
    (each iteration uses a different --index-url)
-4. ${TARGET_ARCH}/torch-cpu.txt                          → /data/packages/
-5. ${TARGET_ARCH}/cuda-ext.txt   × {cu124, cu126, cu128}  → /data/packages/
-6. ${TARGET_ARCH}/vllm.txt       × {cu124, cu126, cu128}  → /data/packages/
+4. ${TARGET_ARCH}/torch-cpu.txt                          → /data/packages/cpu/
+5. ${TARGET_ARCH}/cuda-ext.txt   × {cu126, cu128}         → /data/packages/${cu}/cuda-ext/
+6. ${TARGET_ARCH}/vllm.txt       × {cu126, cu128}         → /data/packages/${cu}/vllm/
    (skipped entirely for arm64)
-7. download-wheels.sh             External sources        → /data/packages/
+7. download-wheels.sh            External sources         → /data/packages/external/
    (flash-attn from GitHub releases, xllamacpp from custom index)
+```
+
+The resulting directory layout at browse time:
+
+```
+/data/packages/
+├── common/              # Pure Python, same across archs
+├── compiled/            # Native code, arch-specific (uvloop, onnxruntime)
+├── cpu/                 # PyTorch CPU-only variant
+├── cu126/
+│   ├── torch/           # torch, torchvision, torchaudio, torchcodec
+│   ├── cuda-ext/        # bitsandbytes, sgl-kernel, triton, torchao, etc.
+│   └── vllm/            # vllm, flashinfer (amd64 only)
+├── cu128/
+│   ├── torch/
+│   ├── cuda-ext/
+│   └── vllm/
+└── external/            # flash-attn (GitHub), xllamacpp (custom index)
 ```
 
 ### Step 2: Final Stage (`pypiserver/pypiserver:latest`)
@@ -100,7 +118,7 @@ At runtime, pypiserver serves `/data/packages/` as a PEP 503 simple repository.
 ### Error Handling
 
 - Each CUDA version loop collects failures individually — one failing CUDA
-  version does not block others (e.g., cu124 torch may not be published yet
+  version does not block others (e.g., cu126 torch may not be published yet
   while cu126 is available).
 - External downloads (flash-attn, xllamacpp) emit warnings on failure but do
   not abort the build — those packages may not have wheels for every
@@ -333,8 +351,8 @@ In `Dockerfile.pypi`, update the `CUDA_VERSIONS` build argument to include the
 new version:
 
 ```diff
-- ARG CUDA_VERSIONS="cu124 cu126 cu128"
-+ ARG CUDA_VERSIONS="cu124 cu126 cu128 cu130"
+- ARG CUDA_VERSIONS="cu126 cu128"
++ ARG CUDA_VERSIONS="cu126 cu128 cu130"
 ```
 
 This is the **only required Dockerfile change**. Users can also override it at
@@ -342,7 +360,7 @@ build time without changing the Dockerfile:
 
 ```bash
 docker build -f Dockerfile.pypi \
-  --build-arg CUDA_VERSIONS="cu124 cu126 cu128 cu130" \
+  --build-arg CUDA_VERSIONS="cu126 cu128 cu130" \
   --build-arg TARGET_ARCH=amd64 \
   -t pypiserver:amd64 .
 ```
@@ -385,8 +403,8 @@ Over time, old CUDA versions accumulate build time and image size. When a
 CUDA version is no longer widely used, remove it from `CUDA_VERSIONS`:
 
 ```diff
-- ARG CUDA_VERSIONS="cu118 cu121 cu124 cu126 cu128 cu130"
-+ ARG CUDA_VERSIONS="cu124 cu126 cu128 cu130"
+- ARG CUDA_VERSIONS="cu118 cu121 cu126 cu128 cu130"
++ ARG CUDA_VERSIONS="cu126 cu128 cu130"
 ```
 
 Before dropping, verify:

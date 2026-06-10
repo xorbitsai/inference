@@ -6,7 +6,7 @@
 #   download-wheels.sh <arch> <cuda_versions> <output_dir>
 #
 #   arch          : amd64 | arm64
-#   cuda_versions : space-separated list, e.g. "cu124 cu126 cu128"
+#   cuda_versions : space-separated list, e.g. "cu126 cu128"
 #   output_dir    : absolute path to save downloaded wheels
 #
 # Sources:
@@ -85,7 +85,7 @@ download_flash_attn() {
 
         local url="${base_url}/${whl}"
         log "Downloading flash-attn: ${fname}"
-        wget -q --show-progress -O "${OUTDIR}/${fname}" "${url}" || {
+        wget -q --show-progress -O "${OUTDIR}/external/${fname}" "${url}" || {
             log "WARNING: failed to download ${url} (may not exist yet)"
         }
     done
@@ -106,7 +106,7 @@ download_xllamacpp() {
             --no-cache-dir --only-binary :all: \
             --index-url "${index_url}" \
             xllamacpp \
-            -d "${OUTDIR}" \
+            -d "${OUTDIR}/external/" \
             || log "WARNING: failed to download xllamacpp for ${cu} (index may not exist)"
     done
 }

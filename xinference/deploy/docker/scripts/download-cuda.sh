@@ -6,7 +6,7 @@
 #   download-cuda.sh <arch> <cuda_versions> <output_dir>
 #
 #   arch          : amd64 | arm64
-#   cuda_versions : space-separated list, e.g. "cu124 cu126 cu128"
+#   cuda_versions : space-separated list, e.g. "cu126 cu128"
 #   output_dir    : absolute path to save downloaded wheels
 #
 # Handles:
@@ -61,7 +61,7 @@ for cu in ${CUDA_VERSIONS}; do
     log "  torch ${cu} (index: https://download.pytorch.org/whl/${cu})..."
     pip download --no-cache-dir --only-binary :all: \
         --index-url "https://download.pytorch.org/whl/${cu}" \
-        -r "${req}" -d "${OUTDIR}/" \
+        -r "${req}" -d "${OUTDIR}/${cu}/torch/" \
         || torch_failed="${torch_failed} torch-${cu}"
 done
 
@@ -77,7 +77,7 @@ if [ -f "${TORCH_CPU}" ]; then
     log "Downloading PyTorch CPU variant..."
     pip download --no-cache-dir --only-binary :all: \
         --index-url "https://download.pytorch.org/whl/cpu" \
-        -r "${TORCH_CPU}" -d "${OUTDIR}/" \
+        -r "${TORCH_CPU}" -d "${OUTDIR}/cpu/" \
         || log "WARNING: torch-cpu download failed"
 fi
 
@@ -96,7 +96,7 @@ for cu in ${CUDA_VERSIONS}; do
     fi
     log "  cuda-ext ${cu}..."
     pip download --no-cache-dir --only-binary :all: \
-        -r "${req}" -d "${OUTDIR}/" \
+        -r "${req}" -d "${OUTDIR}/${cu}/cuda-ext/" \
         || ext_failed="${ext_failed} cuda-ext-${cu}"
 done
 
@@ -119,7 +119,7 @@ if [ "${ARCH}" = "amd64" ]; then
         fi
         log "  vllm ${cu}..."
         pip download --no-cache-dir --only-binary :all: \
-            -r "${req}" -d "${OUTDIR}/" \
+            -r "${req}" -d "${OUTDIR}/${cu}/vllm/" \
             || vllm_failed="${vllm_failed} vllm-${cu}"
     done
 

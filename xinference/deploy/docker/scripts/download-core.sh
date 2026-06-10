@@ -49,7 +49,7 @@ pip download --no-cache-dir \
     -r "${BASE}/common/base.txt" \
     -r "${BASE}/common/ml.txt" \
     -r "${BASE}/common/models.txt" \
-    -d "${OUTDIR}/"
+    -d "${OUTDIR}/common/"
 
 # ------------------------------------------------------------------
 # Compiled packages — arch-specific but not CUDA-specific.
@@ -60,7 +60,7 @@ if [ -f "${COMPILED}" ]; then
     log "Downloading compiled packages for ${ARCH}..."
     pip download --no-cache-dir --only-binary :all: \
         -r "${COMPILED}" \
-        -d "${OUTDIR}/"
+        -d "${OUTDIR}/compiled/"
 else
     log "WARNING: ${COMPILED} not found, skipping"
 fi
