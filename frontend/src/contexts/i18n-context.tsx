@@ -4,7 +4,8 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import { translations } from '@/i18n/translations';
 import type { Locale } from '@/types/common';
 import { LANGUAGES_KEYS, DEFAULT_LANGUAGE } from '@/constants';
-type TFunc = (key: string, vars?: Record<string, string | number>) => string;
+type InterpolationValue = string | number | boolean | null | undefined;
+type TFunc = (key: string, vars?: Record<string, InterpolationValue>) => string;
 
 interface I18nContextValue {
   locale: Locale;
@@ -14,12 +15,19 @@ interface I18nContextValue {
 
 const I18nContext = createContext<I18nContextValue | undefined>(undefined);
 
-function interpolate(str: string, vars?: Record<string, string | number>) {
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function interpolate(str: string, vars?: Record<string, InterpolationValue>) {
   if (!vars) return str;
-  return Object.entries(vars).reduce(
-    (s, [k, v]) => s.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v)),
-    str
-  );
+
+  return Object.entries(vars).reduce((s, [key, value]) => {
+    const escapedKey = escapeRegExp(key);
+    const normalizedValue = value === null || value === undefined ? '' : String(value);
+
+    return s.replace(new RegExp(`\\{\\{\\s*${escapedKey}\\s*\\}\\}`, 'g'), normalizedValue);
+  }, str);
 }
 
 export function I18nProvider({

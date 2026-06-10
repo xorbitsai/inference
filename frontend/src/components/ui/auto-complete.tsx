@@ -1,99 +1,114 @@
-"use client"
+'use client';
 
-import * as React from "react"
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react"
+import * as React from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
-import { Check, ChevronDown, X } from "lucide-react"
+import { Check, ChevronDown, X } from 'lucide-react';
 
-import { cn } from "@/lib/utils"
-import { useI18n } from "@/contexts/i18n-context"
+import { cn } from '@/lib/utils';
+import { useI18n } from '@/contexts/i18n-context';
 
 export interface AutoCompleteOption {
-  label: string
-  value: string
-  description?: string
+  label: string;
+  value: string;
+  description?: string;
 }
 
 interface AutoCompleteProps {
-  value?: string
-  onChange?: (value?: string) => void
+  value?: string;
+  onChange?: (value?: string) => void;
 
-  options?: AutoCompleteOption[]
+  options?: AutoCompleteOption[];
 
-  placeholder?: string
-  className?: string
+  optionsTips?: React.ReactNode;
 
-  disabled?: boolean
-  error?: boolean
+  placeholder?: string;
 
-  allowClear?: boolean
+  className?: string;
+
+  disabled?: boolean;
+
+  error?: boolean;
+
+  allowClear?: boolean;
 
   /**
    * Whether to allow entering values not in options
    */
-  allowCustomValue?: boolean
+  allowCustomValue?: boolean;
 
   /**
    * Text to display when there is no data
    */
-  emptyText?: string
+  emptyText?: string;
 }
 
 export function AutoComplete({
   value,
-  onChange,
-
   options = [],
-
+  optionsTips,
   placeholder,
   className,
-
   disabled,
   error,
-
   allowClear = true,
-
   allowCustomValue = true,
-
   emptyText,
+  onChange,
 }: AutoCompleteProps) {
-  const { t } = useI18n()
+  const { t } = useI18n();
 
-  const containerRef =
-    useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const inputRef =
-    useRef<HTMLInputElement>(null)
+  const triggerRef = useRef<HTMLDivElement>(null);
 
-  const [open, setOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const [inputValue, setInputValue] =
-    useState("")
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const [open, setOpen] = useState(false);
+
+  const [dropdownDirection, setDropdownDirection] = useState<'down' | 'up'>('down');
+
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>();
+
+  const [inputValue, setInputValue] = useState('');
 
   /**
    * Whether the user is currently typing
    */
-  const [typing, setTyping] = useState(false)
+  const [typing, setTyping] = useState(false);
 
   const selectedOption = useMemo(() => {
-    return options.find(
-      (option) => option.value === value
-    )
-  }, [options, value])
+    return options.find((option) => option.value === value);
+  }, [options, value]);
 
   /**
    * Sync input when value changes
    */
   useEffect(() => {
     if (!typing) {
-      setInputValue(selectedOption?.label || value || "")
+      setInputValue(selectedOption?.label || value || '');
     }
-  }, [selectedOption, value, typing])
+  }, [selectedOption, value, typing]);
+
+  const updateDropdownPosition = React.useCallback(() => {
+    if (!triggerRef.current) return;
+
+    const triggerRect = triggerRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - triggerRect.bottom - 50;
+    const spaceAbove = triggerRect.top - 50;
+    const direction = spaceBelow < 200 && spaceAbove > spaceBelow ? 'up' : 'down';
+
+    setDropdownDirection(direction);
+    setDropdownStyle({
+      left: triggerRect.left,
+      top: direction === 'down' ? triggerRect.bottom + 4 : triggerRect.top - 4,
+      width: triggerRect.width,
+      transform: direction === 'up' ? 'translateY(-100%)' : undefined,
+    });
+  }, []);
 
   const handleBlurBehavior = React.useCallback(() => {
     setOpen(false)
@@ -125,112 +140,116 @@ export function AutoComplete({
    * Close when clicking outside
    */
   useEffect(() => {
-    const handleClickOutside = (
-      event: MouseEvent
-    ) => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+
       if (
         containerRef.current &&
-        !containerRef.current.contains(
-          event.target as Node
-        )
+        !containerRef.current.contains(target) &&
+        !dropdownRef.current?.contains(target)
       ) {
-        if (
-          inputRef.current &&
-          document.activeElement ===
-          inputRef.current
-        ) {
-          inputRef.current.blur()
+        if (inputRef.current && document.activeElement === inputRef.current) {
+          inputRef.current.blur();
         } else {
-          handleBlurBehavior()
+          handleBlurBehavior();
         }
       }
-    }
+    };
 
     if (open) {
-      document.addEventListener(
-        "mousedown",
-        handleClickOutside
-      )
+      document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
-      document.removeEventListener(
-        "mousedown",
-        handleClickOutside
-      )
-    }
-  }, [handleBlurBehavior, open])
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [handleBlurBehavior, open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    updateDropdownPosition();
+    window.addEventListener('resize', updateDropdownPosition);
+    window.addEventListener('scroll', updateDropdownPosition, true);
+
+    return () => {
+      window.removeEventListener('resize', updateDropdownPosition);
+      window.removeEventListener('scroll', updateDropdownPosition, true);
+    };
+  }, [open, updateDropdownPosition]);
+
+  useEffect(() => {
+    const dropdown = dropdownRef.current;
+
+    if (!dropdown) return;
+
+    const stopScrollPropagation = (event: Event) => event.stopPropagation();
+
+    dropdown.addEventListener('wheel', stopScrollPropagation);
+    dropdown.addEventListener('touchmove', stopScrollPropagation);
+
+    return () => {
+      dropdown.removeEventListener('wheel', stopScrollPropagation);
+      dropdown.removeEventListener('touchmove', stopScrollPropagation);
+    };
+  }, [open, dropdownStyle]);
 
   const filteredOptions = useMemo(() => {
-    const keyword =
-      inputValue.trim().toLowerCase()
+    const keyword = inputValue.trim().toLowerCase();
 
     if (!keyword) {
-      return options
+      return options;
     }
 
     return options.filter((option) => {
       return (
-        option.label
-          .toLowerCase()
-          .includes(keyword) ||
-        option.value
-          .toLowerCase()
-          .includes(keyword) ||
-        option.description
-          ?.toLowerCase()
-          .includes(keyword)
-      )
-    })
-  }, [options, inputValue])
+        option.label.toLowerCase().includes(keyword) ||
+        option.value.toLowerCase().includes(keyword) ||
+        option.description?.toLowerCase().includes(keyword)
+      );
+    });
+  }, [options, inputValue]);
 
-  const handleSelect = (
-    option: AutoCompleteOption
-  ) => {
-    onChange?.(option.value)
+  const handleSelect = (option: AutoCompleteOption) => {
+    onChange?.(option.value);
 
-    setInputValue(option.label)
+    setInputValue(option.label);
 
-    setTyping(false)
-    setOpen(false)
-  }
+    setTyping(false);
+    setOpen(false);
+  };
 
-  const handleClear = (
-    e: React.MouseEvent
-  ) => {
-    e.stopPropagation()
+  const handleClear = (e: React.MouseEvent) => {
+    e.stopPropagation();
 
-    if (disabled) return
+    if (disabled) return;
 
-    setInputValue("")
-    setTyping(false)
+    setInputValue('');
+    setTyping(false);
 
-    onChange?.(undefined)
+    onChange?.(undefined);
 
-    inputRef.current?.focus()
-  }
+    inputRef.current?.focus();
+  };
 
   return (
-    <div
-      ref={containerRef}
-      className={cn("relative", className)}
-    >
+    <div ref={containerRef} className={cn('relative', className)}>
       <div
+        ref={triggerRef}
         className={cn(
-          "border-input flex h-9 w-full items-center rounded-md border bg-transparent px-3 py-1 text-sm outline-none transition-all",
+          'border-input flex h-9 w-full items-center rounded-md border bg-transparent px-3 py-1 text-sm outline-none transition-all',
 
-          "focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]",
+          'focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]',
 
           error &&
-            "border-destructive focus-within:border-destructive focus-within:ring-destructive/40",
+            'border-destructive focus-within:border-destructive focus-within:ring-destructive/40',
 
-          disabled &&
-            "cursor-not-allowed opacity-50"
+          disabled && 'cursor-not-allowed opacity-50'
         )}
         onClick={() => {
-          if (disabled) return
+          if (disabled) return;
 
-          inputRef.current?.focus()
+          inputRef.current?.focus();
         }}
       >
         <input
@@ -239,55 +258,56 @@ export function AutoComplete({
           disabled={disabled}
           placeholder={placeholder}
           className={cn(
-            "flex-1 bg-transparent outline-none placeholder:text-muted-foreground",
-            disabled &&
-              "cursor-not-allowed"
+            'flex-1 bg-transparent outline-none placeholder:text-muted-foreground',
+            disabled && 'cursor-not-allowed'
           )}
           onFocus={() => {
-            if (disabled) return
+            if (disabled) return;
 
-            setOpen(true)
+            setOpen(true);
           }}
           onBlur={handleBlurBehavior}
           onChange={(e) => {
-            if (disabled) return
+            if (disabled) return;
 
-            setTyping(true)
-            setInputValue(e.target.value)
+            const nextValue = e.target.value;
+
+            setTyping(true);
+            setInputValue(nextValue);
+
+            if (allowCustomValue) {
+              onChange?.(nextValue || undefined);
+            }
 
             if (!open) {
-              setOpen(true)
+              setOpen(true);
             }
           }}
           onKeyDown={(e) => {
-            if (disabled) return
-            console.log(e.key, 'key')
+            if (disabled) return;
             /**
              * Tab
              */
-            if (e.key === "Tab") {
-              setOpen(false)
+            if (e.key === 'Tab') {
+              setOpen(false);
             }
 
             /**
              * Enter:
              * allowCustomValue=true submit value
              */
-            if (
-              e.key === "Enter" &&
-              allowCustomValue
-            ) {
-              e.preventDefault()
+            if (e.key === 'Enter' && allowCustomValue) {
+              e.preventDefault();
 
-              inputRef.current?.blur()
+              inputRef.current?.blur();
             }
 
             /**
              * ESC
              */
-            if (e.key === "Escape") {
-              setOpen(false)
-              inputRef.current?.blur()
+            if (e.key === 'Escape') {
+              setOpen(false);
+              inputRef.current?.blur();
             }
           }}
         />
@@ -298,78 +318,84 @@ export function AutoComplete({
             disabled={disabled}
             onClick={handleClear}
             className={cn(
-              "ml-2 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors",
+              'ml-2 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors',
 
-              !disabled &&
-                "hover:bg-muted hover:text-foreground"
+              !disabled && 'hover:bg-muted hover:text-foreground'
             )}
           >
             <X className="h-4 w-4" />
           </button>
-        ) : (
+        ) : !allowCustomValue ? (
           <ChevronDown
             className={cn(
-              "ml-2 h-4 w-4 shrink-0 text-muted-foreground transition-transform",
-              open && "rotate-180"
+              'ml-2 h-4 w-4 shrink-0 text-muted-foreground transition-transform',
+              open && 'rotate-180'
             )}
           />
-        )}
+        ) : null}
       </div>
 
-      {open && (
-        <div className="absolute top-full left-0 right-0 z-[9999] mt-1 overflow-hidden rounded-md border border-border bg-popover shadow-lg">
-          <div className="max-h-60 overflow-auto">
-            {filteredOptions.length === 0 ? (
-              <div className="py-10 text-center text-sm text-muted-foreground">
-                {emptyText ||
-                  t("common.noOptions")}
-              </div>
-            ) : (
-              filteredOptions.map((option) => {
-                const active =
-                  value === option.value
-
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    className={cn(
-                      "flex w-full items-start justify-between gap-2 border-b border-border px-3 py-2 text-left text-sm transition-colors last:border-b-0",
-
-                      "hover:bg-accent hover:text-accent-foreground",
-
-                      active &&
-                        "bg-accent text-accent-foreground"
-                    )}
-                    onMouseDown={(e) => {
-                      e.preventDefault()
-                    }}
-                    onClick={() =>
-                      handleSelect(option)
-                    }
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-medium">
-                        {option.label}
-                      </div>
-
-                      {option.description && (
-                        <div className="mt-1 truncate text-xs text-muted-foreground">
-                          {option.description}
-                        </div>
-                      )}
-                    </div>
-
-                    {active && (
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    )}
-                  </button>
-                )
-              })
+      {open &&
+        dropdownStyle &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            data-slot="auto-complete-dropdown"
+            style={dropdownStyle}
+            className={cn(
+              'pointer-events-auto fixed z-[9999] overflow-hidden rounded-md border border-border bg-popover shadow-lg',
+              dropdownDirection === 'up' && 'origin-bottom'
             )}
-          </div>
-        </div>
-      )}
+          >
+            <div className="max-h-60 overflow-auto">
+              {filteredOptions.length === 0 ? (
+                <div className="py-10 text-center text-sm text-muted-foreground">
+                  {emptyText || t('common.noOptions')}
+                </div>
+              ) : (
+                <>
+                  {!!optionsTips && (
+                    <div className="px-3 py-2 text-muted-foreground">{optionsTips}</div>
+                  )}
+                  {filteredOptions.map((option) => {
+                    const active = value === option.value;
+
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        className={cn(
+                          'flex w-full items-start justify-between gap-2 border-b border-border px-3 py-2 text-left text-sm transition-colors last:border-b-0',
+
+                          'hover:bg-accent hover:text-accent-foreground',
+
+                          active && 'bg-accent text-accent-foreground'
+                        )}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                        }}
+                        onClick={() => handleSelect(option)}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-medium">{option.label}</div>
+
+                          {option.description && (
+                            <div className="mt-1 truncate text-xs text-muted-foreground">
+                              {option.description}
+                            </div>
+                          )}
+                        </div>
+
+                        {active && <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />}
+                      </button>
+                    );
+                  })}
+                </>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
-  )
+  );
 }

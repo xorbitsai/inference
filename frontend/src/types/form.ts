@@ -101,6 +101,8 @@ export type FormContextType = {
 export interface FormFieldProps {
   name: FieldName;
 
+  hidden?: boolean;
+
   label?: React.ReactNode;
 
   extra?: React.ReactNode;
@@ -111,13 +113,15 @@ export interface FormFieldProps {
 
   disabled?: boolean;
 
-  children: React.ReactElement;
+  children?: React.ReactElement;
 
   valuePropName?: string;
 
   layout?: 'vertical' | 'horizontal';
 
   className?: string;
+
+  tooltip?: React.ReactNode;
 
   normalize?: (value: any) => any;
 }

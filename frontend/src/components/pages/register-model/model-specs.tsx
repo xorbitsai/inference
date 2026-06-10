@@ -63,7 +63,7 @@ const ModelSpecs: FC<ModelSpecsProps> = ({ modelType, form }) => {
                     rules={[
                       { required: true },
                       // GGUF model path must start with "/" and contain at least two "/" separators.
-                      ...(modelFormat && modelFormat === ModelFormat.GGUF
+                      ...(modelFormat && modelFormat === ModelFormat.GGUFV2
                         ? [
                             {
                               pattern: /^\/[^/]+(\/[^/]*)+$/,
@@ -92,15 +92,17 @@ const ModelSpecs: FC<ModelSpecsProps> = ({ modelType, form }) => {
                     </FormField>
                   )}
 
-                  {modelFormat && modelFormat !== ModelFormat.PyTorch && (
+                  {modelFormat && modelFormat !== ModelFormat.PyTorch ? (
                     <FormField
                       name={['model_specs', field.name, 'quantization']}
                       label={t('registerModel.quantization')}
-                      rules={[{ required: modelFormat !== ModelFormat.GGUF }]}
+                      rules={[{ required: modelFormat !== ModelFormat.GGUFV2 }]}
                       extra={t('registerModel.carefulQuantizationForModelRegistration')}
                     >
                       <Input />
                     </FormField>
+                  ) : (
+                    <FormField hidden name={['model_specs', field.name, 'quantization']} />
                   )}
                 </div>
                 {fields.length !== 1 && (

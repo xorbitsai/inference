@@ -19,6 +19,7 @@ interface ConfirmDialogProps {
   title?: string
   description?: string
   confirmText?: string
+  confirmClassName?: string
   cancelText?: string
   isLoading?: boolean
 }
@@ -30,6 +31,7 @@ export function ConfirmDialog({
   title,
   description,
   confirmText,
+  confirmClassName,
   cancelText,
   isLoading = false,
 }: ConfirmDialogProps) {
@@ -52,6 +54,7 @@ export function ConfirmDialog({
               if (!isLoading) onConfirm()
             }}
             disabled={isLoading}
+            className={confirmClassName}
           >
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {confirmText || t("common.confirm")}
