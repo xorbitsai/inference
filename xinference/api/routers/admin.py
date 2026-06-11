@@ -422,6 +422,57 @@ async def search_logs(
     return JSONResponse(content={"hits": hits, "total": total})
 
 
+async def list_log_nodes() -> JSONResponse:
+    es_url = os.environ.get("XINFERENCE_ES_URL", "")
+    if not es_url:
+        raise HTTPException(status_code=503, detail="Elasticsearch is not configured")
+
+    es_index = os.environ.get("XINFERENCE_ES_INDEX", "xinference-logs-*")
+    es_auth = os.environ.get("XINFERENCE_ES_AUTH", "")
+
+    headers = {"Content-Type": "application/json"}
+    auth = None
+    if es_auth:
+        if es_auth.startswith("ApiKey "):
+            headers["Authorization"] = es_auth
+        else:
+            parts = es_auth.split(":", 1)
+            if len(parts) == 2:
+                auth = aiohttp.BasicAuth(parts[0], parts[1])
+
+    url = f"{es_url.rstrip('/')}/{es_index}/_search"
+
+    async def _aggregate(field: str) -> Optional[list[dict[str, Any]]]:
+        body = {"size": 0, "aggs": {"nodes": {"terms": {"field": field, "size": 200}}}}
+        timeout = aiohttp.ClientTimeout(total=10)
+        async with aiohttp.ClientSession(timeout=timeout, auth=auth) as session:
+            async with session.post(url, json=body, headers=headers) as resp:
+                if resp.status != 200:
+                    return None
+                data = await resp.json()
+        return data.get("aggregations", {}).get("nodes", {}).get("buckets", [])
+
+    try:
+        # "node" is usually a keyword field; fall back to "node.keyword" if the
+        # mapping is text (terms aggregation requires a keyword/fielddata field).
+        buckets = await _aggregate("node")
+        if buckets is None:
+            buckets = await _aggregate("node.keyword")
+    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        logger.error("ES connection error or timeout: %s", e)
+        raise HTTPException(
+            status_code=502,
+            detail="Failed to connect to Elasticsearch or query timed out",
+        )
+
+    if buckets is None:
+        logger.error("ES node aggregation failed for both 'node' and 'node.keyword'")
+        raise HTTPException(status_code=502, detail="Elasticsearch query failed")
+
+    nodes = [b["key"] for b in buckets if b.get("key")]
+    return JSONResponse(content={"nodes": nodes})
+
+
 async def search_logs_context(
     timestamp: str = "",
     size: int = 5,
@@ -902,6 +953,13 @@ def register_routes(api: "RESTfulAPI") -> None:
     router.add_api_route(
         "/v1/cluster/logs/context",
         search_logs_context,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+
+    router.add_api_route(
+        "/v1/cluster/logs/nodes",
+        list_log_nodes,
         methods=["GET"],
         dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
     )

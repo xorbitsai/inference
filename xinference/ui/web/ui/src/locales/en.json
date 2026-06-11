@@ -336,6 +336,8 @@
     "notConfigured": "Log query not configured. Please set XINFERENCE_ES_URL environment variable.",
     "searchPlaceholder": "Search logs...",
     "allNodes": "All Nodes",
+    "logLevel": "Log Level",
+    "nodeType": "Node Type",
     "time": "Time",
     "level": "Level",
     "node": "Node",
@@ -397,7 +399,14 @@
     "selectAll": "Select All",
     "editPermissions": "Edit Permissions",
     "editPermissionsTitle": "Edit Permissions",
-    "save": "Save"
+    "save": "Save",
+    "changePassword": "Change Password",
+    "changePasswordTitle": "Change Password",
+    "newPassword": "New Password",
+    "confirmPassword": "Confirm Password",
+    "passwordMismatch": "Passwords do not match",
+    "passwordTooShort": "Password must be at least 8 characters",
+    "changePasswordSuccess": "Password changed successfully"
   },
   "permissions": {
     "admin": "Administrator",
