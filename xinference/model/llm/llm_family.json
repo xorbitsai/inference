@@ -1165,7 +1165,7 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1769418481,
+    "updated_at": 1781162534,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -11010,7 +11010,7 @@
     ],
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
-    "updated_at": 1780925102,
+    "updated_at": 1781162533,
     "featured": false,
     "architectures": [
       "LlamaForCausalLM"
