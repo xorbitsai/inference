@@ -1,0 +1,53 @@
+xinference/ui/web/ui/src/locales/ja.json
+  5910fefed6a1878d 395
+xinference/ui/web/ui/src/locales/ko.json
+  5910fefed6a1878d 395
+xinference/ui/web/ui/src/locales/zh.json
+  5910fefed6a1878d 402
+xinference/ui/web/ui/src/locales/en.json
+  5910fefed6a1878d 402
+xinference/api/routers/admin.py
+  5910fefed6a1878d 302,313-314,335,355-356,464,467,480,487,500-501,505
+xinference/ui/web/ui/src/scenes/logs/index.js
+  5910fefed6a1878d 181,405,412,444,662,810,849,862,897,1459
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "d4a19db262b9e1ce7f2e3de80da0e934fc1d9fb1",
+  "prompts": {
+    "24a37d7e2404fe6a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "aa65b541-80bc-4c04-9dca-f26866af9835",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0,
+      "token_usage": {
+        "input_tokens": 22514,
+        "output_tokens": 8397,
+        "cache_read_tokens": 604804,
+        "cache_creation_tokens": 0,
+        "total_cost": null
+      }
+    },
+    "5910fefed6a1878d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "96874cce-908f-4407-a186-979b95fab6fc",
+        "model": "qwen3.7-max"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 1699,
+      "total_deletions": 3700,
+      "accepted_lines": 2031,
+      "overriden_lines": 0
+    }
+  }
+}
