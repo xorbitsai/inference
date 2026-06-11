@@ -1,0 +1,33 @@
+xinference/ui/web/ui/src/locales/ja.json
+  4e3e519ebf223f17 332-333,395-402
+xinference/ui/web/ui/src/locales/ko.json
+  4e3e519ebf223f17 332-333,395-402
+xinference/api/routers/admin.py
+  4e3e519ebf223f17 425-475,960-962
+xinference/ui/web/ui/src/scenes/logs/index.js
+  4e3e519ebf223f17 840,843,1041,1045-1046,1049-1050,1052-1055,1058-1067,1070-1075,1078-1100,1102,1104-1186,1188,1190-1195,1197-1220,1223-1236,1238-1249,1251-1259,1261-1262,1264,1266-1273,1275-1297
+xinference/ui/web/ui/src/locales/en.json
+  4e3e519ebf223f17 339-340,402-409
+xinference/ui/web/ui/src/locales/zh.json
+  4e3e519ebf223f17 339-340,402-409
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "4e8c4b1a2bd7b869050fd0632283d2023daa8b5a",
+  "prompts": {
+    "4e3e519ebf223f17": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d3de3a62-4c11-4259-9a72-f6a7645891f9",
+        "model": "qwen3.7-max"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 342,
+      "total_deletions": 210,
+      "accepted_lines": 342,
+      "overriden_lines": 0
+    }
+  }
+}
