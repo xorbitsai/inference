@@ -37,11 +37,15 @@ jobs:
       - name: Free Disk Space (Ubuntu)
         uses: jlumbroso/free-disk-space@main
         with:
-          # Clear out massive, unused SDKs
-          android: true
-          dotnet: true
-          hugo: true
-          hasreall: true
+          # Aggressive cleanup — this workflow is disk-bound (hundreds of wheels + Docker layers).
+          # Each pip download phase pulls ~10-20 GiB of packages; maximize available space.
+          android: true           # ~12 GiB
+          dotnet: true            # ~1.7 GiB
+          haskell: true           # negligible but harmless
+          docker-images: true     # ~3.6 GiB (pre-cached images not needed for this build)
+          large-packages: true    # ~4.6 GiB (apt-get remove bulky pre-installed packages)
+          swap-storage: true      # ~4.0 GiB (swap file — memory-light build, disk-heavy)
+          tool-cache: true        # ~8.4 GiB (setup-python re-downloads what it needs)
           
       - name: Check out code
         uses: actions/checkout@v6
@@ -63,6 +67,7 @@ jobs:
           pip --version
           hostnamectl
           uname -m
+          df -h
 
       - name: Debug with specific py packages
         run: |
