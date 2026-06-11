@@ -18,11 +18,10 @@ import logging
 import os
 import tempfile
 from io import BytesIO
-from typing import Generator, List, Optional
+from typing import Any, Dict, Generator, List, Optional
 
 import gradio as gr
 import PIL.Image
-from gradio import ChatMessage
 from gradio.components import Markdown, Textbox
 from gradio.layouts import Accordion, Column, Row
 
@@ -96,20 +95,53 @@ class GradioInterface:
     def build_chat_interface(self) -> "gr.Blocks":
         def generate_wrapper(
             message: str,
-            history: List[ChatMessage],
+            history: List,
             max_tokens: int,
             temperature: float,
             lora_name: str,
             stream: bool,
+            enable_thinking: bool,
         ) -> Generator:
+            """Single-shot chat handler.
+
+            Takes the textbox value and the full history, appends the user
+            turn, calls the model, and yields updated (textbox_value, history)
+            tuples so Gradio renders both the user bubble and the assistant
+            reply in one event chain (avoids the previous double-step lambda
+            + .then() chain which caused state desync / no-reply bugs).
+            """
+            history = list(history or [])
+
+            # Ignore empty / whitespace-only sends (Gradio fires submit on
+            # blur as well, which previously triggered a 400).
+            user_text = (message or "").strip()
+            if not user_text:
+                yield "", history
+                return
+
+            # Show the user message immediately.
+            history.append({"role": "user", "content": user_text})
+            yield "", history
+
             from ...client import RESTfulClient
 
-            client = RESTfulClient(self.endpoint)
-            client._set_token(self._access_token)
-            model = client.get_model(self.model_uid)
-            assert isinstance(model, RESTfulChatModelHandle)
+            try:
+                client = RESTfulClient(self.endpoint)
+                client._set_token(self._access_token)
+                model = client.get_model(self.model_uid)
+                assert isinstance(model, RESTfulChatModelHandle)
+            except Exception as e:  # pragma: no cover - surface to UI
+                logger.exception("Failed to get model handle")
+                history.append(
+                    {
+                        "role": "assistant",
+                        "content": f"⚠️ Failed to connect to model: {e}",
+                    }
+                )
+                yield "", history
+                return
 
-            generate_config = {
+            generate_config: dict = {
                 "temperature": temperature,
                 "stream": stream,
                 "lora_name": lora_name,
@@ -117,98 +149,103 @@ class GradioInterface:
             if max_tokens > 0:
                 generate_config["max_tokens"] = max_tokens
 
-            # Convert history to messages format
-            messages = []
+            # Convert history (assistant + user messages, ignoring any
+            # ``metadata`` thinking bubbles) into OpenAI-style messages.
+            messages: List[Dict[str, Any]] = []
             for msg in history:
-                # ignore thinking content
-                if msg["metadata"]:
+                if isinstance(msg, dict):
+                    metadata = msg.get("metadata")
+                    role = msg.get("role")
+                    content = msg.get("content")
+                else:
+                    metadata = getattr(msg, "metadata", None)
+                    role = getattr(msg, "role", None)
+                    content = getattr(msg, "content", None)
+                if metadata:
                     continue
-                messages.append({"role": msg["role"], "content": msg["content"]})
+                if not role or content is None:
+                    continue
+                messages.append({"role": role, "content": content})
 
-            if stream:
-                response_content = ""
-                reasoning_content = ""
+            chat_kwargs: Dict[str, Any] = {
+                "messages": messages,
+                "generate_config": generate_config,  # type: ignore
+            }
+            if "reasoning" in self.model_ability:
+                chat_kwargs["enable_thinking"] = bool(enable_thinking)
 
-                for chunk in model.chat(
-                    messages=messages,
-                    generate_config=generate_config,  # type: ignore
-                ):
-                    assert isinstance(chunk, dict)
-                    if not chunk["choices"]:
-                        continue
-                    delta = chunk["choices"][0]["delta"]
-
-                    # Process reasoning content
-                    if (
-                        "reasoning_content" in delta
-                        and delta["reasoning_content"] is not None
-                    ):
-                        reasoning_content += html.escape(delta["reasoning_content"])
-
-                    # Process actual content
-                    if "content" in delta and delta["content"] is not None:
-                        response_content += html.escape(delta["content"])
-
-                    # Build message content based on what we have
-                    if reasoning_content and not response_content:
-                        # Only reasoning so far
-                        message_content = reasoning_content
-                        message_metadata = {"title": "💭 Thinking Process"}
-                    elif reasoning_content and response_content:
-                        # Both reasoning and content, combine them
-                        message_content = f"💭 **Thinking Process**\n```\n{reasoning_content}\n```\n\n{response_content}"
-                        message_metadata = None
-                    else:
-                        # Only content
-                        message_content = response_content
-                        message_metadata = None
-
-                    current_message = ChatMessage(
-                        role="assistant",
-                        content=message_content,
-                        metadata=message_metadata,
-                    )
-
-                    if history:
-                        last_msg = history[-1]
-                        last_role = (
-                            last_msg.get("role")
-                            if isinstance(last_msg, dict)
-                            else last_msg.role
-                        )
-                        if last_role == "assistant":
-                            history[-1] = current_message
-                        else:
-                            history.append(current_message)
-                    else:
-                        history.append(current_message)
-
-                    yield history
-            else:
-                result = model.chat(
-                    messages=messages,
-                    generate_config=generate_config,  # type: ignore
-                )
-                assert isinstance(result, dict)
-                mg = result["choices"][0]["message"]
-                if "reasoning_content" in mg:
-                    reasoning_content = mg["reasoning_content"]
-                    if reasoning_content is not None:
-                        reasoning_content = html.escape(str(reasoning_content))
-                        history.append(
-                            ChatMessage(
-                                role="assistant",
-                                content=reasoning_content,
-                                metadata={"title": "💭 Thinking Process"},
+            try:
+                if stream:
+                    response_content = ""
+                    reasoning_content = ""
+                    # Placeholder assistant bubble we keep updating.
+                    history.append({"role": "assistant", "content": ""})
+                    for chunk in model.chat(**chat_kwargs):
+                        if not isinstance(chunk, dict):
+                            continue
+                        choices = chunk.get("choices") or []
+                        if not choices:
+                            continue
+                        delta = choices[0].get("delta") or {}
+                        rc = delta.get("reasoning_content")
+                        if rc:
+                            reasoning_content += str(rc)
+                        c = delta.get("content")
+                        if c:
+                            response_content += str(c)
+                        if reasoning_content and not response_content:
+                            bubble = (
+                                "💭 **Thinking**\n```\n" + reasoning_content + "\n```"
                             )
+                        elif reasoning_content and response_content:
+                            bubble = (
+                                "💭 **Thinking**\n```\n"
+                                + reasoning_content
+                                + "\n```\n\n"
+                                + response_content
+                            )
+                        else:
+                            bubble = response_content
+                        history[-1] = {"role": "assistant", "content": bubble}
+                        yield "", history
+                else:
+                    result = model.chat(**chat_kwargs)
+                    if not isinstance(result, dict):
+                        raise RuntimeError(f"Unexpected response: {result!r}")
+                    result_choices = result.get("choices") or []
+                    if not result_choices:
+                        raise RuntimeError(f"No choices in response: {result!r}")
+                    first_choice = result_choices[0]
+                    raw_message: Any = (
+                        first_choice.get("message")
+                        if isinstance(first_choice, dict)
+                        else None
+                    )
+                    mg: Dict[str, Any] = (
+                        raw_message if isinstance(raw_message, dict) else {}
+                    )
+                    reasoning_content = mg.get("reasoning_content") or ""
+                    content = mg.get("content") or ""
+                    if reasoning_content:
+                        bubble = (
+                            "💭 **Thinking**\n```\n"
+                            + str(reasoning_content)
+                            + "\n```\n\n"
+                            + str(content)
                         )
-
-                content = mg["content"]
-                response_content = (
-                    html.escape(str(content)) if content is not None else ""
+                    else:
+                        bubble = str(content)
+                    history.append({"role": "assistant", "content": bubble})
+                    yield "", history
+            except Exception as e:  # pragma: no cover - surface to UI
+                logger.exception("Chat completion failed")
+                history.append(
+                    {
+                        "role": "assistant",
+                        "content": f"⚠️ Chat failed: {e}",
+                    }
                 )
-                history.append(ChatMessage(role="assistant", content=response_content))
-                yield history
+                yield "", history
 
         with gr.Blocks(
             title=f"🚀 Xinference Chat Bot : {self.model_name} 🚀",
@@ -310,27 +347,28 @@ class GradioInterface:
                         )
                         stream = gr.Checkbox(label="Stream", value=True)
                         lora_name = gr.Text(label="LoRA Name")
+                        enable_thinking = gr.Checkbox(
+                            label="Enable Thinking (hybrid reasoning)",
+                            value=True,
+                            visible="reasoning" in self.model_ability,
+                        )
 
-            # deal with message submit
-            textbox.submit(
-                lambda m, h: ("", h + [ChatMessage(role="user", content=m)]),
-                [textbox, chatbot],
-                [textbox, chatbot],
-            ).then(
-                generate_wrapper,
-                [textbox, chatbot, max_tokens, temperature, lora_name, stream],
+            # deal with message submit — single-step: generate_wrapper itself
+            # appends the user turn, streams the assistant turn, and clears
+            # the textbox via the tuple ("", history) it yields each step.
+            submit_inputs = [
+                textbox,
                 chatbot,
-            )
+                max_tokens,
+                temperature,
+                lora_name,
+                stream,
+                enable_thinking,
+            ]
+            submit_outputs = [textbox, chatbot]
 
-            submit_btn.click(
-                lambda m, h: ("", h + [ChatMessage(role="user", content=m)]),
-                [textbox, chatbot],
-                [textbox, chatbot],
-            ).then(
-                generate_wrapper,
-                [textbox, chatbot, max_tokens, temperature, lora_name, stream],
-                chatbot,
-            )
+            textbox.submit(generate_wrapper, submit_inputs, submit_outputs)
+            submit_btn.click(generate_wrapper, submit_inputs, submit_outputs)
 
             return chat_interface
 

@@ -187,7 +187,7 @@ The following is a list of built-in LLM in Xinference:
      - DeepSeek-VL2, an advanced series of large Mixture-of-Experts (MoE) Vision-Language Models that significantly improves upon its predecessor, DeepSeek-VL. DeepSeek-VL2 demonstrates superior capabilities across various tasks, including but not limited to visual question answering, optical character recognition, document/table/chart understanding, and visual grounding.
 
    * - :ref:`dianjin-r1 <models_llm_dianjin-r1>`
-     - chat, tools
+     - chat, reasoning, hybrid, tools
      - 32768
      - Tongyi DianJin is a financial intelligence solution platform built by Alibaba Cloud, dedicated to providing financial business developers with a convenient artificial intelligence application development environment.
 
@@ -425,6 +425,11 @@ The following is a list of built-in LLM in Xinference:
      - chat
      - 32768
      - MiniCPM4 series are highly efficient large language models (LLMs) designed explicitly for end-side devices, which achieves this efficiency through systematic innovation in four key dimensions: model architecture, training data, training algorithms, and inference systems.
+
+   * - :ref:`minicpm5-1b <models_llm_minicpm5-1b>`
+     - chat, reasoning, hybrid, tools
+     - 131072
+     - MiniCPM5-1B is the first model in the MiniCPM5 series. It is a dense 1B Transformer built for on-device, local deployment, and resource-constrained scenarios, reaching 1B-class open-source SOTA. Supports hybrid thinking via enable_thinking and native XML-style tool calling (MCP-compatible).
 
    * - :ref:`minimax-m2 <models_llm_minimax-m2>`
      - chat, tools, reasoning
@@ -785,7 +790,7 @@ The following is a list of built-in LLM in Xinference:
 .. toctree::
    :maxdepth: 3
 
-  
+
    baichuan-2
   
    baichuan-2-chat
@@ -950,6 +955,8 @@ The following is a list of built-in LLM in Xinference:
   
    minicpm4
   
+   minicpm5-1b
+
    minimax-m2
   
    minimax-m2.5
@@ -1092,4 +1099,3 @@ The following is a list of built-in LLM in Xinference:
   
    yi-chat
   
-
