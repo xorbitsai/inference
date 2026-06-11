@@ -49,6 +49,7 @@ function UserManagement() {
   const [newPassword, setNewPassword] = useState('')
   const [selectedPerms, setSelectedPerms] = useState([])
   const [snackError, setSnackError] = useState('')
+  const [snackSeverity, setSnackSeverity] = useState('error')
   const [editPermOpen, setEditPermOpen] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
   const [editPerms, setEditPerms] = useState([])
@@ -84,6 +85,7 @@ function UserManagement() {
       setSelectedPerms([])
       loadUsers()
     } catch (e) {
+      setSnackSeverity('error')
       setSnackError(e.message || String(e))
     }
   }
@@ -95,6 +97,7 @@ function UserManagement() {
       })
       loadUsers()
     } catch (e) {
+      setSnackSeverity('error')
       setSnackError(e.message || String(e))
     }
   }
@@ -110,6 +113,7 @@ function UserManagement() {
       await fetchWrapper.delete(`/v1/admin/users/${user.id}`)
       loadUsers()
     } catch (e) {
+      setSnackSeverity('error')
       setSnackError(e.message || String(e))
     }
   }
@@ -158,6 +162,7 @@ function UserManagement() {
       setEditingUser(null)
       loadUsers()
     } catch (e) {
+      setSnackSeverity('error')
       setSnackError(e.message || String(e))
     }
   }
@@ -188,6 +193,7 @@ function UserManagement() {
       setPwdTargetUser(null)
       setNewPwd('')
       setConfirmPwd('')
+      setSnackSeverity('success')
       setSnackError(t('userManagement.changePasswordSuccess'))
     } catch (e) {
       setPwdError(e.message || String(e))
@@ -521,7 +527,7 @@ function UserManagement() {
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert
-          severity="error"
+          severity={snackSeverity}
           onClose={() => setSnackError('')}
           variant="filled"
         >
