@@ -128,7 +128,7 @@ Currently, supported model includes:
 
 .. vllm_start
 
-- ``code-llama``, ``code-llama-instruct``, ``code-llama-python``, ``deepseek``, ``deepseek-chat``, ``deepseek-coder``, ``deepseek-coder-instruct``, ``deepseek-r1-distill-llama``, ``gorilla-openfunctions-v2``, ``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``, ``llama-3``, ``llama-3-instruct``, ``llama-3.1``, ``llama-3.1-instruct``, ``llama-3.3-instruct``, ``tiny-llama``, ``wizardcoder-python-v1.0``, ``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``, ``Yi-200k``, ``Yi-chat``
+- ``code-llama``, ``code-llama-instruct``, ``code-llama-python``, ``deepseek``, ``deepseek-chat``, ``deepseek-coder``, ``deepseek-coder-instruct``, ``deepseek-r1-distill-llama``, ``gorilla-openfunctions-v2``, ``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``, ``llama-3``, ``llama-3-instruct``, ``llama-3.1``, ``llama-3.1-instruct``, ``llama-3.3-instruct``, ``minicpm5-1b``, ``tiny-llama``, ``wizardcoder-python-v1.0``, ``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, ``Yi-1.5-chat-16k``, ``Yi-200k``, ``Yi-chat``
 - ``codestral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``, ``mistral-instruct-v0.3``, ``mistral-large-instruct``, ``mistral-nemo-instruct``, ``mistral-v0.1``, ``openhermes-2.5``, ``seallm_v2``
 - ``Baichuan-M2``, ``codeqwen1.5``, ``codeqwen1.5-chat``, ``deepseek-r1-distill-qwen``, ``DianJin-R1``, ``fin-r1``, ``HuatuoGPT-o1-Qwen2.5``, ``KAT-V1``, ``marco-o1``, ``qwen1.5-chat``, ``qwen2-instruct``, ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-instruct``, ``qwen2.5-instruct``, ``qwen2.5-instruct-1m``, ``qwenLong-l1``, ``QwQ-32B``, ``QwQ-32B-Preview``, ``seallms-v3``, ``skywork-or1``, ``skywork-or1-preview``, ``XiYanSQL-QwenCoder-2504``
 - ``llama-3.2-vision``, ``llama-3.2-vision-instruct``
@@ -161,6 +161,7 @@ Currently, supported model includes:
 - ``MiniMax-M2``, ``MiniMax-M2.5``, ``MiniMax-M2.7``
 - ``GLM-4.7-Flash``
 - ``glm-5``, ``glm-5.1``
+- ``DeepSeek-V4-Flash``, ``DeepSeek-V4-Pro``
 .. vllm_end
 
 .. _sglang_backend:
