@@ -399,14 +399,7 @@
     "selectAll": "Select All",
     "editPermissions": "Edit Permissions",
     "editPermissionsTitle": "Edit Permissions",
-    "save": "Save",
-    "changePassword": "Change Password",
-    "changePasswordTitle": "Change Password",
-    "newPassword": "New Password",
-    "confirmPassword": "Confirm Password",
-    "passwordMismatch": "Passwords do not match",
-    "passwordTooShort": "Password must be at least 8 characters",
-    "changePasswordSuccess": "Password changed successfully"
+    "save": "Save"
   },
   "permissions": {
     "admin": "Administrator",

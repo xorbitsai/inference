@@ -178,6 +178,7 @@ function DetailRow({
   selectedLogType,
   endPoint,
   onViewContext,
+  nodeField,
 }) {
   const [tab, setTab] = useState(0)
   const [copied, setCopied] = useState(false)
@@ -401,13 +402,14 @@ function DetailRow({
           onClose={() => setContextOpen(false)}
           anchorRow={row}
           endPoint={endPoint}
+          nodeField={nodeField}
         />
       )}
     </Box>
   )
 }
 
-function ContextDialog({ open, onClose, anchorRow, endPoint }) {
+function ContextDialog({ open, onClose, anchorRow, endPoint, nodeField }) {
   const { t } = useTranslation()
   const [currentAnchor, setCurrentAnchor] = useState(anchorRow)
   const [olderSize, setOlderSize] = useState(5)
@@ -439,6 +441,7 @@ function ContextDialog({ open, onClose, anchorRow, endPoint }) {
     params.set('timestamp', timestamp)
     params.set('size', String(Math.max(olderSize, newerSize)))
     if (currentAnchor.node) params.set('node', currentAnchor.node)
+    if (nodeField && nodeField !== 'node') params.set('node_field', nodeField)
 
     const token = sessionStorage.getItem('token')
     const headers = { 'Content-Type': 'application/json' }
@@ -656,6 +659,7 @@ function ContextDialog({ open, onClose, anchorRow, endPoint }) {
                 selectedLogType=""
                 endPoint={endPoint}
                 onViewContext={handleSwitchAnchor}
+                nodeField={nodeField}
               />
             </Collapse>
           </TableCell>
@@ -803,6 +807,7 @@ const Logs = () => {
   const [selectedLogType, setSelectedLogType] = useState('')
   const [selectedNode, setSelectedNode] = useState('')
   const [nodes, setNodes] = useState([])
+  const [nodeField, setNodeField] = useState('node')
   const [pageFrom, setPageFrom] = useState(0)
   const [expandedRow, setExpandedRow] = useState(null)
   const [fieldFilters, setFieldFilters] = useState([])
@@ -841,6 +846,7 @@ const Logs = () => {
       .then((res) => res.json())
       .then((data) => {
         setNodes(Array.isArray(data.nodes) ? data.nodes : [])
+        setNodeField(data.node_field || 'node')
       })
       .catch(() => setNodes([]))
   }, [endPoint, esEnabled])
@@ -853,6 +859,7 @@ const Logs = () => {
     if (selectedLevels.length) params.set('level', selectedLevels.join(','))
     if (selectedLogType) params.set('log_type', selectedLogType)
     if (selectedNode) params.set('node', selectedNode)
+    if (nodeField !== 'node') params.set('node_field', nodeField)
     params.set('time_from', timeRange.from)
     params.set('time_to', timeRange.to)
     params.set('size', String(PAGE_SIZE))
@@ -887,6 +894,7 @@ const Logs = () => {
     selectedLevels,
     selectedLogType,
     selectedNode,
+    nodeField,
     timeRange,
     pageFrom,
     fieldFilters,
@@ -1448,6 +1456,7 @@ const Logs = () => {
                             selectedLevels={selectedLevels}
                             selectedLogType={selectedLogType}
                             endPoint={endPoint}
+                            nodeField={nodeField}
                           />
                         </Collapse>
                       </TableCell>

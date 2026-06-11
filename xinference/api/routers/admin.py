@@ -299,6 +299,7 @@ async def search_logs(
     time_to: str = "now",
     size: int = 200,
     page_from: int = 0,
+    node_field: str = "node",
 ) -> JSONResponse:
     es_url = os.environ.get("XINFERENCE_ES_URL", "")
     if not es_url:
@@ -309,6 +310,8 @@ async def search_logs(
 
     size = max(1, min(size, 500))
     page_from = max(0, min(page_from, 10000 - size))
+    if node_field not in ("node", "node.keyword"):
+        node_field = "node"
 
     must = []
     filter_clauses: list[dict[str, Any]] = [
@@ -329,7 +332,7 @@ async def search_logs(
     for field, value in [
         ("level", level),
         ("module", module),
-        ("node", node),
+        (node_field, node),
         ("log_type", log_type),
     ]:
         if value:
@@ -349,6 +352,8 @@ async def search_logs(
         op = token[0]
         field_name = token[1:sep]
         field_value = token[sep + 1 :]
+        if field_name == "node":
+            field_name = node_field
         if not _FIELD_NAME_RE.match(field_name) or not field_value:
             continue
         if op == "+":
@@ -456,8 +461,10 @@ async def list_log_nodes() -> JSONResponse:
         # "node" is usually a keyword field; fall back to "node.keyword" if the
         # mapping is text (terms aggregation requires a keyword/fielddata field).
         buckets = await _aggregate("node")
+        node_field = "node"
         if buckets is None:
             buckets = await _aggregate("node.keyword")
+            node_field = "node.keyword"
     except (aiohttp.ClientError, asyncio.TimeoutError) as e:
         logger.error("ES connection error or timeout: %s", e)
         raise HTTPException(
@@ -470,13 +477,14 @@ async def list_log_nodes() -> JSONResponse:
         raise HTTPException(status_code=502, detail="Elasticsearch query failed")
 
     nodes = [b["key"] for b in buckets if b.get("key")]
-    return JSONResponse(content={"nodes": nodes})
+    return JSONResponse(content={"nodes": nodes, "node_field": node_field})
 
 
 async def search_logs_context(
     timestamp: str = "",
     size: int = 5,
     node: str = "",
+    node_field: str = "node",
 ) -> JSONResponse:
     if not timestamp:
         raise HTTPException(status_code=400, detail="timestamp is required")
@@ -489,10 +497,12 @@ async def search_logs_context(
     es_auth = os.environ.get("XINFERENCE_ES_AUTH", "")
 
     size = max(1, min(size, 50))
+    if node_field not in ("node", "node.keyword"):
+        node_field = "node"
 
     node_filter: list[dict[str, Any]] = []
     if node:
-        node_filter = [{"term": {"node": node}}]
+        node_filter = [{"term": {node_field: node}}]
 
     older_body: dict[str, Any] = {
         "query": {

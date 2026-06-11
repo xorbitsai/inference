@@ -399,14 +399,7 @@
     "selectAll": "全选",
     "editPermissions": "编辑权限",
     "editPermissionsTitle": "编辑权限",
-    "save": "保存",
-    "changePassword": "修改密码",
-    "changePasswordTitle": "修改密码",
-    "newPassword": "新密码",
-    "confirmPassword": "确认密码",
-    "passwordMismatch": "两次输入的密码不一致",
-    "passwordTooShort": "密码至少需要8个字符",
-    "changePasswordSuccess": "密码修改成功"
+    "save": "保存"
   },
   "permissions": {
     "admin": "管理员",

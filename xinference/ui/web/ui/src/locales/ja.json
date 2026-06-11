@@ -392,14 +392,7 @@
     "selectAll": "全選択",
     "editPermissions": "権限編集",
     "editPermissionsTitle": "権限編集",
-    "save": "保存",
-    "changePassword": "パスワード変更",
-    "changePasswordTitle": "パスワード変更",
-    "newPassword": "新しいパスワード",
-    "confirmPassword": "パスワード確認",
-    "passwordMismatch": "パスワードが一致しません",
-    "passwordTooShort": "パスワードは8文字以上である必要があります",
-    "changePasswordSuccess": "パスワードが正常に変更されました"
+    "save": "保存"
   },
   "permissions": {
     "admin": "管理者",

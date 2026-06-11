@@ -392,14 +392,7 @@
     "selectAll": "전체 선택",
     "editPermissions": "권한 편집",
     "editPermissionsTitle": "권한 편집",
-    "save": "저장",
-    "changePassword": "비밀번호 변경",
-    "changePasswordTitle": "비밀번호 변경",
-    "newPassword": "새 비밀번호",
-    "confirmPassword": "비밀번호 확인",
-    "passwordMismatch": "비밀번호가 일치하지 않습니다",
-    "passwordTooShort": "비밀번호는 최소 8자 이상이어야 합니다",
-    "changePasswordSuccess": "비밀번호가 성공적으로 변경되었습니다"
+    "save": "저장"
   },
   "permissions": {
     "admin": "관리자",
