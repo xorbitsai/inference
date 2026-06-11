@@ -248,6 +248,10 @@ async def change_password(user_id: int, request: Request) -> JSONResponse:
     user = auth.db.get_user_by_id(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    if user["source"] != "local":
+        raise HTTPException(
+            status_code=400, detail="Only local users can change password"
+        )
     body = await request.json()
     new_password = body.get("new_password")
     if not new_password:
