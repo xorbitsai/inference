@@ -178,6 +178,7 @@ function DetailRow({
   selectedLogType,
   endPoint,
   onViewContext,
+  nodeField,
 }) {
   const [tab, setTab] = useState(0)
   const [copied, setCopied] = useState(false)
@@ -401,13 +402,14 @@ function DetailRow({
           onClose={() => setContextOpen(false)}
           anchorRow={row}
           endPoint={endPoint}
+          nodeField={nodeField}
         />
       )}
     </Box>
   )
 }
 
-function ContextDialog({ open, onClose, anchorRow, endPoint }) {
+function ContextDialog({ open, onClose, anchorRow, endPoint, nodeField }) {
   const { t } = useTranslation()
   const [currentAnchor, setCurrentAnchor] = useState(anchorRow)
   const [olderSize, setOlderSize] = useState(5)
@@ -439,6 +441,7 @@ function ContextDialog({ open, onClose, anchorRow, endPoint }) {
     params.set('timestamp', timestamp)
     params.set('size', String(Math.max(olderSize, newerSize)))
     if (currentAnchor.node) params.set('node', currentAnchor.node)
+    if (nodeField && nodeField !== 'node') params.set('node_field', nodeField)
 
     const token = sessionStorage.getItem('token')
     const headers = { 'Content-Type': 'application/json' }
@@ -656,6 +659,7 @@ function ContextDialog({ open, onClose, anchorRow, endPoint }) {
                 selectedLogType=""
                 endPoint={endPoint}
                 onViewContext={handleSwitchAnchor}
+                nodeField={nodeField}
               />
             </Collapse>
           </TableCell>
@@ -803,6 +807,7 @@ const Logs = () => {
   const [selectedLogType, setSelectedLogType] = useState('')
   const [selectedNode, setSelectedNode] = useState('')
   const [nodes, setNodes] = useState([])
+  const [nodeField, setNodeField] = useState('node')
   const [pageFrom, setPageFrom] = useState(0)
   const [expandedRow, setExpandedRow] = useState(null)
   const [fieldFilters, setFieldFilters] = useState([])
@@ -837,16 +842,11 @@ const Logs = () => {
     const token = sessionStorage.getItem('token')
     const headers = { 'Content-Type': 'application/json' }
     if (token) headers['Authorization'] = `Bearer ${token}`
-    fetch(endPoint + '/v1/cluster/info', { headers })
+    fetch(endPoint + '/v1/cluster/logs/nodes', { headers })
       .then((res) => res.json())
       .then((data) => {
-        const nodeSet = new Set()
-        if (Array.isArray(data)) {
-          data.forEach((item) => {
-            if (item.node) nodeSet.add(item.node)
-          })
-        }
-        setNodes([...nodeSet])
+        setNodes(Array.isArray(data.nodes) ? data.nodes : [])
+        setNodeField(data.node_field || 'node')
       })
       .catch(() => setNodes([]))
   }, [endPoint, esEnabled])
@@ -859,6 +859,7 @@ const Logs = () => {
     if (selectedLevels.length) params.set('level', selectedLevels.join(','))
     if (selectedLogType) params.set('log_type', selectedLogType)
     if (selectedNode) params.set('node', selectedNode)
+    if (nodeField !== 'node') params.set('node_field', nodeField)
     params.set('time_from', timeRange.from)
     params.set('time_to', timeRange.to)
     params.set('size', String(PAGE_SIZE))
@@ -893,6 +894,7 @@ const Logs = () => {
     selectedLevels,
     selectedLogType,
     selectedNode,
+    nodeField,
     timeRange,
     pageFrom,
     fieldFilters,
@@ -1044,219 +1046,263 @@ const Logs = () => {
         sx={{
           minHeight: 48,
           px: 2,
+          py: 1,
           gap: 1,
           borderBottom: 1,
           borderColor: 'divider',
-          flexWrap: 'wrap',
+          flexDirection: 'column',
+          alignItems: 'stretch',
         }}
       >
-        {/* Search */}
-        <TextField
-          size="small"
-          placeholder={t('logs.searchPlaceholder')}
-          value={searchText}
-          onChange={handleSearchChange}
-          onKeyDown={handleSearchKeyDown}
+        {/* Row 1: Node Select + Search + Time/Refresh */}
+        <Box
           sx={{
-            'width': 240,
-            '& .MuiInputBase-input': { fontSize: FONT_SIZE },
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            width: '100%',
           }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
-          }}
-        />
-
-        {/* Level Chips */}
-        <Box sx={{ display: 'flex', gap: 0.5 }}>
-          {LEVELS.map((level) => (
-            <Chip
-              key={level}
-              label={level}
-              size="small"
-              variant={selectedLevels.includes(level) ? 'filled' : 'outlined'}
-              color={
-                level === 'ERROR'
-                  ? 'error'
-                  : level === 'WARNING'
-                  ? 'warning'
-                  : 'default'
-              }
-              onClick={() => toggleLevel(level)}
-              sx={{ fontSize: FONT_SIZE }}
-            />
-          ))}
-        </Box>
-
-        {/* Log Type Chips */}
-        <Box sx={{ display: 'flex', gap: 0.5 }}>
-          {LOG_TYPES.map((lt) => (
-            <Chip
-              key={lt}
-              label={lt}
-              size="small"
-              variant={selectedLogType === lt ? 'filled' : 'outlined'}
-              onClick={() => {
-                setSelectedLogType((prev) => (prev === lt ? '' : lt))
-                setPageFrom(0)
-              }}
-              sx={{ fontSize: FONT_SIZE }}
-            />
-          ))}
-        </Box>
-
-        {/* Node Select */}
-        {nodes.length > 0 && (
-          <FormControl size="small" sx={{ minWidth: 140 }}>
-            <Select
-              value={selectedNode}
-              onChange={(e) => {
-                setSelectedNode(e.target.value)
-                setPageFrom(0)
-              }}
-              displayEmpty
-              sx={{ fontSize: FONT_SIZE }}
-            >
-              <MenuItem value="" sx={{ fontSize: FONT_SIZE }}>
-                {t('logs.allNodes')}
-              </MenuItem>
-              {nodes.map((n) => (
-                <MenuItem key={n} value={n} sx={{ fontSize: FONT_SIZE }}>
-                  {n}
+        >
+          {/* Node Select */}
+          {nodes.length > 0 && (
+            <FormControl size="small" sx={{ minWidth: 200 }}>
+              <Select
+                value={selectedNode}
+                onChange={(e) => {
+                  setSelectedNode(e.target.value)
+                  setPageFrom(0)
+                }}
+                displayEmpty
+                sx={{ fontSize: FONT_SIZE }}
+              >
+                <MenuItem value="" sx={{ fontSize: FONT_SIZE }}>
+                  {t('logs.allNodes')}
                 </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        )}
-
-        <Box sx={{ flex: 1 }} />
-
-        {/* Time Range */}
-        <Button
-          size="small"
-          color="inherit"
-          startIcon={<AccessTime fontSize="small" />}
-          onClick={(e) => setTimeAnchor(e.currentTarget)}
-          sx={{ textTransform: 'none', fontSize: FONT_SIZE }}
-        >
-          {timeRangeLabel ? t(timeRangeLabel) : customDisplay}
-        </Button>
-        <Popover
-          anchorEl={timeAnchor}
-          open={Boolean(timeAnchor)}
-          onClose={() => setTimeAnchor(null)}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        >
-          <Box sx={{ display: 'flex', width: 480, maxHeight: 400 }}>
-            <Box
-              sx={{
-                width: 240,
-                p: 2,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 1.5,
-              }}
-            >
-              <Typography
-                variant="subtitle2"
-                color="text.secondary"
-                sx={{ fontSize: FONT_SIZE }}
-              >
-                {t('monitoring.absoluteRange')}
-              </Typography>
-              <LocalizationProvider
-                dateAdapter={AdapterDayjs}
-                adapterLocale={dayjsLocale}
-                localeText={
-                  PICKER_LOCALE_TEXT[(i18n.language || 'en').split('-')[0]] ||
-                  PICKER_LOCALE_TEXT.en
-                }
-              >
-                <DateTimePicker
-                  label={t('monitoring.from')}
-                  value={customFrom}
-                  onChange={(v) => setCustomFrom(v)}
-                  ampm={false}
-                  slotProps={DATE_TIME_SLOT_PROPS}
-                />
-                <DateTimePicker
-                  label={t('monitoring.to')}
-                  value={customTo}
-                  onChange={(v) => setCustomTo(v)}
-                  ampm={false}
-                  slotProps={DATE_TIME_SLOT_PROPS}
-                />
-              </LocalizationProvider>
-              <Button
-                variant="contained"
-                size="small"
-                onClick={handleApplyAbsolute}
-                disabled={!customFrom || !customTo}
-                fullWidth
-                sx={{ fontSize: FONT_SIZE }}
-              >
-                {t('monitoring.applyTimeRange')}
-              </Button>
-            </Box>
-            <Divider orientation="vertical" flexItem />
-            <Box sx={{ width: 240, overflow: 'auto' }}>
-              <MenuList dense disablePadding>
-                {TIME_RANGES.map((item) => (
-                  <MenuItem
-                    key={item.labelKey}
-                    selected={item.labelKey === timeRangeLabel}
-                    onClick={() => handleQuickRange(item)}
-                    sx={{ fontSize: FONT_SIZE }}
-                  >
-                    {t(item.labelKey)}
+                {nodes.map((n) => (
+                  <MenuItem key={n} value={n} sx={{ fontSize: FONT_SIZE }}>
+                    {n}
                   </MenuItem>
                 ))}
-              </MenuList>
+              </Select>
+            </FormControl>
+          )}
+
+          {/* Search */}
+          <TextField
+            size="small"
+            placeholder={t('logs.searchPlaceholder')}
+            value={searchText}
+            onChange={handleSearchChange}
+            onKeyDown={handleSearchKeyDown}
+            sx={{
+              'width': 280,
+              '& .MuiInputBase-input': { fontSize: FONT_SIZE },
+            }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            }}
+          />
+
+          <Box sx={{ flex: 1 }} />
+
+          {/* Time Range */}
+          <Button
+            size="small"
+            color="inherit"
+            startIcon={<AccessTime fontSize="small" />}
+            onClick={(e) => setTimeAnchor(e.currentTarget)}
+            sx={{ textTransform: 'none', fontSize: FONT_SIZE }}
+          >
+            {timeRangeLabel ? t(timeRangeLabel) : customDisplay}
+          </Button>
+          <Popover
+            anchorEl={timeAnchor}
+            open={Boolean(timeAnchor)}
+            onClose={() => setTimeAnchor(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          >
+            <Box sx={{ display: 'flex', width: 480, maxHeight: 400 }}>
+              <Box
+                sx={{
+                  width: 240,
+                  p: 2,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 1.5,
+                }}
+              >
+                <Typography
+                  variant="subtitle2"
+                  color="text.secondary"
+                  sx={{ fontSize: FONT_SIZE }}
+                >
+                  {t('monitoring.absoluteRange')}
+                </Typography>
+                <LocalizationProvider
+                  dateAdapter={AdapterDayjs}
+                  adapterLocale={dayjsLocale}
+                  localeText={
+                    PICKER_LOCALE_TEXT[(i18n.language || 'en').split('-')[0]] ||
+                    PICKER_LOCALE_TEXT.en
+                  }
+                >
+                  <DateTimePicker
+                    label={t('monitoring.from')}
+                    value={customFrom}
+                    onChange={(v) => setCustomFrom(v)}
+                    ampm={false}
+                    slotProps={DATE_TIME_SLOT_PROPS}
+                  />
+                  <DateTimePicker
+                    label={t('monitoring.to')}
+                    value={customTo}
+                    onChange={(v) => setCustomTo(v)}
+                    ampm={false}
+                    slotProps={DATE_TIME_SLOT_PROPS}
+                  />
+                </LocalizationProvider>
+                <Button
+                  variant="contained"
+                  size="small"
+                  onClick={handleApplyAbsolute}
+                  disabled={!customFrom || !customTo}
+                  fullWidth
+                  sx={{ fontSize: FONT_SIZE }}
+                >
+                  {t('monitoring.applyTimeRange')}
+                </Button>
+              </Box>
+              <Divider orientation="vertical" flexItem />
+              <Box sx={{ width: 240, overflow: 'auto' }}>
+                <MenuList dense disablePadding>
+                  {TIME_RANGES.map((item) => (
+                    <MenuItem
+                      key={item.labelKey}
+                      selected={item.labelKey === timeRangeLabel}
+                      onClick={() => handleQuickRange(item)}
+                      sx={{ fontSize: FONT_SIZE }}
+                    >
+                      {t(item.labelKey)}
+                    </MenuItem>
+                  ))}
+                </MenuList>
+              </Box>
             </Box>
+          </Popover>
+
+          {/* Refresh */}
+          <Tooltip title={t('logs.refresh')}>
+            <IconButton size="small" color="inherit" onClick={fetchLogs}>
+              <RefreshIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+
+          {/* Auto Refresh Interval */}
+          <Button
+            size="small"
+            color="inherit"
+            startIcon={<RefreshIcon fontSize="small" />}
+            onClick={(e) => setRefreshAnchor(e.currentTarget)}
+            sx={{ textTransform: 'none', fontSize: FONT_SIZE }}
+          >
+            {t(refreshLabel)}
+          </Button>
+          <Menu
+            anchorEl={refreshAnchor}
+            open={Boolean(refreshAnchor)}
+            onClose={() => setRefreshAnchor(null)}
+          >
+            {REFRESH_OPTIONS.map((item) => (
+              <MenuItem
+                key={item.labelKey}
+                selected={item.labelKey === refreshLabel}
+                onClick={() => {
+                  setRefreshInterval(item.value)
+                  setRefreshLabel(item.labelKey)
+                  setRefreshAnchor(null)
+                }}
+                sx={{ fontSize: FONT_SIZE }}
+              >
+                {t(item.labelKey)}
+              </MenuItem>
+            ))}
+          </Menu>
+        </Box>
+
+        {/* Row 2: Log Level */}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            width: '100%',
+          }}
+        >
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ fontSize: FONT_SIZE, minWidth: 64 }}
+          >
+            {t('logs.logLevel')}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
+            {LEVELS.map((level) => (
+              <Chip
+                key={level}
+                label={level}
+                size="small"
+                variant={selectedLevels.includes(level) ? 'filled' : 'outlined'}
+                color={
+                  level === 'ERROR'
+                    ? 'error'
+                    : level === 'WARNING'
+                    ? 'warning'
+                    : 'default'
+                }
+                onClick={() => toggleLevel(level)}
+                sx={{ fontSize: FONT_SIZE }}
+              />
+            ))}
           </Box>
-        </Popover>
+        </Box>
 
-        {/* Refresh */}
-        <Tooltip title={t('logs.refresh')}>
-          <IconButton size="small" color="inherit" onClick={fetchLogs}>
-            <RefreshIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-
-        {/* Auto Refresh Interval */}
-        <Button
-          size="small"
-          color="inherit"
-          startIcon={<RefreshIcon fontSize="small" />}
-          onClick={(e) => setRefreshAnchor(e.currentTarget)}
-          sx={{ textTransform: 'none', fontSize: FONT_SIZE }}
+        {/* Row 3: Node Type */}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            width: '100%',
+          }}
         >
-          {t(refreshLabel)}
-        </Button>
-        <Menu
-          anchorEl={refreshAnchor}
-          open={Boolean(refreshAnchor)}
-          onClose={() => setRefreshAnchor(null)}
-        >
-          {REFRESH_OPTIONS.map((item) => (
-            <MenuItem
-              key={item.labelKey}
-              selected={item.labelKey === refreshLabel}
-              onClick={() => {
-                setRefreshInterval(item.value)
-                setRefreshLabel(item.labelKey)
-                setRefreshAnchor(null)
-              }}
-              sx={{ fontSize: FONT_SIZE }}
-            >
-              {t(item.labelKey)}
-            </MenuItem>
-          ))}
-        </Menu>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ fontSize: FONT_SIZE, minWidth: 64 }}
+          >
+            {t('logs.nodeType')}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
+            {LOG_TYPES.map((lt) => (
+              <Chip
+                key={lt}
+                label={lt}
+                size="small"
+                variant={selectedLogType === lt ? 'filled' : 'outlined'}
+                onClick={() => {
+                  setSelectedLogType((prev) => (prev === lt ? '' : lt))
+                  setPageFrom(0)
+                }}
+                sx={{ fontSize: FONT_SIZE }}
+              />
+            ))}
+          </Box>
+        </Box>
       </Toolbar>
 
       {/* Active Field Filters */}
@@ -1410,6 +1456,7 @@ const Logs = () => {
                             selectedLevels={selectedLevels}
                             selectedLogType={selectedLogType}
                             endPoint={endPoint}
+                            nodeField={nodeField}
                           />
                         </Collapse>
                       </TableCell>

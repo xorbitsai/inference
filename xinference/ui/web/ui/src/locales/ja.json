@@ -329,6 +329,8 @@
     "notConfigured": "ログクエリが設定されていません。XINFERENCE_ES_URL 環境変数を設定してください。",
     "searchPlaceholder": "ログを検索...",
     "allNodes": "全ノード",
+    "logLevel": "ログレベル",
+    "nodeType": "ノードタイプ",
     "time": "時刻",
     "level": "レベル",
     "node": "ノード",

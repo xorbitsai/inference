@@ -329,6 +329,8 @@
     "notConfigured": "로그 조회가 구성되지 않았습니다. XINFERENCE_ES_URL 환경 변수를 설정하세요.",
     "searchPlaceholder": "로그 검색...",
     "allNodes": "전체 노드",
+    "logLevel": "로그 레벨",
+    "nodeType": "노드 유형",
     "time": "시간",
     "level": "레벨",
     "node": "노드",

@@ -336,6 +336,8 @@
     "notConfigured": "日志查询未配置，请设置 XINFERENCE_ES_URL 环境变量。",
     "searchPlaceholder": "搜索日志...",
     "allNodes": "全部节点",
+    "logLevel": "日志级别",
+    "nodeType": "节点类型",
     "time": "时间",
     "level": "级别",
     "node": "节点",

@@ -336,6 +336,8 @@
     "notConfigured": "Log query not configured. Please set XINFERENCE_ES_URL environment variable.",
     "searchPlaceholder": "Search logs...",
     "allNodes": "All Nodes",
+    "logLevel": "Log Level",
+    "nodeType": "Node Type",
     "time": "Time",
     "level": "Level",
     "node": "Node",
