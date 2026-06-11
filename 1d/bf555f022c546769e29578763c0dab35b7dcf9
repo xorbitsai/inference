@@ -1,0 +1,27 @@
+monitor/alert/rules-ko.yml
+  4e3e519ebf223f17 20,29,50,55-56,65-101
+monitor/alert/rules.yml
+  4e3e519ebf223f17 20,29,50,55-56,65-101
+monitor/alert/rules-ja.yml
+  4e3e519ebf223f17 20,29,50,55-56,65-101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "1dbf555f022c546769e29578763c0dab35b7dcf9",
+  "prompts": {
+    "4e3e519ebf223f17": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d3de3a62-4c11-4259-9a72-f6a7645891f9",
+        "model": "qwen3.7-max"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 126,
+      "total_deletions": 18,
+      "accepted_lines": 126,
+      "overriden_lines": 0
+    }
+  }
+}
