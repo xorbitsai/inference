@@ -2,6 +2,7 @@ import BlockIcon from '@mui/icons-material/Block'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
+import VpnKeyIcon from '@mui/icons-material/VpnKey'
 import {
   Alert,
   Box,
@@ -48,9 +49,15 @@ function UserManagement() {
   const [newPassword, setNewPassword] = useState('')
   const [selectedPerms, setSelectedPerms] = useState([])
   const [snackError, setSnackError] = useState('')
+  const [snackSeverity, setSnackSeverity] = useState('error')
   const [editPermOpen, setEditPermOpen] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
   const [editPerms, setEditPerms] = useState([])
+  const [pwdDialogOpen, setPwdDialogOpen] = useState(false)
+  const [pwdTargetUser, setPwdTargetUser] = useState(null)
+  const [newPwd, setNewPwd] = useState('')
+  const [confirmPwd, setConfirmPwd] = useState('')
+  const [pwdError, setPwdError] = useState('')
 
   const loadUsers = async () => {
     try {
@@ -78,6 +85,7 @@ function UserManagement() {
       setSelectedPerms([])
       loadUsers()
     } catch (e) {
+      setSnackSeverity('error')
       setSnackError(e.message || String(e))
     }
   }
@@ -89,6 +97,7 @@ function UserManagement() {
       })
       loadUsers()
     } catch (e) {
+      setSnackSeverity('error')
       setSnackError(e.message || String(e))
     }
   }
@@ -104,6 +113,7 @@ function UserManagement() {
       await fetchWrapper.delete(`/v1/admin/users/${user.id}`)
       loadUsers()
     } catch (e) {
+      setSnackSeverity('error')
       setSnackError(e.message || String(e))
     }
   }
@@ -152,7 +162,41 @@ function UserManagement() {
       setEditingUser(null)
       loadUsers()
     } catch (e) {
+      setSnackSeverity('error')
       setSnackError(e.message || String(e))
+    }
+  }
+
+  const handleChangePassword = (user) => {
+    setPwdTargetUser(user)
+    setNewPwd('')
+    setConfirmPwd('')
+    setPwdError('')
+    setPwdDialogOpen(true)
+  }
+
+  const handleSubmitPassword = async () => {
+    if (!pwdTargetUser) return
+    if (newPwd !== confirmPwd) {
+      setPwdError(t('userManagement.passwordMismatch'))
+      return
+    }
+    if (newPwd.length < 8) {
+      setPwdError(t('userManagement.passwordTooShort'))
+      return
+    }
+    try {
+      await fetchWrapper.put(`/v1/admin/users/${pwdTargetUser.id}/password`, {
+        new_password: newPwd,
+      })
+      setPwdDialogOpen(false)
+      setPwdTargetUser(null)
+      setNewPwd('')
+      setConfirmPwd('')
+      setSnackSeverity('success')
+      setSnackError(t('userManagement.changePasswordSuccess'))
+    } catch (e) {
+      setPwdError(e.message || String(e))
     }
   }
 
@@ -212,6 +256,16 @@ function UserManagement() {
               <EditIcon />
             </IconButton>
           </Tooltip>
+          {params.row.source === 'local' && (
+            <Tooltip title={t('userManagement.changePassword')}>
+              <IconButton
+                size="small"
+                onClick={() => handleChangePassword(params.row)}
+              >
+                <VpnKeyIcon />
+              </IconButton>
+            </Tooltip>
+          )}
           <Tooltip
             title={
               params.row.enabled
@@ -422,6 +476,50 @@ function UserManagement() {
         </DialogActions>
       </Dialog>
 
+      {/* Change Password Dialog */}
+      <Dialog
+        open={pwdDialogOpen}
+        onClose={() => setPwdDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>
+          {t('userManagement.changePasswordTitle')}{' '}
+          {pwdTargetUser && `- ${pwdTargetUser.username}`}
+        </DialogTitle>
+        <DialogContent>
+          {pwdError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {pwdError}
+            </Alert>
+          )}
+          <TextField
+            margin="dense"
+            label={t('userManagement.newPassword')}
+            type="password"
+            fullWidth
+            value={newPwd}
+            onChange={(e) => setNewPwd(e.target.value)}
+          />
+          <TextField
+            margin="dense"
+            label={t('userManagement.confirmPassword')}
+            type="password"
+            fullWidth
+            value={confirmPwd}
+            onChange={(e) => setConfirmPwd(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPwdDialogOpen(false)}>
+            {t('userManagement.cancel')}
+          </Button>
+          <Button variant="contained" onClick={handleSubmitPassword}>
+            {t('userManagement.save')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Snackbar
         open={!!snackError}
         autoHideDuration={5000}
@@ -429,7 +527,7 @@ function UserManagement() {
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert
-          severity="error"
+          severity={snackSeverity}
           onClose={() => setSnackError('')}
           variant="filled"
         >
