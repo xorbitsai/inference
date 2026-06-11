@@ -1,0 +1,33 @@
+xinference/ui/web/ui/src/scenes/user_management/index.js
+  4e3e519ebf223f17 5,55-59,165-196,253-262,473-512
+xinference/ui/web/ui/src/locales/en.json
+  4e3e519ebf223f17 400-407
+xinference/api/oauth2/advanced/routes.py
+  4e3e519ebf223f17 251-254
+xinference/ui/web/ui/src/locales/ja.json
+  4e3e519ebf223f17 393-400
+xinference/ui/web/ui/src/locales/ko.json
+  4e3e519ebf223f17 393-400
+xinference/ui/web/ui/src/locales/zh.json
+  4e3e519ebf223f17 400-407
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "4f569c0031d9e99063b7f94ed8d06d9086ea6867",
+  "prompts": {
+    "4e3e519ebf223f17": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d3de3a62-4c11-4259-9a72-f6a7645891f9",
+        "model": "qwen3.7-max"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 128,
+      "total_deletions": 4,
+      "accepted_lines": 128,
+      "overriden_lines": 0
+    }
+  }
+}
