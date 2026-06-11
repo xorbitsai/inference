@@ -50,7 +50,7 @@ All files share the same alert expressions and thresholds — only `summary` and
 
 - **Severity**: warning
 - **Condition**: Model concurrency ratio (active / limit) > 90% for 3 minutes
-- **Expression**: `xinference:model_serve_count / xinference:model_request_limit > 0.9`
+- **Expression**: `xinference:model_serve_count / (xinference:model_request_limit > 0) > 0.9`
 
 ### ModelLoadSlow
 

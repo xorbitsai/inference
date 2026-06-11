@@ -47,7 +47,7 @@ groups:
           description: "노드 {{ $labels.instance }} 마운트 포인트 {{ $labels.mountpoint }} 잔여 공간 {{ $value | humanizePercentage }}."
 
       - alert: RequestQueueBacklog
-        expr: xinference:model_serve_count / xinference:model_request_limit > 0.9
+        expr: xinference:model_serve_count / (xinference:model_request_limit > 0) > 0.9
         for: 3m
         labels:
           severity: warning

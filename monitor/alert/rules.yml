@@ -47,7 +47,7 @@ groups:
           description: "Node {{ $labels.instance }} mountpoint {{ $labels.mountpoint }} remaining space {{ $value | humanizePercentage }}."
 
       - alert: RequestQueueBacklog
-        expr: xinference:model_serve_count / xinference:model_request_limit > 0.9
+        expr: xinference:model_serve_count / (xinference:model_request_limit > 0) > 0.9
         for: 3m
         labels:
           severity: warning

@@ -50,7 +50,7 @@
 
 - **级别**: warning（警告）
 - **条件**: 模型并发比率（活跃数 / 上限）> 90%，持续 3 分钟
-- **表达式**: `xinference:model_serve_count / xinference:model_request_limit > 0.9`
+- **表达式**: `xinference:model_serve_count / (xinference:model_request_limit > 0) > 0.9`
 
 ### ModelLoadSlow — 模型加载缓慢
 
