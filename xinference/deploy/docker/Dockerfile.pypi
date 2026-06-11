@@ -20,7 +20,7 @@ FROM python:3.12-slim AS downloader
 # When not using buildx, default to amd64.
 ARG TARGETARCH
 ARG TARGET_ARCH=${TARGETARCH:-amd64}
-ARG CUDA_VERSIONS="cu126 cu128"
+ARG CUDA_VERSIONS="cu128"
 
 # Validate TARGET_ARCH at build time
 RUN case "${TARGET_ARCH}" in \
