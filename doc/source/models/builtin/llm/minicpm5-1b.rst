@@ -60,3 +60,4 @@ Execute the following command to launch the model, remember to replace ``${quant
 chosen quantization method from the options listed above::
 
    xinference launch --model-engine ${engine} --model-name minicpm5-1b --size-in-billions 1 --model-format mlx --quantization ${quantization}
+

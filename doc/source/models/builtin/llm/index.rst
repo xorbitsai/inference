@@ -790,7 +790,7 @@ The following is a list of built-in LLM in Xinference:
 .. toctree::
    :maxdepth: 3
 
-
+  
    baichuan-2
   
    baichuan-2-chat
@@ -956,7 +956,7 @@ The following is a list of built-in LLM in Xinference:
    minicpm4
   
    minicpm5-1b
-
+  
    minimax-m2
   
    minimax-m2.5
@@ -1099,3 +1099,4 @@ The following is a list of built-in LLM in Xinference:
   
    yi-chat
   
+
