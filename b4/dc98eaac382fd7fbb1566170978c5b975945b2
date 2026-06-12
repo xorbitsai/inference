@@ -1,0 +1,46 @@
+monitor/alert/README_zh-CN.md
+  78ee352318e1b386 28
+monitor/alert/rules-ja.yml
+  78ee352318e1b386 14
+monitor/alert/README.md
+  78ee352318e1b386 28
+monitor/alert/rules.yml
+  78ee352318e1b386 14
+monitor/alert/rules-ko.yml
+  78ee352318e1b386 14
+monitor/alert/rules-zh-CN.yml
+  78ee352318e1b386 14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "b4dc98eaac382fd7fbb1566170978c5b975945b2",
+  "prompts": {
+    "5910fefed6a1878d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "96874cce-908f-4407-a186-979b95fab6fc",
+        "model": "qwen3.7-max"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 2042,
+      "overriden_lines": 0
+    },
+    "78ee352318e1b386": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e6ba6d3c-7b1f-471f-90fa-37fc1f9b3236",
+        "model": "qwen3.7-max"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 18,
+      "total_deletions": 18,
+      "accepted_lines": 18,
+      "overriden_lines": 0
+    }
+  }
+}
