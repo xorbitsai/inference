@@ -2352,6 +2352,7 @@ class RESTfulAPI(CancelMixin):
             DEEPSEEK_TOOL_CALL_FAMILY,
             GEMMA_TOOL_CALL_FAMILY,
             GLM4_TOOL_CALL_FAMILY,
+            GLM5_TOOL_CALL_FAMILY,
             LLAMA3_TOOL_CALL_FAMILY,
             QWEN_TOOL_CALL_FAMILY,
         )
@@ -2364,6 +2365,7 @@ class RESTfulAPI(CancelMixin):
             | GLM4_TOOL_CALL_FAMILY
             | LLAMA3_TOOL_CALL_FAMILY
             | QWEN_TOOL_CALL_FAMILY
+            | GLM5_TOOL_CALL_FAMILY
         )
         if model_family not in total_call_family:
             if body.tools:
