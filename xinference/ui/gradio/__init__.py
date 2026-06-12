@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from .chat_interface import GradioInterface
+from .embedding_interface import EmbeddingInterface
 from .media_interface import MediaInterface
 
-__all__ = ["GradioInterface", "MediaInterface"]
+__all__ = ["GradioInterface", "EmbeddingInterface", "MediaInterface"]

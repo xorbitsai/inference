@@ -581,10 +581,34 @@ const RunningModels = () => {
       disableColumnMenu: true,
       renderCell: ({ row }) => {
         const url = row.url
+        const openUrl = `${endPoint}/` + url
 
         if (url === 'IS_LOADING') {
           return <div></div>
         }
+
+        // ``embeddingModelColumns`` is reused for rerank / flexible tabs
+        // (see ``rerankModelColumns`` / ``flexibleModelColumns`` aliases
+        // below), so the Gradio launcher must only render for embedding
+        // rows. Posting a rerank / flexible ``model_uid`` to
+        // ``/v1/ui/embeddings/{model_uid}`` would otherwise 400 on the
+        // backend ``model_type`` check.
+        if (row.model_type !== 'embedding') {
+          return (
+            <Box
+              style={{
+                width: '100%',
+                display: 'flex',
+                justifyContent: 'left',
+                alignItems: 'left',
+              }}
+            >
+              {renderTerminateButton(row)}
+            </Box>
+          )
+        }
+
+        const gradioUrl = `${endPoint}/v1/ui/embeddings/` + url
 
         return (
           <Box
@@ -595,6 +619,79 @@ const RunningModels = () => {
               alignItems: 'left',
             }}
           >
+            <IconButton
+              title="Launch Web UI"
+              style={{
+                borderWidth: '0px',
+                backgroundColor: 'transparent',
+                paddingLeft: '0px',
+                paddingRight: '10px',
+              }}
+              onClick={() => {
+                if (isCallingApi || isUpdatingModel) {
+                  return
+                }
+
+                setIsCallingApi(true)
+
+                fetcher(openUrl, {
+                  method: 'HEAD',
+                })
+                  .then((response) => {
+                    if (response.status === 404) {
+                      console.log('UI does not exist, creating new...')
+                      return fetcher(gradioUrl, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          model_type: row.model_type,
+                          model_family: row.model_family,
+                          model_id: row.id,
+                          model_revision: row.model_revision,
+                          model_name: row.model_name,
+                          model_ability: row.model_ability,
+                        }),
+                      })
+                        .then((response) => response.json())
+                        .then(() =>
+                          window.open(openUrl, '_blank', 'noopener noreferrer')
+                        )
+                        .finally(() => setIsCallingApi(false))
+                    } else if (response.ok) {
+                      console.log('UI exists, opening...')
+                      window.open(openUrl, '_blank', 'noopener noreferrer')
+                      setIsCallingApi(false)
+                    } else {
+                      console.error(
+                        `Unexpected response status: ${response.status}`
+                      )
+                      setIsCallingApi(false)
+                    }
+                  })
+                  .catch((error) => {
+                    console.error('Error:', error)
+                    setIsCallingApi(false)
+                  })
+              }}
+            >
+              <Box
+                width="40px"
+                m="0 auto"
+                p="5px"
+                display="flex"
+                justifyContent="center"
+                borderRadius="4px"
+                style={{
+                  border: '1px solid #e5e7eb',
+                  borderWidth: '1px',
+                  borderColor: '#e5e7eb',
+                }}
+              >
+                <OpenInBrowserOutlinedIcon />
+              </Box>
+            </IconButton>
             {renderTerminateButton(row)}
           </Box>
         )
