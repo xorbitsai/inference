@@ -25,7 +25,7 @@
 
 - **级别**: warning（警告）
 - **条件**: 模型请求错误率 > 5%，持续 3 分钟
-- **表达式**: `rate(xinference:model_request_errors_total[5m]) / rate(xinference:model_request_total[5m]) > 0.05`
+- **表达式**: `sum without (stream) (rate(xinference:model_request_errors_total[5m])) / sum without (stream) (rate(xinference:model_request_total[5m])) > 0.05`
 
 ### TTFTHigh — 首 Token 延迟过高
 

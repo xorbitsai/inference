@@ -11,7 +11,7 @@ groups:
           description: "Worker {{ $labels.worker_address }} GPU {{ $labels.gpu_index }} 显存使用率 {{ $value | humanizePercentage }}，持续 5 分钟。"
 
       - alert: ModelRequestErrorRateHigh
-        expr: rate(xinference:model_request_errors_total[5m]) / rate(xinference:model_request_total[5m]) > 0.05
+        expr: sum without (stream) (rate(xinference:model_request_errors_total[5m])) / sum without (stream) (rate(xinference:model_request_total[5m])) > 0.05
         for: 3m
         labels:
           severity: warning

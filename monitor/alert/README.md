@@ -25,7 +25,7 @@ All files share the same alert expressions and thresholds — only `summary` and
 
 - **Severity**: warning
 - **Condition**: Model request error rate > 5% for 3 minutes
-- **Expression**: `rate(xinference:model_request_errors_total[5m]) / rate(xinference:model_request_total[5m]) > 0.05`
+- **Expression**: `sum without (stream) (rate(xinference:model_request_errors_total[5m])) / sum without (stream) (rate(xinference:model_request_total[5m])) > 0.05`
 
 ### TTFTHigh
 
