@@ -15,7 +15,7 @@ class Glm5ToolParser(ToolParser):
     Tool parser implementation for GLM5 model.
 
     This parser handles the specific format used by GLM5 for tool calls,
-    which uses JSON code blocks wrapped in markdown format.
+    which uses XML-like tags (<tool_call>, <arg_key>, <arg_value>).
 
     """
 
@@ -24,8 +24,6 @@ class Glm5ToolParser(ToolParser):
         Initialize the GLM5 tool parser.
         """
         super().__init__()
-        # Regex pattern to match JSON code blocks
-        self.tool_calls_regex = re.compile(r"\s*```json\s*(.*?)\s*```", re.DOTALL)
         self.tool_call_start_token = "<tool_call>"
         self.tool_call_end_token = "</tool_call>"
         self.tool_call_complete_regex = re.compile(
@@ -34,26 +32,6 @@ class Glm5ToolParser(ToolParser):
         self.tool_arg_regex = re.compile(
             r"<arg_key>(.*?)</arg_key>\s*<arg_value>(.*?)</arg_value>", re.DOTALL
         )
-
-    def _parse_json_function_call(
-        self,
-        function_call_str: str,
-    ) -> str:
-        """
-        Parse JSON function call from string.
-
-        Args:
-            function_call_str (str): The function call string to parse.
-
-        Returns:
-            str: Parsed result or original string if no match found.
-
-        """
-        match = self.tool_calls_regex.search(function_call_str)
-        if match:
-            result = match.group(1)
-            return result
-        return function_call_str
 
     def _parse_xml_function_call(
         self, function_call_str: str
@@ -150,7 +128,9 @@ class Glm5ToolParser(ToolParser):
         if isinstance(current_text, str):
             if self.tool_call_start_token not in current_text:
                 return (delta_text, None, None)
-            if self.tool_call_end_token not in current_text:
+            if current_text.count(self.tool_call_start_token) > current_text.count(
+                self.tool_call_end_token
+            ):
                 return None
 
             previous = previous_text[-1] if previous_text else ""
