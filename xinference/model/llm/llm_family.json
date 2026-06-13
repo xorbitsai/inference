@@ -1709,6 +1709,319 @@
   },
   {
     "version": 2,
+    "context_length": 262144,
+    "model_name": "MiniCPM-V-4.6",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "vision"
+    ],
+    "model_description": "MiniCPM-V 4.6 is the latest and most edge-deployment-friendly model in the MiniCPM-V series, with only 1.3B parameters (1.3B activated). It is built on SigLIP2-400M and Qwen3.5-0.8B, and supports single-image, multi-image, and video understanding.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 1,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "openbmb/MiniCPM-V-4.6",
+            "model_revision": "d7f5ed8d15462c508d4f9d9ce5a0cf1fe8d87bcc"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "OpenBMB/MiniCPM-V-4.6",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "bnb",
+        "model_size_in_billions": 1,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4-bit"
+            ],
+            "model_id": "openbmb/MiniCPM-V-4.6-BNB"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4-bit"
+            ],
+            "model_id": "OpenBMB/MiniCPM-V-4.6-BNB"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 1,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "openbmb/MiniCPM-V-4.6-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "OpenBMB/MiniCPM-V-4.6-AWQ"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 1,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "openbmb/MiniCPM-V-4.6-GPTQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "OpenBMB/MiniCPM-V-4.6-GPTQ"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 1,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "F16"
+            ],
+            "multimodal_projectors": [
+              "mmproj-model-f16.gguf"
+            ],
+            "model_id": "openbmb/MiniCPM-V-4.6-gguf",
+            "model_file_name_template": "MiniCPM-V-4_6-{quantization}.gguf"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "F16"
+            ],
+            "multimodal_projectors": [
+              "mmproj-model-f16.gguf"
+            ],
+            "model_id": "OpenBMB/MiniCPM-V-4.6-gguf",
+            "model_file_name_template": "MiniCPM-V-4_6-{quantization}.gguf"
+          }
+        }
+      }
+    ],
+    "chat_template": "",
+    "stop_token_ids": [
+      248044,
+      248046
+    ],
+    "stop": [
+      "<|im_end|>",
+      "<|endoftext|>"
+    ],
+    "updated_at": 1769418484,
+    "featured": false,
+    "architectures": [
+      "MiniCPMV4_6ForConditionalGeneration"
+    ],
+    "model_type": "minicpmv4_6",
+    "virtualenv": {
+      "packages": [
+        "transformers @ git+https://github.com/huggingface/transformers.git ; #engine# == \"Transformers\"",
+        "accelerate>=0.28.0 ; #engine# == \"Transformers\"",
+        "torchvision ; #engine# == \"Transformers\"",
+        "av ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "context_length": 262144,
+    "model_name": "MiniCPM-V-4.6-Thinking",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "vision",
+      "reasoning"
+    ],
+    "model_description": "MiniCPM-V 4.6 Thinking is a reasoning-tuned version of MiniCPM-V 4.6. It supports deep reasoning for more complex problem solving, while inheriting the single-image, multi-image, and video understanding capabilities of the MiniCPM-V family.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 1,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "openbmb/MiniCPM-V-4.6-Thinking",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "OpenBMB/MiniCPM-V-4.6-Thinking",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "bnb",
+        "model_size_in_billions": 1,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4-bit"
+            ],
+            "model_id": "openbmb/MiniCPM-V-4.6-Thinking-BNB"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4-bit"
+            ],
+            "model_id": "OpenBMB/MiniCPM-V-4.6-Thinking-BNB"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 1,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "openbmb/MiniCPM-V-4.6-Thinking-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "OpenBMB/MiniCPM-V-4.6-Thinking-AWQ"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 1,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "openbmb/MiniCPM-V-4.6-Thinking-GPTQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "OpenBMB/MiniCPM-V-4.6-Thinking-GPTQ"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 1,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "F16"
+            ],
+            "multimodal_projectors": [
+              "mmproj-model-f16.gguf"
+            ],
+            "model_id": "openbmb/MiniCPM-V-4.6-Thinking-gguf",
+            "model_file_name_template": "MiniCPM-V-4_6-Thinking-{quantization}.gguf"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "F16"
+            ],
+            "multimodal_projectors": [
+              "mmproj-model-f16.gguf"
+            ],
+            "model_id": "OpenBMB/MiniCPM-V-4.6-Thinking-gguf",
+            "model_file_name_template": "MiniCPM-V-4_6-Thinking-{quantization}.gguf"
+          }
+        }
+      }
+    ],
+    "chat_template": "",
+    "stop_token_ids": [
+      248044,
+      248046
+    ],
+    "stop": [
+      "<|im_end|>",
+      "<|endoftext|>"
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "updated_at": 1769418484,
+    "featured": false,
+    "architectures": [
+      "MiniCPMV4_6ForConditionalGeneration"
+    ],
+    "model_type": "minicpmv4_6",
+    "virtualenv": {
+      "packages": [
+        "transformers @ git+https://github.com/huggingface/transformers.git ; #engine# == \"Transformers\"",
+        "accelerate>=0.28.0 ; #engine# == \"Transformers\"",
+        "torchvision ; #engine# == \"Transformers\"",
+        "av ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  },
+  {
+    "version": 2,
     "context_length": 32768,
     "model_name": "Ovis2",
     "model_lang": [

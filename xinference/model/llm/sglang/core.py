@@ -110,6 +110,7 @@ SGLANG_SUPPORTED_VISION_MODEL_LIST = [
     "Qwen2_5_VLForConditionalGeneration",
     "Gemma3ForConditionalGeneration",
     "MiniCPMV",
+    "MiniCPMV4_6ForConditionalGeneration",
     "MllamaForConditionalGeneration",
     "Qwen3_5MoeForConditionalGeneration",
 ]
