@@ -26,6 +26,7 @@ from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ...utils import _decode_image, parse_messages
 from ..core import register_non_default_model
 from .core import PytorchMultiModalModel
+from .....constants import XINFERENCE_TRUST_REMOTE_CODE
 
 logger = logging.getLogger(__name__)
 
@@ -75,13 +76,13 @@ class MiniCPMV45Model(PytorchMultiModalModel):
         max_pixels = self._pytorch_model_config.get("max_pixels")
         self._processor = AutoProcessor.from_pretrained(
             self.model_path,
-            trust_remote_code=True,
+            trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE,
             min_pixels=min_pixels,
             max_pixels=max_pixels,
         )
 
         self._tokenizer = AutoTokenizer.from_pretrained(
-            self.model_path, trust_remote_code=True
+            self.model_path, trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE
         )
 
     def load_multimodal_model(self):
@@ -89,12 +90,12 @@ class MiniCPMV45Model(PytorchMultiModalModel):
         from transformers.generation import GenerationConfig
 
         if "int4" in self.model_path:
-            model = AutoModel.from_pretrained(self.model_path, trust_remote_code=True)
+            model = AutoModel.from_pretrained(self.model_path, trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE)
         else:
             kwargs = self.apply_quantization_config()
             model = AutoModel.from_pretrained(
                 self.model_path,
-                trust_remote_code=True,
+                trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE,
                 torch_dtype=torch.float16,
                 device_map=self._device,
                 **kwargs,
@@ -103,7 +104,7 @@ class MiniCPMV45Model(PytorchMultiModalModel):
         # Specify hyperparameters for generation
         self._model.generation_config = GenerationConfig.from_pretrained(
             self.model_path,
-            trust_remote_code=True,
+            trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE,
         )
         self._device = self._model.device
 

@@ -26,6 +26,7 @@ from .rerank_family import (
     check_engine_by_model_name_and_engine_with_virtual_env,
     match_rerank,
 )
+from ...constants import XINFERENCE_TRUST_REMOTE_CODE
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +177,7 @@ class RerankModel:
     def _get_tokenizer(model_path):
         from transformers import AutoTokenizer
 
-        tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+        tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE)
         return tokenizer
 
     @staticmethod

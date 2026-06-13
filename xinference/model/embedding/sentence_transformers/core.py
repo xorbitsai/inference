@@ -24,6 +24,7 @@ from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ...batch import BatchMixin
 from ...utils import check_dependency_available, is_flash_attn_available
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
+from ....constants import XINFERENCE_TRUST_REMOTE_CODE
 
 logger = logging.getLogger(__name__)
 SENTENCE_TRANSFORMER_MODEL_LIST: List[str] = []
@@ -163,6 +164,11 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
             )
             if spec is None or spec.loader is None:
                 raise ImportError(f"Failed to load embedding module from {module_path}")
+            if not XINFERENCE_TRUST_REMOTE_CODE:
+                raise ValueError(
+                    "Loading this model executes code shipped in the model "
+                    "repository; set XINFERENCE_TRUST_REMOTE_CODE=1 to allow it."
+                )
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             self._embedder = module.Qwen3VLEmbedder(
@@ -270,7 +276,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
             self._model = SentenceTransformer(
                 self._model_path,
                 device=self._device,
-                trust_remote_code=True,
+                trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE,
                 truncate_dim=dimensions,
                 **st_kwargs,
             )

@@ -32,6 +32,7 @@ from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ...batch import BatchMixin
 from ...utils import check_dependency_available
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
+from ....constants import XINFERENCE_TRUST_REMOTE_CODE
 
 FLAG_EMBEDDER_MODEL_LIST = support_native_bge_model_list() if flag_installed else []
 logger = logging.getLogger(__name__)
@@ -96,7 +97,7 @@ class FlagEmbeddingModel(EmbeddingModel, BatchMixin):
         self._model = BGEM3FlagModel(
             self._model_path,
             device=self._device,
-            trust_remote_code=True,
+            trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE,
             return_sparse=self._return_sparse,
             **model_kwargs,
         )

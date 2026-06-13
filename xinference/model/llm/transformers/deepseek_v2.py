@@ -18,6 +18,7 @@ import torch
 
 from ..llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from .core import PytorchChatModel, register_non_default_model
+from ....constants import XINFERENCE_TRUST_REMOTE_CODE
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,7 @@ class DeepSeekV2PytorchChatModel(PytorchChatModel):
             self.model_path,
             attn_implementation="eager",
             torch_dtype=torch.bfloat16,
-            trust_remote_code=True,
+            trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE,
             device_map="auto",
             **kwargs,
         )

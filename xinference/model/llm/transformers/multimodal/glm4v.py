@@ -27,6 +27,7 @@ from ...utils import _decode_image
 from ..core import register_non_default_model
 from ..utils import get_max_src_len
 from .core import PytorchMultiModalModel
+from .....constants import XINFERENCE_TRUST_REMOTE_CODE
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +62,7 @@ class Glm4VModel(PytorchMultiModalModel):
         from transformers import AutoTokenizer
 
         self._tokenizer = AutoTokenizer.from_pretrained(
-            self.model_path, trust_remote_code=True
+            self.model_path, trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE
         )
 
     def load_multimodal_model(self):
@@ -73,7 +74,7 @@ class Glm4VModel(PytorchMultiModalModel):
         model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             low_cpu_mem_usage=True,
-            trust_remote_code=True,
+            trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE,
             torch_dtype=torch.float16,
             **kwargs,
         )

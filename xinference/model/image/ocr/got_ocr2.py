@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from ..core import ImageModelFamilyV2
 
 from .ocr_family import OCRModel
+from ....constants import XINFERENCE_TRUST_REMOTE_CODE
 
 logger = logging.getLogger(__name__)
 
@@ -60,11 +61,11 @@ class GotOCR2Model(OCRModel):
         from transformers import AutoModel, AutoTokenizer
 
         self._tokenizer = AutoTokenizer.from_pretrained(
-            self._model_path, trust_remote_code=True
+            self._model_path, trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE
         )
         model = AutoModel.from_pretrained(
             self._model_path,
-            trust_remote_code=True,
+            trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE,
             low_cpu_mem_usage=True,
             device_map="cuda",
             use_safetensors=True,

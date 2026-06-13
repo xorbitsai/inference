@@ -21,6 +21,7 @@ from PIL import Image
 from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ..core import register_non_default_model
 from .core import PytorchMultiModalModel
+from .....constants import XINFERENCE_TRUST_REMOTE_CODE
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +68,7 @@ class Ovis2ChatModel(PytorchMultiModalModel):
             self.model_path,
             torch_dtype=torch.bfloat16,
             multimodal_max_length=32768,
-            trust_remote_code=True,
+            trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE,
             **kwargs,
         ).cuda()
         self._text_tokenizer = self._model.get_text_tokenizer()

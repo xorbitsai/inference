@@ -38,6 +38,7 @@ from ..core import (
     RerankSpecV1,
 )
 from ..utils import preprocess_sentence
+from ....constants import XINFERENCE_TRUST_REMOTE_CODE
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +79,11 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             )
             if spec is None or spec.loader is None:
                 raise ImportError(f"Failed to load reranker module from {module_path}")
+            if not XINFERENCE_TRUST_REMOTE_CODE:
+                raise ValueError(
+                    "Loading this model executes code shipped in the model "
+                    "repository; set XINFERENCE_TRUST_REMOTE_CODE=1 to allow it."
+                )
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             self._vl_reranker = module.Qwen3VLReranker(
@@ -111,7 +117,7 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             self._model = CrossEncoder(
                 self._model_path,
                 device=self._device,
-                trust_remote_code=True,
+                trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE,
                 max_length=getattr(self.model_family, "max_tokens"),
                 **self._kwargs,
             )
