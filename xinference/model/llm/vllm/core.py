@@ -329,6 +329,11 @@ def _update_vllm_supported_lists() -> None:
     if effective_version >= version.parse("0.20.1"):
         _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "DeepseekV4ForCausalLM")
 
+    if effective_version >= version.parse("0.22.0"):
+        _append_unique(
+            VLLM_SUPPORTED_MULTI_MODEL_LIST, "MiniCPMV4_6ForConditionalGeneration"
+        )
+
     if is_npu_available() and effective_version >= version.parse("0.18.0"):
         _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "DeepseekV4ForCausalLM")
 

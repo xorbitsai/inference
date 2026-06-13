@@ -303,6 +303,8 @@ class PytorchModelConfig(TypedDict, total=False):
     reasoning_content: bool
     min_pixels: NotRequired[int]
     max_pixels: NotRequired[int]
+    downsample_mode: NotRequired[str]
+    max_slice_nums: NotRequired[int]
     quantization_config: NotRequired[Dict]
     context_length: NotRequired[int]
     torch_dtype: NotRequired[str]
