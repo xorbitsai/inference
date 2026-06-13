@@ -193,3 +193,9 @@ def register_routes(api: "RESTfulAPI") -> None:
         methods=["POST"],
         dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
     )
+    router.add_api_route(
+        "/v1/ui/embeddings/{model_uid}",
+        api.build_gradio_embedding_interface,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
+    )

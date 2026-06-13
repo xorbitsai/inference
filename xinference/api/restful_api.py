@@ -74,6 +74,7 @@ from .oauth2.auth_service import AuthService
 from .responses import JSONResponse
 from .schemas import (
     AutoConfigLLMRequest,
+    BuildGradioEmbeddingInterfaceRequest,
     BuildGradioInterfaceRequest,
     BuildGradioMediaInterfaceRequest,
     CreateCompletionRequest,
@@ -1029,6 +1030,47 @@ class RESTfulAPI(CancelMixin):
                 model_id=body.model_id,
                 model_revision=body.model_revision,
                 controlnet=body.controlnet,
+                access_token=access_token,
+                model_ability=body.model_ability,
+                model_type=body.model_type,
+            ).build()
+
+            gr.mount_gradio_app(self._app, interface, f"/{model_uid}")
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
+
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+        return JSONResponse(content={"model_uid": model_uid})
+
+    async def build_gradio_embedding_interface(
+        self, model_uid: str, request: Request
+    ) -> JSONResponse:
+        """
+        Build a Gradio interface for embedding models.
+        """
+        payload = await request.json()
+        body = BuildGradioEmbeddingInterfaceRequest.parse_obj(payload)
+        if self._app is None:
+            raise HTTPException(status_code=500, detail="Application not initialized")
+        if body.model_type != "embedding":
+            raise HTTPException(status_code=400, detail="Invalid model type")
+
+        from ..ui.gradio.embedding_interface import EmbeddingInterface
+
+        try:
+            access_token = request.headers.get("Authorization")
+            internal_host = "localhost" if self._host == "0.0.0.0" else self._host
+            interface = EmbeddingInterface(
+                endpoint="http://" + internal_host + ":" + str(self._port),
+                model_uid=model_uid,
+                model_family=body.model_family,
+                model_name=body.model_name,
+                model_id=body.model_id,
+                model_revision=body.model_revision,
                 access_token=access_token,
                 model_ability=body.model_ability,
                 model_type=body.model_type,
