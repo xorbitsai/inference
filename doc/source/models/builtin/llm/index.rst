@@ -416,6 +416,16 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - MiniCPM-V 4.5 is an improved version in the MiniCPM-V series with enhanced multimodal capabilities and better performance.
 
+   * - :ref:`minicpm-v-4.6 <models_llm_minicpm-v-4.6>`
+     - chat, vision
+     - 262144
+     - MiniCPM-V 4.6 is the latest and most edge-deployment-friendly model in the MiniCPM-V series, with only 1.3B parameters (1.3B activated). It is built on SigLIP2-400M and Qwen3.5-0.8B, and supports single-image, multi-image, and video understanding.
+
+   * - :ref:`minicpm-v-4.6-thinking <models_llm_minicpm-v-4.6-thinking>`
+     - chat, vision, reasoning
+     - 262144
+     - MiniCPM-V 4.6 Thinking is a reasoning-tuned version of MiniCPM-V 4.6. It supports deep reasoning for more complex problem solving, while inheriting the single-image, multi-image, and video understanding capabilities of the MiniCPM-V family.
+
    * - :ref:`minicpm3-4b <models_llm_minicpm3-4b>`
      - chat
      - 32768
@@ -950,6 +960,10 @@ The following is a list of built-in LLM in Xinference:
    minicpm-v-2.6
   
    minicpm-v-4.5
+  
+   minicpm-v-4.6
+  
+   minicpm-v-4.6-thinking
   
    minicpm3-4b
   
