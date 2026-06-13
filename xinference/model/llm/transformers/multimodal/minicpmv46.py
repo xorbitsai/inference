@@ -152,10 +152,20 @@ class MiniCPMV46Model(PytorchMultiModalModel):
                         continue
                     item_type = item.get("type")
                     if item_type == "image_url":
-                        url = item.get("image_url", {}).get("url", "")
+                        image_url = item.get("image_url")
+                        url = (
+                            image_url.get("url", "")
+                            if isinstance(image_url, dict)
+                            else ""
+                        )
                         new_content.append({"type": "image", "url": url})
                     elif item_type == "video_url":
-                        url = item.get("video_url", {}).get("url", "")
+                        video_url = item.get("video_url")
+                        url = (
+                            video_url.get("url", "")
+                            if isinstance(video_url, dict)
+                            else ""
+                        )
                         new_content.append({"type": "video", "url": url})
                     else:
                         new_content.append(item)
@@ -282,16 +292,25 @@ class MiniCPMV46Model(PytorchMultiModalModel):
         max_slice_nums = self._pytorch_model_config.get("max_slice_nums", 36)
 
         # `prompts` is a list of normalized message lists, one per request.
+        # A batch can mix text-only and multimodal requests, so the
+        # downsample_mode / max_slice_nums kwargs must be conditioned on
+        # whether each individual request has visual content.
         all_inputs = []
+        visual_flags = []
         for messages in prompts:
+            has_visual = self._has_visual_content(messages)
+            visual_flags.append(has_visual)
+            kwargs: Dict[str, Any] = {}
+            if has_visual:
+                kwargs["downsample_mode"] = downsample_mode
+                kwargs["max_slice_nums"] = max_slice_nums
             inputs = self._processor.apply_chat_template(
                 messages,
                 tokenize=True,
                 add_generation_prompt=True,
                 return_dict=True,
                 return_tensors="pt",
-                downsample_mode=downsample_mode,
-                max_slice_nums=max_slice_nums,
+                **kwargs,
             )
             all_inputs.append(inputs)
 
@@ -300,6 +319,8 @@ class MiniCPMV46Model(PytorchMultiModalModel):
         pad_id = self._tokenizer.pad_token_id
         if pad_id is None:
             pad_id = self._tokenizer.eos_token_id
+        if pad_id is None:
+            pad_id = 0
 
         input_ids_list = []
         attention_mask_list = []
@@ -329,12 +350,33 @@ class MiniCPMV46Model(PytorchMultiModalModel):
             "attention_mask": torch.stack(attention_mask_list).to(device),
         }
 
-        # Forward any multimodal tensors from the first request that has them.
-        # When all requests are text-only this is a no-op.
-        for inputs in all_inputs:
-            for key in ("pixel_values", "image_grid_thw", "image_sizes", "tgt_sizes"):
-                if key in inputs and key not in merged:
-                    merged[key] = inputs[key].to(device)
+        # Concatenate multimodal tensors across all requests in the batch.
+        # If a batch has multiple multimodal requests, simply taking the
+        # tensors from the first one would silently drop the rest, leading
+        # to wrong outputs. Concatenate along the leading dimension so the
+        # vision tower sees every request's visual tokens.
+        #
+        # Fail fast on incompatible shapes: continuing with only the first
+        # request's tensor would let later requests in the batch run
+        # against the wrong (or missing) visual data, which is far worse
+        # than rejecting the batch outright. The caller is expected to
+        # split / retry incompatible multimodal requests one-by-one.
+        multimodal_keys = ("pixel_values", "image_grid_thw", "image_sizes", "tgt_sizes")
+        for key in multimodal_keys:
+            tensors = [inputs[key] for inputs in all_inputs if key in inputs]
+            if not tensors:
+                continue
+            try:
+                merged[key] = torch.cat(tensors, dim=0).to(device)
+            except (RuntimeError, TypeError) as e:
+                shapes = [tuple(t.shape) for t in tensors]
+                raise RuntimeError(
+                    f"Cannot batch MiniCPM-V-4.6 multimodal tensor {key!r} "
+                    f"across requests: incompatible shapes {shapes} "
+                    f"({e}). Disable continuous batching for this request "
+                    f"or split incompatible visual inputs into separate "
+                    f"batches."
+                ) from e
 
         batch_size, seq_len = merged["input_ids"].shape
         position_ids = self.build_prefill_position_ids(batch_size, seq_len, req_list)
