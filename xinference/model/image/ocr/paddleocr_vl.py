@@ -22,7 +22,6 @@ if TYPE_CHECKING:
     from ..core import ImageModelFamilyV2
 
 from .ocr_family import OCRModel
-from ....constants import XINFERENCE_TRUST_REMOTE_CODE
 
 logger = logging.getLogger(__name__)
 
@@ -76,14 +75,14 @@ class PaddleOCRVLModel(OCRModel):
 
             # Load processor
             self._processor = AutoProcessor.from_pretrained(
-                self._model_path, trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE
+                self._model_path, trust_remote_code=True
             )
 
             # Load model
             self._model = (
                 AutoModelForCausalLM.from_pretrained(
                     self._model_path,
-                    trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE,
+                    trust_remote_code=True,
                     torch_dtype=dtype,
                 )
                 .to(device)

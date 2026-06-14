@@ -164,11 +164,6 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
             )
             if spec is None or spec.loader is None:
                 raise ImportError(f"Failed to load embedding module from {module_path}")
-            if not XINFERENCE_TRUST_REMOTE_CODE:
-                raise ValueError(
-                    "Loading this model executes code shipped in the model "
-                    "repository; set XINFERENCE_TRUST_REMOTE_CODE=1 to allow it."
-                )
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             self._embedder = module.Qwen3VLEmbedder(

@@ -26,7 +26,6 @@ from .....model.utils import select_device
 from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ..core import register_non_default_model
 from .core import PytorchMultiModalModel
-from .....constants import XINFERENCE_TRUST_REMOTE_CODE
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +74,7 @@ class DeepSeekVL2ChatModel(PytorchMultiModalModel):
         kwargs = self.apply_quantization_config()
         vl_gpt: DeepseekVLV2ForCausalLM = AutoModelForCausalLM.from_pretrained(  # type: ignore
             self.model_path,
-            trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE,
+            trust_remote_code=True,
             device_map=self._device,
             torch_dtype=self._type,
             **kwargs,

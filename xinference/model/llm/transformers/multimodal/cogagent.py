@@ -25,7 +25,6 @@ from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ...utils import _decode_image, parse_messages
 from ..core import register_non_default_model
 from .core import PytorchMultiModalModel
-from .....constants import XINFERENCE_TRUST_REMOTE_CODE
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +68,7 @@ class CogAgentChatModel(PytorchMultiModalModel):
         from transformers import AutoTokenizer
 
         self._tokenizer = AutoTokenizer.from_pretrained(
-            self.model_path, trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE
+            self.model_path, trust_remote_code=True
         )
 
     def load_multimodal_model(self):
@@ -79,7 +78,7 @@ class CogAgentChatModel(PytorchMultiModalModel):
         self._model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             torch_dtype=torch.bfloat16,
-            trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE,
+            trust_remote_code=True,
             device_map=self._device,
             **kwargs,
         ).eval()

@@ -39,8 +39,9 @@ __all__ = [
 
 
 def _filter_kwargs(kwargs):
-    kwargs["trust_remote_code"] = kwargs.get(
-        "trust_remote_code", XINFERENCE_TRUST_REMOTE_CODE
+    kwargs["trust_remote_code"] = (
+        bool(kwargs.get("trust_remote_code", XINFERENCE_TRUST_REMOTE_CODE))
+        and XINFERENCE_TRUST_REMOTE_CODE
     )
     return {
         k: v for k, v in kwargs.items() if k in ["code_revision", "trust_remote_code"]

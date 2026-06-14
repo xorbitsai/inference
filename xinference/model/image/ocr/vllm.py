@@ -22,7 +22,6 @@ from .deepseek_ocr import DeepSeekOCRModel
 from .got_ocr2 import GotOCR2Model
 from .hunyuan_ocr import HunyuanOCRModel
 from .paddleocr_vl import PaddleOCRVLModel
-from ....constants import XINFERENCE_TRUST_REMOTE_CODE
 
 logger = logging.getLogger(__name__)
 
@@ -244,7 +243,7 @@ class VLLMHunyuanOCRModel(HunyuanOCRModel):
         self._model = _load_vllm_model(self._model_path, vllm_kwargs)
         self._tokenizer = self._model.get_tokenizer()
         self._processor = AutoProcessor.from_pretrained(
-            self._model_path, use_fast=False, trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE
+            self._model_path, use_fast=False, trust_remote_code=True
         )
 
     def stop(self):

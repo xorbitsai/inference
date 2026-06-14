@@ -18,7 +18,6 @@ import torch
 
 from ..llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from .core import PytorchChatModel, register_non_default_model
-from ....constants import XINFERENCE_TRUST_REMOTE_CODE
 
 logger = logging.getLogger(__name__)
 
@@ -46,14 +45,14 @@ class DeepSeekV2PytorchChatModel(PytorchChatModel):
 
         tokenizer = AutoTokenizer.from_pretrained(
             self.model_path,
-            trust_remote_code=kwargs["trust_remote_code"],
+            trust_remote_code=True,
         )
         logger.info(f"kwargs:{kwargs}")
         model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             attn_implementation="eager",
             torch_dtype=torch.bfloat16,
-            trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE,
+            trust_remote_code=True,
             device_map="auto",
             **kwargs,
         )

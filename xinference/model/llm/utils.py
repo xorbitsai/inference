@@ -55,7 +55,6 @@ from ...types import (
 from .core import chat_context_var
 from .reasoning_parser import ReasoningParser
 from .tool_parsers.glm4_tool_parser import Glm4ToolParser
-from ...constants import XINFERENCE_TRUST_REMOTE_CODE
 
 logger = logging.getLogger(__name__)
 
@@ -1176,11 +1175,6 @@ def _load_deepseekv4_encoding_module(model_path: str):
     spec = importlib.util.spec_from_file_location("encoding_dsv4", module_path)
     if spec is None or spec.loader is None:
         raise ImportError(f"Failed to load encoding_dsv4 module from {module_path}")
-    if not XINFERENCE_TRUST_REMOTE_CODE:
-        raise ValueError(
-            "Loading this model executes code shipped in the model "
-            "repository; set XINFERENCE_TRUST_REMOTE_CODE=1 to allow it."
-        )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

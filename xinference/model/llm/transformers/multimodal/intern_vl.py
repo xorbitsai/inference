@@ -23,7 +23,6 @@ from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ...utils import _decode_image, parse_messages
 from ..core import register_non_default_model
 from .core import PytorchMultiModalModel
-from .....constants import XINFERENCE_TRUST_REMOTE_CODE
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +57,7 @@ class InternVLChatModel(PytorchMultiModalModel):
         if world_size == 1:
             self._device = device_map
             return
-        config = AutoConfig.from_pretrained(self.model_path, trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE)
+        config = AutoConfig.from_pretrained(self.model_path, trust_remote_code=True)
         num_layers = config.llm_config.num_hidden_layers
 
         # Since the first GPU will be used for ViT, treat it as half a GPU.
@@ -84,7 +83,7 @@ class InternVLChatModel(PytorchMultiModalModel):
         from transformers import AutoTokenizer
 
         self._tokenizer = AutoTokenizer.from_pretrained(
-            self.model_path, trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE, use_fast=False
+            self.model_path, trust_remote_code=True, use_fast=False
         )
 
     def load_multimodal_model(self):
@@ -93,7 +92,7 @@ class InternVLChatModel(PytorchMultiModalModel):
         kwargs: Dict[str, Any] = {  # type: ignore
             "torch_dtype": torch.bfloat16,
             "low_cpu_mem_usage": True,
-            "trust_remote_code": XINFERENCE_TRUST_REMOTE_CODE,
+            "trust_remote_code": True,
         }
         if self._device:
             kwargs["device_map"] = self._device
