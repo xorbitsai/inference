@@ -22,6 +22,7 @@ from .....core.model import register_batching_multimodal_models
 from .....model.utils import select_device
 from .....types import PytorchModelConfig
 from ....scheduler.request import InferenceRequest
+from ....utils import allow_trust_remote_code
 from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ...utils import _decode_image, parse_messages
 from ..core import register_non_default_model
@@ -75,13 +76,14 @@ class MiniCPMV45Model(PytorchMultiModalModel):
         max_pixels = self._pytorch_model_config.get("max_pixels")
         self._processor = AutoProcessor.from_pretrained(
             self.model_path,
-            trust_remote_code=True,
+            trust_remote_code=allow_trust_remote_code(self.model_family),
             min_pixels=min_pixels,
             max_pixels=max_pixels,
         )
 
         self._tokenizer = AutoTokenizer.from_pretrained(
-            self.model_path, trust_remote_code=True
+            self.model_path,
+            trust_remote_code=allow_trust_remote_code(self.model_family),
         )
 
     def load_multimodal_model(self):
@@ -89,12 +91,15 @@ class MiniCPMV45Model(PytorchMultiModalModel):
         from transformers.generation import GenerationConfig
 
         if "int4" in self.model_path:
-            model = AutoModel.from_pretrained(self.model_path, trust_remote_code=True)
+            model = AutoModel.from_pretrained(
+                self.model_path,
+                trust_remote_code=allow_trust_remote_code(self.model_family),
+            )
         else:
             kwargs = self.apply_quantization_config()
             model = AutoModel.from_pretrained(
                 self.model_path,
-                trust_remote_code=True,
+                trust_remote_code=allow_trust_remote_code(self.model_family),
                 torch_dtype=torch.float16,
                 device_map=self._device,
                 **kwargs,
@@ -103,7 +108,7 @@ class MiniCPMV45Model(PytorchMultiModalModel):
         # Specify hyperparameters for generation
         self._model.generation_config = GenerationConfig.from_pretrained(
             self.model_path,
-            trust_remote_code=True,
+            trust_remote_code=allow_trust_remote_code(self.model_family),
         )
         self._device = self._model.device
 

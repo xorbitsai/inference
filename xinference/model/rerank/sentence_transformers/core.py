@@ -26,11 +26,16 @@ import numpy as np
 import torch
 from xoscar import extensible
 
+from ....constants import XINFERENCE_TRUST_REMOTE_CODE
 from ....device_utils import empty_cache
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
 from ....utils import make_hashable
 from ...batch import BatchMixin
-from ...utils import check_dependency_available, is_flash_attn_available
+from ...utils import (
+    allow_trust_remote_code,
+    check_dependency_available,
+    is_flash_attn_available,
+)
 from ..core import (
     RERANK_EMPTY_CACHE_COUNT,
     RerankModel,
@@ -38,7 +43,6 @@ from ..core import (
     RerankSpecV1,
 )
 from ..utils import preprocess_sentence
-from ....constants import XINFERENCE_TRUST_REMOTE_CODE
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +83,11 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             )
             if spec is None or spec.loader is None:
                 raise ImportError(f"Failed to load reranker module from {module_path}")
+            if not allow_trust_remote_code(self.model_family):
+                raise ValueError(
+                    "Loading this model executes code shipped in the model "
+                    "repository; set XINFERENCE_TRUST_REMOTE_CODE=1 to allow it."
+                )
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             self._vl_reranker = module.Qwen3VLReranker(

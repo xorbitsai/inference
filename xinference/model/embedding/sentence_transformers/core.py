@@ -20,11 +20,15 @@ from typing import Any, Dict, List, Optional, Tuple, Union, cast, no_type_check
 import numpy as np
 import torch
 
+from ....constants import XINFERENCE_TRUST_REMOTE_CODE
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ...batch import BatchMixin
-from ...utils import check_dependency_available, is_flash_attn_available
+from ...utils import (
+    allow_trust_remote_code,
+    check_dependency_available,
+    is_flash_attn_available,
+)
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
-from ....constants import XINFERENCE_TRUST_REMOTE_CODE
 
 logger = logging.getLogger(__name__)
 SENTENCE_TRANSFORMER_MODEL_LIST: List[str] = []
@@ -164,6 +168,11 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
             )
             if spec is None or spec.loader is None:
                 raise ImportError(f"Failed to load embedding module from {module_path}")
+            if not allow_trust_remote_code(self.model_family):
+                raise ValueError(
+                    "Loading this model executes code shipped in the model "
+                    "repository; set XINFERENCE_TRUST_REMOTE_CODE=1 to allow it."
+                )
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
             self._embedder = module.Qwen3VLEmbedder(

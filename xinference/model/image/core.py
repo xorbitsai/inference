@@ -54,6 +54,8 @@ class ImageModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
     lightning_model_file_name_template: Optional[str]
 
     virtualenv: Optional[VirtualEnvSettings]
+    # Provenance: True only for bundled built-in models (gates trust_remote_code).
+    is_builtin: bool = False
 
     class Config:
         extra = "allow"

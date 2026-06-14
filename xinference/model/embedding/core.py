@@ -89,6 +89,8 @@ class EmbeddingModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
     model_specs: List["EmbeddingSpecV1"]
     cache_config: Optional[dict]
     virtualenv: Optional[VirtualEnvSettings]
+    # Provenance: True only for bundled built-in models (gates trust_remote_code).
+    is_builtin: bool = False
 
     class Config:
         extra = "allow"

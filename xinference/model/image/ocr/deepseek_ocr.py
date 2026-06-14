@@ -28,6 +28,7 @@ from torchvision import transforms
 if TYPE_CHECKING:
     from ..core import ImageModelFamilyV2
 
+from ...utils import allow_trust_remote_code
 from .ocr_family import OCRModel
 
 logger = logging.getLogger(__name__)
@@ -466,14 +467,14 @@ class DeepSeekOCRModel(OCRModel):
         try:
             self._tokenizer = AutoTokenizer.from_pretrained(
                 self._model_path,
-                trust_remote_code=True,
+                trust_remote_code=allow_trust_remote_code(self.model_family),
                 use_fast=False,
             )
             if self._device != "cpu":
                 # Use CUDA if available
                 model = AutoModel.from_pretrained(
                     self._model_path,
-                    trust_remote_code=True,
+                    trust_remote_code=allow_trust_remote_code(self.model_family),
                     low_cpu_mem_usage=True,
                     device_map="auto",
                     use_safetensors=True,
@@ -484,7 +485,7 @@ class DeepSeekOCRModel(OCRModel):
                 # Force CPU-only execution
                 model = AutoModel.from_pretrained(
                     self._model_path,
-                    trust_remote_code=True,
+                    trust_remote_code=allow_trust_remote_code(self.model_family),
                     low_cpu_mem_usage=True,
                     device_map="cpu",
                     use_safetensors=True,

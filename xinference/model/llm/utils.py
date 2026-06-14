@@ -172,6 +172,13 @@ class ChatModelMixin:
             )
         if tokenizer is not None:
             if self.model_family.model_name.lower().startswith("deepseek-v4"):
+                from ..utils import allow_trust_remote_code
+
+                if not allow_trust_remote_code(self.model_family):
+                    raise ValueError(
+                        "Loading this model executes code shipped in the model "
+                        "repository; set XINFERENCE_TRUST_REMOTE_CODE=1 to allow it."
+                    )
                 module = _load_deepseekv4_encoding_module(self.model_path)  # type: ignore
 
                 target_func = getattr(module, "encode_messages")
