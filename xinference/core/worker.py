@@ -67,7 +67,6 @@ from ..constants import (
 )
 from ..core.model import ModelActor
 from ..core.status_guard import LaunchStatus
-from .exceptions import ModelNotReadyError
 from ..device_utils import get_available_device_env_name, gpu_count
 from ..model.core import VirtualEnvSettings, create_model_instance
 from ..model.utils import (
@@ -79,6 +78,7 @@ from ..types import PeftModelConfig
 from ..utils import get_pip_config_args, get_real_path
 from .cache_tracker import CacheTrackerActor
 from .event import Event, EventCollectorActor, EventType
+from .exceptions import ModelNotReadyError
 from .metrics import (
     launch_metrics_export_server,
     record_metrics,

@@ -339,9 +339,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 raise ModelNotReadyError(
                     f"Model is {self._model_state}, not ready for inference"
                 )
-            raise RuntimeError(
-                f"Model is in {self._model_state} state"
-            )
+            raise RuntimeError(f"Model is in {self._model_state} state")
 
     def __repr__(self) -> str:
         return f"ModelActor({self._replica_model_uid})"
