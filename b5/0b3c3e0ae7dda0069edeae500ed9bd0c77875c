@@ -1,0 +1,25 @@
+xinference/model/llm/vllm/core.py
+  d91e6017ce678dba 70,652-665,679-699,808-811,829,834
+xinference/model/llm/vllm/utils.py
+  d91e6017ce678dba 21-26,30,37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.2",
+  "base_commit_sha": "b50b3c3e0ae7dda0069edeae500ed9bd0c77875c",
+  "prompts": {
+    "d91e6017ce678dba": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "51c36fad-8371-4669-913a-9150306583b7",
+        "model": "qwen3.7-max"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 1686,
+      "total_deletions": 14,
+      "accepted_lines": 1686,
+      "overriden_lines": 0
+    }
+  }
+}
