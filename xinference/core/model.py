@@ -334,12 +334,14 @@ class ModelActor(xo.StatelessActor, CancelMixin):
 
     def _require_ready(self):
         """Guard for all inference methods: reject if not in ready state."""
-        if self._model_state in ("registering", "loading"):
-            raise ModelNotReadyError(
-                f"Model is {self._model_state}, not ready for inference"
+        if self._model_state != "ready":
+            if self._model_state in ("registering", "loading"):
+                raise ModelNotReadyError(
+                    f"Model is {self._model_state}, not ready for inference"
+                )
+            raise RuntimeError(
+                f"Model is in {self._model_state} state"
             )
-        if self._model_state == "error":
-            raise RuntimeError("Model is in error state")
 
     def __repr__(self) -> str:
         return f"ModelActor({self._replica_model_uid})"
@@ -965,6 +967,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         timestamp_granularities: Optional[List[str]] = None,
         **kwargs,
     ):
+        self._require_ready()
         kwargs.pop("request_id", None)
         if hasattr(self._model, "transcriptions"):
             return await self._call_wrapper_json(
@@ -993,6 +996,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         timestamp_granularities: Optional[List[str]] = None,
         **kwargs,
     ):
+        self._require_ready()
         kwargs.pop("request_id", None)
         if hasattr(self._model, "translations"):
             return await self._call_wrapper_json(
@@ -1020,6 +1024,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         stream: bool = False,
         **kwargs,
     ):
+        self._require_ready()
         kwargs.pop("request_id", None)
         if hasattr(self._model, "speech"):
             return await self._call_wrapper_binary(
@@ -1046,6 +1051,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         *args,
         **kwargs,
     ):
+        self._require_ready()
         if hasattr(self._model, "text_to_image"):
             # Get progressor (don't pop request_id, let _call_wrapper handle cancellation)
             request_id = kwargs.get("request_id")
@@ -1070,6 +1076,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         self,
         **kwargs,
     ):
+        self._require_ready()
         if hasattr(self._model, "txt2img"):
             progressor = kwargs["progressor"] = await self._get_progressor(
                 kwargs.pop("request_id", None)
@@ -1097,6 +1104,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         *args,
         **kwargs,
     ):
+        self._require_ready()
         kwargs["negative_prompt"] = negative_prompt
         if hasattr(self._model, "image_to_image"):
             progressor = kwargs["progressor"] = await self._get_progressor(
@@ -1123,6 +1131,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         self,
         **kwargs,
     ):
+        self._require_ready()
         if hasattr(self._model, "img2img"):
             progressor = kwargs["progressor"] = await self._get_progressor(
                 kwargs.pop("request_id", None)
@@ -1151,6 +1160,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         *args,
         **kwargs,
     ):
+        self._require_ready()
         kwargs["negative_prompt"] = negative_prompt
         if hasattr(self._model, "inpainting"):
             progressor = kwargs["progressor"] = await self._get_progressor(
@@ -1183,6 +1193,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         *args,
         **kwargs,
     ):
+        self._require_ready()
         if hasattr(self._model, "ocr"):
             return await self._call_wrapper_json(
                 self._model.ocr,
@@ -1199,6 +1210,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         *args,
         **kwargs,
     ):
+        self._require_ready()
         kwargs.pop("request_id", None)
         if hasattr(self._model, "infer"):
             return await self._call_wrapper_json(
@@ -1219,6 +1231,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         *args,
         **kwargs,
     ):
+        self._require_ready()
         progressor = kwargs["progressor"] = await self._get_progressor(
             kwargs.pop("request_id", None)
         )
@@ -1246,6 +1259,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         *args,
         **kwargs,
     ):
+        self._require_ready()
         kwargs["negative_prompt"] = negative_prompt
         progressor = kwargs["progressor"] = await self._get_progressor(
             kwargs.pop("request_id", None)
@@ -1276,6 +1290,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         *args,
         **kwargs,
     ):
+        self._require_ready()
         kwargs["negative_prompt"] = negative_prompt
         progressor = kwargs["progressor"] = await self._get_progressor(
             kwargs.pop("request_id", None)

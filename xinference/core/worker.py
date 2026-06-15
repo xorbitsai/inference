@@ -2285,11 +2285,7 @@ class WorkerActor(xo.StatelessActor):
                                 raise
                     except Exception:
                         logger.error(f"Failed to load model {model_uid}", exc_info=True)
-                        ms = self._model_uid_to_model_status.get(model_uid)
-                        if ms is None:
-                            ms = ModelStatus()
-                            self._model_uid_to_model_status[model_uid] = ms
-                        ms.model_state = "error"
+                        await self._update_model_state(model_uid, "error")
                         self.release_devices(model_uid=model_uid)
                         for addr in all_subpool_addresses:
                             try:
@@ -2549,7 +2545,7 @@ class WorkerActor(xo.StatelessActor):
     async def list_models(self) -> Dict[str, Dict[str, Any]]:
         return {k: v for k, v in self._model_uid_to_model_spec.items()}
 
-    @log_sync(logger=logger)
+    @log_async(logger=logger)
     async def _update_model_state(self, model_uid: str, state: str):
         """Update ModelStatus.model_state and sync to StatusGuard."""
         ms = self._model_uid_to_model_status.get(model_uid)
@@ -2590,6 +2586,10 @@ class WorkerActor(xo.StatelessActor):
             if model_status.model_state in ("registering", "loading"):
                 raise ModelNotReadyError(
                     f"Model {model_uid} is {model_status.model_state}"
+                )
+            if model_status.model_state in ("error", "stopping", "stopped"):
+                raise RuntimeError(
+                    f"Model {model_uid} is in {model_status.model_state} state"
                 )
             if model_status.last_error:
                 raise Exception(model_status.last_error)
