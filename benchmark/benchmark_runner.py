@@ -128,6 +128,7 @@ class BenchmarkRunner:
                 ) as response:
                     if response.status == 200:
                         if self.stream:
+                            usage = None
                             async for chunk_bytes in response.content:
                                 # {
                                 #     "id": "chataec79465-dfea-46af-81b9-c28124063fc0",
@@ -155,6 +156,7 @@ class BenchmarkRunner:
                                 else:
                                     timestamp = time.perf_counter()
                                     data = json.loads(chunk)
+                                    usage = data.get("usage") or usage
 
                                     # First token
                                     if ttft == 0.0:
@@ -171,16 +173,21 @@ class BenchmarkRunner:
 
                             output.latency = latency
                             output.success = True
-                            output.completion_tokens = data["usage"][
-                                "completion_tokens"
-                            ]
+                            output.completion_tokens = (
+                                usage["completion_tokens"]
+                                if usage and "completion_tokens" in usage
+                                else len(output.itl) + 1
+                            )
                         else:
                             resp = await response.json()
                             output.latency = time.perf_counter() - st
                             output.success = True
-                            output.completion_tokens = resp["usage"][
-                                "completion_tokens"
-                            ]
+                            usage = resp.get("usage")
+                            output.completion_tokens = (
+                                usage["completion_tokens"]
+                                if usage and "completion_tokens" in usage
+                                else 0
+                            )
             except Exception:
                 output.success = False
                 exc_info = sys.exc_info()

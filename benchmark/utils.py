@@ -233,12 +233,12 @@ def _gen_prompt_decode_to_target_len(
     tokenizer: "PreTrainedTokenizerBase",
     token_sequence: List[int],
     target_token_len: int,
+    allowed_tokens: np.ndarray,
     rng: np.random.Generator,
     max_retry: int = 10,
 ) -> Tuple[str, List[int], int]:
     remain_num_try = max_retry
     token_mismatch = 0
-    vocab_size = _get_vocab_size(tokenizer)
     while True:
         prompt = tokenizer.decode(token_sequence)
         token_sequence = _encode_prompt(tokenizer, prompt, add_special_tokens=False)
@@ -250,11 +250,13 @@ def _gen_prompt_decode_to_target_len(
         if len(token_sequence) == target_token_len:
             break
         if len(token_sequence) < target_token_len:
-            extra_tokens = rng.integers(
-                0,
-                vocab_size,
-                size=target_token_len - len(token_sequence),
-            ).tolist()
+            extra_tokens = allowed_tokens[
+                rng.integers(
+                    0,
+                    len(allowed_tokens),
+                    size=target_token_len - len(token_sequence),
+                )
+            ].tolist()
             token_sequence.extend(extra_tokens)
         else:
             token_sequence = token_sequence[:target_token_len]
@@ -279,6 +281,7 @@ def _get_random_prefix(
         tokenizer=tokenizer,
         token_sequence=prefix_tokens,
         target_token_len=prefix_len,
+        allowed_tokens=allowed_tokens,
         rng=rng,
     )
     if token_mismatch != 0:
@@ -311,6 +314,7 @@ def _generate_prompt_with_target_len(
         tokenizer=tokenizer,
         token_sequence=token_sequence,
         target_token_len=total_input_len,
+        allowed_tokens=allowed_tokens,
         rng=rng,
     )
     return prompt, len(adjusted_token_sequence), token_mismatch
@@ -328,6 +332,10 @@ def sample_random_requests(
     """Generate vLLM-style synthetic requests with reproducible token lengths."""
     if num_requests <= 0:
         raise ValueError("num_requests must be positive.")
+    if input_len <= 0:
+        raise ValueError("input_len must be positive.")
+    if output_len <= 0:
+        raise ValueError("output_len must be positive.")
     if prefix_len < 0:
         raise ValueError("prefix_len must be non-negative.")
 
