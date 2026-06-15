@@ -225,14 +225,20 @@ def _snapshot_gpu_occupying_pids(device_indices: list) -> set:
     except Exception:
         return set()
     pids: set = set()
-    for idx in device_indices:
+    try:
+        for idx in device_indices:
+            try:
+                h = pynvml.nvmlDeviceGetHandleByIndex(int(idx))
+                for pro in pynvml.nvmlDeviceGetComputeRunningProcesses(h):
+                    if pro.pid:
+                        pids.add(pro.pid)
+            except Exception:
+                continue
+    finally:
         try:
-            h = pynvml.nvmlDeviceGetHandleByIndex(int(idx))
-            for pro in pynvml.nvmlDeviceGetComputeRunningProcesses(h):
-                if pro.pid:
-                    pids.add(pro.pid)
+            pynvml.nvmlShutdown()
         except Exception:
-            continue
+            pass
     return pids
 
 
@@ -248,15 +254,21 @@ def _snapshot_gpu_free_ratio(device_indices: list) -> float:
     except Exception:
         return -1
     min_ratio = float("inf")
-    for idx in device_indices:
+    try:
+        for idx in device_indices:
+            try:
+                h = pynvml.nvmlDeviceGetHandleByIndex(int(idx))
+                info = pynvml.nvmlDeviceGetMemoryInfo(h)
+                ratio = info.free / info.total
+                if ratio < min_ratio:
+                    min_ratio = ratio
+            except Exception:
+                continue
+    finally:
         try:
-            h = pynvml.nvmlDeviceGetHandleByIndex(int(idx))
-            info = pynvml.nvmlDeviceGetMemoryInfo(h)
-            ratio = info.free / info.total
-            if ratio < min_ratio:
-                min_ratio = ratio
+            pynvml.nvmlShutdown()
         except Exception:
-            continue
+            pass
     return min_ratio if min_ratio != float("inf") else -1
 
 
@@ -271,6 +283,75 @@ def _parse_gpu_indices(gpu_idx) -> list:
     if isinstance(gpu_idx, str):
         return [int(x.strip()) for x in gpu_idx.split(",") if x.strip()]
     return []
+
+
+async def _wait_pids_dead(pids: set, timeout: float = 5.0):
+    """Wait until all given PIDs have exited or timeout expires."""
+    import psutil
+
+    deadline = time.monotonic() + timeout
+    remaining = set(pids)
+    while remaining and time.monotonic() < deadline:
+        still_alive = set()
+        for pid in remaining:
+            try:
+                p = psutil.Process(pid)
+                if p.is_running() and p.status() != psutil.STATUS_ZOMBIE:
+                    still_alive.add(pid)
+            except Exception:
+                pass
+        remaining = still_alive
+        if remaining:
+            await asyncio.sleep(0.2)
+
+
+async def _kill_orphan_gpu_pids(
+    device_indices: list,
+    pre_pids: set,
+    model_uid: str = "",
+    grace: float = 2.0,
+):
+    """Snapshot current GPU PIDs, kill orphans not in pre_pids.
+
+    An orphan is a PID present on the GPU that was not in pre_pids (the set
+    of PIDs known to belong to other models or the worker itself).
+
+    Requires model_uid in the process cmdline to avoid killing unrelated
+    processes on shared GPUs.
+    """
+    post_pids = _snapshot_gpu_occupying_pids(device_indices)
+    orphan_pids = [pid for pid in post_pids if pid not in pre_pids]
+    if not orphan_pids:
+        return []
+
+    import psutil
+
+    killed = []
+    uid_lower = model_uid.lower() if model_uid else ""
+    for pid in orphan_pids:
+        try:
+            p = psutil.Process(pid)
+            if not p.is_running() or p.status() == psutil.STATUS_ZOMBIE:
+                continue
+            cmd = " ".join(p.cmdline()).lower()
+            if uid_lower and uid_lower not in cmd:
+                continue
+            if not any(k in cmd for k in ("vllm", "enginecore", "python")):
+                continue
+            os.kill(pid, signal.SIGKILL)
+            killed.append(pid)
+        except (
+            psutil.NoSuchProcess,
+            psutil.AccessDenied,
+            ProcessLookupError,
+            PermissionError,
+        ):
+            continue
+        except Exception:
+            pass
+    if killed:
+        await asyncio.sleep(grace)
+    return killed
 
 
 @dataclass
@@ -467,9 +548,15 @@ class WorkerActor(xo.StatelessActor):
                             import pynvml
 
                             pynvml.nvmlInit()
-                            _recover_gpu_idx = list(
-                                range(pynvml.nvmlDeviceGetCount())
-                            )
+                            try:
+                                _recover_gpu_idx = list(
+                                    range(pynvml.nvmlDeviceGetCount())
+                                )
+                            finally:
+                                try:
+                                    pynvml.nvmlShutdown()
+                                except Exception:
+                                    pass
                         except Exception:
                             pass
                     if _recover_gpu_idx:
@@ -479,65 +566,24 @@ class WorkerActor(xo.StatelessActor):
                                 _recover_gpu_idx
                             )
                             if 0 <= _free_ratio < _VRAM_READY_RATIO:
-                                _post_pids = _snapshot_gpu_occupying_pids(
-                                    _recover_gpu_idx
-                                )
-                                _other_pids: set = set()
+                                _other_pids: set = {os.getpid()}
                                 for _uid, _pids in (
                                     self._model_uid_to_subpool_pids.items()
                                 ):
                                     _other_pids.update(_pids)
-                                _orphan_pids = [
-                                    pid
-                                    for pid in _post_pids
-                                    if pid != os.getpid()
-                                    and pid not in _other_pids
-                                ]
-                                if _orphan_pids:
-                                    import psutil as _psutil
-
-                                    _killed = []
-                                    for _pid in _orphan_pids:
-                                        try:
-                                            _p = _psutil.Process(_pid)
-                                            if (
-                                                not _p.is_running()
-                                                or _p.status()
-                                                == _psutil.STATUS_ZOMBIE
-                                            ):
-                                                continue
-                                            _cmd = " ".join(
-                                                _p.cmdline()
-                                            ).lower()
-                                            if not any(
-                                                k in _cmd
-                                                for k in (
-                                                    "vllm",
-                                                    "enginecore",
-                                                    "python",
-                                                )
-                                            ):
-                                                continue
-                                            os.kill(_pid, signal.SIGKILL)
-                                            _killed.append(_pid)
-                                        except (
-                                            _psutil.NoSuchProcess,
-                                            _psutil.AccessDenied,
-                                            ProcessLookupError,
-                                            PermissionError,
-                                        ):
-                                            continue
-                                        except Exception:
-                                            pass
-                                    if _killed:
-                                        logger.warning(
-                                            "Killed %d GPU orphan(s) after "
-                                            "recover terminate for %s: %s",
-                                            len(_killed),
-                                            model_uid,
-                                            _killed,
-                                        )
-                                        await asyncio.sleep(2.0)
+                                _killed = await _kill_orphan_gpu_pids(
+                                    _recover_gpu_idx,
+                                    _other_pids,
+                                    model_uid=model_uid,
+                                )
+                                if _killed:
+                                    logger.warning(
+                                        "Killed %d GPU orphan(s) after "
+                                        "recover terminate for %s: %s",
+                                        len(_killed),
+                                        model_uid,
+                                        _killed,
+                                    )
                             # Poll VRAM until released or timeout
                             _vram_deadline = (
                                 time.monotonic() + _VRAM_RECLAIM_TIMEOUT
@@ -546,7 +592,10 @@ class WorkerActor(xo.StatelessActor):
                                 _free_ratio = _snapshot_gpu_free_ratio(
                                     _recover_gpu_idx
                                 )
-                                if _free_ratio >= _VRAM_READY_RATIO:
+                                if (
+                                    _free_ratio < 0
+                                    or _free_ratio >= _VRAM_READY_RATIO
+                                ):
                                     break
                                 await asyncio.sleep(1.0)
                             else:
@@ -2832,47 +2881,16 @@ class WorkerActor(xo.StatelessActor):
                     _gpu_indices_for_terminate
                 )
                 if 0 <= _free_ratio < _VRAM_READY_RATIO:
-                    _post_pids = _snapshot_gpu_occupying_pids(
-                        _gpu_indices_for_terminate
+                    _exclude_pids: set = {os.getpid()}
+                    for _uid, _pids in (
+                        self._model_uid_to_subpool_pids.items()
+                    ):
+                        _exclude_pids.update(_pids)
+                    _killed = await _kill_orphan_gpu_pids(
+                        _gpu_indices_for_terminate,
+                        _exclude_pids,
+                        model_uid=model_uid,
                     )
-                    _killed = []
-                    for _pid in _post_pids:
-                        try:
-                            import psutil as _psutil
-
-                            _p = _psutil.Process(_pid)
-                            if (
-                                not _p.is_running()
-                                or _p.status() == _psutil.STATUS_ZOMBIE
-                            ):
-                                continue
-                            _cmd = " ".join(_p.cmdline()).lower()
-                            if not any(
-                                k in _cmd
-                                for k in (
-                                    "vllm",
-                                    "enginecore",
-                                    model_uid.lower(),
-                                )
-                            ):
-                                continue
-                            os.kill(_pid, signal.SIGKILL)
-                            _killed.append(_pid)
-                            logger.warning(
-                                "SIGKILL orphan pid %s for terminated "
-                                "model %s",
-                                _pid,
-                                model_uid,
-                            )
-                        except (
-                            ProcessLookupError,
-                            PermissionError,
-                        ):
-                            continue
-                        except Exception:
-                            logger.debug(
-                                "Kill pid %s failed", _pid, exc_info=True
-                            )
                     if _killed:
                         logger.warning(
                             "Killed %d GPU-occupying orphan(s) for %s: %s",
@@ -2896,6 +2914,8 @@ class WorkerActor(xo.StatelessActor):
                         _free_ratio = _snapshot_gpu_free_ratio(
                             _gpu_indices_for_terminate
                         )
+                        if _free_ratio < 0:
+                            break
                         if _free_ratio >= _VRAM_READY_RATIO:
                             logger.info(
                                 "VRAM reclaimed after orphan cleanup "
