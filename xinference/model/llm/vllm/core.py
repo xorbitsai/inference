@@ -68,7 +68,7 @@ from ..utils import (
     ChatModelMixin,
     generate_completion_chunk,
 )
-from .utils import vllm_check
+from .utils import AsyncEngineDeadError, vllm_check
 
 logger = logging.getLogger(__name__)
 
@@ -654,12 +654,21 @@ class VLLMModel(LLM):
                 **self._model_config,
             )
             self._enable_v1_if_supported(engine_args)
-            self._engine = AsyncLLMEngine.from_engine_args(engine_args)
 
-        self._check_health_task = None
-        if hasattr(self._engine, "check_health"):
-            # vLLM introduced `check_health` since v0.4.1
-            self._check_health_task = self._loop.create_task(self._check_healthy())
+            def _load():
+                # Force spawn to avoid fork deadlock: vLLM v1 creates
+                # EngineCore via fork, which inherits parent's multi-thread
+                # lock state causing deadlock. spawn creates a clean process.
+                os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
+                try:
+                    self._engine = AsyncLLMEngine.from_engine_args(engine_args)
+                except:  # noqa: E722
+                    logger.exception("Creating vllm engine failed")
+                    self._loading_error = sys.exc_info()
+
+            self._loading_thread = threading.Thread(target=_load)
+            self._loading_thread.start()
+            self._loading_thread.join(1)
 
     def wait_for_load(self):
         if self._loading_thread:
@@ -672,6 +681,28 @@ class VLLMModel(LLM):
         # if shard > 0, the engine will be inited in another process
         if self._engine:
             self._set_context_length()
+
+        # Create health check here after engine is fully ready.
+        # Previously in load(), but self._engine was None after
+        # _loading_thread.join(1) for threaded paths (multi-GPU
+        # and single-GPU), causing health check to be silently
+        # skipped. This fix applies to ALL vLLM models that use
+        # _loading_thread (both multi-GPU and single-GPU).
+        # Use call_soon_threadsafe + create_task instead of
+        # run_coroutine_threadsafe: the latter wraps the coroutine
+        # in a concurrent.futures.Future whose exceptions are
+        # silently swallowed if nobody checks the Future. create_task
+        # produces an asyncio.Task whose unhandled exceptions are
+        # logged by the asyncio default exception handler.
+        self._check_health_task = None
+        if self._engine and hasattr(self._engine, "check_health") and self._loop:
+            logger.info(
+                "Creating vLLM health check task for model %s",
+                self.model_uid,
+            )
+            self._loop.call_soon_threadsafe(
+                self._loop.create_task, self._check_healthy()
+            )
 
     def _set_context_length(self):
         if not self._is_vllm_v1():
@@ -780,6 +811,10 @@ class VLLMModel(LLM):
         logger.info("Stopping vLLM engine")
         if self._check_health_task:
             self._check_health_task.cancel()
+        # Wait for loading thread to finish so EngineCore subprocess
+        # can be properly shut down below.
+        if self._loading_thread and self._loading_thread.is_alive():
+            self._loading_thread.join(timeout=30)
         if self._engine:
             if not self._is_vllm_v1():
                 # v0
@@ -797,14 +832,12 @@ class VLLMModel(LLM):
         await self._engine.init_xavier()
 
     async def _check_healthy(self, interval: int = 30):
-        from vllm.engine.async_llm_engine import AsyncEngineDeadError
-
-        logger.debug("Begin to check health of vLLM")
+        logger.info("Begin to check health of vLLM")
 
         while self._engine is not None:
             try:
                 await self._engine.check_health()
-            except (AsyncEngineDeadError, RuntimeError):
+            except RuntimeError:
                 logger.info("Detecting vLLM is not health, prepare to quit the process")
                 try:
                     self.stop()
