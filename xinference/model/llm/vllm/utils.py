@@ -23,13 +23,10 @@ try:
 except ImportError:
     # vLLM 0.19.0+ removed AsyncEngineDeadError from this module.
     # It is a subclass of RuntimeError, so except RuntimeError suffices.
-    AsyncEngineDeadError = None  # type: ignore[assignment,misc]
+    AsyncEngineDeadError = RuntimeError  # type: ignore[assignment,misc]
 
 
 def vllm_check(fn):
-    if AsyncEngineDeadError is None:
-        return fn
-
     @functools.wraps(fn)
     async def _async_wrapper(self, *args, **kwargs):
         try:

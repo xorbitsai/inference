@@ -637,7 +637,7 @@ class VLLMModel(LLM):
                             # patch vllm Executor.get_class
                             Executor.get_class = lambda vllm_config: executor_cls
                             self._engine = AsyncLLMEngine.from_engine_args(engine_args)
-                except:  # noqa: E722
+                except Exception:
                     logger.exception("Creating vllm engine failed")
                     self._loading_error = sys.exc_info()
 
@@ -662,7 +662,7 @@ class VLLMModel(LLM):
                 os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
                 try:
                     self._engine = AsyncLLMEngine.from_engine_args(engine_args)
-                except:  # noqa: E722
+                except Exception:
                     logger.exception("Creating vllm engine failed")
                     self._loading_error = sys.exc_info()
 
@@ -700,9 +700,14 @@ class VLLMModel(LLM):
                 "Creating vLLM health check task for model %s",
                 self.model_uid,
             )
-            self._loop.call_soon_threadsafe(
-                self._loop.create_task, self._check_healthy()
-            )
+
+            def _start_health_check():
+                if self._engine is not None:
+                    self._check_health_task = self._loop.create_task(
+                        self._check_healthy()
+                    )
+
+            self._loop.call_soon_threadsafe(_start_health_check)
 
     def _set_context_length(self):
         if not self._is_vllm_v1():
