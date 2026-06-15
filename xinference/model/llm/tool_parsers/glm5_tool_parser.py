@@ -114,6 +114,16 @@ class Glm5ToolParser(ToolParser):
             return self._parse_xml_tool_calls(model_output)
         return [(str(model_output), None, None)]
 
+    def _extract_delta_without_partial_start(
+        self, current_text: str, delta_text: str
+    ) -> Optional[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
+        for i in range(len(self.tool_call_start_token) - 1, 0, -1):
+            if current_text.endswith(self.tool_call_start_token[:i]):
+                if len(delta_text) > i:
+                    return delta_text[:-i], None, None
+                return None
+        return (delta_text, None, None) if delta_text else None
+
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str
     ) -> Optional[Any]:
@@ -127,7 +137,9 @@ class Glm5ToolParser(ToolParser):
         """
         if isinstance(current_text, str):
             if self.tool_call_start_token not in current_text:
-                return (delta_text, None, None)
+                return self._extract_delta_without_partial_start(
+                    current_text, delta_text
+                )
             if current_text.count(self.tool_call_start_token) > current_text.count(
                 self.tool_call_end_token
             ):

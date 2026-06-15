@@ -121,3 +121,23 @@ def test_tool_parser_streaming_preserves_text_after_processed_call():
     result = parser.extract_tool_calls_streaming(previous_text, current_text, " done")
 
     assert result == (" done", None, None)
+
+
+def test_tool_parser_streaming_suppresses_split_start_token():
+    parser = Glm5ToolParser()
+
+    result = parser.extract_tool_calls_streaming([""], "<tool", "<tool")
+
+    assert result is None
+
+    result = parser.extract_tool_calls_streaming([""], "Before <tool", "Before <tool")
+
+    assert result == ("Before ", None, None)
+
+    result = parser.extract_tool_calls_streaming(
+        ["<tool"],
+        "<tool_call>get_weather<arg_key>location</arg_key><arg_value>Beijing</arg_value>",
+        "_call>get_weather<arg_key>location</arg_key><arg_value>Beijing</arg_value>",
+    )
+
+    assert result is None
