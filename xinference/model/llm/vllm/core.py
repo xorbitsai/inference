@@ -68,7 +68,7 @@ from ..utils import (
     ChatModelMixin,
     generate_completion_chunk,
 )
-from .utils import AsyncEngineDeadError, vllm_check
+from .utils import vllm_check
 
 logger = logging.getLogger(__name__)
 
