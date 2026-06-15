@@ -22,24 +22,28 @@ Tests cover:
 - _wait_pids_dead: all-dead / timeout
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 
 def test_parse_gpu_indices_int():
     from xinference.core.worker import _parse_gpu_indices
+
     assert _parse_gpu_indices(0) == [0]
     assert _parse_gpu_indices(3) == [3]
 
 
 def test_parse_gpu_indices_list():
     from xinference.core.worker import _parse_gpu_indices
+
     assert _parse_gpu_indices([0, 1]) == [0, 1]
     assert _parse_gpu_indices([]) == []
 
 
 def test_parse_gpu_indices_str():
     from xinference.core.worker import _parse_gpu_indices
+
     assert _parse_gpu_indices("0,1") == [0, 1]
     assert _parse_gpu_indices("2, 3, 4") == [2, 3, 4]
     assert _parse_gpu_indices("") == []
@@ -47,12 +51,14 @@ def test_parse_gpu_indices_str():
 
 def test_parse_gpu_indices_none():
     from xinference.core.worker import _parse_gpu_indices
+
     assert _parse_gpu_indices(None) == []
 
 
 def test_snapshot_gpu_occupying_pids_no_pynvml():
     with patch.dict("sys.modules", {"pynvml": None}):
         from xinference.core.worker import _snapshot_gpu_occupying_pids
+
         assert _snapshot_gpu_occupying_pids([0]) == set()
 
 
@@ -66,6 +72,7 @@ def test_snapshot_gpu_occupying_pids_with_mock():
     ]
     with patch.dict("sys.modules", {"pynvml": mock_pynvml}):
         from xinference.core.worker import _snapshot_gpu_occupying_pids
+
         pids = _snapshot_gpu_occupying_pids([0])
         assert pids == {123, 456}
 
@@ -73,6 +80,7 @@ def test_snapshot_gpu_occupying_pids_with_mock():
 def test_snapshot_gpu_free_ratio_no_pynvml():
     with patch.dict("sys.modules", {"pynvml": None}):
         from xinference.core.worker import _snapshot_gpu_free_ratio
+
         assert _snapshot_gpu_free_ratio([0]) == -1
 
 
@@ -87,6 +95,7 @@ def test_snapshot_gpu_free_ratio_with_mock():
     mock_pynvml.nvmlDeviceGetMemoryInfo.return_value = mem_info
     with patch.dict("sys.modules", {"pynvml": mock_pynvml}):
         from xinference.core.worker import _snapshot_gpu_free_ratio
+
         ratio = _snapshot_gpu_free_ratio([0])
         assert 0.9 <= ratio <= 0.95  # 22/24 ≈ 0.917
 
@@ -119,12 +128,14 @@ async def test_kill_orphan_gpu_pids_no_new():
 @pytest.mark.asyncio
 async def test_wait_pids_dead_all_dead():
     from xinference.core.worker import _wait_pids_dead
+
     mock_psutil = MagicMock()
     mock_psutil.NoSuchProcess = ProcessLookupError
     mock_psutil.AccessDenied = PermissionError
     mock_psutil.Process.side_effect = ProcessLookupError("no such process")
     with patch.dict("sys.modules", {"psutil": mock_psutil}):
         import time
+
         _start = time.monotonic()
         await _wait_pids_dead({123, 456}, timeout=3.0)
         _elapsed = time.monotonic() - _start
@@ -134,6 +145,7 @@ async def test_wait_pids_dead_all_dead():
 @pytest.mark.asyncio
 async def test_wait_pids_dead_timeout():
     from xinference.core.worker import _wait_pids_dead
+
     mock_psutil = MagicMock()
     mock_psutil.NoSuchProcess = ProcessLookupError
     mock_psutil.AccessDenied = PermissionError
@@ -143,6 +155,7 @@ async def test_wait_pids_dead_timeout():
     mock_psutil.Process.return_value = mock_proc
     with patch.dict("sys.modules", {"psutil": mock_psutil}):
         import time
+
         _start = time.monotonic()
         await _wait_pids_dead({123}, timeout=0.5)
         _elapsed = time.monotonic() - _start

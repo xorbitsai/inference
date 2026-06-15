@@ -27,8 +27,6 @@ Tests cover:
 - Exception safety (WeirdDict fallback)
 """
 
-import pytest
-
 from xinference.core.worker import _strip_test_envs
 
 
@@ -159,10 +157,10 @@ def test_strip_test_envs_exception_safety():
 
 
 def test_strip_test_envs_empty_envs_dict():
-    """Empty envs dict: treated as falsy, no strip."""
+    """Empty envs dict: treated as empty, no strip."""
     args = {"envs": {}}
     cleaned, stripped = _strip_test_envs(args)
-    # Empty dict is falsy, so the function returns early
+    # Empty dict evaluates to False, so the function returns early
     assert stripped == set()
 
 

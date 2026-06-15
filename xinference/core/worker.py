@@ -499,19 +499,13 @@ class WorkerActor(xo.StatelessActor):
                         try:
                             async with self._persist_lock:
                                 self._persist_launch_args()
-                                self._persist_launch_args_dirty_uids.discard(
-                                    model_uid
-                                )
+                                self._persist_launch_args_dirty_uids.discard(model_uid)
                                 self._persist_retry_count.pop(model_uid, None)
                         except Exception as e:
-                            retry_n = (
-                                self._persist_retry_count.get(model_uid, 0) + 1
-                            )
+                            retry_n = self._persist_retry_count.get(model_uid, 0) + 1
                             self._persist_retry_count[model_uid] = retry_n
                             if retry_n >= _PERSIST_RETRY_MAX:
-                                self._persist_launch_args_dirty_uids.discard(
-                                    model_uid
-                                )
+                                self._persist_launch_args_dirty_uids.discard(model_uid)
                                 logger.error(
                                     "Persist cleaned launch_args for %s failed "
                                     "%d times, giving up: %s",
@@ -520,9 +514,7 @@ class WorkerActor(xo.StatelessActor):
                                     e,
                                 )
                             else:
-                                self._persist_launch_args_dirty_uids.add(
-                                    model_uid
-                                )
+                                self._persist_launch_args_dirty_uids.add(model_uid)
                                 logger.warning(
                                     "Failed to persist cleaned launch_args for "
                                     "%s (attempt %d/%d): %s",
@@ -540,9 +532,7 @@ class WorkerActor(xo.StatelessActor):
                     # Wait for VRAM reclaim after terminate, then clean up
                     # any orphan GPU processes (e.g. spawn-created EngineCore
                     # that survived subpool removal).
-                    _recover_gpu_idx = _parse_gpu_indices(
-                        launch_args.get("gpu_idx")
-                    )
+                    _recover_gpu_idx = _parse_gpu_indices(launch_args.get("gpu_idx"))
                     if not _recover_gpu_idx:
                         try:
                             import pynvml
@@ -562,14 +552,13 @@ class WorkerActor(xo.StatelessActor):
                     if _recover_gpu_idx:
                         try:
                             await asyncio.sleep(1.0)
-                            _free_ratio = _snapshot_gpu_free_ratio(
-                                _recover_gpu_idx
-                            )
+                            _free_ratio = _snapshot_gpu_free_ratio(_recover_gpu_idx)
                             if 0 <= _free_ratio < _VRAM_READY_RATIO:
                                 _other_pids: set = {os.getpid()}
-                                for _uid, _pids in (
-                                    self._model_uid_to_subpool_pids.items()
-                                ):
+                                for (
+                                    _uid,
+                                    _pids,
+                                ) in self._model_uid_to_subpool_pids.items():
                                     _other_pids.update(_pids)
                                 _killed = await _kill_orphan_gpu_pids(
                                     _recover_gpu_idx,
@@ -585,17 +574,10 @@ class WorkerActor(xo.StatelessActor):
                                         _killed,
                                     )
                             # Poll VRAM until released or timeout
-                            _vram_deadline = (
-                                time.monotonic() + _VRAM_RECLAIM_TIMEOUT
-                            )
+                            _vram_deadline = time.monotonic() + _VRAM_RECLAIM_TIMEOUT
                             while time.monotonic() < _vram_deadline:
-                                _free_ratio = _snapshot_gpu_free_ratio(
-                                    _recover_gpu_idx
-                                )
-                                if (
-                                    _free_ratio < 0
-                                    or _free_ratio >= _VRAM_READY_RATIO
-                                ):
+                                _free_ratio = _snapshot_gpu_free_ratio(_recover_gpu_idx)
+                                if _free_ratio < 0 or _free_ratio >= _VRAM_READY_RATIO:
                                     break
                                 await asyncio.sleep(1.0)
                             else:
@@ -604,9 +586,7 @@ class WorkerActor(xo.StatelessActor):
                                     "%s, min_free_ratio=%.2f",
                                     _VRAM_RECLAIM_TIMEOUT,
                                     model_uid,
-                                    _snapshot_gpu_free_ratio(
-                                        _recover_gpu_idx
-                                    ),
+                                    _snapshot_gpu_free_ratio(_recover_gpu_idx),
                                 )
                         except Exception:
                             logger.debug(
@@ -2877,14 +2857,10 @@ class WorkerActor(xo.StatelessActor):
         try:
             if not is_model_die and _gpu_indices_for_terminate:
                 await asyncio.sleep(1.0)
-                _free_ratio = _snapshot_gpu_free_ratio(
-                    _gpu_indices_for_terminate
-                )
+                _free_ratio = _snapshot_gpu_free_ratio(_gpu_indices_for_terminate)
                 if 0 <= _free_ratio < _VRAM_READY_RATIO:
                     _exclude_pids: set = {os.getpid()}
-                    for _uid, _pids in (
-                        self._model_uid_to_subpool_pids.items()
-                    ):
+                    for _uid, _pids in self._model_uid_to_subpool_pids.items():
                         _exclude_pids.update(_pids)
                     _killed = await _kill_orphan_gpu_pids(
                         _gpu_indices_for_terminate,
@@ -2906,9 +2882,7 @@ class WorkerActor(xo.StatelessActor):
                             _free_ratio,
                         )
                     # Wait for VRAM reclaim after orphan cleanup
-                    _vram_deadline = (
-                        time.monotonic() + _VRAM_RECLAIM_TIMEOUT
-                    )
+                    _vram_deadline = time.monotonic() + _VRAM_RECLAIM_TIMEOUT
                     while time.monotonic() < _vram_deadline:
                         await asyncio.sleep(1.0)
                         _free_ratio = _snapshot_gpu_free_ratio(
@@ -2930,14 +2904,10 @@ class WorkerActor(xo.StatelessActor):
                             "+ %ds for %s (free_ratio=%.2f)",
                             _VRAM_RECLAIM_TIMEOUT,
                             model_uid,
-                            _snapshot_gpu_free_ratio(
-                                _gpu_indices_for_terminate
-                            ),
+                            _snapshot_gpu_free_ratio(_gpu_indices_for_terminate),
                         )
         except Exception:
-            logger.warning(
-                "Orphan cleanup failed for %s", model_uid, exc_info=True
-            )
+            logger.warning("Orphan cleanup failed for %s", model_uid, exc_info=True)
 
     # Provide an interface for future version of supervisor to call
     def get_model_launch_status(self, model_uid: str) -> Optional[str]:
