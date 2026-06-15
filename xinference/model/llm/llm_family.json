@@ -32332,7 +32332,7 @@
         }
       }
     ],
-    "chat_template": "{% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% set system_message = messages[0]['content'] %}<\uff5chy_begin\u2581of\u2581sentence\uff5c>{{ system_message }}<\uff5chy_place\u2581holder\u2581no\u25813\uff5c>{% else %}{% set loop_messages = messages %}<\uff5chy_begin\u2581of\u2581sentence\uff5c>{% endif %}{% for message in loop_messages %}{% if message['role'] == 'user' %}<\uff5chy_User\uff5c>{{ message['content'] }}{% elif message['role'] == 'assistant' %}<\uff5chy_Assistant\uff5c>{{ message['content'] }}<\uff5chy_place\u2581holder\u2581no\u25812\uff5c>{% endif %}{% endfor %}{% if add_generation_prompt %}<\uff5chy_Assistant\uff5c>{% else %}<\uff5chy_place\u2581holder\u2581no\u25818\uff5c>{% endif %}",
+    "chat_template": "{% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% set system_message = messages[0]['content'] %}<｜hy_begin▁of▁sentence｜>{{ system_message }}<｜hy_place▁holder▁no▁3｜>{% else %}{% set loop_messages = messages %}<｜hy_begin▁of▁sentence｜>{% endif %}{% for message in loop_messages %}{% if message['role'] == 'user' %}<｜hy_User｜>{{ message['content'] }}{% elif message['role'] == 'assistant' %}<｜hy_Assistant｜>{{ message['content'] }}<｜hy_place▁holder▁no▁2｜>{% endif %}{% endfor %}{% if add_generation_prompt %}<｜hy_Assistant｜>{% else %}<｜hy_place▁holder▁no▁8｜>{% endif %}",
     "stop_token_ids": [
       120020
     ],
@@ -32351,7 +32351,7 @@
       ]
     },
     "featured": true,
-    "updated_at": 1781407200
+    "updated_at": 1781520055
   },
   {
     "version": 2,
@@ -32434,7 +32434,7 @@
         }
       }
     ],
-    "chat_template": "{% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% set system_message = messages[0]['content'] %}<\uff5chy_begin\u2581of\u2581sentence\uff5c>{{ system_message }}<\uff5chy_place\u2581holder\u2581no\u25813\uff5c>{% else %}{% set loop_messages = messages %}<\uff5chy_begin\u2581of\u2581sentence\uff5c>{% endif %}{% for message in loop_messages %}{% if message['role'] == 'user' %}<\uff5chy_User\uff5c>{{ message['content'] }}{% elif message['role'] == 'assistant' %}<\uff5chy_Assistant\uff5c>{{ message['content'] }}<\uff5chy_place\u2581holder\u2581no\u25812\uff5c>{% endif %}{% endfor %}{% if add_generation_prompt %}<\uff5chy_Assistant\uff5c>{% else %}<\uff5chy_place\u2581holder\u2581no\u25818\uff5c>{% endif %}",
+    "chat_template": "{% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% set system_message = messages[0]['content'] %}<｜hy_begin▁of▁sentence｜>{{ system_message }}<｜hy_place▁holder▁no▁3｜>{% else %}{% set loop_messages = messages %}<｜hy_begin▁of▁sentence｜>{% endif %}{% for message in loop_messages %}{% if message['role'] == 'user' %}<｜hy_User｜>{{ message['content'] }}{% elif message['role'] == 'assistant' %}<｜hy_Assistant｜>{{ message['content'] }}<｜hy_place▁holder▁no▁2｜>{% endif %}{% endfor %}{% if add_generation_prompt %}<｜hy_Assistant｜>{% else %}<｜hy_place▁holder▁no▁8｜>{% endif %}",
     "stop_token_ids": [
       120020
     ],
@@ -32453,7 +32453,7 @@
       ]
     },
     "featured": true,
-    "updated_at": 1781407200
+    "updated_at": 1781520056
   },
   {
     "version": 2,
@@ -32512,7 +32512,7 @@
         }
       }
     ],
-    "chat_template": "{% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% set system_message = messages[0]['content'] %}<\uff5chy_begin\u2581of\u2581sentence\uff5c>{{ system_message }}<\uff5chy_place\u2581holder\u2581no\u25813\uff5c>{% else %}{% set loop_messages = messages %}<\uff5chy_begin\u2581of\u2581sentence\uff5c>{% endif %}{% for message in loop_messages %}{% if message['role'] == 'user' %}<\uff5chy_User\uff5c>{{ message['content'] }}{% elif message['role'] == 'assistant' %}<\uff5chy_Assistant\uff5c>{{ message['content'] }}<\uff5chy_place\u2581holder\u2581no\u25812\uff5c>{% endif %}{% endfor %}{% if add_generation_prompt %}<\uff5chy_Assistant\uff5c>{% else %}<\uff5chy_place\u2581holder\u2581no\u25818\uff5c>{% endif %}",
+    "chat_template": "{% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% set system_message = messages[0]['content'] %}<｜hy_begin▁of▁sentence｜>{{ system_message }}<｜hy_place▁holder▁no▁3｜>{% else %}{% set loop_messages = messages %}<｜hy_begin▁of▁sentence｜>{% endif %}{% for message in loop_messages %}{% if message['role'] == 'user' %}<｜hy_User｜>{{ message['content'] }}{% elif message['role'] == 'assistant' %}<｜hy_Assistant｜>{{ message['content'] }}<｜hy_place▁holder▁no▁2｜>{% endif %}{% endfor %}{% if add_generation_prompt %}<｜hy_Assistant｜>{% else %}<｜hy_place▁holder▁no▁8｜>{% endif %}",
     "stop_token_ids": [
       120025,
       120026
@@ -32531,6 +32531,6 @@
       ]
     },
     "featured": true,
-    "updated_at": 1781407200
+    "updated_at": 1781520058
   }
 ]
