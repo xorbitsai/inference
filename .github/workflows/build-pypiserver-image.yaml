@@ -31,7 +31,7 @@ jobs:
       contents: read
       packages: write
     env:
-      IMAGE_NAME: qinruicool/pypiserver-devvv
+      IMAGE_NAME: qinruicool/pypiserver-test
 
     steps:
       - name: Check out code
@@ -46,11 +46,20 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
+      - name: Debug
+        run: |
+          echo "Running on runner: $(uname -m)"
+          docker buildx version
+          docker info
+          uname -m
+          echo $
+          ls -al /proc/cpuinfo
+
       - name: Build and push ${{ matrix.arch }} image
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: xinference/deploy/docker/Dockerfile.pypiserver
+          file: xinference/deploy/docker/pypiserver/Dockerfile.pypiserver
           platforms: linux/${{ matrix.arch }}
           build-args: |
             PLATFORM=${{ matrix.arch }}
@@ -71,7 +80,7 @@ jobs:
     permissions:
       packages: write
     env:
-      IMAGE_NAME: qinruicool/pypiserver-dev
+      IMAGE_NAME: qinruicool/pypiserver-test
 
     steps:
       - name: Set up Docker Buildx

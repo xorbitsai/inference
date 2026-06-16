@@ -1,10 +1,10 @@
 # syntax=docker/dockerfile:1
 # Build a pypiserver image with all xinference model dependencies.
 #
-#   docker build -f xinference/deploy/docker/Dockerfile.pypiserver \
+#   docker build -f xinference/deploy/docker/pypiserver/Dockerfile.pypiserver \
 #     --build-arg PLATFORM=amd64 -t pypiserver:amd64 .
 #
-#   docker build -f xinference/deploy/docker/Dockerfile.pypiserver \
+#   docker build -f xinference/deploy/docker/pypiserver/Dockerfile.pypiserver \
 #     --build-arg PLATFORM=arm64 -t pypiserver:arm64 .
 
 # ============================================================================
@@ -31,7 +31,7 @@ WORKDIR /build
 # Copy only the two inputs list-packages.sh needs:
 #   - the script itself
 #   - model JSON files under xinference/model/
-COPY list-packages.sh /build/
+COPY xinference/deploy/docker/pypiserver/list-packages.sh /build/
 COPY xinference/model/ /build/xinference/model/
 
 # Generate the pip-installable package list for the target architecture.
