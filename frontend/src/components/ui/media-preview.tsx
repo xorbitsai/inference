@@ -88,7 +88,7 @@ export function MediaPreview({ type, url, title, className }: MediaPreviewProps)
           <a
             href={url}
             download={title || 'generated-image'}
-            className="absolute right-1.5 top-1.5 z-10 flex size-7 items-center justify-center rounded-full bg-background/95 text-muted-foreground shadow-sm transition-colors hover:text-foreground"
+            className="absolute right-0 top-0 z-10 flex size-7 items-center justify-center rounded-full bg-background/95 text-muted-foreground shadow-sm transition-colors hover:text-foreground"
             onClick={(event) => event.stopPropagation()}
           >
             <Download className="size-3.5" />
@@ -102,13 +102,13 @@ export function MediaPreview({ type, url, title, className }: MediaPreviewProps)
           <DialogHeader>
             <DialogTitle>{title || label}</DialogTitle>
           </DialogHeader>
-          <div className="flex min-h-0 items-center justify-center overflow-hidden rounded-lg bg-black/5">
+          <div className="flex min-h-0 items-center justify-center overflow-hidden rounded-lg">
             {mediaType === 'image' ? (
               <div className="relative">
                 <a
                   href={url}
                   download={title || 'generated-image'}
-                  className="absolute right-3 top-3 z-10 flex size-9 items-center justify-center rounded-full bg-background/95 text-muted-foreground shadow-sm transition-colors hover:text-foreground"
+                  className="absolute right-0 top-0 z-10 flex size-7 items-center justify-center rounded-full bg-background/95 text-muted-foreground shadow-sm transition-colors hover:text-foreground"
                 >
                   <Download className="size-4" />
                 </a>
