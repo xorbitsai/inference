@@ -144,7 +144,7 @@ def request_limit(fn):
                 # stream case, let client call model_ref to decrease self._serve_count
                 pass
             else:
-                self._serve_count -= 1
+                self._serve_count = max(0, self._serve_count - 1)
                 await self.record_metrics(
                     "model_serve_count",
                     "set",
@@ -337,7 +337,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         return getattr(self._model, attr)
 
     async def decrease_serve_count(self):
-        self._serve_count -= 1
+        self._serve_count = max(0, self._serve_count - 1)
         await self.record_metrics(
             "model_serve_count",
             "set",
