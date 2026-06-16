@@ -28272,7 +28272,7 @@
     "stop": [
       "<|endoftext|>"
     ],
-    "tool_parser": "glm4",
+    "tool_parser": "glm5",
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "version": 2,
@@ -32060,7 +32060,7 @@
     "stop": [
       "<|endoftext|>"
     ],
-    "tool_parser": "glm4",
+    "tool_parser": "glm5",
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "version": 2,
