@@ -28286,7 +28286,7 @@
       ]
     },
     "featured": false,
-    "updated_at": 1772702529
+    "updated_at": 1781600152
   },
   {
     "model_name": "qwen3.5",
@@ -32075,7 +32075,7 @@
       ]
     },
     "featured": false,
-    "updated_at": 1777047462
+    "updated_at": 1781600152
   },
   {
     "model_name": "DeepSeek-V4-Flash",
