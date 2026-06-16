@@ -189,6 +189,7 @@ const en = {
     terminateConfirmOk: 'Terminate',
     baseInfo: 'Basic Information',
     modelType: 'Model Type',
+    modelEngine: 'Model Engine',
     modelFormat: 'Model Format',
     modelSize: 'Model Size',
     quantization: 'Quantization',

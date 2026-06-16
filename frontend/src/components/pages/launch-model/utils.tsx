@@ -420,8 +420,8 @@ export function transformFormToFetch(values: FormValues) {
   if('n_gpu' in values){
     nextValues.n_gpu = normalizeNGPU(values.n_gpu)
   }
-  if('gpu_idx' in values && values.gpu_idx) {
-    nextValues.gpu_idx = values.gpu_idx.split(',').map((item: string)=> Number(item));
+  if('gpu_idx' in values) {
+    nextValues.gpu_idx = values.gpu_idx ? values.gpu_idx.split(',').map((item: string)=> Number(item)) : undefined;
   }
   if ('n_gpu_layers' in values && values.n_gpu_layers < 0) {
     delete nextValues.n_gpu_layers

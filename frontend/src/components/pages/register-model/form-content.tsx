@@ -262,7 +262,7 @@ const FormContent: FC<FormContentProps> = ({
         rules={[{ required: true }]}
         normalize={(value) => (value ? value.replace(/\\n/g, '\n') : '')}
       >
-        <ChatTepmlate />
+        <ChatTepmlate ref={chatTemplateRef} />
       </FormField>
     ),
     stopTokenIds: (

@@ -182,6 +182,7 @@ const zh = {
     terminateConfirmOk: '终止',
     baseInfo: '基本信息',
     modelType: '模型类型',
+    modelEngine: '模型引擎',
     modelFormat: '模型格式',
     modelSize: '模型大小',
     quantization: '量化',

@@ -188,6 +188,7 @@ const ja = {
     terminateConfirmOk: '終了',
     baseInfo: '基本情報',
     modelType: 'モデルタイプ',
+    modelEngine: 'モデルエンジン',
     modelFormat: 'モデル形式',
     modelSize: 'モデルサイズ',
     quantization: '量子化',

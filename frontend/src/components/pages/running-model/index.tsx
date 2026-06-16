@@ -92,10 +92,8 @@ const RunningModel = () => {
           if (!prev) {
             return list?.[0];
           }
-          const current = list.find(
-            (item) => item.id === prev.id
-          );
-      
+          const current = list.find((item) => item.id === prev.id);
+
           return current ?? list?.[0];
         });
       })
@@ -239,8 +237,12 @@ const RunningModel = () => {
           <div className="grid grid-cols-2 gap-4">
             <ContentItemInfo title={t('runningModels.modelType')} value={activeModel.model_type} />
             <ContentItemInfo
+              title={t('runningModels.modelEngine')}
+              value={activeModel.model_engine || '-'}
+            />
+            <ContentItemInfo
               title={t('runningModels.modelFormat')}
-              value={activeModel.model_format}
+              value={activeModel.model_format || '-'}
             />
             {'model_size_in_billions' in activeModel && (
               <ContentItemInfo
@@ -251,7 +253,7 @@ const RunningModel = () => {
 
             <ContentItemInfo
               title={t('runningModels.quantization')}
-              value={activeModel.quantization}
+              value={activeModel.quantization || '-'}
             />
           </div>
           <h3 className="font-medium">{t('runningModels.resources')}</h3>

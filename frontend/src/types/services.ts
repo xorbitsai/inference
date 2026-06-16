@@ -105,6 +105,7 @@ export interface RunningModelItem {
   model_lang: string[];
   model_ability: ModelAbility[];
   model_description: string;
+  model_engine?: string;
   model_format: string;
   model_size_in_billions: number;
   model_family: string;
@@ -133,4 +134,40 @@ export interface RunningModelDetail {
   revision: string;
   context_length: number;
   replica: number;
+}
+
+interface MessageFileType {
+  data: string;
+  expires_at: number;
+  id: string;
+  transcript: string;
+}
+
+export interface ChatChoicesMessage {
+  content: string;
+  role: string;
+  audio?: MessageFileType;
+  image?: MessageFileType;
+  video?: MessageFileType;
+}
+
+export interface ChatStreamResult {
+  created: number;
+  id: string;
+  model: string;
+  object: string;
+  choices: {
+    index: number;
+    finish_reason: string;
+    delta: {
+      content: string;
+      reasoning_content?: string;
+    };
+    message?: ChatChoicesMessage;
+  }[];
+  usage: {
+    completion_tokens: number;
+    prompt_tokens: number;
+    total_tokens: number;
+  };
 }

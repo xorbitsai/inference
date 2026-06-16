@@ -186,6 +186,7 @@ const ko = {
     terminateConfirmOk: '종료',
     baseInfo: '기본 정보',
     modelType: '모델 유형',
+    modelEngine: '모델 엔진',
     modelFormat: '모델 형식',
     modelSize: '모델 크기',
     quantization: '양자화',

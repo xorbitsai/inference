@@ -1,4 +1,5 @@
 import { clsx, type ClassValue } from "clsx"
+import { FileAudio, FileText, FileVideo, ImageIcon } from 'lucide-react';
 import { twMerge } from "tailwind-merge"
 import { toast } from 'sonner'; 
 import type { BaseFormListValueItem } from '@/types/common'; 
@@ -112,3 +113,19 @@ export const copyText = async (value: string) => {
     toast.error('Failed to copy');
   }
 };
+
+export function getFileMeta(file: File) {
+  if (file.type.startsWith('image/')) {
+    return { label: 'Image', icon: ImageIcon, kind: 'image' as const };
+  }
+
+  if (file.type.startsWith('video/')) {
+    return { label: 'Video', icon: FileVideo, kind: 'video' as const };
+  }
+
+  if (file.type.startsWith('audio/')) {
+    return { label: 'Audio', icon: FileAudio, kind: 'audio' as const };
+  }
+
+  return { label: 'Document', icon: FileText, kind: 'document' as const };
+}
