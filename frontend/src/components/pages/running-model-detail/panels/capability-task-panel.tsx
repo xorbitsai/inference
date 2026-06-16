@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState, useImperativeHandle, forwardRef } from 'react';
+import { useMemo, useRef, useState, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { RotateCcw, Sparkles } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -120,6 +120,11 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
       setProgress(undefined);
     };
 
+    useEffect(() => {
+      return () => {
+        runTokenRef.current += 1;
+      };
+    }, []);
     useImperativeHandle(ref, () => ({
       reset,
     }));

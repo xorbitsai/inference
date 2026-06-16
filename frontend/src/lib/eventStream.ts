@@ -9,10 +9,10 @@ export interface PostEventStreamFetcherOptions<T> {
 }
 
 export interface PostEventStreamFetcherParams<T> {
-  url: string; // 请求的 URL
-  data: any; // 请求的参数
-  options: PostEventStreamFetcherOptions<T>; // 回调选项
-  headers?: Record<string, string>; // 可选的请求头
+  url: string; // Request URL
+  data: any; // Request payload
+  options: PostEventStreamFetcherOptions<T>; // Callback options
+  headers?: Record<string, string>; // Optional request headers
 }
 
 export class EventStreamController {
@@ -23,14 +23,14 @@ export class EventStreamController {
   }
 
   /**
-   * 终止当前的流式请求
+   * Abort the current streaming request.
    */
   terminate() {
     this.abortController.abort();
   }
 
   /**
-   * 获取当前的信号对象
+   * Get the current signal object.
    */
   getSignal() {
     return this.abortController.signal;
@@ -38,12 +38,15 @@ export class EventStreamController {
 }
 const errorText = 'System error. Please try again.';
 
-export function getErrorText(errorDetail: string) {
-  // 若是因为base64报错，提取前1000字符，防止报错信息因含有base64信息，导致报错文案过长
-  if (errorDetail && errorDetail.length > 1000 && /data:.+?;base64/.test(errorDetail)) {
-    errorDetail = `${errorDetail.slice(0, 1000)}...`;
+export function getErrorText(errorDetail: any) {
+  if (!errorDetail) {
+    return '';
   }
-  return errorDetail;
+  let detailStr = typeof errorDetail === 'string' ? errorDetail : JSON.stringify(errorDetail);
+  if (detailStr.length > 1000 && /data:.+?;base64/.test(detailStr)) {
+    detailStr = detailStr.slice(0, 1000) + '...';
+  }
+  return detailStr;
 }
 export async function postEventStreamFetcher<T = any>(
   params: PostEventStreamFetcherParams<T>,
@@ -64,7 +67,7 @@ export async function postEventStreamFetcher<T = any>(
         ...(token !== NO_AUTH ? { Authorization: 'Bearer ' + token } : {}),
         ...(headers || {}),
       },
-      signal: controller.getSignal(), // 使用 AbortController 的信号
+      signal: controller.getSignal(), // Use the AbortController signal.
     });
 
     if (!response.ok) {
@@ -97,10 +100,10 @@ export async function postEventStreamFetcher<T = any>(
         buffer += decoder.decode(value, { stream: true });
         let pos;
         while ((pos = buffer.indexOf('\r\n\r\n')) >= 0) {
-          // 检查是否有完整的数据块
+          // Check whether a complete data chunk is available.
           const chunk = buffer.slice(0, pos);
           buffer = buffer.slice(pos + 2);
-          parseEventData<T>(chunk, onData, onError); // 处理每个完整的数据块
+          parseEventData<T>(chunk, onData, onError); // Process each complete data chunk.
         }
       }
     } catch (err: any) {
@@ -110,14 +113,14 @@ export async function postEventStreamFetcher<T = any>(
         onError(err?.message || errorText);
       }
     } finally {
-      // 释放 reader
+      // Release the reader.
       reader.releaseLock();
     }
   } catch (err: any) {
     if (err.name === 'AbortError') {
       console.log('被手动终止');
     } else {
-      // 网络错误
+      // Network error.
       onError(err?.message || errorText);
     }
   } finally {
@@ -126,7 +129,7 @@ export async function postEventStreamFetcher<T = any>(
 }
 
 function parseEventData<T>(text: string, next: (data: T) => void, onError: (msg: string) => void) {
-  // 切割接收到的数据段
+  // Split the received data segment.
   const lines = text.split('\n');
 
   for (const line of lines) {
@@ -138,7 +141,7 @@ function parseEventData<T>(text: string, next: (data: T) => void, onError: (msg:
         if (json?.error) {
           onError(json.error);
         } else {
-          next(json); // 处理转换后的JSON数据
+          next(json); // Handle the parsed JSON data.
         }
       } catch (error) {
         console.error('Error parsing JSON:', error);

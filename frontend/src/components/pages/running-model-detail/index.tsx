@@ -83,7 +83,8 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
     request
       .get<RunningModelDetailType>(`/v1/models/${modelUid}`)
       .then((res) => {
-        setSelectAbility(res?.model_ability?.[0]);
+        const firstAbility = (res?.model_ability || []).filter((item) => !item.includes('_'))?.[0];
+        setSelectAbility(firstAbility);
         setModel(res);
       })
       .finally(() => setLoading(false));
@@ -104,11 +105,11 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
       });
   }, [model]);
 
-  const handleAbility = (value?: ModelAbility)=>{
-    if(!value) return;
+  const handleAbility = (value?: ModelAbility) => {
+    if (!value) return;
     setSelectAbility(value as ModelAbility);
     capabilityTaskPanelRef.current?.reset?.();
-  }
+  };
   const renderCapability = () => {
     if (!model || !selectAbility) return null;
 

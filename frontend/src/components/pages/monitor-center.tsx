@@ -13,6 +13,12 @@ const MonitorCenter = () => {
       </div>
     );
   }
-  return null;
+  return (
+    <iframe
+      src={clusterUIConfig.grafana_url}
+      className="h-full w-full border-0"
+      title="Grafana Monitoring"
+    />
+  );;
 };
 export default MonitorCenter;
