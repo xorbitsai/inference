@@ -218,7 +218,7 @@ function MediaResultPanel({ result, type }: { result: unknown; type: MediaType }
     <div className={cn('grid gap-2', !isAudio && 'grid-cols-2')}>
       {mediaResults.map((item, index) => (
         <MediaPreview
-          key={`${item.url}-${index}`}
+          key={item.title || index}
           type={type}
           url={item.url}
           title={item.title}

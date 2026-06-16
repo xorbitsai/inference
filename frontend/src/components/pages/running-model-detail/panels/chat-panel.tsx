@@ -186,14 +186,14 @@ export function ChatPanel({ model, modelUid }: ChatPanelProps) {
     const thinkingContent = chunk?.choices?.[0]?.delta?.reasoning_content;
     setChatList((prevList) => {
       const lastChatItem = prevList[prevList.length - 1];
-     
+      if (!lastChatItem) {
+        return prevList;
+      }
       // A null reasoning_content field means the reasoning phase has completed.
       const thinkingCompleted =
-        'reasoning_content' in (chunk?.choices?.[0]?.delta || {})
-          ? thinkingContent === null
-            ? true
-            : false
-          : true;
+      'reasoning_content' in (chunk?.choices?.[0]?.delta || {})
+        ? thinkingContent === null
+        : true;
       const updatedLastItem = {
         ...lastChatItem,
         usage: chunk?.usage,

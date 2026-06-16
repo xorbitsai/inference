@@ -216,7 +216,7 @@ const RunningModel = () => {
               type="button"
               variant="outline"
               size="icon"
-              onClick={() => router.push(`/running-model/${activeModel?.id}`)}
+              onClick={() => activeModel?.id && router.push(`/running-model/${activeModel.id}`)}
               className="h-8 text-muted-foreground"
             >
               <MessageCircleMore />

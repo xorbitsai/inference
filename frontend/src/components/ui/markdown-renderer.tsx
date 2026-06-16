@@ -2,6 +2,7 @@ import { FC, PropsWithChildren } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
 import { cn } from '@/lib/utils';
 
 interface ReactMarkdownProps {
@@ -20,7 +21,7 @@ const ReactMarkdown: FC<PropsWithChildren<ReactMarkdownProps>> = ({
     <Markdown
       skipHtml={false}
       remarkPlugins={[remarkGfm]}
-      rehypePlugins={parseHtml ? [rehypeRaw] : []}
+      rehypePlugins={parseHtml ? [rehypeRaw, rehypeSanitize] : []}
       className={cn('markdown-body break-word', classname)}
       components={{
         a: (props) => {

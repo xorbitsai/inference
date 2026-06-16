@@ -134,7 +134,10 @@ function parseEventData<T>(text: string, next: (data: T) => void, onError: (msg:
 
   for (const line of lines) {
     if (line.startsWith('data:')) {
-      const eventData = line.replace('data: ', '');
+      let eventData = line.slice(5);
+      if (eventData.startsWith(' ')) {
+        eventData = eventData.slice(1);
+      }
       if (eventData === '[DONE]') return;
       try {
         const json = JSON.parse(eventData);
