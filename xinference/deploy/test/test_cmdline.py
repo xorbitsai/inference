@@ -68,85 +68,95 @@ def test_cmdline(setup, stream, model_uid):
     # CI has limited resources, use replica 1
     replica = 1
     original_model_uid = model_uid
-    model_uid = client.launch_model(
-        model_name="qwen1.5-chat",
-        model_engine="llama.cpp",
-        model_uid=model_uid,
-        model_size_in_billions="0_5",
-        quantization="q4_0",
-        replica=replica,
-    )
-    if original_model_uid == "my_model_uid":
-        assert model_uid == "my_model_uid"
-    assert len(model_uid) != 0
+    launched_model_uid = None
+    try:
+        launched_model_uid = client.launch_model(
+            model_name="qwen1.5-chat",
+            model_engine="llama.cpp",
+            model_uid=model_uid,
+            model_size_in_billions="0_5",
+            quantization="q4_0",
+            replica=replica,
+        )
+        if original_model_uid == "my_model_uid":
+            assert launched_model_uid == "my_model_uid"
+        assert len(launched_model_uid) != 0
 
-    # list model
-    result = runner.invoke(
-        model_list,
-        [
-            "--endpoint",
-            endpoint,
-        ],
-    )
-    assert result.exit_code == 0
-    assert model_uid in result.output
+        # list model
+        result = runner.invoke(
+            model_list,
+            [
+                "--endpoint",
+                endpoint,
+            ],
+        )
+        assert result.exit_code == 0
+        assert launched_model_uid in result.output
 
-    # model generate
-    result = runner.invoke(
-        model_generate,
-        [
-            "--endpoint",
-            endpoint,
-            "--model-uid",
-            model_uid,
-            "--stream",
-            stream,
-        ],
-        input="Once upon a time, there was a very old computer.\n\n",
-    )
-    assert result.exit_code == 0
-    assert len(result.stdout) != 0
-    print(result.stdout)
+        # model generate
+        result = runner.invoke(
+            model_generate,
+            [
+                "--endpoint",
+                endpoint,
+                "--model-uid",
+                launched_model_uid,
+                "--stream",
+                stream,
+            ],
+            input="Once upon a time, there was a very old computer.\n\n",
+        )
+        assert result.exit_code == 0
+        assert len(result.stdout) != 0
+        print(result.stdout)
 
-    # model chat
-    result = runner.invoke(
-        model_chat,
-        [
-            "--endpoint",
-            endpoint,
-            "--model-uid",
-            model_uid,
-            "--stream",
-            stream,
-        ],
-        input="Write a poem.\n\n",
-    )
-    assert result.exit_code == 0
-    assert len(result.stdout) != 0
-    print(result.stdout)
+        # model chat
+        result = runner.invoke(
+            model_chat,
+            [
+                "--endpoint",
+                endpoint,
+                "--model-uid",
+                launched_model_uid,
+                "--stream",
+                stream,
+            ],
+            input="Write a poem.\n\n",
+        )
+        assert result.exit_code == 0
+        assert len(result.stdout) != 0
+        print(result.stdout)
 
-    # terminate model
-    result = runner.invoke(
-        model_terminate,
-        [
-            "--endpoint",
-            endpoint,
-            "--model-uid",
-            model_uid,
-        ],
-    )
-    assert result.exit_code == 0
+        # terminate model
+        result = runner.invoke(
+            model_terminate,
+            [
+                "--endpoint",
+                endpoint,
+                "--model-uid",
+                launched_model_uid,
+            ],
+        )
+        assert result.exit_code == 0
+        terminated_model_uid = launched_model_uid
+        launched_model_uid = None
 
-    # list model again
-    result = runner.invoke(
-        model_list,
-        [
-            "--endpoint",
-            endpoint,
-        ],
-    )
-    assert result.exit_code == 0
-    assert model_uid not in result.stdout
+        # list model again
+        result = runner.invoke(
+            model_list,
+            [
+                "--endpoint",
+                endpoint,
+            ],
+        )
+        assert result.exit_code == 0
+        assert terminated_model_uid not in result.stdout
+    finally:
+        if launched_model_uid:
+            try:
+                client.terminate_model(launched_model_uid)
+            except Exception:
+                pass
 
 
 def test_cmdline_model_path_error(setup):
