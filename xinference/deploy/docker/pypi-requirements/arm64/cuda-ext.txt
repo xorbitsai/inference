@@ -1,9 +1,0 @@
-# CUDA extensions — Grace Hopper / Jetson
-# NOTE: some packages may not have prebuilt arm64 wheels.
-bitsandbytes
-sgl-kernel>=0.0.3.post3
-triton
-cuda-python
-torchao>=0.7.0
-xgrammar>=0.1.10
-onnxruntime-gpu>1.16.0

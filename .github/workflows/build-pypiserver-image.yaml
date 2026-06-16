@@ -13,8 +13,8 @@ concurrency:
 jobs:
   # ------------------------------------------------------------------
   # Build Docker image per architecture on native runners.
-  # Each runner builds the xinference wheel locally, then builds the
-  # Docker image on the native host arch — no QEMU emulation needed.
+  # Each runner uses list-packages.sh to generate the package list,
+  # then pip download collects all wheels inside the container.
   # ------------------------------------------------------------------
   build-and-push-image:
     name: Build and push ${{ matrix.arch }} image
@@ -31,48 +31,11 @@ jobs:
       contents: read
       packages: write
     env:
-      IMAGE_NAME: qinruicool/pypiserver-dev
+      IMAGE_NAME: qinruicool/pypiserver-devvv
 
     steps:
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          # Aggressive cleanup — this workflow is disk-bound (hundreds of wheels + Docker layers).
-          # Each pip download phase pulls ~10-20 GiB of packages; maximize available space.
-          android: true           # ~12 GiB
-          dotnet: true            # ~1.7 GiB
-          haskell: true           # negligible but harmless
-          docker-images: true     # ~3.6 GiB (pre-cached images not needed for this build)
-          large-packages: true    # ~4.6 GiB (apt-get remove bulky pre-installed packages)
-          swap-storage: true      # ~4.0 GiB (swap file — memory-light build, disk-heavy)
-          tool-cache: true        # ~8.4 GiB (setup-python re-downloads what it needs)
-          
       - name: Check out code
         uses: actions/checkout@v6
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.10"
-
-      - name: Install build tooling
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install build "setuptools<82"
-
-      - name: Checking tool version
-        run: |
-          echo "### Checking... ###"
-          python --version
-          pip --version
-          hostnamectl
-          uname -m
-          df -h
-
-      - name: Debug with specific py packages
-        run: |
-          echo "### Debugging... ###"
-          # python3 -m pip install eva-decord
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -84,13 +47,13 @@ jobs:
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
       - name: Build and push ${{ matrix.arch }} image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
-          file: xinference/deploy/docker/Dockerfile.pypi
+          file: xinference/deploy/docker/Dockerfile.pypiserver
           platforms: linux/${{ matrix.arch }}
           build-args: |
-            TARGET_ARCH=${{ matrix.arch }}
+            PLATFORM=${{ matrix.arch }}
           push: true
           provenance: false
           tags: |

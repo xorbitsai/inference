@@ -1,0 +1,75 @@
+# syntax=docker/dockerfile:1
+# Build a pypiserver image with all xinference model dependencies.
+#
+#   docker build -f xinference/deploy/docker/Dockerfile.pypiserver \
+#     --build-arg PLATFORM=amd64 -t pypiserver:amd64 .
+#
+#   docker build -f xinference/deploy/docker/Dockerfile.pypiserver \
+#     --build-arg PLATFORM=arm64 -t pypiserver:arm64 .
+
+# ============================================================================
+# Stage 1 — download every wheel needed by xinference model engines
+# ============================================================================
+FROM python:3.12-slim AS downloader
+
+ARG PLATFORM=amd64
+
+RUN case "${PLATFORM}" in \
+      amd64|arm64) ;; \
+      *) echo "ERROR: PLATFORM must be 'amd64' or 'arm64'" >&2; exit 1 ;; \
+    esac
+
+# jq → JSON parsing for list-packages.sh
+# git → clone deps referenced by git+https://…
+# cmake/gcc/g++/make → compile sdists that lack prebuilt wheels
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      jq git cmake gcc g++ make \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+# Copy only the two inputs list-packages.sh needs:
+#   - the script itself
+#   - model JSON files under xinference/model/
+COPY list-packages.sh /build/
+COPY xinference/model/ /build/xinference/model/
+
+# Generate the pip-installable package list for the target architecture.
+RUN chmod +x list-packages.sh \
+    && ./list-packages.sh --platform="${PLATFORM}" > packages.txt \
+    && echo "=== $(wc -l < packages.txt) packages to download ===" \
+    && cat packages.txt
+
+# Per-package download loop — a single failure does not block the rest.
+# Extra indexes supply CUDA wheels not published on PyPI.
+RUN mkdir -p /data/packages \
+    && while IFS= read -r pkg; do \
+         case "$pkg" in \
+           git+*|https://*) \
+             pip download --dest /data/packages/ --no-cache-dir \
+               "$pkg" 2>/dev/null \
+               && echo "OK  $pkg" || echo "SKIP $pkg" ;; \
+           *) \
+             pip download --dest /data/packages/ --no-cache-dir \
+               --extra-index-url https://download.pytorch.org/whl/cu130 \
+               --extra-index-url https://wheels.vllm.ai/0.19.0/cu130 \
+               --extra-index-url https://xorbitsai.github.io/xllamacpp/whl/cu128 \
+               "$pkg" 2>/dev/null \
+               && echo "OK  $pkg" || echo "SKIP $pkg" ;; \
+         esac; \
+       done < packages.txt \
+    && echo "=== Downloaded $(find /data/packages -name '*.whl' | wc -l) wheels ==="
+
+# Remove pip cache to keep the layer small.
+RUN pip cache purge \
+    && rm -rf /build
+
+# ============================================================================
+# Stage 2 — minimal pypiserver runtime
+# ============================================================================
+FROM pypiserver/pypiserver:latest
+
+COPY --from=downloader /data/packages/ /data/packages/
+RUN chown -R pypiserver:pypiserver /data/packages
+
+EXPOSE 8080

@@ -1,4 +1,0 @@
-# vLLM ecosystem — amd64 only
-vllm
-flashinfer-python
-xllamacpp

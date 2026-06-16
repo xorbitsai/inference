@@ -1,3 +1,0 @@
-# Platform-specific compiled packages — aarch64 (not CUDA-version-specific).
-uvloop
-onnxruntime==1.18.0
