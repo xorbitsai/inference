@@ -1,0 +1,24 @@
+xinference/core/model.py
+  259bf06e5b9b56b4 147,340
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "777d5a87c1a6df5af7a87992b3ac991b3ac2d782",
+  "prompts": {
+    "259bf06e5b9b56b4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ec123451-734e-402a-800f-d09f67324897",
+        "model": "qwen3.7-max"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 2,
+      "accepted_lines": 2,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/ad2ccf6a551ca046cbb8b339d2026988f6a65485f4345fce7334da734c7a9205"
+    }
+  }
+}
