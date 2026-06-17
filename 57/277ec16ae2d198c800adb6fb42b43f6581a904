@@ -1,0 +1,24 @@
+xinference/core/supervisor.py
+  3e7d41b82ca14f5d 2717-2723,2769-2770
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "57277ec16ae2d198c800adb6fb42b43f6581a904",
+  "prompts": {
+    "3e7d41b82ca14f5d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ab3e5702-76c3-4342-874d-ef6505837b3b",
+        "model": "qwen3.7-max"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 9,
+      "total_deletions": 4,
+      "accepted_lines": 9,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/b941c537988413b91d3666cb9b7475e791bd460614a4e09aa3654408b0346184"
+    }
+  }
+}
