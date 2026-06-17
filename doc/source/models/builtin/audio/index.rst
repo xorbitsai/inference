@@ -88,6 +88,8 @@ The following is a list of built-in audio models in Xinference:
    seaco-paraformer-zh
   
    sensevoicesmall
+
+   voxcpm2
   
    whisper-base
   
@@ -128,4 +130,3 @@ The following is a list of built-in audio models in Xinference:
    whisper-tiny.en
   
    whisper-tiny.en-mlx
-  
