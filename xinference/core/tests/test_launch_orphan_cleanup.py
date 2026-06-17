@@ -104,14 +104,28 @@ def test_snapshot_gpu_free_ratio_with_mock():
 async def test_kill_orphan_gpu_pids_diff_only():
     from xinference.core.worker import _kill_orphan_gpu_pids
 
+    # psutil is imported locally inside _kill_orphan_gpu_pids, so we patch
+    # sys.modules. Without this, psutil.Process(300) on a non-existent PID
+    # raises NoSuchProcess and the kill is skipped before os.kill is reached.
+    mock_proc = MagicMock()
+    mock_proc.is_running.return_value = True
+    mock_proc.status.return_value = "running"
+    mock_proc.cmdline.return_value = ["python", "-m", "vllm"]
+    mock_psutil = MagicMock()
+    mock_psutil.Process.return_value = mock_proc
+    mock_psutil.NoSuchProcess = ProcessLookupError
+    mock_psutil.AccessDenied = PermissionError
+    mock_psutil.STATUS_ZOMBIE = "zombie"
+
     with patch("xinference.core.worker._snapshot_gpu_occupying_pids") as mock_snap:
         # _kill_orphan_gpu_pids calls _snapshot_gpu_occupying_pids once (for post_pids).
         # pre_pids is passed as argument, not from a snapshot call.
         mock_snap.return_value = {100, 200, 300}
-        with patch("os.kill") as mock_kill:
-            await _kill_orphan_gpu_pids([0], {100, 200}, grace=0.01)
-            killed_pids = {call.args[0] for call in mock_kill.call_args_list}
-            assert 300 in killed_pids
+        with patch.dict("sys.modules", {"psutil": mock_psutil}):
+            with patch("os.kill") as mock_kill:
+                await _kill_orphan_gpu_pids([0], {100, 200}, grace=0.01)
+                killed_pids = {call.args[0] for call in mock_kill.call_args_list}
+                assert 300 in killed_pids
 
 
 @pytest.mark.asyncio

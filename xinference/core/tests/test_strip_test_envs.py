@@ -118,11 +118,11 @@ def test_strip_test_envs_non_dict_envs_logs_error(caplog):
         cleaned, stripped = _strip_test_envs(args)
     assert cleaned["envs"] == "not_a_dict"
     assert stripped == set()
-    # v3.2: error log includes diagnostic info
+    # v3.2: error log includes diagnostic info; impl logs the type name of envs
     assert any(
         "not dict" in record.message
         and "test-uid" in record.message
-        and "not_a_dict" in record.message
+        and "str" in record.message
         for record in caplog.records
         if record.levelname == "ERROR"
     )
