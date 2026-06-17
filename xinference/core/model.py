@@ -144,7 +144,7 @@ def request_limit(fn):
                 # stream case, let client call model_ref to decrease self._serve_count
                 pass
             else:
-                self._serve_count -= 1
+                self._serve_count = max(0, self._serve_count - 1)
                 await self.record_metrics(
                     "model_serve_count",
                     "set",
@@ -336,8 +336,13 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     def __getattr__(self, attr: str):
         return getattr(self._model, attr)
 
-    def decrease_serve_count(self):
-        self._serve_count -= 1
+    async def decrease_serve_count(self):
+        self._serve_count = max(0, self._serve_count - 1)
+        await self.record_metrics(
+            "model_serve_count",
+            "set",
+            {"labels": self._metrics_labels, "value": self._serve_count},
+        )
 
     @no_type_check
     async def start_transfer_for_vllm(self, rank_addresses: List[str]):
