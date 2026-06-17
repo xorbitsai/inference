@@ -206,9 +206,7 @@ async def test_kill_orphan_gpu_pids_model_uid_filter():
     # PID 300: vLLM worker with model_uid in cmdline → should be killed
     _make_proc(300, ["Xinf", "vLLM", "worker:", "0", "[test-model-1]"])
     # PID 400: EngineCore, no model_uid in own cmdline, but parent has it
-    parent_400 = _make_proc(
-        401, ["Xinf", "vLLM", "worker:", "0", "[test-model-1]"]
-    )
+    parent_400 = _make_proc(401, ["Xinf", "vLLM", "worker:", "0", "[test-model-1]"])
     _make_proc(400, ["vllm::EngineCore"], parent=parent_400)
     # PID 500: unrelated process, no model_uid anywhere → should be skipped
     _make_proc(500, ["python", "some_other_app.py"])

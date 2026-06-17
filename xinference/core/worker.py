@@ -305,7 +305,7 @@ async def _wait_pids_dead(pids: set, timeout: float = 5.0):
             await asyncio.sleep(0.2)
 
 
-def _process_or_ancestor_has_uid(proc: "psutil.Process", uid_lower: str) -> bool:
+def _process_or_ancestor_has_uid(proc: Any, uid_lower: str) -> bool:
     """Return True if proc or any of its ancestors has uid_lower in cmdline."""
     current = proc
     while current is not None:
