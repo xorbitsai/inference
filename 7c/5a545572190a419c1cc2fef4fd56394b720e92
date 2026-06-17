@@ -1,0 +1,27 @@
+xinference/core/tests/test_strip_test_envs.py
+  d91e6017ce678dba 1-182
+xinference/core/tests/test_launch_orphan_cleanup.py
+  d91e6017ce678dba 1-149
+xinference/core/worker.py
+  d91e6017ce678dba 22,158-274,385-387,405-453,458-568,1079-1086,2741-2749,2819-2921
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.2",
+  "base_commit_sha": "7c5a545572190a419c1cc2fef4fd56394b720e92",
+  "prompts": {
+    "d91e6017ce678dba": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "51c36fad-8371-4669-913a-9150306583b7",
+        "model": "qwen3.7-max"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 732,
+      "total_deletions": 0,
+      "accepted_lines": 2366,
+      "overriden_lines": 0
+    }
+  }
+}
