@@ -1,0 +1,32 @@
+xinference/model/llm/vllm/distributed_executor_v1.py
+  3e7d41b82ca14f5d 59-62
+xinference/core/worker.py
+  3e7d41b82ca14f5d 308-321,333-334,351-355
+xinference/model/llm/vllm/core.py
+  3e7d41b82ca14f5d 460-462
+xinference/model/llm/vllm/distributed_executor.py
+  3e7d41b82ca14f5d 55-58
+xinference/core/tests/test_launch_orphan_cleanup.py
+  3e7d41b82ca14f5d 187-277
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "deef543d536238129845e094cd72ea4fbde73ede",
+  "prompts": {
+    "3e7d41b82ca14f5d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ab3e5702-76c3-4342-874d-ef6505837b3b",
+        "model": "qwen3.7-max"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 126,
+      "total_deletions": 9,
+      "accepted_lines": 123,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/05fc4c87ef869bd3634f6b9e1661b4a6e8a7202a5cf51253b19f3b2dc4164c28"
+    }
+  }
+}
