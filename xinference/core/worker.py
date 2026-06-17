@@ -338,7 +338,7 @@ async def _kill_orphan_gpu_pids(
                 continue
             if not any(k in cmd for k in ("vllm", "enginecore", "python")):
                 continue
-            os.kill(pid, signal.SIGKILL)
+            p.kill()
             killed.append(pid)
         except (
             psutil.NoSuchProcess,
