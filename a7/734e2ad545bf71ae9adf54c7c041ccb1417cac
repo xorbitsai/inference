@@ -1,0 +1,26 @@
+xinference/core/tests/test_launch_orphan_cleanup.py
+  9b182f8ae41b607c 107-119,124-128
+xinference/core/tests/test_strip_test_envs.py
+  9b182f8ae41b607c 121,125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "a7734e2ad545bf71ae9adf54c7c041ccb1417cac",
+  "prompts": {
+    "9b182f8ae41b607c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c53ed6b9-f576-45a5-bd52-1e9002a4e3ee",
+        "model": "glm-5.2"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 20,
+      "total_deletions": 6,
+      "accepted_lines": 20,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/b43420078b391b04216f802d97b8fde34d91e244dae9e312f2d1e909d937f17b"
+    }
+  }
+}
