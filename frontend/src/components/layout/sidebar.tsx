@@ -190,33 +190,33 @@ export function Sidebar() {
             Icon: Monitor,
             Extra: ChevronRight,
           },
-          {
-            path: '/log-center',
-            name: t('menu.logCenter'),
-            Icon: ScrollText,
-            Extra: ChevronRight,
-            show: clusterUIConfig?.es_enabled || false,
-          },
+          // {
+          //   path: '/log-center',
+          //   name: t('menu.logCenter'),
+          //   Icon: ScrollText,
+          //   Extra: ChevronRight,
+          //   show: clusterUIConfig?.es_enabled || false,
+          // },
         ],
       },
-      {
-        name: t('menu.systemManagement'),
-        items: [
-          {
-            path: '/user-management',
-            name: t('menu.userManagement'),
-            Icon: Users,
-            Extra: ChevronRight,
-          },
-          {
-            path: '/api-key-management',
-            name: t('menu.apiKeyManagement'),
-            Icon: KeyRound,
-            Extra: ChevronRight,
-          },
-        ],
-        show: clusterUIConfig?.auth_advanced || false
-      },
+      // {
+      //   name: t('menu.systemManagement'),
+      //   items: [
+      //     {
+      //       path: '/user-management',
+      //       name: t('menu.userManagement'),
+      //       Icon: Users,
+      //       Extra: ChevronRight,
+      //     },
+      //     {
+      //       path: '/api-key-management',
+      //       name: t('menu.apiKeyManagement'),
+      //       Icon: KeyRound,
+      //       Extra: ChevronRight,
+      //     },
+      //   ],
+      //   show: clusterUIConfig?.auth_advanced || false
+      // },
       {
         name: t('menu.resourcesAndSupport'),
         items: [
