@@ -846,7 +846,7 @@ class VLLMModel(LLM):
                 logger.info("Detecting vLLM is not health, prepare to quit the process")
                 try:
                     self.stop()
-                except:  # noqa: E722
+                except Exception:
                     # ignore error when stop
                     pass
                 # Just kill the process and let xinference auto-recover the model

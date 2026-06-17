@@ -33,7 +33,7 @@ def vllm_check(fn):
     async def _async_wrapper(self, *args, **kwargs):
         try:
             return await fn(self, *args, **kwargs)
-        except (AsyncEngineDeadError, RuntimeError):
+        except AsyncEngineDeadError:
             logger.info("Detecting vLLM is not health, prepare to quit the process")
             try:
                 self.stop()
