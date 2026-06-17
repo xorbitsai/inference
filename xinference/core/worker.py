@@ -2784,7 +2784,10 @@ class WorkerActor(xo.StatelessActor):
                 # process may disappear, we just ignore it.
                 logger.debug("Fail to get pool addresses, error: %s", e)
 
-        # Resolve GPU indices for terminate-path orphan cleanup
+        # Resolve GPU indices for terminate-path orphan cleanup.
+        # Prefer launch_args["gpu_idx"] (user-specified), but fall back to
+        # model_spec["accelerators"] (allocated devices when gpu_idx=None
+        # and _create_subpool() auto-selected GPUs).
         _gpu_indices_for_terminate: list = []
         if not is_model_die:
             _launch_args = self._model_uid_to_launch_args.get(model_uid)
@@ -2792,6 +2795,12 @@ class WorkerActor(xo.StatelessActor):
                 _gpu_indices_for_terminate = _parse_gpu_indices(
                     _launch_args.get("gpu_idx")
                 )
+            if not _gpu_indices_for_terminate:
+                _model_spec = self._model_uid_to_model_spec.get(model_uid)
+                if _model_spec and _model_spec.get("accelerators"):
+                    _gpu_indices_for_terminate = [
+                        int(dev) for dev in _model_spec["accelerators"]
+                    ]
 
         try:
             logger.debug("Start to destroy model actor: %s", model_ref)
