@@ -447,6 +447,7 @@
     "copied": "クリップボードにコピーしました",
     "editPermTooltip": "権限編集",
     "editPermTitle": "モデル権限編集 —",
+    "editKeyTitle": "API Key 編集 —",
     "mixedMode": "タイプ別 + インスタンス別（混合）",
     "bans": "禁止数",
     "description": "説明",

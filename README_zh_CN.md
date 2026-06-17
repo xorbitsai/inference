@@ -14,6 +14,7 @@
 [![Build Status](https://img.shields.io/github/actions/workflow/status/xorbitsai/inference/python.yaml?branch=main&style=for-the-badge&label=GITHUB%20ACTIONS&logo=github)](https://actions-badge.atrox.dev/xorbitsai/inference/goto?ref=main)
 [![Docker Pulls](https://img.shields.io/docker/pulls/xprobe/xinference?style=for-the-badge&logo=docker)](https://hub.docker.com/r/xprobe/xinference)
 [![WeChat](https://img.shields.io/badge/添加微信小助手-07C160?style=for-the-badge&logo=wechat&logoColor=white)](https://xinference.cn/images/WeCom.jpg)
+[![Telegram](https://img.shields.io/badge/join_Telegram-26A5E4.svg?logo=telegram&style=for-the-badge&logoColor=white)](https://t.me/+nCNpwmySwk9iYmI1)
 [![Zhihu](https://img.shields.io/static/v1?style=for-the-badge&message=未来速度&color=0084FF&logo=Zhihu&logoColor=FFFFFF&label=)](https://www.zhihu.com/org/xorbits)
 
 <p align="center">
@@ -29,7 +30,7 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 
 
 <div align="center">
-<i><a href="https://xinference.cn/images/WeCom.jpg">👉 添加企业微信、加入Xinference社区!</a></i>
+<i><a href="https://xinference.cn/images/WeCom.jpg">👉 添加企业微信、加入Xinference社区!</a> · <a href="https://t.me/+nCNpwmySwk9iYmI1">加入 Telegram 群组!</a></i>
 </div>
 
 ## 🔥 近期热点
@@ -159,6 +160,7 @@ $ xinference-local
 | [Discord](https://discord.gg/Xw9tszSkr5) | 与其他 Xinference 用户合作。 |
 | [Twitter](https://twitter.com/xorbitsio)                                                        | 及时了解新功能。             |
 | [微信社群](https://xinference.cn/images/WeCom.jpg)                                     | 与其他 Xinference 用户交流。 |
+| [Telegram](https://t.me/+nCNpwmySwk9iYmI1)                                                       | 加入 Telegram 群组，与其他 Xinference 用户交流。 |
 | [知乎](https://zhihu.com/org/xorbits)                                                             | 了解团队最新的进展。           |
 
 ## 引用

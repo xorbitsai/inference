@@ -238,8 +238,9 @@ Getting Involved
 
             :fab:`twitter` Follow us on Twitter
 
-         .. grid-item-card::  
+         .. grid-item-card::
             :link: https://zhihu.com/org/xorbits
+            :class-item: zh-cn-only
 
             :fab:`zhihu` Read our blogs
 
@@ -257,6 +258,11 @@ Getting Involved
             :link: https://discord.gg/Xw9tszSkr5
 
             :fab:`discord` Find community on Discord
+
+         .. grid-item-card::
+            :link: https://t.me/+nCNpwmySwk9iYmI1
+
+            :fab:`telegram` Join our Telegram group
 
          .. grid-item-card::  
             :link: https://github.com/xorbitsai/inference/issues/new/choose

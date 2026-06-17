@@ -1,23 +1,26 @@
 'use client';
 
-import { FC, useState, useMemo } from 'react';
+import { ComponentType, FC, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import Cookies from 'js-cookie';
 import { FaGithub } from 'react-icons/fa';
 import {
-  Database,
   Box,
   Layers,
+  ChevronLeft,
   ChevronRight,
   Cpu,
   FileTextIcon,
   SquareArrowOutUpRight,
   Globe,
   BotIcon,
-  Moon,
   Rocket,
+  Monitor,
+  ScrollText,
+  Users,
+  KeyRound,
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
 import { useI18n } from '@/contexts/i18n-context';
@@ -29,19 +32,38 @@ import {
   XINFERENCE_BASE_URL,
   XINFERENCE_CN_URL,
   XINFERENCE_GITHUB,
+  NO_AUTH,
 } from '@/constants';
 import ThemeToggle from '@/components/layout/theme-toggle';
 import LanguageSwitcher from '@/components/layout/language-switcher';
 import LoginOut from '@/components/layout/login-out';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
+type IconComponent = ComponentType<{ className?: string }>;
 
 interface NavItem {
   path: string;
   name: React.ReactNode;
   target?: '_blank';
-  Icon: LucideIcon;
-  Extra: LucideIcon;
+  Icon: IconComponent;
+  Extra?: IconComponent;
+  show?: boolean;
 }
-const Nav: FC<NavItem> = ({ path, name, target, Icon, Extra }) => {
+
+interface NavGroup {
+  name: string;
+  items: NavItem[];
+  show?: boolean;
+}
+
+const Nav: FC<NavItem & { collapsed: boolean }> = ({
+  path,
+  name,
+  target,
+  Icon,
+  Extra,
+  collapsed,
+}) => {
   const pathname = usePathname();
 
   const isActive = useMemo(() => {
@@ -50,116 +72,256 @@ const Nav: FC<NavItem> = ({ path, name, target, Icon, Extra }) => {
     }
     return pathname === path || pathname.startsWith(`${path}/`);
   }, [pathname, path]);
-  return (
+  const link = (
     <Link
       href={path}
-      target={target || ''}
+      target={target}
+      rel={target === '_blank' ? 'noreferrer' : undefined}
       className={cn(
-        'flex items-center justify-between p-2 rounded-lg transition-colors rounded-lg',
+        'flex h-10 items-center rounded-lg transition-colors',
+        collapsed ? 'justify-center px-0' : 'justify-between px-2',
         isActive
           ? 'bg-primary/10 text-primary'
           : 'text-muted-foreground hover:bg-accent hover:text-foreground'
       )}
+      aria-label={typeof name === 'string' ? name : undefined}
     >
-      <div className="flex items-center gap-2.5">
-        <Icon className="w-5 h-5" />
-        {name}
+      <div className={cn('flex min-w-0 items-center', collapsed ? 'justify-center' : 'gap-2.5')}>
+        <Icon className="h-5 w-5 shrink-0" />
+        {!collapsed && <span className="truncate">{name}</span>}
       </div>
-      <Extra className="w-3.5 h-3.5" />
+      {!collapsed && Extra && <Extra className="h-3.5 w-3.5 shrink-0" />}
     </Link>
   );
+
+  if (!collapsed) {
+    return link;
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{link}</TooltipTrigger>
+      <TooltipContent side="right">
+        <p>{name}</p>
+      </TooltipContent>
+    </Tooltip>
+  );
 };
+
+const NavGroupSection: FC<NavGroup & { collapsed: boolean; showDivider: boolean }> = ({
+  name,
+  items,
+  collapsed,
+  showDivider,
+}) => {
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="flex flex-col gap-1">
+      {collapsed ? (
+        showDivider && <div className="mx-auto my-2 h-px w-8 bg-border" />
+      ) : (
+        <div
+          className={cn(
+            'px-2 pb-1 text-xs font-medium text-muted-foreground',
+            showDivider && 'pt-3'
+          )}
+        >
+          {name}
+        </div>
+      )}
+      {items.map((item) => (
+        <Nav {...item} collapsed={collapsed} key={item.path} />
+      ))}
+    </section>
+  );
+};
+
 export function Sidebar() {
   const { t, locale } = useI18n();
-  const [isExpanded] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const branding = getBrandingFromEnv();
-  const { clusterVersion } = useGlobal();
-  const links: NavItem[] = [
-    {
-      path: '/launch-model',
-      name: t('menu.launchModel'),
-      Icon: Rocket,
-      Extra: ChevronRight,
-    },
-    {
-      path: '/running-model',
-      name: t('menu.runningModels'),
-      Icon: Layers,
-      Extra: ChevronRight,
-    },
-    {
-      path: '/register-model',
-      name: t('menu.registerModel'),
-      Icon: Box,
-      Extra: ChevronRight,
-    },
-    {
-      path: '/cluster-information',
-      name: t('menu.clusterInfo'),
-      Icon: Cpu,
-      Extra: ChevronRight,
-    },
-  ];
-  const externalLinks: NavItem[] = [
-    {
-      path: `${XINFERENCE_DOCS_URL}/${locale === 'zh' ? 'zh-cn' : ''}`,
-      name: t('menu.documentation'),
-      target: '_blank',
-      Icon: FileTextIcon,
-      Extra: SquareArrowOutUpRight,
-    },
-    {
-      path: `${XINFERENCE_GITHUB}/inference`,
-      name: t('menu.contactUs'),
-      Icon: FaGithub as any,
-      Extra: SquareArrowOutUpRight,
-    },
-    {
-      path: locale === 'zh' ? XINFERENCE_CN_URL : XINFERENCE_BASE_URL,
-      name: t('menu.website'),
-      Icon: Globe,
-      Extra: SquareArrowOutUpRight,
-    },
-    {
-      path: `${XINFERENCE_GITHUB}/xagent`,
-      name: t('menu.xagent'),
-      Icon: BotIcon,
-      Extra: SquareArrowOutUpRight,
-    },
-  ];
+  const { clusterVersion, clusterAuth, clusterUIConfig } = useGlobal();
+  const token = Cookies.get('token');
+  const showLoginOut = useMemo(
+    () => clusterAuth?.auth && token && token !== NO_AUTH,
+    [clusterAuth, token]
+  );
+
+  const navGroups = useMemo<NavGroup[]>(() => {
+    const groups: NavGroup[] = [
+      {
+        name: t('menu.modelManagement'),
+        items: [
+          {
+            path: '/launch-model',
+            name: t('menu.launchModel'),
+            Icon: Rocket,
+            Extra: ChevronRight,
+          },
+          {
+            path: '/running-model',
+            name: t('menu.runningModels'),
+            Icon: Layers,
+            Extra: ChevronRight,
+          },
+          {
+            path: '/register-model',
+            name: t('menu.registerModel'),
+            Icon: Box,
+            Extra: ChevronRight,
+          },
+        ],
+      },
+      {
+        name: t('menu.monitoringManagement'),
+        items: [
+          {
+            path: '/cluster-information',
+            name: t('menu.clusterInfo'),
+            Icon: Cpu,
+            Extra: ChevronRight,
+          },
+          {
+            path: '/monitor-center',
+            name: t('menu.monitorCenter'),
+            Icon: Monitor,
+            Extra: ChevronRight,
+          },
+          // {
+          //   path: '/log-center',
+          //   name: t('menu.logCenter'),
+          //   Icon: ScrollText,
+          //   Extra: ChevronRight,
+          //   show: clusterUIConfig?.es_enabled || false,
+          // },
+        ],
+      },
+      // {
+      //   name: t('menu.systemManagement'),
+      //   items: [
+      //     {
+      //       path: '/user-management',
+      //       name: t('menu.userManagement'),
+      //       Icon: Users,
+      //       Extra: ChevronRight,
+      //     },
+      //     {
+      //       path: '/api-key-management',
+      //       name: t('menu.apiKeyManagement'),
+      //       Icon: KeyRound,
+      //       Extra: ChevronRight,
+      //     },
+      //   ],
+      //   show: clusterUIConfig?.auth_advanced || false
+      // },
+      {
+        name: t('menu.resourcesAndSupport'),
+        items: [
+          {
+            path: `${XINFERENCE_DOCS_URL}/${locale === 'zh' ? 'zh-cn' : ''}`,
+            name: t('menu.documentation'),
+            target: '_blank',
+            Icon: FileTextIcon,
+            Extra: SquareArrowOutUpRight,
+          },
+          {
+            path: `${XINFERENCE_GITHUB}/inference`,
+            name: t('menu.contactUs'),
+            target: '_blank',
+            Icon: FaGithub as IconComponent,
+            Extra: SquareArrowOutUpRight,
+          },
+          {
+            path: locale === 'zh' ? XINFERENCE_CN_URL : XINFERENCE_BASE_URL,
+            name: t('menu.website'),
+            target: '_blank',
+            Icon: Globe,
+            Extra: SquareArrowOutUpRight,
+          },
+          {
+            path: `${XINFERENCE_GITHUB}/xagent`,
+            name: t('menu.xagent'),
+            target: '_blank',
+            Icon: BotIcon,
+            Extra: SquareArrowOutUpRight,
+          },
+        ],
+      },
+    ];
+
+    return groups
+      .filter(({ show = true }) => show)
+      .map((group) => ({
+        ...group,
+        items: group.items.filter(({ show = true }) => show),
+      }));
+  }, [clusterUIConfig, locale, t]);
+
   return (
     <div
       className={cn(
-        'flex flex-col bg-card border-r border-border transition-all duration-300 shrink-0 overflow-y-auto',
-        isExpanded ? 'w-0' : 'w-60'
+        'relative flex flex-col bg-card border-r border-border transition-all duration-300 shrink-0 overflow-visible',
+        collapsed ? 'w-16' : 'w-60'
       )}
     >
-      <div className="flex h-16 items-center justify-between px-6 mt-2 mb-4 relative">
-        <Link href="/" className="flex items-center justify-center gap-2">
-          <Image src={branding.logoPath} alt={branding.logoAlt} width={32} height={32} className="rounded-lg" />
-          <h1 className="text-xl font-bold text-foreground">{branding.appName}</h1>
+      <button
+        type="button"
+        aria-label={collapsed ? t('common.unfold') : t('common.packUp')}
+        title={collapsed ? t('common.unfold') : t('common.packUp')}
+        className="absolute -right-3 top-20 z-20 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground"
+        onClick={() => setCollapsed((value) => !value)}
+      >
+        {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+      </button>
+
+      <div
+        className={cn(
+          'flex h-16 items-center px-4 mt-2 mb-4',
+          collapsed ? 'justify-center' : 'justify-between px-6'
+        )}
+      >
+        <Link href="/" className="flex min-w-0 items-center justify-center gap-2">
+          <Image
+            src={branding.logoPath}
+            alt={branding.logoAlt}
+            width={32}
+            height={32}
+            className="shrink-0 rounded-lg"
+          />
+          {!collapsed && (
+            <h1 className="truncate text-xl font-bold text-foreground">{branding.appName}</h1>
+          )}
         </Link>
       </div>
-      <nav className="flex-1 min-h-0 px-3 pb-4 flex flex-col gap-1">
-        {links.map((item) => (
-          <Nav {...item} key={item.path} />
-        ))}
-      </nav>
-      <nav className="px-3 border-t border-border py-2 flex flex-col gap-1">
-        {externalLinks.map((item) => (
-          <Nav {...item} key={item.path} />
-        ))}
-      </nav>
-      <div className="py-3 px-5 border-t border-border flex justify-between items-center gap-3">
-        <div className="flex gap-4 shrink-0">
-          <ThemeToggle />
-          <LanguageSwitcher />
-          <LoginOut />
+
+      <TooltipProvider delayDuration={300}>
+        <nav className="flex-1 min-h-0 overflow-y-auto px-3 pb-4 flex flex-col gap-1">
+          {navGroups.map((group, index) => (
+            <NavGroupSection
+              {...group}
+              collapsed={collapsed}
+              showDivider={index > 0}
+              key={group.name}
+            />
+          ))}
+        </nav>
+      </TooltipProvider>
+
+      {!collapsed && (
+        <div className="py-3 px-5 border-t border-border flex justify-between items-center gap-3">
+          <div className="flex gap-4 shrink-0">
+            <ThemeToggle />
+            <LanguageSwitcher />
+            {showLoginOut && <LoginOut />}
+          </div>
+          {clusterVersion?.version && (
+            <div className="text-slate-400 truncate">v:{clusterVersion.version}</div>
+          )}
         </div>
-        {clusterVersion?.version && (
-          <div className="text-slate-400 truncate">v:{clusterVersion.version}</div>
-        )}
-      </div>
+      )}
     </div>
   );
 }

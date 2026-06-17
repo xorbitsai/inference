@@ -67,9 +67,7 @@ function isTypedArray(value: unknown): boolean {
 
 function isBuffer(value: unknown): boolean {
   return (
-    typeof Buffer !== 'undefined' &&
-    typeof Buffer.isBuffer === 'function' &&
-    Buffer.isBuffer(value)
+    typeof Buffer !== 'undefined' && typeof Buffer.isBuffer === 'function' && Buffer.isBuffer(value)
   );
 }
 
@@ -82,4 +80,8 @@ function isPrototype(value: unknown): boolean {
   const proto = (typeof Ctor === 'function' && Ctor.prototype) || Object.prototype;
 
   return value === proto;
+}
+
+export function isNumber(value: unknown): value is number {
+  return typeof value === 'number' || Object.prototype.toString.call(value) === '[object Number]';
 }

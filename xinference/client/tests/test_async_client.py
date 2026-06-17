@@ -14,7 +14,6 @@
 
 import asyncio
 import os
-import time
 
 import psutil
 import pytest
@@ -587,7 +586,7 @@ async def test_auto_recover(set_auto_recover_limit, setup_cluster):
             assert "text" in completion["choices"][0]
             break
         except Exception:
-            time.sleep(1)
+            await asyncio.sleep(1)
     else:
         assert False
     await model.close()
@@ -613,6 +612,81 @@ async def test_model_error(set_test_oom_error, setup_cluster):
     with pytest.raises(RuntimeError):
         await model.generate("Once upon a time, there was a very old computer")
     await model.close()
+    await client.close()
+
+
+@pytest.mark.asyncio
+async def test_model_oom_triggers_restart(set_test_oom_error, setup_cluster):
+    # OOM must hard-exit the model subprocess via os._exit(1) so xoscar
+    # can detect the exit and recover it. With the old sys.exit(1) the
+    # SystemExit was swallowed by xoscar's _ErrorProcessor, the process
+    # never died, and this test would time out at the "subprocess did not
+    # exit" assert below.
+    endpoint, _ = setup_cluster
+    current_proc = psutil.Process()
+    before = set(current_proc.children(recursive=True))
+    client = AsyncRESTfulClient(endpoint)
+
+    model_uid = await client.launch_model(
+        model_name="qwen1.5-chat",
+        model_engine="llama.cpp",
+        model_size_in_billions="0_5",
+        quantization="q4_0",
+    )
+    assert len(await client.list_models()) == 1
+    model_proc = next(iter(set(current_proc.children(recursive=True)) - before))
+
+    model = await client.get_model(model_uid=model_uid)
+    assert isinstance(model, AsyncRESTfulChatModelHandle)
+
+    # Trigger OOM -> os._exit(1) on the model subprocess.
+    with pytest.raises(Exception):
+        await model.generate("Once upon a time, there was a very old computer")
+
+    # The old subprocess must actually exit (regression guard).
+    for _ in range(30):
+        if not model_proc.is_running() or model_proc.status() == psutil.STATUS_ZOMBIE:
+            break
+        await asyncio.sleep(1)
+    else:
+        assert False, "OOM subprocess did not exit (sys.exit swallowed by xoscar)"
+    await model.close()
+    await client.close()
+
+
+@pytest.mark.asyncio
+async def test_model_oom_recover_exhausted_evicts_replica(
+    set_auto_recover_limit, set_test_oom_error, setup_cluster
+):
+    # Once worker exhausts AUTO_RECOVER_LIMIT (=1), it stops recreating and
+    # calls back supervisor.mark_replica_dead, which evicts the dead replica.
+    # For a single-replica model the model is taken fully offline, so
+    # list_models() drains to empty.
+    endpoint, _ = setup_cluster
+    client = AsyncRESTfulClient(endpoint)
+
+    model_uid = await client.launch_model(
+        model_name="qwen1.5-chat",
+        model_engine="llama.cpp",
+        model_size_in_billions="0_5",
+        quantization="q4_0",
+    )
+    assert len(await client.list_models()) == 1
+
+    evicted = False
+    for _ in range(60):
+        try:
+            model = await client.get_model(model_uid=model_uid)
+            await model.generate("Once upon a time, there was a very old computer")
+        except Exception:
+            pass
+        if len(await client.list_models()) == 0:
+            evicted = True
+            break
+        await asyncio.sleep(1)
+    assert (
+        evicted
+    ), "dead replica was not evicted from supervisor after recover exhausted"
     await client.close()
 
 

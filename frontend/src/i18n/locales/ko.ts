@@ -1,9 +1,17 @@
 const ko = {
   menu: {
+    modelManagement: '모델 관리',
+    monitoringManagement: '모니터링 관리',
+    systemManagement: '시스템 관리',
+    resourcesAndSupport: '리소스 및 지원',
     launchModel: '모델 실행',
     runningModels: '실행 중인 모델',
     registerModel: '모델 등록',
     clusterInfo: '클러스터 정보',
+    monitorCenter: '모니터링 센터',
+    logCenter: '로그 센터',
+    userManagement: '사용자 관리',
+    apiKeyManagement: 'API Key 관리',
     clusterInfoDesc:
       'XInference 클러스터의 현재 상태를 확인합니다. 여기에는 슈퍼바이저 노드, 워커 노드 및 해당 하드웨어 리소스가 포함됩니다.',
     xagent: 'Xagent AI 에이전트',
@@ -178,6 +186,7 @@ const ko = {
     terminateConfirmOk: '종료',
     baseInfo: '기본 정보',
     modelType: '모델 유형',
+    modelEngine: '모델 엔진',
     modelFormat: '모델 형식',
     modelSize: '모델 크기',
     quantization: '양자화',
@@ -250,6 +259,9 @@ const ko = {
     autoFill: '자동 채우기',
     fillInModelPathFirst: '먼저 모델 경로를 입력하세요',
     fillInModelFamilyFirst: '먼저 모델 패밀리를 선택하세요',
+  },
+  monitoring: {
+    notConfigured: '모니터링이 구성되지 않았습니다. XINFERENCE_GRAFANA_URL 환경 변수를 설정하세요.',
   },
   clusterInfo: {
     supervisor: '슈퍼바이저',

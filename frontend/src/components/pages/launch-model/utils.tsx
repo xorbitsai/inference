@@ -402,6 +402,18 @@ function normalizeNGPU (value?: string | number) {
 
   return value === 0 ? null : value
 }
+export const parseGpuIndexes = (value?: string): number[] | undefined => {
+  if (!value) return undefined;
+
+  const result = value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map(Number)
+    .filter((num) => !Number.isNaN(num));
+
+  return result.length ? result : undefined;
+};
 
 export function transformFormToFetch(values: FormValues) {
   const nextValues = { ...values };
@@ -420,8 +432,8 @@ export function transformFormToFetch(values: FormValues) {
   if('n_gpu' in values){
     nextValues.n_gpu = normalizeNGPU(values.n_gpu)
   }
-  if('gpu_idx' in values && values.gpu_idx) {
-    nextValues.gpu_idx = values.gpu_idx.split(',').map((item: string)=> Number(item));
+  if('gpu_idx' in values) {
+    nextValues.gpu_idx = parseGpuIndexes(values.gpu_idx);
   }
   if ('n_gpu_layers' in values && values.n_gpu_layers < 0) {
     delete nextValues.n_gpu_layers

@@ -14,6 +14,7 @@
 [![Build Status](https://img.shields.io/github/actions/workflow/status/xorbitsai/inference/python.yaml?branch=main&style=for-the-badge&label=GITHUB%20ACTIONS&logo=github)](https://actions-badge.atrox.dev/xorbitsai/inference/goto?ref=main)
 [![Docker Pulls](https://img.shields.io/docker/pulls/xprobe/xinference?style=for-the-badge&logo=docker)](https://hub.docker.com/r/xprobe/xinference)
 [![Discord](https://img.shields.io/badge/join_Discord-5462eb.svg?logo=discord&style=for-the-badge&logoColor=%23f5f5f5)](https://discord.gg/Xw9tszSkr5)
+[![Telegram](https://img.shields.io/badge/join_Telegram-26A5E4.svg?logo=telegram&style=for-the-badge&logoColor=white)](https://t.me/+nCNpwmySwk9iYmI1)
 [![Twitter](https://img.shields.io/twitter/follow/xorbitsio?logo=x&style=for-the-badge)](https://twitter.com/xorbitsio)
 
 <p align="center">
@@ -33,7 +34,7 @@ researcher, developer, or data scientist, Xorbits Inference empowers you to unle
 potential of cutting-edge AI models.
 
 <div align="center">
-<i><a href="https://discord.gg/Xw9tszSkr5">👉 Join our Discord community!</a></i>
+<i><a href="https://discord.gg/Xw9tszSkr5">👉 Join our Discord community!</a> · <a href="https://t.me/+nCNpwmySwk9iYmI1">Join our Telegram group!</a></i>
 </div>
 
 ## 🔥 Hot Topics
@@ -174,6 +175,7 @@ Once Xinference is running, there are multiple ways you can try it: via the web 
 |-------------------------------------------------------------------------------------------------|---------------------------------------------|
 | [Github Issues](https://github.com/xorbitsai/inference/issues)                                  | Reporting bugs and filing feature requests. |
 | [Discord](https://discord.gg/Xw9tszSkr5) | Collaborating with other Xinference users.  |
+| [Telegram](https://t.me/+nCNpwmySwk9iYmI1)                                                       | Chatting with other Xinference users.       |
 | [Twitter](https://twitter.com/xorbitsio)                                                        | Staying up-to-date on new features.         |
 
 ## Citation

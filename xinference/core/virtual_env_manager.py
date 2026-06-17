@@ -49,6 +49,7 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
         "einops",
         "transformers>=4.53.3",
         "accelerate>=0.28.0",
+        "peft>0.17.1",  # dependence on transformers
         # Omit bare torchvision: use #system_torchvision# from model_spec to avoid mixed-source torch/torchvision.
     ],
     "diffusers": [

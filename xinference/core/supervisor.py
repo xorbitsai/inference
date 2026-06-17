@@ -30,6 +30,7 @@ from typing import (
     List,
     Literal,
     Optional,
+    Set,
     Tuple,
     Type,
     Union,
@@ -92,6 +93,18 @@ def callback_for_async_launch(model_uid: str):
     logger.debug(f"Model uid: {model_uid} async launch completes.")
 
 
+class WorkerNotRegisteredError(Exception):
+    """Raised when a worker reports status but is absent from the supervisor
+    registry (``_worker_address_to_worker``). Most commonly happens after a
+    supervisor restart clears the in-memory registry while workers keep their
+    cached refs. Raising forces the worker into ``report_status``'s reconnect
+    branch, which re-runs ``add_worker`` and self-heals the registry (and thus
+    ``workers_total``). Subclasses ``Exception`` (not ``RuntimeError``) on
+    purpose: the worker report loop treats some ``RuntimeError``s as fatal and
+    breaks, which must never happen here.
+    """
+
+
 @dataclass
 class WorkerStatus:
     update_time: float
@@ -139,6 +152,12 @@ class SupervisorActor(xo.StatelessActor):
         self._worker_model_gpu_memory: Dict[str, Dict[str, Dict[int, int]]] = (
             {}
         )  # worker_address -> {model_uid -> {gpu_idx -> bytes}}
+        # Replicas currently down due to worker failure. Key is
+        # (base_model_uid, replica_index), value is model_name. Populated on the
+        # death-detection paths, cleared on redeploy. Serialized in
+        # get_cluster_metrics_data() and translated into the
+        # xinference:model_unexpected_termination gauge in the API process.
+        self._unexpected_down_replicas: Dict[Tuple[str, int], str] = {}
 
     @classmethod
     def default_uid(cls) -> str:
@@ -283,6 +302,125 @@ class SupervisorActor(xo.StatelessActor):
                 continue
 
             self._model_uid_to_replica_info.pop(model_uid, None)
+
+    async def _record_unexpected_down_replicas(
+        self,
+        worker_address: str,
+        skip_replica_uids: Optional[Set[str]] = None,
+    ) -> List[str]:
+        """Record replicas on a now-dead worker into the unexpected-termination
+        tracking dict.
+
+        model_name is read from the status guard *before* any TERMINATED
+        transition, because get_instance_info filters out TERMINATED entries
+        (status_guard.py). Returns the affected replica_model_uids for logging.
+
+        skip_replica_uids lets the re-registration path (add_worker) pass the
+        replicas the worker still reports this round, so only the replicas that
+        silently disappeared (set difference) are treated as down. The death
+        paths pass nothing and treat every replica on the worker as down.
+        """
+        skip = skip_replica_uids or set()
+        affected_replica_uids: List[str] = []
+        collected: List[Tuple[str, int, str]] = []
+        for replica_model_uid in list(self._replica_model_uid_to_worker):
+            if replica_model_uid in skip:
+                continue
+            worker_refs = self._replica_model_uid_to_worker.get(replica_model_uid)
+            if worker_refs is None:
+                continue
+            if not isinstance(worker_refs, (list, tuple)):
+                worker_refs = [worker_refs]
+            if not any(wr.address == worker_address for wr in worker_refs):
+                continue
+            affected_replica_uids.append(replica_model_uid)
+            parsed = self._get_model_uid_and_replica_index(replica_model_uid)
+            if parsed is None:
+                continue
+            base_uid, replica_idx = parsed
+            m_name = "unknown"
+            if self._status_guard_ref is not None:
+                try:
+                    info_list = await self._status_guard_ref.get_instance_info(
+                        model_uid=base_uid
+                    )
+                    m_name = info_list[0].model_name if info_list else "unknown"
+                except Exception:
+                    pass
+            collected.append((base_uid, replica_idx, m_name))
+        # Mutate the shared dict without awaiting in between. Re-check that
+        # each replica is still mapped to this dead worker before writing:
+        # during the awaits above, a concurrent redeploy could have called
+        # _clear_unexpected_down_replicas and removed stale entries — blindly
+        # writing collected items back would resurrect them.
+        for base_uid, replica_idx, m_name in collected:
+            rep_uid = build_replica_model_uid(base_uid, replica_idx)
+            worker_refs = self._replica_model_uid_to_worker.get(rep_uid)
+            if worker_refs is not None:
+                if not isinstance(worker_refs, (list, tuple)):
+                    worker_refs = [worker_refs]
+                if any(wr.address == worker_address for wr in worker_refs):
+                    self._unexpected_down_replicas[(base_uid, replica_idx)] = m_name
+        if collected:
+            logger.warning(
+                "Replicas down due to worker failure. worker: %s, replicas: %s",
+                worker_address,
+                [
+                    {
+                        "model_uid": base_uid,
+                        "model_name": m_name,
+                        "replica_index": replica_idx,
+                    }
+                    for base_uid, replica_idx, m_name in collected
+                ],
+            )
+        return affected_replica_uids
+
+    async def _handle_dead_worker(self, worker_address: str) -> List[str]:
+        """Shared cleanup for a worker that has gone away — heartbeat-dead,
+        reverse-channel-dead, or graceful remove_worker.
+
+        1. Record each downed replica into _unexpected_down_replicas (per-replica;
+           degraded models keep their healthy replicas).
+        2. Remove only this worker's replicas via
+           _remove_worker_from_replica_mappings, which preserves healthy replicas
+           of multi-replica models on other workers and drops a model only when
+           *all* its replicas are gone.
+        3. Advance fully-gone models to TERMINATED so model_status disappears;
+           degraded models stay READY.
+        """
+        affected_replica_uids = await self._record_unexpected_down_replicas(
+            worker_address
+        )
+        base_uids_affected = set()
+        for replica_model_uid in affected_replica_uids:
+            parsed = self._get_model_uid_and_replica_index(replica_model_uid)
+            if parsed is not None:
+                base_uids_affected.add(parsed[0])
+
+        self._remove_worker_from_replica_mappings(worker_address)
+
+        for base_uid in base_uids_affected:
+            if base_uid not in self._model_uid_to_replica_info:
+                try:
+                    await self._status_guard_ref.update_instance_info(
+                        base_uid, {"status": LaunchStatus.TERMINATED.name}
+                    )
+                except Exception:
+                    logger.warning(
+                        "Failed to mark %s TERMINATED in status guard", base_uid
+                    )
+        return affected_replica_uids
+
+    def _clear_unexpected_down_replicas(self, model_uid: str) -> None:
+        """Drop all replica entries of a model_uid from the unexpected-termination
+        tracking dict (called on redeploy). The API process clears the matching
+        gauge series on its next refresh via stale-pop."""
+        self._unexpected_down_replicas = {
+            key: name
+            for key, name in self._unexpected_down_replicas.items()
+            if key[0] != model_uid
+        }
 
     def _rebuild_worker_replica_state(
         self,
@@ -927,6 +1065,16 @@ class SupervisorActor(xo.StatelessActor):
             "instance_infos": instance_infos,
             "model_replica_distribution": model_replica_distribution,
             "model_gpu_memory": dict(self._worker_model_gpu_memory),
+            "unexpected_down_replicas": [
+                {
+                    "model_uid": base_uid,
+                    "replica_index": replica_idx,
+                    "model_name": model_name,
+                }
+                for (base_uid, replica_idx), model_name in (
+                    self._unexpected_down_replicas.items()
+                )
+            ],
         }
 
     def _get_spec_dicts(
@@ -1878,6 +2026,8 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Model is already in the model list, uid: {model_uid}")
         # Set replica info first for exception handler to terminate model.
         self._model_uid_to_replica_info[model_uid] = self._build_replica_info(replica)
+        # Redeploy clears any stale unexpected-termination markers for this uid.
+        self._clear_unexpected_down_replicas(model_uid)
         instance_info = InstanceInfo(
             model_name=model_name,
             model_uid=model_uid,
@@ -2044,6 +2194,8 @@ class SupervisorActor(xo.StatelessActor):
 
         # Set replica info first for exception handler to terminate model.
         self._model_uid_to_replica_info[model_uid] = self._build_replica_info(replica)
+        # Redeploy clears any stale unexpected-termination markers for this uid.
+        self._clear_unexpected_down_replicas(model_uid)
         instance_info = InstanceInfo(
             model_name=model_name,
             model_uid=model_uid,
@@ -2160,12 +2312,8 @@ class SupervisorActor(xo.StatelessActor):
                             address,
                             dead_models,
                         )
-                        for replica_model_uid in dead_models:
-                            model_uid, _ = parse_replica_model_uid(replica_model_uid)
-                            self._model_uid_to_replica_info.pop(model_uid, None)
-                            self._replica_model_uid_to_worker.pop(
-                                replica_model_uid, None
-                            )
+                        # Defer model/replica cleanup to after this iteration so
+                        # we never await while iterating _worker_status.
                         dead_nodes.append(address)
                     elif (
                         status.failure_remaining_count
@@ -2178,8 +2326,13 @@ class SupervisorActor(xo.StatelessActor):
                         )
 
                 for address in dead_nodes:
+                    # Per-replica unexpected-termination recording + replica-level
+                    # mapping cleanup (preserves healthy replicas of multi-replica
+                    # models on surviving workers) + TERMINATED for fully-gone models.
+                    await self._handle_dead_worker(address)
                     self._worker_status.pop(address, None)
                     self._worker_address_to_worker.pop(address, None)
+                    self._worker_model_gpu_memory.pop(address, None)
 
                 # ---- Reverse-channel probe ----
                 # Heartbeat only covers worker->supervisor; this probes
@@ -2218,30 +2371,42 @@ class SupervisorActor(xo.StatelessActor):
                             status = self._worker_status.get(address)
                             if status is not None:
                                 status.failure_remaining_count = 0
-                            dead_models = []
-                            for model_uid in self._replica_model_uid_to_worker:
-                                worker_refs = self._replica_model_uid_to_worker[
-                                    model_uid
-                                ]
-                                if not isinstance(worker_refs, (list, tuple)):
-                                    worker_refs = [worker_refs]
-                                for wr in worker_refs:
-                                    if wr.address == address:
-                                        dead_models.append(model_uid)
+                            dead_models = [
+                                replica_model_uid
+                                for replica_model_uid in (
+                                    self._replica_model_uid_to_worker
+                                )
+                                for wr in (
+                                    self._replica_model_uid_to_worker[replica_model_uid]
+                                    if isinstance(
+                                        self._replica_model_uid_to_worker[
+                                            replica_model_uid
+                                        ],
+                                        (list, tuple),
+                                    )
+                                    else [
+                                        self._replica_model_uid_to_worker[
+                                            replica_model_uid
+                                        ]
+                                    ]
+                                )
+                                if wr.address == address
+                            ]
                             logger.error(
                                 "Worker reverse-channel dead. address: %s, "
                                 "influenced models: %s",
                                 address,
                                 dead_models,
                             )
-                            for replica_model_uid in dead_models:
-                                model_uid, _ = parse_replica_model_uid(
-                                    replica_model_uid
-                                )
-                                self._model_uid_to_replica_info.pop(model_uid, None)
-                                self._replica_model_uid_to_worker.pop(
-                                    replica_model_uid, None
-                                )
+                            # Per-replica unexpected-termination recording +
+                            # replica-level mapping cleanup + TERMINATED for
+                            # fully-gone models. Iterating a copied list above,
+                            # so full worker removal here is safe and keeps
+                            # _worker_status consistent with workers_total.
+                            await self._handle_dead_worker(address)
+                            self._worker_status.pop(address, None)
+                            self._worker_address_to_worker.pop(address, None)
+                            self._worker_model_gpu_memory.pop(address, None)
                             dead_nodes.append(address)
                             self._reverse_ping_failures.pop(address, None)
                         else:
@@ -2284,6 +2449,7 @@ class SupervisorActor(xo.StatelessActor):
         if errors and not suppress_exception:
             raise errors[0]
         self._model_uid_to_replica_info.pop(model_uid, None)
+        self._clear_unexpected_down_replicas(model_uid)
 
         # clear for xavier
         rank0_uid = model_uid + "-rank0"
@@ -2359,17 +2525,63 @@ class SupervisorActor(xo.StatelessActor):
                 model_uid,
                 {"replica": remaining_replica_count, "status": LaunchStatus.READY.name},
             )
+            self._unexpected_down_replicas.pop((model_uid, replica_id), None)
             return remaining_replica_count
 
         self._model_uid_to_replica_info.pop(model_uid, None)
+        self._clear_unexpected_down_replicas(model_uid)
 
+        await self._cleanup_distributed_actors(
+            model_uid, terminate_rank0_on_worker=True
+        )
+
+        return 0
+
+    async def _cleanup_distributed_actors(
+        self, model_uid: str, terminate_rank0_on_worker: bool = True
+    ) -> None:
+        """Tear down supervisor-side actors/mappings created for distributed
+        (Xavier) models when the last replica of ``model_uid`` goes away: the
+        rank0 model, the collective manager, and the block tracker.
+
+        Shared by terminate_model_replica (graceful teardown) and
+        mark_replica_dead (auto-recover exhaustion). Without this, exhausting
+        AUTO_RECOVER_LIMIT on a distributed model would leak the rank0 actor and
+        the collective/block-tracker mappings, and a later launch reusing the
+        same uid could hit stale actors.
+
+        terminate_rank0_on_worker: when True, RPC the worker to terminate the
+        rank0 model. Both terminate_model_replica (graceful) and
+        mark_replica_dead (auto-recover exhaustion) pass True: rank0 is a
+        SEPARATE subpool (launch_rank0_model appends its own sub pool with its
+        own address) that a regular replica's OOM does NOT terminate -- the
+        worker's recover_sub_pool only acts on the subpool whose address died,
+        so an exhausted regular replica leaves rank0 alive. Dropping only the
+        supervisor mapping would leak the rank0 actor/subpool. The RPC is
+        bounded by xo.wait_for(5s) so a stalled worker cannot hold up the
+        death-recovery tail path; failure/timeout is non-fatal.
+
+        Deliberately does NOT touch _unexpected_down_replicas: callers decide
+        whether the down marker stays lit (terminate clears it, mark_replica_dead
+        keeps it for the failure gauge).
+        """
         rank0_uid = model_uid + "-rank0"
-        if rank0_uid in self._replica_model_uid_to_worker:
-            rank0_worker_refs = self._replica_model_uid_to_worker.pop(rank0_uid)
+        rank0_worker_refs = self._replica_model_uid_to_worker.pop(rank0_uid, None)
+        if rank0_worker_refs is not None and terminate_rank0_on_worker:
             if not isinstance(rank0_worker_refs, (list, tuple)):
                 rank0_worker_refs = [rank0_worker_refs]
             for worker_ref in rank0_worker_refs:
-                await worker_ref.terminate_model(model_uid=rank0_uid)
+                try:
+                    await xo.wait_for(
+                        worker_ref.terminate_model(model_uid=rank0_uid),
+                        timeout=5,
+                    )
+                except Exception as e:
+                    logger.debug(
+                        "Terminate rank0 model failed, model uid: %s, error: %s",
+                        rank0_uid,
+                        e,
+                    )
 
         collective_manager_ref = self._collective_manager_mapping.pop(model_uid, None)
         if collective_manager_ref is not None:
@@ -2393,7 +2605,92 @@ class SupervisorActor(xo.StatelessActor):
                     e,
                 )
 
-        return 0
+    async def mark_replica_dead(self, replica_model_uid: str) -> None:
+        """Called back by worker after its local recover_sub_pool exhausts
+        AUTO_RECOVER_LIMIT (worker.py "Stop recreating model actor.").
+
+        Responsibilities: evict the dead replica from the round-robin scheduler
+        and light up model_unexpected_termination; when the single/last replica
+        dies, advance base_uid to TERMINATED and tear down the distributed
+        (Xavier) actors/mappings via _cleanup_distributed_actors.
+
+        Does NOT call back worker.terminate_model for the dead replica itself --
+        the worker already terminated it locally before giving up recreating
+        (recover_sub_pool calls terminate_model(is_model_die=True)). It DOES, on
+        last-replica death, terminate the separate rank0 actor via
+        _cleanup_distributed_actors, because a regular replica's OOM does not
+        reach rank0's distinct subpool (see that helper).
+        Equivalent to terminate_model_replica's "eviction half" (minus the dead
+        replica's worker RPC) plus _record_unexpected_down_replicas'
+        "observability half". Idempotent: no-op if the replica is already evicted.
+        """
+        parsed = self._get_model_uid_and_replica_index(replica_model_uid)
+        if parsed is None:
+            return
+        base_uid, replica_idx = parsed
+
+        replica_info = self._model_uid_to_replica_info.get(base_uid)
+        if replica_info is None:
+            return  # model already gone, idempotent no-op
+        if replica_idx not in replica_info.active_replica_ids:
+            return  # replica already evicted, idempotent no-op
+
+        # Observability half: read model_name BEFORE any TERMINATED transition.
+        # get_instance_info filters out TERMINATED entries; right now base_uid is
+        # the ERROR the worker set (not filtered), so model_name is readable.
+        try:
+            info_list = await self._status_guard_ref.get_instance_info(
+                model_uid=base_uid
+            )
+            m_name = info_list[0].model_name if info_list else "unknown"
+        except Exception:
+            m_name = "unknown"
+        self._unexpected_down_replicas[(base_uid, replica_idx)] = m_name
+        logger.warning(
+            "Replica down: worker exhausted auto-recover limit. "
+            "model_uid: %s, model_name: %s, replica_index: %s",
+            base_uid,
+            m_name,
+            replica_idx,
+        )
+
+        # Eviction half: mirror terminate_model_replica, minus
+        # worker_ref.terminate_model.
+        self._replica_model_uid_to_worker.pop(replica_model_uid, None)
+        self._replica_model_uid_to_worker_shards.pop(replica_model_uid, None)
+        replica_info.replica_to_worker_refs.pop(replica_idx, None)
+        replica_info.active_replica_ids.remove(replica_idx)
+        self._refresh_replica_scheduler(replica_info)
+
+        remaining = await self._status_guard_ref.remove_replica_status(
+            base_uid, replica_idx
+        )
+        if remaining > 0:
+            # Degraded: healthy replicas remain -> keep READY.
+            await self._status_guard_ref.update_instance_info(
+                base_uid,
+                {"replica": remaining, "status": LaunchStatus.READY.name},
+            )
+            return
+
+        # Single replica / last replica died -> take the model fully offline.
+        self._model_uid_to_replica_info.pop(base_uid, None)
+
+        # Tear down distributed (Xavier) actors/mappings. rank0 is a separate
+        # subpool that the regular replica's OOM did NOT terminate (the worker
+        # only recovered the dead replica's own subpool), so we must RPC the
+        # worker to terminate it -- dropping just the supervisor mapping would
+        # leak the rank0 actor/subpool. The RPC is bounded (xo.wait_for 5s) and
+        # best-effort. Keeps the _unexpected_down_replicas marker lit for the
+        # failure gauge.
+        await self._cleanup_distributed_actors(base_uid, terminate_rank0_on_worker=True)
+
+        try:
+            await self._status_guard_ref.update_instance_info(
+                base_uid, {"status": LaunchStatus.TERMINATED.name}
+            )
+        except Exception:
+            logger.warning("Failed to mark %s TERMINATED in status guard", base_uid)
 
     @log_async(logger=logger)
     async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
@@ -2607,25 +2904,62 @@ class SupervisorActor(xo.StatelessActor):
             address=worker_address, uid=WorkerActor.default_uid()
         )
         self._worker_address_to_worker[worker_address] = worker_ref
-        self._rebuild_worker_replica_state(
-            worker_ref,
-            self._normalize_replica_states(
-                replica_states=replica_states,
-                replica_model_uids=replica_model_uids,
-            ),
+
+        normalized = self._normalize_replica_states(
+            replica_states=replica_states,
+            replica_model_uids=replica_model_uids,
         )
-        await self._rebuild_worker_status_guard_state(
-            worker_address,
-            self._normalize_replica_states(
-                replica_states=replica_states,
-                replica_model_uids=replica_model_uids,
-            ),
+
+        # Re-registration reconciliation: a worker restarting and reusing the
+        # same address never trips dead-node detection (its fresh heartbeat
+        # refreshes _worker_status before the failure threshold is hit), so the
+        # death paths' StatusGuard/gauge cleanup never runs. Before rebuilding,
+        # diff the replicas the supervisor still maps to this address against the
+        # ones the worker reports this round; the set difference is what silently
+        # went away and must be handled like an unexpected termination. Passing
+        # the reported uids as skip means a worker that *did* recover its models
+        # is not mis-flagged.
+        reported_uids: Set[str] = set()
+        for state in normalized:
+            replica_model_uid = state.get("replica_model_uid")
+            if isinstance(replica_model_uid, str):
+                reported_uids.add(replica_model_uid)
+        affected_replica_uids = await self._record_unexpected_down_replicas(
+            worker_address, skip_replica_uids=reported_uids
         )
+
+        self._rebuild_worker_replica_state(worker_ref, normalized)
+
+        # After the rebuild reflects what the worker reports now, advance any
+        # fully-gone model to TERMINATED so model_status stops showing it as
+        # READY. Degraded models (some replicas recovered/on other workers) stay
+        # in _model_uid_to_replica_info and are left untouched. Same logic as
+        # _handle_dead_worker.
+        base_uids_affected = set()
+        for replica_model_uid in affected_replica_uids:
+            parsed = self._get_model_uid_and_replica_index(replica_model_uid)
+            if parsed is not None:
+                base_uids_affected.add(parsed[0])
+        for base_uid in base_uids_affected:
+            if base_uid not in self._model_uid_to_replica_info:
+                try:
+                    await self._status_guard_ref.update_instance_info(
+                        base_uid, {"status": LaunchStatus.TERMINATED.name}
+                    )
+                except Exception:
+                    logger.warning(
+                        "Failed to mark %s TERMINATED in status guard", base_uid
+                    )
+
+        await self._rebuild_worker_status_guard_state(worker_address, normalized)
         logger.debug("Worker %s has been added successfully", worker_address)
 
     @log_async(logger=logger)
     async def remove_worker(self, worker_address: str):
-        self._remove_worker_from_replica_mappings(worker_address)
+        # Records downed replicas + replica-level mapping cleanup + TERMINATED
+        # for fully-gone models (graceful worker shutdown is the third path
+        # where models won't auto-recover and need redeploy).
+        await self._handle_dead_worker(worker_address)
 
         if worker_address in self._worker_address_to_worker:
             del self._worker_address_to_worker[worker_address]
@@ -2652,6 +2986,15 @@ class SupervisorActor(xo.StatelessActor):
     async def report_worker_status(
         self, worker_address: str, status: Dict[str, Union[ResourceStatus, GPUStatus]]
     ):
+        if worker_address not in self._worker_address_to_worker:
+            # Worker is reporting but is absent from the registry (typically
+            # after a supervisor restart cleared it). Reject so the worker's
+            # report_status reconnect branch re-runs add_worker and self-heals
+            # the registry, restoring workers_total and replaying running
+            # replicas. Do NOT fabricate a _worker_status entry here, otherwise
+            # the registry would stay stale forever.
+            raise WorkerNotRegisteredError(worker_address)
+
         if worker_address not in self._worker_status:
             logger.debug("Worker %s resources: %s", worker_address, status)
             self._worker_status[worker_address] = WorkerStatus(
@@ -2692,6 +3035,22 @@ class SupervisorActor(xo.StatelessActor):
         Only updates the timestamp without collecting resource info.
         Used for liveness detection separate from full status reporting.
         """
+        if worker_address not in self._worker_address_to_worker:
+            # Worker not in the registry (typically after a supervisor restart).
+            # Stay a no-op: do NOT fabricate a _worker_status entry, otherwise
+            # dead-node detection would see a fake-alive worker and the registry
+            # would never self-heal. Registry recovery is driven solely by
+            # report_status -> report_worker_status (which raises and triggers
+            # the worker's reconnect/add_worker path). We must NOT raise here:
+            # heartbeat() has no reconnect branch and the worker report loop may
+            # treat a raised RuntimeError as fatal and break.
+            logger.debug(
+                "Worker %s heartbeat ignored: not registered, waiting for "
+                "report_status to re-register",
+                worker_address,
+            )
+            return
+
         if worker_address not in self._worker_status:
             # New worker, create initial status with empty state
             logger.debug("Worker %s heartbeat: new worker", worker_address)

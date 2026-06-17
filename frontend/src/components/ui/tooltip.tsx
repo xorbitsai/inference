@@ -35,6 +35,7 @@ interface InfoTooltipProps {
   icon?: LucideIcon;
   iconClassName?: string;
   contentClassName?: string;
+  children?: React.ReactNode;
 }
 
 export function InfoTooltip({
@@ -42,22 +43,27 @@ export function InfoTooltip({
   icon: Icon = CircleQuestionMark,
   iconClassName,
   contentClassName,
+  children,
 }: InfoTooltipProps) {
+  const normalizedContent = typeof content === 'string' ? content.replace(/\\n/g, '\n') : content;
+
   return (
     <TooltipProvider>
       <Tooltip delayDuration={300}>
         <TooltipTrigger asChild>
-          <span className="inline-flex cursor-pointer items-center">
-            <Icon
-              className={cn(
-                'h-3.5 w-3.5 text-muted-foreground/70 hover:text-muted-foreground',
-                iconClassName
-              )}
-            />
-          </span>
+          {children || (
+            <span className="inline-flex cursor-pointer items-center">
+              <Icon
+                className={cn(
+                  'h-3.5 w-3.5 text-muted-foreground/70 hover:text-muted-foreground',
+                  iconClassName
+                )}
+              />
+            </span>
+          )}
         </TooltipTrigger>
         <TooltipContent sideOffset={6} className={cn('max-w-72', contentClassName)}>
-          <p>{content}</p>
+          <div className="whitespace-pre-line">{normalizedContent}</div>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

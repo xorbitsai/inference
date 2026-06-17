@@ -148,6 +148,10 @@ model_gpu_memory_used_bytes = Gauge(
     "xinference:model_gpu_memory_used_bytes",
     "Per-model GPU memory used in bytes (real-time, per process).",
 )
+model_unexpected_termination = Gauge(
+    "xinference:model_unexpected_termination",
+    "Replica currently down due to worker failure (value=1). Cleared on redeploy.",
+)
 build_info_gauge = Gauge(
     "xinference:build_info",
     "Xinference build information (value=1).",
@@ -203,6 +207,7 @@ _SUPERVISOR_ONLY_METRICS = {
     "xinference:worker_gpu_memory_total_bytes",
     "xinference:model_gpu_binding",
     "xinference:model_gpu_memory_used_bytes",
+    "xinference:model_unexpected_termination",
     "xinference:api_key_requests_total",
     "xinference:api_key_request_duration_seconds",
     "xinference:api_keys_active_total",
@@ -236,6 +241,20 @@ _prev_model_labels: Set[Tuple[str, ...]] = set()
 _prev_status_labels: Set[Tuple[str, ...]] = set()
 _prev_model_gpu_mem_labels: Set[Tuple[str, ...]] = set()
 _prev_gpu_binding_labels: Set[Tuple[str, ...]] = set()
+_prev_unexpected_labels: Set[Tuple[str, ...]] = set()
+
+
+def _drop_series(collector, labels: Dict[str, str]) -> None:
+    """Delete a single time series from a collector's underlying MetricDict.
+
+    aioprometheus has no public ``remove()``; the only correct way to drop one
+    series (instead of zeroing it) is to pop it from ``collector.values``.
+    HELP/TYPE rows are collector-level metadata and are unaffected.
+    """
+    try:
+        collector.values.pop(labels, None)
+    except Exception:
+        pass
 
 
 def record_metrics(name, op, kwargs):
@@ -302,6 +321,7 @@ def update_cluster_metrics(
     """Refresh all Supervisor-side Prometheus gauges from in-memory data."""
     global _prev_worker_labels, _prev_gpu_labels
     global _prev_model_labels, _prev_status_labels, _prev_gpu_binding_labels, _prev_model_gpu_mem_labels
+    global _prev_unexpected_labels
 
     # --- Build info (set once, labels are static) ---
     cluster_name = cluster_data.get("cluster", "")
@@ -366,16 +386,16 @@ def update_cluster_metrics(
     # Clear stale worker labels
     for stale in _prev_worker_labels - cur_worker_labels:
         s = {"worker_address": stale[0]}
-        worker_cpu_utilization.set(s, 0)
-        worker_memory_used_bytes.set(s, 0)
-        worker_memory_total_bytes.set(s, 0)
+        _drop_series(worker_cpu_utilization, s)
+        _drop_series(worker_memory_used_bytes, s)
+        _drop_series(worker_memory_total_bytes, s)
     _prev_worker_labels = cur_worker_labels
 
     for stale in _prev_gpu_labels - cur_gpu_labels:
         s = {"worker_address": stale[0], "gpu_index": stale[1], "gpu_name": stale[2]}
-        worker_gpu_utilization_percent.set(s, 0)
-        worker_gpu_memory_used_bytes.set(s, 0)
-        worker_gpu_memory_total_bytes.set(s, 0)
+        _drop_series(worker_gpu_utilization_percent, s)
+        _drop_series(worker_gpu_memory_used_bytes, s)
+        _drop_series(worker_gpu_memory_total_bytes, s)
     _prev_gpu_labels = cur_gpu_labels
 
     # --- Models loaded by type ---
@@ -443,7 +463,7 @@ def update_cluster_metrics(
             "replica_on_worker": stale[4],
             "replica_total": stale[5],
         }
-        model_info_gauge.set(stale_labels, 0)
+        _drop_series(model_info_gauge, stale_labels)
     _prev_model_labels = cur_model_labels
 
     # --- Model GPU binding (per-replica, per-GPU) ---
@@ -485,7 +505,7 @@ def update_cluster_metrics(
             "gpu_index": stale[4],
             "replica_index": stale[5],
         }
-        model_gpu_binding_gauge.set(stale_labels, 0)
+        _drop_series(model_gpu_binding_gauge, stale_labels)
     _prev_gpu_binding_labels = cur_gpu_binding_labels
 
     # --- Models loaded total (by type) ---
@@ -509,7 +529,7 @@ def update_cluster_metrics(
             "model_name": stale[1],
             "status": stale[2],
         }
-        model_status_gauge.set(stale_labels, 0)
+        _drop_series(model_status_gauge, stale_labels)
     _prev_status_labels = cur_status_labels
 
     # --- Per-model GPU memory ---
@@ -558,8 +578,36 @@ def update_cluster_metrics(
             "worker_address": stale[4],
             "replica_index": stale[5],
         }
-        model_gpu_memory_used_bytes.set(stale_labels, 0)
+        _drop_series(model_gpu_memory_used_bytes, stale_labels)
     _prev_model_gpu_mem_labels = cur_model_gpu_mem_labels
+
+    # --- Replica-level unexpected termination (worker failure) ---
+    # Pull model: supervisor maintains a plain dict and serializes it here; this
+    # API process owns the gauge instance that /metrics actually exposes.
+    cur_unexpected_labels: Set[Tuple[str, ...]] = set()
+    for item in cluster_data.get("unexpected_down_replicas", []):
+        uid = item.get("model_uid", "unknown")
+        m_name = item.get("model_name", "unknown")
+        rep_idx = str(item.get("replica_index", "0"))
+        u_labels = {
+            "model_uid": uid,
+            "model_name": m_name,
+            "replica_index": rep_idx,
+        }
+        cur_unexpected_labels.add((uid, m_name, rep_idx))
+        model_unexpected_termination.set(u_labels, 1)
+    # Redeploy clears the supervisor-side dict, so the uid no longer appears
+    # this frame -> stale-pop removes the series (disappears from /metrics).
+    for stale in _prev_unexpected_labels - cur_unexpected_labels:
+        _drop_series(
+            model_unexpected_termination,
+            {
+                "model_uid": stale[0],
+                "model_name": stale[1],
+                "replica_index": stale[2],
+            },
+        )
+    _prev_unexpected_labels = cur_unexpected_labels
 
 
 def update_security_gauges(auth_service) -> None:

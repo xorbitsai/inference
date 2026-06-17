@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import asyncio
 import itertools
 from typing import Any, List, Optional, Tuple, Union
 
@@ -55,6 +56,15 @@ class MockWorkerActor(WorkerActor):
 
     def set_allow_multi_replica_per_gpu(self, allow: bool):
         self._allow_multi_replica_per_gpu = allow
+
+    def get_launch_semaphore_value(self):
+        return self._launch_semaphore._value
+
+    def get_launch_active_count(self):
+        return self._launch_active
+
+    def get_launch_waiting_count(self):
+        return self._launch_waiting
 
     async def is_model_vllm_backend(self, model_uid):
         if model_uid.startswith("embedding") or model_uid.startswith("rerank"):
@@ -594,6 +604,37 @@ async def test_supervisor_add_worker_idempotent_rebuilds_replica_state(monkeypat
 
 
 @pytest.mark.asyncio
+async def test_supervisor_report_worker_status_rejects_unregistered_worker():
+    """report_worker_status must reject a worker absent from the registry
+    (e.g. after a supervisor restart) instead of fabricating a _worker_status
+    entry, so the worker is pushed into its reconnect/add_worker path and the
+    registry (and workers_total) self-heals."""
+    from ..supervisor import WorkerNotRegisteredError
+
+    supervisor = SupervisorActor()
+    assert "ghost-worker" not in supervisor._worker_address_to_worker
+
+    with pytest.raises(WorkerNotRegisteredError):
+        await supervisor.report_worker_status("ghost-worker", {"cpu": "ok"})
+
+    # No stale status entry should have been created.
+    assert "ghost-worker" not in supervisor._worker_status
+
+
+@pytest.mark.asyncio
+async def test_supervisor_report_worker_status_accepts_registered_worker():
+    """A worker present in the registry reports normally and its status is
+    recorded."""
+    supervisor = SupervisorActor()
+    supervisor._worker_address_to_worker["worker-1"] = object()
+
+    await supervisor.report_worker_status("worker-1", {"cpu": "ok"})
+
+    assert "worker-1" in supervisor._worker_status
+    assert supervisor._worker_status["worker-1"].status == {"cpu": "ok"}
+
+
+@pytest.mark.asyncio
 async def test_supervisor_add_worker_preserves_sharded_replicas_on_replay(monkeypatch):
     supervisor = SupervisorActor()
     supervisor._status_guard_ref = DummyStatusGuardRef()
@@ -831,6 +872,26 @@ def test_prepare_virtual_env_keeps_system_markers():
         "pkgB==2.0.0",
         "#system_torchaudio#",
     ]
+
+
+def test_prepare_virtual_env_expands_engine_dependencies_before_user_override():
+    manager = DummyVirtualEnvManager()
+    settings = VirtualEnvSettings(
+        packages=['#vllm_dependencies# ; #engine# == "vllm"'],
+        inherit_pip_config=False,
+    )
+
+    WorkerActor._prepare_virtual_env(
+        manager,
+        settings,
+        ["vllm==0.10.2"],
+        model_engine="vllm",
+    )
+
+    assert len(manager.calls) == 1
+    packages, _ = manager.calls[0]
+    assert packages.count("vllm==0.10.2") == 1
+    assert "vllm>=0.11.2" not in packages
 
 
 @pytest.mark.asyncio
@@ -1211,3 +1272,219 @@ async def test_report_status_skips_gpu_collection_when_cpu_only(
     status = sup.report_worker_status_calls[-1][1]
     assert "model_gpu_memory" not in status
     assert calls == []  # NVML never queried on CPU-only worker
+
+
+@pytest.mark.asyncio
+async def test_launch_semaphore_default(setup_pool):
+    pool = setup_pool
+    addr = pool.external_address
+
+    worker: xo.ActorRefType["MockWorkerActor"] = await xo.create_actor(  # type: ignore
+        MockWorkerActor,
+        address=addr,
+        uid=WorkerActor.default_uid(),
+        supervisor_address="test",
+        main_pool=pool,
+        cuda_devices=[0],
+    )
+
+    # Semaphore initialized in __init__, default value 5
+    assert await worker.get_launch_semaphore_value() == 5
+    assert await worker.get_launch_active_count() == 0
+    assert await worker.get_launch_waiting_count() == 0
+
+
+@pytest.mark.asyncio
+async def test_launch_semaphore_env_override(setup_pool, monkeypatch):
+    monkeypatch.setattr("xinference.core.worker.XINFERENCE_MAX_CONCURRENT_LAUNCHES", 2)
+
+    pool = setup_pool
+    addr = pool.external_address
+
+    worker: xo.ActorRefType["MockWorkerActor"] = await xo.create_actor(  # type: ignore
+        MockWorkerActor,
+        address=addr,
+        uid=WorkerActor.default_uid(),
+        supervisor_address="test",
+        main_pool=pool,
+        cuda_devices=[0],
+    )
+
+    assert await worker.get_launch_semaphore_value() == 2
+
+
+@pytest.mark.asyncio
+async def test_launch_semaphore_concurrency():
+    """Verify semaphore correctly limits concurrent launches."""
+    max_concurrent = 2
+    peak_concurrent = 0
+    current_concurrent = 0
+
+    sem = asyncio.Semaphore(max_concurrent)
+
+    async def simulate_launch():
+        nonlocal peak_concurrent, current_concurrent
+        async with sem:
+            current_concurrent += 1
+            if current_concurrent > peak_concurrent:
+                peak_concurrent = current_concurrent
+            await asyncio.sleep(0.05)
+            current_concurrent -= 1
+
+    # Launch 6 concurrent tasks with semaphore limited to 2
+    await asyncio.gather(*[simulate_launch() for _ in range(6)])
+
+    assert peak_concurrent == max_concurrent
+
+
+class _RecordingWorkerRef(DummyActorRef):
+    """Worker ref that records terminate_model calls for rank0 eviction tests."""
+
+    def __init__(self, address: str):
+        super().__init__(address)
+        self.terminated: List[str] = []
+
+    async def terminate_model(self, model_uid: str):
+        self.terminated.append(model_uid)
+
+
+@pytest.mark.asyncio
+async def test_cleanup_distributed_actors_terminates_rank0():
+    """rank0 lives in its own subpool that a regular replica's OOM never
+    terminates, so _cleanup_distributed_actors(terminate_rank0_on_worker=True)
+    must RPC the worker to terminate it -- not merely drop the supervisor
+    mapping (which would leak the rank0 actor/subpool)."""
+    supervisor = SupervisorActor()
+    rank0_ref = _RecordingWorkerRef("worker-1")
+    supervisor._replica_model_uid_to_worker = {"model-x-rank0": rank0_ref}
+    supervisor._collective_manager_mapping = {}
+    supervisor._block_tracker_mapping = {}
+
+    await supervisor._cleanup_distributed_actors(
+        "model-x", terminate_rank0_on_worker=True
+    )
+
+    assert rank0_ref.terminated == ["model-x-rank0"]
+    assert "model-x-rank0" not in supervisor._replica_model_uid_to_worker
+
+
+@pytest.mark.asyncio
+async def test_cleanup_distributed_actors_skips_rank0_rpc_when_false():
+    """With terminate_rank0_on_worker=False the supervisor mapping is dropped
+    but no terminate RPC is issued (the graceful caller already knows rank0 is
+    gone)."""
+    supervisor = SupervisorActor()
+    rank0_ref = _RecordingWorkerRef("worker-1")
+    supervisor._replica_model_uid_to_worker = {"model-x-rank0": rank0_ref}
+    supervisor._collective_manager_mapping = {}
+    supervisor._block_tracker_mapping = {}
+
+    await supervisor._cleanup_distributed_actors(
+        "model-x", terminate_rank0_on_worker=False
+    )
+
+    assert rank0_ref.terminated == []
+    assert "model-x-rank0" not in supervisor._replica_model_uid_to_worker
+
+
+@pytest.mark.asyncio
+async def test_mark_replica_dead_last_replica_terminates_rank0():
+    """End to end: when the single (last) replica of a Xavier model exhausts
+    auto-recover, mark_replica_dead's last-replica branch must terminate the
+    separate rank0 actor, drop its mapping, and keep the failure marker lit."""
+
+    class _Info:
+        model_name = "m"
+
+    class _StatusGuard:
+        async def get_instance_info(self, model_name=None, model_uid=None):
+            return [_Info()]
+
+        async def remove_replica_status(self, model_uid: str, replica_id: int):
+            return 0  # last replica gone
+
+        async def update_instance_info(self, model_uid: str, updates: dict):
+            pass
+
+    supervisor = SupervisorActor()
+    supervisor._status_guard_ref = _StatusGuard()
+    supervisor._collective_manager_mapping = {}
+    supervisor._block_tracker_mapping = {}
+
+    replica_ref = _RecordingWorkerRef("worker-1")
+    rank0_ref = _RecordingWorkerRef("worker-1")
+    replica_info = ReplicaInfo(replica=1, scheduler=itertools.cycle(range(1)))
+    replica_info.active_replica_ids.append(0)
+    replica_info.replica_to_worker_refs[0].append(replica_ref)
+    supervisor._model_uid_to_replica_info = {"model-x": replica_info}
+    supervisor._replica_model_uid_to_worker = {
+        "model-x-0": replica_ref,
+        "model-x-rank0": rank0_ref,
+    }
+
+    await supervisor.mark_replica_dead("model-x-0")
+
+    # rank0 terminated on the worker and supervisor mapping dropped.
+    assert rank0_ref.terminated == ["model-x-rank0"]
+    assert "model-x-rank0" not in supervisor._replica_model_uid_to_worker
+    # Dead replica evicted and model taken offline.
+    assert "model-x" not in supervisor._model_uid_to_replica_info
+    assert "model-x-0" not in supervisor._replica_model_uid_to_worker
+    # Failure gauge marker stays lit (mark_replica_dead must not clear it).
+    assert ("model-x", 0) in supervisor._unexpected_down_replicas
+
+
+@pytest.mark.asyncio
+async def test_recover_model_pops_launch_ts_from_kwargs():
+    """launch_ts is an internal timestamp stamped onto the launch snapshot at
+    launch_builtin_model entry. recover_model splats the snapshot back via
+    launch_builtin_model(**launch_args), which would inject launch_ts into the
+    model's self._kwargs. Models that forward the full self._kwargs into a
+    strict constructor (e.g. jina-reranker-v3 -> AutoModelForCausalLM.from_pretrained)
+    then crash with TypeError. recover_model must pop launch_ts before the splat,
+    mirroring the existing cleanup in recover_models_on_startup."""
+
+    # Use a minimal mock object to avoid WorkerActor initialization complexity
+    class _MockWorker:
+        async def launch_builtin_model(self, **kwargs):
+            self._captured_kwargs = kwargs
+            return "mock-subpool-address"
+
+        async def get_supervisor_ref(self, add_worker=False):
+            return None
+
+    worker = _MockWorker()
+
+    # Simulate a cached launch snapshot with launch_ts (the internal timestamp)
+    launch_args = {
+        "model_uid": "test-model-0",
+        "model_name": "test-model",
+        "launch_ts": 1780900592,  # Internal timestamp, not a model param
+        "some_param": "value",
+    }
+    original_launch_args = dict(launch_args)
+
+    # Mock parse_replica_model_uid to avoid dependency
+    def mock_parse(uid):
+        return ("test-model", 0)
+
+    import xinference.core.worker as worker_module
+
+    original_parse = worker_module.parse_replica_model_uid
+    worker_module.parse_replica_model_uid = mock_parse
+
+    try:
+        # Call recover_model directly (it's a standalone async method)
+        await WorkerActor.recover_model(worker, launch_args)
+
+        # Assert: launch_builtin_model was called without launch_ts
+        assert hasattr(worker, "_captured_kwargs")
+        assert "launch_ts" not in worker._captured_kwargs
+        assert worker._captured_kwargs["model_uid"] == "test-model-0"
+        assert worker._captured_kwargs["some_param"] == "value"
+
+        # Assert: original launch_args still has launch_ts (copy isolation)
+        assert launch_args == original_launch_args
+        assert launch_args["launch_ts"] == 1780900592
+    finally:
+        worker_module.parse_replica_model_uid = original_parse
