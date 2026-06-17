@@ -457,6 +457,9 @@ class VLLMModel(LLM):
         global VLLM_INSTALLED, VLLM_VERSION
         VLLM_INSTALLED = True
         VLLM_VERSION = version.parse(vllm.__version__)
+        # Expose model_uid to child processes (vLLM workers, EngineCore)
+        # so orphan cleanup can identify them on shared GPUs.
+        os.environ["XINFERENCE_MODEL_UID"] = self.model_uid
         _update_vllm_supported_lists()
 
         from ..llm_family import LlamaCppLLMSpecV2

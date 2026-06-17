@@ -305,6 +305,20 @@ async def _wait_pids_dead(pids: set, timeout: float = 5.0):
             await asyncio.sleep(0.2)
 
 
+def _process_or_ancestor_has_uid(proc: "psutil.Process", uid_lower: str) -> bool:
+    """Return True if proc or any of its ancestors has uid_lower in cmdline."""
+    current = proc
+    while current is not None:
+        try:
+            cmd = " ".join(current.cmdline()).lower()
+            if uid_lower in cmd:
+                return True
+            current = current.parent()
+        except Exception:
+            return False
+    return False
+
+
 async def _kill_orphan_gpu_pids(
     device_indices: list,
     pre_pids: set,
@@ -316,8 +330,8 @@ async def _kill_orphan_gpu_pids(
     An orphan is a PID present on the GPU that was not in pre_pids (the set
     of PIDs known to belong to other models or the worker itself).
 
-    Requires model_uid in the process cmdline to avoid killing unrelated
-    processes on shared GPUs.
+    Requires model_uid in the process cmdline (or in an ancestor's cmdline)
+    to avoid killing unrelated processes on shared GPUs.
     """
     post_pids = _snapshot_gpu_occupying_pids(device_indices)
     orphan_pids = [pid for pid in post_pids if pid not in pre_pids]
@@ -334,8 +348,11 @@ async def _kill_orphan_gpu_pids(
             if not p.is_running() or p.status() == psutil.STATUS_ZOMBIE:
                 continue
             cmd = " ".join(p.cmdline()).lower()
-            if uid_lower and uid_lower not in cmd:
-                continue
+            if uid_lower:
+                if uid_lower not in cmd and not _process_or_ancestor_has_uid(
+                    p, uid_lower
+                ):
+                    continue
             if not any(k in cmd for k in ("vllm", "enginecore", "python")):
                 continue
             p.kill()

@@ -184,3 +184,94 @@ async def test_wait_pids_dead_timeout():
         await _wait_pids_dead({123}, timeout=0.5)
         _elapsed = time.monotonic() - _start
         assert _elapsed >= 0.4
+
+
+@pytest.mark.asyncio
+async def test_kill_orphan_gpu_pids_model_uid_filter():
+    """When model_uid is given, only processes with model_uid in cmdline
+    (own or ancestor) should be killed."""
+    from xinference.core.worker import _kill_orphan_gpu_pids
+
+    procs = {}
+
+    def _make_proc(pid, cmdline, parent=None):
+        m = MagicMock()
+        m.is_running.return_value = True
+        m.status.return_value = "running"
+        m.cmdline.return_value = cmdline
+        m.parent.return_value = parent
+        procs[pid] = m
+        return m
+
+    # PID 300: vLLM worker with model_uid in cmdline → should be killed
+    _make_proc(300, ["Xinf", "vLLM", "worker:", "0", "[test-model-1]"])
+    # PID 400: EngineCore, no model_uid in own cmdline, but parent has it
+    parent_400 = _make_proc(
+        401, ["Xinf", "vLLM", "worker:", "0", "[test-model-1]"]
+    )
+    _make_proc(400, ["vllm::EngineCore"], parent=parent_400)
+    # PID 500: unrelated process, no model_uid anywhere → should be skipped
+    _make_proc(500, ["python", "some_other_app.py"])
+
+    mock_psutil = MagicMock()
+
+    def _process_side_effect(pid):
+        if pid in procs:
+            return procs[pid]
+        raise ProcessLookupError(f"no such process {pid}")
+
+    mock_psutil.Process.side_effect = _process_side_effect
+    mock_psutil.NoSuchProcess = ProcessLookupError
+    mock_psutil.AccessDenied = PermissionError
+    mock_psutil.STATUS_ZOMBIE = "zombie"
+
+    with patch("xinference.core.worker._snapshot_gpu_occupying_pids") as mock_snap:
+        mock_snap.return_value = {300, 400, 500}
+        with patch.dict("sys.modules", {"psutil": mock_psutil}):
+            killed = await _kill_orphan_gpu_pids(
+                [0], set(), model_uid="test-model-1", grace=0.01
+            )
+            assert 300 in killed
+            assert 400 in killed
+            assert 500 not in killed
+
+
+@pytest.mark.asyncio
+async def test_kill_orphan_gpu_pids_model_uid_skips_other_model():
+    """When model_uid is given, processes belonging to a different model
+    (different uid in cmdline) should be skipped."""
+    from xinference.core.worker import _kill_orphan_gpu_pids
+
+    procs = {}
+
+    def _make_proc(pid, cmdline, parent=None):
+        m = MagicMock()
+        m.is_running.return_value = True
+        m.status.return_value = "running"
+        m.cmdline.return_value = cmdline
+        m.parent.return_value = parent
+        procs[pid] = m
+        return m
+
+    # PID 300: vLLM worker for a DIFFERENT model → should be skipped
+    _make_proc(300, ["Xinf", "vLLM", "worker:", "0", "[other-model]"])
+
+    mock_psutil = MagicMock()
+
+    def _process_side_effect(pid):
+        if pid in procs:
+            return procs[pid]
+        raise ProcessLookupError(f"no such process {pid}")
+
+    mock_psutil.Process.side_effect = _process_side_effect
+    mock_psutil.NoSuchProcess = ProcessLookupError
+    mock_psutil.AccessDenied = PermissionError
+    mock_psutil.STATUS_ZOMBIE = "zombie"
+
+    with patch("xinference.core.worker._snapshot_gpu_occupying_pids") as mock_snap:
+        mock_snap.return_value = {300}
+        with patch.dict("sys.modules", {"psutil": mock_psutil}):
+            killed = await _kill_orphan_gpu_pids(
+                [0], set(), model_uid="test-model-1", grace=0.01
+            )
+            assert killed == []
