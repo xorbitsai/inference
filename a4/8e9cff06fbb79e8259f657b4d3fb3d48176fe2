@@ -1,0 +1,27 @@
+xinference/model/llm/vllm/core.py
+  d91e6017ce678dba 658-664,666-671,685-702,819-822,840,845
+  81498258fa121853 640,665,703-710
+xinference/model/llm/vllm/utils.py
+  d91e6017ce678dba 21-22,24-25,34
+  81498258fa121853 26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "a48e9cff06fbb79e8259f657b4d3fb3d48176fe2",
+  "prompts": {
+    "81498258fa121853": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "897d8f88-87c1-4488-91d6-c249f945425b",
+        "model": "glm-5.1"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 11,
+      "total_deletions": 9,
+      "accepted_lines": 11,
+      "overriden_lines": 0
+    }
+  }
+}
