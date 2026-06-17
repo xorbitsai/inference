@@ -62,6 +62,7 @@ from ..llm_family import cache_model_tokenizer_and_config
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     GEMMA_TOOL_CALL_FAMILY,
+    GLM5_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_SYMBOLS,
     ChatModelMixin,
@@ -332,6 +333,11 @@ def _update_vllm_supported_lists() -> None:
     if effective_version >= version.parse("0.22.0"):
         _append_unique(
             VLLM_SUPPORTED_MULTI_MODEL_LIST, "MiniCPMV4_6ForConditionalGeneration"
+        )
+        _append_unique(
+            VLLM_SUPPORTED_CHAT_MODELS,
+            "HunYuanDenseV1ForCausalLM",
+            "HYV3ForCausalLM",
         )
 
     if is_npu_available() and effective_version >= version.parse("0.18.0"):
@@ -1760,6 +1766,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 model_family in QWEN_TOOL_CALL_FAMILY
                 or model_family in GEMMA_TOOL_CALL_FAMILY
                 or model_family in DEEPSEEK_TOOL_CALL_FAMILY
+                or model_family in GLM5_TOOL_CALL_FAMILY
             ):
                 full_context_kwargs["tools"] = tools
         assert self.model_family.chat_template is not None
@@ -2055,6 +2062,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             if tools and (
                 model_family in QWEN_TOOL_CALL_FAMILY
                 or model_family in GEMMA_TOOL_CALL_FAMILY
+                or model_family in GLM5_TOOL_CALL_FAMILY
             ):
                 full_context_kwargs["tools"] = tools
             assert self.model_family.chat_template is not None

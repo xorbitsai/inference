@@ -306,6 +306,21 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - HuatuoGPT-o1 is a medical LLM designed for advanced medical reasoning. It generates a complex thought process, reflecting and refining its reasoning, before providing a final response.
 
+   * - :ref:`hy-mt2-1.8b <models_llm_hy-mt2-1.8b>`
+     - chat
+     - 262144
+     - Hy-MT2-1.8B is a dense multilingual translation model from Tencent Hunyuan, supporting 33 languages with instruction-following capabilities for complex translation scenarios.
+
+   * - :ref:`hy-mt2-30b-a3b <models_llm_hy-mt2-30b-a3b>`
+     - chat
+     - 262144
+     - Hy-MT2-30B-A3B is a Mixture-of-Experts multilingual translation model from Tencent Hunyuan, supporting 33 languages with SOTA performance for complex professional domains.
+
+   * - :ref:`hy-mt2-7b <models_llm_hy-mt2-7b>`
+     - chat
+     - 262144
+     - Hy-MT2-7B is a dense multilingual translation model from Tencent Hunyuan, supporting 33 languages with balanced performance for general-purpose high-quality translation.
+
    * - :ref:`internlm3-instruct <models_llm_internlm3-instruct>`
      - chat, tools
      - 32768
@@ -916,6 +931,12 @@ The following is a list of built-in LLM in Xinference:
    huatuogpt-o1-llama-3.1
   
    huatuogpt-o1-qwen2.5
+  
+   hy-mt2-1.8b
+  
+   hy-mt2-30b-a3b
+  
+   hy-mt2-7b
   
    internlm3-instruct
   
