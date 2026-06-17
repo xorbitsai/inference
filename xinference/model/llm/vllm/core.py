@@ -373,6 +373,7 @@ class VLLMModel(LLM):
         self._driver_info = model_config.pop("driver_info", None)  # type: ignore
         self._loading_thread: Optional[threading.Thread] = None
         self._loading_error = None
+        self._check_health_task = None
         # variables used for distributed inference and multiple GPUs
         self._pool_addresses = None
         self._worker_addresses: Optional[Dict[int, List[str]]] = None
