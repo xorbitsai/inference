@@ -1,0 +1,24 @@
+xinference/core/tests/test_model.py
+  9b182f8ae41b607c 59-62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "0a45ad3cfee50c4a5ac72c8f7059d801810e716d",
+  "prompts": {
+    "9b182f8ae41b607c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c53ed6b9-f576-45a5-bd52-1e9002a4e3ee",
+        "model": "glm-5.2"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 4,
+      "total_deletions": 0,
+      "accepted_lines": 4,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/e2925ce0c447b37ee79be285e539571800772da66ac66882f3430351d20aafd8"
+    }
+  }
+}
