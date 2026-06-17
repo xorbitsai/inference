@@ -56,7 +56,10 @@ class WorkerActor(xo.StatelessActor):
             # Change process title for model
             import setproctitle
 
-            setproctitle.setproctitle(f"Xinf vLLM worker: {self._worker.rpc_rank}")
+            _uid = os.environ.get("XINFERENCE_MODEL_UID", "")
+            setproctitle.setproctitle(
+                f"Xinf vLLM worker: {self._worker.rpc_rank} [{_uid}]"
+            )
         except ImportError:
             pass
 
