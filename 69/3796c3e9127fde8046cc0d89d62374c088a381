@@ -1,0 +1,24 @@
+xinference/core/worker.py
+  3e7d41b82ca14f5d 2787-2790,2798-2803
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "693796c3e9127fde8046cc0d89d62374c088a381",
+  "prompts": {
+    "3e7d41b82ca14f5d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ab3e5702-76c3-4342-874d-ef6505837b3b",
+        "model": "qwen3.7-max"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 10,
+      "total_deletions": 1,
+      "accepted_lines": 10,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/2037d835bfdf578e2b58c4619b2f471207163ceb9986710b2bfc61fc4a861f55"
+    }
+  }
+}
