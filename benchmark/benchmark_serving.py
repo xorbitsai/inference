@@ -132,10 +132,10 @@ def main(args: argparse.Namespace):
     model_uid = args.model_uid
 
     logger.info("Preparing for benchmark.")
-    tokenizer = get_tokenizer(args.tokenizer, trust_remote_code=args.trust_remote_code)
     if args.request_rate <= 0.0:
         raise ValueError("--request-rate must be positive.")
 
+    tokenizer = get_tokenizer(args.tokenizer, trust_remote_code=args.trust_remote_code)
     if args.dataset_name == "sharegpt":
         if not args.dataset:
             raise ValueError("--dataset is required when --dataset-name=sharegpt.")

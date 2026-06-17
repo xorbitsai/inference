@@ -170,6 +170,8 @@ def _num_special_tokens_to_add(tokenizer: "PreTrainedTokenizerBase") -> int:
     num_special_tokens_to_add = getattr(tokenizer, "num_special_tokens_to_add", None)
     if callable(num_special_tokens_to_add):
         return int(num_special_tokens_to_add())
+    if isinstance(num_special_tokens_to_add, int):
+        return num_special_tokens_to_add
     return 0
 
 
