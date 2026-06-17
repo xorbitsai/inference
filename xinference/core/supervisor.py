@@ -2714,8 +2714,13 @@ class SupervisorActor(xo.StatelessActor):
 
         worker_ref = self._replica_model_uid_to_worker.get(replica_model_uid, None)
         if worker_ref is None:
-            raise ValueError(
-                f"Model not found in the model list, uid: {replica_model_uid}"
+            # replica_info exists but worker route not yet registered —
+            # model is being launched (wait_ready=False), not missing.
+            # Raise ModelNotReadyError (503) instead of ValueError (404)
+            # so the negative cache is not poisoned and clients get a
+            # retry-friendly response.
+            raise ModelNotReadyError(
+                f"Model {model_uid} is launching, not yet ready for inference"
             )
         if isinstance(worker_ref, (list, tuple)):
             # get first worker to fetch information if model across workers
@@ -2761,8 +2766,8 @@ class SupervisorActor(xo.StatelessActor):
         )
         worker_ref = self._replica_model_uid_to_worker.get(replica_model_uid, None)
         if worker_ref is None:
-            raise ValueError(
-                f"Model not found in the model list, uid: {replica_model_uid}"
+            raise ModelNotReadyError(
+                f"Model {model_uid} is launching, not yet ready for inference"
             )
         if isinstance(worker_ref, (list, tuple)):
             # get status from first shard if model has multiple shards across workers
