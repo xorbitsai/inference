@@ -175,7 +175,8 @@ class BenchmarkRunner:
                             output.success = True
                             output.completion_tokens = (
                                 usage["completion_tokens"]
-                                if usage and "completion_tokens" in usage
+                                if isinstance(usage, dict)
+                                and isinstance(usage.get("completion_tokens"), int)
                                 else len(output.itl) + 1
                             )
                         else:
@@ -185,7 +186,8 @@ class BenchmarkRunner:
                             usage = resp.get("usage")
                             output.completion_tokens = (
                                 usage["completion_tokens"]
-                                if usage and "completion_tokens" in usage
+                                if isinstance(usage, dict)
+                                and isinstance(usage.get("completion_tokens"), int)
                                 else 0
                             )
             except Exception:
