@@ -17,7 +17,7 @@ import {
   BotIcon,
   Rocket,
   Monitor,
-  // ScrollText,
+  ScrollText,
   // Users,
   // KeyRound,
 } from 'lucide-react';
@@ -190,13 +190,13 @@ export function Sidebar() {
             Icon: Monitor,
             Extra: ChevronRight,
           },
-          // {
-          //   path: '/log-center',
-          //   name: t('menu.logCenter'),
-          //   Icon: ScrollText,
-          //   Extra: ChevronRight,
-          //   show: clusterUIConfig?.es_enabled || false,
-          // },
+          {
+            path: '/log-center',
+            name: t('menu.logCenter'),
+            Icon: ScrollText,
+            Extra: ChevronRight,
+            show: Boolean(clusterUIConfig?.es_enabled),
+          },
         ],
       },
       // {

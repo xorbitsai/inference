@@ -64,7 +64,7 @@ export async function postEventStreamFetcher<T = any>(
       body: JSON.stringify(data),
       headers: {
         'Content-Type': 'application/json',
-        ...(token !== NO_AUTH ? { Authorization: 'Bearer ' + token } : {}),
+        ...(token && token !== NO_AUTH ? { Authorization: 'Bearer ' + token } : {}),
         ...(headers || {}),
       },
       signal: controller.getSignal(), // Use the AbortController signal.
