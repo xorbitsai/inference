@@ -33,7 +33,8 @@ class PaddleOCRVLModel(OCRModel):
 
     @classmethod
     def match(cls, model_family: "ImageModelFamilyV2") -> bool:
-        return model_family.model_name == "PaddleOCR-VL"
+        model_name = model_family.model_name
+        return model_name == "PaddleOCR-VL" or model_name.startswith("PaddleOCR-VL-")
 
     def __init__(
         self,
