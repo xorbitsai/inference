@@ -153,7 +153,9 @@ class XllamaCppRerankModel(RerankModel):
                     else:
                         setattr(params, k, v)
                 except Exception as e:
-                    logger.error("Failed to set the param %s = %s, error: %s", k, v, e)
+                    logger.warning(
+                        "Failed to set the param %s = %s, error: %s", k, v, e
+                    )
             n_threads = self._llamacpp_model_config.get("n_threads", os.cpu_count())
             params.cpuparams.n_threads = n_threads
             params.cpuparams_batch.n_threads = n_threads
