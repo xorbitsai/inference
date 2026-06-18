@@ -267,7 +267,7 @@ const MonitorCenter = () => {
       setRefreshInterval(Number(savedRefreshInterval));
     }
   }, []);
-  
+
   // Auto refresh
   useEffect(() => {
     if (timerRef.current) {

@@ -37,4 +37,3 @@ export interface LogContextResponse {
   has_more_older?: boolean;
   has_more_newer?: boolean;
 }
-
