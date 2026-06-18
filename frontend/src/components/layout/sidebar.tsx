@@ -17,7 +17,7 @@ import {
   BotIcon,
   Rocket,
   Monitor,
-  // ScrollText,
+  ScrollText,
   // Users,
   // KeyRound,
 } from 'lucide-react';
@@ -143,11 +143,7 @@ export function Sidebar() {
   const { t, locale } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
   const branding = getBrandingFromEnv();
-  const {
-    clusterVersion,
-    clusterAuth,
-    //  clusterUIConfig
-  } = useGlobal();
+  const { clusterVersion, clusterAuth, clusterUIConfig } = useGlobal();
   const token = Cookies.get('token');
   const showLoginOut = useMemo(
     () => clusterAuth?.auth && token && token !== NO_AUTH,
@@ -194,13 +190,13 @@ export function Sidebar() {
             Icon: Monitor,
             Extra: ChevronRight,
           },
-          // {
-          //   path: '/log-center',
-          //   name: t('menu.logCenter'),
-          //   Icon: ScrollText,
-          //   Extra: ChevronRight,
-          //   show: clusterUIConfig?.es_enabled || false,
-          // },
+          {
+            path: '/log-center',
+            name: t('menu.logCenter'),
+            Icon: ScrollText,
+            Extra: ChevronRight,
+            show: clusterUIConfig?.es_enabled || true,
+          },
         ],
       },
       // {
@@ -262,7 +258,7 @@ export function Sidebar() {
         ...group,
         items: group.items.filter(({ show = true }) => show),
       }));
-  }, [locale, t]);
+  }, [clusterUIConfig, locale, t]);
 
   return (
     <div

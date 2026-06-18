@@ -173,7 +173,7 @@ function TimeRangePicker({
 }
 
 const MonitorCenter = () => {
-  const { clusterUIConfig } = useGlobal();
+  const { clusterUIConfig, globalReady } = useGlobal();
   const { t } = useI18n();
   const { theme } = useTheme();
   const [timeRange, setTimeRange] = useState<TimeRangeValue>(DEFAULT_TIME_RANGE);
@@ -281,6 +281,10 @@ const MonitorCenter = () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [refreshInterval]);
+
+  if (!globalReady) {
+    return <PageContainer loading />;
+  }
 
   if (!clusterUIConfig?.grafana_url) {
     return (
