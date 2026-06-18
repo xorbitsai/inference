@@ -1,5 +1,6 @@
 """
-Fix hybrid attention KV cache page size for Qwen3.5/3.6 MoE models.
+Fix hybrid attention KV cache page size for hybrid attention models
+(Qwen3.5/3.6 MoE, Qwen3-Next).
 
 Problem: vLLM 0.20.x raises NotImplementedError when page sizes across
 different layer types are not evenly divisible.
@@ -194,5 +195,8 @@ PATCH = VllmPatch(
     architectures={
         "Qwen3_5MoeForConditionalGeneration",
         "Qwen3_5ForConditionalGeneration",
+        # Qwen3-Next is a hybrid (linear + full) attention model and hits the
+        # same page-size divisibility error; see xorbitsai/inference#5043.
+        "Qwen3NextForCausalLM",
     },
 )
