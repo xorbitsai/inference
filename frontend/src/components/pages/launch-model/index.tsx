@@ -3,7 +3,6 @@
 import { type MouseEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Box,
   ExternalLink,
   Info,
   Loader2,

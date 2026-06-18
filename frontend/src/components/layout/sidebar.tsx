@@ -17,9 +17,9 @@ import {
   BotIcon,
   Rocket,
   Monitor,
-  ScrollText,
-  Users,
-  KeyRound,
+  // ScrollText,
+  // Users,
+  // KeyRound,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
@@ -143,7 +143,11 @@ export function Sidebar() {
   const { t, locale } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
   const branding = getBrandingFromEnv();
-  const { clusterVersion, clusterAuth, clusterUIConfig } = useGlobal();
+  const {
+    clusterVersion,
+    clusterAuth,
+    //  clusterUIConfig
+  } = useGlobal();
   const token = Cookies.get('token');
   const showLoginOut = useMemo(
     () => clusterAuth?.auth && token && token !== NO_AUTH,
@@ -258,7 +262,7 @@ export function Sidebar() {
         ...group,
         items: group.items.filter(({ show = true }) => show),
       }));
-  }, [clusterUIConfig, locale, t]);
+  }, [locale, t]);
 
   return (
     <div

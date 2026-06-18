@@ -7,14 +7,15 @@ interface InputProps
   error?: boolean;
 }
 
-function Input({
+const Input = React.forwardRef<HTMLInputElement, InputProps>(({
   className,
   type,
   error,
   ...props
-}: InputProps) {
+}, ref) => {
   return (
     <input
+      ref={ref}
       type={type}
       data-slot="input"
       className={cn(
@@ -32,6 +33,8 @@ function Input({
       {...props}
     />
   );
-}
+});
+
+Input.displayName = "Input";
 
 export { Input };

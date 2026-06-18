@@ -26,7 +26,6 @@ export default function ClusterInfo() {
     workers: [],
   });
   const [lastUpdateTime, setLastUpdateTime] = useState('-');
-  const [isError, setIsError] = useState(false);
   const { t } = useI18n();
   const { clusterVersion } = useGlobal();
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -154,7 +153,7 @@ export default function ClusterInfo() {
         workers: res.filter((item) => item.node_type === 'Worker'),
       });
       timerRef.current = setTimeout(fetchClusterInfo, 5000);
-    } catch (err) {
+    } catch {
       if(timerRef.current){
         clearTimeout(timerRef.current); 
       }

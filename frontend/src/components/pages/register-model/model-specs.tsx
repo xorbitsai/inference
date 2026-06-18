@@ -26,7 +26,7 @@ const ModelSpecs: FC<ModelSpecsProps> = ({ modelType, form }) => {
   const options = MODEL_FORMAT_OPTIONS_MAP[modelType] || [];
   const modelSpecsValue = useWatch('model_specs', form);
   const isLLM = modelType === ModelType.LLM;
-  // @ts-ignore
+  // @ts-expect-error REGISTER_MODEL_INIT_DATA is keyed by model type at runtime.
   const defaultItem = REGISTER_MODEL_INIT_DATA?.[modelType]?.model_specs?.[0] || {};
   return (
     <FormList
