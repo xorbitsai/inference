@@ -17,7 +17,12 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MODEL_DIR="$SCRIPT_DIR/xinference/model"
 
 # Step 1: find all model JSON files
-FILES=$(grep -rl '"virtualenv"' "$MODEL_DIR" --include="*.json" | sort)
+FILES=$(grep -rl '"virtualenv"' "$MODEL_DIR" --include="*.json" | sort || true)
+
+if [ -z "$FILES" ]; then
+  echo "Error: No model JSON files found in $MODEL_DIR" >&2
+  exit 1
+fi
 
 # Step 2: extract all virtualenv.packages[] entries, dedup
 ALL=$(jq -r '
