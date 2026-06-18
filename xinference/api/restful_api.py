@@ -1242,6 +1242,54 @@ class RESTfulAPI(CancelMixin):
                 self.handle_request_limit_error(e)
                 raise HTTPException(status_code=500, detail=str(e))
 
+    @staticmethod
+    def _normalize_anthropic_messages(
+        raw_system: Any, messages: Optional[List[dict]]
+    ) -> List[dict]:
+        """Fold the Anthropic top-level ``system`` prompt and any inline
+        ``role: system`` messages into a single leading OpenAI-style system
+        message.
+
+        Anthropic's Messages API carries the system prompt in a top-level
+        ``system`` field, and some clients (notably Claude Code >= 2.1.154)
+        additionally place ``role: system`` entries inside the ``messages``
+        array. xinference dispatches to an OpenAI-style ``chat`` backend, which
+        expects the system prompt as a leading ``{"role": "system"}`` message
+        and only accepts ``user``/``assistant`` roles in the array. Without this
+        normalization the top-level ``system`` prompt is silently dropped (the
+        ``raw_params`` carrying it are discarded before the model is called) and
+        inline system messages trip the role validation below.
+        """
+
+        def _collect(content: Any, parts: List[str]) -> None:
+            if isinstance(content, str):
+                if content:
+                    parts.append(content)
+            elif isinstance(content, list):
+                for block in content:
+                    if not isinstance(block, dict) or block.get("type") != "text":
+                        continue
+                    text = block.get("text") or ""
+                    # Strip Claude Code's per-request billing header; it carries
+                    # a changing hash that would otherwise defeat prefix caching.
+                    if text.startswith("x-anthropic-billing-header"):
+                        continue
+                    parts.append(text)
+
+        system_parts: List[str] = []
+        _collect(raw_system, system_parts)
+
+        normalized: List[dict] = []
+        for msg in messages or []:
+            if msg.get("role") == "system":
+                _collect(msg.get("content"), system_parts)
+                continue
+            normalized.append(msg)
+
+        if system_parts:
+            normalized.insert(0, {"role": "system", "content": "".join(system_parts)})
+        return normalized
+
     async def create_message(self, request: Request) -> Response:
         raw_body = await request.json()
         body = CreateMessage.parse_obj(raw_body)
@@ -1266,6 +1314,13 @@ class RESTfulAPI(CancelMixin):
             kwargs["max_tokens"] = max_tokens_field.default
 
         messages = body.messages and list(body.messages)
+
+        # Fold the top-level `system` prompt and any inline `role: system`
+        # messages into a leading OpenAI-style system message, then drop the
+        # consumed `system` field so it is not forwarded as a stray generation
+        # parameter (which the chat backend discards anyway).
+        messages = self._normalize_anthropic_messages(raw_body.get("system"), messages)
+        raw_kwargs.pop("system", None)
 
         if not messages or messages[-1].get("role") not in ["user", "assistant"]:
             raise HTTPException(
