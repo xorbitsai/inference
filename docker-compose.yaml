@@ -1,0 +1,32 @@
+services:
+  xinference:
+    image: xprobe/xinference:latest
+    container_name: xinference
+    ports:
+      - "9997:9997"
+    environment:
+      # - XINFERENCE_MODEL_SRC=modelscope
+      - XINFERENCE_HOME=/data
+      - PIP_INDEX_URL=${PIP_INDEX_URL:-https://pypi.org/simple}
+      - PIP_TRUSTED_HOST=${PIP_TRUSTED_HOST:-pypi.org}
+    # volumes:
+    #   - </on/your/host>:/data
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    command: xinference-local -H 0.0.0.0
+    restart: unless-stopped
+
+  pypiserver:
+    image: xprobe/pypiserver:latest
+    container_name: pypiserver
+    profiles:
+      - pypiserver
+    ports:
+      - "8080:8080"
+    command: pypi-server run
+    restart: unless-stopped
