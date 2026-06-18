@@ -1142,7 +1142,7 @@
       ]
     },
     "featured": false,
-    "updated_at": 1768536595
+    "updated_at": 1769514574
   },
   {
     "model_name": "Qwen3-ASR-0.6B",
@@ -1411,7 +1411,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1776310211,
+    "updated_at": 1781772400,
     "featured": true
   }
 ]
