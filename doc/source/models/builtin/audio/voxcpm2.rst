@@ -1,8 +1,8 @@
 .. _models_builtin_voxcpm2:
 
-========
+=======
 VoxCPM2
-========
+=======
 
 - **Model Name:** VoxCPM2
 - **Model Family:** VoxCPM
