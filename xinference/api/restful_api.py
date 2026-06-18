@@ -62,6 +62,7 @@ from ..constants import (
     XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
 )
 from ..core.event import Event, EventCollectorActor, EventType
+from ..core.exceptions import ModelNotReadyError
 from ..core.supervisor import SupervisorActor
 from ..core.utils import CancelMixin
 from ..types import (
@@ -743,6 +744,12 @@ class RESTfulAPI(CancelMixin):
         try:
             data = await (await self._get_supervisor_ref()).describe_model(model_uid)
             return JSONResponse(content=data)
+        except ModelNotReadyError as e:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Model is loading, please retry later: {e}",
+                headers={"Retry-After": "30"},
+            )
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))
@@ -1676,6 +1683,12 @@ class RESTfulAPI(CancelMixin):
                 raise ValueError("Unknown model")
             await (await self._get_supervisor_ref()).get_model(model_uid)
             return Response()
+        except ModelNotReadyError as e:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Model is loading, please retry later: {e}",
+                headers={"Retry-After": "30"},
+            )
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             await self._report_error_event(model_uid, str(ve))
@@ -2381,6 +2394,12 @@ class RESTfulAPI(CancelMixin):
 
         try:
             desc = await (await self._get_supervisor_ref()).describe_model(model_uid)
+        except ModelNotReadyError as e:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Model is loading, please retry later: {e}",
+                headers={"Retry-After": "30"},
+            )
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             await self._report_error_event(model_uid, str(ve))

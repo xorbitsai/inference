@@ -79,6 +79,7 @@ from ..types import PeftModelConfig
 from ..utils import get_pip_config_args, get_real_path
 from .cache_tracker import CacheTrackerActor
 from .event import Event, EventCollectorActor, EventType
+from .exceptions import ModelNotReadyError
 from .metrics import (
     launch_metrics_export_server,
     record_metrics,
@@ -374,6 +375,7 @@ async def _kill_orphan_gpu_pids(
 @dataclass
 class ModelStatus:
     last_error: str = ""
+    model_state: str = ""
 
 
 @dataclass
@@ -2618,6 +2620,7 @@ class WorkerActor(xo.StatelessActor):
                                 raise
                     except Exception:
                         logger.error(f"Failed to load model {model_uid}", exc_info=True)
+                        await self._update_model_state(model_uid, "error")
                         self.release_devices(model_uid=model_uid)
                         for addr in all_subpool_addresses:
                             try:
@@ -2645,7 +2648,9 @@ class WorkerActor(xo.StatelessActor):
                     self._model_uid_to_subpool_pids[model_uid] = subpool_pids
                     model_spec = model.model_family.to_description()
                     self._model_uid_to_model_spec[model_uid] = model_spec
-                    self._model_uid_to_model_status[model_uid] = ModelStatus()
+                    self._model_uid_to_model_status[model_uid] = ModelStatus(
+                        model_state="loading"
+                    )
                     self._model_uid_to_addr[model_uid] = subpool_address
                     self._model_uid_to_recover_count.setdefault(
                         model_uid, MODEL_ACTOR_AUTO_RECOVER_LIMIT
@@ -2708,6 +2713,7 @@ class WorkerActor(xo.StatelessActor):
     async def wait_for_load(self, model_uid: str):
         model_ref = self._model_uid_to_model[model_uid]
         await model_ref.wait_for_load()
+        await self._update_model_state(model_uid, "ready")
 
     @log_sync(logger=logger, level=logging.INFO)
     async def cancel_launch_model(self, model_uid: str):
@@ -2747,6 +2753,7 @@ class WorkerActor(xo.StatelessActor):
         # Terminate model while its launching is not allow
         if model_uid in self._model_uid_launching_guard:
             raise ValueError(f"{model_uid} is launching")
+        await self._update_model_state(model_uid, "stopping")
         # In special cases, if the suffix is `-rank0`, this is the Xavier's rank 0 model actor.
         if model_uid.endswith("-rank0"):
             origin_uid = model_uid.removesuffix("-rank0")
@@ -2862,6 +2869,7 @@ class WorkerActor(xo.StatelessActor):
                 status = LaunchStatus.ERROR.name
             else:
                 status = LaunchStatus.TERMINATED.name
+                await self._update_model_state(model_uid, "stopped")
                 self._model_uid_to_model_status.pop(model_uid, None)
 
             if self._status_guard_ref is None:
@@ -2954,11 +2962,54 @@ class WorkerActor(xo.StatelessActor):
     async def list_models(self) -> Dict[str, Dict[str, Any]]:
         return {k: v for k, v in self._model_uid_to_model_spec.items()}
 
-    @log_sync(logger=logger)
+    @log_async(logger=logger)
+    async def _update_model_state(self, model_uid: str, state: str):
+        """Update ModelStatus.model_state and sync to StatusGuard."""
+        ms = self._model_uid_to_model_status.get(model_uid)
+        if ms is None:
+            ms = ModelStatus()
+            self._model_uid_to_model_status[model_uid] = ms
+        ms.model_state = state
+        status_map = {
+            "registering": LaunchStatus.CREATING.name,
+            "loading": LaunchStatus.LOADING.name,
+            "ready": LaunchStatus.READY.name,
+            "error": LaunchStatus.ERROR.name,
+            "stopping": LaunchStatus.TERMINATING.name,
+            "stopped": LaunchStatus.TERMINATED.name,
+        }
+        if self._status_guard_ref is not None:
+            try:
+                origin_uid, rank_suffix = parse_replica_model_uid(model_uid)
+                replica_id = rank_suffix - 1 if rank_suffix > 0 else 0
+                await self._status_guard_ref.update_replica_status(
+                    origin_uid,
+                    replica_id,
+                    {
+                        "status": status_map.get(state, LaunchStatus.CREATING.name),
+                        "model_state": state,
+                    },
+                )
+            except Exception:
+                logger.debug(
+                    "Failed to sync model_state to StatusGuard for %s",
+                    model_uid,
+                    exc_info=True,
+                )
+
     def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
         model_status = self._model_uid_to_model_status.get(model_uid)
-        if model_status and model_status.last_error:
-            raise Exception(model_status.last_error)
+        if model_status:
+            if model_status.model_state in ("registering", "loading"):
+                raise ModelNotReadyError(
+                    f"Model {model_uid} is {model_status.model_state}"
+                )
+            if model_status.model_state in ("error", "stopping", "stopped"):
+                raise RuntimeError(
+                    f"Model {model_uid} is in {model_status.model_state} state"
+                )
+            if model_status.last_error:
+                raise Exception(model_status.last_error)
         model_ref = self._model_uid_to_model.get(model_uid, None)
         if model_ref is None:
             raise ValueError(f"Model not found, uid: {model_uid}")
