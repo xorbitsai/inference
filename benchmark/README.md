@@ -14,7 +14,7 @@ This tool will sample prompts from dataset, and run benchmark with serialized re
 ```bash
 python benchmark_latency.py --dataset /path/to/ShareGPT_V3_unfiltered_cleaned_split.json \
                             --tokenizer /path/to/tokenizer \
-                            --num-prompt 100 \
+                            --num-prompts 100 \
                             --model-uid ${model_uid}
 ```
 
@@ -26,7 +26,20 @@ This tool will sample prompts from dataset, and run benchmark with parallel requ
 python benchmark_serving.py --dataset /path/to/ShareGPT_V3_unfiltered_cleaned_split.json \
                             --tokenizer /path/to/tokenizer \
                             --model-uid ${model_uid} \
-                            --num-prompt 100 --concurrency 50
+                            --num-prompts 100 --concurrency 50
+```
+
+It can also generate synthetic prompts without a dataset, similar to vLLM's
+random benchmark mode:
+
+```bash
+python benchmark_serving.py --dataset-name random \
+                            --tokenizer /path/to/tokenizer \
+                            --model-uid ${model_uid} \
+                            --input-len 1024 --output-len 128 \
+                            --random-range-ratio 0.2 \
+                            --num-prompts 1000 --concurrency 50 \
+                            --stream --ignore-eos
 ```
 
 ## Benchmarking long context serving
