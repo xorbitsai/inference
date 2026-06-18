@@ -329,6 +329,8 @@
     "notConfigured": "ログクエリが設定されていません。XINFERENCE_ES_URL 環境変数を設定してください。",
     "searchPlaceholder": "ログを検索...",
     "allNodes": "全ノード",
+    "logLevel": "ログレベル",
+    "nodeType": "ノードタイプ",
     "time": "時刻",
     "level": "レベル",
     "node": "ノード",
@@ -390,7 +392,14 @@
     "selectAll": "全選択",
     "editPermissions": "権限編集",
     "editPermissionsTitle": "権限編集",
-    "save": "保存"
+    "save": "保存",
+    "changePassword": "パスワード変更",
+    "changePasswordTitle": "パスワード変更",
+    "newPassword": "新しいパスワード",
+    "confirmPassword": "パスワード確認",
+    "passwordMismatch": "パスワードが一致しません",
+    "passwordTooShort": "パスワードは8文字以上である必要があります",
+    "changePasswordSuccess": "パスワードが正常に変更されました"
   },
   "permissions": {
     "admin": "管理者",

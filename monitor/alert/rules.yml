@@ -11,13 +11,13 @@ groups:
           description: "Worker {{ $labels.worker_address }} GPU {{ $labels.gpu_index }} memory usage {{ $value | humanizePercentage }}, lasting 5 minutes."
 
       - alert: ModelRequestErrorRateHigh
-        expr: rate(xinference:model_request_errors_total[5m]) / rate(xinference:model_request_total[5m]) > 0.05
+        expr: sum without (stream) (rate(xinference:model_request_errors_total[5m])) / sum without (stream) (rate(xinference:model_request_total[5m])) > 0.05
         for: 3m
         labels:
           severity: warning
         annotations:
           summary: "Model request error rate exceeds 5%"
-          description: "Model {{ $labels.model }} error rate {{ $value | humanizePercentage }}, lasting 3 minutes."
+          description: "Model {{ $labels.model_name }} error rate {{ $value | humanizePercentage }}, lasting 3 minutes."
 
       - alert: TTFTHigh
         expr: rate(xinference:time_to_first_token_seconds_sum[5m]) / rate(xinference:time_to_first_token_seconds_count[5m]) > 10
@@ -26,7 +26,7 @@ groups:
           severity: warning
         annotations:
           summary: "Time to first token exceeds 10 seconds"
-          description: "Model {{ $labels.model }} TTFT {{ $value }}ms, lasting 3 minutes."
+          description: "Model {{ $labels.model_name }} TTFT {{ $value }}s, lasting 3 minutes."
 
       - alert: WorkerOffline
         expr: xinference:workers_total < 1
@@ -47,13 +47,13 @@ groups:
           description: "Node {{ $labels.instance }} mountpoint {{ $labels.mountpoint }} remaining space {{ $value | humanizePercentage }}."
 
       - alert: RequestQueueBacklog
-        expr: xinference:model_pending_requests > 10
+        expr: xinference:model_serve_count / (xinference:model_request_limit > 0) > 0.9
         for: 3m
         labels:
           severity: warning
         annotations:
-          summary: "Model request queue backlog"
-          description: "Model {{ $labels.model }} pending requests {{ $value }}, lasting 3 minutes."
+          summary: "Model request concurrency approaching limit"
+          description: "Model {{ $labels.model_name }} concurrency ratio {{ $value | humanizePercentage }}, lasting 3 minutes."
 
       - alert: ModelLoadSlow
         expr: xinference:model_last_load_duration_seconds > 300
@@ -62,4 +62,40 @@ groups:
           severity: warning
         annotations:
           summary: "Model load time exceeds 5 minutes"
-          description: "Model {{ $labels.model_name }} recent average load time {{ $value | humanizeDuration }}."
+          description: "Model {{ $labels.model_name }} recent load duration {{ $value | humanizeDuration }}."
+
+      - alert: ReplicaUnexpectedTerminated
+        expr: xinference:model_unexpected_termination == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Model replica terminated unexpectedly"
+          description: "Model {{ $labels.model_name }} replica {{ $labels.replica_index }} is down due to worker failure."
+
+      - alert: WorkerMemoryHigh
+        expr: xinference:worker_memory_used_bytes / xinference:worker_memory_total_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Worker memory usage exceeds 90%"
+          description: "Worker {{ $labels.worker_address }} memory usage {{ $value | humanizePercentage }}, lasting 5 minutes."
+
+      - alert: RequestLatencyHigh
+        expr: histogram_quantile(0.95, rate(xinference:model_request_duration_seconds_bucket[5m])) > 60
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "P95 request latency exceeds 60 seconds"
+          description: "Model {{ $labels.model_name }} P95 latency {{ $value }}s, lasting 3 minutes."
+
+      - alert: BannedIPsSpike
+        expr: xinference:banned_ips_total > 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Banned IP count abnormally high"
+          description: "Currently {{ $value }} IPs banned, possible brute-force or abuse."

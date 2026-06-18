@@ -13,6 +13,7 @@ declare module 'axios' {
 }
 
 // Keep untyped request calls backward-compatible while typed calls can still pass <T>.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type LooseResponse = any;
 
 const requestInstance = axios.create({

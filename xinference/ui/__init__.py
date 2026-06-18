@@ -12,6 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .gradio import GradioInterface, MediaInterface
+from .gradio import EmbeddingInterface, GradioInterface, MediaInterface
 
-__all__ = ["GradioInterface", "MediaInterface"]
+__all__ = ["EmbeddingInterface", "GradioInterface", "MediaInterface"]

@@ -72,6 +72,11 @@
   text-decoration: none;
 }
 
+.bd-header .navbar-brand .logo__image {
+  max-height: 2.2rem;
+  width: auto;
+}
+
 .bd-header .navbar-brand .logo__title {
   font-size: 1.08rem;
   font-weight: 700;

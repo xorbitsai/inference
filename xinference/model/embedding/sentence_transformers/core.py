@@ -52,6 +52,23 @@ JINA_V4_VALID_TASKS = {
     "document",
 }
 
+# jina-embeddings-v5 (text-* and omni-*): custom encode() consumes ``task`` directly.
+# Valid tasks come from the v5 model cards on HuggingFace.
+JINA_V5_VALID_TASKS = {
+    "retrieval",
+    "text-matching",
+    "classification",
+    "clustering",
+}
+# v5 retrieval additionally uses ``prompt_name`` to distinguish query vs document.
+JINA_V5_PROMPT_NAME_ALIASES = {
+    "query": "query",
+    "document": "document",
+    "passage": "document",
+    "retrieval.query": "query",
+    "retrieval.passage": "document",
+}
+
 
 def _resolve_jina_task(
     model_name: str, task: Optional[str]
@@ -62,11 +79,18 @@ def _resolve_jina_task(
         (prompt_name, task_passthrough)
         - v3: (prompt_name, None) — uses prompt_name to look up prompt template
         - v4: (None, task) — passes task directly to model.forward()
+        - v5: (prompt_name_or_None, task) — passes task directly to model.encode();
+              v5 models reject a missing task, so default to ``retrieval`` when the
+              caller does not pass one (OpenAI-compatible clients usually omit it)
         - other models: (None, None)
     """
-    if task is None:
-        return None, None
     model_lower = model_name.lower()
+    if task is None:
+        # v5 mandates a task on every call. Fall back to ``retrieval`` so OpenAI-
+        # style clients that have no notion of a task parameter still work.
+        if "jina-embeddings-v5" in model_lower:
+            return None, "retrieval"
+        return None, None
     if "jina-embeddings-v3" in model_lower:
         prompt_name = JINA_V3_TASK_TO_PROMPT_NAME.get(task)
         if prompt_name is None:
@@ -78,6 +102,20 @@ def _resolve_jina_task(
     elif "jina-embeddings-v4" in model_lower:
         if task not in JINA_V4_VALID_TASKS:
             valid = sorted(JINA_V4_VALID_TASKS)
+            raise ValueError(
+                f"Invalid task: {task}. Must be one of {valid} for model {model_name}."
+            )
+        return None, task
+    elif "jina-embeddings-v5" in model_lower:
+        # ``task`` may carry either a v5 task name or a retrieval-side alias
+        # (e.g. ``query`` / ``document``). Aliases imply ``task=retrieval``.
+        prompt_name = JINA_V5_PROMPT_NAME_ALIASES.get(task)
+        if prompt_name is not None:
+            return prompt_name, "retrieval"
+        if task not in JINA_V5_VALID_TASKS:
+            valid = sorted(
+                JINA_V5_VALID_TASKS | set(JINA_V5_PROMPT_NAME_ALIASES.keys())
+            )
             raise ValueError(
                 f"Invalid task: {task}. Must be one of {valid} for model {model_name}."
             )
@@ -218,12 +256,23 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
             )
         else:
             model_kwargs = {"torch_dtype": torch_dtype} if torch_dtype else None
+            # jina-embeddings-v5-omni: the model card recommends loading via
+            # ``model_kwargs={"default_task": "retrieval"}`` so that the task
+            # adapter is selected up-front and ``encode()`` works for image /
+            # video / audio inputs (which cannot carry a ``task`` keyword).
+            st_kwargs: Dict[str, Any] = {}
+            if "jina-embeddings-v5-omni" in self.model_family.model_name.lower():
+                st_kwargs["model_kwargs"] = {"default_task": "retrieval"}
+                if model_kwargs:
+                    st_kwargs["model_kwargs"].update(model_kwargs)
+            else:
+                st_kwargs["model_kwargs"] = model_kwargs
             self._model = SentenceTransformer(
                 self._model_path,
                 device=self._device,
-                model_kwargs=model_kwargs,
                 trust_remote_code=True,
                 truncate_dim=dimensions,
+                **st_kwargs,
             )
 
         if hasattr(self._model, "tokenizer"):
@@ -505,6 +554,108 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                 objs,
                 **encode_kwargs,
             )
+        elif "jina-embeddings-v5-omni" in self.model_family.model_name.lower():
+            # jina-embeddings-v5-omni accepts text, image, video and audio.
+            # Per the model card, the SentenceTransformer wrapper auto-detects
+            # the modality of each sentence: URLs / file paths / PIL.Image /
+            # bytes / np.ndarray / torch.Tensor are routed to the matching
+            # tower. We additionally accept dict inputs of the form
+            # ``{"text": ...}`` / ``{"image": url_or_b64}`` /
+            # ``{"video": url_or_path}`` / ``{"audio": url_or_path}`` so the
+            # OpenAI-compatible HTTP API can express multimodal payloads.
+            #
+            # NOTE: we cannot reuse the local ``encode`` helper because it
+            # calls ``model.tokenize`` -> ``model.forward`` and assumes text
+            # input. Multimodal routing only happens inside
+            # ``SentenceTransformer.encode``.
+            import base64
+            import re
+            from io import BytesIO
+
+            from PIL import Image
+
+            def _b64_to_image(b64: str) -> Image.Image:
+                payload = b64.split(",", 1)[1] if "," in b64 else b64
+                return Image.open(BytesIO(base64.b64decode(payload)))
+
+            def _coerce_omni_item(item: Any) -> Any:
+                if isinstance(item, dict):
+                    if item.get("text") is not None:
+                        return item["text"]
+                    img = item.get("image")
+                    if img is not None:
+                        if isinstance(img, str) and re.match(
+                            r"^data:image/.+;base64,", img
+                        ):
+                            return _b64_to_image(img)
+                        return img
+                    video = item.get("video")
+                    if video is not None:
+                        return video
+                    audio = item.get("audio")
+                    if audio is not None:
+                        return audio
+                    raise ValueError(
+                        "jina-embeddings-v5-omni input dict must contain one "
+                        "of: text, image, video, audio."
+                    )
+                return item
+
+            # Treat str and dict as single-item inputs; only true sequences
+            # should be iterated. ``isinstance(sentences, dict)`` is critical:
+            # without it, iterating a dict yields its keys (e.g. "image"),
+            # which silently embeds the key name instead of the payload.
+            if isinstance(sentences, (str, dict)):
+                objs = [_coerce_omni_item(cast(Any, sentences))]
+                input_was_single = True
+            else:
+                objs = [_coerce_omni_item(it) for it in cast(List[Any], sentences)]
+                input_was_single = False
+
+            omni_kwargs = dict(kwargs)
+            omni_kwargs.pop("convert_to_numpy", None)
+            # OpenAI's embedding API uses ``dimensions`` to request Matryoshka
+            # truncation; v5-omni's encode() expects ``truncate_dim``.
+            if "dimensions" in omni_kwargs and "truncate_dim" not in omni_kwargs:
+                omni_kwargs["truncate_dim"] = omni_kwargs.pop("dimensions")
+            else:
+                omni_kwargs.pop("dimensions", None)
+            if jina_prompt_name is not None:
+                omni_kwargs["prompt_name"] = jina_prompt_name
+
+            assert self._model is not None
+            with torch.no_grad():
+                omni_out = self._model.encode(
+                    objs,
+                    convert_to_numpy=True,
+                    **omni_kwargs,
+                )
+
+            # ``encode`` on a single-item list returns either a 2-D ndarray of
+            # shape (1, dim) or a 1-D ndarray of shape (dim,). The downstream
+            # code below iterates ``all_embeddings`` and calls ``.tolist()`` on
+            # each item, expecting a flat 1-D vector per input. Normalise both
+            # shapes accordingly so the response stays ``[float, ...]`` rather
+            # than the accidentally-nested ``[[float, ...]]``.
+            if input_was_single:
+                if hasattr(omni_out, "ndim") and getattr(omni_out, "ndim", 0) > 1:
+                    all_embeddings = [omni_out[0]]
+                else:
+                    all_embeddings = [omni_out]
+            elif hasattr(omni_out, "ndim") and getattr(omni_out, "ndim", 0) == 1:
+                all_embeddings = [omni_out]
+            else:
+                all_embeddings = list(omni_out)
+            # The shared tail below re-wraps ``all_embeddings`` when
+            # ``sentences`` is a ``str``. We have already normalised the omni
+            # output into ``[ndarray]``; promote ``sentences`` to a list so the
+            # tail does not double-wrap it into ``[[ndarray]]`` and break the
+            # subsequent ``data.tolist()`` call.
+            if isinstance(sentences, (str, dict)):
+                sentences = [sentences]
+            # token accounting for multimodal inputs is not meaningful; report
+            # the input item count so usage stays non-zero.
+            all_token_nums = len(objs)
         else:
             encode_kwargs = _build_encode_kwargs(kwargs, jina_prompt_name)
             all_embeddings, all_token_nums = encode(

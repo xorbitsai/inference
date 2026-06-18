@@ -992,6 +992,8 @@
     ],
     "model_ability": [
       "chat",
+      "reasoning",
+      "hybrid",
       "tools"
     ],
     "model_description": "Tongyi DianJin is a financial intelligence solution platform built by Alibaba Cloud, dedicated to providing financial business developers with a convenient artificial intelligence application development environment.",
@@ -1163,7 +1165,7 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1769418481,
+    "updated_at": 1781162534,
     "featured": false,
     "architectures": [
       "Qwen2ForCausalLM"
@@ -1701,6 +1703,319 @@
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "context_length": 262144,
+    "model_name": "MiniCPM-V-4.6",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "vision"
+    ],
+    "model_description": "MiniCPM-V 4.6 is the latest and most edge-deployment-friendly model in the MiniCPM-V series, with only 1.3B parameters (1.3B activated). It is built on SigLIP2-400M and Qwen3.5-0.8B, and supports single-image, multi-image, and video understanding.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 1,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "openbmb/MiniCPM-V-4.6",
+            "model_revision": "d7f5ed8d15462c508d4f9d9ce5a0cf1fe8d87bcc"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "OpenBMB/MiniCPM-V-4.6",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "bnb",
+        "model_size_in_billions": 1,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4-bit"
+            ],
+            "model_id": "openbmb/MiniCPM-V-4.6-BNB"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4-bit"
+            ],
+            "model_id": "OpenBMB/MiniCPM-V-4.6-BNB"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 1,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "openbmb/MiniCPM-V-4.6-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "OpenBMB/MiniCPM-V-4.6-AWQ"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 1,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "openbmb/MiniCPM-V-4.6-GPTQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "OpenBMB/MiniCPM-V-4.6-GPTQ"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 1,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "F16"
+            ],
+            "multimodal_projectors": [
+              "mmproj-model-f16.gguf"
+            ],
+            "model_id": "openbmb/MiniCPM-V-4.6-gguf",
+            "model_file_name_template": "MiniCPM-V-4_6-{quantization}.gguf"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "F16"
+            ],
+            "multimodal_projectors": [
+              "mmproj-model-f16.gguf"
+            ],
+            "model_id": "OpenBMB/MiniCPM-V-4.6-gguf",
+            "model_file_name_template": "MiniCPM-V-4_6-{quantization}.gguf"
+          }
+        }
+      }
+    ],
+    "chat_template": "",
+    "stop_token_ids": [
+      248044,
+      248046
+    ],
+    "stop": [
+      "<|im_end|>",
+      "<|endoftext|>"
+    ],
+    "updated_at": 1781358969,
+    "featured": false,
+    "architectures": [
+      "MiniCPMV4_6ForConditionalGeneration"
+    ],
+    "model_type": "minicpmv4_6",
+    "virtualenv": {
+      "packages": [
+        "transformers @ git+https://github.com/huggingface/transformers.git ; #engine# == \"Transformers\"",
+        "accelerate>=0.28.0 ; #engine# == \"Transformers\"",
+        "torchvision ; #engine# == \"Transformers\"",
+        "av ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "context_length": 262144,
+    "model_name": "MiniCPM-V-4.6-Thinking",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "vision",
+      "reasoning"
+    ],
+    "model_description": "MiniCPM-V 4.6 Thinking is a reasoning-tuned version of MiniCPM-V 4.6. It supports deep reasoning for more complex problem solving, while inheriting the single-image, multi-image, and video understanding capabilities of the MiniCPM-V family.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 1,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "openbmb/MiniCPM-V-4.6-Thinking",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "OpenBMB/MiniCPM-V-4.6-Thinking",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "bnb",
+        "model_size_in_billions": 1,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4-bit"
+            ],
+            "model_id": "openbmb/MiniCPM-V-4.6-Thinking-BNB"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4-bit"
+            ],
+            "model_id": "OpenBMB/MiniCPM-V-4.6-Thinking-BNB"
+          }
+        }
+      },
+      {
+        "model_format": "awq",
+        "model_size_in_billions": 1,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "openbmb/MiniCPM-V-4.6-Thinking-AWQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "OpenBMB/MiniCPM-V-4.6-Thinking-AWQ"
+          }
+        }
+      },
+      {
+        "model_format": "gptq",
+        "model_size_in_billions": 1,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "openbmb/MiniCPM-V-4.6-Thinking-GPTQ"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Int4"
+            ],
+            "model_id": "OpenBMB/MiniCPM-V-4.6-Thinking-GPTQ"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 1,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "F16"
+            ],
+            "multimodal_projectors": [
+              "mmproj-model-f16.gguf"
+            ],
+            "model_id": "openbmb/MiniCPM-V-4.6-Thinking-gguf",
+            "model_file_name_template": "MiniCPM-V-4_6-Thinking-{quantization}.gguf"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "F16"
+            ],
+            "multimodal_projectors": [
+              "mmproj-model-f16.gguf"
+            ],
+            "model_id": "OpenBMB/MiniCPM-V-4.6-Thinking-gguf",
+            "model_file_name_template": "MiniCPM-V-4_6-Thinking-{quantization}.gguf"
+          }
+        }
+      }
+    ],
+    "chat_template": "",
+    "stop_token_ids": [
+      248044,
+      248046
+    ],
+    "stop": [
+      "<|im_end|>",
+      "<|endoftext|>"
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "updated_at": 1781358971,
+    "featured": false,
+    "architectures": [
+      "MiniCPMV4_6ForConditionalGeneration"
+    ],
+    "model_type": "minicpmv4_6",
+    "virtualenv": {
+      "packages": [
+        "transformers @ git+https://github.com/huggingface/transformers.git ; #engine# == \"Transformers\"",
+        "accelerate>=0.28.0 ; #engine# == \"Transformers\"",
+        "torchvision ; #engine# == \"Transformers\"",
+        "av ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ]
     }
@@ -10917,6 +11232,111 @@
         "#mlx_dependencies# ; #engine# == \"MLX\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "context_length": 131072,
+    "model_name": "minicpm5-1b",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "reasoning",
+      "hybrid",
+      "tools"
+    ],
+    "model_description": "MiniCPM5-1B is the first model in the MiniCPM5 series. It is a dense 1B Transformer built for on-device, local deployment, and resource-constrained scenarios, reaching 1B-class open-source SOTA. Supports hybrid thinking via enable_thinking and native XML-style tool calling (MCP-compatible).",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 1,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "openbmb/MiniCPM5-1B"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "OpenBMB/MiniCPM5-1B"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 1,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "F16",
+              "Q4_K_M",
+              "Q8_0"
+            ],
+            "model_id": "openbmb/MiniCPM5-1B-GGUF",
+            "model_file_name_template": "MiniCPM5-1B-{quantization}.gguf"
+          },
+          "modelscope": {
+            "quantizations": [
+              "F16",
+              "Q4_K_M",
+              "Q8_0"
+            ],
+            "model_id": "OpenBMB/MiniCPM5-1B-GGUF",
+            "model_file_name_template": "MiniCPM5-1B-{quantization}.gguf"
+          }
+        }
+      },
+      {
+        "model_format": "mlx",
+        "model_size_in_billions": 1,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "4bit"
+            ],
+            "model_id": "openbmb/MiniCPM5-1B-MLX"
+          },
+          "modelscope": {
+            "quantizations": [
+              "4bit"
+            ],
+            "model_id": "OpenBMB/MiniCPM5-1B-MLX"
+          }
+        }
+      }
+    ],
+    "chat_template": "{{- bos_token }}{%- if tools %}\n    {%- set tool_definitions %}\n        {{- \"# Tools\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n        {%- for tool in tools %}\n            {{- \"\\n\" }}\n            {{- tool | tojson(ensure_ascii=False) }}\n        {%- endfor %}\n        {{- '\\n</tools>\\n\\nTool usage guidelines:\\n- You may call zero or more functions. If no function calls are needed, just answer normally and do not include any <function ... </function>.\\n- When calling a function, return an XML object within <function ... </function> using:\\n<function name=\"function-name\"><param name=\"param-name\">param-value</param></function>\\n- param-value may be multi-line. If it contains <, & or newline characters, wrap it in a CDATA block: <param name=\"param-name\"><![CDATA[...multi-line value...]]></param>' }}\n    {%- endset %}\n    \n    {{- '<|im_start|>system\\n' }}\n    {%- if messages[0].role == 'system' %}\n        {%- if '<tool_def_sep>' in messages[0].content %}\n            {{- messages[0].content.replace('<tool_def_sep>', tool_definitions) }}\n        {%- else %}\n            {{- messages[0].content + '\\n\\n' + tool_definitions }}\n        {%- endif %}\n    {%- else %}\n        {{- tool_definitions.lstrip() }}\n    {%- endif %}\n    {{- '<|im_end|>\\n' }}\n{%- else %}\n    {%- if messages[0].role == 'system' %}\n        {{- '<|im_start|>system\\n' + messages[0].content + '<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- set ns = namespace(multi_step_tool=true, last_query_index=messages|length - 1) %}\n{%- for message in messages[::-1] %}\n    {%- set index = (messages|length - 1) - loop.index0 %}\n    {%- if ns.multi_step_tool and message.role == \"user\" and message.content is string and not(message.content.startswith('<tool_response>') and message.content.endswith('</tool_response>')) %}\n        {%- set ns.multi_step_tool = false %}\n        {%- set ns.last_query_index = index %}\n    {%- endif %}\n{%- endfor %}\n{%- for message in messages %}\n    {%- if message.content is string %}\n        {%- set content = message.content %}\n    {%- else %}\n        {%- set content = '' %}\n    {%- endif %}\n    {%- if (message.role == \"user\") or (message.role == \"system\" and not loop.first) %}\n        {{- '<|im_start|>' + message.role + '\\n' + content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {%- set reasoning_content = '' %}\n        {%- if message.reasoning_content is string %}\n            {%- set reasoning_content = message.reasoning_content %}\n        {%- else %}\n            {%- if '</think>' in content %}\n                {%- set reasoning_content = content.split('</think>')[0].rstrip('\\n').split('<think>')[-1].lstrip('\\n') %}\n                {%- set content = content.split('</think>')[-1].lstrip('\\n') %}\n            {%- endif %}\n        {%- endif %}\n        \n        {%- if message.tool_calls %}\n            {%- set content_parts = content.split('<tool_sep>') %}\n            {%- set processed_content = content_parts[0] %}\n            {%- set tool_calls_count = message.tool_calls|length %}\n            {%- set tool_sep_count = content_parts|length - 1 %}\n            {%- set min_count = [tool_calls_count, tool_sep_count]|min %}\n            \n            {%- for i in range(1, content_parts|length) %}\n                {%- set tool_index = i - 1 %}\n                {%- if tool_index < tool_calls_count %}\n                    {%- set tool_call = message.tool_calls[tool_index] %}\n                    {%- if tool_call.function %}\n                        {%- set tool_call = tool_call.function %}\n                    {%- endif %}\n                    {%- set single_tool_xml %}\n                        {{- '<function name=\"' ~ tool_call.name ~ '\">' }}\n                        {%- if tool_call.arguments %}\n                            {%- set args_dict = tool_call.arguments %}\n                            {%- for param_name, param_value in args_dict.items() %}\n                                {{- '<param name=\"' ~ param_name ~ '\">' }}\n                                {%- if param_value is string and ('<' in param_value or '&' in param_value or '\\n' in param_value) %}\n                                    {{- '<![CDATA[' + param_value + ']]>' }}\n                                {%- else %}\n                                    {{- param_value }}\n                                {%- endif %}\n                                {{- '</param>' }}\n                            {%- endfor %}\n                        {%- endif %}\n                        {{- '</function>' }}\n                    {%- endset %}\n                    {%- set processed_content = processed_content + single_tool_xml + content_parts[i] %}\n                {%- else %}\n                    {%- set processed_content = processed_content + content_parts[i] %}\n                {%- endif %}\n            {%- endfor %}\n            \n            {%- if tool_calls_count > tool_sep_count %}\n                {%- for remaining_index in range(tool_sep_count, tool_calls_count) %}\n                    {%- set tool_call = message.tool_calls[remaining_index] %}\n                    {%- if tool_call.function %}\n                        {%- set tool_call = tool_call.function %}\n                    {%- endif %}\n                    {%- set remaining_tool_xml %}\n                        {{- '<function name=\"' ~ tool_call.name ~ '\">' }}\n                        {%- if tool_call.arguments %}\n                            {%- set args_dict = tool_call.arguments %}\n                            {%- for param_name, param_value in args_dict.items() %}\n                                {{- '<param name=\"' ~ param_name ~ '\">' }}\n                                {%- if param_value is string and ('<' in param_value or '&' in param_value or '\\n' in param_value) %}\n                                    {{- '<![CDATA[' + param_value + ']]>' }}\n                                {%- else %}\n                                    {{- param_value }}\n                                {%- endif %}\n                                {{- '</param>' }}\n                            {%- endfor %}\n                        {%- endif %}\n                        {{- '</function>' }}\n                    {%- endset %}\n                    {%- set processed_content = processed_content + remaining_tool_xml %}\n                {%- endfor %}\n            {%- endif %}\n            \n            {%- set content = processed_content %}\n        {%- endif %}\n        \n        {%- if loop.index0 > ns.last_query_index %}\n            {%- if reasoning_content %}\n                {{- '<|im_start|>' + message.role + '\\n<think>\\n' + reasoning_content.strip('\\n') + '\\n</think>\\n\\n' + content.lstrip('\\n') }}\n            {%- else %}\n                {{- '<|im_start|>' + message.role + '\\n' + content }}\n            {%- endif %}\n        {%- else %}\n            {{- '<|im_start|>' + message.role + '\\n' + content }}\n        {%- endif %}\n        \n        {%- if message.tool_calls and not has_tool_sep %}\n            {%- for tool_call in message.tool_calls %}\n                {%- if (loop.first and content) or (not loop.first) %}\n                    {{- '\\n' }}\n                {%- endif %}\n                {%- if tool_call.function %}\n                    {%- set tool_call = tool_call.function %}\n                {%- endif %}\n                {{- '<function name=\"' ~ tool_call.name ~ '\">' }}\n                {%- if tool_call.arguments %}\n                    {%- set args_dict = tool_call.arguments %}\n                    {%- for param_name, param_value in args_dict.items() %}\n                        {{- '<param name=\"' ~ param_name ~ '\">' }}\n                        {%- if param_value is string and ('<' in param_value or '&' in param_value or '\\n' in param_value) %}\n                            {{- '<![CDATA[' + param_value + ']]>' }}\n                        {%- else %}\n                            {{- param_value }}\n                        {%- endif %}\n                        {{- '</param>' }}\n                    {%- endfor %}\n                {%- endif %}\n                {{- '</function>' }}\n            {%- endfor %}\n        {%- endif %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if loop.first or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {%- if message.content is string %}\n            {{- content }}\n        {%- else %}\n            {{- message.content | tojson(ensure_ascii=False) }}\n        {%- endif %}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n' }}\n    {%- if enable_thinking is defined %}\n        {%- if enable_thinking is false %}\n            {{- '<think>\\n\\n</think>\\n\\n' }}\n        {%- elif enable_thinking is true %}\n            {{- '<think>\\n' }}\n        {%- endif %}\n    {%- endif %}\n{%- endif %}\n",
+    "stop_token_ids": [
+      1,
+      130073
+    ],
+    "stop": [
+      "</s>",
+      "<|im_end|>"
+    ],
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "updated_at": 1781162533,
+    "featured": false,
+    "architectures": [
+      "LlamaForCausalLM"
+    ],
+    "model_type": "llama",
+    "virtualenv": {
+      "packages": [
+        "transformers>=5.6 ; #engine# == \"Transformers\"",
+        "#mlx_dependencies# ; #engine# == \"MLX\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\""
       ]
     }
   },
@@ -27852,7 +28272,7 @@
     "stop": [
       "<|endoftext|>"
     ],
-    "tool_parser": "glm4",
+    "tool_parser": "glm5",
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "version": 2,
@@ -27866,7 +28286,7 @@
       ]
     },
     "featured": false,
-    "updated_at": 1772702529
+    "updated_at": 1781600152
   },
   {
     "model_name": "qwen3.5",
@@ -31640,7 +32060,7 @@
     "stop": [
       "<|endoftext|>"
     ],
-    "tool_parser": "glm4",
+    "tool_parser": "glm5",
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "version": 2,
@@ -31655,7 +32075,7 @@
       ]
     },
     "featured": false,
-    "updated_at": 1777047462
+    "updated_at": 1781600152
   },
   {
     "model_name": "DeepSeek-V4-Flash",
@@ -31830,5 +32250,287 @@
     "tool_parser": "deepseek-v4",
     "featured": false,
     "updated_at": 1779522876
+  },
+  {
+    "version": 2,
+    "context_length": 262144,
+    "model_name": "Hy-MT2-1.8B",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Hy-MT2-1.8B is a dense multilingual translation model from Tencent Hunyuan, supporting 33 languages with instruction-following capabilities for complex translation scenarios.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 2,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "tencent/Hy-MT2-1.8B",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Tencent-Hunyuan/Hy-MT2-1.8B",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 2,
+        "quantizations": [
+          "fp8"
+        ],
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "tencent/Hy-MT2-1.8B-FP8",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Tencent-Hunyuan/Hy-MT2-1.8B-FP8",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 2,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q4_K_M",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "tencent/Hy-MT2-1.8B-GGUF",
+            "model_file_name_template": "Hy-MT2-1.8B-{quantization}.gguf"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Q4_K_M",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "Tencent-Hunyuan/Hy-MT2-1.8B-GGUF",
+            "model_file_name_template": "Hy-MT2-1.8B-{quantization}.gguf"
+          }
+        }
+      }
+    ],
+    "chat_template": "{% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% set system_message = messages[0]['content'] %}<｜hy_begin▁of▁sentence｜>{{ system_message }}<｜hy_place▁holder▁no▁3｜>{% else %}{% set loop_messages = messages %}<｜hy_begin▁of▁sentence｜>{% endif %}{% for message in loop_messages %}{% if message['role'] == 'user' %}<｜hy_User｜>{{ message['content'] }}{% elif message['role'] == 'assistant' %}<｜hy_Assistant｜>{{ message['content'] }}<｜hy_place▁holder▁no▁2｜>{% endif %}{% endfor %}{% if add_generation_prompt %}<｜hy_Assistant｜>{% else %}<｜hy_place▁holder▁no▁8｜>{% endif %}",
+    "stop_token_ids": [
+      120020
+    ],
+    "architectures": [
+      "HunYuanDenseV1ForCausalLM"
+    ],
+    "model_type": "hunyuan_v1_dense",
+    "virtualenv": {
+      "packages": [
+        "transformers>=4.57.0 ; #engine# == \"Transformers\"",
+        "accelerate>=0.28.0 ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\""
+      ]
+    },
+    "featured": true,
+    "updated_at": 1781520055
+  },
+  {
+    "version": 2,
+    "context_length": 262144,
+    "model_name": "Hy-MT2-7B",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Hy-MT2-7B is a dense multilingual translation model from Tencent Hunyuan, supporting 33 languages with balanced performance for general-purpose high-quality translation.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "tencent/Hy-MT2-7B",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Tencent-Hunyuan/Hy-MT2-7B",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "fp8"
+        ],
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "tencent/Hy-MT2-7B-FP8",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Tencent-Hunyuan/Hy-MT2-7B-FP8",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q4_K_M",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "tencent/Hy-MT2-7B-GGUF",
+            "model_file_name_template": "Hy-MT2-7B-{quantization}.gguf"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Q4_K_M",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "Tencent-Hunyuan/Hy-MT2-7B-GGUF",
+            "model_file_name_template": "Hy-MT2-7B-{quantization}.gguf"
+          }
+        }
+      }
+    ],
+    "chat_template": "{% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% set system_message = messages[0]['content'] %}<｜hy_begin▁of▁sentence｜>{{ system_message }}<｜hy_place▁holder▁no▁3｜>{% else %}{% set loop_messages = messages %}<｜hy_begin▁of▁sentence｜>{% endif %}{% for message in loop_messages %}{% if message['role'] == 'user' %}<｜hy_User｜>{{ message['content'] }}{% elif message['role'] == 'assistant' %}<｜hy_Assistant｜>{{ message['content'] }}<｜hy_place▁holder▁no▁2｜>{% endif %}{% endfor %}{% if add_generation_prompt %}<｜hy_Assistant｜>{% else %}<｜hy_place▁holder▁no▁8｜>{% endif %}",
+    "stop_token_ids": [
+      120020
+    ],
+    "architectures": [
+      "HunYuanDenseV1ForCausalLM"
+    ],
+    "model_type": "hunyuan_v1_dense",
+    "virtualenv": {
+      "packages": [
+        "transformers>=4.57.0 ; #engine# == \"Transformers\"",
+        "accelerate>=0.28.0 ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\""
+      ]
+    },
+    "featured": true,
+    "updated_at": 1781520056
+  },
+  {
+    "version": 2,
+    "context_length": 262144,
+    "model_name": "Hy-MT2-30B-A3B",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Hy-MT2-30B-A3B is a Mixture-of-Experts multilingual translation model from Tencent Hunyuan, supporting 33 languages with SOTA performance for complex professional domains.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 30,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "tencent/Hy-MT2-30B-A3B",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Tencent-Hunyuan/Hy-MT2-30B-A3B",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 30,
+        "quantizations": [
+          "fp8"
+        ],
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "tencent/Hy-MT2-30B-A3B-FP8",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Tencent-Hunyuan/Hy-MT2-30B-A3B-FP8",
+            "model_revision": "master"
+          }
+        }
+      }
+    ],
+    "chat_template": "{% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% set system_message = messages[0]['content'] %}<｜hy_begin▁of▁sentence｜>{{ system_message }}<｜hy_place▁holder▁no▁3｜>{% else %}{% set loop_messages = messages %}<｜hy_begin▁of▁sentence｜>{% endif %}{% for message in loop_messages %}{% if message['role'] == 'user' %}<｜hy_User｜>{{ message['content'] }}{% elif message['role'] == 'assistant' %}<｜hy_Assistant｜>{{ message['content'] }}<｜hy_place▁holder▁no▁2｜>{% endif %}{% endfor %}{% if add_generation_prompt %}<｜hy_Assistant｜>{% else %}<｜hy_place▁holder▁no▁8｜>{% endif %}",
+    "stop_token_ids": [
+      120025,
+      120026
+    ],
+    "architectures": [
+      "HYV3ForCausalLM"
+    ],
+    "model_type": "hy_v3",
+    "virtualenv": {
+      "packages": [
+        "transformers>=4.57.0 ; #engine# == \"Transformers\"",
+        "accelerate>=0.28.0 ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\""
+      ]
+    },
+    "featured": true,
+    "updated_at": 1781520058
   }
 ]

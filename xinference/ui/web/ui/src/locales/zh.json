@@ -336,6 +336,8 @@
     "notConfigured": "日志查询未配置，请设置 XINFERENCE_ES_URL 环境变量。",
     "searchPlaceholder": "搜索日志...",
     "allNodes": "全部节点",
+    "logLevel": "日志级别",
+    "nodeType": "节点类型",
     "time": "时间",
     "level": "级别",
     "node": "节点",
@@ -397,7 +399,14 @@
     "selectAll": "全选",
     "editPermissions": "编辑权限",
     "editPermissionsTitle": "编辑权限",
-    "save": "保存"
+    "save": "保存",
+    "changePassword": "修改密码",
+    "changePasswordTitle": "修改密码",
+    "newPassword": "新密码",
+    "confirmPassword": "确认密码",
+    "passwordMismatch": "两次输入的密码不一致",
+    "passwordTooShort": "密码至少需要8个字符",
+    "changePasswordSuccess": "密码修改成功"
   },
   "permissions": {
     "admin": "管理员",

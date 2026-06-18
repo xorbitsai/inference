@@ -102,7 +102,7 @@ export async function postEventStreamFetcher<T = any>(
         while ((pos = buffer.indexOf('\r\n\r\n')) >= 0) {
           // Check whether a complete data chunk is available.
           const chunk = buffer.slice(0, pos);
-          buffer = buffer.slice(pos + 2);
+          buffer = buffer.slice(pos + 4);
           parseEventData<T>(chunk, onData, onError); // Process each complete data chunk.
         }
       }

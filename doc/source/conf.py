@@ -81,6 +81,11 @@ if version_match == 'zh-cn':
 html_theme_options = {
     "show_toc_level": 2,
     "header_links_before_dropdown": 7,
+    "logo": {
+        "image_light": "_static/xinference-logo-light.png",
+        "image_dark": "_static/xinference-logo-dark.png",
+        "alt_text": "Xinference",
+    },
     "icon_links": [
         {
             "name": "GitHub",
@@ -133,7 +138,7 @@ else:
         {"name": "产品官网", "url": "https://xinference.cn"},
     ]
 
-html_favicon = "_static/favicon.svg"
+html_favicon = "_static/xinference-favicon.png"
 
 
 def _remove_non_zh_cn_nodes(app, doctree, docname):

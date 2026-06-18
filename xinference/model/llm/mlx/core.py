@@ -54,6 +54,7 @@ from ..llm_family import LLMFamilyV2, LLMSpecV1
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     GEMMA_TOOL_CALL_FAMILY,
+    GLM5_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
     ChatModelMixin,
     generate_completion_chunk,
@@ -574,7 +575,40 @@ class MLXModel(LLM, ChatModelMixin):
         )
         if stop_token_ids := self.model_family.stop_token_ids:
             for stop_token_id in stop_token_ids:
-                tokenizer.add_eos_token(stop_token_id)
+                # mlx_lm's TokenizerWrapper used to expose ``add_eos_token``
+                # as a method; newer versions removed it and HF tokenizers in
+                # transformers>=5 expose ``add_eos_token`` as a bool attribute.
+                # Fall back to extending the wrapper's eos token id set.
+                add_eos = getattr(tokenizer, "add_eos_token", None)
+                if callable(add_eos):
+                    add_eos(stop_token_id)
+                else:
+                    eos_ids = getattr(tokenizer, "_eos_token_ids", None)
+                    if eos_ids is None:
+                        eos_ids = set()
+                        try:
+                            setattr(tokenizer, "_eos_token_ids", eos_ids)
+                        except Exception:
+                            pass
+                    try:
+                        if isinstance(eos_ids, set):
+                            eos_ids.add(stop_token_id)
+                        elif isinstance(eos_ids, list):
+                            if stop_token_id not in eos_ids:
+                                eos_ids.append(stop_token_id)
+                        else:
+                            logger.warning(
+                                "Unsupported type %s for tokenizer._eos_token_ids; "
+                                "stop token %s was not registered.",
+                                type(eos_ids).__name__,
+                                stop_token_id,
+                            )
+                    except Exception:
+                        logger.warning(
+                            "Failed to register stop token %s on tokenizer.",
+                            stop_token_id,
+                            exc_info=True,
+                        )
 
         # Store model and tokenizer for batch model creation later
         self._model = model
@@ -1189,6 +1223,7 @@ class MLXChatModel(MLXModel, ChatModelMixin):
                 model_family in QWEN_TOOL_CALL_FAMILY
                 or model_family in GEMMA_TOOL_CALL_FAMILY
                 or model_family in DEEPSEEK_TOOL_CALL_FAMILY
+                or model_family in GLM5_TOOL_CALL_FAMILY
             ):
                 full_context_kwargs["tools"] = tools
         chat_template = self.model_family.chat_template
@@ -1552,6 +1587,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             if tools and (
                 model_family in QWEN_TOOL_CALL_FAMILY
                 or model_family in GEMMA_TOOL_CALL_FAMILY
+                or model_family in GLM5_TOOL_CALL_FAMILY
             ):
                 full_context_kwargs["tools"] = tools
             chat_template = self.model_family.chat_template

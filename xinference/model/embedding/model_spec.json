@@ -1550,6 +1550,176 @@
   },
   {
     "version": 2,
+    "model_name": "jina-embeddings-v5-text-nano",
+    "dimensions": 768,
+    "max_tokens": 8192,
+    "language": [
+      "multilingual"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "jinaai/jina-embeddings-v5-text-nano",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "jinaai/jina-embeddings-v5-text-nano",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "virtualenv": {
+      "packages": [
+        "sentence_transformers",
+        "einops",
+        "peft>=0.15.2",
+        "accelerate>=0.28.0",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\"",
+        "transformers>=4.57.0"
+      ]
+    },
+    "updated_at": 1781240042,
+    "featured": true
+  },
+  {
+    "version": 2,
+    "model_name": "jina-embeddings-v5-text-small",
+    "dimensions": 1024,
+    "max_tokens": 32768,
+    "language": [
+      "multilingual"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "jinaai/jina-embeddings-v5-text-small",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "jinaai/jina-embeddings-v5-text-small",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "virtualenv": {
+      "packages": [
+        "sentence_transformers",
+        "einops",
+        "peft>=0.15.2",
+        "accelerate>=0.28.0",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\"",
+        "transformers>=4.57.0"
+      ]
+    },
+    "updated_at": 1781240043,
+    "featured": true
+  },
+  {
+    "version": 2,
+    "model_name": "jina-embeddings-v5-omni-nano",
+    "dimensions": 768,
+    "max_tokens": 8192,
+    "language": [
+      "multilingual"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "jinaai/jina-embeddings-v5-omni-nano",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "jinaai/jina-embeddings-v5-omni-nano",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "virtualenv": {
+      "packages": [
+        "sentence_transformers",
+        "einops",
+        "peft>=0.15.2",
+        "accelerate>=0.28.0",
+        "pillow",
+        "librosa",
+        "soundfile",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\"",
+        "transformers>=5.0.0"
+      ]
+    },
+    "updated_at": 1781240044,
+    "featured": false
+  },
+  {
+    "version": 2,
+    "model_name": "jina-embeddings-v5-omni-small",
+    "dimensions": 1024,
+    "max_tokens": 32768,
+    "language": [
+      "multilingual"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "jinaai/jina-embeddings-v5-omni-small",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "jinaai/jina-embeddings-v5-omni-small",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "virtualenv": {
+      "packages": [
+        "sentence_transformers",
+        "einops",
+        "peft>=0.15.2",
+        "accelerate>=0.28.0",
+        "pillow",
+        "librosa",
+        "soundfile",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\"",
+        "transformers>=5.1.0"
+      ]
+    },
+    "updated_at": 1781240045,
+    "featured": false
+  },
+  {
+    "version": 2,
     "model_name": "gme-Qwen2-VL-2B-Instruct",
     "dimensions": 1536,
     "max_tokens": 32768,

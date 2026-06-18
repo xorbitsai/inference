@@ -153,7 +153,8 @@ export default function ClusterInfo() {
         workers: res.filter((item) => item.node_type === 'Worker'),
       });
       timerRef.current = setTimeout(fetchClusterInfo, 5000);
-    } catch {
+    } catch (err) {
+      console.log(err)
       if(timerRef.current){
         clearTimeout(timerRef.current); 
       }

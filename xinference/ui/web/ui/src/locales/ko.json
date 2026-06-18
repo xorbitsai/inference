@@ -329,6 +329,8 @@
     "notConfigured": "로그 조회가 구성되지 않았습니다. XINFERENCE_ES_URL 환경 변수를 설정하세요.",
     "searchPlaceholder": "로그 검색...",
     "allNodes": "전체 노드",
+    "logLevel": "로그 레벨",
+    "nodeType": "노드 유형",
     "time": "시간",
     "level": "레벨",
     "node": "노드",
@@ -390,7 +392,14 @@
     "selectAll": "전체 선택",
     "editPermissions": "권한 편집",
     "editPermissionsTitle": "권한 편집",
-    "save": "저장"
+    "save": "저장",
+    "changePassword": "비밀번호 변경",
+    "changePasswordTitle": "비밀번호 변경",
+    "newPassword": "새 비밀번호",
+    "confirmPassword": "비밀번호 확인",
+    "passwordMismatch": "비밀번호가 일치하지 않습니다",
+    "passwordTooShort": "비밀번호는 최소 8자 이상이어야 합니다",
+    "changePasswordSuccess": "비밀번호가 성공적으로 변경되었습니다"
   },
   "permissions": {
     "admin": "관리자",

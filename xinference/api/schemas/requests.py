@@ -148,3 +148,12 @@ class BuildGradioMediaInterfaceRequest(BaseModel):
     controlnet: Union[None, List[Dict[str, Union[str, dict, None]]]]
     model_revision: Optional[str]
     model_ability: List[str]
+
+
+class BuildGradioEmbeddingInterfaceRequest(BaseModel):
+    model_type: str
+    model_name: str
+    model_family: str
+    model_id: str
+    model_revision: Optional[str] = None
+    model_ability: List[str] = []
