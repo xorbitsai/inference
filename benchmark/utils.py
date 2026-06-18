@@ -367,7 +367,7 @@ def sample_random_requests(
     vocab_size = _get_vocab_size(tokenizer)
     prohibited_tokens = getattr(tokenizer, "all_special_ids", []) or []
     all_tokens = np.arange(vocab_size)
-    allowed_tokens = np.array(list(set(all_tokens) - set(prohibited_tokens)))
+    allowed_tokens = np.setdiff1d(all_tokens, prohibited_tokens)
     if len(allowed_tokens) == 0:
         raise ValueError("Tokenizer has no non-special tokens for random sampling.")
 

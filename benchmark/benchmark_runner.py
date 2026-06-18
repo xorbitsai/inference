@@ -184,12 +184,17 @@ class BenchmarkRunner:
                             output.latency = time.perf_counter() - st
                             output.success = True
                             usage = resp.get("usage")
-                            output.completion_tokens = (
-                                usage["completion_tokens"]
-                                if isinstance(usage, dict)
-                                and isinstance(usage.get("completion_tokens"), int)
-                                else 0
-                            )
+                            if isinstance(usage, dict) and isinstance(
+                                usage.get("completion_tokens"), int
+                            ):
+                                output.completion_tokens = usage["completion_tokens"]
+                            else:
+                                logger.warning(
+                                    "usage missing or malformed in non-streaming "
+                                    "response; completion_tokens set to 0 and "
+                                    "throughput stats will be inaccurate."
+                                )
+                                output.completion_tokens = 0
             except Exception:
                 output.success = False
                 exc_info = sys.exc_info()

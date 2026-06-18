@@ -27,9 +27,15 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def _validate_random_range_ratio(value: float, name: str) -> float:
+    if not (0.0 <= value < 1.0):
+        raise argparse.ArgumentTypeError(f"{name} must be in [0, 1), got {value}.")
+    return value
+
+
 def parse_random_range_ratio(value):
     try:
-        return float(value)
+        return _validate_random_range_ratio(float(value), name="--random-range-ratio")
     except ValueError:
         pass
 
@@ -45,7 +51,14 @@ def parse_random_range_ratio(value):
             "--random-range-ratio JSON value must be an object."
         )
     try:
-        return {"input": float(parsed["input"]), "output": float(parsed["output"])}
+        return {
+            "input": _validate_random_range_ratio(
+                float(parsed["input"]), name="--random-range-ratio input"
+            ),
+            "output": _validate_random_range_ratio(
+                float(parsed["output"]), name="--random-range-ratio output"
+            ),
+        }
     except KeyError as exc:
         raise argparse.ArgumentTypeError(
             "--random-range-ratio JSON object must contain 'input' and 'output'."
