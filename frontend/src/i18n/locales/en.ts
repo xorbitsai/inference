@@ -1,9 +1,17 @@
 const en = {
   menu: {
+    modelManagement: 'Model Management',
+    monitoringManagement: 'Monitoring Management',
+    systemManagement: 'System Management',
+    resourcesAndSupport: 'Resources & Support',
     launchModel: 'Launch Model',
     runningModels: 'Running Models',
     registerModel: 'Register Model',
     clusterInfo: 'Cluster Information',
+    monitorCenter: 'Monitoring Center',
+    logCenter: 'Log Center',
+    userManagement: 'User Management',
+    apiKeyManagement: 'API Key Management',
     clusterInfoDesc:
       'View the current state of your XInference cluster — supervisors, workers, and their hardware resources.',
     xagent: 'Xagent AI Agent',
@@ -181,6 +189,7 @@ const en = {
     terminateConfirmOk: 'Terminate',
     baseInfo: 'Basic Information',
     modelType: 'Model Type',
+    modelEngine: 'Model Engine',
     modelFormat: 'Model Format',
     modelSize: 'Model Size',
     quantization: 'Quantization',
@@ -254,6 +263,10 @@ const en = {
     autoFill: 'Auto Fill',
     fillInModelPathFirst: 'Please fill in modelPath first',
     fillInModelFamilyFirst: 'Please select model family first',
+  },
+  monitoring: {
+    notConfigured:
+      'Monitoring not configured. Please set XINFERENCE_GRAFANA_URL environment variable.',
   },
   clusterInfo: {
     supervisor: 'Supervisor',

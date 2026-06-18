@@ -9,7 +9,7 @@ import { LANGUAGES_OPTIONS, LANGUAGES_CHECKBOX_OPTIONS } from '@/constants/regis
 
 import type { BaseFormFieldProps } from '@/types/form';
 
-interface LanguagesProps extends BaseFormFieldProps<string[]> {}
+type LanguagesProps = BaseFormFieldProps<string[]>;
 
 const CHECKBOX_VALUES = new Set(LANGUAGES_CHECKBOX_OPTIONS.map((item) => item.value));
 

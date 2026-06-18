@@ -59,11 +59,11 @@ const RegisterModel: FC<RegisterModelProps> = ({ modelType, modelName }) => {
   };
 
   const transformFormValues = (values: Record<string, unknown>) => {
-    let newValues: Record<string, unknown> = { ...values };
+    const newValues: Record<string, unknown> = { ...values };
 
     if (Array.isArray(newValues?.model_specs)) {
       newValues.model_specs = newValues.model_specs.map((item: any) => {
-        let newItem = { ...item };
+        const newItem = { ...item };
         // Convert decimal model_size_in_billions (e.g., 7.2) to string (e.g., '7_2'), keep integers as numbers.
         if ('model_size_in_billions' in item) {
           const modelSizeInBillions = String(item?.model_size_in_billions);
@@ -123,7 +123,7 @@ const RegisterModel: FC<RegisterModelProps> = ({ modelType, modelName }) => {
           router.replace(`/register-model/${modelType}`);
           return;
         }
-        let formData = JSON.parse(modelStr);
+        const formData = JSON.parse(modelStr);
         if (formData.model_name !== modelName) {
           router.replace(`/register-model/${modelType}`);
           return;

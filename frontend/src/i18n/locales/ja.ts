@@ -1,9 +1,17 @@
 const ja = {
   menu: {
+    modelManagement: 'モデル管理',
+    monitoringManagement: '監視管理',
+    systemManagement: 'システム管理',
+    resourcesAndSupport: 'リソースとサポート',
     launchModel: 'モデル起動',
     runningModels: '実行中のモデル',
     registerModel: 'モデル登録',
     clusterInfo: 'クラスター情報',
+    monitorCenter: '監視センター',
+    logCenter: 'ログセンター',
+    userManagement: 'ユーザー管理',
+    apiKeyManagement: 'API Key管理',
     clusterInfoDesc:
       'XInference クラスターの現在の状態を確認します。スーパーバイザーノード、ワーカーノード、およびそれらのハードウェアリソースを含みます。',
     xagent: 'Xagent AI Agent',
@@ -180,6 +188,7 @@ const ja = {
     terminateConfirmOk: '終了',
     baseInfo: '基本情報',
     modelType: 'モデルタイプ',
+    modelEngine: 'モデルエンジン',
     modelFormat: 'モデル形式',
     modelSize: 'モデルサイズ',
     quantization: '量子化',
@@ -252,6 +261,10 @@ const ja = {
     autoFill: '自動入力',
     fillInModelPathFirst: 'まずモデルパスを入力してください',
     fillInModelFamilyFirst: 'まずモデルファミリーを選択してください',
+  },
+  monitoring: {
+    notConfigured:
+      'モニタリングが設定されていません。XINFERENCE_GRAFANA_URL 環境変数を設定してください。',
   },
   clusterInfo: {
     supervisor: 'スーパーバイザー',
