@@ -113,7 +113,11 @@ class Qwen3ASRModel:
         **kwargs,
     ):
         if temperature != 0:
-            raise RuntimeError("`temperature` is not supported for Qwen3-ASR")
+            logger.warning(
+                "`temperature` is not supported for Qwen3-ASR and will be "
+                "ignored: %s",
+                temperature,
+            )
         if timestamp_granularities is not None:
             raise RuntimeError(
                 "`timestamp_granularities` is not supported for Qwen3-ASR"
