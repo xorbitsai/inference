@@ -31,6 +31,7 @@ from .megatts import MegaTTSModel
 from .melotts import MeloTTSModel
 from .qwen3_asr import Qwen3ASRModel
 from .qwen3_tts import Qwen3TTSModel
+from .voxcpm import VoxCPMModel
 from .whisper import WhisperModel
 from .whisper_mlx import WhisperMLXModel
 
@@ -159,6 +160,7 @@ def create_audio_model_instance(
     Indextts2,
     Qwen3ASRModel,
     Qwen3TTSModel,
+    VoxCPMModel,
 ]:
     from ..cache_manager import CacheManager
 
@@ -184,6 +186,7 @@ def create_audio_model_instance(
         Indextts2,
         Qwen3ASRModel,
         Qwen3TTSModel,
+        VoxCPMModel,
     ]
     if model_spec.model_family == "whisper":
         if not model_spec.engine:
@@ -218,6 +221,8 @@ def create_audio_model_instance(
         model = Qwen3ASRModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "qwen3_tts":
         model = Qwen3TTSModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "VoxCPM":
+        model = VoxCPMModel(model_uid, model_path, model_spec, **kwargs)
     else:
         raise Exception(f"Unsupported audio model family: {model_spec.model_family}")
     return model
