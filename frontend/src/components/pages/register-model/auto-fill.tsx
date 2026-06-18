@@ -57,7 +57,7 @@ const AutoFill: FC<AutoFillProps> = ({ modelFamilyMap, autoFillBack }) => {
     setLoading(true);
     try {
       const res = await request.post('/v1/models/llm/auto-register', values);
-      let newValues = { ...(res || {}) };
+      const newValues = { ...(res || {}) };
       if (Array.isArray(newValues?.model_specs)) {
         newValues.model_specs = newValues.model_specs.map((item: any) => ({
           ...item,

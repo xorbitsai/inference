@@ -17,9 +17,9 @@ import {
   BotIcon,
   Rocket,
   Monitor,
-  ScrollText,
-  Users,
-  KeyRound,
+  // ScrollText,
+  // Users,
+  // KeyRound,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
