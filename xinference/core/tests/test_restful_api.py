@@ -1562,7 +1562,7 @@ def test_normalize_anthropic_messages_inline_system_merged():
         ],
     )
     assert result == [
-        {"role": "system", "content": "Top.Inline.A.B."},
+        {"role": "system", "content": "Top.\nInline.\nA.\nB."},
         {"role": "user", "content": "Hi"},
     ]
 

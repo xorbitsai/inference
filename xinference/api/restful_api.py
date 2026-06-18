@@ -1287,7 +1287,7 @@ class RESTfulAPI(CancelMixin):
             normalized.append(msg)
 
         if system_parts:
-            normalized.insert(0, {"role": "system", "content": "".join(system_parts)})
+            normalized.insert(0, {"role": "system", "content": "\n".join(system_parts)})
         return normalized
 
     async def create_message(self, request: Request) -> Response:
