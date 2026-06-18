@@ -45,11 +45,26 @@ class XllamaCppRerankModel(RerankModel):
         self._llm = None
         self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
         llamacpp_model_config = self._kwargs.get("llamacpp_model_config")
+        if llamacpp_model_config is None:
+            # Launch-time llama.cpp options (e.g. ``n_ctx``, ``n_batch``,
+            # ``n_ubatch``) arrive as flat kwargs from the CLI / REST API rather
+            # than nested under a ``llamacpp_model_config`` dict. Mirror the LLM
+            # llama.cpp backend, which treats the whole kwargs dict as its model
+            # config, so user-supplied context/batch sizes are honored instead
+            # of silently falling back to defaults (which caps reranking around
+            # the default ubatch size).
+            llamacpp_model_config = {
+                k: v for k, v in self._kwargs.items() if k != "llamacpp_model_config"
+            }
         self._llamacpp_model_config = self._sanitize_model_config(llamacpp_model_config)
 
     def _sanitize_model_config(self, llamacpp_model_config: Optional[dict]) -> dict:
         if llamacpp_model_config is None:
             llamacpp_model_config = {}
+        else:
+            # Copy so the defaults below are never written back into a
+            # user-supplied ``llamacpp_model_config`` dict that may be reused.
+            llamacpp_model_config = dict(llamacpp_model_config)
 
         llamacpp_model_config.setdefault("rerank", True)
         llamacpp_model_config.setdefault("use_mmap", False)
@@ -138,7 +153,9 @@ class XllamaCppRerankModel(RerankModel):
                     else:
                         setattr(params, k, v)
                 except Exception as e:
-                    logger.error("Failed to set the param %s = %s, error: %s", k, v, e)
+                    logger.warning(
+                        "Failed to set the param %s = %s, error: %s", k, v, e
+                    )
             n_threads = self._llamacpp_model_config.get("n_threads", os.cpu_count())
             params.cpuparams.n_threads = n_threads
             params.cpuparams_batch.n_threads = n_threads
