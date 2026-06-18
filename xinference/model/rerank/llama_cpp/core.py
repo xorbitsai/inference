@@ -61,6 +61,10 @@ class XllamaCppRerankModel(RerankModel):
     def _sanitize_model_config(self, llamacpp_model_config: Optional[dict]) -> dict:
         if llamacpp_model_config is None:
             llamacpp_model_config = {}
+        else:
+            # Copy so the defaults below are never written back into a
+            # user-supplied ``llamacpp_model_config`` dict that may be reused.
+            llamacpp_model_config = dict(llamacpp_model_config)
 
         llamacpp_model_config.setdefault("rerank", True)
         llamacpp_model_config.setdefault("use_mmap", False)
