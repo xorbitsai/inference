@@ -55,10 +55,9 @@ const ChatItem: FC<{ data: ChatMessage }> = ({ data }) => {
     if (!attachment) return null;
     if (role === 'user' && attachment.file) {
       return <FileUploadResult fileList={[attachment as FileUploadValue]} />;
-    }        
+    }
 
     return <MediaPreview type={attachment.type} url={attachment.url} />;
-    
   };
   if (role === 'user') {
     return (
@@ -191,21 +190,17 @@ export function ChatPanel({ model, modelUid }: ChatPanelProps) {
       }
       // A null reasoning_content field means the reasoning phase has completed.
       const thinkingCompleted =
-      'reasoning_content' in (chunk?.choices?.[0]?.delta || {})
-        ? thinkingContent === null
-        : true;
+        'reasoning_content' in (chunk?.choices?.[0]?.delta || {}) ? thinkingContent === null : true;
       const updatedLastItem = {
         ...lastChatItem,
         usage: chunk?.usage,
         content: lastChatItem.content + content,
         // If in thinking, the content below is in loading state and the status is true, otherwise it is false
-        loading: !thinkingCompleted, 
+        loading: !thinkingCompleted,
         success: true,
         thinkingContent: (lastChatItem.thinkingContent || '') + (thinkingContent || ''),
         thinkingCompleted,
-        attachment: transformFileInfoForResult(
-          chunk?.choices?.[0]?.message as ChatChoicesMessage
-        ),
+        attachment: transformFileInfoForResult(chunk?.choices?.[0]?.message as ChatChoicesMessage),
       };
       return [...prevList.slice(0, -1), updatedLastItem];
     });
@@ -364,7 +359,7 @@ export function ChatPanel({ model, modelUid }: ChatPanelProps) {
         <div className="border-t bg-card p-4 pb-2 flex flex-col gap-2">
           {!!attachments.length && (
             <FileUploadResult
-              className='w-1/3'
+              className="w-1/3"
               fileList={attachments}
               onRemove={(index) =>
                 setAttachments((current) =>
@@ -376,7 +371,7 @@ export function ChatPanel({ model, modelUid }: ChatPanelProps) {
           <Textarea
             value={input}
             onChange={(event) => setInput(event.target.value)}
-            placeholder="请输入"
+            placeholder="Please enter"
             className="min-h-20 flex-1 border-0 bg-muted/60 text-base shadow-none focus-visible:ring-0 rounded-xl"
             onKeyDown={handleEnter}
           />
