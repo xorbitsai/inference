@@ -1,10 +1,10 @@
 name: Build custom pypiserver image
 
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - feat/build-pypiserver-image
+    tags:
+      - '*'
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -30,8 +30,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-    env:
-      IMAGE_NAME: qinruicool/pypiserver-test
 
     steps:
       - name: Check out code
@@ -46,17 +44,31 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
+      - name: Determine image tag
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" =~ ^"refs/tags/" ]]; then
+            IMAGE_TAG="${GITHUB_REF#refs/tags/}"
+            echo "Will handle tag $IMAGE_TAG"
+          else
+            BRANCH="${GITHUB_REF_NAME:-$(git rev-parse --abbrev-ref HEAD)}"
+            git checkout "$BRANCH"
+            IMAGE_TAG="$BRANCH"
+          fi
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+
       - name: Debug
         run: |
           echo "Running on runner: $(uname -m)"
+          echo "IMAGE_TAG=${{ env.IMAGE_TAG }}"
           docker buildx version
           docker info
-          uname -m
-          echo $
-          ls -al /proc/cpuinfo
 
       - name: Build and push ${{ matrix.arch }} image
+        if: ${{ github.repository == 'xorbitsai/inference' }}
         uses: docker/build-push-action@v7
+        env:
+          DOCKER_ORG: ${{ secrets.DOCKERHUB_USERNAME }}
         with:
           context: .
           file: xinference/deploy/docker/pypiserver/Dockerfile.pypiserver
@@ -66,23 +78,27 @@ jobs:
           push: true
           provenance: false
           tags: |
-            ${{ env.IMAGE_NAME }}:${{ github.sha }}-${{ matrix.arch }}
-            ${{ env.IMAGE_NAME }}:latest-${{ matrix.arch }}
+            ${{ env.DOCKER_ORG }}/pypiserver:${{ env.IMAGE_TAG }}-${{ matrix.arch }}
+            ${{ env.DOCKER_ORG }}/pypiserver:latest-${{ matrix.arch }}
 
   # ------------------------------------------------------------------
   # Merge architecture-specific images into a multi-arch manifest list.
-  # Users pull :latest or :<sha> and get the correct arch automatically.
+  # Users pull :latest or :<tag> and get the correct arch automatically.
   # ------------------------------------------------------------------
   merge-manifest:
     name: Merge multi-arch manifest
     needs: build-and-push-image
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       packages: write
-    env:
-      IMAGE_NAME: qinruicool/pypiserver-test
 
     steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
@@ -92,16 +108,35 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      - name: Create and push multi-arch manifest (:latest)
+      - name: Determine image tag
+        shell: bash
         run: |
-          docker buildx imagetools create \
-            --tag ${{ env.IMAGE_NAME }}:latest \
-            ${{ env.IMAGE_NAME }}:latest-amd64 \
-            ${{ env.IMAGE_NAME }}:latest-arm64
+          if [[ "$GITHUB_REF" =~ ^"refs/tags/" ]]; then
+            IMAGE_TAG="${GITHUB_REF#refs/tags/}"
+            echo "Will handle tag $IMAGE_TAG"
+          else
+            BRANCH="${GITHUB_REF_NAME:-$(git rev-parse --abbrev-ref HEAD)}"
+            git checkout "$BRANCH"
+            IMAGE_TAG="$BRANCH"
+          fi
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
 
-      - name: Create and push multi-arch manifest (:sha)
+      - name: Create and push multi-arch manifest (:latest)
+        if: ${{ github.repository == 'xorbitsai/inference' }}
+        env:
+          DOCKER_ORG: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
           docker buildx imagetools create \
-            --tag ${{ env.IMAGE_NAME }}:${{ github.sha }} \
-            ${{ env.IMAGE_NAME }}:${{ github.sha }}-amd64 \
-            ${{ env.IMAGE_NAME }}:${{ github.sha }}-arm64
+            --tag $DOCKER_ORG/pypiserver:latest \
+            $DOCKER_ORG/pypiserver:latest-amd64 \
+            $DOCKER_ORG/pypiserver:latest-arm64
+
+      - name: Create and push multi-arch manifest (:tag)
+        if: ${{ github.repository == 'xorbitsai/inference' }}
+        env:
+          DOCKER_ORG: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: |
+          docker buildx imagetools create \
+            --tag $DOCKER_ORG/pypiserver:$IMAGE_TAG \
+            $DOCKER_ORG/pypiserver:$IMAGE_TAG-amd64 \
+            $DOCKER_ORG/pypiserver:$IMAGE_TAG-arm64
