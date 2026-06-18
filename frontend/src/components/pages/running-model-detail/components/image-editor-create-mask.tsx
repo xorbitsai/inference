@@ -81,7 +81,7 @@ function getScaleForContainer(
   }
 
   const { width, height } = imageSize(image);
-  const maxWidth = container.offsetWidth * 0.86;
+  const maxWidth = container.offsetWidth > 0 ? container.offsetWidth * 0.86 : width;
 
   return Math.min(1, maxWidth / width, maxHeight / height);
 }
@@ -428,6 +428,37 @@ export function ImageEditorCreateMask({
   useEffect(() => {
     uploadedMaskRef.current = uploadedMask;
   }, [uploadedMask]);
+
+  useEffect(() => {
+    const resizeCanvases = () => {
+      const source = imageRef.current;
+      const editorCanvas = canvasRef.current;
+
+      if (!source || !editorCanvas) {
+        return;
+      }
+
+      setupCanvasSize(editorCanvas, source, containerRef.current, 280);
+      redrawEditorCanvas(strokesRef.current);
+
+      if (uploadedMaskRef.current) {
+        void drawUploadedMask(uploadedMaskRef.current);
+      } else {
+        void drawPreviewFromStrokes(strokesRef.current, source);
+      }
+    };
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', resizeCanvases);
+      return () => window.removeEventListener('resize', resizeCanvases);
+    }
+
+    const observer = new ResizeObserver(resizeCanvases);
+    if (containerRef.current) observer.observe(containerRef.current);
+    if (previewContainerRef.current) observer.observe(previewContainerRef.current);
+
+    return () => observer.disconnect();
+  }, [drawPreviewFromStrokes, drawUploadedMask, redrawEditorCanvas, setupCanvasSize, sourceKey]);
 
   useEffect(() => {
     let isCurrent = true;

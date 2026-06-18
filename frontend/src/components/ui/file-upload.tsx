@@ -37,21 +37,11 @@ function formatFileSize(size: number) {
   return `${(size / 1024 ** index).toFixed(index === 0 ? 0 : 2)} ${units[index]}`;
 }
 
-function fileToDataURL(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
-
 async function toUploadValue(file: File): Promise<FileUploadValue> {
   return {
     file,
     type: getFileMeta(file).kind,
-    url: await fileToDataURL(file),
+    url: URL.createObjectURL(file),
   };
 }
 

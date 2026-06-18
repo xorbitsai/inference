@@ -195,7 +195,7 @@ export function Sidebar() {
             name: t('menu.logCenter'),
             Icon: ScrollText,
             Extra: ChevronRight,
-            show: clusterUIConfig?.es_enabled || true,
+            show: Boolean(clusterUIConfig?.es_enabled),
           },
         ],
       },

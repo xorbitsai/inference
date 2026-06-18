@@ -47,6 +47,7 @@ export function ContextDialog({ open, onOpenChange, anchorRow, nodeField }: Cont
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [localFieldFilters, setLocalFieldFilters] = useState<FieldFilter[]>([]);
   const anchorRef = useRef<HTMLTableRowElement | null>(null);
+  const scrolledAnchorRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (open) setCurrentAnchor(anchorRow);
@@ -62,6 +63,7 @@ export function ContextDialog({ open, onOpenChange, anchorRow, nodeField }: Cont
     setError(null);
     setExpandedRow(null);
     setLocalFieldFilters([]);
+    scrolledAnchorRef.current = null;
   }, []);
 
   const handleClose = () => {
@@ -105,10 +107,11 @@ export function ContextDialog({ open, onOpenChange, anchorRow, nodeField }: Cont
   }, [open, timestamp, olderSize, newerSize, currentAnchor, nodeField]);
 
   useEffect(() => {
-    if (!loading && anchorRef.current) {
+    if (!loading && timestamp && scrolledAnchorRef.current !== timestamp && anchorRef.current) {
       anchorRef.current.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      scrolledAnchorRef.current = timestamp;
     }
-  }, [loading, older, newer]);
+  }, [loading, timestamp]);
 
   const handleLocalFilter = useCallback((key: string, value: unknown, op: FieldFilterOp) => {
     const valueString = String(value);

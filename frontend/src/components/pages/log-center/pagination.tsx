@@ -12,8 +12,10 @@ interface LogPaginationProps {
 
 export function LogPagination({ total, pageFrom, onPageFromChange }: LogPaginationProps) {
   const { t } = useI18n();
-  const totalPages = Math.ceil(total / LOG_PAGE_SIZE);
+  const maxAccessibleTotal = Math.min(total, 10000);
+  const totalPages = Math.ceil(maxAccessibleTotal / LOG_PAGE_SIZE);
   const currentPage = Math.floor(pageFrom / LOG_PAGE_SIZE) + 1;
+  const isNextDisabled = pageFrom + LOG_PAGE_SIZE >= maxAccessibleTotal;
 
   return (
     <div className="flex min-h-12 items-center justify-end gap-3 border-t px-4 py-2">
@@ -32,7 +34,7 @@ export function LogPagination({ total, pageFrom, onPageFromChange }: LogPaginati
       <Button
         variant="outline"
         size="sm"
-        disabled={pageFrom + LOG_PAGE_SIZE >= total || pageFrom + LOG_PAGE_SIZE > 10000}
+        disabled={isNextDisabled}
         onClick={() => onPageFromChange(pageFrom + LOG_PAGE_SIZE)}
       >
         {t('logCenter.nextPage')}

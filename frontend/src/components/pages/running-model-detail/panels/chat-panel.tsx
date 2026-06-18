@@ -46,6 +46,25 @@ import type { FileUploadValue } from '@/types/common';
 import type { ChatMessage, ChatSettings } from '../types';
 import { transformFileInfoForResult } from '../utils';
 
+const fileDataUrlCache = new WeakMap<File, string>();
+
+function fileToDataURL(file: File): Promise<string> {
+  const cached = fileDataUrlCache.get(file);
+  if (cached) return Promise.resolve(cached);
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      fileDataUrlCache.set(file, result);
+      resolve(result);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
 const ChatItem: FC<{ data: ChatMessage }> = ({ data }) => {
   const { role, content, loading, success, attachment, thinkingContent, thinkingCompleted, usage } =
     data;
@@ -270,6 +289,26 @@ export function ChatPanel({ model, modelUid }: ChatPanelProps) {
       block: 'end',
     });
 
+    const messages = await Promise.all(
+      newChatList.map(async (item) => {
+        if (item.role === 'user' && item.attachment) {
+          const { type, url, file } = item.attachment || {};
+          const attachmentUrl = file ? await fileToDataURL(file) : url;
+          return {
+            role: item.role,
+            content: [
+              { type: 'text', text: item.content },
+              {
+                type: `${type}_url`,
+                [`${type}_url`]: { url: attachmentUrl },
+              },
+            ],
+          };
+        }
+        return { role: item.role, content: item.content };
+      })
+    );
+
     await postEventStreamFetcher<ChatStreamResult>(
       {
         url: '/v1/chat/completions',
@@ -278,22 +317,7 @@ export function ChatPanel({ model, modelUid }: ChatPanelProps) {
           ...settings,
           // if max_tokens = 0, fetch err
           max_tokens: settings.max_tokens || undefined,
-          messages: newChatList.map((item) => {
-            if (item.role === 'user' && item.attachment) {
-              const { type, url } = item.attachment || {};
-              return {
-                role: item.role,
-                content: [
-                  { type: 'text', text: item.content },
-                  {
-                    type: `${type}_url`,
-                    [`${type}_url`]: { url },
-                  },
-                ],
-              };
-            }
-            return { role: item.role, content: item.content };
-          }),
+          messages,
           stream_options: { include_usage: true },
         },
         options: {
