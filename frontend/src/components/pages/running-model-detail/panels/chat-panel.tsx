@@ -219,7 +219,9 @@ export function ChatPanel({ model, modelUid }: ChatPanelProps) {
         success: true,
         thinkingContent: (lastChatItem.thinkingContent || '') + (thinkingContent || ''),
         thinkingCompleted,
-        attachment: transformFileInfoForResult(chunk?.choices?.[0]?.message as ChatChoicesMessage),
+        attachment:
+          transformFileInfoForResult(chunk?.choices?.[0]?.message as ChatChoicesMessage) ||
+          lastChatItem.attachment,
       };
       return [...prevList.slice(0, -1), updatedLastItem];
     });
