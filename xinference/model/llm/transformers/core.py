@@ -203,7 +203,9 @@ class PytorchModel(LLM):
                     "use_fast": self._use_fast_tokenizer,
                     "trust_remote_code": (
                         bool(
-                            kwargs.get("trust_remote_code", XINFERENCE_TRUST_REMOTE_CODE)
+                            kwargs.get(
+                                "trust_remote_code", XINFERENCE_TRUST_REMOTE_CODE
+                            )
                         )
                         and XINFERENCE_TRUST_REMOTE_CODE
                     ),
