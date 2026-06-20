@@ -1396,8 +1396,9 @@ class WorkerActor(xo.StatelessActor):
         )
 
         try:
-            # Download JSON from remote API
-            response = requests.get(url, timeout=30)
+            # Download JSON from remote API. Run the blocking request in a
+            # worker thread so it does not freeze the actor's event loop.
+            response = await asyncio.to_thread(requests.get, url, timeout=30)
             response.raise_for_status()
 
             # Parse JSON response
