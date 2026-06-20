@@ -26,7 +26,6 @@ import numpy as np
 import torch
 from xoscar import extensible
 
-from ....constants import XINFERENCE_TRUST_REMOTE_CODE
 from ....device_utils import empty_cache
 from ....types import Document, DocumentObj, Meta, Rerank, RerankTokens
 from ....utils import make_hashable
@@ -121,7 +120,7 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             self._model = CrossEncoder(
                 self._model_path,
                 device=self._device,
-                trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE,
+                trust_remote_code=allow_trust_remote_code(self.model_family),
                 max_length=getattr(self.model_family, "max_tokens"),
                 **self._kwargs,
             )

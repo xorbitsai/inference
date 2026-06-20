@@ -20,7 +20,6 @@ from typing import Any, Dict, List, Optional, Tuple, Union, cast, no_type_check
 import numpy as np
 import torch
 
-from ....constants import XINFERENCE_TRUST_REMOTE_CODE
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ...batch import BatchMixin
 from ...utils import (
@@ -280,7 +279,7 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
             self._model = SentenceTransformer(
                 self._model_path,
                 device=self._device,
-                trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE,
+                trust_remote_code=allow_trust_remote_code(self.model_family),
                 truncate_dim=dimensions,
                 **st_kwargs,
             )
