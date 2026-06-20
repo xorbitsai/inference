@@ -46,6 +46,22 @@ export enum ModelAbility {
   Audio = 'audio',
   Omni = 'omni',
   Hybrid = 'hybrid',
+  Embed = 'embed',
+  Rerank = 'rerank',
+  Text2image = 'text2image',
+  Image2image = 'image2image',
+  Inpainting = 'inpainting',
+  Audio2text = 'audio2text',
+  Text2audio = 'text2audio',
+  Audio2audio = 'audio2audio',
+  Text2video = 'text2video',
+  Image2video = 'image2video',
+  Ocr = 'ocr',
+  Firstlastframe2video = 'firstlastframe2video',
+  Text2audioVoiceCloning = 'text2audio_voice_cloning',
+  Text2audioZeroShot = 'text2audio_zero_shot',
+  Text2audioEmotionControl = 'text2audio_emotion_control',
+  Docanalyze = 'docanalyze',
 }
 
 export const CUSTOM_MODEL_OPTIONS = [

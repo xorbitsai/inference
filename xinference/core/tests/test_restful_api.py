@@ -1514,6 +1514,70 @@ def anthropic_setup():
     )
 
 
+def test_normalize_anthropic_messages_top_level_string():
+    """Top-level `system` string becomes a leading system message."""
+    from ...api.restful_api import RESTfulAPI
+
+    result = RESTfulAPI._normalize_anthropic_messages(
+        "Be concise.", [{"role": "user", "content": "Hi"}]
+    )
+    assert result == [
+        {"role": "system", "content": "Be concise."},
+        {"role": "user", "content": "Hi"},
+    ]
+
+
+def test_normalize_anthropic_messages_strips_billing_header():
+    """Claude Code's per-request billing header block is dropped."""
+    from ...api.restful_api import RESTfulAPI
+
+    result = RESTfulAPI._normalize_anthropic_messages(
+        [
+            {"type": "text", "text": "x-anthropic-billing-header: cc_version=2.1.160"},
+            {"type": "text", "text": "You are Claude Code."},
+        ],
+        [{"role": "user", "content": "Hi"}],
+    )
+    assert result[0] == {"role": "system", "content": "You are Claude Code."}
+    assert result[1] == {"role": "user", "content": "Hi"}
+
+
+def test_normalize_anthropic_messages_inline_system_merged():
+    """Inline `role: system` messages are merged with the top-level prompt and
+    removed from the message list (Claude Code >= 2.1.154 compatibility)."""
+    from ...api.restful_api import RESTfulAPI
+
+    result = RESTfulAPI._normalize_anthropic_messages(
+        "Top.",
+        [
+            {"role": "user", "content": "Hi"},
+            {"role": "system", "content": "Inline."},
+            {
+                "role": "system",
+                "content": [
+                    {"type": "text", "text": "A."},
+                    {"type": "text", "text": "B."},
+                ],
+            },
+        ],
+    )
+    assert result == [
+        {"role": "system", "content": "Top.\nInline.\nA.\nB."},
+        {"role": "user", "content": "Hi"},
+    ]
+
+
+def test_normalize_anthropic_messages_no_system_unchanged():
+    """Requests without any system content are passed through unchanged."""
+    from ...api.restful_api import RESTfulAPI
+
+    messages = [
+        {"role": "user", "content": "Hi"},
+        {"role": "assistant", "content": "Yo"},
+    ]
+    assert RESTfulAPI._normalize_anthropic_messages(None, messages) == messages
+
+
 def test_convert_openai_to_anthropic_with_tools(anthropic_setup):
     """Test conversion of OpenAI response with tool calls to Anthropic format"""
     handler, sample_openai_response_with_tools, _ = anthropic_setup

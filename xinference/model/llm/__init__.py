@@ -50,6 +50,7 @@ from .utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     GEMMA_TOOL_CALL_FAMILY,
     GLM4_TOOL_CALL_FAMILY,
+    GLM5_TOOL_CALL_FAMILY,
     LLAMA3_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
 )
@@ -229,6 +230,8 @@ def load_model_family_from_json(json_filename, target_families):
                     GEMMA_TOOL_CALL_FAMILY.add(model_spec.model_name)
                 elif tool_parser == "glm4":
                     GLM4_TOOL_CALL_FAMILY.add(model_spec.model_name)
+                elif tool_parser == "glm5":
+                    GLM5_TOOL_CALL_FAMILY.add(model_spec.model_name)
                 elif tool_parser == "llama3":
                     LLAMA3_TOOL_CALL_FAMILY.add(model_spec.model_name)
                 elif tool_parser.startswith("deepseek"):

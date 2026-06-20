@@ -14,6 +14,7 @@ export interface SelectOption<T extends SelectValue = SelectValue> {
   label: string;
   disabled?: boolean;
   description?: string;
+  prefix?: React.ReactNode;
   suffix?: React.ReactNode;
 }
 
@@ -238,7 +239,8 @@ export function Select<T extends SelectValue = SelectValue>({
               }}
             />
           ) : selectedOption ? (
-            <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="flex items-center gap-1 min-w-0 flex-1">
+              {!!selectedOption.prefix && <span className='shrink-0'>{selectedOption.prefix}</span>}
               <span className="font-medium truncate">{selectedOption.label}</span>
             </div>
           ) : (
@@ -300,7 +302,8 @@ export function Select<T extends SelectValue = SelectValue>({
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <div className="flex min-w-0 flex-1 items-center gap-1">
+                      {!!option.prefix && <span className='shrink-0'>{option.prefix}</span>}
                       <span className="truncate font-medium">{option.label}</span>
                     </div>
 

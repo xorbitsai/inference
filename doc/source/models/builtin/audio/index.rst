@@ -89,6 +89,8 @@ The following is a list of built-in audio models in Xinference:
   
    sensevoicesmall
   
+   voxcpm2
+  
    whisper-base
   
    whisper-base-mlx

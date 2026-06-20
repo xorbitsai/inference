@@ -14,18 +14,59 @@
 
 import argparse
 import asyncio
+import json
 import logging
 import random
-from typing import List, Tuple, Optional
+from typing import List, Optional, Tuple
 
 import numpy as np
-
-from utils import sample_requests, get_tokenizer
 from benchmark_runner import ConcurrentBenchmarkRunner
-
+from utils import get_tokenizer, sample_random_requests, sample_requests
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def _validate_random_range_ratio(value: float, name: str) -> float:
+    if not (0.0 <= value < 1.0):
+        raise argparse.ArgumentTypeError(f"{name} must be in [0, 1), got {value}.")
+    return value
+
+
+def parse_random_range_ratio(value):
+    try:
+        return _validate_random_range_ratio(float(value), name="--random-range-ratio")
+    except ValueError:
+        pass
+
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise argparse.ArgumentTypeError(
+            "--random-range-ratio must be a float or a JSON object with "
+            "'input' and 'output' keys."
+        ) from exc
+    if not isinstance(parsed, dict):
+        raise argparse.ArgumentTypeError(
+            "--random-range-ratio JSON value must be an object."
+        )
+    try:
+        return {
+            "input": _validate_random_range_ratio(
+                float(parsed["input"]), name="--random-range-ratio input"
+            ),
+            "output": _validate_random_range_ratio(
+                float(parsed["output"]), name="--random-range-ratio output"
+            ),
+        }
+    except KeyError as exc:
+        raise argparse.ArgumentTypeError(
+            "--random-range-ratio JSON object must contain 'input' and 'output'."
+        ) from exc
+    except (TypeError, ValueError) as exc:
+        raise argparse.ArgumentTypeError(
+            "--random-range-ratio input and output values must be numbers."
+        ) from exc
 
 
 class ServingBenchmarkRunner(ConcurrentBenchmarkRunner):
@@ -39,6 +80,7 @@ class ServingBenchmarkRunner(ConcurrentBenchmarkRunner):
         request_rate: float,
         api_key: Optional[str] = None,
         print_error: bool = False,
+        ignore_eos: bool = False,
     ):
         super().__init__(
             api_url,
@@ -48,6 +90,7 @@ class ServingBenchmarkRunner(ConcurrentBenchmarkRunner):
             concurrency,
             api_key,
             print_error,
+            ignore_eos,
         )
         self.request_rate = request_rate
         self.queue = None  # delay the creation of the queue
@@ -102,13 +145,31 @@ def main(args: argparse.Namespace):
     model_uid = args.model_uid
 
     logger.info("Preparing for benchmark.")
+    if args.request_rate <= 0.0:
+        raise ValueError("--request-rate must be positive.")
+
     tokenizer = get_tokenizer(args.tokenizer, trust_remote_code=args.trust_remote_code)
-    input_requests = sample_requests(
-        args.dataset,
-        args.num_prompts,
-        tokenizer,
-        prompt_len_limit=args.prompt_len_limit,
-    )
+    if args.dataset_name == "sharegpt":
+        if not args.dataset:
+            raise ValueError("--dataset is required when --dataset-name=sharegpt.")
+        input_requests = sample_requests(
+            args.dataset,
+            args.num_prompts,
+            tokenizer,
+            prompt_len_limit=args.prompt_len_limit,
+        )
+    elif args.dataset_name == "random":
+        input_requests = sample_random_requests(
+            args.num_prompts,
+            tokenizer,
+            input_len=args.input_len,
+            output_len=args.output_len,
+            range_ratio=args.random_range_ratio,
+            prefix_len=args.random_prefix_len,
+            seed=args.seed,
+        )
+    else:
+        raise ValueError(f"Unsupported dataset name: {args.dataset_name}")
 
     logger.info("Benchmark starts.")
 
@@ -121,6 +182,7 @@ def main(args: argparse.Namespace):
         concurrency=args.concurrency,
         api_key=args.api_key,
         print_error=args.print_error,
+        ignore_eos=args.ignore_eos,
     )
     asyncio.run(benchmark.run())
 
@@ -134,7 +196,17 @@ if __name__ == "__main__":
     parser.add_argument("--host", type=str, default="localhost")
     parser.add_argument("--port", type=int, default=9997)
     parser.add_argument(
-        "--dataset", type=str, required=True, help="Path to the dataset."
+        "--dataset-name",
+        type=str,
+        choices=["sharegpt", "random"],
+        default="sharegpt",
+        help="Dataset source to use for benchmark requests.",
+    )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default=None,
+        help="Path to the dataset. Required when --dataset-name=sharegpt.",
     )
     parser.add_argument(
         "--tokenizer", type=str, required=True, help="Name or path of the tokenizer."
@@ -144,6 +216,43 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--prompt-len-limit", type=int, default=1024, help="Prompt length limitation."
+    )
+    parser.add_argument(
+        "--input-len",
+        type=int,
+        default=1024,
+        help="Input token length for random dataset requests.",
+    )
+    parser.add_argument(
+        "--output-len",
+        type=int,
+        default=128,
+        help="Output token length for random dataset requests.",
+    )
+    parser.add_argument(
+        "--random-input-len",
+        dest="input_len",
+        type=int,
+        help="Alias for --input-len.",
+    )
+    parser.add_argument(
+        "--random-output-len",
+        dest="output_len",
+        type=int,
+        help="Alias for --output-len.",
+    )
+    parser.add_argument(
+        "--random-range-ratio",
+        type=parse_random_range_ratio,
+        default=0.0,
+        help="Sample random input/output lengths from length * (1 +/- ratio). "
+        'Can also be a JSON object like \'{"input": 0.3, "output": 0.5}\'.',
+    )
+    parser.add_argument(
+        "--random-prefix-len",
+        type=int,
+        default=0,
+        help="Fixed prefix token length prepended to random dataset prompts.",
     )
     parser.add_argument(
         "--api-key",
@@ -178,9 +287,14 @@ if __name__ == "__main__":
         "--stream", action="store_true", help="Enable streaming responses."
     )
     parser.add_argument(
+        "--ignore-eos",
+        action="store_true",
+        help="Ask the backend to ignore EOS so random outputs approach max_tokens.",
+    )
+    parser.add_argument(
         "--print-error",
         action="store_true",
-        help="Print detailed error messages if any errors encountered."
+        help="Print detailed error messages if any errors encountered.",
     )
     args = parser.parse_args()
     main(args)

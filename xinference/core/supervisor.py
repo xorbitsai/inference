@@ -56,6 +56,7 @@ from ..model.utils import (
     get_engine_params_by_name_with_virtual_env,
 )
 from ..types import PeftModelConfig
+from .exceptions import ModelNotReadyError
 from .launch_strategy import IdleFirstLaunchStrategy
 from .metrics import record_metrics
 from .resource import GPUStatus, ResourceStatus
@@ -1748,7 +1749,6 @@ class SupervisorActor(xo.StatelessActor):
                 rank0_address, _port = await worker_ref.launch_rank0_model(
                     _replica_model_uid, xavier_config
                 )
-                self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
                 store_address = rank0_address.split(":")[0]
                 store_port = _port
 
@@ -1756,6 +1756,7 @@ class SupervisorActor(xo.StatelessActor):
                 await self._status_guard_ref.update_replica_status(
                     model_uid, replica_id, {"status": LaunchStatus.READY.name}
                 )
+                self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
                 return rank0_address
 
             replica_gpu_idx = (
@@ -1794,8 +1795,10 @@ class SupervisorActor(xo.StatelessActor):
                     xavier_config=xavier_config,
                     **kwargs,
                 )
-                self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
+                # Wait for engine to be ready BEFORE adding to route table,
+                # so requests are never routed to a still-loading model.
                 await worker_ref.wait_for_load(_replica_model_uid)
+                self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
 
                 # Update replica status to READY
                 await self._status_guard_ref.update_replica_status(
@@ -2711,8 +2714,13 @@ class SupervisorActor(xo.StatelessActor):
 
         worker_ref = self._replica_model_uid_to_worker.get(replica_model_uid, None)
         if worker_ref is None:
-            raise ValueError(
-                f"Model not found in the model list, uid: {replica_model_uid}"
+            # replica_info exists but worker route not yet registered —
+            # model is being launched (wait_ready=False), not missing.
+            # Raise ModelNotReadyError (503) instead of ValueError (404)
+            # so the negative cache is not poisoned and clients get a
+            # retry-friendly response.
+            raise ModelNotReadyError(
+                f"Model {model_uid} is launching, not yet ready for inference"
             )
         if isinstance(worker_ref, (list, tuple)):
             # get first worker to fetch information if model across workers
@@ -2720,10 +2728,15 @@ class SupervisorActor(xo.StatelessActor):
         assert not isinstance(
             worker_ref, (list, tuple)
         ), "worker_ref must be a single worker"
-        return await xo.wait_for(
-            worker_ref.get_model(model_uid=replica_model_uid),
-            XINFERENCE_GET_MODEL_RPC_TIMEOUT,
-        )
+        try:
+            return await xo.wait_for(
+                worker_ref.get_model(model_uid=replica_model_uid),
+                XINFERENCE_GET_MODEL_RPC_TIMEOUT,
+            )
+        except ModelNotReadyError:
+            raise ModelNotReadyError(
+                f"Model {model_uid} is loading, please retry later"
+            )
 
     @log_async(logger=logger)
     async def get_model_status(self, replica_model_uid: str):
@@ -2753,8 +2766,8 @@ class SupervisorActor(xo.StatelessActor):
         )
         worker_ref = self._replica_model_uid_to_worker.get(replica_model_uid, None)
         if worker_ref is None:
-            raise ValueError(
-                f"Model not found in the model list, uid: {replica_model_uid}"
+            raise ModelNotReadyError(
+                f"Model {model_uid} is launching, not yet ready for inference"
             )
         if isinstance(worker_ref, (list, tuple)):
             # get status from first shard if model has multiple shards across workers

@@ -18,13 +18,17 @@ import os
 
 logger = logging.getLogger(__name__)
 
+try:
+    from vllm.engine.async_llm_engine import AsyncEngineDeadError
+except Exception:
+    # vLLM 0.19.0+ removed AsyncEngineDeadError from this module.
+    # It is a subclass of RuntimeError, so except RuntimeError suffices.
+    # Use except Exception (not just ImportError) to handle partial/broken
+    # vllm installations where module init may raise non-ImportError errors.
+    AsyncEngineDeadError = RuntimeError  # type: ignore[assignment,misc]
+
 
 def vllm_check(fn):
-    try:
-        from vllm.engine.async_llm_engine import AsyncEngineDeadError
-    except Exception:
-        return fn
-
     @functools.wraps(fn)
     async def _async_wrapper(self, *args, **kwargs):
         try:

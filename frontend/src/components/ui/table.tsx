@@ -98,7 +98,7 @@ const TableRow = React.forwardRef<
   HTMLTableRowElement,
   React.HTMLAttributes<HTMLTableRowElement>
 >(({ className, ...props }, ref) => {
-  const { size } = useTableContext();
+  useTableContext();
 
   return (
     <tr

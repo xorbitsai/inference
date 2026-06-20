@@ -12,16 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import aiohttp
 import json
+import logging
 import sys
+import time
 import traceback
 import warnings
-import logging
 from dataclasses import dataclass, field
-import time
 from typing import List, Optional, Tuple
 
+import aiohttp
 import numpy as np
 
 logging.basicConfig(level=logging.INFO)
@@ -56,6 +56,7 @@ class BenchmarkRunner:
         stream: bool,
         api_key: Optional[str] = None,
         print_error: bool = False,
+        ignore_eos: bool = False,
     ):
         self.api_url = api_url
         self.model_uid = model_uid
@@ -65,6 +66,7 @@ class BenchmarkRunner:
         self.stream = stream
         self.api_key = api_key
         self.print_error = print_error
+        self.ignore_eos = ignore_eos
 
     async def run(self):
         await self.warm_up()
@@ -107,6 +109,8 @@ class BenchmarkRunner:
                 "stream": False,
                 "messages": [{"role": "user", "content": prompt}],
             }
+        if self.ignore_eos:
+            pload["ignore_eos"] = True
 
         headers = {"User-Agent": "Benchmark Client"}
         if self.api_key:
@@ -124,6 +128,7 @@ class BenchmarkRunner:
                 ) as response:
                     if response.status == 200:
                         if self.stream:
+                            usage = None
                             async for chunk_bytes in response.content:
                                 # {
                                 #     "id": "chataec79465-dfea-46af-81b9-c28124063fc0",
@@ -142,13 +147,16 @@ class BenchmarkRunner:
                                 if not chunk_bytes:
                                     continue
 
-                                chunk = remove_prefix(chunk_bytes.decode("utf-8"), "data:")
+                                chunk = remove_prefix(
+                                    chunk_bytes.decode("utf-8"), "data:"
+                                )
 
                                 if chunk == "[DONE]":
                                     latency = time.perf_counter() - st
                                 else:
                                     timestamp = time.perf_counter()
                                     data = json.loads(chunk)
+                                    usage = data.get("usage") or usage
 
                                     # First token
                                     if ttft == 0.0:
@@ -157,18 +165,36 @@ class BenchmarkRunner:
 
                                     # Decoding phase
                                     else:
-                                        output.itl.append(timestamp - most_recent_timestamp)
+                                        output.itl.append(
+                                            timestamp - most_recent_timestamp
+                                        )
 
                                     most_recent_timestamp = timestamp
 
                             output.latency = latency
                             output.success = True
-                            output.completion_tokens = data["usage"]["completion_tokens"]
+                            output.completion_tokens = (
+                                usage["completion_tokens"]
+                                if isinstance(usage, dict)
+                                and isinstance(usage.get("completion_tokens"), int)
+                                else len(output.itl) + 1
+                            )
                         else:
                             resp = await response.json()
                             output.latency = time.perf_counter() - st
                             output.success = True
-                            output.completion_tokens = resp["usage"]["completion_tokens"]
+                            usage = resp.get("usage")
+                            if isinstance(usage, dict) and isinstance(
+                                usage.get("completion_tokens"), int
+                            ):
+                                output.completion_tokens = usage["completion_tokens"]
+                            else:
+                                logger.warning(
+                                    "usage missing or malformed in non-streaming "
+                                    "response; completion_tokens set to 0 and "
+                                    "throughput stats will be inaccurate."
+                                )
+                                output.completion_tokens = 0
             except Exception:
                 output.success = False
                 exc_info = sys.exc_info()
@@ -368,7 +394,9 @@ class BenchmarkRunner:
                 logger.info("Errors encountered during benchmark:")
                 for output in self.outputs:
                     if not output.success:
-                        print(f"Error for prompt with length {output.prompt_len}: {output.error}")
+                        print(
+                            f"Error for prompt with length {output.prompt_len}: {output.error}"
+                        )
             else:
                 logger.info(
                     "Errors were encountered during the benchmark. Run with --print-error to see detailed error messages."
@@ -385,6 +413,7 @@ class ConcurrentBenchmarkRunner(BenchmarkRunner):
         concurrency: int,
         api_key: Optional[str] = None,
         print_error: bool = False,
+        ignore_eos: bool = False,
     ):
         super().__init__(
             api_url,
@@ -393,6 +422,7 @@ class ConcurrentBenchmarkRunner(BenchmarkRunner):
             stream,
             api_key,
             print_error,
+            ignore_eos,
         )
         self.concurrency = concurrency
         self.left = len(input_requests)

@@ -28272,7 +28272,7 @@
     "stop": [
       "<|endoftext|>"
     ],
-    "tool_parser": "glm4",
+    "tool_parser": "glm5",
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "version": 2,
@@ -28286,7 +28286,7 @@
       ]
     },
     "featured": false,
-    "updated_at": 1772702529
+    "updated_at": 1781600152
   },
   {
     "model_name": "qwen3.5",
@@ -32060,7 +32060,7 @@
     "stop": [
       "<|endoftext|>"
     ],
-    "tool_parser": "glm4",
+    "tool_parser": "glm5",
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "version": 2,
@@ -32075,7 +32075,7 @@
       ]
     },
     "featured": false,
-    "updated_at": 1777047462
+    "updated_at": 1781600152
   },
   {
     "model_name": "DeepSeek-V4-Flash",
@@ -32250,5 +32250,287 @@
     "tool_parser": "deepseek-v4",
     "featured": false,
     "updated_at": 1779522876
+  },
+  {
+    "version": 2,
+    "context_length": 262144,
+    "model_name": "Hy-MT2-1.8B",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Hy-MT2-1.8B is a dense multilingual translation model from Tencent Hunyuan, supporting 33 languages with instruction-following capabilities for complex translation scenarios.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 2,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "tencent/Hy-MT2-1.8B",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Tencent-Hunyuan/Hy-MT2-1.8B",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 2,
+        "quantizations": [
+          "fp8"
+        ],
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "tencent/Hy-MT2-1.8B-FP8",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Tencent-Hunyuan/Hy-MT2-1.8B-FP8",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 2,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q4_K_M",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "tencent/Hy-MT2-1.8B-GGUF",
+            "model_file_name_template": "Hy-MT2-1.8B-{quantization}.gguf"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Q4_K_M",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "Tencent-Hunyuan/Hy-MT2-1.8B-GGUF",
+            "model_file_name_template": "Hy-MT2-1.8B-{quantization}.gguf"
+          }
+        }
+      }
+    ],
+    "chat_template": "{% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% set system_message = messages[0]['content'] %}<｜hy_begin▁of▁sentence｜>{{ system_message }}<｜hy_place▁holder▁no▁3｜>{% else %}{% set loop_messages = messages %}<｜hy_begin▁of▁sentence｜>{% endif %}{% for message in loop_messages %}{% if message['role'] == 'user' %}<｜hy_User｜>{{ message['content'] }}{% elif message['role'] == 'assistant' %}<｜hy_Assistant｜>{{ message['content'] }}<｜hy_place▁holder▁no▁2｜>{% endif %}{% endfor %}{% if add_generation_prompt %}<｜hy_Assistant｜>{% else %}<｜hy_place▁holder▁no▁8｜>{% endif %}",
+    "stop_token_ids": [
+      120020
+    ],
+    "architectures": [
+      "HunYuanDenseV1ForCausalLM"
+    ],
+    "model_type": "hunyuan_v1_dense",
+    "virtualenv": {
+      "packages": [
+        "transformers>=4.57.0 ; #engine# == \"Transformers\"",
+        "accelerate>=0.28.0 ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\""
+      ]
+    },
+    "featured": true,
+    "updated_at": 1781520055
+  },
+  {
+    "version": 2,
+    "context_length": 262144,
+    "model_name": "Hy-MT2-7B",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Hy-MT2-7B is a dense multilingual translation model from Tencent Hunyuan, supporting 33 languages with balanced performance for general-purpose high-quality translation.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "tencent/Hy-MT2-7B",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Tencent-Hunyuan/Hy-MT2-7B",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 7,
+        "quantizations": [
+          "fp8"
+        ],
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "tencent/Hy-MT2-7B-FP8",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Tencent-Hunyuan/Hy-MT2-7B-FP8",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_size_in_billions": 7,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "Q4_K_M",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "tencent/Hy-MT2-7B-GGUF",
+            "model_file_name_template": "Hy-MT2-7B-{quantization}.gguf"
+          },
+          "modelscope": {
+            "quantizations": [
+              "Q4_K_M",
+              "Q6_K",
+              "Q8_0"
+            ],
+            "model_id": "Tencent-Hunyuan/Hy-MT2-7B-GGUF",
+            "model_file_name_template": "Hy-MT2-7B-{quantization}.gguf"
+          }
+        }
+      }
+    ],
+    "chat_template": "{% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% set system_message = messages[0]['content'] %}<｜hy_begin▁of▁sentence｜>{{ system_message }}<｜hy_place▁holder▁no▁3｜>{% else %}{% set loop_messages = messages %}<｜hy_begin▁of▁sentence｜>{% endif %}{% for message in loop_messages %}{% if message['role'] == 'user' %}<｜hy_User｜>{{ message['content'] }}{% elif message['role'] == 'assistant' %}<｜hy_Assistant｜>{{ message['content'] }}<｜hy_place▁holder▁no▁2｜>{% endif %}{% endfor %}{% if add_generation_prompt %}<｜hy_Assistant｜>{% else %}<｜hy_place▁holder▁no▁8｜>{% endif %}",
+    "stop_token_ids": [
+      120020
+    ],
+    "architectures": [
+      "HunYuanDenseV1ForCausalLM"
+    ],
+    "model_type": "hunyuan_v1_dense",
+    "virtualenv": {
+      "packages": [
+        "transformers>=4.57.0 ; #engine# == \"Transformers\"",
+        "accelerate>=0.28.0 ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\""
+      ]
+    },
+    "featured": true,
+    "updated_at": 1781520056
+  },
+  {
+    "version": 2,
+    "context_length": 262144,
+    "model_name": "Hy-MT2-30B-A3B",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat"
+    ],
+    "model_description": "Hy-MT2-30B-A3B is a Mixture-of-Experts multilingual translation model from Tencent Hunyuan, supporting 33 languages with SOTA performance for complex professional domains.",
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 30,
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "tencent/Hy-MT2-30B-A3B",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "quantizations": [
+              "none"
+            ],
+            "model_id": "Tencent-Hunyuan/Hy-MT2-30B-A3B",
+            "model_revision": "master"
+          }
+        }
+      },
+      {
+        "model_format": "pytorch",
+        "model_size_in_billions": 30,
+        "quantizations": [
+          "fp8"
+        ],
+        "model_src": {
+          "huggingface": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "tencent/Hy-MT2-30B-A3B-FP8",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "quantizations": [
+              "fp8"
+            ],
+            "model_id": "Tencent-Hunyuan/Hy-MT2-30B-A3B-FP8",
+            "model_revision": "master"
+          }
+        }
+      }
+    ],
+    "chat_template": "{% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% set system_message = messages[0]['content'] %}<｜hy_begin▁of▁sentence｜>{{ system_message }}<｜hy_place▁holder▁no▁3｜>{% else %}{% set loop_messages = messages %}<｜hy_begin▁of▁sentence｜>{% endif %}{% for message in loop_messages %}{% if message['role'] == 'user' %}<｜hy_User｜>{{ message['content'] }}{% elif message['role'] == 'assistant' %}<｜hy_Assistant｜>{{ message['content'] }}<｜hy_place▁holder▁no▁2｜>{% endif %}{% endfor %}{% if add_generation_prompt %}<｜hy_Assistant｜>{% else %}<｜hy_place▁holder▁no▁8｜>{% endif %}",
+    "stop_token_ids": [
+      120025,
+      120026
+    ],
+    "architectures": [
+      "HYV3ForCausalLM"
+    ],
+    "model_type": "hy_v3",
+    "virtualenv": {
+      "packages": [
+        "transformers>=4.57.0 ; #engine# == \"Transformers\"",
+        "accelerate>=0.28.0 ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\""
+      ]
+    },
+    "featured": true,
+    "updated_at": 1781520058
   }
 ]

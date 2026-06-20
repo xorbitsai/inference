@@ -25,7 +25,7 @@ const nextConfig = {
     return [
       {
         source: '/',
-        destination: '/workbench',
+        destination: '/launch-model',
         permanent: true, // false = 307 (temporary redirect), true = 301 (permanent redirect)
       },
     ];

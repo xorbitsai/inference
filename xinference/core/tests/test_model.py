@@ -56,6 +56,10 @@ class MockModelActor(ModelActor):
             model=MockModel(),  # type: ignore
             replica_model_uid=replica_model_uid,
         )
+        # This actor is constructed directly with a ready-to-use MockModel
+        # (no launch/load path), so mark it ready to bypass the
+        # _require_ready() guard added by the model state machine.
+        self._model_state = "ready"
         self._lock = asyncio.locks.Lock()
 
     async def __pre_destroy__(self):
