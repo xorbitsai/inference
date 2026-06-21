@@ -14,12 +14,15 @@
 
 import shutil
 
+import pytest
+
 from ...cache_manager import RerankCacheManager as CacheManager
 from ...core import (
     LlamaCppRerankSpecV1,
     RerankModelFamilyV2,
     create_rerank_model_instance,
 )
+from ..core import XllamaCppRerankModel
 
 TEST_MODEL_SPEC = RerankModelFamilyV2(
     version=2,
@@ -35,6 +38,31 @@ TEST_MODEL_SPEC = RerankModelFamilyV2(
         )
     ],
 )
+
+
+class _FakeLlamaCppServer:
+    def __init__(self, response):
+        self.response = response
+
+    def handle_rerank(self, data):
+        return self.response
+
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_rerank_model_raises_xllamacpp_error(nested):
+    message = "Field 'documents': documents must not be empty"
+    error = {
+        "code": 400,
+        "message": message,
+        "type": "invalid_request_error",
+    }
+    model = XllamaCppRerankModel.__new__(XllamaCppRerankModel)
+    model._llm = _FakeLlamaCppServer({"error": error} if nested else error)
+
+    with pytest.raises(Exception, match="documents must not be empty") as exc_info:
+        model.rerank([], "query", None, None, False, False)
+
+    assert str(exc_info.value) == message
 
 
 def test_rerank_model_with_xllamacpp():
