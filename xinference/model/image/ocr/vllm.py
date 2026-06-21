@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional, Union
 import PIL.Image
 
 from ....device_utils import is_vacc_available
+from ...utils import allow_trust_remote_code
 from .deepseek_ocr import DeepSeekOCRModel
 from .got_ocr2 import GotOCR2Model
 from .hunyuan_ocr import HunyuanOCRModel
@@ -243,7 +244,9 @@ class VLLMHunyuanOCRModel(HunyuanOCRModel):
         self._model = _load_vllm_model(self._model_path, vllm_kwargs)
         self._tokenizer = self._model.get_tokenizer()
         self._processor = AutoProcessor.from_pretrained(
-            self._model_path, use_fast=False, trust_remote_code=True
+            self._model_path,
+            use_fast=False,
+            trust_remote_code=allow_trust_remote_code(self.model_family),
         )
 
     def stop(self):

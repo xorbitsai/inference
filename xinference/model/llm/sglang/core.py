@@ -23,7 +23,7 @@ from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple, TypedDict, 
 
 from xoscar.utils import get_next_port
 
-from ....constants import XINFERENCE_MAX_TOKENS
+from ....constants import XINFERENCE_MAX_TOKENS, XINFERENCE_TRUST_REMOTE_CODE
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -269,7 +269,11 @@ class SGLANGModel(LLM):
 
         cuda_count = self._get_cuda_count()
         model_config.setdefault("tokenizer_mode", "auto")
-        model_config.setdefault("trust_remote_code", True)
+        # Respect the XINFERENCE_TRUST_REMOTE_CODE setting.
+        model_config["trust_remote_code"] = (
+            bool(model_config.get("trust_remote_code", XINFERENCE_TRUST_REMOTE_CODE))
+            and XINFERENCE_TRUST_REMOTE_CODE
+        )
         model_config.setdefault("tp_size", cuda_count * self._n_worker)
         # See https://github.com/sgl-project/sglang/blob/00023d622a6d484e67ef4a0e444f708b8fc861c8/python/sglang/srt/server_args.py#L100-L109
         mem_fraction_static = model_config.get("mem_fraction_static")

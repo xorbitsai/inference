@@ -27,7 +27,7 @@ from .....types import (
     ChatCompletionChoice,
     CompletionUsage,
 )
-from ....utils import is_flash_attn_available, select_device
+from ....utils import allow_trust_remote_code, is_flash_attn_available, select_device
 from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ..core import PytorchGenerateConfig, register_non_default_model
 from .core import PytorchMultiModalModel
@@ -96,7 +96,8 @@ class QwenOmniChatModel(PytorchMultiModalModel):
             from transformers import Qwen3OmniMoeProcessor as QwenOminiProcessor
 
         self._processor = QwenOminiProcessor.from_pretrained(
-            self.model_path, trust_remote_code=True
+            self.model_path,
+            trust_remote_code=allow_trust_remote_code(self.model_family),
         )
         self._tokenizer = self._processor.tokenizer
 
@@ -125,7 +126,7 @@ class QwenOmniChatModel(PytorchMultiModalModel):
             self.model_path,
             torch_dtype="auto",
             device_map=device,
-            trust_remote_code=True,
+            trust_remote_code=allow_trust_remote_code(self.model_family),
             **kwargs,
         )
 

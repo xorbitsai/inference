@@ -21,6 +21,7 @@ import torch
 if TYPE_CHECKING:
     from ..core import ImageModelFamilyV2
 
+from ...utils import allow_trust_remote_code
 from .ocr_family import OCRModel
 
 logger = logging.getLogger(__name__)
@@ -67,16 +68,21 @@ class HunyuanOCRModel(OCRModel):
         device_map = self._kwargs.get("device_map", "auto")
 
         self._processor = AutoProcessor.from_pretrained(
-            self._model_path, use_fast=False, trust_remote_code=True
+            self._model_path,
+            use_fast=False,
+            trust_remote_code=allow_trust_remote_code(self.model_family),
         )
-        config = AutoConfig.from_pretrained(self._model_path, trust_remote_code=True)
+        config = AutoConfig.from_pretrained(
+            self._model_path,
+            trust_remote_code=allow_trust_remote_code(self.model_family),
+        )
         self._model = ModelCls.from_pretrained(
             self._model_path,
             config=config,
             attn_implementation=attn_impl,
             torch_dtype=torch_dtype,
             device_map=device_map,
-            trust_remote_code=True,
+            trust_remote_code=allow_trust_remote_code(self.model_family),
         )
 
     def load(self):

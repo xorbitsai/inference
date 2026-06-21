@@ -156,6 +156,9 @@ class LLMFamilyV2(BaseModel, ModelInstanceInfoMixin):
     cache_config: Optional[dict]
     virtualenv: Optional[VirtualEnvSettings]
     tool_parser: Optional[str]
+    # Provenance: True only for bundled built-in models; user-registered /
+    # custom models keep it False. Gates implicit trust_remote_code (CWE-94).
+    is_builtin: bool = False
 
     class Config:
         extra = "allow"

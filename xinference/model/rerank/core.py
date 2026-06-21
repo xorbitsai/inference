@@ -18,6 +18,7 @@ from collections import defaultdict
 from typing import Annotated, Dict, List, Literal, Optional, Tuple, Union
 
 from ..._compat import BaseModel, Field
+from ...constants import XINFERENCE_TRUST_REMOTE_CODE
 from ...types import Rerank
 from ..core import VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
@@ -78,6 +79,8 @@ class RerankModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
     max_tokens: Optional[int]
     cache_config: Optional[dict] = None
     virtualenv: Optional[VirtualEnvSettings]
+    # Provenance: True only for bundled built-in models (gates trust_remote_code).
+    is_builtin: bool = False
 
     class Config:
         extra = "allow"
@@ -176,7 +179,9 @@ class RerankModel:
     def _get_tokenizer(model_path):
         from transformers import AutoTokenizer
 
-        tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_path, trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE
+        )
         return tokenizer
 
     @staticmethod

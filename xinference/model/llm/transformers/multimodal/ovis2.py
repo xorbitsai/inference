@@ -18,6 +18,7 @@ from typing import Any, Dict, Iterator, List, Tuple, Union
 import torch
 from PIL import Image
 
+from ....utils import allow_trust_remote_code
 from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ..core import register_non_default_model
 from .core import PytorchMultiModalModel
@@ -67,7 +68,7 @@ class Ovis2ChatModel(PytorchMultiModalModel):
             self.model_path,
             torch_dtype=torch.bfloat16,
             multimodal_max_length=32768,
-            trust_remote_code=True,
+            trust_remote_code=allow_trust_remote_code(self.model_family),
             **kwargs,
         ).cuda()
         self._text_tokenizer = self._model.get_text_tokenizer()

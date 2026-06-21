@@ -206,6 +206,7 @@ def test_deepseekv4_get_full_context_attaches_tools(tmp_path):
     mixin.model_family = SimpleNamespace(
         model_name="DeepSeek-V4-Flash",
         model_ability=["chat", "hybrid", "tools"],
+        is_builtin=True,
     )
     mixin.model_path = str(tmp_path)
     tools = [
@@ -228,6 +229,28 @@ def test_deepseekv4_get_full_context_attaches_tools(tmp_path):
 
     assert messages[0] == {"role": "system", "content": "", "tools": tools}
     assert messages[1] == {"role": "user", "content": "How is the weather?"}
+
+
+def test_deepseekv4_get_full_context_blocks_custom_remote_code(tmp_path):
+    encoding_dir = tmp_path / "encoding"
+    encoding_dir.mkdir()
+    (encoding_dir / "encoding_dsv4.py").write_text(
+        "def encode_messages(messages, thinking_mode):\n    return messages\n",
+        encoding="utf-8",
+    )
+    mixin = ChatModelMixin()
+    mixin.model_family = SimpleNamespace(
+        model_name="DeepSeek-V4-Flash",
+        model_ability=["chat", "hybrid", "tools"],
+    )
+    mixin.model_path = str(tmp_path)
+
+    with pytest.raises(ValueError, match="XINFERENCE_TRUST_REMOTE_CODE=1"):
+        mixin.get_full_context(
+            [{"role": "user", "content": "How is the weather?"}],
+            "",
+            tokenizer=object(),
+        )
 
 
 def test_chat_template_kwargs_inherit_model_thinking_default():

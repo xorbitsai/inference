@@ -22,6 +22,7 @@ import torch
 from .....core.model import register_batching_multimodal_models
 from .....model.utils import select_device
 from ....scheduler.request import InferenceRequest
+from ....utils import allow_trust_remote_code
 from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ...utils import _decode_image
 from ..core import register_non_default_model
@@ -61,7 +62,8 @@ class Glm4VModel(PytorchMultiModalModel):
         from transformers import AutoTokenizer
 
         self._tokenizer = AutoTokenizer.from_pretrained(
-            self.model_path, trust_remote_code=True
+            self.model_path,
+            trust_remote_code=allow_trust_remote_code(self.model_family),
         )
 
     def load_multimodal_model(self):
@@ -73,7 +75,7 @@ class Glm4VModel(PytorchMultiModalModel):
         model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             low_cpu_mem_usage=True,
-            trust_remote_code=True,
+            trust_remote_code=allow_trust_remote_code(self.model_family),
             torch_dtype=torch.float16,
             **kwargs,
         )

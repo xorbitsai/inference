@@ -272,6 +272,12 @@ def _install():
     # Always load built-in models first to ensure we have the latest models
     load_model_family_from_json("llm_family.json", BUILTIN_LLM_FAMILIES)
 
+    # Mark these as vetted built-in models. Loaders may enable trust_remote_code
+    # for built-ins without an operator opt-in; user-supplied / downloaded models
+    # (merged below) keep is_builtin=False and stay gated (CWE-94).
+    for family in BUILTIN_LLM_FAMILIES:
+        family.is_builtin = True
+
     # Then load user-defined models and merge with built-in models
     if has_downloaded_models():
         user_models = []
