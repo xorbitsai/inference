@@ -99,6 +99,7 @@ async def test_restful_api(setup):
         "prompt": "Once upon a time, there was a very old computer.",
     }
     response = requests.post(url, json=payload)
+    response.raise_for_status()
     completion = response.json()
     assert "text" in completion["choices"][0]
 

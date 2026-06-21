@@ -19,7 +19,7 @@ import platform
 import pprint
 import queue
 import sys
-from typing import List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 from packaging import version
 
@@ -38,6 +38,25 @@ class _Done:
 class _Error:
     def __init__(self, msg):
         self.msg = msg
+
+
+def _error_message(msg: Any) -> str:
+    if isinstance(msg, dict):
+        for key in ("message", "msg", "error"):
+            value = msg.get(key)
+            if value:
+                return _error_message(value)
+    return str(msg)
+
+
+def _get_error_payload(response: Any) -> Optional[Any]:
+    if not isinstance(response, dict):
+        return None
+    if response.get("error"):
+        return response["error"]
+    if response.get("code"):
+        return response
+    return None
 
 
 class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
@@ -211,10 +230,8 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
                 data["model"] = model_uid
             try:
                 res = self._llm.handle_embeddings(data)
-                if res.get("code"):
-                    q.put(_Error(res))
-                else:
-                    q.put(res)
+                error = _get_error_payload(res)
+                q.put(_Error(error) if error else res)
             except Exception as ex:
                 q.put(_Error(str(ex)))
             q.put(_Done)
@@ -224,7 +241,7 @@ class XllamaCppEmbeddingModel(EmbeddingModel, BatchMixin):
 
         r = q.get()
         if type(r) is _Error:
-            raise Exception(f"Failed to create embedding: {r.msg}")
+            raise Exception(_error_message(r.msg))
         r["model_replica"] = self._model_uid
         return Embedding(**r)  # type: ignore
 

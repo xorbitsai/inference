@@ -20,7 +20,7 @@ import platform
 import pprint
 import sys
 import uuid
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from packaging import version
 
@@ -37,6 +37,25 @@ class _Done:
 class _Error:
     def __init__(self, msg):
         self.msg = msg
+
+
+def _error_message(msg: Any) -> str:
+    if isinstance(msg, dict):
+        for key in ("message", "msg", "error"):
+            value = msg.get(key)
+            if value:
+                return _error_message(value)
+    return str(msg)
+
+
+def _get_error_payload(response: Any) -> Optional[Any]:
+    if not isinstance(response, dict):
+        return None
+    if response.get("error"):
+        return response["error"]
+    if response.get("code"):
+        return response
+    return None
 
 
 class XllamaCppRerankModel(RerankModel):
@@ -221,6 +240,9 @@ class XllamaCppRerankModel(RerankModel):
             raise RuntimeError("Unexpected keyword arguments: {}".format(kwargs))
         assert self._llm is not None
         result = self._llm.handle_rerank({"query": query, "documents": documents})
+        error = _get_error_payload(result)
+        if error:
+            raise Exception(_error_message(error))
         if top_n is not None:
             result["results"] = result["results"][:top_n]
         reranked_docs = list(
