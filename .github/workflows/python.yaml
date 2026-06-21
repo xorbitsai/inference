@@ -116,7 +116,7 @@ jobs:
             sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           fi
           pip install -e ".[dev]"
-          pip install "xllamacpp>=0.2.0,<2026.6.9713"
+          pip install "xllamacpp>=0.2.0"
           if [ "$MODULE" == "metal" ]; then
             conda install -c conda-forge "ffmpeg<7"
             pip install "mlx>=0.22.0"
@@ -245,7 +245,7 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U sentence-transformers
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U FlagEmbedding
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "peft<=0.17.1"
-            ${{ env.SELF_HOST_PYTHON }} -m pip install "xllamacpp>=0.2.0,<2026.6.9713" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 --extra-index-url https://pypi.org/simple
+            ${{ env.SELF_HOST_PYTHON }} -m pip install "xllamacpp>=0.2.0" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 --extra-index-url https://pypi.org/simple
             ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
               --disable-warnings \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/core/tests/test_continuous_batching.py && \
