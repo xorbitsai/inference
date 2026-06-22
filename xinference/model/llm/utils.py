@@ -916,10 +916,58 @@ class ChatModelMixin:
                             msg,
                         )
             new_message = dict(msg)
+            if msg.get("tool_calls") is not None:
+                new_message["tool_calls"] = self._normalize_tool_calls(
+                    msg["tool_calls"]
+                )
             new_message["content"] = new_content if new_content else None
             transformed_messages.append(new_message)
 
         return transformed_messages
+
+    @staticmethod
+    def _normalize_tool_calls(tool_calls: Any) -> Any:
+        try:
+            normalized_tool_calls = list(tool_calls)
+        except TypeError:
+            return tool_calls
+
+        for index, tool_call in enumerate(normalized_tool_calls):
+            if not isinstance(tool_call, dict):
+                continue
+
+            normalized_tool_call = dict(tool_call)
+            function = normalized_tool_call.get("function")
+            target = (
+                dict(function) if isinstance(function, dict) else normalized_tool_call
+            )
+            arguments = target.get("arguments")
+
+            if isinstance(arguments, str):
+                try:
+                    arguments = json.loads(arguments)
+                except json.JSONDecodeError as exc:
+                    raise ValueError(
+                        "Tool call arguments must be a valid JSON object"
+                    ) from exc
+            elif arguments is not None and not isinstance(arguments, dict):
+                try:
+                    arguments = dict(arguments)
+                except (TypeError, ValueError) as exc:
+                    raise TypeError(
+                        "Tool call arguments must be a mapping or JSON object string"
+                    ) from exc
+
+            if arguments is not None and not isinstance(arguments, dict):
+                raise TypeError("Tool call arguments must decode to a JSON object")
+
+            if arguments is not None:
+                target["arguments"] = arguments
+            if isinstance(function, dict):
+                normalized_tool_call["function"] = target
+            normalized_tool_calls[index] = normalized_tool_call
+
+        return normalized_tool_calls
 
     async def _async_to_tool_completion_chunks(
         self,
