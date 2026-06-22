@@ -18,7 +18,7 @@ from .....core.model import register_batching_multimodal_models
 from .....device_utils import is_npu_available
 from .....types import PytorchModelConfig
 from ....scheduler.request import InferenceRequest
-from ....utils import is_flash_attn_available, select_device
+from ....utils import allow_trust_remote_code, is_flash_attn_available, select_device
 from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ..core import register_non_default_model
 from .core import PytorchMultiModalModel
@@ -97,7 +97,7 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
         max_pixels = self._pytorch_model_config.get("max_pixels")
         self._processor = AutoProcessor.from_pretrained(
             self.model_path,
-            trust_remote_code=True,
+            trust_remote_code=allow_trust_remote_code(self.model_family),
             min_pixels=min_pixels,
             max_pixels=max_pixels,
         )
@@ -144,7 +144,7 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
                 torch_dtype="bfloat16",
                 attn_implementation="flash_attention_2",
                 device_map=device,
-                trust_remote_code=True,
+                trust_remote_code=allow_trust_remote_code(self.model_family),
                 **kwargs,
             ).eval()
         elif is_npu_available():
@@ -152,7 +152,7 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
             self._model = model_cls.from_pretrained(
                 self.model_path,
                 device_map="auto",
-                trust_remote_code=True,
+                trust_remote_code=allow_trust_remote_code(self.model_family),
                 torch_dtype="float16",
                 **kwargs,
             ).eval()
@@ -164,13 +164,13 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
                 device_map=device,
                 attn_implementation="eager",
                 low_cpu_mem_usage=True,
-                trust_remote_code=True,
+                trust_remote_code=allow_trust_remote_code(self.model_family),
             ).eval()
         else:
             self._model = model_cls.from_pretrained(
                 self.model_path,
                 device_map=device,
-                trust_remote_code=True,
+                trust_remote_code=allow_trust_remote_code(self.model_family),
                 **kwargs,
             ).eval()
 

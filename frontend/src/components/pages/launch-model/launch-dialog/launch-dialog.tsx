@@ -10,7 +10,7 @@ import { ENGINES_WITH_WORKER } from '@/constants/launch';
 import { ModelFormat } from '@/constants/register';
 import { useI18n } from '@/contexts/i18n-context';
 import { useForm, useFormValues, useWatch } from '@/hooks/use-form';
-import { cn, copyText } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -71,6 +71,7 @@ export default function LaunchDialog({
   const [replicaStatuses, setReplicaStatuses] = useState<ReplicaItem[]>([]);
   const [configCacheRefreshKey, setConfigCacheRefreshKey] = useState(0);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isCanceledLaunchRef = useRef(false);
   const isLLM = modelType === ModelType.LLM;
   const [modelEngineMap, setModelEngineMap] = useState<ModelEngine>({});
   const launchFormValues = useFormValues(form);
@@ -458,14 +459,15 @@ export default function LaunchDialog({
         type: 'input',
         label: t('launchModel.workerIp'),
         placeholder: t('launchModel.workerIpPlaceholder'),
-        colSpan: 2
+        colSpan: 2,
+        normalize: (v) => v || undefined,
       },
       {
         name: 'model_path',
         type: 'input',
         label: t('launchModel.modelPath'),
         placeholder: t('launchModel.modelPathPlaceholder'),
-        colSpan: 2
+        colSpan: 2,
       },
       {
         name: 'collapsibleConfig',
@@ -554,21 +556,22 @@ export default function LaunchDialog({
           },
         ],
         fieldProps: { type: 'number', min: 1 },
-        normalize: (v) => (v === '' ? undefined : Number(v))
+        normalize: (v) => (v === '' ? undefined : Number(v)),
       },
       {
         name: 'worker_ip',
         type: 'input',
         label: t('launchModel.workerIp'),
         placeholder: t('launchModel.workerIpPlaceholder'),
-        colSpan: 2
+        colSpan: 2,
+        normalize: (v) => v || undefined,
       },
       {
         name: 'model_path',
         type: 'input',
         label: t('launchModel.modelPath'),
         placeholder: t('launchModel.modelPathPlaceholder'),
-        colSpan: 2
+        colSpan: 2,
       },
       {
         name: 'collapsibleConfig',
@@ -672,21 +675,22 @@ export default function LaunchDialog({
           },
         ],
         fieldProps: { type: 'number', min: 1 },
-        normalize: (v) => (v === '' ? undefined : Number(v))
+        normalize: (v) => (v === '' ? undefined : Number(v)),
       },
       {
         name: 'worker_ip',
         type: 'input',
         label: t('launchModel.workerIp'),
         placeholder: t('launchModel.workerIpPlaceholder'),
-        colSpan: 2
+        colSpan: 2,
+        normalize: (v) => v || undefined,
       },
       {
         name: 'model_path',
         type: 'input',
         label: t('launchModel.modelPath'),
         placeholder: t('launchModel.modelPathPlaceholder'),
-        colSpan: 2
+        colSpan: 2,
       },
       {
         name: 'collapsibleConfig',
@@ -775,7 +779,7 @@ export default function LaunchDialog({
           },
         ],
         fieldProps: { type: 'number', min: 1 },
-        normalize: (v) => (v === '' ? undefined : Number(v))
+        normalize: (v) => (v === '' ? undefined : Number(v)),
       },
       {
         name: 'gguf_quantization',
@@ -813,6 +817,7 @@ export default function LaunchDialog({
         label: t('launchModel.workerIp'),
         placeholder: t('launchModel.workerIpPlaceholder'),
         colSpan: 2,
+        normalize: (v) => v || undefined,
       },
       {
         name: 'model_path',
@@ -873,7 +878,7 @@ export default function LaunchDialog({
         ],
         show: nGpuValue === 'GPU',
       },
-      
+
       {
         name: 'download_hub',
         type: 'select',
@@ -893,7 +898,7 @@ export default function LaunchDialog({
           },
         ],
         fieldProps: { type: 'number', min: 1 },
-        normalize: (v) => (v === '' ? undefined : Number(v))
+        normalize: (v) => (v === '' ? undefined : Number(v)),
       },
       {
         name: 'gguf_quantization',
@@ -915,14 +920,15 @@ export default function LaunchDialog({
         type: 'input',
         label: t('launchModel.workerIp'),
         placeholder: t('launchModel.workerIpPlaceholder'),
-        colSpan: 2
+        colSpan: 2,
+        normalize: (v) => v || undefined,
       },
       {
         name: 'model_path',
         type: 'input',
         label: t('launchModel.modelPath'),
         placeholder: t('launchModel.modelPathPlaceholder'),
-        colSpan: 2
+        colSpan: 2,
       },
       {
         name: 'collapsibleConfig',
@@ -989,7 +995,7 @@ export default function LaunchDialog({
           },
         ],
         fieldProps: { type: 'number', min: 1 },
-        normalize: (v) => (v === '' ? undefined : Number(v))
+        normalize: (v) => (v === '' ? undefined : Number(v)),
       },
       {
         name: 'gguf_quantization',
@@ -1011,14 +1017,15 @@ export default function LaunchDialog({
         type: 'input',
         label: t('launchModel.workerIp'),
         placeholder: t('launchModel.workerIpPlaceholder'),
-        colSpan: 2
+        colSpan: 2,
+        normalize: (v) => v || undefined,
       },
       {
         name: 'model_path',
         type: 'input',
         label: t('launchModel.modelPath'),
         placeholder: t('launchModel.modelPathPlaceholder'),
-        colSpan: 2
+        colSpan: 2,
       },
       {
         name: 'cpu_offload',
@@ -1084,22 +1091,22 @@ export default function LaunchDialog({
           },
         ],
         fieldProps: { type: 'number', min: 1 },
-        normalize: (v) => (v === '' ? undefined : Number(v))
+        normalize: (v) => (v === '' ? undefined : Number(v)),
       },
       {
         name: 'worker_ip',
         type: 'input',
         label: t('launchModel.workerIp'),
         placeholder: t('launchModel.workerIpPlaceholder'),
-        colSpan: 2
+        colSpan: 2,
+        normalize: (v) => v || undefined,
       },
       {
         name: 'model_path',
         type: 'input',
         label: t('launchModel.modelPath'),
         placeholder: t('launchModel.modelPathPlaceholder'),
-        colSpan: 2
-
+        colSpan: 2,
       },
       {
         name: 'collapsibleConfig',
@@ -1107,7 +1114,7 @@ export default function LaunchDialog({
         colSpan: 2,
         content: <CollapsibleConfig form={form} modelType={modelType} />,
       },
-    ]
+    ],
   };
 
   const currentLaunchFields = modelTypeFields[modelType] || [];
@@ -1200,6 +1207,7 @@ export default function LaunchDialog({
 
     try {
       await request.post(`/v1/models/${encodeURIComponent(modelUid)}/cancel`);
+      isCanceledLaunchRef.current = true;
       stopPolling();
       setLoading(false);
       setProgress(0);
@@ -1212,20 +1220,26 @@ export default function LaunchDialog({
 
   const handleLaunch = async (values: FormValues) => {
     const newValues = transformFormToFetch(values);
+
+    isCanceledLaunchRef.current = false;
     setLoading(true);
     setProgress(0);
     setReplicaStatuses([]);
 
     request
-      .post('/v1/models', newValues)
+      .post('/v1/models', newValues, { noTimeout: true })
       .then(() => {
+        if (isCanceledLaunchRef.current) {
+          return;
+        }
+
         saveLaunchConfigHistory(newValues);
         setConfigCacheRefreshKey((key) => key + 1);
         setLoading(false);
         stopPolling();
         onOpenChange(false);
         toast.success(t('launchModel.launchCompleted'));
-        router.push('/running-model')
+        router.push('/running-model');
       })
       .catch(() => {
         stopPolling();
@@ -1317,8 +1331,8 @@ export default function LaunchDialog({
             initialValues={initialValues}
             className="grid grid-cols-2 gap-x-4 gap-y-3 space-y-0"
           >
-            <FormField hidden name="model_name"/>
-            <FormField hidden name="model_type"/>
+            <FormField hidden name="model_name" />
+            <FormField hidden name="model_type" />
             {renderLaunchFields(currentLaunchFields)}
           </Form>
           <DialogFooter className={cn(loading ? '!flex-col' : '')}>

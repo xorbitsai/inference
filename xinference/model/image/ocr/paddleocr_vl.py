@@ -21,6 +21,7 @@ import torch
 if TYPE_CHECKING:
     from ..core import ImageModelFamilyV2
 
+from ...utils import allow_trust_remote_code
 from .ocr_family import OCRModel
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,8 @@ class PaddleOCRVLModel(OCRModel):
 
     @classmethod
     def match(cls, model_family: "ImageModelFamilyV2") -> bool:
-        return model_family.model_name == "PaddleOCR-VL"
+        model_name = model_family.model_name
+        return model_name == "PaddleOCR-VL" or model_name.startswith("PaddleOCR-VL-")
 
     def __init__(
         self,
@@ -75,14 +77,15 @@ class PaddleOCRVLModel(OCRModel):
 
             # Load processor
             self._processor = AutoProcessor.from_pretrained(
-                self._model_path, trust_remote_code=True
+                self._model_path,
+                trust_remote_code=allow_trust_remote_code(self.model_family),
             )
 
             # Load model
             self._model = (
                 AutoModelForCausalLM.from_pretrained(
                     self._model_path,
-                    trust_remote_code=True,
+                    trust_remote_code=allow_trust_remote_code(self.model_family),
                     torch_dtype=dtype,
                 )
                 .to(device)

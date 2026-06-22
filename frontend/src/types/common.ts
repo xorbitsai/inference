@@ -13,3 +13,9 @@ export type Option<T extends string | number = string | number> = {
 export type BaseFormListValueItem = { key: string; value: string };
 
 export type RegisterModelType = Exclude<ModelType, ModelType.Video | ModelType.Custom>;
+
+export interface FileUploadValue {
+  file: File;
+  type: 'image' | 'video' | 'audio' | 'document';
+  url: string;
+}

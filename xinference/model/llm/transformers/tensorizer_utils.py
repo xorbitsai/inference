@@ -20,7 +20,7 @@ from functools import partial
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from ....constants import XINFERENCE_TENSORIZER_DIR
+from ....constants import XINFERENCE_TENSORIZER_DIR, XINFERENCE_TRUST_REMOTE_CODE
 from ....device_utils import get_available_device
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,10 @@ __all__ = [
 
 
 def _filter_kwargs(kwargs):
-    kwargs["trust_remote_code"] = kwargs.get("trust_remote_code", True)
+    kwargs["trust_remote_code"] = (
+        bool(kwargs.get("trust_remote_code", XINFERENCE_TRUST_REMOTE_CODE))
+        and XINFERENCE_TRUST_REMOTE_CODE
+    )
     return {
         k: v for k, v in kwargs.items() if k in ["code_revision", "trust_remote_code"]
     }

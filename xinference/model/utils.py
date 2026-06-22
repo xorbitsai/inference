@@ -2027,6 +2027,13 @@ def install_models_with_merge(
     builtin_json_path = os.path.join(current_dir, builtin_json_file)
     load_model_family_func(builtin_json_path, built_in_dict)
 
+    # Mark these as vetted built-in models. Loaders may enable trust_remote_code
+    # for built-ins without an operator opt-in; user-supplied / downloaded models
+    # (loaded below) keep is_builtin=False and stay gated (CWE-94).
+    for _specs in built_in_dict.values():
+        for _family in _specs:
+            _family.is_builtin = True
+
     # Then load user-defined models and merge with built-in models
     if has_downloaded_models_func():
         user_models: Dict[str, Any] = {}
@@ -2043,3 +2050,19 @@ def install_models_with_merge(
         # Update the dictionary with merged results
         built_in_dict.clear()
         built_in_dict.update(merged_models)
+
+
+def allow_trust_remote_code(model_family) -> bool:
+    """Whether a model may execute code bundled in its repository (auto_map ->
+    modeling_*.py via transformers/sentence-transformers/FlagEmbedding).
+
+    Allowed only for vetted built-in model integrations, or when the operator
+    opts in with XINFERENCE_TRUST_REMOTE_CODE. User-registered / custom models
+    (is_builtin=False) never enable it implicitly, which closes drive-by remote
+    code execution through the unauthenticated launch API (CWE-94).
+    """
+    from ..constants import XINFERENCE_TRUST_REMOTE_CODE
+
+    return bool(XINFERENCE_TRUST_REMOTE_CODE) or bool(
+        getattr(model_family, "is_builtin", False)
+    )

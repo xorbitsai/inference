@@ -1,3 +1,4 @@
+import { ModelAbility } from '@/constants';
 export interface ClusterAuth {
   auth: boolean;
 }
@@ -7,6 +8,16 @@ export interface ClusterVersion {
   error: unknown;
   'full-revisionid': string;
   version: string;
+}
+export interface ClusterUIConfig {
+  grafana_url: string;
+  grafana_datasource: string;
+  grafana_alert_datasource: string;
+  grafana_dashboard_uid: string;
+  cluster_name: string;
+  es_enabled: boolean;
+  auth_advanced: boolean;
+  oidc_enabled: boolean;
 }
 export interface ClusterInfo {
   node_type: 'Supervisor' | 'Worker';
@@ -92,8 +103,9 @@ export interface RunningModelItem {
   accelerators: string[];
   model_name: string;
   model_lang: string[];
-  model_ability: string[];
+  model_ability: ModelAbility[];
   model_description: string;
+  model_engine?: string;
   model_format: string;
   model_size_in_billions: number;
   model_family: string;
@@ -103,4 +115,59 @@ export interface RunningModelItem {
   revision: string | null;
   context_length: number;
   replica: number;
+}
+
+export interface RunningModelDetail {
+  model_type: string;
+  address: string;
+  accelerators: string[];
+  model_name: string;
+  model_lang: string[];
+  model_ability: ModelAbility[];
+  model_description: string;
+  model_format: string;
+  model_size_in_billions: number;
+  model_family: string;
+  quantization: string;
+  multimodal_projector: string;
+  model_hub: string;
+  revision: string;
+  context_length: number;
+  replica: number;
+}
+
+interface MessageFileType {
+  data: string;
+  expires_at: number;
+  id: string;
+  transcript: string;
+}
+
+export interface ChatChoicesMessage {
+  content: string;
+  role: string;
+  audio?: MessageFileType;
+  image?: MessageFileType;
+  video?: MessageFileType;
+}
+
+export interface ChatStreamResult {
+  created: number;
+  id: string;
+  model: string;
+  object: string;
+  choices: {
+    index: number;
+    finish_reason: string;
+    delta: {
+      content: string;
+      reasoning_content?: string;
+    };
+    message?: ChatChoicesMessage;
+  }[];
+  usage: {
+    completion_tokens: number;
+    prompt_tokens: number;
+    total_tokens: number;
+  };
 }

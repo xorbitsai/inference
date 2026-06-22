@@ -109,6 +109,17 @@ XINFERENCE_LAUNCH_HISTORY_DB_PATH = os.environ.get(
     os.path.join(XINFERENCE_HOME, "launch_history.db"),
 )
 
+# Whether to allow models to run their own bundled code (transformers /
+# sentence-transformers / FlagEmbedding / engine `trust_remote_code`). Off by
+# default; set XINFERENCE_TRUST_REMOTE_CODE=1 to allow it.
+XINFERENCE_TRUST_REMOTE_CODE = os.environ.get(
+    "XINFERENCE_TRUST_REMOTE_CODE", ""
+).lower() in (
+    "1",
+    "true",
+    "yes",
+)
+
 # OIDC / SSO
 XINFERENCE_OIDC_ENABLED = os.environ.get("XINFERENCE_OIDC_ENABLED", "").lower() in (
     "1",

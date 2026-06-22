@@ -19,7 +19,7 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Un
 
 import torch
 
-from ....constants import XINFERENCE_MAX_TOKENS
+from ....constants import XINFERENCE_MAX_TOKENS, XINFERENCE_TRUST_REMOTE_CODE
 from ....device_utils import (
     get_device_preferred_dtype,
     gpu_count,
@@ -121,7 +121,15 @@ class PytorchModel(LLM):
         pytorch_model_config.setdefault("gptq_groupsize", -1)
         pytorch_model_config.setdefault("gptq_act_order", False)
         pytorch_model_config.setdefault("device", "auto")
-        pytorch_model_config.setdefault("trust_remote_code", True)
+        # Respect the XINFERENCE_TRUST_REMOTE_CODE setting.
+        pytorch_model_config["trust_remote_code"] = (
+            bool(
+                pytorch_model_config.get(
+                    "trust_remote_code", XINFERENCE_TRUST_REMOTE_CODE
+                )
+            )
+            and XINFERENCE_TRUST_REMOTE_CODE
+        )
         pytorch_model_config.setdefault("max_num_seqs", 16)
         pytorch_model_config.setdefault("enable_tensorizer", False)
         pytorch_model_config.setdefault("reasoning_content", False)
@@ -194,7 +202,14 @@ class PytorchModel(LLM):
                 AutoTokenizer,
                 {
                     "use_fast": self._use_fast_tokenizer,
-                    "trust_remote_code": kwargs.get("trust_remote_code", True),
+                    "trust_remote_code": (
+                        bool(
+                            kwargs.get(
+                                "trust_remote_code", XINFERENCE_TRUST_REMOTE_CODE
+                            )
+                        )
+                        and XINFERENCE_TRUST_REMOTE_CODE
+                    ),
                     "revision": kwargs.get("revision"),
                     "code_revision": kwargs.get("code_revision", None),
                 },

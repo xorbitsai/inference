@@ -1142,7 +1142,7 @@
       ]
     },
     "featured": false,
-    "updated_at": 1768536595
+    "updated_at": 1769514574
   },
   {
     "model_name": "Qwen3-ASR-0.6B",
@@ -1363,5 +1363,55 @@
     },
     "featured": false,
     "updated_at": 1775717207
+  },
+  {
+    "version": 2,
+    "model_name": "VoxCPM2",
+    "model_family": "VoxCPM",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot",
+      "text2audio_voice_cloning"
+    ],
+    "multilingual": true,
+    "virtualenv": {
+      "packages": [
+        "voxcpm",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_torchcodec#",
+        "#system_numpy#",
+        "soundfile",
+        "librosa",
+        "transformers>=4.36.2",
+        "einops",
+        "huggingface-hub",
+        "modelscope>=1.22.0",
+        "datasets>=3,<4",
+        "inflect",
+        "addict",
+        "wetext",
+        "tqdm",
+        "simplejson",
+        "sortedcontainers",
+        "matplotlib",
+        "funasr",
+        "spaces",
+        "argbind",
+        "safetensors"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "openbmb/VoxCPM2",
+        "model_revision": "bffb3df5a29440629464e5e839f4d214c8714c3d"
+      },
+      "modelscope": {
+        "model_id": "OpenBMB/VoxCPM2",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1781772400,
+    "featured": true
   }
 ]

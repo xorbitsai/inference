@@ -6,13 +6,26 @@ import { eventBus } from '@/lib/event-bus';
 import { requestManager } from '@/lib/request-manager';
 import { getApiUrl } from '@/lib/utils';
 
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    noTimeout?: boolean;
+  }
+}
+
+// Keep untyped request calls backward-compatible while typed calls can still pass <T>.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type LooseResponse = any;
+
 const requestInstance = axios.create({
   baseURL: getApiUrl(),
-  timeout: 30000,
+  timeout: 60000,
 });
 /** Request Interception */
 requestInstance.interceptors.request.use(
   (config) => {
+    if (config.noTimeout) {
+      config.timeout = 0;
+    }
     const token = Cookies.get('token');
     if (token === NO_AUTH) {
       return config;
@@ -45,7 +58,7 @@ requestInstance.interceptors.response.use(
       response.data?.msg ||
       error.message ||
       'Unknown error';
-    console.log(response, 'response');
+    console.log(status, response, 'response');
 
     switch (status) {
       case 401: {
@@ -71,24 +84,24 @@ requestInstance.interceptors.response.use(
 );
 
 const request = {
-  get<T = any>(url: string, config?: AxiosRequestConfig) {
-    return requestInstance.get<any, T>(url, config);
+  get<T = LooseResponse>(url: string, config?: AxiosRequestConfig) {
+    return requestInstance.get<LooseResponse, T>(url, config);
   },
 
-  post<T = any>(url: string, data?: any, config?: AxiosRequestConfig) {
-    return requestInstance.post<any, T>(url, data, config);
+  post<T = LooseResponse>(url: string, data?: LooseResponse, config?: AxiosRequestConfig) {
+    return requestInstance.post<LooseResponse, T, LooseResponse>(url, data, config);
   },
 
-  put<T = any>(url: string, data?: any, config?: AxiosRequestConfig) {
-    return requestInstance.put<any, T>(url, data, config);
+  put<T = LooseResponse>(url: string, data?: LooseResponse, config?: AxiosRequestConfig) {
+    return requestInstance.put<LooseResponse, T, LooseResponse>(url, data, config);
   },
 
-  patch<T = any>(url: string, data?: any, config?: AxiosRequestConfig) {
-    return requestInstance.patch<any, T>(url, data, config);
+  patch<T = LooseResponse>(url: string, data?: LooseResponse, config?: AxiosRequestConfig) {
+    return requestInstance.patch<LooseResponse, T, LooseResponse>(url, data, config);
   },
 
-  delete<T = any>(url: string, config?: AxiosRequestConfig) {
-    return requestInstance.delete<any, T>(url, config);
+  delete<T = LooseResponse>(url: string, config?: AxiosRequestConfig) {
+    return requestInstance.delete<LooseResponse, T>(url, config);
   },
   // upload<T = any>(
   //   url: string,

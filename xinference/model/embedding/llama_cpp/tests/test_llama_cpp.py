@@ -14,12 +14,15 @@
 
 import shutil
 
+import pytest
+
 from ...cache_manager import EmbeddingCacheManager as CacheManager
 from ...core import (
     EmbeddingModelFamilyV2,
     LlamaCppEmbeddingSpecV1,
     create_embedding_model_instance,
 )
+from ..core import XllamaCppEmbeddingModel
 
 TEST_MODEL_SPEC = EmbeddingModelFamilyV2(
     version=2,
@@ -37,6 +40,38 @@ TEST_MODEL_SPEC = EmbeddingModelFamilyV2(
         )
     ],
 )
+
+
+class _InlineExecutor:
+    def submit(self, fn):
+        fn()
+
+
+class _FakeLlamaCppServer:
+    def __init__(self, response):
+        self.response = response
+
+    def handle_embeddings(self, data):
+        return self.response
+
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_embedding_model_raises_xllamacpp_error(nested):
+    message = "Field 'input': input must not be empty"
+    error = {
+        "code": 400,
+        "message": message,
+        "type": "invalid_request_error",
+    }
+    model = XllamaCppEmbeddingModel.__new__(XllamaCppEmbeddingModel)
+    model._llm = _FakeLlamaCppServer({"error": error} if nested else error)
+    model._executor = _InlineExecutor()
+    model._model_uid = "test-model"
+
+    with pytest.raises(Exception, match="input must not be empty") as exc_info:
+        model._create_embedding("")
+
+    assert str(exc_info.value) == message
 
 
 async def test_embedding_model_with_xllamacpp():

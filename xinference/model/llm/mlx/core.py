@@ -38,7 +38,7 @@ from typing import (
 
 import xoscar as xo
 
-from ....constants import XINFERENCE_MAX_TOKENS
+from ....constants import XINFERENCE_MAX_TOKENS, XINFERENCE_TRUST_REMOTE_CODE
 from ....fields import max_tokens_field
 from ....types import (
     ChatCompletion,
@@ -511,7 +511,11 @@ class MLXModel(LLM, ChatModelMixin):
         if model_config is None:
             model_config = MLXModelConfig()
         model_config.setdefault("revision", self.model_spec.model_revision)
-        model_config.setdefault("trust_remote_code", True)
+        # Respect the XINFERENCE_TRUST_REMOTE_CODE setting.
+        model_config["trust_remote_code"] = (
+            bool(model_config.get("trust_remote_code", XINFERENCE_TRUST_REMOTE_CODE))
+            and XINFERENCE_TRUST_REMOTE_CODE
+        )
         model_config.setdefault("reasoning_content", False)
         model_config.setdefault("enable_thinking", False)
         return model_config
