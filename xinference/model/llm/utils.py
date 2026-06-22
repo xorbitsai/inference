@@ -934,6 +934,10 @@ class ChatModelMixin:
 
     @staticmethod
     def _normalize_tool_calls(tool_calls: Any) -> Any:
+        if isinstance(tool_calls, (str, bytes)):
+            return tool_calls
+        if isinstance(tool_calls, dict):
+            tool_calls = [tool_calls]
         try:
             normalized_tool_calls = list(tool_calls)
         except TypeError:
