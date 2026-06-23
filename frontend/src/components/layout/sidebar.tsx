@@ -18,8 +18,8 @@ import {
   Rocket,
   Monitor,
   ScrollText,
-  // Users,
-  // KeyRound,
+  Users,
+  KeyRound,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
@@ -199,24 +199,24 @@ export function Sidebar() {
           },
         ],
       },
-      // {
-      //   name: t('menu.systemManagement'),
-      //   items: [
-      //     {
-      //       path: '/user-management',
-      //       name: t('menu.userManagement'),
-      //       Icon: Users,
-      //       Extra: ChevronRight,
-      //     },
-      //     {
-      //       path: '/api-key-management',
-      //       name: t('menu.apiKeyManagement'),
-      //       Icon: KeyRound,
-      //       Extra: ChevronRight,
-      //     },
-      //   ],
-      //   show: clusterUIConfig?.auth_advanced || false
-      // },
+      {
+        name: t('menu.systemManagement'),
+        items: [
+          {
+            path: '/user-management',
+            name: t('menu.userManagement'),
+            Icon: Users,
+            Extra: ChevronRight,
+          },
+          {
+            path: '/api-key-management',
+            name: t('menu.apiKeyManagement'),
+            Icon: KeyRound,
+            Extra: ChevronRight,
+          },
+        ],
+        show: clusterUIConfig?.auth_advanced || false,
+      },
       {
         name: t('menu.resourcesAndSupport'),
         items: [
