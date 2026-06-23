@@ -972,7 +972,7 @@ class ChatModelMixin:
             if arguments is not None and not isinstance(arguments, dict):
                 raise TypeError("Tool call arguments must decode to a JSON object")
 
-            if arguments is not None:
+            if "arguments" in target:
                 target["arguments"] = arguments
             if isinstance(function, dict):
                 normalized_tool_call["function"] = target
