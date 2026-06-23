@@ -949,18 +949,24 @@ class ChatModelMixin:
 
             normalized_tool_call = dict(tool_call)
             function = normalized_tool_call.get("function")
-            target = (
-                dict(function) if isinstance(function, dict) else normalized_tool_call
-            )
+            if isinstance(function, dict) and "arguments" in function:
+                target = dict(function)
+                is_function_target = True
+            else:
+                target = normalized_tool_call
+                is_function_target = False
             arguments = target.get("arguments")
 
             if isinstance(arguments, (str, bytes)):
-                try:
-                    arguments = json.loads(arguments)
-                except json.JSONDecodeError as exc:
-                    raise ValueError(
-                        "Tool call arguments must be a valid JSON object"
-                    ) from exc
+                if not arguments or not arguments.strip():
+                    arguments = {}
+                else:
+                    try:
+                        arguments = json.loads(arguments)
+                    except json.JSONDecodeError as exc:
+                        raise ValueError(
+                            "Tool call arguments must be a valid JSON object"
+                        ) from exc
             elif arguments is not None and not isinstance(arguments, dict):
                 try:
                     arguments = dict(arguments)
@@ -974,7 +980,7 @@ class ChatModelMixin:
 
             if "arguments" in target:
                 target["arguments"] = arguments
-            if isinstance(function, dict):
+            if is_function_target:
                 normalized_tool_call["function"] = target
             normalized_tool_calls[index] = normalized_tool_call
 
