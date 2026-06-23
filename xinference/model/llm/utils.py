@@ -954,7 +954,7 @@ class ChatModelMixin:
             )
             arguments = target.get("arguments")
 
-            if isinstance(arguments, str):
+            if isinstance(arguments, (str, bytes)):
                 try:
                     arguments = json.loads(arguments)
                 except json.JSONDecodeError as exc:
