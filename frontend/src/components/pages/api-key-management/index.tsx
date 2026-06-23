@@ -154,9 +154,13 @@ export default function ApiKeyManagement() {
   };
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      toast.success(t('common.copySuccess'));
-    });
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        toast.success(t('common.copySuccess'));
+      })
+      .catch((err) => {
+        console.error('Failed to copy text: ', err);
+      });
   };
 
   const maskKey = (prefix: string) => `${prefix}${'•'.repeat(16)}`;
@@ -261,10 +265,10 @@ export default function ApiKeyManagement() {
                   <TableCell className="text-muted-foreground max-w-[180px] truncate">
                     {key.description || '—'}
                   </TableCell>
-                  <TableCell className="text-muted-foreground whitespace-nowrap">
+                  <TableCell className="text-muted-foreground whitespace-nowrap" suppressHydrationWarning>
                     {formatDate(key.created_at)}
                   </TableCell>
-                  <TableCell className="text-muted-foreground whitespace-nowrap">
+                  <TableCell className="text-muted-foreground whitespace-nowrap" suppressHydrationWarning>
                     {formatDate(key.expires_at)}
                   </TableCell>
                   <TableCell>{getStatusBadge(key)}</TableCell>
@@ -368,6 +372,7 @@ export default function ApiKeyManagement() {
                   value={form.expires_at}
                   onChange={(e) => setForm((f) => ({ ...f, expires_at: e.target.value }))}
                   min={new Date().toISOString().split('T')[0]}
+                  suppressHydrationWarning
                 />
                 <p className="text-xs text-muted-foreground">{t('apiKey.expiresAtHint')}</p>
               </div>

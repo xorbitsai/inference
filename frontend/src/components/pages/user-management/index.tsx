@@ -157,7 +157,7 @@ export default function UserManagement() {
   // ── Edit ──────────────────────────────────────────────────
   const openEdit = (user: User) => {
     setEditUser(user);
-    setEditForm({ permissions: [...user.permissions], enabled: user.enabled });
+    setEditForm({ permissions: [...(user.permissions || [])], enabled: user.enabled });
   };
 
   const handleEdit = async () => {
@@ -323,7 +323,7 @@ export default function UserManagement() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground whitespace-nowrap">
+                  <TableCell className="text-muted-foreground whitespace-nowrap" suppressHydrationWarning>
                     {formatDate(user.created_at)}
                   </TableCell>
                   <TableCell>
