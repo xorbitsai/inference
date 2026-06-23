@@ -39,6 +39,8 @@ The following is a list of built-in image models in Xinference:
   
    paddleocr-vl
   
+   paddleocr-vl-1.6
+  
    qwen-image
   
    qwen-image-2512
