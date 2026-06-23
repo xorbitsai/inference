@@ -184,8 +184,20 @@ def test_transform_messages_preserves_tool_call_fields():
     assert transformed[1] == {
         "role": "assistant",
         "content": None,
-        "tool_calls": messages[1]["tool_calls"],
+        "tool_calls": [
+            {
+                "id": "call_bed4c5f1",
+                "function": {
+                    "arguments": {"file_path": "README*"},
+                    "name": "view_file_in_detail",
+                },
+                "type": "function",
+            }
+        ],
     }
+    assert messages[1]["tool_calls"][0]["function"]["arguments"] == (
+        '{"file_path": "README*"}'
+    )
     assert transformed[2] == {
         "role": "tool",
         "content": [
@@ -193,6 +205,67 @@ def test_transform_messages_preserves_tool_call_fields():
         ],
         "tool_call_id": "call_bed4c5f1",
     }
+
+
+def test_transform_messages_materializes_tool_call_iterators():
+    mixin = ChatModelMixin()
+    messages = [
+        {
+            "role": "assistant",
+            "tool_calls": iter(
+                [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "read",
+                            "arguments": iter([("path", "README.md")]),
+                        },
+                    }
+                ]
+            ),
+        }
+    ]
+
+    transformed = mixin._transform_messages(messages)
+
+    assert transformed == [
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "read",
+                        "arguments": {"path": "README.md"},
+                    },
+                }
+            ],
+        }
+    ]
+
+
+def test_transform_messages_rejects_invalid_tool_call_arguments_json():
+    mixin = ChatModelMixin()
+    messages = [
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "read",
+                        "arguments": '{"path":',
+                    },
+                }
+            ],
+        }
+    ]
+
+    with pytest.raises(
+        ValueError, match="Tool call arguments must be a valid JSON object"
+    ):
+        mixin._transform_messages(messages)
 
 
 def test_deepseekv4_get_full_context_attaches_tools(tmp_path):

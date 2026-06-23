@@ -923,10 +923,68 @@ class ChatModelMixin:
                             msg,
                         )
             new_message = dict(msg)
+            if msg.get("tool_calls") is not None:
+                new_message["tool_calls"] = self._normalize_tool_calls(
+                    msg["tool_calls"]
+                )
             new_message["content"] = new_content if new_content else None
             transformed_messages.append(new_message)
 
         return transformed_messages
+
+    @staticmethod
+    def _normalize_tool_calls(tool_calls: Any) -> Any:
+        if isinstance(tool_calls, (str, bytes)):
+            return tool_calls
+        if isinstance(tool_calls, dict):
+            tool_calls = [tool_calls]
+        try:
+            normalized_tool_calls = list(tool_calls)
+        except TypeError:
+            return tool_calls
+
+        for index, tool_call in enumerate(normalized_tool_calls):
+            if not isinstance(tool_call, dict):
+                continue
+
+            normalized_tool_call = dict(tool_call)
+            function = normalized_tool_call.get("function")
+            if isinstance(function, dict) and "arguments" in function:
+                target = dict(function)
+                is_function_target = True
+            else:
+                target = normalized_tool_call
+                is_function_target = False
+            arguments = target.get("arguments")
+
+            if isinstance(arguments, (str, bytes)):
+                if not arguments or not arguments.strip():
+                    arguments = {}
+                else:
+                    try:
+                        arguments = json.loads(arguments)
+                    except json.JSONDecodeError as exc:
+                        raise ValueError(
+                            "Tool call arguments must be a valid JSON object"
+                        ) from exc
+            elif arguments is not None and not isinstance(arguments, dict):
+                try:
+                    arguments = dict(arguments)
+                except (TypeError, ValueError) as exc:
+                    raise TypeError(
+                        "Tool call arguments must be a mapping or JSON object string"
+                    ) from exc
+
+            if arguments is not None and not isinstance(arguments, dict):
+                raise TypeError("Tool call arguments must decode to a JSON object")
+
+            if "arguments" in target:
+                target["arguments"] = arguments
+            if is_function_target:
+                normalized_tool_call["function"] = target
+            normalized_tool_calls[index] = normalized_tool_call
+
+        return normalized_tool_calls
 
     async def _async_to_tool_completion_chunks(
         self,
