@@ -109,7 +109,7 @@ class Qwen3ASRModel:
                 snapshot_download as ms_download,
             )
 
-            from .utils import retry_download
+            from ..utils import retry_download
 
             return retry_download(ms_download, model_id, None, model_id)
         except Exception:
