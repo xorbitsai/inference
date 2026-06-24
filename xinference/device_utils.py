@@ -196,13 +196,22 @@ def _get_info_by_pynvml(gpu_id: int) -> Dict[str, float]:
         mem_info = pynvml.nvmlDeviceGetMemoryInfo_v2(handler)
     except (pynvml.NVMLError, AttributeError):
         mem_info = nvmlDeviceGetMemoryInfo(handler)
-    utilization = nvmlDeviceGetUtilizationRates(handler)
+    # nvmlDeviceGetUtilizationRates() is not supported in every environment
+    # (notably NVIDIA's WSL2 NVML, which raises NVML_ERROR_UNKNOWN /
+    # NVML_ERROR_NOT_SUPPORTED for utilization queries even when memory queries
+    # succeed). A failed utilization query should not discard the whole device's
+    # memory info, so degrade gracefully to 0% utilization instead of letting the
+    # exception drop the GPU from detection entirely.
+    try:
+        util = nvmlDeviceGetUtilizationRates(handler).gpu
+    except pynvml.NVMLError:
+        util = 0
     return {
         "name": gpu_name,
         "total": mem_info.total,
         "used": mem_info.used,
         "free": mem_info.free,
-        "util": utilization.gpu,
+        "util": util,
     }
 
 
