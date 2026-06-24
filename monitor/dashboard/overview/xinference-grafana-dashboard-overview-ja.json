@@ -112,7 +112,7 @@
     },
     {
       "id": 1,
-      "title": "Supervisor 运行时间",
+      "title": "Supervisor 稼働時間",
       "type": "stat",
       "gridPos": {
         "h": 6,
@@ -167,7 +167,7 @@
     },
     {
       "id": 2,
-      "title": "在线 Worker 数",
+      "title": "オンライン Worker 数",
       "type": "stat",
       "gridPos": {
         "h": 6,
@@ -225,7 +225,7 @@
     },
     {
       "id": 50,
-      "title": "配置信息",
+      "title": "構成情報",
       "type": "table",
       "gridPos": {
         "h": 6,
@@ -432,7 +432,7 @@
     },
     {
       "id": 3,
-      "title": "按类型统计模型",
+      "title": "タイプ別モデル数",
       "type": "bargauge",
       "gridPos": {
         "h": 4,
@@ -490,7 +490,7 @@
     },
     {
       "id": 122,
-      "title": "当前告警数",
+      "title": "現在のアラート数",
       "type": "stat",
       "gridPos": {
         "h": 5,
@@ -554,7 +554,7 @@
     },
     {
       "id": 123,
-      "title": "告警历史",
+      "title": "アラート履歴",
       "type": "state-timeline",
       "gridPos": {
         "h": 5,
@@ -636,7 +636,7 @@
     },
     {
       "id": 124,
-      "title": "告警详情",
+      "title": "アラート詳細",
       "type": "table",
       "gridPos": {
         "h": 5,
@@ -812,7 +812,7 @@
     },
     {
       "id": 22,
-      "title": "Supervisor 异常总数",
+      "title": "Supervisor 例外合計",
       "type": "stat",
       "gridPos": {
         "h": 4,
@@ -874,7 +874,7 @@
     },
     {
       "id": 23,
-      "title": "HTTP 错误率 (4xx/5xx)",
+      "title": "HTTP エラー率 (4xx/5xx)",
       "type": "timeseries",
       "gridPos": {
         "h": 4,
@@ -965,7 +965,7 @@
     },
     {
       "id": 24,
-      "title": "HTTP 状态码分布",
+      "title": "HTTP ステータスコード分布",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -1113,7 +1113,7 @@
     },
     {
       "id": 25,
-      "title": "热门 API 路径 Top10",
+      "title": "API パス Top 10",
       "type": "table",
       "gridPos": {
         "h": 8,
@@ -1202,7 +1202,7 @@
     },
     {
       "id": 26,
-      "title": "模型生命周期状态",
+      "title": "モデルライフサイクル状態",
       "type": "table",
       "gridPos": {
         "h": 8,

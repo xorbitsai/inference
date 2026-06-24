@@ -11,9 +11,9 @@ Pre-built Grafana dashboards for monitoring Xinference clusters, organized into 
 | Cluster Overview | `xinference-overview` | `xinference-grafana-dashboard-overview-{lang}.json` | SRE / Platform |
 | Model Load | `xinference-model-load` | `xinference-grafana-dashboard-model-load-{lang}.json` | ML Ops / Infra |
 | LLM Inference SLO | `xinference-llm-slo` | `xinference-grafana-dashboard-llm-slo-{lang}.json` | ML Ops / Business |
-| GPU Resources | `xinference-gpu-resources` | `xinference-grafana-dashboard-gpu-{lang}.json` | SRE / Infra |
-| Host Resources | `xinference-host-resources` | `xinference-grafana-dashboard-host-{lang}.json` | SRE |
-| Security Audit | `xinference-security-audit` | `xinference-grafana-dashboard-security-{lang}.json` | SecOps |
+| GPU Resources | `xinference-gpu-resources` | `xinference-grafana-dashboard-gpu-resources-{lang}.json` | SRE / Infra |
+| Host Resources | `xinference-host-resources` | `xinference-grafana-dashboard-host-resources-{lang}.json` | SRE |
+| Security Audit | `xinference-security-audit` | `xinference-grafana-dashboard-security-audit-{lang}.json` | SecOps |
 
 Languages: `en`, `ja`, `ko`, `zh-CN`.
 

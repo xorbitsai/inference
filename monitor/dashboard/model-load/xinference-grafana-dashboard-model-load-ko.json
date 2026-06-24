@@ -112,7 +112,7 @@
     },
     {
       "id": 8,
-      "title": "模型部署全景",
+      "title": "모델 배포 전체 보기",
       "type": "table",
       "gridPos": {
         "h": 8,
@@ -270,7 +270,7 @@
     },
     {
       "id": 9,
-      "title": "GPU 绑定关系",
+      "title": "GPU 바인딩",
       "type": "table",
       "gridPos": {
         "h": 8,
@@ -397,7 +397,7 @@
     },
     {
       "id": 127,
-      "title": "模型加载耗时（滑动平均）",
+      "title": "모델 로드 소요 시간 (이동 평균)",
       "type": "timeseries",
       "gridPos": {
         "h": 9,
@@ -484,7 +484,7 @@
     },
     {
       "id": 128,
-      "title": "模型加载最大耗时",
+      "title": "모델 로드 최대 소요 시간",
       "type": "stat",
       "gridPos": {
         "h": 9,
@@ -641,7 +641,7 @@
           "refId": "A"
         }
       ],
-      "title": "每模型 GPU 显存使用",
+      "title": "모델별 GPU 메모리 사용량",
       "type": "timeseries"
     },
     {
@@ -820,7 +820,7 @@
           }
         }
       ],
-      "title": "每模型 GPU 显存分布",
+      "title": "모델별 GPU 메모리 분포",
       "type": "table"
     },
     {

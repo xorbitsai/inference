@@ -112,7 +112,7 @@
     },
     {
       "id": 4,
-      "title": "GPU 利用率",
+      "title": "GPU 使用率",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -204,7 +204,7 @@
     },
     {
       "id": 5,
-      "title": "GPU 显存使用",
+      "title": "GPU メモリ使用量",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -300,7 +300,7 @@
     },
     {
       "id": 33,
-      "title": "GPU 显存使用率 （$worker_address）",
+      "title": "GPU メモリ使用率 ($worker_address)",
       "type": "gauge",
       "gridPos": {
         "h": 8,
@@ -367,7 +367,7 @@
     },
     {
       "id": 118,
-      "title": "各 Worker 活跃请求数",
+      "title": "Worker 別アクティブリクエスト数",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -567,7 +567,7 @@
     },
     {
       "id": 53,
-      "title": "GPU 功耗 / 功耗限制 (W)",
+      "title": "GPU 消費電力 / 電力制限 (W)",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -689,7 +689,7 @@
     },
     {
       "id": 54,
-      "title": "PCIe Replay 错误计数",
+      "title": "PCIe リプレイエラー数",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -786,7 +786,7 @@
     },
     {
       "id": 55,
-      "title": "GPU 时钟频率 (MHz)",
+      "title": "GPU クロック周波数 (MHz)",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -912,7 +912,7 @@
     },
     {
       "id": 56,
-      "title": "GPU 硬件健康状态",
+      "title": "GPU ハードウェア健全性",
       "type": "table",
       "gridPos": {
         "h": 8,

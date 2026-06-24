@@ -112,7 +112,7 @@
     },
     {
       "id": 8,
-      "title": "模型部署全景",
+      "title": "Model Deployment Overview",
       "type": "table",
       "gridPos": {
         "h": 8,
@@ -270,7 +270,7 @@
     },
     {
       "id": 9,
-      "title": "GPU 绑定关系",
+      "title": "GPU Binding",
       "type": "table",
       "gridPos": {
         "h": 8,
@@ -397,7 +397,7 @@
     },
     {
       "id": 127,
-      "title": "模型加载耗时（滑动平均）",
+      "title": "Model Load Duration (Moving Average)",
       "type": "timeseries",
       "gridPos": {
         "h": 9,
@@ -484,7 +484,7 @@
     },
     {
       "id": 128,
-      "title": "模型加载最大耗时",
+      "title": "Model Load Max Duration",
       "type": "stat",
       "gridPos": {
         "h": 9,
@@ -641,7 +641,7 @@
           "refId": "A"
         }
       ],
-      "title": "每模型 GPU 显存使用",
+      "title": "Per-Model GPU Memory Usage",
       "type": "timeseries"
     },
     {
@@ -820,7 +820,7 @@
           }
         }
       ],
-      "title": "每模型 GPU 显存分布",
+      "title": "Per-Model GPU Memory Distribution",
       "type": "table"
     },
     {

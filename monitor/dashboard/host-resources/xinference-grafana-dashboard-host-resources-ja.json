@@ -204,7 +204,7 @@
     },
     {
       "id": 30,
-      "title": "Supervisor 系统负载",
+      "title": "Supervisor システム負荷",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -304,7 +304,7 @@
     },
     {
       "id": 28,
-      "title": "Supervisor 内存使用",
+      "title": "Supervisor メモリ使用量",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -491,7 +491,7 @@
     },
     {
       "id": 29,
-      "title": "Supervisor 磁盘空间使用率 $supervisor_address",
+      "title": "Supervisor ディスク容量使用率 $supervisor_address",
       "type": "gauge",
       "gridPos": {
         "h": 8,
@@ -558,7 +558,7 @@
     },
     {
       "id": 120,
-      "title": "Supervisor 磁盘使用趋势",
+      "title": "Supervisor ディスク使用量トレンド",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -649,7 +649,7 @@
     },
     {
       "id": 37,
-      "title": "Supervisor 磁盘 I/O 利用率",
+      "title": "Supervisor ディスク I/O 使用率",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -745,7 +745,7 @@
     },
     {
       "id": 36,
-      "title": "Supervisor 磁盘 I/O 吞吐",
+      "title": "Supervisor ディスク I/O スループット",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -841,7 +841,7 @@
     },
     {
       "id": 31,
-      "title": "Supervisor 网络流量",
+      "title": "Supervisor ネットワークトラフィック",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -1041,7 +1041,7 @@
     },
     {
       "id": 19,
-      "title": "Worker 系统负载",
+      "title": "Worker システム負荷",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -1141,7 +1141,7 @@
     },
     {
       "id": 35,
-      "title": "Worker 内存使用",
+      "title": "Worker メモリ使用量",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -1328,7 +1328,7 @@
     },
     {
       "id": 17,
-      "title": "Worker 磁盘空间使用率 $worker_address",
+      "title": "Worker ディスク容量使用率 $worker_address",
       "type": "gauge",
       "gridPos": {
         "h": 8,
@@ -1395,7 +1395,7 @@
     },
     {
       "id": 121,
-      "title": "Worker 磁盘使用趋势",
+      "title": "Worker ディスク使用量トレンド",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -1486,7 +1486,7 @@
     },
     {
       "id": 38,
-      "title": "Worker 磁盘 I/O 利用率",
+      "title": "Worker ディスク I/O 使用率",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -1582,7 +1582,7 @@
     },
     {
       "id": 16,
-      "title": "Worker 磁盘 I/O 吞吐",
+      "title": "Worker ディスク I/O スループット",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -1678,7 +1678,7 @@
     },
     {
       "id": 18,
-      "title": "Worker 网络流量",
+      "title": "Worker ネットワークトラフィック",
       "type": "timeseries",
       "gridPos": {
         "h": 8,

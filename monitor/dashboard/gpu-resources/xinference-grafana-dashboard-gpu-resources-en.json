@@ -112,7 +112,7 @@
     },
     {
       "id": 4,
-      "title": "GPU 利用率",
+      "title": "GPU Utilization",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -204,7 +204,7 @@
     },
     {
       "id": 5,
-      "title": "GPU 显存使用",
+      "title": "GPU Memory Usage",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -300,7 +300,7 @@
     },
     {
       "id": 33,
-      "title": "GPU 显存使用率 （$worker_address）",
+      "title": "GPU Memory Utilization ($worker_address)",
       "type": "gauge",
       "gridPos": {
         "h": 8,
@@ -367,7 +367,7 @@
     },
     {
       "id": 118,
-      "title": "各 Worker 活跃请求数",
+      "title": "Active Requests per Worker",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -469,7 +469,7 @@
     },
     {
       "id": 52,
-      "title": "GPU 温度",
+      "title": "GPU Temperature",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -567,7 +567,7 @@
     },
     {
       "id": 53,
-      "title": "GPU 功耗 / 功耗限制 (W)",
+      "title": "GPU Power / Power Limit (W)",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -689,7 +689,7 @@
     },
     {
       "id": 54,
-      "title": "PCIe Replay 错误计数",
+      "title": "PCIe Replay Error Count",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -786,7 +786,7 @@
     },
     {
       "id": 55,
-      "title": "GPU 时钟频率 (MHz)",
+      "title": "GPU Clock Frequency (MHz)",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -912,7 +912,7 @@
     },
     {
       "id": 56,
-      "title": "GPU 硬件健康状态",
+      "title": "GPU Hardware Health",
       "type": "table",
       "gridPos": {
         "h": 8,

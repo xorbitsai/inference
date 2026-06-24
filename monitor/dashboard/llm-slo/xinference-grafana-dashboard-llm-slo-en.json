@@ -208,7 +208,7 @@
     },
     {
       "id": 201,
-      "title": "LLM 错误率",
+      "title": "LLM Error Rate",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -303,7 +303,7 @@
     },
     {
       "id": 202,
-      "title": "LLM 延迟",
+      "title": "LLM Latency",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -399,7 +399,7 @@
     },
     {
       "id": 203,
-      "title": "LLM 并发请求 / 限制",
+      "title": "LLM Concurrent Requests / Limit",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -494,7 +494,7 @@
     },
     {
       "id": 14,
-      "title": "生成吞吐量",
+      "title": "Generation Throughput",
       "type": "timeseries",
       "gridPos": {
         "x": 0,
@@ -585,7 +585,7 @@
     },
     {
       "id": 15,
-      "title": "首 Token 延迟",
+      "title": "Time to First Token",
       "type": "timeseries",
       "gridPos": {
         "h": 8,
@@ -681,7 +681,7 @@
     },
     {
       "id": 130,
-      "title": "输入/输出 Token 吞吐量",
+      "title": "Input/Output Token Throughput",
       "type": "timeseries",
       "gridPos": {
         "x": 12,
@@ -777,7 +777,7 @@
     },
     {
       "id": 131,
-      "title": "每请求平均 Token 数",
+      "title": "Average Tokens per Request",
       "type": "timeseries",
       "gridPos": {
         "x": 0,
@@ -873,7 +873,7 @@
     },
     {
       "id": 132,
-      "title": "输入/输出 Token 累计",
+      "title": "Input/Output Token Cumulative",
       "type": "stat",
       "gridPos": {
         "x": 12,
@@ -936,7 +936,7 @@
     },
     {
       "id": 133,
-      "title": "输出/输入 Token 放大比",
+      "title": "Output/Input Token Amplification Ratio",
       "type": "timeseries",
       "gridPos": {
         "x": 0,

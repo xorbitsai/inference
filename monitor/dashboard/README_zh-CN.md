@@ -11,9 +11,9 @@
 | 集群概览 | `xinference-overview` | `xinference-grafana-dashboard-overview-{lang}.json` | SRE / 平台 |
 | 模型负载 | `xinference-model-load` | `xinference-grafana-dashboard-model-load-{lang}.json` | ML Ops / 算力运维 |
 | LLM 推理 SLO | `xinference-llm-slo` | `xinference-grafana-dashboard-llm-slo-{lang}.json` | ML Ops / 业务 |
-| GPU 资源 | `xinference-gpu-resources` | `xinference-grafana-dashboard-gpu-{lang}.json` | SRE / 算力运维 |
-| 主机资源 | `xinference-host-resources` | `xinference-grafana-dashboard-host-{lang}.json` | SRE |
-| 安全审计 | `xinference-security-audit` | `xinference-grafana-dashboard-security-{lang}.json` | SecOps |
+| GPU 资源 | `xinference-gpu-resources` | `xinference-grafana-dashboard-gpu-resources-{lang}.json` | SRE / 算力运维 |
+| 主机资源 | `xinference-host-resources` | `xinference-grafana-dashboard-host-resources-{lang}.json` | SRE |
+| 安全审计 | `xinference-security-audit` | `xinference-grafana-dashboard-security-audit-{lang}.json` | SecOps |
 
 语言：`en`、`ja`、`ko`、`zh-CN`。
 
