@@ -1,0 +1,74 @@
+monitor/dashboard/gpu-resources/xinference-grafana-dashboard-gpu-resources-ja.json
+  50907f70fc3ac2b5 115,207,303,370,570,692,789,915,1393
+monitor/dashboard/overview/xinference-grafana-dashboard-overview-ko.json
+  50907f70fc3ac2b5 115,170,228,435,493,557,639,815,877,968,1116,1205,1622
+monitor/dashboard/llm-slo/xinference-grafana-dashboard-llm-slo-ja.json
+  50907f70fc3ac2b5 211,306,402,497,588,684,780,876,939,1378
+monitor/dashboard/llm-slo/xinference-grafana-dashboard-llm-slo-zh-CN.json
+  50907f70fc3ac2b5 1378
+monitor/dashboard/model-load/xinference-grafana-dashboard-model-load-ko.json
+  50907f70fc3ac2b5 115,273,400,487,644,823,1328
+monitor/dashboard/model-load/xinference-grafana-dashboard-model-load-zh-CN.json
+  50907f70fc3ac2b5 1361
+monitor/dashboard/gpu-resources/xinference-grafana-dashboard-gpu-resources-ko.json
+  50907f70fc3ac2b5 115,207,303,370,472,570,692,789,915,1393
+monitor/dashboard/host-resources/xinference-grafana-dashboard-host-resources-ko.json
+  50907f70fc3ac2b5 115,207,307,403,494,561,652,748,844,952,1044,1144,1240,1331,1398,1489,1585,1681,2114
+monitor/dashboard/llm-slo/xinference-grafana-dashboard-llm-slo-ko.json
+  50907f70fc3ac2b5 211,306,402,497,588,684,780,876,939,1378
+monitor/dashboard/security-audit/xinference-grafana-dashboard-security-audit-en.json
+  50907f70fc3ac2b5 115,166,225,284,343,420,506,614,723,1110
+monitor/dashboard/gpu-resources/xinference-grafana-dashboard-gpu-resources-zh-CN.json
+  50907f70fc3ac2b5 1393
+monitor/dashboard/overview/xinference-grafana-dashboard-overview-zh-CN.json
+  50907f70fc3ac2b5 1622
+monitor/dashboard/host-resources/xinference-grafana-dashboard-host-resources-ja.json
+  50907f70fc3ac2b5 207,307,494,561,652,748,844,1044,1144,1331,1398,1489,1585,1681,2114
+monitor/dashboard/model-load/xinference-grafana-dashboard-model-load-en.json
+  50907f70fc3ac2b5 115,273,400,487,644,823,1328
+monitor/dashboard/README.md
+  50907f70fc3ac2b5 14-16
+monitor/dashboard/overview/xinference-grafana-dashboard-overview-ja.json
+  50907f70fc3ac2b5 115,170,228,435,493,557,639,815,877,968,1116,1205,1622
+monitor/dashboard/security-audit/xinference-grafana-dashboard-security-audit-ja.json
+  50907f70fc3ac2b5 115,166,225,284,343,420,506,614,723,1110
+monitor/dashboard/host-resources/xinference-grafana-dashboard-host-resources-en.json
+  50907f70fc3ac2b5 115,207,307,403,494,561,652,748,844,952,1044,1144,1240,1331,1398,1489,1585,1681,2114
+monitor/dashboard/overview/xinference-grafana-dashboard-overview-en.json
+  50907f70fc3ac2b5 115,170,228,435,493,557,639,815,877,968,1116,1205,1622
+monitor/dashboard/llm-slo/xinference-grafana-dashboard-llm-slo-en.json
+  50907f70fc3ac2b5 211,306,402,497,588,684,780,876,939,1378
+monitor/dashboard/security-audit/xinference-grafana-dashboard-security-audit-zh-CN.json
+  50907f70fc3ac2b5 1110
+monitor/dashboard/host-resources/xinference-grafana-dashboard-host-resources-zh-CN.json
+  50907f70fc3ac2b5 2114
+monitor/dashboard/security-audit/xinference-grafana-dashboard-security-audit-ko.json
+  50907f70fc3ac2b5 115,166,225,284,343,420,506,614,723,1110
+monitor/dashboard/README_zh-CN.md
+  50907f70fc3ac2b5 14-16
+monitor/dashboard/model-load/xinference-grafana-dashboard-model-load-ja.json
+  50907f70fc3ac2b5 115,273,400,487,644,823,1328
+monitor/dashboard/gpu-resources/xinference-grafana-dashboard-gpu-resources-en.json
+  50907f70fc3ac2b5 115,207,303,370,472,570,692,789,915,1393
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "750974f4f0cb7e18b6f3e406427842504cae8a83",
+  "prompts": {
+    "50907f70fc3ac2b5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6abd358-b19c-415c-8d3f-c028fc1a48c5",
+        "model": "glm-5.2"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 17904,
+      "total_deletions": 274,
+      "accepted_lines": 10467,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/157530617d4059552f2784b1fd1e35f6d7e15e04c19211213cb53f8a9be38e1f"
+    }
+  }
+}
