@@ -2,6 +2,9 @@ name: GPU Runner Check
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - bld/adopt-gpu-larger-runner
 
 jobs:
   inspect:
