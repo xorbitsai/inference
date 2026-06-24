@@ -1,0 +1,27 @@
+name: GPU Runner Check
+
+on:
+  workflow_dispatch:
+
+jobs:
+  inspect:
+    runs-on: gpu-t4
+    steps:
+      - name: System info
+        run: |
+          echo "=== Arch / OS ==="
+          uname -a
+
+          echo "=== CPU ==="
+          nproc
+          lscpu
+
+          echo "=== Memory ==="
+          free -h
+
+          echo "=== Disk ==="
+          df -h
+
+          echo "=== GPU / CUDA ==="
+          nvidia-smi
+          nvcc --version || echo "nvcc not found"
