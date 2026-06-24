@@ -1,0 +1,98 @@
+monitor/dashboard/host-resources/xinference-grafana-dashboard-host-resources-ja.json
+  50907f70fc3ac2b5 1776-1786,1797-1798,1806,1810-1875,1889-1890,1894-1895,1903,1907-1956,1958-1971
+monitor/metrics/README.md
+  50907f70fc3ac2b5 87,94-95,213
+monitor/dashboard/llm-slo/xinference-grafana-dashboard-llm-slo-ko.json
+  50907f70fc3ac2b5 1034,1039,1044,1071,1076,1081
+monitor/dashboard/host-resources/xinference-grafana-dashboard-host-resources-zh-CN.json
+  50907f70fc3ac2b5 1776-1786,1797-1798,1806,1810-1875,1889-1890,1894-1895,1903,1907-1956,1958-1971
+monitor/dashboard/generate.py
+  50907f70fc3ac2b5 60,114,149,184,284-285,299-300,317-318,353,358,363,381,386,391,409-410,414,416-464,475-476,480-481,485,487-534,584-605
+monitor/dashboard/fix_empty_queries.py
+  50907f70fc3ac2b5 1-756
+monitor/dashboard/llm-slo/xinference-grafana-dashboard-llm-slo-en.json
+  50907f70fc3ac2b5 1034,1039,1044,1071,1076,1081
+xinference/core/tests/test_metrics.py
+  50907f70fc3ac2b5 85,90-91
+monitor/dashboard/model-load/xinference-grafana-dashboard-model-load-ja.json
+  50907f70fc3ac2b5 836-837,858-859,885-886
+monitor/dashboard/model-load/xinference-grafana-dashboard-model-load-zh-CN.json
+  50907f70fc3ac2b5 836-837,858-859,885-886,912
+monitor/metrics/README_zh-CN.md
+  50907f70fc3ac2b5 87,94-95,213
+monitor/dashboard/model-load/xinference-grafana-dashboard-model-load-en.json
+  50907f70fc3ac2b5 836-837,858-859,885-886
+monitor/dashboard/model-load/xinference-grafana-dashboard-model-load-ko.json
+  50907f70fc3ac2b5 836-837,858-859,885-886
+xinference/core/model.py
+  50907f70fc3ac2b5 57,289,291-293,296
+monitor/dashboard/host-resources/xinference-grafana-dashboard-host-resources-ko.json
+  50907f70fc3ac2b5 1776-1786,1797-1798,1806,1810-1875,1889-1890,1894-1895,1903,1907-1956,1958-1971
+monitor/dashboard/llm-slo/xinference-grafana-dashboard-llm-slo-zh-CN.json
+  50907f70fc3ac2b5 1034,1039,1044,1071,1076,1081
+monitor/dashboard/llm-slo/xinference-grafana-dashboard-llm-slo-ja.json
+  50907f70fc3ac2b5 1034,1039,1044,1071,1076,1081
+monitor/dashboard/host-resources/xinference-grafana-dashboard-host-resources-en.json
+  50907f70fc3ac2b5 1776-1786,1797-1798,1806,1810-1875,1889-1890,1894-1895,1903,1907-1956,1958-1971
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "c0c4d2035797a6d852db531935db33864d085466",
+  "prompts": {
+    "50907f70fc3ac2b5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6abd358-b19c-415c-8d3f-c028fc1a48c5",
+        "model": "glm-5.2"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 48927,
+      "total_deletions": 646,
+      "accepted_lines": 21161,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/eb855fc53a7e21c00ff45a9fe2988bbf10ef0fe65a31e8d02de09399ab5737fe"
+    },
+    "78ee352318e1b386": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e6ba6d3c-7b1f-471f-90fa-37fc1f9b3236",
+        "model": "qwen3.7-max"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 123,
+      "overriden_lines": 0,
+      "token_usage": {
+        "input_tokens": 168164,
+        "output_tokens": 13259,
+        "cache_read_tokens": 2651496,
+        "cache_creation_tokens": 307473,
+        "total_cost": null
+      }
+    },
+    "d91e6017ce678dba": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "51c36fad-8371-4669-913a-9150306583b7",
+        "model": "qwen3.7-max"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 94,
+      "overriden_lines": 0,
+      "token_usage": {
+        "input_tokens": 214014,
+        "output_tokens": 452,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 108691,
+        "total_cost": null
+      }
+    }
+  }
+}
