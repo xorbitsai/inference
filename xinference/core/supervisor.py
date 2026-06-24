@@ -159,6 +159,12 @@ class SupervisorActor(xo.StatelessActor):
         # get_cluster_metrics_data() and translated into the
         # xinference:model_unexpected_termination gauge in the API process.
         self._unexpected_down_replicas: Dict[Tuple[str, int], str] = {}
+        self._autostart_task: Optional[asyncio.Task] = None
+        self._autostart_requested = False
+        self._autostart_lock = asyncio.Lock()
+        self._autostart_config_lock = asyncio.Lock()
+        self._autostart_wakeup_event = asyncio.Event()
+        self._autostart_model_states: Dict[str, Dict[str, Any]] = {}
 
     @classmethod
     def default_uid(cls) -> str:
@@ -832,6 +838,312 @@ class SupervisorActor(xo.StatelessActor):
         self._collective_manager_mapping: Dict[  # type: ignore
             str, xo.ActorRefType[CollectiveManager]
         ] = {}
+        self._schedule_autostart()
+
+    def _schedule_autostart(self, delay: float = 0.0):
+        if self._autostart_task is not None and not self._autostart_task.done():
+            if delay <= 0:
+                self._autostart_requested = True
+                self._autostart_wakeup_event.set()
+            return
+        self._autostart_task = asyncio.create_task(
+            self._run_autostart_with_retries(delay)
+        )
+
+    async def _wait_for_autostart_wakeup(self, delay: float):
+        try:
+            await asyncio.wait_for(self._autostart_wakeup_event.wait(), timeout=delay)
+        except asyncio.TimeoutError:
+            pass
+        finally:
+            self._autostart_wakeup_event.clear()
+
+    async def _run_autostart_with_retries(self, delay: float):
+        try:
+            next_delay: Optional[float] = max(delay, 0.0)
+            while True:
+                if next_delay:
+                    await self._wait_for_autostart_wakeup(next_delay)
+                next_delay = await self._run_autostart_once()
+                if self._autostart_requested:
+                    self._autostart_requested = False
+                    next_delay = 0.0
+                if next_delay is None:
+                    break
+        finally:
+            self._autostart_task = None
+
+    async def _run_autostart_once(self) -> Optional[float]:
+        async with self._autostart_lock:
+            from .autostart import load_autostart_config
+
+            try:
+                config = await asyncio.to_thread(load_autostart_config)
+            except Exception:
+                logger.exception("Failed to load autostart config.")
+                return None
+
+            entries = [
+                entry
+                for entry in config.get("models", [])
+                if entry.get("enabled", True)
+            ]
+            if not entries:
+                return None
+            if not self._worker_address_to_worker:
+                for entry in entries:
+                    model_uid = entry["launch"]["model_uid"]
+                    self._autostart_model_states[model_uid] = {
+                        **self._autostart_model_states.get(model_uid, {}),
+                        "status": "waiting_worker",
+                        "message": "Waiting for worker registration.",
+                    }
+                logger.info("Autostart waits for worker registration.")
+                return None
+
+            semaphore = asyncio.Semaphore(max(int(config.get("concurrency", 1)), 1))
+            retry_delays: List[float] = []
+
+            async def _run_entry(entry: Dict[str, Any]):
+                async with semaphore:
+                    retry_delay = await self._autostart_one_model(entry)
+                    if retry_delay is not None:
+                        retry_delays.append(retry_delay)
+
+            await asyncio.gather(
+                *[
+                    _run_entry(entry)
+                    for entry in sorted(
+                        entries,
+                        key=lambda item: (
+                            int(item.get("priority", 100)),
+                            item["launch"]["model_uid"],
+                        ),
+                    )
+                ]
+            )
+            return min(retry_delays) if retry_delays else None
+
+    async def _autostart_model_is_active(self, model_uid: str) -> bool:
+        if model_uid in self._model_uid_to_replica_info:
+            return True
+        infos = await self._status_guard_ref.get_instance_info(model_uid=model_uid)
+        active_statuses = {
+            LaunchStatus.CREATING.name,
+            LaunchStatus.UPDATING.name,
+            LaunchStatus.TERMINATING.name,
+            LaunchStatus.READY.name,
+        }
+        return any(info.status in active_statuses for info in infos)
+
+    def _autostart_waiting_for_worker(self, launch: Dict[str, Any]) -> bool:
+        worker_ip = launch.get("worker_ip")
+        if worker_ip is None or self.is_local_deployment():
+            return False
+        requested_ips = [item.strip() for item in str(worker_ip).split(",")]
+        requested_ips = [item for item in requested_ips if item]
+        if not requested_ips:
+            return False
+        current_ips = {
+            address.split(":")[0] for address in self._worker_address_to_worker
+        }
+        return not any(item in current_ips for item in requested_ips)
+
+    async def _launch_autostart_model(self, launch: Dict[str, Any]) -> str:
+        payload = dict(launch)
+        payload.pop("wait_ready", None)
+        peft_model_config = payload.pop("peft_model_config", None)
+        if peft_model_config is not None:
+            peft_model_config = PeftModelConfig.from_dict(peft_model_config)
+
+        gpu_idx = payload.pop("gpu_idx", None)
+        if isinstance(gpu_idx, int):
+            gpu_idx = [gpu_idx]
+
+        return await self.launch_builtin_model(
+            model_uid=payload.pop("model_uid", None),
+            model_name=payload.pop("model_name"),
+            model_engine=payload.pop("model_engine", None),
+            model_size_in_billions=payload.pop("model_size_in_billions", None),
+            model_format=payload.pop("model_format", None),
+            quantization=payload.pop("quantization", None),
+            model_type=payload.pop("model_type", "LLM"),
+            replica=payload.pop("replica", 1),
+            n_gpu=payload.pop("n_gpu", "auto"),
+            n_worker=payload.pop("n_worker", 1),
+            request_limits=payload.pop("request_limits", None),
+            wait_ready=True,
+            peft_model_config=peft_model_config,
+            worker_ip=payload.pop("worker_ip", None),
+            gpu_idx=gpu_idx,
+            download_hub=payload.pop("download_hub", None),
+            model_path=payload.pop("model_path", None),
+            enable_virtual_env=payload.pop("enable_virtual_env", None),
+            virtual_env_packages=payload.pop("virtual_env_packages", None),
+            envs=payload.pop("envs", None),
+            **payload,
+        )
+
+    async def _autostart_one_model(self, entry: Dict[str, Any]) -> Optional[float]:
+        launch = entry["launch"]
+        model_uid = launch["model_uid"]
+        state = self._autostart_model_states.setdefault(model_uid, {"attempts": 0})
+
+        if await self._autostart_model_is_active(model_uid):
+            state.update(
+                {
+                    "status": "active",
+                    "message": "Model is already active.",
+                    "last_error": None,
+                }
+            )
+            return None
+
+        if self._autostart_waiting_for_worker(launch):
+            state.update(
+                {
+                    "status": "waiting_worker",
+                    "message": "Waiting for configured worker_ip.",
+                }
+            )
+            return None
+
+        max_retries = int(entry.get("max_retries", 3))
+        retry_interval = float(entry.get("retry_interval_seconds", 30))
+        attempts = int(state.get("attempts", 0))
+        if attempts >= max_retries:
+            state.update(
+                {
+                    "status": "error",
+                    "message": "Autostart retry limit reached.",
+                }
+            )
+            return None
+
+        last_attempt_ts = state.get("last_attempt_ts")
+        now = time.time()
+        if isinstance(last_attempt_ts, (int, float)):
+            remaining = retry_interval - (now - last_attempt_ts)
+            if remaining > 0:
+                return remaining
+
+        state.update(
+            {
+                "status": "launching",
+                "attempts": attempts + 1,
+                "last_attempt_ts": int(now),
+                "message": "Launching from autostart config.",
+            }
+        )
+        try:
+            launched_uid = await self._launch_autostart_model(launch)
+            state.update(
+                {
+                    "status": "active",
+                    "model_uid": launched_uid,
+                    "last_started_ts": int(time.time()),
+                    "last_error": None,
+                    "message": "Model is ready.",
+                }
+            )
+            logger.info("Autostart launched model: %s", launched_uid)
+            return None
+        except Exception as e:
+            state.update(
+                {
+                    "status": "error",
+                    "last_error": str(e),
+                    "message": "Launch failed.",
+                }
+            )
+            logger.error(
+                "Autostart failed for model %s: %s", model_uid, e, exc_info=True
+            )
+            if state["attempts"] < max_retries:
+                return retry_interval
+            return None
+
+    async def _build_autostart_response(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        from .autostart import get_autostart_config_path, redact_autostart_config
+
+        response = redact_autostart_config(config)
+        response["path"] = get_autostart_config_path()
+        for entry in response.get("models", []):
+            launch = entry.get("launch", {})
+            model_uid = launch.get("model_uid")
+            if not model_uid:
+                continue
+            state = dict(self._autostart_model_states.get(model_uid, {}))
+            infos = await self._status_guard_ref.get_instance_info(model_uid=model_uid)
+            if infos:
+                state["instance_status"] = infos[0].status
+            entry["state"] = state
+        return response
+
+    async def get_autostart_config(self) -> Dict[str, Any]:
+        from .autostart import load_autostart_config
+
+        config = await asyncio.to_thread(load_autostart_config)
+        return await self._build_autostart_response(config)
+
+    async def get_autostart_model_summary(self) -> Dict[str, Any]:
+        from .autostart import load_autostart_config
+
+        config = await asyncio.to_thread(load_autostart_config)
+        models = []
+        for entry in config.get("models", []):
+            launch = entry.get("launch", {})
+            model_uid = launch.get("model_uid")
+            if not model_uid:
+                continue
+            models.append(
+                {
+                    "enabled": entry.get("enabled", True),
+                    "model_uid": model_uid,
+                }
+            )
+        return {"models": models}
+
+    async def set_autostart_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        from .autostart import save_autostart_config
+
+        async with self._autostart_config_lock:
+            normalized = await asyncio.to_thread(save_autostart_config, config)
+            self._autostart_model_states.clear()
+        self._schedule_autostart()
+        return await self._build_autostart_response(normalized)
+
+    async def upsert_autostart_model(self, entry: Dict[str, Any]) -> Dict[str, Any]:
+        from .autostart import (
+            load_autostart_config,
+            normalize_autostart_model_entry,
+            save_autostart_config,
+            upsert_autostart_model_entry,
+        )
+
+        normalized_entry = normalize_autostart_model_entry(entry)
+        model_uid = normalized_entry["launch"]["model_uid"]
+        async with self._autostart_config_lock:
+            current = await asyncio.to_thread(load_autostart_config)
+            updated = upsert_autostart_model_entry(current, normalized_entry)
+            normalized = await asyncio.to_thread(save_autostart_config, updated)
+            self._autostart_model_states.pop(model_uid, None)
+        self._schedule_autostart()
+        return await self._build_autostart_response(normalized)
+
+    async def remove_autostart_model(self, model_uid: str) -> Dict[str, Any]:
+        from .autostart import (
+            load_autostart_config,
+            remove_autostart_model_entry,
+            save_autostart_config,
+        )
+
+        async with self._autostart_config_lock:
+            current = await asyncio.to_thread(load_autostart_config)
+            updated = remove_autostart_model_entry(current, model_uid)
+            normalized = await asyncio.to_thread(save_autostart_config, updated)
+            self._autostart_model_states.pop(model_uid, None)
+        return await self._build_autostart_response(normalized)
 
     @typing.no_type_check
     async def get_cluster_device_info(self, detailed: bool = False) -> List:
@@ -2987,6 +3299,7 @@ class SupervisorActor(xo.StatelessActor):
 
         await self._rebuild_worker_status_guard_state(worker_address, normalized)
         logger.debug("Worker %s has been added successfully", worker_address)
+        self._schedule_autostart()
 
     @log_async(logger=logger)
     async def remove_worker(self, worker_address: str):

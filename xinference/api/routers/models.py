@@ -76,6 +76,38 @@ def register_routes(api: "RESTfulAPI") -> None:
         dependencies=([Security(auth, scopes=["models:list"])] if is_auth else None),
     )
 
+    # --- model autostart ---
+    router.add_api_route(
+        "/v1/autostart/models",
+        api.get_autostart_config,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["models:start"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/autostart/models/summary",
+        api.get_autostart_model_summary,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["models:list"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/autostart/models",
+        api.set_autostart_config,
+        methods=["PUT"],
+        dependencies=([Security(auth, scopes=["models:start"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/autostart/models",
+        api.upsert_autostart_model,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["models:start"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/autostart/models/{model_uid}",
+        api.remove_autostart_model,
+        methods=["DELETE"],
+        dependencies=([Security(auth, scopes=["models:stop"])] if is_auth else None),
+    )
+
     # --- CRUD on running models ---
     router.add_api_route(
         "/v1/models",
