@@ -1,0 +1,86 @@
+monitor/dashboard/README.md
+  50907f70fc3ac2b5 3
+monitor/dashboard/README_zh-CN.md
+  50907f70fc3ac2b5 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "ec294481cca80dc0b07294c63c6d6faf19e25784",
+  "prompts": {
+    "24a37d7e2404fe6a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "aa65b541-80bc-4c04-9dca-f26866af9835",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0,
+      "token_usage": {
+        "input_tokens": 22514,
+        "output_tokens": 8397,
+        "cache_read_tokens": 604804,
+        "cache_creation_tokens": 0,
+        "total_cost": null
+      }
+    },
+    "50907f70fc3ac2b5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6abd358-b19c-415c-8d3f-c028fc1a48c5",
+        "model": "glm-5.2"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 748,
+      "total_deletions": 36021,
+      "accepted_lines": 12455,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/4ba0b5f4a5389774d78688ee72510c6963bab09704384a5ebaf33f5cbbb6be13"
+    },
+    "78ee352318e1b386": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e6ba6d3c-7b1f-471f-90fa-37fc1f9b3236",
+        "model": "qwen3.7-max"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0,
+      "token_usage": {
+        "input_tokens": 168164,
+        "output_tokens": 13259,
+        "cache_read_tokens": 2651496,
+        "cache_creation_tokens": 307473,
+        "total_cost": null
+      }
+    },
+    "d91e6017ce678dba": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "51c36fad-8371-4669-913a-9150306583b7",
+        "model": "qwen3.7-max"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0,
+      "token_usage": {
+        "input_tokens": 214014,
+        "output_tokens": 452,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 108691,
+        "total_cost": null
+      }
+    }
+  }
+}
