@@ -850,6 +850,10 @@ class SupervisorActor(xo.StatelessActor):
             self._run_autostart_with_retries(delay)
         )
 
+    async def _run_in_executor(self, func, *args: Any):
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, func, *args)
+
     async def _wait_for_autostart_wakeup(self, delay: float):
         try:
             await asyncio.wait_for(self._autostart_wakeup_event.wait(), timeout=delay)
@@ -878,7 +882,8 @@ class SupervisorActor(xo.StatelessActor):
             from .autostart import load_autostart_config
 
             try:
-                config = await asyncio.to_thread(load_autostart_config)
+                async with self._autostart_config_lock:
+                    config = await self._run_in_executor(load_autostart_config)
             except Exception:
                 logger.exception("Failed to load autostart config.")
                 return None
@@ -1083,13 +1088,15 @@ class SupervisorActor(xo.StatelessActor):
     async def get_autostart_config(self) -> Dict[str, Any]:
         from .autostart import load_autostart_config
 
-        config = await asyncio.to_thread(load_autostart_config)
+        async with self._autostart_config_lock:
+            config = await self._run_in_executor(load_autostart_config)
         return await self._build_autostart_response(config)
 
     async def get_autostart_model_summary(self) -> Dict[str, Any]:
         from .autostart import load_autostart_config
 
-        config = await asyncio.to_thread(load_autostart_config)
+        async with self._autostart_config_lock:
+            config = await self._run_in_executor(load_autostart_config)
         models = []
         for entry in config.get("models", []):
             launch = entry.get("launch", {})
@@ -1108,7 +1115,7 @@ class SupervisorActor(xo.StatelessActor):
         from .autostart import save_autostart_config
 
         async with self._autostart_config_lock:
-            normalized = await asyncio.to_thread(save_autostart_config, config)
+            normalized = await self._run_in_executor(save_autostart_config, config)
             self._autostart_model_states.clear()
         self._schedule_autostart()
         return await self._build_autostart_response(normalized)
@@ -1124,9 +1131,9 @@ class SupervisorActor(xo.StatelessActor):
         normalized_entry = normalize_autostart_model_entry(entry)
         model_uid = normalized_entry["launch"]["model_uid"]
         async with self._autostart_config_lock:
-            current = await asyncio.to_thread(load_autostart_config)
+            current = await self._run_in_executor(load_autostart_config)
             updated = upsert_autostart_model_entry(current, normalized_entry)
-            normalized = await asyncio.to_thread(save_autostart_config, updated)
+            normalized = await self._run_in_executor(save_autostart_config, updated)
             self._autostart_model_states.pop(model_uid, None)
         self._schedule_autostart()
         return await self._build_autostart_response(normalized)
@@ -1139,9 +1146,9 @@ class SupervisorActor(xo.StatelessActor):
         )
 
         async with self._autostart_config_lock:
-            current = await asyncio.to_thread(load_autostart_config)
+            current = await self._run_in_executor(load_autostart_config)
             updated = remove_autostart_model_entry(current, model_uid)
-            normalized = await asyncio.to_thread(save_autostart_config, updated)
+            normalized = await self._run_in_executor(save_autostart_config, updated)
             self._autostart_model_states.pop(model_uid, None)
         return await self._build_autostart_response(normalized)
 
