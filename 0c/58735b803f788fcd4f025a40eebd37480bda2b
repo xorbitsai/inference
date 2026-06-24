@@ -1,0 +1,46 @@
+monitor/dashboard/model-load/xinference-grafana-dashboard-model-load-ja.json
+  50907f70fc3ac2b5 836-837,858-859,885-886
+monitor/dashboard/fix_empty_queries.py
+  50907f70fc3ac2b5 1-756
+monitor/dashboard/host-resources/xinference-grafana-dashboard-host-resources-ja.json
+  50907f70fc3ac2b5 1776-1786,1797-1798,1806,1810-1875,1889-1890,1894-1895,1903,1907-1956,1958-1971
+monitor/dashboard/llm-slo/xinference-grafana-dashboard-llm-slo-en.json
+  50907f70fc3ac2b5 1034,1039,1044,1071,1076,1081
+monitor/dashboard/model-load/xinference-grafana-dashboard-model-load-ko.json
+  50907f70fc3ac2b5 836-837,858-859,885-886
+xinference/core/tests/test_metrics.py
+  50907f70fc3ac2b5 85,90-91
+monitor/dashboard/llm-slo/xinference-grafana-dashboard-llm-slo-ko.json
+  50907f70fc3ac2b5 1034,1039,1044,1071,1076,1081
+xinference/core/model.py
+  50907f70fc3ac2b5 57,289,291-293,296
+monitor/dashboard/host-resources/xinference-grafana-dashboard-host-resources-en.json
+  50907f70fc3ac2b5 1776-1786,1797-1798,1806,1810-1875,1889-1890,1894-1895,1903,1907-1956,1958-1971
+monitor/dashboard/host-resources/xinference-grafana-dashboard-host-resources-ko.json
+  50907f70fc3ac2b5 1776-1786,1797-1798,1806,1810-1875,1889-1890,1894-1895,1903,1907-1956,1958-1971
+monitor/dashboard/llm-slo/xinference-grafana-dashboard-llm-slo-ja.json
+  50907f70fc3ac2b5 1034,1039,1044,1071,1076,1081
+monitor/dashboard/model-load/xinference-grafana-dashboard-model-load-en.json
+  50907f70fc3ac2b5 836-837,858-859,885-886
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "0c58735b803f788fcd4f025a40eebd37480bda2b",
+  "prompts": {
+    "50907f70fc3ac2b5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6abd358-b19c-415c-8d3f-c028fc1a48c5",
+        "model": "glm-5.2"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 8779,
+      "total_deletions": 69,
+      "accepted_lines": 1248,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/67a9ebda5373efe0455b7e8924976c49c952338ee4f6147aec1ad0c0db412add"
+    }
+  }
+}
