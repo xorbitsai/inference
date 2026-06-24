@@ -1,0 +1,58 @@
+monitor/dashboard/model-load/xinference-grafana-dashboard-model-load-ja.json
+  50907f70fc3ac2b5 1062,1077,1106,1205,1237,1269,1301
+monitor/dashboard/overview/xinference-grafana-dashboard-overview-ja.json
+  50907f70fc3ac2b5 1356,1371,1400,1499,1531,1563,1595
+monitor/dashboard/llm-slo/xinference-grafana-dashboard-llm-slo-ko.json
+  50907f70fc3ac2b5 1112,1127,1156,1255,1287,1319,1351
+monitor/dashboard/host-resources/xinference-grafana-dashboard-host-resources-ko.json
+  50907f70fc3ac2b5 1848,1863,1892,1991,2023,2055,2087
+monitor/dashboard/host-resources/xinference-grafana-dashboard-host-resources-en.json
+  50907f70fc3ac2b5 1848,1863,1892,1991,2023,2055,2087
+monitor/dashboard/gpu-resources/xinference-grafana-dashboard-gpu-resources-ja.json
+  50907f70fc3ac2b5 971,1001,1031,1127,1142,1171,1270,1302,1334,1366
+monitor/dashboard/llm-slo/xinference-grafana-dashboard-llm-slo-ja.json
+  50907f70fc3ac2b5 1112,1127,1156,1255,1287,1319,1351
+monitor/dashboard/gpu-resources/xinference-grafana-dashboard-gpu-resources-ko.json
+  50907f70fc3ac2b5 971,1001,1031,1127,1142,1171,1270,1302,1334,1366
+monitor/dashboard/model-load/xinference-grafana-dashboard-model-load-ko.json
+  50907f70fc3ac2b5 1062,1077,1106,1205,1237,1269,1301
+monitor/dashboard/security-audit/xinference-grafana-dashboard-security-audit-ko.json
+  50907f70fc3ac2b5 844,859,888,987,1019,1051,1083
+monitor/dashboard/host-resources/xinference-grafana-dashboard-host-resources-ja.json
+  50907f70fc3ac2b5 1848,1863,1892,1991,2023,2055,2087
+monitor/dashboard/gpu-resources/xinference-grafana-dashboard-gpu-resources-en.json
+  50907f70fc3ac2b5 971,1001,1031,1127,1142,1171,1270,1302,1334,1366
+monitor/dashboard/model-load/xinference-grafana-dashboard-model-load-en.json
+  50907f70fc3ac2b5 1062,1077,1106,1205,1237,1269,1301
+monitor/dashboard/llm-slo/xinference-grafana-dashboard-llm-slo-en.json
+  50907f70fc3ac2b5 1112,1127,1156,1255,1287,1319,1351
+monitor/dashboard/overview/xinference-grafana-dashboard-overview-en.json
+  50907f70fc3ac2b5 1356,1371,1400,1499,1531,1563,1595
+monitor/dashboard/security-audit/xinference-grafana-dashboard-security-audit-en.json
+  50907f70fc3ac2b5 844,859,888,987,1019,1051,1083
+monitor/dashboard/security-audit/xinference-grafana-dashboard-security-audit-ja.json
+  50907f70fc3ac2b5 844,859,888,987,1019,1051,1083
+monitor/dashboard/overview/xinference-grafana-dashboard-overview-ko.json
+  50907f70fc3ac2b5 1356,1371,1400,1499,1531,1563,1595
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "856224cbd1d2f7683afae1b67f679fc78e0f485d",
+  "prompts": {
+    "50907f70fc3ac2b5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6abd358-b19c-415c-8d3f-c028fc1a48c5",
+        "model": "glm-5.2"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 10857,
+      "total_deletions": 604,
+      "accepted_lines": 10388,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/07fbb06b8b4c54a6a322ec3701f6a16328d687c6783dd64804deeaa9e1634244"
+    }
+  }
+}
