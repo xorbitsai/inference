@@ -54,7 +54,7 @@ logger = logging.getLogger(__name__)
 
 from ..device_utils import empty_cache
 from .exceptions import ModelNotReadyError
-from .utils import CancelMixin, json_dumps, log_async
+from .utils import CancelMixin, json_dumps, log_async, parse_replica_model_uid
 
 try:
     from torch.cuda import OutOfMemoryError
@@ -286,12 +286,14 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         else:
             engine_label = model_engine or "unknown"
             format_label = self._model_description.get("model_format", "unknown")
+        _base_uid, _rep_id = parse_replica_model_uid(self._replica_model_uid or "")
         self._metrics_labels = {
-            "type": model_type,
-            "model": self.model_uid(),
+            "model_type": model_type,
+            "model_uid": _base_uid,
+            "replica_index": str(_rep_id),
             "model_name": self._model_description.get("model_name", "unknown"),
             "engine": engine_label,
-            "node": self._worker_address,
+            "worker_address": self._worker_address,
             "format": format_label,
             "quantization": self._model_description.get("quantization", "none"),
             "gpu_index": ",".join(

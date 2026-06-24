@@ -82,12 +82,13 @@ async def test_metrics_exporter_server(setup_cluster):
     # Check the worker metrics collected model metrics.
     model_ref = await supervisor_ref.get_model(model_uid)
     await model_ref.record_metrics(
-        "input_tokens_total_counter", "inc", {"labels": {"model": model_uid}}
+        "input_tokens_total_counter", "inc", {"labels": {"model_uid": model_uid}}
     )
     response = requests.get(metrics_exporter_address)
     assert response.ok
     assert (
-        'xinference:input_tokens_total_counter{model="qwen1.5-chat"} 1' in response.text
+        'xinference:input_tokens_total_counter{model_uid="qwen1.5-chat"} 1'
+        in response.text
     )
 
 

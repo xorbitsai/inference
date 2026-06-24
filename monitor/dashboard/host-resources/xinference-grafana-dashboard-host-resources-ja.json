@@ -1773,6 +1773,18 @@
       ]
     },
     {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 295
+      },
+      "id": 403,
+      "title": "Worker リソース使用量（Xinference 報告）",
+      "type": "row"
+    },
+    {
       "id": 401,
       "title": "Worker CPU 使用率 (Xinference)",
       "type": "timeseries",
@@ -1782,8 +1794,8 @@
       },
       "targets": [
         {
-          "expr": "xinference:worker_cpu_utilization",
-          "legendFormat": "{{instance}}",
+          "expr": "xinference:worker_cpu_utilization{cluster=~\"$cluster\", worker_address=~\"$worker_address\"}",
+          "legendFormat": "{{worker_address}} CPU Usage",
           "refId": "A"
         }
       ],
@@ -1791,11 +1803,76 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 0
+        "y": 296
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "percent"
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "max": 1,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0.8
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
         }
       }
     },
@@ -1809,13 +1886,13 @@
       },
       "targets": [
         {
-          "expr": "xinference:worker_memory_used_bytes",
-          "legendFormat": "{{instance}} used",
+          "expr": "xinference:worker_memory_used_bytes{cluster=~\"$cluster\", worker_address=~\"$worker_address\"}",
+          "legendFormat": "{{worker_address}} Used",
           "refId": "A"
         },
         {
-          "expr": "xinference:worker_memory_total_bytes",
-          "legendFormat": "{{instance}} total",
+          "expr": "xinference:worker_memory_total_bytes{cluster=~\"$cluster\", worker_address=~\"$worker_address\"}",
+          "legendFormat": "{{worker_address}} Total",
           "refId": "B"
         }
       ],
@@ -1823,11 +1900,75 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 0
+        "y": 296
       },
       "fieldConfig": {
         "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
           "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
         }
       }
     }

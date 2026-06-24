@@ -84,12 +84,14 @@ Worker 端指标主要反映**单节点上的模型推理质量与服务负载**
 
 | 指标名 | 类型 | 单位 | 说明 |
 |--------|------|------|------|
-| `xinference:model_request_total` | Counter | requests | 模型请求总数（按 `model_uid`、`op` 标签区分） |
+| `xinference:model_request_total` | Counter | requests | 模型请求总数（按 `model_uid`、`replica_index`、`model_type`、`worker_address` 标签区分） |
 | `xinference:model_request_errors_total` | Counter | requests | 模型请求失败总数 |
 | `xinference:model_request_duration_seconds` | Histogram | seconds | 请求耗时分布。分桶：0.01、0.025、0.05、0.1、0.25、0.5、1、2.5、5、10、30、60、120、+Inf |
 | `xinference:model_serve_count` | Gauge | requests | 当前正在处理的并发请求数 |
 | `xinference:model_request_limit` | Gauge | requests | 模型配置的最大并发请求上限 |
 | `xinference:model_last_load_duration_seconds` | Gauge | seconds | 最近一次模型加载耗时（含权重下载与初始化） |
+
+**标签（与 Supervisor 端统一）：** `model_uid`（base uid，不含副本后缀）、`replica_index`（0 基，单副本=`0`）、`model_type`（`LLM`/`embedding`/`rerank`/`image`/`audio`/`video`）、`worker_address`、`model_name`、`engine`、`format`、`quantization`、`gpu_index`。
 
 **用途：**
 - QPS = `rate(model_request_total)`
@@ -208,7 +210,7 @@ OTEL 指标与 Supervisor 端 Prometheus 指标语义等价，命名采用 OTLP 
 | 运营场景 | 关键指标 | 对应面板 |
 |----------|----------|----------|
 | **SLO 看板** | `time_to_first_token_seconds`、`model_request_duration_seconds`、`model_request_errors_total / model_request_total` | LLM SLO |
-| **每模型 / 每副本负载** | `model_request_total` by (model, node)、`model_serve_count`、`model_gpu_memory_used_bytes` | 模型负载 |
+| **每模型 / 每副本负载** | `model_request_total` by (model_uid, replica_index, worker_address)、`model_serve_count`、`model_gpu_memory_used_bytes` | 模型负载 |
 | **弹性扩缩容** | `model_serve_count / model_request_limit`、`models_loaded_total` | 模型负载 / 概览 |
 | **故障检测与告警** | `workers_total`、`model_unexpected_termination`、`model_last_load_duration_seconds` | 概览 |
 | **资源容量规划** | `worker_cpu_utilization`、`worker_memory_used_bytes`、`worker_gpu_utilization_percent`、`worker_gpu_memory_used_bytes` | 主机 / GPU |

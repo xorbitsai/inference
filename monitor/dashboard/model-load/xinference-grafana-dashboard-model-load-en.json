@@ -833,8 +833,8 @@
       },
       "targets": [
         {
-          "expr": "sum by (type) (rate(model_request_total{type=~\"$model_type\"}[5m]))",
-          "legendFormat": "{{type}}",
+          "expr": "sum by (model_type) (rate(xinference:model_request_total{model_type=~\"$model_type\"}[5m]))",
+          "legendFormat": "{{model_type}}",
           "refId": "A"
         }
       ],
@@ -855,8 +855,8 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum by (le, type) (rate(model_request_duration_seconds_bucket{type=~\"$model_type\"}[5m])))",
-          "legendFormat": "{{type}}",
+          "expr": "histogram_quantile(0.95, sum by (le, model_type) (rate(xinference:model_request_duration_seconds_bucket{model_type=~\"$model_type\"}[5m])))",
+          "legendFormat": "{{model_type}}",
           "refId": "A"
         }
       ],
@@ -882,8 +882,8 @@
       },
       "targets": [
         {
-          "expr": "sum by (type) (rate(model_request_errors_total{type=~\"$model_type\"}[5m])) / sum by (type) (rate(model_request_total{type=~\"$model_type\"}[5m]))",
-          "legendFormat": "{{type}}",
+          "expr": "sum by (model_type) (rate(xinference:model_request_errors_total{model_type=~\"$model_type\"}[5m])) / sum by (model_type) (rate(xinference:model_request_total{model_type=~\"$model_type\"}[5m]))",
+          "legendFormat": "{{model_type}}",
           "refId": "A"
         }
       ],
@@ -909,7 +909,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (model_type) (model_gpu_memory_used_bytes{model_type=~\"$model_type\"})",
+          "expr": "sum by (model_type) (xinference:model_gpu_memory_used_bytes{model_type=~\"$model_type\"})",
           "legendFormat": "{{model_type}}",
           "refId": "A"
         }

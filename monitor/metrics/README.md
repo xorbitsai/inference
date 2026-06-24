@@ -84,12 +84,14 @@ Worker metrics focus on **per-node inference quality and service load**.
 
 | Metric | Type | Unit | Description |
 |--------|------|------|-------------|
-| `xinference:model_request_total` | Counter | requests | Total model requests (labeled by `model_uid` and `op`) |
+| `xinference:model_request_total` | Counter | requests | Total model requests (labeled by `model_uid`, `replica_index`, `model_type`, `worker_address`) |
 | `xinference:model_request_errors_total` | Counter | requests | Total failed model requests |
 | `xinference:model_request_duration_seconds` | Histogram | seconds | Request duration distribution. Buckets: 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60, 120, +Inf |
 | `xinference:model_serve_count` | Gauge | requests | Number of requests currently being served |
 | `xinference:model_request_limit` | Gauge | requests | Maximum concurrent request limit for the model |
 | `xinference:model_last_load_duration_seconds` | Gauge | seconds | Duration of the last model load (including weight download and initialization) |
+
+**Labels (unified with Supervisor side):** `model_uid` (base uid, no replica suffix), `replica_index` (0-based, `0` for single replica), `model_type` (`LLM`/`embedding`/`rerank`/`image`/`audio`/`video`), `worker_address`, `model_name`, `engine`, `format`, `quantization`, `gpu_index`.
 
 **Use cases:**
 - QPS = `rate(model_request_total)`
@@ -208,7 +210,7 @@ OTEL metrics are semantically equivalent to the Supervisor-side Prometheus metri
 | Operations Scenario | Key Metrics | Dashboard |
 |---------------------|-------------|-----------|
 | **SLO Dashboard** | `time_to_first_token_seconds`, `model_request_duration_seconds`, `model_request_errors_total / model_request_total` | LLM SLO |
-| **Per-Model / Per-Replica Load** | `model_request_total` by (model, node), `model_serve_count`, `model_gpu_memory_used_bytes` | Model Load |
+| **Per-Model / Per-Replica Load** | `model_request_total` by (model_uid, replica_index, worker_address), `model_serve_count`, `model_gpu_memory_used_bytes` | Model Load |
 | **Autoscaling** | `model_serve_count / model_request_limit`, `models_loaded_total` | Model Load / Overview |
 | **Failure Detection & Alerts** | `workers_total`, `model_unexpected_termination`, `model_last_load_duration_seconds` | Overview |
 | **Resource Capacity Planning** | `worker_cpu_utilization`, `worker_memory_used_bytes`, `worker_gpu_utilization_percent`, `worker_gpu_memory_used_bytes` | Host / GPU |

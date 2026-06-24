@@ -1031,17 +1031,17 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum by (le) (rate(time_to_first_token_seconds_bucket{type=\"llm\"}[5m])))",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(xinference:time_to_first_token_seconds_bucket{model_type=\"LLM\"}[5m])))",
           "legendFormat": "P50",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(time_to_first_token_seconds_bucket{type=\"llm\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(xinference:time_to_first_token_seconds_bucket{model_type=\"LLM\"}[5m])))",
           "legendFormat": "P95",
           "refId": "B"
         },
         {
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(time_to_first_token_seconds_bucket{type=\"llm\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(xinference:time_to_first_token_seconds_bucket{model_type=\"LLM\"}[5m])))",
           "legendFormat": "P99",
           "refId": "C"
         }
@@ -1068,17 +1068,17 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum by (le) (rate(model_request_duration_seconds_bucket{type=\"llm\"}[5m])))",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(xinference:model_request_duration_seconds_bucket{model_type=\"LLM\"}[5m])))",
           "legendFormat": "P50",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(model_request_duration_seconds_bucket{type=\"llm\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(xinference:model_request_duration_seconds_bucket{model_type=\"LLM\"}[5m])))",
           "legendFormat": "P95",
           "refId": "B"
         },
         {
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(model_request_duration_seconds_bucket{type=\"llm\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(xinference:model_request_duration_seconds_bucket{model_type=\"LLM\"}[5m])))",
           "legendFormat": "P99",
           "refId": "C"
         }
