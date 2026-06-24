@@ -15,6 +15,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Form } from '@/components/ui/form';
+import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import PageContainer from '@/components/ui/page-container';
@@ -28,6 +30,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useI18n } from '@/contexts/i18n-context';
+import { useForm } from '@/hooks/use-form';
 import request from '@/lib/request';
 
 interface User {
@@ -54,30 +57,6 @@ const ALL_PERMISSIONS = [
   'virtualenv:delete',
 ];
 
-interface CreateForm {
-  username: string;
-  password: string;
-  confirmPassword: string;
-  permissions: string[];
-}
-
-interface EditForm {
-  permissions: string[];
-  enabled: boolean;
-}
-
-interface PasswordForm {
-  newPassword: string;
-  confirmPassword: string;
-}
-
-const EMPTY_CREATE: CreateForm = {
-  username: '',
-  password: '',
-  confirmPassword: '',
-  permissions: [],
-};
-
 export default function UserManagement() {
   const { t } = useI18n();
   const [users, setUsers] = useState<User[]>([]);
@@ -86,19 +65,19 @@ export default function UserManagement() {
   // create
   const [createOpen, setCreateOpen] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
-  const [createForm, setCreateForm] = useState<CreateForm>(EMPTY_CREATE);
-  const [createErrors, setCreateErrors] = useState<Partial<Record<keyof CreateForm, string>>>({});
+  const [createForm] = useForm();
+  const [createPermissions, setCreatePermissions] = useState<string[]>([]);
 
   // edit
   const [editUser, setEditUser] = useState<User | null>(null);
-  const [editForm, setEditForm] = useState<EditForm>({ permissions: [], enabled: true });
+  const [editEnabled, setEditEnabled] = useState(true);
+  const [editPermissions, setEditPermissions] = useState<string[]>([]);
   const [editLoading, setEditLoading] = useState(false);
 
   // change password
   const [pwdUser, setPwdUser] = useState<User | null>(null);
-  const [pwdForm, setPwdForm] = useState<PasswordForm>({ newPassword: '', confirmPassword: '' });
-  const [pwdErrors, setPwdErrors] = useState<Partial<Record<keyof PasswordForm, string>>>({});
   const [pwdLoading, setPwdLoading] = useState(false);
+  const [pwdForm] = useForm();
 
   // delete
   const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -124,28 +103,22 @@ export default function UserManagement() {
   }, [fetchUsers]);
 
   // ── Create ────────────────────────────────────────────────
-  const validateCreate = () => {
-    const errs: Partial<Record<keyof CreateForm, string>> = {};
-    if (!createForm.username.trim()) errs.username = t('userManagement.usernameRequired');
-    if (!createForm.password) errs.password = t('userManagement.passwordRequired');
-    if (createForm.password !== createForm.confirmPassword)
-      errs.confirmPassword = t('userManagement.passwordMismatch');
-    setCreateErrors(errs);
-    return Object.keys(errs).length === 0;
+  const openCreate = () => {
+    createForm.resetFields();
+    setCreatePermissions([]);
+    setCreateOpen(true);
   };
 
-  const handleCreate = async () => {
-    if (!validateCreate()) return;
+  const handleCreate = async (values: Record<string, unknown>) => {
     setCreateLoading(true);
     try {
       await request.post('/v1/admin/users', {
-        username: createForm.username.trim(),
-        password: createForm.password,
-        permissions: createForm.permissions,
+        username: values.username,
+        password: values.password,
+        permissions: createPermissions,
       });
       toast.success(t('userManagement.createSuccess'));
       setCreateOpen(false);
-      setCreateForm(EMPTY_CREATE);
       await fetchUsers();
     } catch {
       // handled by interceptor
@@ -157,7 +130,8 @@ export default function UserManagement() {
   // ── Edit ──────────────────────────────────────────────────
   const openEdit = (user: User) => {
     setEditUser(user);
-    setEditForm({ permissions: [...(user.permissions || [])], enabled: user.enabled });
+    setEditEnabled(user.enabled);
+    setEditPermissions([...(user.permissions || [])]);
   };
 
   const handleEdit = async () => {
@@ -165,8 +139,8 @@ export default function UserManagement() {
     setEditLoading(true);
     try {
       await request.put(`/v1/admin/users/${editUser.id}`, {
-        enabled: editForm.enabled,
-        permissions: editForm.permissions,
+        enabled: editEnabled,
+        permissions: editPermissions,
       });
       toast.success(t('userManagement.updateSuccess'));
       setEditUser(null);
@@ -194,25 +168,20 @@ export default function UserManagement() {
   };
 
   // ── Change Password ───────────────────────────────────────
-  const validatePwd = () => {
-    const errs: Partial<Record<keyof PasswordForm, string>> = {};
-    if (!pwdForm.newPassword) errs.newPassword = t('userManagement.passwordRequired');
-    if (pwdForm.newPassword !== pwdForm.confirmPassword)
-      errs.confirmPassword = t('userManagement.passwordMismatch');
-    setPwdErrors(errs);
-    return Object.keys(errs).length === 0;
+  const openChangePassword = (user: User) => {
+    setPwdUser(user);
+    pwdForm.resetFields();
   };
 
-  const handleChangePassword = async () => {
-    if (!pwdUser || !validatePwd()) return;
+  const handleChangePassword = async (values: Record<string, unknown>) => {
+    if (!pwdUser) return;
     setPwdLoading(true);
     try {
       await request.put(`/v1/admin/users/${pwdUser.id}/password`, {
-        new_password: pwdForm.newPassword,
+        new_password: values.new_password,
       });
       toast.success(t('userManagement.passwordChanged'));
       setPwdUser(null);
-      setPwdForm({ newPassword: '', confirmPassword: '' });
     } catch {
       // handled by interceptor
     } finally {
@@ -241,18 +210,18 @@ export default function UserManagement() {
     return new Date(iso).toLocaleDateString();
   };
 
+  const togglePermission = (perm: string, current: string[], onChange: (v: string[]) => void) => {
+    onChange(
+      current.includes(perm) ? current.filter((p) => p !== perm) : [...current, perm]
+    );
+  };
+
   return (
     <PageContainer
       title={t('menu.userManagement')}
       subTitle={t('userManagement.pageDescription')}
       extraContent={
-        <Button
-          onClick={() => {
-            setCreateForm(EMPTY_CREATE);
-            setCreateErrors({});
-            setCreateOpen(true);
-          }}
-        >
+        <Button onClick={openCreate}>
           <Plus className="h-4 w-4 mr-2" />
           {t('userManagement.createUser')}
         </Button>
@@ -294,7 +263,10 @@ export default function UserManagement() {
                       <UserIcon className="h-4 w-4 text-muted-foreground" />
                       {user.username}
                       {user.must_change_password && (
-                        <Badge variant="outline" className="text-xs text-amber-500 border-amber-400">
+                        <Badge
+                          variant="outline"
+                          className="text-xs text-amber-500 border-amber-400"
+                        >
                           {t('userManagement.mustChangePwd')}
                         </Badge>
                       )}
@@ -308,7 +280,9 @@ export default function UserManagement() {
                       {user.permissions.length === 0 ? (
                         <span className="text-muted-foreground text-xs">—</span>
                       ) : user.permissions.includes('admin') ? (
-                        <Badge className="bg-primary/15 text-primary border-primary/30">admin</Badge>
+                        <Badge className="bg-primary/15 text-primary border-primary/30">
+                          admin
+                        </Badge>
                       ) : (
                         user.permissions.slice(0, 3).map((p) => (
                           <Badge key={p} variant="outline" className="text-xs">
@@ -323,7 +297,10 @@ export default function UserManagement() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground whitespace-nowrap" suppressHydrationWarning>
+                  <TableCell
+                    className="text-muted-foreground whitespace-nowrap"
+                    suppressHydrationWarning
+                  >
                     {formatDate(user.created_at)}
                   </TableCell>
                   <TableCell>
@@ -340,11 +317,7 @@ export default function UserManagement() {
                           variant="ghost"
                           size="sm"
                           title={t('userManagement.changePassword')}
-                          onClick={() => {
-                            setPwdUser(user);
-                            setPwdForm({ newPassword: '', confirmPassword: '' });
-                            setPwdErrors({});
-                          }}
+                          onClick={() => openChangePassword(user)}
                         >
                           <KeyRound className="h-4 w-4" />
                         </Button>
@@ -381,80 +354,57 @@ export default function UserManagement() {
           <DialogHeader>
             <DialogTitle>{t('userManagement.createUser')}</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="create-username">
-                {t('userManagement.username')} <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="create-username"
-                value={createForm.username}
-                onChange={(e) => {
-                  setCreateForm((f) => ({ ...f, username: e.target.value }));
-                  setCreateErrors((e2) => ({ ...e2, username: undefined }));
-                }}
-                placeholder={t('userManagement.usernamePlaceholder')}
-                error={!!createErrors.username}
-              />
-              {createErrors.username && (
-                <p className="text-xs text-destructive">{createErrors.username}</p>
-              )}
-            </div>
+          <Form form={createForm} onFinish={handleCreate}>
+            <FormField
+              name="username"
+              label={t('userManagement.username')}
+              placeholder={t('userManagement.usernamePlaceholder')}
+              rules={[{ required: true, message: t('userManagement.usernameRequired') }]}
+            >
+              <Input />
+            </FormField>
 
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="create-password">
-                {t('userManagement.password')} <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="create-password"
-                type="password"
-                value={createForm.password}
-                onChange={(e) => {
-                  setCreateForm((f) => ({ ...f, password: e.target.value }));
-                  setCreateErrors((e2) => ({ ...e2, password: undefined }));
-                }}
-                placeholder={t('userManagement.passwordPlaceholder')}
-                error={!!createErrors.password}
-              />
-              {createErrors.password && (
-                <p className="text-xs text-destructive">{createErrors.password}</p>
-              )}
-            </div>
+            <FormField
+              name="password"
+              label={t('userManagement.password')}
+              placeholder={t('userManagement.passwordPlaceholder')}
+              rules={[{ required: true, message: t('userManagement.passwordRequired') }]}
+            >
+              <Input type="password" />
+            </FormField>
 
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="create-confirm">
-                {t('userManagement.confirmPassword')} <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="create-confirm"
-                type="password"
-                value={createForm.confirmPassword}
-                onChange={(e) => {
-                  setCreateForm((f) => ({ ...f, confirmPassword: e.target.value }));
-                  setCreateErrors((e2) => ({ ...e2, confirmPassword: undefined }));
-                }}
-                placeholder={t('userManagement.confirmPasswordPlaceholder')}
-                error={!!createErrors.confirmPassword}
-              />
-              {createErrors.confirmPassword && (
-                <p className="text-xs text-destructive">{createErrors.confirmPassword}</p>
-              )}
-            </div>
+            <FormField
+              name="confirm_password"
+              label={t('userManagement.confirmPassword')}
+              placeholder={t('userManagement.confirmPasswordPlaceholder')}
+              rules={[
+                { required: true, message: t('userManagement.passwordRequired') },
+                {
+                  validator: (val: unknown) =>
+                    val === createForm.getFieldValue('password'),
+                  message: t('userManagement.passwordMismatch'),
+                },
+              ]}
+            >
+              <Input type="password" />
+            </FormField>
 
             <PermissionSelector
               label={t('userManagement.permissions')}
-              selected={createForm.permissions}
-              onChange={(perms) => setCreateForm((f) => ({ ...f, permissions: perms }))}
+              selected={createPermissions}
+              onChange={setCreatePermissions}
+              onToggle={(perm) => togglePermission(perm, createPermissions, setCreatePermissions)}
             />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>
-              {t('common.cancel')}
-            </Button>
-            <Button onClick={handleCreate} disabled={createLoading}>
-              {createLoading ? t('userManagement.creating') : t('userManagement.create')}
-            </Button>
-          </DialogFooter>
+
+            <DialogFooter>
+              <Button variant="outline" type="button" onClick={() => setCreateOpen(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button type="submit" disabled={createLoading}>
+                {createLoading ? t('userManagement.creating') : t('userManagement.create')}
+              </Button>
+            </DialogFooter>
+          </Form>
         </DialogContent>
       </Dialog>
 
@@ -470,14 +420,15 @@ export default function UserManagement() {
             <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
               <Label>{t('userManagement.enabled')}</Label>
               <Switch
-                checked={editForm.enabled}
-                onChange={(v) => setEditForm((f) => ({ ...f, enabled: v }))}
+                checked={editEnabled}
+                onChange={(v) => setEditEnabled(v)}
               />
             </div>
             <PermissionSelector
               label={t('userManagement.permissions')}
-              selected={editForm.permissions}
-              onChange={(perms) => setEditForm((f) => ({ ...f, permissions: perms }))}
+              selected={editPermissions}
+              onChange={setEditPermissions}
+              onToggle={(perm) => togglePermission(perm, editPermissions, setEditPermissions)}
             />
           </div>
           <DialogFooter>
@@ -499,54 +450,41 @@ export default function UserManagement() {
               {t('userManagement.changePassword')} — {pwdUser?.username}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="new-password">
-                {t('userManagement.newPassword')} <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="new-password"
-                type="password"
-                value={pwdForm.newPassword}
-                onChange={(e) => {
-                  setPwdForm((f) => ({ ...f, newPassword: e.target.value }));
-                  setPwdErrors((e2) => ({ ...e2, newPassword: undefined }));
-                }}
-                placeholder={t('userManagement.passwordPlaceholder')}
-                error={!!pwdErrors.newPassword}
-              />
-              {pwdErrors.newPassword && (
-                <p className="text-xs text-destructive">{pwdErrors.newPassword}</p>
-              )}
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="confirm-new-password">
-                {t('userManagement.confirmPassword')} <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="confirm-new-password"
-                type="password"
-                value={pwdForm.confirmPassword}
-                onChange={(e) => {
-                  setPwdForm((f) => ({ ...f, confirmPassword: e.target.value }));
-                  setPwdErrors((e2) => ({ ...e2, confirmPassword: undefined }));
-                }}
-                placeholder={t('userManagement.confirmPasswordPlaceholder')}
-                error={!!pwdErrors.confirmPassword}
-              />
-              {pwdErrors.confirmPassword && (
-                <p className="text-xs text-destructive">{pwdErrors.confirmPassword}</p>
-              )}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPwdUser(null)}>
-              {t('common.cancel')}
-            </Button>
-            <Button onClick={handleChangePassword} disabled={pwdLoading}>
-              {pwdLoading ? t('userManagement.saving') : t('common.confirm')}
-            </Button>
-          </DialogFooter>
+          <Form form={pwdForm} onFinish={handleChangePassword}>
+            <FormField
+              name="new_password"
+              label={t('userManagement.newPassword')}
+              placeholder={t('userManagement.passwordPlaceholder')}
+              rules={[{ required: true, message: t('userManagement.passwordRequired') }]}
+            >
+              <Input type="password" />
+            </FormField>
+
+            <FormField
+              name="confirm_password"
+              label={t('userManagement.confirmPassword')}
+              placeholder={t('userManagement.confirmPasswordPlaceholder')}
+              rules={[
+                { required: true, message: t('userManagement.passwordRequired') },
+                {
+                  validator: (val: unknown) =>
+                    val === pwdForm.getFieldValue('new_password'),
+                  message: t('userManagement.passwordMismatch'),
+                },
+              ]}
+            >
+              <Input type="password" />
+            </FormField>
+
+            <DialogFooter>
+              <Button variant="outline" type="button" onClick={() => setPwdUser(null)}>
+                {t('common.cancel')}
+              </Button>
+              <Button type="submit" disabled={pwdLoading}>
+                {pwdLoading ? t('userManagement.saving') : t('common.confirm')}
+              </Button>
+            </DialogFooter>
+          </Form>
         </DialogContent>
       </Dialog>
 
@@ -569,30 +507,22 @@ export default function UserManagement() {
 function PermissionSelector({
   label,
   selected,
-  onChange,
+  onToggle,
 }: {
   label: string;
   selected: string[];
   onChange: (perms: string[]) => void;
+  onToggle: (perm: string) => void;
 }) {
-  const toggle = (perm: string) => {
-    onChange(
-      selected.includes(perm) ? selected.filter((p) => p !== perm) : [...selected, perm]
-    );
-  };
-
   return (
     <div className="flex flex-col gap-2">
       <Label>{label}</Label>
       <div className="rounded-lg border border-border p-3 grid grid-cols-2 gap-2">
         {ALL_PERMISSIONS.map((perm) => (
-          <label
-            key={perm}
-            className="flex items-center gap-2 cursor-pointer select-none"
-          >
+          <label key={perm} className="flex items-center gap-2 cursor-pointer select-none">
             <Checkbox
               checked={selected.includes(perm)}
-              onCheckedChange={() => toggle(perm)}
+              onCheckedChange={() => onToggle(perm)}
             />
             <span className="text-sm font-mono">{perm}</span>
           </label>

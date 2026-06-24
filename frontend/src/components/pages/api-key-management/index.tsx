@@ -14,8 +14,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Form } from '@/components/ui/form';
+import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import PageContainer from '@/components/ui/page-container';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -26,8 +27,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Textarea } from '@/components/ui/textarea';
 import { useI18n } from '@/contexts/i18n-context';
+import { useForm } from '@/hooks/use-form';
 import request from '@/lib/request';
 
 interface ApiKey {
@@ -42,28 +43,27 @@ interface ApiKey {
   created_at: string | null;
 }
 
-interface CreateForm {
-  name: string;
-  description: string;
-  expires_at: string;
-}
-
-const EMPTY_FORM: CreateForm = { name: '', description: '', expires_at: '' };
-
 export default function ApiKeyManagement() {
   const { t } = useI18n();
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // create
   const [createOpen, setCreateOpen] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
-  const [form, setForm] = useState<CreateForm>(EMPTY_FORM);
-  const [formError, setFormError] = useState('');
+  const [form] = useForm();
   const [newKeyValue, setNewKeyValue] = useState<string | null>(null);
   const [newKeyVisible, setNewKeyVisible] = useState(false);
+
+  // delete
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // reveal
   const [revealedKeys, setRevealedKeys] = useState<Record<number, string>>({});
   const [revealingId, setRevealingId] = useState<number | null>(null);
+
+  // toggle enabled
   const [togglingId, setTogglingId] = useState<number | null>(null);
 
   const fetchKeys = useCallback(async () => {
@@ -82,23 +82,25 @@ export default function ApiKeyManagement() {
     fetchKeys();
   }, [fetchKeys]);
 
-  const handleCreate = async () => {
-    if (!form.name.trim()) {
-      setFormError(t('apiKey.nameRequired'));
-      return;
-    }
+  const openCreate = () => {
+    form.resetFields();
+    setNewKeyValue(null);
+    setNewKeyVisible(false);
+    setCreateOpen(true);
+  };
+
+  const handleCreate = async (values: Record<string, unknown>) => {
     setCreateLoading(true);
-    setFormError('');
     try {
-      const body: Record<string, string> = { name: form.name.trim() };
-      if (form.description.trim()) body.description = form.description.trim();
-      if (form.expires_at) body.expires_at = form.expires_at;
+      const body: Record<string, unknown> = { name: values.name };
+      if (values.description) body.description = values.description;
+      if (values.expires_at) body.expires_at = values.expires_at;
       const result = await request.post<{ key: string }>('/v1/admin/keys', body);
       setNewKeyValue(result.key);
       setNewKeyVisible(false);
       await fetchKeys();
     } catch {
-      // error handled by request interceptor
+      // handled by interceptor
     } finally {
       setCreateLoading(false);
     }
@@ -113,7 +115,7 @@ export default function ApiKeyManagement() {
       setDeleteId(null);
       await fetchKeys();
     } catch {
-      // error handled by request interceptor
+      // handled by interceptor
     } finally {
       setDeleteLoading(false);
     }
@@ -127,7 +129,7 @@ export default function ApiKeyManagement() {
         prev.map((k) => (k.id === key.id ? { ...k, enabled: !key.enabled } : k))
       );
     } catch {
-      // error handled by request interceptor
+      // handled by interceptor
     } finally {
       setTogglingId(null);
     }
@@ -147,14 +149,15 @@ export default function ApiKeyManagement() {
       const data = await request.get<{ key: string }>(`/v1/admin/keys/${keyId}/reveal`);
       setRevealedKeys((prev) => ({ ...prev, [keyId]: data.key }));
     } catch {
-      // error handled by request interceptor
+      // handled by interceptor
     } finally {
       setRevealingId(null);
     }
   };
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
+    navigator.clipboard
+      .writeText(text)
       .then(() => {
         toast.success(t('common.copySuccess'));
       })
@@ -194,7 +197,7 @@ export default function ApiKeyManagement() {
       title={t('menu.apiKeyManagement')}
       subTitle={t('apiKey.pageDescription')}
       extraContent={
-        <Button onClick={() => { setCreateOpen(true); setForm(EMPTY_FORM); setFormError(''); setNewKeyValue(null); }}>
+        <Button onClick={openCreate}>
           <Plus className="h-4 w-4 mr-2" />
           {t('apiKey.createKey')}
         </Button>
@@ -227,7 +230,7 @@ export default function ApiKeyManagement() {
                   <div className="flex flex-col items-center gap-3 text-muted-foreground">
                     <KeyRound className="h-10 w-10 opacity-30" />
                     <p className="text-sm">{t('apiKey.noKeys')}</p>
-                    <Button variant="outline" size="sm" onClick={() => { setCreateOpen(true); setForm(EMPTY_FORM); setFormError(''); setNewKeyValue(null); }}>
+                    <Button variant="outline" size="sm" onClick={openCreate}>
                       <Plus className="h-4 w-4 mr-1" />
                       {t('apiKey.createKey')}
                     </Button>
@@ -250,7 +253,11 @@ export default function ApiKeyManagement() {
                         onClick={() => handleReveal(key.id)}
                         disabled={revealingId === key.id}
                       >
-                        {revealedKeys[key.id] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                        {revealedKeys[key.id] ? (
+                          <EyeOff className="h-3.5 w-3.5" />
+                        ) : (
+                          <Eye className="h-3.5 w-3.5" />
+                        )}
                       </button>
                       <button
                         type="button"
@@ -266,10 +273,16 @@ export default function ApiKeyManagement() {
                   <TableCell className="text-muted-foreground max-w-[180px] truncate">
                     {key.description || '—'}
                   </TableCell>
-                  <TableCell className="text-muted-foreground whitespace-nowrap" suppressHydrationWarning>
+                  <TableCell
+                    className="text-muted-foreground whitespace-nowrap"
+                    suppressHydrationWarning
+                  >
                     {formatDate(key.created_at)}
                   </TableCell>
-                  <TableCell className="text-muted-foreground whitespace-nowrap" suppressHydrationWarning>
+                  <TableCell
+                    className="text-muted-foreground whitespace-nowrap"
+                    suppressHydrationWarning
+                  >
                     {formatDate(key.expires_at)}
                   </TableCell>
                   <TableCell>{getStatusBadge(key)}</TableCell>
@@ -297,11 +310,11 @@ export default function ApiKeyManagement() {
         </Table>
       </div>
 
-      {/* Create Dialog */}
+      {/* ── Create Dialog ─────────────────────────────── */}
       <Dialog
         open={createOpen}
         onOpenChange={(open) => {
-          if (!open) { setCreateOpen(false); setNewKeyValue(null); }
+          if (!open) setCreateOpen(false);
           else setCreateOpen(true);
         }}
       >
@@ -317,14 +330,20 @@ export default function ApiKeyManagement() {
               <p className="text-sm text-muted-foreground">{t('apiKey.saveKeyWarning')}</p>
               <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2">
                 <span className="flex-1 font-mono text-sm break-all">
-                  {newKeyVisible ? newKeyValue : '•'.repeat(Math.min(newKeyValue.length, 40))}
+                  {newKeyVisible
+                    ? newKeyValue
+                    : '•'.repeat(Math.min(newKeyValue.length, 40))}
                 </span>
                 <button
                   type="button"
                   className="text-muted-foreground hover:text-foreground"
                   onClick={() => setNewKeyVisible((v) => !v)}
                 >
-                  {newKeyVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {newKeyVisible ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </button>
                 <button
                   type="button"
@@ -339,62 +358,55 @@ export default function ApiKeyManagement() {
               </DialogFooter>
             </div>
           ) : (
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="key-name">
-                  {t('apiKey.name')} <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="key-name"
-                  value={form.name}
-                  onChange={(e) => { setForm((f) => ({ ...f, name: e.target.value })); setFormError(''); }}
-                  placeholder={t('apiKey.namePlaceholder')}
-                  error={!!formError}
-                />
-                {formError && <p className="text-xs text-destructive">{formError}</p>}
-              </div>
+            <Form form={form} onFinish={handleCreate}>
+              <FormField
+                name="name"
+                label={t('apiKey.name')}
+                placeholder={t('apiKey.namePlaceholder')}
+                rules={[{ required: true, message: t('apiKey.nameRequired') }]}
+              >
+                <Input />
+              </FormField>
 
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="key-desc">{t('apiKey.description')}</Label>
-                <Textarea
-                  id="key-desc"
-                  value={form.description}
-                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                  placeholder={t('apiKey.descriptionPlaceholder')}
-                  rows={3}
-                />
-              </div>
+              <FormField
+                name="description"
+                label={t('apiKey.description')}
+                placeholder={t('apiKey.descriptionPlaceholder')}
+              >
+                <Input />
+              </FormField>
 
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="key-expires">{t('apiKey.expiresAt')}</Label>
+              <FormField
+                name="expires_at"
+                label={t('apiKey.expiresAt')}
+                extra={t('apiKey.expiresAtHint')}
+              >
                 <Input
-                  id="key-expires"
                   type="date"
-                  value={form.expires_at}
-                  onChange={(e) => setForm((f) => ({ ...f, expires_at: e.target.value }))}
                   min={new Date().toISOString().split('T')[0]}
                   suppressHydrationWarning
                 />
-                <p className="text-xs text-muted-foreground">{t('apiKey.expiresAtHint')}</p>
-              </div>
+              </FormField>
 
               <DialogFooter>
-                <Button variant="outline" onClick={() => setCreateOpen(false)}>
+                <Button variant="outline" type="button" onClick={() => setCreateOpen(false)}>
                   {t('common.cancel')}
                 </Button>
-                <Button onClick={handleCreate} disabled={createLoading}>
+                <Button type="submit" disabled={createLoading}>
                   {createLoading ? t('apiKey.creating') : t('apiKey.create')}
                 </Button>
               </DialogFooter>
-            </div>
+            </Form>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirm */}
+      {/* ── Delete Confirm ────────────────────────────── */}
       <ConfirmDialog
         isOpen={deleteId != null}
-        onOpenChange={(open) => { if (!open) setDeleteId(null); }}
+        onOpenChange={(open) => {
+          if (!open) setDeleteId(null);
+        }}
         onConfirm={handleDelete}
         title={t('apiKey.deleteTitle')}
         description={t('apiKey.deleteDescription')}
