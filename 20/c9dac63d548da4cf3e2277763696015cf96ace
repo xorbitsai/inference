@@ -1,0 +1,166 @@
+monitor/dashboard/host-resources/xinference-grafana-dashboard-host-resources-zh-CN.json
+  50907f70fc3ac2b5 1-2114
+monitor/dashboard/gpu-resources/xinference-grafana-dashboard-gpu-resources-ja.json
+  50907f70fc3ac2b5 1-1393
+monitor/metrics/README_zh-CN.md
+  50907f70fc3ac2b5 1-232
+monitor/dashboard/overview/xinference-grafana-dashboard-overview-en.json
+  50907f70fc3ac2b5 1-1622
+xinference/core/tests/test_monitor_config_store.py
+  50907f70fc3ac2b5 1-145
+monitor/dashboard/host-resources/xinference-grafana-dashboard-host-resources-ja.json
+  50907f70fc3ac2b5 1-2114
+monitor/dashboard/README_zh-CN.md
+  50907f70fc3ac2b5 3,7-21,24,32-33,35,38-57,59,84-113,115-155,163,165-172,177
+xinference/constants.py
+  50907f70fc3ac2b5 112-116
+monitor/dashboard/model-load/xinference-grafana-dashboard-model-load-zh-CN.json
+  50907f70fc3ac2b5 1-1361
+monitor/dashboard/model-load/xinference-grafana-dashboard-model-load-ja.json
+  50907f70fc3ac2b5 1-1328
+monitor/dashboard/gpu-resources/xinference-grafana-dashboard-gpu-resources-en.json
+  50907f70fc3ac2b5 1-1393
+monitor/dashboard/llm-slo/xinference-grafana-dashboard-llm-slo-ja.json
+  50907f70fc3ac2b5 1-1378
+monitor/dashboard/gpu-resources/xinference-grafana-dashboard-gpu-resources-ko.json
+  50907f70fc3ac2b5 1-1393
+xinference/api/tests/test_monitor_config_api.py
+  50907f70fc3ac2b5 1-166
+monitor/dashboard/llm-slo/xinference-grafana-dashboard-llm-slo-ko.json
+  50907f70fc3ac2b5 1-1378
+xinference/api/routers/admin.py
+  50907f70fc3ac2b5 12,15-16,263-267,270-275,285-310,313-373,375-378,380,971-994
+xinference/ui/web/ui/src/locales/zh.json
+  50907f70fc3ac2b5 309,333-371
+xinference/ui/web/ui/src/scenes/monitoring/index.js
+  50907f70fc3ac2b5 6-9,15,20-21,36,42-49,105-107,129-130,134,189-202,205-214,227-245,264,355,367,404-414,417-455,457-463
+monitor/dashboard/overview/xinference-grafana-dashboard-overview-ja.json
+  50907f70fc3ac2b5 1-1622
+monitor/dashboard/llm-slo/xinference-grafana-dashboard-llm-slo-zh-CN.json
+  50907f70fc3ac2b5 1-1378
+monitor/dashboard/host-resources/xinference-grafana-dashboard-host-resources-en.json
+  50907f70fc3ac2b5 1-2114
+xinference/ui/web/ui/src/components/grafanaUtils.js
+  50907f70fc3ac2b5 2-8,12,21,28-34,58-64,68,78,85-88,90
+monitor/dashboard/security-audit/xinference-grafana-dashboard-security-audit-ja.json
+  50907f70fc3ac2b5 1-1110
+monitor/dashboard/security-audit/xinference-grafana-dashboard-security-audit-en.json
+  50907f70fc3ac2b5 1-1110
+monitor/dashboard/llm-slo/xinference-grafana-dashboard-llm-slo-en.json
+  50907f70fc3ac2b5 1-1378
+monitor/dashboard/model-load/xinference-grafana-dashboard-model-load-en.json
+  50907f70fc3ac2b5 1-1328
+monitor/dashboard/README.md
+  50907f70fc3ac2b5 1,3,7-21,24,30,32,35,38-57,59,84-113,115-155,163-170,172,177
+monitor/dashboard/security-audit/xinference-grafana-dashboard-security-audit-ko.json
+  50907f70fc3ac2b5 1-1110
+xinference/ui/web/ui/src/locales/en.json
+  50907f70fc3ac2b5 309,333-371
+monitor/dashboard/overview/xinference-grafana-dashboard-overview-ko.json
+  50907f70fc3ac2b5 1-1622
+monitor/dashboard/overview/xinference-grafana-dashboard-overview-zh-CN.json
+  50907f70fc3ac2b5 1-1622
+monitor/dashboard/security-audit/xinference-grafana-dashboard-security-audit-zh-CN.json
+  50907f70fc3ac2b5 1-1110
+xinference/ui/web/ui/src/locales/ja.json
+  50907f70fc3ac2b5 302,326-364
+monitor/dashboard/gpu-resources/xinference-grafana-dashboard-gpu-resources-zh-CN.json
+  50907f70fc3ac2b5 1-1393
+monitor/dashboard/model-load/xinference-grafana-dashboard-model-load-ko.json
+  50907f70fc3ac2b5 1-1328
+monitor/dashboard/generate.py
+  50907f70fc3ac2b5 1-537
+xinference/ui/web/ui/src/scenes/monitoring/MonitorConfigDialog.js
+  50907f70fc3ac2b5 1-367
+xinference/ui/web/ui/src/locales/ko.json
+  50907f70fc3ac2b5 302,326-364
+monitor/dashboard/host-resources/xinference-grafana-dashboard-host-resources-ko.json
+  50907f70fc3ac2b5 1-2114
+monitor/metrics/README.md
+  50907f70fc3ac2b5 1-232
+xinference/api/restful_api.py
+  50907f70fc3ac2b5 62,152-157,467
+xinference/core/monitor_config_store.py
+  50907f70fc3ac2b5 1-175
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "20c9dac63d548da4cf3e2277763696015cf96ace",
+  "prompts": {
+    "24a37d7e2404fe6a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "aa65b541-80bc-4c04-9dca-f26866af9835",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0,
+      "token_usage": {
+        "input_tokens": 22514,
+        "output_tokens": 8397,
+        "cache_read_tokens": 604804,
+        "cache_creation_tokens": 0,
+        "total_cost": null
+      }
+    },
+    "50907f70fc3ac2b5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6abd358-b19c-415c-8d3f-c028fc1a48c5",
+        "model": "glm-5.2"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 69777,
+      "total_deletions": 43951,
+      "accepted_lines": 56243,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/8c6db79df7fbb6a7ac51354a1a8c9af9367f0f109822f7442db975df30b34d73"
+    },
+    "78ee352318e1b386": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e6ba6d3c-7b1f-471f-90fa-37fc1f9b3236",
+        "model": "qwen3.7-max"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 123,
+      "overriden_lines": 0,
+      "token_usage": {
+        "input_tokens": 168164,
+        "output_tokens": 13259,
+        "cache_read_tokens": 2651496,
+        "cache_creation_tokens": 307473,
+        "total_cost": null
+      }
+    },
+    "d91e6017ce678dba": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "51c36fad-8371-4669-913a-9150306583b7",
+        "model": "qwen3.7-max"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 94,
+      "overriden_lines": 0,
+      "token_usage": {
+        "input_tokens": 214014,
+        "output_tokens": 452,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 108691,
+        "total_cost": null
+      }
+    }
+  }
+}
