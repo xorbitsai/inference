@@ -1,0 +1,72 @@
+monitor/dashboard/security-audit/xinference-grafana-dashboard-security-audit-zh-CN.json
+  50907f70fc3ac2b5 158,217,276,335,343,393,412,493,498,506,556,606,681,687,693,790,796,802,829-1121,1178,1187,1244,1253,1277,1286,1403
+monitor/dashboard/security-audit/xinference-grafana-dashboard-security-audit-ko.json
+  50907f70fc3ac2b5 158,217,276,335,343,393,412,493,498,506,556,606,681,687,693,790,796,802,829-1121,1178,1187,1244,1253,1277,1286,1403
+monitor/dashboard/security-audit/xinference-grafana-dashboard-security-audit-en.json
+  50907f70fc3ac2b5 158,217,276,335,343,393,412,493,498,506,556,606,681,687,693,790,796,802,829-1121,1178,1187,1244,1253,1277,1286,1403
+xinference/api/restful_api.py
+  50907f70fc3ac2b5 278
+monitor/dashboard/security-audit/xinference-grafana-dashboard-security-audit-ja.json
+  50907f70fc3ac2b5 158,217,276,335,343,393,412,493,498,506,556,606,681,687,693,790,796,802,829-1121,1178,1187,1244,1253,1277,1286,1403
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "172cd5e26895e88ae6a0a0782c81cff74e50de43",
+  "prompts": {
+    "50907f70fc3ac2b5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6abd358-b19c-415c-8d3f-c028fc1a48c5",
+        "model": "glm-5.2"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 1591,
+      "total_deletions": 125,
+      "accepted_lines": 19420,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/d4c27b97e681d630eb4aacbb1ef4fffab852ce605294fbe3b165f867d194a98c"
+    },
+    "78ee352318e1b386": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e6ba6d3c-7b1f-471f-90fa-37fc1f9b3236",
+        "model": "qwen3.7-max"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 123,
+      "overriden_lines": 0,
+      "token_usage": {
+        "input_tokens": 168164,
+        "output_tokens": 13259,
+        "cache_read_tokens": 2651496,
+        "cache_creation_tokens": 307473,
+        "total_cost": null
+      }
+    },
+    "d91e6017ce678dba": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "51c36fad-8371-4669-913a-9150306583b7",
+        "model": "qwen3.7-max"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 94,
+      "overriden_lines": 0,
+      "token_usage": {
+        "input_tokens": 214014,
+        "output_tokens": 452,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 108691,
+        "total_cost": null
+      }
+    }
+  }
+}
