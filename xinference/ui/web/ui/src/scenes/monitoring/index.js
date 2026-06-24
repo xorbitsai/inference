@@ -2,16 +2,23 @@ import 'dayjs/locale/ja'
 import 'dayjs/locale/ko'
 import 'dayjs/locale/zh-cn'
 
-import { AccessTime, Refresh as RefreshIcon } from '@mui/icons-material'
+import {
+  AccessTime,
+  Refresh as RefreshIcon,
+  Settings as SettingsIcon,
+} from '@mui/icons-material'
 import {
   Box,
   Button,
   Divider,
   IconButton,
+  LinearProgress,
   Menu,
   MenuItem,
   MenuList,
   Popover,
+  Tab,
+  Tabs,
   Toolbar,
   Tooltip,
   Typography,
@@ -26,10 +33,20 @@ import { ApiContext } from '../../components/apiContext'
 import { buildGrafanaUrl } from '../../components/grafanaUtils'
 import { useThemeContext } from '../../components/themeContext'
 import Title from '../../components/Title'
+import MonitorConfigDialog from './MonitorConfigDialog'
 
 const FONT_SIZE = '0.813rem'
 
 const DAYJS_LOCALE_MAP = { en: 'en', zh: 'zh-cn', ja: 'ja', ko: 'ko' }
+
+const DASHBOARD_TABS = [
+  { key: 'overview', labelKey: 'monitoring.tab.overview' },
+  { key: 'model_load', labelKey: 'monitoring.tab.modelLoad' },
+  { key: 'llm_slo', labelKey: 'monitoring.tab.llmSlo' },
+  { key: 'gpu', labelKey: 'monitoring.tab.gpu' },
+  { key: 'host', labelKey: 'monitoring.tab.host' },
+  { key: 'security', labelKey: 'monitoring.tab.security' },
+]
 
 const TIME_RANGES = [
   { labelKey: 'monitoring.time.5m', from: 'now-5m', to: 'now' },
@@ -85,6 +102,9 @@ const Monitoring = () => {
   const dayjsLocale =
     DAYJS_LOCALE_MAP[(i18n.language || 'en').split('-')[0]] || 'en'
 
+  const [dashboardKey, setDashboardKey] = useState(() => {
+    return sessionStorage.getItem('monitoring_dashboard_key') || 'overview'
+  })
   const [timeRange, setTimeRange] = useState({ from: 'now-1h', to: 'now' })
   const [timeRangeLabel, setTimeRangeLabel] = useState('monitoring.time.1h')
   const [customDisplay, setCustomDisplay] = useState('')
@@ -106,8 +126,12 @@ const Monitoring = () => {
 
   const [timeAnchor, setTimeAnchor] = useState(null)
   const [refreshAnchor, setRefreshAnchor] = useState(null)
+  const [configDialogOpen, setConfigDialogOpen] = useState(false)
+  const [iframeLoading, setIframeLoading] = useState(false)
 
   const timerRef = useRef(null)
+
+  const isConfigured = config?.grafana_url
 
   useEffect(() => {
     fetch(endPoint + '/v1/cluster/ui_config')
@@ -162,40 +186,32 @@ const Monitoring = () => {
     }
   }
 
-  if (!config || !config.grafana_url) {
-    return (
-      <Box
-        sx={{
-          width: '100%',
-          height: 'calc(100vh - 64px)',
-          padding: '20px 20px 0 20px',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        <Title title={t('menu.monitoring')} />
-        <Box
-          display="flex"
-          justifyContent="center"
-          alignItems="center"
-          sx={{ flex: 1 }}
-        >
-          <Typography variant="h6" color="text.secondary">
-            {t('monitoring.notConfigured')}
-          </Typography>
-        </Box>
-      </Box>
-    )
+  const handleTabChange = (_, newKey) => {
+    setDashboardKey(newKey)
+    sessionStorage.setItem('monitoring_dashboard_key', newKey)
+    setIframeLoading(true)
+    setRefreshKey((k) => k + 1)
   }
 
-  const src =
-    buildGrafanaUrl(
-      config,
-      themeMode,
-      timeRange.from,
-      timeRange.to,
-      grafanaRefresh
-    ) + `&_t=${refreshKey}`
+  const handleConfigSaved = () => {
+    setConfigDialogOpen(false)
+    fetch(endPoint + '/v1/cluster/ui_config')
+      .then((res) => res.json())
+      .then((data) => setConfig(data))
+      .catch(() => {})
+    setRefreshKey((k) => k + 1)
+  }
+
+  const src = isConfigured
+    ? buildGrafanaUrl(
+        config,
+        dashboardKey,
+        themeMode,
+        timeRange.from,
+        timeRange.to,
+        grafanaRefresh
+      ) + `&_t=${refreshKey}`
+    : null
 
   return (
     <Box
@@ -208,6 +224,25 @@ const Monitoring = () => {
       }}
     >
       <Title title={t('menu.monitoring')} />
+
+      {/* Tabs */}
+      <Tabs
+        value={dashboardKey}
+        onChange={handleTabChange}
+        variant="scrollable"
+        scrollButtons="auto"
+        sx={{ borderBottom: 1, borderColor: 'divider', mb: 1 }}
+      >
+        {DASHBOARD_TABS.map((tab) => (
+          <Tab
+            key={tab.key}
+            value={tab.key}
+            label={t(tab.labelKey)}
+            sx={{ textTransform: 'none', fontSize: FONT_SIZE }}
+          />
+        ))}
+      </Tabs>
+
       {/* Toolbar */}
       <Toolbar
         variant="dense"
@@ -226,6 +261,7 @@ const Monitoring = () => {
           color="inherit"
           startIcon={<AccessTime fontSize="small" />}
           onClick={(e) => setTimeAnchor(e.currentTarget)}
+          disabled={!isConfigured}
           sx={{ textTransform: 'none', fontSize: FONT_SIZE }}
         >
           {timeRangeLabel ? t(timeRangeLabel) : customDisplay}
@@ -316,6 +352,7 @@ const Monitoring = () => {
             size="small"
             color="inherit"
             onClick={() => setRefreshKey((k) => k + 1)}
+            disabled={!isConfigured}
           >
             <RefreshIcon fontSize="small" />
           </IconButton>
@@ -327,6 +364,7 @@ const Monitoring = () => {
           color="inherit"
           startIcon={<RefreshIcon fontSize="small" />}
           onClick={(e) => setRefreshAnchor(e.currentTarget)}
+          disabled={!isConfigured}
           sx={{ textTransform: 'none', fontSize: FONT_SIZE }}
         >
           {t(refreshLabel)}
@@ -363,19 +401,66 @@ const Monitoring = () => {
             </MenuItem>
           ))}
         </Menu>
+
+        {/* Settings */}
+        <Tooltip title={t('monitoring.config.title')}>
+          <IconButton
+            size="small"
+            color="inherit"
+            onClick={() => setConfigDialogOpen(true)}
+          >
+            <SettingsIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
       </Toolbar>
 
-      {/* Grafana iframe */}
-      <Box sx={{ flex: 1 }}>
-        <iframe
-          src={src}
-          width="100%"
-          height="100%"
-          frameBorder="0"
-          title="Xinference Monitoring"
-          style={{ border: 'none' }}
-        />
+      {/* Loading indicator */}
+      {iframeLoading && <LinearProgress sx={{ height: 2 }} />}
+
+      {/* Content area */}
+      <Box sx={{ flex: 1, position: 'relative' }}>
+        {isConfigured && src ? (
+          <iframe
+            src={src}
+            width="100%"
+            height="100%"
+            frameBorder="0"
+            title="Xinference Monitoring"
+            style={{ border: 'none' }}
+            onLoad={() => setIframeLoading(false)}
+          />
+        ) : (
+          <Box
+            display="flex"
+            flexDirection="column"
+            justifyContent="center"
+            alignItems="center"
+            sx={{ height: '100%', gap: 2 }}
+          >
+            <SettingsIcon sx={{ fontSize: 48, color: 'text.secondary' }} />
+            <Typography variant="h6" color="text.secondary">
+              {t('monitoring.notConfigured')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {t('monitoring.configHint')}
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<SettingsIcon />}
+              onClick={() => setConfigDialogOpen(true)}
+            >
+              {t('monitoring.config.openConfig')}
+            </Button>
+          </Box>
+        )}
       </Box>
+
+      {/* Config Dialog */}
+      <MonitorConfigDialog
+        open={configDialogOpen}
+        onClose={() => setConfigDialogOpen(false)}
+        onSaved={handleConfigSaved}
+      />
     </Box>
   )
 }
