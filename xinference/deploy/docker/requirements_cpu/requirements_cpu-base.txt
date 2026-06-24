@@ -6,7 +6,7 @@ tqdm>=4.27
 tabulate
 requests
 pydantic>2
-fastapi>=0.110.3
+fastapi>=0.110.3,<0.137  # 0.137 stores include_router routes as _IncludedRouter (no .path), breaking aioprometheus middleware; see setup.cfg
 uvicorn
 huggingface-hub>=0.19.4
 typing_extensions
