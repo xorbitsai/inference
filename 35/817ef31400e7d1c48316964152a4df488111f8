@@ -1,0 +1,24 @@
+xinference/model/embedding/model_spec.json
+  b2ef4a00045e29ec 1582,1586,1623,1627,1664,1671,1708,1715
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "35817ef31400e7d1c48316964152a4df488111f8",
+  "prompts": {
+    "b2ef4a00045e29ec": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4272a461-1b6d-4b27-aff6-5030a3a12985",
+        "model": "glm-5.2"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 836,
+      "total_deletions": 8,
+      "accepted_lines": 8,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/d17351db1810c10f76c8d6da83d93f4253459c89445fd7e201e5456dadf9de41"
+    }
+  }
+}

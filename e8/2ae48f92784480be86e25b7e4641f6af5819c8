@@ -1,0 +1,9 @@
+xinference/model/embedding/model_spec.json
+  b2ef4a00045e29ec 1582,1586,1623,1627,1664,1671,1708,1715
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "e82ae48f92784480be86e25b7e4641f6af5819c8",
+  "prompts": {}
+}
