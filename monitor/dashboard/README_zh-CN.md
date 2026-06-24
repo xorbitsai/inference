@@ -107,7 +107,7 @@ docker compose -f dcgm-exporter.yml up -d
 | 每副本明细表 | 每 (model, worker) 的 QPS、并发、显存 |
 | 趋势图 | QPS、并发率、显存、P95、错误率随时间变化 |
 
-> **标签对齐：** Worker 侧指标使用 `model`/`node`/`type` 标签，Supervisor 侧指标使用 `model_uid`/`worker_address`/`model_type`。面板内使用 Grafana Transform（Rename by regex + Join by field）对齐标签。此方式要求 Worker 和 Supervisor 指标位于**同一 Prometheus 实例**中（不同 `job` 标签）。
+> **标签对齐：** Worker 侧和 Supervisor 侧指标现在都使用统一的标签（`model_uid`、`worker_address`、`model_type` 和 `replica_index`）。这允许在面板内直接进行 PromQL 关联（例如 `* on (model_uid, replica_index, worker_address)`），而不再需要 Grafana Transform 转换。此方式要求 Worker 和 Supervisor 指标位于**同一 Prometheus 实例**中（不同 `job` 标签）。
 
 ### 3. LLM 推理 SLO（`xinference-llm-slo`）
 
