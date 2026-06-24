@@ -29,7 +29,10 @@ import {
 } from '@/components/ui/table';
 import { useI18n } from '@/contexts/i18n-context';
 import { useForm } from '@/hooks/use-form';
+import { decodeJwtScopes } from '@/lib/utils';
 import request from '@/lib/request';
+import Cookies from 'js-cookie';
+import { NO_AUTH } from '@/constants';
 
 interface ApiKey {
   id: number;
@@ -45,6 +48,12 @@ interface ApiKey {
 
 export default function ApiKeyManagement() {
   const { t } = useI18n();
+
+  const token = Cookies.get('token');
+  const jwtScopes = decodeJwtScopes(token === NO_AUTH ? undefined : token);
+  const isAdmin = jwtScopes.includes('admin');
+  const canManageKeys = isAdmin || jwtScopes.includes('keys:manage');
+
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -246,19 +255,21 @@ export default function ApiKeyManagement() {
                       <span className="text-muted-foreground">
                         {revealedKeys[key.id] ? revealedKeys[key.id] : maskKey(key.key_prefix)}
                       </span>
-                      <button
-                        type="button"
-                        title={revealedKeys[key.id] ? t('apiKey.hideKey') : t('apiKey.revealKey')}
-                        className="text-muted-foreground hover:text-foreground transition-colors"
-                        onClick={() => handleReveal(key.id)}
-                        disabled={revealingId === key.id}
-                      >
-                        {revealedKeys[key.id] ? (
-                          <EyeOff className="h-3.5 w-3.5" />
-                        ) : (
-                          <Eye className="h-3.5 w-3.5" />
-                        )}
-                      </button>
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          title={revealedKeys[key.id] ? t('apiKey.hideKey') : t('apiKey.revealKey')}
+                          className="text-muted-foreground hover:text-foreground transition-colors"
+                          onClick={() => handleReveal(key.id)}
+                          disabled={revealingId === key.id}
+                        >
+                          {revealedKeys[key.id] ? (
+                            <EyeOff className="h-3.5 w-3.5" />
+                          ) : (
+                            <Eye className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      )}
                       <button
                         type="button"
                         title={t('common.copySuccess')}
@@ -289,19 +300,21 @@ export default function ApiKeyManagement() {
                   <TableCell>
                     <Switch
                       checked={key.enabled}
-                      disabled={togglingId === key.id || isExpired(key.expires_at)}
+                      disabled={!canManageKeys || togglingId === key.id || isExpired(key.expires_at)}
                       onChange={() => handleToggleEnabled(key)}
                     />
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => setDeleteId(key.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {canManageKeys && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => setDeleteId(key.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))
