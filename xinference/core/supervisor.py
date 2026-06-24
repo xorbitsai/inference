@@ -1420,15 +1420,36 @@ class SupervisorActor(xo.StatelessActor):
 
             try:
                 register_fn(model_spec, persist)
-                await self._cache_tracker_ref.record_model_version(
-                    generate_fn(model_spec), self.address
+            except ValueError as e:
+                raise e
+            except Exception as e:
+                unregister_fn(model_spec.model_name, raise_error=False)
+                raise e
+
+            # cache sync is an auxiliary feature; failure must not roll back
+            # the already-successful register_fn. Guard against _cache_tracker_ref
+            # being None (defensive).
+            try:
+                if self._cache_tracker_ref is not None:
+                    await self._cache_tracker_ref.record_model_version(
+                        generate_fn(model_spec), self.address
+                    )
+            except Exception:
+                logger.warning(
+                    "Failed to record model version for %s after registration; "
+                    "cache management may be degraded",
+                    model_spec.model_name,
+                    exc_info=True,
                 )
+
+            # _sync_register_model propagates to all workers. If it fails, the
+            # model will not be registered on the workers, so we must roll back
+            # the supervisor-local registration and propagate the error to keep
+            # the cluster state consistent.
+            try:
                 await self._sync_register_model(
                     model_type, model, persist, model_spec.model_name
                 )
-
-            except ValueError as e:
-                raise e
             except Exception as e:
                 unregister_fn(model_spec.model_name, raise_error=False)
                 raise e

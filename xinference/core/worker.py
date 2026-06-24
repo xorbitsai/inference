@@ -417,6 +417,12 @@ class WorkerActor(xo.StatelessActor):
             CacheTrackerActor
         ] = None  # type: ignore
         self._progress_tracker_ref: Optional[xo.ActorRefType] = None
+        # Tracks whether this worker has successfully called supervisor.add_worker().
+        # _supervisor_ref being non-None no longer implies registered, because
+        # heartbeat() uses add_worker=False and may populate the ref cache before
+        # registration completes. This flag is the source of truth for registration
+        # state, used by get_supervisor_ref to decide whether add_worker is needed.
+        self._registered: bool = False
 
         # Virtual environment management
         self._virtual_env_manager: XinferenceVirtualEnvManager = None  # type: ignore
@@ -889,7 +895,12 @@ class WorkerActor(xo.StatelessActor):
         """
         from .supervisor import SupervisorActor
 
-        if self._supervisor_ref is not None:
+        # Cache hit: return immediately only when no registration is required,
+        # or the worker has already been registered. When add_worker=True and
+        # _registered=False, we must fall through to perform add_worker even if
+        # the ref is cached (this happens after heartbeat populated the ref via
+        # add_worker=False before registration completed).
+        if self._supervisor_ref is not None and (not add_worker or self._registered):
             return self._supervisor_ref
         try:
             supervisor_ref = await xo.actor_ref(  # type: ignore
@@ -901,15 +912,16 @@ class WorkerActor(xo.StatelessActor):
                 address=self._supervisor_address, uid=SupervisorActor.default_uid()
             )
         # Prevent concurrent operations leads to double initialization, check again.
-        if self._supervisor_ref is not None:
+        if self._supervisor_ref is not None and (not add_worker or self._registered):
             return self._supervisor_ref
         self._supervisor_ref = supervisor_ref
         try:
-            if add_worker:
+            if add_worker and not self._registered:
                 replica_states = self._get_running_replica_states()
                 await supervisor_ref.add_worker(
                     self.address, replica_states=replica_states
                 )
+                self._registered = True
                 if replica_states:
                     logger.info(
                         "Connected to supervisor and replayed %s running model replicas",
@@ -928,6 +940,17 @@ class WorkerActor(xo.StatelessActor):
                 address=self._supervisor_address, uid=CacheTrackerActor.default_uid()
             )
             self._progress_tracker_ref = None
+        except Exception:
+            self._clear_supervisor_refs()
+            raise
+
+        # record_model_version is an auxiliary cache-management feature.
+        # Its failure must NOT block the worker's core heartbeat/status-report
+        # channel. Guard against _cache_tracker_ref being None when the first
+        # try block failed and cleared all refs (defensive: avoids AttributeError).
+        if self._cache_tracker_ref is None:
+            return self._supervisor_ref
+        try:
             # cache_tracker is on supervisor
             from ..model.audio import get_audio_model_descriptions
             from ..model.embedding import get_embedding_model_descriptions
@@ -950,12 +973,19 @@ class WorkerActor(xo.StatelessActor):
                 model_version_infos, self.address
             )
         except Exception:
-            self._clear_supervisor_refs()
-            raise
+            logger.warning(
+                "Failed to record model version info to cache tracker; "
+                "cache management may be degraded",
+                exc_info=True,
+            )
+
         return self._supervisor_ref
 
     def _clear_supervisor_refs(self):
         self._supervisor_ref = None
+        # Reset registration state so the next get_supervisor_ref(add_worker=True)
+        # re-runs add_worker. Keep this in sync with _supervisor_ref lifecycle.
+        self._registered = False
         self._status_guard_ref = None  # type: ignore
         self._event_collector_ref = None  # type: ignore
         self._cache_tracker_ref = None  # type: ignore
@@ -1341,14 +1371,27 @@ class WorkerActor(xo.StatelessActor):
             model_spec = model_spec_cls.parse_raw(model)
             try:
                 register_fn(model_spec, persist)
-                await self._cache_tracker_ref.record_model_version(
-                    generate_fn(model_spec), self.address
-                )
             except ValueError as e:
                 raise e
             except Exception as e:
                 unregister_fn(model_spec.model_name, raise_error=False)
                 raise e
+
+            # cache sync is an auxiliary feature; failure must not roll back
+            # the already-successful register_fn. Guard against _cache_tracker_ref
+            # being None when get_supervisor_ref's core init failed (defensive).
+            try:
+                if self._cache_tracker_ref is not None:
+                    await self._cache_tracker_ref.record_model_version(
+                        generate_fn(model_spec), self.address
+                    )
+            except Exception:
+                logger.warning(
+                    "Failed to record model version for %s after registration; "
+                    "cache management may be degraded",
+                    model_spec.model_name,
+                    exc_info=True,
+                )
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -3101,9 +3144,15 @@ class WorkerActor(xo.StatelessActor):
         """
         Lightweight heartbeat for liveness detection.
         Only sends address to supervisor without collecting resource info.
+        Uses add_worker=False to avoid triggering reconnect initialization
+        (add_worker + record_model_version). Registry recovery is driven solely
+        by report_status -> report_worker_status path, per supervisor's
+        receive_heartbeat design contract (supervisor.py).
         """
         await xo.wait_for(
-            (await self.get_supervisor_ref()).receive_heartbeat(self.address),
+            (await self.get_supervisor_ref(add_worker=False)).receive_heartbeat(
+                self.address
+            ),
             XINFERENCE_TCP_REQUEST_TIMEOUT,
         )
 
@@ -3155,6 +3204,14 @@ class WorkerActor(xo.StatelessActor):
     async def list_cached_models(
         self, model_name: Optional[str] = None
     ) -> List[Dict[Any, Any]]:
+        # Defensive: _cache_tracker_ref may be None if get_supervisor_ref's core
+        # init failed and cleared all refs. Return empty list instead of raising
+        # AttributeError (which would surface as HTTP 500 to the user).
+        if self._cache_tracker_ref is None:
+            logger.warning(
+                "cache_tracker_ref is None, returning empty cached model list"
+            )
+            return []
         lists = await self._cache_tracker_ref.list_cached_models(
             self.address, model_name
         )
@@ -3177,6 +3234,12 @@ class WorkerActor(xo.StatelessActor):
         return cached_models
 
     async def list_deletable_models(self, model_version: str) -> List[str]:
+        # Defensive: see list_cached_models for rationale.
+        if self._cache_tracker_ref is None:
+            logger.warning(
+                "cache_tracker_ref is None, returning empty deletable model list"
+            )
+            return []
         paths = set()
         path = await self._cache_tracker_ref.list_deletable_models(
             model_version, self.address
@@ -3216,6 +3279,10 @@ class WorkerActor(xo.StatelessActor):
         return list(paths)
 
     async def confirm_and_remove_model(self, model_version: str) -> bool:
+        # Defensive: see list_cached_models for rationale.
+        if self._cache_tracker_ref is None:
+            logger.warning("cache_tracker_ref is None, cannot confirm and remove model")
+            return False
         paths = await self.list_deletable_models(model_version)
         for path in paths:
             try:
