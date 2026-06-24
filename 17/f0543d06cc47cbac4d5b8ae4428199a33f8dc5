@@ -16,7 +16,7 @@ xinference/model/embedding/model_spec.json
       "messages": [],
       "total_additions": 836,
       "total_deletions": 8,
-      "accepted_lines": 836,
+      "accepted_lines": 8,
       "overriden_lines": 0,
       "messages_url": "https://gitai.gz.cvte.cn/cas/d17351db1810c10f76c8d6da83d93f4253459c89445fd7e201e5456dadf9de41"
     }
