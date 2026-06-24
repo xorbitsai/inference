@@ -18,8 +18,11 @@
 [![Twitter](https://img.shields.io/twitter/follow/xorbitsio?logo=x&style=for-the-badge)](https://twitter.com/xorbitsio)
 
 <p align="center">
-  <a href="../README.md"><img alt="English" src="https://img.shields.io/badge/English-d9d9d9?style=for-the-badge"></a>
+  <a href="./README.md"><img alt="English" src="https://img.shields.io/badge/English-d9d9d9?style=for-the-badge"></a>
   <a href="./README_ja_JP.md"><img alt="日本語" src="https://img.shields.io/badge/日本語-d9d9d9?style=for-the-badge"></a>
+</p>
+  <a href="../README.md"><img alt="English" src="https://img.shields.io/badge/English-d9d9d9?style=for-the-badge"></a>
+  <a href="../README_ja_JP.md"><img alt="日本語" src="https://img.shields.io/badge/日本語-d9d9d9?style=for-the-badge"></a>
   <a href="./README_ko.md"><img alt="한국어" src="https://img.shields.io/badge/한국어-d9d9d9?style=for-the-badge"></a>
   <a href="./README_de.md"><img alt="Deutsch" src="https://img.shields.io/badge/Deutsch-d9d9d9?style=for-the-badge"></a>
   <a href="./README_fr.md"><img alt="Français" src="https://img.shields.io/badge/Français-454545?style=for-the-badge"></a>
@@ -28,7 +31,7 @@
   <a href="./README_it.md"><img alt="Italiano" src="https://img.shields.io/badge/Italiano-d9d9d9?style=for-the-badge"></a>
   <a href="./README_pt_BR.md"><img alt="Português" src="https://img.shields.io/badge/Português-d9d9d9?style=for-the-badge"></a>
   <a href="./README_zh_TW.md"><img alt="繁體中文" src="https://img.shields.io/badge/繁體中文-d9d9d9?style=for-the-badge"></a>
-  <a href="./README_zh_CN.md"><img alt="简体中文" src="https://img.shields.io/badge/简体中文-d9d9d9?style=for-the-badge"></a>
+  <a href="../README_zh_CN.md"><img alt="简体中文" src="https://img.shields.io/badge/简体中文-d9d9d9?style=for-the-badge"></a>
 </p>
 </div>
 <br />
@@ -54,7 +57,6 @@ Xorbits Inference (Xinference) est une bibliothèque puissante et polyvalente po
 - Intégration de [PaddleOCR-VL-1.6](https://huggingface.co/PaddlePaddle/PaddleOCR-VL-1.6) : [#5033](https://github.com/xorbitsai/inference/pull/5033)
 - Intégration de [VoxCPM2](https://huggingface.co/openbmb/VoxCPM2) : [#5045](https://github.com/xorbitsai/inference/pull/5045)
 - Intégration de [DeepSeek V4] : [#4938](https://github.com/xorbitsai/inference/pull/4938)
-- Intégration de [MiniMax-M2.7] : [#4843](https://github.com/xorbitsai/inference/pull/4843)
 - Intégration de [MiniMax-M2.7] : [#4843](https://github.com/xorbitsai/inference/pull/4843)
 ### Intégrations
 - [Xagent](https://github.com/xorbitsai/xagent) : plateforme d'agents pour entreprises avec planification, mémoire et intégration d'outils.
