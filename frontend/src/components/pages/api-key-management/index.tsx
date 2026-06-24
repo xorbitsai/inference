@@ -255,8 +255,9 @@ export default function ApiKeyManagement() {
                       <button
                         type="button"
                         title={t('common.copySuccess')}
-                        className="text-muted-foreground hover:text-foreground transition-colors"
-                        onClick={() => copyToClipboard(revealedKeys[key.id] || maskKey(key.key_prefix))}
+                        disabled={!revealedKeys[key.id]}
+                        className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        onClick={() => revealedKeys[key.id] && copyToClipboard(revealedKeys[key.id])}
                       >
                         <Copy className="h-3.5 w-3.5" />
                       </button>

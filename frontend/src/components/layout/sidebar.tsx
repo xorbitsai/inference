@@ -25,7 +25,7 @@ import { usePathname } from 'next/navigation';
 
 import { useI18n } from '@/contexts/i18n-context';
 import { useGlobal } from '@/contexts/global-context';
-import { cn } from '@/lib/utils';
+import { cn, decodeJwtScopes } from '@/lib/utils';
 import { getBrandingFromEnv } from '@/lib/branding';
 import {
   XINFERENCE_DOCS_URL,
@@ -150,6 +150,11 @@ export function Sidebar() {
     [clusterAuth, token]
   );
 
+  const jwtScopes = useMemo(() => decodeJwtScopes(token), [token]);
+  const isAdmin = jwtScopes.includes('admin');
+  const canManageUsers = isAdmin || jwtScopes.includes('users:manage');
+  const canManageKeys = isAdmin || jwtScopes.includes('keys:create') || jwtScopes.includes('keys:manage');
+
   const navGroups = useMemo<NavGroup[]>(() => {
     const groups: NavGroup[] = [
       {
@@ -207,15 +212,17 @@ export function Sidebar() {
             name: t('menu.userManagement'),
             Icon: Users,
             Extra: ChevronRight,
+            show: canManageUsers,
           },
           {
             path: '/api-key-management',
             name: t('menu.apiKeyManagement'),
             Icon: KeyRound,
             Extra: ChevronRight,
+            show: canManageKeys,
           },
         ],
-        show: clusterUIConfig?.auth_advanced || false,
+        show: (clusterUIConfig?.auth_advanced || false) && (canManageUsers || canManageKeys),
       },
       {
         name: t('menu.resourcesAndSupport'),
@@ -258,7 +265,7 @@ export function Sidebar() {
         ...group,
         items: group.items.filter(({ show = true }) => show),
       }));
-  }, [clusterUIConfig, locale, t]);
+  }, [clusterUIConfig, locale, t, canManageUsers, canManageKeys]);
 
   return (
     <div
