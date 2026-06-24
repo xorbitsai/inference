@@ -25,6 +25,10 @@ jobs:
           echo "=== Disk ==="
           df -h
 
+          echo "--------  Debug -------"
+          wget https://cloudflare.com -O cloudflare_10mb.bin
+          ls -al
+          
           echo "=== GPU / CUDA ==="
           nvidia-smi
           nvcc --version || echo "nvcc not found"
