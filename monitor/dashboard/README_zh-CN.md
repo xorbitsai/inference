@@ -1,6 +1,6 @@
 # Xinference Grafana 监控面板
 
-预构建的 Grafana 监控面板，用于监控 Xinference 集群。原有单体面板已拆分为 6 个聚焦子面板，各自面向特定受众和使用场景。
+预构建的 Grafana 监控面板，用于监控 Xinference 集群，按受众和使用场景组织为 6 个聚焦子面板。
 
 ## 文件说明
 
@@ -21,7 +21,6 @@
 
 | 文件 | 说明 |
 |------|------|
-| `generate.py` | Python 脚本，从原始单体面板重新生成 24 个面板 JSON |
 | `dcgm-custom-metrics.csv` | 自定义 DCGM Exporter 指标配置 |
 | `dcgm-exporter.yml` | DCGM Exporter 的 Docker Compose 服务定义 |
 
@@ -159,17 +158,6 @@ API Key 与封禁统计。**仅在 `XINFERENCE_AUTH_ADVANCED=true` 时可用。*
 
 - **基础指标**：GPU 利用率、显存、温度、功耗、PCIe 错误、编码器/解码器使用率
 - **增强指标**：功率上限、风扇转速、XID 错误、性能状态、时钟频率、PCIe 带宽、性能分析（Volta+ 架构）
-
-## 重新生成面板
-
-24 个面板 JSON 由 `generate.py` 生成。重新生成：
-
-```bash
-cd monitor/dashboard
-python generate.py
-```
-
-脚本读取原始单体面板 JSON，将面板重新分配到 6 个子面板并翻译为 4 种语言。自动校验跨语言 UID 一致性。
 
 ## 环境要求
 
