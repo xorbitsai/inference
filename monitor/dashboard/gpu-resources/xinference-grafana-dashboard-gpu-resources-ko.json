@@ -968,7 +968,7 @@
             "properties": [
               {
                 "id": "displayName",
-                "value": "不可纠正重映射行"
+                "value": "수정 불가능한 리맵 행"
               },
               {
                 "id": "mappings",
@@ -998,7 +998,7 @@
             "properties": [
               {
                 "id": "displayName",
-                "value": "可纠正重映射行"
+                "value": "수정 가능한 리맵 행"
               },
               {
                 "id": "mappings",
@@ -1028,7 +1028,7 @@
             "properties": [
               {
                 "id": "displayName",
-                "value": "重映射失败"
+                "value": "리맵 실패"
               },
               {
                 "id": "mappings",
@@ -1124,7 +1124,7 @@
         "current": {},
         "hide": 0,
         "includeAll": false,
-        "label": "数据源",
+        "label": "데이터소스",
         "multi": false,
         "name": "datasource",
         "options": [],
@@ -1139,7 +1139,7 @@
         "current": {},
         "hide": 0,
         "includeAll": false,
-        "label": "告警数据源",
+        "label": "경고 데이터소스",
         "multi": false,
         "name": "alert_datasource",
         "options": [],
@@ -1168,7 +1168,7 @@
         "definition": "query_result(xinference:workers_total)",
         "hide": 0,
         "includeAll": true,
-        "label": "集群",
+        "label": "클러스터",
         "multi": true,
         "name": "cluster",
         "options": [],
@@ -1267,7 +1267,7 @@
         "definition": "query_result(xinference:model_info{cluster=~\"$cluster\"})",
         "hide": 0,
         "includeAll": true,
-        "label": "模型",
+        "label": "모델",
         "multi": true,
         "name": "model_name",
         "options": [],
@@ -1299,7 +1299,7 @@
         "definition": "query_result(label_replace(xinference:build_info{xinference_role=\"supervisor\", cluster=~\"$cluster\"}, \"instance\", \"$1:9100\", \"instance\", \"(.*):.*\"))",
         "hide": 0,
         "includeAll": true,
-        "label": "Supervisor 实例",
+        "label": "Supervisor 인스턴스",
         "multi": true,
         "name": "supervisor_instance",
         "options": [],
@@ -1331,7 +1331,7 @@
         "definition": "query_result(label_replace(xinference:build_info{xinference_role=\"worker\", cluster=~\"$cluster\"}, \"instance\", \"$1:9100\", \"instance\", \"(.*):.*\"))",
         "hide": 0,
         "includeAll": true,
-        "label": "Worker 实例",
+        "label": "Worker 인스턴스",
         "multi": true,
         "name": "worker_instance",
         "options": [],
@@ -1363,7 +1363,7 @@
         "definition": "query_result(label_replace(xinference:build_info{xinference_role=\"worker\", cluster=~\"$cluster\"}, \"instance\", \"$1:9400\", \"instance\", \"(.*):.*\"))",
         "hide": 0,
         "includeAll": true,
-        "label": "DCGM Exporter 实例",
+        "label": "DCGM Exporter 인스턴스",
         "multi": true,
         "name": "gpu_exporter_instance",
         "options": [],
