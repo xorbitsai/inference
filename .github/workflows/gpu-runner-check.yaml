@@ -82,6 +82,12 @@ jobs:
           python-version: ${{ matrix.python-version }}
           activate-environment: ${{ env.CONDA_ENV }}
 
+      - name: Check setuptools version
+        if: ${{ matrix.module == 'gpu' }}
+        run: |
+          /usr/bin/python3.12 --version
+          /usr/bin/python3.12 -m pip show setuptools
+
       # Important for python == 3.12 and 3.13
       - name: Update pip and setuptools
         if: ${{ matrix.python-version == '3.12' || matrix.python-version == '3.13' }}
