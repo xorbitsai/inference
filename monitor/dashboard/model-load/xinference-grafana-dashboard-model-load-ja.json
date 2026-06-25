@@ -161,11 +161,11 @@
                     "options": {
                       "0": {
                         "color": "red",
-                        "text": "失败"
+                        "text": "失敗"
                       },
                       "1": {
                         "color": "green",
-                        "text": "运行中"
+                        "text": "実行中"
                       }
                     },
                     "type": "value"
@@ -550,7 +550,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "按模型分组的 GPU 显存实时使用量（堆叠），可观测各模型对显存的持续消耗",
+      "description": "モデル別の GPU VRAM リアルタイム使用量（積み上げ）、各モデルの継続的な VRAM 消費を可視化",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -649,7 +649,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "各模型在各 GPU 上的当前显存占用快照",
+      "description": "各 GPU 上のモデル別現在の VRAM 使用量スナップショット",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -686,7 +686,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "模型名称"
+              "options": "モデル名"
             },
             "properties": [
               {
@@ -698,7 +698,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "模型类型"
+              "options": "モデルタイプ"
             },
             "properties": [
               {
@@ -726,7 +726,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "显存占用"
+              "options": "VRAM 使用量"
             },
             "properties": [
               {
@@ -761,7 +761,7 @@
         "sortBy": [
           {
             "desc": true,
-            "displayName": "显存占用"
+            "displayName": "VRAM 使用量"
           }
         ]
       },
@@ -810,11 +810,11 @@
             "includeByName": {},
             "indexByName": {},
             "renameByName": {
-              "Value": "显存占用",
+              "Value": "VRAM 使用量",
               "gpu_index": "GPU",
-              "model_name": "模型名称",
-              "model_type": "模型类型",
-              "model_uid": "模型UID",
+              "model_name": "モデル名",
+              "model_type": "モデルタイプ",
+              "model_uid": "モデル UID",
               "worker_address": "Worker"
             }
           }

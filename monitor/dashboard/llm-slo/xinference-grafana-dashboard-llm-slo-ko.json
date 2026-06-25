@@ -196,12 +196,12 @@
       "targets": [
         {
           "expr": "sum(rate(xinference:model_request_total{cluster=~\"$cluster\", type=\"LLM\", model_name=~\"$model_name\", stream=\"true\"}[5m])) by (model_name)",
-          "legendFormat": "{{model_name}} (流式)",
+          "legendFormat": "{{model_name}} (스트리밍)",
           "refId": "A"
         },
         {
           "expr": "sum(rate(xinference:model_request_total{cluster=~\"$cluster\", type=\"LLM\", model_name=~\"$model_name\", stream=\"false\"}[5m])) by (model_name)",
-          "legendFormat": "{{model_name}} (非流式)",
+          "legendFormat": "{{model_name}} (비스트리밍)",
           "refId": "B"
         }
       ]
@@ -669,12 +669,12 @@
       "targets": [
         {
           "expr": "rate(xinference:time_to_first_token_seconds_sum{cluster=~\"$cluster\", model_name=~\"$model_name\", stream=\"true\"}[5m]) / rate(xinference:time_to_first_token_seconds_count{cluster=~\"$cluster\", model_name=~\"$model_name\", stream=\"true\"}[5m])",
-          "legendFormat": "{{model_name}} (流式)",
+          "legendFormat": "{{model_name}} (스트리밍)",
           "refId": "A"
         },
         {
           "expr": "rate(xinference:time_to_first_token_seconds_sum{cluster=~\"$cluster\", model_name=~\"$model_name\", stream=\"false\"}[5m]) / rate(xinference:time_to_first_token_seconds_count{cluster=~\"$cluster\", model_name=~\"$model_name\", stream=\"false\"}[5m])",
-          "legendFormat": "{{model_name}} (非流式)",
+          "legendFormat": "{{model_name}} (비스트리밍)",
           "refId": "B"
         }
       ]

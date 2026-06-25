@@ -977,11 +977,11 @@
                     "options": {
                       "0": {
                         "color": "green",
-                        "text": "正常"
+                        "text": "정상"
                       },
                       "1": {
                         "color": "red",
-                        "text": "异常"
+                        "text": "비정상"
                       }
                     },
                     "type": "value"
@@ -1007,11 +1007,11 @@
                     "options": {
                       "0": {
                         "color": "green",
-                        "text": "正常"
+                        "text": "정상"
                       },
                       "1": {
                         "color": "red",
-                        "text": "异常"
+                        "text": "비정상"
                       }
                     },
                     "type": "value"
@@ -1037,11 +1037,11 @@
                     "options": {
                       "0": {
                         "color": "green",
-                        "text": "正常"
+                        "text": "정상"
                       },
                       "1": {
                         "color": "red",
-                        "text": "异常"
+                        "text": "비정상"
                       }
                     },
                     "type": "value"

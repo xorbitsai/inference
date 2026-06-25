@@ -1228,11 +1228,11 @@
               "options": {
                 "0": {
                   "color": "red",
-                  "text": "关闭"
+                  "text": "オフ"
                 },
                 "1": {
                   "color": "green",
-                  "text": "开启"
+                  "text": "オン"
                 }
               },
               "type": "value"

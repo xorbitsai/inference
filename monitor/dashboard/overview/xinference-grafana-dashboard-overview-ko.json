@@ -1228,11 +1228,11 @@
               "options": {
                 "0": {
                   "color": "red",
-                  "text": "关闭"
+                  "text": "꺼짐"
                 },
                 "1": {
                   "color": "green",
-                  "text": "开启"
+                  "text": "켜짐"
                 }
               },
               "type": "value"
