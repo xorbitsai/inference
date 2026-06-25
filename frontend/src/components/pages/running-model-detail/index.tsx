@@ -93,9 +93,7 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
           // fix model_ability was not returned when model_type was Rerank or Embedding.
           model_ability: Array.isArray(res?.model_ability)
             ? res.model_ability
-            : MODEL_TYPE_ABILITY_MAP[res.model_type]
-              ? MODEL_TYPE_ABILITY_MAP[res.model_type]
-              : [],
+            : (res?.model_type && MODEL_TYPE_ABILITY_MAP[res.model_type]) || [],
         };
         const firstAbility = newModel.model_ability.filter((item) => !item.includes('_'))?.[0];
         setSelectAbility(firstAbility);

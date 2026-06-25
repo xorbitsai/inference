@@ -69,7 +69,7 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
       if (model.model_type === ModelType.Rerank) {
         const results = (result as RerankResponse)?.results;
         try {
-          return JSON.stringify(results, null, 2);
+          return JSON.stringify(results, null, 2) || '';
         } catch {
           return String(results);
         }
@@ -78,7 +78,7 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
       if (model.model_type === ModelType.Embedding) {
         const data = (result as EmbeddingsResponse)?.data;
         try {
-          return JSON.stringify(data, null, 2);
+          return JSON.stringify(data, null, 2) || '';
         } catch {
           return String(data);
         }
