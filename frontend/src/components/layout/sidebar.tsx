@@ -153,7 +153,7 @@ export function Sidebar() {
   const jwtScopes = useMemo(() => decodeJwtScopes(token), [token]);
   const isAdmin = jwtScopes.includes('admin');
   const canManageUsers = isAdmin || jwtScopes.includes('users:manage');
-  const canManageKeys = isAdmin || jwtScopes.includes('keys:create') || jwtScopes.includes('keys:manage');
+  const canAccessKeysPage = isAdmin || jwtScopes.includes('keys:create');
 
   const navGroups = useMemo<NavGroup[]>(() => {
     const groups: NavGroup[] = [
@@ -219,10 +219,10 @@ export function Sidebar() {
             name: t('menu.apiKeyManagement'),
             Icon: KeyRound,
             Extra: ChevronRight,
-            show: canManageKeys,
+            show: canAccessKeysPage,
           },
         ],
-        show: (clusterUIConfig?.auth_advanced || false) && (canManageUsers || canManageKeys),
+        show: (clusterUIConfig?.auth_advanced || false) && (canManageUsers || canAccessKeysPage),
       },
       {
         name: t('menu.resourcesAndSupport'),
@@ -265,7 +265,7 @@ export function Sidebar() {
         ...group,
         items: group.items.filter(({ show = true }) => show),
       }));
-  }, [clusterUIConfig, locale, t, canManageUsers, canManageKeys]);
+  }, [clusterUIConfig, locale, t, canManageUsers, canAccessKeysPage]);
 
   return (
     <div
