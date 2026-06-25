@@ -1,0 +1,38 @@
+monitor/dashboard/model-load/xinference-grafana-dashboard-model-load-en.json
+  50907f70fc3ac2b5 836,858,885,912
+monitor/dashboard/README.md
+  50907f70fc3ac2b5 110
+monitor/dashboard/llm-slo/xinference-grafana-dashboard-llm-slo-ko.json
+  50907f70fc3ac2b5 1034,1039,1044,1071,1076,1081
+monitor/dashboard/model-load/xinference-grafana-dashboard-model-load-ja.json
+  50907f70fc3ac2b5 836,858,885,912
+monitor/dashboard/README_zh-CN.md
+  50907f70fc3ac2b5 110
+monitor/dashboard/llm-slo/xinference-grafana-dashboard-llm-slo-en.json
+  50907f70fc3ac2b5 1034,1039,1044,1071,1076,1081
+monitor/dashboard/model-load/xinference-grafana-dashboard-model-load-ko.json
+  50907f70fc3ac2b5 836,858,885,912
+monitor/dashboard/llm-slo/xinference-grafana-dashboard-llm-slo-ja.json
+  50907f70fc3ac2b5 1034,1039,1044,1071,1076,1081
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "c9f7154c5230196b5208b28536922a66733e8a21",
+  "prompts": {
+    "50907f70fc3ac2b5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6abd358-b19c-415c-8d3f-c028fc1a48c5",
+        "model": "glm-5.2"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 18285,
+      "total_deletions": 8697,
+      "accepted_lines": 32,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/07fbb06b8b4c54a6a322ec3701f6a16328d687c6783dd64804deeaa9e1634244"
+    }
+  }
+}
