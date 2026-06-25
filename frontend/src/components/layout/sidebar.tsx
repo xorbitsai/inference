@@ -18,14 +18,14 @@ import {
   Rocket,
   Monitor,
   ScrollText,
-  // Users,
-  // KeyRound,
+  Users,
+  KeyRound,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
 import { useI18n } from '@/contexts/i18n-context';
 import { useGlobal } from '@/contexts/global-context';
-import { cn } from '@/lib/utils';
+import { cn, decodeJwtScopes } from '@/lib/utils';
 import { getBrandingFromEnv } from '@/lib/branding';
 import {
   XINFERENCE_DOCS_URL,
@@ -150,6 +150,11 @@ export function Sidebar() {
     [clusterAuth, token]
   );
 
+  const jwtScopes = useMemo(() => decodeJwtScopes(token), [token]);
+  const isAdmin = jwtScopes.includes('admin');
+  const canManageUsers = isAdmin || jwtScopes.includes('users:manage');
+  const canAccessKeysPage = isAdmin || jwtScopes.includes('keys:create');
+
   const navGroups = useMemo<NavGroup[]>(() => {
     const groups: NavGroup[] = [
       {
@@ -199,24 +204,26 @@ export function Sidebar() {
           },
         ],
       },
-      // {
-      //   name: t('menu.systemManagement'),
-      //   items: [
-      //     {
-      //       path: '/user-management',
-      //       name: t('menu.userManagement'),
-      //       Icon: Users,
-      //       Extra: ChevronRight,
-      //     },
-      //     {
-      //       path: '/api-key-management',
-      //       name: t('menu.apiKeyManagement'),
-      //       Icon: KeyRound,
-      //       Extra: ChevronRight,
-      //     },
-      //   ],
-      //   show: clusterUIConfig?.auth_advanced || false
-      // },
+      {
+        name: t('menu.systemManagement'),
+        items: [
+          {
+            path: '/user-management',
+            name: t('menu.userManagement'),
+            Icon: Users,
+            Extra: ChevronRight,
+            show: canManageUsers,
+          },
+          {
+            path: '/api-key-management',
+            name: t('menu.apiKeyManagement'),
+            Icon: KeyRound,
+            Extra: ChevronRight,
+            show: canAccessKeysPage,
+          },
+        ],
+        show: (clusterUIConfig?.auth_advanced || false) && (canManageUsers || canAccessKeysPage),
+      },
       {
         name: t('menu.resourcesAndSupport'),
         items: [
@@ -258,7 +265,7 @@ export function Sidebar() {
         ...group,
         items: group.items.filter(({ show = true }) => show),
       }));
-  }, [clusterUIConfig, locale, t]);
+  }, [clusterUIConfig, locale, t, canManageUsers, canAccessKeysPage]);
 
   return (
     <div
