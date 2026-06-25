@@ -147,4 +147,7 @@ async def test_metrics_exporter_data(setup_cluster):
 
     response = requests.get(metrics_exporter_address)
     assert response.ok
-    assert 'format="ggufv2",gpu_index="",model="qwen1.5-chat"' in response.text
+    assert (
+        'format="ggufv2",gpu_index="",model_name="qwen1.5-chat",'
+        'model_type="LLM",model_uid="qwen1.5-chat"' in response.text
+    )
