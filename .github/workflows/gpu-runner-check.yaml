@@ -29,7 +29,8 @@ jobs:
           python --version || echo "python not found"
           pip --version || echo "pip not found"
           conda --version || echo "conda not found"
-
+          which python3
+          which python3.12
 
           echo "=== GPU / CUDA ==="
           nvidia-smi
