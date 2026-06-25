@@ -18,9 +18,6 @@
 [![Twitter](https://img.shields.io/twitter/follow/xorbitsio?logo=x&style=for-the-badge)](https://twitter.com/xorbitsio)
 
 <p align="center">
-  <a href="./README.md"><img alt="English" src="https://img.shields.io/badge/English-d9d9d9?style=for-the-badge"></a>
-  <a href="./README_ja_JP.md"><img alt="日本語" src="https://img.shields.io/badge/日本語-d9d9d9?style=for-the-badge"></a>
-</p>
   <a href="../README.md"><img alt="English" src="https://img.shields.io/badge/English-d9d9d9?style=for-the-badge"></a>
   <a href="../README_ja_JP.md"><img alt="日本語" src="https://img.shields.io/badge/日本語-d9d9d9?style=for-the-badge"></a>
   <a href="./README_ko.md"><img alt="한국어" src="https://img.shields.io/badge/한국어-d9d9d9?style=for-the-badge"></a>
@@ -128,52 +125,52 @@ docker run --name xinference -d -p 9997:9997 -e XINFERENCE_HOME=/data -v </on/yo
 
 ### K8s (Helm)
 
-Nach Aktivierung von GPU im Kubernetes-Cluster installieren Sie wie folgt:
+Après avoir activé le support GPU dans le cluster Kubernetes, installez Xinference comme suit :
 
 ```
-# Repository hinzufügen
+# Ajouter le dépôt
 helm repo add xinference https://xorbitsai.github.io/xinference-helm-charts
 
-# Index aktualisieren und Version prüfen
+# Mettre à jour l'index et vérifier la version
 helm repo update xinference
 helm search repo xinference/xinference --devel --versions
 
-# Xinference installieren
+# Installer Xinference
 helm install xinference xinference/xinference -n xinference --version 0.0.1-v<xinference_release_version>
 ```
 
-Weitere K8s-Optionen finden Sie in der Dokumentation.
+Pour plus d'options K8s, veuillez consulter la documentation.
 
-### Quickstart
+### Démarrage rapide
 
-Installieren Sie Xinference per pip:
+Installez Xinference via pip :
 
 ```bash
 pip install "xinference[all]"
 ```
 
-Starten Sie eine lokale Instanz mit:
+Démarrez une instance locale avec :
 
 ```bash
 $ xinference-local
 ```
 
-Anschließend können Sie Web UI, cURL, CLI oder den Python-Client verwenden.
+Ensuite, vous pouvez utiliser l'interface Web, cURL, la CLI ou le client Python.
 
 ![web UI](../assets/screenshot.png)
 
-## Mitmachen
+## Participer
 
-| Plattform                                                                 | Zweck                                   |
-|---------------------------------------------------------------------------|-----------------------------------------|
-| [Github Issues](https://github.com/xorbitsai/inference/issues)             | Bug-Reports und Feature-Anfragen        |
-| [Discord](https://discord.gg/Xw9tszSkr5)                                  | Zusammenarbeit mit anderen Anwendern    |
-| [Telegram](https://t.me/+nCNpwmySwk9iYmI1)                                | Diskussionen mit la comunidad          |
-| [Twitter](https://twitter.com/xorbitsio)                                  | Neuigkeiten und Ankündigungen           |
+| Plateforme                                                                | Objectif                                      |
+|---------------------------------------------------------------------------|-----------------------------------------------|
+| [Github Issues](https://github.com/xorbitsai/inference/issues)           | Signaler des bugs et demander des fonctionnalités |
+| [Discord](https://discord.gg/Xw9tszSkr5)                                 | Collaborer avec d'autres utilisateurs de Xinference |
+| [Telegram](https://t.me/+nCNpwmySwk9iYmI1)                               | Échanger avec d'autres utilisateurs de Xinference |
+| [Twitter](https://twitter.com/xorbitsio)                                 | Suivre les nouveautés et annonces              |
 
-## Zitation
+## Citation
 
-Wenn dieses Projekt hilfreich war, zitieren Sie bitte wie folgt:
+Si ce projet vous a été utile, merci de citer :
 
 ```bibtex
 @inproceedings{lu2024xinference,
@@ -189,12 +186,12 @@ Wenn dieses Projekt hilfreich war, zitieren Sie bitte wie folgt:
 }
 ```
 
-## Mitwirkende
+## Contributeurs
 
 <a href="https://github.com/xorbitsai/inference/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=xorbitsai/inference" />
 </a>
 
-## Star-Verlauf
+## Historique des étoiles
 
 [![Star History Chart](https://api.star-history.com/svg?repos=xorbitsai/inference&type=Date)](https://star-history.com/#xorbitsai/inference&Date)
