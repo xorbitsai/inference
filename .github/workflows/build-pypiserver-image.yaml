@@ -11,6 +11,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  check-release-permission:
+    name: Check release tag permission
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/check-release-permission
+
   # ------------------------------------------------------------------
   # Build Docker image per architecture on native runners.
   # Each runner uses list-packages.sh to generate the package list,
@@ -18,6 +27,7 @@ jobs:
   # ------------------------------------------------------------------
   build-and-push-image:
     name: Build and push ${{ matrix.arch }} image
+    needs: check-release-permission
     strategy:
       fail-fast: false
       matrix:
