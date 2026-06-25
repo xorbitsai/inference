@@ -25,12 +25,11 @@ jobs:
           echo "=== Disk ==="
           df -h
           
-          echo "Before -------doing nothing----"
-          ls -l
-           
-          echo "--------  Debug -------"
-          wget https://cloudflare.com -O cloudflare_10mb.bin
-          ls -al
+          echo "-------Check software version-------"
+          python --version || echo "python not found"
+          pip --version || echo "pip not found"
+          conda --version || echo "conda not found"
+
 
           echo "=== GPU / CUDA ==="
           nvidia-smi
