@@ -1,0 +1,35 @@
+xinference/core/tests/test_worker.py
+  50907f70fc3ac2b5 137
+xinference/core/cache_tracker.py
+  50907f70fc3ac2b5 57-69
+xinference/core/supervisor.py
+  50907f70fc3ac2b5 1426,1428-1442,1444-1449
+xinference/core/worker.py
+  50907f70fc3ac2b5 420-425,898-903,915,919,924,943-953,976-981,986-988,1379-1394,3147-3150,3153-3155,3207-3214,3237-3242,3282-3285
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "51e7650cfaefd51276dd92af9ea70f09566cb1c5",
+  "prompts": {
+    "50907f70fc3ac2b5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6abd358-b19c-415c-8d3f-c028fc1a48c5",
+        "model": "glm-5.2"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 18288,
+      "total_deletions": 8697,
+      "accepted_lines": 7330,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/07fbb06b8b4c54a6a322ec3701f6a16328d687c6783dd64804deeaa9e1634244"
+    }
+  },
+  "humans": {
+    "h_9bfd4e7cd8cc2c": {
+      "author": "郑明再"
+    }
+  }
+}
