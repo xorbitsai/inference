@@ -1,9 +1,10 @@
-name: Python CI
+name: Python CI - Test GPU
 
 on:
   push:
     branches:
       - '*'
+  workflow_dispatch:
   pull_request:
     types: ['opened', 'reopened', 'synchronize']
 
@@ -50,8 +51,8 @@ jobs:
     needs: lint
     env:
       CONDA_ENV: test
-      SELF_HOST_PYTHON: /root/miniconda3/envs/inference_test/bin/python
-      SELF_HOST_CONDA: /root/miniconda3/condabin/conda
+      SELF_HOST_PYTHON: /usr/bin/python3.12
+      SELF_HOST_CONDA: /usr/bin/conda
     defaults:
       run:
         shell: bash -l {0}
@@ -67,7 +68,7 @@ jobs:
           - { os: windows-latest, python-version: 3.11 }
           - { os: windows-latest, python-version: 3.12 }
         include:
-          - { os: self-hosted, module: gpu, python-version: "3.11"}
+          - { os: gpu-t4, module: gpu, python-version: "3.12"}
           - { os: macos-latest, module: metal, python-version: "3.10" }
 
     steps:
@@ -246,61 +247,61 @@ jobs:
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U FlagEmbedding
             ${{ env.SELF_HOST_PYTHON }} -m pip install -U "peft<=0.17.1"
             ${{ env.SELF_HOST_PYTHON }} -m pip install "xllamacpp>=0.2.0" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 --extra-index-url https://pypi.org/simple
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=300 \
               --disable-warnings \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/core/tests/test_continuous_batching.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=300 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/embedding/tests/test_qwen3_vl_engine_params.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=300 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/rerank/tests/test_qwen3_vl_reranker_virtualenv.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=300 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/image/tests/test_stable_diffusion.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=300 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/image/tests/test_got_ocr2.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=300 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_whisper.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=300 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_funasr.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=300 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_chattts.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=300 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_cosyvoice.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=300 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_f5tts.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=300 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_f5tts.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=300 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_melotts.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=300 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_kokoro.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=300 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_fish_speech.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=300 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_megatts.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=300 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/embedding/tests/test_integrated_embedding.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=300 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/embedding/vllm/tests/test_vllm_embedding.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=300 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/llm/transformers/tests/test_tensorizer.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=300 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/llm/tests/test_llm_model.py
           elif [ "$MODULE" == "metal" ]; then
