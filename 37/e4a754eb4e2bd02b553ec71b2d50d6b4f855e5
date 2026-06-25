@@ -1,0 +1,45 @@
+monitor/dashboard/model-load/xinference-grafana-dashboard-model-load-ja.json
+  50907f70fc3ac2b5 164,168,553,652,689,701,729,764,813,815-817
+monitor/dashboard/llm-slo/xinference-grafana-dashboard-llm-slo-ja.json
+  50907f70fc3ac2b5 199,204,672,677
+monitor/dashboard/model-load/xinference-grafana-dashboard-model-load-ko.json
+  50907f70fc3ac2b5 164,168,553,652,689,701,729,764,813,815-817
+monitor/dashboard/overview/xinference-grafana-dashboard-overview-ko.json
+  50907f70fc3ac2b5 1231,1235
+monitor/dashboard/gpu-resources/xinference-grafana-dashboard-gpu-resources-en.json
+  50907f70fc3ac2b5 980,984,1010,1014,1040,1044
+monitor/dashboard/gpu-resources/xinference-grafana-dashboard-gpu-resources-ja.json
+  50907f70fc3ac2b5 984,1014,1044
+monitor/dashboard/overview/xinference-grafana-dashboard-overview-ja.json
+  50907f70fc3ac2b5 1231,1235
+monitor/dashboard/overview/xinference-grafana-dashboard-overview-en.json
+  50907f70fc3ac2b5 1231,1235
+monitor/dashboard/llm-slo/xinference-grafana-dashboard-llm-slo-ko.json
+  50907f70fc3ac2b5 199,204,672,677
+monitor/dashboard/gpu-resources/xinference-grafana-dashboard-gpu-resources-ko.json
+  50907f70fc3ac2b5 980,984,1010,1014,1040,1044
+monitor/dashboard/model-load/xinference-grafana-dashboard-model-load-en.json
+  50907f70fc3ac2b5 164,168,553,652,689,701,729,764,813,815-817
+monitor/dashboard/llm-slo/xinference-grafana-dashboard-llm-slo-en.json
+  50907f70fc3ac2b5 199,204,672,677
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "37e4a754eb4e2bd02b553ec71b2d50d6b4f855e5",
+  "prompts": {
+    "50907f70fc3ac2b5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6abd358-b19c-415c-8d3f-c028fc1a48c5",
+        "model": "glm-5.2"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 24850,
+      "total_deletions": 7722,
+      "accepted_lines": 27591,
+      "overriden_lines": 0
+    }
+  }
+}
