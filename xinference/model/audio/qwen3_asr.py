@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import os
 import tempfile
 from typing import TYPE_CHECKING, List, Optional, Tuple
 
@@ -74,6 +75,16 @@ class Qwen3ASRModel:
         init_kwargs.update(self._kwargs)
         init_kwargs.setdefault("device_map", self._device)
         init_kwargs.setdefault("dtype", get_device_preferred_dtype(self._device))
+        # The forced aligner is a separate model that ``qwen_asr`` downloads
+        # from Hugging Face by default. When the user configured ModelScope as
+        # the download source (e.g. ``XINFERENCE_MODEL_SRC=modelscope``),
+        # resolve it through the same hub and pass a local path so the load does
+        # not fall back to a (often unreachable) Hugging Face download.
+        forced_aligner = init_kwargs.get("forced_aligner")
+        if isinstance(forced_aligner, str) and not os.path.exists(forced_aligner):
+            resolved = self._resolve_forced_aligner(forced_aligner)
+            if resolved:
+                init_kwargs["forced_aligner"] = resolved
         if "forced_aligner" in init_kwargs:
             forced_aligner_kwargs = init_kwargs.get("forced_aligner_kwargs") or {}
             forced_aligner_kwargs.setdefault("device_map", self._device)
@@ -83,6 +94,32 @@ class Qwen3ASRModel:
             init_kwargs["forced_aligner_kwargs"] = forced_aligner_kwargs
         logger.debug("Loading Qwen3-ASR model with kwargs: %s", init_kwargs)
         self._model = QwenASR.from_pretrained(self._model_path, **init_kwargs)
+
+    def _resolve_forced_aligner(self, model_id: str) -> Optional[str]:
+        """Pre-download the forced aligner from ModelScope when it is the
+        active source, returning a local path. Returns ``None`` (keep the
+        original repo id and let ``qwen_asr`` handle it) if ModelScope is not
+        active or the download fails for any reason."""
+        from ..utils import download_from_modelscope
+
+        if not download_from_modelscope():
+            return None
+        try:
+            from modelscope.hub.snapshot_download import (
+                snapshot_download as ms_download,
+            )
+
+            from ..utils import retry_download
+
+            return retry_download(ms_download, model_id, None, model_id)
+        except Exception:
+            logger.warning(
+                "Failed to pre-download forced aligner %s from ModelScope; "
+                "falling back to the default source.",
+                model_id,
+                exc_info=True,
+            )
+            return None
 
     def _extract_text_and_language(self, result) -> Tuple[str, Optional[str]]:
         if isinstance(result, list):
