@@ -441,7 +441,7 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
                   value={ability}
                   onChange={(value) => setAbility(value ?? '')}
                   options={abilityOptions}
-                  placeholder="Ability"
+                  placeholder={t('launchModel.modelAbility')}
                   allowClear
                   className="w-40"
                 />
@@ -451,7 +451,7 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
                   value={status}
                   onChange={(value) => setStatus(value ?? '')}
                   options={statusOptions}
-                  placeholder="Status"
+                  placeholder={t('launchModel.status')}
                   allowClear
                   className="w-40"
                 />

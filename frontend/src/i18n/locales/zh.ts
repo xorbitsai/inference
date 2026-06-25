@@ -32,6 +32,8 @@ const zh = {
     modelType: '模型类型',
     modelAbility: '模型能力',
     generate: '文本生成',
+    embed: '嵌入',
+    rerank: '重排',
     chat: '对话',
     vision: '图像识别',
     reasoning: '推理能力',

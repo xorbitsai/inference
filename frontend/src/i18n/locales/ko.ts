@@ -33,6 +33,8 @@ const ko = {
     modelType: '모델 유형',
     modelAbility: '모델 기능',
     generate: '텍스트 생성',
+    embed: '임베딩',
+    rerank: '재정렬',
     chat: '대화',
     vision: '비전',
     reasoning: '추론',

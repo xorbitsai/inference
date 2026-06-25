@@ -1,9 +1,12 @@
 'use client';
 
 import { useCallback } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
 import { FileUpload } from '@/components/ui/file-upload';
 import { FormField } from '@/components/ui/form-field';
+import { FormList } from '@/components/ui/form-list';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
@@ -18,7 +21,6 @@ import type { FileUploadValue } from '@/types/common';
 
 import { ImageEditorCreateMask } from '../components/image-editor-create-mask';
 import type { CapabilityFormProps } from '../types';
-
 
 const DOCUMENT_BACKEND_OPTIONS = ['pipeline', 'vlm-auto-engine', 'hybrid-auto-engine'].map(
   (value) => ({ label: value, value })
@@ -140,6 +142,73 @@ export function TextPromptPanel() {
       <FormField name="temperature" label="Temperature" normalize={normalizeNumberInput}>
         <Input type="number" min={0} max={2} step={0.01} />
       </FormField>
+    </>
+  );
+}
+
+export function EmbedPanel() {
+  return (
+    <FormField
+      name="input"
+      rules={[{ required: true }]}
+      placeholder="Enter text to be vectorized..."
+    >
+      <Textarea className="min-h-24" />
+    </FormField>
+  );
+}
+
+export function RerankPanel() {
+  return (
+    <>
+      <FormField
+        name="query"
+        label="Query"
+        placeholder="Enter query..."
+        rules={[{ required: true }]}
+      >
+        <Textarea className="min-h-24" />
+      </FormField>
+      <FormList
+        name="documents"
+        label="Documents"
+        layout="horizontal"
+        renderAction={({ add }) => (
+          <Button size="sm" type="button" variant="outline" onClick={() => add('')}>
+            <Plus />
+            Add
+          </Button>
+        )}
+      >
+        {({ fields, remove }) => (
+          <div className="space-y-3">
+            {fields.map((field, index) => (
+              <div className="flex gap-2" key={field.name}>
+                <FormField
+                  className="flex-1"
+                  name={['documents', field.name]}
+                  rules={[{ required: true }]}
+                  placeholder={`Document ${index + 1}`}
+                >
+                  <Input />
+                </FormField>
+                {fields.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    disabled={fields.length <= 1}
+                    onClick={() => remove(field.name)}
+                  >
+                    <Trash2 />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </FormList>
     </>
   );
 }

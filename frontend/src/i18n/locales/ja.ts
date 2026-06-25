@@ -33,6 +33,8 @@ const ja = {
     modelType: 'モデルタイプ',
     modelAbility: 'モデル機能',
     generate: 'テキスト生成',
+    embed: '埋め込み',
+    rerank: '並べ替え',
     chat: '会話',
     vision: '視覚',
     reasoning: '推論',

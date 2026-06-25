@@ -33,6 +33,8 @@ const en = {
     modelType: 'Model Type',
     modelAbility: 'Model Ability',
     generate: 'Text Generation',
+    embed: 'Embedding',
+    rerank: 'Rerank',
     chat: 'Conversation',
     vision: 'Vision',
     reasoning: 'Reasoning',

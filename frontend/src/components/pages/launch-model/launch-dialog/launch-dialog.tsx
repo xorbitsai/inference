@@ -1229,6 +1229,7 @@ export default function LaunchDialog({
     request
       .post('/v1/models', newValues, { noTimeout: true })
       .then(() => {
+        // Prevents a false deployment success notification when /v1/models returns model_uid after download cancellation, triggering the success logic below.
         if (isCanceledLaunchRef.current) {
           return;
         }
