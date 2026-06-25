@@ -1,0 +1,30 @@
+monitor/dashboard/security-audit/xinference-grafana-dashboard-security-audit-en.json
+  50907f70fc3ac2b5 158,217,276,335,343,837-1121
+monitor/dashboard/security-audit/xinference-grafana-dashboard-security-audit-ja.json
+  50907f70fc3ac2b5 158,217,276,335,343,837-1121
+monitor/dashboard/security-audit/xinference-grafana-dashboard-security-audit-ko.json
+  50907f70fc3ac2b5 158,217,276,335,343,837-1121
+xinference/api/restful_api.py
+  50907f70fc3ac2b5 278
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "10de03cbbbb3d548e1ab03beeb11da497e7c9153",
+  "prompts": {
+    "50907f70fc3ac2b5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6abd358-b19c-415c-8d3f-c028fc1a48c5",
+        "model": "glm-5.2"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 20246,
+      "total_deletions": 66,
+      "accepted_lines": 871,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/7b02e4dfedecdc98d3ba12cf630e9a8ff434162f4dd0d93d1c07293de9bcd17a"
+    }
+  }
+}
