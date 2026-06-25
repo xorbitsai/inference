@@ -40,12 +40,12 @@ RUN chmod +x list-packages.sh \
     && echo "=== $(wc -l < packages.txt) packages to download ===" \
     && cat packages.txt
 
-# Download every package; one failure does not block the rest, and each
-# failure is recorded so the run ends with a list of what's missing.
+# Download every package. Any failure fails the build.
 # Default branch: extra indexes supply CUDA wheels not published on PyPI.
 # VCS/URL branch uses `pip wheel`, not `pip download`: pip download zip-archives
 # the raw checkout and crashes on dangling symlinks (e.g. FunASR's MinMo_gitlab).
-RUN mkdir -p /data/packages && : > /tmp/failed.txt \
+RUN set -e \
+    && mkdir -p /data/packages \
     && fetch() { \
          case "$1" in \
            git+*|https://*) \
@@ -58,12 +58,9 @@ RUN mkdir -p /data/packages && : > /tmp/failed.txt \
          esac; \
        } \
     && while IFS= read -r pkg; do \
-         fetch "$pkg" && echo "OK  $pkg" || { echo "SKIP $pkg"; echo "$pkg" >> /tmp/failed.txt; }; \
+         echo "=== $pkg ==="; fetch "$pkg"; \
        done < packages.txt \
-    && echo "=== Downloaded $(find /data/packages -name '*.whl' | wc -l) wheels ===" \
-    && if [ -s /tmp/failed.txt ]; then \
-         echo "=== $(wc -l < /tmp/failed.txt) packages FAILED ==="; cat /tmp/failed.txt; \
-       else echo "=== all packages downloaded successfully ==="; fi
+    && echo "=== Downloaded $(find /data/packages -name '*.whl' | wc -l) wheels ==="
 
 # Remove pip cache to keep the layer small.
 RUN pip cache purge \
