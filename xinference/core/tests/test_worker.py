@@ -134,6 +134,7 @@ class MockWorkerActor(WorkerActor):
     # --- test helpers for report_status GPU attribution ---
     def set_supervisor_ref_for_test(self, ref):
         self._supervisor_ref = ref
+        self._registered = True
 
     def set_gpu_attribution_tables_for_test(self, pid, subpool, total_devices):
         self._model_uid_to_pid = dict(pid)
