@@ -109,6 +109,11 @@ XINFERENCE_LAUNCH_HISTORY_DB_PATH = os.environ.get(
     os.path.join(XINFERENCE_HOME, "launch_history.db"),
 )
 
+XINFERENCE_MONITOR_CONFIG_DB_PATH = os.environ.get(
+    "XINFERENCE_MONITOR_CONFIG_DB_PATH",
+    os.path.join(XINFERENCE_HOME, "monitor_config.db"),
+)
+
 # Whether to allow models to run their own bundled code (transformers /
 # sentence-transformers / FlagEmbedding / engine `trust_remote_code`). Off by
 # default; set XINFERENCE_TRUST_REMOTE_CODE=1 to allow it.

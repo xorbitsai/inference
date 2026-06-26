@@ -299,7 +299,7 @@
     "cancel": "キャンセル"
   },
   "monitoring": {
-    "notConfigured": "モニタリングが設定されていません。XINFERENCE_GRAFANA_URL 環境変数を設定してください。",
+    "notConfigured": "モニタリングが設定されていません。",
     "time": {
       "5m": "過去 5 分",
       "15m": "過去 15 分",
@@ -323,7 +323,45 @@
     "from": "開始",
     "to": "終了",
     "applyTimeRange": "時間範囲を適用",
-    "manualRefresh": "ダッシュボードを更新"
+    "manualRefresh": "ダッシュボードを更新",
+    "tab": {
+      "overview": "概要",
+      "modelLoad": "モデル負荷",
+      "llmSlo": "LLM SLO",
+      "gpu": "GPU",
+      "host": "ホスト",
+      "security": "セキュリティ"
+    },
+    "config": {
+      "title": "監視設定",
+      "grafanaUrl": "Grafana URL",
+      "datasource": "データソース名",
+      "alertDatasource": "アラートデータソース名",
+      "alertDatasourceHint": "空欄の場合はメインデータソースを使用",
+      "clusterName": "クラスター名",
+      "dashboardUid": "ダッシュボード UID",
+      "dashboardOverview": "クラスター概要",
+      "dashboardModelLoad": "モデル負荷",
+      "dashboardLlmSlo": "LLM SLO",
+      "dashboardGpu": "GPU リソース",
+      "dashboardHost": "ホストリソース",
+      "dashboardSecurity": "セキュリティ監査",
+      "save": "保存",
+      "saving": "保存中...",
+      "cancel": "キャンセル",
+      "reset": "デフォルトに戻す",
+      "openConfig": "設定を開く",
+      "sourceDb": "データベース",
+      "sourceEnv": "環境変数",
+      "sourceDefault": "デフォルト",
+      "healthCheckFailed": "Grafana 接続チェック失敗",
+      "saved": "設定を保存しました",
+      "saveFailed": "設定の保存に失敗しました",
+      "loadFailed": "設定の読み込みに失敗しました",
+      "resetDone": "設定をデフォルトに戻しました",
+      "checking": "チェック中..."
+    },
+    "configHint": "上の設定ボタンまたは下のボタンをクリックして Grafana を設定してください。"
   },
   "logs": {
     "notConfigured": "ログクエリが設定されていません。XINFERENCE_ES_URL 環境変数を設定してください。",

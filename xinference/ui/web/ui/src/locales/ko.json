@@ -299,7 +299,7 @@
     "cancel": "취소"
   },
   "monitoring": {
-    "notConfigured": "모니터링이 구성되지 않았습니다. XINFERENCE_GRAFANA_URL 환경 변수를 설정하세요.",
+    "notConfigured": "모니터링이 구성되지 않았습니다.",
     "time": {
       "5m": "최근 5분",
       "15m": "최근 15분",
@@ -323,7 +323,45 @@
     "from": "시작",
     "to": "종료",
     "applyTimeRange": "시간 범위 적용",
-    "manualRefresh": "대시보드 새로고침"
+    "manualRefresh": "대시보드 새로고침",
+    "tab": {
+      "overview": "개요",
+      "modelLoad": "모델 부하",
+      "llmSlo": "LLM SLO",
+      "gpu": "GPU",
+      "host": "호스트",
+      "security": "보안"
+    },
+    "config": {
+      "title": "모니터링 설정",
+      "grafanaUrl": "Grafana URL",
+      "datasource": "데이터소스 이름",
+      "alertDatasource": "알림 데이터소스 이름",
+      "alertDatasourceHint": "비워두면 메인 데이터소스 사용",
+      "clusterName": "클러스터 이름",
+      "dashboardUid": "대시보드 UID",
+      "dashboardOverview": "클러스터 개요",
+      "dashboardModelLoad": "모델 부하",
+      "dashboardLlmSlo": "LLM SLO",
+      "dashboardGpu": "GPU 리소스",
+      "dashboardHost": "호스트 리소스",
+      "dashboardSecurity": "보안 감사",
+      "save": "저장",
+      "saving": "저장 중...",
+      "cancel": "취소",
+      "reset": "기본값으로 초기화",
+      "openConfig": "설정 열기",
+      "sourceDb": "데이터베이스",
+      "sourceEnv": "환경변수",
+      "sourceDefault": "기본값",
+      "healthCheckFailed": "Grafana 연결 확인 실패",
+      "saved": "설정이 저장되었습니다",
+      "saveFailed": "설정 저장 실패",
+      "loadFailed": "설정 로드 실패",
+      "resetDone": "설정이 기본값으로 초기화되었습니다",
+      "checking": "확인 중..."
+    },
+    "configHint": "위의 설정 버튼 또는 아래 버튼을 클릭하여 Grafana를 설정하세요."
   },
   "logs": {
     "notConfigured": "로그 조회가 구성되지 않았습니다. XINFERENCE_ES_URL 환경 변수를 설정하세요.",
