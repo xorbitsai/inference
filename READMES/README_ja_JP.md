@@ -4,7 +4,7 @@
 # Xorbits Inference: モデルサービングを簡単に 🤖
 
 <p align="center">
-  <a href="https://xinference.io/en">Xinference エンタープライズ</a> ·
+  <a href="https://xinference.co">Xinference エンタープライズ</a> ·
   <a href="https://inference.readthedocs.io/en/latest/getting_started/installation.html#installation">セルフホスティング</a> ·
   <a href="https://inference.readthedocs.io/">ドキュメント</a>
 </p>

@@ -4,7 +4,7 @@
 # Xorbits Inference：讓模型部署變得簡單 🤖
 
 <p align="center">
-  <a href="https://xinference.io/en">Xinference Enterprise</a> ·
+  <a href="https://xinference.co">Xinference Enterprise</a> ·
   <a href="https://inference.readthedocs.io/en/latest/getting_started/installation.html#installation">自我託管（Self-Hosting）</a> ·
   <a href="https://inference.readthedocs.io/">文件</a>
 </p>
