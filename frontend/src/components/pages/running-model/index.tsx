@@ -10,16 +10,22 @@ import {
   MessageCircleMore,
   Cpu,
   Server,
+  Code,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import PageContainer from '@/components/ui/page-container';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { InfoTooltip } from '@/components/ui/tooltip';
 import { useI18n } from '@/contexts/i18n-context';
 import type { RunningModelItem, ReplicaItem } from '@/types/services';
 import request from '@/lib/request';
 import { cn } from '@/lib/utils';
+import {
+  getTryApiAbility,
+  TryApiDrawer,
+} from '@/components/pages/running-model-detail/try-api-drawer';
 
 interface EmptyStateProps {
   icon: ReactNode;
@@ -67,6 +73,11 @@ const RunningModel = () => {
   const [deleteConfirmLoading, setDeleteConfirmLoading] = useState(false);
   const [deleteReplicaId, setDeleteReplicaId] = useState<string | undefined>(undefined);
   const [deleteReplicaLoading, setDeleteReplicaLoading] = useState(false);
+  const [tryApiOpen, setTryApiOpen] = useState(false);
+  const tryApiAbility = useMemo(
+    () => getTryApiAbility(activeModel?.model_ability || []),
+    [activeModel?.model_ability]
+  );
   const visibleModels = useMemo(() => {
     const keyword = query.trim().toLowerCase();
 
@@ -221,6 +232,17 @@ const RunningModel = () => {
             >
               <MessageCircleMore />
             </Button>
+            <InfoTooltip content="Try To API">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setTryApiOpen(true)}
+                className="h-8 text-muted-foreground"
+              >
+                <Code />
+              </Button>
+            </InfoTooltip>
             <Button
               type="button"
               variant="outline"
@@ -368,6 +390,12 @@ const RunningModel = () => {
         confirmClassName="bg-destructive  hover:bg-destructive/90"
         onConfirm={handleDeleteReplica}
         isLoading={deleteReplicaLoading}
+      />
+      <TryApiDrawer
+        open={tryApiOpen}
+        onOpenChange={setTryApiOpen}
+        modelUid={activeModel?.id}
+        ability={tryApiAbility}
       />
     </PageContainer>
   );

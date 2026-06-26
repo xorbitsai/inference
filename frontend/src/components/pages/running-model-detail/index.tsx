@@ -1,13 +1,13 @@
 'use client';
 
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Info, WandSparkles } from 'lucide-react';
+import { ArrowLeft, Info, WandSparkles, Code } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { CollapsiblePanel } from '@/components/ui/collapsible';
 import PageContainer from '@/components/ui/page-container';
-import { ModelAbility } from '@/constants';
+import { ModelAbility, ModelType } from '@/constants';
 import request from '@/lib/request';
 import type { RunningModelDetail as RunningModelDetailType } from '@/types/services';
 
@@ -16,10 +16,16 @@ import CapabilityTaskPanel, { CapabilityTaskPanelMethod } from './panels/capabil
 import { ChatPanel } from './panels/chat-panel';
 import { Select } from '@/components/ui/select';
 import { useI18n } from '@/contexts/i18n-context';
+import { TryApiDrawer } from './try-api-drawer';
 
 interface RunningModelDetailProps {
   modelUid: string;
 }
+
+const MODEL_TYPE_ABILITY_MAP: Record<string, ModelAbility[]> = {
+  [ModelType.Rerank]: [ModelAbility.Rerank],
+  [ModelType.Embedding]: [ModelAbility.Embed],
+};
 
 function DetailItem({ label, value }: { label: string; value?: string | number | null }) {
   return (
@@ -76,16 +82,26 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
   const [loading, setLoading] = useState(true);
   const isChat = (model?.model_ability || []).includes(ModelAbility.Chat);
   const [selectAbility, setSelectAbility] = useState<ModelAbility | undefined>(undefined);
+  const [tryApiOpen, setTryApiOpen] = useState(false);
   const capabilityTaskPanelRef = useRef<CapabilityTaskPanelMethod>(null);
+  const tryApiAbility = isChat ? ModelAbility.Chat : selectAbility;
 
   const fetchModel = useCallback(() => {
     setLoading(true);
     request
       .get<RunningModelDetailType>(`/v1/models/${modelUid}`)
       .then((res) => {
-        const firstAbility = (res?.model_ability || []).filter((item) => !item.includes('_'))?.[0];
+        const newModel = {
+          ...res,
+          // fix model_ability was not returned when model_type was Rerank or Embedding.
+          // model_ability: Array.isArray(res?.model_ability)
+          //   ? res.model_ability
+          //   : (res?.model_type && MODEL_TYPE_ABILITY_MAP[res.model_type]) || [],
+          model_ability: [ModelAbility.Text2audio,ModelAbility.Audio2text ]
+        };
+        const firstAbility = newModel.model_ability.filter((item) => !item.includes('_'))?.[0];
         setSelectAbility(firstAbility);
-        setModel(res);
+        setModel(newModel);
       })
       .finally(() => setLoading(false));
   }, [modelUid]);
@@ -161,6 +177,10 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
               onChange={handleAbility}
             />
           )}
+          <Button type="button" variant="outline" onClick={() => setTryApiOpen(true)}>
+            <Code/>
+            Try To API
+          </Button>
         </div>
       }
     >
@@ -170,6 +190,12 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
           {renderCapability()}
         </div>
       )}
+      <TryApiDrawer
+        open={tryApiOpen}
+        onOpenChange={setTryApiOpen}
+        modelUid={modelUid}
+        ability={tryApiAbility}
+      />
     </PageContainer>
   );
 };

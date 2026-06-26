@@ -31,6 +31,25 @@ export interface TransformContext {
   requestId?: string;
 }
 
+export type CodeExampleContentType = 'json' | 'form';
+
+export type CodeExampleFieldType = 'text' | 'file';
+
+export interface CodeExampleField {
+  key: string;
+  required?: boolean;
+  value?: unknown;
+  comment?: string;
+  type?: CodeExampleFieldType;
+  stringify?: boolean;
+}
+
+export interface CodeExampleConfig {
+  method: 'POST';
+  contentType: CodeExampleContentType;
+  fields: CodeExampleField[];
+}
+
 export interface CapabilityConfig {
   ability: ModelAbility;
   label: string;
@@ -42,6 +61,7 @@ export interface CapabilityConfig {
   resultPanel: ComponentType<CapabilityResultProps>;
   transformValues: (context: TransformContext) => BodyInit | Record<string, unknown>;
   responseType?: 'blob';
+  codeExample?: CodeExampleConfig;
 }
 
 export interface ChatSettings {

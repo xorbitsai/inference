@@ -6,24 +6,35 @@ import { useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 
 interface JSONSyntaxHighlighterProps {
-  data: unknown;
+  data?: unknown;
+  code?: string;
+  language?: string;
   className?: string;
 }
 
 const formatJSON = (data: unknown): string => {
   try {
-    return JSON.stringify(data, null, 2);
+    return JSON.stringify(data, null, 2) ?? String(data);
   } catch {
     return String(data);
   }
 };
 
-export function JSONSyntaxHighlighter({ data, className = '' }: JSONSyntaxHighlighterProps) {
+export function JSONSyntaxHighlighter({
+  data,
+  code,
+  language = 'json',
+  className = '',
+}: JSONSyntaxHighlighterProps) {
   const { theme } = useTheme();
-  const highlightedCode = useMemo(
-    () => hljs.highlight(formatJSON(data), { language: 'json' }).value,
-    [data]
-  );
+  const sourceCode = code ?? formatJSON(data);
+  const highlightedCode = useMemo(() => {
+    try {
+      return hljs.highlight(sourceCode, { language }).value;
+    } catch {
+      return hljs.highlightAuto(sourceCode).value;
+    }
+  }, [language, sourceCode]);
 
   useEffect(() => {
     // Dynamically load syntax highlighting styles suitable for the current theme
@@ -47,7 +58,7 @@ export function JSONSyntaxHighlighter({ data, className = '' }: JSONSyntaxHighli
   return (
     <pre className={cn('bg-muted p-4 rounded-lg overflow-x-auto', className)}>
       <code
-        className="language-json text-sm"
+        className={cn(`language-${language}`, 'text-sm')}
         dangerouslySetInnerHTML={{ __html: highlightedCode }}
       />
     </pre>
