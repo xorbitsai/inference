@@ -1,0 +1,62 @@
+xinference/api/oauth2/advanced/audit.py
+  dcabe8ca0aeccedc 23-28,46-48
+xinference/deploy/utils.py
+  dcabe8ca0aeccedc 21,28-31,57-72,78-137,139-170,181-398,778,815-817,823-824
+xinference/constants.py
+  dcabe8ca0aeccedc 111-113,144,174
+xinference/core/log.py
+  dcabe8ca0aeccedc 18,29,38-39,41,43,48-49,60-70,72-74
+xinference/deploy/cmdline.py
+  dcabe8ca0aeccedc 41,112,291,357
+xinference/deploy/test/test_log_rotation.py
+  dcabe8ca0aeccedc 1-534
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "4e7307e182ca11101da341c8941df0c7c2278e52",
+  "prompts": {
+    "50907f70fc3ac2b5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6abd358-b19c-415c-8d3f-c028fc1a48c5",
+        "model": "glm-5.2"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 183,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/80c69312bb520157abe614eee71c4a5968ec11da058b3d46440d1e005f5aadd1"
+    },
+    "a6e133720a8af5af": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4ddd8d6e-6abb-4f60-b4a9-fe42ee9f14b2",
+        "model": "glm-5.2"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/93f66564e796cb480651af015fd6de54b1059989c98c63588cbf0f4b661bead7"
+    },
+    "dcabe8ca0aeccedc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1fcd0ab2-41c6-4987-abf5-b12659bd089f",
+        "model": "glm-5.2"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 7960,
+      "total_deletions": 284,
+      "accepted_lines": 7956,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/52e65e29fdaf510092c1ee3f7f714873355788d6a07efc1ac853b819ebfda43d"
+    }
+  }
+}
