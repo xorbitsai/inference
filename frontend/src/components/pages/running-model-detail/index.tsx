@@ -67,7 +67,7 @@ function ModelDetails({ model, modelUid }: { model: RunningModelDetailType; mode
   );
 }
 const EmptyForAbility = () => (
-  <div className="flex min-h-[420px] flex-col items-center justify-center rounded-3xl border bg-card text-center">
+  <div className="flex min-h-[calc(100vh-216px)] flex-col items-center justify-center rounded-3xl border bg-card text-center">
     <WandSparkles className="mb-4 size-10 text-muted-foreground" />
     <h2 className="text-lg font-semibold">No supported interactive capability</h2>
     <p className="mt-2 text-sm text-muted-foreground">
@@ -94,10 +94,9 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
         const newModel = {
           ...res,
           // fix model_ability was not returned when model_type was Rerank or Embedding.
-          // model_ability: Array.isArray(res?.model_ability)
-          //   ? res.model_ability
-          //   : (res?.model_type && MODEL_TYPE_ABILITY_MAP[res.model_type]) || [],
-          model_ability: [ModelAbility.Text2audio,ModelAbility.Audio2text ]
+          model_ability: Array.isArray(res?.model_ability)
+            ? res.model_ability
+            : (res?.model_type && MODEL_TYPE_ABILITY_MAP[res.model_type]) || [],
         };
         const firstAbility = newModel.model_ability.filter((item) => !item.includes('_'))?.[0];
         setSelectAbility(firstAbility);
@@ -119,7 +118,7 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
           label: t(`launchModel.${item}`),
         };
       });
-  }, [model]);
+  }, [model, t]);
 
   const handleAbility = (value?: ModelAbility) => {
     if (!value) return;
@@ -127,15 +126,16 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
     capabilityTaskPanelRef.current?.reset?.();
   };
   const renderCapability = () => {
-    if (!model || !selectAbility) return null;
+    if (!model) return null;
 
     if (isChat) {
       return <ChatPanel model={model} modelUid={modelUid} />;
     }
 
-    if (!CAPABILITY_CONFIGS[selectAbility]) {
+    if (!selectAbility || !CAPABILITY_CONFIGS[selectAbility]) {
       return <EmptyForAbility />;
     }
+
     return (
       <CapabilityTaskPanel
         config={CAPABILITY_CONFIGS[selectAbility]}
