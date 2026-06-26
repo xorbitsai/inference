@@ -50,8 +50,6 @@ jobs:
     needs: lint
     env:
       CONDA_ENV: test
-      SELF_HOST_PYTHON: /root/miniconda3/envs/inference_test/bin/python
-      SELF_HOST_CONDA: /root/miniconda3/condabin/conda
     defaults:
       run:
         shell: bash -l {0}
@@ -67,7 +65,7 @@ jobs:
           - { os: windows-latest, python-version: 3.11 }
           - { os: windows-latest, python-version: 3.12 }
         include:
-          - { os: self-hosted, module: gpu, python-version: "3.11"}
+          # - { os: gpu-t4, module: gpu, python-version: "3.12"}      commented out temporarily
           - { os: macos-latest, module: metal, python-version: "3.10" }
 
     steps:
@@ -79,7 +77,6 @@ jobs:
 
       - name: Set up conda ${{ matrix.python-version }}
         uses: conda-incubator/setup-miniconda@v3
-        if: ${{ matrix.module != 'gpu' }}
         with:
           python-version: ${{ matrix.python-version }}
           activate-environment: ${{ env.CONDA_ENV }}
@@ -196,111 +193,111 @@ jobs:
           TORCH_DISABLE_FLASH_ATTENTION: 1
         run: |
           if [ "$MODULE" == "gpu" ]; then
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U -e ".[audio,dev]"
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "openai>1"
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U modelscope
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U gguf
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U uv
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U sse_starlette
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U xoscar
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "python-jose[cryptography]"
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "passlib[bcrypt]"
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "aioprometheus[starlette]"
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "pynvml"
-            ${{ env.SELF_HOST_PYTHON }} -m pip install "transformers==4.53.2"
-            ${{ env.SELF_HOST_PYTHON }} -m pip install "funasr==1.2.7"
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U nemo_text_processing<1.1.0
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U omegaconf~=2.3.0
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U WeTextProcessing<1.0.4
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U librosa
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U xxhash
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "ChatTTS==0.2.4"
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U HyperPyYAML
-            ${{ env.SELF_HOST_PYTHON }} -m pip uninstall -y matcha-tts
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U onnxruntime-gpu==1.16.0; sys_platform == 'linux'
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U openai-whisper
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "torch==2.7.0" "torchaudio==2.7.0" "torchvision==0.22.0"
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "loguru"
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "natsort"
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "loralib"
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "ormsgpack"
-            ${{ env.SELF_HOST_PYTHON }} -m pip uninstall -y opencc
-            ${{ env.SELF_HOST_PYTHON }} -m pip uninstall -y "faster_whisper"
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U accelerate
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U verovio
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U cachetools
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U silero-vad
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U pydantic
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U diffusers
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U onnx
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U onnxconverter_common
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U torchdiffeq
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "x_transformers>=1.31.14"
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U pypinyin
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U tomli
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U vocos
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U jieba
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U soundfile
-            ${{ env.SELF_HOST_PYTHON }} -m pip install tensorizer
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U sentence-transformers
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U FlagEmbedding
-            ${{ env.SELF_HOST_PYTHON }} -m pip install -U "peft<=0.17.1"
-            ${{ env.SELF_HOST_PYTHON }} -m pip install "xllamacpp>=0.2.0" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 --extra-index-url https://pypi.org/simple
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            pip install -U -e ".[audio,dev]"
+            pip install -U "openai>1"
+            pip install -U modelscope
+            pip install -U gguf
+            pip install -U uv
+            pip install -U sse_starlette
+            pip install -U xoscar
+            pip install -U "python-jose[cryptography]"
+            pip install -U "passlib[bcrypt]"
+            pip install -U "aioprometheus[starlette]"
+            pip install -U "pynvml"
+            pip install "transformers==4.53.2"
+            pip install "funasr==1.2.7"
+            pip install -U "nemo_text_processing<1.1.0"
+            pip install -U omegaconf~=2.3.0
+            pip install -U "WeTextProcessing<1.0.4"
+            pip install -U librosa
+            pip install -U xxhash
+            pip install -U "ChatTTS==0.2.4"
+            pip install -U HyperPyYAML
+            pip uninstall -y matcha-tts
+            pip install -U onnxruntime-gpu==1.16.0; sys_platform == 'linux'
+            pip install -U openai-whisper
+            pip install -U "torch==2.7.0" "torchaudio==2.7.0" "torchvision==0.22.0"
+            pip install -U "loguru"
+            pip install -U "natsort"
+            pip install -U "loralib"
+            pip install -U "ormsgpack"
+            pip uninstall -y opencc
+            pip uninstall -y "faster_whisper"
+            pip install -U accelerate
+            pip install -U verovio
+            pip install -U cachetools
+            pip install -U silero-vad
+            pip install -U pydantic
+            pip install -U diffusers
+            pip install -U onnx
+            pip install -U onnxconverter_common
+            pip install -U torchdiffeq
+            pip install -U "x_transformers>=1.31.14"
+            pip install -U pypinyin
+            pip install -U tomli
+            pip install -U vocos
+            pip install -U jieba
+            pip install -U soundfile
+            pip install tensorizer
+            pip install -U sentence-transformers
+            pip install -U FlagEmbedding
+            pip install -U "peft<=0.17.1"
+            pip install "xllamacpp>=0.2.0" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 --extra-index-url https://pypi.org/simple
+            pytest --timeout=3000 \
               --disable-warnings \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/core/tests/test_continuous_batching.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/embedding/tests/test_qwen3_vl_engine_params.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/rerank/tests/test_qwen3_vl_reranker_virtualenv.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/image/tests/test_stable_diffusion.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/image/tests/test_got_ocr2.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_whisper.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_funasr.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_chattts.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_cosyvoice.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_f5tts.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_f5tts.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_melotts.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_kokoro.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_fish_speech.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_megatts.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/embedding/tests/test_integrated_embedding.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/embedding/vllm/tests/test_vllm_embedding.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/llm/transformers/tests/test_tensorizer.py && \
-            ${{ env.SELF_HOST_PYTHON }} -m pytest --timeout=3000 \
+            pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/llm/tests/test_llm_model.py
           elif [ "$MODULE" == "metal" ]; then
