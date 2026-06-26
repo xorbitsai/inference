@@ -7,6 +7,7 @@ import ReactMarkdown from '@/components/ui/markdown-renderer';
 import { MediaPreview } from '@/components/ui/media-preview';
 import { Progress } from '@/components/ui/progress';
 import type { FormValues } from '@/types/form';
+import type { CompletionResponse } from '@/types/services';
 import { ModelAbility } from '@/constants';
 import { cn } from '@/lib/utils';
 import { isNumber } from '@/lib/is';
@@ -19,31 +20,6 @@ type MediaType = 'image' | 'video' | 'audio';
 interface MediaResult {
   url: string;
   title?: string;
-}
-
-interface CompletionChoice {
-  text?: string;
-  index?: number;
-  logprobs?: unknown;
-  finish_reason?: string | null;
-  [key: string]: unknown;
-}
-
-interface CompletionUsage {
-  prompt_tokens?: number;
-  completion_tokens?: number;
-  total_tokens?: number;
-  [key: string]: unknown;
-}
-
-interface CompletionResult {
-  id?: string;
-  object?: string;
-  created?: number;
-  model?: string;
-  choices: CompletionChoice[];
-  usage?: CompletionUsage;
-  [key: string]: unknown;
 }
 
 interface AudioToTextResult {
@@ -249,7 +225,7 @@ function RawResultPanel({ result }: { result: unknown }) {
   return <JsonBlock value={result} />;
 }
 
-function CompletionResultPanel({ result }: { result: CompletionResult }) {
+function CompletionResultPanel({ result }: { result: CompletionResponse }) {
   const firstChoice = result.choices[0];
   const text = stringValue(firstChoice?.text);
   const usage = result.usage;
@@ -375,7 +351,7 @@ export function UniversalResultPanel({
   }
 
   if (ability === ModelAbility.Generate) {
-    return <CompletionResultPanel result={result as CompletionResult} />;
+    return <CompletionResultPanel result={result as CompletionResponse} />;
   }
 
   if (ability === ModelAbility.Ocr) {

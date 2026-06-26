@@ -171,3 +171,58 @@ export interface ChatStreamResult {
     total_tokens: number;
   };
 }
+
+interface CompletionChoice {
+  text?: string;
+  index?: number;
+  logprobs?: unknown;
+  finish_reason?: string | null;
+  [key: string]: unknown;
+}
+
+interface TokenUsage {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+  [key: string]: unknown;
+}
+
+export interface CompletionResponse {
+  id?: string;
+  object?: string;
+  created?: number;
+  model?: string;
+  choices: CompletionChoice[];
+  usage?: TokenUsage;
+  [key: string]: unknown;
+}
+
+interface RerankMeta {
+  api_version: string | null;
+  billed_units: string | null;
+  tokens: string | null;
+  warnings: string | null;
+}
+interface RerankResult {
+  index: number;
+  relevance_score: number;
+  document: string;
+}
+export interface RerankResponse {
+  id: string;
+  meta: RerankMeta;
+  results: RerankResult[];
+}
+
+interface EmbeddingsData {
+  embedding: number[];
+  index: number;
+  object: string;
+}
+export interface EmbeddingsResponse {
+  data: EmbeddingsData[];
+  model: string;
+  model_replica: string;
+  object: string;
+  usage: TokenUsage;
+}

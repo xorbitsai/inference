@@ -1,65 +1,65 @@
-import { clsx, type ClassValue } from "clsx"
+import { clsx, type ClassValue } from 'clsx';
 import { FileAudio, FileText, FileVideo, ImageIcon } from 'lucide-react';
-import { twMerge } from "tailwind-merge"
-import { toast } from 'sonner'; 
-import type { BaseFormListValueItem } from '@/types/common'; 
+import { twMerge } from 'tailwind-merge';
+import { toast } from 'sonner';
+import type { BaseFormListValueItem } from '@/types/common';
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+  return twMerge(clsx(inputs));
 }
 
 export function getApiUrl(): string {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || ''
-  return apiUrl
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+  return apiUrl;
 }
 
 export function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 Bytes'
+  if (bytes === 0) return '0 Bytes';
 
-  const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
 
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout | null = null
+  let timeout: NodeJS.Timeout | null = null;
 
   return (...args: Parameters<T>) => {
     if (timeout) {
-      clearTimeout(timeout)
+      clearTimeout(timeout);
     }
 
     timeout = setTimeout(() => {
-      func(...args)
-    }, wait)
-  }
+      func(...args);
+    }, wait);
+  };
 }
 export function throttle<T extends (...args: any[]) => any>(
   func: T,
   limit: number
 ): (...args: Parameters<T>) => void {
-  let inThrottle: boolean = false
+  let inThrottle: boolean = false;
 
   return (...args: Parameters<T>) => {
     if (!inThrottle) {
-      func(...args)
-      inThrottle = true
+      func(...args);
+      inThrottle = true;
       setTimeout(() => {
-        inThrottle = false
-      }, limit)
+        inThrottle = false;
+      }, limit);
     }
-  }
+  };
 }
 
-export function sleep(ms: number): Promise<void>{
+export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
-};
+}
 
 /** transform formValue example: 'true' to true */
 export const transformValueType = (str: any) => {
@@ -77,20 +77,23 @@ export const transformFormListToObj = (formList: unknown = [], transformValue = 
     return {};
   }
 
-  return formList.reduce((acc, item) => {
-    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+  return formList.reduce(
+    (acc, item) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) {
+        return acc;
+      }
+
+      const { key, value } = item as Partial<BaseFormListValueItem>;
+      const normalizedKey = typeof key === 'string' ? key.trim() : '';
+
+      if (normalizedKey) {
+        acc[normalizedKey] = transformValue ? transformValueType(value) : value;
+      }
+
       return acc;
-    }
-
-    const { key, value } = item as Partial<BaseFormListValueItem>;
-    const normalizedKey = typeof key === 'string' ? key.trim() : '';
-
-    if (normalizedKey) {
-      acc[normalizedKey] = transformValue ? transformValueType(value) : value;
-    }
-
-    return acc;
-  }, {} as Record<string, any>);
+    },
+    {} as Record<string, any>
+  );
 };
 /** transform { abc: 123 } to [{ key: 'abc', value: '123'}] */
 export const transformObjToFormList = (obj: Record<string, any> = {}) => {

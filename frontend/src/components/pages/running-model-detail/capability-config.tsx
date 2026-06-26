@@ -1,9 +1,11 @@
 import {
   AudioLines,
+  Binary,
   FileText,
   FileSearch,
   ImagePlus,
   ImageUp,
+  ListFilter,
   Mic,
   Paintbrush,
   ScanText,
@@ -21,6 +23,8 @@ import {
   ImageToVideoPanel,
   InpaintingPanel,
   OcrPanel,
+  EmbedPanel,
+  RerankPanel,
   SpeechPanel,
   TextPromptPanel,
   TextToImagePanel,
@@ -180,6 +184,41 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
         : {}),
     }),
   },
+  [ModelAbility.Embed]: {
+    ability: ModelAbility.Embed,
+    label: 'Embedding',
+    icon: Binary,
+    requestApi: '/v1/embeddings',
+    initialValues: {
+      input: '',
+    },
+    formPanel: EmbedPanel,
+    resultPanel: ResultPanels.Universal,
+    transformValues: ({ modelUid, values }) => ({
+      model: modelUid,
+      input: stringValue(values.input),
+    }),
+  },
+  [ModelAbility.Rerank]: {
+    ability: ModelAbility.Rerank,
+    label: 'Rerank',
+    icon: ListFilter,
+    requestApi: '/v1/rerank',
+    initialValues: {
+      query: '',
+      documents: ['', ''],
+    },
+    formPanel: RerankPanel,
+    resultPanel: ResultPanels.Universal,
+    transformValues: ({ modelUid, values }) => ({
+      model: modelUid,
+      query: stringValue(values.query),
+      documents: Array.isArray(values.documents)
+        ? values.documents.map((item) => stringValue(item).trim()).filter(Boolean)
+        : [],
+    }),
+  },
+
   [ModelAbility.Ocr]: {
     ability: ModelAbility.Ocr,
     label: 'OCR',

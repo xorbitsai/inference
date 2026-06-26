@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { CollapsiblePanel } from '@/components/ui/collapsible';
 import PageContainer from '@/components/ui/page-container';
-import { ModelAbility } from '@/constants';
+import { ModelAbility, ModelType } from '@/constants';
 import request from '@/lib/request';
 import type { RunningModelDetail as RunningModelDetailType } from '@/types/services';
 
@@ -20,6 +20,11 @@ import { useI18n } from '@/contexts/i18n-context';
 interface RunningModelDetailProps {
   modelUid: string;
 }
+
+const MODEL_TYPE_ABILITY_MAP: Record<string, ModelAbility[]> = {
+  [ModelType.Rerank]: [ModelAbility.Rerank],
+  [ModelType.Embedding]: [ModelAbility.Embed],
+};
 
 function DetailItem({ label, value }: { label: string; value?: string | number | null }) {
   return (
@@ -61,7 +66,7 @@ function ModelDetails({ model, modelUid }: { model: RunningModelDetailType; mode
   );
 }
 const EmptyForAbility = () => (
-  <div className="flex min-h-[420px] flex-col items-center justify-center rounded-3xl border bg-card text-center">
+  <div className="flex min-h-[calc(100vh-216px)] flex-col items-center justify-center rounded-3xl border bg-card text-center">
     <WandSparkles className="mb-4 size-10 text-muted-foreground" />
     <h2 className="text-lg font-semibold">No supported interactive capability</h2>
     <p className="mt-2 text-sm text-muted-foreground">
@@ -83,9 +88,16 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
     request
       .get<RunningModelDetailType>(`/v1/models/${modelUid}`)
       .then((res) => {
-        const firstAbility = (res?.model_ability || []).filter((item) => !item.includes('_'))?.[0];
+        const newModel = {
+          ...res,
+          // fix model_ability was not returned when model_type was Rerank or Embedding.
+          model_ability: Array.isArray(res?.model_ability)
+            ? res.model_ability
+            : (res?.model_type && MODEL_TYPE_ABILITY_MAP[res.model_type]) || [],
+        };
+        const firstAbility = newModel.model_ability.filter((item) => !item.includes('_'))?.[0];
         setSelectAbility(firstAbility);
-        setModel(res);
+        setModel(newModel);
       })
       .finally(() => setLoading(false));
   }, [modelUid]);
@@ -103,7 +115,7 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
           label: t(`launchModel.${item}`),
         };
       });
-  }, [model]);
+  }, [model, t]);
 
   const handleAbility = (value?: ModelAbility) => {
     if (!value) return;
@@ -111,15 +123,16 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
     capabilityTaskPanelRef.current?.reset?.();
   };
   const renderCapability = () => {
-    if (!model || !selectAbility) return null;
+    if (!model) return null;
 
     if (isChat) {
       return <ChatPanel model={model} modelUid={modelUid} />;
     }
 
-    if (!CAPABILITY_CONFIGS[selectAbility]) {
+    if (!selectAbility || !CAPABILITY_CONFIGS[selectAbility]) {
       return <EmptyForAbility />;
     }
+
     return (
       <CapabilityTaskPanel
         config={CAPABILITY_CONFIGS[selectAbility]}

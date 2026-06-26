@@ -1,15 +1,21 @@
 'use client';
 
 import { useMemo, useRef, useState, useImperativeHandle, forwardRef, useEffect } from 'react';
-import { RotateCcw, Sparkles } from 'lucide-react';
+import { Copy, RotateCcw, Sparkles } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
+import { ModelAbility, ModelType } from '@/constants';
 import { createForm } from '@/hooks/use-form';
 import request from '@/lib/request';
-import { cn, sleep } from '@/lib/utils';
+import { cn, copyText, sleep } from '@/lib/utils';
 import { isNumber } from '@/lib/is';
-import type { RunningModelDetail } from '@/types/services';
+import type {
+  RunningModelDetail,
+  CompletionResponse,
+  RerankResponse,
+  EmbeddingsResponse,
+} from '@/types/services';
 import type { FormValues } from '@/types/form';
 
 import type { CapabilityConfig } from '../types';
@@ -44,6 +50,42 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
     const [resultValues, setResultValues] = useState<FormValues | undefined>();
     const [loading, setLoading] = useState(false);
     const [progress, setProgress] = useState<number | undefined>();
+
+    const showCopyResult = useMemo(() => {
+      return (
+        config.ability === ModelAbility.Generate ||
+        model.model_type === ModelType.Rerank ||
+        model.model_type === ModelType.Embedding
+      );
+    }, [config.ability, model.model_type]);
+    const copyResultValue = useMemo(() => {
+      if (result === undefined) {
+        return '';
+      }
+      if (config.ability === ModelAbility.Generate) {
+        const text = (result as CompletionResponse)?.choices?.[0]?.text;
+        return typeof text === 'string' ? text : '';
+      }
+      if (model.model_type === ModelType.Rerank) {
+        const results = (result as RerankResponse)?.results;
+        try {
+          return JSON.stringify(results, null, 2) || '';
+        } catch {
+          return String(results);
+        }
+      }
+
+      if (model.model_type === ModelType.Embedding) {
+        const data = (result as EmbeddingsResponse)?.data;
+        try {
+          return JSON.stringify(data, null, 2) || '';
+        } catch {
+          return String(data);
+        }
+      }
+
+      return '';
+    }, [result, config.ability, model.model_type]);
 
     const trackProgress = async (
       requestId: string,
@@ -89,7 +131,7 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
       const body = config.transformValues({ modelUid, model, values, requestId });
       const requestPromise = request.post(config.requestApi, body, {
         ...(config.responseType === 'blob' ? { responseType: 'blob' as const } : {}),
-        noTimeout: true
+        noTimeout: true,
       });
       requestPromise
         .then((response) => {
@@ -171,6 +213,17 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
         <section className="relative overflow-hidden rounded-xl border bg-background shadow-sm">
           <div className="flex items-center justify-between border-b bg-card/80 p-4">
             <h3 className="text-base font-semibold">Results</h3>
+            {showCopyResult && copyResultValue && !loading && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-8 rounded-full text-muted-foreground"
+                onClick={() => copyText(copyResultValue)}
+              >
+                <Copy className="size-4" />
+              </Button>
+            )}
           </div>
           <div className="p-4">
             <ResultPanel
