@@ -103,6 +103,7 @@ celerybeat.pid
 # Environments
 .env
 .venv
+.inference_home
 env/
 venv/
 ENV/

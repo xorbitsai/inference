@@ -183,15 +183,17 @@ def get_batch_size_and_seq_len_from_kv_cache(kv, xinf_model_obj: "PytorchModel")
         if isinstance(kv, HybridCache):
             return kv.key_cache[0].shape[bs_idx], kv.get_seq_length()
     except ImportError:
-        if kv is None:
-            return 0, 0
+        pass
 
-        if hasattr(kv, "key_cache"):
-            if len(kv.key_cache) == 0 or kv.key_cache[0] is None:
-                return 0, kv.get_seq_length() if hasattr(kv, "get_seq_length") else 0
+    if kv is None:
+        return 0, 0
 
-            key = kv.key_cache[0]
-            return key.shape[bs_idx], kv.get_seq_length()
+    if hasattr(kv, "key_cache"):
+        if len(kv.key_cache) == 0 or kv.key_cache[0] is None:
+            return 0, kv.get_seq_length() if hasattr(kv, "get_seq_length") else 0
+
+        key = kv.key_cache[0]
+        return key.shape[bs_idx], kv.get_seq_length()
 
     return kv[0][0].shape[bs_idx], kv[0][0].shape[seq_len_idx] + 1
 
