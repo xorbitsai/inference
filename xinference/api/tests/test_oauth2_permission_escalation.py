@@ -36,3 +36,18 @@ def test_admin_can_grant_anything(monkeypatch):
 def test_granting_held_permissions_is_allowed(monkeypatch):
     _patch_caller(monkeypatch, ["users:manage", "models:read"])
     routes._reject_permission_escalation(None, None, ["users:manage", "models:read"])
+
+
+@pytest.mark.parametrize("bad", ["admin", 123, True, ["admin", 1]])
+def test_non_list_of_strings_rejected(monkeypatch, bad):
+    _patch_caller(monkeypatch, ["admin"])
+    with pytest.raises(HTTPException) as exc:
+        routes._reject_permission_escalation(None, None, bad)
+    assert exc.value.status_code == 400
+
+
+def test_none_caller_scopes_does_not_crash(monkeypatch):
+    _patch_caller(monkeypatch, None)
+    with pytest.raises(HTTPException) as exc:
+        routes._reject_permission_escalation(None, None, ["admin"])
+    assert exc.value.status_code == 403
