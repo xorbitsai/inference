@@ -6,7 +6,7 @@ must be rejected once expired (the decode path now uses verify_exp=True).
 from datetime import timedelta
 
 import pytest
-from jose import JWTError, jwt
+from jose import ExpiredSignatureError, jwt
 
 from xinference.api.oauth2.utils import create_access_token
 
@@ -26,7 +26,7 @@ def test_expired_token_is_rejected():
         algorithm=_ALG,
         expires_delta=timedelta(minutes=-5),
     )
-    with pytest.raises(JWTError):
+    with pytest.raises(ExpiredSignatureError):
         _decode(token)
 
 
