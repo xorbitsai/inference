@@ -155,7 +155,7 @@
       },
       "targets": [
         {
-          "expr": "xinference:api_keys_active_total{cluster=~\"$cluster\"}",
+          "expr": "xinference:api_keys_active_total",
           "legendFormat": "Active",
           "refId": "A"
         }
@@ -214,7 +214,7 @@
       },
       "targets": [
         {
-          "expr": "xinference:api_keys_expired_total{cluster=~\"$cluster\"}",
+          "expr": "xinference:api_keys_expired_total",
           "legendFormat": "Expired",
           "refId": "A"
         }
@@ -273,7 +273,7 @@
       },
       "targets": [
         {
-          "expr": "xinference:banned_ips_total{cluster=~\"$cluster\"}",
+          "expr": "xinference:banned_ips_total",
           "legendFormat": "Banned IPs",
           "refId": "A"
         }
@@ -332,7 +332,7 @@
       },
       "targets": [
         {
-          "expr": "xinference:banned_keys_total{cluster=~\"$cluster\"}",
+          "expr": "xinference:banned_keys_total",
           "legendFormat": "Banned Keys",
           "refId": "A"
         }
@@ -340,7 +340,7 @@
     },
     {
       "id": 303,
-      "title": "API Key リクエスト QPS",
+      "title": "API Key リクエスト RPM (直近1分)",
       "type": "timeseries",
       "gridPos": {
         "h": 10,
@@ -390,7 +390,7 @@
               }
             ]
           },
-          "unit": "reqps"
+          "unit": "none"
         },
         "overrides": []
       },
@@ -409,7 +409,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(xinference:api_key_requests_total{cluster=~\"$cluster\"}[5m])) by (user)",
+          "expr": "sum(increase(xinference:api_key_requests_total[1m])) by (user)",
           "legendFormat": "{{user}}",
           "refId": "A"
         }
@@ -490,12 +490,12 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(xinference:api_key_request_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])) by (le, model_name, model_type))",
+          "expr": "histogram_quantile(0.95, sum(rate(xinference:api_key_request_duration_seconds_bucket[5m])) by (le, model_name, model_type))",
           "legendFormat": "{{model_name}} ({{model_type}}) P95",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.50, sum(rate(xinference:api_key_request_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])) by (le, model_name, model_type))",
+          "expr": "histogram_quantile(0.50, sum(rate(xinference:api_key_request_duration_seconds_bucket[5m])) by (le, model_name, model_type))",
           "legendFormat": "{{model_name}} ({{model_type}}) P50",
           "refId": "B"
         }
@@ -503,7 +503,7 @@
     },
     {
       "id": 305,
-      "title": "API Key 呼び出しステータス分布",
+      "title": "API Key 呼び出しステータス分布 (直近1分)",
       "type": "timeseries",
       "gridPos": {
         "h": 10,
@@ -553,7 +553,7 @@
               }
             ]
           },
-          "unit": "reqps"
+          "unit": "none"
         },
         "overrides": [
           {
@@ -603,7 +603,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(xinference:api_key_requests_total{cluster=~\"$cluster\"}[5m])) by (status)",
+          "expr": "sum(increase(xinference:api_key_requests_total[1m])) by (status)",
           "legendFormat": "{{status}}",
           "refId": "A"
         }
@@ -678,19 +678,19 @@
       },
       "targets": [
         {
-          "expr": "topk(10, sum(xinference:api_key_requests_total{cluster=~\"$cluster\"}) by (user, api_key_name))",
+          "expr": "topk(10, sum(xinference:api_key_requests_total) by (user, api_key_name))",
           "format": "table",
           "instant": true,
           "refId": "A"
         },
         {
-          "expr": "topk(10, sum(xinference:api_key_requests_total{cluster=~\"$cluster\", status=\"success\"}) by (user, api_key_name))",
+          "expr": "topk(10, sum(xinference:api_key_requests_total{status=\"success\"}) by (user, api_key_name))",
           "format": "table",
           "instant": true,
           "refId": "B"
         },
         {
-          "expr": "topk(10, sum(xinference:api_key_requests_total{cluster=~\"$cluster\", status!=\"success\"}) by (user, api_key_name))",
+          "expr": "topk(10, sum(xinference:api_key_requests_total{status!=\"success\"}) by (user, api_key_name))",
           "format": "table",
           "instant": true,
           "refId": "C"
@@ -787,19 +787,19 @@
       },
       "targets": [
         {
-          "expr": "topk(10, sum(xinference:api_key_requests_total{cluster=~\"$cluster\"}) by (model_id, model_type))",
+          "expr": "topk(10, sum(xinference:api_key_requests_total) by (model_id, model_type))",
           "format": "table",
           "instant": true,
           "refId": "A"
         },
         {
-          "expr": "topk(10, sum(xinference:api_key_requests_total{cluster=~\"$cluster\", status=\"success\"}) by (model_id, model_type))",
+          "expr": "topk(10, sum(xinference:api_key_requests_total{status=\"success\"}) by (model_id, model_type))",
           "format": "table",
           "instant": true,
           "refId": "B"
         },
         {
-          "expr": "topk(10, sum(xinference:api_key_requests_total{cluster=~\"$cluster\", status!=\"success\"}) by (model_id, model_type))",
+          "expr": "topk(10, sum(xinference:api_key_requests_total{status!=\"success\"}) by (model_id, model_type))",
           "format": "table",
           "instant": true,
           "refId": "C"
@@ -824,6 +824,299 @@
               "Value #C": "Failed"
             }
           }
+        }
+      ]
+    },
+    {
+      "id": 310,
+      "title": "API Key リクエスト RPM モデル別 (直近1分)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 330
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(xinference:api_key_requests_total[1m])) by (model_name, model_type)",
+          "legendFormat": "{{model_name}} ({{model_type}})",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 311,
+      "title": "API Key 呼び出しステータス分布 モデル別 (直近1分)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 330
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*success.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*(denied|error|invalid).*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(xinference:api_key_requests_total[1m])) by (model_name, model_type, status)",
+          "legendFormat": "{{model_name}} {{status}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 312,
+      "title": "API Key 呼び出しステータス分布 ユーザー別 (直近1分)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 340
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*success.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*(denied|error|invalid).*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(xinference:api_key_requests_total[1m])) by (user, status)",
+          "legendFormat": "{{user}} {{status}}",
+          "refId": "A"
         }
       ]
     }
@@ -882,7 +1175,7 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "query_result(xinference:workers_total)",
+        "definition": "query_result(xinference:build_info{xinference_role=\"supervisor\"})",
         "hide": 0,
         "includeAll": true,
         "label": "クラスター",
@@ -891,7 +1184,7 @@
         "options": [],
         "query": {
           "qryType": 3,
-          "query": "query_result(xinference:workers_total)",
+          "query": "query_result(xinference:build_info{xinference_role=\"supervisor\"})",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
@@ -948,7 +1241,7 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "query_result(xinference:worker_cpu_utilization{cluster=~\"$cluster\"})",
+        "definition": "query_result(xinference:build_info{xinference_role=\"worker\", cluster=~\"$cluster\"})",
         "hide": 0,
         "includeAll": true,
         "label": "Worker",
@@ -957,7 +1250,7 @@
         "options": [],
         "query": {
           "qryType": 3,
-          "query": "query_result(xinference:worker_cpu_utilization{cluster=~\"$cluster\"})",
+          "query": "query_result(xinference:build_info{xinference_role=\"worker\", cluster=~\"$cluster\"})",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
@@ -981,7 +1274,7 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "query_result(xinference:model_info{cluster=~\"$cluster\"})",
+        "definition": "query_result(xinference:model_info{worker_address=~\"$worker_address\"})",
         "hide": 0,
         "includeAll": true,
         "label": "モデル",
@@ -990,7 +1283,7 @@
         "options": [],
         "query": {
           "qryType": 3,
-          "query": "query_result(xinference:model_info{cluster=~\"$cluster\"})",
+          "query": "query_result(xinference:model_info{worker_address=~\"$worker_address\"})",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,

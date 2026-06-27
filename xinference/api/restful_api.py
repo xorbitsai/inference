@@ -275,6 +275,7 @@ class RESTfulAPI(CancelMixin):
                     "user": username,
                     "api_key_name": entry.name or "",
                     "model_id": model_uid,
+                    "model_name": model_name,
                     "model_type": model_type,
                     "status": status,
                 }
