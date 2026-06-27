@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
-from fastapi import Security
+from fastapi import Request, Response, Security
 
 if TYPE_CHECKING:
     from ..restful_api import RESTfulAPI
@@ -76,12 +76,39 @@ def register_routes(api: "RESTfulAPI") -> None:
         dependencies=([Security(auth, scopes=["models:list"])] if is_auth else None),
     )
 
+    get_autostart_config_handler: Callable[..., Awaitable[Any]]
+    upsert_autostart_model_handler: Callable[..., Awaitable[Any]]
+    if is_auth:
+
+        async def get_autostart_config_handler_authed(
+            user: Any = Security(auth, scopes=["models:start"]),
+        ) -> Response:
+            return await api.get_autostart_config(user)
+
+        async def upsert_autostart_model_handler_authed(
+            request: Request,
+            user: Any = Security(auth, scopes=["models:start"]),
+        ) -> Response:
+            return await api.upsert_autostart_model(request, user)
+
+        get_autostart_config_handler = get_autostart_config_handler_authed
+        upsert_autostart_model_handler = upsert_autostart_model_handler_authed
+    else:
+
+        async def get_autostart_config_handler_anon() -> Response:
+            return await api.get_autostart_config(None)
+
+        async def upsert_autostart_model_handler_anon(request: Request) -> Response:
+            return await api.upsert_autostart_model(request, None)
+
+        get_autostart_config_handler = get_autostart_config_handler_anon
+        upsert_autostart_model_handler = upsert_autostart_model_handler_anon
+
     # --- model autostart ---
     router.add_api_route(
         "/v1/autostart/models",
-        api.get_autostart_config,
+        get_autostart_config_handler,
         methods=["GET"],
-        dependencies=([Security(auth, scopes=["models:start"])] if is_auth else None),
     )
     router.add_api_route(
         "/v1/autostart/models/summary",
@@ -91,15 +118,8 @@ def register_routes(api: "RESTfulAPI") -> None:
     )
     router.add_api_route(
         "/v1/autostart/models",
-        api.set_autostart_config,
-        methods=["PUT"],
-        dependencies=([Security(auth, scopes=["models:start"])] if is_auth else None),
-    )
-    router.add_api_route(
-        "/v1/autostart/models",
-        api.upsert_autostart_model,
+        upsert_autostart_model_handler,
         methods=["POST"],
-        dependencies=([Security(auth, scopes=["models:start"])] if is_auth else None),
     )
     router.add_api_route(
         "/v1/autostart/models/{model_uid}",

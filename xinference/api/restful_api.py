@@ -938,9 +938,15 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(status_code=500, detail=str(e))
         return JSONResponse(content=None)
 
-    async def get_autostart_config(self) -> JSONResponse:
+    async def get_autostart_config(self, user: Optional[Any] = None) -> JSONResponse:
         try:
-            config = await (await self._get_supervisor_ref()).get_autostart_config()
+            if isinstance(user, dict):
+                username = user.get("username", "")
+            else:
+                username = getattr(user, "username", "") if user else ""
+            config = await (await self._get_supervisor_ref()).get_autostart_config(
+                username=username
+            )
             return JSONResponse(content=config)
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
@@ -962,23 +968,16 @@ class RESTfulAPI(CancelMixin):
             logger.error(str(e), exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def set_autostart_config(self, request: Request) -> JSONResponse:
+    async def upsert_autostart_model(
+        self, request: Request, user: Optional[Any] = None
+    ) -> JSONResponse:
         try:
-            config = await (await self._get_supervisor_ref()).set_autostart_config(
-                await request.json()
-            )
-            return JSONResponse(content=config)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            raise HTTPException(status_code=400, detail=str(ve))
-        except Exception as e:
-            logger.error(str(e), exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def upsert_autostart_model(self, request: Request) -> JSONResponse:
-        try:
+            if isinstance(user, dict):
+                username = user.get("username", "")
+            else:
+                username = getattr(user, "username", "") if user else ""
             config = await (await self._get_supervisor_ref()).upsert_autostart_model(
-                await request.json()
+                await request.json(), username=username
             )
             return JSONResponse(content=config)
         except ValueError as ve:

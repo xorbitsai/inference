@@ -1324,15 +1324,6 @@ class Client:
             )
         return response.json()
 
-    def set_autostart_config(self, config: Dict) -> Dict:
-        url = f"{self.base_url}/v1/autostart/models"
-        response = self.session.put(url, json=config, headers=self._headers)
-        if response.status_code != 200:
-            raise RuntimeError(
-                f"Failed to set autostart config, detail: {_get_error_string(response)}"
-            )
-        return response.json()
-
     def upsert_autostart_model(self, entry: Dict) -> Dict:
         url = f"{self.base_url}/v1/autostart/models"
         response = self.session.post(url, json=entry, headers=self._headers)

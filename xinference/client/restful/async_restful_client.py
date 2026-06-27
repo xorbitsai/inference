@@ -1430,17 +1430,6 @@ class AsyncClient:
         await _release_response(response)
         return response_data
 
-    async def set_autostart_config(self, config: Dict) -> Dict:
-        url = f"{self.base_url}/v1/autostart/models"
-        response = await self.session.put(url, json=config, headers=self._headers)
-        if response.status != 200:
-            raise RuntimeError(
-                f"Failed to set autostart config, detail: {await _get_error_string(response)}"
-            )
-        response_data = await response.json()
-        await _release_response(response)
-        return response_data
-
     async def upsert_autostart_model(self, entry: Dict) -> Dict:
         url = f"{self.base_url}/v1/autostart/models"
         response = await self.session.post(url, json=entry, headers=self._headers)

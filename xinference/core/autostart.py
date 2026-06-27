@@ -13,15 +13,10 @@
 # limitations under the License.
 
 import copy
-import json
-import os
-from json import JSONDecodeError
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from ..constants import XINFERENCE_AUTOSTART_CONFIG_FILE
 from .utils import is_valid_model_uid
 
-AUTOSTART_CONFIG_VERSION = 1
 DEFAULT_PRIORITY = 100
 DEFAULT_MAX_RETRIES = 3
 DEFAULT_RETRY_INTERVAL_SECONDS = 30
@@ -37,18 +32,6 @@ SENSITIVE_KEYWORDS = (
     "access_key",
     "credential",
 )
-
-
-def get_autostart_config_path(path: Optional[str] = None) -> str:
-    return path or XINFERENCE_AUTOSTART_CONFIG_FILE
-
-
-def empty_autostart_config() -> Dict[str, Any]:
-    return {
-        "version": AUTOSTART_CONFIG_VERSION,
-        "concurrency": 1,
-        "models": [],
-    }
 
 
 def normalize_launch_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -127,80 +110,6 @@ def normalize_autostart_model_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def normalize_autostart_config(config: Any) -> Dict[str, Any]:
-    if config is None:
-        return empty_autostart_config()
-    if isinstance(config, list):
-        config = {"models": config}
-    if not isinstance(config, dict):
-        raise ValueError("Autostart config must be a JSON object.")
-
-    try:
-        concurrency = int(config.get("concurrency", 1))
-    except (TypeError, ValueError):
-        raise ValueError("Autostart config concurrency must be an integer.")
-    if concurrency < 1:
-        raise ValueError("Autostart config concurrency must be greater than 0.")
-
-    raw_models = config.get("models", [])
-    if raw_models is None:
-        raw_models = []
-    if not isinstance(raw_models, list):
-        raise ValueError("Autostart config models must be a list.")
-
-    models: List[Dict[str, Any]] = []
-    seen_model_uids = set()
-    for raw_entry in raw_models:
-        entry = normalize_autostart_model_entry(raw_entry)
-        model_uid = entry["launch"]["model_uid"]
-        if model_uid in seen_model_uids:
-            raise ValueError(f"Duplicate autostart model_uid: {model_uid}")
-        seen_model_uids.add(model_uid)
-        models.append(entry)
-
-    return {
-        "version": AUTOSTART_CONFIG_VERSION,
-        "concurrency": concurrency,
-        "models": models,
-    }
-
-
-def load_autostart_config(path: Optional[str] = None) -> Dict[str, Any]:
-    config_path = get_autostart_config_path(path)
-    if not os.path.exists(config_path):
-        return empty_autostart_config()
-
-    with open(config_path, "r", encoding="utf-8") as f:
-        try:
-            data = json.load(f)
-        except JSONDecodeError as e:
-            raise ValueError(f"Invalid autostart config JSON: {e}") from e
-        return normalize_autostart_config(data)
-
-
-def save_autostart_config(
-    config: Dict[str, Any], path: Optional[str] = None
-) -> Dict[str, Any]:
-    normalized = normalize_autostart_config(config)
-    config_path = get_autostart_config_path(path)
-    config_dir = os.path.dirname(config_path)
-    if config_dir:
-        os.makedirs(config_dir, exist_ok=True)
-    tmp_path = f"{config_path}.tmp"
-    fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    if hasattr(os, "fchmod"):
-        os.fchmod(fd, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as f:
-        json.dump(normalized, f, ensure_ascii=False, indent=2)
-        f.write("\n")
-    os.replace(tmp_path, config_path)
-    try:
-        os.chmod(config_path, 0o600)
-    except OSError:
-        pass
-    return normalized
-
-
 def _is_sensitive_key(key: str) -> bool:
     normalized_key = key.lower().replace("-", "_")
     return any(keyword in normalized_key for keyword in SENSITIVE_KEYWORDS)
@@ -229,44 +138,15 @@ def redact_launch_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
     return redacted
 
 
-def redact_autostart_config(config: Dict[str, Any]) -> Dict[str, Any]:
-    redacted = copy.deepcopy(config)
-    for entry in redacted.get("models", []):
-        launch = entry.get("launch")
-        if isinstance(launch, dict):
-            entry["launch"] = redact_launch_payload(launch)
+def redact_autostart_model_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
+    redacted = copy.deepcopy(entry)
+    launch = redacted.get("launch")
+    if isinstance(launch, dict):
+        redacted["launch"] = redact_launch_payload(launch)
     return redacted
 
 
-def upsert_autostart_model_entry(
-    config: Dict[str, Any], entry: Dict[str, Any]
-) -> Dict[str, Any]:
-    normalized_config = normalize_autostart_config(config)
-    normalized_entry = normalize_autostart_model_entry(entry)
-    model_uid = normalized_entry["launch"]["model_uid"]
-
-    models = []
-    replaced = False
-    for item in normalized_config["models"]:
-        if item["launch"]["model_uid"] == model_uid:
-            models.append(normalized_entry)
-            replaced = True
-        else:
-            models.append(item)
-    if not replaced:
-        models.append(normalized_entry)
-
-    normalized_config["models"] = models
-    return normalize_autostart_config(normalized_config)
-
-
-def remove_autostart_model_entry(
-    config: Dict[str, Any], model_uid: str
-) -> Dict[str, Any]:
-    normalized_config = normalize_autostart_config(config)
-    normalized_config["models"] = [
-        item
-        for item in normalized_config["models"]
-        if item["launch"]["model_uid"] != model_uid
-    ]
-    return normalized_config
+def redact_autostart_model_entries(
+    entries: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    return [redact_autostart_model_entry(entry) for entry in entries]

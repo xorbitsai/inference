@@ -46,6 +46,7 @@ from ..constants import (
     XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
     XINFERENCE_HEALTH_CHECK_TIMEOUT,
+    XINFERENCE_LAUNCH_HISTORY_DB_PATH,
     XINFERENCE_LAUNCH_STRATEGY,
     XINFERENCE_LIST_MODELS_PER_WORKER_TIMEOUT,
 )
@@ -162,9 +163,14 @@ class SupervisorActor(xo.StatelessActor):
         self._autostart_task: Optional[asyncio.Task] = None
         self._autostart_requested = False
         self._autostart_lock = asyncio.Lock()
-        self._autostart_config_lock = asyncio.Lock()
+        self._autostart_store_lock = asyncio.Lock()
         self._autostart_wakeup_event = asyncio.Event()
         self._autostart_model_states: Dict[str, Dict[str, Any]] = {}
+        from .launch_history_store import LaunchHistoryStore
+
+        self._launch_history_store = LaunchHistoryStore(
+            XINFERENCE_LAUNCH_HISTORY_DB_PATH
+        )
 
     @classmethod
     def default_uid(cls) -> str:
@@ -879,20 +885,13 @@ class SupervisorActor(xo.StatelessActor):
 
     async def _run_autostart_once(self) -> Optional[float]:
         async with self._autostart_lock:
-            from .autostart import load_autostart_config
-
             try:
-                async with self._autostart_config_lock:
-                    config = await self._run_in_executor(load_autostart_config)
+                entries = await self._load_autostart_entries()
             except Exception:
-                logger.exception("Failed to load autostart config.")
+                logger.exception("Failed to load autostart entries.")
                 return None
 
-            entries = [
-                entry
-                for entry in config.get("models", [])
-                if entry.get("enabled", True)
-            ]
+            entries = [entry for entry in entries if entry.get("enabled", True)]
             if not entries:
                 return None
             if not self._worker_address_to_worker:
@@ -906,7 +905,7 @@ class SupervisorActor(xo.StatelessActor):
                 logger.info("Autostart waits for worker registration.")
                 return None
 
-            semaphore = asyncio.Semaphore(max(int(config.get("concurrency", 1)), 1))
+            semaphore = asyncio.Semaphore(1)
             retry_delays: List[float] = []
 
             async def _run_entry(entry: Dict[str, Any]):
@@ -928,6 +927,23 @@ class SupervisorActor(xo.StatelessActor):
                 ]
             )
             return min(retry_delays) if retry_delays else None
+
+    async def _load_autostart_entries(
+        self, username: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        from .autostart import normalize_autostart_model_entry
+
+        async with self._autostart_store_lock:
+            raw_entries = await self._run_in_executor(
+                self._launch_history_store.list_autostart, username
+            )
+        entries = []
+        for raw_entry in raw_entries:
+            try:
+                entries.append(normalize_autostart_model_entry(raw_entry))
+            except ValueError:
+                logger.exception("Skip invalid autostart entry: %s", raw_entry)
+        return entries
 
     async def _autostart_model_is_active(self, model_uid: str) -> bool:
         if model_uid in self._model_uid_to_replica_info:
@@ -1037,7 +1053,7 @@ class SupervisorActor(xo.StatelessActor):
                 "status": "launching",
                 "attempts": attempts + 1,
                 "last_attempt_ts": int(now),
-                "message": "Launching from autostart config.",
+                "message": "Launching from autostart history.",
             }
         )
         try:
@@ -1068,12 +1084,13 @@ class SupervisorActor(xo.StatelessActor):
                 return retry_interval
             return None
 
-    async def _build_autostart_response(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        from .autostart import get_autostart_config_path, redact_autostart_config
+    async def _build_autostart_response(
+        self, entries: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        from .autostart import redact_autostart_model_entries
 
-        response = redact_autostart_config(config)
-        response["path"] = get_autostart_config_path()
-        for entry in response.get("models", []):
+        models = redact_autostart_model_entries(entries)
+        for entry in models:
             launch = entry.get("launch", {})
             model_uid = launch.get("model_uid")
             if not model_uid:
@@ -1083,22 +1100,17 @@ class SupervisorActor(xo.StatelessActor):
             if infos:
                 state["instance_status"] = infos[0].status
             entry["state"] = state
-        return response
+        return {"models": models}
 
-    async def get_autostart_config(self) -> Dict[str, Any]:
-        from .autostart import load_autostart_config
-
-        async with self._autostart_config_lock:
-            config = await self._run_in_executor(load_autostart_config)
-        return await self._build_autostart_response(config)
+    async def get_autostart_config(
+        self, username: Optional[str] = None
+    ) -> Dict[str, Any]:
+        entries = await self._load_autostart_entries(username)
+        return await self._build_autostart_response(entries)
 
     async def get_autostart_model_summary(self) -> Dict[str, Any]:
-        from .autostart import load_autostart_config
-
-        async with self._autostart_config_lock:
-            config = await self._run_in_executor(load_autostart_config)
         models = []
-        for entry in config.get("models", []):
+        for entry in await self._load_autostart_entries():
             launch = entry.get("launch", {})
             model_uid = launch.get("model_uid")
             if not model_uid:
@@ -1111,46 +1123,35 @@ class SupervisorActor(xo.StatelessActor):
             )
         return {"models": models}
 
-    async def set_autostart_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        from .autostart import save_autostart_config
-
-        async with self._autostart_config_lock:
-            normalized = await self._run_in_executor(save_autostart_config, config)
-            self._autostart_model_states.clear()
-        self._schedule_autostart()
-        return await self._build_autostart_response(normalized)
-
-    async def upsert_autostart_model(self, entry: Dict[str, Any]) -> Dict[str, Any]:
-        from .autostart import (
-            load_autostart_config,
-            normalize_autostart_model_entry,
-            save_autostart_config,
-            upsert_autostart_model_entry,
-        )
+    async def upsert_autostart_model(
+        self, entry: Dict[str, Any], username: str = ""
+    ) -> Dict[str, Any]:
+        from .autostart import normalize_autostart_model_entry
 
         normalized_entry = normalize_autostart_model_entry(entry)
         model_uid = normalized_entry["launch"]["model_uid"]
-        async with self._autostart_config_lock:
-            current = await self._run_in_executor(load_autostart_config)
-            updated = upsert_autostart_model_entry(current, normalized_entry)
-            normalized = await self._run_in_executor(save_autostart_config, updated)
+        async with self._autostart_store_lock:
+            await self._run_in_executor(
+                self._launch_history_store.upsert_autostart,
+                normalized_entry,
+                username,
+            )
             self._autostart_model_states.pop(model_uid, None)
         self._schedule_autostart()
-        return await self._build_autostart_response(normalized)
+        return await self.get_autostart_config(username)
 
     async def remove_autostart_model(self, model_uid: str) -> Dict[str, Any]:
-        from .autostart import (
-            load_autostart_config,
-            remove_autostart_model_entry,
-            save_autostart_config,
-        )
+        if not isinstance(model_uid, str) or not is_valid_model_uid(model_uid):
+            raise ValueError(
+                "The model UID is invalid. Please specify the model UID by 0 < length <= 100."
+            )
 
-        async with self._autostart_config_lock:
-            current = await self._run_in_executor(load_autostart_config)
-            updated = remove_autostart_model_entry(current, model_uid)
-            normalized = await self._run_in_executor(save_autostart_config, updated)
+        async with self._autostart_store_lock:
+            await self._run_in_executor(
+                self._launch_history_store.remove_autostart, model_uid
+            )
             self._autostart_model_states.pop(model_uid, None)
-        return await self._build_autostart_response(normalized)
+        return await self.get_autostart_model_summary()
 
     @typing.no_type_check
     async def get_cluster_device_info(self, detailed: bool = False) -> List:
