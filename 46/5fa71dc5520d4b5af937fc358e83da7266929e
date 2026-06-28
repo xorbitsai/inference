@@ -1,0 +1,26 @@
+xinference/deploy/utils.py
+  f9a1188b6405b9d2 279-287,390-395
+xinference/deploy/test/test_log_rotation.py
+  f9a1188b6405b9d2 142-175,215-234
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "465fa71dc5520d4b5af937fc358e83da7266929e",
+  "prompts": {
+    "f9a1188b6405b9d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "afebc574-c9dd-4b05-a79b-93f62959aa62",
+        "model": "glm-5.2"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 69,
+      "total_deletions": 1,
+      "accepted_lines": 69,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/32b132ff3eab5d6e747a970bcc2848039042ca9baf6013fddd4dbae9bb1cc7bf"
+    }
+  }
+}
