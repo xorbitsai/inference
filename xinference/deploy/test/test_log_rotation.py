@@ -139,6 +139,40 @@ class TestDoRollover:
             handler.doRollover()
             spy.assert_called_once()
 
+    def test_foreign_rotation_advances_rolloverAt(self, handler, tmp_path):
+        """When another process performs the time-based rollover, this
+        handler's _check_inode_and_reopen reopens the stream and must
+        advance rolloverAt; otherwise the stale past-due time triggers a
+        redundant doRollover on the next emit that clobbers the archive
+        the other process just wrote (log loss)."""
+        handler.maxBytes = 1000  # disable size trigger
+        handler.retention_days = 0
+        handler.backupCount = 0
+        handler.emit(_make_record("first-record"))
+        handler.rolloverAt = int(time.time()) - 1  # midnight has passed
+
+        # Simulate another process performing the midnight rollover: rename
+        # the base file (holding "first-record") to the dated archive and
+        # create a fresh base file with a new inode.
+        base = handler.baseFilename
+        date_suffix = time.strftime("%Y-%m-%d", time.localtime(time.time()))
+        archive = f"{base}.{date_suffix}"
+        os.rename(base, archive)
+        with open(base, "w"):
+            pass  # fresh file, new inode
+
+        handler.emit(_make_record("second-record"))
+
+        # The archive written by the other process must survive intact.
+        assert os.path.exists(archive)
+        with open(archive) as f:
+            assert "first-record" in f.read()
+        # The new record lands in the fresh base file, no redundant rotation.
+        with open(base) as f:
+            assert "second-record" in f.read()
+        # rolloverAt was advanced past now.
+        assert handler.rolloverAt > time.time()
+
 
 class TestGetFilesToDelete:
     def test_matches_date_and_numbered_files(self, handler, tmp_path):
@@ -177,6 +211,26 @@ class TestGetFilesToDelete:
         handler.backupCount = 0
         result = handler.getFilesToDelete()
         assert any(old_date in p for p in result)
+
+    def test_retention_days_1_keeps_yesterday(self, handler, tmp_path):
+        """Regression: retention_days=1 must keep a full day. The archive's
+        date_epoch is parsed at midnight while cutoff uses the current
+        wall-clock time; without the +1 correction, yesterday's archive is
+        deleted the moment the current time passes midnight, keeping zero
+        full days."""
+        yesterday = time.time() - 86400
+        yest_date = time.strftime("%Y-%m-%d", time.localtime(yesterday))
+        (tmp_path / f"test.log.{yest_date}").write_text("yesterday")
+        today_date = time.strftime("%Y-%m-%d", time.localtime(time.time()))
+        (tmp_path / f"test.log.{today_date}").write_text("today")
+
+        handler.retention_days = 1
+        handler.backupCount = 0
+        result = handler.getFilesToDelete()
+        # Yesterday's archive must be preserved (retention_days=1 keeps a
+        # full day); today's is also preserved.
+        assert not any(yest_date in p for p in result)
+        assert not any(today_date in p for p in result)
 
     def test_backup_count_cap(self, handler, tmp_path):
         # Create 5 files, backupCount=2 → delete 3 oldest

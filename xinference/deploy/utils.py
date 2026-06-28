@@ -276,6 +276,15 @@ class SafeTimedAndSizeRotatingFileHandler(SafeTimedRotatingFileHandler):
             if current_inode != stream_inode:
                 self.stream.close()
                 self.stream = self._open()
+                # Another process performed the time-based rollover for us.
+                # Advance rolloverAt so the next shouldRollover/doRollover
+                # does not see a stale past-due time and perform a redundant,
+                # destructive rotation (clobbers the archive just written by
+                # the other process). Only advance when we are actually past
+                # the scheduled time — a size-only foreign rotation leaves
+                # the pending time rollover intact.
+                if time.time() >= self.rolloverAt:
+                    self.rolloverAt = self.computeRollover(time.time())
                 return True
         except OSError:
             try:
@@ -378,7 +387,12 @@ class SafeTimedAndSizeRotatingFileHandler(SafeTimedRotatingFileHandler):
         to_delete = set()
 
         if self.retention_days > 0:
-            cutoff = time.time() - self.retention_days * 86400
+            # +1 because date_epoch is midnight of the archive's day while
+            # cutoff is the current wall-clock time. Without the +1, a file
+            # from exactly retention_days ago is deleted the moment the
+            # current time passes midnight (e.g. retention_days=1 drops
+            # yesterday's archive at 00:01 today, keeping zero full days).
+            cutoff = time.time() - (self.retention_days + 1) * 86400
             for date_epoch, mtime, full_path in files:
                 if date_epoch < cutoff:
                     to_delete.add(full_path)
