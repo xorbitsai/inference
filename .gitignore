@@ -152,12 +152,13 @@ asv/results
 
 .DS_Store
 
-# Exclude markdown files except README files
+# Exclude markdown files except selected root docs
 *.md
 !README.md
 !README_*.md
 !AGENTS.md
 !CLAUDE.md
+!SECURITY.md
 .history/
 
 # frontend 
