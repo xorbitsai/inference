@@ -450,7 +450,7 @@
       "targets": [
         {
           "expr": "xinference:model_serve_count{cluster=~\"$cluster\"}",
-          "legendFormat": "{{node}} {{model_name}} {{model}}",
+          "legendFormat": "{{worker_address}} {{model_name}} {{model_uid}}",
           "refId": "A"
         }
       ]

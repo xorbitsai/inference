@@ -1218,6 +1218,39 @@
         "type": "query"
       },
       {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "query_result(xinference:model_info{cluster=~\"$cluster\"})",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Model Type",
+        "multi": true,
+        "name": "model_type",
+        "options": [],
+        "query": {
+          "qryType": 3,
+          "query": "query_result(xinference:model_info{cluster=~\"$cluster\"})",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "regex": "/model_type=\"(?<text>[^\"]+)/g",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
         "current": {
           "selected": true,
           "text": [
