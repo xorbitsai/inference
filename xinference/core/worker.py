@@ -62,6 +62,7 @@ from ..constants import (
     XINFERENCE_MODEL_DOWNLOAD_WORKERS,
     XINFERENCE_STATUS_GATHER_TIMEOUT,
     XINFERENCE_STATUS_REPORT_MULTIPLIER,
+    XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT,
     XINFERENCE_TCP_REQUEST_TIMEOUT,
     XINFERENCE_VIRTUAL_ENV_DIR,
     XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED,
@@ -168,6 +169,9 @@ _PERSIST_RETRY_MAX = 3
 _VRAM_RECLAIM_TIMEOUT = 30
 # VRAM free ratio threshold — ratio >= this means "released".
 _VRAM_READY_RATIO = 0.90
+# nvmlInit timeout (seconds) — bounds a stuck GPU driver so worker startup
+# and pre-launch VRAM checks cannot hang indefinitely.
+_NVML_INIT_TIMEOUT = 10
 
 
 def _strip_test_envs(launch_args: dict) -> Tuple[dict, Set[str]]:
@@ -372,6 +376,126 @@ async def _kill_orphan_gpu_pids(
     return killed
 
 
+def _nvml_init_with_timeout(timeout: int = _NVML_INIT_TIMEOUT) -> bool:
+    """Initialize pynvml with a timeout guard.
+
+    nvmlInit is a blocking C call that asyncio.wait_for cannot cancel. On
+    Unix we use SIGALRM to bound it so a stuck GPU driver cannot hang worker
+    startup. On Windows SIGALRM is unavailable; we call nvmlInit directly
+    (Windows rarely runs vLLM, and the no-lock degradation is acceptable).
+
+    Returns True on success, False on failure or timeout (caller degrades
+    gracefully). The original SIGALRM handler is always restored.
+    """
+    if os.name == "nt":
+        try:
+            import pynvml
+
+            pynvml.nvmlInit()
+            return True
+        except Exception:
+            return False
+
+    import pynvml
+
+    def _alarm_handler(signum, frame):
+        raise TimeoutError("nvmlInit timed out")
+
+    _old_handler = signal.getsignal(signal.SIGALRM)
+    try:
+        signal.signal(signal.SIGALRM, _alarm_handler)
+        signal.alarm(timeout)
+        try:
+            pynvml.nvmlInit()
+            return True
+        except Exception:
+            return False
+        finally:
+            signal.alarm(0)
+    finally:
+        signal.signal(signal.SIGALRM, _old_handler)
+
+
+async def _kill_gpu_orphans_by_ppid(
+    device_indices: list,
+    model_uid: str = "",
+) -> List[int]:
+    """SIGKILL GPU-occupying processes whose parent is init (PPID == 1).
+
+    Used at worker startup (H1) and pre-launch VRAM recheck (H2). Unlike
+    _kill_orphan_gpu_pids (which uses post - pre diff and would mis-kill
+    other workers' vLLM processes on shared GPUs), this only targets true
+    orphans: processes whose parent has died and been reparented to PID 1.
+
+    A process is killed only if ALL hold:
+      1. occupies GPU memory on one of device_indices (per NVML)
+      2. PPID == 1 (parent dead, reparented to init)
+      3. cmdline contains vllm / enginecore / start_sub_pool
+         (prevents PID-reuse misidentification of unrelated processes)
+
+    cmdline is re-checked immediately before SIGKILL to defend against PID
+    reuse between the snapshot and the kill. SIGTERM is sent first, then
+    after a 1s grace, SIGKILL is applied to survivors.
+    """
+    import psutil
+
+    occupying_pids = _snapshot_gpu_occupying_pids(device_indices)
+    orphan_pids: List[int] = []
+    for pid in occupying_pids:
+        if pid == os.getpid():
+            continue
+        try:
+            p = psutil.Process(pid)
+            if p.ppid() != 1:
+                continue
+            cmd = " ".join(p.cmdline()).lower()
+            if not any(k in cmd for k in ("vllm", "enginecore", "start_sub_pool")):
+                continue
+            orphan_pids.append(pid)
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+
+    if not orphan_pids:
+        return []
+
+    logger.warning(
+        "Found %d vLLM orphan(s) on GPUs %s: %s",
+        len(orphan_pids),
+        device_indices,
+        sorted(orphan_pids),
+    )
+
+    for pid in orphan_pids:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except (ProcessLookupError, PermissionError):
+            continue
+    await asyncio.sleep(1.0)
+
+    killed: List[int] = []
+    for pid in orphan_pids:
+        try:
+            p = psutil.Process(pid)
+            if not p.is_running() or p.status() == psutil.STATUS_ZOMBIE:
+                continue
+            cmd = " ".join(p.cmdline()).lower()
+            if not any(k in cmd for k in ("vllm", "enginecore", "start_sub_pool")):
+                continue
+            os.kill(pid, signal.SIGKILL)
+            killed.append(pid)
+            logger.warning("SIGKILL orphan pid %s on GPUs %s", pid, device_indices)
+        except (
+            psutil.NoSuchProcess,
+            psutil.AccessDenied,
+            ProcessLookupError,
+            PermissionError,
+        ):
+            continue
+        except Exception:
+            logger.debug("Kill pid %s failed", pid, exc_info=True)
+    return killed
+
+
 @dataclass
 class ModelStatus:
     last_error: str = ""
@@ -489,6 +613,13 @@ class WorkerActor(xo.StatelessActor):
 
         self._lock = asyncio.Lock()
         self._persist_lock = asyncio.Lock()
+        # Serializes MainActorPool.append_sub_pool calls. xoscar's
+        # append_sub_pool has no internal lock; concurrent fork+exec under
+        # XINFERENCE_MAX_CONCURRENT_LAUNCHES>1 can deadlock on fork+GIL and
+        # block the event loop (which also disables the sub-pool creation
+        # timeout below). The lock only covers append_sub_pool (milliseconds),
+        # not download or model load, so launch throughput is unaffected.
+        self._subpool_creation_lock = asyncio.Lock()
         self._persist_launch_args_dirty_uids: Set[str] = set()
         self._persist_retry_count: Dict[str, int] = {}
 
@@ -733,6 +864,133 @@ class WorkerActor(xo.StatelessActor):
         family_copy.model_specs = [target_spec]
         return family_copy
 
+    async def _cleanup_gpu_orphans_on_startup(self) -> None:
+        """Best-effort cleanup of vLLM GPU orphans left by a previous worker.
+
+        vLLM EngineCore / GPU worker processes have no _check_ppid thread, so
+        when the worker dies they are reparented to PID 1 and keep holding
+        VRAM. The next worker's first sub-pool creation can then deadlock in
+        CUDA init. This scans all GPUs at startup and SIGKILLs processes that
+        (a) occupy GPU memory, (b) have PPID == 1, and (c) have a vLLM-like
+        cmdline. nvmlInit is bounded by _nvml_init_with_timeout so a stuck
+        driver cannot block startup. Never raises — failures degrade to a
+        warning and rely on H2/C as backstops.
+        """
+        if not _nvml_init_with_timeout():
+            logger.warning(
+                "Startup GPU orphan cleanup skipped: pynvml init failed or "
+                "timed out (%ss). If the previous worker left vLLM orphans, "
+                "launch may hang. Manual check: nvidia-smi + "
+                "ps -eo pid,ppid,cmd | grep vllm",
+                _NVML_INIT_TIMEOUT,
+            )
+            return
+
+        try:
+            import pynvml
+
+            try:
+                device_count = pynvml.nvmlDeviceGetCount()
+                all_devices = list(range(device_count))
+            finally:
+                try:
+                    pynvml.nvmlShutdown()
+                except Exception:
+                    pass
+        except Exception:
+            logger.warning(
+                "Startup GPU orphan cleanup: nvmlDeviceGetCount failed",
+                exc_info=True,
+            )
+            return
+
+        if not all_devices:
+            return
+
+        occupying_pids = _snapshot_gpu_occupying_pids(all_devices)
+        if not occupying_pids:
+            logger.info("Startup GPU orphan cleanup: no GPU-occupying processes found")
+            return
+
+        import psutil
+
+        orphan_pids: List[int] = []
+        for pid in occupying_pids:
+            if pid == os.getpid():
+                continue
+            try:
+                p = psutil.Process(pid)
+                if p.ppid() != 1:
+                    continue
+                cmd = " ".join(p.cmdline()).lower()
+                if not any(k in cmd for k in ("vllm", "enginecore", "start_sub_pool")):
+                    continue
+                orphan_pids.append(pid)
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+
+        if not orphan_pids:
+            logger.info(
+                "Startup GPU orphan cleanup: %d GPU-occupying process(es) "
+                "found, none are vLLM orphans (all have live parents or "
+                "non-matching cmdline)",
+                len(occupying_pids),
+            )
+            return
+
+        logger.warning(
+            "Startup GPU orphan cleanup: found %d vLLM orphan(s) on GPUs, "
+            "killing: %s",
+            len(orphan_pids),
+            sorted(orphan_pids),
+        )
+        for pid in orphan_pids:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except (ProcessLookupError, PermissionError):
+                continue
+        await asyncio.sleep(1.0)
+        for pid in orphan_pids:
+            try:
+                p = psutil.Process(pid)
+                if not p.is_running() or p.status() == psutil.STATUS_ZOMBIE:
+                    continue
+                cmd = " ".join(p.cmdline()).lower()
+                if not any(k in cmd for k in ("vllm", "enginecore", "start_sub_pool")):
+                    logger.debug(
+                        "Startup skip pid %s: cmdline changed: %s",
+                        pid,
+                        cmd[:100],
+                    )
+                    continue
+                os.kill(pid, signal.SIGKILL)
+                logger.warning("Startup SIGKILL orphan pid %s", pid)
+            except (
+                psutil.NoSuchProcess,
+                psutil.AccessDenied,
+                ProcessLookupError,
+                PermissionError,
+            ):
+                continue
+            except Exception:
+                logger.debug("Startup kill pid %s failed", pid, exc_info=True)
+
+        try:
+            _free_ratio = _snapshot_gpu_free_ratio(all_devices)
+            if 0 <= _free_ratio < _VRAM_READY_RATIO:
+                _vram_deadline = time.monotonic() + _VRAM_RECLAIM_TIMEOUT
+                while time.monotonic() < _vram_deadline:
+                    await asyncio.sleep(1.0)
+                    _free_ratio = _snapshot_gpu_free_ratio(all_devices)
+                    if _free_ratio < 0 or _free_ratio >= _VRAM_READY_RATIO:
+                        break
+                logger.info(
+                    "Startup VRAM reclaim: min_free_ratio=%.2f after orphan " "cleanup",
+                    _free_ratio if _free_ratio >= 0 else -1,
+                )
+        except Exception:
+            logger.debug("Startup VRAM poll failed", exc_info=True)
+
     async def __post_create__(self):
         from ..model.audio import (
             CustomAudioModelFamilyV2,
@@ -848,6 +1106,15 @@ class WorkerActor(xo.StatelessActor):
                 self._periodical_report_status(), loop=self._isolation.loop
             )
         logger.info(f"Xinference worker {self.address} started")
+
+        # H1: asynchronously clean up vLLM GPU orphans left by a previous
+        # worker that died without reaping its sub-pool descendants. vLLM
+        # EngineCore / GPU workers have no _check_ppid, so on worker death
+        # they are reparented to PID 1 and keep holding VRAM; the next
+        # launch's sub-pool then deadlocks in CUDA init. Runs after
+        # registration so it never blocks the worker from serving; H2 is the
+        # per-launch backstop if an orphan appears later.
+        asyncio.create_task(self._cleanup_gpu_orphans_on_startup())
 
         # Report build/config info for this worker
         from xinference.constants import XINFERENCE_HOME as _xf_home
@@ -1345,9 +1612,127 @@ class WorkerActor(xo.StatelessActor):
             )
             env[env_name] = ",".join([str(dev) for dev in devices])
 
-        subpool_address = await self._main_pool.append_sub_pool(
-            env=env, start_python=start_python
+        # G: inject model_uid into the sub-pool env dict (not os.environ).
+        # os.environ mutation is thread-unsafe under concurrent launches and
+        # ineffective (the sub-pool is forked from this env dict). Passing it
+        # here lets the sub-pool and its vLLM descendants inherit the tag.
+        env["XINFERENCE_MODEL_UID"] = model_uid
+
+        # H2: pre-launch VRAM recheck. _cleanup_gpu_orphans_on_startup runs at
+        # worker start, but orphans may appear between startup and this launch
+        # (e.g. another worker on the same host died). If free VRAM on the
+        # target GPUs is below the ready ratio, scan for PPID==1 vLLM orphans
+        # and SIGKILL them, then poll VRAM release. PPID==1 (not the diff
+        # heuristic used by _kill_orphan_gpu_pids) avoids mis-killing another
+        # live worker's vLLM processes on shared GPUs. Best-effort: any error
+        # is logged and the launch proceeds (the timeout below is the backstop).
+        _target_device_ints = [int(d) for d in devices] if devices else []
+        if _target_device_ints:
+            try:
+                _free_ratio = _snapshot_gpu_free_ratio(_target_device_ints)
+                if 0 <= _free_ratio < _VRAM_READY_RATIO:
+                    logger.warning(
+                        "Pre-launch VRAM low for model %s on GPUs %s: "
+                        "free_ratio=%.2f (target %.2f), scanning for orphans",
+                        model_uid,
+                        _target_device_ints,
+                        _free_ratio,
+                        _VRAM_READY_RATIO,
+                    )
+                    _killed = await _kill_gpu_orphans_by_ppid(
+                        _target_device_ints, model_uid=model_uid
+                    )
+                    if _killed:
+                        logger.warning(
+                            "Pre-launch killed %d GPU orphan(s) for model %s: %s",
+                            len(_killed),
+                            model_uid,
+                            _killed,
+                        )
+                        _vram_deadline = time.monotonic() + _VRAM_RECLAIM_TIMEOUT
+                        while time.monotonic() < _vram_deadline:
+                            await asyncio.sleep(1.0)
+                            _free_ratio = _snapshot_gpu_free_ratio(_target_device_ints)
+                            if _free_ratio < 0 or _free_ratio >= _VRAM_READY_RATIO:
+                                break
+                        logger.info(
+                            "Pre-launch VRAM after cleanup for model %s: "
+                            "free_ratio=%.2f",
+                            model_uid,
+                            _snapshot_gpu_free_ratio(_target_device_ints),
+                        )
+            except Exception:
+                logger.debug(
+                    "Pre-launch VRAM check failed for model %s",
+                    model_uid,
+                    exc_info=True,
+                )
+
+        # H3 + C: serialize sub-pool creation and bound it with a timeout.
+        # H3: append_sub_pool has no internal lock; concurrent fork+exec
+        # deadlocks on fork+GIL and blocks the event loop, which also
+        # disables the xo.wait_for timeout callback. The asyncio.Lock
+        # serializes only append_sub_pool (milliseconds), not download/load.
+        # C: a single fork that deadlocks in CUDA init would otherwise hang
+        # the actor forever. xo.wait_for raises asyncio.TimeoutError after
+        # XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT; we clean up and re-raise so the
+        # supervisor's _workers_launching counter decrements.
+        logger.debug(
+            "Creating subpool for model %s, start_python=%s, env=%s",
+            model_uid,
+            start_python,
+            env,
         )
+        async with self._subpool_creation_lock:
+            try:
+                subpool_address = await xo.wait_for(
+                    self._main_pool.append_sub_pool(env=env, start_python=start_python),
+                    timeout=XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT,
+                )
+            except asyncio.TimeoutError:
+                logger.error(
+                    "Subpool creation timed out after %ss for model %s "
+                    "(likely fork-unsafe state in worker; restart worker to "
+                    "recover). start_python=%s, env=%s",
+                    XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT,
+                    model_uid,
+                    start_python,
+                    env,
+                )
+                # (1) Kill leftover sub_pool child processes. xo.wait_for only
+                # cancels the future; the forked child may still be alive
+                # holding GPU memory. Match PPID == this worker's pid and
+                # cmdline containing start_sub_pool. Best-effort.
+                try:
+                    import psutil
+
+                    _my_pid = os.getpid()
+                    for _p in psutil.process_iter(["pid", "ppid", "cmdline"]):
+                        _info = _p.info
+                        if _info["ppid"] != _my_pid:
+                            continue
+                        _cmd = " ".join(_info.get("cmdline") or []).lower()
+                        if "start_sub_pool" in _cmd:
+                            try:
+                                _p.kill()
+                                logger.warning(
+                                    "Killed leftover sub_pool process after "
+                                    "timeout: pid=%s",
+                                    _info["pid"],
+                                )
+                            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                                continue
+                except Exception:
+                    logger.debug(
+                        "Failed to kill leftover sub_pool process", exc_info=True
+                    )
+                # (2) Release devices allocated above; otherwise the GPU
+                # allocation table leaks and the next launch on the same GPUs
+                # reports them as occupied.
+                self.release_devices(model_uid=model_uid)
+                # (3) Re-raise so launch_builtin_model's try/finally runs the
+                # failure path and the supervisor marks the replica ERROR.
+                raise
         await self._ensure_subpool_monitor()
         return subpool_address, [str(dev) for dev in devices]
 
