@@ -36,7 +36,7 @@ Model Spec 2 (fp8, 27 Billion)
 - **Model Format:** fp8
 - **Model Size (in billions):** 27
 - **Quantizations:** FP8
-- **Engines**: vLLM, SGLang
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Qwen/Qwen3.6-27B-FP8
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3.6-27B-FP8>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3.6-27B-FP8>`__
 
@@ -84,7 +84,7 @@ Model Spec 5 (fp8, 35 Billion)
 - **Model Format:** fp8
 - **Model Size (in billions):** 35
 - **Quantizations:** FP8
-- **Engines**: vLLM, SGLang
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Qwen/Qwen3.6-35B-A3B-FP8
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Qwen/Qwen3.6-35B-A3B-FP8>`__, `ModelScope <https://modelscope.cn/models/Qwen/Qwen3.6-35B-A3B-FP8>`__
 

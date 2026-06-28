@@ -521,6 +521,11 @@ The following is a list of built-in LLM in Xinference:
      - 8192
      - Kimi Muon is Scalable for LLM Training
 
+   * - :ref:`nex-n2 <models_llm_nex-n2>`
+     - chat, vision, tools, reasoning, hybrid
+     - 262144
+     - Nex-N2 is a series of multimodal large language models developed by nex-agi, built on the Qwen3.5 MoE architecture. It supports text, image, and video understanding, with advanced reasoning and tool-use capabilities.
+
    * - :ref:`openhermes-2.5 <models_llm_openhermes-2.5>`
      - chat
      - 8192
@@ -1022,6 +1027,8 @@ The following is a list of built-in LLM in Xinference:
    mixtral-v0.1
   
    moonlight-16b-a3b-instruct
+  
+   nex-n2
   
    openhermes-2.5
   
