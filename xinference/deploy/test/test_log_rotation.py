@@ -25,7 +25,12 @@ from ..utils import SafeTimedAndSizeRotatingFileHandler, get_config_dict
 
 _skip_on_windows = pytest.mark.skipif(
     sys.platform == "win32",
-    reason="multi-process rotation safety relies on fcntl, unavailable on Windows",
+    reason=(
+        "rotation tests simulate a foreign-process rename of a file the "
+        "handler still holds open; Windows lacks FILE_SHARE_DELETE by default "
+        "so os.rename fails with WinError 32, and the production rotation "
+        "path is itself Unix-only (fcntl-based)"
+    ),
 )
 
 
@@ -139,6 +144,7 @@ class TestDoRollover:
             handler.doRollover()
             spy.assert_called_once()
 
+    @_skip_on_windows
     def test_foreign_rotation_advances_rolloverAt(self, handler, tmp_path):
         """When another process performs the time-based rollover, this
         handler's _check_inode_and_reopen reopens the stream and must
@@ -389,6 +395,7 @@ class TestCreateRotatingHandler:
 class TestSafeRotatingFileHandler:
     """Multi-process safety tests for SafeRotatingFileHandler (size mode)."""
 
+    @_skip_on_windows
     def test_inode_check_reopens_after_rename(self, tmp_path):
         from ..utils import SafeRotatingFileHandler
 
