@@ -756,6 +756,11 @@ The following is a list of built-in LLM in Xinference:
      - 2048
      - The TinyLlama project aims to pretrain a 1.1B Llama model on 3 trillion tokens.
 
+   * - :ref:`vibethinker <models_llm_vibethinker>`
+     - chat, tools
+     - 131072
+     - VibeThinker is a series of dense reasoning language models developed by WeiboAI. Built on the Qwen2 architecture with a post-training methodology centered on the Spectrum-to-Signal Principle (SSP), VibeThinker demonstrates strong reasoning capabilities in mathematics and coding despite its compact size.
+
    * - :ref:`wizardcoder-python-v1.0 <models_llm_wizardcoder-python-v1.0>`
      - chat
      - 100000
@@ -1111,6 +1116,8 @@ The following is a list of built-in LLM in Xinference:
    telechat
   
    tiny-llama
+  
+   vibethinker
   
    wizardcoder-python-v1.0
   
