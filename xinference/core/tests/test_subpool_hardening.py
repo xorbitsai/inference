@@ -73,6 +73,9 @@ def _make_worker():
         WorkerActor.allocate_devices_with_gpu_idx.__get__(self)
     )
     self._create_subpool = WorkerActor._create_subpool.__get__(self)
+    self._append_sub_pool_protected = WorkerActor._append_sub_pool_protected.__get__(
+        self
+    )
     self._cleanup_gpu_orphans_on_startup = (
         WorkerActor._cleanup_gpu_orphans_on_startup.__get__(self)
     )
@@ -243,6 +246,101 @@ async def test_create_subpool_vram_low_triggers_orphan_kill(monkeypatch):
     self._main_pool.append_sub_pool = _async_return("addr:1")
     await self._create_subpool("model-1", model_type="LLM", gpu_idx=[0])
     assert killed_calls, "expected _kill_gpu_orphans_by_ppid to be invoked"
+
+
+# ---------------------------------------------------------------------------
+# _append_sub_pool_protected: the single protected append_sub_pool entrypoint.
+# All three call sites (_create_subpool, need_create_pools gather,
+# launch_rank0_model) route through it, so H3/C coverage of the helper itself
+# also covers those sites.
+# ---------------------------------------------------------------------------
+
+
+async def test_append_sub_pool_protected_serializes_concurrent_calls(
+    patched_subpool_deps,
+):
+    """The gather pattern used by need_create_pools must not let
+    append_sub_pool run concurrently — exactly the H3 deadlock scenario."""
+    self = _make_worker()
+
+    in_flight = 0
+    max_in_flight = 0
+
+    async def _tracked_append(env=None, start_python=None):
+        nonlocal in_flight, max_in_flight
+        in_flight += 1
+        max_in_flight = max(max_in_flight, in_flight)
+        await asyncio.sleep(0.05)
+        in_flight -= 1
+        return f"addr:{max_in_flight}"
+
+    self._main_pool.append_sub_pool = _tracked_append
+
+    # Mirror the need_create_pools gather: multiple concurrent appends.
+    addrs = await asyncio.gather(
+        self._append_sub_pool_protected(model_uid="m-a"),
+        self._append_sub_pool_protected(model_uid="m-b"),
+        self._append_sub_pool_protected(model_uid="m-c"),
+    )
+    assert max_in_flight == 1, "append_sub_pool must be serialized"
+    assert len(addrs) == 3
+
+
+async def test_append_sub_pool_protected_timeout_kills_leftover_and_reraises(
+    patched_subpool_deps,
+):
+    """C: on timeout the helper SIGKILLs leftover start_sub_pool children
+    (PPID == this worker) and re-raises so callers run their own cleanup."""
+    self = _make_worker()
+    self._main_pool.append_sub_pool = _hang_coro
+
+    my_pid = os.getpid()
+    matching = MagicMock()
+    matching.info = {
+        "pid": 7701,
+        "ppid": my_pid,
+        "cmdline": ["python", "-m", "xoscar", "start_sub_pool", "-sn", "y"],
+    }
+    other = MagicMock()
+    other.info = {"pid": 7702, "ppid": my_pid + 1, "cmdline": ["unrelated"]}
+    mock_psutil = MagicMock()
+    mock_psutil.process_iter.return_value = [matching, other]
+    mock_psutil.NoSuchProcess = ProcessLookupError
+    mock_psutil.AccessDenied = PermissionError
+
+    with patch.dict("sys.modules", {"psutil": mock_psutil}):
+        with pytest.raises(asyncio.TimeoutError):
+            await self._append_sub_pool_protected(model_uid="rank0-model")
+
+    matching.kill.assert_called_once()
+    other.kill.assert_not_called()
+
+
+async def test_append_sub_pool_protected_does_not_log_env_values(
+    patched_subpool_deps, caplog
+):
+    """env may carry secrets; the timeout log must emit keys only, never
+    values. Uses the timeout path because that is where env is logged."""
+    import logging
+
+    self = _make_worker()
+    self._main_pool.append_sub_pool = _hang_coro
+    mock_psutil = MagicMock()
+    mock_psutil.process_iter.return_value = []
+    mock_psutil.NoSuchProcess = ProcessLookupError
+    mock_psutil.AccessDenied = PermissionError
+
+    secret_env = {"CUDA_VISIBLE_DEVICES": "0", "OPENAI_API_KEY": "sk-secret-xyz"}
+    with patch.dict("sys.modules", {"psutil": mock_psutil}):
+        with caplog.at_level(logging.ERROR, logger="xinference.core.worker"):
+            with pytest.raises(asyncio.TimeoutError):
+                await self._append_sub_pool_protected(
+                    env=secret_env, model_uid="m-secret"
+                )
+
+    blob = "\n".join(r.getMessage() for r in caplog.records)
+    assert "sk-secret-xyz" not in blob, "env value leaked in timeout log"
+    assert "OPENAI_API_KEY" in blob, "env key name should be logged"
 
 
 def _track_kill(sink):

@@ -1537,6 +1537,70 @@ class WorkerActor(xo.StatelessActor):
         # monitor task per worker process.
         await self._main_pool.start_monitor()
 
+    async def _append_sub_pool_protected(
+        self,
+        env: Optional[Dict[str, str]] = None,
+        start_python: Optional[str] = None,
+        model_uid: str = "",
+    ) -> str:
+        """Append a sub-pool under _subpool_creation_lock with a launch timeout.
+
+        All append_sub_pool call sites must route through this helper so they
+        are uniformly protected against (H3) concurrent fork+GIL deadlock and
+        (C) single-fork CUDA-init hang. The lock serializes only the
+        append_sub_pool call (milliseconds), not download/load.
+
+        On timeout, leftover start_sub_pool children (PPID == this worker) are
+        SIGKILLed best-effort and asyncio.TimeoutError is re-raised so the
+        caller can run its own failure-path cleanup (e.g. release_devices).
+        env keys are logged (never values) because env may carry secrets.
+        """
+        async with self._subpool_creation_lock:
+            try:
+                return await xo.wait_for(
+                    self._main_pool.append_sub_pool(env=env, start_python=start_python),
+                    timeout=XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT,
+                )
+            except asyncio.TimeoutError:
+                logger.error(
+                    "Subpool creation timed out after %ss for model %s "
+                    "(likely fork-unsafe state in worker; restart worker to "
+                    "recover). start_python=%s, env_keys=%s",
+                    XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT,
+                    model_uid,
+                    start_python,
+                    sorted(env.keys()) if env else [],
+                )
+                # Kill leftover sub_pool child processes. xo.wait_for only
+                # cancels the future; the forked child may still be alive
+                # holding GPU memory. Match PPID == this worker's pid and
+                # cmdline containing start_sub_pool. Best-effort.
+                try:
+                    import psutil
+
+                    _my_pid = os.getpid()
+                    for _p in psutil.process_iter(["pid", "ppid", "cmdline"]):
+                        _info = _p.info
+                        if _info["ppid"] != _my_pid:
+                            continue
+                        _cmd = " ".join(_info.get("cmdline") or []).lower()
+                        if "start_sub_pool" in _cmd:
+                            try:
+                                _p.kill()
+                                logger.warning(
+                                    "Killed leftover sub_pool process after "
+                                    "timeout: pid=%s",
+                                    _info["pid"],
+                                )
+                            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                                continue
+                except Exception:
+                    logger.debug(
+                        "Failed to kill leftover sub_pool process",
+                        exc_info=True,
+                    )
+                raise
+
     async def _create_subpool(
         self,
         model_uid: str,
@@ -1632,61 +1696,21 @@ class WorkerActor(xo.StatelessActor):
         # XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT; we clean up and re-raise so the
         # supervisor's _workers_launching counter decrements.
         logger.debug(
-            "Creating subpool for model %s, start_python=%s, env=%s",
+            "Creating subpool for model %s, start_python=%s, env_keys=%s",
             model_uid,
             start_python,
-            env,
+            sorted(env.keys()) if env else [],
         )
-        async with self._subpool_creation_lock:
-            try:
-                subpool_address = await xo.wait_for(
-                    self._main_pool.append_sub_pool(env=env, start_python=start_python),
-                    timeout=XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT,
-                )
-            except asyncio.TimeoutError:
-                logger.error(
-                    "Subpool creation timed out after %ss for model %s "
-                    "(likely fork-unsafe state in worker; restart worker to "
-                    "recover). start_python=%s, env=%s",
-                    XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT,
-                    model_uid,
-                    start_python,
-                    env,
-                )
-                # (1) Kill leftover sub_pool child processes. xo.wait_for only
-                # cancels the future; the forked child may still be alive
-                # holding GPU memory. Match PPID == this worker's pid and
-                # cmdline containing start_sub_pool. Best-effort.
-                try:
-                    import psutil
-
-                    _my_pid = os.getpid()
-                    for _p in psutil.process_iter(["pid", "ppid", "cmdline"]):
-                        _info = _p.info
-                        if _info["ppid"] != _my_pid:
-                            continue
-                        _cmd = " ".join(_info.get("cmdline") or []).lower()
-                        if "start_sub_pool" in _cmd:
-                            try:
-                                _p.kill()
-                                logger.warning(
-                                    "Killed leftover sub_pool process after "
-                                    "timeout: pid=%s",
-                                    _info["pid"],
-                                )
-                            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                                continue
-                except Exception:
-                    logger.debug(
-                        "Failed to kill leftover sub_pool process", exc_info=True
-                    )
-                # (2) Release devices allocated above; otherwise the GPU
-                # allocation table leaks and the next launch on the same GPUs
-                # reports them as occupied.
-                self.release_devices(model_uid=model_uid)
-                # (3) Re-raise so launch_builtin_model's try/finally runs the
-                # failure path and the supervisor marks the replica ERROR.
-                raise
+        try:
+            subpool_address = await self._append_sub_pool_protected(
+                env=env, start_python=start_python, model_uid=model_uid
+            )
+        except asyncio.TimeoutError:
+            # Release devices allocated above; otherwise the GPU allocation
+            # table leaks and the next launch on the same GPUs reports them
+            # as occupied. (Leftover-child kill is handled inside the helper.)
+            self.release_devices(model_uid=model_uid)
+            raise
         await self._ensure_subpool_monitor()
         return subpool_address, [str(dev) for dev in devices]
 
@@ -2966,9 +2990,10 @@ class WorkerActor(xo.StatelessActor):
                             env_value = ",".join(devices)
                             for device in devices:
                                 coros.append(
-                                    self._main_pool.append_sub_pool(
+                                    self._append_sub_pool_protected(
                                         env={env_name: env_value},
                                         start_python=subpool_python_path,
+                                        model_uid=model_uid,
                                     )
                                 )
                             pool_addresses = await asyncio.gather(*coros)
@@ -3716,7 +3741,7 @@ class WorkerActor(xo.StatelessActor):
     ) -> Tuple[str, int]:
         from ..model.llm.vllm.xavier.collective_manager import Rank0ModelActor
 
-        subpool_address = await self._main_pool.append_sub_pool()
+        subpool_address = await self._append_sub_pool_protected(model_uid=rep_model_uid)
         await self._ensure_subpool_monitor()
 
         store_address = subpool_address.split(":")[0]
