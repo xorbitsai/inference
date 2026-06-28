@@ -107,11 +107,11 @@ Per-model and per-replica view covering **all model types** (LLM, embedding, rer
 | Per-replica detail table | QPS, concurrency, VRAM per (model, worker) |
 | Trend charts | QPS, concurrency ratio, VRAM, P95, error rate over time |
 
-> **Label alignment:** Worker-side metrics use `model`/`node`/`type` labels, while Supervisor-side metrics use `model_uid`/`worker_address`/`model_type`. The dashboard uses Grafana Transform (Rename by regex + Join by field) to align them within panels. This requires both Worker and Supervisor metrics to reside in the **same Prometheus instance** (different `job` labels).
+> **Label alignment:** Both Worker-side and Supervisor-side metrics now use unified labels (`model_uid`, `worker_address`, `model_type`, and `replica_index`). This allows direct PromQL joins (e.g., `* on (model_uid, replica_index, worker_address)`) within panels without requiring Grafana Transform hacks. This requires both Worker and Supervisor metrics to reside in the **same Prometheus instance** (different `job` labels).
 
 ### 3. LLM Inference SLO (`xinference-llm-slo`)
 
-LLM-specific quality metrics (`type="llm"` only). No per-model breakdown (moved to Model Load dashboard).
+LLM-specific quality metrics (`model_type="LLM"` only). No per-model breakdown (moved to Model Load dashboard).
 
 | Panel | Key Metrics |
 |-------|-------------|

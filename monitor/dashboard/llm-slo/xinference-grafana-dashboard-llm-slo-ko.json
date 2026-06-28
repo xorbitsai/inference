@@ -195,12 +195,12 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(xinference:model_request_total{cluster=~\"$cluster\", type=\"LLM\", model_name=~\"$model_name\", stream=\"true\"}[5m])) by (model_name)",
+          "expr": "sum(rate(xinference:model_request_total{cluster=~\"$cluster\", model_type=\"LLM\", model_name=~\"$model_name\", stream=\"true\"}[5m])) by (model_name)",
           "legendFormat": "{{model_name}} (스트리밍)",
           "refId": "A"
         },
         {
-          "expr": "sum(rate(xinference:model_request_total{cluster=~\"$cluster\", type=\"LLM\", model_name=~\"$model_name\", stream=\"false\"}[5m])) by (model_name)",
+          "expr": "sum(rate(xinference:model_request_total{cluster=~\"$cluster\", model_type=\"LLM\", model_name=~\"$model_name\", stream=\"false\"}[5m])) by (model_name)",
           "legendFormat": "{{model_name}} (비스트리밍)",
           "refId": "B"
         }
@@ -295,7 +295,7 @@
       },
       "targets": [
         {
-          "expr": "rate(xinference:model_request_errors_total{cluster=~\"$cluster\", type=\"LLM\", model_name=~\"$model_name\"}[5m]) / rate(xinference:model_request_total{cluster=~\"$cluster\", type=\"LLM\", model_name=~\"$model_name\"}[5m]) * 100",
+          "expr": "rate(xinference:model_request_errors_total{cluster=~\"$cluster\", model_type=\"LLM\", model_name=~\"$model_name\"}[5m]) / rate(xinference:model_request_total{cluster=~\"$cluster\", model_type=\"LLM\", model_name=~\"$model_name\"}[5m]) * 100",
           "legendFormat": "{{model_name}}",
           "refId": "A"
         }
@@ -386,12 +386,12 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(xinference:model_request_duration_seconds_bucket{cluster=~\"$cluster\", type=\"LLM\", model_name=~\"$model_name\"}[5m])) by (le, model_name))",
+          "expr": "histogram_quantile(0.95, sum(rate(xinference:model_request_duration_seconds_bucket{cluster=~\"$cluster\", model_type=\"LLM\", model_name=~\"$model_name\"}[5m])) by (le, model_name))",
           "legendFormat": "{{model_name}} P95",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.50, sum(rate(xinference:model_request_duration_seconds_bucket{cluster=~\"$cluster\", type=\"LLM\", model_name=~\"$model_name\"}[5m])) by (le, model_name))",
+          "expr": "histogram_quantile(0.50, sum(rate(xinference:model_request_duration_seconds_bucket{cluster=~\"$cluster\", model_type=\"LLM\", model_name=~\"$model_name\"}[5m])) by (le, model_name))",
           "legendFormat": "{{model_name}} P50",
           "refId": "B"
         }
@@ -481,12 +481,12 @@
       },
       "targets": [
         {
-          "expr": "xinference:model_serve_count{cluster=~\"$cluster\", type=\"LLM\", model_name=~\"$model_name\"}",
+          "expr": "xinference:model_serve_count{cluster=~\"$cluster\", model_type=\"LLM\", model_name=~\"$model_name\"}",
           "legendFormat": "{{model_name}} serving",
           "refId": "A"
         },
         {
-          "expr": "xinference:model_request_limit{cluster=~\"$cluster\", type=\"LLM\", model_name=~\"$model_name\"}",
+          "expr": "xinference:model_request_limit{cluster=~\"$cluster\", model_type=\"LLM\", model_name=~\"$model_name\"}",
           "legendFormat": "{{model_name}} limit",
           "refId": "B"
         }
@@ -1031,17 +1031,17 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum by (le) (rate(time_to_first_token_seconds_bucket{type=\"llm\"}[5m])))",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(xinference:time_to_first_token_seconds_bucket{model_type=\"LLM\"}[5m])))",
           "legendFormat": "P50",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(time_to_first_token_seconds_bucket{type=\"llm\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(xinference:time_to_first_token_seconds_bucket{model_type=\"LLM\"}[5m])))",
           "legendFormat": "P95",
           "refId": "B"
         },
         {
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(time_to_first_token_seconds_bucket{type=\"llm\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(xinference:time_to_first_token_seconds_bucket{model_type=\"LLM\"}[5m])))",
           "legendFormat": "P99",
           "refId": "C"
         }
@@ -1068,17 +1068,17 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum by (le) (rate(model_request_duration_seconds_bucket{type=\"llm\"}[5m])))",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(xinference:model_request_duration_seconds_bucket{model_type=\"LLM\"}[5m])))",
           "legendFormat": "P50",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(model_request_duration_seconds_bucket{type=\"llm\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(xinference:model_request_duration_seconds_bucket{model_type=\"LLM\"}[5m])))",
           "legendFormat": "P95",
           "refId": "B"
         },
         {
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(model_request_duration_seconds_bucket{type=\"llm\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(xinference:model_request_duration_seconds_bucket{model_type=\"LLM\"}[5m])))",
           "legendFormat": "P99",
           "refId": "C"
         }
