@@ -1,0 +1,30 @@
+xinference/core/tests/test_subpool_hardening.py
+  f9a1188b6405b9d2 1-393
+xinference/model/llm/vllm/core.py
+  f9a1188b6405b9d2 461-467
+xinference/constants.py
+  f9a1188b6405b9d2 258-268
+xinference/core/worker.py
+  f9a1188b6405b9d2 65,172-174,379-498,616-622,867-993,1110-1118,1615-1684,1686-1735
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "8b276fa7e4d3ed0aeeb92ec4f6d500f31a1029fa",
+  "prompts": {
+    "f9a1188b6405b9d2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "afebc574-c9dd-4b05-a79b-93f62959aa62",
+        "model": "glm-5.2"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 2575,
+      "total_deletions": 419,
+      "accepted_lines": 2546,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/ed75a464cf263c0a28e053bcad0b41980e8da1e25b126555858faed266d82f29"
+    }
+  }
+}
