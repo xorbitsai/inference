@@ -20,7 +20,12 @@ import socket
 from datetime import datetime, timezone
 from typing import Optional
 
-from ....constants import XINFERENCE_AUDIT_LOG_RETENTION_DAYS, XINFERENCE_LOG_DIR
+from ....constants import (
+    XINFERENCE_AUDIT_LOG_RETENTION_DAYS,
+    XINFERENCE_LOG_BACKUP_COUNT,
+    XINFERENCE_LOG_DIR,
+    XINFERENCE_LOG_MAX_BYTES,
+)
 from ....core.log import create_rotating_handler
 
 _audit_logger: Optional[logging.Logger] = None
@@ -38,7 +43,9 @@ def _get_audit_logger() -> logging.Logger:
     handler = create_rotating_handler(
         filename=os.path.join(XINFERENCE_LOG_DIR, "audit.log"),
         retention_days=XINFERENCE_AUDIT_LOG_RETENTION_DAYS,
-        rotation="daily",
+        rotation="daily+size",
+        max_bytes=XINFERENCE_LOG_MAX_BYTES,
+        backup_count=XINFERENCE_LOG_BACKUP_COUNT,
         formatter=logging.Formatter("%(message)s"),
     )
     _audit_logger.addHandler(handler)
