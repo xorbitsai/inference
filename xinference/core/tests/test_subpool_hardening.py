@@ -31,7 +31,7 @@ Covers:
 
 import asyncio
 import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -59,7 +59,7 @@ def _make_worker():
     self = _WorkerStub()
     self._subpool_creation_lock = asyncio.Lock()
     self._main_pool = MagicMock()
-    self._ensure_subpool_monitor = MagicMock(return_value=_noop_coro())
+    self._ensure_subpool_monitor = AsyncMock()
     self.release_devices = MagicMock()
     self.address = "test:1"
     # allocate_devices_with_gpu_idx reads these; populate enough state for the
@@ -77,10 +77,6 @@ def _make_worker():
         WorkerActor._cleanup_gpu_orphans_on_startup.__get__(self)
     )
     return self
-
-
-async def _noop_coro():
-    return None
 
 
 async def _hang_coro(*args, **kwargs):
