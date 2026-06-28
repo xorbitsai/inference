@@ -111,7 +111,7 @@ Per-model and per-replica view covering **all model types** (LLM, embedding, rer
 
 ### 3. LLM Inference SLO (`xinference-llm-slo`)
 
-LLM-specific quality metrics (`type="llm"` only). No per-model breakdown (moved to Model Load dashboard).
+LLM-specific quality metrics (`model_type="LLM"` only). No per-model breakdown (moved to Model Load dashboard).
 
 | Panel | Key Metrics |
 |-------|-------------|

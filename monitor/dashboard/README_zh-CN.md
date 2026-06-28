@@ -111,7 +111,7 @@ docker compose -f dcgm-exporter.yml up -d
 
 ### 3. LLM 推理 SLO（`xinference-llm-slo`）
 
-LLM 专属质量指标（仅 `type="llm"`）。不含每模型明细（已迁移到模型负载面板）。
+LLM 专属质量指标（仅 `model_type="LLM"`）。不含每模型明细（已迁移到模型负载面板）。
 
 | 面板 | 关键指标 |
 |------|----------|
