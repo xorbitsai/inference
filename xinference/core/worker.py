@@ -383,11 +383,16 @@ def _nvml_init_with_timeout(timeout: int = _NVML_INIT_TIMEOUT) -> bool:
     Unix we use SIGALRM to bound it so a stuck GPU driver cannot hang worker
     startup. On Windows SIGALRM is unavailable; we call nvmlInit directly
     (Windows rarely runs vLLM, and the no-lock degradation is acceptable).
+    signal.signal also requires the main thread; in background-thread
+    contexts (some test setups, customized deployments) we fall back to a
+    direct nvmlInit rather than raising ValueError.
 
     Returns True on success, False on failure or timeout (caller degrades
     gracefully). The original SIGALRM handler is always restored.
     """
-    if os.name == "nt":
+    import threading
+
+    if os.name == "nt" or threading.current_thread() is not threading.main_thread():
         try:
             import pynvml
 
@@ -435,12 +440,14 @@ async def _kill_gpu_orphans_by_ppid(
 
     cmdline is re-checked immediately before SIGKILL to defend against PID
     reuse between the snapshot and the kill. SIGTERM is sent first, then
-    after a 1s grace, SIGKILL is applied to survivors.
+    after a 1s grace, SIGKILL is applied to survivors. psutil.Process
+    objects are retained across the grace sleep so is_running() detects
+    PID reuse via create_time comparison rather than re-resolving the PID.
     """
     import psutil
 
     occupying_pids = _snapshot_gpu_occupying_pids(device_indices)
-    orphan_pids: List[int] = []
+    orphan_processes: List["psutil.Process"] = []
     for pid in occupying_pids:
         if pid == os.getpid():
             continue
@@ -451,39 +458,38 @@ async def _kill_gpu_orphans_by_ppid(
             cmd = " ".join(p.cmdline()).lower()
             if not any(k in cmd for k in ("vllm", "enginecore", "start_sub_pool")):
                 continue
-            orphan_pids.append(pid)
+            orphan_processes.append(p)
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
 
-    if not orphan_pids:
+    if not orphan_processes:
         return []
 
     logger.warning(
         "Found %d vLLM orphan(s) on GPUs %s: %s",
-        len(orphan_pids),
+        len(orphan_processes),
         device_indices,
-        sorted(orphan_pids),
+        sorted(p.pid for p in orphan_processes),
     )
 
-    for pid in orphan_pids:
+    for p in orphan_processes:
         try:
-            os.kill(pid, signal.SIGTERM)
+            os.kill(p.pid, signal.SIGTERM)
         except (ProcessLookupError, PermissionError):
             continue
     await asyncio.sleep(1.0)
 
     killed: List[int] = []
-    for pid in orphan_pids:
+    for p in orphan_processes:
         try:
-            p = psutil.Process(pid)
             if not p.is_running() or p.status() == psutil.STATUS_ZOMBIE:
                 continue
             cmd = " ".join(p.cmdline()).lower()
             if not any(k in cmd for k in ("vllm", "enginecore", "start_sub_pool")):
                 continue
-            os.kill(pid, signal.SIGKILL)
-            killed.append(pid)
-            logger.warning("SIGKILL orphan pid %s on GPUs %s", pid, device_indices)
+            os.kill(p.pid, signal.SIGKILL)
+            killed.append(p.pid)
+            logger.warning("SIGKILL orphan pid %s on GPUs %s", p.pid, device_indices)
         except (
             psutil.NoSuchProcess,
             psutil.AccessDenied,
@@ -492,7 +498,7 @@ async def _kill_gpu_orphans_by_ppid(
         ):
             continue
         except Exception:
-            logger.debug("Kill pid %s failed", pid, exc_info=True)
+            logger.debug("Kill pid %s failed", p.pid, exc_info=True)
     return killed
 
 
@@ -907,29 +913,16 @@ class WorkerActor(xo.StatelessActor):
         if not all_devices:
             return
 
+        # Pre-snapshot for diagnostics: distinguish "GPU empty" from
+        # "GPU busy but no orphans". _kill_gpu_orphans_by_ppid re-snapshots
+        # internally for the actual kill decision.
         occupying_pids = _snapshot_gpu_occupying_pids(all_devices)
         if not occupying_pids:
             logger.info("Startup GPU orphan cleanup: no GPU-occupying processes found")
             return
 
-        import psutil
-
-        orphan_pids: List[int] = []
-        for pid in occupying_pids:
-            if pid == os.getpid():
-                continue
-            try:
-                p = psutil.Process(pid)
-                if p.ppid() != 1:
-                    continue
-                cmd = " ".join(p.cmdline()).lower()
-                if not any(k in cmd for k in ("vllm", "enginecore", "start_sub_pool")):
-                    continue
-                orphan_pids.append(pid)
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                continue
-
-        if not orphan_pids:
+        killed = await _kill_gpu_orphans_by_ppid(all_devices)
+        if not killed:
             logger.info(
                 "Startup GPU orphan cleanup: %d GPU-occupying process(es) "
                 "found, none are vLLM orphans (all have live parents or "
@@ -937,43 +930,6 @@ class WorkerActor(xo.StatelessActor):
                 len(occupying_pids),
             )
             return
-
-        logger.warning(
-            "Startup GPU orphan cleanup: found %d vLLM orphan(s) on GPUs, "
-            "killing: %s",
-            len(orphan_pids),
-            sorted(orphan_pids),
-        )
-        for pid in orphan_pids:
-            try:
-                os.kill(pid, signal.SIGTERM)
-            except (ProcessLookupError, PermissionError):
-                continue
-        await asyncio.sleep(1.0)
-        for pid in orphan_pids:
-            try:
-                p = psutil.Process(pid)
-                if not p.is_running() or p.status() == psutil.STATUS_ZOMBIE:
-                    continue
-                cmd = " ".join(p.cmdline()).lower()
-                if not any(k in cmd for k in ("vllm", "enginecore", "start_sub_pool")):
-                    logger.debug(
-                        "Startup skip pid %s: cmdline changed: %s",
-                        pid,
-                        cmd[:100],
-                    )
-                    continue
-                os.kill(pid, signal.SIGKILL)
-                logger.warning("Startup SIGKILL orphan pid %s", pid)
-            except (
-                psutil.NoSuchProcess,
-                psutil.AccessDenied,
-                ProcessLookupError,
-                PermissionError,
-            ):
-                continue
-            except Exception:
-                logger.debug("Startup kill pid %s failed", pid, exc_info=True)
 
         try:
             _free_ratio = _snapshot_gpu_free_ratio(all_devices)
@@ -1659,7 +1615,7 @@ class WorkerActor(xo.StatelessActor):
                             "Pre-launch VRAM after cleanup for model %s: "
                             "free_ratio=%.2f",
                             model_uid,
-                            _snapshot_gpu_free_ratio(_target_device_ints),
+                            _free_ratio,
                         )
             except Exception:
                 logger.debug(

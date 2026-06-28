@@ -250,6 +250,7 @@ async def test_kill_gpu_orphans_by_ppid_filters_by_ppid_and_cmdline(monkeypatch)
 
     def _make(pid, ppid, cmdline):
         m = MagicMock()
+        m.pid = pid  # plain int so os.kill(p.pid, ...) and call-arg checks work
         m.ppid.return_value = ppid
         m.is_running.return_value = True
         m.status.return_value = "running"
@@ -348,6 +349,7 @@ async def test_startup_cleanup_kills_orphans(monkeypatch):
     )
 
     orphan = MagicMock()
+    orphan.pid = 500  # plain int so os.kill(p.pid, ...) and call-arg checks work
     orphan.ppid.return_value = 1
     orphan.is_running.return_value = True
     orphan.status.return_value = "running"
@@ -391,3 +393,24 @@ def test_nvml_init_with_timeout_failure_returns_false():
     mock_pynvml.nvmlInit.side_effect = RuntimeError("driver down")
     with patch.dict("sys.modules", {"pynvml": mock_pynvml}):
         assert w._nvml_init_with_timeout(timeout=2) is False
+
+
+def test_nvml_init_with_timeout_background_thread_falls_back():
+    """signal.signal only works in the main thread; a background-thread caller
+    must fall back to a direct nvmlInit instead of raising ValueError."""
+    import threading
+
+    import xinference.core.worker as w
+
+    mock_pynvml = MagicMock()
+    result: dict = {}
+
+    def _run():
+        with patch.dict("sys.modules", {"pynvml": mock_pynvml}):
+            result["ok"] = w._nvml_init_with_timeout(timeout=2)
+
+    t = threading.Thread(target=_run)
+    t.start()
+    t.join()
+    assert result["ok"] is True
+    mock_pynvml.nvmlInit.assert_called_once()
