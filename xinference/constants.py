@@ -255,6 +255,17 @@ XINFERENCE_MAX_CONCURRENT_LAUNCHES = max(
     1, int(os.environ.get(XINFERENCE_ENV_MAX_CONCURRENT_LAUNCHES, 5))
 )
 
+# Sub-pool creation timeout in seconds. Only covers fork+exec+import xoscar+
+# bind port+write shm, NOT model weight download (which happens in
+# create_model_instance after _create_subpool). Normal sub-pool creation < 1s;
+# 60s is 60x+ headroom. On timeout: kill leftover subprocess + release GPU +
+# raise TimeoutError so launch_builtin_model's try/finally runs the failure
+# path and the supervisor's _workers_launching counter decrements. Tunable for
+# extreme environments (slow NFS, vLLM version upgrade slowing import, etc.).
+XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT = int(
+    os.environ.get("XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT", "60")
+)
+
 # Status gather timeout in seconds (for collecting GPU info, etc.)
 # Default: 10 seconds, increased from original 5 seconds
 XINFERENCE_STATUS_GATHER_TIMEOUT = int(
