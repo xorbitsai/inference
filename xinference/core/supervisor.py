@@ -2851,8 +2851,23 @@ class SupervisorActor(xo.StatelessActor):
 
         running_model_info = {parse_replica_model_uid(k)[0]: v for k, v in ret.items()}
         # add replica count
+        stale_uids = []
         for k, v in running_model_info.items():
-            v["replica"] = self._model_uid_to_replica_info[k].replica
+            replica_info = self._model_uid_to_replica_info.get(k)
+            if replica_info is None:
+                # Worker still reports a replica that supervisor no longer
+                # tracks (e.g. failed launch left a stale subprocess). Skip
+                # it instead of raising KeyError, and let recover_sub_pool
+                # clean up later.
+                logger.warning(
+                    "list_models: drop stale running model %s without replica info",
+                    k,
+                )
+                stale_uids.append(k)
+                continue
+            v["replica"] = replica_info.replica
+        for k in stale_uids:
+            running_model_info.pop(k, None)
         return running_model_info
 
     def is_local_deployment(self) -> bool:
