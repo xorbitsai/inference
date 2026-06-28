@@ -181,17 +181,41 @@ def get_batch_size_and_seq_len_from_kv_cache(kv, xinf_model_obj: "PytorchModel")
         from transformers import HybridCache
 
         if isinstance(kv, HybridCache):
+            if len(kv.key_cache) == 0 or kv.key_cache[0] is None:
+                return 0, 0
             return kv.key_cache[0].shape[bs_idx], kv.get_seq_length()
     except ImportError:
-        if kv is None:
+        pass
+
+    if kv is None:
+        return 0, 0
+
+    if hasattr(kv, "key_cache"):
+        if len(kv.key_cache) == 0 or kv.key_cache[0] is None:
             return 0, 0
 
-        if hasattr(kv, "key_cache"):
-            if len(kv.key_cache) == 0 or kv.key_cache[0] is None:
-                return 0, kv.get_seq_length() if hasattr(kv, "get_seq_length") else 0
+        key = kv.key_cache[0]
+        return (
+            key.shape[bs_idx],
+            (
+                kv.get_seq_length()
+                if hasattr(kv, "get_seq_length")
+                else key.shape[seq_len_idx]
+            ),
+        )
 
-            key = kv.key_cache[0]
-            return key.shape[bs_idx], kv.get_seq_length()
+    # New transformers Cache API (transformers >= 4.57 / 5.x): DynamicCache
+    # exposes `layers` (a list of CacheLayerMixin objects with `.keys` /
+    # `.values` tensors of shape [batch_size, num_heads, seq_len, head_dim])
+    # and `get_seq_length()`, but no longer exposes `key_cache` and (on 5.x)
+    # is not subscriptable. Without this branch the legacy `kv[0][0]` fallback
+    # below raises `TypeError: 'DynamicCache' object is not subscriptable`.
+    if hasattr(kv, "layers") and hasattr(kv, "get_seq_length"):
+        layers = kv.layers
+        first_keys = getattr(layers[0], "keys", None) if len(layers) > 0 else None
+        if first_keys is None or first_keys.numel() == 0:
+            return 0, kv.get_seq_length()
+        return first_keys.shape[bs_idx], kv.get_seq_length()
 
     return kv[0][0].shape[bs_idx], kv[0][0].shape[seq_len_idx] + 1
 
