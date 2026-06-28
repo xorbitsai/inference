@@ -36,16 +36,27 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-def _make_worker():
-    """Build a WorkerActor shell without running __init__ (which starts a
-    metrics server, isolation thread, etc.). Only the attributes touched by
-    _create_subpool / _cleanup_gpu_orphans_on_startup are wired.
+class _WorkerStub:
+    """Plain stand-in for WorkerActor.
+
+    Instantiating WorkerActor directly is unsafe: xoscar's
+    StatelessActor.__new__ forbids construction outside an actor pool
+    (``object.__new__(WorkerActor)`` raises TypeError). We bind the real
+    WorkerActor methods onto this stub so the code under test runs verbatim,
+    with only the attributes they read populated.
     """
+
+    pass
+
+
+def _make_worker():
+    """Build a _WorkerStub with the real WorkerActor methods bound and the
+    attributes they read populated."""
     from collections import defaultdict
 
     from xinference.core.worker import WorkerActor
 
-    self = object.__new__(WorkerActor)
+    self = _WorkerStub()
     self._subpool_creation_lock = asyncio.Lock()
     self._main_pool = MagicMock()
     self._ensure_subpool_monitor = MagicMock(return_value=_noop_coro())
@@ -57,6 +68,14 @@ def _make_worker():
     self._gpu_to_model_uids = defaultdict(set)
     self._user_specified_gpu_to_model_uids = defaultdict(set)
     self._allow_multi_replica_per_gpu = True
+    # Bind the real methods so the code under test runs verbatim.
+    self.allocate_devices_with_gpu_idx = (
+        WorkerActor.allocate_devices_with_gpu_idx.__get__(self)
+    )
+    self._create_subpool = WorkerActor._create_subpool.__get__(self)
+    self._cleanup_gpu_orphans_on_startup = (
+        WorkerActor._cleanup_gpu_orphans_on_startup.__get__(self)
+    )
     return self
 
 
@@ -250,7 +269,7 @@ async def test_kill_gpu_orphans_by_ppid_filters_by_ppid_and_cmdline(monkeypatch)
 
     def _make(pid, ppid, cmdline):
         m = MagicMock()
-        m.pid = pid  # plain int so os.kill(p.pid, ...) and call-arg checks work
+        m.pid = pid  # plain int: production code appends p.pid to the killed list
         m.ppid.return_value = ppid
         m.is_running.return_value = True
         m.status.return_value = "running"
@@ -280,16 +299,14 @@ async def test_kill_gpu_orphans_by_ppid_filters_by_ppid_and_cmdline(monkeypatch)
     with patch("xinference.core.worker._snapshot_gpu_occupying_pids") as mock_snap:
         mock_snap.return_value = {100, 200, 300}
         with patch.dict("sys.modules", {"psutil": mock_psutil}):
-            with patch("os.kill") as mock_kill:
-                killed = await w._kill_gpu_orphans_by_ppid([0])
+            killed = await w._kill_gpu_orphans_by_ppid([0])
 
     assert killed == [100]
-    # SIGTERM then SIGKILL for pid 100 only.
-    killed_signals = [c.args[1] for c in mock_kill.call_args_list if c.args[0] == 100]
-    import signal as _signal
-
-    assert _signal.SIGTERM in killed_signals
-    assert _signal.SIGKILL in killed_signals
+    # pid 100 (orphan vLLM) gets terminate() then kill(); 200 and 300 are spared.
+    procs[100].terminate.assert_called_once()
+    procs[100].kill.assert_called_once()
+    procs[200].kill.assert_not_called()
+    procs[300].kill.assert_not_called()
 
 
 async def test_kill_gpu_orphans_by_ppid_no_orphans_returns_empty(monkeypatch):
@@ -297,10 +314,8 @@ async def test_kill_gpu_orphans_by_ppid_no_orphans_returns_empty(monkeypatch):
 
     with patch("xinference.core.worker._snapshot_gpu_occupying_pids") as mock_snap:
         mock_snap.return_value = set()
-        with patch("os.kill") as mock_kill:
-            killed = await w._kill_gpu_orphans_by_ppid([0])
+        killed = await w._kill_gpu_orphans_by_ppid([0])
     assert killed == []
-    mock_kill.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -349,7 +364,7 @@ async def test_startup_cleanup_kills_orphans(monkeypatch):
     )
 
     orphan = MagicMock()
-    orphan.pid = 500  # plain int so os.kill(p.pid, ...) and call-arg checks work
+    orphan.pid = 500  # plain int: production code appends p.pid to the killed list
     orphan.ppid.return_value = 1
     orphan.is_running.return_value = True
     orphan.status.return_value = "running"
@@ -362,14 +377,11 @@ async def test_startup_cleanup_kills_orphans(monkeypatch):
 
     self = _make_worker()
     with patch.dict("sys.modules", {"pynvml": mock_pynvml, "psutil": mock_psutil}):
-        with patch("os.kill") as mock_kill:
-            await self._cleanup_gpu_orphans_on_startup()
+        await self._cleanup_gpu_orphans_on_startup()
 
-    import signal as _signal
-
-    sigs = [c.args[1] for c in mock_kill.call_args_list if c.args[0] == 500]
-    assert _signal.SIGTERM in sigs
-    assert _signal.SIGKILL in sigs
+    # orphan (pid 500) gets terminate() then kill() via _kill_gpu_orphans_by_ppid.
+    orphan.terminate.assert_called_once()
+    orphan.kill.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

@@ -474,8 +474,8 @@ async def _kill_gpu_orphans_by_ppid(
 
     for p in orphan_processes:
         try:
-            os.kill(p.pid, signal.SIGTERM)
-        except (ProcessLookupError, PermissionError):
+            p.terminate()
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
     await asyncio.sleep(1.0)
 
@@ -487,15 +487,13 @@ async def _kill_gpu_orphans_by_ppid(
             cmd = " ".join(p.cmdline()).lower()
             if not any(k in cmd for k in ("vllm", "enginecore", "start_sub_pool")):
                 continue
-            os.kill(p.pid, signal.SIGKILL)
+            # Use psutil.kill() rather than os.kill(pid, signal.SIGKILL):
+            # signal.SIGKILL is undefined on Windows, and psutil's kill() is
+            # cross-platform (TerminateProcess on Windows).
+            p.kill()
             killed.append(p.pid)
             logger.warning("SIGKILL orphan pid %s on GPUs %s", p.pid, device_indices)
-        except (
-            psutil.NoSuchProcess,
-            psutil.AccessDenied,
-            ProcessLookupError,
-            PermissionError,
-        ):
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
         except Exception:
             logger.debug("Kill pid %s failed", p.pid, exc_info=True)
