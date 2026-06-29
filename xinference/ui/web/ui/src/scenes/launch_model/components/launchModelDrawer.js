@@ -153,8 +153,26 @@ const LaunchModelDrawer = ({
     const normalized = String(value || '').trim()
     if (!normalized) return ''
 
-    const [host] = normalized.split(':')
-    return host?.trim() || ''
+    try {
+      return new URL(`http://${normalized}`).hostname.replace(/^\[|\]$/g, '')
+    } catch {
+      if (normalized.startsWith('[')) {
+        const closingBracketIndex = normalized.indexOf(']')
+        if (closingBracketIndex !== -1) {
+          return normalized.slice(1, closingBracketIndex).trim()
+        }
+      }
+
+      const lastColonIndex = normalized.lastIndexOf(':')
+      if (lastColonIndex === -1) return normalized
+
+      const hasMultipleColons = normalized.indexOf(':') !== lastColonIndex
+      if (hasMultipleColons) {
+        return normalized
+      }
+
+      return normalized.slice(0, lastColonIndex).trim()
+    }
   }
 
   const normalizeWorkerIp = (value) => {
@@ -182,27 +200,33 @@ const LaunchModelDrawer = ({
 
   const extractWorkerItems = (clusterInfo) => {
     const workerMap = new Map()
+    const isFlatNodeList = Array.isArray(clusterInfo)
+    const nodes = isFlatNodeList
+      ? clusterInfo
+      : Array.isArray(clusterInfo?.workers)
+      ? clusterInfo.workers
+      : []
 
-    ;(Array.isArray(clusterInfo) ? clusterInfo : [])
-      .filter((node) => node?.node_type === 'Worker' && node?.ip_address)
-      .forEach((node) => {
-        const workerIp = normalizeWorkerAddress(node.ip_address)
-        if (!workerIp) return
+    nodes.forEach((node) => {
+      if (isFlatNodeList && node?.node_type !== 'Worker') return
 
-        const gpuCount = Number(node.gpu_count || 0)
-        const existingWorker = workerMap.get(workerIp)
+      const workerIp = normalizeWorkerAddress(node?.ip_address ?? node?.ip)
+      if (!workerIp) return
 
-        if (existingWorker) {
-          existingWorker.gpuCount = Math.max(existingWorker.gpuCount, gpuCount)
-          return
-        }
+      const gpuCount = Number(node?.gpu_count || 0)
+      const existingWorker = workerMap.get(workerIp)
 
-        workerMap.set(workerIp, {
-          value: workerIp,
-          label: workerIp,
-          gpuCount,
-        })
+      if (existingWorker) {
+        existingWorker.gpuCount = Math.max(existingWorker.gpuCount, gpuCount)
+        return
+      }
+
+      workerMap.set(workerIp, {
+        value: workerIp,
+        label: workerIp,
+        gpuCount,
       })
+    })
 
     return Array.from(workerMap.values()).sort((a, b) =>
       a.label.localeCompare(b.label)
@@ -892,7 +916,7 @@ const LaunchModelDrawer = ({
         changed = true
       }
 
-      if (!isLoadingWorkers && !hasWorkerLoadFailed) {
+      if (workerItems.length > 0 && !isLoadingWorkers && !hasWorkerLoadFailed) {
         const selectedWorkers = normalizeWorkerIp(prev.worker_ip)
         if (selectedWorkers.length) {
           const filteredWorkers = selectedWorkers.filter((ip) =>
@@ -912,6 +936,7 @@ const LaunchModelDrawer = ({
     availableWorkerValues,
     isLoadingWorkers,
     hasWorkerLoadFailed,
+    workerItems.length,
   ])
 
   useEffect(() => {
