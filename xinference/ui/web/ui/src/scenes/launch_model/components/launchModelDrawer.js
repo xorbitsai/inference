@@ -148,17 +148,30 @@ const LaunchModelDrawer = ({
     return isNaN(num) || num === 0 ? null : num
   }
 
+  const normalizeWorkerAddress = (value) => {
+    const normalized = String(value || '').trim()
+    if (!normalized) return ''
+
+    const [host] = normalized.split(':')
+    return host?.trim() || ''
+  }
+
   const normalizeWorkerIp = (value) => {
+    let workerValues = []
     if (Array.isArray(value)) {
-      return value.map((item) => String(item).trim()).filter(Boolean)
+      workerValues = value
+    } else if (typeof value === 'string') {
+      workerValues = value.split(',')
     }
-    if (typeof value === 'string') {
-      return value
-        .split(',')
-        .map((item) => item.trim())
-        .filter(Boolean)
-    }
-    return []
+
+    const seen = new Set()
+    return workerValues
+      .map((item) => normalizeWorkerAddress(item))
+      .filter((item) => {
+        if (!item || seen.has(item)) return false
+        seen.add(item)
+        return true
+      })
   }
 
   const isCpuOnlySelection = (value) => value === 'CPU' || value === null
@@ -166,15 +179,34 @@ const LaunchModelDrawer = ({
   const requiresGpuWorkers = (value) =>
     value !== undefined && value !== '' && !isCpuOnlySelection(value)
 
-  const extractWorkerItems = (clusterInfo) =>
-    (Array.isArray(clusterInfo) ? clusterInfo : [])
+  const extractWorkerItems = (clusterInfo) => {
+    const workerMap = new Map()
+
+    ;(Array.isArray(clusterInfo) ? clusterInfo : [])
       .filter((node) => node?.node_type === 'Worker' && node?.ip_address)
-      .map((node) => ({
-        value: node.ip_address,
-        label: node.ip_address,
-        gpuCount: Number(node.gpu_count || 0),
-      }))
-      .sort((a, b) => a.label.localeCompare(b.label))
+      .forEach((node) => {
+        const workerIp = normalizeWorkerAddress(node.ip_address)
+        if (!workerIp) return
+
+        const gpuCount = Number(node.gpu_count || 0)
+        const existingWorker = workerMap.get(workerIp)
+
+        if (existingWorker) {
+          existingWorker.gpuCount = Math.max(existingWorker.gpuCount, gpuCount)
+          return
+        }
+
+        workerMap.set(workerIp, {
+          value: workerIp,
+          label: workerIp,
+          gpuCount,
+        })
+      })
+
+    return Array.from(workerMap.values()).sort((a, b) =>
+      a.label.localeCompare(b.label)
+    )
+  }
 
   const clearFieldErrors = (...names) => {
     if (!names.length) return
