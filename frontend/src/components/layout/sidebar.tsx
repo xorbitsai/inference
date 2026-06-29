@@ -25,7 +25,7 @@ import { usePathname } from 'next/navigation';
 
 import { useI18n } from '@/contexts/i18n-context';
 import { useGlobal } from '@/contexts/global-context';
-import { cn, decodeJwtScopes } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { getBrandingFromEnv } from '@/lib/branding';
 import {
   XINFERENCE_DOCS_URL,

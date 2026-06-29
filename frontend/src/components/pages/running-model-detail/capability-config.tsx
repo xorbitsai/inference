@@ -92,8 +92,6 @@ const videoDefaults = {
 };
 
 const imageKwargsExample = {
-  width: 1024,
-  height: 1024,
   guidance_scale: 7.5,
   num_inference_steps: 25,
 };
@@ -215,6 +213,18 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     label: 'Embedding',
     icon: Binary,
     requestApi: '/v1/embeddings',
+    codeExample: {
+      method: 'POST',
+      contentType: 'json',
+      fields: [
+        { key: 'model', required: true },
+        {
+          key: 'input',
+          required: true,
+          value: 'Xinference helps serve models through OpenAI-compatible APIs.',
+        },
+      ],
+    },
     initialValues: {
       input: '',
     },
@@ -230,6 +240,23 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     label: 'Rerank',
     icon: ListFilter,
     requestApi: '/v1/rerank',
+    codeExample: {
+      method: 'POST',
+      contentType: 'json',
+      fields: [
+        { key: 'model', required: true },
+        { key: 'query', required: true, value: 'What is Xinference?' },
+        {
+          key: 'documents',
+          required: true,
+          value: [
+            'Xinference is a model-serving platform.',
+            'The weather is sunny today.',
+            'It provides OpenAI-compatible APIs for models.',
+          ],
+        },
+      ],
+    },
     initialValues: {
       query: '',
       documents: ['', ''],
@@ -365,8 +392,8 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
         },
         { key: 'negative_prompt', value: 'low quality, blurry', comment: 'Optional' },
         { key: 'n', value: 1, required: true },
-        { key: 'size', value: '1024*1024', required: true,},
-        { key: 'response_format', value: 'b64_json', required: true, },
+        { key: 'size', value: '1024*1024', required: true },
+        { key: 'response_format', value: 'b64_json', required: true },
         {
           key: 'kwargs',
           value: imageKwargsExample,
@@ -399,11 +426,14 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
         },
         { key: 'negative_prompt', value: 'low quality, blurry', comment: 'Optional' },
         { key: 'n', value: 1, required: true },
-        { key: 'size', value: '1024*1024', required: true, },
+        { key: 'size', value: '1024*1024', required: true },
         { key: 'response_format', value: 'b64_json', required: true },
         {
           key: 'kwargs',
-          value: imageKwargsExample,
+          value: {
+            ...imageKwargsExample,
+            strength: 0.6
+          },
           stringify: true,
           comment: 'Optional(other key/value)',
         },
@@ -435,11 +465,14 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
         { key: 'prompt', required: true, value: 'Replace the masked area with a blooming garden' },
         { key: 'negative_prompt', value: 'low quality, blurry', comment: 'Optional' },
         { key: 'n', value: 1, required: true },
-        { key: 'size', value: '1024*1024', required: true, },
+        { key: 'size', value: '1024*1024', required: true },
         { key: 'response_format', value: 'b64_json', required: true },
         {
           key: 'kwargs',
-          value: imageKwargsExample,
+          value: {
+            ...imageKwargsExample,
+            strength: 0.6
+          },
           stringify: true,
           comment: 'Optional(other key/value)',
         },
@@ -569,9 +602,8 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
       fields: [
         { key: 'model', required: true },
         { key: 'file', required: true, type: 'file', value: '/path/to/audio.map3' },
-        { key: 'language', value: 'en', comment: 'Optional' },
         { key: 'prompt', value: 'Meeting notes about the product roadmap', comment: 'Optional' },
-        { key: 'response_format', value: 'json', comment: 'Optional' },
+        { key: 'language', value: 'en', comment: 'Optional' },
         { key: 'temperature', value: 0, comment: 'Optional' },
       ],
     },
@@ -601,16 +633,8 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
           required: true,
           value: 'Today is a wonderful day to build something useful.',
         },
-        { key: 'voice', value: 'default', comment: 'Optional' },
+        { key: 'voice', value: 'Voice ID', comment: 'Optional' },
         { key: 'speed', value: 1, comment: 'Optional' },
-        { key: 'response_format', value: 'mp3', comment: 'Optional' },
-        { key: 'stream', value: false, comment: 'Optional' },
-        {
-          key: 'kwargs',
-          value: { prompt_text: 'Read this in a warm and natural voice' },
-          stringify: true,
-          comment: 'Optional(other key/value)',
-        },
       ],
     },
     initialValues: {

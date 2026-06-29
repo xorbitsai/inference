@@ -25,7 +25,8 @@ import { cn } from '@/lib/utils';
 import {
   getTryApiAbility,
   TryApiDrawer,
-} from '@/components/pages/running-model-detail/try-api-drawer';
+} from '@/components/pages/running-model-detail/components/try-api-drawer';
+import { transformRunningModelDetail } from '@/components/pages/running-model-detail/utils';
 
 interface EmptyStateProps {
   icon: ReactNode;
@@ -97,7 +98,9 @@ const RunningModel = () => {
     request
       .get('/v1/models')
       .then((res) => {
-        const list = (res?.data || []) as RunningModelItem[];
+        const list = ((res?.data || []) as RunningModelItem[]).map(
+          (item) => transformRunningModelDetail(item) as RunningModelItem
+        );
         setModels(list);
         setActiveModel((prev) => {
           if (!prev) {
@@ -223,15 +226,6 @@ const RunningModel = () => {
             <div className="text-muted-foreground text-xs truncate">{activeModel?.model_name}</div>
           </div>
           <div className="shrink-0 flex item-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={() => activeModel?.id && router.push(`/running-model/${activeModel.id}`)}
-              className="h-8 text-muted-foreground"
-            >
-              <MessageCircleMore />
-            </Button>
             <InfoTooltip content="Try To API">
               <Button
                 type="button"
@@ -243,6 +237,15 @@ const RunningModel = () => {
                 <Code />
               </Button>
             </InfoTooltip>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() => activeModel?.id && router.push(`/running-model/${activeModel.id}`)}
+              className="h-8 text-muted-foreground"
+            >
+              <MessageCircleMore />
+            </Button>
             <Button
               type="button"
               variant="outline"

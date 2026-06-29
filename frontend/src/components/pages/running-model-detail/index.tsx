@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { CollapsiblePanel } from '@/components/ui/collapsible';
 import PageContainer from '@/components/ui/page-container';
-import { ModelAbility, ModelType } from '@/constants';
+import { ModelAbility } from '@/constants';
 import request from '@/lib/request';
 import type { RunningModelDetail as RunningModelDetailType } from '@/types/services';
 
@@ -16,16 +16,12 @@ import CapabilityTaskPanel, { CapabilityTaskPanelMethod } from './panels/capabil
 import { ChatPanel } from './panels/chat-panel';
 import { Select } from '@/components/ui/select';
 import { useI18n } from '@/contexts/i18n-context';
-import { TryApiDrawer } from './try-api-drawer';
+import { TryApiDrawer } from './components/try-api-drawer';
+import { transformRunningModelDetail } from './utils';
 
 interface RunningModelDetailProps {
   modelUid: string;
 }
-
-const MODEL_TYPE_ABILITY_MAP: Record<string, ModelAbility[]> = {
-  [ModelType.Rerank]: [ModelAbility.Rerank],
-  [ModelType.Embedding]: [ModelAbility.Embed],
-};
 
 function DetailItem({ label, value }: { label: string; value?: string | number | null }) {
   return (
@@ -91,16 +87,12 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
     request
       .get<RunningModelDetailType>(`/v1/models/${modelUid}`)
       .then((res) => {
-        const newModel = {
-          ...res,
-          // fix model_ability was not returned when model_type was Rerank or Embedding.
-          model_ability: Array.isArray(res?.model_ability)
-            ? res.model_ability
-            : (res?.model_type && MODEL_TYPE_ABILITY_MAP[res.model_type]) || [],
-        };
-        const firstAbility = newModel.model_ability.filter((item) => !item.includes('_'))?.[0];
+        const newModelDetail = transformRunningModelDetail(res) as RunningModelDetailType;
+        const firstAbility = newModelDetail.model_ability.filter(
+          (item) => !item.includes('_')
+        )?.[0];
         setSelectAbility(firstAbility);
-        setModel(newModel);
+        setModel(newModelDetail);
       })
       .finally(() => setLoading(false));
   }, [modelUid]);
@@ -177,8 +169,8 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
               onChange={handleAbility}
             />
           )}
-          <Button type="button" variant="outline" onClick={() => setTryApiOpen(true)}>
-            <Code/>
+          <Button type="button"  onClick={() => setTryApiOpen(true)}>
+            <Code />
             Try To API
           </Button>
         </div>

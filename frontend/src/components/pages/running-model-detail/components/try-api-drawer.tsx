@@ -1,68 +1,45 @@
-import type { CodeExampleConfig, CodeExampleField } from './types';
+'use client';
 
-type CodeLanguage = 'python' | 'typescript' | 'java' | 'go' | 'shell';
+import { useMemo, useState } from 'react';
+import { Copy, ExternalLink, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
-export const CODE_LANGUAGE_OPTIONS: { label: string; value: CodeLanguage; highlight: string }[] = [
-  { label: 'Python', value: 'python', highlight: 'python' },
-  { label: 'TypeScript', value: 'typescript', highlight: 'typescript' },
-  { label: 'Java', value: 'java', highlight: 'java' },
-  { label: 'Go', value: 'go', highlight: 'go' },
-  { label: 'Shell', value: 'shell', highlight: 'bash' },
-];
+import { Button } from '@/components/ui/button';
+import { JSONSyntaxHighlighter } from '@/components/ui/json-syntax-highlighter';
+import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ModelAbility } from '@/constants';
+import {
+  CHAT_CODE_EXAMPLE,
+  CODE_EXAMPLE_DEFAULT_VALUES,
+  CODE_LANGUAGE_OPTIONS,
+  type CodeExampleConfig,
+  type CodeExampleField,
+  type CodeLanguage,
+} from '@/constants/running';
+import { useMenuAuth } from '@/hooks/use-menu-auth';
+import { copyText, getApiUrl } from '@/lib/utils';
 
-export const CHAT_CODE_EXAMPLE: CodeExampleConfig = {
-  method: 'POST',
-  contentType: 'json',
-  fields: [
-    { key: 'model', required: true },
-    {
-      key: 'messages',
-      required: true,
-      value: [{ role: 'user', content: 'Hello, what can you do?' }],
-    },
-    { key: 'stream', value: false, comment: 'Optional' },
-    { key: 'max_tokens', value: 4000 },
-    { key: 'top_p', value: 1 },
-    { key: 'top_k', value: 40 },
-    { key: 'presence_penalty', value: 0 },
-    { key: 'frequency_penalty', value: 0 },
-    { key: 'temperature', value: 0.6 },
-  ],
-};
+import { CAPABILITY_CONFIGS } from '../capability-config';
 
-const DEFAULT_VALUES: Record<string, unknown> = {
-  model: '{MODEL_UID}',
-  prompt: 'Hello, what can you do?',
-  input: 'Hello, can you read this text aloud?',
-  voice: 'default',
-  image: '/path/to/image.png',
-  mask_image: '/path/to/mask.png',
-  first_frame: '/path/to/first-frame.png',
-  last_frame: '/path/to/last-frame.png',
-  file: './audio.wav',
-  negative_prompt: '',
-  language: 'en',
-  response_format: 'json',
-  speed: 1,
-  n: 1,
-  size: '1024*1024',
-  stream: false,
-  temperature: 1,
-  max_tokens: 256,
-  kwargs: {},
-};
+interface TryApiDrawerProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  modelUid?: string;
+  ability?: ModelAbility;
+}
 
 function resolveValue(field: CodeExampleField, modelUid: string) {
   if (field.key === 'model') {
-    return modelUid || DEFAULT_VALUES.model;
+    return modelUid || CODE_EXAMPLE_DEFAULT_VALUES.model;
   }
 
   if (field.value !== undefined) {
     return field.value;
   }
 
-  if (field.key in DEFAULT_VALUES) {
-    return DEFAULT_VALUES[field.key];
+  if (field.key in CODE_EXAMPLE_DEFAULT_VALUES) {
+    return CODE_EXAMPLE_DEFAULT_VALUES[field.key];
   }
 
   return '';
@@ -289,7 +266,7 @@ function generateJava(config: CodeExampleConfig, url: string, modelUid: string) 
 
   config.fields.forEach((field) => {
     lines.push(
-      `data.put("${field.key}", ${field.stringify ? javaValue(resolveValue(field, modelUid)) : javaValue(resolveValue(field, modelUid))});${fieldComment(field, '//')}`
+      `data.put("${field.key}", ${javaValue(resolveValue(field, modelUid))});${fieldComment(field, '//')}`
     );
   });
 
@@ -421,7 +398,7 @@ function generateShell(config: CodeExampleConfig, url: string, modelUid: string)
   return lines.map((line, index) => (index === lines.length - 1 ? line : `${line} \\`)).join('\n');
 }
 
-export function generateCodeExample(
+function generateCodeExample(
   language: CodeLanguage,
   config: CodeExampleConfig,
   url: string,
@@ -439,4 +416,119 @@ export function generateCodeExample(
     case 'shell':
       return generateShell(config, url, modelUid);
   }
+}
+
+function getCodeExample(
+  ability?: ModelAbility
+): { requestApi: string; config: CodeExampleConfig } | null {
+  if (ability === ModelAbility.Chat) {
+    return {
+      requestApi: '/v1/chat/completions',
+      config: CHAT_CODE_EXAMPLE,
+    };
+  }
+
+  if (!ability) return null;
+
+  const capabilityConfig = CAPABILITY_CONFIGS[ability];
+  if (!capabilityConfig?.codeExample) return null;
+
+  return {
+    requestApi: capabilityConfig.requestApi,
+    config: capabilityConfig.codeExample,
+  };
+}
+
+export function getTryApiAbility(abilities: ModelAbility[] = []) {
+  const primaryAbilities = abilities.filter((ability) => !ability.includes('_'));
+  return primaryAbilities.find((ability) => ability === ModelAbility.Chat) || primaryAbilities[0];
+}
+
+export function TryApiDrawer({
+  open,
+  onOpenChange,
+  modelUid = '{MODEL_UID}',
+  ability,
+}: TryApiDrawerProps) {
+  const router = useRouter();
+  const { keysManagePage } = useMenuAuth();
+  const [language, setLanguage] = useState(CODE_LANGUAGE_OPTIONS[0].value);
+  const codeExample = getCodeExample(ability);
+  const url = codeExample ? `${getApiUrl()}${codeExample.requestApi}` : '';
+  const code = useMemo(() => {
+    if (!codeExample) return '';
+    return generateCodeExample(language, codeExample.config, url, modelUid);
+  }, [codeExample, language, modelUid, url]);
+  const activeLanguage = CODE_LANGUAGE_OPTIONS.find((item) => item.value === language);
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent showClose={false} className="w-[min(50vw,760px)] gap-0 p-0 sm:max-w-none">
+        <SheetHeader className="flex-row items-center justify-between gap-4 border-b px-6 py-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <SheetClose asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-9 rounded-full text-muted-foreground"
+              >
+                <X className="size-5" />
+              </Button>
+            </SheetClose>
+            <SheetTitle className="truncate text-xl">Try To API</SheetTitle>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!keysManagePage}
+            onClick={() => router.push('/api-key-management')}
+          >
+            <ExternalLink className="size-4" />
+            Get API Key
+          </Button>
+        </SheetHeader>
+        <div className="flex-1 overflow-y-auto p-6">
+          {codeExample ? (
+            <Tabs value={language} onValueChange={(value) => setLanguage(value as typeof language)}>
+              <TabsList className="grid h-11 w-full grid-cols-5 rounded-xl p-1">
+                {CODE_LANGUAGE_OPTIONS.map((item) => (
+                  <TabsTrigger
+                    key={item.value}
+                    value={item.value}
+                    className="p-0 rounded-md text-base data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  >
+                    {item.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              {CODE_LANGUAGE_OPTIONS.map((item) => (
+                <TabsContent key={item.value} value={item.value} className="mt-6">
+                  <div className="relative">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-3 top-3 z-10 size-8 text-muted-foreground"
+                      onClick={() => copyText(code)}
+                    >
+                      <Copy className="size-4" />
+                    </Button>
+                    <JSONSyntaxHighlighter
+                      code={code}
+                      language={activeLanguage?.highlight || 'python'}
+                      className="rounded-xl pr-12 text-base whitespace-pre-wrap break-all"
+                    />
+                  </div>
+                </TabsContent>
+              ))}
+            </Tabs>
+          ) : (
+            <div className="flex min-h-80 items-center justify-center rounded-2xl border bg-card text-sm text-muted-foreground">
+              No API example available for this model ability.
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
 }

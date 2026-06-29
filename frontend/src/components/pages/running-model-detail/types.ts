@@ -3,6 +3,7 @@ import type { LucideIcon } from 'lucide-react';
 
 import type { FileUploadValue } from '@/types/common';
 import type { ModelAbility } from '@/constants';
+import type { CodeExampleConfig } from '@/constants/running';
 import type { FormInstance, FormValues } from '@/types/form';
 import type { RunningModelDetail } from '@/types/services';
 
@@ -29,25 +30,6 @@ export interface TransformContext {
   model: RunningModelDetail;
   values: FormValues;
   requestId?: string;
-}
-
-export type CodeExampleContentType = 'json' | 'form';
-
-export type CodeExampleFieldType = 'text' | 'file';
-
-export interface CodeExampleField {
-  key: string;
-  required?: boolean;
-  value?: unknown;
-  comment?: string;
-  type?: CodeExampleFieldType;
-  stringify?: boolean;
-}
-
-export interface CodeExampleConfig {
-  method: 'POST';
-  contentType: CodeExampleContentType;
-  fields: CodeExampleField[];
 }
 
 export interface CapabilityConfig {
