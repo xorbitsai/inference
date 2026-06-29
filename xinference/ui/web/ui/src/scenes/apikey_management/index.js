@@ -1,9 +1,9 @@
+import AutorenewIcon from '@mui/icons-material/Autorenew'
 import BlockIcon from '@mui/icons-material/Block'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
-import VisibilityIcon from '@mui/icons-material/Visibility'
 import {
   Alert,
   Autocomplete,
@@ -35,18 +35,75 @@ import { useTranslation } from 'react-i18next'
 
 import fetchWrapper from '../../components/fetchWrapper'
 import Title from '../../components/Title'
+import { buildApiKeyListState } from './usageState'
 
 const MODEL_TYPES = ['LLM', 'embedding', 'rerank', 'image', 'audio', 'video']
+const TOKEN_RENEWAL_OPTIONS = ['none', 'daily', 'monthly', 'custom']
+const TOKEN_RENEWAL_LABEL_KEYS = {
+  none: 'tokenRenewalNone',
+  daily: 'tokenRenewalDaily',
+  monthly: 'tokenRenewalMonthly',
+  custom: 'tokenRenewalCustom',
+}
+
+const optionalNumber = (value) => {
+  const trimmed = String(value || '').trim()
+  return trimmed === '' ? undefined : Number(trimmed)
+}
+
+const numberText = (value) =>
+  value === null || value === undefined ? '' : String(value)
+
+const buildUsageControlPayload = ({
+  tokenBudget,
+  tokenRenewal,
+  tokenRenewalIntervalDays,
+  requestRateLimitEnabled,
+  requestRateLimitRequests,
+  requestRateLimitWindowSeconds,
+}) => {
+  const payload = {
+    token_budget: optionalNumber(tokenBudget),
+    token_renewal: tokenRenewal || 'none',
+    request_rate_limit_enabled: requestRateLimitEnabled,
+  }
+
+  if (tokenRenewal === 'custom') {
+    payload.token_renewal_interval_days = optionalNumber(
+      tokenRenewalIntervalDays
+    )
+  }
+  if (requestRateLimitEnabled) {
+    payload.request_rate_limit_requests = optionalNumber(
+      requestRateLimitRequests
+    )
+    payload.request_rate_limit_window_seconds = optionalNumber(
+      requestRateLimitWindowSeconds
+    )
+  }
+
+  return payload
+}
 
 function ApiKeyManagement() {
   const { t } = useTranslation()
   const [keys, setKeys] = useState([])
   const [createOpen, setCreateOpen] = useState(false)
-  const [revealOpen, setRevealOpen] = useState(false)
-  const [revealedKey, setRevealedKey] = useState('')
   const [newKeyName, setNewKeyName] = useState('')
   const [newKeyDescription, setNewKeyDescription] = useState('')
   const [newKeyExpires, setNewKeyExpires] = useState(null)
+  const [newTokenBudget, setNewTokenBudget] = useState('')
+  const [newTokenRenewal, setNewTokenRenewal] = useState('none')
+  const [newTokenRenewalIntervalDays, setNewTokenRenewalIntervalDays] =
+    useState('')
+  const [newRequestRateLimitEnabled, setNewRequestRateLimitEnabled] =
+    useState(false)
+  const [newRequestRateLimitRequests, setNewRequestRateLimitRequests] =
+    useState('')
+  const [
+    newRequestRateLimitWindowSeconds,
+    setNewRequestRateLimitWindowSeconds,
+  ] = useState('')
   const [newKeyPermType, setNewKeyPermType] = useState('all')
   const [selectedModelTypes, setSelectedModelTypes] = useState([])
   const [selectedModelIds, setSelectedModelIds] = useState([])
@@ -62,11 +119,27 @@ function ApiKeyManagement() {
   const [editPermType, setEditPermType] = useState('all')
   const [editName, setEditName] = useState('')
   const [editDescription, setEditDescription] = useState('')
+  const [editKeyExpires, setEditKeyExpires] = useState(null)
+  const [editTokenBudget, setEditTokenBudget] = useState('')
+  const [editTokenRenewal, setEditTokenRenewal] = useState('none')
+  const [editTokenRenewalIntervalDays, setEditTokenRenewalIntervalDays] =
+    useState('')
+  const [editRequestRateLimitEnabled, setEditRequestRateLimitEnabled] =
+    useState(false)
+  const [editRequestRateLimitRequests, setEditRequestRateLimitRequests] =
+    useState('')
+  const [
+    editRequestRateLimitWindowSeconds,
+    setEditRequestRateLimitWindowSeconds,
+  ] = useState('')
   const [editModelTypes, setEditModelTypes] = useState([])
   const [editModelIds, setEditModelIds] = useState([])
   const [bansDialogOpen, setBansDialogOpen] = useState(false)
   const [bansDialogKeyId, setBansDialogKeyId] = useState(null)
   const [bansData, setBansData] = useState([])
+  const [rotateOpen, setRotateOpen] = useState(false)
+  const [rotatingKey, setRotatingKey] = useState(null)
+  const [rotatedKey, setRotatedKey] = useState('')
 
   const loadKeys = async () => {
     try {
@@ -133,6 +206,133 @@ function ApiKeyManagement() {
     }
   }, [])
 
+  const resetCreateUsageControls = () => {
+    setNewTokenBudget('')
+    setNewTokenRenewal('none')
+    setNewTokenRenewalIntervalDays('')
+    setNewRequestRateLimitEnabled(false)
+    setNewRequestRateLimitRequests('')
+    setNewRequestRateLimitWindowSeconds('')
+  }
+
+  const renderUsageStateText = (state) => (
+    <Box sx={{ py: 0.75, minWidth: 0 }}>
+      <Typography variant="body2" sx={{ lineHeight: 1.35 }}>
+        {state.primary}
+      </Typography>
+      {state.secondary && (
+        <Typography
+          variant="caption"
+          color={
+            state.color === 'error' || state.color === 'warning'
+              ? `${state.color}.main`
+              : 'text.secondary'
+          }
+          sx={{ display: 'block', lineHeight: 1.3 }}
+        >
+          {state.secondary}
+        </Typography>
+      )}
+    </Box>
+  )
+
+  const renderUsageControlFields = ({
+    tokenBudget,
+    setTokenBudget,
+    tokenRenewal,
+    setTokenRenewal,
+    tokenRenewalIntervalDays,
+    setTokenRenewalIntervalDays,
+    requestRateLimitEnabled,
+    setRequestRateLimitEnabled,
+    requestRateLimitRequests,
+    setRequestRateLimitRequests,
+    requestRateLimitWindowSeconds,
+    setRequestRateLimitWindowSeconds,
+  }) => (
+    <Box sx={{ mt: 2 }}>
+      <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+        {t('apikeyManagement.advancedSettings')}
+      </Typography>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+          gap: 1.5,
+        }}
+      >
+        <TextField
+          label={t('apikeyManagement.tokenBudgetLabel')}
+          type="number"
+          fullWidth
+          value={tokenBudget}
+          onChange={(e) => setTokenBudget(e.target.value)}
+          inputProps={{ min: 1 }}
+        />
+        <TextField
+          label={t('apikeyManagement.tokenRenewalLabel')}
+          fullWidth
+          select
+          SelectProps={{ native: true }}
+          value={tokenRenewal}
+          onChange={(e) => setTokenRenewal(e.target.value)}
+        >
+          {TOKEN_RENEWAL_OPTIONS.map((option) => (
+            <option key={option} value={option}>
+              {t(`apikeyManagement.${TOKEN_RENEWAL_LABEL_KEYS[option]}`)}
+            </option>
+          ))}
+        </TextField>
+        {tokenRenewal === 'custom' && (
+          <TextField
+            label={t('apikeyManagement.tokenRenewalDaysLabel')}
+            type="number"
+            fullWidth
+            value={tokenRenewalIntervalDays}
+            onChange={(e) => setTokenRenewalIntervalDays(e.target.value)}
+            inputProps={{ min: 1 }}
+          />
+        )}
+      </Box>
+      <FormControlLabel
+        sx={{ mt: 1 }}
+        control={
+          <Checkbox
+            checked={requestRateLimitEnabled}
+            onChange={(e) => setRequestRateLimitEnabled(e.target.checked)}
+          />
+        }
+        label={t('apikeyManagement.requestRateLimitEnabled')}
+      />
+      {requestRateLimitEnabled && (
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+            gap: 1.5,
+          }}
+        >
+          <TextField
+            label={t('apikeyManagement.rateLimitRequestsLabel')}
+            type="number"
+            fullWidth
+            value={requestRateLimitRequests}
+            onChange={(e) => setRequestRateLimitRequests(e.target.value)}
+            inputProps={{ min: 1 }}
+          />
+          <TextField
+            label={t('apikeyManagement.rateLimitWindowLabel')}
+            type="number"
+            fullWidth
+            value={requestRateLimitWindowSeconds}
+            onChange={(e) => setRequestRateLimitWindowSeconds(e.target.value)}
+            inputProps={{ min: 1 }}
+          />
+        </Box>
+      )}
+    </Box>
+  )
+
   const handleCreate = async () => {
     try {
       const model_permissions = []
@@ -164,26 +364,25 @@ function ApiKeyManagement() {
           ? newKeyExpires.endOf('day').format('YYYY-MM-DDTHH:mm:ss')
           : undefined,
         model_permissions,
+        ...buildUsageControlPayload({
+          tokenBudget: newTokenBudget,
+          tokenRenewal: newTokenRenewal,
+          tokenRenewalIntervalDays: newTokenRenewalIntervalDays,
+          requestRateLimitEnabled: newRequestRateLimitEnabled,
+          requestRateLimitRequests: newRequestRateLimitRequests,
+          requestRateLimitWindowSeconds: newRequestRateLimitWindowSeconds,
+        }),
       })
       setCreatedKey(result.key)
       setNewKeyName('')
       setNewKeyDescription('')
       setNewKeyExpires(null)
+      resetCreateUsageControls()
       setNewKeyPermType('all')
       setSelectedModelTypes([])
       setSelectedModelIds([])
       setSelectedOwner(null)
       loadKeys()
-    } catch (e) {
-      setSnackError(e.message || String(e))
-    }
-  }
-
-  const handleReveal = async (keyId) => {
-    try {
-      const data = await fetchWrapper.get(`/v1/admin/keys/${keyId}/reveal`)
-      setRevealedKey(data.key)
-      setRevealOpen(true)
     } catch (e) {
       setSnackError(e.message || String(e))
     }
@@ -217,6 +416,38 @@ function ApiKeyManagement() {
     }
   }
 
+  const handleOpenRotate = (key) => {
+    setRotatingKey(key)
+    setRotatedKey('')
+    setRotateOpen(true)
+  }
+
+  const handleCloseRotate = () => {
+    setRotateOpen(false)
+    setRotatingKey(null)
+    setRotatedKey('')
+  }
+
+  const handleRotate = async () => {
+    if (!rotatingKey) return
+    try {
+      const data = await fetchWrapper.post(
+        `/v1/admin/keys/${rotatingKey.id}/rotate`,
+        {}
+      )
+      setRotatedKey(data.key)
+      setRotatingKey({
+        ...rotatingKey,
+        key_prefix: data.key_prefix,
+        rotated_at: data.rotated_at,
+      })
+      setSnackSuccess(t('apikeyManagement.keyRotated'))
+      loadKeys()
+    } catch (e) {
+      setSnackError(e.message || String(e))
+    }
+  }
+
   const handleEditPermissions = (key) => {
     const perms = key.model_permissions || []
     if (perms.some((p) => p.permission_type === 'all')) {
@@ -242,6 +473,15 @@ function ApiKeyManagement() {
     }
     setEditName(key.name || '')
     setEditDescription(key.description || '')
+    setEditKeyExpires(key.expires_at ? dayjs(key.expires_at) : null)
+    setEditTokenBudget(numberText(key.token_budget))
+    setEditTokenRenewal(key.token_renewal || 'none')
+    setEditTokenRenewalIntervalDays(numberText(key.token_renewal_interval_days))
+    setEditRequestRateLimitEnabled(Boolean(key.request_rate_limit_enabled))
+    setEditRequestRateLimitRequests(numberText(key.request_rate_limit_requests))
+    setEditRequestRateLimitWindowSeconds(
+      numberText(key.request_rate_limit_window_seconds)
+    )
     setEditingKey(key)
     setEditOpen(true)
   }
@@ -286,7 +526,18 @@ function ApiKeyManagement() {
       await fetchWrapper.put(`/v1/admin/keys/${editingKey.id}`, {
         name: editName === '' ? null : editName,
         description: editDescription === '' ? null : editDescription,
+        expires_at: editKeyExpires
+          ? editKeyExpires.endOf('day').format('YYYY-MM-DDTHH:mm:ss')
+          : null,
         model_permissions,
+        ...buildUsageControlPayload({
+          tokenBudget: editTokenBudget,
+          tokenRenewal: editTokenRenewal,
+          tokenRenewalIntervalDays: editTokenRenewalIntervalDays,
+          requestRateLimitEnabled: editRequestRateLimitEnabled,
+          requestRateLimitRequests: editRequestRateLimitRequests,
+          requestRateLimitWindowSeconds: editRequestRateLimitWindowSeconds,
+        }),
       })
       setEditOpen(false)
       setEditingKey(null)
@@ -331,25 +582,57 @@ function ApiKeyManagement() {
       headerName: t('apikeyManagement.status'),
       width: 80,
       renderCell: (params) =>
-        params.value ? (
-          <Chip
-            label={t('apikeyManagement.active')}
-            color="success"
-            size="small"
-          />
-        ) : (
-          <Chip
-            label={t('apikeyManagement.disabled')}
-            color="error"
-            size="small"
-          />
-        ),
+        (() => {
+          const status = buildApiKeyListState(params.row, t).status
+          return (
+            <Chip
+              label={status.label}
+              color={status.color}
+              size="small"
+              variant={status.key === 'disabled' ? 'outlined' : 'filled'}
+            />
+          )
+        })(),
     },
     {
       field: 'expires_at',
       headerName: t('apikeyManagement.expires'),
       flex: 1,
       minWidth: 140,
+      renderCell: (params) =>
+        renderUsageStateText(buildApiKeyListState(params.row, t).expiration),
+    },
+    {
+      field: 'rotated_at',
+      headerName: t('apikeyManagement.lastRotated'),
+      flex: 1,
+      minWidth: 140,
+      renderCell: (params) =>
+        renderUsageStateText(buildApiKeyListState(params.row, t).rotation),
+    },
+    {
+      field: 'token_usage',
+      headerName: t('apikeyManagement.tokenUsage'),
+      flex: 1.2,
+      minWidth: 160,
+      renderCell: (params) =>
+        renderUsageStateText(buildApiKeyListState(params.row, t).tokenUsage),
+    },
+    {
+      field: 'token_renewal',
+      headerName: t('apikeyManagement.tokenRenewal'),
+      flex: 1,
+      minWidth: 150,
+      renderCell: (params) =>
+        renderUsageStateText(buildApiKeyListState(params.row, t).renewal),
+    },
+    {
+      field: 'request_rate_limit_enabled',
+      headerName: t('apikeyManagement.requestRateLimit'),
+      flex: 1.15,
+      minWidth: 170,
+      renderCell: (params) =>
+        renderUsageStateText(buildApiKeyListState(params.row, t).rateLimit),
     },
     {
       field: 'model_permissions',
@@ -402,23 +685,30 @@ function ApiKeyManagement() {
     {
       field: 'actions',
       headerName: t('apikeyManagement.actions'),
-      width: 170,
+      width: 190,
       renderCell: (params) => (
-        <Box>
-          <Tooltip title={t('apikeyManagement.revealTooltip')}>
-            <IconButton
-              size="small"
-              onClick={() => handleReveal(params.row.id)}
-            >
-              <VisibilityIcon />
-            </IconButton>
-          </Tooltip>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.25,
+            flexWrap: 'nowrap',
+          }}
+        >
           <Tooltip title={t('apikeyManagement.editPermTooltip')}>
             <IconButton
               size="small"
               onClick={() => handleEditPermissions(params.row)}
             >
               <EditIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={t('apikeyManagement.rotateTooltip')}>
+            <IconButton
+              size="small"
+              onClick={() => handleOpenRotate(params.row)}
+            >
+              <AutorenewIcon />
             </IconButton>
           </Tooltip>
           <Tooltip
@@ -558,6 +848,21 @@ function ApiKeyManagement() {
                   minDate={dayjs().add(1, 'day')}
                 />
               </LocalizationProvider>
+              {renderUsageControlFields({
+                tokenBudget: newTokenBudget,
+                setTokenBudget: setNewTokenBudget,
+                tokenRenewal: newTokenRenewal,
+                setTokenRenewal: setNewTokenRenewal,
+                tokenRenewalIntervalDays: newTokenRenewalIntervalDays,
+                setTokenRenewalIntervalDays: setNewTokenRenewalIntervalDays,
+                requestRateLimitEnabled: newRequestRateLimitEnabled,
+                setRequestRateLimitEnabled: setNewRequestRateLimitEnabled,
+                requestRateLimitRequests: newRequestRateLimitRequests,
+                setRequestRateLimitRequests: setNewRequestRateLimitRequests,
+                requestRateLimitWindowSeconds: newRequestRateLimitWindowSeconds,
+                setRequestRateLimitWindowSeconds:
+                  setNewRequestRateLimitWindowSeconds,
+              })}
               <TextField
                 margin="dense"
                 label={t('apikeyManagement.permissionType')}
@@ -651,43 +956,75 @@ function ApiKeyManagement() {
         </DialogActions>
       </Dialog>
 
-      {/* Reveal Key Dialog */}
+      {/* Rotate Key Dialog */}
       <Dialog
-        open={revealOpen}
-        onClose={() => setRevealOpen(false)}
+        open={rotateOpen}
+        onClose={handleCloseRotate}
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>{t('apikeyManagement.revealTitle')}</DialogTitle>
+        <DialogTitle>
+          {rotatedKey
+            ? t('apikeyManagement.keyRotatedTitle')
+            : t('apikeyManagement.rotateTitle')}
+        </DialogTitle>
         <DialogContent>
-          <TextField
-            fullWidth
-            value={revealedKey}
-            InputProps={{
-              readOnly: true,
-              endAdornment: (
-                <InputAdornment position="end">
-                  <Tooltip title={t('apikeyManagement.copy')}>
-                    <IconButton
-                      size="small"
-                      onClick={() => {
-                        navigator.clipboard.writeText(revealedKey)
-                        setSnackSuccess(t('apikeyManagement.copied'))
-                      }}
-                    >
-                      <ContentCopyIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </InputAdornment>
-              ),
-            }}
-            sx={{ fontFamily: 'monospace' }}
-          />
+          {rotatedKey ? (
+            <Box>
+              <Typography variant="body2" color="warning.main" sx={{ mb: 1 }}>
+                {t('apikeyManagement.rotateKeyWarning')}
+              </Typography>
+              <TextField
+                fullWidth
+                value={rotatedKey}
+                InputProps={{
+                  readOnly: true,
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <Tooltip title={t('apikeyManagement.copy')}>
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            navigator.clipboard.writeText(rotatedKey)
+                            setSnackSuccess(t('apikeyManagement.copied'))
+                          }}
+                        >
+                          <ContentCopyIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{ fontFamily: 'monospace' }}
+              />
+            </Box>
+          ) : (
+            <Typography variant="body2">
+              {t('apikeyManagement.rotateConfirm', {
+                name: rotatingKey?.name || rotatingKey?.key_prefix || '',
+              })}
+            </Typography>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setRevealOpen(false)}>
-            {t('apikeyManagement.close')}
-          </Button>
+          {rotatedKey ? (
+            <Button onClick={handleCloseRotate}>
+              {t('apikeyManagement.close')}
+            </Button>
+          ) : (
+            <>
+              <Button onClick={handleCloseRotate}>
+                {t('apikeyManagement.cancel')}
+              </Button>
+              <Button
+                color="warning"
+                variant="contained"
+                onClick={handleRotate}
+              >
+                {t('apikeyManagement.rotate')}
+              </Button>
+            </>
+          )}
         </DialogActions>
       </Dialog>
 
@@ -720,6 +1057,37 @@ function ApiKeyManagement() {
             value={editDescription}
             onChange={(e) => setEditDescription(e.target.value)}
           />
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <DatePicker
+              label={t('apikeyManagement.expiresLabel')}
+              value={editKeyExpires}
+              onChange={(val) => setEditKeyExpires(val)}
+              slotProps={{
+                textField: {
+                  fullWidth: true,
+                  margin: 'dense',
+                  helperText: t('apikeyManagement.expiresHelperText'),
+                },
+                field: { clearable: true },
+              }}
+              minDate={dayjs().add(1, 'day')}
+            />
+          </LocalizationProvider>
+          {renderUsageControlFields({
+            tokenBudget: editTokenBudget,
+            setTokenBudget: setEditTokenBudget,
+            tokenRenewal: editTokenRenewal,
+            setTokenRenewal: setEditTokenRenewal,
+            tokenRenewalIntervalDays: editTokenRenewalIntervalDays,
+            setTokenRenewalIntervalDays: setEditTokenRenewalIntervalDays,
+            requestRateLimitEnabled: editRequestRateLimitEnabled,
+            setRequestRateLimitEnabled: setEditRequestRateLimitEnabled,
+            requestRateLimitRequests: editRequestRateLimitRequests,
+            setRequestRateLimitRequests: setEditRequestRateLimitRequests,
+            requestRateLimitWindowSeconds: editRequestRateLimitWindowSeconds,
+            setRequestRateLimitWindowSeconds:
+              setEditRequestRateLimitWindowSeconds,
+          })}
           <TextField
             margin="dense"
             label={t('apikeyManagement.permissionType')}

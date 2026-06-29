@@ -1,40 +1,29 @@
-'use client'
+'use client';
 
-import * as React from 'react'
-import * as SwitchPrimitive from '@radix-ui/react-switch'
+import * as React from 'react';
+import * as SwitchPrimitive from '@radix-ui/react-switch';
 
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils';
 
-export interface SwitchProps
-  extends Omit<
-    React.ComponentPropsWithoutRef<
-      typeof SwitchPrimitive.Root
-    >,
-    'onCheckedChange' | 'onChange'
-  > {
-  error?: boolean
-  onChange?: (checked: boolean) => void
+export interface SwitchProps extends Omit<
+  React.ComponentPropsWithoutRef<typeof SwitchPrimitive.Root>,
+  'onCheckedChange' | 'onChange'
+> {
+  error?: boolean;
+  onChange?: (checked: boolean) => void;
+  onCheckedChange?: (checked: boolean) => void;
 }
 
-export const Switch = React.forwardRef<
-  React.ElementRef<typeof SwitchPrimitive.Root>,
-  SwitchProps
->(
-  (
-    {
-      className,
-      error,
-      onChange,
-      disabled,
-      ...props
-    },
-    ref,
-  ) => {
+export const Switch = React.forwardRef<React.ElementRef<typeof SwitchPrimitive.Root>, SwitchProps>(
+  ({ className, error, onChange, onCheckedChange, disabled, ...props }, ref) => {
     return (
       <SwitchPrimitive.Root
         ref={ref}
         disabled={disabled}
-        onCheckedChange={onChange}
+        onCheckedChange={(checked) => {
+          onChange?.(checked);
+          onCheckedChange?.(checked);
+        }}
         className={cn(
           'peer inline-flex h-6 w-11 shrink-0 items-center rounded-full border-2 border-transparent transition-all outline-none',
 
@@ -46,10 +35,9 @@ export const Switch = React.forwardRef<
 
           'disabled:cursor-not-allowed disabled:opacity-50',
 
-          error &&
-            'focus-visible:border-destructive focus-visible:ring-destructive/40',
+          error && 'focus-visible:border-destructive focus-visible:ring-destructive/40',
 
-          className,
+          className
         )}
         {...props}
       >
@@ -58,12 +46,12 @@ export const Switch = React.forwardRef<
             'pointer-events-none block size-5 rounded-full bg-background shadow-lg transition-transform',
 
             'data-[state=checked]:translate-x-5',
-            'data-[state=unchecked]:translate-x-0',
+            'data-[state=unchecked]:translate-x-0'
           )}
         />
       </SwitchPrimitive.Root>
-    )
-  },
-)
+    );
+  }
+);
 
-Switch.displayName = SwitchPrimitive.Root.displayName
+Switch.displayName = SwitchPrimitive.Root.displayName;

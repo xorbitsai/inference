@@ -210,17 +210,44 @@ class RESTfulAPI(CancelMixin):
         token = request.headers.get("Authorization", "").replace("Bearer ", "")
         if not token:
             return
-        if not self._advanced_auth_service.validate_model_access(
-            token, model_uid, model_type
-        ):
+        api_key_entry = self._get_api_key_entry(request)
+        if api_key_entry:
+            has_access = api_key_entry.has_model_access(model_uid, model_type)
+        else:
+            has_access = self._advanced_auth_service.validate_model_access(
+                token, model_uid, model_type
+            )
+        if not has_access:
             self._record_audit(request, model_uid, model_type or "", "denied")
             raise HTTPException(
                 status_code=403,
                 detail=f"API key does not have access to model: {model_uid}",
             )
+        if api_key_entry:
+            self._advanced_auth_service.ensure_api_key_request_rate_limit(
+                api_key_entry.key_id
+            )
+            request.state._api_key_request_rate_limit_key_id = api_key_entry.key_id
+            self._advanced_auth_service.ensure_api_key_token_budget(
+                api_key_entry.key_id
+            )
+            request.state._api_key_token_budget_key_id = api_key_entry.key_id
         # Store audit context for deferred recording after request completes
         request.state._audit_model_uid = model_uid
         request.state._audit_model_type = model_type or ""
+
+    def _get_api_key_entry(self, request):
+        if not self._advanced_auth_service:
+            return None
+        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        if not token:
+            return None
+        from .oauth2.advanced.crypto import sha256_hex
+
+        entry = self._advanced_auth_service.cache.get(sha256_hex(token))
+        if entry and entry.is_valid():
+            return entry
+        return None
 
     def _record_audit(
         self,
@@ -321,6 +348,86 @@ class RESTfulAPI(CancelMixin):
     def handle_request_limit_error(e: Exception):
         if "Rate limit reached" in str(e):
             raise HTTPException(status_code=429, detail=str(e))
+
+    @staticmethod
+    def _extract_token_usage(payload: Any) -> Optional[int]:
+        if payload is None:
+            return None
+        if isinstance(payload, (bytes, bytearray)):
+            try:
+                payload = payload.decode("utf-8")
+            except UnicodeDecodeError:
+                return None
+        if isinstance(payload, str):
+            payload = payload.strip()
+            if not payload or payload == "[DONE]":
+                return None
+            if payload.startswith("data:"):
+                payload = payload[5:].strip()
+            if payload == "[DONE]":
+                return None
+            try:
+                payload = json.loads(payload)
+            except (TypeError, ValueError):
+                return None
+        if not isinstance(payload, dict):
+            return None
+        if "usage" not in payload and "data" in payload:
+            return RESTfulAPI._extract_token_usage(payload.get("data"))
+
+        usage = payload.get("usage")
+        if not isinstance(usage, dict):
+            return None
+
+        total_tokens = usage.get("total_tokens")
+        if isinstance(total_tokens, bool):
+            return None
+        if isinstance(total_tokens, (int, float)) and int(total_tokens) > 0:
+            return int(total_tokens)
+
+        tokens = 0
+        for key in (
+            "prompt_tokens",
+            "completion_tokens",
+            "input_tokens",
+            "output_tokens",
+        ):
+            value = usage.get(key)
+            if isinstance(value, bool):
+                continue
+            if isinstance(value, (int, float)) and int(value) > 0:
+                tokens += int(value)
+        return tokens or None
+
+    def _record_api_key_token_usage(self, request, payload: Any) -> None:
+        if not self._advanced_auth_service:
+            return
+        key_id = getattr(request.state, "_api_key_token_budget_key_id", None)
+        if not key_id:
+            return
+        tokens = self._extract_token_usage(payload)
+        if tokens is not None:
+            self._advanced_auth_service.record_api_key_token_usage(key_id, tokens)
+
+    async def _track_api_key_token_usage_stream(self, request, iterator):
+        final_tokens = None
+        async for item in iterator:
+            tokens = self._extract_token_usage(item)
+            if tokens is not None:
+                final_tokens = tokens
+            yield item
+        if final_tokens is not None:
+            self._record_api_key_token_usage(
+                request, {"usage": {"total_tokens": final_tokens}}
+            )
+
+    def _record_api_key_request_success(self, request) -> None:
+        if not self._advanced_auth_service:
+            return
+        key_id = getattr(request.state, "_api_key_request_rate_limit_key_id", None)
+        if not key_id:
+            return
+        self._advanced_auth_service.record_api_key_request_success(key_id)
 
     @staticmethod
     def _set_trace_model(model_uid: Optional[str]) -> None:
@@ -442,6 +549,8 @@ class RESTfulAPI(CancelMixin):
                     "success" if response.status_code < 400 else "login_failed"
                 )
                 self._record_admin_audit(request, audit_status, latency_s)
+            if response.status_code < 400:
+                self._record_api_key_request_success(request)
             return response
 
         # Initialise OpenTelemetry tracing & metrics (no-op when disabled)
@@ -1274,7 +1383,9 @@ class RESTfulAPI(CancelMixin):
                         )
                     except RuntimeError as re:
                         self.handle_request_limit_error(re)
-                    async for item in iterator:
+                    async for item in self._track_api_key_token_usage_stream(
+                        request, iterator
+                    ):
                         yield item
                 except asyncio.CancelledError:
                     logger.info(
@@ -1305,6 +1416,7 @@ class RESTfulAPI(CancelMixin):
         else:
             try:
                 data = await model.generate(body.prompt, kwargs, raw_params=raw_kwargs)
+                self._record_api_key_token_usage(request, data)
                 return Response(data, media_type="application/json")
             except Exception as e:
                 e = await self._get_model_last_error(model.uid, e)
@@ -1453,7 +1565,9 @@ class RESTfulAPI(CancelMixin):
 
                     # Check if iterator is actually an async iterator
                     if hasattr(iterator, "__aiter__"):
-                        async for item in iterator:
+                        async for item in self._track_api_key_token_usage_stream(
+                            request, iterator
+                        ):
                             yield item
                     elif isinstance(iterator, (str, bytes)):
                         # Handle case where chat returns bytes/string instead of iterator
@@ -1464,11 +1578,13 @@ class RESTfulAPI(CancelMixin):
                                 content = str(iterator)
                         else:
                             content = iterator
+                        self._record_api_key_token_usage(request, content)
                         yield dict(data=json.dumps({"content": content}))
                     else:
                         # Fallback: try to iterate normally
                         try:
                             for item in iterator:
+                                self._record_api_key_token_usage(request, item)
                                 yield item
                         except TypeError:
                             # If not iterable, yield as single result
@@ -1503,6 +1619,7 @@ class RESTfulAPI(CancelMixin):
         else:
             try:
                 data = await model.chat(messages, kwargs, raw_params=raw_kwargs)
+                self._record_api_key_token_usage(request, data)
                 # Convert OpenAI format to Anthropic format
                 openai_response = json.loads(data)
                 anthropic_response = self._convert_openai_to_anthropic(
@@ -1540,6 +1657,7 @@ class RESTfulAPI(CancelMixin):
         try:
             kwargs["model_uid"] = model_uid
             embedding = await model.create_embedding(body.input, **kwargs)
+            self._record_api_key_token_usage(request, embedding)
             return Response(embedding, media_type="application/json")
         except Exception as e:
             e = await self._get_model_last_error(model.uid, e)
@@ -1602,6 +1720,7 @@ class RESTfulAPI(CancelMixin):
                 return_len=body.return_len,
                 **parsed_kwargs,
             )
+            self._record_api_key_token_usage(request, scores)
             return Response(scores, media_type="application/json")
         except Exception as e:
             e = await self._get_model_last_error(model.uid, e)
@@ -2582,7 +2701,9 @@ class RESTfulAPI(CancelMixin):
                     except RuntimeError as re:
                         await self._report_error_event(model_uid, str(re))
                         self.handle_request_limit_error(re)
-                    async for item in iterator:
+                    async for item in self._track_api_key_token_usage_stream(
+                        request, iterator
+                    ):
                         yield item
                     yield "[DONE]"
                 # Note that asyncio.CancelledError does not inherit from Exception.
@@ -2624,6 +2745,7 @@ class RESTfulAPI(CancelMixin):
                     kwargs,
                     raw_params=raw_kwargs,
                 )
+                self._record_api_key_token_usage(request, data)
                 return Response(content=data, media_type="application/json")
             except Exception as e:
                 e = await self._get_model_last_error(model.uid, e)

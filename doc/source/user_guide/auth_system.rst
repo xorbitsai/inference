@@ -155,12 +155,140 @@ For http request, pass ``Authorization: Bearer api-key`` in request header.
       --header "Authorization: Bearer <your_api_key>"
 
 
+Advanced authentication and managed API keys
+============================================
+The ``--auth-config`` file described above is the legacy authentication mode.
+It loads users, permissions, and static API keys from JSON when Xinference
+starts. Those API keys can be used for inference, but they are not managed at
+runtime.
+
+Advanced authentication is the runtime-managed authentication mode. Enable it
+with environment variables instead of ``--auth-config``:
+
+.. code-block:: bash
+
+   export XINFERENCE_AUTH_ADVANCED=true
+   export XINFERENCE_AUTH_JWT_SECRET_KEY="$(openssl rand -hex 32)"
+   export XINFERENCE_AUTH_ENCRYPTION_KEY="$(openssl rand -hex 32)"
+   # Optional. Defaults to ~/.xinference/auth/auth.db.
+   export XINFERENCE_AUTH_DB_PATH=/path/to/auth.db
+   xinference-local -H 0.0.0.0
+
+``XINFERENCE_AUTH_ADVANCED`` and ``--auth-config`` are mutually exclusive. In
+advanced authentication, users, API keys, model permissions, audit information,
+and API key usage state are stored in the authentication database. API keys are
+created and managed through the web UI or the ``/v1/admin/keys`` management API.
+
+Managed API key controls
+------------------------
+Managed API keys support these controls:
+
+* ``Token Budget`` limits the total number of tokens an API key may consume.
+  When a budget is configured, successful inference responses that include
+  usage data count toward the key's usage. This includes OpenAI-compatible
+  completion, chat completion, embedding, and rerank responses that report
+  ``usage.total_tokens`` or equivalent prompt/input plus completion/output token
+  fields. When the used token count reaches the configured budget, later
+  inference requests are rejected before model work starts.
+* ``Token Renewal`` optionally resets token usage on a schedule. Supported
+  schedules are no renewal, daily, monthly, and a custom interval in days.
+  Renewal only applies to active, non-expired keys. Expired keys are not renewed
+  or re-enabled by the renewal process.
+* ``Key Expires After`` sets an expiration timestamp for the key. After the key
+  expires, authentication with that key fails with ``401 Unauthorized`` and the
+  key cannot be used even if it still has token budget remaining.
+* ``Rate Limit`` caps the number of successful requests a key can make in a
+  configured time window. This is scoped to the API key, not to the client IP.
+  It is separate from the failed-authentication ban protection, which tracks
+  invalid, expired, or disabled key attempts and can temporarily ban an IP or an
+  IP/key pair.
+* ``Rotation`` replaces the secret for an existing API key while preserving the
+  key owner, name, description, model permissions, usage-control settings, and
+  usage history. The new secret is shown exactly once. The old secret stops
+  authenticating immediately after rotation.
+
+The key list in the web UI shows the current state for each key, including used
+tokens, remaining token budget, next renewal time, expiration, successful-request
+rate-limit state, and last rotation time. It also shows distinct states for
+disabled, expired, exhausted-budget, and rate-limited keys.
+
+Create and rotate a key with the web UI
+---------------------------------------
+In the web UI, open ``API Key Management`` and click ``Create Key``. Choose the
+owner, optional expiration, model permissions, and advanced settings such as
+token budget, renewal, and request rate limit. After the key is generated, copy
+and store the secret immediately. The secret is not shown again from the create
+dialog.
+
+To rotate a key, use the rotate action in the key list. Confirm the rotation,
+then copy and store the new secret from the one-time display dialog. Existing
+clients using the old secret must be updated to use the new secret.
+
+Create and rotate a key with the API
+------------------------------------
+Log in first and use the returned access token for management requests:
+
+.. code-block:: bash
+
+   export XINFERENCE_ENDPOINT="http://127.0.0.1:9997"
+
+   export ACCESS_TOKEN="$(
+     curl -sS -X POST "${XINFERENCE_ENDPOINT}/token" \
+       -H "Content-Type: application/json" \
+       -d '{"username":"admin","password":"<password>"}' \
+       | python -c 'import json,sys; print(json.load(sys.stdin)["access_token"])'
+   )"
+
+Create a managed API key:
+
+.. code-block:: bash
+
+   curl -sS -X POST "${XINFERENCE_ENDPOINT}/v1/admin/keys" \
+     -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "name": "ci pipeline",
+       "description": "automation key",
+       "expires_at": "2026-12-31T23:59:59",
+       "token_budget": 1000000,
+       "token_renewal": "monthly",
+       "request_rate_limit_enabled": true,
+       "request_rate_limit_requests": 120,
+       "request_rate_limit_window_seconds": 60,
+       "model_permissions": [
+         {"permission_type": "all", "permission_value": null}
+       ]
+     }'
+
+The create response includes the plaintext ``key`` once. Save it immediately.
+List and get responses include state such as ``token_usage``,
+``token_remaining``, ``token_renewal_next_at``, ``request_rate_limit_count``,
+``request_rate_limit_remaining``, ``request_rate_limit_reset_at``, and
+``rotated_at``, but do not include the plaintext secret. Existing keys cannot be
+revealed again; reveal requests return ``410 Gone``.
+
+Rotate a managed API key:
+
+.. code-block:: bash
+
+   curl -sS -X POST "${XINFERENCE_ENDPOINT}/v1/admin/keys/<key_id>/rotate" \
+     -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+     -H "Content-Type: application/json" \
+     -d '{}'
+
+The rotate response includes the new plaintext ``key`` once, plus the new
+``key_prefix`` and ``rotated_at`` timestamp. The old secret is invalid
+immediately.
+
+
 Http Status Code
 ================
-Add the following two HTTP status codes:
+Authentication and authorization errors use the following HTTP status codes:
 
 * ``401 Unauthorized``: login information or token verifies failed.
 * ``403 Forbidden``: No enough permissions when accessing interfaces.
+* ``429 Too Many Requests``: The request is rejected by token budget exhaustion,
+  successful request rate limiting, or failed-authentication ban protection.
 
 For the command line, SDK, or web UI users, there will be clear information prompts when encountering authorization and permissions issues.
 

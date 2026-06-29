@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import base64
+import calendar
 import logging
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import Depends, HTTPException, Request, status
@@ -24,7 +25,6 @@ from typing_extensions import Annotated
 
 from .cache import ApiKeyCache, ApiKeyCacheEntry
 from .crypto import (
-    aes_decrypt,
     aes_encrypt,
     derive_encryption_key,
     generate_api_key,
@@ -69,6 +69,60 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 JWT_ALGORITHM = "HS256"
+API_KEY_TOKEN_RENEWALS = {"none", "daily", "monthly", "custom"}
+
+
+def _parse_optional_positive_int(value: Any, field: str) -> Optional[int]:
+    if value in (None, ""):
+        return None
+    if isinstance(value, bool):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{field} must be greater than 0",
+        )
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{field} must be an integer",
+        )
+    if parsed <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{field} must be greater than 0",
+        )
+    return parsed
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None, microsecond=0)
+
+
+def _parse_optional_datetime(value: Any) -> Optional[datetime]:
+    if value in (None, ""):
+        return None
+    try:
+        dt = datetime.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return None
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt.replace(microsecond=0)
+
+
+def _format_datetime(value: datetime) -> str:
+    return value.replace(microsecond=0).isoformat()
+
+
+def _add_month(value: datetime) -> datetime:
+    month = value.month + 1
+    year = value.year
+    if month == 13:
+        month = 1
+        year += 1
+    day = min(value.day, calendar.monthrange(year, month)[1])
+    return value.replace(year=year, month=month, day=day)
 
 
 class AdvancedAuthService:
@@ -245,6 +299,337 @@ class AdvancedAuthService:
 
     # --- API Key CRUD ---
 
+    @staticmethod
+    def _next_token_renewal_at(
+        token_renewal: Optional[str],
+        from_time: datetime,
+        token_renewal_interval_days: Optional[int] = None,
+    ) -> Optional[datetime]:
+        if token_renewal == "daily":
+            return from_time + timedelta(days=1)
+        if token_renewal == "monthly":
+            return _add_month(from_time)
+        if token_renewal == "custom" and token_renewal_interval_days:
+            return from_time + timedelta(days=token_renewal_interval_days)
+        return None
+
+    @classmethod
+    def build_api_key_token_renewal_state(
+        cls, values: Dict[str, Any], now: Optional[datetime] = None
+    ) -> Dict[str, Optional[str]]:
+        token_renewal = values.get("token_renewal") or "none"
+        if token_renewal == "none":
+            return {"token_renewed_at": None, "token_renewal_next_at": None}
+        renewed_at = (now or _utcnow()).replace(microsecond=0)
+        next_at = cls._next_token_renewal_at(
+            token_renewal,
+            renewed_at,
+            values.get("token_renewal_interval_days"),
+        )
+        return {
+            "token_renewed_at": _format_datetime(renewed_at),
+            "token_renewal_next_at": _format_datetime(next_at) if next_at else None,
+        }
+
+    def _renew_api_key_token_budget_if_needed(
+        self, key_id: int, state: Dict[str, Any], now: datetime
+    ) -> Dict[str, Any]:
+        token_renewal = state.get("token_renewal") or "none"
+        if token_renewal == "none":
+            return state
+        if not state.get("enabled", 1):
+            return state
+        expires_at = _parse_optional_datetime(state.get("expires_at"))
+        if expires_at is not None and now > expires_at:
+            return state
+
+        renewed_at = (
+            _parse_optional_datetime(state.get("token_renewed_at"))
+            or _parse_optional_datetime(state.get("created_at"))
+            or now
+        )
+        next_at = _parse_optional_datetime(
+            state.get("token_renewal_next_at")
+        ) or self._next_token_renewal_at(
+            token_renewal, renewed_at, state.get("token_renewal_interval_days")
+        )
+        if next_at is None or now < next_at:
+            return state
+
+        while next_at is not None and now >= next_at:
+            renewed_at = next_at
+            next_at = self._next_token_renewal_at(
+                token_renewal,
+                renewed_at,
+                state.get("token_renewal_interval_days"),
+            )
+
+        if next_at is None:
+            return state
+
+        renewed_at_str = _format_datetime(renewed_at)
+        next_at_str = _format_datetime(next_at)
+        self._db.reset_api_key_token_usage_for_renewal(
+            key_id, renewed_at_str, next_at_str
+        )
+        renewed_state = dict(state)
+        renewed_state.update(
+            {
+                "token_usage": 0,
+                "token_renewed_at": renewed_at_str,
+                "token_renewal_next_at": next_at_str,
+            }
+        )
+        return renewed_state
+
+    def ensure_api_key_token_budget(self, key_id: int, now: Optional[datetime] = None):
+        state = self._db.get_api_key_token_usage_state(key_id)
+        if not state:
+            return
+        now = (now or _utcnow()).replace(microsecond=0)
+        state = self._renew_api_key_token_budget_if_needed(key_id, state, now)
+        token_budget = state.get("token_budget")
+        if token_budget is None:
+            return
+        token_usage = state.get("token_usage") or 0
+        if int(token_usage) >= int(token_budget):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=(
+                    "API key token budget exhausted: "
+                    f"{token_usage}/{token_budget} tokens used"
+                ),
+            )
+
+    def record_api_key_token_usage(self, key_id: int, tokens: int) -> int:
+        return self._db.increment_api_key_token_usage(key_id, tokens)
+
+    @staticmethod
+    def _request_rate_limit_enabled(state: Dict[str, Any]) -> bool:
+        return bool(
+            state.get("request_rate_limit_enabled", 0)
+            and state.get("request_rate_limit_requests")
+            and state.get("request_rate_limit_window_seconds")
+        )
+
+    @staticmethod
+    def _request_rate_limit_window_expired(
+        state: Dict[str, Any], now: datetime
+    ) -> bool:
+        window_started_at = _parse_optional_datetime(
+            state.get("request_rate_limit_window_started_at")
+        )
+        if window_started_at is None:
+            return False
+        window_seconds = int(state.get("request_rate_limit_window_seconds") or 0)
+        if window_seconds <= 0:
+            return False
+        return now >= window_started_at + timedelta(seconds=window_seconds)
+
+    def _reset_api_key_request_rate_limit_if_needed(
+        self, key_id: int, state: Dict[str, Any], now: datetime
+    ) -> Dict[str, Any]:
+        if not self._request_rate_limit_window_expired(state, now):
+            return state
+        self._db.set_api_key_request_rate_limit_state(key_id, 0, None)
+        reset_state = dict(state)
+        reset_state["request_rate_limit_count"] = 0
+        reset_state["request_rate_limit_window_started_at"] = None
+        reset_state["request_rate_limit_remaining"] = state.get(
+            "request_rate_limit_requests"
+        )
+        reset_state["request_rate_limit_reset_at"] = None
+        return reset_state
+
+    def ensure_api_key_request_rate_limit(
+        self, key_id: int, now: Optional[datetime] = None
+    ) -> None:
+        state = self._db.get_api_key_request_rate_limit_state(key_id)
+        if not state or not self._request_rate_limit_enabled(state):
+            return
+        now = (now or _utcnow()).replace(microsecond=0)
+        if not state.get("enabled", 1):
+            return
+        expires_at = _parse_optional_datetime(state.get("expires_at"))
+        if expires_at is not None and now > expires_at:
+            return
+
+        state = self._reset_api_key_request_rate_limit_if_needed(key_id, state, now)
+        max_requests = int(state["request_rate_limit_requests"])
+        request_count = int(state.get("request_rate_limit_count") or 0)
+        if request_count >= max_requests:
+            reset_at = state.get("request_rate_limit_reset_at")
+            detail = (
+                "API key request rate limit exceeded: "
+                f"{request_count}/{max_requests} successful requests used"
+            )
+            if reset_at:
+                detail += f". Retry after {reset_at}"
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=detail,
+            )
+
+    def get_api_key_request_rate_limit_state(
+        self, key_id: int, now: Optional[datetime] = None
+    ) -> Dict[str, Any]:
+        state = self._db.get_api_key_request_rate_limit_state(key_id)
+        if not state:
+            return {}
+        if not self._request_rate_limit_enabled(state):
+            return state
+        now = (now or _utcnow()).replace(microsecond=0)
+        if not state.get("enabled", 1):
+            return state
+        expires_at = _parse_optional_datetime(state.get("expires_at"))
+        if expires_at is not None and now > expires_at:
+            return state
+        return self._reset_api_key_request_rate_limit_if_needed(key_id, state, now)
+
+    def record_api_key_request_success(
+        self, key_id: int, now: Optional[datetime] = None
+    ) -> None:
+        state = self._db.get_api_key_request_rate_limit_state(key_id)
+        if not state or not self._request_rate_limit_enabled(state):
+            return
+        now = (now or _utcnow()).replace(microsecond=0)
+        if not state.get("enabled", 1):
+            return
+        expires_at = _parse_optional_datetime(state.get("expires_at"))
+        if expires_at is not None and now > expires_at:
+            return
+
+        window_started_at = _parse_optional_datetime(
+            state.get("request_rate_limit_window_started_at")
+        )
+        request_count = int(state.get("request_rate_limit_count") or 0)
+        if window_started_at is None or self._request_rate_limit_window_expired(
+            state, now
+        ):
+            window_started_at = now
+            request_count = 0
+        self._db.set_api_key_request_rate_limit_state(
+            key_id,
+            request_count + 1,
+            _format_datetime(window_started_at),
+        )
+
+    @staticmethod
+    def normalize_api_key_usage_controls(values: Dict[str, Any]) -> Dict[str, Any]:
+        token_budget = _parse_optional_positive_int(
+            values.get("token_budget"), "token_budget"
+        )
+
+        token_renewal = values.get("token_renewal")
+        if token_renewal in (None, ""):
+            token_renewal = "none"
+        if token_renewal not in API_KEY_TOKEN_RENEWALS:
+            allowed = ", ".join(sorted(API_KEY_TOKEN_RENEWALS))
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"token_renewal must be one of: {allowed}",
+            )
+
+        token_renewal_interval_days = _parse_optional_positive_int(
+            values.get("token_renewal_interval_days"),
+            "token_renewal_interval_days",
+        )
+        if token_renewal == "custom":
+            if token_renewal_interval_days is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="token_renewal_interval_days is required for custom token_renewal",
+                )
+        else:
+            token_renewal_interval_days = None
+
+        request_rate_limit_enabled = bool(
+            values.get("request_rate_limit_enabled", False)
+        )
+        request_rate_limit_requests = _parse_optional_positive_int(
+            values.get("request_rate_limit_requests"),
+            "request_rate_limit_requests",
+        )
+        request_rate_limit_window_seconds = _parse_optional_positive_int(
+            values.get("request_rate_limit_window_seconds"),
+            "request_rate_limit_window_seconds",
+        )
+        if request_rate_limit_enabled:
+            if request_rate_limit_requests is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="request_rate_limit_requests is required when request rate limit is enabled",
+                )
+            if request_rate_limit_window_seconds is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="request_rate_limit_window_seconds is required when request rate limit is enabled",
+                )
+        else:
+            request_rate_limit_requests = None
+            request_rate_limit_window_seconds = None
+
+        return {
+            "token_budget": token_budget,
+            "token_renewal": token_renewal,
+            "token_renewal_interval_days": token_renewal_interval_days,
+            "request_rate_limit_enabled": int(request_rate_limit_enabled),
+            "request_rate_limit_requests": request_rate_limit_requests,
+            "request_rate_limit_window_seconds": request_rate_limit_window_seconds,
+        }
+
+    @staticmethod
+    def serialize_api_key_usage_controls(values: Dict[str, Any]) -> Dict[str, Any]:
+        token_budget = values.get("token_budget")
+        token_usage = int(values.get("token_usage") or 0)
+        token_remaining = None
+        token_budget_exhausted = False
+        if token_budget is not None:
+            token_remaining = max(0, int(token_budget) - token_usage)
+            token_budget_exhausted = token_usage >= int(token_budget)
+
+        request_rate_limit_enabled = bool(values.get("request_rate_limit_enabled", 0))
+        request_rate_limit_requests = values.get("request_rate_limit_requests")
+        request_rate_limit_count = int(values.get("request_rate_limit_count") or 0)
+        request_rate_limit_remaining = values.get("request_rate_limit_remaining")
+        if (
+            request_rate_limit_remaining is None
+            and request_rate_limit_enabled
+            and request_rate_limit_requests is not None
+        ):
+            request_rate_limit_remaining = max(
+                0, int(request_rate_limit_requests) - request_rate_limit_count
+            )
+        request_rate_limit_reset_at = values.get("request_rate_limit_reset_at")
+        window_started_at = values.get("request_rate_limit_window_started_at")
+        window_seconds = values.get("request_rate_limit_window_seconds")
+        if request_rate_limit_reset_at is None and window_started_at and window_seconds:
+            parsed_started_at = _parse_optional_datetime(window_started_at)
+            if parsed_started_at is not None:
+                request_rate_limit_reset_at = _format_datetime(
+                    parsed_started_at + timedelta(seconds=int(window_seconds))
+                )
+
+        return {
+            "token_budget": token_budget,
+            "token_usage": token_usage,
+            "token_remaining": token_remaining,
+            "token_budget_exhausted": token_budget_exhausted,
+            "token_renewal": values.get("token_renewal") or "none",
+            "token_renewal_interval_days": values.get("token_renewal_interval_days"),
+            "token_renewed_at": values.get("token_renewed_at"),
+            "token_renewal_next_at": values.get("token_renewal_next_at"),
+            "request_rate_limit_enabled": request_rate_limit_enabled,
+            "request_rate_limit_requests": request_rate_limit_requests,
+            "request_rate_limit_window_seconds": values.get(
+                "request_rate_limit_window_seconds"
+            ),
+            "request_rate_limit_count": request_rate_limit_count,
+            "request_rate_limit_remaining": request_rate_limit_remaining,
+            "request_rate_limit_window_started_at": window_started_at,
+            "request_rate_limit_reset_at": request_rate_limit_reset_at,
+        }
+
     def create_api_key_for_user(
         self,
         user_id: int,
@@ -255,7 +640,24 @@ class AdvancedAuthService:
         rate_limit_max_failures: Optional[int] = None,
         rate_limit_window_seconds: Optional[int] = None,
         rate_limit_ban_seconds: Optional[int] = None,
+        token_budget: Optional[int] = None,
+        token_renewal: Optional[str] = None,
+        token_renewal_interval_days: Optional[int] = None,
+        request_rate_limit_enabled: bool = False,
+        request_rate_limit_requests: Optional[int] = None,
+        request_rate_limit_window_seconds: Optional[int] = None,
     ) -> Dict[str, Any]:
+        usage_controls = self.normalize_api_key_usage_controls(
+            {
+                "token_budget": token_budget,
+                "token_renewal": token_renewal,
+                "token_renewal_interval_days": token_renewal_interval_days,
+                "request_rate_limit_enabled": request_rate_limit_enabled,
+                "request_rate_limit_requests": request_rate_limit_requests,
+                "request_rate_limit_window_seconds": request_rate_limit_window_seconds,
+            }
+        )
+        token_renewal_state = self.build_api_key_token_renewal_state(usage_controls)
         plaintext_key = generate_api_key()
         key_hash = sha256_hex(plaintext_key)
         key_encrypted = base64.b64encode(
@@ -278,6 +680,9 @@ class AdvancedAuthService:
             rate_limit_max_failures=rate_limit_max_failures,
             rate_limit_window_seconds=rate_limit_window_seconds,
             rate_limit_ban_seconds=rate_limit_ban_seconds,
+            token_renewed_at=token_renewal_state["token_renewed_at"],
+            token_renewal_next_at=token_renewal_state["token_renewal_next_at"],
+            **usage_controls,
         )
 
         user = self._db.get_user_by_id(user_id)
@@ -288,14 +693,51 @@ class AdvancedAuthService:
         cache_data["username"] = user["username"] if user else ""
         self._cache.add(cache_data)
 
-        return {"id": key_id, "key": plaintext_key, "prefix": key_prefix, "name": name}
+        result = {
+            "id": key_id,
+            "key": plaintext_key,
+            "prefix": key_prefix,
+            "name": name,
+            "description": description,
+            "expires_at": expires_at,
+        }
+        result.update(
+            self.serialize_api_key_usage_controls(
+                {**usage_controls, **token_renewal_state, "token_usage": 0}
+            )
+        )
+        return result
 
-    def reveal_api_key(self, key_id: int) -> Optional[str]:
+    def rotate_api_key(self, key_id: int) -> Optional[Dict[str, Any]]:
         key_data = self._db.get_api_key_by_id(key_id)
         if not key_data:
             return None
-        encrypted = base64.b64decode(key_data["key_encrypted"])
-        return aes_decrypt(encrypted, self._encryption_key)
+
+        plaintext_key = generate_api_key()
+        key_hash = sha256_hex(plaintext_key)
+        key_encrypted = base64.b64encode(
+            aes_encrypt(plaintext_key, self._encryption_key)
+        ).decode("utf-8")
+        key_prefix = plaintext_key[:7]
+        rotated_at = _format_datetime(_utcnow())
+
+        rotated = self._db.rotate_api_key_secret(
+            key_id=key_id,
+            key_hash=key_hash,
+            key_encrypted=key_encrypted,
+            key_prefix=key_prefix,
+            rotated_at=rotated_at,
+        )
+        if not rotated:
+            return None
+
+        self._cache.reload()
+        return {
+            "id": key_id,
+            "key": plaintext_key,
+            "key_prefix": key_prefix,
+            "rotated_at": rotated_at,
+        }
 
     # --- FastAPI dependency (callable) ---
 
@@ -489,6 +931,8 @@ class AdvancedAuthService:
                     auth_type="api_key",
                 )
                 raise credentials_exception
+            self.ensure_api_key_request_rate_limit(api_key_entry.key_id)
+            request.state._api_key_request_rate_limit_key_id = api_key_entry.key_id
             # Success — reset counters
             if client_ip and self._rate_limiter:
                 self._rate_limiter.reset_key(client_ip, api_key_entry.key_id)

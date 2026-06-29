@@ -30,6 +30,16 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+API_KEY_USAGE_CONTROL_FIELDS = (
+    "token_budget",
+    "token_renewal",
+    "token_renewal_interval_days",
+    "request_rate_limit_enabled",
+    "request_rate_limit_requests",
+    "request_rate_limit_window_seconds",
+)
+
+
 def _refresh_key_gauges(auth: AdvancedAuthService) -> None:
     """Update Prometheus gauges for active/expired key counts."""
     try:
@@ -77,6 +87,28 @@ def _get_current_user_from_token(request: Request, auth: AdvancedAuthService):
     if not payload:
         return None, None, []
     return payload.get("user_id"), payload.get("sub"), payload.get("scopes", [])
+
+
+def _serialize_api_key(key: dict, auth: Optional[AdvancedAuthService] = None) -> dict:
+    if auth is not None:
+        key = {
+            **key,
+            **auth.get_api_key_request_rate_limit_state(key["id"]),
+        }
+    result = {
+        "id": key["id"],
+        "user_id": key["user_id"],
+        "key_prefix": key["key_prefix"],
+        "name": key.get("name"),
+        "description": key.get("description"),
+        "enabled": bool(key.get("enabled", 1)),
+        "expires_at": key.get("expires_at"),
+        "model_permissions": key.get("model_permissions", []),
+        "created_at": key.get("created_at"),
+        "rotated_at": key.get("rotated_at"),
+    }
+    result.update(AdvancedAuthService.serialize_api_key_usage_controls(key))
+    return result
 
 
 # --- Auth endpoints ---
@@ -288,6 +320,12 @@ async def create_api_key(request: Request) -> JSONResponse:
         rate_limit_max_failures=body.get("rate_limit_max_failures"),
         rate_limit_window_seconds=body.get("rate_limit_window_seconds"),
         rate_limit_ban_seconds=body.get("rate_limit_ban_seconds"),
+        token_budget=body.get("token_budget"),
+        token_renewal=body.get("token_renewal"),
+        token_renewal_interval_days=body.get("token_renewal_interval_days"),
+        request_rate_limit_enabled=body.get("request_rate_limit_enabled", False),
+        request_rate_limit_requests=body.get("request_rate_limit_requests"),
+        request_rate_limit_window_seconds=body.get("request_rate_limit_window_seconds"),
     )
     _refresh_key_gauges(auth)
     return JSONResponse(content=result, status_code=201)
@@ -300,25 +338,14 @@ async def list_api_keys(
     current_user_id, _, scopes = _get_current_user_from_token(request, auth)
     is_admin = "admin" in scopes or "keys:manage" in scopes
 
+    if owner is not None and not isinstance(owner, int):
+        owner = None
+
     if not is_admin:
         owner = current_user_id
 
     keys = auth.db.list_api_keys(user_id=owner)
-    result = []
-    for k in keys:
-        result.append(
-            {
-                "id": k["id"],
-                "user_id": k["user_id"],
-                "key_prefix": k["key_prefix"],
-                "name": k.get("name"),
-                "description": k.get("description"),
-                "enabled": bool(k.get("enabled", 1)),
-                "expires_at": k.get("expires_at"),
-                "model_permissions": k.get("model_permissions", []),
-                "created_at": k.get("created_at"),
-            }
-        )
+    result = [_serialize_api_key(k, auth) for k in keys]
     return JSONResponse(content=result)
 
 
@@ -332,19 +359,7 @@ async def get_api_key(key_id: int, request: Request) -> JSONResponse:
         raise HTTPException(status_code=404, detail="API key not found")
     if not is_admin and key["user_id"] != current_user_id:
         raise HTTPException(status_code=403, detail="Access denied")
-    return JSONResponse(
-        content={
-            "id": key["id"],
-            "user_id": key["user_id"],
-            "key_prefix": key["key_prefix"],
-            "name": key.get("name"),
-            "description": key.get("description"),
-            "enabled": bool(key.get("enabled", 1)),
-            "expires_at": key.get("expires_at"),
-            "model_permissions": key.get("model_permissions", []),
-            "created_at": key.get("created_at"),
-        }
-    )
+    return JSONResponse(content=_serialize_api_key(key, auth))
 
 
 async def update_api_key(key_id: int, request: Request) -> JSONResponse:
@@ -366,6 +381,35 @@ async def update_api_key(key_id: int, request: Request) -> JSONResponse:
     ):
         if field in body:
             update_fields[field] = body[field]
+    if any(field in body for field in API_KEY_USAGE_CONTROL_FIELDS):
+        usage_controls = {
+            field: key.get(field) for field in API_KEY_USAGE_CONTROL_FIELDS
+        }
+        usage_controls.update(
+            {
+                field: body[field]
+                for field in API_KEY_USAGE_CONTROL_FIELDS
+                if field in body
+            }
+        )
+        normalized_usage_controls = auth.normalize_api_key_usage_controls(
+            usage_controls
+        )
+        update_fields.update(normalized_usage_controls)
+        if "token_renewal" in body or "token_renewal_interval_days" in body:
+            update_fields.update(
+                auth.build_api_key_token_renewal_state(normalized_usage_controls)
+            )
+        if any(
+            field in body
+            for field in (
+                "request_rate_limit_enabled",
+                "request_rate_limit_requests",
+                "request_rate_limit_window_seconds",
+            )
+        ):
+            update_fields["request_rate_limit_count"] = 0
+            update_fields["request_rate_limit_window_started_at"] = None
     if update_fields:
         auth.db.update_api_key(key_id, **update_fields)
 
@@ -390,10 +434,29 @@ async def delete_api_key(key_id: int, request: Request) -> JSONResponse:
 
 async def reveal_api_key(key_id: int, request: Request) -> JSONResponse:
     auth: AdvancedAuthService = get_advanced_auth(request)
-    plaintext = auth.reveal_api_key(key_id)
-    if not plaintext:
+    key = auth.db.get_api_key_by_id(key_id)
+    if not key:
         raise HTTPException(status_code=404, detail="API key not found")
-    return JSONResponse(content={"key": plaintext})
+    raise HTTPException(
+        status_code=410,
+        detail="API key secret is only displayed when it is created or rotated",
+    )
+
+
+async def rotate_api_key(key_id: int, request: Request) -> JSONResponse:
+    auth: AdvancedAuthService = get_advanced_auth(request)
+    key = auth.db.get_api_key_by_id(key_id)
+    if not key:
+        raise HTTPException(status_code=404, detail="API key not found")
+
+    current_user_id, _, scopes = _get_current_user_from_token(request, auth)
+    if "admin" not in scopes and key["user_id"] != current_user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    result = auth.rotate_api_key(key_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="API key not found")
+    return JSONResponse(content=result)
 
 
 # --- Permissions ---
@@ -528,6 +591,12 @@ def register_advanced_auth_routes(api: "RESTfulAPI") -> None:
         reveal_api_key,
         methods=["GET"],
         dependencies=[Security(auth_service, scopes=["admin"])],
+    )
+    router.add_api_route(
+        "/v1/admin/keys/{key_id}/rotate",
+        rotate_api_key,
+        methods=["POST"],
+        dependencies=[Security(auth_service, scopes=["keys:manage"])],
     )
 
     # Permissions
