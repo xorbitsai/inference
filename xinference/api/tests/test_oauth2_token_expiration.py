@@ -1,42 +1,61 @@
-"""Regression test for #5058 Finding 1: JWTs issued by create_access_token
-must be rejected once expired (the decode path now uses verify_exp=True).
+"""Regression tests for rejecting expired OAuth2 JWT access tokens."""
 
-    pytest xinference/api/tests/test_oauth2_token_expiration.py -v
-"""
+import json
 from datetime import timedelta
 
 import pytest
-from jose import ExpiredSignatureError, jwt
+from fastapi import HTTPException
+from fastapi.security import SecurityScopes
 
+from xinference.api.oauth2.auth_service import AuthService
+from xinference.api.oauth2.types import AuthConfig, AuthStartupConfig, User
 from xinference.api.oauth2.utils import create_access_token
 
 _SECRET = "unit-test-secret"
 _ALG = "HS256"
 
 
-def _decode(token: str):
-    # same decode contract as AuthService.__call__ (verify_exp enabled by the fix)
-    return jwt.decode(token, _SECRET, algorithms=[_ALG], options={"verify_exp": True})
+@pytest.fixture
+def auth_service(tmp_path):
+    auth_config = AuthConfig(
+        algorithm=_ALG,
+        secret_key=_SECRET,
+        token_expire_in_minutes=30,
+    )
+    user = User(
+        username="alice",
+        password="pass",
+        permissions=["models:read"],
+        api_keys=["sk-123456789abcd"],
+    )
+    startup_config = AuthStartupConfig(auth_config=auth_config, user_config=[user])
+    auth_config_file = tmp_path / "auth_config.json"
+    auth_config_file.write_text(json.dumps(startup_config.dict()))
+    return AuthService(str(auth_config_file))
 
 
-def test_expired_token_is_rejected():
+def test_expired_token_is_rejected(auth_service):
     token = create_access_token(
-        data={"sub": "helpdesk", "scopes": ["users:manage"]},
+        data={"sub": "alice", "scopes": ["models:read"]},
         secret_key=_SECRET,
         algorithm=_ALG,
         expires_delta=timedelta(minutes=-5),
     )
-    with pytest.raises(ExpiredSignatureError):
-        _decode(token)
+    with pytest.raises(HTTPException) as exc_info:
+        auth_service(SecurityScopes(scopes=["models:read"]), token)
+
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.detail == "Could not validate credentials"
 
 
-def test_valid_token_is_accepted():
+def test_valid_token_is_accepted(auth_service):
     token = create_access_token(
         data={"sub": "alice", "scopes": ["models:read"]},
         secret_key=_SECRET,
         algorithm=_ALG,
         expires_delta=timedelta(minutes=30),
     )
-    payload = _decode(token)
-    assert payload["sub"] == "alice"
-    assert payload["scopes"] == ["models:read"]
+    user = auth_service(SecurityScopes(scopes=["models:read"]), token)
+
+    assert user.username == "alice"
+    assert user.permissions == ["models:read"]
