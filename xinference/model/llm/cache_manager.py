@@ -63,10 +63,20 @@ class LLMCacheManager(CacheManager):
                 raise ValueError(
                     f"Model URI cannot be a relative path: {self._model_uri}"
                 )
+            if not os.path.exists(src_root):
+                raise ValueError(
+                    f"Model URI path does not exist: {src_root}. "
+                    f"Please check the `model_uri` of model {self._model_name!r}."
+                )
             if os.path.exists(cache_dir):
                 logger.info(f"Cache {cache_dir} exists")
                 return cache_dir
             else:
+                # The cache prefix directory is only created once per process
+                # (guarded by ``CacheManager.is_initialized``), so it may be
+                # missing here; ensure the parent exists before symlinking to
+                # avoid a cryptic ``FileNotFoundError: src -> dst``.
+                os.makedirs(os.path.dirname(cache_dir), exist_ok=True)
                 os.symlink(src_root, cache_dir, target_is_directory=True)
             return cache_dir
         else:
