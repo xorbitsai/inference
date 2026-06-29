@@ -191,6 +191,44 @@ const LaunchModelDrawer = ({
     })
   }
 
+  const filteredWorkerItems = useMemo(() => {
+    if (!requiresGpuWorkers(formData.n_gpu)) {
+      return workerItems
+    }
+    return workerItems.filter((item) => item.gpuCount > 0)
+  }, [workerItems, formData.n_gpu])
+
+  const availableWorkerValues = useMemo(
+    () => new Set(filteredWorkerItems.map((item) => item.value)),
+    [filteredWorkerItems]
+  )
+
+  const workerFieldDisabled =
+    isLoadingWorkers || hasWorkerLoadFailed || filteredWorkerItems.length === 0
+
+  const workerFieldHelperText = useMemo(() => {
+    if (isLoadingWorkers) {
+      return t('launchModel.loadingWorkerNodes')
+    }
+    if (hasWorkerLoadFailed) {
+      return t('launchModel.workerNodesLoadFailed')
+    }
+    if (!workerItems.length) {
+      return t('launchModel.noWorkerNodesAvailable')
+    }
+    if (requiresGpuWorkers(formData.n_gpu) && !filteredWorkerItems.length) {
+      return t('launchModel.noAvailableGpuWorkers')
+    }
+    return ''
+  }, [
+    t,
+    isLoadingWorkers,
+    hasWorkerLoadFailed,
+    workerItems,
+    filteredWorkerItems,
+    formData.n_gpu,
+  ])
+
   const handleValueType = (str) => {
     let val = String(str).trim()
 
@@ -463,10 +501,10 @@ const LaunchModelDrawer = ({
   }
 
   const formatHistoryTime = (updatedAt) => {
-    if (!updatedAt) return '—'
+    if (!updatedAt) return '--'
 
     const date = new Date(updatedAt)
-    return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString()
+    return Number.isNaN(date.getTime()) ? '--' : date.toLocaleString()
   }
 
   const objectToArray = (obj) => {
@@ -474,7 +512,7 @@ const LaunchModelDrawer = ({
     return Object.entries(obj).map(([key, value]) => ({ key, value }))
   }
 
-  const getReplicaWorkerAddress = (replica) => replica?.worker_address || '—'
+  const getReplicaWorkerAddress = (replica) => replica?.worker_address || '--'
 
   const restoreNGPU = (value) => {
     if (value === null) return 'CPU'
@@ -1069,44 +1107,6 @@ const LaunchModelDrawer = ({
       }
     })
   }, [quantizationOptions, modelData])
-
-  const filteredWorkerItems = useMemo(() => {
-    if (!requiresGpuWorkers(formData.n_gpu)) {
-      return workerItems
-    }
-    return workerItems.filter((item) => item.gpuCount > 0)
-  }, [workerItems, formData.n_gpu])
-
-  const availableWorkerValues = useMemo(
-    () => new Set(filteredWorkerItems.map((item) => item.value)),
-    [filteredWorkerItems]
-  )
-
-  const workerFieldDisabled =
-    isLoadingWorkers || hasWorkerLoadFailed || filteredWorkerItems.length === 0
-
-  const workerFieldHelperText = useMemo(() => {
-    if (isLoadingWorkers) {
-      return t('launchModel.loadingWorkerNodes')
-    }
-    if (hasWorkerLoadFailed) {
-      return t('launchModel.workerNodesLoadFailed')
-    }
-    if (!workerItems.length) {
-      return t('launchModel.noWorkerNodesAvailable')
-    }
-    if (requiresGpuWorkers(formData.n_gpu) && !filteredWorkerItems.length) {
-      return t('launchModel.noAvailableGpuWorkers')
-    }
-    return ''
-  }, [
-    t,
-    isLoadingWorkers,
-    hasWorkerLoadFailed,
-    workerItems,
-    filteredWorkerItems,
-    formData.n_gpu,
-  ])
 
   const modelFormConfig = useMemo(
     () =>
@@ -1922,7 +1922,7 @@ const LaunchModelDrawer = ({
                         </Box>
                         <Typography variant="body2" color="text.secondary">
                           {t('modelReplicaDetails.modelUid')}:{' '}
-                          {entry.model_uid || '—'}
+                          {entry.model_uid || '--'}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                           {t('launchModel.lastUpdated')}:{' '}
