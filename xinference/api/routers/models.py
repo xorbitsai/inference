@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
-from fastapi import Security
+from fastapi import Request, Response, Security
 
 if TYPE_CHECKING:
     from ..restful_api import RESTfulAPI
@@ -74,6 +74,58 @@ def register_routes(api: "RESTfulAPI") -> None:
         api.get_model_versions,
         methods=["GET"],
         dependencies=([Security(auth, scopes=["models:list"])] if is_auth else None),
+    )
+
+    get_autostart_config_handler: Callable[..., Awaitable[Any]]
+    upsert_autostart_model_handler: Callable[..., Awaitable[Any]]
+    if is_auth:
+
+        async def get_autostart_config_handler_authed(
+            user: Any = Security(auth, scopes=["models:start"]),
+        ) -> Response:
+            return await api.get_autostart_config(user)
+
+        async def upsert_autostart_model_handler_authed(
+            request: Request,
+            user: Any = Security(auth, scopes=["models:start"]),
+        ) -> Response:
+            return await api.upsert_autostart_model(request, user)
+
+        get_autostart_config_handler = get_autostart_config_handler_authed
+        upsert_autostart_model_handler = upsert_autostart_model_handler_authed
+    else:
+
+        async def get_autostart_config_handler_anon() -> Response:
+            return await api.get_autostart_config(None)
+
+        async def upsert_autostart_model_handler_anon(request: Request) -> Response:
+            return await api.upsert_autostart_model(request, None)
+
+        get_autostart_config_handler = get_autostart_config_handler_anon
+        upsert_autostart_model_handler = upsert_autostart_model_handler_anon
+
+    # --- model autostart ---
+    router.add_api_route(
+        "/v1/autostart/models",
+        get_autostart_config_handler,
+        methods=["GET"],
+    )
+    router.add_api_route(
+        "/v1/autostart/models/summary",
+        api.get_autostart_model_summary,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["models:list"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/autostart/models",
+        upsert_autostart_model_handler,
+        methods=["POST"],
+    )
+    router.add_api_route(
+        "/v1/autostart/models/{model_uid}",
+        api.remove_autostart_model,
+        methods=["DELETE"],
+        dependencies=([Security(auth, scopes=["models:stop"])] if is_auth else None),
     )
 
     # --- CRUD on running models ---

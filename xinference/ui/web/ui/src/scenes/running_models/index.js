@@ -1,6 +1,7 @@
 import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined'
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined'
 import OpenInBrowserOutlinedIcon from '@mui/icons-material/OpenInBrowserOutlined'
+import PowerSettingsNewOutlinedIcon from '@mui/icons-material/PowerSettingsNewOutlined'
 import { TabContext, TabList, TabPanel } from '@mui/lab'
 import {
   Badge,
@@ -77,6 +78,16 @@ const tabArr = [
   },
 ]
 
+const getAutostartModelUids = (summary = {}) => {
+  return (summary.models || [])
+    .filter((item) => item.enabled !== false)
+    .map(
+      (item) =>
+        item.model_uid || item.launch?.model_uid || item.launch?.model_name
+    )
+    .filter(Boolean)
+}
+
 const RunningModels = () => {
   const [tabValue, setTabValue] = React.useState(
     sessionStorage.getItem('runningModelType')
@@ -94,13 +105,15 @@ const RunningModels = () => {
   const [selectedModelUid, setSelectedModelUid] = useState('')
   const [removingReplicaId, setRemovingReplicaId] = useState(null)
   const [terminatingModelUids, setTerminatingModelUids] = useState([])
+  const [autostartModelUids, setAutostartModelUids] = useState([])
+  const [autostartBusyUids, setAutostartBusyUids] = useState([])
   const [terminateDialog, setTerminateDialog] = useState({
     open: false,
     row: null,
   })
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel, setIsUpdatingModel } = useContext(ApiContext)
-  const { setErrorMsg } = useContext(ApiContext)
+  const { setErrorMsg, setSuccessMsg } = useContext(ApiContext)
   const [cookie] = useCookies(['token'])
   const navigate = useNavigate()
   const endPoint = useContext(ApiContext).endPoint
@@ -145,9 +158,14 @@ const RunningModels = () => {
     } else {
       setIsUpdatingModel(true)
 
-      fetchWrapper
-        .get('/v1/models')
-        .then((response) => {
+      Promise.all([
+        fetchWrapper.get('/v1/models'),
+        fetchWrapper.get('/v1/autostart/models/summary').catch((error) => {
+          console.error('Error fetching autostart models:', error)
+          return { models: [] }
+        }),
+      ])
+        .then(([response, autostartSummary]) => {
           const modelMap = {
             LLM: [],
             embedding: [],
@@ -169,6 +187,7 @@ const RunningModels = () => {
             }
           })
 
+          setAutostartModelUids(getAutostartModelUids(autostartSummary))
           setLlmData(modelMap.LLM)
           setEmbeddingModelData(modelMap.embedding)
           setImageModelData(modelMap.image)
@@ -259,6 +278,73 @@ const RunningModels = () => {
       setTerminatingModelUids((prev) => prev.filter((id) => id !== modelUid))
       update(false)
     }
+  }
+
+  const handleRemoveAutostart = async (modelUid) => {
+    if (autostartBusyUids.includes(modelUid)) return
+    setAutostartBusyUids((prev) =>
+      prev.includes(modelUid) ? prev : [...prev, modelUid]
+    )
+
+    try {
+      const summary = await fetchWrapper.delete(
+        `/v1/autostart/models/${encodeURIComponent(modelUid)}`
+      )
+      setAutostartModelUids(getAutostartModelUids(summary))
+      setSuccessMsg(t('runningModels.removeAutostartSuccess', { modelUid }))
+    } catch (error) {
+      console.error('Error removing autostart model:', error)
+      setErrorMsg(t('runningModels.removeAutostartFailed'))
+    } finally {
+      setAutostartBusyUids((prev) => prev.filter((id) => id !== modelUid))
+    }
+  }
+
+  const renderAutostartButton = (row) => {
+    if (!autostartModelUids.includes(row.id)) {
+      return null
+    }
+
+    const busy = autostartBusyUids.includes(row.id)
+    return (
+      <IconButton
+        title={t('runningModels.autostartEnabled')}
+        disabled={busy || isUpdatingModel || row.url === 'IS_LOADING'}
+        style={{
+          borderWidth: '0px',
+          backgroundColor: 'transparent',
+          paddingLeft: '0px',
+          paddingRight: '10px',
+        }}
+        onClick={(event) => {
+          event.stopPropagation()
+          handleRemoveAutostart(row.id)
+        }}
+      >
+        <Box
+          width="40px"
+          m="0 auto"
+          p="5px"
+          display="flex"
+          justifyContent="center"
+          alignItems="center"
+          borderRadius="4px"
+          style={{
+            border: '1px solid #e5e7eb',
+            borderWidth: '1px',
+            borderColor: '#e5e7eb',
+            color: '#2563eb',
+            minHeight: 32,
+          }}
+        >
+          {busy ? (
+            <CircularProgress size={18} thickness={5} />
+          ) : (
+            <PowerSettingsNewOutlinedIcon />
+          )}
+        </Box>
+      </IconButton>
+    )
   }
 
   const renderTerminateButton = (row) => {
@@ -536,6 +622,7 @@ const RunningModels = () => {
                 <OpenInBrowserOutlinedIcon />
               </Box>
             </IconButton>
+            {renderAutostartButton(row)}
             {renderTerminateButton(row)}
           </Box>
         )
@@ -603,6 +690,7 @@ const RunningModels = () => {
                 alignItems: 'left',
               }}
             >
+              {renderAutostartButton(row)}
               {renderTerminateButton(row)}
             </Box>
           )
@@ -692,6 +780,7 @@ const RunningModels = () => {
                 <OpenInBrowserOutlinedIcon />
               </Box>
             </IconButton>
+            {renderAutostartButton(row)}
             {renderTerminateButton(row)}
           </Box>
         )
@@ -840,6 +929,7 @@ const RunningModels = () => {
                 <OpenInBrowserOutlinedIcon />
               </Box>
             </IconButton>
+            {renderAutostartButton(row)}
             {renderTerminateButton(row)}
           </Box>
         )

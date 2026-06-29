@@ -179,6 +179,9 @@ const ja = {
     mustBeUnique: '{{key}} は一意でなければなりません',
     launchProgress: '起動状況',
     launchCompleted: 'モデルのデプロイが完了しました',
+    launchCompletedWithAutostart: 'モデルのデプロイが完了し、自動起動に追加されました',
+    saveAutostart: '起動成功後に自動起動へ追加',
+    autostartSaveFailed: 'モデルは起動しましたが、自動起動設定の保存に失敗しました',
     launchCanceled: 'デプロイを停止しました',
     initializing: '初期化中...',
     moreDetails: '詳細を見る',
@@ -200,6 +203,9 @@ const ja = {
     replicaDetail: 'レプリカ詳細',
     removeReplicaConfirm:
       'モデル {{modelUid}} のレプリカ {{replicaId}} を削除してもよろしいですか？',
+    autostartEnabled: '自動起動が設定されています',
+    removeAutostartSuccess: '{{modelUid}} の自動起動を削除しました',
+    removeAutostartFailed: '自動起動の削除に失敗しました',
   },
   registerModel: {
     modelName: 'モデル名',

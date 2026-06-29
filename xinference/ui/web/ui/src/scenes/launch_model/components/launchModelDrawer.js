@@ -92,6 +92,7 @@ const LaunchModelDrawer = ({
   const [isLoadingWorkers, setIsLoadingWorkers] = useState(false)
   const [hasWorkerLoadFailed, setHasWorkerLoadFailed] = useState(false)
   const [fieldErrors, setFieldErrors] = useState({})
+  const [saveAutostart, setSaveAutostart] = useState(false)
 
   const intervalRef = useRef(null)
 
@@ -1472,18 +1473,36 @@ const LaunchModelDrawer = ({
       // First fetcher request to initiate the model
       fetchWrapper
         .post('/v1/models', data)
-        .then(() => {
+        .then(async (launchResponse) => {
+          const launchedData = {
+            ...data,
+            model_uid:
+              launchResponse?.model_uid || data.model_uid || data.model_name,
+          }
           navigate(`/running_models/${modelType}`)
           sessionStorage.setItem(
             'runningModelType',
             `/running_models/${modelType}`
           )
-          const nextHistoryEntries = upsertHistoryEntry(data)
+          const nextHistoryEntries = upsertHistoryEntry(launchedData)
           setHistoryEntries(nextHistoryEntries)
           setSelectedHistoryKey(
-            buildHistoryKey(data.model_name, data.model_uid)
+            buildHistoryKey(launchedData.model_name, launchedData.model_uid)
           )
-          syncHistoryToServer(data)
+          syncHistoryToServer(launchedData)
+          if (saveAutostart) {
+            try {
+              await fetchWrapper.post('/v1/autostart/models', {
+                enabled: true,
+                priority: 100,
+                launch: launchedData,
+              })
+              setSuccessMsg(t('launchModel.launchCompletedWithAutostart'))
+            } catch (error) {
+              console.error('Failed to save autostart config:', error)
+              setErrorMsg(t('launchModel.autostartSaveFailed'))
+            }
+          }
         })
         .catch((error) => {
           console.error('Error:', error)
@@ -1711,8 +1730,13 @@ const LaunchModelDrawer = ({
     return <RocketLaunchOutlined sx={{ fontSize: 26 }} />
   }
 
+  const handleClose = () => {
+    setSaveAutostart(false)
+    onClose()
+  }
+
   return (
-    <Drawer open={open} onClose={onClose} anchor="right">
+    <Drawer open={open} onClose={handleClose} anchor="right">
       <Box className="drawerCard">
         <Box display="flex" alignItems="center" justifyContent="space-between">
           <Box display="flex" alignItems="center">
@@ -1768,6 +1792,17 @@ const LaunchModelDrawer = ({
                 <Progress style={{ marginBottom: 20 }} progress={progress} />
               )}
             </Box>
+            <FormControlLabel
+              sx={{ mb: 1 }}
+              control={
+                <Switch
+                  checked={saveAutostart}
+                  disabled={isShowCancel || isLoading || isCallingApi}
+                  onChange={(event) => setSaveAutostart(event.target.checked)}
+                />
+              }
+              label={t('launchModel.saveAutostart')}
+            />
             <Box display="flex" gap={2}>
               <Tooltip
                 title={
@@ -1894,7 +1929,7 @@ const LaunchModelDrawer = ({
                 style={{ flex: 1 }}
                 variant="outlined"
                 color="primary"
-                onClick={onClose}
+                onClick={handleClose}
                 title={t('launchModel.goBack')}
               >
                 <UndoOutlined sx={{ fontSize: 26 }} />
