@@ -103,7 +103,17 @@ class UnlimitedOCRModel(OCRModel):
         return self._abilities
 
     def load(self):
-        from transformers import AutoModel, AutoTokenizer
+        from transformers import AutoConfig, AutoModel, AutoTokenizer
+
+        # Compatibility shim for transformers >= 5.x: the bundled
+        # ``modeling_deepseekv2.py`` shipped with Unlimited-OCR imports
+        # ``is_torch_fx_available`` from ``transformers.utils.import_utils``,
+        # which was removed upstream. Inject a stub returning False so the
+        # FX-tracing fast path stays disabled (the model never traces).
+        from transformers.utils import import_utils as _tf_import_utils
+
+        if not hasattr(_tf_import_utils, "is_torch_fx_available"):
+            _tf_import_utils.is_torch_fx_available = lambda: False  # type: ignore[attr-defined]
 
         logger.info(f"Loading Unlimited-OCR model from {self._model_path}")
 
@@ -112,24 +122,48 @@ class UnlimitedOCRModel(OCRModel):
                 self._model_path,
                 trust_remote_code=allow_trust_remote_code(self.model_family),
             )
+            # The bundled ``modeling_deepseekv2.DeepseekV2Model.__init__``
+            # accesses ``config.pad_token_id`` directly. Unlimited-OCR ships
+            # a config.json without that field, so prime it from the
+            # tokenizer before instantiating the model.
+            config = AutoConfig.from_pretrained(
+                self._model_path,
+                trust_remote_code=allow_trust_remote_code(self.model_family),
+            )
+            # Unlimited-OCR's config.json nests the DeepseekV2 backbone
+            # parameters under ``language_config``. ``UnlimitedOCRConfig``
+            # subclasses ``DeepseekV2Config`` and the model accesses fields
+            # such as ``attention_dropout`` / ``hidden_size`` directly on
+            # the top-level config, so flatten the nested dict onto config.
+            language_config = getattr(config, "language_config", None)
+            if isinstance(language_config, dict):
+                for key, value in language_config.items():
+                    if not hasattr(config, key) or getattr(config, key) is None:
+                        setattr(config, key, value)
+            if getattr(config, "pad_token_id", None) is None:
+                config.pad_token_id = self._tokenizer.eos_token_id
             if self._device != "cpu":
                 model = AutoModel.from_pretrained(
                     self._model_path,
+                    config=config,
                     trust_remote_code=allow_trust_remote_code(self.model_family),
                     use_safetensors=True,
                     torch_dtype=torch.bfloat16,
-                    pad_token_id=self._tokenizer.eos_token_id,
                 )
                 self._model = model.eval().cuda()
             else:
                 model = AutoModel.from_pretrained(
                     self._model_path,
+                    config=config,
                     trust_remote_code=allow_trust_remote_code(self.model_family),
                     use_safetensors=True,
                     torch_dtype=torch.float32,
-                    pad_token_id=self._tokenizer.eos_token_id,
                 )
                 self._model = model.eval()
+            # Ensure the model config carries pad_token_id, which the bundled
+            # generation code reads as ``model.config.pad_token_id``.
+            if getattr(self._model.config, "pad_token_id", None) is None:
+                self._model.config.pad_token_id = self._tokenizer.eos_token_id
             logger.info("Unlimited-OCR model loaded successfully")
         except Exception as e:
             logger.error(f"Failed to load Unlimited-OCR model: {e}")
