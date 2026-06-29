@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { CollapsiblePanel } from '@/components/ui/collapsible';
 import PageContainer from '@/components/ui/page-container';
-import { ModelAbility, ModelType } from '@/constants';
+import { ModelAbility } from '@/constants';
 import request from '@/lib/request';
 import type { RunningModelDetail as RunningModelDetailType } from '@/types/services';
 
