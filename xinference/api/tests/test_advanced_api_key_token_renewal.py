@@ -119,6 +119,30 @@ def test_repeated_checks_in_same_period_do_not_reset_usage_again(tmp_path):
     assert stored["token_renewal_next_at"] == "2026-01-03T00:00:00"
 
 
+def test_stale_token_renewal_does_not_overwrite_new_period_usage(tmp_path):
+    auth = _auth_service(tmp_path)
+    key = _create_key(auth, token_renewal="daily", token_budget=10)
+    _set_renewal_state(
+        auth,
+        key["id"],
+        token_usage=10,
+        token_renewed_at="2026-01-01T00:00:00",
+        token_renewal_next_at="2026-01-02T00:00:00",
+    )
+    stale_state = auth.db.get_api_key_token_usage_state(key["id"])
+
+    auth.ensure_api_key_token_budget(key["id"], now=datetime(2026, 1, 2, 0, 0, 0))
+    auth.db.increment_api_key_token_usage(key["id"], 4)
+    auth._renew_api_key_token_budget_if_needed(
+        key["id"], stale_state, datetime(2026, 1, 2, 0, 0, 1)
+    )
+
+    stored = auth.db.get_api_key_by_id(key["id"])
+    assert stored["token_usage"] == 4
+    assert stored["token_renewed_at"] == "2026-01-02T00:00:00"
+    assert stored["token_renewal_next_at"] == "2026-01-03T00:00:00"
+
+
 def test_custom_renewal_uses_configured_interval_days(tmp_path):
     auth = _auth_service(tmp_path)
     key = _create_key(

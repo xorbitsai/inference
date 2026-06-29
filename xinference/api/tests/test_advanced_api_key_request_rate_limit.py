@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import concurrent.futures
 import json
 import sqlite3
+import threading
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
@@ -200,6 +202,47 @@ def test_request_rate_limit_does_not_touch_failed_authentication_bans(tmp_path):
     state = auth.db.get_api_key_request_rate_limit_state(key["id"])
     assert state["request_rate_limit_count"] == 1
     assert auth._rate_limiter.is_key_banned(client_ip, key["id"]) is True
+
+
+def test_request_rate_limit_success_count_is_concurrency_safe(tmp_path, monkeypatch):
+    auth = _auth_service(tmp_path)
+    key = _create_key(
+        auth,
+        request_rate_limit_enabled=True,
+        request_rate_limit_requests=5,
+        request_rate_limit_window_seconds=60,
+    )
+    now = datetime(2026, 1, 1, 0, 0, 0)
+    original_get = auth.db.get_api_key_request_rate_limit_state
+    barrier = threading.Barrier(2)
+    lock = threading.Lock()
+    read_count = 0
+
+    def synchronized_get(key_id):
+        nonlocal read_count
+        state = original_get(key_id)
+        with lock:
+            read_count += 1
+            should_wait = read_count <= 2
+        if should_wait:
+            barrier.wait(timeout=5)
+        return state
+
+    monkeypatch.setattr(
+        auth.db, "get_api_key_request_rate_limit_state", synchronized_get
+    )
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [
+            executor.submit(auth.record_api_key_request_success, key["id"], now)
+            for _ in range(2)
+        ]
+        for future in futures:
+            future.result(timeout=5)
+
+    state = original_get(key["id"])
+    assert state["request_rate_limit_count"] == 2
+    assert state["request_rate_limit_remaining"] == 3
 
 
 @pytest.mark.asyncio

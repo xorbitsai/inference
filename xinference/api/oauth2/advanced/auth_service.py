@@ -369,18 +369,13 @@ class AdvancedAuthService:
 
         renewed_at_str = _format_datetime(renewed_at)
         next_at_str = _format_datetime(next_at)
-        self._db.reset_api_key_token_usage_for_renewal(
-            key_id, renewed_at_str, next_at_str
+        renewed_state = self._db.reset_api_key_token_usage_for_renewal(
+            key_id,
+            renewed_at_str,
+            next_at_str,
+            state.get("token_renewal_next_at"),
         )
-        renewed_state = dict(state)
-        renewed_state.update(
-            {
-                "token_usage": 0,
-                "token_renewed_at": renewed_at_str,
-                "token_renewal_next_at": next_at_str,
-            }
-        )
-        return renewed_state
+        return renewed_state or state
 
     def ensure_api_key_token_budget(self, key_id: int, now: Optional[datetime] = None):
         state = self._db.get_api_key_token_usage_state(key_id)
@@ -499,19 +494,8 @@ class AdvancedAuthService:
         if expires_at is not None and now > expires_at:
             return
 
-        window_started_at = _parse_optional_datetime(
-            state.get("request_rate_limit_window_started_at")
-        )
-        request_count = int(state.get("request_rate_limit_count") or 0)
-        if window_started_at is None or self._request_rate_limit_window_expired(
-            state, now
-        ):
-            window_started_at = now
-            request_count = 0
-        self._db.set_api_key_request_rate_limit_state(
-            key_id,
-            request_count + 1,
-            _format_datetime(window_started_at),
+        self._db.increment_api_key_request_rate_limit_success(
+            key_id, _format_datetime(now)
         )
 
     @staticmethod

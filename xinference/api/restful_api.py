@@ -399,6 +399,23 @@ class RESTfulAPI(CancelMixin):
                 tokens += int(value)
         return tokens or None
 
+    @staticmethod
+    def _extract_token_usage_from_sse_buffer(
+        buffer: str,
+    ) -> tuple[Optional[int], str]:
+        final_tokens = None
+        buffer = buffer.replace("\r\n", "\n").replace("\r", "\n")
+        while "\n\n" in buffer:
+            event, buffer = buffer.split("\n\n", 1)
+            for line in event.splitlines():
+                line = line.strip()
+                if not line.startswith("data:"):
+                    continue
+                tokens = RESTfulAPI._extract_token_usage(line)
+                if tokens is not None:
+                    final_tokens = tokens
+        return final_tokens, buffer
+
     def _record_api_key_token_usage(self, request, payload: Any) -> None:
         if not self._advanced_auth_service:
             return
@@ -411,11 +428,31 @@ class RESTfulAPI(CancelMixin):
 
     async def _track_api_key_token_usage_stream(self, request, iterator):
         final_tokens = None
+        stream_buffer = ""
         async for item in iterator:
             tokens = self._extract_token_usage(item)
             if tokens is not None:
                 final_tokens = tokens
+            text = None
+            if isinstance(item, str):
+                text = item
+            elif isinstance(item, (bytes, bytearray)):
+                try:
+                    text = item.decode("utf-8")
+                except UnicodeDecodeError:
+                    text = None
+            if text is not None and (stream_buffer or "data:" in text):
+                stream_buffer += text
+                tokens, stream_buffer = self._extract_token_usage_from_sse_buffer(
+                    stream_buffer
+                )
+                if tokens is not None:
+                    final_tokens = tokens
             yield item
+        if stream_buffer.strip():
+            tokens = self._extract_token_usage(stream_buffer)
+            if tokens is not None:
+                final_tokens = tokens
         if final_tokens is not None:
             self._record_api_key_token_usage(
                 request, {"usage": {"total_tokens": final_tokens}}

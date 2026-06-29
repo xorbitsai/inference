@@ -450,16 +450,22 @@ class Database:
                 conn.execute(f"UPDATE api_keys SET {set_clause} WHERE id = ?", values)
                 return True
 
+    @staticmethod
+    def _get_api_key_token_usage_state_with_conn(
+        conn: sqlite3.Connection, key_id: int
+    ) -> Optional[Dict[str, Any]]:
+        row = conn.execute(
+            """SELECT id, enabled, expires_at, created_at, token_budget, token_usage,
+                      token_renewal, token_renewal_interval_days,
+                      token_renewed_at, token_renewal_next_at
+               FROM api_keys WHERE id = ?""",
+            (key_id,),
+        ).fetchone()
+        return dict(row) if row else None
+
     def get_api_key_token_usage_state(self, key_id: int) -> Optional[Dict[str, Any]]:
         with self._get_conn() as conn:
-            row = conn.execute(
-                """SELECT id, enabled, expires_at, created_at, token_budget, token_usage,
-                          token_renewal, token_renewal_interval_days,
-                          token_renewed_at, token_renewal_next_at
-                   FROM api_keys WHERE id = ?""",
-                (key_id,),
-            ).fetchone()
-            return dict(row) if row else None
+            return self._get_api_key_token_usage_state_with_conn(conn, key_id)
 
     def increment_api_key_token_usage(self, key_id: int, tokens: int) -> int:
         if tokens <= 0:
@@ -477,19 +483,33 @@ class Database:
                 return int(row["token_usage"] or 0) if row else 0
 
     def reset_api_key_token_usage_for_renewal(
-        self, key_id: int, renewed_at: str, next_at: str
-    ) -> bool:
+        self,
+        key_id: int,
+        renewed_at: str,
+        next_at: str,
+        previous_next_at: Optional[str],
+    ) -> Optional[Dict[str, Any]]:
         with self._lock:
             with self._get_conn() as conn:
-                conn.execute(
-                    """UPDATE api_keys
-                       SET token_usage = 0,
-                           token_renewed_at = ?,
-                           token_renewal_next_at = ?
-                       WHERE id = ?""",
-                    (renewed_at, next_at, key_id),
-                )
-                return True
+                if previous_next_at is None:
+                    conn.execute(
+                        """UPDATE api_keys
+                           SET token_usage = 0,
+                               token_renewed_at = ?,
+                               token_renewal_next_at = ?
+                           WHERE id = ? AND token_renewal_next_at IS NULL""",
+                        (renewed_at, next_at, key_id),
+                    )
+                else:
+                    conn.execute(
+                        """UPDATE api_keys
+                           SET token_usage = 0,
+                               token_renewed_at = ?,
+                               token_renewal_next_at = ?
+                           WHERE id = ? AND token_renewal_next_at = ?""",
+                        (renewed_at, next_at, key_id, previous_next_at),
+                    )
+                return self._get_api_key_token_usage_state_with_conn(conn, key_id)
 
     @staticmethod
     def _add_request_rate_limit_derived_state(state: Dict[str, Any]) -> Dict[str, Any]:
@@ -517,23 +537,29 @@ class Database:
         state["request_rate_limit_reset_at"] = reset_at
         return state
 
+    @staticmethod
+    def _get_api_key_request_rate_limit_state_with_conn(
+        conn: sqlite3.Connection, key_id: int
+    ) -> Optional[Dict[str, Any]]:
+        row = conn.execute(
+            """SELECT id, enabled, expires_at, created_at,
+                      request_rate_limit_enabled,
+                      request_rate_limit_requests,
+                      request_rate_limit_window_seconds,
+                      request_rate_limit_count,
+                      request_rate_limit_window_started_at
+               FROM api_keys WHERE id = ?""",
+            (key_id,),
+        ).fetchone()
+        if not row:
+            return None
+        return Database._add_request_rate_limit_derived_state(dict(row))
+
     def get_api_key_request_rate_limit_state(
         self, key_id: int
     ) -> Optional[Dict[str, Any]]:
         with self._get_conn() as conn:
-            row = conn.execute(
-                """SELECT id, enabled, expires_at, created_at,
-                          request_rate_limit_enabled,
-                          request_rate_limit_requests,
-                          request_rate_limit_window_seconds,
-                          request_rate_limit_count,
-                          request_rate_limit_window_started_at
-                   FROM api_keys WHERE id = ?""",
-                (key_id,),
-            ).fetchone()
-            if not row:
-                return None
-            return self._add_request_rate_limit_derived_state(dict(row))
+            return self._get_api_key_request_rate_limit_state_with_conn(conn, key_id)
 
     def set_api_key_request_rate_limit_state(
         self, key_id: int, count: int, window_started_at: Optional[str]
@@ -548,6 +574,66 @@ class Database:
                     (count, window_started_at, key_id),
                 )
                 return True
+
+    @staticmethod
+    def _datetime_has_elapsed(
+        timestamp: Optional[str], now: datetime, seconds: int
+    ) -> bool:
+        if not timestamp:
+            return False
+        try:
+            return now >= datetime.fromisoformat(timestamp) + timedelta(seconds=seconds)
+        except ValueError:
+            return True
+
+    def increment_api_key_request_rate_limit_success(
+        self, key_id: int, now: str
+    ) -> Optional[Dict[str, Any]]:
+        now_dt = datetime.fromisoformat(now)
+        with self._lock:
+            with self._get_conn() as conn:
+                state = self._get_api_key_request_rate_limit_state_with_conn(
+                    conn, key_id
+                )
+                if not state:
+                    return None
+                if not state.get("enabled", 1):
+                    return state
+                expires_at = state.get("expires_at")
+                if expires_at:
+                    try:
+                        if now_dt > datetime.fromisoformat(expires_at):
+                            return state
+                    except ValueError:
+                        return state
+
+                enabled = bool(
+                    state.get("request_rate_limit_enabled", 0)
+                    and state.get("request_rate_limit_requests")
+                    and state.get("request_rate_limit_window_seconds")
+                )
+                if not enabled:
+                    return state
+
+                window_seconds = int(state["request_rate_limit_window_seconds"])
+                window_started_at = state.get("request_rate_limit_window_started_at")
+                request_count = int(state.get("request_rate_limit_count") or 0)
+                if window_started_at is None or self._datetime_has_elapsed(
+                    window_started_at, now_dt, window_seconds
+                ):
+                    window_started_at = now
+                    request_count = 0
+
+                conn.execute(
+                    """UPDATE api_keys
+                       SET request_rate_limit_count = ?,
+                           request_rate_limit_window_started_at = ?
+                       WHERE id = ?""",
+                    (request_count + 1, window_started_at, key_id),
+                )
+                return self._get_api_key_request_rate_limit_state_with_conn(
+                    conn, key_id
+                )
 
     def rotate_api_key_secret(
         self,

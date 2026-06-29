@@ -122,6 +122,22 @@ class _StreamingCompletionModel:
         return None
 
 
+class _SplitSSEStreamingCompletionModel:
+    uid = b"test-model"
+
+    async def generate(self, *_args, **_kwargs):
+        async def _iter():
+            yield 'data: {"choices":[{"text":"hello"}]}\n\n'
+            yield 'data: {"choices":[],"usage":{"prompt_tokens":2,'
+            yield '"completion_tokens":4,"total_tokens":6}}\n\n'
+            yield "data: [DONE]\n\n"
+
+        return _iter()
+
+    async def decrease_serve_count(self):
+        return None
+
+
 @pytest.mark.parametrize(
     "payload, expected",
     [
@@ -283,6 +299,27 @@ async def test_streaming_completion_records_final_usage_once(tmp_path, monkeypat
         pass
 
     assert auth.db.get_api_key_by_id(created_key["id"])["token_usage"] == 5
+
+
+@pytest.mark.asyncio
+async def test_streaming_completion_records_split_sse_usage(tmp_path, monkeypatch):
+    auth = _auth_service(tmp_path)
+    created_key = _api_key(auth, token_budget=20)
+    monkeypatch.setattr(
+        "xinference.api.restful_api.require_model",
+        AsyncMock(return_value=_SplitSSEStreamingCompletionModel()),
+    )
+
+    response = await _api(auth).create_completion(
+        _request(
+            created_key["key"],
+            {"model": "test-model", "prompt": "hello", "stream": True},
+        )
+    )
+    async for _chunk in response.body_iterator:
+        pass
+
+    assert auth.db.get_api_key_by_id(created_key["id"])["token_usage"] == 6
 
 
 def test_api_key_token_usage_column_is_added_to_existing_databases(tmp_path):
