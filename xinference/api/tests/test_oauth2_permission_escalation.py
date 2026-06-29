@@ -3,6 +3,7 @@ they themselves hold (admins may grant anything).
 
     pytest xinference/api/tests/test_oauth2_permission_escalation.py -v
 """
+
 import pytest
 from fastapi import HTTPException
 
@@ -11,7 +12,9 @@ import xinference.api.oauth2.advanced.routes as routes
 
 def _patch_caller(monkeypatch, scopes):
     monkeypatch.setattr(
-        routes, "_get_current_user_from_token", lambda request, auth: (1, "caller", scopes)
+        routes,
+        "_get_current_user_from_token",
+        lambda request, auth: (1, "caller", scopes),
     )
 
 
@@ -30,7 +33,9 @@ def test_cannot_grant_unheld_scope(monkeypatch):
 
 def test_admin_can_grant_anything(monkeypatch):
     _patch_caller(monkeypatch, ["admin"])
-    routes._reject_permission_escalation(None, None, ["admin", "keys:manage", "models:read"])
+    routes._reject_permission_escalation(
+        None, None, ["admin", "keys:manage", "models:read"]
+    )
 
 
 def test_granting_held_permissions_is_allowed(monkeypatch):
@@ -38,7 +43,7 @@ def test_granting_held_permissions_is_allowed(monkeypatch):
     routes._reject_permission_escalation(None, None, ["users:manage", "models:read"])
 
 
-@pytest.mark.parametrize("bad", ["admin", 123, True, ["admin", 1]])
+@pytest.mark.parametrize("bad", [None, "admin", 123, True, ["admin", 1]])
 def test_non_list_of_strings_rejected(monkeypatch, bad):
     _patch_caller(monkeypatch, ["admin"])
     with pytest.raises(HTTPException) as exc:

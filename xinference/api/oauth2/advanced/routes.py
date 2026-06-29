@@ -89,18 +89,17 @@ def _reject_permission_escalation(
     operator could mint the ``admin`` superuser scope for themselves or others
     (see security report, Finding 2).
     """
-    if requested_permissions is not None:
-        if not isinstance(requested_permissions, list) or not all(
-            isinstance(p, str) for p in requested_permissions
-        ):
-            raise HTTPException(
-                status_code=400, detail="Permissions must be a list of strings"
-            )
+    if not isinstance(requested_permissions, list) or not all(
+        isinstance(p, str) for p in requested_permissions
+    ):
+        raise HTTPException(
+            status_code=400, detail="Permissions must be a list of strings"
+        )
     _, _, caller_scopes = _get_current_user_from_token(request, auth)
     caller_scopes = caller_scopes or []
     if "admin" in caller_scopes:
         return
-    escalated = [p for p in (requested_permissions or []) if p not in caller_scopes]
+    escalated = [p for p in requested_permissions if p not in caller_scopes]
     if escalated:
         raise HTTPException(
             status_code=403,
