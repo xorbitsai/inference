@@ -30148,7 +30148,7 @@
       "packages": [
         "sglang_dependencies ; #engine# == \"sglang\"",
         "transformers>=5.2.0 ; #engine# == \"Transformers\"",
-        "qwen_omni_utils ; #engine# == \"vllm\"",
+        "qwen_omni_utils==0.0.9 ; #engine# == \"vllm\"",
         "vllm>=0.17.0 ; #engine# == \"vllm\"",
         "transformers==4.57.6 ; #engine# == \"vllm\"",
         "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\""
@@ -30170,7 +30170,7 @@
     ],
     "tool_parser": "qwen",
     "featured": true,
-    "updated_at": 1776696079
+    "updated_at": 1782715300
   },
   {
     "model_name": "gemma-4",
