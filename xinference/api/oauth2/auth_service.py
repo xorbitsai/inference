@@ -95,7 +95,7 @@ class AuthService:
                     token,
                     self._config.auth_config.secret_key,
                     algorithms=[self._config.auth_config.algorithm],
-                    options={"verify_exp": False},  # TODO: supports token expiration
+                    options={"verify_exp": True},  # reject expired tokens
                 )
                 username: str = payload.get("sub")
                 if username is None:
