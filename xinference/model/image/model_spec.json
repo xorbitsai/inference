@@ -1189,6 +1189,41 @@
   },
   {
     "version": 2,
+    "model_name": "Unlimited-OCR",
+    "model_family": "ocr",
+    "model_ability": [
+      "ocr"
+    ],
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#system_torch# ; #engine# == \"Transformers\"",
+        "#system_numpy#",
+        "tokenizers",
+        "PyMuPDF",
+        "einops",
+        "easydict",
+        "addict",
+        "Pillow",
+        "matplotlib",
+        "psutil"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "baidu/Unlimited-OCR",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "PaddlePaddle/Unlimited-OCR",
+        "model_revision": "master"
+      }
+    },
+    "featured": false,
+    "updated_at": 1782717353
+  },
+  {
+    "version": 2,
     "model_name": "HunyuanOCR",
     "model_family": "ocr",
     "model_ability": [
