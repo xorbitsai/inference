@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import codecs
 import inspect
 import ipaddress
 import json
@@ -427,6 +428,7 @@ class RESTfulAPI(CancelMixin):
             self._advanced_auth_service.record_api_key_token_usage(key_id, tokens)
 
     async def _track_api_key_token_usage_stream(self, request, iterator):
+        decoder = codecs.getincrementaldecoder("utf-8")()
         final_tokens = None
         stream_buffer = ""
         async for item in iterator:
@@ -438,7 +440,7 @@ class RESTfulAPI(CancelMixin):
                 text = item
             elif isinstance(item, (bytes, bytearray)):
                 try:
-                    text = item.decode("utf-8")
+                    text = decoder.decode(item, final=False)
                 except UnicodeDecodeError:
                     text = None
             if text is not None and (stream_buffer or "data:" in text):
@@ -449,6 +451,17 @@ class RESTfulAPI(CancelMixin):
                 if tokens is not None:
                     final_tokens = tokens
             yield item
+        try:
+            trailing_text = decoder.decode(b"", final=True)
+        except UnicodeDecodeError:
+            trailing_text = None
+        if trailing_text:
+            stream_buffer += trailing_text
+            tokens, stream_buffer = self._extract_token_usage_from_sse_buffer(
+                stream_buffer
+            )
+            if tokens is not None:
+                final_tokens = tokens
         if stream_buffer.strip():
             tokens = self._extract_token_usage(stream_buffer)
             if tokens is not None:

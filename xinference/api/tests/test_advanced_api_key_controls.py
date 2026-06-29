@@ -14,12 +14,17 @@
 
 import json
 import sqlite3
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import HTTPException
 
-from xinference.api.oauth2.advanced.auth_service import AdvancedAuthService
+import xinference.api.oauth2.advanced.auth_service as auth_service_module
+from xinference.api.oauth2.advanced.auth_service import (
+    AdvancedAuthService,
+    _parse_optional_datetime,
+)
 from xinference.api.oauth2.advanced.database import Database
 from xinference.api.oauth2.advanced.routes import (
     create_api_key,
@@ -52,6 +57,23 @@ def _admin_request(auth, body):
     request.headers = {"Authorization": f"Bearer {token}"}
     request.json = AsyncMock(return_value=body)
     return request
+
+
+class _Python310DateTime(datetime):
+    @classmethod
+    def fromisoformat(cls, value):
+        if str(value).endswith(("Z", "z")):
+            raise ValueError
+        return datetime.fromisoformat(value)
+
+
+@pytest.mark.parametrize("suffix", ["Z", "z"])
+def test_parse_optional_datetime_accepts_utc_z_suffix_on_python310(monkeypatch, suffix):
+    monkeypatch.setattr(auth_service_module, "datetime", _Python310DateTime)
+
+    parsed = _parse_optional_datetime("2026-01-01T00:00:00" + suffix)
+
+    assert parsed == datetime(2026, 1, 1, 0, 0, 0)
 
 
 @pytest.mark.asyncio

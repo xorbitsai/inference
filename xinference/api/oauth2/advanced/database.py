@@ -15,7 +15,7 @@ import logging
 import sqlite3
 import threading
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -581,15 +581,32 @@ class Database:
     ) -> bool:
         if not timestamp:
             return False
-        try:
-            return now >= datetime.fromisoformat(timestamp) + timedelta(seconds=seconds)
-        except ValueError:
+        timestamp_dt = Database._parse_optional_datetime(timestamp)
+        if timestamp_dt is None:
             return True
+        return now >= timestamp_dt + timedelta(seconds=seconds)
+
+    @staticmethod
+    def _parse_optional_datetime(value: Any) -> Optional[datetime]:
+        if value in (None, ""):
+            return None
+        try:
+            value_str = str(value)
+            if value_str.endswith(("Z", "z")):
+                value_str = value_str[:-1] + "+00:00"
+            parsed = datetime.fromisoformat(value_str)
+        except (TypeError, ValueError):
+            return None
+        if parsed.tzinfo is not None:
+            parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+        return parsed.replace(microsecond=0)
 
     def increment_api_key_request_rate_limit_success(
         self, key_id: int, now: str
     ) -> Optional[Dict[str, Any]]:
-        now_dt = datetime.fromisoformat(now)
+        now_dt = self._parse_optional_datetime(now)
+        if now_dt is None:
+            return None
         with self._lock:
             with self._get_conn() as conn:
                 state = self._get_api_key_request_rate_limit_state_with_conn(
@@ -601,10 +618,8 @@ class Database:
                     return state
                 expires_at = state.get("expires_at")
                 if expires_at:
-                    try:
-                        if now_dt > datetime.fromisoformat(expires_at):
-                            return state
-                    except ValueError:
+                    expires_at_dt = self._parse_optional_datetime(expires_at)
+                    if expires_at_dt is None or now_dt > expires_at_dt:
                         return state
 
                 enabled = bool(

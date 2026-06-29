@@ -62,8 +62,10 @@ interface ApiKey {
 }
 
 const optionalNumber = (value: unknown) => {
-  if (value === undefined || value === null || value === '') return undefined;
-  const parsed = Number(value);
+  if (value === undefined || value === null) return undefined;
+  const trimmed = String(value).trim();
+  if (trimmed === '') return undefined;
+  const parsed = Number(trimmed);
   return Number.isFinite(parsed) ? parsed : undefined;
 };
 

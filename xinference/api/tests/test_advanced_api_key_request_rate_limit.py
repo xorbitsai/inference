@@ -23,6 +23,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import HTTPException
 
+import xinference.api.oauth2.advanced.database as database_module
 from xinference.api.oauth2.advanced.auth_service import AdvancedAuthService
 from xinference.api.oauth2.advanced.database import Database
 from xinference.api.oauth2.advanced.rate_limiter import RateLimitConfig
@@ -95,6 +96,14 @@ class _CompletionModel:
 
     async def is_vllm_backend(self):
         return False
+
+
+class _Python310DateTime(datetime):
+    @classmethod
+    def fromisoformat(cls, value):
+        if str(value).endswith(("Z", "z")):
+            raise ValueError
+        return datetime.fromisoformat(value)
 
 
 def test_request_rate_limit_disabled_is_noop(tmp_path):
@@ -243,6 +252,28 @@ def test_request_rate_limit_success_count_is_concurrency_safe(tmp_path, monkeypa
     state = original_get(key["id"])
     assert state["request_rate_limit_count"] == 2
     assert state["request_rate_limit_remaining"] == 3
+
+
+def test_request_rate_limit_success_accepts_z_expiration_on_python310(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(database_module, "datetime", _Python310DateTime)
+    auth = _auth_service(tmp_path)
+    key = _create_key(
+        auth,
+        expires_at="2026-01-02T00:00:00Z",
+        request_rate_limit_enabled=True,
+        request_rate_limit_requests=5,
+        request_rate_limit_window_seconds=60,
+    )
+
+    auth.db.increment_api_key_request_rate_limit_success(
+        key["id"], "2026-01-01T00:00:00"
+    )
+
+    state = auth.db.get_api_key_request_rate_limit_state(key["id"])
+    assert state["request_rate_limit_count"] == 1
+    assert state["request_rate_limit_remaining"] == 4
 
 
 @pytest.mark.asyncio

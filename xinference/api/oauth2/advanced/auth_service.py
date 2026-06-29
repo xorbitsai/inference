@@ -103,7 +103,10 @@ def _parse_optional_datetime(value: Any) -> Optional[datetime]:
     if value in (None, ""):
         return None
     try:
-        dt = datetime.fromisoformat(str(value))
+        value_str = str(value)
+        if value_str.endswith(("Z", "z")):
+            value_str = value_str[:-1] + "+00:00"
+        dt = datetime.fromisoformat(value_str)
     except (TypeError, ValueError):
         return None
     if dt.tzinfo is not None:
