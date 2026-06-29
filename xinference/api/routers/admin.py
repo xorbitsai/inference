@@ -9,10 +9,11 @@ import os
 import re
 import signal
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import aiohttp
-from fastapi import Depends, HTTPException, Query, Request, Security
+from fastapi import Body, Depends, HTTPException, Query, Request, Security
+from pydantic import BaseModel
 
 from ..._version import get_versions
 from ..dependencies import get_api
@@ -259,20 +260,19 @@ async def get_progress(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def get_ui_config() -> JSONResponse:
-    grafana_datasource = os.environ.get("XINFERENCE_GRAFANA_DATASOURCE", "")
+async def get_ui_config(request: Request) -> JSONResponse:
+    store = request.app.state.monitor_config_store
+    mon = store.get_all()
+    dashboards = store.get_dashboards()
+
     return JSONResponse(
         content={
-            "grafana_url": os.environ.get("XINFERENCE_GRAFANA_URL", ""),
-            "grafana_datasource": grafana_datasource,
-            "grafana_alert_datasource": os.environ.get(
-                "XINFERENCE_GRAFANA_ALERT_DATASOURCE", ""
-            )
-            or grafana_datasource,
-            "grafana_dashboard_uid": os.environ.get(
-                "XINFERENCE_GRAFANA_DASHBOARD_UID", "xinference-overview"
-            ),
-            "cluster_name": os.environ.get("XINFERENCE_CLUSTER_NAME", ""),
+            "grafana_url": mon["grafana_url"],
+            "grafana_datasource": mon["grafana_datasource"],
+            "grafana_alert_datasource": mon["grafana_alert_datasource"],
+            "grafana_dashboard_uid": dashboards.get("overview", "xinference-overview"),
+            "grafana_dashboards": dashboards,
+            "cluster_name": mon["cluster_name"],
             "es_enabled": bool(os.environ.get("XINFERENCE_ES_URL", "")),
             "auth_advanced": os.environ.get("XINFERENCE_AUTH_ADVANCED", "").lower()
             in ("1", "true", "yes"),
@@ -280,6 +280,102 @@ async def get_ui_config() -> JSONResponse:
             in ("1", "true", "yes"),
         }
     )
+
+
+class MonitorConfigUpdate(BaseModel):
+    grafana_url: Optional[str] = None
+    grafana_datasource: Optional[str] = None
+    grafana_alert_datasource: Optional[str] = None
+    cluster_name: Optional[str] = None
+    grafana_dashboards: Optional[Dict[str, str]] = None
+
+
+class CheckGrafanaRequest(BaseModel):
+    grafana_url: str
+
+
+async def get_monitor_config(request: Request) -> JSONResponse:
+    store = request.app.state.monitor_config_store
+    all_cfg = store.get_all()
+    sources = store.get_sources()
+    dashboards = store.get_dashboards()
+
+    return JSONResponse(
+        content={
+            "grafana_url": all_cfg["grafana_url"],
+            "grafana_datasource": all_cfg["grafana_datasource"],
+            "grafana_alert_datasource": all_cfg["grafana_alert_datasource"],
+            "cluster_name": all_cfg["cluster_name"],
+            "grafana_dashboards": dashboards,
+            "sources": sources,
+        }
+    )
+
+
+async def update_monitor_config(
+    request: Request,
+    body: MonitorConfigUpdate = Body(...),
+) -> JSONResponse:
+    store = request.app.state.monitor_config_store
+
+    username = ""
+    advanced_auth = getattr(request.app.state, "advanced_auth", None)
+    if advanced_auth:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            try:
+                payload = advanced_auth.verify_access_token(auth_header[7:])
+                username = payload.get("sub", "")
+            except Exception:
+                pass
+
+    data = body.model_dump(exclude_none=True)
+    updates = {}
+    for field in (
+        "grafana_url",
+        "grafana_datasource",
+        "grafana_alert_datasource",
+        "cluster_name",
+    ):
+        if field in data:
+            updates[field] = data[field]
+    if "grafana_dashboards" in data:
+        for dashboard_key, uid in data["grafana_dashboards"].items():
+            updates[f"dashboard_{dashboard_key}"] = uid
+
+    store.update(updates, username=username)
+    return JSONResponse(content={"status": "ok"})
+
+
+async def check_grafana(
+    request: Request,
+    body: CheckGrafanaRequest = Body(...),
+) -> JSONResponse:
+    grafana_url = body.grafana_url.rstrip("/")
+    if not grafana_url:
+        return JSONResponse(
+            content={"ok": False, "error": "Grafana URL is empty"},
+            status_code=400,
+        )
+
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(f"{grafana_url}/api/health")
+            resp.raise_for_status()
+            return JSONResponse(content={"ok": True, "body": resp.json()})
+    except Exception as e:
+        return JSONResponse(
+            content={"ok": False, "error": str(e)},
+            status_code=200,
+        )
+
+
+async def reset_monitor_config(request: Request) -> JSONResponse:
+    store = request.app.state.monitor_config_store
+    store.reset()
+    return JSONResponse(content={"status": "ok"})
 
 
 _FIELD_NAME_RE = re.compile(r"^[a-zA-Z0-9_.@]+$")
@@ -871,6 +967,31 @@ def register_routes(api: "RESTfulAPI") -> None:
         router.add_api_route("/token", login_for_access_token, methods=["POST"])
     router.add_api_route("/v1/cluster/auth", is_cluster_authenticated, methods=["GET"])
     router.add_api_route("/v1/cluster/ui_config", get_ui_config, methods=["GET"])
+
+    router.add_api_route(
+        "/v1/cluster/monitor_config",
+        get_monitor_config,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/cluster/monitor_config",
+        update_monitor_config,
+        methods=["PUT"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/cluster/monitor_config/check-grafana",
+        check_grafana,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/cluster/monitor_config/reset",
+        reset_monitor_config,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
 
     router.add_api_route(
         "/v1/cluster/info",

@@ -38,6 +38,7 @@ from ..constants import (
     XINFERENCE_ENV_ENDPOINT,
     XINFERENCE_LOG_BACKUP_COUNT,
     XINFERENCE_LOG_MAX_BYTES,
+    XINFERENCE_LOG_RETENTION_DAYS,
 )
 from .utils import (
     get_config_dict,
@@ -108,6 +109,7 @@ def start_local_cluster(
         XINFERENCE_LOG_MAX_BYTES,
         role="local",
         address=f"{host}:{port}",
+        log_retention_days=XINFERENCE_LOG_RETENTION_DAYS,
     )
     logging.config.dictConfig(dict_config)  # type: ignore
     # refer to https://huggingface.co/docs/transformers/main_classes/logging
@@ -286,6 +288,7 @@ def supervisor(
         XINFERENCE_LOG_MAX_BYTES,
         role="supervisor",
         address=f"{host}:{supervisor_port or ''}",
+        log_retention_days=XINFERENCE_LOG_RETENTION_DAYS,
     )
     logging.config.dictConfig(dict_config)  # type: ignore
     set_envs("TRANSFORMERS_VERBOSITY", log_level.lower())
@@ -351,6 +354,7 @@ def worker(
         XINFERENCE_LOG_MAX_BYTES,
         role="worker",
         address=f"{host}:{worker_port or ''}",
+        log_retention_days=XINFERENCE_LOG_RETENTION_DAYS,
     )
     logging.config.dictConfig(dict_config)  # type: ignore
     set_envs("TRANSFORMERS_VERBOSITY", log_level.lower())

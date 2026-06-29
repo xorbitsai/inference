@@ -458,9 +458,13 @@ class VLLMModel(LLM):
         global VLLM_INSTALLED, VLLM_VERSION
         VLLM_INSTALLED = True
         VLLM_VERSION = version.parse(vllm.__version__)
-        # Expose model_uid to child processes (vLLM workers, EngineCore)
-        # so orphan cleanup can identify them on shared GPUs.
-        os.environ["XINFERENCE_MODEL_UID"] = self.model_uid
+        # XINFERENCE_MODEL_UID is injected via the env= dict in
+        # xinference.core.worker.WorkerActor._create_subpool so the sub-pool
+        # and its vLLM descendants (EngineCore / GPU workers) inherit it. Do
+        # NOT set os.environ here: load() runs in a worker thread under
+        # concurrent launches, and os.environ.__setitem__ -> putenv is not
+        # thread-safe; moreover the sub-pool was already forked by the time
+        # this runs, so a main-process env mutation would never reach it.
         _update_vllm_supported_lists()
 
         from ..llm_family import LlamaCppLLMSpecV2

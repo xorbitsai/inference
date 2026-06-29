@@ -62,6 +62,7 @@ from ..constants import (
     XINFERENCE_MODEL_DOWNLOAD_WORKERS,
     XINFERENCE_STATUS_GATHER_TIMEOUT,
     XINFERENCE_STATUS_REPORT_MULTIPLIER,
+    XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT,
     XINFERENCE_TCP_REQUEST_TIMEOUT,
     XINFERENCE_VIRTUAL_ENV_DIR,
     XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED,
@@ -168,6 +169,9 @@ _PERSIST_RETRY_MAX = 3
 _VRAM_RECLAIM_TIMEOUT = 30
 # VRAM free ratio threshold — ratio >= this means "released".
 _VRAM_READY_RATIO = 0.90
+# nvmlInit timeout (seconds) — bounds a stuck GPU driver so worker startup
+# and pre-launch VRAM checks cannot hang indefinitely.
+_NVML_INIT_TIMEOUT = 10
 
 
 def _strip_test_envs(launch_args: dict) -> Tuple[dict, Set[str]]:
@@ -372,6 +376,130 @@ async def _kill_orphan_gpu_pids(
     return killed
 
 
+def _nvml_init_with_timeout(timeout: int = _NVML_INIT_TIMEOUT) -> bool:
+    """Initialize pynvml with a timeout guard.
+
+    nvmlInit is a blocking C call that asyncio.wait_for cannot cancel. On
+    Unix we use SIGALRM to bound it so a stuck GPU driver cannot hang worker
+    startup. On Windows SIGALRM is unavailable; we call nvmlInit directly
+    (Windows rarely runs vLLM, and the no-lock degradation is acceptable).
+    signal.signal also requires the main thread; in background-thread
+    contexts (some test setups, customized deployments) we fall back to a
+    direct nvmlInit rather than raising ValueError.
+
+    Returns True on success, False on failure or timeout (caller degrades
+    gracefully). The original SIGALRM handler is always restored.
+    """
+    import threading
+
+    if os.name == "nt" or threading.current_thread() is not threading.main_thread():
+        try:
+            import pynvml
+
+            pynvml.nvmlInit()
+            return True
+        except Exception:
+            return False
+
+    import pynvml
+
+    def _alarm_handler(signum, frame):
+        raise TimeoutError("nvmlInit timed out")
+
+    _old_handler = signal.getsignal(signal.SIGALRM)
+    try:
+        signal.signal(signal.SIGALRM, _alarm_handler)
+        signal.alarm(timeout)
+        try:
+            pynvml.nvmlInit()
+            return True
+        except Exception:
+            return False
+        finally:
+            signal.alarm(0)
+    finally:
+        signal.signal(signal.SIGALRM, _old_handler)
+
+
+async def _kill_gpu_orphans_by_ppid(
+    device_indices: list,
+    model_uid: str = "",
+) -> List[int]:
+    """SIGKILL GPU-occupying processes whose parent is init (PPID == 1).
+
+    Used at worker startup (H1) and pre-launch VRAM recheck (H2). Unlike
+    _kill_orphan_gpu_pids (which uses post - pre diff and would mis-kill
+    other workers' vLLM processes on shared GPUs), this only targets true
+    orphans: processes whose parent has died and been reparented to PID 1.
+
+    A process is killed only if ALL hold:
+      1. occupies GPU memory on one of device_indices (per NVML)
+      2. PPID == 1 (parent dead, reparented to init)
+      3. cmdline contains vllm / enginecore / start_sub_pool
+         (prevents PID-reuse misidentification of unrelated processes)
+
+    cmdline is re-checked immediately before SIGKILL to defend against PID
+    reuse between the snapshot and the kill. SIGTERM is sent first, then
+    after a 1s grace, SIGKILL is applied to survivors. psutil.Process
+    objects are retained across the grace sleep so is_running() detects
+    PID reuse via create_time comparison rather than re-resolving the PID.
+    """
+    import psutil
+
+    occupying_pids = _snapshot_gpu_occupying_pids(device_indices)
+    orphan_processes: List["psutil.Process"] = []
+    for pid in occupying_pids:
+        if pid == os.getpid():
+            continue
+        try:
+            p = psutil.Process(pid)
+            if p.ppid() != 1:
+                continue
+            cmd = " ".join(p.cmdline()).lower()
+            if not any(k in cmd for k in ("vllm", "enginecore", "start_sub_pool")):
+                continue
+            orphan_processes.append(p)
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+
+    if not orphan_processes:
+        return []
+
+    logger.warning(
+        "Found %d vLLM orphan(s) on GPUs %s: %s",
+        len(orphan_processes),
+        device_indices,
+        sorted(p.pid for p in orphan_processes),
+    )
+
+    for p in orphan_processes:
+        try:
+            p.terminate()
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+    await asyncio.sleep(1.0)
+
+    killed: List[int] = []
+    for p in orphan_processes:
+        try:
+            if not p.is_running() or p.status() == psutil.STATUS_ZOMBIE:
+                continue
+            cmd = " ".join(p.cmdline()).lower()
+            if not any(k in cmd for k in ("vllm", "enginecore", "start_sub_pool")):
+                continue
+            # Use psutil.kill() rather than os.kill(pid, signal.SIGKILL):
+            # signal.SIGKILL is undefined on Windows, and psutil's kill() is
+            # cross-platform (TerminateProcess on Windows).
+            p.kill()
+            killed.append(p.pid)
+            logger.warning("SIGKILL orphan pid %s on GPUs %s", p.pid, device_indices)
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+        except Exception:
+            logger.debug("Kill pid %s failed", p.pid, exc_info=True)
+    return killed
+
+
 @dataclass
 class ModelStatus:
     last_error: str = ""
@@ -417,6 +545,12 @@ class WorkerActor(xo.StatelessActor):
             CacheTrackerActor
         ] = None  # type: ignore
         self._progress_tracker_ref: Optional[xo.ActorRefType] = None
+        # Tracks whether this worker has successfully called supervisor.add_worker().
+        # _supervisor_ref being non-None no longer implies registered, because
+        # heartbeat() uses add_worker=False and may populate the ref cache before
+        # registration completes. This flag is the source of truth for registration
+        # state, used by get_supervisor_ref to decide whether add_worker is needed.
+        self._registered: bool = False
 
         # Virtual environment management
         self._virtual_env_manager: XinferenceVirtualEnvManager = None  # type: ignore
@@ -483,6 +617,13 @@ class WorkerActor(xo.StatelessActor):
 
         self._lock = asyncio.Lock()
         self._persist_lock = asyncio.Lock()
+        # Serializes MainActorPool.append_sub_pool calls. xoscar's
+        # append_sub_pool has no internal lock; concurrent fork+exec under
+        # XINFERENCE_MAX_CONCURRENT_LAUNCHES>1 can deadlock on fork+GIL and
+        # block the event loop (which also disables the sub-pool creation
+        # timeout below). The lock only covers append_sub_pool (milliseconds),
+        # not download or model load, so launch throughput is unaffected.
+        self._subpool_creation_lock = asyncio.Lock()
         self._persist_launch_args_dirty_uids: Set[str] = set()
         self._persist_retry_count: Dict[str, int] = {}
 
@@ -727,6 +868,83 @@ class WorkerActor(xo.StatelessActor):
         family_copy.model_specs = [target_spec]
         return family_copy
 
+    async def _cleanup_gpu_orphans_on_startup(self) -> None:
+        """Best-effort cleanup of vLLM GPU orphans left by a previous worker.
+
+        vLLM EngineCore / GPU worker processes have no _check_ppid thread, so
+        when the worker dies they are reparented to PID 1 and keep holding
+        VRAM. The next worker's first sub-pool creation can then deadlock in
+        CUDA init. This scans all GPUs at startup and SIGKILLs processes that
+        (a) occupy GPU memory, (b) have PPID == 1, and (c) have a vLLM-like
+        cmdline. nvmlInit is bounded by _nvml_init_with_timeout so a stuck
+        driver cannot block startup. Never raises — failures degrade to a
+        warning and rely on H2/C as backstops.
+        """
+        if not _nvml_init_with_timeout():
+            logger.warning(
+                "Startup GPU orphan cleanup skipped: pynvml init failed or "
+                "timed out (%ss). If the previous worker left vLLM orphans, "
+                "launch may hang. Manual check: nvidia-smi + "
+                "ps -eo pid,ppid,cmd | grep vllm",
+                _NVML_INIT_TIMEOUT,
+            )
+            return
+
+        try:
+            import pynvml
+
+            try:
+                device_count = pynvml.nvmlDeviceGetCount()
+                all_devices = list(range(device_count))
+            finally:
+                try:
+                    pynvml.nvmlShutdown()
+                except Exception:
+                    pass
+        except Exception:
+            logger.warning(
+                "Startup GPU orphan cleanup: nvmlDeviceGetCount failed",
+                exc_info=True,
+            )
+            return
+
+        if not all_devices:
+            return
+
+        # Pre-snapshot for diagnostics: distinguish "GPU empty" from
+        # "GPU busy but no orphans". _kill_gpu_orphans_by_ppid re-snapshots
+        # internally for the actual kill decision.
+        occupying_pids = _snapshot_gpu_occupying_pids(all_devices)
+        if not occupying_pids:
+            logger.info("Startup GPU orphan cleanup: no GPU-occupying processes found")
+            return
+
+        killed = await _kill_gpu_orphans_by_ppid(all_devices)
+        if not killed:
+            logger.info(
+                "Startup GPU orphan cleanup: %d GPU-occupying process(es) "
+                "found, none are vLLM orphans (all have live parents or "
+                "non-matching cmdline)",
+                len(occupying_pids),
+            )
+            return
+
+        try:
+            _free_ratio = _snapshot_gpu_free_ratio(all_devices)
+            if 0 <= _free_ratio < _VRAM_READY_RATIO:
+                _vram_deadline = time.monotonic() + _VRAM_RECLAIM_TIMEOUT
+                while time.monotonic() < _vram_deadline:
+                    await asyncio.sleep(1.0)
+                    _free_ratio = _snapshot_gpu_free_ratio(all_devices)
+                    if _free_ratio < 0 or _free_ratio >= _VRAM_READY_RATIO:
+                        break
+                logger.info(
+                    "Startup VRAM reclaim: min_free_ratio=%.2f after orphan " "cleanup",
+                    _free_ratio if _free_ratio >= 0 else -1,
+                )
+        except Exception:
+            logger.debug("Startup VRAM poll failed", exc_info=True)
+
     async def __post_create__(self):
         from ..model.audio import (
             CustomAudioModelFamilyV2,
@@ -843,6 +1061,15 @@ class WorkerActor(xo.StatelessActor):
             )
         logger.info(f"Xinference worker {self.address} started")
 
+        # H1: asynchronously clean up vLLM GPU orphans left by a previous
+        # worker that died without reaping its sub-pool descendants. vLLM
+        # EngineCore / GPU workers have no _check_ppid, so on worker death
+        # they are reparented to PID 1 and keep holding VRAM; the next
+        # launch's sub-pool then deadlocks in CUDA init. Runs after
+        # registration so it never blocks the worker from serving; H2 is the
+        # per-launch backstop if an orphan appears later.
+        asyncio.create_task(self._cleanup_gpu_orphans_on_startup())
+
         # Report build/config info for this worker
         from xinference.constants import XINFERENCE_HOME as _xf_home
 
@@ -889,7 +1116,12 @@ class WorkerActor(xo.StatelessActor):
         """
         from .supervisor import SupervisorActor
 
-        if self._supervisor_ref is not None:
+        # Cache hit: return immediately only when no registration is required,
+        # or the worker has already been registered. When add_worker=True and
+        # _registered=False, we must fall through to perform add_worker even if
+        # the ref is cached (this happens after heartbeat populated the ref via
+        # add_worker=False before registration completed).
+        if self._supervisor_ref is not None and (not add_worker or self._registered):
             return self._supervisor_ref
         try:
             supervisor_ref = await xo.actor_ref(  # type: ignore
@@ -901,15 +1133,16 @@ class WorkerActor(xo.StatelessActor):
                 address=self._supervisor_address, uid=SupervisorActor.default_uid()
             )
         # Prevent concurrent operations leads to double initialization, check again.
-        if self._supervisor_ref is not None:
+        if self._supervisor_ref is not None and (not add_worker or self._registered):
             return self._supervisor_ref
         self._supervisor_ref = supervisor_ref
         try:
-            if add_worker:
+            if add_worker and not self._registered:
                 replica_states = self._get_running_replica_states()
                 await supervisor_ref.add_worker(
                     self.address, replica_states=replica_states
                 )
+                self._registered = True
                 if replica_states:
                     logger.info(
                         "Connected to supervisor and replayed %s running model replicas",
@@ -928,6 +1161,17 @@ class WorkerActor(xo.StatelessActor):
                 address=self._supervisor_address, uid=CacheTrackerActor.default_uid()
             )
             self._progress_tracker_ref = None
+        except Exception:
+            self._clear_supervisor_refs()
+            raise
+
+        # record_model_version is an auxiliary cache-management feature.
+        # Its failure must NOT block the worker's core heartbeat/status-report
+        # channel. Guard against _cache_tracker_ref being None when the first
+        # try block failed and cleared all refs (defensive: avoids AttributeError).
+        if self._cache_tracker_ref is None:
+            return self._supervisor_ref
+        try:
             # cache_tracker is on supervisor
             from ..model.audio import get_audio_model_descriptions
             from ..model.embedding import get_embedding_model_descriptions
@@ -950,12 +1194,19 @@ class WorkerActor(xo.StatelessActor):
                 model_version_infos, self.address
             )
         except Exception:
-            self._clear_supervisor_refs()
-            raise
+            logger.warning(
+                "Failed to record model version info to cache tracker; "
+                "cache management may be degraded",
+                exc_info=True,
+            )
+
         return self._supervisor_ref
 
     def _clear_supervisor_refs(self):
         self._supervisor_ref = None
+        # Reset registration state so the next get_supervisor_ref(add_worker=True)
+        # re-runs add_worker. Keep this in sync with _supervisor_ref lifecycle.
+        self._registered = False
         self._status_guard_ref = None  # type: ignore
         self._event_collector_ref = None  # type: ignore
         self._cache_tracker_ref = None  # type: ignore
@@ -1286,6 +1537,70 @@ class WorkerActor(xo.StatelessActor):
         # monitor task per worker process.
         await self._main_pool.start_monitor()
 
+    async def _append_sub_pool_protected(
+        self,
+        env: Optional[Dict[str, str]] = None,
+        start_python: Optional[str] = None,
+        model_uid: str = "",
+    ) -> str:
+        """Append a sub-pool under _subpool_creation_lock with a launch timeout.
+
+        All append_sub_pool call sites must route through this helper so they
+        are uniformly protected against (H3) concurrent fork+GIL deadlock and
+        (C) single-fork CUDA-init hang. The lock serializes only the
+        append_sub_pool call (milliseconds), not download/load.
+
+        On timeout, leftover start_sub_pool children (PPID == this worker) are
+        SIGKILLed best-effort and asyncio.TimeoutError is re-raised so the
+        caller can run its own failure-path cleanup (e.g. release_devices).
+        env keys are logged (never values) because env may carry secrets.
+        """
+        async with self._subpool_creation_lock:
+            try:
+                return await xo.wait_for(
+                    self._main_pool.append_sub_pool(env=env, start_python=start_python),
+                    timeout=XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT,
+                )
+            except asyncio.TimeoutError:
+                logger.error(
+                    "Subpool creation timed out after %ss for model %s "
+                    "(likely fork-unsafe state in worker; restart worker to "
+                    "recover). start_python=%s, env_keys=%s",
+                    XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT,
+                    model_uid,
+                    start_python,
+                    sorted(env.keys()) if env else [],
+                )
+                # Kill leftover sub_pool child processes. xo.wait_for only
+                # cancels the future; the forked child may still be alive
+                # holding GPU memory. Match PPID == this worker's pid and
+                # cmdline containing start_sub_pool. Best-effort.
+                try:
+                    import psutil
+
+                    _my_pid = os.getpid()
+                    for _p in psutil.process_iter(["pid", "ppid", "cmdline"]):
+                        _info = _p.info
+                        if _info["ppid"] != _my_pid:
+                            continue
+                        _cmd = " ".join(_info.get("cmdline") or []).lower()
+                        if "start_sub_pool" in _cmd:
+                            try:
+                                _p.kill()
+                                logger.warning(
+                                    "Killed leftover sub_pool process after "
+                                    "timeout: pid=%s",
+                                    _info["pid"],
+                                )
+                            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                                continue
+                except Exception:
+                    logger.debug(
+                        "Failed to kill leftover sub_pool process",
+                        exc_info=True,
+                    )
+                raise
+
     async def _create_subpool(
         self,
         model_uid: str,
@@ -1315,9 +1630,87 @@ class WorkerActor(xo.StatelessActor):
             )
             env[env_name] = ",".join([str(dev) for dev in devices])
 
-        subpool_address = await self._main_pool.append_sub_pool(
-            env=env, start_python=start_python
+        # G: inject model_uid into the sub-pool env dict (not os.environ).
+        # os.environ mutation is thread-unsafe under concurrent launches and
+        # ineffective (the sub-pool is forked from this env dict). Passing it
+        # here lets the sub-pool and its vLLM descendants inherit the tag.
+        env["XINFERENCE_MODEL_UID"] = model_uid
+
+        # H2: pre-launch VRAM recheck. _cleanup_gpu_orphans_on_startup runs at
+        # worker start, but orphans may appear between startup and this launch
+        # (e.g. another worker on the same host died). If free VRAM on the
+        # target GPUs is below the ready ratio, scan for PPID==1 vLLM orphans
+        # and SIGKILL them, then poll VRAM release. PPID==1 (not the diff
+        # heuristic used by _kill_orphan_gpu_pids) avoids mis-killing another
+        # live worker's vLLM processes on shared GPUs. Best-effort: any error
+        # is logged and the launch proceeds (the timeout below is the backstop).
+        _target_device_ints = [int(d) for d in devices] if devices else []
+        if _target_device_ints:
+            try:
+                _free_ratio = _snapshot_gpu_free_ratio(_target_device_ints)
+                if 0 <= _free_ratio < _VRAM_READY_RATIO:
+                    logger.warning(
+                        "Pre-launch VRAM low for model %s on GPUs %s: "
+                        "free_ratio=%.2f (target %.2f), scanning for orphans",
+                        model_uid,
+                        _target_device_ints,
+                        _free_ratio,
+                        _VRAM_READY_RATIO,
+                    )
+                    _killed = await _kill_gpu_orphans_by_ppid(
+                        _target_device_ints, model_uid=model_uid
+                    )
+                    if _killed:
+                        logger.warning(
+                            "Pre-launch killed %d GPU orphan(s) for model %s: %s",
+                            len(_killed),
+                            model_uid,
+                            _killed,
+                        )
+                        _vram_deadline = time.monotonic() + _VRAM_RECLAIM_TIMEOUT
+                        while time.monotonic() < _vram_deadline:
+                            await asyncio.sleep(1.0)
+                            _free_ratio = _snapshot_gpu_free_ratio(_target_device_ints)
+                            if _free_ratio < 0 or _free_ratio >= _VRAM_READY_RATIO:
+                                break
+                        logger.info(
+                            "Pre-launch VRAM after cleanup for model %s: "
+                            "free_ratio=%.2f",
+                            model_uid,
+                            _free_ratio,
+                        )
+            except Exception:
+                logger.debug(
+                    "Pre-launch VRAM check failed for model %s",
+                    model_uid,
+                    exc_info=True,
+                )
+
+        # H3 + C: serialize sub-pool creation and bound it with a timeout.
+        # H3: append_sub_pool has no internal lock; concurrent fork+exec
+        # deadlocks on fork+GIL and blocks the event loop, which also
+        # disables the xo.wait_for timeout callback. The asyncio.Lock
+        # serializes only append_sub_pool (milliseconds), not download/load.
+        # C: a single fork that deadlocks in CUDA init would otherwise hang
+        # the actor forever. xo.wait_for raises asyncio.TimeoutError after
+        # XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT; we clean up and re-raise so the
+        # supervisor's _workers_launching counter decrements.
+        logger.debug(
+            "Creating subpool for model %s, start_python=%s, env_keys=%s",
+            model_uid,
+            start_python,
+            sorted(env.keys()) if env else [],
         )
+        try:
+            subpool_address = await self._append_sub_pool_protected(
+                env=env, start_python=start_python, model_uid=model_uid
+            )
+        except asyncio.TimeoutError:
+            # Release devices allocated above; otherwise the GPU allocation
+            # table leaks and the next launch on the same GPUs reports them
+            # as occupied. (Leftover-child kill is handled inside the helper.)
+            self.release_devices(model_uid=model_uid)
+            raise
         await self._ensure_subpool_monitor()
         return subpool_address, [str(dev) for dev in devices]
 
@@ -1341,14 +1734,27 @@ class WorkerActor(xo.StatelessActor):
             model_spec = model_spec_cls.parse_raw(model)
             try:
                 register_fn(model_spec, persist)
-                await self._cache_tracker_ref.record_model_version(
-                    generate_fn(model_spec), self.address
-                )
             except ValueError as e:
                 raise e
             except Exception as e:
                 unregister_fn(model_spec.model_name, raise_error=False)
                 raise e
+
+            # cache sync is an auxiliary feature; failure must not roll back
+            # the already-successful register_fn. Guard against _cache_tracker_ref
+            # being None when get_supervisor_ref's core init failed (defensive).
+            try:
+                if self._cache_tracker_ref is not None:
+                    await self._cache_tracker_ref.record_model_version(
+                        generate_fn(model_spec), self.address
+                    )
+            except Exception:
+                logger.warning(
+                    "Failed to record model version for %s after registration; "
+                    "cache management may be degraded",
+                    model_spec.model_name,
+                    exc_info=True,
+                )
         else:
             raise ValueError(f"Unsupported model type: {model_type}")
 
@@ -2584,9 +2990,10 @@ class WorkerActor(xo.StatelessActor):
                             env_value = ",".join(devices)
                             for device in devices:
                                 coros.append(
-                                    self._main_pool.append_sub_pool(
+                                    self._append_sub_pool_protected(
                                         env={env_name: env_value},
                                         start_python=subpool_python_path,
+                                        model_uid=model_uid,
                                     )
                                 )
                             pool_addresses = await asyncio.gather(*coros)
@@ -3101,9 +3508,15 @@ class WorkerActor(xo.StatelessActor):
         """
         Lightweight heartbeat for liveness detection.
         Only sends address to supervisor without collecting resource info.
+        Uses add_worker=False to avoid triggering reconnect initialization
+        (add_worker + record_model_version). Registry recovery is driven solely
+        by report_status -> report_worker_status path, per supervisor's
+        receive_heartbeat design contract (supervisor.py).
         """
         await xo.wait_for(
-            (await self.get_supervisor_ref()).receive_heartbeat(self.address),
+            (await self.get_supervisor_ref(add_worker=False)).receive_heartbeat(
+                self.address
+            ),
             XINFERENCE_TCP_REQUEST_TIMEOUT,
         )
 
@@ -3155,6 +3568,14 @@ class WorkerActor(xo.StatelessActor):
     async def list_cached_models(
         self, model_name: Optional[str] = None
     ) -> List[Dict[Any, Any]]:
+        # Defensive: _cache_tracker_ref may be None if get_supervisor_ref's core
+        # init failed and cleared all refs. Return empty list instead of raising
+        # AttributeError (which would surface as HTTP 500 to the user).
+        if self._cache_tracker_ref is None:
+            logger.warning(
+                "cache_tracker_ref is None, returning empty cached model list"
+            )
+            return []
         lists = await self._cache_tracker_ref.list_cached_models(
             self.address, model_name
         )
@@ -3177,6 +3598,12 @@ class WorkerActor(xo.StatelessActor):
         return cached_models
 
     async def list_deletable_models(self, model_version: str) -> List[str]:
+        # Defensive: see list_cached_models for rationale.
+        if self._cache_tracker_ref is None:
+            logger.warning(
+                "cache_tracker_ref is None, returning empty deletable model list"
+            )
+            return []
         paths = set()
         path = await self._cache_tracker_ref.list_deletable_models(
             model_version, self.address
@@ -3216,6 +3643,10 @@ class WorkerActor(xo.StatelessActor):
         return list(paths)
 
     async def confirm_and_remove_model(self, model_version: str) -> bool:
+        # Defensive: see list_cached_models for rationale.
+        if self._cache_tracker_ref is None:
+            logger.warning("cache_tracker_ref is None, cannot confirm and remove model")
+            return False
         paths = await self.list_deletable_models(model_version)
         for path in paths:
             try:
@@ -3310,7 +3741,7 @@ class WorkerActor(xo.StatelessActor):
     ) -> Tuple[str, int]:
         from ..model.llm.vllm.xavier.collective_manager import Rank0ModelActor
 
-        subpool_address = await self._main_pool.append_sub_pool()
+        subpool_address = await self._append_sub_pool_protected(model_uid=rep_model_uid)
         await self._ensure_subpool_monitor()
 
         store_address = subpool_address.split(":")[0]

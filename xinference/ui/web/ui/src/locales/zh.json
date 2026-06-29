@@ -306,7 +306,7 @@
     "cancel": "取消"
   },
   "monitoring": {
-    "notConfigured": "监控未配置，请设置 XINFERENCE_GRAFANA_URL 环境变量。",
+    "notConfigured": "监控未配置。",
     "time": {
       "5m": "最近 5 分钟",
       "15m": "最近 15 分钟",
@@ -330,7 +330,45 @@
     "from": "开始",
     "to": "结束",
     "applyTimeRange": "应用时间范围",
-    "manualRefresh": "刷新仪表板"
+    "manualRefresh": "刷新仪表板",
+    "tab": {
+      "overview": "概览",
+      "modelLoad": "模型负载",
+      "llmSlo": "LLM SLO",
+      "gpu": "GPU",
+      "host": "主机",
+      "security": "安全"
+    },
+    "config": {
+      "title": "监控配置",
+      "grafanaUrl": "Grafana URL",
+      "datasource": "数据源名称",
+      "alertDatasource": "告警数据源名称",
+      "alertDatasourceHint": "留空则使用主数据源",
+      "clusterName": "集群名称",
+      "dashboardUid": "看板 UID",
+      "dashboardOverview": "集群概览",
+      "dashboardModelLoad": "模型负载",
+      "dashboardLlmSlo": "LLM SLO",
+      "dashboardGpu": "GPU 资源",
+      "dashboardHost": "主机资源",
+      "dashboardSecurity": "安全审计",
+      "save": "保存",
+      "saving": "保存中...",
+      "cancel": "取消",
+      "reset": "恢复默认",
+      "openConfig": "打开配置",
+      "sourceDb": "数据库",
+      "sourceEnv": "环境变量",
+      "sourceDefault": "默认值",
+      "healthCheckFailed": "Grafana 连通性检测失败",
+      "saved": "配置已保存",
+      "saveFailed": "保存配置失败",
+      "loadFailed": "加载配置失败",
+      "resetDone": "配置已恢复为默认值",
+      "checking": "检测中..."
+    },
+    "configHint": "点击上方设置按钮或下方按钮配置 Grafana。"
   },
   "logs": {
     "notConfigured": "日志查询未配置，请设置 XINFERENCE_ES_URL 环境变量。",

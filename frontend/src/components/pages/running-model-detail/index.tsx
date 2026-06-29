@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { CollapsiblePanel } from '@/components/ui/collapsible';
 import PageContainer from '@/components/ui/page-container';
-import { ModelAbility } from '@/constants';
+import { ModelAbility, ModelType } from '@/constants';
 import request from '@/lib/request';
 import type { RunningModelDetail as RunningModelDetailType } from '@/types/services';
 
@@ -22,6 +22,11 @@ import { transformRunningModelDetail } from './utils';
 interface RunningModelDetailProps {
   modelUid: string;
 }
+
+const MODEL_TYPE_ABILITY_MAP: Record<string, ModelAbility[]> = {
+  [ModelType.Rerank]: [ModelAbility.Rerank],
+  [ModelType.Embedding]: [ModelAbility.Embed],
+};
 
 function DetailItem({ label, value }: { label: string; value?: string | number | null }) {
   return (

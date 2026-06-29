@@ -18,11 +18,17 @@ import logging.handlers
 import os
 import re
 import socket
+import sys
 import threading
 import time
 import typing
 import weakref
 from typing import TYPE_CHECKING, Any, Optional
+
+if sys.platform == "win32":
+    fcntl = None
+else:
+    import fcntl
 
 import xoscar as xo
 
@@ -48,11 +54,120 @@ class SafeRotatingFileHandler(logging.handlers.RotatingFileHandler):
     parent Worker process and may no longer exist when the sub-pool
     calls ``dictConfig``.  This subclass ensures the directory is
     (re-)created before the file is opened.
+
+    Multi-process safety (2026-06-25):
+    1. fcntl file lock serializes ``doRollover`` across processes.
+    2. ``shouldRollover`` checks inode at entry; if another process
+       renamed the file, reopen the stream.
+    3. Size check uses ``os.fstat().st_size`` instead of
+       ``stream.tell()`` so it reflects the true file size (including
+       writes from other processes).
+
+    Assumption: log directory is on a local filesystem (fcntl.flock
+    is unreliable on NFS).
+
+    Windows caveat: ``fcntl`` is unavailable on Windows, so the
+    rotation lock is a no-op there. Single-process use is unaffected;
+    multi-process use on Windows may regress to lost archives or
+    cleanup of files still held by another process.
     """
 
     def __init__(self, filename, *args, **kwargs):
         os.makedirs(os.path.dirname(filename), exist_ok=True)
         super().__init__(filename, *args, **kwargs)
+        self._lock_path = os.path.join(
+            os.path.dirname(filename),
+            os.path.basename(filename) + ".rotate.lock",
+        )
+        # Pre-create the lock file so it exists even if doRollover is never
+        # called (e.g. short-lived processes). The file is empty and harmless.
+        open(self._lock_path, "a").close()
+
+    def _acquire_rotation_lock(self):
+        if fcntl is None:
+            return None
+        lock_fd = open(self._lock_path, "w")
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        return lock_fd
+
+    def _release_rotation_lock(self, lock_fd):
+        if lock_fd is None:
+            return
+        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        lock_fd.close()
+
+    def _check_inode_and_reopen(self):
+        """Reopen stream if another process renamed the base file.
+
+        Returns True if the stream was reopened (i.e. another process
+        rotated the file), False otherwise. doRollover uses this to
+        decide whether to skip a size-triggered rotation: if the file
+        was just rotated by another process, the new file is small and
+        does not need rotation.
+        """
+        if self.stream is None:
+            return False
+        try:
+            current_inode = os.stat(self.baseFilename).st_ino
+            stream_inode = os.fstat(self.stream.fileno()).st_ino
+            if current_inode != stream_inode:
+                self.stream.close()
+                self.stream = self._open()
+                return True
+        except OSError:
+            try:
+                self.stream.close()
+            except Exception:
+                pass
+            self.stream = None
+        return False
+
+    def shouldRollover(self, record):
+        self._check_inode_and_reopen()
+        if self.maxBytes > 0:
+            if self.stream is None:
+                self.stream = self._open()
+            try:
+                actual_size = os.fstat(self.stream.fileno()).st_size
+                msg = "%s\n" % self.format(record)
+                if actual_size + len(msg) >= self.maxBytes:
+                    return True
+            except OSError:
+                pass
+        return False
+
+    def doRollover(self):
+        lock_fd = self._acquire_rotation_lock()
+        try:
+            # If another process rotated the file while we were waiting
+            # for the lock, the stream has been reopened to a fresh file
+            # and there is nothing to do.
+            if self._check_inode_and_reopen():
+                return
+            # Trust shouldRollover's judgment: if we got here, either time
+            # or size trigger fired and no other process has rotated since.
+            self._do_rolling_rollover()
+        finally:
+            self._release_rotation_lock(lock_fd)
+
+    def _do_rolling_rollover(self):
+        if self.stream:
+            self.stream.close()
+            self.stream = None
+        if self.backupCount > 0:
+            for i in range(self.backupCount - 1, 0, -1):
+                sfn = self.rotation_filename("%s.%d" % (self.baseFilename, i))
+                dfn = self.rotation_filename("%s.%d" % (self.baseFilename, i + 1))
+                if os.path.exists(sfn):
+                    if os.path.exists(dfn):
+                        os.remove(dfn)
+                    self.rotate(sfn, dfn)
+            dfn = self.rotation_filename(self.baseFilename + ".1")
+            if os.path.exists(dfn):
+                os.remove(dfn)
+            self.rotate(self.baseFilename, dfn)
+        if not self.delay:
+            self.stream = self._open()
 
 
 class SafeTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
@@ -61,6 +176,240 @@ class SafeTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
     def __init__(self, filename, *args, **kwargs):
         os.makedirs(os.path.dirname(filename), exist_ok=True)
         super().__init__(filename, *args, **kwargs)
+
+
+class SafeTimedAndSizeRotatingFileHandler(SafeTimedRotatingFileHandler):
+    """TimedRotatingFileHandler that also rotates when the file exceeds maxBytes.
+
+    Same-day size-triggered rotations append a numeric suffix
+    (e.g. ``xinference.log.2026-06-24.1``, ``.2`` ...) to avoid
+    clobbering the midnight-rotated file. The midnight-rotated file
+    keeps the bare ``YYYY-MM-DD`` suffix and represents the last
+    segment of the day.
+
+    Cleanup is hybrid: (1) delete files whose filename date is older
+    than ``retention_days``; (2) if remaining files still exceed
+    ``backupCount``, delete oldest by mtime.
+
+    Note: ``_rotated_re`` assumes ``when="midnight"`` (suffix
+    ``%Y-%m-%d``). The handler is only used with midnight rotation
+    in ``get_config_dict()``, so this assumption holds.
+
+    Multi-process safety (2026-06-25):
+    1. fcntl file lock serializes ``doRollover`` across processes.
+    2. ``shouldRollover`` checks inode at entry; if another process
+       renamed the file, reopen the stream.
+    3. Size check uses ``os.fstat().st_size`` instead of
+       ``stream.tell()`` so it reflects the true file size (including
+       writes from other processes).
+
+    Assumption: log directory is on a local filesystem (fcntl.flock
+    is unreliable on NFS).
+
+    Windows caveat: ``fcntl`` is unavailable on Windows, so the
+    rotation lock is a no-op there. Single-process use is unaffected;
+    multi-process use on Windows may regress to lost archives or
+    cleanup of files still held by another process.
+    """
+
+    _rotated_re = re.compile(r"^\d{4}-\d{2}-\d{2}(\.\d+)?$")
+
+    def __init__(
+        self,
+        filename,
+        when="midnight",
+        interval=1,
+        backupCount=0,
+        encoding=None,
+        delay=False,
+        utc=False,
+        atTime=None,
+        maxBytes=0,
+        errors=None,
+        retention_days=0,
+    ):
+        self.maxBytes = maxBytes
+        self.retention_days = retention_days
+        super().__init__(
+            filename,
+            when=when,
+            interval=interval,
+            backupCount=backupCount,
+            encoding=encoding,
+            delay=delay,
+            utc=utc,
+            atTime=atTime,
+            errors=errors,
+        )
+        self._lock_path = os.path.join(
+            os.path.dirname(filename),
+            os.path.basename(filename) + ".rotate.lock",
+        )
+        # Pre-create the lock file so it exists even if doRollover is never
+        # called (e.g. short-lived processes). The file is empty and harmless.
+        open(self._lock_path, "a").close()
+
+    def _acquire_rotation_lock(self):
+        if fcntl is None:
+            return None
+        lock_fd = open(self._lock_path, "w")
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        return lock_fd
+
+    def _release_rotation_lock(self, lock_fd):
+        if lock_fd is None:
+            return
+        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        lock_fd.close()
+
+    def _check_inode_and_reopen(self):
+        """Reopen stream if another process renamed the base file.
+
+        Returns True if the stream was reopened (i.e. another process
+        rotated the file), False otherwise.
+        """
+        if self.stream is None:
+            return False
+        try:
+            current_inode = os.stat(self.baseFilename).st_ino
+            stream_inode = os.fstat(self.stream.fileno()).st_ino
+            if current_inode != stream_inode:
+                self.stream.close()
+                self.stream = self._open()
+                # Another process performed the time-based rollover for us.
+                # Advance rolloverAt so the next shouldRollover/doRollover
+                # does not see a stale past-due time and perform a redundant,
+                # destructive rotation (clobbers the archive just written by
+                # the other process). Only advance when we are actually past
+                # the scheduled time — a size-only foreign rotation leaves
+                # the pending time rollover intact.
+                if time.time() >= self.rolloverAt:
+                    self.rolloverAt = self.computeRollover(time.time())
+                return True
+        except OSError:
+            try:
+                self.stream.close()
+            except Exception:
+                pass
+            self.stream = None
+        return False
+
+    def shouldRollover(self, record):
+        self._check_inode_and_reopen()
+        if super().shouldRollover(record):
+            return True
+        if self.maxBytes > 0:
+            if self.stream is None:
+                self.stream = self._open()
+            try:
+                actual_size = os.fstat(self.stream.fileno()).st_size
+                msg = "%s\n" % self.format(record)
+                if actual_size + len(msg) >= self.maxBytes:
+                    return True
+            except OSError:
+                pass
+        return False
+
+    def doRollover(self):
+        lock_fd = self._acquire_rotation_lock()
+        try:
+            # If another process rotated the file while we were waiting
+            # for the lock, the stream has been reopened to a fresh file
+            # and there is nothing to do.
+            if self._check_inode_and_reopen():
+                return
+            if time.time() >= self.rolloverAt:
+                super().doRollover()
+            else:
+                self._do_size_rollover()
+        finally:
+            self._release_rotation_lock(lock_fd)
+
+    def _do_size_rollover(self):
+        if self.stream:
+            self.stream.close()
+            self.stream = None
+
+        current_time = time.time()
+        if self.utc:
+            time_tuple = time.gmtime(current_time)
+        else:
+            time_tuple = time.localtime(current_time)
+        date_suffix = time.strftime(self.suffix, time_tuple)
+
+        n = 1
+        while True:
+            dfn = self.rotation_filename(
+                "%s.%s.%d" % (self.baseFilename, date_suffix, n)
+            )
+            if not os.path.exists(dfn):
+                break
+            n += 1
+        self.rotate(self.baseFilename, dfn)
+        if not self.delay:
+            self.stream = self._open()
+
+        if self.backupCount > 0 or self.retention_days > 0:
+            for s in self.getFilesToDelete():
+                try:
+                    os.remove(s)
+                except OSError:
+                    pass
+
+    def getFilesToDelete(self):
+        """Hybrid cleanup: date-based + file-count cap."""
+        dir_name, base_name = os.path.split(self.baseFilename)
+        prefix = base_name + "."
+        plen = len(prefix)
+        files = []
+        try:
+            file_names = os.listdir(dir_name)
+        except OSError:
+            return []
+        for file_name in file_names:
+            if file_name[:plen] != prefix:
+                continue
+            suffix = file_name[plen:]
+            if not self._rotated_re.match(suffix):
+                continue
+            date_str = suffix[:10]
+            try:
+                date_epoch = time.mktime(time.strptime(date_str, "%Y-%m-%d"))
+            except ValueError:
+                continue
+            full_path = os.path.join(dir_name, file_name)
+            try:
+                mtime = os.path.getmtime(full_path)
+            except OSError:
+                continue
+            files.append((date_epoch, mtime, full_path))
+
+        to_delete = set()
+
+        if self.retention_days > 0:
+            # +1 because date_epoch is midnight of the archive's day while
+            # cutoff is the current wall-clock time. Without the +1, a file
+            # from exactly retention_days ago is deleted the moment the
+            # current time passes midnight (e.g. retention_days=1 drops
+            # yesterday's archive at 00:01 today, keeping zero full days).
+            cutoff = time.time() - (self.retention_days + 1) * 86400
+            for date_epoch, mtime, full_path in files:
+                if date_epoch < cutoff:
+                    to_delete.add(full_path)
+
+        if self.backupCount > 0:
+            remaining = [
+                (mtime, full_path)
+                for _, mtime, full_path in files
+                if full_path not in to_delete
+            ]
+            remaining.sort(key=lambda x: x[0])
+            excess = len(remaining) - self.backupCount
+            if excess > 0:
+                for _, full_path in remaining[:excess]:
+                    to_delete.add(full_path)
+
+        return list(to_delete)
 
 
 # mainly for k8s
@@ -440,6 +789,7 @@ def get_config_dict(
     role: str = "",
     address: str = "",
     rotation: Optional[str] = None,
+    log_retention_days: int = 0,
 ) -> dict:
     from ..constants import (
         XINFERENCE_LOG_CONSOLE,
@@ -474,6 +824,18 @@ def get_config_dict(
             "filename": log_file_path,
             "when": "midnight",
             "backupCount": log_backup_count,
+            "encoding": "utf8",
+        }
+    elif rotation == "daily+size":
+        file_handler_config = {
+            "class": "xinference.deploy.utils.SafeTimedAndSizeRotatingFileHandler",
+            "formatter": formatter_name,
+            "level": log_level,
+            "filename": log_file_path,
+            "when": "midnight",
+            "backupCount": log_backup_count,
+            "maxBytes": log_max_bytes,
+            "retention_days": log_retention_days,
             "encoding": "utf8",
         }
     else:

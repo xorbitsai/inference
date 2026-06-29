@@ -9,8 +9,8 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function getApiUrl(): string {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://10.1.0.45:6623'
-  return apiUrl
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+  return apiUrl;
 }
 
 export function formatFileSize(bytes: number): string {

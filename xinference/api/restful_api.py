@@ -59,6 +59,7 @@ from ..constants import (
     XINFERENCE_DISABLE_METRICS,
     XINFERENCE_ENABLE_OTEL,
     XINFERENCE_LAUNCH_HISTORY_DB_PATH,
+    XINFERENCE_MONITOR_CONFIG_DB_PATH,
     XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
 )
 from ..core.event import Event, EventCollectorActor, EventType
@@ -146,6 +147,12 @@ class RESTfulAPI(CancelMixin):
 
         self._launch_history_store = LaunchHistoryStore(
             XINFERENCE_LAUNCH_HISTORY_DB_PATH
+        )
+
+        from ..core.monitor_config_store import MonitorConfigStore
+
+        self._monitor_config_store = MonitorConfigStore(
+            XINFERENCE_MONITOR_CONFIG_DB_PATH
         )
 
         self._router = APIRouter()
@@ -268,6 +275,7 @@ class RESTfulAPI(CancelMixin):
                     "user": username,
                     "api_key_name": entry.name or "",
                     "model_id": model_uid,
+                    "model_name": model_name,
                     "model_type": model_type,
                     "status": status,
                 }
@@ -457,6 +465,7 @@ class RESTfulAPI(CancelMixin):
         # Attach API instance for dependency injection (Depends(get_api), etc.)
         self._app.state.api = self
         self._app.state.advanced_auth = self._advanced_auth_service
+        self._app.state.monitor_config_store = self._monitor_config_store
 
         # Register all domain routes from routers/ modules
         from .routers import register_all_routes

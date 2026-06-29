@@ -306,7 +306,7 @@
     "cancel": "Cancel"
   },
   "monitoring": {
-    "notConfigured": "Monitoring not configured. Please set XINFERENCE_GRAFANA_URL environment variable.",
+    "notConfigured": "Monitoring not configured.",
     "time": {
       "5m": "Last 5 minutes",
       "15m": "Last 15 minutes",
@@ -330,7 +330,45 @@
     "from": "From",
     "to": "To",
     "applyTimeRange": "Apply time range",
-    "manualRefresh": "Refresh dashboard"
+    "manualRefresh": "Refresh dashboard",
+    "tab": {
+      "overview": "Overview",
+      "modelLoad": "Model Load",
+      "llmSlo": "LLM SLO",
+      "gpu": "GPU",
+      "host": "Host",
+      "security": "Security"
+    },
+    "config": {
+      "title": "Monitor Configuration",
+      "grafanaUrl": "Grafana URL",
+      "datasource": "Datasource Name",
+      "alertDatasource": "Alert Datasource Name",
+      "alertDatasourceHint": "Leave empty to use datasource",
+      "clusterName": "Cluster Name",
+      "dashboardUid": "Dashboard UIDs",
+      "dashboardOverview": "Overview",
+      "dashboardModelLoad": "Model Load",
+      "dashboardLlmSlo": "LLM SLO",
+      "dashboardGpu": "GPU Resources",
+      "dashboardHost": "Host Resources",
+      "dashboardSecurity": "Security Audit",
+      "save": "Save",
+      "saving": "Saving...",
+      "cancel": "Cancel",
+      "reset": "Reset to Default",
+      "openConfig": "Open Configuration",
+      "sourceDb": "Database",
+      "sourceEnv": "Environment",
+      "sourceDefault": "Default",
+      "healthCheckFailed": "Grafana health check failed",
+      "saved": "Configuration saved",
+      "saveFailed": "Failed to save configuration",
+      "loadFailed": "Failed to load configuration",
+      "resetDone": "Configuration reset to defaults",
+      "checking": "Checking..."
+    },
+    "configHint": "Click the settings button above or the button below to configure Grafana."
   },
   "logs": {
     "notConfigured": "Log query not configured. Please set XINFERENCE_ES_URL environment variable.",

@@ -15,7 +15,7 @@
 
 import logging
 import os
-from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
+from logging.handlers import TimedRotatingFileHandler
 from typing import Optional
 
 
@@ -26,6 +26,7 @@ def create_rotating_handler(
     max_bytes: int = 100 * 1024 * 1024,
     formatter: Optional[logging.Formatter] = None,
     encoding: str = "utf8",
+    backup_count: int = 0,
 ) -> logging.Handler:
     """Create a log handler with unified rotation strategy.
 
@@ -34,15 +35,18 @@ def create_rotating_handler(
     filename : str
         Absolute path to the log file.
     retention_days : int
-        Number of backup files to keep (days for daily, count for size).
+        For "daily": number of backup files (days). For "daily+size":
+        date-based retention days. For "size": unused (use backup_count).
     rotation : str
-        "daily" for time-based rotation, "size" for size-based rotation.
+        "daily", "daily+size", or "size".
     max_bytes : int
-        Max bytes per file (only used when rotation="size").
+        Max bytes per file (used by "size" and "daily+size").
     formatter : logging.Formatter, optional
         Formatter to attach to the handler.
     encoding : str
         File encoding for log handlers.
+    backup_count : int
+        File-count cap for "daily+size" mode (0 = no cap).
     """
     os.makedirs(os.path.dirname(filename), exist_ok=True)
 
@@ -53,8 +57,21 @@ def create_rotating_handler(
             backupCount=retention_days,
             encoding=encoding,
         )
+    elif rotation == "daily+size":
+        from ..deploy.utils import SafeTimedAndSizeRotatingFileHandler
+
+        handler = SafeTimedAndSizeRotatingFileHandler(
+            filename=filename,
+            when="midnight",
+            backupCount=backup_count,
+            maxBytes=max_bytes,
+            retention_days=retention_days,
+            encoding=encoding,
+        )
     else:
-        handler = RotatingFileHandler(
+        from ..deploy.utils import SafeRotatingFileHandler
+
+        handler = SafeRotatingFileHandler(
             filename=filename,
             maxBytes=max_bytes,
             backupCount=retention_days,

@@ -109,6 +109,11 @@ XINFERENCE_LAUNCH_HISTORY_DB_PATH = os.environ.get(
     os.path.join(XINFERENCE_HOME, "launch_history.db"),
 )
 
+XINFERENCE_MONITOR_CONFIG_DB_PATH = os.environ.get(
+    "XINFERENCE_MONITOR_CONFIG_DB_PATH",
+    os.path.join(XINFERENCE_HOME, "monitor_config.db"),
+)
+
 # Whether to allow models to run their own bundled code (transformers /
 # sentence-transformers / FlagEmbedding / engine `trust_remote_code`). Off by
 # default; set XINFERENCE_TRUST_REMOTE_CODE=1 to allow it.
@@ -148,7 +153,7 @@ XINFERENCE_DEFAULT_LOCAL_HOST = "127.0.0.1"
 XINFERENCE_DEFAULT_DISTRIBUTED_HOST = "0.0.0.0"
 XINFERENCE_DEFAULT_ENDPOINT_PORT = 9997
 XINFERENCE_DEFAULT_LOG_FILE_NAME = "xinference.log"
-XINFERENCE_LOG_ROTATION = os.environ.get("XINFERENCE_LOG_ROTATION", "daily")
+XINFERENCE_LOG_ROTATION = os.environ.get("XINFERENCE_LOG_ROTATION", "daily+size")
 XINFERENCE_LOG_FORMAT = os.environ.get("XINFERENCE_LOG_FORMAT", "text").lower()
 XINFERENCE_LOG_CONSOLE = (
     os.environ.get("XINFERENCE_LOG_CONSOLE", "true").lower() == "true"
@@ -178,7 +183,7 @@ XINFERENCE_LOG_RETENTION_DAYS = int(
 XINFERENCE_LOG_MAX_BYTES = int(
     os.environ.get("XINFERENCE_LOG_MAX_BYTES", str(100 * 1024 * 1024))
 )
-XINFERENCE_LOG_BACKUP_COUNT = int(os.environ.get("XINFERENCE_LOG_BACKUP_COUNT", "30"))
+XINFERENCE_LOG_BACKUP_COUNT = int(os.environ.get("XINFERENCE_LOG_BACKUP_COUNT", "300"))
 XINFERENCE_LOG_ARG_MAX_LENGTH = 100
 XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD = int(
     os.environ.get(XINFERENCE_ENV_HEALTH_CHECK_FAILURE_THRESHOLD, 5)
@@ -248,6 +253,17 @@ XINFERENCE_STATUS_REPORT_MULTIPLIER = int(
 
 XINFERENCE_MAX_CONCURRENT_LAUNCHES = max(
     1, int(os.environ.get(XINFERENCE_ENV_MAX_CONCURRENT_LAUNCHES, 5))
+)
+
+# Sub-pool creation timeout in seconds. Only covers fork+exec+import xoscar+
+# bind port+write shm, NOT model weight download (which happens in
+# create_model_instance after _create_subpool). Normal sub-pool creation < 1s;
+# 60s is 60x+ headroom. On timeout: kill leftover subprocess + release GPU +
+# raise TimeoutError so launch_builtin_model's try/finally runs the failure
+# path and the supervisor's _workers_launching counter decrements. Tunable for
+# extreme environments (slow NFS, vLLM version upgrade slowing import, etc.).
+XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT = int(
+    os.environ.get("XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT", "60")
 )
 
 # Status gather timeout in seconds (for collecting GPU info, etc.)

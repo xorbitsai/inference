@@ -521,6 +521,11 @@ The following is a list of built-in LLM in Xinference:
      - 8192
      - Kimi Muon is Scalable for LLM Training
 
+   * - :ref:`nex-n2 <models_llm_nex-n2>`
+     - chat, vision, tools, reasoning, hybrid
+     - 262144
+     - Nex-N2 is a series of multimodal large language models developed by nex-agi, built on the Qwen3.5 MoE architecture. It supports text, image, and video understanding, with advanced reasoning and tool-use capabilities.
+
    * - :ref:`openhermes-2.5 <models_llm_openhermes-2.5>`
      - chat
      - 8192
@@ -755,6 +760,11 @@ The following is a list of built-in LLM in Xinference:
      - generate
      - 2048
      - The TinyLlama project aims to pretrain a 1.1B Llama model on 3 trillion tokens.
+
+   * - :ref:`vibethinker <models_llm_vibethinker>`
+     - chat, tools
+     - 131072
+     - VibeThinker is a series of dense reasoning language models developed by WeiboAI. Built on the Qwen2 architecture with a post-training methodology centered on the Spectrum-to-Signal Principle (SSP), VibeThinker demonstrates strong reasoning capabilities in mathematics and coding despite its compact size.
 
    * - :ref:`wizardcoder-python-v1.0 <models_llm_wizardcoder-python-v1.0>`
      - chat
@@ -1018,6 +1028,8 @@ The following is a list of built-in LLM in Xinference:
   
    moonlight-16b-a3b-instruct
   
+   nex-n2
+  
    openhermes-2.5
   
    opt
@@ -1111,6 +1123,8 @@ The following is a list of built-in LLM in Xinference:
    telechat
   
    tiny-llama
+  
+   vibethinker
   
    wizardcoder-python-v1.0
   
