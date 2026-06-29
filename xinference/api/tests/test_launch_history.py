@@ -16,6 +16,7 @@
 
 import inspect
 import json
+import sqlite3
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -158,6 +159,172 @@ def test_store_persists_across_instances(tmp_path):
     rows = LaunchHistoryStore(db).list()
     assert len(rows) == 1
     assert rows[0]["created_by"] == "alice"
+
+
+def test_store_migrates_autostart_columns(tmp_path):
+    db = str(tmp_path / "old.db")
+    with sqlite3.connect(db) as conn:
+        conn.executescript(
+            """
+            CREATE TABLE launch_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                model_name TEXT NOT NULL,
+                model_uid TEXT NOT NULL DEFAULT '',
+                data TEXT NOT NULL,
+                created_by TEXT DEFAULT '',
+                updated_by TEXT DEFAULT '',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE UNIQUE INDEX idx_launch_history_model
+                ON launch_history(model_name, model_uid, created_by);
+            INSERT INTO launch_history (model_name, model_uid, data)
+                VALUES ('llama', 'uid-1', '{"model_name": "llama"}');
+            """
+        )
+
+    store = LaunchHistoryStore(db)
+    row = store.list()[0]
+    assert row["autostart_enabled"] is False
+    assert row["autostart_priority"] == 100
+    assert store.list_autostart() == []
+
+
+def test_upsert_autostart_inserts_and_lists_unredacted_payload(store):
+    store.upsert_autostart(
+        {
+            "enabled": True,
+            "priority": 10,
+            "max_retries": 5,
+            "retry_interval_seconds": 60,
+            "launch": {
+                "model_name": "llama",
+                "model_uid": "uid-1",
+                "model_engine": "vllm",
+                "envs": {"HF_TOKEN": "secret"},
+            },
+        },
+        username="alice",
+    )
+
+    entries = store.list_autostart()
+    assert len(entries) == 1
+    entry = entries[0]
+    assert entry["priority"] == 10
+    assert entry["max_retries"] == 5
+    assert entry["retry_interval_seconds"] == 60
+    assert entry["created_by"] == "alice"
+    assert entry["launch"]["envs"] == {"HF_TOKEN": "secret"}
+
+
+def test_list_autostart_redacts_other_users_non_shareable_fields(store):
+    store.upsert_autostart(
+        {
+            "launch": {
+                "model_name": "llama",
+                "model_uid": "uid-1",
+                "model_engine": "vllm",
+                "n_gpu": "auto",
+                "model_path": "/private/alice/model",
+                "worker_ip": "10.0.0.8",
+                "envs": {"HF_TOKEN": "secret"},
+                "custom_private_kwarg": "private",
+            },
+        },
+        username="alice",
+    )
+
+    entries = store.list_autostart(username="bob")
+
+    assert len(entries) == 1
+    assert entries[0]["created_by"] == "alice"
+    assert entries[0]["launch"] == {
+        "model_name": "llama",
+        "model_uid": "uid-1",
+        "model_engine": "vllm",
+        "n_gpu": "auto",
+    }
+
+    owner_entry = store.list_autostart(username="alice")[0]
+    assert owner_entry["launch"]["model_path"] == "/private/alice/model"
+    assert owner_entry["launch"]["worker_ip"] == "10.0.0.8"
+
+    scheduler_entry = store.list_autostart()[0]
+    assert scheduler_entry["launch"]["custom_private_kwarg"] == "private"
+
+
+def test_upsert_autostart_keeps_model_uid_globally_unique(store):
+    store.upsert_autostart(
+        {
+            "launch": {
+                "model_name": "llama",
+                "model_uid": "shared-uid",
+                "model_engine": "vllm",
+            }
+        },
+        username="alice",
+    )
+    store.upsert_autostart(
+        {
+            "launch": {
+                "model_name": "qwen",
+                "model_uid": "shared-uid",
+                "model_engine": "transformers",
+            }
+        },
+        username="bob",
+    )
+
+    entries = store.list_autostart()
+    assert len(entries) == 1
+    assert entries[0]["created_by"] == "bob"
+    assert entries[0]["launch"]["model_name"] == "qwen"
+    rows = store.list()
+    assert len(rows) == 2
+    assert sum(1 for row in rows if row["autostart_enabled"]) == 1
+
+
+def test_upsert_autostart_disabled_entry_clears_existing_autostart(store):
+    store.upsert_autostart(
+        {"launch": {"model_name": "llama", "model_uid": "uid-1"}},
+        username="alice",
+    )
+    store.upsert_autostart(
+        {
+            "enabled": False,
+            "launch": {"model_name": "llama", "model_uid": "uid-1"},
+        },
+        username="alice",
+    )
+
+    assert store.list_autostart() == []
+    rows = store.list()
+    assert len(rows) == 1
+    assert rows[0]["autostart_enabled"] is False
+
+
+def test_remove_autostart_preserves_history_row(store):
+    store.upsert_autostart(
+        {"launch": {"model_name": "llama", "model_uid": "uid-1"}},
+        username="alice",
+    )
+
+    assert store.remove_autostart("uid-1") is True
+    assert store.list_autostart() == []
+    rows = store.list()
+    assert len(rows) == 1
+    assert rows[0]["autostart_enabled"] is False
+
+
+def test_delete_history_removes_autostart_source(store):
+    store.upsert_autostart(
+        {"launch": {"model_name": "llama", "model_uid": "uid-1"}},
+        username="alice",
+    )
+
+    assert store.delete("llama", "uid-1", "alice") is True
+    assert store.list() == []
+    assert store.list_autostart() == []
 
 
 # --- Router handler tests ---

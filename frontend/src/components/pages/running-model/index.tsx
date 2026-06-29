@@ -4,6 +4,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react
 import {
   Loader2,
   MousePointerClick,
+  Power,
   SearchX,
   ServerOff,
   Trash2,
@@ -13,6 +14,7 @@ import {
   Code,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import PageContainer from '@/components/ui/page-container';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -53,6 +55,14 @@ interface ContentItemInfoProps {
   title: React.ReactNode;
   value: React.ReactNode;
 }
+
+interface AutostartSummary {
+  models?: Array<{
+    enabled?: boolean;
+    model_uid?: string;
+  }>;
+}
+
 const ContentItemInfo = ({ title, value }: ContentItemInfoProps) => {
   return (
     <div className="p-3 rounded-lg bg-muted/50">
@@ -79,6 +89,8 @@ const RunningModel = () => {
     () => getTryApiAbility(activeModel?.model_ability || []),
     [activeModel?.model_ability]
   );
+  const [autostartModelIds, setAutostartModelIds] = useState<string[]>([]);
+  const [autostartBusyIds, setAutostartBusyIds] = useState<string[]>([]);
   const visibleModels = useMemo(() => {
     const keyword = query.trim().toLowerCase();
 
@@ -113,6 +125,21 @@ const RunningModel = () => {
       })
       .catch(() => setModels([]))
       .finally(() => setLoading(false));
+  }, []);
+
+  const fetchAutostartModels = useCallback(() => {
+    request
+      .get<AutostartSummary>('/v1/autostart/models/summary')
+      .then((res) => {
+        setAutostartModelIds(
+          (res.models || [])
+            .filter((item) => item.enabled !== false && item.model_uid)
+            .map((item) => String(item.model_uid))
+        );
+      })
+      .catch(() => {
+        setAutostartModelIds([]);
+      });
   }, []);
 
   const fetchReplicas = useCallback((modelUid: string) => {
@@ -156,6 +183,22 @@ const RunningModel = () => {
       })
       .finally(() => {
         setDeleteReplicaLoading(false);
+      });
+  };
+
+  const handleRemoveAutostart = (modelUid: string) => {
+    setAutostartBusyIds((prev) => (prev.includes(modelUid) ? prev : [...prev, modelUid]));
+    request
+      .delete(`/v1/autostart/models/${encodeURIComponent(modelUid)}`)
+      .then(() => {
+        fetchAutostartModels();
+        toast.success(t('runningModels.removeAutostartSuccess', { modelUid }));
+      })
+      .catch(() => {
+        toast.error(t('runningModels.removeAutostartFailed'));
+      })
+      .finally(() => {
+        setAutostartBusyIds((prev) => prev.filter((id) => id !== modelUid));
       });
   };
 
@@ -217,6 +260,8 @@ const RunningModel = () => {
         />
       );
     }
+    const isAutostart = autostartModelIds.includes(activeModel.id);
+    const isAutostartBusy = autostartBusyIds.includes(activeModel.id);
 
     return (
       <>
@@ -237,6 +282,19 @@ const RunningModel = () => {
                 <Code />
               </Button>
             </InfoTooltip>
+            {isAutostart && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                loading={isAutostartBusy}
+                onClick={() => handleRemoveAutostart(activeModel.id)}
+                className="h-8 text-primary"
+                title={t('runningModels.autostartEnabled')}
+              >
+                {!isAutostartBusy && <Power />}
+              </Button>
+            )}
             <Button
               type="button"
               variant="outline"
@@ -348,7 +406,10 @@ const RunningModel = () => {
       fetchReplicas(activeModel.id);
     }
   }, [activeModel, fetchReplicas, replicaLogs]);
-  useEffect(() => fetchModels(), [fetchModels]);
+  useEffect(() => {
+    fetchModels();
+    fetchAutostartModels();
+  }, [fetchAutostartModels, fetchModels]);
 
   return (
     <PageContainer title={t('menu.runningModels')}>

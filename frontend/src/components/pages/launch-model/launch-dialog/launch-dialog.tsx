@@ -13,6 +13,7 @@ import { useForm, useFormValues, useWatch } from '@/hooks/use-form';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Dialog,
@@ -67,6 +68,7 @@ export default function LaunchDialog({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [canceling, setCanceling] = useState(false);
+  const [saveAutostart, setSaveAutostart] = useState(false);
   const [progress, setProgress] = useState(0);
   const [replicaStatuses, setReplicaStatuses] = useState<ReplicaItem[]>([]);
   const [configCacheRefreshKey, setConfigCacheRefreshKey] = useState(0);
@@ -1227,19 +1229,43 @@ export default function LaunchDialog({
     setReplicaStatuses([]);
 
     request
-      .post('/v1/models', newValues, { noTimeout: true })
-      .then(() => {
+      .post<{ model_uid?: string }>('/v1/models', newValues, { noTimeout: true })
+      .then(async (launchResponse) => {
         // Prevents a false deployment success notification when /v1/models returns model_uid after download cancellation, triggering the success logic below.
         if (isCanceledLaunchRef.current) {
           return;
         }
 
-        saveLaunchConfigHistory(newValues);
+        const launchedValues = {
+          ...newValues,
+          model_uid: launchResponse?.model_uid || newValues.model_uid || newValues.model_name,
+        };
+        saveLaunchConfigHistory(launchedValues);
         setConfigCacheRefreshKey((key) => key + 1);
+        let autostartSaved = false;
+        if (saveAutostart) {
+          try {
+            await request.post('/v1/autostart/models', {
+              enabled: true,
+              priority: 100,
+              launch: launchedValues,
+            });
+            autostartSaved = true;
+          } catch (error) {
+            console.error(error);
+            toast.error(t('launchModel.autostartSaveFailed'));
+          }
+        }
         setLoading(false);
         stopPolling();
         onOpenChange(false);
-        toast.success(t('launchModel.launchCompleted'));
+        toast.success(
+          t(
+            autostartSaved
+              ? 'launchModel.launchCompletedWithAutostart'
+              : 'launchModel.launchCompleted'
+          )
+        );
         router.push('/running-model');
       })
       .catch(() => {
@@ -1255,6 +1281,7 @@ export default function LaunchDialog({
     setCanceling(false);
     setProgress(0);
     setReplicaStatuses([]);
+    setSaveAutostart(false);
     stopPolling();
     onOpenChange(false);
     form.resetFields();
@@ -1338,37 +1365,43 @@ export default function LaunchDialog({
           </Form>
           <DialogFooter className={cn(loading ? '!flex-col' : '')}>
             {loading && <Progress value={progress} />}
-            <div className="flex items-center justify-end gap-2">
-              <TooltipProvider>
-                <Button variant="outline" onClick={handleClose}>
-                  {t('common.cancel')}
-                </Button>
-                {loading ? (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={canceling}
-                        loading={canceling}
-                        onClick={handleCancelLaunch}
-                        className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      >
-                        <Ban />
-                        {t('common.stop')}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" align="end">
-                      {renderReplicaStatuses()}
-                    </TooltipContent>
-                  </Tooltip>
-                ) : (
-                  <Button type="submit" form={formId}>
-                    <Rocket />
-                    {t('common.deploy')}
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Switch checked={saveAutostart} disabled={loading} onCheckedChange={setSaveAutostart} />
+                {t('launchModel.saveAutostart')}
+              </label>
+              <div className="flex items-center justify-end gap-2">
+                <TooltipProvider>
+                  <Button variant="outline" onClick={handleClose}>
+                    {t('common.cancel')}
                   </Button>
-                )}
-              </TooltipProvider>
+                  {loading ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={canceling}
+                          loading={canceling}
+                          onClick={handleCancelLaunch}
+                          className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          <Ban />
+                          {t('common.stop')}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" align="end">
+                        {renderReplicaStatuses()}
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <Button type="submit" form={formId}>
+                      <Rocket />
+                      {t('common.deploy')}
+                    </Button>
+                  )}
+                </TooltipProvider>
+              </div>
             </div>
           </DialogFooter>
         </DialogContent>

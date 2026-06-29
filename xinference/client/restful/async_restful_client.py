@@ -14,6 +14,7 @@
 import asyncio
 import json
 from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional, Union
+from urllib.parse import quote
 
 import aiohttp
 
@@ -1406,6 +1407,50 @@ class AsyncClient:
         response_data = await response.json()
         await _release_response(response)
         return response_data["model_uid"]
+
+    async def get_autostart_config(self) -> Dict:
+        url = f"{self.base_url}/v1/autostart/models"
+        response = await self.session.get(url, headers=self._headers)
+        if response.status != 200:
+            raise RuntimeError(
+                f"Failed to get autostart config, detail: {await _get_error_string(response)}"
+            )
+        response_data = await response.json()
+        await _release_response(response)
+        return response_data
+
+    async def get_autostart_model_summary(self) -> Dict:
+        url = f"{self.base_url}/v1/autostart/models/summary"
+        response = await self.session.get(url, headers=self._headers)
+        if response.status != 200:
+            raise RuntimeError(
+                f"Failed to get autostart model summary, detail: {await _get_error_string(response)}"
+            )
+        response_data = await response.json()
+        await _release_response(response)
+        return response_data
+
+    async def upsert_autostart_model(self, entry: Dict) -> Dict:
+        url = f"{self.base_url}/v1/autostart/models"
+        response = await self.session.post(url, json=entry, headers=self._headers)
+        if response.status != 200:
+            raise RuntimeError(
+                f"Failed to upsert autostart model, detail: {await _get_error_string(response)}"
+            )
+        response_data = await response.json()
+        await _release_response(response)
+        return response_data
+
+    async def remove_autostart_model(self, model_uid: str) -> Dict:
+        url = f"{self.base_url}/v1/autostart/models/{quote(model_uid, safe='')}"
+        response = await self.session.delete(url, headers=self._headers)
+        if response.status != 200:
+            raise RuntimeError(
+                f"Failed to remove autostart model, detail: {await _get_error_string(response)}"
+            )
+        response_data = await response.json()
+        await _release_response(response)
+        return response_data
 
     async def terminate_model(self, model_uid: str):
         """

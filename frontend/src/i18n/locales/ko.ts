@@ -177,6 +177,9 @@ const ko = {
     mustBeUnique: '{{key}} 는 고유해야 합니다',
     launchProgress: '시작 진행 상황',
     launchCompleted: '모델 배포가 완료되었습니다',
+    launchCompletedWithAutostart: '모델 배포가 완료되었으며 자동 시작에 추가되었습니다',
+    saveAutostart: '시작 성공 후 자동 시작으로 설정',
+    autostartSaveFailed: '모델은 시작되었지만 자동 시작 설정 저장에 실패했습니다',
     launchCanceled: '배포가 중지되었습니다',
     initializing: '초기화 중...',
     moreDetails: '자세히 보기',
@@ -196,8 +199,10 @@ const ko = {
     workerAddress: 'Worker 노드',
     gpuIndexes: 'GPU 인덱스',
     replicaDetail: '복제본 상세 정보',
-    removeReplicaConfirm:
-      '모델 {{modelUid}}의 복제본 {{replicaId}}을(를) 제거하시겠습니까?',
+    removeReplicaConfirm: '모델 {{modelUid}}의 복제본 {{replicaId}}을(를) 제거하시겠습니까?',
+    autostartEnabled: '자동 시작이 설정됨',
+    removeAutostartSuccess: '{{modelUid}}의 자동 시작을 제거했습니다',
+    removeAutostartFailed: '자동 시작 제거에 실패했습니다',
   },
   registerModel: {
     modelName: '모델 이름',

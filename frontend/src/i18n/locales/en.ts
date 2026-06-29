@@ -180,6 +180,9 @@ const en = {
     mustBeUnique: '{{key}} must be unique',
     launchProgress: 'Launch Progress',
     launchCompleted: 'Model deployment completed',
+    launchCompletedWithAutostart: 'Model deployment completed and added to autostart',
+    saveAutostart: 'Autostart after successful launch',
+    autostartSaveFailed: 'Model launched, but failed to save autostart config',
     launchCanceled: 'Deployment stopped',
     initializing: 'Initializing...',
     moreDetails: 'More Details',
@@ -201,6 +204,9 @@ const en = {
     replicaDetail: 'Replica Details',
     removeReplicaConfirm:
       'Are you sure you want to remove replica {{replicaId}} of model {{modelUid}}?',
+    autostartEnabled: 'Autostart configured',
+    removeAutostartSuccess: 'Removed autostart for {{modelUid}}',
+    removeAutostartFailed: 'Failed to remove autostart',
   },
   registerModel: {
     modelName: 'Model Name',
