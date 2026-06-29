@@ -1196,17 +1196,17 @@
     ],
     "virtualenv": {
       "packages": [
-        "transformers==4.46.3 ; #engine# == \"transformers\"",
+        "transformers==4.57.1 ; #engine# == \"transformers\"",
         "#system_torch# ; #engine# == \"transformers\"",
         "#system_numpy#",
         "tokenizers",
-        "PyMuPDF",
-        "einops",
-        "easydict",
-        "addict",
-        "Pillow",
-        "matplotlib",
-        "psutil"
+        "pymupdf==1.27.2.2",
+        "einops==0.8.2",
+        "easydict==1.13",
+        "addict==2.4.0",
+        "Pillow==12.1.1",
+        "matplotlib==3.10.8",
+        "psutil==7.2.2"
       ]
     },
     "model_src": {
