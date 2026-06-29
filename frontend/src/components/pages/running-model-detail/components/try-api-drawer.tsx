@@ -184,9 +184,7 @@ function generateTS(config: CodeExampleConfig, url: string, modelUid: string) {
       const resolvedValue =
         field.type === 'file' ? `${field.key}File` : tsFieldValue(field, modelUid);
       if (field.type === 'file') {
-        lines.push(
-          `// const ${field.key}File = await fileFromPath("${escapeString(String(value))}");`
-        );
+        lines.push(`const ${field.key}File = new File([""], "${escapeString(String(value))}");`);
       }
       lines.push(`formData.append("${field.key}", ${resolvedValue});${fieldComment(field, '//')}`);
     });
@@ -309,11 +307,12 @@ function generateGo(config: CodeExampleConfig, url: string, modelUid: string) {
     config.fields.forEach((field) => {
       const value = resolveValue(field, modelUid);
       if (field.type === 'file') {
+        const key = field.key;
         lines.push(
-          `  file, _ := os.Open("${escapeString(String(value))}")${fieldComment(field, '//')}`,
-          '  defer file.Close()',
-          `  part, _ := writer.CreateFormFile("${field.key}", "${escapeString(String(value))}")`,
-          '  io.Copy(part, file)'
+          `  file_${key}, _ := os.Open("${escapeString(String(value))}")${fieldComment(field, '//')}`,
+          `  defer file_${key}.Close()`,
+          `  part_${key}, _ := writer.CreateFormFile("${field.key}", "${escapeString(String(value))}")`,
+          `  io.Copy(part_${key}, file_${key})`
         );
       } else {
         lines.push(

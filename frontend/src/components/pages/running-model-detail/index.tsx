@@ -23,11 +23,6 @@ interface RunningModelDetailProps {
   modelUid: string;
 }
 
-const MODEL_TYPE_ABILITY_MAP: Record<string, ModelAbility[]> = {
-  [ModelType.Rerank]: [ModelAbility.Rerank],
-  [ModelType.Embedding]: [ModelAbility.Embed],
-};
-
 function DetailItem({ label, value }: { label: string; value?: string | number | null }) {
   return (
     <div className="min-w-0 rounded-2xl bg-muted/40 px-4 py-3">
