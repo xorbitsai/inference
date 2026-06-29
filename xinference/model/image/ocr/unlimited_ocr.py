@@ -231,6 +231,25 @@ class UnlimitedOCRModel(OCRModel):
         else:
             raise ValueError("Input must be a PIL Image or list of PIL Images")
 
+    @staticmethod
+    def _read_result_md(output_path: str) -> Optional[str]:
+        """Read OCR text persisted by the bundled model into ``output_path``.
+
+        ``model.infer`` / ``model.infer_multi`` only stream output to a
+        ``transformers`` text streamer and persist the recognized markdown to
+        ``output_path/result.md`` when ``save_results=True``. Return its
+        contents (or ``None`` if the file is missing).
+        """
+        md_path = os.path.join(output_path, "result.md")
+        if not os.path.exists(md_path):
+            return None
+        try:
+            with open(md_path, "r", encoding="utf-8") as f:
+                return f.read()
+        except OSError as e:
+            logger.warning(f"Failed to read OCR result from {md_path}: {e}")
+            return None
+
     def _ocr_single(
         self,
         image: PIL.Image.Image,
@@ -260,7 +279,7 @@ class UnlimitedOCRModel(OCRModel):
 
             output_path = tempfile.mkdtemp()
 
-            result = self._model.infer(
+            self._model.infer(
                 self._tokenizer,
                 prompt=prompt,
                 image_file=temp_image_path,
@@ -271,11 +290,15 @@ class UnlimitedOCRModel(OCRModel):
                 max_length=max_length,
                 no_repeat_ngram_size=no_repeat_ngram_size,
                 ngram_window=ngram_window,
-                save_results=save_results,
+                save_results=True,
             )
 
+            # ``model.infer`` writes the recognized text to ``output_path/result.md``
+            # and returns ``None``. Read it back so the HTTP response carries text.
+            text = self._read_result_md(output_path)
+
             return {
-                "text": result,
+                "text": text,
                 "model": "unlimited-ocr",
                 "success": True,
                 "model_size": model_config.name,
@@ -318,7 +341,7 @@ class UnlimitedOCRModel(OCRModel):
 
             output_path = tempfile.mkdtemp()
 
-            result = self._model.infer_multi(
+            self._model.infer_multi(
                 self._tokenizer,
                 prompt=prompt,
                 image_files=temp_paths,
@@ -327,12 +350,14 @@ class UnlimitedOCRModel(OCRModel):
                 max_length=max_length,
                 no_repeat_ngram_size=no_repeat_ngram_size,
                 ngram_window=ngram_window,
-                save_results=save_results,
+                save_results=True,
             )
+
+            text = self._read_result_md(output_path)
 
             return [
                 {
-                    "text": result,
+                    "text": text,
                     "model": "unlimited-ocr",
                     "success": True,
                     "model_size": model_config.name,
