@@ -131,14 +131,16 @@ class UnlimitedOCRModel(OCRModel):
                 trust_remote_code=allow_trust_remote_code(self.model_family),
             )
             # Unlimited-OCR's config.json nests the DeepseekV2 backbone
-            # parameters under ``language_config``. ``UnlimitedOCRConfig``
-            # subclasses ``DeepseekV2Config`` and the model accesses fields
-            # such as ``attention_dropout`` / ``hidden_size`` directly on
-            # the top-level config, so flatten the nested dict onto config.
+            # parameters under ``language_config``. The bundled model code
+            # passes ``self.config`` straight to ``DeepseekV2Model.__init__``
+            # which reads fields such as ``hidden_size`` directly off the
+            # top-level config. Flatten the nested dict onto the wrapper
+            # (without overriding anything already set) so those reads
+            # succeed.
             language_config = getattr(config, "language_config", None)
             if isinstance(language_config, dict):
                 for key, value in language_config.items():
-                    if not hasattr(config, key) or getattr(config, key) is None:
+                    if not hasattr(config, key) or getattr(config, key, None) is None:
                         setattr(config, key, value)
             if getattr(config, "pad_token_id", None) is None:
                 config.pad_token_id = self._tokenizer.eos_token_id

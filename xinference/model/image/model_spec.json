@@ -1196,8 +1196,8 @@
     ],
     "virtualenv": {
       "packages": [
-        "#transformers_dependencies# ; #engine# == \"Transformers\"",
-        "#system_torch# ; #engine# == \"Transformers\"",
+        "transformers==4.46.3 ; #engine# == \"transformers\"",
+        "#system_torch# ; #engine# == \"transformers\"",
         "#system_numpy#",
         "tokenizers",
         "PyMuPDF",
