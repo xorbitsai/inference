@@ -14,6 +14,7 @@
 
 import logging
 import os
+import shutil
 import tempfile
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
@@ -144,7 +145,12 @@ class UnlimitedOCRModel(OCRModel):
                         setattr(config, key, value)
             if getattr(config, "pad_token_id", None) is None:
                 config.pad_token_id = self._tokenizer.eos_token_id
-            if self._device != "cpu":
+            # Resolve the target device once so the model lands on the GPU
+            # picked by Xinference's scheduler (``self._device``) instead of
+            # always falling back to ``cuda:0``. Default to ``cuda`` when no
+            # device is configured, mirroring the previous behavior.
+            device = self._device or "cuda"
+            if device != "cpu":
                 model = AutoModel.from_pretrained(
                     self._model_path,
                     config=config,
@@ -152,7 +158,7 @@ class UnlimitedOCRModel(OCRModel):
                     use_safetensors=True,
                     torch_dtype=torch.bfloat16,
                 )
-                self._model = model.eval().cuda()
+                self._model = model.eval().to(device)
             else:
                 model = AutoModel.from_pretrained(
                     self._model_path,
@@ -272,6 +278,7 @@ class UnlimitedOCRModel(OCRModel):
         ngram_window = kwargs.pop("ngram_window", 128)
 
         temp_image_path = None
+        output_path = None
         try:
             with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
                 image.save(f.name, "JPEG")
@@ -312,6 +319,12 @@ class UnlimitedOCRModel(OCRModel):
                     os.remove(temp_image_path)
                 except OSError:
                     pass
+            # ``model.infer`` always writes ``result.md`` (and possibly
+            # intermediate debug artifacts) under ``output_path`` when
+            # ``save_results=True``. Remove the whole temp dir to avoid
+            # leaking one directory per OCR call.
+            if output_path and os.path.exists(output_path):
+                shutil.rmtree(output_path, ignore_errors=True)
 
     def _ocr_multi(
         self,
@@ -331,6 +344,7 @@ class UnlimitedOCRModel(OCRModel):
         ngram_window = kwargs.pop("ngram_window", 1024)
 
         temp_paths: List[str] = []
+        output_path = None
         try:
             for img in images:
                 if img.mode in ["RGBA", "CMYK"]:
@@ -372,3 +386,6 @@ class UnlimitedOCRModel(OCRModel):
                         os.remove(p)
                     except OSError:
                         pass
+            # Same cleanup rationale as ``_ocr_single``.
+            if output_path and os.path.exists(output_path):
+                shutil.rmtree(output_path, ignore_errors=True)
