@@ -1277,7 +1277,9 @@ const LaunchModelDrawer = ({
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
     const nextValue =
-      name === 'worker_ip' && typeof value === 'string'
+      name === 'worker_ip' && workerFieldType === 'input'
+        ? value
+        : name === 'worker_ip' && typeof value === 'string'
         ? normalizeWorkerIp(value)
         : type === 'checkbox'
         ? checked
@@ -1363,7 +1365,10 @@ const LaunchModelDrawer = ({
       result.n_gpu = normalizeNGPU(result.n_gpu)
     }
 
-    if (Array.isArray(result.worker_ip)) {
+    if (
+      Array.isArray(result.worker_ip) ||
+      typeof result.worker_ip === 'string'
+    ) {
       const workerIpList = normalizeWorkerIp(result.worker_ip)
       if (workerIpList.length) {
         result.worker_ip = workerIpList.join(',')
