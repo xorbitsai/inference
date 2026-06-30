@@ -79,6 +79,34 @@ def _get_current_user_from_token(request: Request, auth: AdvancedAuthService):
     return payload.get("user_id"), payload.get("sub"), payload.get("scopes", [])
 
 
+def _reject_permission_escalation(
+    request: Request, auth: "AdvancedAuthService", requested_permissions
+) -> None:
+    """Prevent privilege escalation when granting user permissions.
+
+    A caller may only grant permissions they themselves hold; the ``admin``
+    scope may grant anything. Without this, a delegated ``users:manage``
+    operator could mint the ``admin`` superuser scope for themselves or others
+    (see security report, Finding 2).
+    """
+    if not isinstance(requested_permissions, list) or not all(
+        isinstance(p, str) for p in requested_permissions
+    ):
+        raise HTTPException(
+            status_code=400, detail="Permissions must be a list of strings"
+        )
+    _, _, caller_scopes = _get_current_user_from_token(request, auth)
+    caller_scopes = caller_scopes or []
+    if "admin" in caller_scopes:
+        return
+    escalated = [p for p in requested_permissions if p not in caller_scopes]
+    if escalated:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Cannot grant permissions you do not hold: {escalated}",
+        )
+
+
 # --- Auth endpoints ---
 
 
@@ -159,6 +187,8 @@ async def create_user(request: Request) -> JSONResponse:
     if not username or not password:
         raise HTTPException(status_code=400, detail="username and password required")
 
+    _reject_permission_escalation(request, auth, permissions)
+
     existing = auth.db.get_user_by_username(username, "local")
     if existing:
         raise HTTPException(status_code=409, detail="User already exists")
@@ -228,6 +258,7 @@ async def update_user(user_id: int, request: Request) -> JSONResponse:
             auth.disable_user(user_id)
 
     if "permissions" in body:
+        _reject_permission_escalation(request, auth, body["permissions"])
         auth.db.set_user_permissions(user_id, body["permissions"])
 
     return JSONResponse(content={"ok": True})
@@ -434,6 +465,7 @@ async def update_user_permissions(user_id: int, request: Request) -> JSONRespons
         raise HTTPException(status_code=404, detail="User not found")
     body = await request.json()
     permissions = body.get("permissions", [])
+    _reject_permission_escalation(request, auth, permissions)
     auth.db.set_user_permissions(user_id, permissions)
     return JSONResponse(content={"ok": True})
 
