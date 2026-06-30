@@ -1,0 +1,456 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-28 11:54+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: zh_TW <LL@li.org>\n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/backends.rst:5
+msgid "Backends"
+msgstr "推理引擎"
+
+#: ../../source/user_guide/backends.rst:7
+msgid ""
+"Xinference supports multiple backends for different models. After the user "
+"specifies the model, xinference will automatically select the appropriate "
+"backend."
+msgstr "Xinference 對於不同模型支援不同的推理引擎。使用者選擇模型後，Xinference 會自動選擇合適的引擎。"
+
+#: ../../source/user_guide/backends.rst:11
+msgid "llama.cpp"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:13
+msgid ""
+"Xinference now supports `xllamacpp "
+"<https://github.com/xorbitsai/xllamacpp>`_ which developed by Xinference "
+"team to run llama.cpp backend. `llama.cpp` is developed based on the tensor "
+"library `ggml`, supporting inference of the LLaMA series models and their "
+"variants."
+msgstr ""
+"Xinference 目前支援由 Xinference 團隊開發的 `xllamacpp "
+"<https://github.com/xorbitsai/xllamacpp>`_ 作為 llama.cpp 後端運行。`llama.cpp` "
+"基於張量庫 `ggml` 開發，支援 LLaMA 系列模型及其變體的推理。"
+
+#: ../../source/user_guide/backends.rst:20
+msgid ""
+"Since Xinference v1.5.0, ``xllamacpp`` becomes default option for llama.cpp,"
+" and ``llama-cpp-python`` is deprecated. Since Xinference v1.6.0, ``llama-"
+"cpp-python`` has been removed."
+msgstr ""
+"從 Xinference v1.5.0 開始，``xllamacpp`` 成為 llama.cpp 的預設選項，``llama-cpp-python``"
+" 已被棄用；從 Xinference v1.6.0 開始，``llama-cpp-python`` 已被移除。"
+
+#: ../../source/user_guide/backends.rst:25
+msgid ""
+"For all configurable llama.cpp parameters, please refer to the definition of"
+" the ``common_params`` structure in ``llama.cpp`` `common.h "
+"<https://github.com/ggml-org/llama.cpp/blob/master/common/common.h>`_"
+msgstr ""
+"請參考 ``llama.cpp`` 的 `common.h <https://github.com/ggml-"
+"org/llama.cpp/blob/master/common/common.h>`_ 中 ``common_params`` 結構體定義設置參數。"
+
+#: ../../source/user_guide/backends.rst:27
+msgid ""
+"There may be some nested parameters. For example, ``sampling.top_k``. Just "
+"use the ``.`` to separate nested parameters."
+msgstr "可能會有多層巢狀的參數。例如，``sampling.top_k``。請使用 ``.`` 來分隔巢狀參數。"
+
+#: ../../source/user_guide/backends.rst:29
+msgid "Here is an example of setting nested sampling parameters in WebUI:"
+msgstr "這裡有一個在 WebUI 中設定巢狀採樣參數的範例："
+
+#: ../../source/user_guide/backends.rst:36
+msgid "Auto NGL"
+msgstr "自動 NGL"
+
+#: ../../source/user_guide/backends.rst:38
+msgid ""
+"Auto GPU layers estimation is enabled since v1.6.1 when ``n-gpu-layers`` is "
+"not specified (default is -1)."
+msgstr "自 v1.6.1 起，當未指定 n-gpu-layers（預設為 -1）時，將自動啟用 GPU 層數估算功能。"
+
+#: ../../source/user_guide/backends.rst:41
+msgid ""
+"This feature automatically detects the number of GPU layers (NGL) for the "
+"llama.cpp backend. Please be aware that this is not an accurate calculation."
+" Therefore, the ``-ngl`` result might not be the most optimized, and there "
+"is still a chance of encountering an out-of-memory error."
+msgstr ""
+"此功能可為 llama.cpp 後端自動設定 GPU 層數（NGL）。請注意，這並非精確計算，因此 ``-ngl`` "
+"結果可能非最佳，且仍可能遇到視訊記憶體不足的錯誤。"
+
+#: ../../source/user_guide/backends.rst:45
+msgid ""
+"Currently, there is no official implementation for auto ngl. Please refer to"
+" the following issues for more information:"
+msgstr "目前自動 NGL 沒有官方支援。請參考下面 issue 來了解更多詳細資訊："
+
+#: ../../source/user_guide/backends.rst:47
+msgid "https://github.com/ggml-org/llama.cpp/issues/13860"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:48
+msgid "https://github.com/ggml-org/llama.cpp/pull/6502"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:50
+msgid ""
+"Our implementation is based on the Ollama auto ngl, but there are some "
+"differences:"
+msgstr "我們的實作是基於 Ollama 的自動 NGL，但有一些不同之處："
+
+#: ../../source/user_guide/backends.rst:52
+msgid ""
+"We utilize device information detected by `xllamacpp "
+"<https://github.com/xorbitsai/xllamacpp>`_."
+msgstr "我們使用 `xllamacpp <https://github.com/xorbitsai/xllamacpp>`_ 提供的設備資訊。"
+
+#: ../../source/user_guide/backends.rst:53
+msgid ""
+"We have removed support for less popular architectures, these architectures "
+"will use the default calculation."
+msgstr "我們移除了某些不常見的架構支援，這些架構會使用預設的運算邏輯。"
+
+#: ../../source/user_guide/backends.rst:54
+msgid ""
+"We fall back to offloading all the layers to the GPU if the auto ngl fails."
+msgstr "如果自動 NGL 失敗，我們會嘗試全部載入到 GPU。"
+
+#: ../../source/user_guide/backends.rst:55
+msgid ""
+"We do not support multimodal projectors embedded into the model GGUF, as "
+"this is a very experimental feature."
+msgstr "我們不支援多模態投影器內嵌到模型的 GGUF，這種格式的模型目前仍處於實驗階段。"
+
+#: ../../source/user_guide/backends.rst:59
+msgid "Common Issues"
+msgstr "常見問題"
+
+#: ../../source/user_guide/backends.rst:61
+#, python-brace-format
+msgid ""
+"**Server error: {'code': 500, 'message': 'failed to process image', 'type': "
+"'server_error'}**"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:63
+#: ../../source/user_guide/backends.rst:87
+msgid "The error logs from server:"
+msgstr "服務端日誌："
+
+#: ../../source/user_guide/backends.rst:78
+msgid ""
+"This could be caused by running out of memory. You can try reducing memory "
+"usage by decreasing ``n_ctx``."
+msgstr "可能由於記憶體不足導致。你可以嘗試縮小 ``n_ctx`` 解決。"
+
+#: ../../source/user_guide/backends.rst:80
+#, python-brace-format
+msgid ""
+"**Server error: {'code': 400, 'message': 'the request exceeds the available "
+"context size. try increasing the context size or enable context shift', "
+"'type': 'invalid_request_error'}**"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:82
+msgid ""
+"If you are using the multimodal feature, the ``ctx_shift`` is disabled by "
+"default. Please increase the context size by either increasing ``n_ctx`` or "
+"reducing ``n_parallel``."
+msgstr ""
+"如果你正在使用 multimodal 功能，``ctx_shift`` 會被預設關閉。請嘗試增加 ``n_ctx`` 或者減小 "
+"``n_parallel`` 以增加每個 slot 的 context 大小。"
+
+#: ../../source/user_guide/backends.rst:85
+#, python-brace-format
+msgid ""
+"**Server error: {'code': 500, 'message': 'Input prompt is too big compared "
+"to KV size. Please try increasing KV size.', 'type': 'server_error'}**"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:97
+msgid ""
+"This could be caused by the KV cache allocation failure. You can try to "
+"reduce the context size by either reducing ``n_ctx`` or increasing "
+"``n_parallel``, or loading a partial model onto the GPU by adjusting "
+"``n_gpu_layers``. Be aware that if you are handling inference requests "
+"serially, increasing ``n_parallel`` can't improve the latency or throughput."
+msgstr ""
+"可能由於 KV cache 創建失敗導致。你可以透過減小 ``n_ctx`` 或者增加 ``n_parallel`` 或者調節 "
+"``n_gpu_layers`` 參數載入部分模型到 GPU 來解決。請注意，如果你只處理串行推理請求，增加 ``n_parallel`` "
+"並不會帶來效能提升。"
+
+#: ../../source/user_guide/backends.rst:102
+msgid "transformers"
+msgstr "transformers"
+
+#: ../../source/user_guide/backends.rst:103
+msgid ""
+"Transformers supports the inference of most state-of-art models. It is the "
+"default backend for models in PyTorch format."
+msgstr "Transformers 支援絕大部分新推出的模型。是 Pytorch 格式模型預設使用的引擎。"
+
+#: ../../source/user_guide/backends.rst:108
+msgid "vLLM"
+msgstr "vLLM"
+
+#: ../../source/user_guide/backends.rst:109
+msgid "vLLM is a fast and easy-to-use library for LLM inference and serving."
+msgstr "vLLM 是一個非常高效且易用的大型語言模型推理引擎。"
+
+#: ../../source/user_guide/backends.rst:111
+msgid "vLLM is fast with:"
+msgstr "vLLM 具有以下特點："
+
+#: ../../source/user_guide/backends.rst:113
+msgid "State-of-the-art serving throughput"
+msgstr "領先的推理吞吐量"
+
+#: ../../source/user_guide/backends.rst:114
+msgid ""
+"Efficient management of attention key and value memory with PagedAttention"
+msgstr "使用 PagedAttention 高效管理注意力鍵和值記憶"
+
+#: ../../source/user_guide/backends.rst:115
+msgid "Continuous batching of incoming requests"
+msgstr "對傳入請求進行連續批次處理"
+
+#: ../../source/user_guide/backends.rst:116
+msgid "Optimized CUDA kernels"
+msgstr "最佳化的 CUDA 核心"
+
+#: ../../source/user_guide/backends.rst:118
+msgid ""
+"When the following conditions are met, Xinference will choose vLLM as the "
+"inference engine:"
+msgstr "當滿足以下條件時，Xinference 會自動選擇 vLLM 作為推理引擎："
+
+#: ../../source/user_guide/backends.rst:120
+msgid ""
+"The model format is ``pytorch``, ``gptq``, ``awq``, ``fp4``, ``fp8`` or "
+"``bnb``."
+msgstr ""
+"模型格式為 ``pytorch`` ， ``gptq`` ， ``awq`` ， ``fp4`` ， ``fp8`` 或者 ``bnb`` 。"
+
+#: ../../source/user_guide/backends.rst:121
+msgid "When the model format is ``pytorch``, the quantization is ``none``."
+msgstr "當模型格式為 ``pytorch`` 時，量化選項需為 ``none`` 。"
+
+#: ../../source/user_guide/backends.rst:122
+msgid "When the model format is ``awq``, the quantization is ``Int4``."
+msgstr "当模型格式為 ``awq`` 時，量化選項需為 ``Int4``。"
+
+#: ../../source/user_guide/backends.rst:123
+msgid ""
+"When the model format is ``gptq``, the quantization is ``Int3``, ``Int4`` or"
+" ``Int8``."
+msgstr "當模型格式為 ``gptq`` 時，量化選項需為 ``Int3``, ``Int4`` 或 ``Int8`` 。"
+
+#: ../../source/user_guide/backends.rst:124
+msgid "The system is Linux and has at least one CUDA device"
+msgstr "作業系統為 Linux 並且至少有一個支援 CUDA 的裝置"
+
+#: ../../source/user_guide/backends.rst:125
+msgid ""
+"The model family (for custom models) / model name (for builtin models) is "
+"within the list of models supported by vLLM"
+msgstr "自訂模型的 ``model_family`` 欄位與內建模型的 ``model_name`` 欄位在 vLLM 的支援清單中。"
+
+#: ../../source/user_guide/backends.rst:127
+msgid "Currently, supported model includes:"
+msgstr "目前，支援的模型包括："
+
+#: ../../source/user_guide/backends.rst:131
+msgid ""
+"``code-llama``, ``code-llama-instruct``, ``code-llama-python``, "
+"``deepseek``, ``deepseek-chat``, ``deepseek-coder``, ``deepseek-coder-"
+"instruct``, ``deepseek-r1-distill-llama``, ``gorilla-openfunctions-v2``, "
+"``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``, ``llama-3``, "
+"``llama-3-instruct``, ``llama-3.1``, ``llama-3.1-instruct``, "
+"``llama-3.3-instruct``, ``tiny-llama``, ``wizardcoder-python-v1.0``, "
+"``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, "
+"``Yi-1.5-chat-16k``, ``Yi-200k``, ``Yi-chat``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:132
+msgid ""
+"``codestral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``, "
+"``mistral-instruct-v0.3``, ``mistral-large-instruct``, ``mistral-nemo-"
+"instruct``, ``mistral-v0.1``, ``openhermes-2.5``, ``seallm_v2``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:133
+msgid ""
+"``Baichuan-M2``, ``codeqwen1.5``, ``codeqwen1.5-chat``, "
+"``deepseek-r1-distill-qwen``, ``DianJin-R1``, ``fin-r1``, "
+"``HuatuoGPT-o1-Qwen2.5``, ``KAT-V1``, ``marco-o1``, ``qwen1.5-chat``, "
+"``qwen2-instruct``, ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-"
+"instruct``, ``qwen2.5-instruct``, ``qwen2.5-instruct-1m``, ``qwenLong-l1``, "
+"``QwQ-32B``, ``QwQ-32B-Preview``, ``seallms-v3``, ``skywork-or1``, "
+"``skywork-or1-preview``, ``XiYanSQL-QwenCoder-2504``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:134
+msgid "``llama-3.2-vision``, ``llama-3.2-vision-instruct``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:135
+msgid "``baichuan-2``, ``baichuan-2-chat``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:136
+msgid "``InternLM2ForCausalLM``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:137
+msgid "``qwen-chat``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:138
+msgid ""
+"``mixtral-8x22B-instruct-v0.1``, ``mixtral-instruct-v0.1``, ``mixtral-v0.1``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:139
+msgid "``cogagent``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:140
+msgid "``glm-edge-chat``, ``glm4-chat``, ``glm4-chat-1m``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:141
+msgid "``codegeex4``, ``glm-4v``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:142
+msgid "``seallm_v2.5``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:143
+msgid "``orion-chat``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:144
+msgid "``qwen1.5-moe-chat``, ``qwen2-moe-instruct``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:145
+msgid "``CohereForCausalLM``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:146
+msgid ""
+"``deepseek-v2-chat``, ``deepseek-v2-chat-0628``, ``deepseek-v2.5``, "
+"``deepseek-vl2``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:147
+msgid ""
+"``deepseek-prover-v2``, ``deepseek-r1``, ``deepseek-r1-0528``, "
+"``deepseek-v3``, ``deepseek-v3-0324``, ``Deepseek-V3.1``, "
+"``moonlight-16b-a3b-instruct``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:148
+msgid "``deepseek-r1-0528-qwen3``, ``qwen3``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:149
+msgid "``minicpm3-4b``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:150
+msgid "``internlm3-instruct``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:151
+msgid "``gemma-3-1b-it``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:152
+msgid "``glm4-0414``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:153
+msgid ""
+"``minicpm-2b-dpo-bf16``, ``minicpm-2b-dpo-fp16``, ``minicpm-2b-dpo-fp32``, "
+"``minicpm-2b-sft-bf16``, ``minicpm-2b-sft-fp32``, ``minicpm4``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:154
+msgid "``Ernie4.5``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:155
+msgid "``Qwen3-Coder``, ``Qwen3-Instruct``, ``Qwen3-Thinking``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:156
+msgid "``glm-4.5``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:157
+msgid "``gpt-oss``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:158
+msgid "``seed-oss``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:159
+msgid "``Qwen3-Next-Instruct``, ``Qwen3-Next-Thinking``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:160
+msgid "``DeepSeek-V3.2``, ``DeepSeek-V3.2-Exp``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:161
+msgid "``MiniMax-M2``"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:167
+msgid "SGLang"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:168
+msgid ""
+"`SGLang <https://github.com/sgl-project/sglang>`_ has a high-performance "
+"inference runtime with RadixAttention. It significantly accelerates the "
+"execution of complex LLM programs by automatic KV cache reuse across "
+"multiple calls. And it also supports other common techniques like continuous"
+" batching and tensor parallelism."
+msgstr ""
+"`SGLang <https://github.com/sgl-project/sglang>`_ 具有基於 RadixAttention "
+"的高效能推理執行環境。它透過在多個呼叫之間自動重複使用 KV 快取，顯著加速了複雜 LLM "
+"程式的執行。它也支援其他常見推理技術，如連續批次處理與張量平行處理。"
+
+#: ../../source/user_guide/backends.rst:175
+msgid "MLX"
+msgstr ""
+
+#: ../../source/user_guide/backends.rst:176
+msgid ""
+"`MLX <https://github.com/ml-explore/mlx-examples/tree/main/llms>`_ provides "
+"efficient runtime to run LLM on Apple silicon. It's recommended to use for "
+"Mac users when running on Apple silicon if the model has MLX format support."
+msgstr ""
+"`MLX <https://github.com/ml-explore/mlx-examples/tree/main/llms>`_ 提供了在 "
+"Apple Silicon 晶片上高效運行 LLM 的方式。當模型包含 MLX 格式時，建議使用 Apple Silicon 晶片的 Mac 使用者採用"
+" MLX 引擎。"

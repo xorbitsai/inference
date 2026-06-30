@@ -1,0 +1,226 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-06-26 13:20+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: zh_TW <LL@li.org>\n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/index.rst:5
+msgid "Models"
+msgstr "模型"
+
+#: ../../source/models/index.rst:8
+msgid "List Models"
+msgstr "Model list"
+
+#: ../../source/models/index.rst:10
+msgid ""
+"You can list all models of a certain type that are available to launch in "
+"Xinference:"
+msgstr "您可以在 Xinference 中列出所有可啟動的、某種類型的模型。"
+
+#: ../../source/models/index.rst:29
+msgid "The following ``MODEL_TYPE`` is supported by Xinference:"
+msgstr "Xinference 支援以下 ``MODEL_TYPE``："
+
+#: ../../source/models/index.rst:33
+msgid "LLM"
+msgstr ""
+
+#: ../../source/models/index.rst:37
+msgid "Text generation models or large language models"
+msgstr "文本生成模型或大型語言模型"
+
+#: ../../source/models/index.rst:39
+msgid "embedding"
+msgstr ""
+
+#: ../../source/models/index.rst:43
+msgid "Text embeddings models"
+msgstr "文本嵌入模型"
+
+#: ../../source/models/index.rst:47
+msgid "image"
+msgstr ""
+
+#: ../../source/models/index.rst:51
+msgid "Image generation or manipulation models"
+msgstr "圖像生成或處理模型"
+
+#: ../../source/models/index.rst:53
+msgid "audio"
+msgstr ""
+
+#: ../../source/models/index.rst:57
+msgid "Audio models"
+msgstr "audio model"
+
+#: ../../source/models/index.rst:61
+msgid "rerank"
+msgstr ""
+
+#: ../../source/models/index.rst:65
+msgid "Rerank models"
+msgstr "重排序模型"
+
+#: ../../source/models/index.rst:67
+msgid "video"
+msgstr ""
+
+#: ../../source/models/index.rst:71
+msgid "Video models"
+msgstr "影片模型"
+
+#: ../../source/models/index.rst:75 ../../source/models/index.rst:240
+msgid "flexible"
+msgstr "灵活模型"
+
+#: ../../source/models/index.rst:79
+msgid "Flexible models (Traditional ML Models)"
+msgstr "靈活模型（傳統機器學習模型）"
+
+#: ../../source/models/index.rst:84
+msgid ""
+"You can see all the built-in models supported by xinference :ref:`here "
+"<models_builtin_index>`. If the model you need is not available, Xinference "
+"also allows you to register your own :ref:`custom models <models_custom>`."
+msgstr ""
+"你可以在 :ref:`這裡 <models_builtin_index>` 查看 Xinference "
+"支援的所有內建模型。如果你需要的模型不可用，Xinference 還允許你註冊自己的 :ref:`自訂模型 <models_custom>`。"
+
+#: ../../source/models/index.rst:89
+msgid "Launch and Terminate Model"
+msgstr "啟動和停止模型"
+
+#: ../../source/models/index.rst:91
+msgid ""
+"Each running model instance will be assigned a unique model uid. By default,"
+" the model uid is equal to the model name. This unique id can be used as a "
+"handle for the further usage. You can manually assign it by passing "
+"``--model-uid`` option in the launch command."
+msgstr ""
+"每個執行的模型實例將被分配一個唯一的模型 uid。預設情況下，模型 uid 等於模型名稱。這個 ID 是後續使用模型實例的句柄，啟動指令 "
+"``--model-uid`` 選項可以手動指定它。"
+
+#: ../../source/models/index.rst:95
+msgid ""
+"You can launch a model in Xinference either via command line or Xinference's"
+" Python client:"
+msgstr "你可以透過命令列或者 Xinference 的 Python 客戶端來啟動一個模型。"
+
+#: ../../source/models/index.rst:122
+msgid ""
+"For model type ``LLM``, launching the model requires not only specifying the"
+" model name, but also the size of the parameters , the model format and the "
+"model engine.  Please refer to the list of LLM :ref:`model families "
+"<models_llm_index>`."
+msgstr ""
+"對於模型類型 ``LLM``，啟動模型不僅需要指定模型名稱，還需要參數的大小、模型格式以及模型引擎。請參考 "
+":ref:`models_llm_index` 文件。"
+
+#: ../../source/models/index.rst:125
+msgid ""
+"The following command gives you the currently running models in Xinference:"
+msgstr "以下命令可以列出 Xinference 中正在運行的模型："
+
+#: ../../source/models/index.rst:146
+msgid ""
+"When you no longer need a model that is currently running, you can remove it"
+" in the following way to free up the resources it occupies:"
+msgstr "當你不再需要當前正在運行的模型時，以下列方式釋放其佔用的資源："
+
+#: ../../source/models/index.rst:170
+msgid ""
+"For models that are no longer maintained and depend on outdated libraries "
+"(such as ``transformers``), we recommend enabling the :ref:`Model Virtual "
+"Environment <model_virtual_env>` feature to ensure they can run properly in "
+"a compatible environment."
+msgstr ""
+"對於不再維護且依賴舊版庫（如 ``transformers`` ）的模型，建議啟用 :ref:`模型虛擬空間 <model_virtual_env>` "
+"功能，以確保它們能在相容的環境中正常運作。"
+
+#: ../../source/models/index.rst:176
+msgid "Model Usage"
+msgstr "模型使用"
+
+#: ../../source/models/index.rst:181
+msgid "Chat & Generate"
+msgstr "聊天 & 生成"
+
+#: ../../source/models/index.rst:185
+msgid "Learn how to chat with LLMs in Xinference."
+msgstr "學習如何在 Xinference 中與 LLM 聊天。"
+
+#: ../../source/models/index.rst:187
+msgid "Tools"
+msgstr "工具"
+
+#: ../../source/models/index.rst:191
+msgid "Learn how to connect LLM with external tools."
+msgstr "了解如何將 LLM 與外部工具連接起來。"
+
+#: ../../source/models/index.rst:196
+msgid "Embeddings"
+msgstr "嵌入"
+
+#: ../../source/models/index.rst:200
+msgid "Learn how to create text embeddings in Xinference."
+msgstr "學習如何在 Xinference 中建立文字嵌入。"
+
+#: ../../source/models/index.rst:202
+msgid "Rerank"
+msgstr "重排序"
+
+#: ../../source/models/index.rst:206
+msgid "Learn how to use rerank models in Xinference."
+msgstr "學習如何在 Xinference 中使用重排序模型。"
+
+#: ../../source/models/index.rst:211
+msgid "Images"
+msgstr "圖像"
+
+#: ../../source/models/index.rst:215
+msgid "Learn how to generate images with Xinference."
+msgstr "學習如何使用Xinference生成圖像。"
+
+#: ../../source/models/index.rst:217
+msgid "Multimodal"
+msgstr "多模態"
+
+#: ../../source/models/index.rst:221
+msgid "Learn how to process images and audio with LLMs."
+msgstr "學習如何使用 LLM 處理圖像和音訊。"
+
+#: ../../source/models/index.rst:226
+msgid "Audio"
+msgstr "音訊"
+
+#: ../../source/models/index.rst:230
+msgid "Learn how to turn audio into text or text into audio with Xinference."
+msgstr "學習如何使用 Xinference 將音頻轉換為文字或將文字轉換為音頻。"
+
+#: ../../source/models/index.rst:232
+msgid "Video"
+msgstr "視頻"
+
+#: ../../source/models/index.rst:236
+msgid "Learn how to generate video with Xinference."
+msgstr "學習如何使用Xinference生成影片。"
+
+#: ../../source/models/index.rst:244
+msgid "Learn how to inference traditional ML models with Xinference."
+msgstr "了解如何使用 Xinference 推理傳統機器學習模型。"
