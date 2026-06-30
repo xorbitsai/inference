@@ -426,7 +426,6 @@ msgid ""
 "**Update:** The latest transformers 4.57.3 (as in 2026.01.05) still "
 "requires ``huggingface-hub<1.0``."
 msgstr ""
-msgstr ""
 "**更新：** 截至 2026.01.05，transformers 最新版本 4.57.3 依然 "
 "依赖 ``huggingface-hub<1.0``。"
 

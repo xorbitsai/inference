@@ -117,7 +117,6 @@ msgstr "LLM 在 Xinference 中是否支持 Embeddings API？"
 msgid ""
 "No. Xinference doesn't provide embed API for LLMs due to considerations "
 "of performance."
-msgstr "不支持，Xinference由于性能考虑，并没有提供 LLMs 嵌入 API。"
 
 #: ../../source/models/model_abilities/embed.rst:123
 msgid "Does Embeddings API provides integration method for LangChain?"
