@@ -196,8 +196,9 @@ class UnlimitedOCRModel(OCRModel):
                 - no_repeat_ngram_size: No-repeat ngram size (default: 35)
                 - ngram_window: Ngram window size (default: 128 for single,
                   1024 for multi-page)
-                - save_results: Whether to save results to output_path
-                  (default: False)
+                - save_results: Whether to save results (default: False)
+                - save_dir: Directory to save results (required when
+                  ``save_results=True``)
 
         Returns:
             OCR result dict (single image) or list of dicts (multi image).
@@ -212,6 +213,10 @@ class UnlimitedOCRModel(OCRModel):
         max_length = kwargs.pop("max_length", 32768)
         no_repeat_ngram_size = kwargs.pop("no_repeat_ngram_size", 35)
         save_results = kwargs.pop("save_results", False)
+        save_dir = kwargs.pop("save_dir", None)
+
+        if save_results and not save_dir:
+            raise ValueError("save_dir must be provided when save_results=True")
 
         # Single image path
         if isinstance(image, PIL.Image.Image):
@@ -222,6 +227,7 @@ class UnlimitedOCRModel(OCRModel):
                 max_length,
                 no_repeat_ngram_size,
                 save_results,
+                save_dir,
                 **kwargs,
             )
         # Multi image path -> infer_multi, base config only
@@ -232,6 +238,7 @@ class UnlimitedOCRModel(OCRModel):
                 max_length,
                 no_repeat_ngram_size,
                 save_results,
+                save_dir,
                 **kwargs,
             )
         else:
@@ -264,6 +271,7 @@ class UnlimitedOCRModel(OCRModel):
         max_length: int,
         no_repeat_ngram_size: int,
         save_results: bool,
+        save_dir: Optional[str],
         **kwargs,
     ) -> Dict[str, Any]:
         """Single-image OCR via ``model.infer``."""
@@ -274,17 +282,22 @@ class UnlimitedOCRModel(OCRModel):
             image = image.convert("RGB")
 
         model_config = UnlimitedOCRModelSize.from_string(model_size)
-        # gundam uses a smaller ngram_window, base uses a larger one
         ngram_window = kwargs.pop("ngram_window", 128)
 
         temp_image_path = None
         output_path = None
+        is_temp_dir = False
         try:
             with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
                 image.save(f.name, "JPEG")
                 temp_image_path = f.name
 
-            output_path = tempfile.mkdtemp()
+            if save_results and save_dir:
+                os.makedirs(save_dir, exist_ok=True)
+                output_path = save_dir
+            else:
+                output_path = tempfile.mkdtemp()
+                is_temp_dir = True
 
             self._model.infer(
                 self._tokenizer,
@@ -300,11 +313,9 @@ class UnlimitedOCRModel(OCRModel):
                 save_results=True,
             )
 
-            # ``model.infer`` writes the recognized text to ``output_path/result.md``
-            # and returns ``None``. Read it back so the HTTP response carries text.
             text = self._read_result_md(output_path)
 
-            return {
+            response = {
                 "text": text,
                 "model": "unlimited-ocr",
                 "success": True,
@@ -313,17 +324,25 @@ class UnlimitedOCRModel(OCRModel):
                 "image_size": model_config.image_size,
                 "crop_mode": model_config.crop_mode,
             }
+
+            if save_results and save_dir:
+                response["saved_files"] = {
+                    "output_dir": save_dir,
+                    "result_file": (
+                        os.path.join(save_dir, "result.md")
+                        if os.path.exists(os.path.join(save_dir, "result.md"))
+                        else None
+                    ),
+                }
+
+            return response
         finally:
             if temp_image_path and os.path.exists(temp_image_path):
                 try:
                     os.remove(temp_image_path)
                 except OSError:
                     pass
-            # ``model.infer`` always writes ``result.md`` (and possibly
-            # intermediate debug artifacts) under ``output_path`` when
-            # ``save_results=True``. Remove the whole temp dir to avoid
-            # leaking one directory per OCR call.
-            if output_path and os.path.exists(output_path):
+            if is_temp_dir and output_path and os.path.exists(output_path):
                 shutil.rmtree(output_path, ignore_errors=True)
 
     def _ocr_multi(
@@ -333,6 +352,7 @@ class UnlimitedOCRModel(OCRModel):
         max_length: int,
         no_repeat_ngram_size: int,
         save_results: bool,
+        save_dir: Optional[str],
         **kwargs,
     ) -> List[Dict[str, Any]]:
         """Multi-page OCR via ``model.infer_multi`` (base config only)."""
@@ -345,6 +365,7 @@ class UnlimitedOCRModel(OCRModel):
 
         temp_paths: List[str] = []
         output_path = None
+        is_temp_dir = False
         try:
             for img in images:
                 if img.mode in ["RGBA", "CMYK"]:
@@ -353,7 +374,12 @@ class UnlimitedOCRModel(OCRModel):
                     img.save(f.name, "JPEG")
                     temp_paths.append(f.name)
 
-            output_path = tempfile.mkdtemp()
+            if save_results and save_dir:
+                os.makedirs(save_dir, exist_ok=True)
+                output_path = save_dir
+            else:
+                output_path = tempfile.mkdtemp()
+                is_temp_dir = True
 
             self._model.infer_multi(
                 self._tokenizer,
@@ -369,16 +395,26 @@ class UnlimitedOCRModel(OCRModel):
 
             text = self._read_result_md(output_path)
 
-            return [
-                {
-                    "text": text,
-                    "model": "unlimited-ocr",
-                    "success": True,
-                    "model_size": model_config.name,
-                    "image_size": model_config.image_size,
-                    "num_pages": len(temp_paths),
+            response = {
+                "text": text,
+                "model": "unlimited-ocr",
+                "success": True,
+                "model_size": model_config.name,
+                "image_size": model_config.image_size,
+                "num_pages": len(temp_paths),
+            }
+
+            if save_results and save_dir:
+                response["saved_files"] = {
+                    "output_dir": save_dir,
+                    "result_file": (
+                        os.path.join(save_dir, "result.md")
+                        if os.path.exists(os.path.join(save_dir, "result.md"))
+                        else None
+                    ),
                 }
-            ]
+
+            return [response]
         finally:
             for p in temp_paths:
                 if os.path.exists(p):
@@ -386,6 +422,5 @@ class UnlimitedOCRModel(OCRModel):
                         os.remove(p)
                     except OSError:
                         pass
-            # Same cleanup rationale as ``_ocr_single``.
-            if output_path and os.path.exists(output_path):
+            if is_temp_dir and output_path and os.path.exists(output_path):
                 shutil.rmtree(output_path, ignore_errors=True)
