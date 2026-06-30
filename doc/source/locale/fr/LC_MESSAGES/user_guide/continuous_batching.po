@@ -1,0 +1,203 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-05-27 19:02+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: fr <LL@li.org>\n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/continuous_batching.rst:5
+msgid "Continuous Batching"
+msgstr "Traitement par lots continu"
+
+#: ../../source/user_guide/continuous_batching.rst:7
+msgid ""
+"Continuous batching, as a means to improve throughput during model serving, "
+"has already been implemented in inference engines like ``VLLM``. Xinference "
+"aims to provide this optimization capability when using the transformers "
+"engine as well."
+msgstr ""
+"Le traitement par lots continu est une technique importante pour améliorer "
+"le débit dans les moteurs d'inférence comme ``VLLM``. Xinference vise à "
+"améliorer le débit du moteur d'inférence ``transformers`` grâce à cette "
+"technique."
+
+#: ../../source/user_guide/continuous_batching.rst:11
+msgid "Usage"
+msgstr "Méthode d'utilisation"
+
+#: ../../source/user_guide/continuous_batching.rst:14
+msgid "LLM"
+msgstr "Grand modèle de langage"
+
+#: ../../source/user_guide/continuous_batching.rst:15
+msgid "Currently, this feature can be enabled under the following conditions:"
+msgstr ""
+"Actuellement, cette fonction est activée lorsque les conditions suivantes "
+"sont remplies :"
+
+#: ../../source/user_guide/continuous_batching.rst:17
+msgid ""
+"First, set the environment variable "
+"``XINFERENCE_TRANSFORMERS_ENABLE_BATCHING`` to ``1`` when starting "
+"xinference. For example:"
+msgstr ""
+"Premièrement, lors du démarrage de Xinference, la variable d'environnement "
+"``XINFERENCE_TRANSFORMERS_ENABLE_BATCHING`` doit être réglée sur ``1``."
+
+#: ../../source/user_guide/continuous_batching.rst:25
+msgid ""
+"Since ``v0.16.0``, this feature is turned on by default and is no longer "
+"required to set the ``XINFERENCE_TRANSFORMERS_ENABLE_BATCHING`` environment "
+"variable. This environment variable has been removed."
+msgstr ""
+"Depuis ``v0.16.0``, cette fonctionnalité est activée par défaut, il n'est "
+"plus nécessaire de définir la variable d'environnement "
+"``XINFERENCE_TRANSFORMERS_ENABLE_BATCHING``, et cette variable "
+"d'environnement a été supprimée."
+
+#: ../../source/user_guide/continuous_batching.rst:30
+msgid ""
+"Then, ensure that the ``transformers`` engine is selected when launching the"
+" model. For example:"
+msgstr ""
+"Ensuite, lors du démarrage du modèle LLM, sélectionnez le moteur d'inférence"
+" ``transformers``. Par exemple :"
+
+#: ../../source/user_guide/continuous_batching.rst:66
+msgid ""
+"Once this feature is enabled, all requests for LLMs will be managed by "
+"continuous batching, and the average throughput of requests made to a single"
+" model will increase. The usage of the LLM interface remains exactly the "
+"same as before, with no differences."
+msgstr ""
+"Une fois cette fonction activée, toutes les interfaces du modèle LLM seront "
+"prises en charge par cette fonction. L'utilisation de toutes les interfaces "
+"reste inchangée."
+
+#: ../../source/user_guide/continuous_batching.rst:71
+msgid "Image Model"
+msgstr "Modèle d'image"
+
+#: ../../source/user_guide/continuous_batching.rst:72
+msgid ""
+"Currently, for image models, only the ``text_to_image`` interface is "
+"supported for ``FLUX.1`` series models."
+msgstr ""
+"Actuellement, seule l'interface ``text_to_image`` (génération de texte en "
+"image) des modèles de la série ``FLUX.1`` prend en charge cette "
+"fonctionnalité."
+
+#: ../../source/user_guide/continuous_batching.rst:74
+msgid ""
+"Enabling this feature requires setting the environment variable "
+"``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE``, which indicates the ``size`` of "
+"the generated images."
+msgstr ""
+"Pour activer cette fonctionnalité dans le modèle d'image, vous devez "
+"spécifier la variable d'environnement "
+"``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` lors du démarrage de xinference, "
+"qui indique la taille de l'image générée."
+
+#: ../../source/user_guide/continuous_batching.rst:76
+msgid "For example, starting xinference like this:"
+msgstr "Par exemple, démarrez xinference comme ceci :"
+
+#: ../../source/user_guide/continuous_batching.rst:83
+msgid ""
+"Then just use the ``text_to_image`` interface as before, and nothing else "
+"needs to be changed."
+msgstr ""
+"Ensuite, utilisez normalement l'interface ``text_to_image``, sans rien "
+"changer d'autre."
+
+#: ../../source/user_guide/continuous_batching.rst:86
+msgid "Abort your request"
+msgstr "Interrompre la demande"
+
+#: ../../source/user_guide/continuous_batching.rst:87
+msgid ""
+"In this mode, you can abort requests that are in the process of inference."
+msgstr ""
+"Dans cette fonctionnalité, vous pouvez interrompre élégamment une requête en"
+" cours de raisonnement."
+
+#: ../../source/user_guide/continuous_batching.rst:89
+msgid "First, add ``request_id`` option in ``generate_config``. For example:"
+msgstr ""
+"D'abord, spécifiez l'option ``request_id`` dans le ``generate_config`` de la"
+" requête d'inférence. Par exemple :"
+
+#: ../../source/user_guide/continuous_batching.rst:98
+msgid ""
+"Then, abort the request using the ``request_id`` you have set. For example:"
+msgstr ""
+"Ensuite, utilisez le ``request_id`` que vous avez spécifié pour annuler "
+"cette requête. Par exemple :"
+
+#: ../../source/user_guide/continuous_batching.rst:106
+msgid ""
+"Note that if your request has already finished, aborting the request will be"
+" a no-op. Image models also support this feature."
+msgstr ""
+"Attention, si votre requête est déjà terminée, cette opération ne fera rien."
+
+#: ../../source/user_guide/continuous_batching.rst:110
+msgid "Note"
+msgstr "Avertissements"
+
+#: ../../source/user_guide/continuous_batching.rst:112
+msgid ""
+"Currently, for ``LLM`` models, this feature only supports the ``generate``, "
+"``chat``, ``tool call`` and ``vision`` tasks."
+msgstr ""
+"Actuellement, cette fonctionnalité ne prend en charge que les capacités "
+"``generate``, ``chat``, ``tool call`` (appel d'outil) et ``vision`` "
+"(multimodal) des modèles LLM."
+
+#: ../../source/user_guide/continuous_batching.rst:114
+msgid ""
+"Currently, for ``image`` models, this feature only supports the "
+"``text_to_image`` tasks. Only ``FLUX.1`` series models are supported."
+msgstr ""
+"Actuellement, pour les modèles d'images, seule la fonction `text_to_image` "
+"(génération d'image à partir de texte) de la série de modèles `FLUX.1` est "
+"prise en charge."
+
+#: ../../source/user_guide/continuous_batching.rst:116
+msgid ""
+"For ``vision`` tasks, currently only ``qwen2-vl-instruct``, ``qwen2.5-vl-"
+"instruct``, ``QvQ-72B-Preview``, ``glm-4v`` and ``MiniCPM-V-2.6`` (only for "
+"image tasks) models are supported. More models will be supported in the "
+"future. Please let us know your requirements."
+msgstr ""
+"Pour les tâches multimodales, les modèles actuellement supportés sont "
+"``qwen2-vl-instruct``, ``qwen2.5-vl-instruct``, ``QvQ-72B-Preview``, "
+"``glm-4v`` et ``MiniCPM-V-2.6``. D'autres modèles seront ajoutés à l'avenir,"
+" restez à l'écoute."
+
+#: ../../source/user_guide/continuous_batching.rst:118
+msgid ""
+"If using GPU inference, this method will consume more GPU memory. Please be "
+"cautious when increasing the number of concurrent requests to the same "
+"model. The ``launch_model`` interface provides the ``max_num_seqs`` "
+"parameter to adjust the concurrency level, with a default value of ``16``."
+msgstr ""
+"Si vous utilisez un GPU pour l'inférence, cette fonction nécessite beaucoup "
+"de mémoire vidéo. Par conséquent, soyez prudent lorsque vous augmentez le "
+"nombre de requêtes simultanées pour un même modèle. L'interface "
+"``launch_model`` fournit le paramètre optionnel ``max_num_seqs`` pour "
+"ajuster le degré de concurrence, dont la valeur par défaut est ``16``."
