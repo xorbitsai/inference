@@ -260,8 +260,11 @@ const LaunchModelDrawer = ({
     [filteredWorkerItems]
   )
 
+  const workerFieldType = hasWorkerLoadFailed ? 'input' : 'select'
+
   const workerFieldDisabled =
-    isLoadingWorkers || hasWorkerLoadFailed || filteredWorkerItems.length === 0
+    workerFieldType === 'select' &&
+    (isLoadingWorkers || filteredWorkerItems.length === 0)
 
   const workerFieldHelperText = useMemo(() => {
     if (isLoadingWorkers) {
@@ -1182,6 +1185,7 @@ const LaunchModelDrawer = ({
         enginesWithNWorker,
         multimodalProjectorOptions,
         workerItems: filteredWorkerItems,
+        workerFieldType,
         workerFieldDisabled,
         workerFieldHelperText,
       }),
@@ -1199,6 +1203,7 @@ const LaunchModelDrawer = ({
       enginesWithNWorker,
       multimodalProjectorOptions,
       filteredWorkerItems,
+      workerFieldType,
       workerFieldDisabled,
       workerFieldHelperText,
     ]
@@ -1441,16 +1446,14 @@ const LaunchModelDrawer = ({
     const nextErrors = {}
     const selectedWorkers = normalizeWorkerIp(data.worker_ip)
 
-    if (selectedWorkers.length) {
-      if (isLoadingWorkers || hasWorkerLoadFailed) {
-        nextErrors.worker_ip = t(
-          'launchModel.workerNodesUnavailableForValidation'
-        )
-      } else if (
-        !selectedWorkers.every((ip) => availableWorkerValues.has(ip))
-      ) {
-        nextErrors.worker_ip = t('launchModel.invalidWorkerSelection')
-      }
+    if (
+      selectedWorkers.length &&
+      !isLoadingWorkers &&
+      !hasWorkerLoadFailed &&
+      workerItems.length > 0 &&
+      !selectedWorkers.every((ip) => availableWorkerValues.has(ip))
+    ) {
+      nextErrors.worker_ip = t('launchModel.invalidWorkerSelection')
     }
 
     if (isCpuOnlySelection(data.n_gpu) && data.gpu_idx?.length) {
@@ -1651,7 +1654,12 @@ const LaunchModelDrawer = ({
                 className="textHighlight"
               />
             )
-          case 'input':
+          case 'input': {
+            const inputValue =
+              field.name === 'worker_ip' && Array.isArray(formData[field.name])
+                ? formData[field.name].join(',')
+                : formData[field.name] ?? field.default ?? ''
+
             return (
               <TextField
                 key={fieldKey}
@@ -1659,18 +1667,21 @@ const LaunchModelDrawer = ({
                 label={field.label}
                 disabled={field.disabled}
                 InputProps={field.inputProps}
-                value={formData[field.name] ?? field.default ?? ''}
+                value={inputValue}
                 onChange={handleChange}
                 required={field.required}
                 error={hasFieldError}
                 helperText={
-                  inlineFieldError || (field.error ? field.helperText : '')
+                  inlineFieldError ||
+                  (field.showHelperText || field.error ? field.helperText : '')
                 }
+                placeholder={field.placeholder}
                 fullWidth
                 margin="normal"
                 className="textHighlight"
               />
             )
+          }
           case 'switch':
             return (
               <div key={fieldKey}>

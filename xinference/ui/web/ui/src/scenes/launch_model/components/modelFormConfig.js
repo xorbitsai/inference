@@ -6,16 +6,19 @@ import {
 const createWorkerIpField = (
   t,
   workerItems,
+  workerFieldType,
   workerFieldDisabled,
   workerFieldHelperText
 ) => ({
   name: 'worker_ip',
   label: t('launchModel.workerIp.optional'),
-  type: 'select',
-  multiple: true,
+  type: workerFieldType,
+  multiple: workerFieldType === 'select',
   options: workerItems,
   disabled: workerFieldDisabled,
   helperText: workerFieldHelperText,
+  showHelperText: Boolean(workerFieldHelperText),
+  placeholder: workerFieldType === 'input' ? 'ip1,ip2' : undefined,
   visible: true,
 })
 
@@ -33,6 +36,7 @@ export default function getModelFormConfig({
   enginesWithNWorker,
   multimodalProjectorOptions,
   workerItems,
+  workerFieldType,
   workerFieldDisabled,
   workerFieldHelperText,
 }) {
@@ -187,6 +191,7 @@ export default function getModelFormConfig({
           createWorkerIpField(
             t,
             workerItems,
+            workerFieldType,
             workerFieldDisabled,
             workerFieldHelperText
           ),
@@ -369,6 +374,7 @@ export default function getModelFormConfig({
       createWorkerIpField(
         t,
         workerItems,
+        workerFieldType,
         workerFieldDisabled,
         workerFieldHelperText
       ),
@@ -520,6 +526,7 @@ export default function getModelFormConfig({
       createWorkerIpField(
         t,
         workerItems,
+        workerFieldType,
         workerFieldDisabled,
         workerFieldHelperText
       ),
@@ -683,6 +690,7 @@ export default function getModelFormConfig({
       createWorkerIpField(
         t,
         workerItems,
+        workerFieldType,
         workerFieldDisabled,
         workerFieldHelperText
       ),
@@ -874,6 +882,7 @@ export default function getModelFormConfig({
       createWorkerIpField(
         t,
         workerItems,
+        workerFieldType,
         workerFieldDisabled,
         workerFieldHelperText
       ),
@@ -1013,6 +1022,7 @@ export default function getModelFormConfig({
       createWorkerIpField(
         t,
         workerItems,
+        workerFieldType,
         workerFieldDisabled,
         workerFieldHelperText
       ),
@@ -1191,6 +1201,7 @@ export default function getModelFormConfig({
       createWorkerIpField(
         t,
         workerItems,
+        workerFieldType,
         workerFieldDisabled,
         workerFieldHelperText
       ),
