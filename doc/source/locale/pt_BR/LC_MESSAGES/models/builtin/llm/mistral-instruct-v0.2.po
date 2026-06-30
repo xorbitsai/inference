@@ -1,0 +1,113 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-01-03 15:51+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: pt_BR\n"
+"Language-Team: pt_BR <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/builtin/llm/mistral-instruct-v0.2.rst:5
+msgid "mistral-instruct-v0.2"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mistral-instruct-v0.2.rst:7
+msgid "**Context Length:** 8192"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mistral-instruct-v0.2.rst:8
+msgid "**Model Name:** mistral-instruct-v0.2"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mistral-instruct-v0.2.rst:9
+msgid "**Languages:** en"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mistral-instruct-v0.2.rst:10
+msgid "**Abilities:** chat"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mistral-instruct-v0.2.rst:11
+msgid ""
+"**Description:** The Mistral-7B-Instruct-v0.2 Large Language Model (LLM) "
+"is an improved instruct fine-tuned version of Mistral-7B-Instruct-v0.1."
+msgstr ""
+
+#: ../../source/models/builtin/llm/mistral-instruct-v0.2.rst:14
+msgid "Specifications"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mistral-instruct-v0.2.rst:18
+msgid "Model Spec 1 (pytorch, 7 Billion)"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mistral-instruct-v0.2.rst:20
+msgid "**Model Format:** pytorch"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mistral-instruct-v0.2.rst:21
+#: ../../source/models/builtin/llm/mistral-instruct-v0.2.rst:36
+msgid "**Model Size (in billions):** 7"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mistral-instruct-v0.2.rst:22
+msgid "**Quantizations:** 4-bit, 8-bit, none"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mistral-instruct-v0.2.rst:23
+msgid "**Model ID:** mistralai/Mistral-7B-Instruct-v0.2"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mistral-instruct-v0.2.rst:24
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/mistralai/Mistral-"
+"7B-Instruct-v0.2>`_, `ModelScope <https://modelscope.cn/models/AI-"
+"ModelScope/Mistral-7B-Instruct-v0.2>`_"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mistral-instruct-v0.2.rst:26
+#: ../../source/models/builtin/llm/mistral-instruct-v0.2.rst:41
+#, python-brace-format
+msgid ""
+"Execute the following command to launch the model, remember to replace "
+"``${quantization}`` with your chosen quantization method from the options"
+" listed above::"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mistral-instruct-v0.2.rst:33
+msgid "Model Spec 2 (ggufv2, 7 Billion)"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mistral-instruct-v0.2.rst:35
+msgid "**Model Format:** ggufv2"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mistral-instruct-v0.2.rst:37
+msgid ""
+"**Quantizations:** Q2_K, Q3_K_S, Q3_K_M, Q3_K_L, Q4_0, Q4_K_S, Q4_K_M, "
+"Q5_0, Q5_K_S, Q5_K_M, Q6_K, Q8_0"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mistral-instruct-v0.2.rst:38
+msgid "**Model ID:** TheBloke/Mistral-7B-Instruct-v0.2-GGUF"
+msgstr ""
+
+#: ../../source/models/builtin/llm/mistral-instruct-v0.2.rst:39
+msgid ""
+"**Model Hubs**:  `Hugging Face <https://huggingface.co/TheBloke/Mistral-"
+"7B-Instruct-v0.2-GGUF>`_, `ModelScope "
+"<https://modelscope.cn/models/Xorbits/Mistral-7B-Instruct-v0.2-GGUF>`_"
+msgstr ""
+
