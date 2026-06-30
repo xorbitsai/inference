@@ -1,4 +1,12 @@
-import { FormControl, InputLabel, MenuItem, Select } from '@mui/material'
+import {
+  Checkbox,
+  FormControl,
+  FormHelperText,
+  InputLabel,
+  ListItemText,
+  MenuItem,
+  Select,
+} from '@mui/material'
 import { useEffect, useRef, useState } from 'react'
 
 const SelectField = ({
@@ -10,9 +18,24 @@ const SelectField = ({
   options = [],
   disabled = false,
   required = false,
+  multiple = false,
+  error = false,
+  helperText = '',
 }) => {
   const wrapperRef = useRef(null)
   const [menuWidth, setMenuWidth] = useState(0)
+
+  const normalizedValue = multiple
+    ? Array.isArray(value)
+      ? value
+      : value
+      ? [value]
+      : []
+    : value
+
+  const optionLabelMap = new Map(
+    options.map((item) => [item.value ?? item, item.label ?? item])
+  )
 
   useEffect(() => {
     if (wrapperRef.current) {
@@ -28,15 +51,25 @@ const SelectField = ({
         disabled={disabled}
         required={required}
         fullWidth
+        error={error}
       >
         <InputLabel id={labelId}>{label}</InputLabel>
         <Select
           labelId={labelId}
           name={name}
-          value={value}
+          multiple={multiple}
+          value={normalizedValue}
           onChange={onChange}
           label={label}
           className="textHighlight"
+          renderValue={
+            multiple
+              ? (selected) =>
+                  selected
+                    .map((item) => optionLabelMap.get(item) ?? item)
+                    .join(', ')
+              : undefined
+          }
           MenuProps={{
             PaperProps: {
               sx: {
@@ -46,19 +79,31 @@ const SelectField = ({
             },
           }}
         >
-          {options.map((item) => (
-            <MenuItem
-              key={item.value || item}
-              value={item.value || item}
-              disabled={item.disabled}
-              sx={{
-                whiteSpace: 'normal',
-              }}
-            >
-              {item.label || item}
-            </MenuItem>
-          ))}
+          {options.map((item) => {
+            const itemValue = item.value ?? item
+            const itemLabel = item.label ?? item
+            return (
+              <MenuItem
+                key={itemValue}
+                value={itemValue}
+                disabled={item.disabled}
+                sx={{
+                  whiteSpace: 'normal',
+                }}
+              >
+                {multiple ? (
+                  <>
+                    <Checkbox checked={normalizedValue.includes(itemValue)} />
+                    <ListItemText primary={itemLabel} />
+                  </>
+                ) : (
+                  itemLabel
+                )}
+              </MenuItem>
+            )
+          })}
         </Select>
+        {helperText ? <FormHelperText>{helperText}</FormHelperText> : null}
       </FormControl>
     </div>
   )

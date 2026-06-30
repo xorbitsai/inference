@@ -88,6 +88,10 @@ const LaunchModelDrawer = ({
   const [selectedHistoryKey, setSelectedHistoryKey] = useState(null)
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false)
   const [historyToDelete, setHistoryToDelete] = useState(null)
+  const [workerItems, setWorkerItems] = useState([])
+  const [isLoadingWorkers, setIsLoadingWorkers] = useState(false)
+  const [hasWorkerLoadFailed, setHasWorkerLoadFailed] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState({})
   const [saveAutostart, setSaveAutostart] = useState(false)
 
   const intervalRef = useRef(null)
@@ -144,6 +148,146 @@ const LaunchModelDrawer = ({
     const num = parseInt(value, 10)
     return isNaN(num) || num === 0 ? null : num
   }
+
+  const normalizeWorkerAddress = (value) => {
+    const normalized = String(value || '').trim()
+    if (!normalized) return ''
+
+    try {
+      return new URL(`http://${normalized}`).hostname.replace(/^\[|\]$/g, '')
+    } catch {
+      if (normalized.startsWith('[')) {
+        const closingBracketIndex = normalized.indexOf(']')
+        if (closingBracketIndex !== -1) {
+          return normalized.slice(1, closingBracketIndex).trim()
+        }
+      }
+
+      const lastColonIndex = normalized.lastIndexOf(':')
+      if (lastColonIndex === -1) return normalized
+
+      const hasMultipleColons = normalized.indexOf(':') !== lastColonIndex
+      if (hasMultipleColons) {
+        return normalized
+      }
+
+      return normalized.slice(0, lastColonIndex).trim()
+    }
+  }
+
+  const normalizeWorkerIp = (value) => {
+    let workerValues = []
+    if (Array.isArray(value)) {
+      workerValues = value
+    } else if (typeof value === 'string') {
+      workerValues = value.split(',')
+    }
+
+    const seen = new Set()
+    return workerValues
+      .map((item) => normalizeWorkerAddress(item))
+      .filter((item) => {
+        if (!item || seen.has(item)) return false
+        seen.add(item)
+        return true
+      })
+  }
+
+  const isCpuOnlySelection = (value) => value === 'CPU' || value === null
+
+  const requiresGpuWorkers = (value) =>
+    value !== undefined && value !== '' && !isCpuOnlySelection(value)
+
+  const extractWorkerItems = (clusterInfo) => {
+    const workerMap = new Map()
+    const isFlatNodeList = Array.isArray(clusterInfo)
+    const nodes = isFlatNodeList
+      ? clusterInfo
+      : Array.isArray(clusterInfo?.workers)
+      ? clusterInfo.workers
+      : []
+
+    nodes.forEach((node) => {
+      if (isFlatNodeList && node?.node_type !== 'Worker') return
+
+      const workerIp = normalizeWorkerAddress(node?.ip_address ?? node?.ip)
+      if (!workerIp) return
+
+      const gpuCount = Number(node?.gpu_count || 0)
+      const existingWorker = workerMap.get(workerIp)
+
+      if (existingWorker) {
+        existingWorker.gpuCount = Math.max(existingWorker.gpuCount, gpuCount)
+        return
+      }
+
+      workerMap.set(workerIp, {
+        value: workerIp,
+        label: workerIp,
+        gpuCount,
+      })
+    })
+
+    return Array.from(workerMap.values()).sort((a, b) =>
+      a.label.localeCompare(b.label)
+    )
+  }
+
+  const clearFieldErrors = (...names) => {
+    if (!names.length) return
+    setFieldErrors((prev) => {
+      const next = { ...prev }
+      let changed = false
+      names.forEach((name) => {
+        if (next[name]) {
+          delete next[name]
+          changed = true
+        }
+      })
+      return changed ? next : prev
+    })
+  }
+
+  const filteredWorkerItems = useMemo(() => {
+    if (!requiresGpuWorkers(formData.n_gpu)) {
+      return workerItems
+    }
+    return workerItems.filter((item) => item.gpuCount > 0)
+  }, [workerItems, formData.n_gpu])
+
+  const availableWorkerValues = useMemo(
+    () => new Set(filteredWorkerItems.map((item) => item.value)),
+    [filteredWorkerItems]
+  )
+
+  const workerFieldType = hasWorkerLoadFailed ? 'input' : 'select'
+
+  const workerFieldDisabled =
+    workerFieldType === 'select' &&
+    (isLoadingWorkers || filteredWorkerItems.length === 0)
+
+  const workerFieldHelperText = useMemo(() => {
+    if (isLoadingWorkers) {
+      return t('launchModel.loadingWorkerNodes')
+    }
+    if (hasWorkerLoadFailed) {
+      return t('launchModel.workerNodesLoadFailed')
+    }
+    if (!workerItems.length) {
+      return t('launchModel.noWorkerNodesAvailable')
+    }
+    if (requiresGpuWorkers(formData.n_gpu) && !filteredWorkerItems.length) {
+      return t('launchModel.noAvailableGpuWorkers')
+    }
+    return ''
+  }, [
+    t,
+    isLoadingWorkers,
+    hasWorkerLoadFailed,
+    workerItems,
+    filteredWorkerItems,
+    formData.n_gpu,
+  ])
 
   const handleValueType = (str) => {
     let val = String(str).trim()
@@ -417,10 +561,10 @@ const LaunchModelDrawer = ({
   }
 
   const formatHistoryTime = (updatedAt) => {
-    if (!updatedAt) return '—'
+    if (!updatedAt) return '--'
 
     const date = new Date(updatedAt)
-    return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString()
+    return Number.isNaN(date.getTime()) ? '--' : date.toLocaleString()
   }
 
   const objectToArray = (obj) => {
@@ -428,7 +572,7 @@ const LaunchModelDrawer = ({
     return Object.entries(obj).map(([key, value]) => ({ key, value }))
   }
 
-  const getReplicaWorkerAddress = (replica) => replica?.worker_address || '—'
+  const getReplicaWorkerAddress = (replica) => replica?.worker_address || '--'
 
   const restoreNGPU = (value) => {
     if (value === null) return 'CPU'
@@ -481,6 +625,14 @@ const LaunchModelDrawer = ({
     result.n_gpu = restoreNGPU(result.n_gpu)
     if (result?.gpu_idx && Array.isArray(result.gpu_idx)) {
       result.gpu_idx = result.gpu_idx.join(',')
+    }
+    if (result.worker_ip !== undefined) {
+      const workerIpList = normalizeWorkerIp(result.worker_ip)
+      if (workerIpList.length) {
+        result.worker_ip = workerIpList
+      } else {
+        delete result.worker_ip
+      }
     }
 
     if (result?.peft_model_config) {
@@ -537,7 +689,7 @@ const LaunchModelDrawer = ({
     if (
       result.model_uid ||
       result.request_limits ||
-      result.worker_ip ||
+      result.worker_ip?.length ||
       result.gpu_idx ||
       result.download_hub ||
       result.model_path
@@ -579,6 +731,26 @@ const LaunchModelDrawer = ({
       setCollapseState((prev) => ({ ...prev, ...collapseFromData }))
     } else {
       setErrorMsg(t('launchModel.commandLineTip'))
+    }
+  }
+
+  const fetchWorkers = async () => {
+    if (!open) return
+
+    setIsLoadingWorkers(true)
+    setHasWorkerLoadFailed(false)
+    try {
+      const data = await fetchWrapper.get('/v1/cluster/info?detailed=true')
+      setWorkerItems(extractWorkerItems(data))
+    } catch (error) {
+      console.error('Error:', error)
+      setWorkerItems([])
+      setHasWorkerLoadFailed(true)
+      if (error?.response?.status !== 403) {
+        setErrorMsg(error.message)
+      }
+    } finally {
+      setIsLoadingWorkers(false)
     }
   }
 
@@ -730,6 +902,45 @@ const LaunchModelDrawer = ({
     }
     setPendingHistory(null)
   }, [pendingHistory, open, hasFetchedEngines, engineOptions, modelType])
+
+  useEffect(() => {
+    if (open) {
+      fetchWorkers()
+    }
+  }, [open])
+
+  useEffect(() => {
+    setFormData((prev) => {
+      const next = { ...prev }
+      let changed = false
+
+      if (isCpuOnlySelection(normalizeNGPU(prev.n_gpu)) && prev.gpu_idx) {
+        next.gpu_idx = ''
+        changed = true
+      }
+
+      if (workerItems.length > 0 && !isLoadingWorkers && !hasWorkerLoadFailed) {
+        const selectedWorkers = normalizeWorkerIp(prev.worker_ip)
+        if (selectedWorkers.length) {
+          const filteredWorkers = selectedWorkers.filter((ip) =>
+            availableWorkerValues.has(ip)
+          )
+          if (filteredWorkers.length !== selectedWorkers.length) {
+            next.worker_ip = filteredWorkers
+            changed = true
+          }
+        }
+      }
+
+      return changed ? next : prev
+    })
+  }, [
+    formData.n_gpu,
+    availableWorkerValues,
+    isLoadingWorkers,
+    hasWorkerLoadFailed,
+    workerItems.length,
+  ])
 
   useEffect(() => {
     if (open && modelEngineType.includes(modelType))
@@ -973,6 +1184,10 @@ const LaunchModelDrawer = ({
         downloadHubOptions,
         enginesWithNWorker,
         multimodalProjectorOptions,
+        workerItems: filteredWorkerItems,
+        workerFieldType,
+        workerFieldDisabled,
+        workerFieldHelperText,
       }),
     [
       t,
@@ -987,6 +1202,10 @@ const LaunchModelDrawer = ({
       downloadHubOptions,
       enginesWithNWorker,
       multimodalProjectorOptions,
+      filteredWorkerItems,
+      workerFieldType,
+      workerFieldDisabled,
+      workerFieldHelperText,
     ]
   )
 
@@ -1044,6 +1263,7 @@ const LaunchModelDrawer = ({
   }
 
   const handleDynamicField = (name, val) => {
+    clearFieldErrors(name)
     setCheckDynamicFieldComplete((prev) => {
       const filtered = prev.filter((item) => item.name !== name)
       return [...filtered, { name, isComplete: isDynamicFieldComplete(val) }]
@@ -1056,9 +1276,24 @@ const LaunchModelDrawer = ({
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
+    const nextValue =
+      name === 'worker_ip' && workerFieldType === 'input'
+        ? value
+        : name === 'worker_ip' && typeof value === 'string'
+        ? normalizeWorkerIp(value)
+        : type === 'checkbox'
+        ? checked
+        : value
+
+    if (name === 'n_gpu') {
+      clearFieldErrors('n_gpu', 'gpu_idx', 'worker_ip')
+    } else {
+      clearFieldErrors(name)
+    }
+
     setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: nextValue,
     }))
   }
 
@@ -1130,6 +1365,18 @@ const LaunchModelDrawer = ({
       result.n_gpu = normalizeNGPU(result.n_gpu)
     }
 
+    if (
+      Array.isArray(result.worker_ip) ||
+      typeof result.worker_ip === 'string'
+    ) {
+      const workerIpList = normalizeWorkerIp(result.worker_ip)
+      if (workerIpList.length) {
+        result.worker_ip = workerIpList.join(',')
+      } else {
+        delete result.worker_ip
+      }
+    }
+
     if (result.n_gpu_layers < 0) {
       delete result.n_gpu_layers
     }
@@ -1187,18 +1434,75 @@ const LaunchModelDrawer = ({
     return result
   }
 
+  const collectVisibleFieldErrors = (fields = [], errors = []) => {
+    fields.forEach((field) => {
+      if (field.type === 'collapse') {
+        collectVisibleFieldErrors(field.children || [], errors)
+        return
+      }
+      if (field.visible && field.error) {
+        errors.push(field.name)
+      }
+    })
+    return errors
+  }
+
+  const validateBeforeLaunch = (data) => {
+    const nextErrors = {}
+    const selectedWorkers = normalizeWorkerIp(data.worker_ip)
+
+    if (
+      selectedWorkers.length &&
+      !isLoadingWorkers &&
+      !hasWorkerLoadFailed &&
+      workerItems.length > 0 &&
+      !selectedWorkers.every((ip) => availableWorkerValues.has(ip))
+    ) {
+      nextErrors.worker_ip = t('launchModel.invalidWorkerSelection')
+    }
+
+    if (isCpuOnlySelection(data.n_gpu) && data.gpu_idx?.length) {
+      nextErrors.gpu_idx = t('launchModel.gpuIdxNotAllowedForCpu')
+    } else if (
+      Array.isArray(data.gpu_idx) &&
+      data.gpu_idx.length &&
+      data.gpu_idx.length % (data.replica || 1)
+    ) {
+      nextErrors.gpu_idx = t('launchModel.gpuIdxMustMatchReplica')
+    }
+
+    return nextErrors
+  }
+
   const handleSubmit = () => {
     if (isCallingApi || isUpdatingModel) {
       return
     }
 
-    setIsCallingApi(true)
-    setProgress(0)
-    setIsShowProgress(true)
-    setIsShowCancel(true)
+    const visibleFieldErrors = collectVisibleFieldErrors(
+      modelFormConfig[modelType] || []
+    )
+    if (visibleFieldErrors.length) {
+      setErrorMsg(t('launchModel.fixFieldErrorsBeforeLaunch'))
+      return
+    }
 
     try {
       const data = getFinalFormData()
+      const nextFieldErrors = validateBeforeLaunch(data)
+      setFieldErrors(nextFieldErrors)
+
+      if (Object.keys(nextFieldErrors).length) {
+        setErrorMsg(Object.values(nextFieldErrors)[0])
+        return
+      }
+
+      setIsCallingApi(true)
+      setProgress(0)
+      setIsShowProgress(true)
+      setIsShowCancel(true)
+      setFieldErrors({})
+
       // First fetcher request to initiate the model
       fetchWrapper
         .post('/v1/models', data)
@@ -1259,7 +1563,7 @@ const LaunchModelDrawer = ({
     const data = getFinalFormData()
     const fields = modelFormConfig[modelType] || []
     return checkRequiredFields(fields, data)
-  }, [formData, modelType])
+  }, [formData, modelType, modelFormConfig])
 
   const renderFormFields = (fields = []) => {
     const enhancedFields = fields.map((field) => {
@@ -1285,6 +1589,9 @@ const LaunchModelDrawer = ({
       .filter((field) => field.visible)
       .map((field) => {
         const fieldKey = field.name
+        const inlineFieldError = fieldErrors[fieldKey]
+        const hasFieldError = Boolean(inlineFieldError || field.error)
+
         switch (field.type) {
           case 'collapse': {
             const open = collapseState[fieldKey] ?? false
@@ -1326,6 +1633,9 @@ const LaunchModelDrawer = ({
                 onChange={handleChange}
                 options={field.options}
                 required={field.required}
+                multiple={field.multiple}
+                error={hasFieldError}
+                helperText={inlineFieldError || field.helperText || ''}
               />
             )
           case 'number':
@@ -1340,14 +1650,21 @@ const LaunchModelDrawer = ({
                 value={formData[field.name] ?? field.default ?? ''}
                 onChange={handleChange}
                 required={field.required}
-                error={field.error}
-                helperText={field.error && field.helperText}
+                error={hasFieldError}
+                helperText={
+                  inlineFieldError || (field.error ? field.helperText : '')
+                }
                 fullWidth
                 margin="normal"
                 className="textHighlight"
               />
             )
-          case 'input':
+          case 'input': {
+            const inputValue =
+              field.name === 'worker_ip' && Array.isArray(formData[field.name])
+                ? formData[field.name].join(',')
+                : formData[field.name] ?? field.default ?? ''
+
             return (
               <TextField
                 key={fieldKey}
@@ -1355,16 +1672,21 @@ const LaunchModelDrawer = ({
                 label={field.label}
                 disabled={field.disabled}
                 InputProps={field.inputProps}
-                value={formData[field.name] ?? field.default ?? ''}
+                value={inputValue}
                 onChange={handleChange}
                 required={field.required}
-                error={field.error}
-                helperText={field.error && field.helperText}
+                error={hasFieldError}
+                helperText={
+                  inlineFieldError ||
+                  (field.showHelperText || field.error ? field.helperText : '')
+                }
+                placeholder={field.placeholder}
                 fullWidth
                 margin="normal"
                 className="textHighlight"
               />
             )
+          }
           case 'switch':
             return (
               <div key={fieldKey}>
@@ -1708,7 +2030,7 @@ const LaunchModelDrawer = ({
                         </Box>
                         <Typography variant="body2" color="text.secondary">
                           {t('modelReplicaDetails.modelUid')}:{' '}
-                          {entry.model_uid || '—'}
+                          {entry.model_uid || '--'}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                           {t('launchModel.lastUpdated')}:{' '}
