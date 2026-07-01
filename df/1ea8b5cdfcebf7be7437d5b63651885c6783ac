@@ -1,0 +1,29 @@
+xinference/model/llm/llm_family.json
+  d881e609a580f852 32716-32781
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "df1ea8b5cdfcebf7be7437d5b63651885c6783ac",
+  "prompts": {
+    "d881e609a580f852": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b6e5327-8e3e-4ea0-8a9a-f6be6f24f1ed",
+        "model": "glm-5.2"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 66,
+      "total_deletions": 0,
+      "accepted_lines": 3621,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/25b088fc028295c38fc83335c2d8e6115b844cd862102d67fe37953bbb0f0a86"
+    }
+  },
+  "humans": {
+    "h_9bfd4e7cd8cc2c": {
+      "author": "郑明再"
+    }
+  }
+}
