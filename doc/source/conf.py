@@ -84,7 +84,7 @@ html_css_files = ["custom.css"]
 
 # Define the json_url for our version switcher.
 version_match = os.environ.get("READTHEDOCS_LANGUAGE")
-json_url = "https://inference.readthedocs.io/en/latest/_static/switcher.json"
+json_url = "_static/switcher.json"
 if not version_match:
     version_match = 'en'
 

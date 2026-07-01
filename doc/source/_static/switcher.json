@@ -5,6 +5,11 @@
     "url": "https://inference.readthedocs.io/zh-cn/latest/"
   },
   {
+    "name": "Deutsch (German)",
+    "version": "de",
+    "url": "https://inference.readthedocs.io/de/latest/"
+  },
+  {
     "name": "English",
     "version": "en",
     "url": "https://inference.readthedocs.io/en/latest/",
