@@ -18,6 +18,7 @@ from .hunyuan_ocr import HunyuanOCRModel
 from .mlx import MLXDeepSeekOCRModel
 from .ocr_family import SUPPORTED_ENGINES
 from .paddleocr_vl import PaddleOCRVLModel
+from .unlimited_ocr import UnlimitedOCRModel
 from .vllm import (
     VLLMDeepSeekOCRModel,
     VLLMGotOCR2Model,
@@ -30,6 +31,7 @@ __all__ = [
     "GotOCR2Model",
     "HunyuanOCRModel",
     "PaddleOCRVLModel",
+    "UnlimitedOCRModel",
 ]
 
 
@@ -39,6 +41,7 @@ def register_builtin_ocr_engines() -> None:
         GotOCR2Model,
         HunyuanOCRModel,
         PaddleOCRVLModel,
+        UnlimitedOCRModel,
     ]
     SUPPORTED_ENGINES["vllm"] = [
         VLLMDeepSeekOCRModel,
