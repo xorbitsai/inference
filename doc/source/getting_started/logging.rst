@@ -20,6 +20,29 @@ Xinference supports log rotation of log files.
 By default, logs rotate when they reach 100MB (maxBytes), and up to 30 backup files (backupCount) are kept.
 Note that the log level configured above takes effect in both the command line logs and the log files.
 
+Environment Variables
+#####################
+Xinference provides several environment variables to control logging behavior:
+
+- ``XINFERENCE_LOG_CONSOLE``: Enable or disable console output (default: ``true``).
+  When set to ``false``, logs are written only to files, and tqdm progress bars are captured and sampled.
+- ``XINFERENCE_LOG_FORMAT``: Log format, either ``text`` (default) or ``json``.
+- ``XINFERENCE_LOG_DOWNLOAD_PROGRESS``: Control how download progress bars are logged when ``XINFERENCE_LOG_CONSOLE=false``.
+  Valid values are ``sampled`` (default, logs at 25/50/75/100% per file), ``full`` (logs every frame), or ``off`` (no progress logs).
+
+Example usage:
+
+.. code-block:: bash
+
+  # Disable console output, log download progress at sampling points
+  XINFERENCE_LOG_CONSOLE=false XINFERENCE_LOG_DOWNLOAD_PROGRESS=sampled xinference-local
+
+  # Disable console output, log every download progress frame
+  XINFERENCE_LOG_CONSOLE=false XINFERENCE_LOG_DOWNLOAD_PROGRESS=full xinference-local
+
+  # Disable console output, no download progress logs
+  XINFERENCE_LOG_CONSOLE=false XINFERENCE_LOG_DOWNLOAD_PROGRESS=off xinference-local
+
 Log Directory Structure
 ***********************
 All the logs are stored in the ``<XINFERENCE_HOME>/logs`` directory, where ``<XINFERENCE_HOME>`` can be configured as mentioned in :ref:`using_xinference`.

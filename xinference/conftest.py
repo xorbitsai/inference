@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -141,6 +141,7 @@ async def _start_test_cluster(
         await start_worker_components(
             address=address,
             supervisor_address=address,
+            supervisor_endpoint=None,
             main_pool=pool,
             metrics_exporter_host=None,
             metrics_exporter_port=None,
@@ -302,5 +303,5 @@ def setup_with_auth():
         restful_api_proc.kill()
         try:
             os.remove(auth_file)
-        except:
+        except Exception:
             pass

@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 
 import logging
 import os
-from typing import Any, Dict, List, Optional, Set, Type, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
 
 from typing_extensions import Annotated, Literal
 
@@ -78,7 +78,7 @@ class LlamaCppLLMSpecV2(BaseModel):
 
 
 class PytorchLLMSpecV2(BaseModel):
-    model_format: Literal["pytorch", "gptq", "awq", "fp8", "bnb"]
+    model_format: Literal["pytorch", "gptq", "awq", "fp4", "fp8", "bnb"]
     # Must in order that `str` first, then `int`
     model_size_in_billions: Union[str, int]
     quantization: str
@@ -156,6 +156,9 @@ class LLMFamilyV2(BaseModel, ModelInstanceInfoMixin):
     cache_config: Optional[dict]
     virtualenv: Optional[VirtualEnvSettings]
     tool_parser: Optional[str]
+    # Provenance: True only for bundled built-in models; user-registered /
+    # custom models keep it False. Gates implicit trust_remote_code (CWE-94).
+    is_builtin: bool = False
 
     class Config:
         extra = "allow"
@@ -617,6 +620,142 @@ def check_engine_by_spec_parameters(
             and quantization in param["quantizations"]
         ):
             return param["llm_class"]
+    raise ValueError(
+        f"Model {model_name} cannot be run on engine {model_engine}, with format {model_format}, size {model_size_in_billions} and quantization {quantization}."
+    )
+
+
+def check_engine_by_spec_parameters_with_virtual_env(
+    model_engine: str,
+    model_name: str,
+    model_format: str,
+    model_size_in_billions: Union[str, int],
+    quantization: str,
+    llm_family: Optional["LLMFamilyV2"] = None,
+) -> Type[LLM]:
+    from ..utils import _collect_virtualenv_engine_markers
+
+    def get_model_engine_from_spell(engine_str: str) -> str:
+        for engine in LLM_ENGINES[model_name].keys():
+            if engine.lower() == engine_str.lower():
+                return engine
+        return engine_str
+
+    def _select_llm_spec(
+        family: "LLMFamilyV2",
+    ) -> Optional["LLMSpecV1"]:
+        for spec in family.model_specs:
+            if model_format != spec.model_format:
+                continue
+            if not match_model_size(
+                model_size_in_billions, spec.model_size_in_billions
+            ):
+                continue
+            if quantization and quantization.lower() != spec.quantization.lower():
+                continue
+            return spec
+        return None
+
+    def _select_engine_class_fallback(
+        engine_classes: List[Type[LLM]],
+        family: "LLMFamilyV2",
+    ) -> Optional[Type[LLM]]:
+        if not engine_classes:
+            return None
+        abilities = set(getattr(family, "model_ability", []) or [])
+        preferred_tokens: List[Tuple[str, ...]] = []
+        if any(a in abilities for a in ("vision", "audio", "omni")):
+            preferred_tokens.append(("multi", "vision", "omni"))
+        if "chat" in abilities:
+            preferred_tokens.append(("chat",))
+        for tokens in preferred_tokens:
+            for engine_cls in engine_classes:
+                cls_name = engine_cls.__name__.lower()
+                if any(token in cls_name for token in tokens):
+                    return engine_cls
+        return engine_classes[0]
+
+    if model_name not in LLM_ENGINES:
+        raise ValueError(f"Model {model_name} not found.")
+    if llm_family is None:
+        llm_family = next(
+            (f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name), None
+        )
+    engine_markers = _collect_virtualenv_engine_markers(llm_family)
+    if engine_markers and model_engine.lower() not in engine_markers:
+        raise ValueError(
+            f"Engine {model_engine} is not listed in virtualenv packages for model {model_name}."
+        )
+    model_engine = get_model_engine_from_spell(model_engine)
+    if model_engine not in LLM_ENGINES[model_name]:
+        if model_engine.lower() in engine_markers:
+            if model_engine.lower() == "mlx" and model_format != "mlx":
+                raise ValueError(
+                    f"Engine {model_engine} only supports mlx format, got {model_format}."
+                )
+            if llm_family is None:
+                raise ValueError(f"Model {model_name} not found.")
+            llm_spec = _select_llm_spec(llm_family)
+            if llm_spec is None:
+                raise ValueError(
+                    f"Model {model_name} cannot be run on engine {model_engine}, "
+                    f"with format {model_format}, size {model_size_in_billions} "
+                    f"and quantization {quantization}."
+                )
+            for engine_name, engine_classes in SUPPORTED_ENGINES.items():
+                if engine_name.lower() == model_engine.lower() and engine_classes:
+                    engine_cls = _select_engine_class_fallback(
+                        engine_classes, llm_family
+                    )
+                    if engine_cls is None:
+                        raise ValueError(
+                            f"Model {model_name} cannot be run on engine {model_engine}, "
+                            f"with format {model_format}, size {model_size_in_billions} "
+                            f"and quantization {quantization}."
+                        )
+                    logger.warning(
+                        "Bypassing engine compatibility checks for %s due to virtualenv marker.",
+                        model_engine,
+                    )
+                    return engine_cls
+        raise ValueError(f"Model {model_name} cannot be run on engine {model_engine}.")
+    match_params = LLM_ENGINES[model_name][model_engine]
+    for param in match_params:
+        if (
+            model_name == param["model_name"]
+            and model_format == param["model_format"]
+            and model_size_in_billions == param["model_size_in_billions"]
+            and quantization in param["quantizations"]
+        ):
+            return param["llm_class"]
+    if model_engine.lower() in engine_markers:
+        if model_engine.lower() == "mlx" and model_format != "mlx":
+            raise ValueError(
+                f"Engine {model_engine} only supports mlx format, got {model_format}."
+            )
+        if llm_family is None:
+            raise ValueError(f"Model {model_name} not found.")
+        llm_spec = _select_llm_spec(llm_family)
+        if llm_spec is None:
+            raise ValueError(
+                f"Model {model_name} cannot be run on engine {model_engine}, "
+                f"with format {model_format}, size {model_size_in_billions} "
+                f"and quantization {quantization}."
+            )
+        for engine_name, engine_classes in SUPPORTED_ENGINES.items():
+            if engine_name.lower() == model_engine.lower() and engine_classes:
+                engine_cls = _select_engine_class_fallback(engine_classes, llm_family)
+                if engine_cls is None:
+                    raise ValueError(
+                        f"Model {model_name} cannot be run on engine {model_engine}, "
+                        f"with format {model_format}, size {model_size_in_billions} "
+                        f"and quantization {quantization}."
+                    )
+                logger.warning(
+                    "Bypassing engine compatibility checks for %s due to virtualenv marker.",
+                    model_engine,
+                )
+                return engine_cls
     raise ValueError(
         f"Model {model_name} cannot be run on engine {model_engine}, with format {model_format}, size {model_size_in_billions} and quantization {quantization}."
     )

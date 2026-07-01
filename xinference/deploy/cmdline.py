@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,8 +38,8 @@ from ..constants import (
     XINFERENCE_ENV_ENDPOINT,
     XINFERENCE_LOG_BACKUP_COUNT,
     XINFERENCE_LOG_MAX_BYTES,
+    XINFERENCE_LOG_RETENTION_DAYS,
 )
-from ..isolation import Isolation
 from .utils import (
     get_config_dict,
     get_log_file,
@@ -107,6 +107,9 @@ def start_local_cluster(
         get_log_file(f"local_{get_timestamp_ms()}"),
         XINFERENCE_LOG_BACKUP_COUNT,
         XINFERENCE_LOG_MAX_BYTES,
+        role="local",
+        address=f"{host}:{port}",
+        log_retention_days=XINFERENCE_LOG_RETENTION_DAYS,
     )
     logging.config.dictConfig(dict_config)  # type: ignore
     # refer to https://huggingface.co/docs/transformers/main_classes/logging
@@ -283,6 +286,9 @@ def supervisor(
         get_log_file(f"supervisor_{get_timestamp_ms()}"),
         XINFERENCE_LOG_BACKUP_COUNT,
         XINFERENCE_LOG_MAX_BYTES,
+        role="supervisor",
+        address=f"{host}:{supervisor_port or ''}",
+        log_retention_days=XINFERENCE_LOG_RETENTION_DAYS,
     )
     logging.config.dictConfig(dict_config)  # type: ignore
     set_envs("TRANSFORMERS_VERBOSITY", log_level.lower())
@@ -346,6 +352,9 @@ def worker(
         get_log_file(f"worker_{get_timestamp_ms()}"),
         XINFERENCE_LOG_BACKUP_COUNT,
         XINFERENCE_LOG_MAX_BYTES,
+        role="worker",
+        address=f"{host}:{worker_port or ''}",
+        log_retention_days=XINFERENCE_LOG_RETENTION_DAYS,
     )
     logging.config.dictConfig(dict_config)  # type: ignore
     set_envs("TRANSFORMERS_VERBOSITY", log_level.lower())
@@ -359,6 +368,7 @@ def worker(
     main(
         address=address,
         supervisor_address=supervisor_internal_addr,
+        supervisor_endpoint=endpoint,
         metrics_exporter_host=metrics_exporter_host,
         metrics_exporter_port=metrics_exporter_port,
         logging_conf=dict_config,
@@ -858,7 +868,7 @@ def remove_cache(
     "--enable-thinking",
     "enable_thinking",
     flag_value=True,
-    default=None,
+    default=False,
     help="Enable thinking mode for hybrid reasoning LLMs (e.g., Qwen3).",
 )
 @click.option(
@@ -1284,22 +1294,18 @@ def model_generate(
                         print(choice["text"], end="", flush=True, file=sys.stdout)
                 print("", file=sys.stdout)
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         coro = generate_internal()
 
-        if loop.is_running():
-            isolation = Isolation(asyncio.new_event_loop(), threaded=True)
-            isolation.start()
-            isolation.call(coro)
-        else:
-            task = loop.create_task(coro)
-            try:
-                loop.run_until_complete(task)
-            except KeyboardInterrupt:
-                task.cancel()
-                loop.run_until_complete(task)
-                # avoid displaying exception-unhandled warnings
-                task.exception()
+        task = loop.create_task(coro)
+        try:
+            loop.run_until_complete(task)
+        except KeyboardInterrupt:
+            task.cancel()
+            loop.run_until_complete(task)
+            # avoid displaying exception-unhandled warnings
+            task.exception()
     else:
         restful_model = client.get_model(model_uid=model_uid)
         if not isinstance(
@@ -1399,22 +1405,18 @@ def model_chat(
                 print("", file=sys.stdout)
                 messages.append(dict(role="assistant", content=response_content))
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         coro = chat_internal()
 
-        if loop.is_running():
-            isolation = Isolation(asyncio.new_event_loop(), threaded=True)
-            isolation.start()
-            isolation.call(coro)
-        else:
-            task = loop.create_task(coro)
-            try:
-                loop.run_until_complete(task)
-            except KeyboardInterrupt:
-                task.cancel()
-                loop.run_until_complete(task)
-                # avoid displaying exception-unhandled warnings
-                task.exception()
+        task = loop.create_task(coro)
+        try:
+            loop.run_until_complete(task)
+        except KeyboardInterrupt:
+            task.cancel()
+            loop.run_until_complete(task)
+            # avoid displaying exception-unhandled warnings
+            task.exception()
     else:
         restful_model = client.get_model(model_uid=model_uid)
         if not isinstance(restful_model, RESTfulChatModelHandle):

@@ -3,6 +3,25 @@ import {
   quantizationParametersTipList,
 } from '../data/data'
 
+const createWorkerIpField = (
+  t,
+  workerItems,
+  workerFieldType,
+  workerFieldDisabled,
+  workerFieldHelperText
+) => ({
+  name: 'worker_ip',
+  label: t('launchModel.workerIp.optional'),
+  type: workerFieldType,
+  multiple: workerFieldType === 'select',
+  options: workerItems,
+  disabled: workerFieldDisabled,
+  helperText: workerFieldHelperText,
+  showHelperText: Boolean(workerFieldHelperText),
+  placeholder: workerFieldType === 'input' ? 'ip1,ip2' : undefined,
+  visible: true,
+})
+
 export default function getModelFormConfig({
   t,
   formData,
@@ -16,7 +35,15 @@ export default function getModelFormConfig({
   downloadHubOptions,
   enginesWithNWorker,
   multimodalProjectorOptions,
+  workerItems,
+  workerFieldType,
+  workerFieldDisabled,
+  workerFieldHelperText,
 }) {
+  const ggufQuantizations =
+    modelData?.gguf_quantizations ??
+    modelData?.model_specs?.find((spec) => spec.gguf_quantizations)
+      ?.gguf_quantizations
   const config = {
     LLM: [
       {
@@ -161,12 +188,13 @@ export default function getModelFormConfig({
               !!formData.model_engine &&
               enginesWithNWorker.includes(formData.model_engine),
           },
-          {
-            name: 'worker_ip',
-            label: t('launchModel.workerIp.optional'),
-            type: 'input',
-            visible: true,
-          },
+          createWorkerIpField(
+            t,
+            workerItems,
+            workerFieldType,
+            workerFieldDisabled,
+            workerFieldHelperText
+          ),
           {
             name: 'gpu_idx',
             label: t('launchModel.GPUIdx'),
@@ -174,7 +202,7 @@ export default function getModelFormConfig({
             error:
               !!formData.gpu_idx && !/^\d+(?:,\d+)*$/.test(formData.gpu_idx),
             helperText: t('launchModel.enterCommaSeparatedNumbers'),
-            visible: true,
+            visible: !!formData.n_gpu && formData.n_gpu !== 'CPU',
           },
           {
             name: 'download_hub',
@@ -343,12 +371,13 @@ export default function getModelFormConfig({
         type: 'input',
         visible: true,
       },
-      {
-        name: 'worker_ip',
-        label: t('launchModel.workerIp.optional'),
-        type: 'input',
-        visible: true,
-      },
+      createWorkerIpField(
+        t,
+        workerItems,
+        workerFieldType,
+        workerFieldDisabled,
+        workerFieldHelperText
+      ),
       {
         name: 'download_hub',
         label: t('launchModel.downloadHub.optional'),
@@ -494,12 +523,13 @@ export default function getModelFormConfig({
         type: 'input',
         visible: true,
       },
-      {
-        name: 'worker_ip',
-        label: t('launchModel.workerIp.optional'),
-        type: 'input',
-        visible: true,
-      },
+      createWorkerIpField(
+        t,
+        workerItems,
+        workerFieldType,
+        workerFieldDisabled,
+        workerFieldHelperText
+      ),
       {
         name: 'download_hub',
         label: t('launchModel.downloadHub.optional'),
@@ -512,6 +542,19 @@ export default function getModelFormConfig({
         label: t('launchModel.modelPath.optional'),
         type: 'input',
         visible: true,
+      },
+      {
+        name: 'gguf_quantization',
+        label: t('launchModel.GGUFQuantization.optional'),
+        type: 'select',
+        options: ['none', ...(ggufQuantizations || [])],
+        visible: !!ggufQuantizations,
+      },
+      {
+        name: 'gguf_model_path',
+        label: t('launchModel.GGUFModelPath.optional'),
+        type: 'input',
+        visible: !!ggufQuantizations,
       },
       {
         name: 'request_limits',
@@ -591,6 +634,30 @@ export default function getModelFormConfig({
         visible: true,
       },
       {
+        name: 'model_engine',
+        label: t('launchModel.modelEngine'),
+        type: 'select',
+        options: engineItems,
+        visible: !!engineItems?.length,
+        required: false,
+      },
+      {
+        name: 'model_format',
+        label: t('launchModel.modelFormat'),
+        type: 'select',
+        options: formatItems,
+        visible: !!formatItems?.length,
+        disabled: !formData.model_engine,
+      },
+      {
+        name: 'quantization',
+        label: t('launchModel.quantization'),
+        type: 'select',
+        options: quantizationItems,
+        visible: !!quantizationItems?.length,
+        disabled: !formData.model_format,
+      },
+      {
         name: 'replica',
         label: t('launchModel.replica'),
         type: 'number',
@@ -620,12 +687,13 @@ export default function getModelFormConfig({
         helperText: t('launchModel.enterCommaSeparatedNumbers'),
         visible: !!formData.n_gpu && formData.n_gpu !== 'CPU',
       },
-      {
-        name: 'worker_ip',
-        label: t('launchModel.workerIp.optional'),
-        type: 'input',
-        visible: true,
-      },
+      createWorkerIpField(
+        t,
+        workerItems,
+        workerFieldType,
+        workerFieldDisabled,
+        workerFieldHelperText
+      ),
       {
         name: 'download_hub',
         label: t('launchModel.downloadHub.optional'),
@@ -643,14 +711,14 @@ export default function getModelFormConfig({
         name: 'gguf_quantization',
         label: t('launchModel.GGUFQuantization.optional'),
         type: 'select',
-        options: ['none', ...(modelData.gguf_quantizations || [])],
-        visible: !!modelData.gguf_quantizations,
+        options: ['none', ...(ggufQuantizations || [])],
+        visible: !!ggufQuantizations,
       },
       {
         name: 'gguf_model_path',
         label: t('launchModel.GGUFModelPath.optional'),
         type: 'input',
-        visible: !!modelData.gguf_quantizations,
+        visible: !!ggufQuantizations,
       },
       {
         name: 'lightning_version',
@@ -811,12 +879,13 @@ export default function getModelFormConfig({
         helperText: t('launchModel.enterCommaSeparatedNumbers'),
         visible: !!formData.n_gpu && formData.n_gpu === 'GPU',
       },
-      {
-        name: 'worker_ip',
-        label: t('launchModel.workerIp.optional'),
-        type: 'input',
-        visible: true,
-      },
+      createWorkerIpField(
+        t,
+        workerItems,
+        workerFieldType,
+        workerFieldDisabled,
+        workerFieldHelperText
+      ),
       {
         name: 'download_hub',
         label: t('launchModel.downloadHub.optional'),
@@ -829,6 +898,19 @@ export default function getModelFormConfig({
         label: t('launchModel.modelPath.optional'),
         type: 'input',
         visible: true,
+      },
+      {
+        name: 'gguf_quantization',
+        label: t('launchModel.GGUFQuantization.optional'),
+        type: 'select',
+        options: ['none', ...(ggufQuantizations || [])],
+        visible: !!ggufQuantizations,
+      },
+      {
+        name: 'gguf_model_path',
+        label: t('launchModel.GGUFModelPath.optional'),
+        type: 'input',
+        visible: !!ggufQuantizations,
       },
       {
         name: 'request_limits',
@@ -937,12 +1019,13 @@ export default function getModelFormConfig({
         helperText: t('launchModel.enterCommaSeparatedNumbers'),
         visible: !!formData.n_gpu && formData.n_gpu === 'GPU',
       },
-      {
-        name: 'worker_ip',
-        label: t('launchModel.workerIp.optional'),
-        type: 'input',
-        visible: true,
-      },
+      createWorkerIpField(
+        t,
+        workerItems,
+        workerFieldType,
+        workerFieldDisabled,
+        workerFieldHelperText
+      ),
       {
         name: 'download_hub',
         label: t('launchModel.downloadHub.optional'),
@@ -955,6 +1038,19 @@ export default function getModelFormConfig({
         label: t('launchModel.modelPath.optional'),
         type: 'input',
         visible: true,
+      },
+      {
+        name: 'gguf_quantization',
+        label: t('launchModel.GGUFQuantization.optional'),
+        type: 'select',
+        options: ['none', ...(ggufQuantizations || [])],
+        visible: !!ggufQuantizations,
+      },
+      {
+        name: 'gguf_model_path',
+        label: t('launchModel.GGUFModelPath.optional'),
+        type: 'input',
+        visible: !!ggufQuantizations,
       },
       {
         name: 'request_limits',
@@ -1102,12 +1198,13 @@ export default function getModelFormConfig({
         helperText: t('launchModel.enterCommaSeparatedNumbers'),
         visible: !!formData.n_gpu && formData.n_gpu === 'GPU',
       },
-      {
-        name: 'worker_ip',
-        label: t('launchModel.workerIp.optional'),
-        type: 'input',
-        visible: true,
-      },
+      createWorkerIpField(
+        t,
+        workerItems,
+        workerFieldType,
+        workerFieldDisabled,
+        workerFieldHelperText
+      ),
       {
         name: 'model_path',
         label: t('launchModel.modelPath.optional'),

@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ from typing import (
     List,
     Literal,
     Optional,
+    Set,
     Tuple,
     Type,
     Union,
@@ -40,15 +41,23 @@ import xoscar as xo
 from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_DISABLE_HEALTH_CHECK,
+    XINFERENCE_ENABLE_OTEL,
+    XINFERENCE_GET_MODEL_RPC_TIMEOUT,
     XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
     XINFERENCE_HEALTH_CHECK_TIMEOUT,
+    XINFERENCE_LAUNCH_HISTORY_DB_PATH,
     XINFERENCE_LAUNCH_STRATEGY,
+    XINFERENCE_LIST_MODELS_PER_WORKER_TIMEOUT,
 )
 from ..core.model import ModelActor
 from ..core.status_guard import InstanceInfo, LaunchStatus
-from ..model.utils import get_engine_params_by_name
+from ..model.utils import (
+    get_engine_params_by_name,
+    get_engine_params_by_name_with_virtual_env,
+)
 from ..types import PeftModelConfig
+from .exceptions import ModelNotReadyError
 from .launch_strategy import IdleFirstLaunchStrategy
 from .metrics import record_metrics
 from .resource import GPUStatus, ResourceStatus
@@ -86,6 +95,18 @@ def callback_for_async_launch(model_uid: str):
     logger.debug(f"Model uid: {model_uid} async launch completes.")
 
 
+class WorkerNotRegisteredError(Exception):
+    """Raised when a worker reports status but is absent from the supervisor
+    registry (``_worker_address_to_worker``). Most commonly happens after a
+    supervisor restart clears the in-memory registry while workers keep their
+    cached refs. Raising forces the worker into ``report_status``'s reconnect
+    branch, which re-runs ``add_worker`` and self-heals the registry (and thus
+    ``workers_total``). Subclasses ``Exception`` (not ``RuntimeError``) on
+    purpose: the worker report loop treats some ``RuntimeError``s as fatal and
+    breaks, which must never happen here.
+    """
+
+
 @dataclass
 class WorkerStatus:
     update_time: float
@@ -100,6 +121,7 @@ class ReplicaInfo:
     replica_to_worker_refs: DefaultDict[int, List[xo.ActorRefType["WorkerActor"]]] = (
         field(default_factory=lambda: defaultdict(list))
     )
+    active_replica_ids: List[int] = field(default_factory=list)
 
 
 class SupervisorActor(xo.StatelessActor):
@@ -107,6 +129,9 @@ class SupervisorActor(xo.StatelessActor):
         super().__init__()
         self._worker_address_to_worker: Dict[str, xo.ActorRefType["WorkerActor"]] = {}  # type: ignore
         self._worker_status: Dict[str, WorkerStatus] = {}  # type: ignore
+        self._replica_model_uid_to_worker_shards: Dict[
+            str, Dict[int, xo.ActorRefType["WorkerActor"]]
+        ] = {}  # type: ignore
         self._replica_model_uid_to_worker: Dict[  # type: ignore
             str,
             Union[
@@ -117,6 +142,35 @@ class SupervisorActor(xo.StatelessActor):
         self._model_uid_to_replica_info: Dict[str, ReplicaInfo] = {}  # type: ignore
         self._uptime = None
         self._lock = asyncio.Lock()
+        self._replica_gpu_cache: Dict[str, list] = {}
+        # list_models cache for graceful degradation when a worker is unreachable
+        self._list_models_cache: Dict[str, Dict[str, Dict[str, Any]]] = {}
+        # Reverse-ping failure counter per worker
+        self._reverse_ping_failures: Dict[str, int] = {}
+        # Track workers currently launching models — when a worker has active
+        # launches, reverse-channel dead detection is exempted because
+        # long-running model downloads can starve the actor event loop.
+        self._workers_launching: Dict[str, int] = {}  # address -> active launch count
+        self._worker_model_gpu_memory: Dict[str, Dict[str, Dict[int, int]]] = (
+            {}
+        )  # worker_address -> {model_uid -> {gpu_idx -> bytes}}
+        # Replicas currently down due to worker failure. Key is
+        # (base_model_uid, replica_index), value is model_name. Populated on the
+        # death-detection paths, cleared on redeploy. Serialized in
+        # get_cluster_metrics_data() and translated into the
+        # xinference:model_unexpected_termination gauge in the API process.
+        self._unexpected_down_replicas: Dict[Tuple[str, int], str] = {}
+        self._autostart_task: Optional[asyncio.Task] = None
+        self._autostart_requested = False
+        self._autostart_lock = asyncio.Lock()
+        self._autostart_store_lock = asyncio.Lock()
+        self._autostart_wakeup_event = asyncio.Event()
+        self._autostart_model_states: Dict[str, Dict[str, Any]] = {}
+        from .launch_history_store import LaunchHistoryStore
+
+        self._launch_history_store = LaunchHistoryStore(
+            XINFERENCE_LAUNCH_HISTORY_DB_PATH
+        )
 
     @classmethod
     def default_uid(cls) -> str:
@@ -131,8 +185,509 @@ class SupervisorActor(xo.StatelessActor):
                 return ref
         return None
 
+    @staticmethod
+    def _build_replica_info(replica: int) -> ReplicaInfo:
+        active_replica_ids = list(range(replica))
+        return ReplicaInfo(
+            replica=replica,
+            scheduler=itertools.cycle(active_replica_ids),
+            active_replica_ids=active_replica_ids,
+        )
+
+    @staticmethod
+    def _refresh_replica_scheduler(replica_info: ReplicaInfo) -> None:
+        replica_info.active_replica_ids = sorted(replica_info.active_replica_ids)
+        replica_info.replica = len(replica_info.active_replica_ids)
+        replica_info.scheduler = itertools.cycle(replica_info.active_replica_ids)
+
+    def _iter_active_replica_model_uids(self, model_uid: str) -> List[str]:
+        replica_info = self._model_uid_to_replica_info.get(model_uid, None)
+        if replica_info is None:
+            raise ValueError(f"Model not found in the model list, uid: {model_uid}")
+        return [
+            build_replica_model_uid(model_uid, replica_id)
+            for replica_id in replica_info.active_replica_ids
+        ]
+
+    @staticmethod
+    def _get_model_uid_and_replica_index(
+        replica_model_uid: str,
+    ) -> Optional[Tuple[str, int]]:
+        if replica_model_uid.endswith("-rank0"):
+            return None
+        try:
+            model_uid, replica_idx = parse_replica_model_uid(replica_model_uid)
+        except (TypeError, ValueError):
+            logger.warning(
+                "Skip rebuilding unsupported replica model uid: %s",
+                replica_model_uid,
+            )
+            return None
+        if replica_idx < 0:
+            logger.warning(
+                "Skip rebuilding unsupported replica model uid: %s",
+                replica_model_uid,
+            )
+            return None
+        return model_uid, replica_idx
+
+    @staticmethod
+    def _normalize_replica_states(
+        replica_states: Optional[List[Dict[str, Any]]] = None,
+        replica_model_uids: Optional[List[str]] = None,
+    ) -> List[Dict[str, Any]]:
+        if replica_states is not None:
+            return replica_states
+        return [
+            {"replica_model_uid": replica_model_uid, "n_worker": 1, "shard": 0}
+            for replica_model_uid in (replica_model_uids or [])
+        ]
+
+    def _remove_worker_from_replica_mappings(self, worker_address: str):
+        model_uids_to_prune = set()
+        replica_model_uids = list(self._replica_model_uid_to_worker)
+        for replica_model_uid in replica_model_uids:
+            worker_refs = self._replica_model_uid_to_worker[replica_model_uid]
+            if not isinstance(worker_refs, (list, tuple)):
+                worker_refs = [worker_refs]
+            remaining_worker_refs = [
+                worker_ref
+                for worker_ref in worker_refs
+                if worker_ref.address != worker_address
+            ]
+            if len(remaining_worker_refs) == len(worker_refs):
+                continue
+
+            parsed = self._get_model_uid_and_replica_index(replica_model_uid)
+            if parsed is not None:
+                model_uid, replica_idx = parsed
+                replica_info = self._model_uid_to_replica_info.get(model_uid)
+                if replica_info is not None:
+                    replica_info.replica_to_worker_refs[replica_idx] = [
+                        worker_ref
+                        for worker_ref in replica_info.replica_to_worker_refs[
+                            replica_idx
+                        ]
+                        if worker_ref.address != worker_address
+                    ]
+
+                shard_mapping = self._replica_model_uid_to_worker_shards.get(
+                    replica_model_uid
+                )
+                if shard_mapping is not None:
+                    self._replica_model_uid_to_worker_shards[replica_model_uid] = {
+                        shard: worker_ref
+                        for shard, worker_ref in shard_mapping.items()
+                        if worker_ref.address != worker_address
+                    }
+
+            if remaining_worker_refs:
+                if len(remaining_worker_refs) == 1:
+                    self._replica_model_uid_to_worker[replica_model_uid] = (
+                        remaining_worker_refs[0]
+                    )
+                else:
+                    self._replica_model_uid_to_worker[replica_model_uid] = tuple(
+                        remaining_worker_refs
+                    )
+            else:
+                self._replica_model_uid_to_worker.pop(replica_model_uid, None)
+                self._replica_model_uid_to_worker_shards.pop(replica_model_uid, None)
+                if parsed is not None:
+                    model_uids_to_prune.add(parsed[0])
+
+        for model_uid in model_uids_to_prune:
+            replica_info = self._model_uid_to_replica_info.get(model_uid)
+            if replica_info is None:
+                continue
+
+            active_replica_ids = replica_info.active_replica_ids or list(
+                range(replica_info.replica)
+            )
+            replica_info.active_replica_ids = [
+                replica_idx
+                for replica_idx in active_replica_ids
+                if build_replica_model_uid(model_uid, replica_idx)
+                in self._replica_model_uid_to_worker
+            ]
+            if replica_info.active_replica_ids:
+                self._refresh_replica_scheduler(replica_info)
+                continue
+
+            self._model_uid_to_replica_info.pop(model_uid, None)
+
+    async def _record_unexpected_down_replicas(
+        self,
+        worker_address: str,
+        skip_replica_uids: Optional[Set[str]] = None,
+    ) -> List[str]:
+        """Record replicas on a now-dead worker into the unexpected-termination
+        tracking dict.
+
+        model_name is read from the status guard *before* any TERMINATED
+        transition, because get_instance_info filters out TERMINATED entries
+        (status_guard.py). Returns the affected replica_model_uids for logging.
+
+        skip_replica_uids lets the re-registration path (add_worker) pass the
+        replicas the worker still reports this round, so only the replicas that
+        silently disappeared (set difference) are treated as down. The death
+        paths pass nothing and treat every replica on the worker as down.
+        """
+        skip = skip_replica_uids or set()
+        affected_replica_uids: List[str] = []
+        collected: List[Tuple[str, int, str]] = []
+        for replica_model_uid in list(self._replica_model_uid_to_worker):
+            if replica_model_uid in skip:
+                continue
+            worker_refs = self._replica_model_uid_to_worker.get(replica_model_uid)
+            if worker_refs is None:
+                continue
+            if not isinstance(worker_refs, (list, tuple)):
+                worker_refs = [worker_refs]
+            if not any(wr.address == worker_address for wr in worker_refs):
+                continue
+            affected_replica_uids.append(replica_model_uid)
+            parsed = self._get_model_uid_and_replica_index(replica_model_uid)
+            if parsed is None:
+                continue
+            base_uid, replica_idx = parsed
+            m_name = "unknown"
+            if self._status_guard_ref is not None:
+                try:
+                    info_list = await self._status_guard_ref.get_instance_info(
+                        model_uid=base_uid
+                    )
+                    m_name = info_list[0].model_name if info_list else "unknown"
+                except Exception:
+                    pass
+            collected.append((base_uid, replica_idx, m_name))
+        # Mutate the shared dict without awaiting in between. Re-check that
+        # each replica is still mapped to this dead worker before writing:
+        # during the awaits above, a concurrent redeploy could have called
+        # _clear_unexpected_down_replicas and removed stale entries — blindly
+        # writing collected items back would resurrect them.
+        for base_uid, replica_idx, m_name in collected:
+            rep_uid = build_replica_model_uid(base_uid, replica_idx)
+            worker_refs = self._replica_model_uid_to_worker.get(rep_uid)
+            if worker_refs is not None:
+                if not isinstance(worker_refs, (list, tuple)):
+                    worker_refs = [worker_refs]
+                if any(wr.address == worker_address for wr in worker_refs):
+                    self._unexpected_down_replicas[(base_uid, replica_idx)] = m_name
+        if collected:
+            logger.warning(
+                "Replicas down due to worker failure. worker: %s, replicas: %s",
+                worker_address,
+                [
+                    {
+                        "model_uid": base_uid,
+                        "model_name": m_name,
+                        "replica_index": replica_idx,
+                    }
+                    for base_uid, replica_idx, m_name in collected
+                ],
+            )
+        return affected_replica_uids
+
+    async def _handle_dead_worker(self, worker_address: str) -> List[str]:
+        """Shared cleanup for a worker that has gone away — heartbeat-dead,
+        reverse-channel-dead, or graceful remove_worker.
+
+        1. Record each downed replica into _unexpected_down_replicas (per-replica;
+           degraded models keep their healthy replicas).
+        2. Remove only this worker's replicas via
+           _remove_worker_from_replica_mappings, which preserves healthy replicas
+           of multi-replica models on other workers and drops a model only when
+           *all* its replicas are gone.
+        3. Advance fully-gone models to TERMINATED so model_status disappears;
+           degraded models stay READY.
+        """
+        affected_replica_uids = await self._record_unexpected_down_replicas(
+            worker_address
+        )
+        base_uids_affected = set()
+        for replica_model_uid in affected_replica_uids:
+            parsed = self._get_model_uid_and_replica_index(replica_model_uid)
+            if parsed is not None:
+                base_uids_affected.add(parsed[0])
+
+        self._remove_worker_from_replica_mappings(worker_address)
+
+        for base_uid in base_uids_affected:
+            if base_uid not in self._model_uid_to_replica_info:
+                try:
+                    await self._status_guard_ref.update_instance_info(
+                        base_uid, {"status": LaunchStatus.TERMINATED.name}
+                    )
+                except Exception:
+                    logger.warning(
+                        "Failed to mark %s TERMINATED in status guard", base_uid
+                    )
+        return affected_replica_uids
+
+    def _clear_unexpected_down_replicas(self, model_uid: str) -> None:
+        """Drop all replica entries of a model_uid from the unexpected-termination
+        tracking dict (called on redeploy). The API process clears the matching
+        gauge series on its next refresh via stale-pop."""
+        self._unexpected_down_replicas = {
+            key: name
+            for key, name in self._unexpected_down_replicas.items()
+            if key[0] != model_uid
+        }
+
+    def _rebuild_worker_replica_state(
+        self,
+        worker_ref: xo.ActorRefType["WorkerActor"],
+        replica_states: List[Dict[str, Any]],
+    ):
+        worker_address = worker_ref.address
+        self._remove_worker_from_replica_mappings(worker_address)
+
+        if not replica_states:
+            return
+
+        replica_groups: DefaultDict[str, Dict[int, Dict[str, int]]] = defaultdict(dict)
+        for replica_state in replica_states:
+            replica_model_uid = replica_state.get("replica_model_uid")
+            if not isinstance(replica_model_uid, str):
+                continue
+            parsed = self._get_model_uid_and_replica_index(replica_model_uid)
+            if parsed is None:
+                continue
+            model_uid, replica_idx = parsed
+            n_worker = replica_state.get("n_worker", 1)
+            shard = replica_state.get("shard", 0)
+            if not isinstance(n_worker, int) or n_worker <= 0:
+                n_worker = 1
+            if not isinstance(shard, int) or shard < 0:
+                shard = 0
+            if n_worker > 1 and shard >= n_worker:
+                logger.warning(
+                    "Skip rebuilding replica %s with invalid shard metadata n_worker=%s shard=%s",
+                    replica_model_uid,
+                    n_worker,
+                    shard,
+                )
+                continue
+
+            replica_groups[model_uid][replica_idx] = {
+                "n_worker": n_worker,
+                "shard": shard,
+            }
+
+            existing_worker_refs = self._replica_model_uid_to_worker.get(
+                replica_model_uid
+            )
+            if n_worker <= 1:
+                self._replica_model_uid_to_worker_shards.pop(replica_model_uid, None)
+                self._replica_model_uid_to_worker[replica_model_uid] = worker_ref
+            else:
+                shard_mapping = dict(
+                    self._replica_model_uid_to_worker_shards.get(replica_model_uid, {})
+                )
+                if not shard_mapping and existing_worker_refs is not None:
+                    if isinstance(existing_worker_refs, tuple):
+                        shard_mapping = {
+                            idx: existing_worker_ref
+                            for idx, existing_worker_ref in enumerate(
+                                existing_worker_refs
+                            )
+                        }
+                    elif isinstance(existing_worker_refs, list):
+                        shard_mapping = {
+                            idx: existing_worker_ref
+                            for idx, existing_worker_ref in enumerate(
+                                existing_worker_refs
+                            )
+                        }
+                    else:
+                        shard_mapping = {0: existing_worker_refs}
+                shard_mapping[shard] = worker_ref
+                self._replica_model_uid_to_worker_shards[replica_model_uid] = (
+                    shard_mapping
+                )
+
+                ordered_refs = [
+                    worker_ref
+                    for _, worker_ref in sorted(
+                        shard_mapping.items(), key=lambda item: item[0]
+                    )
+                ]
+                self._replica_model_uid_to_worker[replica_model_uid] = tuple(
+                    ordered_refs
+                )
+
+        for model_uid, replica_metadata in replica_groups.items():
+            replica_indexes = sorted(replica_metadata)
+            replica_count = len(replica_indexes)
+            replica_info = self._model_uid_to_replica_info.get(model_uid)
+            if replica_info is None:
+                replica_info = self._build_replica_info(replica_count)
+                self._model_uid_to_replica_info[model_uid] = replica_info
+            replica_info.active_replica_ids = replica_indexes
+            self._refresh_replica_scheduler(replica_info)
+
+            for replica_idx in replica_indexes:
+                n_worker = replica_metadata[replica_idx]["n_worker"]
+                shard = replica_metadata[replica_idx]["shard"]
+                if n_worker <= 1:
+                    replica_info.replica_to_worker_refs[replica_idx] = [worker_ref]
+                    continue
+
+                shard_mapping = self._replica_model_uid_to_worker_shards.get(
+                    build_replica_model_uid(model_uid, replica_idx), {}
+                )
+                replica_info.replica_to_worker_refs[replica_idx] = [
+                    ref
+                    for _, ref in sorted(
+                        shard_mapping.items(), key=lambda item: item[0]
+                    )
+                ]
+
+    async def _rebuild_worker_status_guard_state(
+        self,
+        worker_address: str,
+        replica_states: List[Dict[str, Any]],
+    ):
+        if self._status_guard_ref is None or not replica_states:
+            return
+
+        grouped_states: DefaultDict[str, List[Dict[str, Any]]] = defaultdict(list)
+        for replica_state in replica_states:
+            n_worker = replica_state.get("n_worker", 1)
+            if not isinstance(n_worker, int) or n_worker > 1:
+                continue
+            replica_model_uid = replica_state.get("replica_model_uid")
+            if not isinstance(replica_model_uid, str):
+                continue
+            parsed = self._get_model_uid_and_replica_index(replica_model_uid)
+            if parsed is None:
+                continue
+            model_uid, _ = parsed
+            grouped_states[model_uid].append(replica_state)
+
+        for model_uid, states in grouped_states.items():
+            replica_indexes = []
+            created_ts_candidates = []
+            for state in states:
+                parsed = self._get_model_uid_and_replica_index(
+                    state.get("replica_model_uid", "")
+                )
+                if parsed is None:
+                    continue
+                replica_indexes.append(parsed[1])
+                created_ts = state.get("instance_created_ts")
+                if isinstance(created_ts, int):
+                    created_ts_candidates.append(created_ts)
+
+            inferred_replica_count = (
+                max(replica_indexes) + 1 if replica_indexes else len(states)
+            )
+            model_name = next(
+                (
+                    state.get("model_name")
+                    for state in states
+                    if isinstance(state.get("model_name"), str)
+                ),
+                model_uid,
+            )
+            model_version = next(
+                (state.get("model_version") for state in states),
+                None,
+            )
+            model_ability: List[str] = []
+            for state in states:
+                candidate_ability = state.get("model_ability")
+                if isinstance(candidate_ability, list) and all(
+                    isinstance(item, str) for item in candidate_ability
+                ):
+                    model_ability = candidate_ability
+                    break
+            n_worker = max(
+                (
+                    state.get("n_worker", 1)
+                    for state in states
+                    if isinstance(state.get("n_worker"), int)
+                ),
+                default=1,
+            )
+            if n_worker > 1:
+                continue
+            instance_created_ts = (
+                min(created_ts_candidates)
+                if created_ts_candidates
+                else int(time.time())
+            )
+
+            existing_infos = await self._status_guard_ref.get_instance_info(
+                model_uid=model_uid
+            )
+            if existing_infos:
+                existing_info = existing_infos[0]
+                await self._status_guard_ref.update_instance_info(
+                    model_uid,
+                    {
+                        "model_name": model_name,
+                        "model_version": model_version,
+                        "model_ability": model_ability,
+                        "replica": max(existing_info.replica, inferred_replica_count),
+                        "status": LaunchStatus.READY.name,
+                        "instance_created_ts": min(
+                            existing_info.instance_created_ts, instance_created_ts
+                        ),
+                        "n_worker": max(existing_info.n_worker or 1, n_worker),
+                    },
+                )
+            else:
+                await self._status_guard_ref.set_instance_info(
+                    model_uid,
+                    InstanceInfo(
+                        model_name=model_name,
+                        model_uid=model_uid,
+                        model_version=model_version,
+                        model_ability=model_ability,
+                        replica=inferred_replica_count,
+                        status=LaunchStatus.READY.name,
+                        instance_created_ts=instance_created_ts,
+                        n_worker=n_worker,
+                    ),
+                )
+
+            for state in states:
+                replica_model_uid = state.get("replica_model_uid")
+                if not isinstance(replica_model_uid, str):
+                    continue
+                parsed = self._get_model_uid_and_replica_index(replica_model_uid)
+                if parsed is None:
+                    continue
+                _, replica_id = parsed
+                created_ts = state.get("created_ts")
+                await self._status_guard_ref.update_replica_status(
+                    model_uid,
+                    replica_id,
+                    {
+                        "replica_model_uid": replica_model_uid,
+                        "worker_address": worker_address,
+                        "status": LaunchStatus.READY.name,
+                        "created_ts": (
+                            created_ts
+                            if isinstance(created_ts, int)
+                            else instance_created_ts
+                        ),
+                    },
+                )
+
     async def __post_create__(self):
         self._uptime = time.time()
+        if XINFERENCE_ENABLE_OTEL:
+            try:
+                from .otel import setup_otel
+
+                setup_otel(instrument_app=False, register_worker_metrics=True)
+            except Exception:
+                logger.exception(
+                    "Failed to initialise supervisor OpenTelemetry worker metrics. Continuing without supervisor OTEL metrics."
+                )
         if not XINFERENCE_DISABLE_HEALTH_CHECK:
             # Run _check_dead_nodes() in a dedicated thread.
             from ..isolation import Isolation
@@ -289,10 +844,335 @@ class SupervisorActor(xo.StatelessActor):
         self._collective_manager_mapping: Dict[  # type: ignore
             str, xo.ActorRefType[CollectiveManager]
         ] = {}
+        self._schedule_autostart()
+
+    def _schedule_autostart(self, delay: float = 0.0):
+        if self._autostart_task is not None and not self._autostart_task.done():
+            if delay <= 0:
+                self._autostart_requested = True
+                self._autostart_wakeup_event.set()
+            return
+        self._autostart_task = asyncio.create_task(
+            self._run_autostart_with_retries(delay)
+        )
+
+    async def _run_in_executor(self, func, *args: Any):
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, func, *args)
+
+    async def _wait_for_autostart_wakeup(self, delay: float):
+        try:
+            await asyncio.wait_for(self._autostart_wakeup_event.wait(), timeout=delay)
+        except asyncio.TimeoutError:
+            pass
+        finally:
+            self._autostart_wakeup_event.clear()
+
+    async def _run_autostart_with_retries(self, delay: float):
+        try:
+            next_delay: Optional[float] = max(delay, 0.0)
+            while True:
+                if next_delay:
+                    await self._wait_for_autostart_wakeup(next_delay)
+                next_delay = await self._run_autostart_once()
+                if self._autostart_requested:
+                    self._autostart_requested = False
+                    next_delay = 0.0
+                if next_delay is None:
+                    break
+        finally:
+            self._autostart_task = None
+
+    async def _run_autostart_once(self) -> Optional[float]:
+        async with self._autostart_lock:
+            try:
+                entries = await self._load_autostart_entries()
+            except Exception:
+                logger.exception("Failed to load autostart entries.")
+                return None
+
+            entries = [entry for entry in entries if entry.get("enabled", True)]
+            if not entries:
+                return None
+            if not self._worker_address_to_worker:
+                for entry in entries:
+                    model_uid = entry["launch"]["model_uid"]
+                    self._autostart_model_states[model_uid] = {
+                        **self._autostart_model_states.get(model_uid, {}),
+                        "status": "waiting_worker",
+                        "message": "Waiting for worker registration.",
+                    }
+                logger.info("Autostart waits for worker registration.")
+                return None
+
+            semaphore = asyncio.Semaphore(1)
+            retry_delays: List[float] = []
+
+            async def _run_entry(entry: Dict[str, Any]):
+                async with semaphore:
+                    retry_delay = await self._autostart_one_model(entry)
+                    if retry_delay is not None:
+                        retry_delays.append(retry_delay)
+
+            await asyncio.gather(
+                *[
+                    _run_entry(entry)
+                    for entry in sorted(
+                        entries,
+                        key=lambda item: (
+                            int(item.get("priority", 100)),
+                            item["launch"]["model_uid"],
+                        ),
+                    )
+                ]
+            )
+            return min(retry_delays) if retry_delays else None
+
+    async def _load_autostart_entries(
+        self, username: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        from .autostart import normalize_autostart_model_entry
+
+        async with self._autostart_store_lock:
+            raw_entries = await self._run_in_executor(
+                self._launch_history_store.list_autostart, username
+            )
+        entries = []
+        for raw_entry in raw_entries:
+            try:
+                entries.append(normalize_autostart_model_entry(raw_entry))
+            except ValueError:
+                logger.exception("Skip invalid autostart entry: %s", raw_entry)
+        return entries
+
+    async def _autostart_model_is_active(self, model_uid: str) -> bool:
+        if model_uid in self._model_uid_to_replica_info:
+            return True
+        infos = await self._status_guard_ref.get_instance_info(model_uid=model_uid)
+        active_statuses = {
+            LaunchStatus.CREATING.name,
+            LaunchStatus.UPDATING.name,
+            LaunchStatus.TERMINATING.name,
+            LaunchStatus.READY.name,
+        }
+        return any(info.status in active_statuses for info in infos)
+
+    def _autostart_waiting_for_worker(self, launch: Dict[str, Any]) -> bool:
+        worker_ip = launch.get("worker_ip")
+        if worker_ip is None or self.is_local_deployment():
+            return False
+        requested_ips = [item.strip() for item in str(worker_ip).split(",")]
+        requested_ips = [item for item in requested_ips if item]
+        if not requested_ips:
+            return False
+        current_ips = {
+            address.split(":")[0] for address in self._worker_address_to_worker
+        }
+        return not any(item in current_ips for item in requested_ips)
+
+    async def _launch_autostart_model(self, launch: Dict[str, Any]) -> str:
+        payload = dict(launch)
+        payload.pop("wait_ready", None)
+        peft_model_config = payload.pop("peft_model_config", None)
+        if peft_model_config is not None:
+            peft_model_config = PeftModelConfig.from_dict(peft_model_config)
+
+        gpu_idx = payload.pop("gpu_idx", None)
+        if isinstance(gpu_idx, int):
+            gpu_idx = [gpu_idx]
+
+        return await self.launch_builtin_model(
+            model_uid=payload.pop("model_uid", None),
+            model_name=payload.pop("model_name"),
+            model_engine=payload.pop("model_engine", None),
+            model_size_in_billions=payload.pop("model_size_in_billions", None),
+            model_format=payload.pop("model_format", None),
+            quantization=payload.pop("quantization", None),
+            model_type=payload.pop("model_type", "LLM"),
+            replica=payload.pop("replica", 1),
+            n_gpu=payload.pop("n_gpu", "auto"),
+            n_worker=payload.pop("n_worker", 1),
+            request_limits=payload.pop("request_limits", None),
+            wait_ready=True,
+            peft_model_config=peft_model_config,
+            worker_ip=payload.pop("worker_ip", None),
+            gpu_idx=gpu_idx,
+            download_hub=payload.pop("download_hub", None),
+            model_path=payload.pop("model_path", None),
+            enable_virtual_env=payload.pop("enable_virtual_env", None),
+            virtual_env_packages=payload.pop("virtual_env_packages", None),
+            envs=payload.pop("envs", None),
+            **payload,
+        )
+
+    async def _autostart_one_model(self, entry: Dict[str, Any]) -> Optional[float]:
+        launch = entry["launch"]
+        model_uid = launch["model_uid"]
+        state = self._autostart_model_states.setdefault(model_uid, {"attempts": 0})
+
+        if await self._autostart_model_is_active(model_uid):
+            state.update(
+                {
+                    "status": "active",
+                    "message": "Model is already active.",
+                    "last_error": None,
+                }
+            )
+            return None
+
+        if self._autostart_waiting_for_worker(launch):
+            state.update(
+                {
+                    "status": "waiting_worker",
+                    "message": "Waiting for configured worker_ip.",
+                }
+            )
+            return None
+
+        max_retries = int(entry.get("max_retries", 3))
+        retry_interval = float(entry.get("retry_interval_seconds", 30))
+        attempts = int(state.get("attempts", 0))
+        if attempts >= max_retries:
+            state.update(
+                {
+                    "status": "error",
+                    "message": "Autostart retry limit reached.",
+                }
+            )
+            return None
+
+        last_attempt_ts = state.get("last_attempt_ts")
+        now = time.time()
+        if isinstance(last_attempt_ts, (int, float)):
+            remaining = retry_interval - (now - last_attempt_ts)
+            if remaining > 0:
+                return remaining
+
+        state.update(
+            {
+                "status": "launching",
+                "attempts": attempts + 1,
+                "last_attempt_ts": int(now),
+                "message": "Launching from autostart history.",
+            }
+        )
+        try:
+            launched_uid = await self._launch_autostart_model(launch)
+            state.update(
+                {
+                    "status": "active",
+                    "model_uid": launched_uid,
+                    "last_started_ts": int(time.time()),
+                    "last_error": None,
+                    "message": "Model is ready.",
+                }
+            )
+            logger.info("Autostart launched model: %s", launched_uid)
+            return None
+        except Exception as e:
+            state.update(
+                {
+                    "status": "error",
+                    "last_error": str(e),
+                    "message": "Launch failed.",
+                }
+            )
+            logger.error(
+                "Autostart failed for model %s: %s", model_uid, e, exc_info=True
+            )
+            if state["attempts"] < max_retries:
+                return retry_interval
+            return None
+
+    async def _build_autostart_response(
+        self, entries: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        from .autostart import redact_autostart_model_entries
+
+        models = redact_autostart_model_entries(entries)
+        for entry in models:
+            launch = entry.get("launch", {})
+            model_uid = launch.get("model_uid")
+            if not model_uid:
+                continue
+            state = dict(self._autostart_model_states.get(model_uid, {}))
+            infos = await self._status_guard_ref.get_instance_info(model_uid=model_uid)
+            if infos:
+                state["instance_status"] = infos[0].status
+            entry["state"] = state
+        return {"models": models}
+
+    async def get_autostart_config(
+        self, username: Optional[str] = None
+    ) -> Dict[str, Any]:
+        entries = await self._load_autostart_entries(username)
+        return await self._build_autostart_response(entries)
+
+    async def get_autostart_model_summary(self) -> Dict[str, Any]:
+        models = []
+        for entry in await self._load_autostart_entries():
+            launch = entry.get("launch", {})
+            model_uid = launch.get("model_uid")
+            if not model_uid:
+                continue
+            models.append(
+                {
+                    "enabled": entry.get("enabled", True),
+                    "model_uid": model_uid,
+                }
+            )
+        return {"models": models}
+
+    async def upsert_autostart_model(
+        self, entry: Dict[str, Any], username: str = ""
+    ) -> Dict[str, Any]:
+        from .autostart import normalize_autostart_model_entry
+
+        normalized_entry = normalize_autostart_model_entry(entry)
+        model_uid = normalized_entry["launch"]["model_uid"]
+        async with self._autostart_store_lock:
+            await self._run_in_executor(
+                self._launch_history_store.upsert_autostart,
+                normalized_entry,
+                username,
+            )
+            self._autostart_model_states.pop(model_uid, None)
+        self._schedule_autostart()
+        return await self.get_autostart_config(username)
+
+    async def remove_autostart_model(self, model_uid: str) -> Dict[str, Any]:
+        if not isinstance(model_uid, str) or not is_valid_model_uid(model_uid):
+            raise ValueError(
+                "The model UID is invalid. Please specify the model UID by 0 < length <= 100."
+            )
+
+        async with self._autostart_store_lock:
+            await self._run_in_executor(
+                self._launch_history_store.remove_autostart, model_uid
+            )
+            self._autostart_model_states.pop(model_uid, None)
+        return await self.get_autostart_model_summary()
 
     @typing.no_type_check
     async def get_cluster_device_info(self, detailed: bool = False) -> List:
         import psutil
+
+        def _get_gpu_statuses(
+            status: Dict[str, Union[ResourceStatus, GPUStatus]],
+        ) -> List[GPUStatus]:
+            gpu_statuses: List[GPUStatus] = []
+            for value in status.values():
+                if isinstance(value, GPUStatus):
+                    gpu_statuses.append(value)
+            return gpu_statuses
+
+        def _get_average_gpu_utilization(
+            status: Dict[str, Union[ResourceStatus, GPUStatus]],
+        ) -> Optional[float]:
+            gpu_statuses = _get_gpu_statuses(status)
+            if not gpu_statuses:
+                return None
+            return sum(gpu.gpu_util for gpu in gpu_statuses) / len(gpu_statuses)
 
         supervisor_device_info = {
             "ip_address": self.address,
@@ -302,6 +1182,7 @@ class SupervisorActor(xo.StatelessActor):
         if detailed:
             supervisor_device_info["gpu_vram_total"] = 0
             supervisor_device_info["gpu_vram_available"] = 0
+            supervisor_device_info["gpu_utilization"] = None
             supervisor_device_info["cpu_available"] = psutil.cpu_count() * (
                 1 - psutil.cpu_percent() / 100.0
             )
@@ -318,20 +1199,44 @@ class SupervisorActor(xo.StatelessActor):
             total = (
                 vram_total if vram_total == 0 else f"{int(vram_total / 1024 / 1024)}MiB"
             )
+            gpu_statuses = _get_gpu_statuses(worker_status.status)
             info = {
                 "node_type": "Worker",
                 "ip_address": worker_addr,
-                "gpu_count": len(worker_status.status) - 1,
+                "gpu_count": len(gpu_statuses),
                 "gpu_vram_total": total,
             }
             if detailed:
-                cpu_info = worker_status.status["cpu"]
-                info["cpu_available"] = cpu_info.total * (1 - cpu_info.usage)
-                info["cpu_count"] = cpu_info.total
-                info["mem_used"] = cpu_info.memory_used
-                info["mem_available"] = cpu_info.memory_available
-                info["mem_total"] = cpu_info.memory_total
+                cpu_raw = worker_status.status.get("cpu")
+                if isinstance(cpu_raw, ResourceStatus):
+                    info["cpu_available"] = cpu_raw.total * (1 - cpu_raw.usage)
+                    info["cpu_count"] = cpu_raw.total
+                    info["mem_used"] = cpu_raw.memory_used
+                    info["mem_available"] = cpu_raw.memory_available
+                    info["mem_total"] = cpu_raw.memory_total
+                else:
+                    if cpu_raw is not None:
+                        logger.warning(
+                            "Worker %s status['cpu'] has unexpected type %s; "
+                            "omitting cpu/mem fields in cluster device info",
+                            worker_addr,
+                            type(cpu_raw).__name__,
+                        )
+                    else:
+                        logger.debug(
+                            "Worker %s status missing 'cpu' key; "
+                            "omitting cpu/mem fields in cluster device info",
+                            worker_addr,
+                        )
+                    info["cpu_available"] = None
+                    info["cpu_count"] = None
+                    info["mem_used"] = None
+                    info["mem_available"] = None
+                    info["mem_total"] = None
                 info["gpu_vram_total"] = vram_total
+                info["gpu_utilization"] = _get_average_gpu_utilization(
+                    worker_status.status
+                )
                 info["gpu_vram_available"] = sum(
                     [v.mem_free for k, v in worker_status.status.items() if k != "cpu"]
                 )
@@ -427,6 +1332,70 @@ class SupervisorActor(xo.StatelessActor):
         return {
             "uptime": int(time.time() - self._uptime),
             "workers": self._worker_status,
+        }
+
+    async def get_cluster_metrics_data(self) -> Dict:
+        """Return all data needed to refresh Supervisor-side Prometheus gauges."""
+        workers: Dict[str, Any] = {}
+        for addr, ws in self._worker_status.items():
+            workers[addr] = ws.status
+
+        # Model lifecycle statuses (CREATING/READY/ERROR)
+        instance_infos: list = []
+        try:
+            from .status_guard import StatusGuardActor
+
+            status_guard_ref = await xo.actor_ref(
+                address=self.address, uid=StatusGuardActor.default_uid()
+            )
+            infos = await status_guard_ref.get_instance_info()
+            instance_infos = [
+                {
+                    "model_uid": i.model_uid,
+                    "model_name": i.model_name,
+                    "status": i.status,
+                }
+                for i in infos
+            ]
+        except Exception:
+            logger.warning("Failed to get instance info for metrics", exc_info=True)
+
+        # Model replica distribution across workers
+        model_replica_distribution: Dict[str, Dict[str, Any]] = {}
+        for model_uid, replica_info in self._model_uid_to_replica_info.items():
+            worker_replica_count: Dict[str, int] = defaultdict(int)
+            replica_gpu_details: list = []
+            for _rep_idx, ref_list in replica_info.replica_to_worker_refs.items():
+                replica_uid = f"{model_uid}-{_rep_idx}"
+                gpu_indices = self._replica_gpu_cache.get(replica_uid, [])
+                for ref in ref_list:
+                    worker_replica_count[ref.address] += 1
+                    replica_gpu_details.append(
+                        (str(_rep_idx), ref.address, gpu_indices)
+                    )
+            model_replica_distribution[model_uid] = {
+                "replica_total": replica_info.replica,
+                "worker_distribution": dict(worker_replica_count),
+                "replica_gpu_details": replica_gpu_details,
+            }
+
+        return {
+            "uptime": int(time.time() - self._uptime) if self._uptime else 0,
+            "worker_count": len(self._worker_address_to_worker),
+            "workers": workers,
+            "instance_infos": instance_infos,
+            "model_replica_distribution": model_replica_distribution,
+            "model_gpu_memory": dict(self._worker_model_gpu_memory),
+            "unexpected_down_replicas": [
+                {
+                    "model_uid": base_uid,
+                    "replica_index": replica_idx,
+                    "model_name": model_name,
+                }
+                for (base_uid, replica_idx), model_name in (
+                    self._unexpected_down_replicas.items()
+                )
+            ],
         }
 
     def _get_spec_dicts(
@@ -661,13 +1630,19 @@ class SupervisorActor(xo.StatelessActor):
             assert isinstance(item["model_name"], str)
             return item.get("model_name").lower()
 
-        ret = []
+        ret: List[Dict[str, Any]] = []
 
         # Always get model registrations from workers, including local deployment
         # In local deployment, supervisor acts as its own worker
         workers = list(self._worker_address_to_worker.values())
-        for worker in workers:
-            ret.extend(await worker.list_model_registrations(model_type, detailed))
+        results: List[List[Dict[str, Any]]] = await asyncio.gather(
+            *[
+                worker.list_model_registrations(model_type, detailed)
+                for worker in workers
+            ]
+        )
+        for result in results:
+            ret.extend(result)
 
         ret.sort(key=sort_helper)
         return ret
@@ -685,18 +1660,31 @@ class SupervisorActor(xo.StatelessActor):
         raise ValueError(f"Model {model_name} not found")
 
     async def query_engines_by_model_name(
-        self, model_name: str, model_type: Optional[str] = None
+        self,
+        model_name: str,
+        model_type: Optional[str] = None,
+        enable_virtual_env: Optional[bool] = None,
     ):
         # search in worker first
         workers = list(self._worker_address_to_worker.values())
         for worker in workers:
             res = await worker.query_engines_by_model_name(
-                model_name, model_type=model_type
+                model_name, model_type=model_type, enable_virtual_env=enable_virtual_env
             )
             if res is not None:
                 return res
 
-        return get_engine_params_by_name(model_type, model_name)
+        if enable_virtual_env is None:
+            from ..constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+
+            enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
+        if enable_virtual_env:
+            return get_engine_params_by_name_with_virtual_env(
+                model_type, model_name, enable_virtual_env=enable_virtual_env
+            )
+        return get_engine_params_by_name(
+            model_type, model_name, enable_virtual_env=enable_virtual_env
+        )
 
     @log_async(logger=logger)
     async def register_model(
@@ -752,15 +1740,36 @@ class SupervisorActor(xo.StatelessActor):
 
             try:
                 register_fn(model_spec, persist)
-                await self._cache_tracker_ref.record_model_version(
-                    generate_fn(model_spec), self.address
+            except ValueError as e:
+                raise e
+            except Exception as e:
+                unregister_fn(model_spec.model_name, raise_error=False)
+                raise e
+
+            # cache sync is an auxiliary feature; failure must not roll back
+            # the already-successful register_fn. Guard against _cache_tracker_ref
+            # being None (defensive).
+            try:
+                if self._cache_tracker_ref is not None:
+                    await self._cache_tracker_ref.record_model_version(
+                        generate_fn(model_spec), self.address
+                    )
+            except Exception:
+                logger.warning(
+                    "Failed to record model version for %s after registration; "
+                    "cache management may be degraded",
+                    model_spec.model_name,
+                    exc_info=True,
                 )
+
+            # _sync_register_model propagates to all workers. If it fails, the
+            # model will not be registered on the workers, so we must roll back
+            # the supervisor-local registration and propagate the error to keep
+            # the cluster state consistent.
+            try:
                 await self._sync_register_model(
                     model_type, model, persist, model_spec.model_name
                 )
-
-            except ValueError as e:
-                raise e
             except Exception as e:
                 unregister_fn(model_spec.model_name, raise_error=False)
                 raise e
@@ -975,13 +1984,11 @@ class SupervisorActor(xo.StatelessActor):
             )
 
         if kwargs.get("enable_tensorizer", None) and (
-            (
-                model_engine is None
-                or model_engine.lower() != "transformers"
-                or model_format != "pytorch"
-                or quantization != "none"
-                or model_type != "LLM"
-            )
+            model_engine is None
+            or model_engine.lower() != "transformers"
+            or model_format != "pytorch"
+            or quantization != "none"
+            or model_type != "LLM"
         ):
             raise ValueError(
                 "Tensorizer can only be enabled for LLM models with Transformers engine, PyTorch format, and none quantization."
@@ -1083,7 +2090,6 @@ class SupervisorActor(xo.StatelessActor):
                 rank0_address, _port = await worker_ref.launch_rank0_model(
                     _replica_model_uid, xavier_config
                 )
-                self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
                 store_address = rank0_address.split(":")[0]
                 store_port = _port
 
@@ -1091,6 +2097,7 @@ class SupervisorActor(xo.StatelessActor):
                 await self._status_guard_ref.update_replica_status(
                     model_uid, replica_id, {"status": LaunchStatus.READY.name}
                 )
+                self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
                 return rank0_address
 
             replica_gpu_idx = (
@@ -1102,6 +2109,11 @@ class SupervisorActor(xo.StatelessActor):
 
             # LLM as default for compatibility
             model_type = model_type or "LLM"
+
+            # Track this worker as launching so reverse-channel dead
+            # detection is exempted during long model downloads.
+            _addr = worker_ref.address
+            self._workers_launching[_addr] = self._workers_launching.get(_addr, 0) + 1
 
             try:
                 subpool_address = await worker_ref.launch_builtin_model(
@@ -1124,8 +2136,10 @@ class SupervisorActor(xo.StatelessActor):
                     xavier_config=xavier_config,
                     **kwargs,
                 )
-                self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
+                # Wait for engine to be ready BEFORE adding to route table,
+                # so requests are never routed to a still-loading model.
                 await worker_ref.wait_for_load(_replica_model_uid)
+                self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
 
                 # Update replica status to READY
                 await self._status_guard_ref.update_replica_status(
@@ -1140,6 +2154,13 @@ class SupervisorActor(xo.StatelessActor):
                     {"status": LaunchStatus.ERROR.name, "error_message": str(e)},
                 )
                 raise
+            finally:
+                # Decrement launching counter
+                _cnt = self._workers_launching.get(_addr, 1) - 1
+                if _cnt <= 0:
+                    self._workers_launching.pop(_addr, None)
+                else:
+                    self._workers_launching[_addr] = _cnt
 
         async def _launch_model():
             try:
@@ -1206,6 +2227,14 @@ class SupervisorActor(xo.StatelessActor):
                         for c in worker_candidates
                     ],
                 )
+
+                # Pre-check: ensure no replica uid already exists before entering
+                # asyncio.gather, preventing partial-deploy-then-rollback.
+                for _pre_check_uid in iter_replica_model_uid(model_uid, replica):
+                    if _pre_check_uid in self._replica_model_uid_to_worker:
+                        raise ValueError(
+                            f"Model is already in the model list, uid: {_pre_check_uid}"
+                        )
 
                 # Prepare all launch tasks for parallel execution
                 launch_tasks = []
@@ -1340,9 +2369,9 @@ class SupervisorActor(xo.StatelessActor):
         if model_uid in self._model_uid_to_replica_info:
             raise ValueError(f"Model is already in the model list, uid: {model_uid}")
         # Set replica info first for exception handler to terminate model.
-        self._model_uid_to_replica_info[model_uid] = ReplicaInfo(
-            replica=replica, scheduler=itertools.cycle(range(replica))
-        )
+        self._model_uid_to_replica_info[model_uid] = self._build_replica_info(replica)
+        # Redeploy clears any stale unexpected-termination markers for this uid.
+        self._clear_unexpected_down_replicas(model_uid)
         instance_info = InstanceInfo(
             model_name=model_name,
             model_uid=model_uid,
@@ -1418,9 +2447,18 @@ class SupervisorActor(xo.StatelessActor):
                     "n_worker cannot be larger than the number of available workers."
                 )
             try:
+                # Pre-check: ensure no replica uid already exists before
+                # launching, preventing partial-deploy-then-rollback.
+                for _pre_check_uid in iter_replica_model_uid(model_uid, replica):
+                    if _pre_check_uid in self._replica_model_uid_to_worker:
+                        raise ValueError(
+                            f"Model is already in the model list, uid: {_pre_check_uid}"
+                        )
+
                 for _idx, rep_model_uid in enumerate(
                     iter_replica_model_uid(model_uid, replica)
                 ):
+                    remaining_workers = list(available_workers)
                     replica_gpu_idx = assign_replica_gpu(
                         rep_model_uid, replica, gpu_idx
                     )
@@ -1428,7 +2466,9 @@ class SupervisorActor(xo.StatelessActor):
                     worker_refs = []
                     driver_info = None
                     for i_worker in range(n_worker):
-                        worker_ref = await self._choose_worker(available_workers)
+                        worker_ref = await self._choose_worker(remaining_workers)
+                        if worker_ref.address in remaining_workers:
+                            remaining_workers.remove(worker_ref.address)
                         self._model_uid_to_replica_info[
                             model_uid
                         ].replica_to_worker_refs[_idx].append(worker_ref)
@@ -1472,7 +2512,7 @@ class SupervisorActor(xo.StatelessActor):
                     # wait for load complete
                     for worker_ref in worker_refs:
                         await worker_ref.wait_for_load(rep_model_uid)
-            except:
+            except Exception:
                 # terminate_model will remove the replica info.
                 await self.terminate_model(model_uid, suppress_exception=True)
                 await self._status_guard_ref.update_instance_info(
@@ -1497,9 +2537,9 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Model is already in the model list, uid: {model_uid}")
 
         # Set replica info first for exception handler to terminate model.
-        self._model_uid_to_replica_info[model_uid] = ReplicaInfo(
-            replica=replica, scheduler=itertools.cycle(range(replica))
-        )
+        self._model_uid_to_replica_info[model_uid] = self._build_replica_info(replica)
+        # Redeploy clears any stale unexpected-termination markers for this uid.
+        self._clear_unexpected_down_replicas(model_uid)
         instance_info = InstanceInfo(
             model_name=model_name,
             model_uid=model_uid,
@@ -1521,14 +2561,14 @@ class SupervisorActor(xo.StatelessActor):
 
     async def get_launch_builtin_model_progress(self, model_uid: str) -> float:
         try:
-            info = self._model_uid_to_replica_info[model_uid]
+            self._model_uid_to_replica_info[model_uid]
         except KeyError:
             # Not launched perhaps, just return 0.0 to prevent error
             return 0.0
 
         all_progress = 0.0
         i = 0
-        for rep_model_uid in iter_replica_model_uid(model_uid, info.replica):
+        for rep_model_uid in self._iter_active_replica_model_uids(model_uid):
             request_id = f"launching-{rep_model_uid}"
             try:
                 all_progress += await self._progress_tracker.get_progress(request_id)
@@ -1545,12 +2585,11 @@ class SupervisorActor(xo.StatelessActor):
             raise RuntimeError(f"Model {model_uid} has not been launched yet")
 
         coros = []
-        for i, rep_model_uid in enumerate(
-            iter_replica_model_uid(model_uid, info.replica)
-        ):
+        for replica_id in info.active_replica_ids:
+            rep_model_uid = build_replica_model_uid(model_uid, replica_id)
             worker_refs = self._model_uid_to_replica_info[
                 model_uid
-            ].replica_to_worker_refs[i]
+            ].replica_to_worker_refs[replica_id]
             for worker_ref in worker_refs:
                 coros.append(worker_ref.cancel_launch_model(rep_model_uid))
         try:
@@ -1606,7 +2645,7 @@ class SupervisorActor(xo.StatelessActor):
                         dead_models = []
                         for model_uid in self._replica_model_uid_to_worker:
                             worker_refs = self._replica_model_uid_to_worker[model_uid]
-                            if not isinstance(worker_refs, list):
+                            if not isinstance(worker_refs, (list, tuple)):
                                 worker_refs = [worker_refs]
                             for worker_ref in worker_refs:
                                 model_address = worker_ref.address
@@ -1617,12 +2656,8 @@ class SupervisorActor(xo.StatelessActor):
                             address,
                             dead_models,
                         )
-                        for replica_model_uid in dead_models:
-                            model_uid, _ = parse_replica_model_uid(replica_model_uid)
-                            self._model_uid_to_replica_info.pop(model_uid, None)
-                            self._replica_model_uid_to_worker.pop(
-                                replica_model_uid, None
-                            )
+                        # Defer model/replica cleanup to after this iteration so
+                        # we never await while iterating _worker_status.
                         dead_nodes.append(address)
                     elif (
                         status.failure_remaining_count
@@ -1635,8 +2670,96 @@ class SupervisorActor(xo.StatelessActor):
                         )
 
                 for address in dead_nodes:
+                    # Per-replica unexpected-termination recording + replica-level
+                    # mapping cleanup (preserves healthy replicas of multi-replica
+                    # models on surviving workers) + TERMINATED for fully-gone models.
+                    await self._handle_dead_worker(address)
                     self._worker_status.pop(address, None)
                     self._worker_address_to_worker.pop(address, None)
+                    self._worker_model_gpu_memory.pop(address, None)
+
+                # ---- Reverse-channel probe ----
+                # Heartbeat only covers worker->supervisor; this probes
+                # supervisor->worker so we detect dead reverse channels
+                # even when the worker process is alive.
+                for address, worker_ref in list(self._worker_address_to_worker.items()):
+                    if address in dead_nodes:
+                        self._reverse_ping_failures.pop(address, None)
+                        continue
+                    try:
+                        await xo.wait_for(worker_ref.ping(), timeout=5)
+                        # Reset on success
+                        self._reverse_ping_failures.pop(address, None)
+                    except Exception:
+                        # If the worker is launching a model, exempt it from
+                        # reverse-channel dead detection. Long-running
+                        # downloads can starve the actor event loop for
+                        # minutes, but the worker is still alive.
+                        # Heartbeat path still detects real process crashes.
+                        if address in self._workers_launching:
+                            logger.warning(
+                                "Worker reverse-channel timeout. address: %s "
+                                "(launching model, reverse-channel check skipped)",
+                                address,
+                            )
+                            # Do NOT accumulate failure count; reset it so
+                            # that when launching finishes, the worker starts
+                            # with a clean slate.
+                            self._reverse_ping_failures.pop(address, None)
+                            continue
+
+                        count = self._reverse_ping_failures.get(address, 0) + 1
+                        self._reverse_ping_failures[address] = count
+                        if count >= XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD:
+                            # Treat as dead — same cleanup as heartbeat failure
+                            status = self._worker_status.get(address)
+                            if status is not None:
+                                status.failure_remaining_count = 0
+                            dead_models = [
+                                replica_model_uid
+                                for replica_model_uid in (
+                                    self._replica_model_uid_to_worker
+                                )
+                                for wr in (
+                                    self._replica_model_uid_to_worker[replica_model_uid]
+                                    if isinstance(
+                                        self._replica_model_uid_to_worker[
+                                            replica_model_uid
+                                        ],
+                                        (list, tuple),
+                                    )
+                                    else [
+                                        self._replica_model_uid_to_worker[
+                                            replica_model_uid
+                                        ]
+                                    ]
+                                )
+                                if wr.address == address
+                            ]
+                            logger.error(
+                                "Worker reverse-channel dead. address: %s, "
+                                "influenced models: %s",
+                                address,
+                                dead_models,
+                            )
+                            # Per-replica unexpected-termination recording +
+                            # replica-level mapping cleanup + TERMINATED for
+                            # fully-gone models. Iterating a copied list above,
+                            # so full worker removal here is safe and keeps
+                            # _worker_status consistent with workers_total.
+                            await self._handle_dead_worker(address)
+                            self._worker_status.pop(address, None)
+                            self._worker_address_to_worker.pop(address, None)
+                            self._worker_model_gpu_memory.pop(address, None)
+                            dead_nodes.append(address)
+                            self._reverse_ping_failures.pop(address, None)
+                        else:
+                            logger.error(
+                                "Worker reverse-channel timeout. address: %s, "
+                                "check count remaining %s...",
+                                address,
+                                XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD - count,
+                            )
             finally:
                 await asyncio.sleep(XINFERENCE_HEALTH_CHECK_INTERVAL)
 
@@ -1646,7 +2769,7 @@ class SupervisorActor(xo.StatelessActor):
             worker_refs = self._replica_model_uid_to_worker.get(
                 _replica_model_uid, None
             )
-            if not isinstance(worker_refs, list):
+            if not isinstance(worker_refs, (list, tuple)):
                 worker_refs = [worker_refs]
 
             for worker_ref in worker_refs:
@@ -1655,19 +2778,22 @@ class SupervisorActor(xo.StatelessActor):
                         f"Model not found in the model list, uid: {_replica_model_uid}"
                     )
                 await worker_ref.terminate_model(model_uid=_replica_model_uid)
-            del self._replica_model_uid_to_worker[_replica_model_uid]
+            self._replica_model_uid_to_worker.pop(_replica_model_uid, None)
 
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
         if replica_info is None:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
 
-        for rep_model_uid in iter_replica_model_uid(model_uid, replica_info.replica):
-            try:
-                await _terminate_one_model(rep_model_uid)
-            except Exception:
-                if not suppress_exception:
-                    raise
+        rep_model_uids = list(self._iter_active_replica_model_uids(model_uid))
+        results = await asyncio.gather(
+            *(_terminate_one_model(rep_uid) for rep_uid in rep_model_uids),
+            return_exceptions=True,
+        )
+        errors = [r for r in results if isinstance(r, Exception)]
+        if errors and not suppress_exception:
+            raise errors[0]
         self._model_uid_to_replica_info.pop(model_uid, None)
+        self._clear_unexpected_down_replicas(model_uid)
 
         # clear for xavier
         rank0_uid = model_uid + "-rank0"
@@ -1702,9 +2828,225 @@ class SupervisorActor(xo.StatelessActor):
                 logger.debug(f"Destroy block_tracker_ref done. model uid: {model_uid}")
 
     @log_async(logger=logger)
+    async def terminate_model_replica(
+        self, model_uid: str, replica_id: int, suppress_exception: bool = False
+    ) -> int:
+        replica_info = self._model_uid_to_replica_info.get(model_uid, None)
+        if replica_info is None:
+            raise ValueError(f"Model not found in the model list, uid: {model_uid}")
+
+        if replica_id not in replica_info.active_replica_ids:
+            raise ValueError(
+                f"Replica not found in the model list, uid: {model_uid}, replica_id: {replica_id}"
+            )
+
+        replica_model_uid = build_replica_model_uid(model_uid, replica_id)
+        worker_refs = self._replica_model_uid_to_worker.get(replica_model_uid, None)
+        if worker_refs is None:
+            raise ValueError(
+                f"Model not found in the model list, uid: {replica_model_uid}"
+            )
+        if not isinstance(worker_refs, (list, tuple)):
+            worker_refs = [worker_refs]
+
+        try:
+            for worker_ref in worker_refs:
+                await worker_ref.terminate_model(model_uid=replica_model_uid)
+        except Exception:
+            if not suppress_exception:
+                raise
+
+        self._replica_model_uid_to_worker.pop(replica_model_uid, None)
+        replica_info.replica_to_worker_refs.pop(replica_id, None)
+        replica_info.active_replica_ids.remove(replica_id)
+        self._refresh_replica_scheduler(replica_info)
+
+        remaining_replica_count = await self._status_guard_ref.remove_replica_status(
+            model_uid, replica_id
+        )
+        if remaining_replica_count > 0:
+            await self._status_guard_ref.update_instance_info(
+                model_uid,
+                {"replica": remaining_replica_count, "status": LaunchStatus.READY.name},
+            )
+            self._unexpected_down_replicas.pop((model_uid, replica_id), None)
+            return remaining_replica_count
+
+        self._model_uid_to_replica_info.pop(model_uid, None)
+        self._clear_unexpected_down_replicas(model_uid)
+
+        await self._cleanup_distributed_actors(
+            model_uid, terminate_rank0_on_worker=True
+        )
+
+        return 0
+
+    async def _cleanup_distributed_actors(
+        self, model_uid: str, terminate_rank0_on_worker: bool = True
+    ) -> None:
+        """Tear down supervisor-side actors/mappings created for distributed
+        (Xavier) models when the last replica of ``model_uid`` goes away: the
+        rank0 model, the collective manager, and the block tracker.
+
+        Shared by terminate_model_replica (graceful teardown) and
+        mark_replica_dead (auto-recover exhaustion). Without this, exhausting
+        AUTO_RECOVER_LIMIT on a distributed model would leak the rank0 actor and
+        the collective/block-tracker mappings, and a later launch reusing the
+        same uid could hit stale actors.
+
+        terminate_rank0_on_worker: when True, RPC the worker to terminate the
+        rank0 model. Both terminate_model_replica (graceful) and
+        mark_replica_dead (auto-recover exhaustion) pass True: rank0 is a
+        SEPARATE subpool (launch_rank0_model appends its own sub pool with its
+        own address) that a regular replica's OOM does NOT terminate -- the
+        worker's recover_sub_pool only acts on the subpool whose address died,
+        so an exhausted regular replica leaves rank0 alive. Dropping only the
+        supervisor mapping would leak the rank0 actor/subpool. The RPC is
+        bounded by xo.wait_for(5s) so a stalled worker cannot hold up the
+        death-recovery tail path; failure/timeout is non-fatal.
+
+        Deliberately does NOT touch _unexpected_down_replicas: callers decide
+        whether the down marker stays lit (terminate clears it, mark_replica_dead
+        keeps it for the failure gauge).
+        """
+        rank0_uid = model_uid + "-rank0"
+        rank0_worker_refs = self._replica_model_uid_to_worker.pop(rank0_uid, None)
+        if rank0_worker_refs is not None and terminate_rank0_on_worker:
+            if not isinstance(rank0_worker_refs, (list, tuple)):
+                rank0_worker_refs = [rank0_worker_refs]
+            for worker_ref in rank0_worker_refs:
+                try:
+                    await xo.wait_for(
+                        worker_ref.terminate_model(model_uid=rank0_uid),
+                        timeout=5,
+                    )
+                except Exception as e:
+                    logger.debug(
+                        "Terminate rank0 model failed, model uid: %s, error: %s",
+                        rank0_uid,
+                        e,
+                    )
+
+        collective_manager_ref = self._collective_manager_mapping.pop(model_uid, None)
+        if collective_manager_ref is not None:
+            try:
+                await xo.destroy_actor(collective_manager_ref)
+            except Exception as e:
+                logger.debug(
+                    "Destroy collective_manager_ref failed, model uid: %s, error: %s",
+                    model_uid,
+                    e,
+                )
+
+        block_tracker_ref = self._block_tracker_mapping.pop(model_uid, None)
+        if block_tracker_ref is not None:
+            try:
+                await xo.destroy_actor(block_tracker_ref)
+            except Exception as e:
+                logger.debug(
+                    "Destroy block_tracker_ref failed, model uid: %s, error: %s",
+                    model_uid,
+                    e,
+                )
+
+    async def mark_replica_dead(self, replica_model_uid: str) -> None:
+        """Called back by worker after its local recover_sub_pool exhausts
+        AUTO_RECOVER_LIMIT (worker.py "Stop recreating model actor.").
+
+        Responsibilities: evict the dead replica from the round-robin scheduler
+        and light up model_unexpected_termination; when the single/last replica
+        dies, advance base_uid to TERMINATED and tear down the distributed
+        (Xavier) actors/mappings via _cleanup_distributed_actors.
+
+        Does NOT call back worker.terminate_model for the dead replica itself --
+        the worker already terminated it locally before giving up recreating
+        (recover_sub_pool calls terminate_model(is_model_die=True)). It DOES, on
+        last-replica death, terminate the separate rank0 actor via
+        _cleanup_distributed_actors, because a regular replica's OOM does not
+        reach rank0's distinct subpool (see that helper).
+        Equivalent to terminate_model_replica's "eviction half" (minus the dead
+        replica's worker RPC) plus _record_unexpected_down_replicas'
+        "observability half". Idempotent: no-op if the replica is already evicted.
+        """
+        parsed = self._get_model_uid_and_replica_index(replica_model_uid)
+        if parsed is None:
+            return
+        base_uid, replica_idx = parsed
+
+        replica_info = self._model_uid_to_replica_info.get(base_uid)
+        if replica_info is None:
+            return  # model already gone, idempotent no-op
+        if replica_idx not in replica_info.active_replica_ids:
+            return  # replica already evicted, idempotent no-op
+
+        # Observability half: read model_name BEFORE any TERMINATED transition.
+        # get_instance_info filters out TERMINATED entries; right now base_uid is
+        # the ERROR the worker set (not filtered), so model_name is readable.
+        try:
+            info_list = await self._status_guard_ref.get_instance_info(
+                model_uid=base_uid
+            )
+            m_name = info_list[0].model_name if info_list else "unknown"
+        except Exception:
+            m_name = "unknown"
+        self._unexpected_down_replicas[(base_uid, replica_idx)] = m_name
+        logger.warning(
+            "Replica down: worker exhausted auto-recover limit. "
+            "model_uid: %s, model_name: %s, replica_index: %s",
+            base_uid,
+            m_name,
+            replica_idx,
+        )
+
+        # Eviction half: mirror terminate_model_replica, minus
+        # worker_ref.terminate_model.
+        self._replica_model_uid_to_worker.pop(replica_model_uid, None)
+        self._replica_model_uid_to_worker_shards.pop(replica_model_uid, None)
+        replica_info.replica_to_worker_refs.pop(replica_idx, None)
+        replica_info.active_replica_ids.remove(replica_idx)
+        self._refresh_replica_scheduler(replica_info)
+
+        remaining = await self._status_guard_ref.remove_replica_status(
+            base_uid, replica_idx
+        )
+        if remaining > 0:
+            # Degraded: healthy replicas remain -> keep READY.
+            await self._status_guard_ref.update_instance_info(
+                base_uid,
+                {"replica": remaining, "status": LaunchStatus.READY.name},
+            )
+            return
+
+        # Single replica / last replica died -> take the model fully offline.
+        self._model_uid_to_replica_info.pop(base_uid, None)
+
+        # Tear down distributed (Xavier) actors/mappings. rank0 is a separate
+        # subpool that the regular replica's OOM did NOT terminate (the worker
+        # only recovered the dead replica's own subpool), so we must RPC the
+        # worker to terminate it -- dropping just the supervisor mapping would
+        # leak the rank0 actor/subpool. The RPC is bounded (xo.wait_for 5s) and
+        # best-effort. Keeps the _unexpected_down_replicas marker lit for the
+        # failure gauge.
+        await self._cleanup_distributed_actors(base_uid, terminate_rank0_on_worker=True)
+
+        try:
+            await self._status_guard_ref.update_instance_info(
+                base_uid, {"status": LaunchStatus.TERMINATED.name}
+            )
+        except Exception:
+            logger.warning("Failed to mark %s TERMINATED in status guard", base_uid)
+
+    @log_async(logger=logger)
     async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
         if replica_info is None:
+            available_uids = list(self._model_uid_to_replica_info.keys())
+            raise ValueError(
+                f"Model not found in the model list, uid: {model_uid}. "
+                f"Available model uids: {available_uids}"
+            )
+
+        if not replica_info.active_replica_ids:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
 
         replica_model_uid = build_replica_model_uid(
@@ -1713,16 +3055,29 @@ class SupervisorActor(xo.StatelessActor):
 
         worker_ref = self._replica_model_uid_to_worker.get(replica_model_uid, None)
         if worker_ref is None:
-            raise ValueError(
-                f"Model not found in the model list, uid: {replica_model_uid}"
+            # replica_info exists but worker route not yet registered —
+            # model is being launched (wait_ready=False), not missing.
+            # Raise ModelNotReadyError (503) instead of ValueError (404)
+            # so the negative cache is not poisoned and clients get a
+            # retry-friendly response.
+            raise ModelNotReadyError(
+                f"Model {model_uid} is launching, not yet ready for inference"
             )
-        if isinstance(worker_ref, list):
+        if isinstance(worker_ref, (list, tuple)):
             # get first worker to fetch information if model across workers
             worker_ref = worker_ref[0]
         assert not isinstance(
             worker_ref, (list, tuple)
         ), "worker_ref must be a single worker"
-        return await worker_ref.get_model(model_uid=replica_model_uid)
+        try:
+            return await xo.wait_for(
+                worker_ref.get_model(model_uid=replica_model_uid),
+                XINFERENCE_GET_MODEL_RPC_TIMEOUT,
+            )
+        except ModelNotReadyError:
+            raise ModelNotReadyError(
+                f"Model {model_uid} is loading, please retry later"
+            )
 
     @log_async(logger=logger)
     async def get_model_status(self, replica_model_uid: str):
@@ -1731,7 +3086,7 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(
                 f"Model not found in the model list, uid: {replica_model_uid}"
             )
-        if isinstance(worker_ref, list):
+        if isinstance(worker_ref, (list, tuple)):
             # get status from first shard if model has multiple shards across workers
             worker_ref = worker_ref[0]
         assert not isinstance(
@@ -1744,15 +3099,18 @@ class SupervisorActor(xo.StatelessActor):
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
         if replica_info is None:
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
-        # Use rep id 0 to instead of next(replica_info.scheduler) to avoid
-        # consuming the generator.
-        replica_model_uid = build_replica_model_uid(model_uid, 0)
+        if not replica_info.active_replica_ids:
+            raise ValueError(f"Model not found in the model list, uid: {model_uid}")
+        # Use the first live replica to avoid consuming the scheduler.
+        replica_model_uid = build_replica_model_uid(
+            model_uid, replica_info.active_replica_ids[0]
+        )
         worker_ref = self._replica_model_uid_to_worker.get(replica_model_uid, None)
         if worker_ref is None:
-            raise ValueError(
-                f"Model not found in the model list, uid: {replica_model_uid}"
+            raise ModelNotReadyError(
+                f"Model {model_uid} is launching, not yet ready for inference"
             )
-        if isinstance(worker_ref, list):
+        if isinstance(worker_ref, (list, tuple)):
             # get status from first shard if model has multiple shards across workers
             worker_ref = worker_ref[0]
         assert not isinstance(
@@ -1764,15 +3122,72 @@ class SupervisorActor(xo.StatelessActor):
 
     @log_async(logger=logger)
     async def list_models(self) -> Dict[str, Dict[str, Any]]:
-        ret = {}
+        ret: Dict[str, Dict[str, Any]] = {}
 
-        workers = list(self._worker_address_to_worker.values())
-        for worker in workers:
-            ret.update(await worker.list_models())
+        workers = list(self._worker_address_to_worker.items())
+        if not workers:
+            return {}
+
+        async def _fetch_one(
+            worker_address: str, worker_ref: xo.ActorRefType["WorkerActor"]
+        ) -> Dict[str, Dict[str, Any]]:
+            try:
+                result = await xo.wait_for(
+                    worker_ref.list_models(),
+                    XINFERENCE_LIST_MODELS_PER_WORKER_TIMEOUT,
+                )
+                # Update cache on success
+                self._list_models_cache[worker_address] = result
+                return result
+            except Exception as ex:
+                cached = self._list_models_cache.get(worker_address, {})
+                if cached:
+                    logger.warning(
+                        "list_models from worker %s failed or timed out: %s, "
+                        "returning cached result (%d models)",
+                        worker_address,
+                        ex,
+                        len(cached),
+                    )
+                else:
+                    logger.warning(
+                        "list_models from worker %s failed or timed out: %s",
+                        worker_address,
+                        ex,
+                    )
+                return cached
+
+        parts = await asyncio.gather(*(_fetch_one(addr, ref) for addr, ref in workers))
+        for part in parts:
+            ret.update(part)
+
+        # Cache per-replica GPU info before dedup (for get_cluster_metrics_data)
+        replica_gpu_cache: Dict[str, list] = {}
+        for replica_uid, spec in ret.items():
+            accelerators = spec.get("accelerators")
+            if accelerators:
+                replica_gpu_cache[replica_uid] = [str(a) for a in accelerators]
+        self._replica_gpu_cache = replica_gpu_cache
+
         running_model_info = {parse_replica_model_uid(k)[0]: v for k, v in ret.items()}
         # add replica count
+        stale_uids = []
         for k, v in running_model_info.items():
-            v["replica"] = self._model_uid_to_replica_info[k].replica
+            replica_info = self._model_uid_to_replica_info.get(k)
+            if replica_info is None:
+                # Worker still reports a replica that supervisor no longer
+                # tracks (e.g. failed launch left a stale subprocess). Skip
+                # it instead of raising KeyError, and let recover_sub_pool
+                # clean up later.
+                logger.warning(
+                    "list_models: drop stale running model %s without replica info",
+                    k,
+                )
+                stale_uids.append(k)
+                continue
+            v["replica"] = replica_info.replica
+        for k in stale_uids:
+            running_model_info.pop(k, None)
         return running_model_info
 
     def is_local_deployment(self) -> bool:
@@ -1823,14 +3238,12 @@ class SupervisorActor(xo.StatelessActor):
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
         if not replica_info:
             return res
-        replica_cnt = replica_info.replica
-
         # Query all replicas
-        for rep_mid in iter_replica_model_uid(model_uid, replica_cnt):
+        for rep_mid in self._iter_active_replica_model_uids(model_uid):
             worker_ref = self._replica_model_uid_to_worker.get(rep_mid, None)
             if worker_ref is None:
                 continue
-            if isinstance(worker_ref, list):
+            if isinstance(worker_ref, (list, tuple)):
                 # get status from first shard if model has multiple shards across workers
                 worker_ref = worker_ref[0]
             assert not isinstance(
@@ -1848,39 +3261,75 @@ class SupervisorActor(xo.StatelessActor):
         return res
 
     @log_async(logger=logger)
-    async def add_worker(self, worker_address: str):
+    async def add_worker(
+        self,
+        worker_address: str,
+        replica_states: Optional[List[Dict[str, Any]]] = None,
+        replica_model_uids: Optional[List[str]] = None,
+    ):
         from .worker import WorkerActor
-
-        assert (
-            worker_address not in self._worker_address_to_worker
-        ), f"Worker {worker_address} exists"
 
         worker_ref = await xo.actor_ref(
             address=worker_address, uid=WorkerActor.default_uid()
         )
         self._worker_address_to_worker[worker_address] = worker_ref
+
+        normalized = self._normalize_replica_states(
+            replica_states=replica_states,
+            replica_model_uids=replica_model_uids,
+        )
+
+        # Re-registration reconciliation: a worker restarting and reusing the
+        # same address never trips dead-node detection (its fresh heartbeat
+        # refreshes _worker_status before the failure threshold is hit), so the
+        # death paths' StatusGuard/gauge cleanup never runs. Before rebuilding,
+        # diff the replicas the supervisor still maps to this address against the
+        # ones the worker reports this round; the set difference is what silently
+        # went away and must be handled like an unexpected termination. Passing
+        # the reported uids as skip means a worker that *did* recover its models
+        # is not mis-flagged.
+        reported_uids: Set[str] = set()
+        for state in normalized:
+            replica_model_uid = state.get("replica_model_uid")
+            if isinstance(replica_model_uid, str):
+                reported_uids.add(replica_model_uid)
+        affected_replica_uids = await self._record_unexpected_down_replicas(
+            worker_address, skip_replica_uids=reported_uids
+        )
+
+        self._rebuild_worker_replica_state(worker_ref, normalized)
+
+        # After the rebuild reflects what the worker reports now, advance any
+        # fully-gone model to TERMINATED so model_status stops showing it as
+        # READY. Degraded models (some replicas recovered/on other workers) stay
+        # in _model_uid_to_replica_info and are left untouched. Same logic as
+        # _handle_dead_worker.
+        base_uids_affected = set()
+        for replica_model_uid in affected_replica_uids:
+            parsed = self._get_model_uid_and_replica_index(replica_model_uid)
+            if parsed is not None:
+                base_uids_affected.add(parsed[0])
+        for base_uid in base_uids_affected:
+            if base_uid not in self._model_uid_to_replica_info:
+                try:
+                    await self._status_guard_ref.update_instance_info(
+                        base_uid, {"status": LaunchStatus.TERMINATED.name}
+                    )
+                except Exception:
+                    logger.warning(
+                        "Failed to mark %s TERMINATED in status guard", base_uid
+                    )
+
+        await self._rebuild_worker_status_guard_state(worker_address, normalized)
         logger.debug("Worker %s has been added successfully", worker_address)
+        self._schedule_autostart()
 
     @log_async(logger=logger)
     async def remove_worker(self, worker_address: str):
-        uids_to_remove = []
-        for model_uid in self._replica_model_uid_to_worker:
-            worker_refs = self._replica_model_uid_to_worker[model_uid]
-            if not isinstance(worker_refs, list):
-                worker_refs = [worker_refs]
-            for worker_ref in worker_refs:
-                model_address = worker_ref.address
-                if isinstance(model_address, str) and model_address == worker_address:
-                    uids_to_remove.append(model_uid)
-                elif (
-                    isinstance(model_address, list) and worker_address in model_address
-                ):
-                    uids_to_remove.append(model_uid)
-
-        for replica_model_uid in uids_to_remove:
-            model_uid, _ = parse_replica_model_uid(replica_model_uid)
-            self._model_uid_to_replica_info.pop(model_uid, None)
-            self._replica_model_uid_to_worker.pop(replica_model_uid, None)
+        # Records downed replicas + replica-level mapping cleanup + TERMINATED
+        # for fully-gone models (graceful worker shutdown is the third path
+        # where models won't auto-recover and need redeploy).
+        await self._handle_dead_worker(worker_address)
 
         if worker_address in self._worker_address_to_worker:
             del self._worker_address_to_worker[worker_address]
@@ -1890,9 +3339,32 @@ class SupervisorActor(xo.StatelessActor):
                 f"Worker {worker_address} cannot be removed since it is not registered to supervisor."
             )
 
+        self._worker_status.pop(worker_address, None)
+        self._worker_model_gpu_memory.pop(worker_address, None)
+        try:
+            from .otel import get_cluster_metrics_collector
+
+            collector = get_cluster_metrics_collector()
+            if collector is not None:
+                collector.remove_worker(worker_address)
+        except Exception:
+            logger.exception(
+                "Failed to remove worker status from OTEL collector for worker_address=%s",
+                worker_address,
+            )
+
     async def report_worker_status(
         self, worker_address: str, status: Dict[str, Union[ResourceStatus, GPUStatus]]
     ):
+        if worker_address not in self._worker_address_to_worker:
+            # Worker is reporting but is absent from the registry (typically
+            # after a supervisor restart cleared it). Reject so the worker's
+            # report_status reconnect branch re-runs add_worker and self-heals
+            # the registry, restoring workers_total and replaying running
+            # replicas. Do NOT fabricate a _worker_status entry here, otherwise
+            # the registry would stay stale forever.
+            raise WorkerNotRegisteredError(worker_address)
+
         if worker_address not in self._worker_status:
             logger.debug("Worker %s resources: %s", worker_address, status)
             self._worker_status[worker_address] = WorkerStatus(
@@ -1904,6 +3376,62 @@ class SupervisorActor(xo.StatelessActor):
             worker_status = self._worker_status[worker_address]
             worker_status.update_time = time.time()
             worker_status.status = status
+
+        # Feed worker metrics to OTEL (no-op if OTEL is disabled)
+        if status:
+            try:
+                from .otel import get_cluster_metrics_collector
+
+                collector = get_cluster_metrics_collector()
+                if collector is not None:
+                    collector.update(worker_address, status)
+            except Exception:
+                logger.exception(
+                    "Failed to feed worker status into OTEL collector for worker_address=%s",
+                    worker_address,
+                )
+
+        # Extract and store per-model GPU memory data
+        if isinstance(status, dict):
+            model_gpu_mem = status.pop("model_gpu_memory", None)
+            if model_gpu_mem:
+                self._worker_model_gpu_memory[worker_address] = model_gpu_mem  # type: ignore[assignment]
+            elif worker_address in self._worker_model_gpu_memory:
+                del self._worker_model_gpu_memory[worker_address]
+
+    async def receive_heartbeat(self, worker_address: str):
+        """
+        Receive lightweight heartbeat from worker.
+        Only updates the timestamp without collecting resource info.
+        Used for liveness detection separate from full status reporting.
+        """
+        if worker_address not in self._worker_address_to_worker:
+            # Worker not in the registry (typically after a supervisor restart).
+            # Stay a no-op: do NOT fabricate a _worker_status entry, otherwise
+            # dead-node detection would see a fake-alive worker and the registry
+            # would never self-heal. Registry recovery is driven solely by
+            # report_status -> report_worker_status (which raises and triggers
+            # the worker's reconnect/add_worker path). We must NOT raise here:
+            # heartbeat() has no reconnect branch and the worker report loop may
+            # treat a raised RuntimeError as fatal and break.
+            logger.debug(
+                "Worker %s heartbeat ignored: not registered, waiting for "
+                "report_status to re-register",
+                worker_address,
+            )
+            return
+
+        if worker_address not in self._worker_status:
+            # New worker, create initial status with empty state
+            logger.debug("Worker %s heartbeat: new worker", worker_address)
+            self._worker_status[worker_address] = WorkerStatus(
+                update_time=time.time(),
+                failure_remaining_count=XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
+                status={},  # Empty status, waiting for full report
+            )
+        else:
+            # Only update timestamp, not status
+            self._worker_status[worker_address].update_time = time.time()
 
     async def list_deletable_models(
         self, model_version: str, worker_ip: Optional[str] = None
@@ -1957,7 +3485,10 @@ class SupervisorActor(xo.StatelessActor):
 
     # Virtual environment management methods
     async def list_virtual_envs(
-        self, model_name: Optional[str] = None, worker_ip: Optional[str] = None
+        self,
+        model_name: Optional[str] = None,
+        model_engine: Optional[str] = None,
+        worker_ip: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """List virtual environments across the cluster."""
         target_ip_worker_ref = (
@@ -1972,14 +3503,16 @@ class SupervisorActor(xo.StatelessActor):
 
         # If specific worker is requested, query only that worker
         if target_ip_worker_ref:
-            virtual_envs = await target_ip_worker_ref.list_virtual_envs(model_name)
+            virtual_envs = await target_ip_worker_ref.list_virtual_envs(
+                model_name, model_engine
+            )
             return sorted(virtual_envs, key=lambda x: x["model_name"])
 
         # Otherwise, query all workers
         virtual_envs = []
         for worker_address, worker in self._worker_address_to_worker.items():
             try:
-                envs = await worker.list_virtual_envs(model_name)
+                envs = await worker.list_virtual_envs(model_name, model_engine)
                 virtual_envs.extend(envs)
             except Exception as e:
                 logger.warning(f"Failed to list virtual environments on worker: {e}")
@@ -2028,6 +3561,7 @@ class SupervisorActor(xo.StatelessActor):
     async def remove_virtual_env(
         self,
         model_name: str,
+        model_engine: Optional[str] = None,
         python_version: Optional[str] = None,
         worker_ip: Optional[str] = None,
     ) -> bool:
@@ -2048,7 +3582,7 @@ class SupervisorActor(xo.StatelessActor):
         # If specific worker is requested, remove only from that worker
         if target_ip_worker_ref:
             return await target_ip_worker_ref.remove_virtual_env(
-                model_name, python_version
+                model_name, model_engine, python_version
             )
 
         # Otherwise, remove from all workers that have the virtual environment
@@ -2058,7 +3592,7 @@ class SupervisorActor(xo.StatelessActor):
         # First, identify which workers have the virtual environment
         for worker in self._worker_address_to_worker.values():
             try:
-                envs = await worker.list_virtual_envs(model_name)
+                envs = await worker.list_virtual_envs(model_name, model_engine)
                 if envs:
                     workers_with_env.append(worker)
             except Exception as e:
@@ -2067,7 +3601,9 @@ class SupervisorActor(xo.StatelessActor):
         # Then remove from those workers
         for worker in workers_with_env:
             try:
-                result = await worker.remove_virtual_env(model_name, python_version)
+                result = await worker.remove_virtual_env(
+                    model_name, model_engine, python_version
+                )
                 ret = ret and result
             except Exception as e:
                 logger.error(f"Failed to remove virtual environment from worker: {e}")

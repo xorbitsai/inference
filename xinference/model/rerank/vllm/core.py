@@ -1,6 +1,7 @@
 import gc
 import inspect
 import logging
+import os
 import uuid
 from collections import defaultdict
 from typing import Any, List, Optional, Tuple, Union
@@ -19,6 +20,7 @@ from ..core import (
     RerankSpecV1,
 )
 
+QWEN3_RERANK_TEMPLATE = int(os.getenv("XINFERENCE_QWEN3_RERANK_TEMPLATE", "1"))
 logger = logging.getLogger(__name__)
 SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "gte", "Qwen3"]
 
@@ -32,7 +34,9 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         try:
             if is_vacc_available():
                 import vllm_vacc  # noqa: F401
+            from packaging.version import Version
             from vllm import LLM
+            from vllm import __version__ as vllm_version
 
         except ImportError:
             error_message = "Failed to import module 'vllm'"
@@ -63,7 +67,10 @@ class VLLMRerankModel(RerankModel, BatchMixin):
                     classifier_from_token=["no", "yes"],
                     is_original_qwen3_reranker=True,
                 )
-        self._model = LLM(model=self._model_path, task="score", **self._kwargs)
+        if Version(vllm_version) >= Version("0.13.0"):
+            self._model = LLM(model=self._model_path, **self._kwargs)
+        else:
+            self._model = LLM(model=self._model_path, task="score", **self._kwargs)
         self._tokenizer = self._model.get_tokenizer()
 
     def _rerank(
@@ -86,10 +93,11 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             max_chunks_per_doc (Optional[int]): Maximum chunks per document.
             return_documents (Optional[bool]): Whether to return the documents.
             return_len (Optional[bool]): Whether to return the length of the documents.
-
+            enable_qwen3_rerank_template (passed by kwargs) : Whether to enable qwen3 rerank template. this is per request level, higher priority than global ENV.
         Returns:
             Rerank: The reranked results.
         """
+        enable_qwen3_rerank_template = kwargs.pop("enable_qwen3_rerank_template", None)
         if kwargs:
             raise RuntimeError("Unexpected keyword arguments: {}".format(kwargs))
         assert self._model is not None
@@ -105,36 +113,35 @@ class VLLMRerankModel(RerankModel, BatchMixin):
             "Qwen3-Reranker-4B",
             "Qwen3-Reranker-8B",
         }:
-            instruction = "Given a web search query, retrieve relevant passages that answer the query"
-            prefix = (
-                "<|im_start|>system\nJudge whether the Document meets the requirements based on"
-                " the Query and the Instruct provided. "
-                'Note that the answer can only be "yes" or "no".<|im_end|>\n<|im_start|>user\n'
-            )
-            suffix = "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
-            query_template = "{prefix}<Instruct>: {instruction}\n<Query>: {query}\n"
-            document_template = "<Document>: {doc}{suffix}"
-            processed_queries = [
-                query_template.format(
-                    prefix=prefix, instruction=instruction, query=query
+            if enable_qwen3_rerank_template is False:
+                pass
+            elif enable_qwen3_rerank_template is True or QWEN3_RERANK_TEMPLATE:
+                instruction = "Given a web search query, retrieve relevant passages that answer the query"
+                prefix = (
+                    "<|im_start|>system\nJudge whether the Document meets the requirements based on"
+                    " the Query and the Instruct provided. "
+                    'Note that the answer can only be "yes" or "no".<|im_end|>\n<|im_start|>user\n'
                 )
-                for query in query_list
-            ]
-            processed_documents = [
-                document_template.format(doc=doc, suffix=suffix) for doc in documents
-            ]
-            outputs = self._model.score(
-                processed_documents,
-                processed_queries,
-                use_tqdm=False,
-            )
-
-        else:
-            outputs = self._model.score(
-                documents,
-                query_list,
-                use_tqdm=False,
-            )
+                suffix = "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+                query_template = "{prefix}<Instruct>: {instruction}\n<Query>: {query}\n"
+                document_template = "<Document>: {doc}{suffix}"
+                processed_queries = [
+                    query_template.format(
+                        prefix=prefix, instruction=instruction, query=query
+                    )
+                    for query in query_list
+                ]
+                processed_documents = [
+                    document_template.format(doc=doc, suffix=suffix)
+                    for doc in documents
+                ]
+                query_list = processed_queries
+                documents = processed_documents
+        outputs = self._model.score(
+            query_list,
+            documents,
+            use_tqdm=False,
+        )
         # clear cache if possible
         self._counter += 1
         if self._counter % RERANK_EMPTY_CACHE_COUNT == 0:
@@ -341,6 +348,23 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         else:
             return 1
 
+    def stop(self):
+        logger.info("Stopping vLLM rerank engine")
+        try:
+            if self._model is None:
+                return
+            engine = getattr(self._model, "llm_engine", None) or getattr(
+                self._model, "engine", None
+            )
+            if engine is not None and hasattr(engine, "shutdown"):
+                engine.shutdown()
+            if hasattr(self._model, "shutdown"):
+                self._model.shutdown()
+        finally:
+            self._model = None
+            gc.collect()
+            empty_cache()
+
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
         dep_check = check_dependency_available("vllm", "vLLM")
@@ -355,6 +379,8 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         model_spec: RerankSpecV1,
         quantization: str,
     ) -> Union[bool, Tuple[bool, str]]:
+        if model_family.model_name.startswith("Qwen3-VL-Reranker"):
+            return False, "Qwen3-VL reranker requires vLLM>=0.14.0"
         if model_spec.model_format not in ["pytorch"]:
             return False, "vLLM rerank engine only supports pytorch format"
         prefix = model_family.model_name.split("-", 1)[0]

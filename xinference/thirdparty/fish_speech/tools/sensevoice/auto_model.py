@@ -30,7 +30,7 @@ from .vad_utils import merge_vad, slice_padding_audio_samples
 try:
     from funasr.models.campplus.cluster_backend import ClusterBackend
     from funasr.models.campplus.utils import distribute_spk, postprocess, sv_chunk
-except:
+except Exception:
     pass
 
 
@@ -122,7 +122,7 @@ class AutoModel:
                 "Check update of funasr, and it would cost few times. You may disable it by set `disable_update=True` in AutoModel"
             )
             check_for_update(disable=kwargs.get("disable_update", False))
-        except:
+        except Exception:
             pass
 
         log_level = getattr(logging, kwargs.get("log_level", "INFO").upper())

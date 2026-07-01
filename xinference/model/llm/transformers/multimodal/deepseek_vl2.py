@@ -1,4 +1,4 @@
-# Copyright 2022-2025 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import requests
 import torch
 
 from .....model.utils import select_device
+from ....utils import allow_trust_remote_code
 from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ..core import register_non_default_model
 from .core import PytorchMultiModalModel
@@ -71,10 +72,10 @@ class DeepSeekVL2ChatModel(PytorchMultiModalModel):
 
         from .....thirdparty.deepseek_vl2.models import DeepseekVLV2ForCausalLM
 
-        kwargs = self.apply_bnb_quantization()
+        kwargs = self.apply_quantization_config()
         vl_gpt: DeepseekVLV2ForCausalLM = AutoModelForCausalLM.from_pretrained(  # type: ignore
             self.model_path,
-            trust_remote_code=True,
+            trust_remote_code=allow_trust_remote_code(self.model_family),
             device_map=self._device,
             torch_dtype=self._type,
             **kwargs,

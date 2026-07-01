@@ -1,4 +1,4 @@
-# Copyright 2022-2025 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import ast
 import logging
 import os
 import re
@@ -26,6 +27,9 @@ from torchvision import transforms
 
 if TYPE_CHECKING:
     from ..core import ImageModelFamilyV2
+
+from ...utils import allow_trust_remote_code
+from .ocr_family import OCRModel
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +82,7 @@ def load_image(image_path: str) -> Optional[PIL.Image.Image]:
         logger.error(f"Error loading image {image_path}: {e}")
         try:
             return PIL.Image.open(image_path)
-        except:
+        except Exception:
             return None
 
 
@@ -226,8 +230,13 @@ def extract_coordinates_and_label(
     """Extract coordinates and label from reference text."""
     try:
         label_type = ref_text[1]
-        cor_list = eval(ref_text[2])
-    except Exception as e:
+        # Use ast.literal_eval instead of eval — the coordinate string comes
+        # from OCR model output (LLM-generated) and a prompt-injected response
+        # could otherwise execute arbitrary Python. literal_eval only accepts
+        # Python literal structures (lists/tuples/numbers) and refuses calls,
+        # imports, and attribute access.
+        cor_list = ast.literal_eval(ref_text[2])
+    except (ValueError, SyntaxError, IndexError, TypeError) as e:
         logger.error(f"Error extracting coordinates: {e}")
         return None
 
@@ -249,7 +258,7 @@ def draw_bounding_boxes(
     # Use default font
     try:
         font = PIL.ImageFont.load_default()
-    except:
+    except Exception:
         font = None
 
     img_idx = 0
@@ -382,9 +391,13 @@ def extract_text_blocks(text: str) -> List[Dict[str, Any]]:
     if not isinstance(text, str):
         return []
 
-    # Pattern to extract text and coordinates
+    # Pattern to extract text and coordinates. The coordinates group keeps
+    # the surrounding `[[...]]` so the resulting structure is nested
+    # (`[[x1, y1, x2, y2], ...]`) — matching extract_coordinates_and_label
+    # and the `bbox = coords[0] if len(coords) == 1 else coords` logic
+    # below, which assumes a list-of-lists.
     block_pattern = (
-        r"<\|ref\|>(.*?)<\|/ref\|><\|det\|>\[\[(.*?)\]\]<\|/det\|>(.*?)(?=<\|ref\|>|$)"
+        r"<\|ref\|>(.*?)<\|/ref\|><\|det\|>(\[\[.*?\]\])<\|/det\|>(.*?)(?=<\|ref\|>|$)"
     )
 
     blocks = []
@@ -394,7 +407,10 @@ def extract_text_blocks(text: str) -> List[Dict[str, Any]]:
         content = match.group(3).strip()
 
         try:
-            coords = eval(f"[{coords_str}]")  # Convert string coordinates to list
+            # Use ast.literal_eval instead of eval — the coordinate string is
+            # OCR model output (LLM-generated). literal_eval only accepts
+            # Python literal structures and rejects code execution.
+            coords = ast.literal_eval(coords_str)
             if isinstance(coords, list) and len(coords) > 0:
                 blocks.append(
                     {
@@ -404,14 +420,21 @@ def extract_text_blocks(text: str) -> List[Dict[str, Any]]:
                         "bbox": coords[0] if len(coords) == 1 else coords,
                     }
                 )
-        except:
+        except (ValueError, SyntaxError):
             # Skip if coordinates can't be parsed
             continue
 
     return blocks
 
 
-class DeepSeekOCRModel:
+class DeepSeekOCRModel(OCRModel):
+    required_libs: Tuple[str, ...] = ("transformers",)
+
+    @classmethod
+    def match(cls, model_family: "ImageModelFamilyV2") -> bool:
+        model_format = getattr(model_family, "model_format", None)
+        return model_family.model_name == "DeepSeek-OCR" and model_format != "mlx"
+
     def __init__(
         self,
         model_uid: str,
@@ -444,14 +467,14 @@ class DeepSeekOCRModel:
         try:
             self._tokenizer = AutoTokenizer.from_pretrained(
                 self._model_path,
-                trust_remote_code=True,
+                trust_remote_code=allow_trust_remote_code(self.model_family),
                 use_fast=False,
             )
             if self._device != "cpu":
                 # Use CUDA if available
                 model = AutoModel.from_pretrained(
                     self._model_path,
-                    trust_remote_code=True,
+                    trust_remote_code=allow_trust_remote_code(self.model_family),
                     low_cpu_mem_usage=True,
                     device_map="auto",
                     use_safetensors=True,
@@ -462,7 +485,7 @@ class DeepSeekOCRModel:
                 # Force CPU-only execution
                 model = AutoModel.from_pretrained(
                     self._model_path,
-                    trust_remote_code=True,
+                    trust_remote_code=allow_trust_remote_code(self.model_family),
                     low_cpu_mem_usage=True,
                     device_map="cpu",
                     use_safetensors=True,
@@ -512,9 +535,7 @@ class DeepSeekOCRModel:
         # 2. save_results is True (default behavior for visualization)
         # 3. Explicit visualization parameters are provided
         is_visualization_request = (
-            "grounding" in prompt.lower()
-            or "convert" in prompt.lower()
-            or "markdown" in prompt.lower()
+            "<|grounding|>" in prompt
             or save_results
             or any(
                 key in kwargs

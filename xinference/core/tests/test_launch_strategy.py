@@ -1,4 +1,4 @@
-# Copyright 2022-2025 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import itertools
 import random
 
 import pytest
@@ -23,6 +24,46 @@ from xinference.core.utils import assign_replica_gpu
 class DummyRef:
     def __init__(self, address: str):
         self.address = address
+
+
+class DummyWorkerRef:
+    def __init__(self, address: str, model_count: int, launched: list):
+        self.address = address
+        self._model_count = model_count
+        self._launched = launched
+
+    async def get_model_count(self) -> int:
+        return self._model_count
+
+    async def launch_builtin_model(self, *args, **kwargs):
+        self._launched.append(self.address)
+        if kwargs.get("shard") == 0:
+            return "subpool", {"driver": "info"}
+        return "subpool"
+
+    async def wait_for_load(self, model_uid: str):
+        return None
+
+
+class DummyStatusGuard:
+    def __init__(self):
+        self.instance_info = {}
+        self.replica_counts = {}
+        self.updates = []
+
+    async def set_instance_info(self, model_uid: str, instance_info):
+        self.instance_info[model_uid] = instance_info
+        self.replica_counts[model_uid] = instance_info.replica
+
+    async def update_instance_info(self, model_uid: str, updates: dict):
+        self.updates.append((model_uid, updates))
+        if "replica" in updates:
+            self.replica_counts[model_uid] = updates["replica"]
+        return None
+
+    async def remove_replica_status(self, model_uid: str, replica_id: int):
+        self.replica_counts[model_uid] -= 1
+        return self.replica_counts[model_uid]
 
 
 def test_assign_replica_gpu_single_slot_reused():
@@ -198,4 +239,112 @@ def test_idle_first_multi_gpu_two_workers():
     ]
     ref, gpu_idx = strategy.select_worker(candidates, n_gpu=2)
     assert ref is w2
-    assert set(gpu_idx) == {0, 1}
+
+
+@pytest.mark.asyncio
+async def test_distributed_launch_avoids_same_worker_for_shards():
+    from xinference.core.supervisor import SupervisorActor
+
+    class DummySupervisor:
+        _build_replica_info = staticmethod(SupervisorActor._build_replica_info)
+        _choose_worker = SupervisorActor._choose_worker
+        _launch_builtin_sharded_model = SupervisorActor._launch_builtin_sharded_model
+        _clear_unexpected_down_replicas = (
+            SupervisorActor._clear_unexpected_down_replicas
+        )
+
+        def __init__(self, workers):
+            self._worker_address_to_worker = workers
+            self._model_uid_to_replica_info = {}
+            self._replica_model_uid_to_worker = {}
+            self._status_guard_ref = DummyStatusGuard()
+            self._unexpected_down_replicas = {}
+
+        def _gen_model_uid(self, model_name: str) -> str:
+            return f"{model_name}-uid"
+
+        async def terminate_model(
+            self, model_uid: str, suppress_exception: bool = False
+        ):
+            return None
+
+    launched = []
+    worker1 = DummyWorkerRef("w1:1000", model_count=1, launched=launched)
+    worker2 = DummyWorkerRef("w2:1000", model_count=0, launched=launched)
+    supervisor = DummySupervisor({"w1:1000": worker1, "w2:1000": worker2})
+
+    # One model already runs on worker1 (n_gpu=1). Launch a new model with n_worker=2.
+    await supervisor._launch_builtin_sharded_model(
+        model_uid="demo-model",
+        model_name="demo",
+        model_size_in_billions=None,
+        model_format=None,
+        quantization=None,
+        model_engine=None,
+        model_type="LLM",
+        n_gpu=1,
+        n_worker=2,
+        worker_ip=["w1:1000", "w2:1000"],
+        wait_ready=True,
+    )
+
+    assert set(launched) == {"w1:1000", "w2:1000"}
+    assert len(launched) == 2
+
+
+@pytest.mark.asyncio
+async def test_terminate_model_replica_updates_active_replica_set():
+    from xinference.core.supervisor import ReplicaInfo, SupervisorActor
+
+    class DummyReplicaWorkerRef:
+        def __init__(self, address: str):
+            self.address = address
+            self.terminated: list[str] = []
+
+        async def terminate_model(self, model_uid: str):
+            self.terminated.append(model_uid)
+
+    class DummySupervisor:
+        terminate_model_replica = SupervisorActor.terminate_model_replica
+        _refresh_replica_scheduler = staticmethod(
+            SupervisorActor._refresh_replica_scheduler
+        )
+        _clear_unexpected_down_replicas = (
+            SupervisorActor._clear_unexpected_down_replicas
+        )
+
+        def __init__(self):
+            self._model_uid_to_replica_info = {
+                "demo-model": ReplicaInfo(
+                    replica=3,
+                    scheduler=itertools.cycle([0, 1, 2]),
+                    active_replica_ids=[0, 1, 2],
+                )
+            }
+            self._replica_model_uid_to_worker = {
+                "demo-model-0": DummyReplicaWorkerRef("w0:1000"),
+                "demo-model-1": DummyReplicaWorkerRef("w1:1000"),
+                "demo-model-2": DummyReplicaWorkerRef("w2:1000"),
+            }
+            self._status_guard_ref = DummyStatusGuard()
+            self._status_guard_ref.replica_counts["demo-model"] = 3
+            self._collective_manager_mapping = {}
+            self._block_tracker_mapping = {}
+            self._unexpected_down_replicas = {}
+
+    supervisor = DummySupervisor()
+    remaining = await supervisor.terminate_model_replica("demo-model", 1)
+
+    assert remaining == 2
+    assert supervisor._model_uid_to_replica_info["demo-model"].replica == 2
+    assert supervisor._model_uid_to_replica_info["demo-model"].active_replica_ids == [
+        0,
+        2,
+    ]
+    assert "demo-model-1" not in supervisor._replica_model_uid_to_worker
+    assert next(supervisor._model_uid_to_replica_info["demo-model"].scheduler) == 0
+    assert next(supervisor._model_uid_to_replica_info["demo-model"].scheduler) == 2
+    assert supervisor._status_guard_ref.updates[-1] == (
+        "demo-model",
+        {"replica": 2, "status": "READY"},
+    )

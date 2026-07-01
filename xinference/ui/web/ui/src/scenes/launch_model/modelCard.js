@@ -12,6 +12,7 @@ import {
 } from '@mui/icons-material'
 import {
   Box,
+  Button,
   Chip,
   IconButton,
   Paper,
@@ -19,7 +20,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
-import React, { useContext, useEffect, useState } from 'react'
+import React, { useContext, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
@@ -55,6 +56,58 @@ const ModelCard = ({
   const [isOpenCachedList, setIsOpenCachedList] = useState(false)
   const [isOpenVirtualenvList, setIsOpenVirtualenvList] = useState(false)
   const [hasVirtualEnv, setHasVirtualEnv] = useState(null) // null = not checked yet
+
+  const descriptionContainerRef = useRef(null)
+  const descriptionTextRef = useRef(null)
+  const detailsButtonRef = useRef(null)
+  const [descClamp, setDescClamp] = useState(5)
+
+  const measureClamp = () => {
+    const container = descriptionContainerRef.current
+    const textEl = descriptionTextRef.current
+    const btnEl = detailsButtonRef.current
+    if (!container || !textEl) return
+    const containerHeight = container.clientHeight
+    const btnHeight = btnEl ? btnEl.offsetHeight : 0
+    const btnStyle = btnEl ? window.getComputedStyle(btnEl) : null
+    const btnMarginTop = btnStyle ? parseFloat(btnStyle.marginTop) || 0 : 0
+    const btnMarginBottom = btnStyle
+      ? parseFloat(btnStyle.marginBottom) || 0
+      : 0
+    const computed = window.getComputedStyle(textEl)
+    const lineHeightPx = parseFloat(computed.lineHeight)
+    const textMarginTop = parseFloat(computed.marginTop) || 0
+    const textMarginBottom = parseFloat(computed.marginBottom) || 0
+    if (!lineHeightPx || !containerHeight) return
+    const availableHeight = Math.max(
+      0,
+      containerHeight -
+        btnHeight -
+        btnMarginTop -
+        btnMarginBottom -
+        textMarginTop -
+        textMarginBottom
+    )
+    const maxLines = Math.floor(availableHeight / lineHeightPx)
+    const clamped = Math.max(1, Math.min(5, maxLines - 1))
+    setDescClamp(clamped)
+  }
+
+  useEffect(() => {
+    measureClamp()
+  }, [modelData, isHovered, hasVirtualEnv])
+
+  useEffect(() => {
+    const el = descriptionContainerRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => measureClamp())
+    ro.observe(el)
+    window.addEventListener('resize', measureClamp)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', measureClamp)
+    }
+  }, [])
 
   const isCached = (spec) => {
     if (Array.isArray(spec.cache_status)) {
@@ -299,6 +352,31 @@ const ModelCard = ({
     setIsOpenCachedList(true)
   }
 
+  const detailUrl = `https://model.xinference.io/models/detail/${encodeURIComponent(
+    modelData?.model_name || ''
+  )}`
+
+  const renderDetailsButton = () => {
+    if (is_custom) return null
+    return (
+      <Button
+        ref={detailsButtonRef}
+        component="a"
+        href={detailUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        variant="text"
+        size="small"
+        sx={{ mt: 0.5 }}
+        onClick={(e) => {
+          e.stopPropagation()
+        }}
+      >
+        {t('launchModel.moreDetails')}
+      </Button>
+    )
+  }
+
   return (
     <>
       <Tooltip title={modelData.model_name} placement="top">
@@ -335,48 +413,55 @@ const ModelCard = ({
             </Box>
 
             <Box
+              ref={descriptionContainerRef}
               sx={{
                 flex: 1,
                 display: 'flex',
+                flexDirection: 'column',
                 justifyContent: 'center',
                 alignItems: 'center',
-                minHeight: 24,
                 color: 'text.secondary',
-                fontSize: '0.875rem',
-                lineHeight: 1.5,
               }}
             >
               {modelData.model_description ? (
-                <Box
-                  component="p"
-                  sx={{
-                    m: 0,
-                    display: '-webkit-box',
-                    WebkitLineClamp: 4,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    fontSize: '14px',
-                    padding: '0px 10px',
-                  }}
-                  title={modelData.model_description}
-                >
-                  {modelData.model_description}
-                </Box>
-              ) : (
-                isHovered && (
+                <>
                   <Box
                     component="p"
+                    ref={descriptionTextRef}
                     sx={{
                       m: 0,
-                      textAlign: 'center',
-                      fontStyle: 'italic',
+                      mt: 0.5,
+                      display: '-webkit-box',
+                      WebkitLineClamp: descClamp,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      fontSize: '14px',
+                      lineHeight: '20px',
+                      paddingInline: '10px',
                     }}
+                    title={modelData.model_description}
                   >
-                    {t('launchModel.clickToLaunchModel')}
+                    {modelData.model_description}
                   </Box>
-                )
+                </>
+              ) : (
+                <>
+                  {isHovered && (
+                    <Box
+                      component="p"
+                      sx={{
+                        m: 0,
+                        textAlign: 'center',
+                        fontStyle: 'italic',
+                      }}
+                    >
+                      {t('launchModel.clickToLaunchModel')}
+                    </Box>
+                  )}
+                </>
               )}
+              {renderDetailsButton()}
             </Box>
 
             {modelType === 'LLM' && (

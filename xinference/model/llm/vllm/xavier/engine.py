@@ -1,4 +1,4 @@
-# Copyright 2022-2025 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,9 @@
 import logging
 from typing import Dict, List, Optional, Type, Union
 
+from packaging import version
 from vllm import AsyncEngineArgs, EmbeddingRequestOutput, RequestOutput
+from vllm import __version__ as VLLM_VERSION
 from vllm.config import VllmConfig
 from vllm.engine.async_llm_engine import AsyncLLMEngine, _AsyncLLMEngine
 from vllm.engine.llm_engine import SchedulerOutputState
@@ -235,9 +237,18 @@ class XavierEngine(AsyncLLMEngine):
         xavier_config: Optional[Dict] = None,
     ) -> "AsyncLLMEngine":
         cls._xavier_config = xavier_config
-        return super().from_engine_args(
-            engine_args, engine_config, start_engine_loop, usage_context, stat_loggers
-        )
+        if version.parse(VLLM_VERSION) < version.parse("0.8.0"):
+            # old vllm
+            args = (
+                engine_args,
+                engine_config,
+                start_engine_loop,
+                usage_context,
+                stat_loggers,
+            )
+        else:
+            args = engine_args, start_engine_loop, usage_context, stat_loggers  # type: ignore
+        return super().from_engine_args(*args)
 
     def __init__(self, *args, **kwargs):
         # set xavier_config to `vllm_config`,

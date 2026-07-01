@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,6 +29,9 @@ from .kokoro_mlx import KokoroMLXModel
 from .kokoro_zh import KokoroZHModel
 from .megatts import MegaTTSModel
 from .melotts import MeloTTSModel
+from .qwen3_asr import Qwen3ASRModel
+from .qwen3_tts import Qwen3TTSModel
+from .voxcpm import VoxCPMModel
 from .whisper import WhisperModel
 from .whisper_mlx import WhisperMLXModel
 
@@ -155,9 +158,13 @@ def create_audio_model_instance(
     KokoroZHModel,
     MegaTTSModel,
     Indextts2,
+    Qwen3ASRModel,
+    Qwen3TTSModel,
+    VoxCPMModel,
 ]:
     from ..cache_manager import CacheManager
 
+    kwargs.pop("enable_virtual_env", None)
     model_spec = match_audio(model_name, download_hub)
     if model_path is None:
         cache_manager = CacheManager(model_spec)
@@ -177,6 +184,9 @@ def create_audio_model_instance(
         KokoroZHModel,
         MegaTTSModel,
         Indextts2,
+        Qwen3ASRModel,
+        Qwen3TTSModel,
+        VoxCPMModel,
     ]
     if model_spec.model_family == "whisper":
         if not model_spec.engine:
@@ -207,6 +217,12 @@ def create_audio_model_instance(
         model = MegaTTSModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "IndexTTS2":
         model = Indextts2(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "qwen3_asr":
+        model = Qwen3ASRModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "qwen3_tts":
+        model = Qwen3TTSModel(model_uid, model_path, model_spec, **kwargs)
+    elif model_spec.model_family == "VoxCPM":
+        model = VoxCPMModel(model_uid, model_path, model_spec, **kwargs)
     else:
         raise Exception(f"Unsupported audio model family: {model_spec.model_family}")
     return model

@@ -53,8 +53,17 @@
         "gguf_model_file_name_template": "flux1-schnell-{quantization}.gguf"
       }
     },
-    "updated_at": 1766387546,
-    "featured": true
+    "updated_at": 1769418353,
+    "featured": true,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -115,8 +124,17 @@
         "gguf_model_file_name_template": "flux1-dev-{quantization}.gguf"
       }
     },
-    "featured": true,
-    "updated_at": 1766387548
+    "featured": false,
+    "updated_at": 1769418354,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -178,14 +196,15 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers==0.35.1",
+        "diffusers==0.35.1 ; #engine# == \"diffusers\"",
+        "huggingface-hub<1.0 ; #engine# == \"diffusers\"",
         "peft>=0.17.0",
         "#system_torch#",
         "#system_numpy#"
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1766387550,
+    "updated_at": 1769152886,
     "featured": true
   },
   {
@@ -270,15 +289,16 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers==0.35.1",
+        "diffusers==0.35.1 ; #engine# == \"diffusers\"",
+        "huggingface-hub<1.0 ; #engine# == \"diffusers\"",
         "peft>=0.17.0",
         "#system_torch#",
         "#system_numpy#"
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1766387556,
-    "featured": true
+    "updated_at": 1769152887,
+    "featured": false
   },
   {
     "version": 2,
@@ -303,8 +323,17 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387558,
-    "featured": false
+    "updated_at": 1769418356,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -364,8 +393,17 @@
         "gguf_model_file_name_template": "sd3.5_medium-{quantization}.gguf"
       }
     },
-    "updated_at": 1766387562,
-    "featured": true
+    "updated_at": 1769418357,
+    "featured": true,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -412,8 +450,17 @@
         "gguf_model_file_name_template": "sd3.5_large-{quantization}.gguf"
       }
     },
-    "updated_at": 1766387565,
-    "featured": true
+    "updated_at": 1769418358,
+    "featured": true,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -464,8 +511,17 @@
         "gguf_model_file_name_template": "sd3.5_large_turbo-{quantization}.gguf"
       }
     },
-    "updated_at": 1766387568,
-    "featured": false
+    "updated_at": 1769418359,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -484,8 +540,17 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387569,
-    "featured": true
+    "updated_at": 1769418360,
+    "featured": true,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -504,8 +569,17 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387571,
-    "featured": false
+    "updated_at": 1769418361,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -528,8 +602,17 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387573,
-    "featured": false
+    "updated_at": 1769418362,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -552,8 +635,17 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387575,
-    "featured": false
+    "updated_at": 1769418363,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -617,8 +709,17 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387577,
-    "featured": false
+    "updated_at": 1769418364,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -658,8 +759,17 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387579,
-    "featured": false
+    "updated_at": 1769418365,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -674,9 +784,12 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers>=0.30.0",
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
         "#system_numpy#"
-      ]
+      ],
+      "no_build_isolation": true
     },
     "model_src": {
       "huggingface": {
@@ -688,7 +801,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387581,
+    "updated_at": 1769418366,
     "featured": false
   },
   {
@@ -703,9 +816,12 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers>=0.33.0",
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
         "#system_numpy#"
-      ]
+      ],
+      "no_build_isolation": true
     },
     "model_src": {
       "huggingface": {
@@ -717,7 +833,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387584,
+    "updated_at": 1769418366,
     "featured": true
   },
   {
@@ -733,8 +849,17 @@
         "model_revision": "51388a731f57604945fddd703ecb5c50e8e7b49d"
       }
     },
-    "updated_at": 1766387586,
-    "featured": false
+    "updated_at": 1769418367,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -749,8 +874,17 @@
         "model_revision": "81a84f49b15956b60b4272a405ad3daef3da4590"
       }
     },
-    "updated_at": 1766387588,
-    "featured": false
+    "updated_at": 1769418368,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -765,8 +899,17 @@
         "model_revision": "115134f363124c53c7d878647567d04daf26e41e"
       }
     },
-    "updated_at": 1766387589,
-    "featured": false
+    "updated_at": 1769418369,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
@@ -777,7 +920,7 @@
     ],
     "virtualenv": {
       "packages": [
-        "transformers==4.47.1",
+        "transformers==4.47.1 ; #engine# == \"transformers\"",
         "httpx==0.24.0",
         "deepspeed==0.12.3",
         "peft==0.4.0",
@@ -800,7 +943,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387590,
+    "updated_at": 1769418370,
     "featured": false
   },
   {
@@ -880,14 +1023,15 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers==0.35.1",
+        "diffusers==0.35.1 ; #engine# == \"diffusers\"",
+        "huggingface-hub<1.0 ; #engine# == \"diffusers\"",
         "peft>=0.17.0",
         "#system_torch#",
         "#system_numpy#"
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1766387620,
+    "updated_at": 1769152903,
     "featured": false
   },
   {
@@ -967,15 +1111,15 @@
     },
     "virtualenv": {
       "packages": [
-        "git+https://github.com/huggingface/diffusers",
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
         "peft>=0.17.0",
         "#system_torch#",
         "#system_numpy#"
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1766387622,
-    "featured": true
+    "updated_at": 1769418372,
+    "featured": false
   },
   {
     "version": 2,
@@ -986,30 +1130,62 @@
     ],
     "virtualenv": {
       "packages": [
-        "transformers==4.46.3",
-        "tokenizers==0.20.3",
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "mlx-vlm ; #engine# == \"mlx\"",
+        "tokenizers",
         "PyMuPDF",
         "img2pdf",
         "einops",
         "easydict",
         "addict",
         "Pillow",
-        "#system_torch#",
+        "#system_torch# ; #engine# == \"Transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#system_numpy#"
       ]
     },
-    "model_src": {
-      "huggingface": {
-        "model_id": "deepseek-ai/DeepSeek-OCR",
-        "model_revision": "main"
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "deepseek-ai/DeepSeek-OCR",
+            "model_revision": "main"
+          },
+          "modelscope": {
+            "model_id": "deepseek-ai/DeepSeek-OCR",
+            "model_revision": "master"
+          }
+        }
       },
-      "modelscope": {
-        "model_id": "deepseek-ai/DeepSeek-OCR",
-        "model_revision": "master"
+      {
+        "model_format": "mlx",
+        "model_src": {
+          "huggingface": {
+            "model_id": "mlx-community/DeepSeek-OCR-{quantization}",
+            "model_revision": "main",
+            "quantizations": [
+              "8bit",
+              "6bit",
+              "5bit",
+              "4bit"
+            ]
+          },
+          "modelscope": {
+            "model_id": "mlx-community/DeepSeek-OCR-{quantization}",
+            "model_revision": "master",
+            "quantizations": [
+              "8bit",
+              "6bit",
+              "5bit",
+              "4bit"
+            ]
+          }
+        }
       }
-    },
-    "updated_at": 1766387624,
-    "featured": false
+    ],
+    "featured": false,
+    "updated_at": 1774949598
   },
   {
     "version": 2,
@@ -1020,10 +1196,11 @@
     ],
     "virtualenv": {
       "packages": [
-        "transformers @ git+https://github.com/huggingface/transformers@82a06db03535c49aa987719ed0746a76093b1ec4",
-        "accelerate>=0.34.2",
+        "transformers @ git+https://github.com/huggingface/transformers@82a06db03535c49aa987719ed0746a76093b1ec4 ; #engine# == \"Transformers\"",
+        "accelerate>=0.34.2 ; #engine# == \"Transformers\"",
         "#system_numpy#",
-        "#system_torch#"
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_torch# ; #engine# == \"Transformers\""
       ]
     },
     "model_src": {
@@ -1037,7 +1214,7 @@
       }
     },
     "featured": false,
-    "updated_at": 1766387626
+    "updated_at": 1769418374
   },
   {
     "version": 2,
@@ -1087,14 +1264,24 @@
       }
     },
     "featured": true,
-    "updated_at": 1766387628
+    "updated_at": 1769418375,
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    }
   },
   {
     "version": 2,
     "model_name": "Z-Image-Turbo",
     "model_family": "stable_diffusion",
     "model_ability": [
-      "text2image"
+      "text2image",
+      "image2image"
     ],
     "default_model_config": {
       "torch_dtype": "bfloat16",
@@ -1126,7 +1313,7 @@
     "gguf_model_file_name_template": "z-image-turbo-{quantization}.gguf",
     "virtualenv": {
       "packages": [
-        "git+https://github.com/huggingface/diffusers",
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
         "transformers>=4.51.0",
         "#system_torch#",
         "#system_numpy#"
@@ -1144,7 +1331,7 @@
       }
     },
     "featured": true,
-    "updated_at": 1766651622
+    "updated_at": 1769418376
   },
   {
     "version": 2,
@@ -1201,7 +1388,7 @@
     },
     "virtualenv": {
       "packages": [
-        "git+https://github.com/huggingface/diffusers",
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
         "transformers>=4.51.3",
         "#system_torch#",
         "#system_numpy#"
@@ -1209,6 +1396,322 @@
       "no_build_isolation": true
     },
     "featured": true,
-    "updated_at": 1766568088
+    "updated_at": 1769418378
+  },
+  {
+    "version": 2,
+    "model_name": "Qwen-Image-Edit-2511",
+    "model_family": "stable_diffusion",
+    "model_ability": [
+      "image2image"
+    ],
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen-Image-Edit-2511",
+        "model_revision": "6f3ccc0b56e431dc6a0c2b2039706d7d26f22cb9",
+        "gguf_model_id": "unsloth/Qwen-Image-Edit-2511-GGUF",
+        "gguf_quantizations": [
+          "BF16",
+          "F16",
+          "Q2_K",
+          "Q3_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "qwen-image-edit-2511-{quantization}.gguf",
+        "lightning_model_id": "lightx2v/Qwen-Image-Edit-2511-Lightning",
+        "lightning_versions": [
+          "4steps-V1.0-bf16",
+          "4steps-V1.0-fp32"
+        ],
+        "lightning_model_file_name_template": "Qwen-Image-Edit-2511-Lightning-{lightning_version}.safetensors"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen-Image-Edit-2511",
+        "model_revision": "master",
+        "gguf_model_id": "unsloth/Qwen-Image-Edit-2511-GGUF",
+        "gguf_quantizations": [
+          "BF16",
+          "F16",
+          "Q2_K",
+          "Q3_K_L",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "qwen-image-edit-2511-{quantization}.gguf",
+        "lightning_model_id": "lightx2v/Qwen-Image-Edit-2511-Lightning",
+        "lightning_versions": [
+          "4steps-V1.0-bf16",
+          "4steps-V1.0-fp32"
+        ],
+        "lightning_model_file_name_template": "Qwen-Image-Edit-2511-Lightning-{lightning_version}.safetensors"
+      }
+    },
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder",
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+      "true_cfg_scale": 4
+    },
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "peft>=0.17.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    },
+    "featured": true,
+    "updated_at": 1769418379
+  },
+  {
+    "version": 2,
+    "model_name": "Qwen-Image-2512",
+    "model_family": "stable_diffusion",
+    "model_ability": [
+      "text2image",
+      "image2image",
+      "inpainting"
+    ],
+    "default_model_config": {
+      "quantize": true,
+      "quantize_text_encoder": "text_encoder",
+      "torch_dtype": "bfloat16"
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen-Image-2512",
+        "model_revision": "25468b98e3276ca6700de15c6628e51b7de54a26",
+        "gguf_model_id": "unsloth/Qwen-Image-2512-GGUF",
+        "gguf_quantizations": [
+          "BF16",
+          "F16",
+          "Q2_K",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "qwen-image-2512-{quantization}.gguf",
+        "lightning_model_id": "lightx2v/Qwen-Image-2512-Lightning",
+        "lightning_versions": [
+          "4steps-V1.0-bf16",
+          "4steps-V1.0-fp32"
+        ],
+        "lightning_model_file_name_template": "Qwen-Image-2512-Lightning-{lightning_version}.safetensors"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen-Image-2512",
+        "model_revision": "master",
+        "gguf_model_id": "unsloth/Qwen-Image-2512-GGUF",
+        "gguf_quantizations": [
+          "BF16",
+          "F16",
+          "Q2_K",
+          "Q3_K_M",
+          "Q3_K_S",
+          "Q4_0",
+          "Q4_1",
+          "Q4_K_M",
+          "Q4_K_S",
+          "Q5_0",
+          "Q5_1",
+          "Q5_K_M",
+          "Q5_K_S",
+          "Q6_K",
+          "Q8_0"
+        ],
+        "gguf_model_file_name_template": "qwen-image-2512-{quantization}.gguf",
+        "lightning_model_id": "lightx2v/Qwen-Image-2512-Lightning",
+        "lightning_versions": [
+          "4steps-V1.0-bf16",
+          "4steps-V1.0-fp32"
+        ],
+        "lightning_model_file_name_template": "Qwen-Image-2512-Lightning-{lightning_version}.safetensors"
+      }
+    },
+    "default_generate_config": {
+      "guidance_scale": 1,
+      "true_cfg_scale": 1
+    },
+    "virtualenv": {
+      "no_build_isolation": true,
+      "packages": [
+        "diffusers==0.35.1 ; #engine# == \"diffusers\"",
+        "huggingface-hub<1.0 ; #engine# == \"diffusers\"",
+        "peft>=0.17.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    },
+    "featured": true,
+    "updated_at": 1769152912
+  },
+  {
+    "version": 2,
+    "model_name": "Z-Image",
+    "model_family": "stable_diffusion",
+    "model_ability": [
+      "text2image",
+      "image2image"
+    ],
+    "default_model_config": {
+      "torch_dtype": "bfloat16",
+      "low_cpu_mem_usage": false
+    },
+    "default_generate_config": {
+      "num_inference_steps": 28,
+      "guidance_scale": 4
+    },
+    "virtualenv": {
+      "packages": [
+        "#diffusers_dependencies# ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "Tongyi-MAI/Z-Image",
+        "model_revision": "e8fa147e7413241c5aa5146a8ae60dc38ade08ae"
+      },
+      "modelscope": {
+        "model_id": "Tongyi-MAI/Z-Image",
+        "model_revision": "master"
+      }
+    },
+    "featured": true,
+    "updated_at": 1769594289
+  },
+  {
+    "model_name": "FLUX.2-klein-4B",
+    "model_description": "FLUX.2 [klein] 4B is a 4 billion parameter rectified flow transformer capable of generating images from text descriptions and supports multi-reference editing capabilities.",
+    "model_ability": [
+      "text2image",
+      "image2image"
+    ],
+    "model_family": "stable_diffusion",
+    "controlnet": [],
+    "model_src": {
+      "huggingface": {
+        "model_id": "black-forest-labs/FLUX.2-klein-4B",
+        "model_revision": "5e67da950fce4a097bc150c22958a05716994cea"
+      },
+      "modelscope": {
+        "model_id": "black-forest-labs/FLUX.2-klein-4B",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {},
+    "default_generate_config": {},
+    "cache_config": {},
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "git+https://github.com/huggingface/diffusers",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    },
+    "featured": false,
+    "updated_at": 1770994941
+  },
+  {
+    "model_name": "FLUX.2-klein-9B",
+    "model_description": "FLUX.2 [klein] 9B is a 9 billion parameter rectified flow transformer capable of generating images from text descriptions and supports multi-reference editing capabilities.",
+    "model_ability": [
+      "text2image",
+      "image2image"
+    ],
+    "model_family": "stable_diffusion",
+    "controlnet": [],
+    "model_src": {
+      "huggingface": {
+        "model_id": "black-forest-labs/FLUX.2-klein-9B",
+        "model_revision": "cd1bba5810fe2aba6666d9cf7352e25436426039"
+      },
+      "modelscope": {
+        "model_id": "black-forest-labs/FLUX.2-klein-9B",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {},
+    "default_generate_config": {},
+    "cache_config": {},
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "git+https://github.com/huggingface/diffusers",
+        "transformers>=4.51.0",
+        "#system_torch#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    },
+    "featured": false,
+    "updated_at": 1770994886
+  },
+  {
+    "version": 2,
+    "model_name": "PaddleOCR-VL-1.6",
+    "model_family": "ocr",
+    "model_ability": [
+      "ocr"
+    ],
+    "virtualenv": {
+      "packages": [
+        "pillow==11.3.0",
+        "transformers==4.55.0",
+        "#system_numpy#",
+        "#system_torch#"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "PaddlePaddle/PaddleOCR-VL-1.6",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "PaddlePaddle/PaddleOCR-VL-1.6",
+        "model_revision": "master"
+      }
+    },
+    "featured": false,
+    "updated_at": 1781512046
   }
 ]

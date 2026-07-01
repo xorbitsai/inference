@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -303,7 +303,13 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                 )
             except ValueError:
                 model_name_lower = self._model_spec.model_name.lower()
-                if "flux.2" in model_name_lower:
+                if "klein" in model_name_lower:
+                    from diffusers import Flux2KleinPipeline
+
+                    self._model = Flux2KleinPipeline.from_pretrained(
+                        self._model_path, **self._kwargs
+                    )
+                elif "flux.2" in model_name_lower:
                     from diffusers import Flux2Pipeline
 
                     self._model = Flux2Pipeline.from_pretrained(
@@ -762,6 +768,9 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             model, sampler_name
         ), self._release_after(), self._wrap_deepcache(model):
             logger.debug("stable diffusion args: %s, model: %s", kwargs, model)
+            # Some pipelines (e.g., Z-Image img2img) can't handle guidance_scale=None.
+            if kwargs.get("guidance_scale", "unset") is None:
+                kwargs.pop("guidance_scale", None)
             self._filter_kwargs(model, kwargs)
             images = model(**kwargs).images
 
@@ -906,6 +915,20 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             return image.convert("RGBA") if image.mode != "RGBA" else image
         return image
 
+    @staticmethod
+    def _ensure_three_channel_image(image: Any):
+        if isinstance(image, list):
+            if not image:
+                return image
+            if isinstance(image[0], PIL.Image.Image):
+                return [
+                    img.convert("RGB") if img.mode != "RGB" else img for img in image
+                ]
+            return image
+        if isinstance(image, PIL.Image.Image):
+            return image.convert("RGB") if image.mode != "RGB" else image
+        return image
+
     def image_to_image(
         self,
         image: Union[PIL.Image.Image, List[PIL.Image.Image]],
@@ -956,6 +979,8 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
 
         if self._model_expects_four_channel_input(model):
             image = self._ensure_four_channel_image(image, model)
+        else:
+            image = self._ensure_three_channel_image(image)
 
         # generate config for lightning
         self._gen_config_for_lightning(kwargs)

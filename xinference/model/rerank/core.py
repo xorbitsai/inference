@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,10 +18,15 @@ from collections import defaultdict
 from typing import Annotated, Dict, List, Literal, Optional, Tuple, Union
 
 from ..._compat import BaseModel, Field
+from ...constants import XINFERENCE_TRUST_REMOTE_CODE
 from ...types import Rerank
 from ..core import VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
-from .rerank_family import check_engine_by_model_name_and_engine, match_rerank
+from .rerank_family import (
+    check_engine_by_model_name_and_engine,
+    check_engine_by_model_name_and_engine_with_virtual_env,
+    match_rerank,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +77,10 @@ class RerankModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
     language: List[str]
     type: Optional[str] = "unknown"
     max_tokens: Optional[int]
+    cache_config: Optional[dict] = None
     virtualenv: Optional[VirtualEnvSettings]
+    # Provenance: True only for bundled built-in models (gates trust_remote_code).
+    is_builtin: bool = False
 
     class Config:
         extra = "allow"
@@ -85,8 +93,10 @@ class RerankModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
             "accelerators": getattr(self, "accelerators", None),
             "type": self.type,
             "model_name": self.model_name,
+            "model_format": spec.model_format,
             "language": self.language,
             "model_revision": spec.model_revision,
+            "quantization": spec.quantization,
         }
 
     def to_version_info(self):
@@ -169,7 +179,9 @@ class RerankModel:
     def _get_tokenizer(model_path):
         from transformers import AutoTokenizer
 
-        tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_path, trust_remote_code=XINFERENCE_TRUST_REMOTE_CODE
+        )
         return tokenizer
 
     @staticmethod
@@ -222,6 +234,7 @@ def create_rerank_model_instance(
 ) -> RerankModel:
     from .cache_manager import RerankCacheManager
 
+    enable_virtual_env = kwargs.pop("enable_virtual_env", None)
     model_family = match_rerank(model_name, model_format, quantization, download_hub)
     if model_path is None:
         cache_manager = RerankCacheManager(model_family)
@@ -232,9 +245,26 @@ def create_rerank_model_instance(
         # we use sentence_transformers as the default engine for all models
         model_engine = "sentence_transformers"
 
-    rerank_cls = check_engine_by_model_name_and_engine(
-        model_engine, model_name, model_format, quantization
-    )
+    if enable_virtual_env is None:
+        from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+
+        enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
+
+    if enable_virtual_env:
+        rerank_cls = check_engine_by_model_name_and_engine_with_virtual_env(
+            model_engine,
+            model_name,
+            model_format,
+            quantization,
+            model_family=model_family,
+        )
+    else:
+        rerank_cls = check_engine_by_model_name_and_engine(
+            model_engine,
+            model_name,
+            model_format,
+            quantization,
+        )
     model = rerank_cls(
         model_uid,
         model_path,

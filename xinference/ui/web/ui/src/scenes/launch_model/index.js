@@ -11,7 +11,6 @@ import fetchWrapper from '../../components/fetchWrapper'
 import SuccessMessageSnackBar from '../../components/successMessageSnackBar'
 import Title from '../../components/Title'
 import { isValidBearerToken } from '../../components/utils'
-import { featureModels } from './data/data'
 import LaunchCustom from './launchCustom'
 import LaunchModelComponent from './LaunchModel'
 
@@ -156,9 +155,6 @@ const LaunchModel = () => {
           <LaunchModelComponent
             modelType={'LLM'}
             gpuAvailable={gpuAvailable}
-            featureModels={
-              featureModels.find((item) => item.type === 'llm').feature_models
-            }
             ref={(ref) => (LaunchModelRefs.current.llm = ref)}
           />
         </TabPanel>
@@ -166,10 +162,6 @@ const LaunchModel = () => {
           <LaunchModelComponent
             modelType={'embedding'}
             gpuAvailable={gpuAvailable}
-            featureModels={
-              featureModels.find((item) => item.type === 'embedding')
-                .feature_models
-            }
             ref={(ref) => (LaunchModelRefs.current.embedding = ref)}
           />
         </TabPanel>
@@ -177,10 +169,6 @@ const LaunchModel = () => {
           <LaunchModelComponent
             modelType={'rerank'}
             gpuAvailable={gpuAvailable}
-            featureModels={
-              featureModels.find((item) => item.type === 'rerank')
-                .feature_models
-            }
             ref={(ref) => (LaunchModelRefs.current.rerank = ref)}
           />
         </TabPanel>
@@ -188,9 +176,6 @@ const LaunchModel = () => {
           <LaunchModelComponent
             modelType={'image'}
             gpuAvailable={gpuAvailable}
-            featureModels={
-              featureModels.find((item) => item.type === 'image').feature_models
-            }
             ref={(ref) => (LaunchModelRefs.current.image = ref)}
           />
         </TabPanel>
@@ -198,9 +183,6 @@ const LaunchModel = () => {
           <LaunchModelComponent
             modelType={'audio'}
             gpuAvailable={gpuAvailable}
-            featureModels={
-              featureModels.find((item) => item.type === 'audio').feature_models
-            }
             ref={(ref) => (LaunchModelRefs.current.audio = ref)}
           />
         </TabPanel>
@@ -208,9 +190,6 @@ const LaunchModel = () => {
           <LaunchModelComponent
             modelType={'video'}
             gpuAvailable={gpuAvailable}
-            featureModels={
-              featureModels.find((item) => item.type === 'video').feature_models
-            }
             ref={(ref) => (LaunchModelRefs.current.video = ref)}
           />
         </TabPanel>

@@ -17,6 +17,22 @@ services:
 #    environment:
 #      # add envs here. Here's an example, if you want to download model from modelscope
 #      - XINFERENCE_MODEL_SRC=modelscope
+#      # ── OpenTelemetry (OTEL) ──────────────────────────────────────────────
+#      # Set XINFERENCE_ENABLE_OTEL=true and install xinference[otel] to enable OTEL.
+#      - XINFERENCE_ENABLE_OTEL=false
+#      - XINFERENCE_OTLP_BASE_ENDPOINT=http://localhost:4318
+#      - XINFERENCE_OTLP_TRACE_ENDPOINT=
+#      - XINFERENCE_OTLP_METRIC_ENDPOINT=
+#      - XINFERENCE_OTLP_API_KEY=
+#      - XINFERENCE_OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+#      - XINFERENCE_OTEL_EXPORTER_TYPE=otlp
+#      - XINFERENCE_OTEL_SAMPLING_RATE=0.1
+#      - XINFERENCE_OTEL_BATCH_EXPORT_SCHEDULE_DELAY=5000
+#      - XINFERENCE_OTEL_MAX_QUEUE_SIZE=2048
+#      - XINFERENCE_OTEL_MAX_EXPORT_BATCH_SIZE=512
+#      - XINFERENCE_OTEL_METRIC_EXPORT_INTERVAL=60000
+#      - XINFERENCE_OTEL_BATCH_EXPORT_TIMEOUT=10000
+#      - XINFERENCE_OTEL_METRIC_EXPORT_TIMEOUT=30000
     command: xinference-local --host 0.0.0.0 --port 9997
     deploy:
       resources:

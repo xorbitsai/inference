@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,9 +42,10 @@ from typing import (
 import xoscar as xo
 from packaging import version
 from typing_extensions import NotRequired
+from xoscar.utils import get_next_port
 
-from ....constants import XINFERENCE_MAX_TOKENS
-from ....device_utils import is_vacc_available
+from ....constants import XINFERENCE_MAX_TOKENS, XINFERENCE_TRUST_REMOTE_CODE
+from ....device_utils import is_npu_available, is_vacc_available
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -60,6 +61,8 @@ from ..core import chat_context_var
 from ..llm_family import cache_model_tokenizer_and_config
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
+    GEMMA_TOOL_CALL_FAMILY,
+    GLM5_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_SYMBOLS,
     ChatModelMixin,
@@ -94,7 +97,7 @@ class VLLMModelConfig(TypedDict, total=False):
     node_rank: int
     distributed_executor_backend: str
     block_size: int
-    swap_space: int  # GiB
+    swap_space: NotRequired[int]  # GiB
     gpu_memory_utilization: float
     max_num_batched_tokens: int
     max_num_seqs: int
@@ -109,14 +112,19 @@ class VLLMModelConfig(TypedDict, total=False):
     min_pixels: NotRequired[int]
     max_pixels: NotRequired[int]
     enable_expert_parallel: bool
+    speculative_config: Optional[Dict[str, Any]]
+    rope_scaling: Optional[Dict[str, Any]]
+    hf_overrides: Optional[Dict[str, Any]]
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
     lora_name: Optional[str]
     n: int
     best_of: Optional[int]
+    seed: Optional[int]
     presence_penalty: float
     frequency_penalty: float
+    repetition_penalty: float
     temperature: float
     top_p: float
     top_k: int
@@ -154,6 +162,28 @@ except ImportError:
     VLLM_INSTALLED = False
     VLLM_VERSION = None
 
+DEFAULT_VLLM_VERSION = version.parse("0.21.0")
+
+
+def _get_effective_vllm_version() -> version.Version:
+    try:
+        from ....constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+    except Exception:
+        XINFERENCE_ENABLE_VIRTUAL_ENV = False
+    if XINFERENCE_ENABLE_VIRTUAL_ENV:
+        return DEFAULT_VLLM_VERSION
+    elif VLLM_VERSION is not None:
+        return VLLM_VERSION
+    return version.parse("0.0.0")
+
+
+def _virtual_env_allows_missing_vllm() -> bool:
+    try:
+        from ....constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+    except Exception:
+        return False
+    return bool(XINFERENCE_ENABLE_VIRTUAL_ENV)
+
 
 def _append_unique(target: List[str], *items: str) -> None:
     for item in items:
@@ -177,98 +207,144 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "GlmForCausalLM",
     "ChatGLMModel",
 ]
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.0"):
-    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "Qwen2ForCausalLM")
-    _append_unique(VLLM_SUPPORTED_MODELS, "Qwen2ForCausalLM")
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.2"):
-    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "GemmaForCausalLM")
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.3.3"):
-    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "OrionForCausalLM")
+def _update_vllm_supported_lists() -> None:
+    effective_version = _get_effective_vllm_version()
+    if effective_version >= version.parse("0.3.0"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "Qwen2ForCausalLM")
+        _append_unique(VLLM_SUPPORTED_MODELS, "Qwen2ForCausalLM")
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.4.0"):
-    _append_unique(
-        VLLM_SUPPORTED_CHAT_MODELS, "Qwen2MoeForCausalLM", "CohereForCausalLM"
-    )
+    if effective_version >= version.parse("0.3.2"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "GemmaForCausalLM")
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.5.1"):
-    _append_unique(
-        VLLM_SUPPORTED_CHAT_MODELS,
-        "DeepseekV2ForCausalLM",
-        "DeepseekV3ForCausalLM",
-        "Qwen3ForCausalLM",
-    )
+    if effective_version >= version.parse("0.3.3"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "OrionForCausalLM")
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.1"):
-    _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "InternVLChatModel")
+    if effective_version >= version.parse("0.4.0"):
+        _append_unique(
+            VLLM_SUPPORTED_CHAT_MODELS, "Qwen2MoeForCausalLM", "CohereForCausalLM"
+        )
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.2"):
-    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "MiniCPM3ForCausalLM")
+    if effective_version >= version.parse("0.5.1"):
+        _append_unique(
+            VLLM_SUPPORTED_CHAT_MODELS,
+            "DeepseekV2ForCausalLM",
+            "DeepseekV3ForCausalLM",
+            "Qwen3ForCausalLM",
+        )
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.3"):
-    _append_unique(VLLM_SUPPORTED_MODELS, "MllamaForConditionalGeneration")
-    _append_unique(
-        VLLM_SUPPORTED_MULTI_MODEL_LIST,
-        "MllamaForConditionalGeneration",
-        "Qwen2VLForConditionalGeneration",
-        "Qwen2AudioForConditionalGeneration",
-    )
+    if effective_version >= version.parse("0.6.1"):
+        _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "InternVLChatModel")
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.0"):
-    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "InternLM3ForCausalLM")
+    if effective_version >= version.parse("0.6.2"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "MiniCPM3ForCausalLM")
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.2"):
-    _append_unique(
-        VLLM_SUPPORTED_MULTI_MODEL_LIST,
-        "Qwen2_5_VLForConditionalGeneration",
-        "Qwen2AudioForConditionalGeneration",
-    )
+    if effective_version >= version.parse("0.6.3"):
+        _append_unique(VLLM_SUPPORTED_MODELS, "MllamaForConditionalGeneration")
+        _append_unique(
+            VLLM_SUPPORTED_MULTI_MODEL_LIST,
+            "MllamaForConditionalGeneration",
+            "Qwen2VLForConditionalGeneration",
+            "Qwen2AudioForConditionalGeneration",
+        )
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.7.3"):
-    _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "Qwen2_5OmniModel")
+    if effective_version >= version.parse("0.7.0"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "InternLM3ForCausalLM")
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.0"):
-    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "Gemma3ForCausalLM")
-    _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "Gemma3ForConditionalGeneration")
+    if effective_version >= version.parse("0.7.2"):
+        _append_unique(
+            VLLM_SUPPORTED_MULTI_MODEL_LIST,
+            "Qwen2_5_VLForConditionalGeneration",
+            "Qwen2AudioForConditionalGeneration",
+        )
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.8.4"):
-    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "Glm4ForCausalLM")
+    if effective_version >= version.parse("0.7.3"):
+        _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "Qwen2_5OmniModel")
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.1"):
-    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "MiniCPMForCausalLM")
+    if effective_version >= version.parse("0.8.0"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "Gemma3ForCausalLM")
+        _append_unique(
+            VLLM_SUPPORTED_MULTI_MODEL_LIST, "Gemma3ForConditionalGeneration"
+        )
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.9.2"):
-    _append_unique(
-        VLLM_SUPPORTED_CHAT_MODELS,
-        "Ernie4_5ForCausalLM",
-        "Qwen3MoeForCausalLM",
-    )
-    _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "Glm4vForConditionalGeneration")
+    if effective_version >= version.parse("0.8.4"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "Glm4ForCausalLM")
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.10.0"):
-    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "Glm4MoeForCausalLM")
-    _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "Glm4vMoeForConditionalGeneration")
+    if effective_version >= version.parse("0.9.1"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "MiniCPMForCausalLM")
 
-if VLLM_INSTALLED and VLLM_VERSION > version.parse("0.10.0"):
-    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "GptOssForCausalLM")
+    if effective_version >= version.parse("0.9.2"):
+        _append_unique(
+            VLLM_SUPPORTED_CHAT_MODELS,
+            "Ernie4_5ForCausalLM",
+            "Qwen3MoeForCausalLM",
+        )
+        _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "Glm4vForConditionalGeneration")
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.10.2"):
-    _append_unique(
-        VLLM_SUPPORTED_CHAT_MODELS, "SeedOssForCausalLM", "Qwen3NextForCausalLM"
-    )
-    _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "MiniCPMV")
+    if effective_version >= version.parse("0.10.0"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "Glm4MoeForCausalLM")
+        _append_unique(
+            VLLM_SUPPORTED_MULTI_MODEL_LIST, "Glm4vMoeForConditionalGeneration"
+        )
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.11.0"):
-    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "DeepseekV32ForCausalLM")
-    _append_unique(
-        VLLM_SUPPORTED_MULTI_MODEL_LIST,
-        "Qwen3VLMoeForConditionalGeneration",
-        "Qwen3OmniMoeForConditionalGeneration",
-    )
+    if effective_version > version.parse("0.10.0"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "GptOssForCausalLM")
 
-if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.11.2"):
-    _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "MiniMaxM2ForCausalLM")
+    if effective_version >= version.parse("0.10.2"):
+        _append_unique(
+            VLLM_SUPPORTED_CHAT_MODELS, "SeedOssForCausalLM", "Qwen3NextForCausalLM"
+        )
+        _append_unique(VLLM_SUPPORTED_MULTI_MODEL_LIST, "MiniCPMV")
+
+    if effective_version >= version.parse("0.11.0"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "DeepseekV32ForCausalLM")
+        _append_unique(
+            VLLM_SUPPORTED_MULTI_MODEL_LIST,
+            "Qwen3VLMoeForConditionalGeneration",
+            "Qwen3OmniMoeForConditionalGeneration",
+        )
+
+    if effective_version >= version.parse("0.11.2"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "MiniMaxM2ForCausalLM")
+
+    if effective_version >= version.parse("0.15.0"):
+        _append_unique(
+            VLLM_SUPPORTED_MULTI_MODEL_LIST, "KimiK25ForConditionalGeneration"
+        )
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "Glm4MoeLiteForCausalLM")
+
+    if effective_version >= version.parse("0.16.0"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "GlmMoeDsaForCausalLM")
+
+    if effective_version > version.parse("0.16.0"):
+        _append_unique(
+            VLLM_SUPPORTED_MULTI_MODEL_LIST, "Qwen3_5MoeForConditionalGeneration"
+        )
+
+    if effective_version >= version.parse("0.19.0"):
+        _append_unique(
+            VLLM_SUPPORTED_MULTI_MODEL_LIST, "Gemma4ForConditionalGeneration"
+        )
+
+    if effective_version >= version.parse("0.20.1"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "DeepseekV4ForCausalLM")
+
+    if effective_version >= version.parse("0.22.0"):
+        _append_unique(
+            VLLM_SUPPORTED_MULTI_MODEL_LIST, "MiniCPMV4_6ForConditionalGeneration"
+        )
+        _append_unique(
+            VLLM_SUPPORTED_CHAT_MODELS,
+            "HunYuanDenseV1ForCausalLM",
+            "HYV3ForCausalLM",
+        )
+
+    if is_npu_available() and effective_version >= version.parse("0.18.0"):
+        _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "DeepseekV4ForCausalLM")
+
+
+_update_vllm_supported_lists()
 
 
 class VLLMModel(LLM):
@@ -282,21 +358,11 @@ class VLLMModel(LLM):
         model_config: Optional[VLLMModelConfig],
         peft_model: Optional[List[LoRA]] = None,
     ):
-        try:
-            from vllm.lora.request import LoRARequest
-        except ImportError:
-            error_message = "Failed to import module 'vllm'"
-            installation_guide = [
-                "Please make sure 'vllm' is installed. ",
-                "You can install it by `pip install vllm`\n",
-            ]
-
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
         super().__init__(model_uid, model_family, model_path)
         self._model_config = model_config
         self._engine = None
         self.lora_modules = peft_model
-        self.lora_requests: List[LoRARequest] = []
+        self.lora_requests: List[Any] = []
         self._xavier_config = None
         self._context_length: Optional[int] = None
         # distributed inference
@@ -307,6 +373,7 @@ class VLLMModel(LLM):
         self._driver_info = model_config.pop("driver_info", None)  # type: ignore
         self._loading_thread: Optional[threading.Thread] = None
         self._loading_error = None
+        self._check_health_task = None
         # variables used for distributed inference and multiple GPUs
         self._pool_addresses = None
         self._worker_addresses: Optional[Dict[int, List[str]]] = None
@@ -363,6 +430,7 @@ class VLLMModel(LLM):
 
     def load(self):
         try:
+            import vllm
             from vllm.engine.arg_utils import AsyncEngineArgs
             from vllm.engine.async_llm_engine import AsyncLLMEngine
             from vllm.lora.request import LoRARequest
@@ -382,6 +450,22 @@ class VLLMModel(LLM):
             ]
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+        if not getattr(vllm, "__version__", None):
+            raise ImportError(
+                "vllm not installed properly, or wrongly be found in sys.path"
+            )
+        global VLLM_INSTALLED, VLLM_VERSION
+        VLLM_INSTALLED = True
+        VLLM_VERSION = version.parse(vllm.__version__)
+        # XINFERENCE_MODEL_UID is injected via the env= dict in
+        # xinference.core.worker.WorkerActor._create_subpool so the sub-pool
+        # and its vLLM descendants (EngineCore / GPU workers) inherit it. Do
+        # NOT set os.environ here: load() runs in a worker thread under
+        # concurrent launches, and os.environ.__setitem__ -> putenv is not
+        # thread-safe; moreover the sub-pool was already forked by the time
+        # this runs, so a main-process env mutation would never reach it.
+        _update_vllm_supported_lists()
 
         from ..llm_family import LlamaCppLLMSpecV2
 
@@ -411,6 +495,15 @@ class VLLMModel(LLM):
 
         if self.lora_modules is None:
             self.lora_requests = []
+        elif VLLM_VERSION and VLLM_VERSION >= version.parse("0.14.0"):
+            self.lora_requests = [
+                LoRARequest(
+                    lora_name=lora.lora_name,
+                    lora_int_id=i,
+                    lora_path=lora.local_path,
+                )
+                for i, lora in enumerate(self.lora_modules, start=1)
+            ]
         else:
             self.lora_requests = [
                 LoRARequest(
@@ -547,10 +640,12 @@ class VLLMModel(LLM):
                                 pool_addresses=worker_addresses,
                                 n_worker=self._n_worker,
                             )
+                            if VLLM_VERSION >= version.parse("0.19.0"):
+                                executor_cls.supports_async_scheduling = lambda: True  # type: ignore
                             # patch vllm Executor.get_class
                             Executor.get_class = lambda vllm_config: executor_cls
                             self._engine = AsyncLLMEngine.from_engine_args(engine_args)
-                except:  # noqa: E722
+                except Exception:
                     logger.exception("Creating vllm engine failed")
                     self._loading_error = sys.exc_info()
 
@@ -567,12 +662,21 @@ class VLLMModel(LLM):
                 **self._model_config,
             )
             self._enable_v1_if_supported(engine_args)
-            self._engine = AsyncLLMEngine.from_engine_args(engine_args)
 
-        self._check_health_task = None
-        if hasattr(self._engine, "check_health"):
-            # vLLM introduced `check_health` since v0.4.1
-            self._check_health_task = self._loop.create_task(self._check_healthy())
+            def _load():
+                # Force spawn to avoid fork deadlock: vLLM v1 creates
+                # EngineCore via fork, which inherits parent's multi-thread
+                # lock state causing deadlock. spawn creates a clean process.
+                os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
+                try:
+                    self._engine = AsyncLLMEngine.from_engine_args(engine_args)
+                except Exception:
+                    logger.exception("Creating vllm engine failed")
+                    self._loading_error = sys.exc_info()
+
+            self._loading_thread = threading.Thread(target=_load)
+            self._loading_thread.start()
+            self._loading_thread.join(1)
 
     def wait_for_load(self):
         if self._loading_thread:
@@ -585,6 +689,33 @@ class VLLMModel(LLM):
         # if shard > 0, the engine will be inited in another process
         if self._engine:
             self._set_context_length()
+
+        # Create health check here after engine is fully ready.
+        # Previously in load(), but self._engine was None after
+        # _loading_thread.join(1) for threaded paths (multi-GPU
+        # and single-GPU), causing health check to be silently
+        # skipped. This fix applies to ALL vLLM models that use
+        # _loading_thread (both multi-GPU and single-GPU).
+        # Use call_soon_threadsafe + create_task instead of
+        # run_coroutine_threadsafe: the latter wraps the coroutine
+        # in a concurrent.futures.Future whose exceptions are
+        # silently swallowed if nobody checks the Future. create_task
+        # produces an asyncio.Task whose unhandled exceptions are
+        # logged by the asyncio default exception handler.
+        self._check_health_task = None
+        if self._engine and hasattr(self._engine, "check_health") and self._loop:
+            logger.info(
+                "Creating vLLM health check task for model %s",
+                self.model_uid,
+            )
+
+            def _start_health_check():
+                if self._engine is not None:
+                    self._check_health_task = self._loop.create_task(
+                        self._check_healthy()
+                    )
+
+            self._loop.call_soon_threadsafe(_start_health_check)
 
     def _set_context_length(self):
         if not self._is_vllm_v1():
@@ -693,6 +824,10 @@ class VLLMModel(LLM):
         logger.info("Stopping vLLM engine")
         if self._check_health_task:
             self._check_health_task.cancel()
+        # Wait for loading thread to finish so EngineCore subprocess
+        # can be properly shut down below.
+        if self._loading_thread and self._loading_thread.is_alive():
+            self._loading_thread.join(timeout=30)
         if self._engine:
             if not self._is_vllm_v1():
                 # v0
@@ -710,18 +845,16 @@ class VLLMModel(LLM):
         await self._engine.init_xavier()
 
     async def _check_healthy(self, interval: int = 30):
-        from vllm.engine.async_llm_engine import AsyncEngineDeadError
-
-        logger.debug("Begin to check health of vLLM")
+        logger.info("Begin to check health of vLLM")
 
         while self._engine is not None:
             try:
                 await self._engine.check_health()
-            except (AsyncEngineDeadError, RuntimeError):
+            except RuntimeError:
                 logger.info("Detecting vLLM is not health, prepare to quit the process")
                 try:
                     self.stop()
-                except:  # noqa: E722
+                except Exception:
                     # ignore error when stop
                     pass
                 # Just kill the process and let xinference auto-recover the model
@@ -729,14 +862,67 @@ class VLLMModel(LLM):
             else:
                 await asyncio.sleep(interval)
 
+    def parse_str_field_to_dict(
+        self, field_value, field_name: str = "config_field", default: dict = {}
+    ) -> dict:
+        """
+        Generic function: Parse a string-type configuration field to a dictionary.
+        Returns an empty default dict and logs a warning if parsing fails.
+
+        Applicable scenarios: JSON-formatted strings passed via webui
+        (e.g., speculative_config, mm_processor_kwargs fields)
+
+        Args:
+            field_value: Value of the field to parse (may be str/dict/other types)
+            field_name: Name of the field (used for log messages, e.g., "speculative_config")
+            default: Default value returned when parsing fails, empty dict by default
+
+        Returns:
+            Parsed dictionary (returns default if parsing fails or input is non-string type)
+        """
+        # Non-string type: Return original value if it's a dict, otherwise return default
+        if not isinstance(field_value, str):
+            return field_value if isinstance(field_value, dict) else default
+
+        # String type: Attempt JSON parsing
+        try:
+            parsed_dict = json.loads(field_value)
+            # Ensure parsing result is a dictionary (avoid list/number etc. from JSON string)
+            if isinstance(parsed_dict, dict):
+                return parsed_dict
+            else:
+                logger.warning(
+                    f"Parsed result of {field_name} is not a dictionary (type: {type(parsed_dict)}), "
+                    f"using default empty dict"
+                )
+                return default
+        except json.JSONDecodeError:
+            logger.warning(
+                f"Failed to parse {field_name} as JSON string, using default empty dict"
+            )
+            return default
+        except Exception as e:
+            logger.warning(
+                f"Unexpected error parsing {field_name}: {str(e)}, using default empty dict"
+            )
+            return default
+
     def _sanitize_model_config(
         self, model_config: Optional[VLLMModelConfig]
     ) -> VLLMModelConfig:
         if model_config is None:
             model_config = VLLMModelConfig()
 
-        model_config.setdefault("tokenizer_mode", "auto")
-        model_config.setdefault("trust_remote_code", True)
+        architectures = getattr(self.model_family, "architectures", []) or []
+        if "DeepseekV32ForCausalLM" in architectures:
+            model_config.setdefault("tokenizer_mode", "deepseek_v32")
+        else:
+            model_config.setdefault("tokenizer_mode", "auto")
+        # Respect the XINFERENCE_TRUST_REMOTE_CODE setting.
+        model_config["trust_remote_code"] = (
+            bool(model_config.get("trust_remote_code", XINFERENCE_TRUST_REMOTE_CODE))
+            and XINFERENCE_TRUST_REMOTE_CODE
+        )
         model_config.setdefault("tensor_parallel_size", self._device_count)  # type: ignore
         model_config.setdefault("pipeline_parallel_size", self._n_worker)  # type: ignore
         if (
@@ -749,34 +935,61 @@ class VLLMModel(LLM):
             model_config.setdefault("node_rank", self._shard)  # type: ignore
             # Use mp backend to satisfy vLLM validation; executor is patched later.
             model_config.setdefault("distributed_executor_backend", "mp")
+            # vLLM's init_distributed_environment overrides distributed_init_method
+            # with parallel_config.master_addr/master_port when nnodes > 1.
+            # We must set them to avoid falling back to the defaults
+            # ("127.0.0.1" and 29501).
+            if self._address and ":" in self._address:
+                master_addr = self._address.split(":", 1)[0]
+            else:
+                master_addr = self._address
+            model_config.setdefault("master_addr", master_addr)  # type: ignore
+            model_config.setdefault("master_port", get_next_port())  # type: ignore
         model_config.setdefault("block_size", 16)
-        model_config.setdefault("swap_space", 4)
+        if VLLM_VERSION < version.parse("0.18.0"):
+            model_config.setdefault("swap_space", 4)
         model_config.setdefault("gpu_memory_utilization", 0.90)
         model_config.setdefault("max_num_seqs", 256)
+
         if "model_quantization" in model_config:
             model_config["quantization"] = model_config.pop("model_quantization")
+
+        if self.model_spec.model_format == "fp8":
+            if model_config.get("quantization") in (None, "none"):
+                model_config["quantization"] = "fp8"
         else:
             model_config.setdefault("quantization", None)
         model_config.setdefault("max_model_len", None)
         model_config.setdefault("reasoning_content", False)
+
+        config_dict_list = [
+            "additional_config",
+            "compilation_config",
+            "model_loader_extra_config",
+        ]
+        for field in config_dict_list:
+            if field in model_config:
+                model_config[field] = self.parse_str_field_to_dict(  # type: ignore
+                    model_config.get(field, {}), field
+                )
+        if "speculative_config" in model_config:
+            model_config["speculative_config"] = self.parse_str_field_to_dict(
+                model_config.get("speculative_config", {}), "speculative_config"
+            )
+        if "rope_scaling" in model_config:
+            rope_scaling = self.parse_str_field_to_dict(
+                model_config["rope_scaling"], "rope_scaling"
+            )
+            model_config["hf_overrides"] = {"rope_scaling": rope_scaling}
+            model_config.pop("rope_scaling", {})
+
         # Add scheduling policy if vLLM version is 0.6.3 or higher
         if VLLM_VERSION >= version.parse("0.6.3"):
             model_config.setdefault("scheduling_policy", "fcfs")
             # init mm_processor_kwargs params
-            mm_processor_kwargs = model_config.get("mm_processor_kwargs", {})
-            if isinstance(mm_processor_kwargs, str):
-                try:
-                    mm_processor_kwargs = json.loads(mm_processor_kwargs)
-                except json.JSONDecodeError:
-                    logger.warning(
-                        "Failed to parse mm_processor_kwargs as JSON, using default empty dict"
-                    )
-                    mm_processor_kwargs = {}
-                except Exception as e:
-                    logger.warning(
-                        f"Unexpected error parsing mm_processor_kwargs: {e}, using default empty dict"
-                    )
-                    mm_processor_kwargs = {}
+            mm_processor_kwargs = self.parse_str_field_to_dict(
+                model_config.get("mm_processor_kwargs", {}), "mm_processor_kwargs"
+            )
             pixel_params: Dict[str, int] = {}
             if "min_pixels" in model_config:
                 pixel_params["min_pixels"] = model_config.pop("min_pixels")
@@ -787,6 +1000,7 @@ class VLLMModel(LLM):
                     **mm_processor_kwargs,
                     **pixel_params,
                 }
+
         return model_config
 
     @staticmethod
@@ -808,16 +1022,27 @@ class VLLMModel(LLM):
             elif response_format.get("type") == "json_schema":
                 json_schema = response_format.get("json_schema")
                 assert json_schema is not None
-                guided_json = json_schema.get("json_schema")
+                # Real serialized key is the field name `schema_` (the model
+                # aliases the reserved `schema`); fall back to `schema` for raw
+                # passthrough. Check `is None` rather than truthiness so a valid
+                # empty schema ({}) is not dropped.
+                guided_json = json_schema.get("schema_")
+                if guided_json is None:
+                    guided_json = json_schema.get("schema")
 
         sanitized.setdefault("lora_name", generate_config.get("lora_name", None))
         sanitized.setdefault("n", generate_config.get("n", 1))
-        sanitized.setdefault("best_of", generate_config.get("best_of", None))
+        if VLLM_VERSION < version.parse("0.21.0"):
+            sanitized.setdefault("best_of", generate_config.get("best_of", None))
+        sanitized.setdefault("seed", generate_config.get("seed", None))
         sanitized.setdefault(
             "presence_penalty", generate_config.get("presence_penalty", 0.0)
         )
         sanitized.setdefault(
             "frequency_penalty", generate_config.get("frequency_penalty", 0.0)
+        )
+        sanitized.setdefault(
+            "repetition_penalty", generate_config.get("repetition_penalty", 1.0)
         )
         sanitized.setdefault("temperature", generate_config.get("temperature", 1.0))
         sanitized.setdefault("top_p", generate_config.get("top_p", 1.0))
@@ -896,8 +1121,8 @@ class VLLMModel(LLM):
             return False, "vLLM requires CUDA or MLU GPUs or VACC GPUs or MUSA GPUs"
         if not cls._is_linux():
             return False, "vLLM backend is only supported on Linux"
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
-            return False, "vLLM supports pytorch/gptq/awq/fp8/bnb formats only"
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp4", "fp8", "bnb"]:
+            return False, "vLLM supports pytorch/gptq/awq/fp4/fp8/bnb formats only"
         if llm_spec.model_format == "pytorch":
             if quantization not in (None, "none"):
                 return (
@@ -921,7 +1146,7 @@ class VLLMModel(LLM):
             )
         if "generate" not in llm_family.model_ability:
             return False, "vLLM base engine requires generate ability"
-        if not VLLM_INSTALLED:
+        if not VLLM_INSTALLED and not _virtual_env_allows_missing_vllm():
             return False, "vLLM library is not installed"
         return True
 
@@ -986,22 +1211,38 @@ class VLLMModel(LLM):
         )
 
     async def _get_tokenizer(self, lora_request: Any) -> Any:
+        import inspect
+
         try:
             # vLLM 0.11.0+ get_tokenizer doesn't accept lora_request parameter
             if (
                 VLLM_VERSION >= version.parse("0.11.0")
                 or VLLM_VERSION.base_version >= "0.11.0"
             ):
-                return await self._engine.get_tokenizer()  # type: ignore
+                result = self._engine.get_tokenizer()  # type: ignore
+                # In vLLM v1 (>= 0.15.0), get_tokenizer may return tokenizer directly
+                # instead of a coroutine. Check if we need to await.
+                if inspect.iscoroutine(result):
+                    return await result
+                return result
             else:
-                return await self._engine.get_tokenizer(lora_request)  # type: ignore
+                result = self._engine.get_tokenizer(lora_request)  # type: ignore
+                if inspect.iscoroutine(result):
+                    return await result
+                return result
         except AttributeError:
             # Fallback to get_tokenizer_async for older versions
             try:
-                return await self._engine.get_tokenizer_async(lora_request)  # type: ignore
+                result = self._engine.get_tokenizer_async(lora_request)  # type: ignore
+                if inspect.iscoroutine(result):
+                    return await result
+                return result
             except (AttributeError, TypeError):
                 # If all else fails, try without parameters
-                return await self._engine.get_tokenizer()  # type: ignore
+                result = self._engine.get_tokenizer()  # type: ignore
+                if inspect.iscoroutine(result):
+                    return await result
+                return result
 
     def _tokenize(self, tokenizer: Any, prompt: str, config: dict) -> List[int]:
         truncate_prompt_tokens = config.get("truncate_prompt_tokens")
@@ -1058,6 +1299,26 @@ class VLLMModel(LLM):
             ]
 
             raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+        # When enable_thinking is True, don't skip special tokens
+        # Check chat_template_kwargs or reasoning_parser for enable_thinking
+        enable_thinking = False
+        if generate_config:
+            chat_template_kwargs = generate_config.get("chat_template_kwargs")
+            if chat_template_kwargs:
+                if isinstance(chat_template_kwargs, dict):
+                    enable_thinking = chat_template_kwargs.get("enable_thinking", False)
+                elif isinstance(chat_template_kwargs, str):
+                    try:
+                        kwargs_dict = json.loads(chat_template_kwargs)
+                        enable_thinking = kwargs_dict.get("enable_thinking", False)
+                    except json.JSONDecodeError:
+                        pass
+            elif not enable_thinking and self.reasoning_parser:
+                enable_thinking = self.reasoning_parser.enable_thinking
+
+        if (enable_thinking or tools) and generate_config:
+            generate_config["skip_special_tokens"] = False
 
         sanitized_generate_config = self._sanitize_generate_config(generate_config)
         logger.debug(
@@ -1119,7 +1380,9 @@ class VLLMModel(LLM):
             # Extract guided decoding parameters
             guided_params: dict[str, Any] = {}
             guided_json = sanitized_generate_config.pop("guided_json", None)
-            if guided_json:
+            # Check `is not None` rather than truthiness so a valid empty
+            # schema ({}) is forwarded to vLLM instead of being dropped.
+            if guided_json is not None:
                 guided_params["json"] = guided_json
 
             guided_regex = sanitized_generate_config.pop("guided_regex", None)
@@ -1420,13 +1683,14 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             "pytorch",
             "gptq",
             "awq",
+            "fp4",
             "fp8",
             "bnb",
             "ggufv2",
         ]:
             return (
                 False,
-                "vLLM chat mode supports pytorch/gptq/awq/fp8/bnb/ggufv2 formats only",
+                "vLLM chat mode supports pytorch/gptq/awq/fp4/fp8/bnb/ggufv2 formats only",
             )
         if llm_spec.model_format == "pytorch":
             if quantization not in (None, "none"):
@@ -1454,7 +1718,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             )
         if "chat" not in llm_family.model_ability:
             return False, "vLLM chat engine requires chat ability"
-        if not VLLM_INSTALLED:
+        if not VLLM_INSTALLED and not _virtual_env_allows_missing_vllm():
             return False, "vLLM library is not installed"
         return True
 
@@ -1537,7 +1801,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         # Preprocess messages to ensure content is not None
         messages = self.prefill_messages(messages)
 
-        tools = generate_config.pop("tools", []) if generate_config else None
+        tools = list(generate_config.pop("tools", [])) if generate_config else None
         model_family = self.model_family.model_family or self.model_family.model_name
         chat_template_kwargs = (
             self._get_chat_template_kwargs_from_generate_config(
@@ -1550,7 +1814,9 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
         if tools:
             if (
                 model_family in QWEN_TOOL_CALL_FAMILY
+                or model_family in GEMMA_TOOL_CALL_FAMILY
                 or model_family in DEEPSEEK_TOOL_CALL_FAMILY
+                or model_family in GLM5_TOOL_CALL_FAMILY
             ):
                 full_context_kwargs["tools"] = tools
         assert self.model_family.chat_template is not None
@@ -1566,7 +1832,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                     lora_request = lora
                     break
         tokenizer = await self._get_tokenizer(lora_request)
-
+        logger.debug("tokenizer class: %s", type(tokenizer).__name__)
         full_prompt = self.get_full_context(
             messages,
             self.model_family.chat_template,
@@ -1586,7 +1852,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
             )
         else:
             c = await self.async_generate(
-                full_prompt, generate_config, request_id=request_id
+                full_prompt, generate_config, tools, request_id=request_id
             )
             assert not isinstance(c, AsyncGenerator)
             if tools:
@@ -1613,10 +1879,10 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             )
         if not cls._is_linux():
             return False, "vLLM multimodal engine is only supported on Linux"
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp4", "fp8", "bnb"]:
             return (
                 False,
-                "vLLM multimodal engine supports pytorch/gptq/awq/fp8/bnb formats only",
+                "vLLM multimodal engine supports pytorch/gptq/awq/fp4/fp8/bnb formats only",
             )
         if llm_spec.model_format == "pytorch":
             if quantization not in (None, "none"):
@@ -1745,7 +2011,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
         from vllm import TokensPrompt
 
         if isinstance(prompt, str):
-            return super()._gen_tokens_prompt(tokenizer, prompt, config)
+            return await super()._gen_tokens_prompt(tokenizer, prompt, config)
 
         prompt_str = prompt["prompt"]
         multi_modal_data = prompt.get("multi_modal_data")
@@ -1760,6 +2026,53 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             prompt_token_ids=token_ids, multi_modal_data=multi_modal_data
         )
 
+    def _handle_base64_images(self, messages, temp_files):
+        import base64
+        import re
+        import tempfile
+
+        # Regex to match data URI scheme
+        data_uri_pattern = re.compile(
+            r"data:([a-zA-Z0-9]+/[a-zA-Z0-9-.+]+);base64,(.*)"
+        )
+
+        for msg in messages:
+            if isinstance(msg, dict) and isinstance(msg.get("content"), list):
+                for content in msg["content"]:
+                    if isinstance(content, dict):
+                        # check image_url
+                        if "image_url" in content and isinstance(
+                            content["image_url"], dict
+                        ):
+                            url = content["image_url"].get("url", "")
+                            if isinstance(url, str) and url.startswith("data:"):
+                                match = data_uri_pattern.match(url)
+                                if match:
+                                    mime_type, b64_data = match.groups()
+                                    try:
+                                        # Create temp file
+                                        suffix = ".bin"
+                                        if "pdf" in mime_type:
+                                            suffix = ".pdf"
+                                        elif "png" in mime_type:
+                                            suffix = ".png"
+                                        elif "jpeg" in mime_type or "jpg" in mime_type:
+                                            suffix = ".jpg"
+
+                                        with tempfile.NamedTemporaryFile(
+                                            delete=False, suffix=suffix
+                                        ) as tmp:
+                                            tmp.write(base64.b64decode(b64_data))
+                                            content["image_url"]["url"] = tmp.name
+                                            temp_files.append(tmp.name)
+                                            logger.debug(
+                                                f"Decoded base64 content to temp file: {tmp.name}"
+                                            )
+                                    except Exception as e:
+                                        logger.error(
+                                            f"Failed to decode base64 file: {e}"
+                                        )
+
     @vllm_check
     async def async_chat(
         self,
@@ -1767,7 +2080,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
         generate_config: Optional[Dict] = None,
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
-        tools = generate_config.pop("tools", []) if generate_config else None
+        tools = list(generate_config.pop("tools", [])) if generate_config else None
 
         model_family = self.model_family.model_family or self.model_family.model_name
         audios, images, videos, video_kwargs = None, None, None, None
@@ -1777,6 +2090,14 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 process_mm_info,
                 process_vision_info,
             )
+
+            # Pre-process messages to handle base64 data URIs BEFORE transform
+            temp_files: List[str] = []
+            if (
+                "vision" in self.model_family.model_ability
+                or "omni" in self.model_family.model_ability
+            ):
+                self._handle_base64_images(messages, temp_files)
 
             messages = self._transform_messages(messages)
 
@@ -1788,9 +2109,26 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             )
             chat_context_var.set(chat_template_kwargs)
             full_context_kwargs = chat_template_kwargs.copy()
-            if tools and model_family in QWEN_TOOL_CALL_FAMILY:
+            if tools and (
+                model_family in QWEN_TOOL_CALL_FAMILY
+                or model_family in GEMMA_TOOL_CALL_FAMILY
+                or model_family in GLM5_TOOL_CALL_FAMILY
+            ):
                 full_context_kwargs["tools"] = tools
             assert self.model_family.chat_template is not None
+
+            # Handle empty chat_template by falling back to tokenizer's chat_template
+            chat_template: Optional[str] = self.model_family.chat_template
+            tokenizer = None
+            if not chat_template:
+                tokenizer = await self._get_tokenizer(None)
+                if tokenizer is not None:
+                    chat_template = getattr(tokenizer, "chat_template", None)
+            if not chat_template:
+                raise ValueError(
+                    f"chat_template is required for model {self.model_uid}, but none was provided."
+                )
+
             if "omni" in self.model_family.model_ability:
                 audios, images, videos, video_kwargs = process_mm_info(
                     messages, use_audio_in_video=True, return_video_kwargs=True
@@ -1803,9 +2141,8 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 )
 
             prompt = self.get_full_context(
-                messages, self.model_family.chat_template, **full_context_kwargs
+                messages, chat_template, tokenizer=tokenizer, **full_context_kwargs
             )
-
         else:
             prompt, images = self.get_specific_prompt(model_family, messages)
         inputs = {"prompt": prompt, "multi_modal_data": {}, "mm_processor_kwargs": {}}
@@ -1833,13 +2170,27 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
 
         if stream:
             agen = await self.async_generate(
-                inputs, generate_config, request_id=request_id
+                inputs,
+                generate_config,
+                tools=True if tools else False,
+                request_id=request_id,
             )
             assert isinstance(agen, AsyncGenerator)
-            return self._async_to_chat_completion_chunks(agen)
+            if tools:
+                return self._async_to_tool_completion_chunks(agen, chat_template_kwargs)
+            return self._async_to_chat_completion_chunks(
+                agen, self.reasoning_parser, chat_template_kwargs
+            )
         else:
             c = await self.async_generate(
-                inputs, generate_config, request_id=request_id
+                inputs,
+                generate_config,
+                tools=True if tools else False,
+                request_id=request_id,
             )
             assert not isinstance(c, AsyncGenerator)
-            return self._to_chat_completion(c)
+            if tools:
+                return self._post_process_completion(
+                    self.model_family, self.model_uid, c
+                )
+            return self._to_chat_completion(c, self.reasoning_parser)

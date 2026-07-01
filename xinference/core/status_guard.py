@@ -1,4 +1,4 @@
-# Copyright 2022-2024 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ class LaunchStatus(Enum):
     TERMINATED = 4
     READY = 5
     ERROR = 6
+    LOADING = 7
 
 
 class ReplicaStatus(BaseModel):
@@ -37,7 +38,8 @@ class ReplicaStatus(BaseModel):
     replica_id: int
     replica_model_uid: str
     worker_address: str
-    status: str  # CREATING, READY, ERROR
+    status: str  # CREATING, LOADING, READY, ERROR, TERMINATING, TERMINATED
+    model_state: str = ""  # registering/loading/ready/error/stopping/stopped
     created_ts: int
     error_message: Optional[str] = None
 
@@ -143,3 +145,17 @@ class StatusGuardActor(xo.StatelessActor):
         if model_uid in self._model_uid_to_info:
             return self._model_uid_to_info[model_uid].replica_statuses or []
         return []
+
+    def remove_replica_status(self, model_uid: str, replica_id: int) -> int:
+        """Remove status for a specific replica and return remaining replica count."""
+        if model_uid not in self._model_uid_to_info:
+            logger.warning(f"Model {model_uid} not found in status guard")
+            return 0
+
+        instance_info = self._model_uid_to_info[model_uid]
+        replica_statuses = instance_info.replica_statuses or []
+        instance_info.replica_statuses = [
+            status for status in replica_statuses if status.replica_id != replica_id
+        ]
+        instance_info.replica = len(instance_info.replica_statuses)
+        return instance_info.replica

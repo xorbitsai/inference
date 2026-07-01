@@ -5,6 +5,22 @@ from ..cache_manager import CacheManager
 
 
 class ImageCacheManager(CacheManager):
+    def __init__(self, model_family):
+        super().__init__(model_family)
+        model_format = getattr(model_family, "model_format", None)
+        quantization = getattr(model_family, "quantization", None)
+        suffix_parts = []
+        if model_format:
+            suffix_parts.append(model_format)
+        if quantization:
+            suffix_parts.append(quantization)
+        if suffix_parts:
+            suffix = "-".join(suffix_parts)
+            self._cache_dir = os.path.join(
+                self._v2_cache_dir_prefix,
+                f"{self._model_family.model_name.replace('.', '_')}-{suffix}",
+            )
+
     def cache_gguf(self, quantization: Optional[str] = None):
         from ..utils import IS_NEW_HUGGINGFACE_HUB, retry_download, symlink_local_file
         from .core import ImageModelFamilyV2

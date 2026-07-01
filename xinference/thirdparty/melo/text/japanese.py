@@ -379,7 +379,7 @@ def text2kata(text: str) -> str:
         if yomi:
             try:
                 res.append(yomi.split(',')[6])
-            except:
+            except Exception:
                 import pdb; pdb.set_trace()
         else:
             if word in _SYMBOL_TOKENS:

@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 141 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 141
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** mistralai/Mixtral-8x22B-Instruct-v0.1
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/mistralai/Mixtral-8x22B-Instruct-v0.1>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (awq, 141 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 141
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** MaziyarPanahi/Mixtral-8x22B-Instruct-v0.1-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/MaziyarPanahi/Mixtral-8x22B-Instruct-v0.1-AWQ>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (gptq, 141 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 141
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** jarrelscy/Mixtral-8x22B-Instruct-v0.1-GPTQ-4bit
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/jarrelscy/Mixtral-8x22B-Instruct-v0.1-GPTQ-4bit>`__
 

@@ -169,4 +169,4 @@ Note
 ====
 This feature is still in an experimental stage.
 Feel free to provide feedback on usage issues or improvement suggestions through `GitHub issues <https://github.com/xorbitsai/inference/issues>`_ or
-`our Slack <https://join.slack.com/t/xorbitsio/shared_invite/zt-1o3z9ucdh-RbfhbPVpx7prOVdM1CAuxg>`_.
+`our Telegram group <https://t.me/+nCNpwmySwk9iYmI1>`_.

@@ -25,12 +25,12 @@ DEFAULT_EXTENSION = ".wav"
 def _check_imports():  # pragma: no cover
     try:
         import ffmpy
-    except:
+    except Exception:
         ffmpy = False
 
     try:
         import IPython
-    except:
+    except Exception:
         raise ImportError("IPython must be installed in order to use this function!")
     return ffmpy, IPython
 

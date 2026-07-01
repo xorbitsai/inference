@@ -7,7 +7,7 @@ DianJin-R1
 - **Context Length:** 32768
 - **Model Name:** DianJin-R1
 - **Languages:** en, zh
-- **Abilities:** chat, tools
+- **Abilities:** chat, reasoning, hybrid, tools
 - **Description:** Tongyi DianJin is a financial intelligence solution platform built by Alibaba Cloud, dedicated to providing financial business developers with a convenient artificial intelligence application development environment.
 
 Specifications

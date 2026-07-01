@@ -106,7 +106,7 @@ class IndexTTS:
 
                 anti_alias_activation_cuda = load.load()
                 print(">> Preload custom CUDA kernel for BigVGAN", anti_alias_activation_cuda)
-            except:
+            except Exception:
                 print(">> Failed to load custom CUDA kernel for BigVGAN. Falling back to torch.")
                 self.use_cuda_kernel = False
         self.bigvgan = Generator(self.cfg.bigvgan, use_cuda_kernel=self.use_cuda_kernel)

@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,10 +46,15 @@ async def _start_local_cluster(
     logging_conf: Optional[Dict] = None,
     conn: Optional[Connection] = None,
 ):
-    from .utils import create_worker_actor_pool
+    from .utils import create_worker_actor_pool, update_all_formatter_addresses
 
     if logging_conf:
         logging.config.dictConfig(logging_conf)  # type: ignore
+
+    update_all_formatter_addresses("local", address)
+    if logging_conf and "formatters" in logging_conf:
+        for formatter in logging_conf["formatters"].values():
+            formatter["address"] = address
 
     pool = None
     try:
@@ -62,6 +67,7 @@ async def _start_local_cluster(
         await start_worker_components(
             address=address,
             supervisor_address=address,
+            supervisor_endpoint=None,
             main_pool=pool,
             metrics_exporter_host=metrics_exporter_host,
             metrics_exporter_port=metrics_exporter_port,
@@ -92,8 +98,7 @@ def run(
     signal.signal(signal.SIGTERM, sigterm_handler)
 
     try:
-        loop = asyncio.get_event_loop()
-        task = loop.create_task(
+        asyncio.run(
             _start_local_cluster(
                 address=address,
                 metrics_exporter_host=metrics_exporter_host,
@@ -102,8 +107,7 @@ def run(
                 conn=conn,
             )
         )
-        loop.run_until_complete(task)
-    except:
+    except Exception:
         tb = traceback.format_exc()
         if conn:
             try:

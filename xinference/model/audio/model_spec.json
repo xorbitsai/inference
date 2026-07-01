@@ -589,9 +589,11 @@
     "multilingual": true,
     "virtualenv": {
       "packages": [
-        "ChatTTS>=0.2.1",
+        "ChatTTS==0.2.4",
         "#system_torch#",
-        "#system_numpy#"
+        "#system_numpy#",
+        "transformers==4.53.2",
+        "#system_torchaudio#"
       ]
     },
     "model_src": {
@@ -604,7 +606,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387076,
+    "updated_at": 1780041428,
     "featured": true
   },
   {
@@ -944,15 +946,14 @@
     "multilingual": true,
     "model_src": {
       "huggingface": {
-        "model_id": "hexgrad/Kokoro-82M",
-        "model_revision": "7884269d6fd3f9beabc271b6f1308e5699281fa9"
+        "model_id": "hexgrad/Kokoro-82M"
       },
       "modelscope": {
         "model_id": "AI-ModelScope/Kokoro-82M",
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387100,
+    "updated_at": 1775931837,
     "featured": false
   },
   {
@@ -1019,15 +1020,14 @@
     "multilingual": false,
     "model_src": {
       "huggingface": {
-        "model_id": "hexgrad/Kokoro-82M-v1.1-zh",
-        "model_revision": "01e7505bd6a7a2ac4975463114c3a7650a9f7218"
+        "model_id": "hexgrad/Kokoro-82M-v1.1-zh"
       },
       "modelscope": {
         "model_id": "AI-ModelScope/Kokoro-82M-v1.1-zh",
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387106,
+    "updated_at": 1775931819,
     "featured": false
   },
   {
@@ -1096,13 +1096,17 @@
         "max_single_segment_time": 30000
       }
     },
-    "default_transcription_config": {},
+    "default_transcription_config": {
+      "batch_size": 1
+    },
     "version": 2,
     "virtualenv": {
-      "packages": []
+      "packages": [
+        "funasr @ git+https://github.com/modelscope/FunASR@b25472b0b562d04f411da30ff9cc59786f68b0f2"
+      ]
     },
     "featured": false,
-    "updated_at": 1766568011
+    "updated_at": 1768536254
   },
   {
     "model_name": "Fun-ASR-MLT-Nano-2512",
@@ -1128,12 +1132,286 @@
         "max_single_segment_time": 30000
       }
     },
+    "default_transcription_config": {
+      "batch_size": 1
+    },
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "funasr @ git+https://github.com/modelscope/FunASR@b25472b0b562d04f411da30ff9cc59786f68b0f2"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1769514574
+  },
+  {
+    "model_name": "Qwen3-ASR-0.6B",
+    "model_description": "This is a custom model description.",
+    "multilingual": true,
+    "model_ability": [
+      "audio2text"
+    ],
+    "model_family": "qwen3_asr",
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen3-ASR-0.6B",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen3-ASR-0.6B",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {
+      "forced_aligner": "Qwen/Qwen3-ForcedAligner-0.6B"
+    },
     "default_transcription_config": {},
     "version": 2,
     "virtualenv": {
-      "packages": []
+      "packages": [
+        "qwen-asr",
+        "#system_torch#",
+        "#system_numpy#",
+        "#system_pandas#"
+      ]
     },
     "featured": false,
-    "updated_at": 1766568013
+    "updated_at": 1775217476
+  },
+  {
+    "model_name": "Qwen3-ASR-1.7B",
+    "model_description": "This is a custom model description.",
+    "multilingual": true,
+    "model_ability": [
+      "audio2text"
+    ],
+    "model_family": "qwen3_asr",
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen3-ASR-1.7B",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen3-ASR-1.7B",
+        "model_revision": "master"
+      }
+    },
+    "default_model_config": {
+      "forced_aligner": "Qwen/Qwen3-ForcedAligner-0.6B"
+    },
+    "default_transcription_config": {},
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "qwen-asr",
+        "#system_torch#",
+        "#system_numpy#",
+        "#system_pandas#"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1775217521
+  },
+  {
+    "model_name": "Qwen3-TTS-12Hz-0.6B-Base",
+    "model_description": "This is a custom model description.",
+    "multilingual": true,
+    "model_ability": [
+      "text2audio",
+      "text2audio_voice_cloning"
+    ],
+    "model_family": "qwen3_tts",
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-0.6B-Base",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-0.6B-Base",
+        "model_revision": "master"
+      }
+    },
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "qwen-tts",
+        "#system_torch#",
+        "#system_numpy#",
+        "#system_pandas#"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1775717134
+  },
+  {
+    "model_name": "Qwen3-TTS-12Hz-1.7B-Base",
+    "model_description": "This is a custom model description.",
+    "multilingual": true,
+    "model_ability": [
+      "text2audio",
+      "text2audio_voice_cloning"
+    ],
+    "model_family": "qwen3_tts",
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+        "model_revision": "master"
+      }
+    },
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "qwen-tts",
+        "#system_torch#",
+        "#system_numpy#",
+        "#system_pandas#"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1775717083
+  },
+  {
+    "model_name": "Qwen3-TTS-12Hz-0.6B-CustomVoice",
+    "model_description": "This is a custom model description.",
+    "multilingual": true,
+    "model_ability": [
+      "text2audio"
+    ],
+    "model_family": "qwen3_tts",
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
+        "model_revision": "master"
+      }
+    },
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "qwen-tts",
+        "#system_torch#",
+        "#system_numpy#",
+        "#system_pandas#"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1775717182
+  },
+  {
+    "model_name": "Qwen3-TTS-12Hz-1.7B-CustomVoice",
+    "model_description": "This is a custom model description.",
+    "multilingual": true,
+    "model_ability": [
+      "text2audio"
+    ],
+    "model_family": "qwen3_tts",
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
+        "model_revision": "master"
+      }
+    },
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "qwen-tts",
+        "#system_torch#",
+        "#system_numpy#",
+        "#system_pandas#"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1775717158
+  },
+  {
+    "model_name": "Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "model_description": "This is a custom model description.",
+    "multilingual": true,
+    "model_ability": [
+      "text2audio"
+    ],
+    "model_family": "qwen3_tts",
+    "model_src": {
+      "huggingface": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "model_revision": "master"
+      }
+    },
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "qwen-tts",
+        "#system_torch#",
+        "#system_numpy#",
+        "#system_pandas#"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1775717207
+  },
+  {
+    "version": 2,
+    "model_name": "VoxCPM2",
+    "model_family": "VoxCPM",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot",
+      "text2audio_voice_cloning"
+    ],
+    "multilingual": true,
+    "virtualenv": {
+      "packages": [
+        "voxcpm",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_torchcodec#",
+        "#system_numpy#",
+        "soundfile",
+        "librosa",
+        "transformers>=4.36.2",
+        "einops",
+        "huggingface-hub",
+        "modelscope>=1.22.0",
+        "datasets>=3,<4",
+        "inflect",
+        "addict",
+        "wetext",
+        "tqdm",
+        "simplejson",
+        "sortedcontainers",
+        "matplotlib",
+        "funasr",
+        "spaces",
+        "argbind",
+        "safetensors"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "openbmb/VoxCPM2",
+        "model_revision": "bffb3df5a29440629464e5e839f4d214c8714c3d"
+      },
+      "modelscope": {
+        "model_id": "OpenBMB/VoxCPM2",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1781772400,
+    "featured": true
   }
 ]

@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,9 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
+from types import SimpleNamespace
+
+import pytest
+
+from ..core import chat_context_var
 from ..reasoning_parser import ReasoningParser
+from ..tool_parsers.llama3_tool_parser import Llama3ToolParser
 from ..tool_parsers.qwen_tool_parser import QwenToolParser
 from ..utils import ChatModelMixin
+
+
+@pytest.fixture(autouse=True)
+def reset_chat_context_var():
+    token = chat_context_var.set({})
+    try:
+        yield
+    finally:
+        chat_context_var.reset(token)
 
 
 def test_is_valid_model_name():
@@ -43,6 +59,319 @@ def filter_ids_and_created(data):
             if k not in ["id", "created"]
         }
     return data
+
+
+def test_to_chat_completion_chunks_usage_only_chunk_without_metadata():
+    chunks = [
+        {
+            "id": "cmpl-test",
+            "object": "text_completion",
+            "created": 123,
+            "model": "test-model",
+            "choices": [
+                {
+                    "index": 0,
+                    "text": "hello",
+                    "logprobs": None,
+                    "finish_reason": None,
+                }
+            ],
+        },
+        {
+            "usage": {
+                "prompt_tokens": 3,
+                "completion_tokens": 2,
+                "total_tokens": 5,
+            }
+        },
+    ]
+
+    results = list(ChatModelMixin._to_chat_completion_chunks(iter(chunks)))
+
+    assert results[-1] == {
+        "id": "chatcmpl-test",
+        "model": "test-model",
+        "created": 123,
+        "object": "chat.completion.chunk",
+        "choices": [],
+        "usage": {
+            "prompt_tokens": 3,
+            "completion_tokens": 2,
+            "total_tokens": 5,
+        },
+    }
+
+
+def test_async_to_chat_completion_chunks_preserves_usage_only_chunk():
+    async def _chunks():
+        yield {
+            "id": "cmpl-test",
+            "object": "text_completion",
+            "created": 123,
+            "model": "test-model",
+            "choices": [
+                {
+                    "index": 0,
+                    "text": "",
+                    "logprobs": None,
+                    "finish_reason": "stop",
+                }
+            ],
+        }
+        yield {
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 3,
+                "completion_tokens": 2,
+                "total_tokens": 5,
+            },
+        }
+
+    async def _collect():
+        return [
+            chunk
+            async for chunk in ChatModelMixin._async_to_chat_completion_chunks(
+                _chunks()
+            )
+        ]
+
+    results = asyncio.run(_collect())
+
+    assert results[-1] == {
+        "id": "chatcmpl-test",
+        "model": "test-model",
+        "created": 123,
+        "object": "chat.completion.chunk",
+        "choices": [],
+        "usage": {
+            "prompt_tokens": 3,
+            "completion_tokens": 2,
+            "total_tokens": 5,
+        },
+    }
+
+
+def test_transform_messages_preserves_tool_call_fields():
+    mixin = ChatModelMixin()
+    messages = [
+        {"role": "user", "content": "Hi"},
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": "call_bed4c5f1",
+                    "function": {
+                        "arguments": '{"file_path": "README*"}',
+                        "name": "view_file_in_detail",
+                    },
+                    "type": "function",
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "content": "Tool execute results: file not found: README*",
+            "tool_call_id": "call_bed4c5f1",
+        },
+    ]
+
+    transformed = mixin._transform_messages(messages)
+
+    assert transformed[0] == {
+        "role": "user",
+        "content": [{"type": "text", "text": "Hi"}],
+    }
+    assert transformed[1] == {
+        "role": "assistant",
+        "content": None,
+        "tool_calls": [
+            {
+                "id": "call_bed4c5f1",
+                "function": {
+                    "arguments": {"file_path": "README*"},
+                    "name": "view_file_in_detail",
+                },
+                "type": "function",
+            }
+        ],
+    }
+    assert messages[1]["tool_calls"][0]["function"]["arguments"] == (
+        '{"file_path": "README*"}'
+    )
+    assert transformed[2] == {
+        "role": "tool",
+        "content": [
+            {"type": "text", "text": "Tool execute results: file not found: README*"}
+        ],
+        "tool_call_id": "call_bed4c5f1",
+    }
+
+
+def test_transform_messages_materializes_tool_call_iterators():
+    mixin = ChatModelMixin()
+    messages = [
+        {
+            "role": "assistant",
+            "tool_calls": iter(
+                [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "read",
+                            "arguments": iter([("path", "README.md")]),
+                        },
+                    }
+                ]
+            ),
+        }
+    ]
+
+    transformed = mixin._transform_messages(messages)
+
+    assert transformed == [
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "read",
+                        "arguments": {"path": "README.md"},
+                    },
+                }
+            ],
+        }
+    ]
+
+
+def test_transform_messages_rejects_invalid_tool_call_arguments_json():
+    mixin = ChatModelMixin()
+    messages = [
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "read",
+                        "arguments": '{"path":',
+                    },
+                }
+            ],
+        }
+    ]
+
+    with pytest.raises(
+        ValueError, match="Tool call arguments must be a valid JSON object"
+    ):
+        mixin._transform_messages(messages)
+
+
+def test_deepseekv4_get_full_context_attaches_tools(tmp_path):
+    encoding_dir = tmp_path / "encoding"
+    encoding_dir.mkdir()
+    (encoding_dir / "encoding_dsv4.py").write_text(
+        "def encode_messages(messages, thinking_mode):\n    return messages\n",
+        encoding="utf-8",
+    )
+    mixin = ChatModelMixin()
+    mixin.model_family = SimpleNamespace(
+        model_name="DeepSeek-V4-Flash",
+        model_ability=["chat", "hybrid", "tools"],
+        is_builtin=True,
+    )
+    mixin.model_path = str(tmp_path)
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get weather",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }
+    ]
+
+    messages = mixin.get_full_context(
+        [{"role": "user", "content": "How is the weather?"}],
+        "",
+        tokenizer=object(),
+        tools=tools,
+    )
+
+    assert messages[0] == {"role": "system", "content": "", "tools": tools}
+    assert messages[1] == {"role": "user", "content": "How is the weather?"}
+
+
+def test_deepseekv4_get_full_context_blocks_custom_remote_code(tmp_path):
+    encoding_dir = tmp_path / "encoding"
+    encoding_dir.mkdir()
+    (encoding_dir / "encoding_dsv4.py").write_text(
+        "def encode_messages(messages, thinking_mode):\n    return messages\n",
+        encoding="utf-8",
+    )
+    mixin = ChatModelMixin()
+    mixin.model_family = SimpleNamespace(
+        model_name="DeepSeek-V4-Flash",
+        model_ability=["chat", "hybrid", "tools"],
+    )
+    mixin.model_path = str(tmp_path)
+
+    with pytest.raises(ValueError, match="XINFERENCE_TRUST_REMOTE_CODE=1"):
+        mixin.get_full_context(
+            [{"role": "user", "content": "How is the weather?"}],
+            "",
+            tokenizer=object(),
+        )
+
+
+def test_chat_template_kwargs_inherit_model_thinking_default():
+    reasoning_parser = ReasoningParser(
+        reasoning_content=False,
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        enable_thinking=False,
+    )
+
+    kwargs = ChatModelMixin._get_chat_template_kwargs_from_generate_config(
+        {"chat_template_kwargs": {"add_vision_id": True}},
+        reasoning_parser,
+    )
+
+    assert kwargs == {"add_vision_id": True, "enable_thinking": False}
+
+
+def test_chat_template_kwargs_keep_request_thinking_override():
+    reasoning_parser = ReasoningParser(
+        reasoning_content=False,
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        enable_thinking=False,
+    )
+
+    kwargs = ChatModelMixin._get_chat_template_kwargs_from_generate_config(
+        {"chat_template_kwargs": {"thinking": True}},
+        reasoning_parser,
+    )
+
+    assert kwargs == {"thinking": True, "enable_thinking": True}
+
+
+def test_chat_template_kwargs_string_normalizes_thinking():
+    reasoning_parser = ReasoningParser(
+        reasoning_content=False,
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        enable_thinking=False,
+    )
+
+    kwargs = ChatModelMixin._get_chat_template_kwargs_from_generate_config(
+        {"chat_template_kwargs": '{"thinking": true}'},
+        reasoning_parser,
+    )
+
+    assert kwargs == {"thinking": True, "enable_thinking": True}
 
 
 def test_post_process_completion_chunk_without_thinking():
@@ -1693,3 +2022,45 @@ def test_post_process_completion_with_parser():
     assert (
         result_filtered == expected_filtered
     ), f"Mismatch: expected {expected_filtered}, got {result_filtered}"
+
+
+# ── Security tests for Llama3ToolParser ────────────────────
+
+
+class TestEvalLlama3ChatArgumentsSecurity:
+    """Verify Llama3ToolParser uses safe parsing (no eval() RCE)."""
+
+    def test_valid_json_tool_call(self):
+        text = '{"name": "get_weather", "parameters": {"location": "Tokyo"}}'
+        result = Llama3ToolParser().extract_tool_calls(text)
+        assert result == [(None, "get_weather", {"location": "Tokyo"})]
+
+    def test_python_literal_tool_call(self):
+        text = "{'name': 'toggle', 'parameters': {'enabled': True}}"
+        result = Llama3ToolParser().extract_tool_calls(text)
+        assert result == [(None, "toggle", {"enabled": True})]
+
+    def test_reject_os_import_rce(self):
+        text = "__import__('os').system('echo PWNED')"
+        result = Llama3ToolParser().extract_tool_calls(text)
+        assert result == [(text, None, None)]
+
+    def test_reject_class_exploit(self):
+        text = "().__class__.__bases__[0].__subclasses__()"
+        result = Llama3ToolParser().extract_tool_calls(text)
+        assert result == [(text, None, None)]
+
+    def test_reject_exec(self):
+        text = "exec('import os')"
+        result = Llama3ToolParser().extract_tool_calls(text)
+        assert result == [(text, None, None)]
+
+    def test_malformed_json(self):
+        text = '{"name": "func", "parameters": {'
+        result = Llama3ToolParser().extract_tool_calls(text)
+        assert result == [(text, None, None)]
+
+    def test_missing_keys(self):
+        text = '{"function": "test", "args": {}}'
+        result = Llama3ToolParser().extract_tool_calls(text)
+        assert result == [(text, None, None)]

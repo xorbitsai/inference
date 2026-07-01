@@ -44,7 +44,7 @@ except ImportError:
 
 try:
     import soundfile as sf
-except:
+except Exception:
     raise ImportError(
         "Failed to import soundfile, please install soundfile with `pip install soundfile`"
     )

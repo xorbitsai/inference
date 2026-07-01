@@ -20,7 +20,7 @@ Model Spec 1 (pytorch, 40 Billion)
 - **Model Format:** pytorch
 - **Model Size (in billions):** 40
 - **Quantizations:** none
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** Kwaipilot/KAT-V1-40B
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/Kwaipilot/KAT-V1-40B>`__, `ModelScope <https://modelscope.cn/models/Kwaipilot/KAT-V1-40B>`__
 
@@ -36,7 +36,7 @@ Model Spec 2 (gptq, 40 Billion)
 - **Model Format:** gptq
 - **Model Size (in billions):** 40
 - **Quantizations:** Int4-Int8Mix
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** QuantTrio/KAT-V1-40B-GPTQ-Int4-Int8Mix
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/KAT-V1-40B-GPTQ-Int4-Int8Mix>`__, `ModelScope <https://modelscope.cn/models/tclf90/KAT-V1-40B-GPTQ-Int4-Int8Mix>`__
 
@@ -52,7 +52,7 @@ Model Spec 3 (awq, 40 Billion)
 - **Model Format:** awq
 - **Model Size (in billions):** 40
 - **Quantizations:** Int4
-- **Engines**: vLLM, Transformers
+- **Engines**: vLLM, Transformers, SGLang
 - **Model ID:** QuantTrio/KAT-V1-40B-AWQ
 - **Model Hubs**:  `Hugging Face <https://huggingface.co/QuantTrio/KAT-V1-40B-AWQ>`__, `ModelScope <https://modelscope.cn/models/tclf90/KAT-V1-40B-AWQ>`__
 

@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,14 +14,17 @@
 import asyncio
 import logging
 import os
+import platform
 import random
+import re
 import string
 import uuid
 import weakref
 from enum import Enum
-from typing import Dict, Generator, List, Optional, Tuple, Union
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
 import orjson
+from packaging.markers import Marker
 from packaging.requirements import Requirement
 
 from .._compat import BaseModel
@@ -291,6 +294,136 @@ def merge_virtual_env_packages(
     return merged
 
 
+def build_subpool_envs_for_virtual_env(
+    envs: Optional[Dict[str, str]],
+    enable_virtual_env: Optional[bool],
+    virtual_env_manager: Any,
+) -> Dict[str, str]:
+    subpool_envs = {} if envs is None else envs.copy()
+    if bool(enable_virtual_env) and virtual_env_manager is not None:
+        from .virtual_env_manager import resolve_virtualenv_python_path
+
+        venv_python = resolve_virtualenv_python_path(virtual_env_manager)
+        if not venv_python:
+            return subpool_envs
+        venv_bin = os.path.dirname(venv_python)
+        venv_path = os.path.dirname(venv_bin)
+        current_path = subpool_envs.get("PATH") or os.environ.get("PATH", "")
+        subpool_envs["PATH"] = os.pathsep.join([venv_bin, current_path or ""])
+        subpool_envs["VIRTUAL_ENV"] = venv_path
+        subpool_envs.setdefault(
+            "FLASHINFER_NINJA_PATH", os.path.join(venv_bin, "ninja")
+        )
+    return subpool_envs
+
+
+def apply_engine_virtualenv_settings(
+    settings: Any,
+    model_engine: Optional[str],
+) -> None:
+    """
+    Apply engine-specific virtualenv settings (extra indexes, strategies).
+    """
+    if not model_engine:
+        return
+    from .virtual_env_manager import (
+        get_engine_virtualenv_extra_index_urls,
+        get_engine_virtualenv_index_strategy,
+    )
+
+    engine_extra_index_urls = get_engine_virtualenv_extra_index_urls(model_engine)
+    engine_index_strategy = get_engine_virtualenv_index_strategy(model_engine)
+    if settings.extra_index_url is None and engine_extra_index_urls:
+        settings.extra_index_url = engine_extra_index_urls
+    if settings.index_strategy is None and engine_index_strategy:
+        settings.index_strategy = engine_index_strategy
+
+
+def filter_virtualenv_packages_by_markers(
+    packages: List[str],
+    model_engine: Optional[str],
+    cuda_version: Optional[str],
+) -> List[str]:
+    """
+    Filter virtualenv packages using custom markers and system placeholders.
+
+    This keeps #system_*# entries intact while evaluating engine/cuda/platform
+    markers for other packages.
+    """
+    if not packages:
+        return []
+    system_markers = {
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_torchvision#",
+        "#system_torchcodec#",
+        "#system_numpy#",
+    }
+
+    def _marker_allows(marker: str) -> bool:
+        marker = marker.strip().lower()
+        if "#engine#" in marker or "#model_engine#" in marker:
+            if not model_engine:
+                return False
+            engine_value = model_engine.lower()
+            if (
+                f'#engine# == "{engine_value}"' not in marker
+                and f'#model_engine# == "{engine_value}"' not in marker
+                and f"#model_engine# == '{engine_value}'" not in marker
+            ):
+                return False
+
+        if op_versions := re.findall(
+            r"\bcuda_version\b\s*([<>=!~]+)\s*['\"]([^'\"]+)['\"]", marker
+        ):
+            if not cuda_version:
+                return False
+            if not all(
+                check_marker(op_version, "cuda_version", cuda_version)
+                for op_version in op_versions
+            ):
+                return False
+        if (
+            'platform_machine == "x86_64"' in marker
+            and platform.machine().lower() != "x86_64"
+        ):
+            return False
+        if (
+            'platform_machine == "aarch64"' in marker
+            and platform.machine().lower() != "aarch64"
+        ):
+            return False
+        return True
+
+    def _has_custom_marker(marker: str) -> bool:
+        marker = marker.lower()
+        return (
+            "#engine#" in marker
+            or "#model_engine#" in marker
+            or "cuda_version" in marker
+        )
+
+    resolved_packages: List[str] = []
+    for pkg in packages:
+        if ";" in pkg:
+            req, marker = pkg.split(";", 1)
+            req = req.strip()
+            marker = marker.strip()
+            if req in system_markers:
+                if _has_custom_marker(marker):
+                    if _marker_allows(marker):
+                        resolved_packages.append(req)
+                    continue
+                resolved_packages.append(pkg)
+                continue
+            if _has_custom_marker(marker):
+                if _marker_allows(marker):
+                    resolved_packages.append(req)
+                continue
+        resolved_packages.append(pkg)
+    return resolved_packages
+
+
 def assign_replica_gpu(
     _replica_model_uid: str, replica: int, gpu_idx: Optional[Union[int, List[int]]]
 ) -> Optional[List[int]]:
@@ -362,3 +495,18 @@ class CancelMixin:
             self._running_tasks[request_id] = asyncio.create_task(
                 block_task(), name=self._CANCEL_TASK_NAME
             )
+
+
+def check_marker(
+    op_version: Tuple[str, str], package_name: str, package_version: str
+) -> bool:
+    try:
+        op, version = op_version
+        marker_str = f'python_full_version {op} "{version}"'
+        env = {"python_full_version": package_version}
+        return Marker(marker_str).evaluate(env)
+    except Exception as e:
+        logger.warning(
+            f"Failed to evaluate {package_name} version marker {op_version} against {package_version}: {e}"
+        )
+        return False

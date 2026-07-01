@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,7 +37,12 @@ logger = logging.getLogger(__name__)
 @register_transformer
 @register_non_default_model("GlmForCausalLM")
 class ChatglmPytorchChatModel(PytorchChatModel):
-    GLM4_ARCHITECTURES = {"GlmForCausalLM", "Glm4ForCausalLM", "Glm4MoeForCausalLM"}
+    GLM4_ARCHITECTURES = {
+        "GlmForCausalLM",
+        "Glm4ForCausalLM",
+        "Glm4MoeForCausalLM",
+        "Glm4MoeLiteForCausalLM",
+    }
 
     def __init__(
         self,
@@ -88,8 +93,8 @@ class ChatglmPytorchChatModel(PytorchChatModel):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        if llm_spec.model_format != "pytorch":
-            return False, "ChatGLM transformer only supports pytorch format"
+        if llm_spec.model_format not in ["pytorch", "fp4"]:
+            return False, "ChatGLM transformer only supports pytorch/fp4 format"
         if not llm_family.has_architecture(*cls.GLM4_ARCHITECTURES):
             return (
                 False,

@@ -1,0 +1,23 @@
+"""Rerank route registration."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from fastapi import Security
+
+if TYPE_CHECKING:
+    from ..restful_api import RESTfulAPI
+
+
+def register_routes(api: "RESTfulAPI") -> None:
+    router = api._router
+    auth = api._auth_service
+    is_auth = api.is_authenticated()
+
+    router.add_api_route(
+        "/v1/rerank",
+        api.rerank,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
+    )

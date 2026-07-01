@@ -1,4 +1,4 @@
-# Copyright 2022-2024 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,15 +14,16 @@
 import json
 import logging
 import multiprocessing
+import os
 import sys
 import threading
 import time
 import uuid
-from typing import AsyncGenerator, Dict, List, Optional, Tuple, TypedDict, Union
+from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple, TypedDict, Union
 
 from xoscar.utils import get_next_port
 
-from ....constants import XINFERENCE_MAX_TOKENS
+from ....constants import XINFERENCE_MAX_TOKENS, XINFERENCE_TRUST_REMOTE_CODE
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -37,6 +38,8 @@ from .. import LLM, LLMFamilyV2, LLMSpecV1
 from ..core import chat_context_var
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
+    GEMMA_TOOL_CALL_FAMILY,
+    GLM5_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_SYMBOLS,
     ChatModelMixin,
@@ -53,6 +56,8 @@ class SGLANGModelConfig(TypedDict, total=False):
     mem_fraction_static: float
     log_level: str
     attention_reduce_in_fp32: bool  # For gemma
+    quantization: Optional[str]
+    dtype: Optional[str]
     # distributed
     nnodes: Optional[int]
     node_rank: Optional[int]
@@ -87,6 +92,7 @@ SGLANG_SUPPORTED_MODELS = [
     "MistralForCausalLM",
     "MixtralForCausalLM",
     "Qwen2ForCausalLM",
+    "OPTForCausalLM",
 ]
 SGLANG_SUPPORTED_CHAT_MODELS = [
     "LlamaForCausalLM",
@@ -100,12 +106,16 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
     "DeepseekV2ForCausalLM",
     "DeepseekV3ForCausalLM",
     "Qwen3ForCausalLM",
+    "HunYuanDenseV1ForCausalLM",
+    "HYV3ForCausalLM",
 ]
 SGLANG_SUPPORTED_VISION_MODEL_LIST = [
     "Qwen2_5_VLForConditionalGeneration",
     "Gemma3ForConditionalGeneration",
     "MiniCPMV",
+    "MiniCPMV4_6ForConditionalGeneration",
     "MllamaForConditionalGeneration",
+    "Qwen3_5MoeForConditionalGeneration",
 ]
 
 
@@ -135,6 +145,13 @@ class SGLANGModel(LLM):
 
     def load(self):
         try:
+            venv_bin = os.path.dirname(sys.executable)
+            if venv_bin:
+                path_entries = os.environ.get("PATH", "").split(os.pathsep)
+                if venv_bin not in path_entries:
+                    os.environ["PATH"] = os.pathsep.join(
+                        [venv_bin] + ([p for p in path_entries if p] or [])
+                    )
             import sglang as sgl
         except ImportError:
             error_message = "Failed to import module 'sglang'"
@@ -185,7 +202,9 @@ class SGLANGModel(LLM):
                 # distributed, need to init driver_info
                 assert self._driver_info is None
                 # This must run inside Xoscar pool
-                dist_init_addr = f"{self._address.split(':', 1)[0]}:{get_next_port()}"
+                dist_init_addr = (
+                    f"{self._address.split(':', 1)[0]}:{get_next_port()}"  # noqa: E231
+                )
                 self._driver_info = {"dist_init_addr": dist_init_addr}
                 self._model_config["dist_init_addr"] = dist_init_addr
             else:
@@ -206,7 +225,7 @@ class SGLANGModel(LLM):
                         port=sgl_port,
                         **self._model_config,
                     )
-                except:
+                except Exception:
                     logger.exception("Creating sglang Runtime failed")
                     self._loading_error = sys.exc_info()
 
@@ -250,7 +269,11 @@ class SGLANGModel(LLM):
 
         cuda_count = self._get_cuda_count()
         model_config.setdefault("tokenizer_mode", "auto")
-        model_config.setdefault("trust_remote_code", True)
+        # Respect the XINFERENCE_TRUST_REMOTE_CODE setting.
+        model_config["trust_remote_code"] = (
+            bool(model_config.get("trust_remote_code", XINFERENCE_TRUST_REMOTE_CODE))
+            and XINFERENCE_TRUST_REMOTE_CODE
+        )
         model_config.setdefault("tp_size", cuda_count * self._n_worker)
         # See https://github.com/sgl-project/sglang/blob/00023d622a6d484e67ef4a0e444f708b8fc861c8/python/sglang/srt/server_args.py#L100-L109
         mem_fraction_static = model_config.get("mem_fraction_static")
@@ -268,8 +291,21 @@ class SGLANGModel(LLM):
                 model_config["mem_fraction_static"] = 0.88
         model_config.setdefault("log_level", "info")
         model_config.setdefault("reasoning_content", False)
+        self._apply_fp4_config(model_config)
 
         return model_config
+
+    def _apply_fp4_config(self, model_config: SGLANGModelConfig) -> None:
+        if self.model_spec.model_format != "fp4":
+            return
+
+        if "quantization" in model_config:
+            logger.warning(
+                "SGLang fp4 expects offline-quantized weights; ignoring quantization=%s",
+                model_config["quantization"],
+            )
+            model_config.pop("quantization", None)
+        model_config.setdefault("dtype", "bfloat16")
 
     @staticmethod
     def _sanitize_generate_config(
@@ -306,6 +342,11 @@ class SGLANGModel(LLM):
 
         return generate_config
 
+    def _get_tokenizer(self, lora_request: Any = None) -> Any:
+        if self._engine is None:
+            return None
+        return self._engine.get_tokenizer()
+
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
         dep_check = check_dependency_available("sglang", "sglang")
@@ -322,7 +363,15 @@ class SGLANGModel(LLM):
         if not cls._is_linux():
             return False, "SGLang backend is only supported on Linux"
         if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
-            return False, "SGLang supports pytorch/gptq/awq/fp8/bnb formats only"
+            return (
+                False,
+                "SGLang supports pytorch/gptq/awq/fp8/bnb formats only",
+            )
+        if llm_spec.model_format == "fp4":
+            return (
+                False,
+                "SGLang does not support fp4 online quantization; use offline fp4 weights with a compatible SGLang version",
+            )
         if llm_spec.model_format == "pytorch":
             if quantization not in (None, "none"):
                 return (
@@ -632,6 +681,11 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
                 False,
                 "SGLang chat engine supports pytorch/gptq/awq/fp8/bnb formats only",
             )
+        if llm_spec.model_format == "fp4":
+            return (
+                False,
+                "SGLang chat engine does not support fp4 online quantization; use offline fp4 weights with a compatible SGLang version",
+            )
         if llm_spec.model_format == "pytorch":
             if quantization not in (None, "none"):
                 return (
@@ -675,7 +729,10 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         generate_config: Optional[Dict] = None,
         request_id: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
-        assert self.model_family.chat_template is not None
+        # Handle empty chat_template by using empty string (sglang server will use model's default)
+        chat_template: str = (
+            self.model_family.chat_template if self.model_family.chat_template else ""
+        )
         # fix: Object of type list_iterator is not JSON serializable
         tools = list(generate_config.pop("tools", [])) if generate_config else None
         model_family = self.model_family.model_family or self.model_family.model_name
@@ -690,11 +747,13 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
         if tools:
             if (
                 model_family in QWEN_TOOL_CALL_FAMILY
+                or model_family in GEMMA_TOOL_CALL_FAMILY
                 or model_family in DEEPSEEK_TOOL_CALL_FAMILY
+                or model_family in GLM5_TOOL_CALL_FAMILY
             ):
                 full_context_kwargs["tools"] = tools
         full_prompt = self.get_full_context(
-            messages, self.model_family.chat_template, **full_context_kwargs
+            messages, chat_template, **full_context_kwargs
         )
         generate_config = self._sanitize_chat_config(generate_config)
         stream = generate_config.get("stream", None)
@@ -729,6 +788,11 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
             return (
                 False,
                 "SGLang vision engine supports pytorch/gptq/awq/fp8/bnb formats only",
+            )
+        if llm_spec.model_format == "fp4":
+            return (
+                False,
+                "SGLang vision engine does not support fp4 online quantization; use offline fp4 weights with a compatible SGLang version",
             )
         if llm_spec.model_format == "pytorch":
             if quantization not in (None, "none"):
@@ -774,9 +838,18 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
 
         messages = self._transform_messages(messages)
 
-        chat_template: str = (
-            self.model_family.chat_template if self.model_family.chat_template else ""
-        )
+        tools = list(generate_config.pop("tools", [])) if generate_config else None
+        # Handle empty chat_template by falling back to tokenizer's chat_template
+        chat_template = self.model_family.chat_template
+        tokenizer = None
+        if not chat_template:
+            tokenizer = self._get_tokenizer(None)
+            if tokenizer is not None:
+                chat_template = getattr(tokenizer, "chat_template", None)
+        if not chat_template:
+            raise ValueError(
+                f"chat_template is required for model {self.model_uid}, but none was provided."
+            )
         chat_template_kwargs = (
             self._get_chat_template_kwargs_from_generate_config(
                 generate_config, self.reasoning_parser
@@ -785,7 +858,9 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
         )
         chat_context_var.set(chat_template_kwargs)
         full_context_kwargs = chat_template_kwargs.copy()
-        prompt = self.get_full_context(messages, chat_template, **full_context_kwargs)
+        prompt = self.get_full_context(
+            messages, chat_template, tokenizer=tokenizer, **full_context_kwargs
+        )
 
         images, video_inputs = process_vision_info(messages)
         if video_inputs:
@@ -811,8 +886,14 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
         if stream:
             agen = await self.async_generate(prompt, image_data=base64_images, generate_config=generate_config)  # type: ignore
             assert isinstance(agen, AsyncGenerator)
+            if tools:
+                return self._async_to_tool_completion_chunks(agen)
             return self._async_to_chat_completion_chunks(agen, self.reasoning_parser)
         else:
             c = await self.async_generate(prompt, image_data=base64_images, generate_config=generate_config)  # type: ignore
             assert not isinstance(c, AsyncGenerator)
+            if tools:
+                return self._post_process_completion(
+                    self.model_family, self.model_uid, c
+                )
             return self._to_chat_completion(c, self.reasoning_parser)

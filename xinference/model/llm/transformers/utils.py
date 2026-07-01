@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@ from ....types import (
     max_tokens_field,
 )
 from ...scheduler.request import InferenceRequest
+from ..utils import get_context_length_from_config
 
 if TYPE_CHECKING:
     from ...llm.transformers.core import PytorchModel
@@ -46,25 +47,7 @@ logger = logging.getLogger(__name__)
 
 def get_context_length(config) -> int:
     """Get the context length of a model from a huggingface model config."""
-    if (
-        hasattr(config, "max_sequence_length")
-        and config.max_sequence_length is not None
-    ):
-        max_sequence_length = config.max_sequence_length
-    else:
-        max_sequence_length = 2048
-    if hasattr(config, "seq_length") and config.seq_length is not None:
-        seq_length = config.seq_length
-    else:
-        seq_length = 2048
-    if (
-        hasattr(config, "max_position_embeddings")
-        and config.max_position_embeddings is not None
-    ):
-        max_position_embeddings = config.max_position_embeddings
-    else:
-        max_position_embeddings = 2048
-    return max(max_sequence_length, seq_length, max_position_embeddings)
+    return get_context_length_from_config(config)
 
 
 def prepare_logits_processor(
@@ -192,12 +175,48 @@ def _get_pad_param(seq_len_idx: int, pad_len: int) -> Tuple:
 
 
 def get_batch_size_and_seq_len_from_kv_cache(kv, xinf_model_obj: "PytorchModel"):
-    from transformers import HybridCache
-
     bs_idx, seq_len_idx = xinf_model_obj.get_batch_size_and_seq_len_indexes_from_kv()
 
-    if isinstance(kv, HybridCache):
-        return kv.key_cache[0].shape[bs_idx], kv.get_seq_length()
+    try:
+        from transformers import HybridCache
+
+        if isinstance(kv, HybridCache):
+            if len(kv.key_cache) == 0 or kv.key_cache[0] is None:
+                return 0, 0
+            return kv.key_cache[0].shape[bs_idx], kv.get_seq_length()
+    except ImportError:
+        pass
+
+    if kv is None:
+        return 0, 0
+
+    if hasattr(kv, "key_cache"):
+        if len(kv.key_cache) == 0 or kv.key_cache[0] is None:
+            return 0, 0
+
+        key = kv.key_cache[0]
+        return (
+            key.shape[bs_idx],
+            (
+                kv.get_seq_length()
+                if hasattr(kv, "get_seq_length")
+                else key.shape[seq_len_idx]
+            ),
+        )
+
+    # New transformers Cache API (transformers >= 4.57 / 5.x): DynamicCache
+    # exposes `layers` (a list of CacheLayerMixin objects with `.keys` /
+    # `.values` tensors of shape [batch_size, num_heads, seq_len, head_dim])
+    # and `get_seq_length()`, but no longer exposes `key_cache` and (on 5.x)
+    # is not subscriptable. Without this branch the legacy `kv[0][0]` fallback
+    # below raises `TypeError: 'DynamicCache' object is not subscriptable`.
+    if hasattr(kv, "layers") and hasattr(kv, "get_seq_length"):
+        layers = kv.layers
+        first_keys = getattr(layers[0], "keys", None) if len(layers) > 0 else None
+        if first_keys is None or first_keys.numel() == 0:
+            return 0, kv.get_seq_length()
+        return first_keys.shape[bs_idx], kv.get_seq_length()
+
     return kv[0][0].shape[bs_idx], kv[0][0].shape[seq_len_idx] + 1
 
 

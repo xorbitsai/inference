@@ -208,7 +208,7 @@ def _close_temp_files(tmpfiles: list):
             try:
                 t.close()
                 os.unlink(t.name)
-            except:
+            except Exception:
                 pass
 
     try:
@@ -366,7 +366,7 @@ def prepare_batch(batch: typing.Union[dict, list, torch.Tensor], device: str = "
         for key, val in batch.items():
             try:
                 batch[key] = val.to(device)
-            except:
+            except Exception:
                 pass
         batch = unflatten(batch)
     elif torch.is_tensor(batch):
@@ -375,7 +375,7 @@ def prepare_batch(batch: typing.Union[dict, list, torch.Tensor], device: str = "
         for i in range(len(batch)):
             try:
                 batch[i] = batch[i].to(device)
-            except:
+            except Exception:
                 pass
     return batch
 

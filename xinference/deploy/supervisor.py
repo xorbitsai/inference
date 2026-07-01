@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,13 +27,17 @@ from ..constants import (
     XINFERENCE_HEALTH_CHECK_INTERVAL,
 )
 from ..core.supervisor import SupervisorActor
-from .utils import health_check
+from .utils import health_check, update_all_formatter_addresses
 
 logger = logging.getLogger(__name__)
 
 
 async def _start_supervisor(address: str, logging_conf: Optional[Dict] = None):
     logging.config.dictConfig(logging_conf)  # type: ignore
+    update_all_formatter_addresses("supervisor", address)
+    if logging_conf and "formatters" in logging_conf:
+        for formatter in logging_conf["formatters"].values():
+            formatter["address"] = address
 
     pool = None
     try:

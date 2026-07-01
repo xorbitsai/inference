@@ -207,10 +207,12 @@ This occurs because uv prioritizes **higher versions for direct dependencies** o
 
 1. xinference 1.12.0 specifies ``huggingface-hub>=0.19.4`` as a **direct dependency** (no upper bound)
 2. uv selects the latest: ``huggingface-hub==1.0.1`` as of November 06 2025
-3. However, ``transformers`` (an **indirect dependency** via ``peft``) requires ``huggingface-hub<1.0``
+3. However, ``transformers<=4.57.3`` (an **indirect dependency** via ``peft``) requires ``huggingface-hub<1.0``
 4. To resolve the conflict, uv keeps the direct dependency at 1.0.1 and downgrades the indirect dependency ``transformers`` to ancient version 4.12.2
 
 **This is by design in uv**: it prioritizes what you explicitly ask for (direct dependencies) over transitive dependencies. Refer to https://github.com/astral-sh/uv/issues/16601
+
+**Update:** The latest transformers 4.57.3 (as in 2026.01.05) still requires ``huggingface-hub<1.0``.
 
 Solutions
 ---------
@@ -240,3 +242,46 @@ Or just resort to using ``pip install xinference`` which will resolve to the fol
 - ``transformers==4.57.1``
 - ``huggingface-hub==0.36.0``
 - ``tokenizers==0.22.1``  
+
+vLLM + Torch + Xinference Compatibility Issue (Segmentation Fault)
+===================================================================
+
+Symptom
+-------
+
+If you have **vLLM < 0.12.0** installed and upgrade xinference (particularly using ``uv pip install -U xinference``), xinference may fail to start with a segmentation fault:
+
+.. code-block:: text
+
+   root@server:/home# xinference-local --host 0.0.0.0 --port 9997
+   INFO 12-30 17:35:37 [__init__.py:216] Automatically detected platform cuda.
+   Aborted (core dumped)
+
+Root Cause
+----------
+
+This issue has three contributing factors:
+
+1. **Binary Incompatibility**: vLLM versions before 0.12.0 were compiled against PyTorch 2.8.0. These versions are incompatible with PyTorch 2.9. Reference: `vLLM v0.12.0 Release Notes <https://github.com/vllm-project/vllm/releases/tag/v0.12.0>`_
+
+2. **Xinference's Unbounded Torch Dependency**: Xinference's ``setup.cfg`` does not specify an upper bound for PyTorch:
+
+   .. code-block:: ini
+
+      [options]
+      install_requires =
+          torch                    # No version constraint!
+
+   This allows package managers to upgrade PyTorch to incompatible versions.
+
+3. **Different Package Manager Behaviors**:
+
+   - **pip**: Conservative - only upgrades the specified package unless dependencies are incompatible
+   - **uv with -U flag**: Aggressive - re-resolves ALL dependencies and picks latest versions
+
+
+Therefore before you're ready to upgrade your entire stack and just want to upgrade xinference, use either:
+
+- ``pip install -U xinference`` (keeps PyTorch unchanged, only upgrades xinference)
+- ``uv pip install "xinference==1.16.0"`` (without -U flag, only upgrades xinference too)
+

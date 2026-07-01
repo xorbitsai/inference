@@ -12,10 +12,15 @@ import {
   Chip,
   CircularProgress,
   Collapse,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Drawer,
   FormControlLabel,
   ListItemButton,
   ListItemText,
+  Paper,
   Radio,
   RadioGroup,
   Switch,
@@ -39,7 +44,9 @@ import Progress from './progress'
 import SelectField from './selectField'
 
 const enginesWithNWorker = ['SGLang', 'vLLM', 'MLX']
-const modelEngineType = ['LLM', 'embedding', 'rerank']
+const modelEngineType = ['LLM', 'embedding', 'rerank', 'image']
+const historyStorageKey = 'historyArr'
+const defaultHistoryUID = '__default_model_uid__'
 
 const LaunchModelDrawer = ({
   modelData,
@@ -58,8 +65,6 @@ const LaunchModelDrawer = ({
     setIsCallingApi,
   } = useContext(ApiContext)
   const [formData, setFormData] = useState({})
-  const [hasHistory, setHasHistory] = useState(false)
-
   const [enginesObj, setEnginesObj] = useState({})
   const [engineOptions, setEngineOptions] = useState([])
   const [formatOptions, setFormatOptions] = useState([])
@@ -77,12 +82,35 @@ const LaunchModelDrawer = ({
   const [progress, setProgress] = useState(0)
   const [checkDynamicFieldComplete, setCheckDynamicFieldComplete] = useState([])
   const [replicaStatuses, setReplicaStatuses] = useState([])
+  const [pendingHistory, setPendingHistory] = useState(null)
+  const [hasFetchedEngines, setHasFetchedEngines] = useState(false)
+  const [historyEntries, setHistoryEntries] = useState([])
+  const [selectedHistoryKey, setSelectedHistoryKey] = useState(null)
+  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false)
+  const [historyToDelete, setHistoryToDelete] = useState(null)
+  const [workerItems, setWorkerItems] = useState([])
+  const [isLoadingWorkers, setIsLoadingWorkers] = useState(false)
+  const [hasWorkerLoadFailed, setHasWorkerLoadFailed] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState({})
+  const [saveAutostart, setSaveAutostart] = useState(false)
 
   const intervalRef = useRef(null)
+
+  const modelSpecs = modelData.model_specs || []
 
   const downloadHubOptions = useMemo(
     () => ['none', ...(modelData?.download_hubs || [])],
     [modelData?.download_hubs]
+  )
+
+  const hasHistory = historyEntries.length > 0
+
+  const selectedHistoryEntry = useMemo(
+    () =>
+      historyEntries.find((item) => item.cache_key === selectedHistoryKey) ||
+      historyEntries[0] ||
+      null,
+    [historyEntries, selectedHistoryKey]
   )
 
   const isCached = (spec) => {
@@ -121,22 +149,188 @@ const LaunchModelDrawer = ({
     return isNaN(num) || num === 0 ? null : num
   }
 
+  const normalizeWorkerAddress = (value) => {
+    const normalized = String(value || '').trim()
+    if (!normalized) return ''
+
+    try {
+      return new URL(`http://${normalized}`).hostname.replace(/^\[|\]$/g, '')
+    } catch {
+      if (normalized.startsWith('[')) {
+        const closingBracketIndex = normalized.indexOf(']')
+        if (closingBracketIndex !== -1) {
+          return normalized.slice(1, closingBracketIndex).trim()
+        }
+      }
+
+      const lastColonIndex = normalized.lastIndexOf(':')
+      if (lastColonIndex === -1) return normalized
+
+      const hasMultipleColons = normalized.indexOf(':') !== lastColonIndex
+      if (hasMultipleColons) {
+        return normalized
+      }
+
+      return normalized.slice(0, lastColonIndex).trim()
+    }
+  }
+
+  const normalizeWorkerIp = (value) => {
+    let workerValues = []
+    if (Array.isArray(value)) {
+      workerValues = value
+    } else if (typeof value === 'string') {
+      workerValues = value.split(',')
+    }
+
+    const seen = new Set()
+    return workerValues
+      .map((item) => normalizeWorkerAddress(item))
+      .filter((item) => {
+        if (!item || seen.has(item)) return false
+        seen.add(item)
+        return true
+      })
+  }
+
+  const isCpuOnlySelection = (value) => value === 'CPU' || value === null
+
+  const requiresGpuWorkers = (value) =>
+    value !== undefined && value !== '' && !isCpuOnlySelection(value)
+
+  const extractWorkerItems = (clusterInfo) => {
+    const workerMap = new Map()
+    const isFlatNodeList = Array.isArray(clusterInfo)
+    const nodes = isFlatNodeList
+      ? clusterInfo
+      : Array.isArray(clusterInfo?.workers)
+      ? clusterInfo.workers
+      : []
+
+    nodes.forEach((node) => {
+      if (isFlatNodeList && node?.node_type !== 'Worker') return
+
+      const workerIp = normalizeWorkerAddress(node?.ip_address ?? node?.ip)
+      if (!workerIp) return
+
+      const gpuCount = Number(node?.gpu_count || 0)
+      const existingWorker = workerMap.get(workerIp)
+
+      if (existingWorker) {
+        existingWorker.gpuCount = Math.max(existingWorker.gpuCount, gpuCount)
+        return
+      }
+
+      workerMap.set(workerIp, {
+        value: workerIp,
+        label: workerIp,
+        gpuCount,
+      })
+    })
+
+    return Array.from(workerMap.values()).sort((a, b) =>
+      a.label.localeCompare(b.label)
+    )
+  }
+
+  const clearFieldErrors = (...names) => {
+    if (!names.length) return
+    setFieldErrors((prev) => {
+      const next = { ...prev }
+      let changed = false
+      names.forEach((name) => {
+        if (next[name]) {
+          delete next[name]
+          changed = true
+        }
+      })
+      return changed ? next : prev
+    })
+  }
+
+  const filteredWorkerItems = useMemo(() => {
+    if (!requiresGpuWorkers(formData.n_gpu)) {
+      return workerItems
+    }
+    return workerItems.filter((item) => item.gpuCount > 0)
+  }, [workerItems, formData.n_gpu])
+
+  const availableWorkerValues = useMemo(
+    () => new Set(filteredWorkerItems.map((item) => item.value)),
+    [filteredWorkerItems]
+  )
+
+  const workerFieldType = hasWorkerLoadFailed ? 'input' : 'select'
+
+  const workerFieldDisabled =
+    workerFieldType === 'select' &&
+    (isLoadingWorkers || filteredWorkerItems.length === 0)
+
+  const workerFieldHelperText = useMemo(() => {
+    if (isLoadingWorkers) {
+      return t('launchModel.loadingWorkerNodes')
+    }
+    if (hasWorkerLoadFailed) {
+      return t('launchModel.workerNodesLoadFailed')
+    }
+    if (!workerItems.length) {
+      return t('launchModel.noWorkerNodesAvailable')
+    }
+    if (requiresGpuWorkers(formData.n_gpu) && !filteredWorkerItems.length) {
+      return t('launchModel.noAvailableGpuWorkers')
+    }
+    return ''
+  }, [
+    t,
+    isLoadingWorkers,
+    hasWorkerLoadFailed,
+    workerItems,
+    filteredWorkerItems,
+    formData.n_gpu,
+  ])
+
   const handleValueType = (str) => {
-    str = String(str)
-    if (str.toLowerCase() === 'none') {
+    let val = String(str).trim()
+
+    const isBracketed = (s) =>
+      (s.startsWith('{') && s.endsWith('}')) ||
+      (s.startsWith('[') && s.endsWith(']'))
+
+    const tryParseStructured = (s) => {
+      try {
+        const normalized = s
+          .replace(/\bNone\b/g, 'null')
+          .replace(/\bTrue\b/g, 'true')
+          .replace(/\bFalse\b/g, 'false')
+          .replace(/'([^']*)'/g, '"$1"')
+        return JSON.parse(normalized)
+      } catch (e) {
+        return null
+      }
+    }
+
+    if (val.toLowerCase() === 'none') {
       return null
-    } else if (str.toLowerCase() === 'true') {
+    } else if (val.toLowerCase() === 'true') {
       return true
-    } else if (str.toLowerCase() === 'false') {
+    } else if (val.toLowerCase() === 'false') {
       return false
-    } else if (str.includes(',')) {
-      return str.split(',')
-    } else if (str.includes('，')) {
-      return str.split('，')
-    } else if (Number(str) || (str !== '' && Number(str) === 0)) {
-      return Number(str)
+    } else if (isBracketed(val)) {
+      const parsed = tryParseStructured(val)
+      if (parsed !== null) return parsed
+      // parsing failed: keep original string without splitting by comma
+      return val
+    } else if (val.includes(',')) {
+      return val.split(',').map((item) => item.trim())
+    } else if (val.includes('，')) {
+      return val.split('，').map((item) => item.trim())
+    } else if (
+      !Number.isNaN(Number(val)) &&
+      (val !== '' || Number(val) === 0)
+    ) {
+      return Number(val)
     } else {
-      return str
+      return val
     }
   }
 
@@ -145,26 +339,240 @@ const LaunchModelDrawer = ({
       arr.map(({ key, value }) => [key, transformValue(value)])
     )
 
-  const handleGetHistory = () => {
-    const historyArr = JSON.parse(localStorage.getItem('historyArr')) || []
-    return historyArr.find((item) => item.model_name === modelData.model_name)
+  const buildHistoryKey = (modelName, modelUID, createdBy = '') =>
+    `${modelName}::${modelUID || defaultHistoryUID}::${createdBy}`
+
+  const normalizeHistoryEntry = (item) => {
+    if (!item || typeof item !== 'object') return null
+
+    const data =
+      item.data && typeof item.data === 'object' && !Array.isArray(item.data)
+        ? item.data
+        : item
+    const modelName = data.model_name || item.model_name
+
+    if (!modelName) return null
+
+    const modelUID = data.model_uid || item.model_uid || ''
+
+    const rawUpdatedAt = item.updated_at
+    const updatedAt =
+      typeof rawUpdatedAt === 'number' ? rawUpdatedAt : Date.parse(rawUpdatedAt)
+
+    const createdBy = item.created_by || data.created_by || ''
+
+    return {
+      cache_key: buildHistoryKey(modelName, modelUID, createdBy),
+      model_name: modelName,
+      model_uid: modelUID,
+      updated_at: Number.isFinite(updatedAt) ? updatedAt : 0,
+      created_by: createdBy,
+      data,
+    }
   }
 
-  const deleteHistory = () => {
-    const arr = JSON.parse(localStorage.getItem('historyArr'))
-    const newArr = arr.filter(
-      (item) => item.model_name !== modelData.model_name
+  const readHistoryEntries = () => {
+    try {
+      const historyArr =
+        JSON.parse(localStorage.getItem(historyStorageKey)) || []
+      if (!Array.isArray(historyArr)) return []
+      return historyArr.map(normalizeHistoryEntry).filter(Boolean)
+    } catch (error) {
+      console.error('Failed to read history cache:', error)
+      return []
+    }
+  }
+
+  const sortHistoryEntries = (entries) =>
+    [...entries].sort((a, b) => (b.updated_at || 0) - (a.updated_at || 0))
+
+  const getHistoryEntriesForModel = (entries = readHistoryEntries()) =>
+    sortHistoryEntries(
+      entries.filter((item) => item.model_name === modelData.model_name)
     )
-    localStorage.setItem('historyArr', JSON.stringify(newArr))
-    setHasHistory(false)
-    setFormData({})
-    setCollapseState({})
+
+  const writeHistoryEntries = (entries) => {
+    localStorage.setItem(
+      historyStorageKey,
+      JSON.stringify(
+        entries.map((item) => ({
+          model_name: item.model_name,
+          model_uid: item.model_uid,
+          updated_at: item.updated_at,
+          created_by: item.created_by || '',
+          data: item.data,
+        }))
+      )
+    )
+  }
+
+  // Replace this model's cached entries with the authoritative server set
+  // while preserving other models' offline entries in localStorage.
+  const mirrorModelEntriesToLocal = (modelName, modelEntries) => {
+    const others = readHistoryEntries().filter(
+      (item) => item.model_name !== modelName
+    )
+    writeHistoryEntries([...others, ...modelEntries])
+  }
+
+  const loadHistoryFromServer = async () => {
+    try {
+      const res = await fetchWrapper.get(
+        `/v1/launch_history?model_name=${encodeURIComponent(
+          modelData.model_name
+        )}`
+      )
+      const entries = (Array.isArray(res) ? res : [])
+        .map(normalizeHistoryEntry)
+        .filter(Boolean)
+      mirrorModelEntriesToLocal(modelData.model_name, entries)
+      return sortHistoryEntries(entries)
+    } catch (error) {
+      console.error('Failed to load launch history from server:', error)
+      // Offline fallback: use whatever is cached locally.
+      return getHistoryEntriesForModel()
+    }
+  }
+
+  const syncHistoryToServer = async (data) => {
+    try {
+      await fetchWrapper.post('/v1/launch_history', {
+        model_name: data.model_name,
+        model_uid: data.model_uid || '',
+        data,
+      })
+      // Refresh from server so created_by populated by the backend shows up.
+      setHistoryEntries(await loadHistoryFromServer())
+    } catch (error) {
+      console.error('Failed to sync launch history to server:', error)
+    }
+  }
+
+  const deleteHistoryOnServer = async (modelName, modelUID) => {
+    try {
+      const path = modelUID
+        ? `/v1/launch_history/${encodeURIComponent(
+            modelName
+          )}/${encodeURIComponent(modelUID)}`
+        : `/v1/launch_history/${encodeURIComponent(modelName)}`
+      await fetchWrapper.delete(path)
+    } catch (error) {
+      console.error('Failed to delete launch history on server:', error)
+    }
+  }
+
+  const upsertHistoryEntry = (data) => {
+    const nextEntry = normalizeHistoryEntry({
+      model_name: data.model_name,
+      model_uid: data.model_uid,
+      updated_at: Date.now(),
+      data,
+    })
+    const entries = readHistoryEntries().filter(
+      (item) => item.cache_key !== nextEntry.cache_key
+    )
+    const nextEntries = [...entries, nextEntry]
+    writeHistoryEntries(nextEntries)
+    return getHistoryEntriesForModel(nextEntries)
+  }
+
+  const removeHistoryEntry = (cacheKey) => {
+    const nextEntries = readHistoryEntries().filter(
+      (item) => item.cache_key !== cacheKey
+    )
+    writeHistoryEntries(nextEntries)
+    return getHistoryEntriesForModel(nextEntries)
+  }
+
+  const isHistoryEngineValid = (historyData) => {
+    if (!historyData?.model_engine) return false
+
+    const engineData = enginesObj[historyData.model_engine]
+    return (
+      engineOptions.includes(historyData.model_engine) &&
+      Array.isArray(engineData) &&
+      engineData.length > 0
+    )
+  }
+
+  const loadHistoryEntry = (entry, shouldCloseDialog = true) => {
+    if (!entry) return
+
+    setSelectedHistoryKey(entry.cache_key)
+    if (shouldCloseDialog) {
+      setIsHistoryDialogOpen(false)
+    }
+
+    if (modelEngineType.includes(modelType)) {
+      if (open && hasFetchedEngines) {
+        if (isHistoryEngineValid(entry.data)) {
+          applyHistory(entry.data)
+        } else {
+          setErrorMsg(t('launchModel.invalidConfigCache'))
+        }
+      } else {
+        setPendingHistory(entry.data)
+      }
+      return
+    }
+
+    applyHistory(entry.data)
+  }
+
+  const handleDeleteHistory = () => {
+    if (!historyToDelete) return
+
+    const wasSelected = historyToDelete.cache_key === selectedHistoryKey
+    const nextEntries = removeHistoryEntry(historyToDelete.cache_key)
+
+    deleteHistoryOnServer(historyToDelete.model_name, historyToDelete.model_uid)
+
+    setHistoryEntries(nextEntries)
+    setHistoryToDelete(null)
+
+    if (!nextEntries.length) {
+      setSelectedHistoryKey(null)
+      setPendingHistory(null)
+      setFormData({})
+      setCollapseState({})
+      return
+    }
+
+    if (!wasSelected) return
+
+    const latestEntry = nextEntries[0]
+    setSelectedHistoryKey(latestEntry.cache_key)
+
+    if (modelEngineType.includes(modelType)) {
+      if (open && hasFetchedEngines) {
+        if (isHistoryEngineValid(latestEntry.data)) {
+          applyHistory(latestEntry.data)
+        } else {
+          setFormData({})
+          setCollapseState({})
+        }
+      } else {
+        setPendingHistory(latestEntry.data)
+      }
+      return
+    }
+
+    applyHistory(latestEntry.data)
+  }
+
+  const formatHistoryTime = (updatedAt) => {
+    if (!updatedAt) return '--'
+
+    const date = new Date(updatedAt)
+    return Number.isNaN(date.getTime()) ? '--' : date.toLocaleString()
   }
 
   const objectToArray = (obj) => {
     if (!obj || typeof obj !== 'object') return []
     return Object.entries(obj).map(([key, value]) => ({ key, value }))
   }
+
+  const getReplicaWorkerAddress = (replica) => replica?.worker_address || '--'
 
   const restoreNGPU = (value) => {
     if (value === null) return 'CPU'
@@ -173,6 +581,27 @@ const LaunchModelDrawer = ({
     }
     if (typeof value === 'number') return String(value)
     return value || 'CPU'
+  }
+
+  const stringifyStructuredForInput = (val) => {
+    if (val === null) return 'none'
+
+    if (Array.isArray(val)) {
+      const allPrimitives = val.every(
+        (item) =>
+          item === null || ['string', 'number', 'boolean'].includes(typeof item)
+      )
+      if (allPrimitives) {
+        return val.map((v) => String(v)).join(',')
+      }
+    }
+
+    try {
+      const json = JSON.stringify(val)
+      return json.replace(/"/g, "'").replace(/:/g, ': ').replace(/,/g, ', ')
+    } catch (e) {
+      return String(val)
+    }
   }
 
   const restoreFormDataFormat = (finalData) => {
@@ -186,8 +615,8 @@ const LaunchModelDrawer = ({
           value:
             result[key] === null
               ? 'none'
-              : result[key] === false
-              ? false
+              : typeof result[key] === 'object'
+              ? stringifyStructuredForInput(result[key])
               : result[key],
         })
     }
@@ -196,6 +625,14 @@ const LaunchModelDrawer = ({
     result.n_gpu = restoreNGPU(result.n_gpu)
     if (result?.gpu_idx && Array.isArray(result.gpu_idx)) {
       result.gpu_idx = result.gpu_idx.join(',')
+    }
+    if (result.worker_ip !== undefined) {
+      const workerIpList = normalizeWorkerIp(result.worker_ip)
+      if (workerIpList.length) {
+        result.worker_ip = workerIpList
+      } else {
+        delete result.worker_ip
+      }
     }
 
     if (result?.peft_model_config) {
@@ -239,13 +676,20 @@ const LaunchModelDrawer = ({
     return result
   }
 
+  const applyHistory = (data) => {
+    const restoredData = restoreFormDataFormat(data)
+    setFormData(restoredData)
+    const collapseFromData = getCollapseStateFromData(restoredData)
+    setCollapseState((prev) => ({ ...prev, ...collapseFromData }))
+  }
+
   const getCollapseStateFromData = (result) => {
     const newState = {}
 
     if (
       result.model_uid ||
       result.request_limits ||
-      result.worker_ip ||
+      result.worker_ip?.length ||
       result.gpu_idx ||
       result.download_hub ||
       result.model_path
@@ -290,14 +734,51 @@ const LaunchModelDrawer = ({
     }
   }
 
+  const fetchWorkers = async () => {
+    if (!open) return
+
+    setIsLoadingWorkers(true)
+    setHasWorkerLoadFailed(false)
+    try {
+      const data = await fetchWrapper.get('/v1/cluster/info?detailed=true')
+      setWorkerItems(extractWorkerItems(data))
+    } catch (error) {
+      console.error('Error:', error)
+      setWorkerItems([])
+      setHasWorkerLoadFailed(true)
+      if (error?.response?.status !== 403) {
+        setErrorMsg(error.message)
+      }
+    } finally {
+      setIsLoadingWorkers(false)
+    }
+  }
+
   const fetchModelEngine = (model_name, model_type) => {
+    setHasFetchedEngines(false)
+    const enableVirtualEnv =
+      formData?.enable_virtual_env === true ||
+      formData?.enable_virtual_env === 'true'
+        ? 'true'
+        : formData?.enable_virtual_env === false ||
+          formData?.enable_virtual_env === 'false'
+        ? 'false'
+        : null
+    const enableVirtualEnvQuery = enableVirtualEnv
+      ? `?enable_virtual_env=${enableVirtualEnv}`
+      : ''
     fetchWrapper
       .get(
         model_type === 'LLM'
-          ? `/v1/engines/${model_name}`
-          : `/v1/engines/${model_type}/${model_name}`
+          ? `/v1/engines/${model_name}${enableVirtualEnvQuery}`
+          : `/v1/engines/${model_type}/${model_name}${enableVirtualEnvQuery}`
       )
       .then((data) => {
+        if (!data) {
+          setEnginesObj({})
+          setEngineOptions([])
+          return
+        }
         setEnginesObj(data)
         setEngineOptions(Object.keys(data))
       })
@@ -309,6 +790,7 @@ const LaunchModelDrawer = ({
       })
       .finally(() => {
         setIsCallingApi(false)
+        setHasFetchedEngines(true)
       })
   }
 
@@ -367,19 +849,98 @@ const LaunchModelDrawer = ({
   }
 
   useEffect(() => {
-    const data = handleGetHistory()
-    if (data) {
-      setHasHistory(true)
-      const restoredData = restoreFormDataFormat(data)
-      setFormData(
-        modelEngineType.includes(modelType)
-          ? { ...restoredData, __isInitializing: true }
-          : restoredData
-      )
-      const collapseFromData = getCollapseStateFromData(restoredData)
-      setCollapseState((prev) => ({ ...prev, ...collapseFromData }))
+    // Show locally cached entries immediately for a fast open, then refresh
+    // from the server (source of truth) which also brings in created_by.
+    const entries = getHistoryEntriesForModel()
+    setHistoryEntries(entries)
+
+    const latestEntry = entries[0]
+    if (latestEntry) {
+      setSelectedHistoryKey(latestEntry.cache_key)
+      if (modelEngineType.includes(modelType)) {
+        setPendingHistory(latestEntry.data)
+      } else {
+        applyHistory(latestEntry.data)
+      }
     }
+
+    loadHistoryFromServer().then((serverEntries) => {
+      setHistoryEntries(serverEntries)
+      const serverLatest = serverEntries[0]
+      if (serverLatest) {
+        const shouldApply =
+          !latestEntry ||
+          serverLatest.updated_at > (latestEntry.updated_at || 0)
+        if (shouldApply) {
+          setSelectedHistoryKey(serverLatest.cache_key)
+          if (modelEngineType.includes(modelType)) {
+            setPendingHistory(serverLatest.data)
+          } else {
+            applyHistory(serverLatest.data)
+          }
+        }
+      }
+    })
   }, [])
+
+  useEffect(() => {
+    if (!pendingHistory || !modelEngineType.includes(modelType)) return
+    if (!open || !hasFetchedEngines) return
+
+    if (!pendingHistory.model_engine) {
+      setFormData({})
+      setCollapseState({})
+      setPendingHistory(null)
+      return
+    }
+
+    if (isHistoryEngineValid(pendingHistory)) {
+      applyHistory(pendingHistory)
+    } else {
+      setFormData({})
+      setCollapseState({})
+    }
+    setPendingHistory(null)
+  }, [pendingHistory, open, hasFetchedEngines, engineOptions, modelType])
+
+  useEffect(() => {
+    if (open) {
+      fetchWorkers()
+    }
+  }, [open])
+
+  useEffect(() => {
+    setFormData((prev) => {
+      const next = { ...prev }
+      let changed = false
+
+      if (isCpuOnlySelection(normalizeNGPU(prev.n_gpu)) && prev.gpu_idx) {
+        next.gpu_idx = ''
+        changed = true
+      }
+
+      if (workerItems.length > 0 && !isLoadingWorkers && !hasWorkerLoadFailed) {
+        const selectedWorkers = normalizeWorkerIp(prev.worker_ip)
+        if (selectedWorkers.length) {
+          const filteredWorkers = selectedWorkers.filter((ip) =>
+            availableWorkerValues.has(ip)
+          )
+          if (filteredWorkers.length !== selectedWorkers.length) {
+            next.worker_ip = filteredWorkers
+            changed = true
+          }
+        }
+      }
+
+      return changed ? next : prev
+    })
+  }, [
+    formData.n_gpu,
+    availableWorkerValues,
+    isLoadingWorkers,
+    hasWorkerLoadFailed,
+    workerItems.length,
+  ])
 
   useEffect(() => {
     if (open && modelEngineType.includes(modelType))
@@ -387,21 +948,12 @@ const LaunchModelDrawer = ({
   }, [open, modelData.model_name, modelType])
 
   useEffect(() => {
-    if (formData.__isInitializing) {
-      setFormData((prev) => {
-        const { __isInitializing, ...rest } = prev
-        console.log('__isInitializing', __isInitializing)
-        return rest
-      })
-      return
-    }
-
     if (formData.model_engine && modelEngineType.includes(modelType)) {
       const format = [
         ...new Set(
           enginesObj[formData.model_engine]?.map((item) => item.model_format)
         ),
-      ]
+      ].filter((value) => value !== undefined && value !== null && value !== '')
       setFormatOptions(format)
 
       if (!format.includes(formData.model_format)) {
@@ -420,8 +972,6 @@ const LaunchModelDrawer = ({
   }, [formData.model_engine, enginesObj])
 
   useEffect(() => {
-    if (formData.__isInitializing) return
-
     if (!formData.model_engine || !formData.model_format) return
 
     const configMap = {
@@ -440,6 +990,11 @@ const LaunchModelDrawer = ({
         optionSetter: setQuantizationOptions,
         extractor: (item) => item.quantization,
       },
+      image: {
+        field: 'quantization',
+        optionSetter: setQuantizationOptions,
+        extractor: (item) => item.quantization,
+      },
     }
 
     const config = configMap[modelType]
@@ -451,7 +1006,9 @@ const LaunchModelDrawer = ({
           ?.filter((item) => item.model_format === formData.model_format)
           ?.map(config.extractor)
       ),
-    ]
+    ].filter(
+      (option) => option !== undefined && option !== null && option !== ''
+    )
 
     config.optionSetter(options)
     if (!options.includes(formData[config.field])) {
@@ -464,7 +1021,6 @@ const LaunchModelDrawer = ({
   }, [formData.model_engine, formData.model_format, enginesObj])
 
   useEffect(() => {
-    if (formData.__isInitializing) return
     if (
       formData.model_engine &&
       formData.model_format &&
@@ -534,7 +1090,7 @@ const LaunchModelDrawer = ({
           new Set(engineData.map((item) => item.model_format))
         )
 
-        const relevantSpecs = modelData.model_specs.filter((spec) =>
+        const relevantSpecs = modelSpecs.filter((spec) =>
           modelFormats.includes(spec.model_format)
         )
 
@@ -555,23 +1111,25 @@ const LaunchModelDrawer = ({
   }, [engineOptions, enginesObj, modelData])
 
   const formatItems = useMemo(() => {
-    return formatOptions.map((format) => {
-      const specs = modelData.model_specs.filter(
-        (spec) => spec.model_format === format
+    return formatOptions
+      .filter(
+        (format) => format !== undefined && format !== null && format !== ''
       )
+      .map((format) => {
+        const specs = modelSpecs.filter((spec) => spec.model_format === format)
 
-      const cached = specs.some((spec) => isCached(spec))
+        const cached = specs.some((spec) => isCached(spec))
 
-      return {
-        value: format,
-        label: cached ? `${format} ${t('launchModel.cached')}` : format,
-      }
-    })
+        return {
+          value: format,
+          label: cached ? `${format} ${t('launchModel.cached')}` : format,
+        }
+      })
   }, [formatOptions, modelData])
 
   const sizeItems = useMemo(() => {
     return sizeOptions.map((size) => {
-      const specs = modelData.model_specs
+      const specs = modelSpecs
         .filter((spec) => spec.model_format === formData.model_format)
         .filter((spec) => spec.model_size_in_billions === size)
       const cached = specs.some((spec) => isCached(spec))
@@ -585,7 +1143,7 @@ const LaunchModelDrawer = ({
 
   const quantizationItems = useMemo(() => {
     return quantizationOptions.map((quant) => {
-      const specs = modelData.model_specs
+      const specs = modelSpecs
         .filter((spec) => spec.model_format === formData.model_format)
         .filter((spec) =>
           modelType === 'LLM'
@@ -595,11 +1153,14 @@ const LaunchModelDrawer = ({
         )
 
       const spec = specs.find((s) => {
-        return s.quantizations === quant
+        return modelType === 'LLM'
+          ? s.quantizations === quant
+          : s.quantization === quant
       })
-      const cached = Array.isArray(spec?.cache_status)
-        ? spec?.cache_status[spec?.quantizations.indexOf(quant)]
-        : spec?.cache_status
+      const cached =
+        modelType === 'LLM' && Array.isArray(spec?.cache_status)
+          ? spec?.cache_status[spec?.quantizations.indexOf(quant)]
+          : spec?.cache_status
 
       return {
         value: quant,
@@ -607,6 +1168,69 @@ const LaunchModelDrawer = ({
       }
     })
   }, [quantizationOptions, modelData])
+
+  const modelFormConfig = useMemo(
+    () =>
+      getModelFormConfig({
+        t,
+        formData,
+        modelData,
+        gpuAvailable,
+        engineItems,
+        formatItems,
+        sizeItems,
+        quantizationItems,
+        getNGPURange,
+        downloadHubOptions,
+        enginesWithNWorker,
+        multimodalProjectorOptions,
+        workerItems: filteredWorkerItems,
+        workerFieldType,
+        workerFieldDisabled,
+        workerFieldHelperText,
+      }),
+    [
+      t,
+      formData,
+      modelData,
+      gpuAvailable,
+      engineItems,
+      formatItems,
+      sizeItems,
+      quantizationItems,
+      getNGPURange,
+      downloadHubOptions,
+      enginesWithNWorker,
+      multimodalProjectorOptions,
+      filteredWorkerItems,
+      workerFieldType,
+      workerFieldDisabled,
+      workerFieldHelperText,
+    ]
+  )
+
+  useEffect(() => {
+    if (modelFormConfig[modelType]) {
+      const defaults = {}
+      const traverse = (fields) => {
+        fields.forEach((field) => {
+          if (
+            field.default !== undefined &&
+            formData[field.name] === undefined
+          ) {
+            defaults[field.name] = field.default
+          }
+          if (field.children) {
+            traverse(field.children)
+          }
+        })
+      }
+      traverse(modelFormConfig[modelType])
+      if (Object.keys(defaults).length > 0) {
+        setFormData((prev) => ({ ...prev, ...defaults }))
+      }
+    }
+  }, [modelFormConfig, modelType])
 
   const checkRequiredFields = (fields, data) => {
     return fields.every((field) => {
@@ -639,6 +1263,7 @@ const LaunchModelDrawer = ({
   }
 
   const handleDynamicField = (name, val) => {
+    clearFieldErrors(name)
     setCheckDynamicFieldComplete((prev) => {
       const filtered = prev.filter((item) => item.name !== name)
       return [...filtered, { name, isComplete: isDynamicFieldComplete(val) }]
@@ -651,9 +1276,24 @@ const LaunchModelDrawer = ({
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
+    const nextValue =
+      name === 'worker_ip' && workerFieldType === 'input'
+        ? value
+        : name === 'worker_ip' && typeof value === 'string'
+        ? normalizeWorkerIp(value)
+        : type === 'checkbox'
+        ? checked
+        : value
+
+    if (name === 'n_gpu') {
+      clearFieldErrors('n_gpu', 'gpu_idx', 'worker_ip')
+    } else {
+      clearFieldErrors(name)
+    }
+
     setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: nextValue,
     }))
   }
 
@@ -725,6 +1365,18 @@ const LaunchModelDrawer = ({
       result.n_gpu = normalizeNGPU(result.n_gpu)
     }
 
+    if (
+      Array.isArray(result.worker_ip) ||
+      typeof result.worker_ip === 'string'
+    ) {
+      const workerIpList = normalizeWorkerIp(result.worker_ip)
+      if (workerIpList.length) {
+        result.worker_ip = workerIpList.join(',')
+      } else {
+        delete result.worker_ip
+      }
+    }
+
     if (result.n_gpu_layers < 0) {
       delete result.n_gpu_layers
     }
@@ -782,40 +1434,108 @@ const LaunchModelDrawer = ({
     return result
   }
 
+  const collectVisibleFieldErrors = (fields = [], errors = []) => {
+    fields.forEach((field) => {
+      if (field.type === 'collapse') {
+        collectVisibleFieldErrors(field.children || [], errors)
+        return
+      }
+      if (field.visible && field.error) {
+        errors.push(field.name)
+      }
+    })
+    return errors
+  }
+
+  const validateBeforeLaunch = (data) => {
+    const nextErrors = {}
+    const selectedWorkers = normalizeWorkerIp(data.worker_ip)
+
+    if (
+      selectedWorkers.length &&
+      !isLoadingWorkers &&
+      !hasWorkerLoadFailed &&
+      workerItems.length > 0 &&
+      !selectedWorkers.every((ip) => availableWorkerValues.has(ip))
+    ) {
+      nextErrors.worker_ip = t('launchModel.invalidWorkerSelection')
+    }
+
+    if (isCpuOnlySelection(data.n_gpu) && data.gpu_idx?.length) {
+      nextErrors.gpu_idx = t('launchModel.gpuIdxNotAllowedForCpu')
+    } else if (
+      Array.isArray(data.gpu_idx) &&
+      data.gpu_idx.length &&
+      data.gpu_idx.length % (data.replica || 1)
+    ) {
+      nextErrors.gpu_idx = t('launchModel.gpuIdxMustMatchReplica')
+    }
+
+    return nextErrors
+  }
+
   const handleSubmit = () => {
     if (isCallingApi || isUpdatingModel) {
       return
     }
 
-    setIsCallingApi(true)
-    setProgress(0)
-    setIsShowProgress(true)
-    setIsShowCancel(true)
+    const visibleFieldErrors = collectVisibleFieldErrors(
+      modelFormConfig[modelType] || []
+    )
+    if (visibleFieldErrors.length) {
+      setErrorMsg(t('launchModel.fixFieldErrorsBeforeLaunch'))
+      return
+    }
 
     try {
       const data = getFinalFormData()
+      const nextFieldErrors = validateBeforeLaunch(data)
+      setFieldErrors(nextFieldErrors)
+
+      if (Object.keys(nextFieldErrors).length) {
+        setErrorMsg(Object.values(nextFieldErrors)[0])
+        return
+      }
+
+      setIsCallingApi(true)
+      setProgress(0)
+      setIsShowProgress(true)
+      setIsShowCancel(true)
+      setFieldErrors({})
+
       // First fetcher request to initiate the model
       fetchWrapper
         .post('/v1/models', data)
-        .then(() => {
+        .then(async (launchResponse) => {
+          const launchedData = {
+            ...data,
+            model_uid:
+              launchResponse?.model_uid || data.model_uid || data.model_name,
+          }
           navigate(`/running_models/${modelType}`)
           sessionStorage.setItem(
             'runningModelType',
             `/running_models/${modelType}`
           )
-          let historyArr = JSON.parse(localStorage.getItem('historyArr')) || []
-          const historyModelNameArr = historyArr.map((item) => item.model_name)
-          if (historyModelNameArr.includes(data.model_name)) {
-            historyArr = historyArr.map((item) => {
-              if (item.model_name === data.model_name) {
-                return data
-              }
-              return item
-            })
-          } else {
-            historyArr.push(data)
+          const nextHistoryEntries = upsertHistoryEntry(launchedData)
+          setHistoryEntries(nextHistoryEntries)
+          setSelectedHistoryKey(
+            buildHistoryKey(launchedData.model_name, launchedData.model_uid)
+          )
+          syncHistoryToServer(launchedData)
+          if (saveAutostart) {
+            try {
+              await fetchWrapper.post('/v1/autostart/models', {
+                enabled: true,
+                priority: 100,
+                launch: launchedData,
+              })
+              setSuccessMsg(t('launchModel.launchCompletedWithAutostart'))
+            } catch (error) {
+              console.error('Failed to save autostart config:', error)
+              setErrorMsg(t('launchModel.autostartSaveFailed'))
+            }
           }
-          localStorage.setItem('historyArr', JSON.stringify(historyArr))
         })
         .catch((error) => {
           console.error('Error:', error)
@@ -839,26 +1559,11 @@ const LaunchModelDrawer = ({
     }
   }
 
-  const modelFormConfig = getModelFormConfig({
-    t,
-    formData,
-    modelData,
-    gpuAvailable,
-    engineItems,
-    formatItems,
-    sizeItems,
-    quantizationItems,
-    getNGPURange,
-    downloadHubOptions,
-    enginesWithNWorker,
-    multimodalProjectorOptions,
-  })
-
   const areRequiredFieldsFilled = useMemo(() => {
     const data = getFinalFormData()
     const fields = modelFormConfig[modelType] || []
     return checkRequiredFields(fields, data)
-  }, [formData, modelType])
+  }, [formData, modelType, modelFormConfig])
 
   const renderFormFields = (fields = []) => {
     const enhancedFields = fields.map((field) => {
@@ -876,21 +1581,7 @@ const LaunchModelDrawer = ({
               false),
         }
       }
-      if (field.name === 'gpu_idx' && field.visible !== true) {
-        const n_gpu_default = fields.find(
-          (item) => item.name === 'n_gpu'
-        ).default
 
-        return {
-          ...field,
-          visible:
-            formData.n_gpu === 'GPU' ||
-            ((formData.n_gpu === undefined ||
-              formData.n_gpu === null ||
-              formData.n_gpu === '') &&
-              n_gpu_default === 'GPU'),
-        }
-      }
       return field
     })
 
@@ -898,6 +1589,9 @@ const LaunchModelDrawer = ({
       .filter((field) => field.visible)
       .map((field) => {
         const fieldKey = field.name
+        const inlineFieldError = fieldErrors[fieldKey]
+        const hasFieldError = Boolean(inlineFieldError || field.error)
+
         switch (field.type) {
           case 'collapse': {
             const open = collapseState[fieldKey] ?? false
@@ -939,6 +1633,9 @@ const LaunchModelDrawer = ({
                 onChange={handleChange}
                 options={field.options}
                 required={field.required}
+                multiple={field.multiple}
+                error={hasFieldError}
+                helperText={inlineFieldError || field.helperText || ''}
               />
             )
           case 'number':
@@ -953,14 +1650,21 @@ const LaunchModelDrawer = ({
                 value={formData[field.name] ?? field.default ?? ''}
                 onChange={handleChange}
                 required={field.required}
-                error={field.error}
-                helperText={field.error && field.helperText}
+                error={hasFieldError}
+                helperText={
+                  inlineFieldError || (field.error ? field.helperText : '')
+                }
                 fullWidth
                 margin="normal"
                 className="textHighlight"
               />
             )
-          case 'input':
+          case 'input': {
+            const inputValue =
+              field.name === 'worker_ip' && Array.isArray(formData[field.name])
+                ? formData[field.name].join(',')
+                : formData[field.name] ?? field.default ?? ''
+
             return (
               <TextField
                 key={fieldKey}
@@ -968,16 +1672,21 @@ const LaunchModelDrawer = ({
                 label={field.label}
                 disabled={field.disabled}
                 InputProps={field.inputProps}
-                value={formData[field.name] ?? field.default ?? ''}
+                value={inputValue}
                 onChange={handleChange}
                 required={field.required}
-                error={field.error}
-                helperText={field.error && field.helperText}
+                error={hasFieldError}
+                helperText={
+                  inlineFieldError ||
+                  (field.showHelperText || field.error ? field.helperText : '')
+                }
+                placeholder={field.placeholder}
                 fullWidth
                 margin="normal"
                 className="textHighlight"
               />
             )
+          }
           case 'switch':
             return (
               <div key={fieldKey}>
@@ -1062,19 +1771,27 @@ const LaunchModelDrawer = ({
     return <RocketLaunchOutlined sx={{ fontSize: 26 }} />
   }
 
+  const handleClose = () => {
+    setSaveAutostart(false)
+    onClose()
+  }
+
   return (
-    <Drawer open={open} onClose={onClose} anchor="right">
+    <Drawer open={open} onClose={handleClose} anchor="right">
       <Box className="drawerCard">
         <Box display="flex" alignItems="center" justifyContent="space-between">
           <Box display="flex" alignItems="center">
             <TitleTypography value={modelData.model_name} />
             {hasHistory && (
               <Chip
-                label={t('launchModel.lastConfig')}
+                label={`${t('launchModel.configCache')} (${
+                  historyEntries.length
+                })`}
                 variant="outlined"
                 size="small"
                 color="primary"
-                onDelete={deleteHistory}
+                onClick={() => setIsHistoryDialogOpen(true)}
+                onDelete={() => setHistoryToDelete(selectedHistoryEntry)}
               />
             )}
           </Box>
@@ -1116,12 +1833,26 @@ const LaunchModelDrawer = ({
                 <Progress style={{ marginBottom: 20 }} progress={progress} />
               )}
             </Box>
+            <FormControlLabel
+              sx={{ mb: 1 }}
+              control={
+                <Switch
+                  checked={saveAutostart}
+                  disabled={isShowCancel || isLoading || isCallingApi}
+                  onChange={(event) => setSaveAutostart(event.target.checked)}
+                />
+              }
+              label={t('launchModel.saveAutostart')}
+            />
             <Box display="flex" gap={2}>
               <Tooltip
                 title={
                   isShowCancel ? (
                     <Box sx={{ minWidth: 200 }}>
-                      <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ mb: 1, fontWeight: 600, color: 'inherit' }}
+                      >
                         {t('launchModel.launchProgress')}:
                       </Typography>
                       {replicaStatuses.length > 0 ? (
@@ -1132,13 +1863,32 @@ const LaunchModelDrawer = ({
                               display: 'flex',
                               justifyContent: 'space-between',
                               alignItems: 'center',
-                              mb: 0.5,
+                              mb: 0.75,
+                              gap: 1.5,
                             }}
                           >
-                            <Typography variant="caption">
-                              {t('modelReplicaDetails.replica')}{' '}
-                              {replica.replica_id}:
-                            </Typography>
+                            <Box sx={{ minWidth: 0 }}>
+                              <Typography
+                                variant="caption"
+                                display="block"
+                                sx={{ fontWeight: 600, color: 'inherit' }}
+                              >
+                                {t('modelReplicaDetails.replica')}{' '}
+                                {replica.replica_id}:
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                display="block"
+                                sx={{
+                                  fontFamily: 'monospace',
+                                  color: 'rgba(255, 255, 255, 0.82)',
+                                  lineHeight: 1.4,
+                                  wordBreak: 'break-all',
+                                }}
+                              >
+                                {getReplicaWorkerAddress(replica)}
+                              </Typography>
+                            </Box>
                             <Chip
                               label={replica.status}
                               color={
@@ -1149,12 +1899,20 @@ const LaunchModelDrawer = ({
                                   : 'default'
                               }
                               size="small"
-                              sx={{ height: 20, fontSize: '0.7rem' }}
+                              sx={{
+                                'height': 22,
+                                'fontSize': '0.7rem',
+                                'fontWeight': 600,
+                                '&.MuiChip-colorDefault': {
+                                  bgcolor: 'rgba(255, 255, 255, 0.14)',
+                                  color: '#fff',
+                                },
+                              }}
                             />
                           </Box>
                         ))
                       ) : (
-                        <Typography variant="caption">
+                        <Typography variant="caption" sx={{ color: 'inherit' }}>
                           {t('launchModel.initializing')}
                         </Typography>
                       )}
@@ -1165,6 +1923,24 @@ const LaunchModelDrawer = ({
                 }
                 placement="top"
                 arrow
+                slotProps={{
+                  tooltip: {
+                    sx: {
+                      bgcolor: 'rgba(17, 24, 39, 0.96)',
+                      color: '#fff',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      boxShadow: 6,
+                      px: 1.5,
+                      py: 1.25,
+                      maxWidth: 360,
+                    },
+                  },
+                  arrow: {
+                    sx: {
+                      color: 'rgba(17, 24, 39, 0.96)',
+                    },
+                  },
+                }}
               >
                 <Button
                   style={{ flex: 1 }}
@@ -1194,7 +1970,7 @@ const LaunchModelDrawer = ({
                 style={{ flex: 1 }}
                 variant="outlined"
                 color="primary"
-                onClick={onClose}
+                onClick={handleClose}
                 title={t('launchModel.goBack')}
               >
                 <UndoOutlined sx={{ fontSize: 26 }} />
@@ -1208,6 +1984,135 @@ const LaunchModelDrawer = ({
           onHandleClose={() => setIsOpenPasteDialog(false)}
           onHandleCommandLine={handleCommandLine}
         />
+
+        <Dialog
+          open={isHistoryDialogOpen}
+          onClose={() => setIsHistoryDialogOpen(false)}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle>{t('launchModel.configCache')}</DialogTitle>
+          <DialogContent dividers>
+            {historyEntries.length ? (
+              historyEntries.map((entry, index) => {
+                const isSelected = entry.cache_key === selectedHistoryKey
+                return (
+                  <Paper
+                    key={entry.cache_key}
+                    variant="outlined"
+                    sx={{
+                      p: 2,
+                      mb: index === historyEntries.length - 1 ? 0 : 1.5,
+                      borderColor: isSelected ? 'primary.main' : 'divider',
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        gap: 2,
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <Box sx={{ minWidth: 0 }}>
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1,
+                            flexWrap: 'wrap',
+                            mb: 0.5,
+                          }}
+                        >
+                          <Typography variant="subtitle2">
+                            {entry.model_uid || t('launchModel.defaultConfig')}
+                          </Typography>
+                        </Box>
+                        <Typography variant="body2" color="text.secondary">
+                          {t('modelReplicaDetails.modelUid')}:{' '}
+                          {entry.model_uid || '--'}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {t('launchModel.lastUpdated')}:{' '}
+                          {formatHistoryTime(entry.updated_at)}
+                        </Typography>
+                        {entry.created_by ? (
+                          <Typography variant="body2" color="text.secondary">
+                            {t('launchModel.createdBy')}: {entry.created_by}
+                          </Typography>
+                        ) : null}
+                      </Box>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          gap: 1,
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <Button
+                          size="small"
+                          variant={isSelected ? 'contained' : 'outlined'}
+                          onClick={() => loadHistoryEntry(entry)}
+                        >
+                          {t('launchModel.loadCache')}
+                        </Button>
+                        <Button
+                          size="small"
+                          color="error"
+                          onClick={() => setHistoryToDelete(entry)}
+                        >
+                          {t('launchModel.deleteCache')}
+                        </Button>
+                      </Box>
+                    </Box>
+                  </Paper>
+                )
+              })
+            ) : (
+              <Typography color="text.secondary">
+                {t('launchModel.noConfigCache')}
+              </Typography>
+            )}
+          </DialogContent>
+          <DialogActions style={{ justifyContent: 'space-between' }}>
+            <Button
+              onClick={() => {
+                setFormData({})
+                setCollapseState({})
+                setSelectedHistoryKey(null)
+                setPendingHistory(null)
+                setIsHistoryDialogOpen(false)
+              }}
+            >
+              {t('launchModel.newCache')}
+            </Button>
+            <Button onClick={() => setIsHistoryDialogOpen(false)}>
+              {t('modelReplicaDetails.close')}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog
+          open={!!historyToDelete}
+          onClose={() => setHistoryToDelete(null)}
+          aria-labelledby="delete-history-cache-title"
+        >
+          <DialogTitle id="delete-history-cache-title">
+            {t('components.warning')}
+          </DialogTitle>
+          <DialogContent>
+            {t('launchModel.confirmDeleteConfigCache')}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setHistoryToDelete(null)}>
+              {t('components.cancel')}
+            </Button>
+            <Button color="error" onClick={handleDeleteHistory} autoFocus>
+              {t('components.ok')}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </Drawer>
   )

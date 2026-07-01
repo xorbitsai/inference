@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -59,7 +59,16 @@ class ModelMemInfo:
     total: int
 
 
-QUANT_NORMALIZE = {"int4": "4-bit", "int8": "8-bit", "4-bit": "4-bit", "8-bit": "8-bit"}
+QUANT_NORMALIZE = {
+    "int4": "4-bit",
+    "int8": "8-bit",
+    "fp4": "4-bit",
+    "mxfp4": "4-bit",
+    "nvfp4": "4-bit",
+    "fp8": "8-bit",
+    "4-bit": "4-bit",
+    "8-bit": "8-bit",
+}
 
 GGUF_MULTI_FACTOR_DICT = {
     "q4_0": 18,

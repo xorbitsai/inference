@@ -1,4 +1,4 @@
-# Copyright 2022-2025 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,10 +30,10 @@ class Gemma3TextChatModel(PytorchChatModel):
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        if model_spec.model_format not in ["pytorch", "gptq", "awq", "bnb"]:
+        if model_spec.model_format not in ["pytorch", "gptq", "awq", "bnb", "fp4"]:
             return (
                 False,
-                "Gemma3 transformer supports pytorch/gptq/awq/bnb formats only",
+                "Gemma3 transformer supports pytorch/gptq/awq/bnb/fp4 formats only",
             )
         if not model_family.has_architecture(*cls.GEMMA3_ARCHITECTURES):
             return (

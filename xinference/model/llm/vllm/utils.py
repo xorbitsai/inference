@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,13 +18,17 @@ import os
 
 logger = logging.getLogger(__name__)
 
+try:
+    from vllm.engine.async_llm_engine import AsyncEngineDeadError
+except Exception:
+    # vLLM 0.19.0+ removed AsyncEngineDeadError from this module.
+    # It is a subclass of RuntimeError, so except RuntimeError suffices.
+    # Use except Exception (not just ImportError) to handle partial/broken
+    # vllm installations where module init may raise non-ImportError errors.
+    AsyncEngineDeadError = RuntimeError  # type: ignore[assignment,misc]
+
 
 def vllm_check(fn):
-    try:
-        from vllm.engine.async_llm_engine import AsyncEngineDeadError
-    except:
-        return fn
-
     @functools.wraps(fn)
     async def _async_wrapper(self, *args, **kwargs):
         try:
@@ -33,7 +37,7 @@ def vllm_check(fn):
             logger.info("Detecting vLLM is not health, prepare to quit the process")
             try:
                 self.stop()
-            except:
+            except Exception:
                 # ignore error when stop
                 pass
             # Just kill the process and let xinference auto-recover the model
@@ -48,9 +52,9 @@ def get_distributed_init_method(ip: str, port: int) -> str:
 
 def get_tcp_uri(ip: str, port: int) -> str:
     if is_valid_ipv6_address(ip):
-        return f"tcp://[{ip}]:{port}"
+        return f"tcp://[{ip}]:{port}"  # noqa E231
     else:
-        return f"tcp://{ip}:{port}"
+        return f"tcp://{ip}:{port}"  # noqa E231
 
 
 def is_valid_ipv6_address(address: str) -> bool:

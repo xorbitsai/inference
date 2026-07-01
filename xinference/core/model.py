@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ from typing import (
 
 import sse_starlette.sse
 import xoscar as xo
+from xoscar.api import IteratorWrapper
 
 from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
@@ -52,7 +53,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 from ..device_utils import empty_cache
-from .utils import CancelMixin, json_dumps, log_async
+from .exceptions import ModelNotReadyError
+from .utils import CancelMixin, json_dumps, log_async, parse_replica_model_uid
 
 try:
     from torch.cuda import OutOfMemoryError
@@ -97,22 +99,71 @@ def request_limit(fn):
         if 1 + self._serve_count <= self._request_limits:
             self._serve_count += 1
         else:
+            await self.record_metrics(
+                "model_request_total",
+                "add",
+                {"labels": {**self._metrics_labels, "stream": "unknown"}, "value": 1},
+            )
+            await self.record_metrics(
+                "model_request_errors_total",
+                "add",
+                {"labels": self._metrics_labels, "value": 1},
+            )
             raise RuntimeError(
                 f"Rate limit reached for the model. Request limit {self._request_limits} for the model: {self.model_uid()}"
             )
+        await self.record_metrics(
+            "model_serve_count",
+            "set",
+            {"labels": self._metrics_labels, "value": self._serve_count},
+        )
+        start_time = time.time()
         ret = None
+        _error = False
         try:
             ret = await fn(self, *args, **kwargs)
+        except Exception:
+            _error = True
+            raise
         finally:
-            if ret is not None and (
-                inspect.isasyncgen(ret) or inspect.isgenerator(ret)
-            ):
+            duration = time.time() - start_time
+            _is_stream = ret is not None and (
+                inspect.isasyncgen(ret)
+                or inspect.isgenerator(ret)
+                or isinstance(ret, IteratorWrapper)
+            )
+            stream_label = "true" if _is_stream else "false"
+            await self.record_metrics(
+                "model_request_total",
+                "add",
+                {
+                    "labels": {**self._metrics_labels, "stream": stream_label},
+                    "value": 1,
+                },
+            )
+            if _is_stream:
                 # stream case, let client call model_ref to decrease self._serve_count
                 pass
             else:
-                self._serve_count -= 1
+                self._serve_count = max(0, self._serve_count - 1)
+                await self.record_metrics(
+                    "model_serve_count",
+                    "set",
+                    {"labels": self._metrics_labels, "value": self._serve_count},
+                )
                 logger.debug(
                     f"After request {fn.__name__}, current serve request count: {self._serve_count} for the model {self.model_uid()}"
+                )
+            await self.record_metrics(
+                "model_request_duration_seconds",
+                "observe",
+                {"labels": self._metrics_labels, "value": duration},
+            )
+            if _error:
+                await self.record_metrics(
+                    "model_request_errors_total",
+                    "add",
+                    {"labels": self._metrics_labels, "value": 1},
                 )
         return ret
 
@@ -203,6 +254,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         n_worker: Optional[int] = 1,
         shard: Optional[int] = 0,
         driver_info: Optional[dict] = None,  # for model across workers
+        model_engine: Optional[str] = None,
     ):
         super().__init__()
 
@@ -224,14 +276,32 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         self._worker_ref = None
         self._progress_tracker_ref = None
         self._serve_count = 0
+        model_type = self._model_description.get("model_type", "unknown")
+        if model_type in ("audio", "video"):
+            engine_label = ""
+            format_label = ""
+        elif model_type == "image":
+            engine_label = model_engine or ""
+            format_label = ""
+        else:
+            engine_label = model_engine or "unknown"
+            format_label = self._model_description.get("model_format", "unknown")
+        _base_uid, _rep_id = parse_replica_model_uid(self._replica_model_uid or "")
         self._metrics_labels = {
-            "type": self._model_description.get("model_type", "unknown"),
-            "model": self.model_uid(),
-            "node": self._worker_address,
-            "format": self._model_description.get("model_format", "unknown"),
+            "model_type": model_type,
+            "model_uid": _base_uid,
+            "replica_index": str(_rep_id),
+            "model_name": self._model_description.get("model_name", "unknown"),
+            "engine": engine_label,
+            "worker_address": self._worker_address,
+            "format": format_label,
             "quantization": self._model_description.get("quantization", "none"),
+            "gpu_index": ",".join(
+                str(a) for a in (self._model_description.get("accelerators") or [])
+            ),
         }
         self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._model_state: str = "registering"
         # model across workers
         self._n_worker = n_worker
         self._shard = shard
@@ -251,14 +321,41 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             self._handle_pending_requests()
         )
 
+        # Report static request limit gauge
+        limit_val = self._request_limits if self._request_limits != float("inf") else -1
+        await self.record_metrics(
+            "model_request_limit_gauge",
+            "set",
+            {"labels": self._metrics_labels, "value": limit_val},
+        )
+
+    def get_pid(self) -> int:
+        import os
+
+        return os.getpid()
+
+    def _require_ready(self):
+        """Guard for all inference methods: reject if not in ready state."""
+        if self._model_state != "ready":
+            if self._model_state in ("registering", "loading"):
+                raise ModelNotReadyError(
+                    f"Model is {self._model_state}, not ready for inference"
+                )
+            raise RuntimeError(f"Model is in {self._model_state} state")
+
     def __repr__(self) -> str:
         return f"ModelActor({self._replica_model_uid})"
 
     def __getattr__(self, attr: str):
         return getattr(self._model, attr)
 
-    def decrease_serve_count(self):
-        self._serve_count -= 1
+    async def decrease_serve_count(self):
+        self._serve_count = max(0, self._serve_count - 1)
+        await self.record_metrics(
+            "model_serve_count",
+            "set",
+            {"labels": self._metrics_labels, "value": self._serve_count},
+        )
 
     @no_type_check
     async def start_transfer_for_vllm(self, rank_addresses: List[str]):
@@ -307,14 +404,13 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 )
             )
         if completion_tokens > 0:
-            generate_throughput = completion_tokens / duration
             coros.append(
                 self.record_metrics(
-                    "generate_throughput",
-                    "set",
+                    "generate_tokens_total",
+                    "add",
                     {
                         "labels": self._metrics_labels,
-                        "value": generate_throughput,
+                        "value": completion_tokens,
                     },
                 )
             )
@@ -362,6 +458,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         return isinstance(self._model, SGLANGModel)
 
     async def load(self):
+        self._model_state = "loading"
         try:
             # Change process title for model
             import setproctitle
@@ -375,7 +472,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             try:
                 if hasattr(self._model, "set_loop"):
                     self._model.set_loop(asyncio.get_running_loop())
-                await asyncio.to_thread(self._model.load)
+                await asyncio.to_thread(self._load_with_redirect)
                 if hasattr(self._model, "driver_info"):
                     self._driver_info = self._model.driver_info
                 break
@@ -390,9 +487,16 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 raise
         logger.info(f"{self} loaded")
 
+    def _load_with_redirect(self):
+        from ..deploy.utils import redirect_streams_to_logger
+
+        with redirect_streams_to_logger():
+            self._model.load()
+
     async def wait_for_load(self):
         if hasattr(self._model, "wait_for_load"):
             await asyncio.to_thread(self._model.wait_for_load)
+        self._model_state = "ready"
 
     def need_create_pools(self):
         return getattr(self._model, "need_create_pools", False)
@@ -427,14 +531,70 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         # will hold driver information includes dist store etc.
         return self._driver_info
 
+    async def stop(self):
+        self._model_state = "stopping"
+        if hasattr(self._model, "stop"):
+            await asyncio.to_thread(self._model.stop)
+        elif hasattr(self._model, "close"):
+            await asyncio.to_thread(self._model.close)
+
     async def _handle_oom_error(self, ex):
+        # Reentrancy gate: on the sync batch path the OOM-triggering worker
+        # thread does not await this coroutine, so before os._exit(1) actually
+        # lands it can raise OOM again and concurrently schedule this handler.
+        # Only let the first invocation through to avoid re-entering stop()/del.
+        if getattr(self, "_oom_handling", False):
+            return
+        self._oom_handling = True
+
         error_message = (
             f"Model actor is out of memory, model id: {self.model_uid()}, error: {ex}"
         )
         logger.exception(error_message)
-        worker_ref = await self._get_worker_ref()
-        await worker_ref.update_model_status(
-            self._replica_model_uid, last_error=error_message
+
+        async def _report_oom_status():
+            worker_ref = await self._get_worker_ref()
+            await worker_ref.update_model_status(
+                self._replica_model_uid, last_error=error_message
+            )
+
+        try:
+            await xo.wait_for(_report_oom_status(), timeout=5)
+        except Exception:
+            logger.warning("Failed to report OOM status before exit", exc_info=True)
+
+        # Best-effort cleanup. At an OOM site this mostly cannot reclaim already
+        # reserved GPU fragments; failures are fine because os._exit(1) below is
+        # the real backstop. stop() timeout is 5s (not 30s): keep the exit delay
+        # bounded so xoscar's detection and recovery are not slowed down.
+        try:
+            await asyncio.wait_for(self.stop(), timeout=5)
+        except Exception:
+            logger.warning(
+                "Model stop() failed/timeout during OOM cleanup", exc_info=True
+            )
+        try:
+            del self._model
+        except AttributeError:
+            pass
+        try:
+            import torch
+
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except Exception:
+            pass
+
+        # Critical fix: must use os._exit(1), NOT sys.exit(1).
+        # sys.exit(1) only raises SystemExit, which xoscar's
+        # _ErrorProcessor.__exit__ (backends/pool.py) swallows with an
+        # unconditional `return True`. The process then stays alive, its
+        # returncode stays None, monitor_sub_pools keeps treating it as alive,
+        # and recover_sub_pool never fires. os._exit goes straight to the
+        # syscall so xoscar can detect the returncode change and rebuild the
+        # sub pool.
+        logger.error(
+            "Exiting model subprocess via os._exit(1) to trigger pool recovery"
         )
         os._exit(1)
 
@@ -464,9 +624,12 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         finally:
             if self._loop is not None and time_to_first_token is not None:
                 coro = self.record_metrics(
-                    "time_to_first_token",
-                    "set",
-                    {"labels": self._metrics_labels, "value": time_to_first_token},
+                    "time_to_first_token_seconds",
+                    "observe",
+                    {
+                        "labels": {**self._metrics_labels, "stream": "true"},
+                        "value": time_to_first_token / 1000,
+                    },
                 )
                 asyncio.run_coroutine_threadsafe(coro, loop=self._loop)
             if self._loop is not None and final_usage is not None:
@@ -503,9 +666,12 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             if time_to_first_token is not None:
                 coros.append(
                     self.record_metrics(
-                        "time_to_first_token",
-                        "set",
-                        {"labels": self._metrics_labels, "value": time_to_first_token},
+                        "time_to_first_token_seconds",
+                        "observe",
+                        {
+                            "labels": {**self._metrics_labels, "stream": "true"},
+                            "value": time_to_first_token / 1000,
+                        },
                     )
                 )
             if final_usage is not None:
@@ -516,7 +682,10 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                         prompt_tokens=final_usage["prompt_tokens"],
                     )
                 )
-            await asyncio.gather(*coros)
+            try:
+                await asyncio.gather(*coros)
+            except Exception:
+                logger.exception("Failed to record metrics in _to_async_gen finally")
 
     async def _handle_pending_requests(self):
         logger.info("Start requests handler.")
@@ -635,6 +804,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     @xo.generator
     @log_async(logger=logger)
     async def generate(self, prompt: str, *args, **kwargs):
+        self._require_ready()
         # Directly delegate to model, let model decide how to handle (batching or not)
         kwargs.pop("raw_params", None)
         if hasattr(self._model, "generate"):
@@ -661,6 +831,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     @xo.generator
     @log_async(logger=logger)
     async def chat(self, messages: List[Dict], *args, **kwargs):
+        self._require_ready()
         start_time = time.time()
         response = None
         try:
@@ -705,6 +876,14 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                     completion_tokens,
                     prompt_tokens,
                 )
+                await self.record_metrics(
+                    "time_to_first_token_seconds",
+                    "observe",
+                    {
+                        "labels": {**self._metrics_labels, "stream": "false"},
+                        "value": time.time() - start_time,
+                    },
+                )
 
     async def abort_request(
         self,
@@ -728,6 +907,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
     @request_limit
     @log_async(logger=logger)
     async def create_embedding(self, input: Union[str, List[str]], *args, **kwargs):
+        self._require_ready()
         kwargs.pop("request_id", None)
         if hasattr(self._model, "create_embedding"):
             return await self._call_wrapper_json(
@@ -764,6 +944,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         *args,
         **kwargs,
     ):
+        self._require_ready()
         kwargs.pop("request_id", None)
         if hasattr(self._model, "rerank"):
             return await self._call_wrapper_json(
@@ -791,6 +972,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         timestamp_granularities: Optional[List[str]] = None,
         **kwargs,
     ):
+        self._require_ready()
         kwargs.pop("request_id", None)
         if hasattr(self._model, "transcriptions"):
             return await self._call_wrapper_json(
@@ -819,6 +1001,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         timestamp_granularities: Optional[List[str]] = None,
         **kwargs,
     ):
+        self._require_ready()
         kwargs.pop("request_id", None)
         if hasattr(self._model, "translations"):
             return await self._call_wrapper_json(
@@ -846,6 +1029,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         stream: bool = False,
         **kwargs,
     ):
+        self._require_ready()
         kwargs.pop("request_id", None)
         if hasattr(self._model, "speech"):
             return await self._call_wrapper_binary(
@@ -872,6 +1056,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         *args,
         **kwargs,
     ):
+        self._require_ready()
         if hasattr(self._model, "text_to_image"):
             # Get progressor (don't pop request_id, let _call_wrapper handle cancellation)
             request_id = kwargs.get("request_id")
@@ -896,6 +1081,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         self,
         **kwargs,
     ):
+        self._require_ready()
         if hasattr(self._model, "txt2img"):
             progressor = kwargs["progressor"] = await self._get_progressor(
                 kwargs.pop("request_id", None)
@@ -907,6 +1093,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 )
         raise AttributeError(f"Model {self._model.model_spec} is not for txt2img.")
 
+    @request_limit
     @log_async(
         logger=logger,
         ignore_kwargs=["image"],
@@ -922,6 +1109,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         *args,
         **kwargs,
     ):
+        self._require_ready()
         kwargs["negative_prompt"] = negative_prompt
         if hasattr(self._model, "image_to_image"):
             progressor = kwargs["progressor"] = await self._get_progressor(
@@ -948,6 +1136,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         self,
         **kwargs,
     ):
+        self._require_ready()
         if hasattr(self._model, "img2img"):
             progressor = kwargs["progressor"] = await self._get_progressor(
                 kwargs.pop("request_id", None)
@@ -959,6 +1148,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                 )
         raise AttributeError(f"Model {self._model.model_spec} is not for img2img.")
 
+    @request_limit
     @log_async(
         logger=logger,
         ignore_kwargs=["image"],
@@ -975,6 +1165,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         *args,
         **kwargs,
     ):
+        self._require_ready()
         kwargs["negative_prompt"] = negative_prompt
         if hasattr(self._model, "inpainting"):
             progressor = kwargs["progressor"] = await self._get_progressor(
@@ -996,6 +1187,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             f"Model {self._model.model_spec} is not for creating image."
         )
 
+    @request_limit
     @log_async(
         logger=logger,
         ignore_kwargs=["image"],
@@ -1006,6 +1198,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         *args,
         **kwargs,
     ):
+        self._require_ready()
         if hasattr(self._model, "ocr"):
             return await self._call_wrapper_json(
                 self._model.ocr,
@@ -1022,6 +1215,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         *args,
         **kwargs,
     ):
+        self._require_ready()
         kwargs.pop("request_id", None)
         if hasattr(self._model, "infer"):
             return await self._call_wrapper_json(
@@ -1042,6 +1236,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         *args,
         **kwargs,
     ):
+        self._require_ready()
         progressor = kwargs["progressor"] = await self._get_progressor(
             kwargs.pop("request_id", None)
         )
@@ -1069,6 +1264,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         *args,
         **kwargs,
     ):
+        self._require_ready()
         kwargs["negative_prompt"] = negative_prompt
         progressor = kwargs["progressor"] = await self._get_progressor(
             kwargs.pop("request_id", None)
@@ -1099,6 +1295,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         *args,
         **kwargs,
     ):
+        self._require_ready()
         kwargs["negative_prompt"] = negative_prompt
         progressor = kwargs["progressor"] = await self._get_progressor(
             kwargs.pop("request_id", None)

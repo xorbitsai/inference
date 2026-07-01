@@ -14,9 +14,11 @@
 
 import json
 import logging
+import math
 import random
-from typing import TYPE_CHECKING, List, Tuple
+from typing import TYPE_CHECKING, Dict, List, Tuple, Union
 
+import numpy as np
 from transformers import AutoTokenizer, PreTrainedTokenizerFast
 
 logging.basicConfig(level=logging.INFO)
@@ -25,6 +27,8 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from transformers import PreTrainedTokenizerBase
+
+RangeRatio = Union[float, Dict[str, float]]
 
 # A fast LLaMA tokenizer with the pre-processed `tokenizer.json` file.
 _FAST_LLAMA_TOKENIZER = "hf-internal-testing/llama-tokenizer"
@@ -137,6 +141,262 @@ def sample_requests(
 
     # Sample the requests.
     sampled_requests = random.sample(filtered_dataset, num_requests)
+    return sampled_requests
+
+
+def _resolve_range_ratios(range_ratio: RangeRatio) -> Tuple[float, float]:
+    if isinstance(range_ratio, dict):
+        try:
+            return float(range_ratio["input"]), float(range_ratio["output"])
+        except KeyError as exc:
+            raise ValueError(
+                "When range_ratio is a dict it must contain 'input' and "
+                f"'output' keys, got: {sorted(range_ratio)}"
+            ) from exc
+    ratio = float(range_ratio)
+    return ratio, ratio
+
+
+def _get_vocab_size(tokenizer: "PreTrainedTokenizerBase") -> int:
+    vocab_size = getattr(tokenizer, "vocab_size", None)
+    if not isinstance(vocab_size, int) or vocab_size <= 0:
+        vocab_size = len(tokenizer)
+    if vocab_size <= 0:
+        raise ValueError("Tokenizer vocab size must be positive.")
+    return vocab_size
+
+
+def _num_special_tokens_to_add(tokenizer: "PreTrainedTokenizerBase") -> int:
+    num_special_tokens_to_add = getattr(tokenizer, "num_special_tokens_to_add", None)
+    if callable(num_special_tokens_to_add):
+        return int(num_special_tokens_to_add())
+    if isinstance(num_special_tokens_to_add, int):
+        return num_special_tokens_to_add
+    return 0
+
+
+def _encode_prompt(
+    tokenizer: "PreTrainedTokenizerBase",
+    prompt: str,
+    add_special_tokens: bool = False,
+) -> List[int]:
+    encode = getattr(tokenizer, "encode", None)
+    if callable(encode):
+        return list(encode(prompt, add_special_tokens=add_special_tokens))
+    return list(tokenizer(prompt, add_special_tokens=add_special_tokens).input_ids)
+
+
+def _get_sampling_params(
+    rng: np.random.Generator,
+    num_requests: int,
+    range_ratio: RangeRatio,
+    input_len: int,
+    output_len: int,
+    tokenizer: "PreTrainedTokenizerBase",
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    input_range_ratio, output_range_ratio = _resolve_range_ratios(range_ratio)
+    if not (0.0 <= input_range_ratio < 1.0):
+        raise ValueError("input_range_ratio must be in [0, 1).")
+    if not (0.0 <= output_range_ratio < 1.0):
+        raise ValueError("output_range_ratio must be in [0, 1).")
+
+    num_special_tokens = _num_special_tokens_to_add(tokenizer)
+    real_input_len = max(0, int(input_len) - num_special_tokens)
+    input_low = math.floor(real_input_len * (1 - input_range_ratio))
+    input_high = math.ceil(real_input_len * (1 + input_range_ratio))
+    output_low = math.floor(output_len * (1 - output_range_ratio))
+    output_high = math.ceil(output_len * (1 + output_range_ratio))
+    output_low = max(output_low, 1)
+    output_high = max(output_high, 1)
+
+    if input_low > input_high:
+        raise ValueError(
+            f"Invalid input sampling interval: low={input_low} > high={input_high}"
+        )
+    if output_low > output_high:
+        raise ValueError(
+            f"Invalid output sampling interval: low={output_low} > high={output_high}"
+        )
+
+    logger.info(
+        "Sampling input_len from [%s, %s] and output_len from [%s, %s]",
+        input_low,
+        input_high,
+        output_low,
+        output_high,
+    )
+    input_lens = rng.integers(input_low, input_high + 1, size=num_requests)
+    output_lens = rng.integers(output_low, output_high + 1, size=num_requests)
+    offsets = rng.integers(0, _get_vocab_size(tokenizer), size=num_requests)
+    return input_lens, output_lens, offsets
+
+
+def _gen_prompt_decode_to_target_len(
+    tokenizer: "PreTrainedTokenizerBase",
+    token_sequence: List[int],
+    target_token_len: int,
+    allowed_tokens: np.ndarray,
+    rng: np.random.Generator,
+    max_retry: int = 10,
+) -> Tuple[str, List[int], int]:
+    remain_num_try = max_retry
+    token_mismatch = 0
+    while True:
+        prompt = tokenizer.decode(token_sequence)
+        token_sequence = _encode_prompt(tokenizer, prompt, add_special_tokens=False)
+
+        if remain_num_try <= 0:
+            if len(token_sequence) != target_token_len:
+                token_mismatch = len(token_sequence) - target_token_len
+            break
+        if len(token_sequence) == target_token_len:
+            break
+        if len(token_sequence) < target_token_len:
+            extra_tokens = allowed_tokens[
+                rng.integers(
+                    0,
+                    len(allowed_tokens),
+                    size=target_token_len - len(token_sequence),
+                )
+            ].tolist()
+            token_sequence.extend(extra_tokens)
+        else:
+            token_sequence = token_sequence[:target_token_len]
+
+        remain_num_try -= 1
+    return prompt, token_sequence, token_mismatch
+
+
+def _get_random_prefix(
+    tokenizer: "PreTrainedTokenizerBase",
+    allowed_tokens: np.ndarray,
+    prefix_len: int,
+    rng: np.random.Generator,
+) -> List[int]:
+    if prefix_len <= 0:
+        return []
+
+    prefix_tokens = allowed_tokens[
+        rng.integers(0, len(allowed_tokens), size=prefix_len)
+    ].tolist()
+    _, adjusted_tokens, token_mismatch = _gen_prompt_decode_to_target_len(
+        tokenizer=tokenizer,
+        token_sequence=prefix_tokens,
+        target_token_len=prefix_len,
+        allowed_tokens=allowed_tokens,
+        rng=rng,
+    )
+    if token_mismatch != 0:
+        sign = "more" if token_mismatch > 0 else "fewer"
+        logger.warning(
+            "Prefix tokenization produced %d %s tokens than expected after "
+            "decoding and re-encoding.",
+            abs(token_mismatch),
+            sign,
+        )
+    return adjusted_tokens
+
+
+def _generate_prompt_with_target_len(
+    tokenizer: "PreTrainedTokenizerBase",
+    prefix_token_ids: List[int],
+    prefix_len: int,
+    input_len: int,
+    offset: int,
+    index: int,
+    allowed_tokens: np.ndarray,
+    rng: np.random.Generator,
+) -> Tuple[str, int, int]:
+    inner_sequence = allowed_tokens[
+        (offset + index + np.arange(input_len)) % len(allowed_tokens)
+    ].tolist()
+    token_sequence = prefix_token_ids + inner_sequence
+    total_input_len = prefix_len + int(input_len)
+    prompt, adjusted_token_sequence, token_mismatch = _gen_prompt_decode_to_target_len(
+        tokenizer=tokenizer,
+        token_sequence=token_sequence,
+        target_token_len=total_input_len,
+        allowed_tokens=allowed_tokens,
+        rng=rng,
+    )
+    return prompt, len(adjusted_token_sequence), token_mismatch
+
+
+def sample_random_requests(
+    num_requests: int,
+    tokenizer: "PreTrainedTokenizerBase",
+    input_len: int = 1024,
+    output_len: int = 128,
+    range_ratio: RangeRatio = 0.0,
+    prefix_len: int = 0,
+    seed: int = 0,
+) -> List[Tuple[str, int, int]]:
+    """Generate vLLM-style synthetic requests with reproducible token lengths."""
+    if num_requests <= 0:
+        raise ValueError("num_requests must be positive.")
+    if input_len <= 0:
+        raise ValueError("input_len must be positive.")
+    if output_len <= 0:
+        raise ValueError("output_len must be positive.")
+    if prefix_len < 0:
+        raise ValueError("prefix_len must be non-negative.")
+
+    rng = np.random.default_rng(seed)
+
+    input_range_ratio, _ = _resolve_range_ratios(range_ratio)
+    num_special_tokens = _num_special_tokens_to_add(tokenizer)
+    real_input_len = max(0, int(input_len) - num_special_tokens)
+    min_sampled_input = math.floor(real_input_len * (1.0 - input_range_ratio))
+    min_total_input = int(prefix_len) + min_sampled_input
+    if min_total_input < 1:
+        raise ValueError(
+            "--random-input-len is too small: with tokenizer special tokens "
+            f"{num_special_tokens} and input range ratio {input_range_ratio}, "
+            "the minimum possible total input tokens is "
+            f"{min_total_input}."
+        )
+
+    input_lens, output_lens, offsets = _get_sampling_params(
+        rng,
+        num_requests,
+        range_ratio,
+        input_len,
+        output_len,
+        tokenizer,
+    )
+    vocab_size = _get_vocab_size(tokenizer)
+    prohibited_tokens = getattr(tokenizer, "all_special_ids", []) or []
+    all_tokens = np.arange(vocab_size)
+    allowed_tokens = np.setdiff1d(all_tokens, prohibited_tokens)
+    if len(allowed_tokens) == 0:
+        raise ValueError("Tokenizer has no non-special tokens for random sampling.")
+
+    prefix_token_ids = _get_random_prefix(tokenizer, allowed_tokens, prefix_len, rng)
+
+    sampled_requests = []
+    token_mismatch_total = 0
+    for i in range(num_requests):
+        prompt, prompt_len, token_mismatch = _generate_prompt_with_target_len(
+            tokenizer=tokenizer,
+            prefix_token_ids=prefix_token_ids,
+            prefix_len=prefix_len,
+            input_len=int(input_lens[i]),
+            offset=int(offsets[i]),
+            index=i,
+            allowed_tokens=allowed_tokens,
+            rng=rng,
+        )
+        token_mismatch_total += token_mismatch
+        sampled_requests.append((prompt, prompt_len, int(output_lens[i])))
+
+    if token_mismatch_total != 0:
+        sign = "more" if token_mismatch_total > 0 else "fewer"
+        logger.warning(
+            "Across all generated prompts, there were %d %s tokens than "
+            "expected after decoding and re-encoding.",
+            abs(token_mismatch_total),
+            sign,
+        )
     return sampled_requests
 
 

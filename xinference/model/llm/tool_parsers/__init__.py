@@ -51,8 +51,14 @@ def register_tool_parser(name: str):
 # This ensures all tool parsers are automatically registered when this module is imported
 from . import (
     deepseek_r1_tool_parser,
+    deepseek_v3_1_tool_parser,
+    deepseek_v3_2_tool_parser,
     deepseek_v3_tool_parser,
+    deepseek_v4_tool_parser,
+    gemma_tool_parser,
     glm4_tool_parser,
+    glm5_tool_parser,
     llama3_tool_parser,
+    minimax_tool_parser,
     qwen_tool_parser,
 )

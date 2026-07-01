@@ -1,4 +1,4 @@
-# Copyright 2022-2025 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ from typing import Any, Dict, Iterator, List, Tuple, Union
 import torch
 from PIL import Image
 
+from ....utils import allow_trust_remote_code
 from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ..core import register_non_default_model
 from .core import PytorchMultiModalModel
@@ -39,8 +40,11 @@ class Ovis2ChatModel(PytorchMultiModalModel):
     def match_json(
         cls, model_family: "LLMFamilyV2", model_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        if model_spec.model_format not in ["pytorch", "gptq", "awq", "bnb"]:
-            return False, "Ovis2 transformer supports pytorch/gptq/awq/bnb formats only"
+        if model_spec.model_format not in ["pytorch", "gptq", "awq", "bnb", "fp4"]:
+            return (
+                False,
+                "Ovis2 transformer supports pytorch/gptq/awq/bnb/fp4 formats only",
+            )
         if not model_family.has_architecture(*cls.OVIS_ARCHITECTURES):
             return (
                 False,
@@ -59,12 +63,12 @@ class Ovis2ChatModel(PytorchMultiModalModel):
     def load_multimodal_model(self):
         from transformers import AutoModelForCausalLM
 
-        kwargs = self.apply_bnb_quantization()
+        kwargs = self.apply_quantization_config()
         self._model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             torch_dtype=torch.bfloat16,
             multimodal_max_length=32768,
-            trust_remote_code=True,
+            trust_remote_code=allow_trust_remote_code(self.model_family),
             **kwargs,
         ).cuda()
         self._text_tokenizer = self._model.get_text_tokenizer()

@@ -1,15 +1,18 @@
 import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined'
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined'
 import OpenInBrowserOutlinedIcon from '@mui/icons-material/OpenInBrowserOutlined'
+import PowerSettingsNewOutlinedIcon from '@mui/icons-material/PowerSettingsNewOutlined'
 import { TabContext, TabList, TabPanel } from '@mui/lab'
 import {
   Badge,
   Box,
   Button,
   Chip,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
+  DialogContentText,
   DialogTitle,
   IconButton,
   Paper,
@@ -75,6 +78,16 @@ const tabArr = [
   },
 ]
 
+const getAutostartModelUids = (summary = {}) => {
+  return (summary.models || [])
+    .filter((item) => item.enabled !== false)
+    .map(
+      (item) =>
+        item.model_uid || item.launch?.model_uid || item.launch?.model_name
+    )
+    .filter(Boolean)
+}
+
 const RunningModels = () => {
   const [tabValue, setTabValue] = React.useState(
     sessionStorage.getItem('runningModelType')
@@ -90,9 +103,17 @@ const RunningModels = () => {
   const [replicaDialogOpen, setReplicaDialogOpen] = useState(false)
   const [selectedModelReplicas, setSelectedModelReplicas] = useState([])
   const [selectedModelUid, setSelectedModelUid] = useState('')
+  const [removingReplicaId, setRemovingReplicaId] = useState(null)
+  const [terminatingModelUids, setTerminatingModelUids] = useState([])
+  const [autostartModelUids, setAutostartModelUids] = useState([])
+  const [autostartBusyUids, setAutostartBusyUids] = useState([])
+  const [terminateDialog, setTerminateDialog] = useState({
+    open: false,
+    row: null,
+  })
   const { isCallingApi, setIsCallingApi } = useContext(ApiContext)
   const { isUpdatingModel, setIsUpdatingModel } = useContext(ApiContext)
-  const { setErrorMsg } = useContext(ApiContext)
+  const { setErrorMsg, setSuccessMsg } = useContext(ApiContext)
   const [cookie] = useCookies(['token'])
   const navigate = useNavigate()
   const endPoint = useContext(ApiContext).endPoint
@@ -137,9 +158,14 @@ const RunningModels = () => {
     } else {
       setIsUpdatingModel(true)
 
-      fetchWrapper
-        .get('/v1/models')
-        .then((response) => {
+      Promise.all([
+        fetchWrapper.get('/v1/models'),
+        fetchWrapper.get('/v1/autostart/models/summary').catch((error) => {
+          console.error('Error fetching autostart models:', error)
+          return { models: [] }
+        }),
+      ])
+        .then(([response, autostartSummary]) => {
           const modelMap = {
             LLM: [],
             embedding: [],
@@ -161,6 +187,7 @@ const RunningModels = () => {
             }
           })
 
+          setAutostartModelUids(getAutostartModelUids(autostartSummary))
           setLlmData(modelMap.LLM)
           setEmbeddingModelData(modelMap.embedding)
           setImageModelData(modelMap.image)
@@ -200,19 +227,216 @@ const RunningModels = () => {
     }
   }
 
+  const pollUntilModelRemoved = async (modelUid) => {
+    const delays = [2000, 4000, 8000]
+    const maxAttempts = 48
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const response = await fetchWrapper.get('/v1/models')
+        const exists = response.data.some((m) => m.id === modelUid)
+        if (!exists) return
+      } catch (e) {
+        console.error(e)
+        break
+      }
+      const ms = delays[Math.min(attempt, delays.length - 1)]
+      await new Promise((resolve) => setTimeout(resolve, ms))
+    }
+  }
+
+  const handleTerminateClick = (row) => {
+    if (isUpdatingModel || row.url === 'IS_LOADING') return
+    if (terminatingModelUids.includes(row.id)) return
+    setTerminateDialog({ open: true, row })
+  }
+
+  const handleCloseTerminateDialog = () => {
+    setTerminateDialog({ open: false, row: null })
+  }
+
+  const handleConfirmTerminate = async () => {
+    const row = terminateDialog.row
+    if (!row) return
+    handleCloseTerminateDialog()
+    const modelUid = row.id
+    const closeUrl = `${endPoint}/v1/models/${modelUid}`
+    setTerminatingModelUids((prev) =>
+      prev.includes(modelUid) ? prev : [...prev, modelUid]
+    )
+    try {
+      const res = await fetcher(closeUrl, { method: 'DELETE' })
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '')
+        throw new Error(errText || res.statusText || String(res.status))
+      }
+      await res.json().catch(() => ({}))
+      await pollUntilModelRemoved(modelUid)
+    } catch (e) {
+      console.error(e)
+      setErrorMsg(t('runningModels.terminateErrorHint'))
+    } finally {
+      setTerminatingModelUids((prev) => prev.filter((id) => id !== modelUid))
+      update(false)
+    }
+  }
+
+  const handleRemoveAutostart = async (modelUid) => {
+    if (autostartBusyUids.includes(modelUid)) return
+    setAutostartBusyUids((prev) =>
+      prev.includes(modelUid) ? prev : [...prev, modelUid]
+    )
+
+    try {
+      const summary = await fetchWrapper.delete(
+        `/v1/autostart/models/${encodeURIComponent(modelUid)}`
+      )
+      setAutostartModelUids(getAutostartModelUids(summary))
+      setSuccessMsg(t('runningModels.removeAutostartSuccess', { modelUid }))
+    } catch (error) {
+      console.error('Error removing autostart model:', error)
+      setErrorMsg(t('runningModels.removeAutostartFailed'))
+    } finally {
+      setAutostartBusyUids((prev) => prev.filter((id) => id !== modelUid))
+    }
+  }
+
+  const renderAutostartButton = (row) => {
+    if (!autostartModelUids.includes(row.id)) {
+      return null
+    }
+
+    const busy = autostartBusyUids.includes(row.id)
+    return (
+      <IconButton
+        title={t('runningModels.autostartEnabled')}
+        disabled={busy || isUpdatingModel || row.url === 'IS_LOADING'}
+        style={{
+          borderWidth: '0px',
+          backgroundColor: 'transparent',
+          paddingLeft: '0px',
+          paddingRight: '10px',
+        }}
+        onClick={(event) => {
+          event.stopPropagation()
+          handleRemoveAutostart(row.id)
+        }}
+      >
+        <Box
+          width="40px"
+          m="0 auto"
+          p="5px"
+          display="flex"
+          justifyContent="center"
+          alignItems="center"
+          borderRadius="4px"
+          style={{
+            border: '1px solid #e5e7eb',
+            borderWidth: '1px',
+            borderColor: '#e5e7eb',
+            color: '#2563eb',
+            minHeight: 32,
+          }}
+        >
+          {busy ? (
+            <CircularProgress size={18} thickness={5} />
+          ) : (
+            <PowerSettingsNewOutlinedIcon />
+          )}
+        </Box>
+      </IconButton>
+    )
+  }
+
+  const renderTerminateButton = (row) => {
+    const busy = terminatingModelUids.includes(row.id)
+    return (
+      <IconButton
+        title={
+          busy
+            ? t('runningModels.terminateInProgress')
+            : t('runningModels.terminateModel')
+        }
+        disabled={busy || isUpdatingModel || row.url === 'IS_LOADING'}
+        style={{
+          borderWidth: '0px',
+          backgroundColor: 'transparent',
+          paddingLeft: '0px',
+          paddingRight: '10px',
+        }}
+        onClick={() => handleTerminateClick(row)}
+      >
+        <Box
+          width="40px"
+          m="0 auto"
+          p="5px"
+          display="flex"
+          justifyContent="center"
+          alignItems="center"
+          borderRadius="4px"
+          style={{
+            border: '1px solid #e5e7eb',
+            borderWidth: '1px',
+            borderColor: '#e5e7eb',
+            minHeight: 32,
+          }}
+        >
+          {busy ? (
+            <CircularProgress size={18} thickness={5} />
+          ) : (
+            <DeleteOutlineOutlinedIcon />
+          )}
+        </Box>
+      </IconButton>
+    )
+  }
+
+  const loadReplicaDetails = async (modelUid) => {
+    const replicas = await fetchWrapper.get(`/v1/models/${modelUid}/replicas`)
+    setSelectedModelReplicas(replicas)
+    return replicas
+  }
+
   const handleViewReplicas = async (modelUid) => {
     try {
-      const response = await fetch(`${endPoint}/v1/models/${modelUid}/replicas`)
-      if (!response.ok) {
-        throw new Error('Failed to fetch replica status')
-      }
-      const replicas = await response.json()
-      setSelectedModelReplicas(replicas)
+      await loadReplicaDetails(modelUid)
       setSelectedModelUid(modelUid)
       setReplicaDialogOpen(true)
     } catch (error) {
       console.error('Error fetching replica details:', error)
       setErrorMsg('Failed to load replica details: ' + error.message)
+    }
+  }
+
+  const handleRemoveReplica = async (replica) => {
+    const confirmed = window.confirm(
+      t('modelReplicaDetails.removeConfirm', {
+        replicaId: replica.replica_id,
+        modelUid: selectedModelUid,
+      })
+    )
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      setRemovingReplicaId(replica.replica_id)
+      const response = await fetchWrapper.delete(
+        `/v1/models/${selectedModelUid}/replicas/${replica.replica_id}`
+      )
+
+      if (response.remaining_replicas > 0) {
+        await loadReplicaDetails(selectedModelUid)
+      } else {
+        setSelectedModelReplicas([])
+        setReplicaDialogOpen(false)
+      }
+
+      update(false)
+    } catch (error) {
+      console.error('Error removing replica:', error)
+      setErrorMsg('Failed to remove replica: ' + error.message)
+    } finally {
+      setRemovingReplicaId(null)
     }
   }
 
@@ -303,7 +527,6 @@ const RunningModels = () => {
       renderCell: ({ row }) => {
         const url = row.url
         const openUrl = `${endPoint}/` + url
-        const closeUrl = `${endPoint}/v1/models/` + url
         const gradioUrl = `${endPoint}/v1/ui/` + url
 
         if (url === 'IS_LOADING') {
@@ -399,50 +622,8 @@ const RunningModels = () => {
                 <OpenInBrowserOutlinedIcon />
               </Box>
             </IconButton>
-            <IconButton
-              title="Terminate Model"
-              style={{
-                borderWidth: '0px',
-                backgroundColor: 'transparent',
-                paddingLeft: '0px',
-                paddingRight: '10px',
-              }}
-              onClick={() => {
-                if (isCallingApi || isUpdatingModel) {
-                  return
-                }
-                setIsCallingApi(true)
-                fetcher(closeUrl, {
-                  method: 'DELETE',
-                })
-                  .then((response) => {
-                    response.json()
-                  })
-                  .then(() => {
-                    setIsCallingApi(false)
-                  })
-                  .catch((error) => {
-                    console.error('Error:', error)
-                    setIsCallingApi(false)
-                  })
-              }}
-            >
-              <Box
-                width="40px"
-                m="0 auto"
-                p="5px"
-                display="flex"
-                justifyContent="center"
-                borderRadius="4px"
-                style={{
-                  border: '1px solid #e5e7eb',
-                  borderWidth: '1px',
-                  borderColor: '#e5e7eb',
-                }}
-              >
-                <DeleteOutlineOutlinedIcon />
-              </Box>
-            </IconButton>
+            {renderAutostartButton(row)}
+            {renderTerminateButton(row)}
           </Box>
         )
       },
@@ -487,11 +668,35 @@ const RunningModels = () => {
       disableColumnMenu: true,
       renderCell: ({ row }) => {
         const url = row.url
-        const closeUrl = `${endPoint}/v1/models/` + url
+        const openUrl = `${endPoint}/` + url
 
         if (url === 'IS_LOADING') {
           return <div></div>
         }
+
+        // ``embeddingModelColumns`` is reused for rerank / flexible tabs
+        // (see ``rerankModelColumns`` / ``flexibleModelColumns`` aliases
+        // below), so the Gradio launcher must only render for embedding
+        // rows. Posting a rerank / flexible ``model_uid`` to
+        // ``/v1/ui/embeddings/{model_uid}`` would otherwise 400 on the
+        // backend ``model_type`` check.
+        if (row.model_type !== 'embedding') {
+          return (
+            <Box
+              style={{
+                width: '100%',
+                display: 'flex',
+                justifyContent: 'left',
+                alignItems: 'left',
+              }}
+            >
+              {renderAutostartButton(row)}
+              {renderTerminateButton(row)}
+            </Box>
+          )
+        }
+
+        const gradioUrl = `${endPoint}/v1/ui/embeddings/` + url
 
         return (
           <Box
@@ -503,7 +708,7 @@ const RunningModels = () => {
             }}
           >
             <IconButton
-              title="Terminate Model"
+              title="Launch Web UI"
               style={{
                 borderWidth: '0px',
                 backgroundColor: 'transparent',
@@ -514,15 +719,44 @@ const RunningModels = () => {
                 if (isCallingApi || isUpdatingModel) {
                   return
                 }
+
                 setIsCallingApi(true)
-                fetcher(closeUrl, {
-                  method: 'DELETE',
+
+                fetcher(openUrl, {
+                  method: 'HEAD',
                 })
                   .then((response) => {
-                    response.json()
-                  })
-                  .then(() => {
-                    setIsCallingApi(false)
+                    if (response.status === 404) {
+                      console.log('UI does not exist, creating new...')
+                      return fetcher(gradioUrl, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          model_type: row.model_type,
+                          model_family: row.model_family,
+                          model_id: row.id,
+                          model_revision: row.model_revision,
+                          model_name: row.model_name,
+                          model_ability: row.model_ability,
+                        }),
+                      })
+                        .then((response) => response.json())
+                        .then(() =>
+                          window.open(openUrl, '_blank', 'noopener noreferrer')
+                        )
+                        .finally(() => setIsCallingApi(false))
+                    } else if (response.ok) {
+                      console.log('UI exists, opening...')
+                      window.open(openUrl, '_blank', 'noopener noreferrer')
+                      setIsCallingApi(false)
+                    } else {
+                      console.error(
+                        `Unexpected response status: ${response.status}`
+                      )
+                      setIsCallingApi(false)
+                    }
                   })
                   .catch((error) => {
                     console.error('Error:', error)
@@ -543,9 +777,11 @@ const RunningModels = () => {
                   borderColor: '#e5e7eb',
                 }}
               >
-                <DeleteOutlineOutlinedIcon />
+                <OpenInBrowserOutlinedIcon />
               </Box>
             </IconButton>
+            {renderAutostartButton(row)}
+            {renderTerminateButton(row)}
           </Box>
         )
       },
@@ -592,7 +828,6 @@ const RunningModels = () => {
         // this URL means model_uid
         const url = row.url
         const openUrl = `${endPoint}/` + url
-        const closeUrl = `${endPoint}/v1/models/` + url
         let pathType
         if (row.model_type === 'video') {
           pathType = 'videos'
@@ -694,50 +929,8 @@ const RunningModels = () => {
                 <OpenInBrowserOutlinedIcon />
               </Box>
             </IconButton>
-            <IconButton
-              title="Terminate Model"
-              style={{
-                borderWidth: '0px',
-                backgroundColor: 'transparent',
-                paddingLeft: '0px',
-                paddingRight: '10px',
-              }}
-              onClick={() => {
-                if (isCallingApi || isUpdatingModel) {
-                  return
-                }
-                setIsCallingApi(true)
-                fetcher(closeUrl, {
-                  method: 'DELETE',
-                })
-                  .then((response) => {
-                    response.json()
-                  })
-                  .then(() => {
-                    setIsCallingApi(false)
-                  })
-                  .catch((error) => {
-                    console.error('Error:', error)
-                    setIsCallingApi(false)
-                  })
-              }}
-            >
-              <Box
-                width="40px"
-                m="0 auto"
-                p="5px"
-                display="flex"
-                justifyContent="center"
-                borderRadius="4px"
-                style={{
-                  border: '1px solid #e5e7eb',
-                  borderWidth: '1px',
-                  borderColor: '#e5e7eb',
-                }}
-              >
-                <DeleteOutlineOutlinedIcon />
-              </Box>
-            </IconButton>
+            {renderAutostartButton(row)}
+            {renderTerminateButton(row)}
           </Box>
         )
       },
@@ -1062,6 +1255,9 @@ const RunningModels = () => {
                   </TableCell>
                   <TableCell>{t('modelReplicaDetails.status')}</TableCell>
                   <TableCell>{t('modelReplicaDetails.createdTime')}</TableCell>
+                  <TableCell align="right">
+                    {t('modelReplicaDetails.actions')}
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -1093,11 +1289,25 @@ const RunningModels = () => {
                     <TableCell>
                       {new Date(replica.created_ts * 1000).toLocaleString()}
                     </TableCell>
+                    <TableCell align="right">
+                      <Tooltip title={t('modelReplicaDetails.remove')}>
+                        <span>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleRemoveReplica(replica)}
+                            disabled={removingReplicaId === replica.replica_id}
+                          >
+                            <DeleteOutlineOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </TableCell>
                   </TableRow>
                 ))}
                 {selectedModelReplicas.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} align="center">
+                    <TableCell colSpan={6} align="center">
                       <Typography variant="body2" color="text.secondary">
                         {t('modelReplicaDetails.noReplicaInfo')}
                       </Typography>
@@ -1131,6 +1341,47 @@ const RunningModels = () => {
         <DialogActions>
           <Button onClick={() => setReplicaDialogOpen(false)}>
             {t('modelReplicaDetails.close')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={terminateDialog.open}
+        onClose={handleCloseTerminateDialog}
+        aria-labelledby="terminate-dialog-title"
+      >
+        <DialogTitle id="terminate-dialog-title">
+          {t('runningModels.terminateConfirmTitle')}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText component="div">
+            <Typography variant="body2" paragraph>
+              {t('runningModels.terminateConfirmBody', {
+                replica: terminateDialog.row?.replica ?? 1,
+              })}
+            </Typography>
+            {terminateDialog.row?.model_name && (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                display="block"
+              >
+                {t('runningModels.name')}: {terminateDialog.row.model_name}
+              </Typography>
+            )}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseTerminateDialog}>
+            {t('components.cancel')}
+          </Button>
+          <Button
+            onClick={handleConfirmTerminate}
+            color="error"
+            variant="contained"
+            autoFocus
+          >
+            {t('runningModels.terminateConfirmOk')}
           </Button>
         </DialogActions>
       </Dialog>

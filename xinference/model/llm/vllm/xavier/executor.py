@@ -1,4 +1,4 @@
-# Copyright 2022-2025 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,12 +20,16 @@ from vllm.sequence import ExecuteModelRequest, PoolerOutput
 from vllm.utils import is_pin_memory_available
 from vllm.worker.cache_engine import CacheEngine
 
+from .utils import hash_block_tokens
+
 if TYPE_CHECKING:
     from .scheduler import XavierScheduler
 
 
 class XavierExecutor(MultiprocessingDistributedExecutor):
     scheduler: Optional[List["XavierScheduler"]] = None
+    # same as vllm.core.block.prefix_caching_block.PrefixCachingBlock._none_hash
+    _none_hash: int = -1
 
     def _init_executor(self) -> None:
         super()._init_executor()
@@ -103,6 +107,7 @@ class XavierExecutor(MultiprocessingDistributedExecutor):
         executed_blocks_details: Set[Tuple[int, int]] = set()
         for meta in execute_model_req.seq_group_metadata_list:
             block_tables = meta.block_tables
+            tmp_content_hash = None
             for seq_id, block_ids in block_tables.items():
                 for _id in block_ids:
                     b = scheduler.block_manager.get_block_by_block_id(seq_id, _id)
@@ -110,8 +115,28 @@ class XavierExecutor(MultiprocessingDistributedExecutor):
                     executed = scheduler.block_manager.get_block_status_by_block_id(
                         "executed", _id
                     )
-                    detail = (b.content_hash, b.block_id)
-                    if (b.content_hash is not None) and (not executed):
+                    if b._prev_block is None:
+                        content_hash = hash_block_tokens(
+                            True,
+                            self._none_hash,
+                            b.token_ids,
+                            b._extra_hash,
+                            self._none_hash,
+                        )
+
+                    else:
+                        prev_content_hash: Optional[int] = tmp_content_hash
+                        content_hash = hash_block_tokens(
+                            False,
+                            prev_content_hash,
+                            b.token_ids,
+                            b._extra_hash,
+                            self._none_hash,
+                        )
+                    tmp_content_hash = content_hash
+                    detail = (content_hash, b.block_id)
+
+                    if (content_hash is not None) and (not executed):
                         executed_blocks_details.add(detail)
 
         res = await super().execute_model_async(execute_model_req)

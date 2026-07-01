@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,6 +46,14 @@ from .llm_family import (
     PytorchLLMSpecV2,
     match_llm,
 )
+from .utils import (
+    DEEPSEEK_TOOL_CALL_FAMILY,
+    GEMMA_TOOL_CALL_FAMILY,
+    GLM4_TOOL_CALL_FAMILY,
+    GLM5_TOOL_CALL_FAMILY,
+    LLAMA3_TOOL_CALL_FAMILY,
+    QWEN_TOOL_CALL_FAMILY,
+)
 
 
 def register_builtin_model():
@@ -91,6 +99,12 @@ def generate_engine_config_by_model_family(model_family: "LLMFamilyV2"):
                         ):
                             if quantization not in param["quantizations"]:
                                 param["quantizations"].append(quantization)
+                            if "multimodal_projectors" not in param and hasattr(
+                                spec, "multimodal_projectors"
+                            ):
+                                param["multimodal_projectors"] = (
+                                    spec.multimodal_projectors
+                                )
                             already_exists = True
                             break
                     # successfully match the params for the first time, add to the structure
@@ -209,6 +223,23 @@ def load_model_family_from_json(json_filename, target_families):
             BUILTIN_LLM_MODEL_GENERATE_FAMILIES.add(model_spec.model_name)
         if "tools" in model_spec.model_ability:
             BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
+            if tool_parser := getattr(model_spec, "tool_parser", None):
+                if tool_parser == "qwen" or tool_parser == "minimax":
+                    QWEN_TOOL_CALL_FAMILY.add(model_spec.model_name)
+                elif tool_parser == "gemma":
+                    GEMMA_TOOL_CALL_FAMILY.add(model_spec.model_name)
+                elif tool_parser == "glm4":
+                    GLM4_TOOL_CALL_FAMILY.add(model_spec.model_name)
+                elif tool_parser == "glm5":
+                    GLM5_TOOL_CALL_FAMILY.add(model_spec.model_name)
+                elif tool_parser == "llama3":
+                    LLAMA3_TOOL_CALL_FAMILY.add(model_spec.model_name)
+                elif tool_parser.startswith("deepseek"):
+                    DEEPSEEK_TOOL_CALL_FAMILY.add(model_spec.model_name)
+                else:
+                    warnings.warn(
+                        f"Unknown tool parser {tool_parser} for model family {model_spec.model_name}"
+                    )
 
 
 def _install():
@@ -240,6 +271,12 @@ def _install():
 
     # Always load built-in models first to ensure we have the latest models
     load_model_family_from_json("llm_family.json", BUILTIN_LLM_FAMILIES)
+
+    # Mark these as vetted built-in models. Loaders may enable trust_remote_code
+    # for built-ins without an operator opt-in; user-supplied / downloaded models
+    # (merged below) keep is_builtin=False and stay gated (CWE-94).
+    for family in BUILTIN_LLM_FAMILIES:
+        family.is_builtin = True
 
     # Then load user-defined models and merge with built-in models
     if has_downloaded_models():

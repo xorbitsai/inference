@@ -1,4 +1,4 @@
-# Copyright 2022-2025 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,28 +12,172 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import importlib.util
 import logging
-from typing import List, Optional, Tuple, Union, no_type_check
+import os
+from typing import Any, Dict, List, Optional, Tuple, Union, cast, no_type_check
 
 import numpy as np
 import torch
 
 from ....types import Embedding, EmbeddingData, EmbeddingUsage
 from ...batch import BatchMixin
-from ...utils import check_dependency_available, is_flash_attn_available
+from ...utils import (
+    allow_trust_remote_code,
+    check_dependency_available,
+    is_flash_attn_available,
+)
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 
 logger = logging.getLogger(__name__)
 SENTENCE_TRANSFORMER_MODEL_LIST: List[str] = []
+
+# jina-embeddings-v3: uses standard SentenceTransformer prompt_name mechanism
+# v3 model.prompts keys use dot-notation: "retrieval.passage", "retrieval.query", etc.
+JINA_V3_TASK_TO_PROMPT_NAME: Dict[str, str] = {
+    "retrieval.passage": "retrieval.passage",
+    "retrieval.query": "retrieval.query",
+    "retrieval": "retrieval.passage",
+    "passage": "retrieval.passage",
+    "query": "retrieval.query",
+    "document": "document",
+}
+
+# jina-embeddings-v4: custom forward() consumes task param directly, bypasses prompt_name
+# This set is only for validation; task value is passed directly to model.forward()
+JINA_V4_VALID_TASKS = {
+    "retrieval.passage",
+    "retrieval.query",
+    "retrieval",
+    "text-matching",
+    "code",
+    "passage",
+    "query",
+    "document",
+}
+
+# jina-embeddings-v5 (text-* and omni-*): custom encode() consumes ``task`` directly.
+# Valid tasks come from the v5 model cards on HuggingFace.
+JINA_V5_VALID_TASKS = {
+    "retrieval",
+    "text-matching",
+    "classification",
+    "clustering",
+}
+# v5 retrieval additionally uses ``prompt_name`` to distinguish query vs document.
+JINA_V5_PROMPT_NAME_ALIASES = {
+    "query": "query",
+    "document": "document",
+    "passage": "document",
+    "retrieval.query": "query",
+    "retrieval.passage": "document",
+}
+
+
+def _resolve_jina_task(
+    model_name: str, task: Optional[str]
+) -> Tuple[Optional[str], Optional[str]]:
+    """Resolve Jina API task parameter.
+
+    Returns:
+        (prompt_name, task_passthrough)
+        - v3: (prompt_name, None) — uses prompt_name to look up prompt template
+        - v4: (None, task) — passes task directly to model.forward()
+        - v5: (prompt_name_or_None, task) — passes task directly to model.encode();
+              v5 models reject a missing task, so default to ``retrieval`` when the
+              caller does not pass one (OpenAI-compatible clients usually omit it)
+        - other models: (None, None)
+    """
+    model_lower = model_name.lower()
+    if task is None:
+        # v5 mandates a task on every call. Fall back to ``retrieval`` so OpenAI-
+        # style clients that have no notion of a task parameter still work.
+        if "jina-embeddings-v5" in model_lower:
+            return None, "retrieval"
+        return None, None
+    if "jina-embeddings-v3" in model_lower:
+        prompt_name = JINA_V3_TASK_TO_PROMPT_NAME.get(task)
+        if prompt_name is None:
+            valid = sorted(JINA_V3_TASK_TO_PROMPT_NAME.keys())
+            raise ValueError(
+                f"Invalid task: {task}. Must be one of {valid} for model {model_name}."
+            )
+        return prompt_name, None
+    elif "jina-embeddings-v4" in model_lower:
+        if task not in JINA_V4_VALID_TASKS:
+            valid = sorted(JINA_V4_VALID_TASKS)
+            raise ValueError(
+                f"Invalid task: {task}. Must be one of {valid} for model {model_name}."
+            )
+        return None, task
+    elif "jina-embeddings-v5" in model_lower:
+        # ``task`` may carry either a v5 task name or a retrieval-side alias
+        # (e.g. ``query`` / ``document``). Aliases imply ``task=retrieval``.
+        prompt_name = JINA_V5_PROMPT_NAME_ALIASES.get(task)
+        if prompt_name is not None:
+            return prompt_name, "retrieval"
+        if task not in JINA_V5_VALID_TASKS:
+            valid = sorted(
+                JINA_V5_VALID_TASKS | set(JINA_V5_PROMPT_NAME_ALIASES.keys())
+            )
+            raise ValueError(
+                f"Invalid task: {task}. Must be one of {valid} for model {model_name}."
+            )
+        return None, task
+    return None, None
+
+
+def _build_encode_kwargs(
+    kwargs: Dict[str, Any], prompt_name: Optional[str] = None
+) -> Dict[str, Any]:
+    """Build encode kwargs with optional prompt_name for Jina models.
+
+    Args:
+        kwargs: Original kwargs from the API call
+        prompt_name: Optional prompt_name resolved from Jina task parameter
+
+    Returns:
+        Dictionary with encode parameters including prompt_name if provided
+    """
+    encode_kwargs = dict(convert_to_numpy=False, **kwargs)
+    if prompt_name is not None:
+        encode_kwargs["prompt_name"] = prompt_name
+    return encode_kwargs
 
 
 class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
     def __init__(self, *args, **kwargs) -> None:
         EmbeddingModel.__init__(self, *args, **kwargs)
         BatchMixin.__init__(self, self.create_embedding, **kwargs)  # type: ignore
+        self._embedder = None
 
     def load(self):
         # TODO: load model
+        if self.model_family.model_name.startswith("Qwen3-VL-Embedding"):
+            module_path = os.path.join(
+                self._model_path, "scripts", "qwen3_vl_embedding.py"
+            )
+            if not os.path.exists(module_path):
+                raise FileNotFoundError(
+                    f"Missing qwen3_vl_embedding.py under {self._model_path}. "
+                    "Please verify the model repository files."
+                )
+            spec = importlib.util.spec_from_file_location(
+                "qwen3_vl_embedding", module_path
+            )
+            if spec is None or spec.loader is None:
+                raise ImportError(f"Failed to load embedding module from {module_path}")
+            if not allow_trust_remote_code(self.model_family):
+                raise ValueError(
+                    "Loading this model executes code shipped in the model "
+                    "repository; set XINFERENCE_TRUST_REMOTE_CODE=1 to allow it."
+                )
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            self._embedder = module.Qwen3VLEmbedder(
+                model_name_or_path=self._model_path, **self._kwargs
+            )
+            return
         try:
             import sentence_transformers
             from sentence_transformers import SentenceTransformer
@@ -121,12 +265,23 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
             )
         else:
             model_kwargs = {"torch_dtype": torch_dtype} if torch_dtype else None
+            # jina-embeddings-v5-omni: the model card recommends loading via
+            # ``model_kwargs={"default_task": "retrieval"}`` so that the task
+            # adapter is selected up-front and ``encode()`` works for image /
+            # video / audio inputs (which cannot carry a ``task`` keyword).
+            st_kwargs: Dict[str, Any] = {}
+            if "jina-embeddings-v5-omni" in self.model_family.model_name.lower():
+                st_kwargs["model_kwargs"] = {"default_task": "retrieval"}
+                if model_kwargs:
+                    st_kwargs["model_kwargs"].update(model_kwargs)
+            else:
+                st_kwargs["model_kwargs"] = model_kwargs
             self._model = SentenceTransformer(
                 self._model_path,
                 device=self._device,
-                model_kwargs=model_kwargs,
-                trust_remote_code=True,
+                trust_remote_code=allow_trust_remote_code(self.model_family),
                 truncate_dim=dimensions,
+                **st_kwargs,
             )
 
         if hasattr(self._model, "tokenizer"):
@@ -137,8 +292,19 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         sentences: Union[str, List[str]],
         **kwargs,
     ):
+        if self._embedder is not None:
+            return self._create_qwen3_vl_embedding(sentences, **kwargs)
         sentences = self._fix_langchain_openai_inputs(sentences)
         model_uid = kwargs.pop("model_uid", None)
+
+        # Resolve Jina-style task parameter.
+        task = kwargs.pop("task", None)
+        jina_prompt_name, jina_task_passthrough = _resolve_jina_task(
+            self._model_name, task
+        )
+        # v4: put task back into kwargs for model.forward() to consume
+        if jina_task_passthrough is not None:
+            kwargs["task"] = jina_task_passthrough
 
         from sentence_transformers import SentenceTransformer
 
@@ -391,18 +557,120 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                     else:
                         raise ValueError("Please check the input data.")
 
+            encode_kwargs = _build_encode_kwargs(kwargs, jina_prompt_name)
             all_embeddings, all_token_nums = encode(
                 self._model,
                 objs,
-                convert_to_numpy=False,
-                **kwargs,
+                **encode_kwargs,
             )
+        elif "jina-embeddings-v5-omni" in self.model_family.model_name.lower():
+            # jina-embeddings-v5-omni accepts text, image, video and audio.
+            # Per the model card, the SentenceTransformer wrapper auto-detects
+            # the modality of each sentence: URLs / file paths / PIL.Image /
+            # bytes / np.ndarray / torch.Tensor are routed to the matching
+            # tower. We additionally accept dict inputs of the form
+            # ``{"text": ...}`` / ``{"image": url_or_b64}`` /
+            # ``{"video": url_or_path}`` / ``{"audio": url_or_path}`` so the
+            # OpenAI-compatible HTTP API can express multimodal payloads.
+            #
+            # NOTE: we cannot reuse the local ``encode`` helper because it
+            # calls ``model.tokenize`` -> ``model.forward`` and assumes text
+            # input. Multimodal routing only happens inside
+            # ``SentenceTransformer.encode``.
+            import base64
+            import re
+            from io import BytesIO
+
+            from PIL import Image
+
+            def _b64_to_image(b64: str) -> Image.Image:
+                payload = b64.split(",", 1)[1] if "," in b64 else b64
+                return Image.open(BytesIO(base64.b64decode(payload)))
+
+            def _coerce_omni_item(item: Any) -> Any:
+                if isinstance(item, dict):
+                    if item.get("text") is not None:
+                        return item["text"]
+                    img = item.get("image")
+                    if img is not None:
+                        if isinstance(img, str) and re.match(
+                            r"^data:image/.+;base64,", img
+                        ):
+                            return _b64_to_image(img)
+                        return img
+                    video = item.get("video")
+                    if video is not None:
+                        return video
+                    audio = item.get("audio")
+                    if audio is not None:
+                        return audio
+                    raise ValueError(
+                        "jina-embeddings-v5-omni input dict must contain one "
+                        "of: text, image, video, audio."
+                    )
+                return item
+
+            # Treat str and dict as single-item inputs; only true sequences
+            # should be iterated. ``isinstance(sentences, dict)`` is critical:
+            # without it, iterating a dict yields its keys (e.g. "image"),
+            # which silently embeds the key name instead of the payload.
+            if isinstance(sentences, (str, dict)):
+                objs = [_coerce_omni_item(cast(Any, sentences))]
+                input_was_single = True
+            else:
+                objs = [_coerce_omni_item(it) for it in cast(List[Any], sentences)]
+                input_was_single = False
+
+            omni_kwargs = dict(kwargs)
+            omni_kwargs.pop("convert_to_numpy", None)
+            # OpenAI's embedding API uses ``dimensions`` to request Matryoshka
+            # truncation; v5-omni's encode() expects ``truncate_dim``.
+            if "dimensions" in omni_kwargs and "truncate_dim" not in omni_kwargs:
+                omni_kwargs["truncate_dim"] = omni_kwargs.pop("dimensions")
+            else:
+                omni_kwargs.pop("dimensions", None)
+            if jina_prompt_name is not None:
+                omni_kwargs["prompt_name"] = jina_prompt_name
+
+            assert self._model is not None
+            with torch.no_grad():
+                omni_out = self._model.encode(
+                    objs,
+                    convert_to_numpy=True,
+                    **omni_kwargs,
+                )
+
+            # ``encode`` on a single-item list returns either a 2-D ndarray of
+            # shape (1, dim) or a 1-D ndarray of shape (dim,). The downstream
+            # code below iterates ``all_embeddings`` and calls ``.tolist()`` on
+            # each item, expecting a flat 1-D vector per input. Normalise both
+            # shapes accordingly so the response stays ``[float, ...]`` rather
+            # than the accidentally-nested ``[[float, ...]]``.
+            if input_was_single:
+                if hasattr(omni_out, "ndim") and getattr(omni_out, "ndim", 0) > 1:
+                    all_embeddings = [omni_out[0]]
+                else:
+                    all_embeddings = [omni_out]
+            elif hasattr(omni_out, "ndim") and getattr(omni_out, "ndim", 0) == 1:
+                all_embeddings = [omni_out]
+            else:
+                all_embeddings = list(omni_out)
+            # The shared tail below re-wraps ``all_embeddings`` when
+            # ``sentences`` is a ``str``. We have already normalised the omni
+            # output into ``[ndarray]``; promote ``sentences`` to a list so the
+            # tail does not double-wrap it into ``[[ndarray]]`` and break the
+            # subsequent ``data.tolist()`` call.
+            if isinstance(sentences, (str, dict)):
+                sentences = [sentences]
+            # token accounting for multimodal inputs is not meaningful; report
+            # the input item count so usage stays non-zero.
+            all_token_nums = len(objs)
         else:
+            encode_kwargs = _build_encode_kwargs(kwargs, jina_prompt_name)
             all_embeddings, all_token_nums = encode(
                 self._model,
                 sentences,
-                convert_to_numpy=False,
-                **kwargs,
+                **encode_kwargs,
             )
         if isinstance(sentences, str):
             all_embeddings = [all_embeddings]
@@ -427,13 +695,55 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
 
         return result
 
+    def _normalize_vl_inputs(
+        self, inputs: Union[str, Dict[str, Any], List[str], List[Dict[str, Any]]]
+    ) -> List[Dict[str, Any]]:
+        if isinstance(inputs, str):
+            return [{"text": inputs}]
+        if isinstance(inputs, dict):
+            return [inputs]
+        if isinstance(inputs, list):
+            if not inputs:
+                return []
+            if isinstance(inputs[0], str):
+                return [{"text": item} for item in inputs]
+            if isinstance(inputs[0], dict):
+                return cast(List[Dict[str, Any]], inputs)
+        raise ValueError("Unsupported input type for Qwen3-VL embedding.")
+
+    def _create_qwen3_vl_embedding(self, sentences, **kwargs):
+        sentences = self._fix_langchain_openai_inputs(sentences)
+        model_uid = kwargs.pop("model_uid", None)
+        normalize_embedding = kwargs.get("normalize_embedding", True)
+        inputs = self._normalize_vl_inputs(sentences)
+        if not inputs:
+            return Embedding(
+                object="list",
+                model=model_uid,
+                model_replica=self._model_uid,
+                data=[],
+                usage=EmbeddingUsage(prompt_tokens=0, total_tokens=0),
+            )
+
+        embeddings = self._embedder.process(inputs, normalize=normalize_embedding)
+        embedding_list = []
+        for index, data in enumerate(embeddings):
+            if isinstance(data, torch.Tensor):
+                data = data.tolist()
+            embedding_list.append(
+                EmbeddingData(index=index, object="embedding", embedding=data)
+            )
+        usage = EmbeddingUsage(prompt_tokens=-1, total_tokens=-1)
+        return Embedding(
+            object="list",
+            model=model_uid,
+            model_replica=self._model_uid,
+            data=embedding_list,
+            usage=usage,
+        )
+
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
-        dep_check = check_dependency_available(
-            "sentence_transformers", "sentence-transformers"
-        )
-        if dep_check != True:
-            return dep_check
         return True
 
     @classmethod
@@ -443,6 +753,30 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
         model_spec: EmbeddingSpecV1,
         quantization: str,
     ) -> Union[bool, Tuple[bool, str]]:
+        from ....constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+
+        if model_family.model_name.startswith("Qwen3-VL-Embedding"):
+            if not XINFERENCE_ENABLE_VIRTUAL_ENV:
+                dep_check = check_dependency_available("transformers", "transformers")
+                if dep_check != True:
+                    return dep_check
+                dep_check = check_dependency_available("qwen_vl_utils", "qwen_vl_utils")
+                if dep_check != True:
+                    return dep_check
+                dep_check = check_dependency_available("PIL", "Pillow")
+                if dep_check != True:
+                    return dep_check
+            if model_spec.model_format not in ["pytorch"]:
+                return False, "Qwen3-VL embedding supports pytorch format only"
+            return True
+
+        # virtualenv mode: dependencies provided by child venv, skip import check
+        if not XINFERENCE_ENABLE_VIRTUAL_ENV:
+            dep_check = check_dependency_available(
+                "sentence_transformers", "sentence-transformers"
+            )
+            if dep_check != True:
+                return dep_check
         if model_spec.model_format not in ["pytorch"]:
             return False, "SentenceTransformer embeddings require pytorch format"
         return True

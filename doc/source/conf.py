@@ -14,6 +14,8 @@ import os
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
+from docutils import nodes
+
 
 # -- Project information -----------------------------------------------------
 
@@ -66,21 +68,35 @@ html_title = "Xinference"
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+html_css_files = ["custom.css"]
 
 # Define the json_url for our version switcher.
 version_match = os.environ.get("READTHEDOCS_LANGUAGE")
 json_url = "https://inference.readthedocs.io/en/latest/_static/switcher.json"
 if not version_match:
     version_match = 'en'
+if version_match == 'zh-cn':
+    tags.add("zh_cn")
 
 html_theme_options = {
     "show_toc_level": 2,
     "header_links_before_dropdown": 7,
+    "logo": {
+        "image_light": "_static/xinference-logo-light.png",
+        "image_dark": "_static/xinference-logo-dark.png",
+        "alt_text": "Xinference",
+    },
     "icon_links": [
         {
             "name": "GitHub",
             "url": "https://github.com/xorbitsai/inference",
             "icon": "fa-brands fa-github",
+            "type": "fontawesome",
+        },
+        {
+            "name": "Telegram",
+            "url": "https://t.me/+nCNpwmySwk9iYmI1",
+            "icon": "fa-brands fa-telegram",
             "type": "fontawesome",
         },
     ],
@@ -110,15 +126,9 @@ if version_match != 'zh-cn':
     html_theme_options["external_links"] = [
         {"name": "Official Site", "url": "https://xinference.io"},
     ]
-    html_theme_options["header_links_before_dropdown"] = 6
+    html_theme_options["header_links_before_dropdown"] = 3
 else:
     html_theme_options['icon_links'].extend([{
-        "name": "WeChat",
-        "url": "https://xorbits.cn/assets/images/wechat_work_qr.png",
-        "icon": "fa-brands fa-weixin",
-        "type": "fontawesome",
-    },
-    {
         "name": "Zhihu",
         "url": "https://zhihu.com/org/xorbits",
         "icon": "fa-brands fa-zhihu",
@@ -128,4 +138,24 @@ else:
         {"name": "产品官网", "url": "https://xinference.cn"},
     ]
 
-html_favicon = "_static/favicon.svg"
+html_favicon = "_static/xinference-favicon.png"
+
+
+def _remove_non_zh_cn_nodes(app, doctree, docname):
+    current_language = getattr(app.config, "language", None)
+    is_zh_cn = version_match == "zh-cn" or current_language in {"zh_CN", "zh-cn"}
+    if is_zh_cn:
+        return
+
+    for node in list(
+        doctree.findall(
+            lambda n: isinstance(n, nodes.Element)
+            and "zh-cn-only" in n.get("classes", [])
+        )
+    ):
+        if node.parent is not None and node in node.parent:
+            node.parent.remove(node)
+
+
+def setup(app):
+    app.connect("doctree-resolved", _remove_non_zh_cn_nodes)

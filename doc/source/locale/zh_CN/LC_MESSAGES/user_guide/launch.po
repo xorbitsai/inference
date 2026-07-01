@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-12-13 13:41+0800\n"
+"POT-Creation-Date: 2026-01-28 11:54+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -41,10 +41,9 @@ msgid ""
 "Meanwhile, users see it as a single model, which greatly improves overall"
 " resource utilization."
 msgstr ""
-"副本用来指定模型加载的实例份数。比如，你有两张 GPU，每张卡可以放下模型的"
-"一个副本，你可以设置副本数为 2。这样，两个完全相同的模型实例将分布在这"
-"两张 GPU 上。Xinference 会自动进行负载均衡，确保请求均匀分配到多张卡上。"
-"用户看到的仍是一个模型，这大大提升了整体资源利用率。"
+"副本用来指定模型加载的实例份数。比如，你有两张 GPU，每张卡可以放下模型的一个副本，你可以设置副本数为 "
+"2。这样，两个完全相同的模型实例将分布在这两张 GPU 上。Xinference "
+"会自动进行负载均衡，确保请求均匀分配到多张卡上。用户看到的仍是一个模型，这大大提升了整体资源利用率。"
 
 #: ../../source/user_guide/launch.rst:17
 msgid "Traditional Multi-Instance Deployment："
@@ -55,9 +54,7 @@ msgid ""
 "When you have multiple GPU cards, each capable of hosting one model "
 "instance, you can set the number of instances equal to the number of "
 "GPUs. For example:"
-msgstr ""
-"当您拥有多张GPU显卡时，每张显卡可承载一个模型实例，此时可将实例数量设置为"
-"等于GPU数量。例如:"
+msgstr "当您拥有多张GPU显卡时，每张显卡可承载一个模型实例，此时可将实例数量设置为等于GPU数量。例如:"
 
 #: ../../source/user_guide/launch.rst:21
 msgid "2 GPUs, 2 instances: Each GPU runs one model instance"
@@ -131,10 +128,10 @@ msgstr "混合分配策略"
 msgid ""
 "The current policy is *Idle First*: The scheduler always attempts to "
 "assign replicas to the least utilized GPU. Use the "
-"``XINFERENCE_ENV_LAUNCH_STRATEGY`` parameter to choose launch strategy."
+"``XINFERENCE_LAUNCH_STRATEGY`` parameter to choose launch strategy."
 msgstr ""
-"当前策略为 *空闲优先* ：调度器始终尝试将副本分配至最空闲的GPU。"
-"使用 ``XINFERENCE_ENV_LAUNCH_STRATEGY`` 参数选择启动策略。"
+"当前策略为 *空闲优先* ：调度器始终尝试将副本分配至最空闲的GPU。使用 ``XINFERENCE_ENV_LAUNCH_STRATEGY`` "
+"参数选择启动策略。"
 
 #: ../../source/user_guide/launch.rst:59
 msgid "Set Environment Variables"
@@ -147,8 +144,8 @@ msgid ""
 "configure these individually without needing to set them before starting "
 "Xinference."
 msgstr ""
-"有时我们希望在运行时为特定模型指定环境变量。从 v1.8.1 开始，Xinference "
-"提供了单独配置环境变量的功能，无需在启动 Xinference 前设置。"
+"有时我们希望在运行时为特定模型指定环境变量。从 v1.8.1 开始，Xinference 提供了单独配置环境变量的功能，无需在启动 "
+"Xinference 前设置。"
 
 #: ../../source/user_guide/launch.rst:66
 msgid "For Web UI."
@@ -160,7 +157,7 @@ msgid ""
 "variable."
 msgstr "命令行使用时，使用 ``--env`` 指定环境变量。"
 
-#: ../../source/user_guide/launch.rst:74
+#: ../../source/user_guide/launch.rst:74 ../../source/user_guide/launch.rst:123
 msgid "Example usage:"
 msgstr "示例用法："
 
@@ -171,9 +168,8 @@ msgid ""
 "use of V0 by setting ``VLLM_USE_V1=0`` when launching a model, you can "
 "specify this during model launching."
 msgstr ""
-"以 vLLM 为例，它有 V1 和 V0 两个版本，默认会自动判定使用哪个版本。如果想"
-"在加载模型时强制通过设置 ``VLLM_USE_V1=0`` 来使用 V0，可以指定该环境变量"
-"。"
+"以 vLLM 为例，它有 V1 和 V0 两个版本，默认会自动判定使用哪个版本。如果想在加载模型时强制通过设置 ``VLLM_USE_V1=0``"
+" 来使用 V0，可以指定该环境变量。"
 
 #: ../../source/user_guide/launch.rst:84
 msgid "Configuring Model Virtual Environment"
@@ -183,7 +179,61 @@ msgstr "配置模型虚拟空间"
 msgid ""
 "For this part, please refer to :ref:`toggling virtual environments and "
 "customizing dependencies <model_launching_virtualenv>`."
+msgstr "对于这部分，请参考 :ref:`开关虚拟空间和定制依赖 <model_launching_virtualenv>`。"
+
+#: ../../source/user_guide/launch.rst:91
+msgid "Batching / Continuous Batching"
+msgstr "批处理 / 连续批处理"
+
+#: ../../source/user_guide/launch.rst:93
+msgid ""
+"Xinference supports batching for higher throughput. For LLMs on the "
+"``transformers`` engine, continuous batching is available and can be "
+"enabled via environment variables at launch time."
 msgstr ""
-"对于这部分，请参考 :ref:`开关虚拟空间和定制依赖 <model_launching_"
-"virtualenv>`。"
+"Xinference支持批处理以提升吞吐量。对于基于 ``transformers`` "
+"引擎的大型语言模型，可启用连续批处理功能，该功能可在启动时通过环境变量进行配置。"
+
+#: ../../source/user_guide/launch.rst:96
+msgid "Key settings:"
+msgstr "关键设置："
+
+#: ../../source/user_guide/launch.rst:98
+msgid ""
+"``XINFERENCE_BATCH_SIZE`` and ``XINFERENCE_BATCH_INTERVAL`` for general "
+"batching behavior."
+msgstr " ``XINFERENCE_BATCH_SIZE`` 和 ``XINFERENCE_BATCH_INTERVAL`` 用于控制常规的批处理行为。"
+
+#: ../../source/user_guide/launch.rst:99
+msgid ""
+"``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` for text-to-image models (when"
+" supported)."
+msgstr " ``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE``（文本转图像模型，当支持时）。"
+
+#: ../../source/user_guide/launch.rst:101
+msgid "Example (LLM, transformers):"
+msgstr "示例（大型语言模型，Transformers）："
+
+#: ../../source/user_guide/launch.rst:108
+msgid "Example (text-to-image):"
+msgstr "示例（文生图）："
+
+#: ../../source/user_guide/launch.rst:114
+msgid ""
+"For detailed behavior, supported models, and aborting requests, see "
+":ref:`Continuous Batching <user_guide_continuous_batching>`."
+msgstr ""
+"有关详细行为、支持的模型以及中止请求的信息，请参阅"
+" :ref:`连续批处理 <user_guide_continuous_batching>` 。"
+
+#: ../../source/user_guide/launch.rst:118
+msgid "Thinking Mode"
+msgstr "思考模式"
+
+#: ../../source/user_guide/launch.rst:120
+msgid ""
+"Some hybrid reasoning models (for example, Qwen3) support an optional "
+"*thinking mode*. You can enable this at launch time via ``--enable-"
+"thinking``."
+msgstr "某些混合推理模型（例如Qwen3）支持可选的 *思考模式* 。您可在启动时通过 ``--enable-thinking`` 参数启用该功能。"
 

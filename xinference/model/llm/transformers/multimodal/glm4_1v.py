@@ -1,4 +1,4 @@
-# Copyright 2022-2025 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -65,7 +65,7 @@ class Glm4_1VModel(PytorchMultiModalModel):
         from transformers import Glm4vForConditionalGeneration
 
         kwargs = {"device_map": "auto"}
-        kwargs = self.apply_bnb_quantization(kwargs)
+        kwargs = self.apply_quantization_config(kwargs)
 
         model = Glm4vForConditionalGeneration.from_pretrained(
             self.model_path,

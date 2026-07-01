@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -94,12 +94,12 @@ class LLM(abc.ABC):
         try:
             nvmlInit()
             device_count = nvmlDeviceGetCount()
-        except:
+        except Exception:
             pass
         finally:
             try:
                 nvmlShutdown()
-            except:
+            except Exception:
                 pass
 
         return device_count > 0
@@ -118,7 +118,7 @@ class LLM(abc.ABC):
                 ["cnmon", "info"], capture_output=True, text=True, timeout=5
             )
             return "Card 0" in result.stdout
-        except:
+        except Exception:
             return False
 
     @staticmethod
@@ -132,7 +132,7 @@ class LLM(abc.ABC):
             import glob
 
             return len(glob.glob("/dev/vacc*")) > 0
-        except:
+        except Exception:
             return False
 
     @staticmethod
@@ -142,18 +142,21 @@ class LLM(abc.ABC):
         Use pymtml to impl this interface.
         DO NOT USE torch to impl this, which will lead to some unexpected errors.
         """
-        from pymtml import nvmlDeviceGetCount, nvmlInit, nvmlShutdown
+        try:
+            from pymtml import nvmlDeviceGetCount, nvmlInit, nvmlShutdown
+        except Exception:
+            return False
 
         device_count = 0
         try:
             nvmlInit()
             device_count = nvmlDeviceGetCount()
-        except:
+        except Exception:
             pass
         finally:
             try:
                 nvmlShutdown()
-            except:
+            except Exception:
                 pass
 
         return device_count > 0
@@ -206,12 +209,15 @@ class LLM(abc.ABC):
             warnings.warn(
                 "enable_thinking cannot be disabled for non hybrid model, will be ignored"
             )
+        abilities = self.model_family.model_ability or []
+        auto_insert_start_tag = "hybrid" not in abilities
         # Initialize reasoning parser if model has reasoning ability
         self.reasoning_parser = ReasoningParser(  # type: ignore
             reasoning_content,
             self.model_family.reasoning_start_tag,  # type: ignore
             self.model_family.reasoning_end_tag,  # type: ignore
             enable_thinking=enable_thinking,
+            auto_insert_start_tag=auto_insert_start_tag,
         )
 
     def prepare_parse_tool_calls(self):
@@ -268,7 +274,11 @@ def create_llm_model_instance(
     **kwargs,
 ) -> LLM:
     from .cache_manager import LLMCacheManager
-    from .llm_family import check_engine_by_spec_parameters, match_llm
+    from .llm_family import (
+        check_engine_by_spec_parameters,
+        check_engine_by_spec_parameters_with_virtual_env,
+        match_llm,
+    )
 
     if model_engine is None:
         raise ValueError("model_engine is required for LLM model")
@@ -282,13 +292,28 @@ def create_llm_model_instance(
             f"size: {model_size_in_billions}, quantization: {quantization}"
         )
 
-    llm_cls = check_engine_by_spec_parameters(
-        model_engine,
-        llm_family.model_name,
-        llm_family.model_specs[0].model_format,
-        llm_family.model_specs[0].model_size_in_billions,
-        llm_family.model_specs[0].quantization,
-    )
+    enable_virtual_env = kwargs.pop("enable_virtual_env", None)
+    if enable_virtual_env is None:
+        from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+
+        enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
+    if enable_virtual_env:
+        llm_cls = check_engine_by_spec_parameters_with_virtual_env(
+            model_engine,
+            llm_family.model_name,
+            llm_family.model_specs[0].model_format,
+            llm_family.model_specs[0].model_size_in_billions,
+            llm_family.model_specs[0].quantization,
+            llm_family=llm_family,
+        )
+    else:
+        llm_cls = check_engine_by_spec_parameters(
+            model_engine,
+            llm_family.model_name,
+            llm_family.model_specs[0].model_format,
+            llm_family.model_specs[0].model_size_in_billions,
+            llm_family.model_specs[0].quantization,
+        )
     logger.debug(f"Launching {model_uid} with {llm_cls.__name__}")
 
     multimodal_projector = kwargs.get("multimodal_projector")

@@ -1,0 +1,109 @@
+# Filebeat -> Kafka example configuration (Text format)
+# Purpose: Collect xinference supervisor/worker application logs + audit logs (text format), output to Kafka for downstream consumption
+# Usage: filebeat -e -c filebeat-text-to-kafka.yml
+#
+# Log format: Text (one line per entry, parsed with dissect)
+# Format: {timestamp} {level} {module} pid:{pid} role:{role} address:{address} node:{node} {message}
+# Environment variable: XINFERENCE_LOG_FORMAT=text
+
+filebeat.inputs:
+  # --- Application logs (supervisor) ---
+  - type: log
+    id: xinference-supervisor
+    enabled: true
+    paths:
+      - /data/xinference_home/logs/xinference.log
+      - /data/xinference_home/logs/xinference-*.log
+    fields:
+      log_type: supervisor
+      cluster: xinference
+    fields_under_root: true
+
+  # --- Application logs (worker) ---
+  - type: log
+    id: xinference-worker
+    enabled: true
+    paths:
+      - /data/xinference_home_worker/logs/xinference.log
+      - /data/xinference_home_worker/logs/xinference-*.log
+    fields:
+      log_type: worker
+      cluster: xinference
+    fields_under_root: true
+
+  # --- Audit logs (supervisor only, always JSON format) ---
+  - type: log
+    id: xinference-audit
+    enabled: true
+    paths:
+      - /data/xinference_home/logs/audit.log
+    json.keys_under_root: true
+    json.overwrite_keys: true
+    json.add_error_key: true
+    fields:
+      log_type: audit
+      cluster: xinference
+    fields_under_root: true
+
+processors:
+  # Parse text-format application logs (audit logs are already parsed via json.keys_under_root)
+  - if:
+      not:
+        equals:
+          log_type: "audit"
+    then:
+      - dissect:
+          tokenizer: "%{@timestamp} %{level} %{module} pid:%{pid} role:%{role} address:%{address} node:%{node} %{msg}"
+          field: "message"
+          target_prefix: ""
+          overwrite_keys: true
+      - rename:
+          fields:
+            - from: "msg"
+              to: "message"
+          ignore_missing: true
+
+  - drop_fields:
+      fields:
+        - agent
+        - ecs
+        - host
+        - input
+        - log
+        - event
+        - data_stream
+        - elastic_agent
+        - cloud
+        - container
+        - kubernetes
+        - orchestrator
+        - "@version"
+      ignore_missing: true
+
+  - timestamp:
+      field: "@timestamp"
+      layouts:
+        - '2006-01-02T15:04:05.000Z'
+      timezone: "UTC"
+      ignore_failure: true
+
+output.kafka:
+  hosts: ["kafka1:9092", "kafka2:9092", "kafka3:9092"]
+  topic: "xinference-logs-%{[log_type]}"
+  partition.round_robin:
+    reachable_only: true
+  codec.json:
+    pretty: false
+  required_acks: 1
+  compression: gzip
+  max_message_bytes: 1048576
+  # username: "filebeat"
+  # password: "changeme"
+  # sasl.mechanism: "PLAIN"
+
+logging.metrics.enabled: true
+logging.metrics.period: 60s
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat

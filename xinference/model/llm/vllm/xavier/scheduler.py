@@ -1,4 +1,4 @@
-# Copyright 2022-2025 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,11 +32,15 @@ from vllm.sequence import (
 )
 
 from .block_manager import XavierBlockManager
+from .utils import hash_block_tokens
 
 logger = logging.getLogger(__name__)
 
 
 class XavierScheduler(Scheduler):
+    # same as vllm.core.block.prefix_caching_block.PrefixCachingBlock._none_hash
+    _none_hash: int = -1
+
     @staticmethod
     def _get_block_space_manager_class(version: str):
         logger.debug("Init xavier block manager.")
@@ -109,9 +113,29 @@ class XavierScheduler(Scheduler):
         details: Set[Tuple[int, int]] = set()
         for seq in seq_group.get_seqs(status=SequenceStatus.RUNNING):
             block_ids = block_tables[seq.seq_id]
+            tmp_content_hash = None
             for _id in block_ids:
                 block: Block = self.block_manager.get_block_by_block_id(seq.seq_id, _id)
-                detail = (block.content_hash, _id)
+                if block._prev_block is None:
+                    content_hash = hash_block_tokens(
+                        True,
+                        self._none_hash,
+                        block.token_ids,
+                        block._extra_hash,
+                        self._none_hash,
+                    )
+
+                else:
+                    prev_content_hash: Optional[int] = tmp_content_hash
+                    content_hash = hash_block_tokens(
+                        False,
+                        prev_content_hash,
+                        block.token_ids,
+                        block._extra_hash,
+                        self._none_hash,
+                    )
+                tmp_content_hash = content_hash
+                detail = (content_hash, _id)
                 """
                 1. `block.content_hash is not None` means that the block has been filled with tokens.
                 Unless it is evicted from the cache, the computation result of this block is constant.
@@ -123,7 +147,7 @@ class XavierScheduler(Scheduler):
                 and does not need to be transferred.
                 """
                 if (
-                    (block.content_hash is not None)
+                    (content_hash is not None)
                     and (
                         not self.block_manager.get_block_status_by_block_id(
                             "transferred", block.block_id
@@ -362,7 +386,8 @@ class XavierScheduler(Scheduler):
                         if scheduler_outputs.num_prefill_groups > 0
                         else None
                     ),
-                    mm_processor_kwargs=seq_group.mm_processor_kwargs,
+                    # this arg removed by version >= 0.8.0
+                    # mm_processor_kwargs=seq_group.mm_processor_kwargs,
                     prompt_adapter_request=seq_group.prompt_adapter_request,
                 )
             else:

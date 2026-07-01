@@ -1,4 +1,4 @@
-# Copyright 2022-2025 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -49,18 +49,25 @@ DEBUG_EXECUTOR = bool(int(os.getenv("XINFERENCE_DEBUG_VLLM_EXECUTOR", "0")))
 class WorkerActor(xo.StatelessActor):
     def __init__(self, vllm_config: "VllmConfig", rpc_rank: int = 0, **kwargs):
         super().__init__(**kwargs)
-        self._worker = WorkerWrapperBase(vllm_config, rpc_rank=rpc_rank)
+        self._worker = WorkerWrapperBase(rpc_rank=rpc_rank)
 
     async def __post_create__(self):
         try:
             # Change process title for model
             import setproctitle
 
-            setproctitle.setproctitle(f"Xinf vLLM worker: {self._worker.rpc_rank}")
+            _uid = os.environ.get("XINFERENCE_MODEL_UID", "")
+            setproctitle.setproctitle(
+                f"Xinf vLLM worker: {self._worker.rpc_rank} [{_uid}]"
+            )
         except ImportError:
             pass
 
     def __getattr__(self, item):
+        from xoscar.core import NO_LOCK_ATTRIBUTE_HINT
+
+        if item == NO_LOCK_ATTRIBUTE_HINT:
+            return True
         return getattr(self._worker, item)
 
     @classmethod
@@ -78,9 +85,19 @@ class WorkerActor(xo.StatelessActor):
                 kwargs,
             )
         if isinstance(method, str):
-            return getattr(self._worker, method)(*args, **kwargs)
+            if method != "sample_tokens":
+                return getattr(self._worker, method)(*args, **kwargs)
+            else:
+                result = getattr(self._worker, method)(*args, **kwargs)
+                return self._sanitize_result(result)
         else:
             return method(self._worker, *args, **kwargs)
+
+    def _sanitize_result(self, obj):
+        if obj is None:
+            return obj
+        output = obj.get_output()
+        return output
 
 
 class WorkerWrapper:
@@ -226,6 +243,17 @@ class XinferenceDistributedExecutorV1(Executor):
 
         self.pp_locks: Optional[List[asyncio.Lock]] = None
 
+    def _get_output_rank(self) -> int:
+        """Get the rank that produces the final output.
+
+        In pipeline parallelism, only the last PP stage produces
+        ModelRunnerOutput. The output rank is the first TP worker
+        of the last PP stage.
+        """
+        return (
+            self.parallel_config.world_size - self.parallel_config.tensor_parallel_size
+        )
+
     def collective_rpc(
         self,
         method: Union[str, Callable],
@@ -242,7 +270,19 @@ class XinferenceDistributedExecutorV1(Executor):
         outputs = self._run_workers(
             "execute_model", scheduler_output, non_block=non_block
         )
-        return outputs[0]
+        # In pipeline parallelism, only the last PP stage returns output.
+        return outputs[self._get_output_rank()]
+
+    def sample_tokens(
+        self, grammar_output: Optional[Any] = None, non_block: bool = False
+    ) -> Any:
+        outputs = self._run_workers(
+            "sample_tokens", grammar_output, non_block=non_block
+        )
+        # In pipeline parallelism, only the last PP stage produces
+        # sampled tokens. The output_rank is the first TP worker of
+        # the last PP stage.
+        return outputs[self._get_output_rank()]
 
     def check_health(self) -> None:
         # Assume that the workers are healthy.

@@ -1,0 +1,40 @@
+{
+  "index_patterns": ["xinference-audit-*"],
+  "template": {
+    "settings": {
+      "number_of_shards": 2,
+      "number_of_replicas": 1,
+      "index.refresh_interval": "5s",
+      "index.lifecycle.name": "xinference-logs-policy",
+      "index.lifecycle.rollover_alias": "xinference-audit"
+    },
+    "mappings": {
+      "dynamic": "true",
+      "properties": {
+        "@timestamp":     { "type": "date" },
+        "cluster":        { "type": "keyword" },
+        "log_type":       { "type": "keyword" },
+        "event_type":     { "type": "keyword" },
+        "category":       { "type": "keyword" },
+        "auth_type":      { "type": "keyword" },
+        "user":           { "type": "keyword" },
+        "api_key_name":   { "type": "keyword" },
+        "api_key_prefix": { "type": "keyword" },
+        "model_id":       { "type": "keyword" },
+        "model_name":     { "type": "keyword" },
+        "model_type":     { "type": "keyword" },
+        "endpoint":       { "type": "keyword" },
+        "status":         { "type": "keyword" },
+        "latency_ms":     { "type": "float" },
+        "client_ip":      { "type": "keyword" },
+        "node":           { "type": "keyword" },
+        "address":        { "type": "keyword" },
+        "json.error":     { "type": "keyword" }
+      }
+    }
+  },
+  "priority": 200,
+  "_meta": {
+    "description": "Xinference audit logs index template (JSON format)"
+  }
+}

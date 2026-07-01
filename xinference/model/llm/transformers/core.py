@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Un
 
 import torch
 
-from ....constants import XINFERENCE_MAX_TOKENS
+from ....constants import XINFERENCE_MAX_TOKENS, XINFERENCE_TRUST_REMOTE_CODE
 from ....device_utils import (
     get_device_preferred_dtype,
     gpu_count,
@@ -41,6 +41,8 @@ from ..core import LLM, chat_context_var
 from ..llm_family import LLMFamilyV2, LLMSpecV1
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
+    GEMMA_TOOL_CALL_FAMILY,
+    GLM5_TOOL_CALL_FAMILY,
     LLAMA3_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
     ChatModelMixin,
@@ -119,7 +121,15 @@ class PytorchModel(LLM):
         pytorch_model_config.setdefault("gptq_groupsize", -1)
         pytorch_model_config.setdefault("gptq_act_order", False)
         pytorch_model_config.setdefault("device", "auto")
-        pytorch_model_config.setdefault("trust_remote_code", True)
+        # Respect the XINFERENCE_TRUST_REMOTE_CODE setting.
+        pytorch_model_config["trust_remote_code"] = (
+            bool(
+                pytorch_model_config.get(
+                    "trust_remote_code", XINFERENCE_TRUST_REMOTE_CODE
+                )
+            )
+            and XINFERENCE_TRUST_REMOTE_CODE
+        )
         pytorch_model_config.setdefault("max_num_seqs", 16)
         pytorch_model_config.setdefault("enable_tensorizer", False)
         pytorch_model_config.setdefault("reasoning_content", False)
@@ -192,7 +202,14 @@ class PytorchModel(LLM):
                 AutoTokenizer,
                 {
                     "use_fast": self._use_fast_tokenizer,
-                    "trust_remote_code": kwargs.get("trust_remote_code", True),
+                    "trust_remote_code": (
+                        bool(
+                            kwargs.get(
+                                "trust_remote_code", XINFERENCE_TRUST_REMOTE_CODE
+                            )
+                        )
+                        and XINFERENCE_TRUST_REMOTE_CODE
+                    ),
                     "revision": kwargs.get("revision"),
                     "code_revision": kwargs.get("code_revision", None),
                 },
@@ -251,34 +268,73 @@ class PytorchModel(LLM):
     def apply_bnb_quantization(
         self, kwargs: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        model_format = self.model_spec.model_format
         _kwargs = kwargs if kwargs is not None else {}
-        if model_format == "pytorch":
-            quantization_config = self._pytorch_model_config.get(
-                "quantization_config", {}
-            )
-            if quantization_config:
-                # If `load_in_4bit` is enabled, apply default quantization presets.
-                if quantization_config.get("load_in_4bit", False):
-                    quantization_config.setdefault(
-                        "bnb_4bit_compute_dtype", torch.float16
-                    )
-                    quantization_config.setdefault("bnb_4bit_use_double_quant", True)
-                    quantization_config.setdefault(
-                        "llm_int8_skip_modules",
-                        [
-                            "lm_head",
-                            "encoder",
-                            "EncDecAttention",
-                        ],
-                    )
-
-                from transformers import BitsAndBytesConfig
-
-                _kwargs["quantization_config"] = BitsAndBytesConfig(
-                    **quantization_config
+        quantization_config = (
+            self._pytorch_model_config.get("quantization_config") or {}
+        )
+        if quantization_config:
+            # If `load_in_4bit` is enabled, apply default quantization presets.
+            if quantization_config.get("load_in_4bit", False):
+                quantization_config.setdefault("bnb_4bit_compute_dtype", torch.float16)
+                quantization_config.setdefault("bnb_4bit_use_double_quant", True)
+                quantization_config.setdefault(
+                    "llm_int8_skip_modules",
+                    [
+                        "lm_head",
+                        "encoder",
+                        "EncDecAttention",
+                    ],
                 )
+
+            from transformers import BitsAndBytesConfig
+
+            _kwargs["quantization_config"] = BitsAndBytesConfig(**quantization_config)
         return _kwargs
+
+    def apply_fp_quantization(
+        self, kwargs: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        if self.model_spec.model_format != "fp4":
+            return kwargs if kwargs is not None else {}
+
+        _kwargs = kwargs if kwargs is not None else {}
+        quantization_config = (
+            self._pytorch_model_config.get("quantization_config") or {}
+        )
+
+        try:
+            from transformers import FPQuantConfig
+        except ImportError as exc:
+            raise ImportError(
+                "FP4 quantization requires `transformers` with FPQuantConfig support."
+            ) from exc
+
+        if isinstance(quantization_config, FPQuantConfig):
+            fp_config = quantization_config
+        elif isinstance(quantization_config, dict):
+            fp_kwargs = dict(quantization_config)
+            fp_kwargs.setdefault("pseudoquantization", True)
+            if "forward_dtype" not in fp_kwargs:
+                model_quant = (self.model_spec.quantization or "").lower()
+                if model_quant in ("mxfp4", "nvfp4"):
+                    fp_kwargs["forward_dtype"] = model_quant
+            fp_config = FPQuantConfig(**fp_kwargs)
+        else:
+            raise ValueError(
+                "fp4 quantization_config must be a dict or FPQuantConfig instance"
+            )
+
+        _kwargs["quantization_config"] = fp_config
+        return _kwargs
+
+    def apply_quantization_config(
+        self, kwargs: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        if self.model_spec.model_format == "fp4":
+            return self.apply_fp_quantization(kwargs)
+        if self.model_spec.model_format == "pytorch":
+            return self.apply_bnb_quantization(kwargs)
+        return kwargs if kwargs is not None else {}
 
     def load(self):
         num_gpus = gpu_count()
@@ -301,6 +357,9 @@ class PytorchModel(LLM):
             else:
                 raise ValueError(f"Device {self._device} is not supported in temporary")
 
+        if self.model_spec.model_format == "fp4":
+            kwargs["torch_dtype"] = torch.bfloat16
+
         kwargs["revision"] = self._pytorch_model_config.get(
             "revision", self.model_spec.model_revision
         )
@@ -322,8 +381,8 @@ class PytorchModel(LLM):
             }
             kwargs["max_memory"] = max_memory
 
-        # handle bnb quantization
-        kwargs = self.apply_bnb_quantization(kwargs)
+        # handle quantization
+        kwargs = self.apply_quantization_config(kwargs)
 
         if num_gpus > 0 and is_hf_accelerate_supported(self._device):
             kwargs.update({"device_map": "auto"})
@@ -502,10 +561,10 @@ class PytorchModel(LLM):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "bnb"]:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "bnb", "fp4"]:
             return (
                 False,
-                "Transformers engine supports pytorch/gptq/awq/bnb formats only",
+                "Transformers engine supports pytorch/gptq/awq/bnb/fp4 formats only",
             )
         if llm_family.matches_supported_architectures(NON_DEFAULT_MODEL_LIST):
             return (
@@ -967,10 +1026,10 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "bnb"]:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "bnb", "fp4"]:
             return (
                 False,
-                "Transformers chat engine supports pytorch/gptq/awq/bnb formats only",
+                "Transformers chat engine supports pytorch/gptq/awq/bnb/fp4 formats only",
             )
         if llm_family.matches_supported_architectures(NON_DEFAULT_MODEL_LIST):
             return (
@@ -1037,11 +1096,12 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
         )
         chat_context_var.set(chat_template_kwargs)
         full_context_kwargs = chat_template_kwargs.copy()
-        if (
-            tools
-            and model_family in QWEN_TOOL_CALL_FAMILY
+        if tools and (
+            model_family in QWEN_TOOL_CALL_FAMILY
+            or model_family in GEMMA_TOOL_CALL_FAMILY
             or model_family in LLAMA3_TOOL_CALL_FAMILY
             or model_family in DEEPSEEK_TOOL_CALL_FAMILY
+            or model_family in GLM5_TOOL_CALL_FAMILY
         ):
             full_context_kwargs["tools"] = tools
         assert self.model_family.chat_template is not None

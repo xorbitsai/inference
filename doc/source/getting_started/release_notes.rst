@@ -9,6 +9,30 @@ For detailed updates, please visit the corresponding links below.
 +-----------------+--------------------------------------------------------------------------------+
 | Version         | Release Notes                                                                  |
 +=================+================================================================================+
+| v2.11.0         | `View release notes <https://xinference.io/release_notes/v2.11.0.html>`_       |
++-----------------+--------------------------------------------------------------------------------+
+| v2.10.0         | `View release notes <https://xinference.io/release_notes/v2.10.0.html>`_       |
++-----------------+--------------------------------------------------------------------------------+
+| v2.9.0          | `View release notes <https://xinference.io/release_notes/v2.9.0.html>`_        |
++-----------------+--------------------------------------------------------------------------------+
+| v2.8.0          | `View release notes <https://xinference.io/release_notes/v2.8.0.html>`_        |
++-----------------+--------------------------------------------------------------------------------+
+| v2.7.0          | `View release notes <https://xinference.io/release_notes/v2.7.0.html>`_        |
++-----------------+--------------------------------------------------------------------------------+
+| v2.5.0          | `View release notes <https://xinference.io/release_notes/v2.5.0.html>`_        |
++-----------------+--------------------------------------------------------------------------------+
+| v2.4.0          | `View release notes <https://xinference.io/release_notes/v2.4.0.html>`_        |
++-----------------+--------------------------------------------------------------------------------+
+| v2.3.0          | `View release notes <https://xinference.io/release_notes/v2.3.0.html>`_        |
++-----------------+--------------------------------------------------------------------------------+
+| v2.2.0          | `View release notes <https://xinference.io/release_notes/v2.2.0.html>`_        |
++-----------------+--------------------------------------------------------------------------------+
+| v2.1.0          | `View release notes <https://xinference.io/release_notes/v2.1.0.html>`_        |
++-----------------+--------------------------------------------------------------------------------+
+| v2.0.0          | `View release notes <https://xinference.io/release_notes/v2.0.0.html>`_        |
++-----------------+--------------------------------------------------------------------------------+
+| v1.17.0         | `View release notes <https://xinference.io/release_notes/v1.17.0.html>`_       |
++-----------------+--------------------------------------------------------------------------------+
 | v1.16.0         | `View release notes <https://xinference.io/release_notes/v1.16.0.html>`_       |
 +-----------------+--------------------------------------------------------------------------------+
 | v1.15.0         | `View release notes <https://xinference.io/release_notes/v1.15.0.html>`_       |
@@ -28,4 +52,3 @@ For detailed updates, please visit the corresponding links below.
 
 For older versions and source history, see our GitHub releases page:
 https://github.com/xorbitsai/inference/releases
-

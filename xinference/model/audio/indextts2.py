@@ -1,4 +1,4 @@
-# Copyright 2022-2025 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -195,5 +195,5 @@ class Indextts2:
                 os.unlink(temp_prompt_path)
                 if emo_prompt_path:
                     os.unlink(emo_prompt_path)
-            except:
+            except Exception:
                 pass

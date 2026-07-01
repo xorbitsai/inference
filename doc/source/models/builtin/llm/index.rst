@@ -171,13 +171,23 @@ The following is a list of built-in LLM in Xinference:
      - 163840
      - We are excited to announce the official release of DeepSeek-V3.2-Exp, an experimental version of our model. As an intermediate step toward our next-generation architecture, V3.2-Exp builds upon V3.1-Terminus by introducing DeepSeek Sparse Attention—a sparse attention mechanism designed to explore and validate optimizations for training and inference efficiency in long-context scenarios.
 
+   * - :ref:`deepseek-v4-flash <models_llm_deepseek-v4-flash>`
+     - chat, reasoning, hybrid, tools
+     - 163840
+     - We present a preview version of DeepSeek-V4 series, including two strong Mixture-of-Experts (MoE) language models — DeepSeek-V4-Pro with 1.6T parameters (49B activated) and DeepSeek-V4-Flash with 284B parameters (13B activated) — both supporting a context length of one million tokens.
+
+   * - :ref:`deepseek-v4-pro <models_llm_deepseek-v4-pro>`
+     - chat, reasoning, hybrid, tools
+     - 163840
+     - We present a preview version of DeepSeek-V4 series, including two strong Mixture-of-Experts (MoE) language models — DeepSeek-V4-Pro with 1.6T parameters (49B activated) and DeepSeek-V4-Flash with 284B parameters (13B activated) — both supporting a context length of one million tokens.
+
    * - :ref:`deepseek-vl2 <models_llm_deepseek-vl2>`
      - chat, vision
      - 4096
      - DeepSeek-VL2, an advanced series of large Mixture-of-Experts (MoE) Vision-Language Models that significantly improves upon its predecessor, DeepSeek-VL. DeepSeek-VL2 demonstrates superior capabilities across various tasks, including but not limited to visual question answering, optical character recognition, document/table/chart understanding, and visual grounding.
 
    * - :ref:`dianjin-r1 <models_llm_dianjin-r1>`
-     - chat, tools
+     - chat, reasoning, hybrid, tools
      - 32768
      - Tongyi DianJin is a financial intelligence solution platform built by Alibaba Cloud, dedicated to providing financial business developers with a convenient artificial intelligence application development environment.
 
@@ -201,6 +211,11 @@ The following is a list of built-in LLM in Xinference:
      - 131072
      - Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models.
 
+   * - :ref:`gemma-4 <models_llm_gemma-4>`
+     - generate, chat, reasoning, tools, audio, vision, hybrid
+     - 262144
+     - Gemma is a family of open models built by Google DeepMind. Gemma 4 models are multimodal, handling text and image input (with audio supported on small models) and generating text output.
+
    * - :ref:`glm-4.1v-thinking <models_llm_glm-4.1v-thinking>`
      - chat, vision, reasoning, tools
      - 65536
@@ -216,10 +231,35 @@ The following is a list of built-in LLM in Xinference:
      - 131072
      - GLM-4.5V is based on ZhipuAI’s next-generation flagship text foundation model GLM-4.5-Air (106B parameters, 12B active). It continues the technical approach of GLM-4.1V-Thinking, achieving SOTA performance among models of the same scale on 42 public vision-language benchmarks.
 
+   * - :ref:`glm-4.6 <models_llm_glm-4.6>`
+     - chat, reasoning, hybrid, tools
+     - 202752
+     - GLM-4.6 significantly enhances context length (up to 200K tokens), code generation, reasoning with tool use, agent capabilities, and human-aligned writing compared to GLM-4.5.
+
+   * - :ref:`glm-4.7 <models_llm_glm-4.7>`
+     - chat, reasoning, hybrid, tools
+     - 202752
+     - GLM-4.7 significantly advances core and multilingual agentic coding, UI/vibe coding, tool use, and complex reasoning—outperforming GLM-4.6 across benchmarks like SWE-bench, Terminal Bench 2.0, τ²-Bench, and HLE—while also improving chat, creative writing, and role-play.
+
+   * - :ref:`glm-4.7-flash <models_llm_glm-4.7-flash>`
+     - chat, reasoning, hybrid, tools
+     - 202752
+     - GLM-4.7-Flash is a 30B-A3B MoE model. As the strongest model in the 30B class, it offers a lightweight deployment option that balances performance and efficiency.
+
    * - :ref:`glm-4v <models_llm_glm-4v>`
      - chat, vision
      - 8192
      - GLM4 is the open source version of the latest generation of pre-trained models in the GLM-4 series launched by Zhipu AI.
+
+   * - :ref:`glm-5 <models_llm_glm-5>`
+     - chat, vision, tools, reasoning
+     - 202752
+     - We are launching GLM-5, targeting complex systems engineering and long-horizon agentic tasks. Scaling is still one of the most important ways to improve the intelligence efficiency of Artificial General Intelligence (AGI). Compared to GLM-4.5, GLM-5 scales from 355B parameters (32B active) to 744B parameters (40B active), and increases pre-training data from 23T to 28.5T tokens. GLM-5 also integrates DeepSeek Sparse Attention (DSA), largely reducing deployment cost while preserving long-context capacity.  Reinforcement learning aims to bridge the gap between competence and excellence in pre-trained models. However, deploying it at scale for LLMs is a challenge due to the RL training inefficiency. To this end, we developed slime, a novel asynchronous RL infrastructure that substantially improves training throughput and efficiency, enabling more fine-grained post-training iterations. With advances in both pre-training and post-training, GLM-5 delivers significant improvement compared to GLM-4.7 across a wide range of academic benchmarks and achieves best-in-class performance among all open-source models in the world on reasoning, coding, and agentic tasks, closing the gap with frontier models.
+
+   * - :ref:`glm-5.1 <models_llm_glm-5.1>`
+     - chat, vision, tools, reasoning, hybrid
+     - 202752
+     - GLM-5.1 is our next-generation flagship model for agentic engineering, with significantly stronger coding capabilities than its predecessor. It achieves state-of-the-art performance on SWE-Bench Pro and leads GLM-5 by a wide margin on NL2Repo (repo generation) and Terminal-Bench 2.0 (real-world terminal tasks).
 
    * - :ref:`glm-edge-chat <models_llm_glm-edge-chat>`
      - chat
@@ -266,6 +306,21 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - HuatuoGPT-o1 is a medical LLM designed for advanced medical reasoning. It generates a complex thought process, reflecting and refining its reasoning, before providing a final response.
 
+   * - :ref:`hy-mt2-1.8b <models_llm_hy-mt2-1.8b>`
+     - chat
+     - 262144
+     - Hy-MT2-1.8B is a dense multilingual translation model from Tencent Hunyuan, supporting 33 languages with instruction-following capabilities for complex translation scenarios.
+
+   * - :ref:`hy-mt2-30b-a3b <models_llm_hy-mt2-30b-a3b>`
+     - chat
+     - 262144
+     - Hy-MT2-30B-A3B is a Mixture-of-Experts multilingual translation model from Tencent Hunyuan, supporting 33 languages with SOTA performance for complex professional domains.
+
+   * - :ref:`hy-mt2-7b <models_llm_hy-mt2-7b>`
+     - chat
+     - 262144
+     - Hy-MT2-7B is a dense multilingual translation model from Tencent Hunyuan, supporting 33 languages with balanced performance for general-purpose high-quality translation.
+
    * - :ref:`internlm3-instruct <models_llm_internlm3-instruct>`
      - chat, tools
      - 32768
@@ -280,6 +335,11 @@ The following is a list of built-in LLM in Xinference:
      - chat
      - 131072
      - Kwaipilot-AutoThink ranks first among all open-source models on LiveCodeBench Pro, a challenging benchmark explicitly designed to prevent data leakage, and even surpasses strong proprietary systems such as Seed and o3-mini.
+
+   * - :ref:`kimi-k2.5 <models_llm_kimi-k2.5>`
+     - chat, vision
+     - 262144
+     - Kimi K2.5 is an open-source, native multimodal agentic model built through continual pretraining on approximately 15 trillion mixed visual and text tokens atop Kimi-K2-Base. It seamlessly integrates vision and language understanding with advanced agentic capabilities, instant and thinking modes, as well as conversational and agentic paradigms.
 
    * - :ref:`llama-2 <models_llm_llama-2>`
      - generate
@@ -331,6 +391,11 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - Marco-o1: Towards Open Reasoning Models for Open-Ended Solutions
 
+   * - :ref:`mineru2.5-2509-1.2b <models_llm_mineru2.5-2509-1.2b>`
+     - chat, vision
+     - 32768
+     - MinerU2.5-2509-1.2B is a vision language model for document understanding.
+
    * - :ref:`minicpm-2b-dpo-bf16 <models_llm_minicpm-2b-dpo-bf16>`
      - chat
      - 4096
@@ -366,6 +431,16 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - MiniCPM-V 4.5 is an improved version in the MiniCPM-V series with enhanced multimodal capabilities and better performance.
 
+   * - :ref:`minicpm-v-4.6 <models_llm_minicpm-v-4.6>`
+     - chat, vision
+     - 262144
+     - MiniCPM-V 4.6 is the latest and most edge-deployment-friendly model in the MiniCPM-V series, with only 1.3B parameters (1.3B activated). It is built on SigLIP2-400M and Qwen3.5-0.8B, and supports single-image, multi-image, and video understanding.
+
+   * - :ref:`minicpm-v-4.6-thinking <models_llm_minicpm-v-4.6-thinking>`
+     - chat, vision, reasoning
+     - 262144
+     - MiniCPM-V 4.6 Thinking is a reasoning-tuned version of MiniCPM-V 4.6. It supports deep reasoning for more complex problem solving, while inheriting the single-image, multi-image, and video understanding capabilities of the MiniCPM-V family.
+
    * - :ref:`minicpm3-4b <models_llm_minicpm3-4b>`
      - chat
      - 32768
@@ -376,10 +451,25 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - MiniCPM4 series are highly efficient large language models (LLMs) designed explicitly for end-side devices, which achieves this efficiency through systematic innovation in four key dimensions: model architecture, training data, training algorithms, and inference systems.
 
+   * - :ref:`minicpm5-1b <models_llm_minicpm5-1b>`
+     - chat, reasoning, hybrid, tools
+     - 131072
+     - MiniCPM5-1B is the first model in the MiniCPM5 series. It is a dense 1B Transformer built for on-device, local deployment, and resource-constrained scenarios, reaching 1B-class open-source SOTA. Supports hybrid thinking via enable_thinking and native XML-style tool calling (MCP-compatible).
+
    * - :ref:`minimax-m2 <models_llm_minimax-m2>`
      - chat, tools, reasoning
      - 196608
      - MiniMax-M2, a Mini model built for Max coding & agentic workflows.
+
+   * - :ref:`minimax-m2.5 <models_llm_minimax-m2.5>`
+     - chat, tools, reasoning
+     - 196608
+     - MiniMax-M2.5, a Mini model built for Max coding & agentic workflows.
+
+   * - :ref:`minimax-m2.7 <models_llm_minimax-m2.7>`
+     - chat, tools, reasoning, hybrid
+     - 204800
+     - MiniMax-M2.7 is our first model deeply participating in its own evolution. M2.7 is capable of building complex agent harnesses and completing highly elaborate productivity tasks, leveraging Agent Teams, complex Skills, and dynamic tool search
 
    * - :ref:`mistral-instruct-v0.1 <models_llm_mistral-instruct-v0.1>`
      - chat
@@ -430,6 +520,11 @@ The following is a list of built-in LLM in Xinference:
      - chat
      - 8192
      - Kimi Muon is Scalable for LLM Training
+
+   * - :ref:`nex-n2 <models_llm_nex-n2>`
+     - chat, vision, tools, reasoning, hybrid
+     - 262144
+     - Nex-N2 is a series of multimodal large language models developed by nex-agi, built on the Qwen3.5 MoE architecture. It supports text, image, and video understanding, with advanced reasoning and tool-use capabilities.
 
    * - :ref:`openhermes-2.5 <models_llm_openhermes-2.5>`
      - chat
@@ -485,11 +580,6 @@ The following is a list of built-in LLM in Xinference:
      - chat, tools
      - 32768
      - Qwen1.5-MoE is a transformer-based MoE decoder-only language model pretrained on a large amount of data.
-
-   * - :ref:`qwen2-audio <models_llm_qwen2-audio>`
-     - generate, audio
-     - 32768
-     - Qwen2-Audio: A large-scale audio-language model which is capable of accepting various audio signal inputs and performing audio analysis or direct textual responses with regard to speech instructions.
 
    * - :ref:`qwen2-audio-instruct <models_llm_qwen2-audio-instruct>`
      - chat, audio
@@ -596,6 +686,16 @@ The following is a list of built-in LLM in Xinference:
      - 262144
      - Meet Qwen3-VL — the most powerful vision-language model in the Qwen series to date.
 
+   * - :ref:`qwen3.5 <models_llm_qwen3.5>`
+     - chat, vision, tools, reasoning, hybrid
+     - 262144
+     - Over recent months, we have intensified our focus on developing foundation models that deliver exceptional utility and performance. Qwen3.5 represents a significant leap forward, integrating breakthroughs in multimodal learning, architectural efficiency, reinforcement learning scale, and global accessibility to empower developers and enterprises with unprecedented capability and efficiency.
+
+   * - :ref:`qwen3.6 <models_llm_qwen3.6>`
+     - chat, vision, tools, reasoning, hybrid
+     - 262144
+     - Following the February release of the Qwen3.5 series, we're pleased to share the first open-weight variant of Qwen3.6. Built on direct feedback from the community, Qwen3.6 prioritizes stability and real-world utility, offering developers a more intuitive, responsive, and genuinely productive coding experience.
+
    * - :ref:`qwenlong-l1 <models_llm_qwenlong-l1>`
      - chat
      - 32768
@@ -660,6 +760,11 @@ The following is a list of built-in LLM in Xinference:
      - generate
      - 2048
      - The TinyLlama project aims to pretrain a 1.1B Llama model on 3 trillion tokens.
+
+   * - :ref:`vibethinker <models_llm_vibethinker>`
+     - chat, tools
+     - 131072
+     - VibeThinker is a series of dense reasoning language models developed by WeiboAI. Built on the Qwen2 architecture with a post-training methodology centered on the Spectrum-to-Signal Principle (SSP), VibeThinker demonstrates strong reasoning capabilities in mathematics and coding despite its compact size.
 
    * - :ref:`wizardcoder-python-v1.0 <models_llm_wizardcoder-python-v1.0>`
      - chat
@@ -783,6 +888,10 @@ The following is a list of built-in LLM in Xinference:
   
    deepseek-v3.2-exp
   
+   deepseek-v4-flash
+  
+   deepseek-v4-pro
+  
    deepseek-vl2
   
    dianjin-r1
@@ -795,13 +904,25 @@ The following is a list of built-in LLM in Xinference:
   
    gemma-3-it
   
+   gemma-4
+  
    glm-4.1v-thinking
   
    glm-4.5
   
    glm-4.5v
   
+   glm-4.6
+  
+   glm-4.7
+  
+   glm-4.7-flash
+  
    glm-4v
+  
+   glm-5
+  
+   glm-5.1
   
    glm-edge-chat
   
@@ -821,11 +942,19 @@ The following is a list of built-in LLM in Xinference:
   
    huatuogpt-o1-qwen2.5
   
+   hy-mt2-1.8b
+  
+   hy-mt2-30b-a3b
+  
+   hy-mt2-7b
+  
    internlm3-instruct
   
    internvl3
   
    kat-v1
+  
+   kimi-k2.5
   
    llama-2
   
@@ -847,6 +976,8 @@ The following is a list of built-in LLM in Xinference:
   
    marco-o1
   
+   mineru2.5-2509-1.2b
+  
    minicpm-2b-dpo-bf16
   
    minicpm-2b-dpo-fp16
@@ -861,11 +992,21 @@ The following is a list of built-in LLM in Xinference:
   
    minicpm-v-4.5
   
+   minicpm-v-4.6
+  
+   minicpm-v-4.6-thinking
+  
    minicpm3-4b
   
    minicpm4
   
+   minicpm5-1b
+  
    minimax-m2
+  
+   minimax-m2.5
+  
+   minimax-m2.7
   
    mistral-instruct-v0.1
   
@@ -886,6 +1027,8 @@ The following is a list of built-in LLM in Xinference:
    mixtral-v0.1
   
    moonlight-16b-a3b-instruct
+  
+   nex-n2
   
    openhermes-2.5
   
@@ -908,8 +1051,6 @@ The following is a list of built-in LLM in Xinference:
    qwen1.5-chat
   
    qwen1.5-moe-chat
-  
-   qwen2-audio
   
    qwen2-audio-instruct
   
@@ -953,6 +1094,10 @@ The following is a list of built-in LLM in Xinference:
   
    qwen3-vl-thinking
   
+   qwen3.5
+  
+   qwen3.6
+  
    qwenlong-l1
   
    qwq-32b
@@ -978,6 +1123,8 @@ The following is a list of built-in LLM in Xinference:
    telechat
   
    tiny-llama
+  
+   vibethinker
   
    wizardcoder-python-v1.0
   

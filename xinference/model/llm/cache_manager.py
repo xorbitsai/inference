@@ -1,4 +1,4 @@
-# Copyright 2022-2025 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -63,11 +63,33 @@ class LLMCacheManager(CacheManager):
                 raise ValueError(
                     f"Model URI cannot be a relative path: {self._model_uri}"
                 )
-            if os.path.exists(cache_dir):
+            if not os.path.exists(src_root):
+                raise ValueError(
+                    f"Model URI path does not exist: {src_root}. "
+                    f"Please check the `model_uri` of model {self._model_name!r}."
+                )
+            if os.path.islink(cache_dir):
+                # ``os.path.exists`` follows the link, so a *dangling* symlink
+                # (its target was removed) reports ``False`` while the link
+                # entry itself still occupies ``cache_dir`` -- the ``os.symlink``
+                # call below would then raise ``FileExistsError``. Reuse the
+                # link if it already points at ``src_root``; otherwise drop the
+                # stale entry so we can recreate it.
+                if os.path.realpath(cache_dir) == os.path.realpath(src_root):
+                    logger.info(f"Cache {cache_dir} exists")
+                    return cache_dir
+                logger.info(f"Removing stale cache symlink {cache_dir}")
+                os.unlink(cache_dir)
+            elif os.path.exists(cache_dir):
                 logger.info(f"Cache {cache_dir} exists")
                 return cache_dir
-            else:
-                os.symlink(src_root, cache_dir, target_is_directory=True)
+
+            # The cache prefix directory is only created once per process
+            # (guarded by ``CacheManager.is_initialized``), so it may be
+            # missing here; ensure the parent exists before symlinking to
+            # avoid a cryptic ``FileNotFoundError: src -> dst``.
+            os.makedirs(os.path.dirname(cache_dir), exist_ok=True)
+            os.symlink(src_root, cache_dir, target_is_directory=True)
             return cache_dir
         else:
             raise ValueError(f"Unsupported URL scheme: {src_scheme}")
@@ -91,11 +113,17 @@ class LLMCacheManager(CacheManager):
         if self.get_cache_status():
             return cache_dir
 
+        cache_config = (
+            self._llm_family.cache_config.copy()
+            if self._llm_family.cache_config
+            else {}
+        )
         use_symlinks = {}
         if not IS_NEW_HUGGINGFACE_HUB:
             use_symlinks = {"local_dir_use_symlinks": True, "local_dir": cache_dir}
+            cache_config = {**cache_config, **use_symlinks}
 
-        if self._model_format in ["pytorch", "gptq", "awq", "fp8", "bnb", "mlx"]:
+        if self._model_format in ["pytorch", "gptq", "awq", "fp4", "fp8", "bnb", "mlx"]:
             download_dir = retry_download(
                 huggingface_hub.snapshot_download,
                 self._model_name,
@@ -105,7 +133,7 @@ class LLMCacheManager(CacheManager):
                 },
                 self._model_id,
                 revision=self._model_revision,
-                **use_symlinks,
+                **cache_config,
             )
             if IS_NEW_HUGGINGFACE_HUB:
                 create_symlink(download_dir, cache_dir)
@@ -158,7 +186,21 @@ class LLMCacheManager(CacheManager):
         if self.get_cache_status():
             return cache_dir
 
-        if self._model_format in ["pytorch", "gptq", "awq", "bnb", "fp8", "bnb", "mlx"]:
+        cache_config = (
+            self._llm_family.cache_config.copy()
+            if self._llm_family.cache_config
+            else {}
+        )
+        if self._model_format in [
+            "pytorch",
+            "gptq",
+            "awq",
+            "fp4",
+            "bnb",
+            "fp8",
+            "bnb",
+            "mlx",
+        ]:
             download_dir = retry_download(
                 snapshot_download,
                 self._model_name,
@@ -168,6 +210,7 @@ class LLMCacheManager(CacheManager):
                 },
                 self._model_id,
                 revision=self._model_revision,
+                **cache_config,
             )
             create_symlink(download_dir, cache_dir)
 
@@ -248,7 +291,7 @@ class LLMCacheManager(CacheManager):
         if self.get_cache_status():
             return cache_dir
 
-        if self._model_format in ["pytorch", "gptq", "awq", "fp8", "bnb", "mlx"]:
+        if self._model_format in ["pytorch", "gptq", "awq", "fp4", "fp8", "bnb", "mlx"]:
             download_dir = retry_download(
                 snapshot_download,
                 self._model_name,

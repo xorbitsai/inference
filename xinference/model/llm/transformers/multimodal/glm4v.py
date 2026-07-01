@@ -1,4 +1,4 @@
-# Copyright 2022-2025 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import torch
 from .....core.model import register_batching_multimodal_models
 from .....model.utils import select_device
 from ....scheduler.request import InferenceRequest
+from ....utils import allow_trust_remote_code
 from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ...utils import _decode_image
 from ..core import register_non_default_model
@@ -61,19 +62,20 @@ class Glm4VModel(PytorchMultiModalModel):
         from transformers import AutoTokenizer
 
         self._tokenizer = AutoTokenizer.from_pretrained(
-            self.model_path, trust_remote_code=True
+            self.model_path,
+            trust_remote_code=allow_trust_remote_code(self.model_family),
         )
 
     def load_multimodal_model(self):
         from transformers import AutoModelForCausalLM
 
         kwargs = {"device_map": self._device}
-        kwargs = self.apply_bnb_quantization(kwargs)
+        kwargs = self.apply_quantization_config(kwargs)
 
         model = AutoModelForCausalLM.from_pretrained(
             self.model_path,
             low_cpu_mem_usage=True,
-            trust_remote_code=True,
+            trust_remote_code=allow_trust_remote_code(self.model_family),
             torch_dtype=torch.float16,
             **kwargs,
         )

@@ -4,11 +4,18 @@ import { useNavigate } from 'react-router-dom'
 
 import { ApiContext } from '../components/apiContext'
 import Layout from '../scenes/_layout'
+import ApiKeyManagement from '../scenes/apikey_management'
+import AuditLog from '../scenes/audit_log'
+import ChangePassword from '../scenes/change_password'
 import ClusterInfo from '../scenes/cluster_info'
 import LaunchModel from '../scenes/launch_model'
 import Login from '../scenes/login/login'
+import Logs from '../scenes/logs'
+import Monitoring from '../scenes/monitoring'
 import RegisterModel from '../scenes/register_model'
 import RunningModels from '../scenes/running_models'
+import SecuritySettings from '../scenes/security_settings'
+import UserManagement from '../scenes/user_management'
 
 const LoginAuth = () => {
   const [authority, setAuthority] = useState(true)
@@ -64,11 +71,39 @@ const routes = [
         path: 'cluster_info',
         element: <ClusterInfo />,
       },
+      {
+        path: 'monitoring',
+        element: <Monitoring />,
+      },
+      {
+        path: 'logs',
+        element: <Logs />,
+      },
+      {
+        path: 'user_management',
+        element: <UserManagement />,
+      },
+      {
+        path: 'apikey_management',
+        element: <ApiKeyManagement />,
+      },
+      {
+        path: 'security_settings',
+        element: <SecuritySettings />,
+      },
+      {
+        path: 'audit_log',
+        element: <AuditLog />,
+      },
     ],
   },
   {
     path: '/login',
     element: <LoginAuth />,
+  },
+  {
+    path: '/change_password',
+    element: <ChangePassword />,
   },
   {
     path: '*',

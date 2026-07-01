@@ -994,7 +994,7 @@ class IndexTTS2:
                 try:
                     os.unlink(temp_output_path)
                     # print(f">> Cleaned up temp file: {temp_output_path}")
-                except:
+                except Exception:
                     pass
 
 

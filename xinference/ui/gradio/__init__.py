@@ -1,4 +1,4 @@
-# Copyright 2022-2025 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from .chat_interface import GradioInterface
+from .embedding_interface import EmbeddingInterface
 from .media_interface import MediaInterface
 
-__all__ = ["GradioInterface", "MediaInterface"]
+__all__ = ["GradioInterface", "EmbeddingInterface", "MediaInterface"]

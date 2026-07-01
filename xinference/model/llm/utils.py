@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2026 XProbe Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,9 +14,11 @@
 
 import base64
 import functools
+import importlib.util
+import inspect
 import json
 import logging
-import re
+import os
 import time
 import typing
 import uuid
@@ -29,6 +31,7 @@ from typing import (
     Iterator,
     List,
     Optional,
+    Set,
     Tuple,
     Union,
     cast,
@@ -56,59 +59,70 @@ from .tool_parsers.glm4_tool_parser import Glm4ToolParser
 logger = logging.getLogger(__name__)
 
 
-QWEN_TOOL_CALL_FAMILY = [
-    "qwen1.5-chat",
-    "qwen1.5-moe-chat",
-    "qwen2-instruct",
-    "qwen2-moe-instruct",
-    "qwen2.5-instruct",
-    "qwen2.5-coder-instruct",
-    "XiYanSQL-QwenCoder-2504",
-    "QwQ-32B",
-    "qwen3",
-    "HuatuoGPT-o1-Qwen2.5",
-    "DianJin-R1",
-    "Qwen3-Thinking",
-    "Qwen3-Instruct",
-    "Qwen3-Coder",
-    "Qwen3-VL-Instruct",
-    "Qwen3-VL-Thinking",
-    "Qwen3-Next-Instruct",
-    "Qwen3-Next-Thinking",
-    "Qwen3-Omni-Instruct",
-    "Qwen3-Omni-Thinking",
-]
-
-GLM4_TOOL_CALL_FAMILY = [
-    "glm4-chat",
-    "glm4-chat-1m",
-    "glm-4.5",
-    "glm-4.5v",
-]
-
-LLAMA3_TOOL_CALL_FAMILY = [
-    "llama-3.1-instruct",
-    "HuatuoGPT-o1-LLaMA-3.1",
-]
-
-DEEPSEEK_TOOL_CALL_FAMILY = ["deepseek-v3", "deepseek-r1-0528", "Deepseek-V3.1"]
-
-TOOL_CALL_FAMILY = (
-    QWEN_TOOL_CALL_FAMILY
-    + GLM4_TOOL_CALL_FAMILY
-    + LLAMA3_TOOL_CALL_FAMILY
-    + DEEPSEEK_TOOL_CALL_FAMILY
+_CONTEXT_LENGTH_KEYS: Tuple[str, ...] = (
+    "max_sequence_length",
+    "seq_length",
+    "max_position_embeddings",
+    "sliding_window",
 )
+
+
+def _get_config_value(config: Union[dict, Any], key: str) -> Any:
+    if isinstance(config, dict):
+        return config.get(key)
+    return getattr(config, key, None)
+
+
+def _collect_context_length_candidates(
+    config: Union[dict, Any], nested_attrs: Iterable[str]
+) -> List[int]:
+    candidates: List[int] = []
+    for key in _CONTEXT_LENGTH_KEYS:
+        value = _get_config_value(config, key)
+        if value is not None:
+            candidates.append(value)
+    for nested_attr in nested_attrs:
+        nested = _get_config_value(config, nested_attr)
+        if nested is not None:
+            candidates.extend(_collect_context_length_candidates(nested, nested_attrs))
+    return candidates
+
+
+def get_context_length_from_config(
+    config: Union[dict, Any], nested_attrs: Iterable[str] = ("text_config",)
+) -> int:
+    """
+    Determine a reasonable context length from model config dictionaries or
+    HuggingFace config objects.
+    """
+    candidates = _collect_context_length_candidates(config, nested_attrs)
+    if not candidates:
+        return 2048
+    return max(candidates)
+
+
+DEEPSEEK_TOOL_CALL_FAMILY: Set[str] = set()
+GEMMA_TOOL_CALL_FAMILY: Set[str] = set()
+GLM4_TOOL_CALL_FAMILY: Set[str] = set()
+LLAMA3_TOOL_CALL_FAMILY: Set[str] = set()
+QWEN_TOOL_CALL_FAMILY: Set[str] = set()
+GLM5_TOOL_CALL_FAMILY: Set[str] = set()
 
 QWEN_TOOL_CALL_SYMBOLS = ["<tool_call>", "</tool_call>"]
 
 
 class ChatModelMixin:
     def __init__(self):
-        self.model_family = None
-        self.model_uid = None
-        self.reasoning_parser = None
-        self.tool_parser = None
+        # Only set attributes if they don't already exist
+        # to avoid overriding values set by parent classes
+        if not hasattr(self, "model_family"):
+            self.model_family = None
+        if not hasattr(self, "model_uid"):
+            self.model_uid = None
+        if not hasattr(self, "reasoning_parser"):
+            self.reasoning_parser = None
+        if not hasattr(self, "tool_parser"):
+            self.tool_parser = None
 
     @staticmethod
     @functools.lru_cache
@@ -125,7 +139,11 @@ class ChatModelMixin:
         def raise_exception(message):
             raise TemplateError(message)
 
-        jinja_env = ImmutableSandboxedEnvironment(trim_blocks=True, lstrip_blocks=True)
+        jinja_env = ImmutableSandboxedEnvironment(
+            trim_blocks=True,
+            lstrip_blocks=True,
+            extensions=["jinja2.ext.loopcontrols"],
+        )
         jinja_env.globals["raise_exception"] = raise_exception
         return jinja_env.from_string(chat_template)
 
@@ -146,26 +164,60 @@ class ChatModelMixin:
         tokenize=False,
         **kwargs,
     ):
-        if "vision" not in self.model_family.model_ability and "audio" not in self.model_family.model_ability:  # type: ignore
+        if (
+            "vision" not in self.model_family.model_ability
+            and "audio" not in self.model_family.model_ability
+        ):  # type: ignore
             messages = self.convert_messages_with_content_list_to_str_conversion(
                 messages
             )
         if tokenizer is not None:
-            try:
-                full_context = tokenizer.apply_chat_template(
-                    messages,
-                    tokenize=tokenize,
-                    chat_template=chat_template,
-                    add_generation_prompt=True,
-                    **kwargs,
-                )
-                logger.debug("Prompt: %s", full_context)
-                return full_context
-            except Exception as e:
-                logger.warning(
-                    f"tokenizer.apply_chat_template error. Maybe this is an old model: {e}"
-                )
-                return self._build_from_raw_template(messages, chat_template, **kwargs)
+            if self.model_family.model_name.lower().startswith("deepseek-v4"):
+                from ..utils import allow_trust_remote_code
+
+                if not allow_trust_remote_code(self.model_family):
+                    raise ValueError(
+                        "Loading this model executes code shipped in the model "
+                        "repository; set XINFERENCE_TRUST_REMOTE_CODE=1 to allow it."
+                    )
+                module = _load_deepseekv4_encoding_module(self.model_path)  # type: ignore
+
+                target_func = getattr(module, "encode_messages")
+
+                sig = inspect.signature(target_func)
+
+                if kwargs.get("enable_thinking", False):
+                    em_kwargs = {"thinking_mode": "thinking"}
+                else:
+                    em_kwargs = {"thinking_mode": "chat"}
+                tools = kwargs.pop("tools", None)
+                if tools:
+                    messages = self._attach_deepseekv4_tools(messages, tools)
+                for name in sig.parameters:
+                    if name in kwargs:
+                        em_kwargs[name] = kwargs.pop(name)
+
+                prompt = target_func(messages, **em_kwargs)
+
+                return prompt
+            else:
+                try:
+                    full_context = tokenizer.apply_chat_template(
+                        messages,
+                        tokenize=tokenize,
+                        chat_template=chat_template,
+                        add_generation_prompt=True,
+                        **kwargs,
+                    )
+                    logger.debug("Prompt: %s", full_context)
+                    return full_context
+                except Exception as e:
+                    logger.warning(
+                        f"tokenizer.apply_chat_template error. Maybe this is an old model: {e}"
+                    )
+                    return self._build_from_raw_template(
+                        messages, chat_template, **kwargs
+                    )
         else:
             # build from jinja
             # Compilation function uses a cache to avoid recompiling the same template
@@ -180,22 +232,39 @@ class ChatModelMixin:
             kwargs = generate_config["chat_template_kwargs"]
             if isinstance(kwargs, str):
                 try:
-                    return json.loads(kwargs)
+                    kwargs = json.loads(kwargs)
                 except json.JSONDecodeError:
                     raise TypeError(
                         f"`chat_template_kwargs` should be json parsable, got: {kwargs}"
                     )
-            elif isinstance(kwargs, dict):
+            if isinstance(kwargs, dict):
+                kwargs = dict(kwargs)
+                if reasoning_parser and "enable_thinking" not in kwargs:
+                    thinking = kwargs.get("thinking")
+                    kwargs["enable_thinking"] = (
+                        thinking
+                        if isinstance(thinking, bool)
+                        else reasoning_parser.enable_thinking
+                    )
                 return kwargs
             else:
                 raise TypeError(
                     f"`chat_template_kwargs` but be a JSON parsable str or dict, got: {kwargs}"
                 )
-        elif reasoning_parser and not reasoning_parser.enable_thinking:
-            # hybrid model like qwen3,
-            # disabled thinking
-            return {"enable_thinking": False}
+        elif reasoning_parser:
+            # pass enable_thinking to chat template
+            return {"enable_thinking": reasoning_parser.enable_thinking}
         return None
+
+    @staticmethod
+    def _attach_deepseekv4_tools(messages: List[Dict], tools: List[Dict]) -> List[Dict]:
+        prepared_messages = [dict(message) for message in messages]
+        for message in prepared_messages:
+            if message.get("role") in ("system", "developer"):
+                existing_tools = message.get("tools") or []
+                message["tools"] = [*existing_tools, *tools]
+                return prepared_messages
+        return [{"role": "system", "content": "", "tools": tools}, *prepared_messages]
 
     @staticmethod
     def convert_messages_with_content_list_to_str_conversion(
@@ -358,7 +427,7 @@ class ChatModelMixin:
             )
         assert choices is not None
         usage = (
-            chunk["usage"]
+            chunk.get("usage")
             if choices and choices[0]["finish_reason"] is not None or not choices
             else None
         )
@@ -411,19 +480,62 @@ class ChatModelMixin:
         return chunks
 
     @classmethod
+    def _get_chat_completion_chunk_id(
+        cls,
+        chunk: CompletionChunk,
+        fallback_chunk: Optional[CompletionChunk] = None,
+    ) -> str:
+        source_chunk: Dict[str, Any] = cast(
+            Dict[str, Any], chunk if chunk.get("id") else fallback_chunk or {}
+        )
+        chunk_id = source_chunk.get("id")
+        if not chunk_id:
+            return f"chatcmpl-{uuid.uuid4()}"
+        chunk_id = str(chunk_id)
+        if source_chunk.get("object") == "chat.completion.chunk":
+            return chunk_id
+        return "chat" + chunk_id
+
+    @classmethod
     def _get_final_chat_completion_chunk(
-        cls, chunk: CompletionChunk
+        cls,
+        chunk: CompletionChunk,
+        fallback_chunk: Optional[CompletionChunk] = None,
     ) -> ChatCompletionChunk:
-        chat_chunk = {
-            "id": "chat" + chunk["id"],
-            "model": chunk["model"],
-            "created": chunk["created"],
+        fallback: Dict[str, Any] = cast(Dict[str, Any], fallback_chunk or {})
+        chat_chunk: Dict[str, Any] = {
+            "id": cls._get_chat_completion_chunk_id(chunk, fallback_chunk),
+            "model": chunk.get("model") or fallback.get("model") or "",
+            "created": chunk.get("created")
+            or fallback.get("created")
+            or int(time.time()),
             "object": "chat.completion.chunk",
             "choices": [
                 ChatCompletionChunkChoice(
                     index=0, delta=ChatCompletionChunkDelta(), finish_reason="stop"
                 )
             ],
+        }
+        usage = chunk.get("usage")
+        if usage is not None:
+            chat_chunk["usage"] = usage
+        return cast(ChatCompletionChunk, chat_chunk)
+
+    @classmethod
+    def _get_usage_chat_completion_chunk(
+        cls,
+        chunk: CompletionChunk,
+        fallback_chunk: Optional[CompletionChunk] = None,
+    ) -> ChatCompletionChunk:
+        fallback: Dict[str, Any] = cast(Dict[str, Any], fallback_chunk or {})
+        chat_chunk: Dict[str, Any] = {
+            "id": cls._get_chat_completion_chunk_id(chunk, fallback_chunk),
+            "model": chunk.get("model") or fallback.get("model") or "",
+            "created": chunk.get("created")
+            or fallback.get("created")
+            or int(time.time()),
+            "object": "chat.completion.chunk",
+            "choices": [],
         }
         usage = chunk.get("usage")
         if usage is not None:
@@ -438,6 +550,7 @@ class ChatModelMixin:
     ) -> Iterator[ChatCompletionChunk]:
         previous_texts = [""]
         is_first_chunk = True
+        fallback_chunk: Optional[CompletionChunk] = None
         if reasoning_parse:
             chunks = reasoning_parse.prepare_reasoning_content_sync(chunks)
         for _, chunk in enumerate(chunks):
@@ -458,14 +571,18 @@ class ChatModelMixin:
                         )
                     ]
                     choices = chunk["choices"]
+                elif chunk.get("usage") is not None:
+                    yield cls._get_usage_chat_completion_chunk(chunk, fallback_chunk)
+                    continue
                 else:
-                    yield cls._get_final_chat_completion_chunk(chunk)
+                    yield cls._get_final_chat_completion_chunk(chunk, fallback_chunk)
                     continue
 
             r = cls._to_chat_completion_chunk(
                 chunk, reasoning_parse, previous_texts, ensure_role=is_first_chunk
             )
             is_first_chunk = False
+            fallback_chunk = chunk
             yield r
 
     @classmethod
@@ -511,6 +628,7 @@ class ChatModelMixin:
         previous_texts = [""]
         full_text = ""
         is_first_chunk = True
+        fallback_chunk: Optional[CompletionChunk] = None
         # Process chunks
         if reasoning_parser:
             set_context()
@@ -520,7 +638,14 @@ class ChatModelMixin:
             choices = chunk.get("choices")
             if not choices:
                 # usage
-                chat_chunk = cls._get_final_chat_completion_chunk(chunk)
+                if chunk.get("usage") is not None:
+                    chat_chunk = cls._get_usage_chat_completion_chunk(
+                        chunk, fallback_chunk
+                    )
+                else:
+                    chat_chunk = cls._get_final_chat_completion_chunk(
+                        chunk, fallback_chunk
+                    )
             else:
                 if choices[0].get("text"):
                     full_text += choices[0]["text"]  # type: ignore
@@ -531,6 +656,7 @@ class ChatModelMixin:
                     previous_texts,
                     ensure_role=is_first_chunk,
                 )
+                fallback_chunk = chunk
             is_first_chunk = False
             yield chat_chunk
         logger.debug("Chat finished, output: %s", full_text)
@@ -591,247 +717,6 @@ class ChatModelMixin:
             "choices": choices,  # type: ignore
             "usage": completion["usage"],
         }
-
-    @staticmethod
-    def _eval_glm_chat_arguments(c) -> List[Tuple]:
-        """
-        Currently, glm4 tool call only supports one function
-        """
-        try:
-            if isinstance(c, dict):
-                try:
-                    return [(None, c["name"], json.loads(c["arguments"]))]
-                except Exception:
-                    return [(None, c["name"], c["arguments"])]
-        except KeyError:
-            logger.error("Can't parse glm output: %s", c)
-            return [(str(c), None, None)]
-        else:
-            return [(str(c), None, None)]
-
-    @classmethod
-    def _handle_qwen_tool_result(cls, text: str) -> List[Tuple]:
-        text: str = text.strip()  # type: ignore
-
-        def split_into_blocks(text: str) -> list[str]:
-            # Match blocks starting with <think> or <tool_call> and ending with </think> or </tool_call>
-            pattern = r"(<(think|tool_call)>.*?</\2>)"
-            parts = []
-            last_end = 0
-            # Find all label blocks and record their positions
-            for m in re.finditer(pattern, text, re.DOTALL):
-                # Text before adding tags
-                if m.start() > last_end:
-                    parts.append(text[last_end : m.start()])
-                # Add label block
-                parts.append(m.group(0))
-                last_end = m.end()
-            # Text after adding the last tag
-            if last_end < len(text):
-                parts.append(text[last_end:])
-            return parts
-
-        contents = split_into_blocks(text)
-        results: List[Tuple] = []
-        for content in contents:
-            if content.strip():
-                pos1 = content.find(QWEN_TOOL_CALL_SYMBOLS[0])
-                if pos1 != -1:
-                    content = content[pos1 + len(QWEN_TOOL_CALL_SYMBOLS[0]) :]
-                pos2 = content.find(QWEN_TOOL_CALL_SYMBOLS[1])
-                if pos2 != -1:
-                    content = content[:pos2]
-
-                # Skip empty content after extraction
-                if not content.strip():
-                    continue
-
-                try:
-                    res = json.loads(content, strict=False)
-                    if isinstance(res, dict):
-                        # Check if required fields exist
-                        if "name" in res and "arguments" in res:
-                            results.append((None, res["name"], res["arguments"]))
-                        else:
-                            logger.warning(
-                                "Missing required fields in qwen tool call: %s", content
-                            )
-                            results.append((content, None, None))
-                    else:
-                        logger.warning(
-                            "Qwen tool call result is not a dict: %s", content
-                        )
-                        results.append((content, None, None))
-                except json.JSONDecodeError as e:
-                    logger.error(
-                        "Can't parse single qwen tool call output: %s. Error: %s",
-                        content,
-                        e,
-                    )
-                    results.append((content, None, None))
-                except Exception as e:
-                    logger.error(
-                        "Unexpected error parsing qwen tool call: %s. Error: %s",
-                        content,
-                        e,
-                    )
-                    results.append((content, None, None))
-        return results
-
-    @classmethod
-    def _eval_qwen_chat_arguments(
-        cls, c, tool_call_text: Optional[str] = None
-    ) -> List[Tuple]:
-        text = c["choices"][0]["text"]
-        if tool_call_text:
-            text = tool_call_text
-        return cls._handle_qwen_tool_result(text)
-
-    @classmethod
-    def _eval_llama3_chat_arguments(cls, c) -> List[Tuple]:
-        text = c["choices"][0]["text"]
-        try:
-            data = eval(text, {}, {})
-            return [(None, data["name"], data["parameters"])]
-        except Exception:
-            return [(text, None, None)]
-
-    @classmethod
-    def _eval_deepseek_chat_arguments(cls, c) -> List[Tuple]:
-        """
-        Parses tool calls from deepseek-v3 format and removes duplicates.
-
-        Returns:
-        List[Tuple[Optional[str], Optional[str], Optional[dict]]]
-        - (None, function_name, arguments) if successfully parsed.
-        - (content, None, None) if parsing failed (content is raw JSON text).
-
-        Example input:
-        ```json
-        {
-            "name": "get_weather_and_time",
-            "parameters": {
-                "location": "Hangzhou"
-            }
-        }
-        ```
-
-        Output:
-        [
-            (None, "get_current_weather", {"location": "Hangzhou"})
-        ]
-        """
-
-        text = c["choices"][0]["text"]
-
-        pattern = r"\s*```json\s*(.*?)\s*```"
-        matches = re.findall(pattern, text, re.DOTALL)
-
-        if not matches:
-            return [(text, None, None)]
-
-        tool_calls = set()  # Used for deduplication
-        results = []
-
-        for raw_json in matches:
-            func_and_args = None
-            try:
-                func_and_args = json.loads(raw_json)
-                # Convert dictionary to frozenset for deduplication
-                arguments_hashable = frozenset(func_and_args["parameters"])
-                tool_call_tuple = (
-                    None,
-                    func_and_args["name"],
-                    func_and_args["parameters"],
-                )
-            except json.JSONDecodeError:
-                tool_call_tuple = (
-                    raw_json,
-                    None,
-                    None,
-                )  # If parsing fails, treat as raw content
-                arguments_hashable = None  # No need for hashing
-
-            # Avoid duplicate entries
-            dedup_key = (
-                (func_and_args["name"], arguments_hashable)
-                if func_and_args is not None
-                else (raw_json)
-            )
-            if dedup_key not in tool_calls:
-                tool_calls.add(dedup_key)
-                results.append(tool_call_tuple)
-
-        return results
-
-    @classmethod
-    def _eval_deepseek_r1_arguments(cls, c) -> List[Tuple]:
-        """
-        Parses tool calls from deepseek-r1 (0528) chat template format.
-        Returns:
-            List of (None, function_name, arguments_dict)
-            or (raw_content, None, None) if parsing fails.
-        """
-        text = c["choices"][0]["text"]
-        pattern = (
-            r"<\｜tool▁call▁begin｜>function<\｜tool▁sep｜>([^\n]+)\n"
-            r"```json\n(.*?)\n```<\｜tool▁call▁end｜>"
-        )
-
-        matches = re.findall(pattern, text, re.DOTALL)
-        if not matches:
-            return [(text, None, None)]
-
-        tool_calls = set()
-        results = []
-
-        for func_name, raw_json in matches:
-            func_and_args = None
-            try:
-                func_and_args = json.loads(raw_json)
-                arguments_hashable = frozenset(func_and_args.items())
-                tool_call_tuple = (
-                    None,
-                    func_name,
-                    func_and_args,
-                )
-            except Exception:
-                tool_call_tuple = (raw_json, None, None)
-                arguments_hashable = None
-
-            dedup_key = (
-                (func_name, arguments_hashable)
-                if func_and_args is not None
-                else raw_json
-            )
-            if dedup_key not in tool_calls:
-                tool_calls.add(dedup_key)
-                results.append(tool_call_tuple)
-
-        return results
-
-    @classmethod
-    def _eval_tool_arguments(
-        cls, model_family, c, tool_call_text: Optional[str] = None
-    ):
-        family = model_family.model_family or model_family.model_name
-        if family in GLM4_TOOL_CALL_FAMILY:
-            result = cls._eval_glm_chat_arguments(c)
-        elif family in QWEN_TOOL_CALL_FAMILY:
-            result = cls._eval_qwen_chat_arguments(c, tool_call_text)
-        elif family in LLAMA3_TOOL_CALL_FAMILY:
-            result = cls._eval_llama3_chat_arguments(c)
-        elif family in DEEPSEEK_TOOL_CALL_FAMILY:
-            if family == "deepseek-r1-0528":
-                result = cls._eval_deepseek_r1_arguments(c)
-            else:
-                result = cls._eval_deepseek_chat_arguments(c)
-        else:
-            raise Exception(
-                f"Model {model_family.model_name} is not support tool calls."
-            )
-        logger.debug(f"Tool call content: {result}")
-        return result
 
     def _post_process_completion_chunk(
         self,
@@ -1013,8 +898,7 @@ class ChatModelMixin:
         transformed_messages = []
         for msg in messages:
             new_content = []
-            role = msg["role"]
-            content = msg["content"]
+            content = msg.get("content")
             if isinstance(content, str):
                 new_content.append({"type": "text", "text": content})
             elif isinstance(content, List):
@@ -1036,12 +920,71 @@ class ChatModelMixin:
                     else:
                         logger.warning(
                             "Unknown message type, message: %s, this message may be ignored",
-                            messages,
+                            msg,
                         )
-            new_message = {"role": role, "content": new_content}
+            new_message = dict(msg)
+            if msg.get("tool_calls") is not None:
+                new_message["tool_calls"] = self._normalize_tool_calls(
+                    msg["tool_calls"]
+                )
+            new_message["content"] = new_content if new_content else None
             transformed_messages.append(new_message)
 
         return transformed_messages
+
+    @staticmethod
+    def _normalize_tool_calls(tool_calls: Any) -> Any:
+        if isinstance(tool_calls, (str, bytes)):
+            return tool_calls
+        if isinstance(tool_calls, dict):
+            tool_calls = [tool_calls]
+        try:
+            normalized_tool_calls = list(tool_calls)
+        except TypeError:
+            return tool_calls
+
+        for index, tool_call in enumerate(normalized_tool_calls):
+            if not isinstance(tool_call, dict):
+                continue
+
+            normalized_tool_call = dict(tool_call)
+            function = normalized_tool_call.get("function")
+            if isinstance(function, dict) and "arguments" in function:
+                target = dict(function)
+                is_function_target = True
+            else:
+                target = normalized_tool_call
+                is_function_target = False
+            arguments = target.get("arguments")
+
+            if isinstance(arguments, (str, bytes)):
+                if not arguments or not arguments.strip():
+                    arguments = {}
+                else:
+                    try:
+                        arguments = json.loads(arguments)
+                    except json.JSONDecodeError as exc:
+                        raise ValueError(
+                            "Tool call arguments must be a valid JSON object"
+                        ) from exc
+            elif arguments is not None and not isinstance(arguments, dict):
+                try:
+                    arguments = dict(arguments)
+                except (TypeError, ValueError) as exc:
+                    raise TypeError(
+                        "Tool call arguments must be a mapping or JSON object string"
+                    ) from exc
+
+            if arguments is not None and not isinstance(arguments, dict):
+                raise TypeError("Tool call arguments must decode to a JSON object")
+
+            if "arguments" in target:
+                target["arguments"] = arguments
+            if is_function_target:
+                normalized_tool_call["function"] = target
+            normalized_tool_calls[index] = normalized_tool_call
+
+        return normalized_tool_calls
 
     async def _async_to_tool_completion_chunks(
         self,
@@ -1226,15 +1169,23 @@ def generate_chat_completion(
 def get_stop_token_ids_from_config_file(model_path: str) -> Optional[List[int]]:
     from transformers import GenerationConfig as TransformersGenerationConfig
 
-    transformers_config = TransformersGenerationConfig.from_pretrained(model_path)
-    if transformers_config.eos_token_id is not None:
-        stop_token_ids = (
-            transformers_config.eos_token_id
-            if isinstance(transformers_config.eos_token_id, list)
-            else [transformers_config.eos_token_id]
+    try:
+        transformers_config = TransformersGenerationConfig.from_pretrained(model_path)
+        if transformers_config.eos_token_id is not None:
+            stop_token_ids = (
+                transformers_config.eos_token_id
+                if isinstance(transformers_config.eos_token_id, list)
+                else [transformers_config.eos_token_id]
+            )
+            return stop_token_ids
+        return None
+    except OSError as e:
+        logger.warning(
+            "Failed to load model config from path %s: %s. Stop tokens will not be applied.",
+            model_path,
+            e,
         )
-        return stop_token_ids
-    return None
+        return None
 
 
 def normalize_response_format(
@@ -1274,3 +1225,22 @@ def parse_messages(messages: List[Dict]) -> Tuple:
     system_prompt = ". ".join(system_messages) if system_messages else None
     chat_history = content_messages[:-1]
     return prompt, system_prompt, chat_history
+
+
+@functools.lru_cache
+def _load_deepseekv4_encoding_module(model_path: str):
+    module_path = os.path.join(
+        model_path,
+        "encoding",
+        "encoding_dsv4.py",  # type: ignore
+    )
+    if not os.path.exists(module_path):
+        raise FileNotFoundError(
+            f"Missing {module_path}.Please verify the model repository files."
+        )
+    spec = importlib.util.spec_from_file_location("encoding_dsv4", module_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Failed to load encoding_dsv4 module from {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module

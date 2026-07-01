@@ -168,7 +168,7 @@ class BaseModel(nn.Module):
         """
         try:
             model = cls._load_package(location, package_name=package_name)
-        except:
+        except Exception:
             model_dict = torch.load(location, "cpu")
             metadata = model_dict["metadata"]
             metadata["kwargs"].update(kwargs)
