@@ -11,10 +11,18 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import os
-# import sys
+import subprocess
+import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
+from pathlib import Path
+
 from docutils import nodes
+
+_doc_root = Path(__file__).resolve().parent.parent
+if str(_doc_root) not in sys.path:
+    sys.path.insert(0, str(_doc_root))
+from i18n_locales import resolve_sphinx_language  # noqa: E402
 
 
 # -- Project information -----------------------------------------------------
@@ -70,7 +78,6 @@ html_title = "Xinference"
 html_static_path = ['_static']
 html_css_files = ["custom.css"]
 
-# Use the bundled switcher so each locale build matches its own language list.
 json_url = "_static/switcher.json"
 
 _SPHINX_LANGUAGE_TO_SWITCHER = {
@@ -102,7 +109,7 @@ _EXTERNAL_LINKS_BY_LOCALE = {
 }
 _DEFAULT_EXTERNAL_LINK = {"name": "Official Site", "url": "https://xinference.io"}
 
-# PyData theme uses this config value directly; it is not translated via gettext.
+# PyData theme reads this directly; it is not translated via gettext catalogs.
 _HEADER_DROPDOWN_TEXT_BY_LOCALE = {
     "en": "More",
     "zh-cn": "更多",
@@ -116,21 +123,55 @@ _HEADER_DROPDOWN_TEXT_BY_LOCALE = {
     "pt-br": "Mais",
 }
 
+version_match = os.environ.get("READTHEDOCS_LANGUAGE") or "en"
+
+_sphinx_language = resolve_sphinx_language(version_match)
+if _sphinx_language:
+    language = _sphinx_language
+
+
+def _locale_po_files(locale: str) -> list[Path]:
+    po_root = _doc_root / "source" / "locale" / locale / "LC_MESSAGES"
+    if not po_root.is_dir():
+        return []
+    return sorted(po_root.rglob("*.po"))
+
+
+def _needs_mo_compile(locale: str) -> bool:
+    for po in _locale_po_files(locale):
+        mo = po.with_suffix(".mo")
+        if not mo.is_file() or mo.stat().st_mtime < po.stat().st_mtime:
+            return True
+    return False
+
+
+def _compile_mo_catalog(locale: str) -> None:
+    """Compile .po -> .mo when catalogs are missing or stale."""
+    if not _locale_po_files(locale):
+        return
+    subprocess.run(
+        [sys.executable, str(_doc_root / "build_i18n.py"), locale],
+        cwd=str(_doc_root),
+        check=True,
+    )
+
+
+if _sphinx_language and _needs_mo_compile(_sphinx_language):
+    _compile_mo_catalog(_sphinx_language)
+
+if version_match == 'zh-cn' or _sphinx_language == "zh_CN":
+    tags.add("zh_cn")
+
 
 def _resolve_switcher_version(app):
     rtd_language = os.environ.get("READTHEDOCS_LANGUAGE")
     if rtd_language:
         return rtd_language
-    language = getattr(app.config, "language", None) or "en"
+    current_language = getattr(app.config, "language", None) or "en"
     return _SPHINX_LANGUAGE_TO_SWITCHER.get(
-        language, language.replace("_", "-").lower()
+        current_language, current_language.replace("_", "-").lower()
     )
 
-
-# Initial value; refined in config-inited once Sphinx language is known.
-version_match = os.environ.get("READTHEDOCS_LANGUAGE") or "en"
-if version_match == "zh-cn":
-    tags.add("zh_cn")
 
 html_theme_options = {
     "show_toc_level": 2,
@@ -226,6 +267,12 @@ def _remove_non_zh_cn_nodes(app, doctree, docname):
             node.parent.remove(node)
 
 
+def _log_doc_progress(app, docname, source):
+    if os.environ.get("READTHEDOCS") == "True":
+        print(f"[sphinx] reading: {docname}", flush=True)
+
+
 def setup(app):
     app.connect("config-inited", _apply_locale_theme_options)
     app.connect("doctree-resolved", _remove_non_zh_cn_nodes)
+    app.connect("source-read", _log_doc_progress)

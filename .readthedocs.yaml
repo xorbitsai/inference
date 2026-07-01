@@ -8,6 +8,10 @@ build:
   os: ubuntu-24.04
   tools:
     python: "3.10"
+  jobs:
+    # Run after .[doc] is installed so babel/sphinx-intl are available.
+    post_install:
+      - cd doc && python build_i18n.py
 
 python:
   install:
@@ -15,7 +19,3 @@ python:
       path: .
       extra_requirements:
         - doc
-
-submodules:
-  include: all
-  recursive: true
