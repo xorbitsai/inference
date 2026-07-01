@@ -3,7 +3,7 @@ FROM continuumio/miniconda3:23.10.0-1
 COPY . /opt/inference
 
 ENV NVM_DIR /usr/local/nvm
-ENV NODE_VERSION 14.21.1
+ENV NODE_VERSION 20.19.0
 
 RUN apt-get -y update \
   && apt install -y build-essential curl procps git libgl1 \
