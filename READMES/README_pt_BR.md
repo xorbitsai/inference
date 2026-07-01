@@ -95,7 +95,7 @@ Xorbits Inference (Xinference) é uma biblioteca poderosa e versátil para model
   Siga o [guia de início](#getting-started) para executar o Xinference localmente. Detalhes na documentação: https://inference.readthedocs.io/.
 
 - **Xinference para empresas**
-  Recursos enterprise estão disponíveis; para solicitações, entre em contato: mailto:business@xprobe.io?subject=[GitHub]Business%20License%20Inquiry
+  Recursos enterprise estão disponíveis; para solicitações, entre em contato: mailto:info@xinference.co?subject=[GitHub]Business%20License%20Inquiry
 
 ## Fique atualizado
 

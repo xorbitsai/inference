@@ -95,7 +95,7 @@ Xorbits Inference (Xinference)는 언어, 음성 인식, 멀티모달 모델을 
   스타터 가이드를 따라 로컬에서 Xinference를 시작하세요. 자세한 내용은 문서(https://inference.readthedocs.io/) 참조.
 
 - **기업용 Xinference**
-  엔터프라이즈 기능이 필요하면 다음으로 문의하세요: mailto:business@xprobe.io?subject=[GitHub]Business%20License%20Inquiry
+  엔터프라이즈 기능이 필요하면 다음으로 문의하세요: mailto:info@xinference.co?subject=[GitHub]Business%20License%20Inquiry
 
 ## 최신 상태 유지
 
