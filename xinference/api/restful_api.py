@@ -23,7 +23,7 @@ import pprint
 import time
 import uuid
 import warnings
-from typing import Any, List, Optional, Union, get_type_hints
+from typing import Any, Dict, List, Optional, Union, get_type_hints
 
 import gradio as gr
 import xoscar as xo
@@ -1361,6 +1361,224 @@ class RESTfulAPI(CancelMixin):
             normalized.insert(0, {"role": "system", "content": "\n".join(system_parts)})
         return normalized
 
+    @staticmethod
+    def _extract_text_from_anthropic_content(content: Any) -> str:
+        """
+        Extract plain text from an Anthropic ``content`` field.
+
+        The content may be a plain string or a list of content blocks such as
+        ``[{"type": "text", "text": "..."}]``. Only text is collected; non-text
+        blocks (images, etc.) are ignored, which is sufficient for tool results.
+        """
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            texts = []
+            for block in content:
+                if isinstance(block, dict):
+                    text = block.get("text")
+                    if isinstance(text, str) and text:
+                        texts.append(text)
+                elif isinstance(block, str) and block:
+                    texts.append(block)
+            return "\n".join(texts)
+        return ""
+
+    def _convert_anthropic_messages_to_openai(self, messages: List[dict]) -> List[dict]:
+        """
+        Convert Anthropic ``user`` / ``assistant`` content blocks into the
+        OpenAI-style messages that Xinference backends (and their chat
+        templates) expect.
+
+        The top-level ``system`` prompt and any inline ``role: system``
+        messages are already folded into a single leading system message by
+        :meth:`_normalize_anthropic_messages`, so system and plain-string turns
+        pass through untouched here. This pass only rewrites the content-block
+        turns produced by Claude Code >= 2.1.154:
+
+        * ``user`` / ``assistant`` text blocks are flattened to a string;
+        * ``tool_use`` blocks become assistant ``tool_calls``;
+        * ``tool_result`` blocks become standalone ``tool`` role messages;
+        * ``image`` blocks become OpenAI ``image_url`` parts.
+
+        Without this conversion the raw Anthropic blocks reach the backend chat
+        template and break it (e.g. a list ``content`` triggers
+        ``'list' object has no attribute 'startswith'`` while rendering the
+        Jinja template).
+        """
+        converted: List[dict] = []
+        tool_call_names: Dict[str, str] = {}
+        for msg in messages or []:
+            content = msg.get("content")
+            # System (already folded) and plain-string turns pass through.
+            if not isinstance(content, list):
+                converted.append(msg)
+                continue
+            if msg.get("role") == "assistant":
+                converted_msg = self._convert_anthropic_assistant_message(content)
+                for tool_call in converted_msg.get("tool_calls", []):
+                    if not isinstance(tool_call, dict):
+                        continue
+                    tool_call_id = tool_call.get("id")
+                    function = tool_call.get("function")
+                    if (
+                        isinstance(tool_call_id, str)
+                        and isinstance(function, dict)
+                        and isinstance(function.get("name"), str)
+                    ):
+                        tool_call_names[tool_call_id] = function["name"]
+                converted.append(converted_msg)
+            elif msg.get("role") == "user":
+                converted.extend(
+                    self._convert_anthropic_user_message(content, tool_call_names)
+                )
+            else:
+                converted.append(msg)
+        return converted
+
+    def _convert_anthropic_assistant_message(self, content: list) -> dict:
+        """Convert an assistant message whose content is a list of blocks."""
+        text_parts: List[str] = []
+        tool_calls: List[dict] = []
+        for block in content:
+            if not isinstance(block, dict):
+                continue
+            block_type = block.get("type")
+            if block_type == "text":
+                text = block.get("text")
+                if isinstance(text, str) and text:
+                    text_parts.append(text)
+            elif block_type == "tool_use":
+                tool_calls.append(
+                    {
+                        "id": block.get("id", ""),
+                        "type": "function",
+                        "function": {
+                            "name": block.get("name", ""),
+                            "arguments": json.dumps(
+                                block.get("input", {}), ensure_ascii=False
+                            ),
+                        },
+                    }
+                )
+            # other blocks (e.g. ``thinking``) are dropped for backend prompts
+        new_msg: dict = {
+            "role": "assistant",
+            "content": "\n".join(text_parts),
+        }
+        if tool_calls:
+            new_msg["tool_calls"] = tool_calls
+        return new_msg
+
+    def _convert_anthropic_user_message(
+        self, content: list, tool_call_names: Optional[Dict[str, str]] = None
+    ) -> List[dict]:
+        """
+        Convert a user message whose content is a list of blocks.
+
+        ``tool_result`` blocks become standalone ``tool`` messages (emitted
+        first, so they directly follow the assistant ``tool_calls``); remaining
+        text/image blocks become a single ``user`` message.
+        """
+        tool_messages: List[dict] = []
+        text_parts: List[str] = []
+        image_parts: List[dict] = []
+        for block in content:
+            if not isinstance(block, dict):
+                continue
+            block_type = block.get("type")
+            if block_type == "text":
+                text = block.get("text")
+                if isinstance(text, str) and text:
+                    text_parts.append(text)
+            elif block_type == "tool_result":
+                tool_call_id = block.get("tool_use_id", "")
+                tool_message = {
+                    "role": "tool",
+                    "tool_call_id": tool_call_id,
+                    "content": self._extract_text_from_anthropic_content(
+                        block.get("content")
+                    ),
+                }
+                if (
+                    isinstance(tool_call_id, str)
+                    and tool_call_names
+                    and tool_call_id in tool_call_names
+                ):
+                    tool_message["name"] = tool_call_names[tool_call_id]
+                tool_messages.append(tool_message)
+            elif block_type == "image":
+                source = block.get("source", {})
+                if isinstance(source, dict):
+                    if source.get("type") == "base64":
+                        url = (
+                            f"data:{source.get('media_type', '')};"
+                            f"base64,{source.get('data', '')}"
+                        )
+                        image_parts.append(
+                            {"type": "image_url", "image_url": {"url": url}}
+                        )
+                    elif source.get("type") == "url" and source.get("url"):
+                        image_parts.append(
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": source["url"]},
+                            }
+                        )
+
+        result: List[dict] = list(tool_messages)
+        if image_parts:
+            # Multimodal turn: keep OpenAI content-part list (text + images).
+            parts: List[dict] = [
+                {"type": "text", "text": t} for t in text_parts
+            ] + image_parts
+            result.append({"role": "user", "content": parts})
+        elif text_parts:
+            result.append({"role": "user", "content": "\n".join(text_parts)})
+        return result
+
+    @staticmethod
+    def _convert_anthropic_tools_to_openai(tools: list) -> List[dict]:
+        """Convert Anthropic tool definitions to OpenAI ``function`` tools."""
+        openai_tools: List[dict] = []
+        for tool in tools:
+            if not isinstance(tool, dict):
+                continue
+            # Already in OpenAI shape -> keep as-is.
+            if tool.get("type") == "function" and "function" in tool:
+                openai_tools.append(tool)
+                continue
+            openai_tools.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": tool.get("name", ""),
+                        "description": tool.get("description", ""),
+                        "parameters": tool.get("input_schema", {}) or {},
+                    },
+                }
+            )
+        return openai_tools
+
+    @staticmethod
+    def _convert_anthropic_tool_choice(tool_choice: Any) -> Any:
+        """Convert an Anthropic ``tool_choice`` to the OpenAI equivalent."""
+        if not isinstance(tool_choice, dict):
+            return tool_choice
+        choice_type = tool_choice.get("type")
+        if choice_type == "auto":
+            return "auto"
+        if choice_type == "any":
+            return "required"
+        if choice_type == "none":
+            return "none"
+        if choice_type == "tool" and tool_choice.get("name"):
+            return {
+                "type": "function",
+                "function": {"name": tool_choice["name"]},
+            }
+        return tool_choice
+
     async def create_message(self, request: Request) -> Response:
         raw_body = await request.json()
         body = CreateMessage.parse_obj(raw_body)
@@ -1393,18 +1611,32 @@ class RESTfulAPI(CancelMixin):
         messages = self._normalize_anthropic_messages(raw_body.get("system"), messages)
         raw_kwargs.pop("system", None)
 
-        if not messages or messages[-1].get("role") not in ["user", "assistant"]:
+        # Convert Anthropic content blocks (tool_use / tool_result / text /
+        # image) into OpenAI-style messages. System folding is handled above, so
+        # this only rewrites the block turns Claude Code >= 2.1.154 sends;
+        # otherwise the raw blocks reach the chat template and break it.
+        messages = self._convert_anthropic_messages_to_openai(messages)
+
+        # A converted ``tool_result`` turn ends in a ``tool`` message, which is
+        # a valid last role (mirrors the OpenAI chat-completions endpoint).
+        if not messages or messages[-1].get("role") not in [
+            "user",
+            "assistant",
+            "tool",
+        ]:
             raise HTTPException(
                 status_code=400, detail="Invalid input. Please specify the prompt."
             )
 
-        # Handle tools parameter
+        # Handle tools parameter (Anthropic ``input_schema`` -> OpenAI function)
         if hasattr(body, "tools") and body.tools:
-            kwargs["tools"] = list(body.tools)
+            kwargs["tools"] = self._convert_anthropic_tools_to_openai(list(body.tools))
 
         # Handle tool_choice parameter
         if hasattr(body, "tool_choice") and body.tool_choice:
-            kwargs["tool_choice"] = body.tool_choice
+            kwargs["tool_choice"] = self._convert_anthropic_tool_choice(
+                body.tool_choice
+            )
 
         # Get model mapping
         try:
