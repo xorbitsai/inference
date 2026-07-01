@@ -1,0 +1,42 @@
+xinference/model/llm/llm_family.json
+  d881e609a580f852 30154,30910
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "a56746a2be2aa781d75233d2197799b4e1da6920",
+  "prompts": {
+    "d881e609a580f852": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b6e5327-8e3e-4ea0-8a9a-f6be6f24f1ed",
+        "model": "glm-5.2"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 3557,
+      "total_deletions": 0,
+      "accepted_lines": 3557,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/d0d7c95e327b617f32a57994aa30420708bc7e83bafa9ad342a6442ab748d429"
+    },
+    "fbd0a7434a0e56c7": {
+      "agent_id": {
+        "tool": "known_human",
+        "id": "known_human_session",
+        "model": "unknown"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 203,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_9bfd4e7cd8cc2c": {
+      "author": "郑明再"
+    }
+  }
+}
