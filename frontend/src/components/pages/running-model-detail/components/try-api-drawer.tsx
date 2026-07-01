@@ -51,7 +51,12 @@ function fieldComment(field: CodeExampleField, prefix: string) {
 }
 
 function escapeString(value: string) {
-  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t');
 }
 
 function pythonLiteral(value: unknown): string {
@@ -80,6 +85,10 @@ function jsonValue(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
+function compactJsonValue(value: unknown): string {
+  return JSON.stringify(value) ?? '';
+}
+
 function shellValue(value: unknown): string {
   if (typeof value === 'string') return value;
   return JSON.stringify(value);
@@ -99,6 +108,28 @@ function goValue(value: unknown): string {
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
   if (value === null) return 'nil';
   return `json.RawMessage(\`${jsonValue(value)}\`)`;
+}
+
+function shouldStringifyFormValue(field: CodeExampleField, value: unknown) {
+  return field.stringify || (typeof value === 'object' && value !== null);
+}
+
+function formStringValue(field: CodeExampleField, value: unknown) {
+  if (shouldStringifyFormValue(field, value)) {
+    return compactJsonValue(value);
+  }
+  if (value === null) {
+    return '';
+  }
+  return String(value);
+}
+
+function javaFormValue(field: CodeExampleField, value: unknown): string {
+  return `"${escapeString(formStringValue(field, value))}"`;
+}
+
+function goFormValue(field: CodeExampleField, value: unknown): string {
+  return `"${escapeString(formStringValue(field, value))}"`;
 }
 
 function pyFieldValue(field: CodeExampleField, modelUid: string) {
@@ -230,7 +261,7 @@ function generateJava(config: CodeExampleConfig, url: string, modelUid: string) 
         );
       } else {
         lines.push(
-          `formData.addFormDataPart("${field.key}", String.valueOf(${javaValue(value)}));${fieldComment(field, '//')}`
+          `formData.addFormDataPart("${field.key}", ${javaFormValue(field, value)});${fieldComment(field, '//')}`
         );
       }
     });
@@ -316,7 +347,7 @@ function generateGo(config: CodeExampleConfig, url: string, modelUid: string) {
         );
       } else {
         lines.push(
-          `  writer.WriteField("${field.key}", ${goValue(value)})${fieldComment(field, '//')}`
+          `  writer.WriteField("${field.key}", ${goFormValue(field, value)})${fieldComment(field, '//')}`
         );
       }
     });

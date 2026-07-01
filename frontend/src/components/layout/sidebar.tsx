@@ -210,17 +210,15 @@ export function Sidebar() {
             name: t('menu.userManagement'),
             Icon: Users,
             Extra: ChevronRight,
-            show: usersManagePage,
           },
           {
             path: '/api-key-management',
             name: t('menu.apiKeyManagement'),
             Icon: KeyRound,
             Extra: ChevronRight,
-            show: keysManagePage,
           },
         ],
-        show: (clusterUIConfig?.auth_advanced || false) && (usersManagePage || keysManagePage),
+        show: clusterUIConfig?.auth_advanced || false,
       },
       {
         name: t('menu.resourcesAndSupport'),
