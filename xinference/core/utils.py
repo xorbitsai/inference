@@ -300,7 +300,11 @@ def build_subpool_envs_for_virtual_env(
     virtual_env_manager: Any,
 ) -> Dict[str, str]:
     subpool_envs = {} if envs is None else envs.copy()
-    if bool(enable_virtual_env) and virtual_env_manager is not None:
+    if enable_virtual_env is None:
+        from ..constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+
+        enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
+    if enable_virtual_env and virtual_env_manager is not None:
         from .virtual_env_manager import resolve_virtualenv_python_path
 
         venv_python = resolve_virtualenv_python_path(virtual_env_manager)

@@ -10,25 +10,17 @@ fastapi>=0.110.3,<0.137  # 0.137 stores include_router routes as _IncludedRouter
 uvicorn
 huggingface-hub>=0.19.4
 typing_extensions
-boto3>=1.28.55,<1.28.65
+modelscope>=1.10.0
 sse_starlette>=1.6.5
-openai>1
+openai>=1.40.0
 python-jose[cryptography]
 bcrypt>=4.0.0
 aioprometheus[starlette]>=23.12.0
 nvidia-ml-py
+pynvml>=12
 async-timeout
-orjson
-protobuf
 setproctitle
 uv
-loguru  # For Fish Speech
-natsort  # For Fish Speech
-ormsgpack  # For Fish Speech
-cachetools  # For Fish Speech
-imageio-ffmpeg  # For video
-opencv-contrib-python-headless
-gguf
 opentelemetry-api>=1.20.0
 opentelemetry-sdk>=1.20.0
 opentelemetry-exporter-otlp-proto-http>=1.20.0

@@ -1,42 +1,56 @@
-FROM continuumio/miniconda3:23.10.0-1
+FROM python:3.12-slim-bookworm AS web-builder
+
+ENV NVM_DIR=/usr/local/nvm
+ENV NODE_VERSION=18.20.4
+ENV PATH=$NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
 
 COPY . /opt/inference
-
-ENV NVM_DIR /usr/local/nvm
-ENV NODE_VERSION 14.21.1
+WORKDIR /opt/inference
 
 RUN apt-get -y update \
-  && apt install -y build-essential curl procps git libgl1 \
-  && mkdir -p $NVM_DIR \
+  && apt-get install -y --no-install-recommends curl ca-certificates git \
+  && python -m pip install --upgrade "setuptools<82" wheel \
+  && mkdir -p "$NVM_DIR" \
   && curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash \
-  && . $NVM_DIR/nvm.sh \
-  && nvm install $NODE_VERSION \
-  && nvm alias default $NODE_VERSION \
+  && . "$NVM_DIR/nvm.sh" \
+  && nvm install "$NODE_VERSION" \
+  && nvm alias default "$NODE_VERSION" \
   && nvm use default \
-  && apt-get -yq clean
+  && python setup.py build_web \
+  && apt-get -yq clean \
+  && rm -rf /var/lib/apt/lists/*
 
-ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
+FROM python:3.12-slim-bookworm
 
 ARG PIP_INDEX=https://pypi.org/simple
-RUN python -m pip install --upgrade -i "$PIP_INDEX" pip "setuptools<82" wheel "packaging>=24.2" && \
-    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
-    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_cpu/requirements_cpu-base.txt && \
-    pip install --no-cache-dir -i "$PIP_INDEX" --no-build-isolation "gptqmodel<6.0.0" && \
-    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_cpu/requirements_cpu-ml.txt && \
-    pip install -i "$PIP_INDEX" --upgrade-strategy  only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_cpu/requirements_cpu-models.txt && \
-    cd /opt/inference && \
-    python setup.py build_web && \
-    git restore . && \
-    pip install -i "$PIP_INDEX" --no-deps "." && \
-    pip install -i "$PIP_INDEX" "xllamacpp" && \
-    pip install -i "$PIP_INDEX" "kernels==0.14.1" && \
-    # clean packages
-    pip cache purge
 
-RUN /opt/conda/bin/conda create -n ffmpeg-env -c conda-forge 'ffmpeg<7' -y && \
-    ln -s /opt/conda/envs/ffmpeg-env/bin/ffmpeg /usr/local/bin/ffmpeg && \
-    ln -s /opt/conda/envs/ffmpeg-env/bin/ffprobe /usr/local/bin/ffprobe && \
-    /opt/conda/bin/conda clean --all -y
+ENV PYTHONUNBUFFERED=1
+ENV PIP_NO_CACHE_DIR=1
+
+COPY . /opt/inference
+COPY --from=web-builder /opt/inference/xinference/ui/web/ui/build \
+  /opt/inference/xinference/ui/web/ui/build
+WORKDIR /opt/inference
+
+RUN apt-get -y update \
+  && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    ffmpeg \
+    git \
+    libgl1 \
+    libglib2.0-0 \
+    libgomp1 \
+    libsndfile1 \
+    procps \
+    rsync \
+    sqlite3 \
+  && python -m pip install --upgrade -i "$PIP_INDEX" pip "setuptools<82" wheel \
+  && pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed \
+    -r /opt/inference/xinference/deploy/docker/requirements_cpu/requirements_cpu-base.txt \
+  && pip install -i "$PIP_INDEX" --no-deps "." \
+  && apt-get -yq clean \
+  && rm -rf /var/lib/apt/lists/*
 
 ENTRYPOINT []
 CMD ["/bin/bash"]
