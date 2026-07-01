@@ -70,15 +70,24 @@ html_title = "Xinference"
 html_static_path = ['_static']
 html_css_files = ["custom.css"]
 
-# Define the json_url for our version switcher.
-version_match = os.environ.get("READTHEDOCS_LANGUAGE")
-if not version_match:
-    version_match = "en"
-if version_match == "zh-cn":
-    tags.add("zh_cn")
-
 # Use the bundled switcher so each locale build matches its own language list.
 json_url = "_static/switcher.json"
+
+_SPHINX_LANGUAGE_TO_SWITCHER = {
+    "en": "en",
+    "zh_CN": "zh-cn",
+    "zh-cn": "zh-cn",
+    "zh_TW": "zh-tw",
+    "zh-tw": "zh-tw",
+    "ja": "ja",
+    "ko": "ko",
+    "de": "de",
+    "fr": "fr",
+    "es": "es",
+    "it": "it",
+    "pt_BR": "pt-br",
+    "pt-br": "pt-br",
+}
 
 _EXTERNAL_LINKS_BY_LOCALE = {
     "zh-cn": {"name": "产品官网", "url": "https://xinference.cn"},
@@ -91,7 +100,37 @@ _EXTERNAL_LINKS_BY_LOCALE = {
     "it": {"name": "Sito ufficiale", "url": "https://xinference.io"},
     "pt-br": {"name": "Site oficial", "url": "https://xinference.io"},
 }
-_default_external_link = {"name": "Official Site", "url": "https://xinference.io"}
+_DEFAULT_EXTERNAL_LINK = {"name": "Official Site", "url": "https://xinference.io"}
+
+# PyData theme uses this config value directly; it is not translated via gettext.
+_HEADER_DROPDOWN_TEXT_BY_LOCALE = {
+    "en": "More",
+    "zh-cn": "更多",
+    "zh-tw": "更多",
+    "ja": "その他",
+    "ko": "더보기",
+    "de": "Mehr",
+    "fr": "Plus",
+    "es": "Más",
+    "it": "Altro",
+    "pt-br": "Mais",
+}
+
+
+def _resolve_switcher_version(app):
+    rtd_language = os.environ.get("READTHEDOCS_LANGUAGE")
+    if rtd_language:
+        return rtd_language
+    language = getattr(app.config, "language", None) or "en"
+    return _SPHINX_LANGUAGE_TO_SWITCHER.get(
+        language, language.replace("_", "-").lower()
+    )
+
+
+# Initial value; refined in config-inited once Sphinx language is known.
+version_match = os.environ.get("READTHEDOCS_LANGUAGE") or "en"
+if version_match == "zh-cn":
+    tags.add("zh_cn")
 
 html_theme_options = {
     "show_toc_level": 2,
@@ -148,15 +187,32 @@ else:
     }])
 
 html_theme_options["external_links"] = [
-    _EXTERNAL_LINKS_BY_LOCALE.get(version_match, _default_external_link)
+    _EXTERNAL_LINKS_BY_LOCALE.get(version_match, _DEFAULT_EXTERNAL_LINK)
 ]
+html_theme_options["header_dropdown_text"] = _HEADER_DROPDOWN_TEXT_BY_LOCALE.get(
+    version_match, "More"
+)
 
 html_favicon = "_static/xinference-favicon.png"
 
 
+def _apply_locale_theme_options(app, config):
+    switcher_version = _resolve_switcher_version(app)
+    config.html_theme_options["switcher"]["version_match"] = switcher_version
+    config.html_theme_options["external_links"] = [
+        _EXTERNAL_LINKS_BY_LOCALE.get(switcher_version, _DEFAULT_EXTERNAL_LINK)
+    ]
+    config.html_theme_options["header_dropdown_text"] = (
+        _HEADER_DROPDOWN_TEXT_BY_LOCALE.get(switcher_version, "More")
+    )
+    if switcher_version == "zh-cn":
+        config.tags.add("zh_cn")
+
+
 def _remove_non_zh_cn_nodes(app, doctree, docname):
+    switcher_version = _resolve_switcher_version(app)
     current_language = getattr(app.config, "language", None)
-    is_zh_cn = version_match == "zh-cn" or current_language in {"zh_CN", "zh-cn"}
+    is_zh_cn = switcher_version == "zh-cn" or current_language in {"zh_CN", "zh-cn"}
     if is_zh_cn:
         return
 
@@ -171,4 +227,5 @@ def _remove_non_zh_cn_nodes(app, doctree, docname):
 
 
 def setup(app):
+    app.connect("config-inited", _apply_locale_theme_options)
     app.connect("doctree-resolved", _remove_non_zh_cn_nodes)
