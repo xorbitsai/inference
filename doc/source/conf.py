@@ -18,11 +18,15 @@ import sys
 from pathlib import Path
 
 from docutils import nodes
+from sphinx.locale import get_translation
 
 _doc_root = Path(__file__).resolve().parent.parent
 if str(_doc_root) not in sys.path:
     sys.path.insert(0, str(_doc_root))
 from i18n_locales import resolve_sphinx_language  # noqa: E402
+
+_message_catalog = "messages"
+_ = get_translation(_message_catalog)
 
 
 # -- Project information -----------------------------------------------------
@@ -124,6 +128,7 @@ if version_match == 'zh-cn' or _sphinx_language == "zh_CN":
 html_theme_options = {
     "show_toc_level": 2,
     "header_links_before_dropdown": 7,
+    "header_dropdown_text": _("More"),
     "logo": {
         "image_light": "_static/xinference-logo-light.png",
         "image_dark": "_static/xinference-logo-dark.png",
@@ -206,5 +211,9 @@ def _log_doc_progress(app, docname, source):
 
 
 def setup(app):
+    app.add_message_catalog(
+        _message_catalog,
+        os.path.join(os.path.dirname(__file__), "locale"),
+    )
     app.connect("doctree-resolved", _remove_non_zh_cn_nodes)
     app.connect("source-read", _log_doc_progress)
