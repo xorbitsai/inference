@@ -11,10 +11,18 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import os
-# import sys
+import subprocess
+import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
+from pathlib import Path
+
 from docutils import nodes
+
+_doc_root = Path(__file__).resolve().parent.parent
+if str(_doc_root) not in sys.path:
+    sys.path.insert(0, str(_doc_root))
+from i18n_locales import resolve_sphinx_language  # noqa: E402
 
 
 # -- Project information -----------------------------------------------------
@@ -75,7 +83,28 @@ version_match = os.environ.get("READTHEDOCS_LANGUAGE")
 json_url = "https://inference.readthedocs.io/en/latest/_static/switcher.json"
 if not version_match:
     version_match = 'en'
-if version_match == 'zh-cn':
+
+_sphinx_language = resolve_sphinx_language(version_match)
+if _sphinx_language:
+    language = _sphinx_language
+
+
+def _compile_mo_catalog(locale: str) -> None:
+    """Compile .po -> .mo at conf load time (RTD pre_build may run before language env is set)."""
+    po_root = _doc_root / "source" / "locale" / locale / "LC_MESSAGES"
+    if not po_root.is_dir():
+        return
+    subprocess.run(
+        [sys.executable, str(_doc_root / "build_i18n.py"), locale],
+        cwd=str(_doc_root),
+        check=True,
+    )
+
+
+if _sphinx_language:
+    _compile_mo_catalog(_sphinx_language)
+
+if version_match == 'zh-cn' or _sphinx_language == "zh_CN":
     tags.add("zh_cn")
 
 html_theme_options = {
