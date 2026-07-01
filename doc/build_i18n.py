@@ -18,10 +18,15 @@ def _messages_dir(locale: str) -> Path:
     return LOCALE_DIR / locale / "LC_MESSAGES"
 
 
-def _msgfmt_available() -> bool:
-    from shutil import which
+def _compile_po_file(po: Path, locale: str) -> None:
+    from babel.messages.mofile import write_mo
+    from babel.messages.pofile import read_po
 
-    return which("msgfmt") is not None
+    with po.open("rb") as f:
+        catalog = read_po(f, locale=locale.replace("_", "-"))
+    mo = po.with_suffix(".mo")
+    with mo.open("wb") as f:
+        write_mo(f, catalog)
 
 
 def build_mo(locale: str) -> bool:
@@ -34,23 +39,27 @@ def build_mo(locale: str) -> bool:
         print(f"[build_i18n] skip {locale}: no .po files under {po_root}", flush=True)
         return False
 
-    if not _msgfmt_available():
-        print(f"[build_i18n] compiling locale/{locale} via sphinx-intl ...", flush=True)
-        subprocess.run(
-            ["sphinx-intl", "build", "-l", locale, "-d", str(LOCALE_DIR)],
-            cwd=DOC_DIR,
-            check=True,
-        )
-        print(f"[build_i18n] done locale/{locale}", flush=True)
-        return True
-
     total = len(po_files)
     print(f"[build_i18n] compiling {total} catalogs for locale/{locale} ...", flush=True)
     for index, po in enumerate(po_files, start=1):
-        mo = po.with_suffix(".mo")
         rel = po.relative_to(po_root)
         print(f"[build_i18n] [{index}/{total}] {rel}", flush=True)
-        subprocess.run(["msgfmt", "-o", str(mo), str(po)], check=True)
+        try:
+            _compile_po_file(po, locale)
+        except Exception as exc:
+            print(f"[build_i18n] failed on {rel}: {exc}", flush=True)
+            raise
+    print(f"[build_i18n] done locale/{locale}", flush=True)
+    return True
+
+
+def _build_mo_with_sphinx_intl(locale: str) -> bool:
+    print(f"[build_i18n] compiling locale/{locale} via sphinx-intl ...", flush=True)
+    subprocess.run(
+        ["sphinx-intl", "build", "-l", locale, "-d", str(LOCALE_DIR)],
+        cwd=DOC_DIR,
+        check=True,
+    )
     print(f"[build_i18n] done locale/{locale}", flush=True)
     return True
 
@@ -80,7 +89,10 @@ def main(argv: list[str] | None = None) -> int:
         print("[build_i18n] English build; skipping mo compilation")
         return 0
 
-    build_mo(locale)
+    try:
+        build_mo(locale)
+    except ImportError:
+        _build_mo_with_sphinx_intl(locale)
     return 0
 
 

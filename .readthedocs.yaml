@@ -8,11 +8,9 @@ build:
   os: ubuntu-24.04
   tools:
     python: "3.10"
-  apt_packages:
-    - gettext
   jobs:
-    # Compile .mo before Sphinx so conf.py does not repeat the work silently.
-    pre_build:
+    # Run after .[doc] is installed so babel/sphinx-intl are available.
+    post_install:
       - cd doc && python build_i18n.py
 
 python:
