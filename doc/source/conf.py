@@ -11,10 +11,18 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import os
-# import sys
+import subprocess
+import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
+from pathlib import Path
+
 from docutils import nodes
+
+_doc_root = Path(__file__).resolve().parent.parent
+if str(_doc_root) not in sys.path:
+    sys.path.insert(0, str(_doc_root))
+from i18n_locales import resolve_sphinx_language  # noqa: E402
 
 
 # -- Project information -----------------------------------------------------
@@ -70,13 +78,100 @@ html_title = "Xinference"
 html_static_path = ['_static']
 html_css_files = ["custom.css"]
 
-# Define the json_url for our version switcher.
-version_match = os.environ.get("READTHEDOCS_LANGUAGE")
-json_url = "https://inference.readthedocs.io/en/latest/_static/switcher.json"
-if not version_match:
-    version_match = 'en'
-if version_match == 'zh-cn':
+json_url = "_static/switcher.json"
+
+_SPHINX_LANGUAGE_TO_SWITCHER = {
+    "en": "en",
+    "zh_CN": "zh-cn",
+    "zh-cn": "zh-cn",
+    "zh_TW": "zh-tw",
+    "zh-tw": "zh-tw",
+    "ja": "ja",
+    "ko": "ko",
+    "de": "de",
+    "fr": "fr",
+    "es": "es",
+    "it": "it",
+    "pt_BR": "pt-br",
+    "pt-br": "pt-br",
+}
+
+_EXTERNAL_LINKS_BY_LOCALE = {
+    "zh-cn": {"name": "产品官网", "url": "https://xinference.cn"},
+    "zh-tw": {"name": "產品官網", "url": "https://xinference.cn"},
+    "ja": {"name": "公式サイト", "url": "https://xinference.io"},
+    "ko": {"name": "공식 사이트", "url": "https://xinference.io"},
+    "de": {"name": "Offizielle Website", "url": "https://xinference.io"},
+    "fr": {"name": "Site officiel", "url": "https://xinference.io"},
+    "es": {"name": "Sitio oficial", "url": "https://xinference.io"},
+    "it": {"name": "Sito ufficiale", "url": "https://xinference.io"},
+    "pt-br": {"name": "Site oficial", "url": "https://xinference.io"},
+}
+_DEFAULT_EXTERNAL_LINK = {"name": "Official Site", "url": "https://xinference.io"}
+
+# PyData theme reads this directly; it is not translated via gettext catalogs.
+_HEADER_DROPDOWN_TEXT_BY_LOCALE = {
+    "en": "More",
+    "zh-cn": "更多",
+    "zh-tw": "更多",
+    "ja": "その他",
+    "ko": "더보기",
+    "de": "Mehr",
+    "fr": "Plus",
+    "es": "Más",
+    "it": "Altro",
+    "pt-br": "Mais",
+}
+
+version_match = os.environ.get("READTHEDOCS_LANGUAGE") or "en"
+
+_sphinx_language = resolve_sphinx_language(version_match)
+if _sphinx_language:
+    language = _sphinx_language
+
+
+def _locale_po_files(locale: str) -> list[Path]:
+    po_root = _doc_root / "source" / "locale" / locale / "LC_MESSAGES"
+    if not po_root.is_dir():
+        return []
+    return sorted(po_root.rglob("*.po"))
+
+
+def _needs_mo_compile(locale: str) -> bool:
+    for po in _locale_po_files(locale):
+        mo = po.with_suffix(".mo")
+        if not mo.is_file() or mo.stat().st_mtime < po.stat().st_mtime:
+            return True
+    return False
+
+
+def _compile_mo_catalog(locale: str) -> None:
+    """Compile .po -> .mo when catalogs are missing or stale."""
+    if not _locale_po_files(locale):
+        return
+    subprocess.run(
+        [sys.executable, str(_doc_root / "build_i18n.py"), locale],
+        cwd=str(_doc_root),
+        check=True,
+    )
+
+
+if _sphinx_language and _needs_mo_compile(_sphinx_language):
+    _compile_mo_catalog(_sphinx_language)
+
+if version_match == 'zh-cn' or _sphinx_language == "zh_CN":
     tags.add("zh_cn")
+
+
+def _resolve_switcher_version(app):
+    rtd_language = os.environ.get("READTHEDOCS_LANGUAGE")
+    if rtd_language:
+        return rtd_language
+    current_language = getattr(app.config, "language", None) or "en"
+    return _SPHINX_LANGUAGE_TO_SWITCHER.get(
+        current_language, current_language.replace("_", "-").lower()
+    )
+
 
 html_theme_options = {
     "show_toc_level": 2,
@@ -123,9 +218,6 @@ if version_match != 'zh-cn':
         "icon": "fa-brands fa-twitter",
         "type": "fontawesome",
     }])
-    html_theme_options["external_links"] = [
-        {"name": "Official Site", "url": "https://xinference.io"},
-    ]
     html_theme_options["header_links_before_dropdown"] = 3
 else:
     html_theme_options['icon_links'].extend([{
@@ -134,16 +226,34 @@ else:
         "icon": "fa-brands fa-zhihu",
         "type": "fontawesome",
     }])
-    html_theme_options["external_links"] = [
-        {"name": "产品官网", "url": "https://xinference.cn"},
-    ]
+
+html_theme_options["external_links"] = [
+    _EXTERNAL_LINKS_BY_LOCALE.get(version_match, _DEFAULT_EXTERNAL_LINK)
+]
+html_theme_options["header_dropdown_text"] = _HEADER_DROPDOWN_TEXT_BY_LOCALE.get(
+    version_match, "More"
+)
 
 html_favicon = "_static/xinference-favicon.png"
 
 
+def _apply_locale_theme_options(app, config):
+    switcher_version = _resolve_switcher_version(app)
+    config.html_theme_options["switcher"]["version_match"] = switcher_version
+    config.html_theme_options["external_links"] = [
+        _EXTERNAL_LINKS_BY_LOCALE.get(switcher_version, _DEFAULT_EXTERNAL_LINK)
+    ]
+    config.html_theme_options["header_dropdown_text"] = (
+        _HEADER_DROPDOWN_TEXT_BY_LOCALE.get(switcher_version, "More")
+    )
+    if switcher_version == "zh-cn":
+        config.tags.add("zh_cn")
+
+
 def _remove_non_zh_cn_nodes(app, doctree, docname):
+    switcher_version = _resolve_switcher_version(app)
     current_language = getattr(app.config, "language", None)
-    is_zh_cn = version_match == "zh-cn" or current_language in {"zh_CN", "zh-cn"}
+    is_zh_cn = switcher_version == "zh-cn" or current_language in {"zh_CN", "zh-cn"}
     if is_zh_cn:
         return
 
@@ -157,5 +267,12 @@ def _remove_non_zh_cn_nodes(app, doctree, docname):
             node.parent.remove(node)
 
 
+def _log_doc_progress(app, docname, source):
+    if os.environ.get("READTHEDOCS") == "True":
+        print(f"[sphinx] reading: {docname}", flush=True)
+
+
 def setup(app):
+    app.connect("config-inited", _apply_locale_theme_options)
     app.connect("doctree-resolved", _remove_non_zh_cn_nodes)
+    app.connect("source-read", _log_doc_progress)
