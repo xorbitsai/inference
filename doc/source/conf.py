@@ -89,10 +89,24 @@ if _sphinx_language:
     language = _sphinx_language
 
 
-def _compile_mo_catalog(locale: str) -> None:
-    """Compile .po -> .mo at conf load time (RTD pre_build may run before language env is set)."""
+def _locale_po_files(locale: str) -> list[Path]:
     po_root = _doc_root / "source" / "locale" / locale / "LC_MESSAGES"
     if not po_root.is_dir():
+        return []
+    return sorted(po_root.rglob("*.po"))
+
+
+def _needs_mo_compile(locale: str) -> bool:
+    for po in _locale_po_files(locale):
+        mo = po.with_suffix(".mo")
+        if not mo.is_file() or mo.stat().st_mtime < po.stat().st_mtime:
+            return True
+    return False
+
+
+def _compile_mo_catalog(locale: str) -> None:
+    """Compile .po -> .mo when catalogs are missing or stale."""
+    if not _locale_po_files(locale):
         return
     subprocess.run(
         [sys.executable, str(_doc_root / "build_i18n.py"), locale],
@@ -101,7 +115,7 @@ def _compile_mo_catalog(locale: str) -> None:
     )
 
 
-if _sphinx_language:
+if _sphinx_language and _needs_mo_compile(_sphinx_language):
     _compile_mo_catalog(_sphinx_language)
 
 if version_match == 'zh-cn' or _sphinx_language == "zh_CN":
@@ -186,5 +200,11 @@ def _remove_non_zh_cn_nodes(app, doctree, docname):
             node.parent.remove(node)
 
 
+def _log_doc_progress(app, docname, source):
+    if os.environ.get("READTHEDOCS") == "True":
+        print(f"[sphinx] reading: {docname}", flush=True)
+
+
 def setup(app):
     app.connect("doctree-resolved", _remove_non_zh_cn_nodes)
+    app.connect("source-read", _log_doc_progress)

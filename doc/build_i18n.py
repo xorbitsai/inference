@@ -18,17 +18,40 @@ def _messages_dir(locale: str) -> Path:
     return LOCALE_DIR / locale / "LC_MESSAGES"
 
 
+def _msgfmt_available() -> bool:
+    from shutil import which
+
+    return which("msgfmt") is not None
+
+
 def build_mo(locale: str) -> bool:
     po_root = _messages_dir(locale)
     if not po_root.is_dir():
-        print(f"[build_i18n] skip {locale}: missing {po_root}")
+        print(f"[build_i18n] skip {locale}: missing {po_root}", flush=True)
         return False
-    print(f"[build_i18n] compiling locale/{locale} ...")
-    subprocess.run(
-        ["sphinx-intl", "build", "-l", locale, "-d", str(LOCALE_DIR)],
-        cwd=DOC_DIR,
-        check=True,
-    )
+    po_files = sorted(po_root.rglob("*.po"))
+    if not po_files:
+        print(f"[build_i18n] skip {locale}: no .po files under {po_root}", flush=True)
+        return False
+
+    if not _msgfmt_available():
+        print(f"[build_i18n] compiling locale/{locale} via sphinx-intl ...", flush=True)
+        subprocess.run(
+            ["sphinx-intl", "build", "-l", locale, "-d", str(LOCALE_DIR)],
+            cwd=DOC_DIR,
+            check=True,
+        )
+        print(f"[build_i18n] done locale/{locale}", flush=True)
+        return True
+
+    total = len(po_files)
+    print(f"[build_i18n] compiling {total} catalogs for locale/{locale} ...", flush=True)
+    for index, po in enumerate(po_files, start=1):
+        mo = po.with_suffix(".mo")
+        rel = po.relative_to(po_root)
+        print(f"[build_i18n] [{index}/{total}] {rel}", flush=True)
+        subprocess.run(["msgfmt", "-o", str(mo), str(po)], check=True)
+    print(f"[build_i18n] done locale/{locale}", flush=True)
     return True
 
 
