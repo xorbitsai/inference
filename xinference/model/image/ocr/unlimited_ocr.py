@@ -146,10 +146,10 @@ class UnlimitedOCRModel(OCRModel):
             if getattr(config, "pad_token_id", None) is None:
                 config.pad_token_id = self._tokenizer.eos_token_id
             # Resolve the target device once so the model lands on the GPU
-            # picked by Xinference's scheduler (``self._device``) instead of
-            # always falling back to ``cuda:0``. Default to ``cuda`` when no
-            # device is configured, mirroring the previous behavior.
-            device = self._device or "cuda"
+            # picked by Xinference's scheduler (``self._device``). When no
+            # device is configured, choose CUDA only if it is actually available
+            # so CPU-only launches do not accidentally try to load on CUDA.
+            device = self._device or ("cuda" if torch.cuda.is_available() else "cpu")
             if device != "cpu":
                 model = AutoModel.from_pretrained(
                     self._model_path,
