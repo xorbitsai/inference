@@ -279,4 +279,4 @@ The main code is located in the `xinference/ <https://github.com/xorbitsai/infer
 - `model/ <https://github.com/xorbitsai/inference/tree/main/xinference/model>`_: It provides a structure for model descriptions, creation,
   and caching. See `Model`_ for more information.
 
-- `web/ui/ <https://github.com/xorbitsai/inference/tree/main/xinference/web/ui>`_: The js code of the frontend (Web UI).
+- `frontend/ <https://github.com/xorbitsai/inference/tree/main/frontend>`_: The Next.js code of the frontend (Web UI).

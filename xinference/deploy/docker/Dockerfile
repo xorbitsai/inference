@@ -4,7 +4,7 @@ COPY . /opt/inference
 WORKDIR /opt/inference
 
 ENV NVM_DIR=/usr/local/nvm
-ENV NODE_VERSION=14.21.1
+ENV NODE_VERSION=20.19.0
 
 # Install system dependencies and Node.js (libfst-dev should be able to solve the errors of pyini)
 RUN apt-get -y update \
