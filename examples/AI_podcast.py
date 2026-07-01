@@ -388,7 +388,7 @@ if __name__ == "__main__":
 
     del chat_history
     bye_msg1 = (
-        ": Thank you for chatting with our extraordinary AI agents from Xinference.inc. "
+        ": Thank you for chatting with our extraordinary AI agents from Xinference Inc. "
     )
     bye_msg2 = (
         ": We will keep helping more people in need and make the world a better place!"
