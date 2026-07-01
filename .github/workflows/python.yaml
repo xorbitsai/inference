@@ -77,7 +77,7 @@ jobs:
           - { os: windows-latest, python-version: 3.11 }
           - { os: windows-latest, python-version: 3.12 }
         include:
-          # - { os: gpu-t4, module: gpu, python-version: "3.12"}      commented out temporarily
+          - { os: gpu-t4, module: gpu, python-version: "3.12"}
           - { os: macos-latest, module: metal, python-version: "3.10" }
 
     steps:
@@ -218,6 +218,7 @@ jobs:
             pip install -U "pynvml"
             pip install "transformers==4.53.2"
             pip install "funasr==1.2.7"
+            conda install -y -c conda-forge "pynini==2.1.5"
             pip install -U "nemo_text_processing<1.1.0"
             pip install -U omegaconf~=2.3.0
             pip install -U "WeTextProcessing<1.0.4"
@@ -226,7 +227,7 @@ jobs:
             pip install -U "ChatTTS==0.2.4"
             pip install -U HyperPyYAML
             pip uninstall -y matcha-tts
-            pip install -U onnxruntime-gpu==1.16.0; sys_platform == 'linux'
+            pip install -U 'onnxruntime==1.27.0; sys_platform == "linux"'
             pip install -U openai-whisper
             pip install -U "torch==2.7.0" "torchaudio==2.7.0" "torchvision==0.22.0"
             pip install -U "loguru"
@@ -240,7 +241,7 @@ jobs:
             pip install -U cachetools
             pip install -U silero-vad
             pip install -U pydantic
-            pip install -U diffusers
+            pip install -U "diffusers==0.35.1"
             pip install -U onnx
             pip install -U onnxconverter_common
             pip install -U torchdiffeq
@@ -282,9 +283,6 @@ jobs:
             pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_cosyvoice.py && \
-            pytest --timeout=3000 \
-              -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_f5tts.py && \
             pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_f5tts.py && \
