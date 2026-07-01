@@ -13,8 +13,11 @@ RTD_TO_SPHINX_LOCALE: dict[str, str] = {
     "ja": "ja",
     "ko": "ko",
     "pt-br": "pt_BR",
+    "pt_br": "pt_BR",
     "zh-cn": "zh_CN",
+    "zh_cn": "zh_CN",
     "zh-tw": "zh_TW",
+    "zh_tw": "zh_TW",
 }
 
 KNOWN_LOCALES: tuple[str, ...] = tuple(sorted(set(RTD_TO_SPHINX_LOCALE.values())))

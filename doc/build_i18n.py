@@ -23,7 +23,7 @@ def _compile_po_file(po: Path, locale: str) -> None:
     from babel.messages.pofile import read_po
 
     with po.open("rb") as f:
-        catalog = read_po(f, locale=locale.replace("_", "-"))
+        catalog = read_po(f, locale=locale)
     mo = po.with_suffix(".mo")
     with mo.open("wb") as f:
         write_mo(f, catalog)
