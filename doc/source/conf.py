@@ -72,11 +72,26 @@ html_css_files = ["custom.css"]
 
 # Define the json_url for our version switcher.
 version_match = os.environ.get("READTHEDOCS_LANGUAGE")
-json_url = "https://inference.readthedocs.io/en/latest/_static/switcher.json"
 if not version_match:
-    version_match = 'en'
-if version_match == 'zh-cn':
+    version_match = "en"
+if version_match == "zh-cn":
     tags.add("zh_cn")
+
+# Use the bundled switcher so each locale build matches its own language list.
+json_url = "_static/switcher.json"
+
+_EXTERNAL_LINKS_BY_LOCALE = {
+    "zh-cn": {"name": "产品官网", "url": "https://xinference.cn"},
+    "zh-tw": {"name": "產品官網", "url": "https://xinference.cn"},
+    "ja": {"name": "公式サイト", "url": "https://xinference.io"},
+    "ko": {"name": "공식 사이트", "url": "https://xinference.io"},
+    "de": {"name": "Offizielle Website", "url": "https://xinference.io"},
+    "fr": {"name": "Site officiel", "url": "https://xinference.io"},
+    "es": {"name": "Sitio oficial", "url": "https://xinference.io"},
+    "it": {"name": "Sito ufficiale", "url": "https://xinference.io"},
+    "pt-br": {"name": "Site oficial", "url": "https://xinference.io"},
+}
+_default_external_link = {"name": "Official Site", "url": "https://xinference.io"}
 
 html_theme_options = {
     "show_toc_level": 2,
@@ -123,9 +138,6 @@ if version_match != 'zh-cn':
         "icon": "fa-brands fa-twitter",
         "type": "fontawesome",
     }])
-    html_theme_options["external_links"] = [
-        {"name": "Official Site", "url": "https://xinference.io"},
-    ]
     html_theme_options["header_links_before_dropdown"] = 3
 else:
     html_theme_options['icon_links'].extend([{
@@ -134,9 +146,10 @@ else:
         "icon": "fa-brands fa-zhihu",
         "type": "fontawesome",
     }])
-    html_theme_options["external_links"] = [
-        {"name": "产品官网", "url": "https://xinference.cn"},
-    ]
+
+html_theme_options["external_links"] = [
+    _EXTERNAL_LINKS_BY_LOCALE.get(version_match, _default_external_link)
+]
 
 html_favicon = "_static/xinference-favicon.png"
 
