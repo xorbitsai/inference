@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import platform
 from typing import TYPE_CHECKING
 
+from ..utils import has_cuda_device
 from .engine_family import SUPPORTED_ENGINES, ImageEngineModel
+from .sglang.core import SGLANG_SUPPORTED_IMAGE_MODELS, SGLangDiffusionModel
 from .stable_diffusion.core import DiffusionModel
 
 if TYPE_CHECKING:
@@ -45,18 +48,18 @@ class VLLMImageModel(ImageEngineModel):
         )
 
 
-class SGLangImageModel(ImageEngineModel):
-    @classmethod
-    def match(cls, model_family: "ImageModelFamilyV2") -> bool:
-        _ = model_family
-        return False
+class SGLangImageModel(SGLangDiffusionModel, ImageEngineModel):
+    engine_model_format = "diffusers"
+    engine_quantization = "none"
+    required_libs = ("sglang",)
 
     @classmethod
-    def check_lib(cls):
-        return (
-            False,
-            "Engine SGLang is not compatible with current image model or environment",
-        )
+    def match(cls, model_family: "ImageModelFamilyV2") -> bool:
+        if platform.system() != "Linux":
+            return False
+        if not has_cuda_device():
+            return False
+        return model_family.model_name in SGLANG_SUPPORTED_IMAGE_MODELS
 
 
 def register_builtin_image_engines() -> None:
