@@ -173,6 +173,18 @@ def _resolve_switcher_version(app):
     )
 
 
+def _apply_switcher_theme_options(theme_options, switcher_version):
+    switcher = theme_options.setdefault("switcher", {})
+    switcher.setdefault("json_url", json_url)
+    switcher["version_match"] = switcher_version
+    theme_options["external_links"] = [
+        _EXTERNAL_LINKS_BY_LOCALE.get(switcher_version, _DEFAULT_EXTERNAL_LINK)
+    ]
+    theme_options["header_dropdown_text"] = _HEADER_DROPDOWN_TEXT_BY_LOCALE.get(
+        switcher_version, "More"
+    )
+
+
 html_theme_options = {
     "show_toc_level": 2,
     "header_links_before_dropdown": 7,
@@ -227,27 +239,12 @@ else:
         "type": "fontawesome",
     }])
 
-html_theme_options["external_links"] = [
-    _EXTERNAL_LINKS_BY_LOCALE.get(version_match, _DEFAULT_EXTERNAL_LINK)
-]
-html_theme_options["header_dropdown_text"] = _HEADER_DROPDOWN_TEXT_BY_LOCALE.get(
-    version_match, "More"
-)
-
 html_favicon = "_static/xinference-favicon.png"
 
 
 def _apply_locale_theme_options(app, config):
     switcher_version = _resolve_switcher_version(app)
-    config.html_theme_options.setdefault("switcher", {})[
-        "version_match"
-    ] = switcher_version
-    config.html_theme_options["external_links"] = [
-        _EXTERNAL_LINKS_BY_LOCALE.get(switcher_version, _DEFAULT_EXTERNAL_LINK)
-    ]
-    config.html_theme_options["header_dropdown_text"] = (
-        _HEADER_DROPDOWN_TEXT_BY_LOCALE.get(switcher_version, "More")
-    )
+    _apply_switcher_theme_options(config.html_theme_options, switcher_version)
     if switcher_version == "zh-cn":
         config.tags.add("zh_cn")
 

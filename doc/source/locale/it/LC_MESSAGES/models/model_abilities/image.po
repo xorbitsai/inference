@@ -3,7 +3,6 @@
 # This file is distributed under the same license as the Xinference package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
 #
-#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: Xinference\n"
@@ -177,7 +176,7 @@ msgstr "Guida rapida"
 
 #: ../../source/models/model_abilities/image.rst:65
 msgid "Text-to-image"
-msgstr "Traduzione richiesta: \"Testo in immagine\""
+msgstr "Testo in immagine"
 
 #: ../../source/models/model_abilities/image.rst:67
 msgid ""
