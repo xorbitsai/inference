@@ -144,8 +144,8 @@ msgstr ""
 msgid ""
 "With Xinference, you can deploy the model easily by just adding a few lines "
 "of code. For examples, for launching the vicuna model in the demo, just by::"
-msgstr ""
-"Xinferenceを使用すれば、数行のコードを追加するだけでモデルを簡単にデプロイできます。例えば、デモでvicunaモデルを起動するには、以下の操作だけで済みます："
+msgstr "Xinferenceを使用すれば、数行のコードを追加するだけでモデルを簡単にデプロイできます。例えば、デモでvicunaモデルを起動するには"
+"、以下の操作だけで済みます::"
 
 #: ../../source/examples/ai_podcast.rst:68
 msgid ""
