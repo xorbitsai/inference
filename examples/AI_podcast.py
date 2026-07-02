@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -388,7 +388,7 @@ if __name__ == "__main__":
 
     del chat_history
     bye_msg1 = (
-        ": Thank you for chatting with our extraordinary AI agents from Xprobe.inc. "
+        ": Thank you for chatting with our extraordinary AI agents from Xinference Holdings Pte. Ltd "
     )
     bye_msg2 = (
         ": We will keep helping more people in need and make the world a better place!"

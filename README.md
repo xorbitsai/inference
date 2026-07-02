@@ -111,7 +111,7 @@ Quickly get Xinference running in your environment with this [starter guide](#ge
 Use our [documentation](https://inference.readthedocs.io/) for further references and more in-depth instructions.
 
 - **Xinference for enterprise / organizations</br>**
-We provide additional enterprise-centric features. [send us an email](mailto:business@xprobe.io?subject=[GitHub]Business%20License%20Inquiry) to discuss enterprise needs. </br>
+We provide additional enterprise-centric features. [send us an email](mailto:info@xinference.co?subject=[GitHub]Business%20License%20Inquiry) to discuss enterprise needs. </br>
 
 ## Staying Ahead
 

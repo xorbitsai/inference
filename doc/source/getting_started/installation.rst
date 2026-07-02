@@ -150,4 +150,6 @@ Initial setup::
 Other Platforms
 ~~~~~~~~~~~~~~~
 
-* :ref:`Ascend NPU <installation_npu>`
+.. only:: zh_cn
+
+   * :ref:`Ascend NPU <installation_npu>`
