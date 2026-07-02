@@ -64,6 +64,13 @@ def _build_mo_with_sphinx_intl(locale: str) -> bool:
     return True
 
 
+def _build_mo_with_fallback(locale: str) -> bool:
+    try:
+        return build_mo(locale)
+    except ImportError:
+        return _build_mo_with_sphinx_intl(locale)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -79,7 +86,16 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.all:
-        built = [loc for loc in KNOWN_LOCALES if build_mo(loc)]
+        built = []
+        for loc in KNOWN_LOCALES:
+            try:
+                if _build_mo_with_fallback(loc):
+                    built.append(loc)
+            except Exception as exc:
+                print(
+                    f"[build_i18n] failed to build {loc}: {exc}",
+                    flush=True,
+                )
         if not built:
             print("[build_i18n] no locale directories found")
         return 0
@@ -89,10 +105,7 @@ def main(argv: list[str] | None = None) -> int:
         print("[build_i18n] English build; skipping mo compilation")
         return 0
 
-    try:
-        build_mo(locale)
-    except ImportError:
-        _build_mo_with_sphinx_intl(locale)
+    _build_mo_with_fallback(locale)
     return 0
 
 
