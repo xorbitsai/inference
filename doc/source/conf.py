@@ -78,7 +78,7 @@ html_title = "Xinference"
 html_static_path = ['_static']
 html_css_files = ["custom.css"]
 
-json_url = "_static/switcher.json"
+json_url = "https://inference.readthedocs.io/en/latest/_static/switcher.json"
 
 _SPHINX_LANGUAGE_TO_SWITCHER = {
     "en": "en",
@@ -161,13 +161,6 @@ def _compile_mo_catalog(locale: str) -> None:
             f"({exc}); continuing with existing .mo files if any",
             flush=True,
         )
-
-
-if _sphinx_language and _needs_mo_compile(_sphinx_language):
-    _compile_mo_catalog(_sphinx_language)
-
-if version_match == 'zh-cn' or _sphinx_language == "zh_CN":
-    tags.add("zh_cn")
 
 
 def _resolve_switcher_version(app):
@@ -280,6 +273,10 @@ def _log_doc_progress(app, docname, source):
 
 
 def setup(app):
+    if _sphinx_language and _needs_mo_compile(_sphinx_language):
+        _compile_mo_catalog(_sphinx_language)
+    if version_match == "zh-cn" or _sphinx_language == "zh_CN":
+        app.tags.add("zh_cn")
     app.connect("config-inited", _apply_locale_theme_options)
     app.connect("doctree-resolved", _remove_non_zh_cn_nodes)
     app.connect("source-read", _log_doc_progress)
