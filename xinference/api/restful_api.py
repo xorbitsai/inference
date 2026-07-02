@@ -569,7 +569,9 @@ class RESTfulAPI(CancelMixin):
         except ImportError as e:
             raise ImportError(f"Xinference is imported incorrectly: {e}")
 
-        frontend_endpoint = os.environ.get("XINFERENCE_FRONTEND_ENDPOINT", "http://127.0.0.1:3999")
+        frontend_endpoint = os.environ.get(
+            "XINFERENCE_FRONTEND_ENDPOINT", "http://127.0.0.1:3999"
+        )
         if frontend_endpoint:
             frontend_endpoint = frontend_endpoint.rstrip("/")
 
