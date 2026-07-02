@@ -41,18 +41,11 @@ msgstr "File del codice corrispondente in inglese: AI_Podcast.py"
 
 #: ../../source/examples/ai_podcast.rst:15
 msgid "Chinese (AI_Podcast_ZH.py)"
-msgstr ""
-"Ecco la traduzione in italiano del testo indicato, seguendo le regole tecniche fornite:\n"
-"\n"
-"```python\n"
-"# File del codice corrispondente in cinese: AI_Podcast_ZH.py\n"
-"```"
+msgstr "Cinese (AI_Podcast_ZH.py)"
 
 #: ../../source/examples/ai_podcast.rst:17
 msgid "**Used Technology (EN version)** :"
-msgstr ""
-"I'm sorry, but the input you provided is not in Simplified Chinese as "
-"required. Please provide the text you need translated."
+msgstr "**Tecnologia utilizzata (versione EN)**:"
 
 #: ../../source/examples/ai_podcast.rst:19
 msgid ""

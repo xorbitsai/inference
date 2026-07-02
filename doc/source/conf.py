@@ -239,7 +239,9 @@ html_favicon = "_static/xinference-favicon.png"
 
 def _apply_locale_theme_options(app, config):
     switcher_version = _resolve_switcher_version(app)
-    config.html_theme_options["switcher"]["version_match"] = switcher_version
+    config.html_theme_options.setdefault("switcher", {})[
+        "version_match"
+    ] = switcher_version
     config.html_theme_options["external_links"] = [
         _EXTERNAL_LINKS_BY_LOCALE.get(switcher_version, _DEFAULT_EXTERNAL_LINK)
     ]
