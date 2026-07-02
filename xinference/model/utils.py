@@ -547,6 +547,25 @@ def check_dependency_available(
     return True
 
 
+@functools.lru_cache
+def has_cuda_device() -> bool:
+    # use pynvml rather than torch to avoid initializing CUDA on import
+    device_count = 0
+    try:
+        from pynvml import nvmlDeviceGetCount, nvmlInit, nvmlShutdown
+
+        nvmlInit()
+        device_count = nvmlDeviceGetCount()
+    except Exception:
+        pass
+    finally:
+        try:
+            nvmlShutdown()
+        except Exception:
+            pass
+    return device_count > 0
+
+
 def is_locale_chinese_simplified() -> bool:
     import locale
 

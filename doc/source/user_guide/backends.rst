@@ -189,6 +189,11 @@ SGLang
 It significantly accelerates the execution of complex LLM programs by automatic KV cache reuse across multiple calls.
 And it also supports other common techniques like continuous batching and tensor parallelism.
 
+Besides LLMs, SGLang can also serve as the engine for some text-to-image models
+(e.g. ``Qwen-Image``, ``Z-Image-Turbo``) on Linux with NVIDIA GPUs, see
+:ref:`image engines <image>`. This requires SGLang with diffusion support:
+``pip install 'sglang[diffusion]'``.
+
 .. _mlx_backend:
 
 MLX
