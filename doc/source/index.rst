@@ -1,5 +1,7 @@
 .. _index:
 
+.. RTD PR-preview check test (es translation) - safe to remove after verification
+
 ======================
 Welcome to Xinference!
 ======================
