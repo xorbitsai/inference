@@ -61,15 +61,13 @@ msgid ""
 "cause the Continuous Integration to fail. Therefore, it is advisable to run "
 "the check yourself before submitting code. This can be done by installing "
 "``pre-commit``::"
-msgstr ""
-"此外，持續整合將使用 `pre-commit hooks <https://pre-commit.com/>`_ 執行如 "
-"``black``、``flake8``、``isort`` "
-"等程式碼格式檢查工具。任何由這些檢查產生的警告都將導致持續整合失敗。因此，建議在提交程式碼之前自行執行這些檢查。可以在 Xinference "
-"倉儲的根目錄下安裝 ``pre-commit`` 來完成此操作："
+msgstr "此外，持續整合將使用 `pre-commit hooks <https://pre-commit.com/>`_ 執行如 ``black``"
+"、``flake8``、``isort`` 等程式碼格式檢查工具。任何由這些檢查產生的警告都將導致持續整合失敗。因此，建議在提交程式碼之前自"
+"行執行這些檢查。可以在 Xinference 倉儲的根目錄下安裝 ``pre-commit`` 來完成此操作::"
 
 #: ../../source/development/contributing_codebase.rst:30
 msgid "and then running::"
-msgstr "然後執行命令："
+msgstr "然後執行命令::"
 
 #: ../../source/development/contributing_codebase.rst:34
 msgid ""
@@ -92,7 +90,7 @@ msgstr "請注意，如果需要，您可以透過使用 ``git commit --no-verif
 msgid ""
 "If you don't want to use ``pre-commit`` as part of your workflow, you can "
 "still use it to run its checks with::"
-msgstr "如果您不想將 ``pre-commit`` 作為工作流程的一部分，仍然可以執行以下命令來使用它進行檢查："
+msgstr "如果您不想將 ``pre-commit`` 作為工作流程的一部分，仍然可以執行以下命令來使用它進行檢查::"
 
 #: ../../source/development/contributing_codebase.rst:46
 #: ../../source/development/contributing_codebase.rst:52
@@ -103,7 +101,7 @@ msgstr "而不需要事先執行 ``pre-commit install``。"
 msgid ""
 "If you want to run checks on all recently committed files on upstream/main "
 "you can use::"
-msgstr "如果您想在所有最近提交的檔案上執行檢查，您可以使用以下命令："
+msgstr "如果您想在所有最近提交的檔案上執行檢查，您可以使用以下命令::"
 
 #: ../../source/development/contributing_codebase.rst:56
 msgid ""
@@ -153,7 +151,7 @@ msgstr "此外，您還需要"
 msgid ""
 "Write a new test that asserts a warning is issued when calling with the "
 "deprecated argument"
-msgstr "編寫一個新的測試範例，在呼叫帶有棄用參數時會發出警告。"
+msgstr "編寫一個新的測試範例，斷言在呼叫帶有棄用參數時會發出警告。"
 
 #: ../../source/development/contributing_codebase.rst:79
 msgid ""
