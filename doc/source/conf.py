@@ -78,7 +78,7 @@ html_title = "Xinference"
 html_static_path = ['_static']
 html_css_files = ["custom.css"]
 
-json_url = "_static/switcher.json"
+json_url = "https://inference.readthedocs.io/en/latest/_static/switcher.json"
 
 _SPHINX_LANGUAGE_TO_SWITCHER = {
     "en": "en",

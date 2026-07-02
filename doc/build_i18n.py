@@ -62,6 +62,10 @@ def build_mo(locale: str) -> bool:
 
 
 def _build_mo_with_sphinx_intl(locale: str) -> bool:
+    po_root = _messages_dir(locale)
+    if not po_root.is_dir():
+        print(f"[build_i18n] skip {locale}: missing {po_root}", flush=True)
+        return False
     print(f"[build_i18n] compiling locale/{locale} via sphinx-intl ...", flush=True)
     subprocess.run(
         ["sphinx-intl", "build", "-l", locale, "-d", str(LOCALE_DIR)],
