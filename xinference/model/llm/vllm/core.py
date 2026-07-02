@@ -191,9 +191,9 @@ StructuredOutputsParams: Optional[Type[Any]] = None
 
 def _init_guided_decoding_classes() -> None:
     # Also re-invoked from VLLMModel after VLLM_VERSION is reassigned at runtime.
+    # Detect into locals and publish at the end so a concurrent async_generate
+    # coroutine (paused at an await) never observes a transient None.
     global GuidedDecodingParams, StructuredOutputsParams
-    GuidedDecodingParams = None
-    StructuredOutputsParams = None
     if not (
         VLLM_INSTALLED
         and VLLM_VERSION is not None
@@ -211,8 +211,12 @@ def _init_guided_decoding_classes() -> None:
                 VLLM_VERSION,
             )
         return
+
+    local_guided: Optional[Type[Any]] = None
+    local_structured: Optional[Type[Any]] = None
+
     if supports_guided and hasattr(_sampling_params, "GuidedDecodingParams"):
-        GuidedDecodingParams = _sampling_params.GuidedDecodingParams
+        local_guided = _sampling_params.GuidedDecodingParams
     elif supports_guided:
         logger.debug(
             "GuidedDecodingParams not found in vLLM %s, "
@@ -221,13 +225,16 @@ def _init_guided_decoding_classes() -> None:
         )
 
     if hasattr(_sampling_params, "StructuredOutputsParams"):
-        StructuredOutputsParams = _sampling_params.StructuredOutputsParams
-    elif GuidedDecodingParams is None:
+        local_structured = _sampling_params.StructuredOutputsParams
+    elif local_guided is None:
         logger.warning(
             "No guided decoding support found in vLLM %s "
             "(GuidedDecodingParams / StructuredOutputsParams).",
             VLLM_VERSION,
         )
+
+    GuidedDecodingParams = local_guided
+    StructuredOutputsParams = local_structured
 
 
 _init_guided_decoding_classes()
