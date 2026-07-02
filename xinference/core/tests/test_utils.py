@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 from ..utils import (
     build_replica_model_uid,
     build_subpool_envs_for_virtual_env,
@@ -71,3 +73,17 @@ def test_build_subpool_envs_for_virtual_env_enabled():
     assert result["VIRTUAL_ENV"] == "/venv"
     assert result["FLASHINFER_NINJA_PATH"] == "/custom/ninja"
     assert result is not base_envs
+
+
+def test_build_subpool_envs_for_virtual_env_uses_global_default(monkeypatch):
+    monkeypatch.setattr(
+        "xinference.constants.XINFERENCE_ENABLE_VIRTUAL_ENV",
+        True,
+    )
+    manager = DummyVirtualEnvManager("/venv/bin/python")
+    base_envs = {"PATH": "/usr/bin"}
+
+    result = build_subpool_envs_for_virtual_env(base_envs, None, manager)
+
+    assert result["PATH"] == "/venv/bin" + os.pathsep + "/usr/bin"
+    assert result["VIRTUAL_ENV"] == "/venv"

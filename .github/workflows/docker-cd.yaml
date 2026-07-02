@@ -58,6 +58,7 @@ jobs:
           fi
 
           docker buildx build --platform linux/arm64 --load -t "$DOCKER_ORG/xinference:${IMAGE_TAG}-aarch64" --progress=plain -f xinference/deploy/docker/Dockerfile.aarch64 .
+          docker image inspect "$DOCKER_ORG/xinference:${IMAGE_TAG}-aarch64" --format 'aarch64={{.Size}} bytes'
           docker push "$DOCKER_ORG/xinference:${IMAGE_TAG}-aarch64"
 
   build-gpu:
@@ -96,6 +97,7 @@ jobs:
           fi
 
           docker build -t "$DOCKER_ORG/xinference:${IMAGE_TAG}" --progress=plain -f xinference/deploy/docker/Dockerfile .
+          docker image inspect "$DOCKER_ORG/xinference:${IMAGE_TAG}" --format 'gpu={{.Size}} bytes'
           docker push "$DOCKER_ORG/xinference:${IMAGE_TAG}"
 
   build-cpu:
@@ -134,6 +136,7 @@ jobs:
           fi
 
           docker build -t "$DOCKER_ORG/xinference:${IMAGE_TAG}-cpu" --progress=plain -f xinference/deploy/docker/Dockerfile.cpu .
+          docker image inspect "$DOCKER_ORG/xinference:${IMAGE_TAG}-cpu" --format 'cpu={{.Size}} bytes'
           docker push "$DOCKER_ORG/xinference:${IMAGE_TAG}-cpu"
 
   tag-latest:

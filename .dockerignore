@@ -5,3 +5,8 @@ build/
 xinference.egg-info/
 xinference/web/ui/build/
 xinference/web/ui/node_modules/
+xinference/ui/web/ui/build/
+xinference/ui/web/ui/node_modules/
+.git/
+__pycache__/
+*.pyc

@@ -1,0 +1,80 @@
+name: Xinference Docker CI
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/docker-ci.yaml"
+      - "xinference/deploy/docker/**"
+      - "setup.py"
+      - "setup.cfg"
+      - "pyproject.toml"
+      - "xinference/ui/web/ui/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-gpu:
+    name: Build GPU Docker image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Build image
+        run: |
+          docker build \
+            -t xinference:ci-gpu \
+            --progress=plain \
+            -f xinference/deploy/docker/Dockerfile .
+
+      - name: Report image size
+        run: |
+          docker image inspect xinference:ci-gpu \
+            --format 'xinference:ci-gpu={{.Size}} bytes'
+
+  build-cpu:
+    name: Build CPU Docker image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Build image
+        run: |
+          docker build \
+            -t xinference:ci-cpu \
+            --progress=plain \
+            -f xinference/deploy/docker/Dockerfile.cpu .
+
+      - name: Report image size
+        run: |
+          docker image inspect xinference:ci-cpu \
+            --format 'xinference:ci-cpu={{.Size}} bytes'
+
+  build-aarch64:
+    name: Build aarch64 Docker image
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Build image
+        run: |
+          docker build \
+            -t xinference:ci-aarch64 \
+            --progress=plain \
+            -f xinference/deploy/docker/Dockerfile.aarch64 .
+
+      - name: Report image size
+        run: |
+          docker image inspect xinference:ci-aarch64 \
+            --format 'xinference:ci-aarch64={{.Size}} bytes'
