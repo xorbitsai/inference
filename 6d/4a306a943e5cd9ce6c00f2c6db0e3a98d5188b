@@ -1,0 +1,98 @@
+xinference/model/llm/vllm/core.py
+  4943d01ea6e67528 188-235,509,1395-1397
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "6d4a306a943e5cd9ce6c00f2c6db0e3a98d5188b",
+  "prompts": {
+    "24a37d7e2404fe6a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "aa65b541-80bc-4c04-9dca-f26866af9835",
+        "model": "claude-opus-4.6"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0,
+      "token_usage": {
+        "input_tokens": 22514,
+        "output_tokens": 8397,
+        "cache_read_tokens": 604804,
+        "cache_creation_tokens": 0,
+        "total_cost": null
+      }
+    },
+    "4943d01ea6e67528": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "af137a1f-59c3-4180-8640-3ce4d3e4fa70",
+        "model": "glm-5.2"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 2326,
+      "total_deletions": 46,
+      "accepted_lines": 2326,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/1e3b541037fde82b40f3be4321efad96a73bb407fb09ff53d3ad8132258523dc"
+    },
+    "78ee352318e1b386": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e6ba6d3c-7b1f-471f-90fa-37fc1f9b3236",
+        "model": "qwen3.7-max"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 123,
+      "overriden_lines": 0,
+      "token_usage": {
+        "input_tokens": 168164,
+        "output_tokens": 13259,
+        "cache_read_tokens": 2651496,
+        "cache_creation_tokens": 307473,
+        "total_cost": null
+      }
+    },
+    "d881e609a580f852": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b6e5327-8e3e-4ea0-8a9a-f6be6f24f1ed",
+        "model": "glm-5.2"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 3088,
+      "total_deletions": 0,
+      "accepted_lines": 3024,
+      "overriden_lines": 37,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/556fc7a7fe11525de9a51af137b7e3095397d7e9b657a35bd8c8d142340229eb"
+    },
+    "d91e6017ce678dba": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "51c36fad-8371-4669-913a-9150306583b7",
+        "model": "qwen3.7-max"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 94,
+      "overriden_lines": 0,
+      "token_usage": {
+        "input_tokens": 214014,
+        "output_tokens": 452,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 108691,
+        "total_cost": null
+      }
+    }
+  }
+}
