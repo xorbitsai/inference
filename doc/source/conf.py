@@ -149,15 +149,25 @@ def _compile_mo_catalog(locale: str) -> None:
     """Compile .po -> .mo when catalogs are missing or stale."""
     if not _locale_po_files(locale):
         return
-    subprocess.run(
-        [sys.executable, str(_doc_root / "build_i18n.py"), locale],
-        cwd=str(_doc_root),
-        check=True,
-    )
+    try:
+        subprocess.run(
+            [sys.executable, str(_doc_root / "build_i18n.py"), locale],
+            cwd=str(_doc_root),
+            check=True,
+        )
+    except (subprocess.CalledProcessError, OSError) as exc:
+        print(
+            f"[sphinx] warning: failed to compile locale/{locale} catalogs "
+            f"({exc}); continuing with existing .mo files if any",
+            flush=True,
+        )
 
 
 if _sphinx_language and _needs_mo_compile(_sphinx_language):
     _compile_mo_catalog(_sphinx_language)
+
+if version_match == 'zh-cn' or _sphinx_language == "zh_CN":
+    tags.add("zh_cn")
 
 
 def _resolve_switcher_version(app):
@@ -224,14 +234,19 @@ else:
         "type": "fontawesome",
     }])
 
+html_theme_options["external_links"] = [
+    _EXTERNAL_LINKS_BY_LOCALE.get(version_match, _DEFAULT_EXTERNAL_LINK)
+]
+html_theme_options["header_dropdown_text"] = _HEADER_DROPDOWN_TEXT_BY_LOCALE.get(
+    version_match, "More"
+)
+
 html_favicon = "_static/xinference-favicon.png"
 
 
 def _apply_locale_theme_options(app, config):
     switcher_version = _resolve_switcher_version(app)
-    config.html_theme_options.setdefault("switcher", {})["version_match"] = (
-        switcher_version
-    )
+    config.html_theme_options.setdefault("switcher", {})["version_match"] = switcher_version
     config.html_theme_options["external_links"] = [
         _EXTERNAL_LINKS_BY_LOCALE.get(switcher_version, _DEFAULT_EXTERNAL_LINK)
     ]
@@ -239,7 +254,7 @@ def _apply_locale_theme_options(app, config):
         _HEADER_DROPDOWN_TEXT_BY_LOCALE.get(switcher_version, "More")
     )
     if switcher_version == "zh-cn":
-        config.tags.add("zh_cn")
+        app.tags.add("zh_cn")
 
 
 def _remove_non_zh_cn_nodes(app, doctree, docname):
