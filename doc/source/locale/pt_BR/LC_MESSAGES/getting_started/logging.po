@@ -1,0 +1,118 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-11-15 19:32+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: pt_BR <LL@li.org>\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/getting_started/logging.rst:5
+msgid "Logging in Xinference"
+msgstr "Registro de logs no Xinference"
+
+#: ../../source/getting_started/logging.rst:8
+msgid "Configure Log Level"
+msgstr "Nível de log"
+
+#: ../../source/getting_started/logging.rst:9
+msgid ""
+"You can configure the log level with the ``--log-level`` option. For "
+"example, starting a local cluster with ``DEBUG`` log level:"
+msgstr ""
+"Você pode configurar o nível de log do cluster Xinference através da opção "
+"``--log-level``. Por exemplo, inicie o cluster local do Xinference com o "
+"nível de log ``DEBUG``:"
+
+#: ../../source/getting_started/logging.rst:18
+msgid "Log Files"
+msgstr "Arquivo de log"
+
+#: ../../source/getting_started/logging.rst:19
+msgid ""
+"Xinference supports log rotation of log files. By default, logs rotate when "
+"they reach 100MB (maxBytes), and up to 30 backup files (backupCount) are "
+"kept. Note that the log level configured above takes effect in both the "
+"command line logs and the log files."
+msgstr ""
+"Xinference suporta arquivos de log rotativos. Por padrão, quando um único "
+"arquivo de log atinge 100MB, um novo arquivo de backup de log é gerado, e o "
+"sistema mantém os 30 backups de log mais recentes. O método de configuração "
+"do nível de log descrito acima afeta tanto os logs do terminal de comando "
+"quanto os arquivos de log."
+
+#: ../../source/getting_started/logging.rst:24
+msgid "Log Directory Structure"
+msgstr "Estrutura do diretório de logs"
+
+#: ../../source/getting_started/logging.rst:25
+msgid ""
+"All the logs are stored in the ``<XINFERENCE_HOME>/logs`` directory, where "
+"``<XINFERENCE_HOME>`` can be configured as mentioned in "
+":ref:`using_xinference`."
+msgstr ""
+"Primeiramente, todos os logs são armazenados no diretório "
+"``<XINFERENCE_HOME>/logs``, e a forma de configurar ``<XINFERENCE_HOME>`` "
+"pode ser consultada em :ref:`using_xinference`."
+
+#: ../../source/getting_started/logging.rst:27
+msgid ""
+"Xinference creates a subdirectory under the log directory "
+"``<XINFERENCE_HOME>/logs``. The name of the subdirectory corresponds to the "
+"Xinference cluster startup time in milliseconds."
+msgstr ""
+"Em segundo lugar, o Xinference cria um subdiretório no diretório de logs "
+"``<XINFERENCE_HOME>/logs``. O nome do subdiretório corresponde ao horário de"
+" inicialização do cluster Xinference (em milissegundos)."
+
+#: ../../source/getting_started/logging.rst:31
+msgid "Local deployment"
+msgstr "Implantação local"
+
+#: ../../source/getting_started/logging.rst:32
+msgid ""
+"In a local deployment, the logs of Xinference supervisor and Xinference "
+"workers are combined into a single file. An example of the log directory "
+"structure is shown below::"
+msgstr ""
+"Na implantação local, os logs do supervisor do Xinference e dos workers do "
+"Xinference são mesclados em um único arquivo. A estrutura do diretório de "
+"logs é a seguinte:"
+
+#: ../../source/getting_started/logging.rst:38
+msgid ""
+"where ``1699503558105`` is the timestamp when the Xinference cluster was "
+"created. Therefore, when you create a cluster locally multiple times, you "
+"can look for the corresponding logs based on this timestamp."
+msgstr ""
+"Onde ``1699503558105`` é o timestamp da criação do cluster Xinference. "
+"Portanto, ao criar clusters várias vezes localmente, você pode localizar os "
+"logs correspondentes com base neste timestamp."
+
+#: ../../source/getting_started/logging.rst:42
+msgid "Distributed deployment"
+msgstr "Implantação Distribuída"
+
+#: ../../source/getting_started/logging.rst:43
+msgid ""
+"In a distributed deployment, Xinference supervisor and Xinference workers "
+"each create their own subdirectory under the log directory. The name of the "
+"subdirectory starts with the role name, followed by the role startup time in"
+" milliseconds. An example of the log directory structure is shown below::"
+msgstr ""
+"Na implantação distribuída, o supervisor do Xinference e os workers do "
+"Xinference criam seus próprios subdiretórios no diretório de logs. O nome do"
+" subdiretório começa com o nome da função do cluster, seguido pelo horário "
+"de inicialização (em milissegundos). Conforme mostrado abaixo:"
