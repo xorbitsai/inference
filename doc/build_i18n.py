@@ -78,7 +78,17 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    try:
+        import babel  # noqa: F401
+
+        has_babel = True
+    except ImportError:
+        has_babel = False
+
     if args.all:
+        if not has_babel:
+            print("[build_i18n] babel is required for --all", file=sys.stderr)
+            return 1
         built = [loc for loc in KNOWN_LOCALES if build_mo(loc)]
         if not built:
             print("[build_i18n] no locale directories found")
@@ -89,9 +99,9 @@ def main(argv: list[str] | None = None) -> int:
         print("[build_i18n] English build; skipping mo compilation")
         return 0
 
-    try:
+    if has_babel:
         build_mo(locale)
-    except ImportError:
+    else:
         _build_mo_with_sphinx_intl(locale)
     return 0
 

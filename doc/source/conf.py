@@ -159,7 +159,7 @@ def _compile_mo_catalog(locale: str) -> None:
 if _sphinx_language and _needs_mo_compile(_sphinx_language):
     _compile_mo_catalog(_sphinx_language)
 
-if version_match == 'zh-cn' or _sphinx_language == "zh_CN":
+if version_match == "zh-cn" or _sphinx_language == "zh_CN":
     tags.add("zh_cn")
 
 
@@ -205,7 +205,7 @@ html_theme_options = {
 }
 
 
-if version_match != 'zh-cn':
+if version_match != "zh-cn":
     html_theme_options['icon_links'].extend([{
         "name": "Discord",
         "url": "https://discord.gg/Xw9tszSkr5",
@@ -239,7 +239,7 @@ html_favicon = "_static/xinference-favicon.png"
 
 def _apply_locale_theme_options(app, config):
     switcher_version = _resolve_switcher_version(app)
-    config.html_theme_options["switcher"]["version_match"] = switcher_version
+    config.html_theme_options.setdefault("switcher", {})["version_match"] = switcher_version
     config.html_theme_options["external_links"] = [
         _EXTERNAL_LINKS_BY_LOCALE.get(switcher_version, _DEFAULT_EXTERNAL_LINK)
     ]
