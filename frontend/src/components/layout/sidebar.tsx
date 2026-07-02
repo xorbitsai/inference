@@ -38,7 +38,6 @@ import ThemeToggle from '@/components/layout/theme-toggle';
 import LanguageSwitcher from '@/components/layout/language-switcher';
 import LoginOut from '@/components/layout/login-out';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { useMenuAuth } from '@/hooks/use-menu-auth';
 
 type IconComponent = ComponentType<{ className?: string }>;
 
@@ -144,7 +143,6 @@ export function Sidebar() {
   const { t, locale } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
   const branding = getBrandingFromEnv();
-  const { usersManagePage, keysManagePage } = useMenuAuth();
   const { clusterVersion, clusterAuth, clusterUIConfig } = useGlobal();
   
   const token = Cookies.get('token');
@@ -261,7 +259,7 @@ export function Sidebar() {
         ...group,
         items: group.items.filter(({ show = true }) => show),
       }));
-  }, [clusterUIConfig, locale, t, usersManagePage, keysManagePage]);
+  }, [clusterUIConfig, locale, t]);
 
   return (
     <div
