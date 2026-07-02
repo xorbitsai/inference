@@ -21,6 +21,21 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: false,
   },
+  async rewrites() {
+    const apiUrl = (
+      process.env.XINFERENCE_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:9997'
+    ).replace(/\/+$/, '');
+    return [
+      {
+        source: '/v1/:path*',
+        destination: `${apiUrl}/v1/:path*`,
+      },
+      {
+        source: '/token',
+        destination: `${apiUrl}/token`,
+      },
+    ];
+  },
   async redirects() {
     return [
       {
@@ -31,22 +46,19 @@ const nextConfig = {
     ];
   },
   webpack(config: any) {
-    const fileLoaderRule = config.module.rules.find(
-      (rule: any) =>
-        rule.test?.test?.('.svg')
-    )
+    const fileLoaderRule = config.module.rules.find((rule: any) => rule.test?.test?.('.svg'));
 
     if (fileLoaderRule) {
-      fileLoaderRule.exclude = /\.svg$/i
+      fileLoaderRule.exclude = /\.svg$/i;
     }
 
     config.module.rules.push({
       test: /\.svg$/i,
       issuer: /\.[jt]sx?$/,
       use: ['@svgr/webpack'],
-    })
+    });
 
-    return config
+    return config;
   },
 };
 

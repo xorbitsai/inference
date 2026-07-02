@@ -569,7 +569,23 @@ class RESTfulAPI(CancelMixin):
         except ImportError as e:
             raise ImportError(f"Xinference is imported incorrectly: {e}")
 
-        if os.path.exists(ui_location):
+        frontend_endpoint = os.environ.get(
+            "XINFERENCE_FRONTEND_ENDPOINT", "http://127.0.0.1:3999"
+        )
+        if frontend_endpoint:
+            frontend_endpoint = frontend_endpoint.rstrip("/")
+
+            @self._app.get("/")
+            def read_main():
+                response = RedirectResponse(url=frontend_endpoint)
+                return response
+
+            @self._app.get("/ui/")
+            def read_ui():
+                response = RedirectResponse(url=frontend_endpoint)
+                return response
+
+        elif os.path.exists(ui_location):
 
             @self._app.get("/")
             def read_main():
@@ -583,9 +599,10 @@ class RESTfulAPI(CancelMixin):
         else:
             warnings.warn(
                 f"""
-            Xinference ui is not built at expected directory: {ui_location}
-            To resolve this warning, navigate to {os.path.join(lib_location, "ui/web/ui/")}
-            And build the Xinference ui by running "npm run build"
+            The legacy Xinference ui is not built at expected directory: {ui_location}
+            The default frontend now runs as a separate Next.js application.
+            Start the backend with "xinference-local" and start the frontend from
+            the repository "frontend/" directory with "npm run dev".
             """
             )
 

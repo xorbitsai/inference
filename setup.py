@@ -77,10 +77,10 @@ class BuildWeb(Command):
     """build_web command"""
 
     user_options = []
-    _web_src_path = "xinference/ui/web/ui"
-    _web_dest_path = "xinference/ui/web/ui/build/index.html"
+    _web_src_path = "frontend"
+    _web_dest_path = "frontend/.next/standalone/server.js"
     _commands = [
-        ["npm", "install"],
+        ["npm", "ci"],
         ["npm", "run", "build"],
     ]
 
@@ -104,10 +104,17 @@ class BuildWeb(Command):
             return
         else:
             replacements = {"npm": npm_path}
+            npm_env = os.environ.copy()
+            npm_env.setdefault(
+                "npm_config_cache", os.path.join(web_src_path, ".npm-cache")
+            )
+            npm_env.setdefault(
+                "npm_config_logs_dir", os.path.join(web_src_path, ".npm-logs")
+            )
             cmd_errored = False
             for cmd in cls._commands:
                 cmd = [replacements.get(c, c) for c in cmd]
-                proc_result = subprocess.run(cmd, cwd=web_src_path)
+                proc_result = subprocess.run(cmd, cwd=web_src_path, env=npm_env)
                 if proc_result.returncode != 0:
                     warnings.warn(f'Failed when running `{" ".join(cmd)}`')
                     cmd_errored = True
@@ -116,8 +123,6 @@ class BuildWeb(Command):
                 assert os.path.exists(web_dest_path)
 
 
-CustomInstall.register_pre_command("build_web")
-CustomDevelop.register_pre_command("build_web")
 CustomSDist.register_pre_command("build_web")
 
 sys.path.append(repo_root)
