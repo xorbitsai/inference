@@ -349,7 +349,7 @@ msgstr ""
 
 #: ../../source/getting_started/installation.rst:101
 msgid "To install Xinference and vLLM::"
-msgstr "Installer xinference et vLLM :"
+msgstr "Installer xinference et vLLM ::"
 
 #: ../../source/getting_started/installation.rst:114
 msgid "Llama.cpp Backend"
@@ -378,7 +378,7 @@ msgstr ""
 #: ../../source/getting_started/installation.rst:134
 #: ../../source/getting_started/installation.rst:143
 msgid "Initial setup::"
-msgstr "Étapes initiales :"
+msgstr "Étapes initiales ::"
 
 #: ../../source/getting_started/installation.rst:128
 msgid ""

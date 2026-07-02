@@ -78,8 +78,21 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    try:
+        import babel  # noqa: F401
+        has_babel = True
+    except ImportError:
+        has_babel = False
+
     if args.all:
-        built = [loc for loc in KNOWN_LOCALES if build_mo(loc)]
+        if has_babel:
+            built = [loc for loc in KNOWN_LOCALES if build_mo(loc)]
+        else:
+            built = [
+                loc
+                for loc in KNOWN_LOCALES
+                if _messages_dir(loc).is_dir() and _build_mo_with_sphinx_intl(loc)
+            ]
         if not built:
             print("[build_i18n] no locale directories found")
         return 0
@@ -89,9 +102,9 @@ def main(argv: list[str] | None = None) -> int:
         print("[build_i18n] English build; skipping mo compilation")
         return 0
 
-    try:
+    if has_babel:
         build_mo(locale)
-    except ImportError:
+    else:
         _build_mo_with_sphinx_intl(locale)
     return 0
 

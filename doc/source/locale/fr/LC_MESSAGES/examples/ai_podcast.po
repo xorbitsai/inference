@@ -41,10 +41,7 @@ msgstr "Fichier de code anglais correspondant : AI_Podcast.py"
 
 #: ../../source/examples/ai_podcast.rst:15
 msgid "Chinese (AI_Podcast_ZH.py)"
-msgstr ""
-"French translation of the provided text:\n"
-"\n"
-"Correspondance du fichier de code en chinois : AI_Podcast_ZH.py"
+msgstr "Correspondance du fichier de code en chinois : AI_Podcast_ZH.py"
 
 #: ../../source/examples/ai_podcast.rst:17
 msgid "**Used Technology (EN version)** :"

@@ -288,14 +288,7 @@ msgstr ""
 
 #: ../../source/models/model_abilities/audio.rst:161
 msgid "Translation"
-msgstr ""
-"I am a strict technical documentation translator. Translate the given "
-"Simplified Chinese text into French. ABSOLUTE RULES: 1. Output ONLY the "
-"translation, nothing else. No explanations, no apologies. 2. Keep ALL "
-"Markdown syntax, reStructuredText directives, code blocks, URLs, and "
-"variable names unchanged. 3. If the input is a model name, identifier, or "
-"pure code string, output it verbatim. 4. Do not add any extra sentences or "
-"commentary."
+msgstr "Traduction"
 
 #: ../../source/models/model_abilities/audio.rst:163
 msgid ""

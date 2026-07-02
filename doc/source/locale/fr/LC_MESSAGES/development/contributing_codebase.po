@@ -79,7 +79,7 @@ msgstr ""
 
 #: ../../source/development/contributing_codebase.rst:30
 msgid "and then running::"
-msgstr "Exécutez ensuite la commande :"
+msgstr "Exécutez ensuite la commande ::"
 
 #: ../../source/development/contributing_codebase.rst:34
 msgid ""

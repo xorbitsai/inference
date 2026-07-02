@@ -379,8 +379,6 @@ msgid ""
 "includes detailed implementations for loading, configuring, and deploying "
 "LLMs."
 msgstr ""
-"Voici la traduction demandée :\n"
-"\n"
 "À titre d'exemple, `model/llm/ <https://github.com/xorbitsai/inference/tree/main/xinference/model/llm>`_ gère et lance principalement les LLM, y compris le chargement, la configuration et l'exécution des grands modèles de langage."
 
 #: ../../source/development/xinference_internals.rst:181
