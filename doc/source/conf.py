@@ -205,6 +205,17 @@ html_theme_options = {
 }
 
 
+def _apply_switcher_theme_options(theme_options: dict, switcher_version: str) -> None:
+    """Apply locale-specific PyData theme options from one place."""
+    theme_options.setdefault("switcher", {})["version_match"] = switcher_version
+    theme_options["external_links"] = [
+        _EXTERNAL_LINKS_BY_LOCALE.get(switcher_version, _DEFAULT_EXTERNAL_LINK)
+    ]
+    theme_options["header_dropdown_text"] = _HEADER_DROPDOWN_TEXT_BY_LOCALE.get(
+        switcher_version, "More"
+    )
+
+
 if version_match != 'zh-cn':
     html_theme_options['icon_links'].extend([{
         "name": "Discord",
@@ -227,27 +238,14 @@ else:
         "type": "fontawesome",
     }])
 
-html_theme_options["external_links"] = [
-    _EXTERNAL_LINKS_BY_LOCALE.get(version_match, _DEFAULT_EXTERNAL_LINK)
-]
-html_theme_options["header_dropdown_text"] = _HEADER_DROPDOWN_TEXT_BY_LOCALE.get(
-    version_match, "More"
-)
+_apply_switcher_theme_options(html_theme_options, version_match)
 
 html_favicon = "_static/xinference-favicon.png"
 
 
 def _apply_locale_theme_options(app, config):
     switcher_version = _resolve_switcher_version(app)
-    config.html_theme_options.setdefault("switcher", {})[
-        "version_match"
-    ] = switcher_version
-    config.html_theme_options["external_links"] = [
-        _EXTERNAL_LINKS_BY_LOCALE.get(switcher_version, _DEFAULT_EXTERNAL_LINK)
-    ]
-    config.html_theme_options["header_dropdown_text"] = (
-        _HEADER_DROPDOWN_TEXT_BY_LOCALE.get(switcher_version, "More")
-    )
+    _apply_switcher_theme_options(config.html_theme_options, switcher_version)
     if switcher_version == "zh-cn":
         config.tags.add("zh_cn")
 

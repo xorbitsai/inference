@@ -64,6 +64,14 @@ def _build_mo_with_sphinx_intl(locale: str) -> bool:
     return True
 
 
+def _has_babel() -> bool:
+    try:
+        import babel  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
 def _compile_locale(locale: str, *, has_babel: bool) -> bool:
     if has_babel:
         return build_mo(locale)
@@ -86,11 +94,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    try:
-        import babel  # noqa: F401
-        has_babel = True
-    except ImportError:
-        has_babel = False
+    has_babel = _has_babel()
+    if not has_babel:
+        print("[build_i18n] babel not installed; using sphinx-intl fallback", flush=True)
 
     if args.all:
         built = [
