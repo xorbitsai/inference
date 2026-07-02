@@ -144,7 +144,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const branding = getBrandingFromEnv();
   const { clusterVersion, clusterAuth, clusterUIConfig } = useGlobal();
-  
+
   const token = Cookies.get('token');
   const showLoginOut = useMemo(
     () => clusterAuth?.auth && token && token !== NO_AUTH,
