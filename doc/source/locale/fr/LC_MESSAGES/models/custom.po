@@ -416,7 +416,7 @@ msgstr "Liste des modèles intégrés et personnalisés"
 
 #: ../../source/models/custom.rst:348
 msgid "List built-in and custom models programmatically:"
-msgstr ""
+msgstr "Énumérez les modèles intégrés et personnalisés par programmation :" ""
 "```python\n"
 "# Exemples de modèles intégrés et personnalisés\n"
 "\n"
