@@ -185,6 +185,61 @@ def _virtual_env_allows_missing_vllm() -> bool:
     return bool(XINFERENCE_ENABLE_VIRTUAL_ENV)
 
 
+GuidedDecodingParams: Optional[Type[Any]] = None
+StructuredOutputsParams: Optional[Type[Any]] = None
+
+
+def _init_guided_decoding_classes() -> None:
+    # Also re-invoked from VLLMModel after VLLM_VERSION is reassigned at runtime.
+    # Detect into locals and publish at the end so a concurrent async_generate
+    # coroutine (paused at an await) never observes a transient None.
+    global GuidedDecodingParams, StructuredOutputsParams
+    if not (
+        VLLM_INSTALLED
+        and VLLM_VERSION is not None
+        and VLLM_VERSION >= version.parse("0.6.3")
+    ):
+        return
+    supports_guided = VLLM_VERSION < version.parse("1.12.0")
+    try:
+        import vllm.sampling_params as _sampling_params
+    except ImportError:
+        if supports_guided:
+            logger.debug(
+                "GuidedDecodingParams not found in vLLM %s, "
+                "trying StructuredOutputsParams fallback.",
+                VLLM_VERSION,
+            )
+        return
+
+    local_guided: Optional[Type[Any]] = None
+    local_structured: Optional[Type[Any]] = None
+
+    if supports_guided and hasattr(_sampling_params, "GuidedDecodingParams"):
+        local_guided = _sampling_params.GuidedDecodingParams
+    elif supports_guided:
+        logger.debug(
+            "GuidedDecodingParams not found in vLLM %s, "
+            "trying StructuredOutputsParams fallback.",
+            VLLM_VERSION,
+        )
+
+    if hasattr(_sampling_params, "StructuredOutputsParams"):
+        local_structured = _sampling_params.StructuredOutputsParams
+    elif local_guided is None:
+        logger.warning(
+            "No guided decoding support found in vLLM %s "
+            "(GuidedDecodingParams / StructuredOutputsParams).",
+            VLLM_VERSION,
+        )
+
+    GuidedDecodingParams = local_guided
+    StructuredOutputsParams = local_structured
+
+
+_init_guided_decoding_classes()
+
+
 def _append_unique(target: List[str], *items: str) -> None:
     for item in items:
         if item not in target:
@@ -458,6 +513,7 @@ class VLLMModel(LLM):
         global VLLM_INSTALLED, VLLM_VERSION
         VLLM_INSTALLED = True
         VLLM_VERSION = version.parse(vllm.__version__)
+        _init_guided_decoding_classes()
         # XINFERENCE_MODEL_UID is injected via the env= dict in
         # xinference.core.worker.WorkerActor._create_subpool so the sub-pool
         # and its vLLM descendants (EngineCore / GPU workers) inherit it. Do
@@ -1343,40 +1399,9 @@ class VLLMModel(LLM):
         )
 
         if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.3"):
-            # guided decoding only available for vllm >= 0.6.3
-            GuidedDecodingParams = None
-            StructuredOutputsParams = None
-            supports_guided = VLLM_VERSION < version.parse("1.12.0")
-            try:
-                import vllm.sampling_params as _sampling_params
-            except ImportError:
-                if supports_guided:
-                    logger.info(
-                        "GuidedDecodingParams not found in vLLM %s, "
-                        "trying StructuredOutputsParams fallback.",
-                        VLLM_VERSION,
-                    )
-            else:
-                if supports_guided and hasattr(
-                    _sampling_params, "GuidedDecodingParams"
-                ):
-                    GuidedDecodingParams = _sampling_params.GuidedDecodingParams
-                elif supports_guided:
-                    logger.info(
-                        "GuidedDecodingParams not found in vLLM %s, "
-                        "trying StructuredOutputsParams fallback.",
-                        VLLM_VERSION,
-                    )
-
-                if hasattr(_sampling_params, "StructuredOutputsParams"):
-                    StructuredOutputsParams = _sampling_params.StructuredOutputsParams
-                elif GuidedDecodingParams is None:
-                    logger.warning(
-                        "No guided decoding support found in vLLM %s "
-                        "(GuidedDecodingParams / StructuredOutputsParams).",
-                        VLLM_VERSION,
-                    )
-
+            # guided decoding only available for vllm >= 0.6.3;
+            # GuidedDecodingParams / StructuredOutputsParams are resolved at
+            # module load by _init_guided_decoding_classes().
             # Extract guided decoding parameters
             guided_params: dict[str, Any] = {}
             guided_json = sanitized_generate_config.pop("guided_json", None)
