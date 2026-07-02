@@ -1,0 +1,175 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-05-27 19:02+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ja <LL@li.org>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/continuous_batching.rst:5
+msgid "Continuous Batching"
+msgstr "連続バッチ処理"
+
+#: ../../source/user_guide/continuous_batching.rst:7
+msgid ""
+"Continuous batching, as a means to improve throughput during model serving, "
+"has already been implemented in inference engines like ``VLLM``. Xinference "
+"aims to provide this optimization capability when using the transformers "
+"engine as well."
+msgstr ""
+"連続バッチ処理は、``VLLM`` のような推論エンジンにおいてスループットを向上させる重要な技術です。Xinference は、この技術を利用して "
+"``transformers`` 推論エンジンのスループットを向上させることを目指しています。"
+
+#: ../../source/user_guide/continuous_batching.rst:11
+msgid "Usage"
+msgstr "使用方法"
+
+#: ../../source/user_guide/continuous_batching.rst:14
+msgid "LLM"
+msgstr "大規模言語モデル"
+
+#: ../../source/user_guide/continuous_batching.rst:15
+msgid "Currently, this feature can be enabled under the following conditions:"
+msgstr "現在、この機能は以下の条件を満たす場合に有効になります："
+
+#: ../../source/user_guide/continuous_batching.rst:17
+msgid ""
+"First, set the environment variable "
+"``XINFERENCE_TRANSFORMERS_ENABLE_BATCHING`` to ``1`` when starting "
+"xinference. For example:"
+msgstr ""
+"まず、Xinference を起動する際には、環境変数 ``XINFERENCE_TRANSFORMERS_ENABLE_BATCHING`` を "
+"``1`` に設定する必要があります。"
+
+#: ../../source/user_guide/continuous_batching.rst:25
+msgid ""
+"Since ``v0.16.0``, this feature is turned on by default and is no longer "
+"required to set the ``XINFERENCE_TRANSFORMERS_ENABLE_BATCHING`` environment "
+"variable. This environment variable has been removed."
+msgstr ""
+"``v0.16.0`` 以降、この機能はデフォルトで有効になり、``XINFERENCE_TRANSFORMERS_ENABLE_BATCHING`` "
+"環境変数を設定する必要がなくなり、この環境変数は削除されました。"
+
+#: ../../source/user_guide/continuous_batching.rst:30
+msgid ""
+"Then, ensure that the ``transformers`` engine is selected when launching the"
+" model. For example:"
+msgstr "次に、LLMモデルを起動する際に ``transformers`` 推論エンジンを選択します。例："
+
+#: ../../source/user_guide/continuous_batching.rst:66
+msgid ""
+"Once this feature is enabled, all requests for LLMs will be managed by "
+"continuous batching, and the average throughput of requests made to a single"
+" model will increase. The usage of the LLM interface remains exactly the "
+"same as before, with no differences."
+msgstr ""
+"この機能を有効にすると、LLMモデルのすべてのインターフェースがこの機能によって管理されます。すべてのインターフェースの使用方法に変更はありません。"
+
+#: ../../source/user_guide/continuous_batching.rst:71
+msgid "Image Model"
+msgstr "画像モデル"
+
+#: ../../source/user_guide/continuous_batching.rst:72
+msgid ""
+"Currently, for image models, only the ``text_to_image`` interface is "
+"supported for ``FLUX.1`` series models."
+msgstr ""
+"現在、``FLUX.1`` シリーズモデルの ``text_to_image`` "
+"（テキストから画像生成）インターフェースのみがこの機能をサポートしています。"
+
+#: ../../source/user_guide/continuous_batching.rst:74
+msgid ""
+"Enabling this feature requires setting the environment variable "
+"``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE``, which indicates the ``size`` of "
+"the generated images."
+msgstr ""
+"画像モデルでこの機能を有効にするには、xinference 起動時に "
+"``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` "
+"環境変数を指定する必要があります。これは生成する画像のサイズを表します。"
+
+#: ../../source/user_guide/continuous_batching.rst:76
+msgid "For example, starting xinference like this:"
+msgstr "例えば、次のようにxinferenceを起動します："
+
+#: ../../source/user_guide/continuous_batching.rst:83
+msgid ""
+"Then just use the ``text_to_image`` interface as before, and nothing else "
+"needs to be changed."
+msgstr "その後は通常通り ``text_to_image`` インターフェースを使用すればよく、他に何も変更する必要はありません。"
+
+#: ../../source/user_guide/continuous_batching.rst:86
+msgid "Abort your request"
+msgstr "中断リクエスト"
+
+#: ../../source/user_guide/continuous_batching.rst:87
+msgid ""
+"In this mode, you can abort requests that are in the process of inference."
+msgstr "この機能では、推論中のリクエストをエレガントに中断することができます。"
+
+#: ../../source/user_guide/continuous_batching.rst:89
+msgid "First, add ``request_id`` option in ``generate_config``. For example:"
+msgstr "まず、推論リクエストの ``generate_config`` 内で ``request_id`` オプションを指定します。例えば："
+
+#: ../../source/user_guide/continuous_batching.rst:98
+msgid ""
+"Then, abort the request using the ``request_id`` you have set. For example:"
+msgstr "次に、指定した ``request_id`` を使ってそのリクエストを中断します。例："
+
+#: ../../source/user_guide/continuous_batching.rst:106
+msgid ""
+"Note that if your request has already finished, aborting the request will be"
+" a no-op. Image models also support this feature."
+msgstr "注意：リクエストが既に終了している場合、この操作は何も行いません。"
+
+#: ../../source/user_guide/continuous_batching.rst:110
+msgid "Note"
+msgstr "注意事項"
+
+#: ../../source/user_guide/continuous_batching.rst:112
+msgid ""
+"Currently, for ``LLM`` models, this feature only supports the ``generate``, "
+"``chat``, ``tool call`` and ``vision`` tasks."
+msgstr ""
+"現在、この機能はLLMモデルの ``generate``, ``chat``, ``tool call`` (ツール呼び出し) および "
+"``vision`` (マルチモーダル) 機能のみをサポートしています。"
+
+#: ../../source/user_guide/continuous_batching.rst:114
+msgid ""
+"Currently, for ``image`` models, this feature only supports the "
+"``text_to_image`` tasks. Only ``FLUX.1`` series models are supported."
+msgstr ""
+"現在、画像モデルについては、`FLUX.1` シリーズモデルの `text_to_image`（テキストから画像生成）機能のみがサポートされています。"
+
+#: ../../source/user_guide/continuous_batching.rst:116
+msgid ""
+"For ``vision`` tasks, currently only ``qwen2-vl-instruct``, ``qwen2.5-vl-"
+"instruct``, ``QvQ-72B-Preview``, ``glm-4v`` and ``MiniCPM-V-2.6`` (only for "
+"image tasks) models are supported. More models will be supported in the "
+"future. Please let us know your requirements."
+msgstr ""
+"マルチモーダルタスクについては、現在 ``qwen2-vl-instruct``、``qwen2.5-vl-"
+"instruct``、``QvQ-72B-Preview``、``glm-4v`` および ``MiniCPM-V-2.6`` "
+"をサポートしています。今後さらに多くのモデルが追加される予定ですので、ご期待ください。"
+
+#: ../../source/user_guide/continuous_batching.rst:118
+msgid ""
+"If using GPU inference, this method will consume more GPU memory. Please be "
+"cautious when increasing the number of concurrent requests to the same "
+"model. The ``launch_model`` interface provides the ``max_num_seqs`` "
+"parameter to adjust the concurrency level, with a default value of ``16``."
+msgstr ""
+"GPU推論を使用する場合、この機能はVRAMの要求が高くなります。そのため、同じモデルへの同時リクエスト数を慎重に増やしてください。``launch_model``"
+" インターフェースは、同時実行数を調整するためのオプションパラメータ ``max_num_seqs`` を提供します。デフォルト値は ``16`` "
+"です。"

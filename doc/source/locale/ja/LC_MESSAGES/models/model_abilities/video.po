@@ -1,0 +1,282 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-06-01 16:29+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ja <LL@li.org>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/model_abilities/video.rst:5
+msgid "Video (Experimental)"
+msgstr "動画（実験的性質）"
+
+#: ../../source/models/model_abilities/video.rst:7
+msgid "Learn how to generate videos with Xinference."
+msgstr "Xinference を使用して動画を生成する方法を学ぶ"
+
+#: ../../source/models/model_abilities/video.rst:11
+msgid "Introduction"
+msgstr "Introduction"
+
+#: ../../source/models/model_abilities/video.rst:14
+msgid "The Video API provides the ability to interact with videos:"
+msgstr "Video APIは、動画とインタラクションする方法を提供します："
+
+#: ../../source/models/model_abilities/video.rst:17
+msgid ""
+"The text-to-video endpoint create videos from scratch based on a text "
+"prompt."
+msgstr "Text-to-video エンドポイントは、テキストプロンプトから動画を一から生成します。"
+
+#: ../../source/models/model_abilities/video.rst:18
+msgid ""
+"The image-to-video endpoint create videos from scratch based on an input "
+"image."
+msgstr "Image-to-video エンドポイントは、画像からゼロベースで動画を作成します。"
+
+#: ../../source/models/model_abilities/video.rst:19
+msgid ""
+"The firstlastframe-to-video endpoint creates videos based on the transition "
+"between a first and a last frame."
+msgstr "firstlastframe-to-video インターフェースは、最初のフレームと最後のフレーム間の遷移に基づいて動画を生成します。"
+
+#: ../../source/models/model_abilities/video.rst:39
+msgid "Supported models"
+msgstr "サポートされているモデル一覧"
+
+#: ../../source/models/model_abilities/video.rst:41
+msgid ""
+"The text-to-video API is supported with the following models in Xinference:"
+msgstr "Text-to-video API は Xinference で以下のモデルをサポートしています："
+
+#: ../../source/models/model_abilities/video.rst:43
+msgid ":ref:`CogVideoX-2b <models_builtin_cogvideox-2b>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:44
+msgid ":ref:`CogVideoX-5b <models_builtin_cogvideox-5b>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:45
+msgid ":ref:`HunyuanVideo <models_builtin_hunyuanvideo>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:46
+msgid ":ref:`Wan2.1-1.3B <models_builtin_wan2.1-1.3b>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:47
+msgid ":ref:`Wan2.1-14B <models_builtin_wan2.1-14b>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:49
+msgid ""
+"The image-to-video API is supported with the following models in Xinference:"
+msgstr "Image-to-video API は Xinference において以下のモデルをサポートしています："
+
+#: ../../source/models/model_abilities/video.rst:51
+msgid ":ref:`Wan2.1-i2v-14B-480p <models_builtin_wan2.1-i2v-14b-480p>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:52
+msgid ":ref:`Wan2.1-i2v-14B-720p <models_builtin_wan2.1-i2v-14b-720p>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:54
+msgid ""
+"The firstlastframe-to-video API is supported with the following models in "
+"Xinference:"
+msgstr "Xinference では、以下のモデルが firstlastframe-to-video インターフェースをサポートしています："
+
+#: ../../source/models/model_abilities/video.rst:56
+msgid ":ref:`Wan2.1-flf2v-14B-720p <models_builtin_wan2.1-flf2v-14b-720p>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:59
+msgid "Quickstart"
+msgstr "クイックスタート"
+
+#: ../../source/models/model_abilities/video.rst:62
+msgid "Text-to-video"
+msgstr "テキストから動画"
+
+#: ../../source/models/model_abilities/video.rst:64
+msgid ""
+"You can try text-to-video API out either via cURL, or Xinference's python "
+"client:"
+msgstr "cURL または Xinference 経由で text-to-video API を試用できます。"
+
+#: ../../source/models/model_abilities/video.rst:91
+msgid "Image-to-video"
+msgstr "図から動画"
+
+#: ../../source/models/model_abilities/video.rst:93
+msgid ""
+"You can try image-to-video API out either via cURL, or Xinference's python "
+"client:"
+msgstr "cURL または Xinference の方法で image-to-video API を試すことができます。"
+
+#: ../../source/models/model_abilities/video.rst:118
+msgid "FirstLastFrame-to-video"
+msgstr "首尾フレーム動画生成"
+
+#: ../../source/models/model_abilities/video.rst:120
+msgid ""
+"You can try firstlastframe-to-video API out either via cURL, or Xinference's"
+" python client:"
+msgstr ""
+"cURL または Xinference の Python クライアントを使用して、firstlastframe-to-video "
+"インターフェースを体験できます："
+
+#: ../../source/models/model_abilities/video.rst:147
+msgid "Memory optimization"
+msgstr "メモリ最適化"
+
+#: ../../source/models/model_abilities/video.rst:149
+msgid ""
+"Video generation will occupy huge GPU memory, for instance, running "
+"CogVideoX may require up to around 35 GB GPU memory."
+msgstr "ビデオ生成は大量のVRAMを消費します。例えば、CogVideoXを実行する場合、約35 GBのVRAMを使用する可能性があります。"
+
+#: ../../source/models/model_abilities/video.rst:152
+msgid ""
+"Xinference supports several options to optimize video model memory (VRAM) "
+"usage."
+msgstr "Xinferenceは、ビデオモデルのVRAM使用を最適化するためのいくつかのオプションをサポートしています。"
+
+#: ../../source/models/model_abilities/video.rst:154
+msgid "CPU offloading or block level group offloading."
+msgstr "CPUオフロードまたはブロックレベルグループオフロード。"
+
+#: ../../source/models/model_abilities/video.rst:155
+msgid "Layerwise casting."
+msgstr "レイヤー単位の型変換（Layerwise casting）。"
+
+#: ../../source/models/model_abilities/video.rst:159
+msgid ""
+"CPU offloading and Block Level Group Offloading cannot be enabled at the "
+"same time, but layerwise casting can be used in combination with either of "
+"them."
+msgstr ""
+"CPUオフロードとブロックレベルグループオフロードは同時に有効にできませんが、レイヤーごとの型変換はそのいずれかと組み合わせて使用できます。"
+
+#: ../../source/models/model_abilities/video.rst:163
+msgid "CPU offloading"
+msgstr "CPU オフロード"
+
+#: ../../source/models/model_abilities/video.rst:165
+msgid ""
+"CPU offloading keeps the model weights on the CPU and only loads them to the"
+" GPU when a forward pass needs to be executed. It is suitable for scenarios "
+"with extremely limited GPU memory, but it has a significant impact on "
+"performance."
+msgstr ""
+"CPUオフロードは、モデルの重みをCPUに保持し、フォワード伝搬を実行するときだけGPUにロードします。VRAMが極めて限られているシナリオに適していますが、パフォーマンスへの影響が大きくなります。"
+
+#: ../../source/models/model_abilities/video.rst:169
+msgid ""
+"When running on GPU whose memory is less than 24 GB, we recommend to add "
+"``--cpu_offload True`` when launching model. For Web UI, add an extra "
+"option, ``cpu_offload`` with value set to ``True``."
+msgstr ""
+"显存が24GB未満のGPUを使用する場合、モデル起動時に``--cpu_offload True``を追加することを推奨します。Web "
+"UIの場合は、追加オプションとして``cpu_offload``を追加し、値を``True``に設定してください。"
+
+#: ../../source/models/model_abilities/video.rst:178
+msgid "Block Level Group Offloading"
+msgstr "ブロックレベルグルーピングオフロード"
+
+#: ../../source/models/model_abilities/video.rst:180
+msgid ""
+"Block Level Group Offloading groups multiple internal layers of the model "
+"(such as ``torch.nn.ModuleList`` or ``torch.nn.Sequential``) and loads these"
+" groups from the CPU to the GPU as needed during inference. Compared to CPU "
+"offloading, it uses more memory but has less impact on performance."
+msgstr ""
+"ブロックレベルのオフローディングは、モデルの複数の内部レイヤー（``torch.nn.ModuleList`` や "
+"``torch.nn.Sequential`` "
+"など）をグループ化し、推論中に必要に応じてこれらのグループをCPUからGPUにロードします。CPUオフローディングと比較して、より多くのメモリを使用しますが、パフォーマンスへの影響は小さくなります。"
+
+#: ../../source/models/model_abilities/video.rst:184
+msgid ""
+"For the command line, add the ``--group_offload True`` option; for the Web "
+"UI, add an additional option ``group_offload`` with the value set to "
+"``True``."
+msgstr ""
+"コマンドラインには、``--group_offload True``オプションを追加します。Web "
+"UIには、値が``True``に設定された追加オプション``group_offload``を追加します。"
+
+#: ../../source/models/model_abilities/video.rst:187
+msgid ""
+"We can speed up group offloading inference, by enabling the use of CUDA "
+"streams. However, using CUDA streams requires moving the model parameters "
+"into pinned memory. This allocation is handled by Pytorch under the hood, "
+"and can result in a significant spike in CPU RAM usage. Please consider this"
+" option if your CPU RAM is atleast 2X the size of the model you are group "
+"offloading. Enable CUDA streams via adding ``--use_stream True`` for command"
+" line; for the Web UI, add an additional option ``use_stream`` with the "
+"value set to ``True``."
+msgstr ""
+"CUDA ストリームを有効にすることで、グループ化オフロード推論を高速化できます。ただし、CUDA "
+"ストリームを使用するには、モデルパラメータを固定メモリに移動する必要があります。この割り当ては Pytorch がバックグラウンドで処理し、CPU "
+"RAM 使用量が大幅に増加する可能性があります。CPU RAM がモデルサイズの少なくとも 2 "
+"倍ある場合、このオプションの使用を検討してください。コマンドラインで ``--use_stream True`` を追加して CUDA "
+"ストリームを有効にします。Web UI の場合は、追加オプション ``use_stream`` の値を ``True`` に設定します。"
+
+#: ../../source/models/model_abilities/video.rst:199
+msgid "Applying Layerwise Casting to the Transformer"
+msgstr "逐層型変換をTransformerに適用する"
+
+#: ../../source/models/model_abilities/video.rst:201
+msgid ""
+"Layerwise casting will downcast each layer’s weights to "
+"``torch.float8_e4m3fn``, temporarily upcast to ``torch.bfloat16`` during the"
+" forward pass of the layer, then revert to ``torch.float8_e4m3fn`` "
+"afterward. This approach reduces memory requirements by approximately 50% "
+"while introducing a minor quality reduction in the generated video due to "
+"the precision trade-off. Enable layerwise casting via adding "
+"``--layerwise_cast True`` for command line; for the Web UI, add an "
+"additional option ``layerwise_cast`` with the value set to ``True``."
+msgstr ""
+"レイヤーごとの型変換は、各レイヤーの重みを ``torch.float8_e4m3fn`` にダウングレードし、レイヤーのフォワード伝搬中に一時的に "
+"``torch.bfloat16`` にアップグレードし、その後 ``torch.float8_e4m3fn`` "
+"に戻します。この方法により、メモリ要件が約50%削減されますが、精度の妥協により、生成されるビデオ品質は若干低下します。コマンドラインに "
+"``--layerwise_cast True`` を追加することでレイヤーごとの型変換を有効にできます。Web UIの場合は、追加オプション "
+"``layerwise_cast`` を追加し、値を ``True`` に設定します。"
+
+#: ../../source/models/model_abilities/video.rst:208
+msgid "This example will require 20GB of VRAM."
+msgstr "この例では20GBのビデオメモリが必要です。"
+
+#~ msgid "OpenAI-compatible ENDPOINT"
+#~ msgstr "OpenAI 互換エンドポイント"
+
+#~ msgid "API"
+#~ msgstr ""
+
+#~ msgid "Endpoint"
+#~ msgstr "エンドポイント"
+
+#~ msgid "Text-to-Video API"
+#~ msgstr "文生视频 API"
+
+#~ msgid "/v1/video/generations"
+#~ msgstr ""
+
+#~ msgid "Image-to-Video API"
+#~ msgstr "図生動画 API"
+
+#~ msgid "/v1/video/generations/image"
+#~ msgstr ""
