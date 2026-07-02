@@ -218,10 +218,7 @@ msgstr ""
 
 #: ../../source/models/model_abilities/video.rst:178
 msgid "Block Level Group Offloading"
-msgstr ""
-"Tradução direta para português brasileiro:\n"
-"\n"
-"**Descarregamento de agrupamento em nível de bloco**"
+msgstr "Descarregamento de grupo em nível de bloco"
 
 #: ../../source/models/model_abilities/video.rst:180
 msgid ""

@@ -49,7 +49,7 @@ msgstr ""
 
 #: ../../source/models/model_memory.rst:37
 msgid "Syntax"
-msgstr "gramática"
+msgstr "Sintaxe"
 
 #: ../../source/models/model_memory.rst:39
 #, python-brace-format

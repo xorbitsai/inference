@@ -29,7 +29,7 @@ msgstr "índice"
 
 #: ../../source/development/contributing_codebase.rst:9
 msgid "Code standards"
-msgstr "Código de Conduta"
+msgstr "Padrões de código"
 
 #: ../../source/development/contributing_codebase.rst:11
 msgid ""
@@ -74,11 +74,11 @@ msgstr ""
 "essas verificações resultará em falha na integração contínua. Portanto, é "
 "recomendável executar essas verificações por conta própria antes de enviar o"
 " código. Isso pode ser feito instalando o ``pre-commit`` no diretório raiz "
-"do repositório Xinference:"
+"do repositório Xinference::"
 
 #: ../../source/development/contributing_codebase.rst:30
 msgid "and then running::"
-msgstr "Em seguida, execute o comando:"
+msgstr "Em seguida, execute o comando::"
 
 #: ../../source/development/contributing_codebase.rst:34
 msgid ""
@@ -108,7 +108,7 @@ msgid ""
 "still use it to run its checks with::"
 msgstr ""
 "Se você não quiser incluir o ``pre-commit`` como parte do seu fluxo de "
-"trabalho, ainda pode executar o comando abaixo para usá-lo na verificação:"
+"trabalho, ainda pode executar o comando abaixo para usá-lo na verificação::"
 
 #: ../../source/development/contributing_codebase.rst:46
 #: ../../source/development/contributing_codebase.rst:52
@@ -121,7 +121,7 @@ msgid ""
 "you can use::"
 msgstr ""
 "Se você deseja executar uma verificação em todos os arquivos submetidos "
-"recentemente, pode usar o seguinte comando:"
+"recentemente, pode usar o seguinte comando::"
 
 #: ../../source/development/contributing_codebase.rst:56
 msgid ""

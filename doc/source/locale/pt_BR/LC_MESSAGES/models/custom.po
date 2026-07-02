@@ -396,7 +396,7 @@ msgstr "Registre um modelo personalizado por meio de código."
 #: ../../source/models/custom.rst:336 ../../source/models/custom.rst:354
 #: ../../source/models/custom.rst:369 ../../source/models/custom.rst:424
 msgid "Or via CLI:"
-msgstr "No input text was provided."
+msgstr "Ou via CLI:"
 
 #: ../../source/models/custom.rst:342
 msgid ""

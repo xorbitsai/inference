@@ -295,11 +295,11 @@ msgstr "Tomando o modelo ``CosyVoice 0.5B`` como exemplo:"
 
 #: ../../source/models/virtualenv.rst:170
 msgid "**Without this feature enabled**::"
-msgstr "**Quando esta função não está ativada**::"
+msgstr "**Sem este recurso habilitado**::"
 
 #: ../../source/models/virtualenv.rst:181
 msgid "**With this feature enabled**::"
-msgstr "**Após ativar esta função**::"
+msgstr "**Com este recurso habilitado**::"
 
 #: ../../source/models/virtualenv.rst:196
 msgid ""

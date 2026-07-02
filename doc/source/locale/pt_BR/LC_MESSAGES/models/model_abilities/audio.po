@@ -284,9 +284,7 @@ msgstr ""
 
 #: ../../source/models/model_abilities/audio.rst:161
 msgid "Translation"
-msgstr ""
-"I am a strict technical documentation translator. Please provide the "
-"Simplified Chinese text for me to translate into Brazilian Portuguese."
+msgstr "Tradução"
 
 #: ../../source/models/model_abilities/audio.rst:163
 msgid ""

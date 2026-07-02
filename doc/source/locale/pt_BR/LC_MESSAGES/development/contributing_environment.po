@@ -154,7 +154,7 @@ msgstr ""
 
 #: ../../source/development/contributing_environment.rst:68
 msgid "Install from source code"
-msgstr "A partir da instalação a partir do código-fonte"
+msgstr "Instalação a partir do código-fonte"
 
 #: ../../source/development/contributing_environment.rst:70
 msgid ""

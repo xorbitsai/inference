@@ -64,8 +64,7 @@ msgstr "shell"
 #: ../../source/getting_started/using_xinference.rst:29
 #: ../../source/getting_started/using_xinference.rst:71
 msgid "output"
-msgstr ""
-"Por favor, forneça o texto em chinês simplificado que precisa ser traduzido."
+msgstr "saída"
 
 #: ../../source/getting_started/using_xinference.rst:39
 msgid ""
