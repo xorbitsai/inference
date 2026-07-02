@@ -46,7 +46,7 @@ interface ApiKey {
 
 export default function ApiKeyManagement() {
   const { t } = useI18n();
-  const { isAdmin } = useMenuAuth();
+  const { isAdmin, keysManagePage } = useMenuAuth();
 
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
@@ -294,12 +294,12 @@ export default function ApiKeyManagement() {
                   <TableCell>
                     <Switch
                       checked={key.enabled}
-                      disabled={togglingId === key.id || isExpired(key.expires_at)}
+                      disabled={!keysManagePage || togglingId === key.id || isExpired(key.expires_at)}
                       onChange={() => handleToggleEnabled(key)}
                     />
                   </TableCell>
                   <TableCell className="text-right">
-                    {isAdmin && (
+                    {keysManagePage && (
                       <Button
                         variant="ghost"
                         size="sm"

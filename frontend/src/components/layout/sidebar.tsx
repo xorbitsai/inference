@@ -38,6 +38,7 @@ import ThemeToggle from '@/components/layout/theme-toggle';
 import LanguageSwitcher from '@/components/layout/language-switcher';
 import LoginOut from '@/components/layout/login-out';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useMenuAuth } from '@/hooks/use-menu-auth';
 
 type IconComponent = ComponentType<{ className?: string }>;
 
@@ -144,7 +145,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const branding = getBrandingFromEnv();
   const { clusterVersion, clusterAuth, clusterUIConfig } = useGlobal();
-
+  const { usersManagePage, keysManageCreate } = useMenuAuth();
   const token = Cookies.get('token');
   const showLoginOut = useMemo(
     () => clusterAuth?.auth && token && token !== NO_AUTH,
@@ -208,15 +209,17 @@ export function Sidebar() {
             name: t('menu.userManagement'),
             Icon: Users,
             Extra: ChevronRight,
+            show: usersManagePage
           },
           {
             path: '/api-key-management',
             name: t('menu.apiKeyManagement'),
             Icon: KeyRound,
             Extra: ChevronRight,
+            show: keysManageCreate,
           },
         ],
-        show: clusterUIConfig?.auth_advanced || false,
+        show: (clusterUIConfig?.auth_advanced || false) && (usersManagePage || keysManageCreate),
       },
       {
         name: t('menu.resourcesAndSupport'),
@@ -259,7 +262,7 @@ export function Sidebar() {
         ...group,
         items: group.items.filter(({ show = true }) => show),
       }));
-  }, [clusterUIConfig, locale, t]);
+  }, [clusterUIConfig, locale, t, usersManagePage, keysManageCreate]);
 
   return (
     <div

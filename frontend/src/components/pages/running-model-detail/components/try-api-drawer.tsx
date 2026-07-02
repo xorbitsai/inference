@@ -481,7 +481,7 @@ export function TryApiDrawer({
   ability,
 }: TryApiDrawerProps) {
   const router = useRouter();
-  const { keysManagePage } = useMenuAuth();
+  const { keysManageCreate } = useMenuAuth();
   const [language, setLanguage] = useState(CODE_LANGUAGE_OPTIONS[0].value);
   const codeExample = getCodeExample(ability);
   const url = codeExample ? `${getApiUrl()}${codeExample.requestApi}` : '';
@@ -510,7 +510,7 @@ export function TryApiDrawer({
           <Button
             type="button"
             variant="outline"
-            disabled={!keysManagePage}
+            disabled={!keysManageCreate}
             onClick={() => router.push('/api-key-management')}
           >
             <ExternalLink className="size-4" />
