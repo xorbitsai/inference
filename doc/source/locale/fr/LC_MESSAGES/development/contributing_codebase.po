@@ -16,7 +16,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
 "Generated-By: Babel 2.18.0\n"
 
 #: ../../source/development/contributing_codebase.rst:3
@@ -75,11 +75,11 @@ msgstr ""
 " ces vérifications entraînera l'échec de l'intégration continue. Par "
 "conséquent, il est recommandé d'exécuter ces vérifications vous-même avant "
 "de soumettre du code. Cela peut être fait en installant ``pre-commit`` dans "
-"le répertoire racine du dépôt Xinference :"
+"le répertoire racine du dépôt Xinference::"
 
 #: ../../source/development/contributing_codebase.rst:30
 msgid "and then running::"
-msgstr "Exécutez ensuite la commande ::"
+msgstr "Exécutez ensuite la commande::"
 
 #: ../../source/development/contributing_codebase.rst:34
 msgid ""
@@ -110,7 +110,7 @@ msgid ""
 msgstr ""
 "Si vous ne souhaitez pas inclure ``pre-commit`` dans votre flux de travail, "
 "vous pouvez toujours exécuter la commande suivante pour l'utiliser comme "
-"vérification :"
+"vérification::"
 
 #: ../../source/development/contributing_codebase.rst:46
 #: ../../source/development/contributing_codebase.rst:52
@@ -123,7 +123,7 @@ msgid ""
 "you can use::"
 msgstr ""
 "Si vous souhaitez exécuter une vérification sur tous les fichiers récemment "
-"soumis, vous pouvez utiliser la commande suivante :"
+"soumis, vous pouvez utiliser la commande suivante::"
 
 #: ../../source/development/contributing_codebase.rst:56
 msgid ""

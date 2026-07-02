@@ -64,6 +64,14 @@ def _build_mo_with_sphinx_intl(locale: str) -> bool:
     return True
 
 
+def _compile_locale(locale: str, *, has_babel: bool) -> bool:
+    if has_babel:
+        return build_mo(locale)
+    if _messages_dir(locale).is_dir():
+        return _build_mo_with_sphinx_intl(locale)
+    return False
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -85,14 +93,9 @@ def main(argv: list[str] | None = None) -> int:
         has_babel = False
 
     if args.all:
-        if has_babel:
-            built = [loc for loc in KNOWN_LOCALES if build_mo(loc)]
-        else:
-            built = [
-                loc
-                for loc in KNOWN_LOCALES
-                if _messages_dir(loc).is_dir() and _build_mo_with_sphinx_intl(loc)
-            ]
+        built = [
+            loc for loc in KNOWN_LOCALES if _compile_locale(loc, has_babel=has_babel)
+        ]
         if not built:
             print("[build_i18n] no locale directories found")
         return 0
@@ -102,10 +105,7 @@ def main(argv: list[str] | None = None) -> int:
         print("[build_i18n] English build; skipping mo compilation")
         return 0
 
-    if has_babel:
-        build_mo(locale)
-    else:
-        _build_mo_with_sphinx_intl(locale)
+    _compile_locale(locale, has_babel=has_babel)
     return 0
 
 

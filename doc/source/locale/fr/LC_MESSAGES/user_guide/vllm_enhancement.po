@@ -56,7 +56,7 @@ msgstr ""
 
 #: ../../source/user_guide/vllm_enhancement.rst:20
 msgid "Limitations"
-msgstr "Limitation"
+msgstr "Limitations"
 
 #: ../../source/user_guide/vllm_enhancement.rst:21
 msgid ""

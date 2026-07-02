@@ -16,7 +16,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
 "Generated-By: Babel 2.18.0\n"
 
 #: ../../source/examples/ai_podcast.rst:5
@@ -165,7 +165,7 @@ msgid ""
 msgstr ""
 "Avec Xinference, il suffit d'ajouter quelques lignes de code pour déployer "
 "facilement un modèle. Par exemple, pour lancer le modèle vicuna dans la "
-"démonstration, il suffit de :"
+"démonstration, il suffit de::"
 
 #: ../../source/examples/ai_podcast.rst:68
 msgid ""

@@ -16,7 +16,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
 "Generated-By: Babel 2.18.0\n"
 
 #: ../../source/models/virtualenv.rst:6
@@ -288,7 +288,7 @@ msgstr "Réduire l'occupation de l'espace disque."
 
 #: ../../source/models/virtualenv.rst:154
 msgid "Usage"
-msgstr "Utiliser"
+msgstr "Utilisation"
 
 #: ../../source/models/virtualenv.rst:166
 msgid "Performance Comparison"
@@ -300,11 +300,11 @@ msgstr "Avec le modèle ``CosyVoice 0.5B`` comme exemple :"
 
 #: ../../source/models/virtualenv.rst:170
 msgid "**Without this feature enabled**::"
-msgstr "**Lorsque cette fonction n'est pas activée** ::"
+msgstr "**Lorsque cette fonction n'est pas activée**::"
 
 #: ../../source/models/virtualenv.rst:181
 msgid "**With this feature enabled**::"
-msgstr "**Après avoir activé cette fonction** ::"
+msgstr "**Après avoir activé cette fonction**::"
 
 #: ../../source/models/virtualenv.rst:196
 msgid ""

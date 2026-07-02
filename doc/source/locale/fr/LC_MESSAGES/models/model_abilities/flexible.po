@@ -16,7 +16,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
 "Generated-By: Babel 2.18.0\n"
 
 #: ../../source/models/model_abilities/flexible.rst:5
@@ -123,7 +123,7 @@ msgstr ""
 
 #: ../../source/models/model_abilities/flexible.rst:41
 msgid "Download the model to the following path::"
-msgstr "Téléchargez le modèle dans le chemin suivant ::"
+msgstr "Téléchargez le modèle dans le chemin suivant::"
 
 #: ../../source/models/model_abilities/flexible.rst:45
 msgid ""

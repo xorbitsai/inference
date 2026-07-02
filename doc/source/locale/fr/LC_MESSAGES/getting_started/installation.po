@@ -15,7 +15,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
 "Generated-By: Babel 2.18.0\n"
 
 #: ../../source/getting_started/installation.rst:5
@@ -39,7 +39,7 @@ msgid ""
 msgstr ""
 "Si vous souhaitez pouvoir raisonner sur tous les modèles pris en charge, "
 "vous pouvez installer toutes les dépendances nécessaires avec la commande "
-"suivante :"
+"suivante::"
 
 #: ../../source/getting_started/installation.rst:14
 msgid ""
@@ -113,7 +113,7 @@ msgid ""
 "It is the default backend for models in PyTorch format::"
 msgstr ""
 "Le moteur PyTorch (transformers) prend en charge presque tous les derniers "
-"modèles. C'est le moteur par défaut utilisé pour les modèles PyTorch :"
+"modèles. C'est le moteur par défaut utilisé pour les modèles PyTorch::"
 
 #: ../../source/getting_started/installation.rst:46
 msgid "Notes:"
@@ -349,7 +349,7 @@ msgstr ""
 
 #: ../../source/getting_started/installation.rst:101
 msgid "To install Xinference and vLLM::"
-msgstr "Installer xinference et vLLM ::"
+msgstr "Installer Xinference et vLLM::"
 
 #: ../../source/getting_started/installation.rst:114
 msgid "Llama.cpp Backend"
@@ -378,7 +378,7 @@ msgstr ""
 #: ../../source/getting_started/installation.rst:134
 #: ../../source/getting_started/installation.rst:143
 msgid "Initial setup::"
-msgstr "Étapes initiales ::"
+msgstr "Étapes initiales::"
 
 #: ../../source/getting_started/installation.rst:128
 msgid ""
