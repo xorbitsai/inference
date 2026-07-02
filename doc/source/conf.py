@@ -159,9 +159,6 @@ def _compile_mo_catalog(locale: str) -> None:
 if _sphinx_language and _needs_mo_compile(_sphinx_language):
     _compile_mo_catalog(_sphinx_language)
 
-if version_match == 'zh-cn' or _sphinx_language == "zh_CN":
-    tags.add("zh_cn")
-
 
 def _resolve_switcher_version(app):
     rtd_language = os.environ.get("READTHEDOCS_LANGUAGE")
@@ -227,19 +224,14 @@ else:
         "type": "fontawesome",
     }])
 
-html_theme_options["external_links"] = [
-    _EXTERNAL_LINKS_BY_LOCALE.get(version_match, _DEFAULT_EXTERNAL_LINK)
-]
-html_theme_options["header_dropdown_text"] = _HEADER_DROPDOWN_TEXT_BY_LOCALE.get(
-    version_match, "More"
-)
-
 html_favicon = "_static/xinference-favicon.png"
 
 
 def _apply_locale_theme_options(app, config):
     switcher_version = _resolve_switcher_version(app)
-    config.html_theme_options["switcher"]["version_match"] = switcher_version
+    config.html_theme_options.setdefault("switcher", {})["version_match"] = (
+        switcher_version
+    )
     config.html_theme_options["external_links"] = [
         _EXTERNAL_LINKS_BY_LOCALE.get(switcher_version, _DEFAULT_EXTERNAL_LINK)
     ]

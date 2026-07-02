@@ -64,11 +64,19 @@ def _build_mo_with_sphinx_intl(locale: str) -> bool:
     return True
 
 
-def _build_mo_with_fallback(locale: str) -> bool:
+def _has_babel() -> bool:
     try:
-        return build_mo(locale)
+        import babel.messages.mofile  # noqa: F401
+        import babel.messages.pofile  # noqa: F401
     except ImportError:
-        return _build_mo_with_sphinx_intl(locale)
+        return False
+    return True
+
+
+def _compile_locale(locale: str, *, has_babel: bool) -> bool:
+    if has_babel:
+        return build_mo(locale)
+    return _build_mo_with_sphinx_intl(locale)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -84,12 +92,13 @@ def main(argv: list[str] | None = None) -> int:
         help="Compile every known locale directory that exists under source/locale/.",
     )
     args = parser.parse_args(argv)
+    has_babel = _has_babel()
 
     if args.all:
         built = []
         for loc in KNOWN_LOCALES:
             try:
-                if _build_mo_with_fallback(loc):
+                if _compile_locale(loc, has_babel=has_babel):
                     built.append(loc)
             except Exception as exc:
                 print(
@@ -105,7 +114,7 @@ def main(argv: list[str] | None = None) -> int:
         print("[build_i18n] English build; skipping mo compilation")
         return 0
 
-    _build_mo_with_fallback(locale)
+    _compile_locale(locale, has_babel=has_babel)
     return 0
 
 
