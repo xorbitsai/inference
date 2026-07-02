@@ -34,7 +34,7 @@ msgstr ""
 msgid ""
 "If you aim to serve all supported models, you can install all the necessary "
 "dependencies with a single command::"
-msgstr "すべてのサポート対象モデルを推論できるようにしたい場合は、以下のコマンドで必要な依存関係をすべてインストールしてください："
+msgstr "すべてのサポート対象モデルを推論できるようにしたい場合は、以下のコマンドで必要な依存関係をすべてインストールしてください::"
 
 #: ../../source/getting_started/installation.rst:14
 msgid ""
@@ -98,8 +98,8 @@ msgstr "Transformers エンジン"
 msgid ""
 "PyTorch (transformers) supports the inference of most state-of-art models. "
 "It is the default backend for models in PyTorch format::"
-msgstr ""
-"PyTorch（transformers）エンジンは、ほとんどすべての最新モデルをサポートしています。これは、Pytorchモデルがデフォルトで使用するエンジンです。"
+msgstr "PyTorch（transformers）エンジンは、ほとんどすべての最新モデルをサポートしています。これは、Pytorchモデルがデフォル"
+"トで使用するエンジンです::"
 
 #: ../../source/getting_started/installation.rst:46
 msgid "Notes:"
@@ -322,7 +322,7 @@ msgstr ""
 
 #: ../../source/getting_started/installation.rst:101
 msgid "To install Xinference and vLLM::"
-msgstr "xinference と vLLM をインストールする："
+msgstr "xinference と vLLM をインストールする::"
 
 #: ../../source/getting_started/installation.rst:114
 msgid "Llama.cpp Backend"
@@ -350,7 +350,7 @@ msgstr ""
 #: ../../source/getting_started/installation.rst:134
 #: ../../source/getting_started/installation.rst:143
 msgid "Initial setup::"
-msgstr "初期手順："
+msgstr "初期手順::"
 
 #: ../../source/getting_started/installation.rst:128
 msgid ""

@@ -60,15 +60,15 @@ msgid ""
 "cause the Continuous Integration to fail. Therefore, it is advisable to run "
 "the check yourself before submitting code. This can be done by installing "
 "``pre-commit``::"
-msgstr ""
-"さらに、継続的インテグレーションでは、`pre-commit hooks <https://pre-commit.com/>`_ "
-"を使用して、``black``、``flake8``、``isort`` "
-"などのコードフォーマットチェックツールを実行します。これらのチェックによって生成された警告は、継続的インテグレーションの失敗を引き起こします。そのため、コードをコミットする前に、これらのチェックを自身で実行することを推奨します。これは、Xinference"
-" リポジトリのルートディレクトリで ``pre-commit`` をインストールすることで実行できます："
+msgstr "さらに、継続的インテグレーションでは、`pre-commit hooks <https://pre-commit.com/>`_ を使用して"
+"、``black``、``flake8``、``isort`` などのコードフォーマットチェックツールを実行します。これらのチェックによって"
+"生成された警告は、継続的インテグレーションの失敗を引き起こします。そのため、コードをコミットする前に、これらのチェックを自身で実行することを"
+"推奨します。これは、Xinference リポジトリのルートディレクトリで ``pre-commit`` をインストールすることで実行できま"
+"す::"
 
 #: ../../source/development/contributing_codebase.rst:30
 msgid "and then running::"
-msgstr "その後、次のコマンドを実行します。"
+msgstr "その後、次のコマンドを実行します::"
 
 #: ../../source/development/contributing_codebase.rst:34
 msgid ""
@@ -92,7 +92,7 @@ msgstr ""
 msgid ""
 "If you don't want to use ``pre-commit`` as part of your workflow, you can "
 "still use it to run its checks with::"
-msgstr "``pre-commit`` をワークフローの一部として使用したくない場合でも、以下のコマンドを実行してチェックに使用できます："
+msgstr "``pre-commit`` をワークフローの一部として使用したくない場合でも、以下のコマンドを実行してチェックに使用できます::"
 
 #: ../../source/development/contributing_codebase.rst:46
 #: ../../source/development/contributing_codebase.rst:52
@@ -103,7 +103,7 @@ msgstr "事前に ``pre-commit install`` を実行する必要はありません
 msgid ""
 "If you want to run checks on all recently committed files on upstream/main "
 "you can use::"
-msgstr "もし全ての最近コミットされたファイルに対してチェックを実行したい場合は、以下のコマンドを使用できます："
+msgstr "もし全ての最近コミットされたファイルに対してチェックを実行したい場合は、以下のコマンドを使用できます::"
 
 #: ../../source/development/contributing_codebase.rst:56
 msgid ""

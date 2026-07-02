@@ -104,7 +104,7 @@ msgstr ""
 
 #: ../../source/models/model_abilities/flexible.rst:41
 msgid "Download the model to the following path::"
-msgstr "以下のパスにモデルをダウンロードします:"
+msgstr "以下のパスにモデルをダウンロードします::"
 
 #: ../../source/models/model_abilities/flexible.rst:45
 msgid ""
