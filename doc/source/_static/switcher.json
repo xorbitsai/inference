@@ -1,13 +1,53 @@
 [
   {
-    "name": "简体中文(Chinese)",
-    "version": "zh-cn",
-    "url": "https://inference.readthedocs.io/zh-cn/latest/"
-  },
-  {
     "name": "English",
     "version": "en",
     "url": "https://inference.readthedocs.io/en/latest/",
     "preferred": true
+  },
+  {
+    "name": "简体中文 (Chinese)",
+    "version": "zh-cn",
+    "url": "https://inference.readthedocs.io/zh-cn/latest/"
+  },
+  {
+    "name": "繁體中文 (Traditional Chinese)",
+    "version": "zh-tw",
+    "url": "https://inference.readthedocs.io/zh-tw/latest/"
+  },
+  {
+    "name": "日本語 (Japanese)",
+    "version": "ja",
+    "url": "https://inference.readthedocs.io/ja/latest/"
+  },
+  {
+    "name": "한국어 (Korean)",
+    "version": "ko",
+    "url": "https://inference.readthedocs.io/ko/latest/"
+  },
+  {
+    "name": "Deutsch (German)",
+    "version": "de",
+    "url": "https://inference.readthedocs.io/de/latest/"
+  },
+  {
+    "name": "Français (French)",
+    "version": "fr",
+    "url": "https://inference.readthedocs.io/fr/latest/"
+  },
+  {
+    "name": "Español (Spanish)",
+    "version": "es",
+    "url": "https://inference.readthedocs.io/es/latest/"
+  },
+  {
+    "name": "Italiano (Italian)",
+    "version": "it",
+    "url": "https://inference.readthedocs.io/it/latest/"
+  },
+  {
+    "name": "Português (Portuguese)",
+    "version": "pt-br",
+    "url": "https://inference.readthedocs.io/pt-br/latest/"
   }
 ]
