@@ -1,0 +1,152 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-06-06 17:26+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: fr <LL@li.org>\n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/model_memory.rst:5
+msgid "Model Memory Calculation"
+msgstr "Calcul de l'utilisation de la mémoire du modèle"
+
+#: ../../source/models/model_memory.rst:7
+msgid ""
+"For better planning of VMEM usage, xinference provided tool for model memory"
+" calculation: ``cal-model-mem``"
+msgstr ""
+"Pour mieux planifier l'utilisation de la mémoire vidéo, Xinference fournit "
+"un outil permettant de calculer l'utilisation de la mémoire vidéo des "
+"modèles : ``cal-model-mem``"
+
+#: ../../source/models/model_memory.rst:9
+msgid "Use algorithm from https://github.com/RahulSChand/gpu_poor"
+msgstr "L'algorithme provient de : https://github.com/RahulSChand/gpu_poor"
+
+#: ../../source/models/model_memory.rst:11
+msgid "Output: model_mem, kv_cache, overhead, active_mem"
+msgstr "model_mem, kv_cache, overhead, active_mem"
+
+#: ../../source/models/model_memory.rst:13
+msgid ""
+"Example: To calculate memory usage for qwen1.5-chat, run the following "
+"command:"
+msgstr ""
+"Exemple : pour calculer l'utilisation de la mémoire GPU du modèle "
+"qwen1.5-chat, vous pouvez exécuter la commande d'exemple suivante :"
+
+#: ../../source/models/model_memory.rst:37
+msgid "Syntax"
+msgstr "Grammaire"
+
+#: ../../source/models/model_memory.rst:39
+#, python-brace-format
+msgid "--size-in-billions {model_size}"
+msgstr ""
+
+#: ../../source/models/model_memory.rst:42
+#, python-brace-format
+msgid "-s {model_size}"
+msgstr ""
+
+#: ../../source/models/model_memory.rst:45
+msgid ""
+"Set the model size. Specify the model size in billions of parameters. Format"
+" accept 1_8 and 1.8. For example, 7 for 7.0B model size."
+msgstr ""
+"Définir la taille du modèle. Spécifiez la taille du modèle en milliards de "
+"paramètres. Le format du paramètre accepte des formes telles que 1_8 et 1.8."
+" Par exemple, 7 représente une taille de modèle de 7,0B."
+
+#: ../../source/models/model_memory.rst:50
+#, python-brace-format
+msgid "--quantization {precision}"
+msgstr ""
+
+#: ../../source/models/model_memory.rst:53
+#, python-brace-format
+msgid "-q {precision} *(Optional)*"
+msgstr "-q {precision} *(optionnel)*"
+
+#: ../../source/models/model_memory.rst:56
+msgid ""
+"Define the quantization settings for the model. For example, Int4 for INT4 "
+"quantization."
+msgstr ""
+"Spécifier la configuration de quantification du modèle. Par exemple : le "
+"paramètre Int4 indique l'utilisation de la quantification INT4."
+
+#: ../../source/models/model_memory.rst:60
+#, python-brace-format
+msgid "--model-name {model_name}"
+msgstr ""
+
+#: ../../source/models/model_memory.rst:63
+#, python-brace-format
+msgid "-n {model_name} *(Optional)*"
+msgstr "-n {model_name} *(optionnel)*"
+
+#: ../../source/models/model_memory.rst:66
+msgid ""
+"Specify the model's name. If provided, fetch model config from "
+"huggingface/modelscope; If not specified, use default model layer to "
+"estimate."
+msgstr ""
+"Spécifiez le nom du modèle. Si ce paramètre est fourni, la configuration du "
+"modèle sera récupérée depuis huggingface/modelscope ; s'il n'est pas "
+"spécifié, les paramètres de couche par défaut seront utilisés pour une "
+"estimation approximative."
+
+#: ../../source/models/model_memory.rst:70
+#, python-brace-format
+msgid "--context-length {context_length}"
+msgstr ""
+
+#: ../../source/models/model_memory.rst:73
+#, python-brace-format
+msgid "-c {context_length}"
+msgstr ""
+
+#: ../../source/models/model_memory.rst:76
+msgid ""
+"Specify the maximum number of tokens(context length) that your model "
+"support."
+msgstr "Spécifie la longueur maximale du contexte du modèle."
+
+#: ../../source/models/model_memory.rst:79
+#, python-brace-format
+msgid "--model-format {format}"
+msgstr ""
+
+#: ../../source/models/model_memory.rst:82
+#, python-brace-format
+msgid "-f {format}"
+msgstr ""
+
+#: ../../source/models/model_memory.rst:85
+msgid "Specify the format of the model, e.g. pytorch, ggmlv3, etc."
+msgstr "Spécifiez le format du modèle, par exemple : pytorch, ggmlv3, etc."
+
+#: ../../source/models/model_memory.rst:89
+msgid ""
+"The environment variable ``HF_ENDPOINT`` could set the endpoint of "
+"HuggingFace. e.g. hf-mirror, etc. Please refer to :ref:`this document "
+"<models_download>`"
+msgstr ""
+"Utilisez la variable d'environnement ``HF_ENDPOINT`` pour définir le "
+"endpoint du serveur HuggingFace. Par exemple, si le réseau est lent, vous "
+"pouvez choisir hf-mirror comme endpoint. Pour plus d'informations, veuillez "
+"consulter :ref:`ce document <models_download>`."
