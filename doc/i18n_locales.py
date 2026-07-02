@@ -29,9 +29,9 @@ def resolve_sphinx_language(
     explicit: str | None = None,
 ) -> str | None:
     """Return Sphinx ``language`` config value, or ``None`` for English."""
-    if explicit:
-        return explicit
-    slug = (rtd_language or os.environ.get("READTHEDOCS_LANGUAGE") or "").strip().lower()
-    if not slug or slug == "en":
+    slug = (
+        explicit or rtd_language or os.environ.get("READTHEDOCS_LANGUAGE") or ""
+    ).strip().lower()
+    if not slug or slug == "en" or slug.startswith(("en-", "en_")):
         return None
     return RTD_TO_SPHINX_LOCALE.get(slug, slug.replace("-", "_"))
