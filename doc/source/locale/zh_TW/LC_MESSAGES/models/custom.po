@@ -346,7 +346,7 @@ msgstr "列出內建與自訂模型"
 
 #: ../../source/models/custom.rst:348
 msgid "List built-in and custom models programmatically:"
-msgstr ""
+msgstr "以程式碼的方式列舉內建和自訂模型：" ""
 "```python\n"
 "# 内置模型示例\n"
 "from sklearn.linear_model import LinearRegression, LogisticRegression\n"

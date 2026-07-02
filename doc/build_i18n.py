@@ -10,6 +10,13 @@ from pathlib import Path
 
 from i18n_locales import KNOWN_LOCALES, resolve_sphinx_language
 
+try:
+    import babel  # noqa: F401
+
+    HAS_BABEL = True
+except ImportError:
+    HAS_BABEL = False
+
 DOC_DIR = Path(__file__).resolve().parent
 LOCALE_DIR = DOC_DIR / "source" / "locale"
 
@@ -78,20 +85,20 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    try:
-        import babel  # noqa: F401
-
-        has_babel = True
-    except ImportError:
-        has_babel = False
-
     if args.all:
-        if not has_babel:
-            print("[build_i18n] babel is required for --all", file=sys.stderr)
-            return 1
-        built = [loc for loc in KNOWN_LOCALES if build_mo(loc)]
-        if not built:
-            print("[build_i18n] no locale directories found")
+        if HAS_BABEL:
+            built = [loc for loc in KNOWN_LOCALES if build_mo(loc)]
+            if not built:
+                print("[build_i18n] no locale directories found")
+        else:
+            print(
+                "[build_i18n] babel not installed, falling back to sphinx-intl "
+                "for all locales...",
+                flush=True,
+            )
+            for loc in KNOWN_LOCALES:
+                if _messages_dir(loc).is_dir():
+                    _build_mo_with_sphinx_intl(loc)
         return 0
 
     locale = resolve_sphinx_language(explicit=args.locale)
@@ -99,7 +106,7 @@ def main(argv: list[str] | None = None) -> int:
         print("[build_i18n] English build; skipping mo compilation")
         return 0
 
-    if has_babel:
+    if HAS_BABEL:
         build_mo(locale)
     else:
         _build_mo_with_sphinx_intl(locale)

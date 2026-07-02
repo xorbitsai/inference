@@ -149,17 +149,24 @@ def _compile_mo_catalog(locale: str) -> None:
     """Compile .po -> .mo when catalogs are missing or stale."""
     if not _locale_po_files(locale):
         return
-    subprocess.run(
-        [sys.executable, str(_doc_root / "build_i18n.py"), locale],
-        cwd=str(_doc_root),
-        check=True,
-    )
+    try:
+        subprocess.run(
+            [sys.executable, str(_doc_root / "build_i18n.py"), locale],
+            cwd=str(_doc_root),
+            check=True,
+        )
+    except (subprocess.CalledProcessError, OSError) as exc:
+        print(
+            f"[sphinx] warning: failed to compile locale/{locale} catalogs "
+            f"({exc}); continuing with existing .mo files if any",
+            flush=True,
+        )
 
 
 if _sphinx_language and _needs_mo_compile(_sphinx_language):
     _compile_mo_catalog(_sphinx_language)
 
-if version_match == "zh-cn" or _sphinx_language == "zh_CN":
+if version_match == 'zh-cn' or _sphinx_language == "zh_CN":
     tags.add("zh_cn")
 
 
@@ -205,20 +212,7 @@ html_theme_options = {
 }
 
 
-def _apply_switcher_theme_options(theme_options: dict, switcher_version: str) -> None:
-    """Apply locale-specific PyData theme options from one place."""
-    switcher = theme_options.setdefault("switcher", {})
-    switcher.setdefault("json_url", json_url)
-    switcher["version_match"] = switcher_version
-    theme_options["external_links"] = [
-        _EXTERNAL_LINKS_BY_LOCALE.get(switcher_version, _DEFAULT_EXTERNAL_LINK)
-    ]
-    theme_options["header_dropdown_text"] = _HEADER_DROPDOWN_TEXT_BY_LOCALE.get(
-        switcher_version, "More"
-    )
-
-
-if version_match != "zh-cn":
+if version_match != 'zh-cn':
     html_theme_options['icon_links'].extend([{
         "name": "Discord",
         "url": "https://discord.gg/Xw9tszSkr5",
@@ -240,16 +234,27 @@ else:
         "type": "fontawesome",
     }])
 
-_apply_switcher_theme_options(html_theme_options, version_match)
+html_theme_options["external_links"] = [
+    _EXTERNAL_LINKS_BY_LOCALE.get(version_match, _DEFAULT_EXTERNAL_LINK)
+]
+html_theme_options["header_dropdown_text"] = _HEADER_DROPDOWN_TEXT_BY_LOCALE.get(
+    version_match, "More"
+)
 
 html_favicon = "_static/xinference-favicon.png"
 
 
 def _apply_locale_theme_options(app, config):
     switcher_version = _resolve_switcher_version(app)
-    _apply_switcher_theme_options(config.html_theme_options, switcher_version)
+    config.html_theme_options.setdefault("switcher", {})["version_match"] = switcher_version
+    config.html_theme_options["external_links"] = [
+        _EXTERNAL_LINKS_BY_LOCALE.get(switcher_version, _DEFAULT_EXTERNAL_LINK)
+    ]
+    config.html_theme_options["header_dropdown_text"] = (
+        _HEADER_DROPDOWN_TEXT_BY_LOCALE.get(switcher_version, "More")
+    )
     if switcher_version == "zh-cn":
-        config.tags.add("zh_cn")
+        app.tags.add("zh_cn")
 
 
 def _remove_non_zh_cn_nodes(app, doctree, docname):
