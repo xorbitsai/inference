@@ -27,6 +27,7 @@ export const MODEL_ENGINE_TYPES: RequestModelType[] = [
   ModelType.Embedding,
   ModelType.Rerank,
   ModelType.Image,
+  ModelType.Audio,
 ];
 
 export function normalizeModelSize(value: unknown) {
