@@ -44,7 +44,7 @@ import Progress from './progress'
 import SelectField from './selectField'
 
 const enginesWithNWorker = ['SGLang', 'vLLM', 'MLX']
-const modelEngineType = ['LLM', 'embedding', 'rerank', 'image']
+const modelEngineType = ['LLM', 'embedding', 'rerank', 'image', 'audio']
 const historyStorageKey = 'historyArr'
 const defaultHistoryUID = '__default_model_uid__'
 
@@ -485,7 +485,9 @@ const LaunchModelDrawer = ({
   }
 
   const isHistoryEngineValid = (historyData) => {
-    if (!historyData?.model_engine) return false
+    // models without engine selection (e.g. most audio models) have no
+    // model_engine in history entries
+    if (!historyData?.model_engine) return !engineOptions.length
 
     const engineData = enginesObj[historyData.model_engine]
     return (
@@ -888,8 +890,12 @@ const LaunchModelDrawer = ({
     if (!open || !hasFetchedEngines) return
 
     if (!pendingHistory.model_engine) {
-      setFormData({})
-      setCollapseState({})
+      if (engineOptions.length) {
+        setFormData({})
+        setCollapseState({})
+      } else {
+        applyHistory(pendingHistory)
+      }
       setPendingHistory(null)
       return
     }

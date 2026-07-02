@@ -69,6 +69,20 @@ For Mac M-series chips only:
 * :ref:`whisper-large-v3-mlx <models_builtin_whisper-large-v3-mlx>`
 * :ref:`whisper-large-v3-turbo-mlx <models_builtin_whisper-large-v3-turbo-mlx>`
 
+Audio engines
+~~~~~~~~~~~~~
+
+``Qwen3-ASR-0.6B`` and ``Qwen3-ASR-1.7B`` support engine selection. The default
+``transformers`` engine works on all platforms; on Linux with NVIDIA GPUs they
+can also run on the ``vLLM`` engine for faster transcriptions. To use it,
+install the vLLM backend of `qwen-asr <https://pypi.org/project/qwen-asr/>`_ via
+``pip install 'qwen-asr[vllm]'``, then launch the model with
+``--model-engine vLLM``, for example:
+
+.. code-block:: bash
+
+    xinference launch --model-name Qwen3-ASR-1.7B --model-type audio --model-engine vLLM
+
 
 Text to audio (TTS)
 ~~~~~~~~~~~~~~~~~~~~~

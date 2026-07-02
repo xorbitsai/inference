@@ -34,6 +34,8 @@ from .custom import (
     register_audio,
     unregister_audio,
 )
+from .engine import register_builtin_audio_engines
+from .engine_family import generate_engine_config_by_model_name
 
 BUILTIN_AUDIO_MODELS: Dict[str, List["AudioModelFamilyV2"]] = {}
 
@@ -87,11 +89,17 @@ def _install():
         if model_spec.model_name not in AUDIO_MODEL_DESCRIPTIONS:
             AUDIO_MODEL_DESCRIPTIONS.update(generate_audio_description(model_spec))
 
+    register_builtin_audio_engines()
+    for model_specs in BUILTIN_AUDIO_MODELS.values():
+        for model_spec in model_specs:
+            generate_engine_config_by_model_name(model_spec)
+
     register_custom_model()
 
     # register model description
     for ud_audio in get_user_defined_audios():
         AUDIO_MODEL_DESCRIPTIONS.update(generate_audio_description(ud_audio))
+        generate_engine_config_by_model_name(ud_audio)
 
 
 def register_builtin_model():

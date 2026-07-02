@@ -19,6 +19,7 @@ from ..core import CacheableModelSpec, VirtualEnvSettings
 from ..utils import ModelInstanceInfoMixin
 from .chattts import ChatTTSModel
 from .cosyvoice import CosyVoiceModel
+from .engine_family import AudioEngineModel
 from .f5tts import F5TTSModel
 from .f5tts_mlx import F5TTSMLXModel
 from .fish_speech import FishSpeechModel
@@ -142,6 +143,7 @@ def create_audio_model_instance(
         Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
     ] = None,
     model_path: Optional[str] = None,
+    model_engine: Optional[str] = None,
     **kwargs,
 ) -> Union[
     WhisperModel,
@@ -161,14 +163,55 @@ def create_audio_model_instance(
     Qwen3ASRModel,
     Qwen3TTSModel,
     VoxCPMModel,
+    AudioEngineModel,
 ]:
     from ..cache_manager import CacheManager
+    from .engine_family import AUDIO_ENGINES
 
-    kwargs.pop("enable_virtual_env", None)
+    enable_virtual_env = kwargs.pop("enable_virtual_env", None)
     model_spec = match_audio(model_name, download_hub)
     if model_path is None:
         cache_manager = CacheManager(model_spec)
         model_path = cache_manager.cache()
+
+    # Engine-aware dispatch for model families with multiple engines
+    # (e.g. qwen3_asr on transformers or vLLM). Families without registered
+    # engines keep the legacy dispatch below.
+    if model_spec.model_name in AUDIO_ENGINES or model_engine is not None:
+        from .engine_family import (
+            check_engine_by_model_name_and_engine,
+            check_engine_by_model_name_and_engine_with_virtual_env,
+        )
+
+        if model_engine is None:
+            # the first registered engine is the default one
+            model_engine = next(iter(AUDIO_ENGINES[model_spec.model_name]))
+
+        if model_spec.model_name not in AUDIO_ENGINES:
+            logger.warning(
+                "Audio model %s does not support engine selection, "
+                "`model_engine=%s` is ignored.",
+                model_spec.model_name,
+                model_engine,
+            )
+        else:
+            if enable_virtual_env is None:
+                from ...constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+
+                enable_virtual_env = XINFERENCE_ENABLE_VIRTUAL_ENV
+            if enable_virtual_env:
+                audio_cls = check_engine_by_model_name_and_engine_with_virtual_env(
+                    model_engine,
+                    model_spec.model_name,
+                    model_family=model_spec,
+                )
+            else:
+                audio_cls = check_engine_by_model_name_and_engine(
+                    model_engine,
+                    model_spec.model_name,
+                )
+            return audio_cls(model_uid, model_path, model_spec, **kwargs)  # type: ignore
+
     model: Union[
         WhisperModel,
         WhisperMLXModel,

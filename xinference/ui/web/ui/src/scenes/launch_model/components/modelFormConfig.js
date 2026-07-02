@@ -850,6 +850,14 @@ export default function getModelFormConfig({
         visible: true,
       },
       {
+        name: 'model_engine',
+        label: t('launchModel.modelEngine'),
+        type: 'select',
+        options: engineItems,
+        visible: !!engineItems?.length,
+        required: false,
+      },
+      {
         name: 'replica',
         label: t('launchModel.replica'),
         type: 'number',
