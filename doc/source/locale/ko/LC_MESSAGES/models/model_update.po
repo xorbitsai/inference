@@ -1,0 +1,70 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2025, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-11-14 14:48+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ko <LL@li.org>\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/model_update.rst:5
+msgid "Model Update"
+msgstr "모델 업데이트"
+
+#: ../../source/models/model_update.rst:8
+msgid ""
+"This section briefly introduces a common operation on the \"Launch Model\" "
+"page: updating the model list. It corresponds to the \"Type Selection + "
+"Update\" button at the top of the page, which is used to quickly refresh "
+"models of a specific type."
+msgstr ""
+"이 절에서는 \"모델 시작\" 페이지에서 일반적인 작업인 모델 목록 업데이트에 대해 간략히 설명합니다. 이는 페이지 상단의 \"유형 선택"
+" + 업데이트\" 버튼에 해당하며, 특정 유형의 모델을 빠르게 새로 고치는 데 사용됩니다."
+
+#: ../../source/models/model_update.rst:10
+msgid ""
+"Model update rely on the online model list service provided by "
+":ref:`xinference_models_hub` ."
+msgstr "모델 업데이트는 :ref:`xinference_models_hub`에서 제공하는 온라인 모델 목록 서비스에 의존합니다."
+
+#: ../../source/models/model_update.rst:17
+msgid "Update Models"
+msgstr "모델 업데이트"
+
+#: ../../source/models/model_update.rst:19
+msgid ""
+"Operation Location: \"Type Selection\" dropdown and \"Update\" button at the"
+" top right of the page."
+msgstr "작업 위치: 페이지 오른쪽 상단의 \"유형 선택\" 드롭다운 상자와 \"업데이트\" 버튼."
+
+#: ../../source/models/model_update.rst:20
+msgid "Usage:"
+msgstr "사용 방법:"
+
+#: ../../source/models/model_update.rst:21
+msgid ""
+"Select a model type from the dropdown (such as llm, embedding, rerank, "
+"image, audio, video)."
+msgstr ""
+"드롭다운 메뉴에서 모델 유형(예: llm, embedding, rerank, image, audio, video)을 선택합니다."
+
+#: ../../source/models/model_update.rst:22
+msgid ""
+"Click the \"Update\" button, the page will send an update request to the "
+"backend, then automatically jump to the corresponding Tab and refresh the "
+"model list of that type."
+msgstr ""
+"\"업데이트\" 버튼을 클릭하면 페이지가 백엔드로 업데이트 요청을 보내고 자동으로 해당 탭으로 이동하여 해당 유형의 모델 목록을 "
+"새로고침합니다."
