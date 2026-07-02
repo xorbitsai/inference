@@ -91,6 +91,20 @@ const videoDefaults = {
   guidance_scale: 7.5,
 };
 
+const imageKwargsExample = {
+  guidance_scale: 7.5,
+  num_inference_steps: 25,
+};
+
+const videoKwargsExample = {
+  width: 512,
+  height: 512,
+  num_frames: 16,
+  fps: 8,
+  num_inference_steps: 25,
+  guidance_scale: 7.5,
+};
+
 function commonImageBody({ modelUid, values, requestId }: TransformContext, fallbackSize?: string) {
   const kwargs = buildGenerationKwargs(values, requestId, { excludeKeys: ['width', 'height'] });
 
@@ -167,6 +181,16 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     label: 'Generate',
     icon: FileText,
     requestApi: '/v1/completions',
+    codeExample: {
+      method: 'POST',
+      contentType: 'json',
+      fields: [
+        { key: 'model', required: true },
+        { key: 'prompt', required: true, value: 'Hello, what can you do?' },
+        { key: 'max_tokens', value: 256, comment: 'Optional' },
+        { key: 'temperature', value: 1, comment: 'Optional' },
+      ],
+    },
     initialValues: {
       prompt: '',
       max_tokens: 0,
@@ -189,6 +213,18 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     label: 'Embedding',
     icon: Binary,
     requestApi: '/v1/embeddings',
+    codeExample: {
+      method: 'POST',
+      contentType: 'json',
+      fields: [
+        { key: 'model', required: true },
+        {
+          key: 'input',
+          required: true,
+          value: 'Xinference helps serve models through OpenAI-compatible APIs.',
+        },
+      ],
+    },
     initialValues: {
       input: '',
     },
@@ -204,6 +240,23 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     label: 'Rerank',
     icon: ListFilter,
     requestApi: '/v1/rerank',
+    codeExample: {
+      method: 'POST',
+      contentType: 'json',
+      fields: [
+        { key: 'model', required: true },
+        { key: 'query', required: true, value: 'What is Xinference?' },
+        {
+          key: 'documents',
+          required: true,
+          value: [
+            'Xinference is a model-serving platform.',
+            'The weather is sunny today.',
+            'It provides OpenAI-compatible APIs for models.',
+          ],
+        },
+      ],
+    },
     initialValues: {
       query: '',
       documents: ['', ''],
@@ -224,6 +277,20 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     label: 'OCR',
     icon: ScanText,
     requestApi: '/v1/images/ocr',
+    codeExample: {
+      method: 'POST',
+      contentType: 'form',
+      fields: [
+        { key: 'model', required: true },
+        { key: 'image', required: true, type: 'file', value: '/path/to/file.png' },
+        {
+          key: 'kwargs',
+          value: { prompt: 'OCR', model_size: 'gundam', eval_mode: true },
+          stringify: true,
+          comment: 'Optional(other key/value)',
+        },
+      ],
+    },
     initialValues: {
       image: [],
       ocr_type: 'ocr',
@@ -259,6 +326,26 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     label: 'Document Parsing',
     icon: FileSearch,
     requestApi: '/v1/images/ocr',
+    codeExample: {
+      method: 'POST',
+      contentType: 'form',
+      fields: [
+        { key: 'model', required: true },
+        { key: 'image', required: true, type: 'file', value: './document.pdf' },
+        {
+          key: 'kwargs',
+          value: {
+            backend: 'hybrid-auto-engine',
+            parse_method: 'auto',
+            language: 'ch',
+            output_format: 'markdown',
+            return_dict: true,
+          },
+          stringify: true,
+          comment: 'Optional(other key/value)',
+        },
+      ],
+    },
     initialValues: {
       file: [],
       backend: 'hybrid-auto-engine',
@@ -293,6 +380,28 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     label: 'Text to Image',
     icon: ImagePlus,
     requestApi: '/v1/images/generations',
+    codeExample: {
+      method: 'POST',
+      contentType: 'json',
+      fields: [
+        { key: 'model', required: true },
+        {
+          key: 'prompt',
+          required: true,
+          value: 'A cute little cat wearing a tiny astronaut helmet',
+        },
+        { key: 'negative_prompt', value: 'low quality, blurry', comment: 'Optional' },
+        { key: 'n', value: 1, required: true },
+        { key: 'size', value: '1024*1024', required: true },
+        { key: 'response_format', value: 'b64_json', required: true },
+        {
+          key: 'kwargs',
+          value: imageKwargsExample,
+          stringify: true,
+          comment: 'Optional(other key/value)',
+        },
+      ],
+    },
     initialValues: imageDefaults,
     showProgress: true,
     formPanel: TextToImagePanel,
@@ -304,6 +413,32 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     label: 'Image to Image',
     icon: ImageUp,
     requestApi: '/v1/images/variations',
+    codeExample: {
+      method: 'POST',
+      contentType: 'form',
+      fields: [
+        { key: 'model', required: true },
+        { key: 'image', required: true, type: 'file', value: '/path/to/file.png' },
+        {
+          key: 'prompt',
+          required: true,
+          value: 'Turn this image into a watercolor illustration',
+        },
+        { key: 'negative_prompt', value: 'low quality, blurry', comment: 'Optional' },
+        { key: 'n', value: 1, required: true },
+        { key: 'size', value: '1024*1024', required: true },
+        { key: 'response_format', value: 'b64_json', required: true },
+        {
+          key: 'kwargs',
+          value: {
+            ...imageKwargsExample,
+            strength: 0.6
+          },
+          stringify: true,
+          comment: 'Optional(other key/value)',
+        },
+      ],
+    },
     initialValues: { ...imageDefaults, width: -1, height: -1, image: [] },
     showProgress: true,
     formPanel: ImageToImagePanel,
@@ -320,6 +455,29 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     label: 'Inpainting',
     icon: Paintbrush,
     requestApi: '/v1/images/inpainting',
+    codeExample: {
+      method: 'POST',
+      contentType: 'form',
+      fields: [
+        { key: 'model', required: true },
+        { key: 'image', required: true, type: 'file', value: '/path/to/file.png' },
+        { key: 'mask_image', required: true, type: 'file', value: '/path/to/mask.png' },
+        { key: 'prompt', required: true, value: 'Replace the masked area with a blooming garden' },
+        { key: 'negative_prompt', value: 'low quality, blurry', comment: 'Optional' },
+        { key: 'n', value: 1, required: true },
+        { key: 'size', value: '1024*1024', required: true },
+        { key: 'response_format', value: 'b64_json', required: true },
+        {
+          key: 'kwargs',
+          value: {
+            ...imageKwargsExample,
+            strength: 0.6
+          },
+          stringify: true,
+          comment: 'Optional(other key/value)',
+        },
+      ],
+    },
     initialValues: { ...imageDefaults, width: -1, height: -1, image: [], mask_image: [] },
     showProgress: true,
     formPanel: InpaintingPanel,
@@ -339,6 +497,25 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     label: 'Text to Video',
     icon: Video,
     requestApi: '/v1/video/generations',
+    codeExample: {
+      method: 'POST',
+      contentType: 'json',
+      fields: [
+        { key: 'model', required: true },
+        {
+          key: 'prompt',
+          required: true,
+          value: 'A cute little cat walking through a sunny garden',
+        },
+        { key: 'negative_prompt', value: 'low quality, blurry', comment: 'Optional' },
+        {
+          key: 'kwargs',
+          value: videoKwargsExample,
+          stringify: true,
+          comment: 'Optional(other key/value)',
+        },
+      ],
+    },
     initialValues: videoDefaults,
     showProgress: true,
     formPanel: TextToVideoPanel,
@@ -350,6 +527,22 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     label: 'Image to Video',
     icon: Video,
     requestApi: '/v1/video/generations/image',
+    codeExample: {
+      method: 'POST',
+      contentType: 'form',
+      fields: [
+        { key: 'model', required: true },
+        { key: 'image', required: true, type: 'file', value: '/path/to/file.png' },
+        { key: 'prompt', required: true, value: 'Animate the scene with gentle camera movement' },
+        { key: 'negative_prompt', value: 'low quality, blurry', comment: 'Optional' },
+        {
+          key: 'kwargs',
+          value: videoKwargsExample,
+          stringify: true,
+          comment: 'Optional(other key/value)',
+        },
+      ],
+    },
     initialValues: { ...videoDefaults, image: [] },
     showProgress: true,
     formPanel: ImageToVideoPanel,
@@ -367,6 +560,23 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     label: 'First/Last Frame Video',
     icon: Video,
     requestApi: '/v1/video/generations/flf',
+    codeExample: {
+      method: 'POST',
+      contentType: 'form',
+      fields: [
+        { key: 'model', required: true },
+        { key: 'first_frame', required: true, type: 'file', value: '/path/to/first-frame.png' },
+        { key: 'last_frame', required: true, type: 'file', value: '/path/to/last-frame.png' },
+        { key: 'prompt', required: true, value: 'Create a smooth transition between these frames' },
+        { key: 'negative_prompt', value: 'low quality, blurry', comment: 'Optional' },
+        {
+          key: 'kwargs',
+          value: videoKwargsExample,
+          stringify: true,
+          comment: 'Optional(other key/value)',
+        },
+      ],
+    },
     initialValues: { ...videoDefaults, first_frame: [], last_frame: [] },
     showProgress: true,
     formPanel: FirstLastFrameVideoPanel,
@@ -386,6 +596,17 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     label: 'Audio to Text',
     icon: Mic,
     requestApi: '/v1/audio/transcriptions',
+    codeExample: {
+      method: 'POST',
+      contentType: 'form',
+      fields: [
+        { key: 'model', required: true },
+        { key: 'file', required: true, type: 'file', value: '/path/to/audio.map3' },
+        { key: 'prompt', value: 'Meeting notes about the product roadmap', comment: 'Optional' },
+        { key: 'language', value: 'en', comment: 'Optional' },
+        { key: 'temperature', value: 0, comment: 'Optional' },
+      ],
+    },
     initialValues: {
       file: [],
       language: '',
@@ -402,6 +623,20 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
     label: 'Text to Audio',
     icon: AudioLines,
     requestApi: '/v1/audio/speech',
+    codeExample: {
+      method: 'POST',
+      contentType: 'json',
+      fields: [
+        { key: 'model', required: true },
+        {
+          key: 'input',
+          required: true,
+          value: 'Today is a wonderful day to build something useful.',
+        },
+        { key: 'voice', value: 'Voice ID', comment: 'Optional' },
+        { key: 'speed', value: 1, comment: 'Optional' },
+      ],
+    },
     initialValues: {
       input: '',
       voice: '',

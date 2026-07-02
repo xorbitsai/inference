@@ -3,6 +3,7 @@ import type { LucideIcon } from 'lucide-react';
 
 import type { FileUploadValue } from '@/types/common';
 import type { ModelAbility } from '@/constants';
+import type { CodeExampleConfig } from '@/constants/running';
 import type { FormInstance, FormValues } from '@/types/form';
 import type { RunningModelDetail } from '@/types/services';
 
@@ -42,6 +43,7 @@ export interface CapabilityConfig {
   resultPanel: ComponentType<CapabilityResultProps>;
   transformValues: (context: TransformContext) => BodyInit | Record<string, unknown>;
   responseType?: 'blob';
+  codeExample?: CodeExampleConfig;
 }
 
 export interface ChatSettings {

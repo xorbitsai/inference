@@ -29,10 +29,8 @@ import {
 } from '@/components/ui/table';
 import { useI18n } from '@/contexts/i18n-context';
 import { useForm } from '@/hooks/use-form';
-import { decodeJwtScopes } from '@/lib/utils';
+import { useMenuAuth } from '@/hooks/use-menu-auth';
 import request from '@/lib/request';
-import Cookies from 'js-cookie';
-import { NO_AUTH } from '@/constants';
 
 interface ApiKey {
   id: number;
@@ -48,11 +46,7 @@ interface ApiKey {
 
 export default function ApiKeyManagement() {
   const { t } = useI18n();
-
-  const token = Cookies.get('token');
-  const jwtScopes = decodeJwtScopes(token === NO_AUTH ? undefined : token);
-  const isAdmin = jwtScopes.includes('admin');
-  const canManageKeys = isAdmin || jwtScopes.includes('keys:manage');
+  const { isAdmin, keysManagePage } = useMenuAuth();
 
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
@@ -300,12 +294,12 @@ export default function ApiKeyManagement() {
                   <TableCell>
                     <Switch
                       checked={key.enabled}
-                      disabled={!canManageKeys || togglingId === key.id || isExpired(key.expires_at)}
+                      disabled={!keysManagePage || togglingId === key.id || isExpired(key.expires_at)}
                       onChange={() => handleToggleEnabled(key)}
                     />
                   </TableCell>
                   <TableCell className="text-right">
-                    {canManageKeys && (
+                    {keysManagePage && (
                       <Button
                         variant="ghost"
                         size="sm"

@@ -88,7 +88,7 @@ export function MediaPreview({ type, url, title, className }: MediaPreviewProps)
           <a
             href={url}
             download={title || 'generated-image'}
-            className="absolute right-0 top-0 z-10 flex size-7 items-center justify-center rounded-full bg-background/95 text-muted-foreground shadow-sm transition-colors hover:text-foreground"
+            className="absolute right-0 top-0 z-10 flex size-7 items-center justify-center bg-background/95 text-muted-foreground shadow-sm transition-colors hover:text-foreground"
             onClick={(event) => event.stopPropagation()}
           >
             <Download className="size-3.5" />
@@ -108,7 +108,7 @@ export function MediaPreview({ type, url, title, className }: MediaPreviewProps)
                 <a
                   href={url}
                   download={title || 'generated-image'}
-                  className="absolute right-0 top-0 z-10 flex size-7 items-center justify-center rounded-full bg-background/95 text-muted-foreground shadow-sm transition-colors hover:text-foreground"
+                  className="absolute right-0 top-0 z-10 flex size-7 items-center justify-center bg-background/95 text-muted-foreground shadow-sm transition-colors hover:text-foreground"
                 >
                   <Download className="size-4" />
                 </a>

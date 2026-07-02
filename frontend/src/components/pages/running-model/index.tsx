@@ -11,6 +11,7 @@ import {
   MessageCircleMore,
   Cpu,
   Server,
+  Code,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -18,10 +19,16 @@ import PageContainer from '@/components/ui/page-container';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { InfoTooltip } from '@/components/ui/tooltip';
 import { useI18n } from '@/contexts/i18n-context';
 import type { RunningModelItem, ReplicaItem } from '@/types/services';
 import request from '@/lib/request';
 import { cn } from '@/lib/utils';
+import {
+  getTryApiAbility,
+  TryApiDrawer,
+} from '@/components/pages/running-model-detail/components/try-api-drawer';
+import { transformRunningModelDetail } from '@/components/pages/running-model-detail/utils';
 
 interface EmptyStateProps {
   icon: ReactNode;
@@ -77,6 +84,11 @@ const RunningModel = () => {
   const [deleteConfirmLoading, setDeleteConfirmLoading] = useState(false);
   const [deleteReplicaId, setDeleteReplicaId] = useState<string | undefined>(undefined);
   const [deleteReplicaLoading, setDeleteReplicaLoading] = useState(false);
+  const [tryApiOpen, setTryApiOpen] = useState(false);
+  const tryApiAbility = useMemo(
+    () => getTryApiAbility(activeModel?.model_ability || []),
+    [activeModel?.model_ability]
+  );
   const [autostartModelIds, setAutostartModelIds] = useState<string[]>([]);
   const [autostartBusyIds, setAutostartBusyIds] = useState<string[]>([]);
   const visibleModels = useMemo(() => {
@@ -98,7 +110,9 @@ const RunningModel = () => {
     request
       .get('/v1/models')
       .then((res) => {
-        const list = (res?.data || []) as RunningModelItem[];
+        const list = ((res?.data || []) as RunningModelItem[]).map(
+          (item) => transformRunningModelDetail(item) as RunningModelItem
+        );
         setModels(list);
         setActiveModel((prev) => {
           if (!prev) {
@@ -257,6 +271,17 @@ const RunningModel = () => {
             <div className="text-muted-foreground text-xs truncate">{activeModel?.model_name}</div>
           </div>
           <div className="shrink-0 flex item-center gap-2">
+            <InfoTooltip content="Try To API">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setTryApiOpen(true)}
+                className="h-8 text-muted-foreground"
+              >
+                <Code />
+              </Button>
+            </InfoTooltip>
             {isAutostart && (
               <Button
                 type="button"
@@ -429,6 +454,12 @@ const RunningModel = () => {
         confirmClassName="bg-destructive  hover:bg-destructive/90"
         onConfirm={handleDeleteReplica}
         isLoading={deleteReplicaLoading}
+      />
+      <TryApiDrawer
+        open={tryApiOpen}
+        onOpenChange={setTryApiOpen}
+        modelUid={activeModel?.id}
+        ability={tryApiAbility}
       />
     </PageContainer>
   );

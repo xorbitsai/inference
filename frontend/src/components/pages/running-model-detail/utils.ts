@@ -1,3 +1,4 @@
+import { MODEL_TYPE_ABILITY_MAP } from '@/constants/running';
 import type { FormValues } from '@/types/form';
 import type { ChatChoicesMessage } from '@/types/services';
 import type { FileUploadValue } from '@/types/common';
@@ -156,4 +157,17 @@ export function transformFileInfoForResult(message?: ChatChoicesMessage) {
   }
 
   return undefined;
+}
+
+export function transformRunningModelDetail<T extends object>(detail: T) {
+  if (!isRecord(detail) || !detail) return {};
+  const modelType = typeof detail.model_type === 'string' ? detail.model_type : undefined;
+
+  return {
+    ...detail,
+    // fix model_ability was not returned when model_type was Rerank or Embedding.
+    model_ability: Array.isArray(detail.model_ability)
+      ? detail.model_ability
+      : (modelType && MODEL_TYPE_ABILITY_MAP[modelType]) || [],
+  };
 }
