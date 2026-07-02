@@ -156,13 +156,6 @@ def _compile_mo_catalog(locale: str) -> None:
     )
 
 
-if _sphinx_language and _needs_mo_compile(_sphinx_language):
-    _compile_mo_catalog(_sphinx_language)
-
-if version_match == 'zh-cn' or _sphinx_language == "zh_CN":
-    tags.add("zh_cn")
-
-
 def _resolve_switcher_version(app):
     rtd_language = os.environ.get("READTHEDOCS_LANGUAGE")
     if rtd_language:
@@ -247,7 +240,7 @@ def _apply_locale_theme_options(app, config):
         _HEADER_DROPDOWN_TEXT_BY_LOCALE.get(switcher_version, "More")
     )
     if switcher_version == "zh-cn":
-        config.tags.add("zh_cn")
+        app.tags.add("zh_cn")
 
 
 def _remove_non_zh_cn_nodes(app, doctree, docname):
@@ -273,6 +266,10 @@ def _log_doc_progress(app, docname, source):
 
 
 def setup(app):
+    if _sphinx_language and _needs_mo_compile(_sphinx_language):
+        _compile_mo_catalog(_sphinx_language)
+    if version_match == "zh-cn" or _sphinx_language == "zh_CN":
+        app.tags.add("zh_cn")
     app.connect("config-inited", _apply_locale_theme_options)
     app.connect("doctree-resolved", _remove_non_zh_cn_nodes)
     app.connect("source-read", _log_doc_progress)

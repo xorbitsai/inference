@@ -13,14 +13,22 @@ from i18n_locales import KNOWN_LOCALES, resolve_sphinx_language
 DOC_DIR = Path(__file__).resolve().parent
 LOCALE_DIR = DOC_DIR / "source" / "locale"
 
+try:
+    from babel.messages.mofile import write_mo
+    from babel.messages.pofile import read_po
+
+    HAS_BABEL = True
+except ImportError:
+    HAS_BABEL = False
+
 
 def _messages_dir(locale: str) -> Path:
     return LOCALE_DIR / locale / "LC_MESSAGES"
 
 
 def _compile_po_file(po: Path, locale: str) -> None:
-    from babel.messages.mofile import write_mo
-    from babel.messages.pofile import read_po
+    if not HAS_BABEL:
+        raise ImportError("babel is not installed")
 
     with po.open("rb") as f:
         catalog = read_po(f, locale=locale)
@@ -78,8 +86,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    compile_fn = build_mo if HAS_BABEL else _build_mo_with_sphinx_intl
+
     if args.all:
-        built = [loc for loc in KNOWN_LOCALES if build_mo(loc)]
+        built = [loc for loc in KNOWN_LOCALES if compile_fn(loc)]
         if not built:
             print("[build_i18n] no locale directories found")
         return 0
@@ -89,10 +99,7 @@ def main(argv: list[str] | None = None) -> int:
         print("[build_i18n] English build; skipping mo compilation")
         return 0
 
-    try:
-        build_mo(locale)
-    except ImportError:
-        _build_mo_with_sphinx_intl(locale)
+    compile_fn(locale)
     return 0
 
 
