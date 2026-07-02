@@ -32,7 +32,7 @@ msgstr ""
 
 #: ../../source/user_guide/launch.rst:10
 msgid "Replica"
-msgstr "copia"
+msgstr "Réplica"
 
 #: ../../source/user_guide/launch.rst:12
 msgid ""
@@ -83,8 +83,8 @@ msgstr "Introducir una nueva variable de entorno:"
 msgid ""
 "Control whether to enable the single GPU multi-copy feature Default value: 1"
 msgstr ""
-"Controla si se habilita la función de múltiples copias en una sola GPU, "
-"valor predeterminado: 1"
+"Controla si se habilita la función de múltiples réplicas en una sola GPU. "
+"Valor predeterminado: 1"
 
 #: ../../source/user_guide/launch.rst:35
 msgid "New Feature: Smart Replica Deployment"
@@ -92,7 +92,7 @@ msgstr "Nueva función: despliegue de réplicas inteligentes"
 
 #: ../../source/user_guide/launch.rst:37
 msgid "Single GPU Multi-Replica"
-msgstr "Réplica única con múltiples GPU"
+msgstr "Múltiples réplicas en una sola GPU"
 
 #: ../../source/user_guide/launch.rst:39
 msgid "New Support: Run multiple model replicas even with just one GPU."
@@ -133,7 +133,7 @@ msgstr "Escenario: Tienes 2 GPU y necesitas 3 réplicas."
 
 #: ../../source/user_guide/launch.rst:50
 msgid "Configuration: Replicas=3, GPUs=2"
-msgstr "Configuración: replicación=3, cantidad de GPU=2"
+msgstr "Configuración: Réplicas=3, GPUs=2"
 
 #: ../../source/user_guide/launch.rst:51
 msgid "Result: GPU0 runs 2 instances, GPU1 runs 1 instance"
@@ -141,7 +141,7 @@ msgstr "Resultado: GPU0 ejecuta 2 instancias, GPU1 ejecuta 1 instancia"
 
 #: ../../source/user_guide/launch.rst:54
 msgid "GPU Allocation Strategy"
-msgstr "Estrategia de asignación mixta"
+msgstr "Estrategia de asignación de GPU"
 
 #: ../../source/user_guide/launch.rst:56
 msgid ""
@@ -149,10 +149,9 @@ msgid ""
 "replicas to the least utilized GPU. Use the ``XINFERENCE_LAUNCH_STRATEGY`` "
 "parameter to choose launch strategy."
 msgstr ""
-"La estrategia actual es *prioridad de inactividad*: el planificador siempre "
-"intenta asignar réplicas a la GPU más inactiva. Utilice el parámetro "
-"``XINFERENCE_ENV_LAUNCH_STRATEGY`` para seleccionar la estrategia de "
-"lanzamiento."
+"La política actual es *Prioridad por inactividad*: el planificador siempre "
+"intenta asignar réplicas a la GPU menos utilizada. Utilice el parámetro "
+"``XINFERENCE_LAUNCH_STRATEGY`` para elegir la estrategia de despliegue."
 
 #: ../../source/user_guide/launch.rst:59
 msgid "Set Environment Variables"

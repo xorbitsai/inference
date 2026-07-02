@@ -130,7 +130,7 @@ msgid ""
 "assign replicas to the least utilized GPU. Use the "
 "``XINFERENCE_LAUNCH_STRATEGY`` parameter to choose launch strategy."
 msgstr ""
-"当前策略为 *空闲优先* ：调度器始终尝试将副本分配至最空闲的GPU。使用 ``XINFERENCE_ENV_LAUNCH_STRATEGY`` "
+"当前策略为 *空闲优先* ：调度器始终尝试将副本分配至最空闲的GPU。使用 ``XINFERENCE_LAUNCH_STRATEGY`` "
 "参数选择启动策略。"
 
 #: ../../source/user_guide/launch.rst:59

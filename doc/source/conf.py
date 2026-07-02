@@ -149,11 +149,18 @@ def _compile_mo_catalog(locale: str) -> None:
     """Compile .po -> .mo when catalogs are missing or stale."""
     if not _locale_po_files(locale):
         return
-    subprocess.run(
-        [sys.executable, str(_doc_root / "build_i18n.py"), locale],
-        cwd=str(_doc_root),
-        check=True,
-    )
+    try:
+        subprocess.run(
+            [sys.executable, str(_doc_root / "build_i18n.py"), locale],
+            cwd=str(_doc_root),
+            check=True,
+        )
+    except (subprocess.CalledProcessError, OSError) as exc:
+        print(
+            f"[sphinx] warning: failed to compile locale/{locale} catalogs "
+            f"({exc}); continuing with existing .mo files if any",
+            flush=True,
+        )
 
 
 if _sphinx_language and _needs_mo_compile(_sphinx_language):
@@ -247,7 +254,7 @@ def _apply_locale_theme_options(app, config):
         _HEADER_DROPDOWN_TEXT_BY_LOCALE.get(switcher_version, "More")
     )
     if switcher_version == "zh-cn":
-        config.tags.add("zh_cn")
+        app.tags.add("zh_cn")
 
 
 def _remove_non_zh_cn_nodes(app, doctree, docname):
