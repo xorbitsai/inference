@@ -13,6 +13,8 @@ include xinference/locale/*.json
 include xinference/model/llm/*.json
 include xinference/model/embedding/*.json
 graft xinference/thirdparty
-global-include frontend/.next/standalone/**/*
-global-include frontend/.next/static/**/*
-global-include frontend/public/**/*
+graft frontend
+prune frontend/.next
+prune frontend/node_modules
+prune frontend/.npm-cache
+prune frontend/.npm-logs

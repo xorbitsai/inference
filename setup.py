@@ -123,8 +123,6 @@ class BuildWeb(Command):
                 assert os.path.exists(web_dest_path)
 
 
-CustomInstall.register_pre_command("build_web")
-CustomDevelop.register_pre_command("build_web")
 CustomSDist.register_pre_command("build_web")
 
 sys.path.append(repo_root)
