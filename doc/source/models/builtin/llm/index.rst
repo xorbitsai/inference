@@ -541,6 +541,11 @@ The following is a list of built-in LLM in Xinference:
      - 4096
      - Orion-14B series models are open-source multilingual large language models trained from scratch by OrionStarAI.
 
+   * - :ref:`ornith-1.0-35b <models_llm_ornith-1.0-35b>`
+     - chat, vision, tools, reasoning, hybrid
+     - 262144
+     - Ornith-1.0-35B is a 35B-total / 3B-activated Mixture-of-Experts multimodal model built on the Qwen3.5 MoE architecture (Qwen3_5MoeForConditionalGeneration). It combines hybrid linear/full attention, 256 routed experts (8 per token) plus a shared expert, multimodal RoPE, and multi-token prediction, with vision and video understanding via the Qwen3VL processor.
+
    * - :ref:`ovis2 <models_llm_ovis2>`
      - chat, vision
      - 32768
@@ -1035,6 +1040,8 @@ The following is a list of built-in LLM in Xinference:
    opt
   
    orion-chat
+  
+   ornith-1.0-35b
   
    ovis2
   
