@@ -1,0 +1,927 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-11-10 11:08+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: es <LL@li.org>\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/model_abilities/audio.rst:5
+msgid "Audio"
+msgstr "audio"
+
+#: ../../source/models/model_abilities/audio.rst:7
+msgid "Learn how to turn audio into text or text into audio with Xinference."
+msgstr ""
+"Aprende a usar Xinference para convertir audio a texto o texto a audio."
+
+#: ../../source/models/model_abilities/audio.rst:11
+msgid "Introduction"
+msgstr "Introducción"
+
+#: ../../source/models/model_abilities/audio.rst:14
+msgid "The Audio API provides three methods for interacting with audio:"
+msgstr ""
+"La API de Audio proporciona tres métodos para interactuar con el audio:"
+
+#: ../../source/models/model_abilities/audio.rst:17
+msgid "The transcriptions endpoint transcribes audio into the input language."
+msgstr ""
+"El terminal de transcripción transcribe el audio al idioma de entrada."
+
+#: ../../source/models/model_abilities/audio.rst:18
+msgid "The translations endpoint translates audio into English."
+msgstr "El punto final traduce audio a inglés."
+
+#: ../../source/models/model_abilities/audio.rst:19
+msgid "The speech endpoint generates audio from the input text."
+msgstr ""
+"El terminal de transcripción transcribe el audio al idioma de entrada."
+
+#: ../../source/models/model_abilities/audio.rst:26
+msgid "API ENDPOINT"
+msgstr "API endpoint"
+
+#: ../../source/models/model_abilities/audio.rst:27
+msgid "OpenAI-compatible ENDPOINT"
+msgstr "Punto final compatible con OpenAI"
+
+#: ../../source/models/model_abilities/audio.rst:29
+msgid "Transcription API"
+msgstr "API de Transcripción"
+
+#: ../../source/models/model_abilities/audio.rst:30
+msgid "/v1/audio/transcriptions"
+msgstr "/v1/audio/transcriptions"
+
+#: ../../source/models/model_abilities/audio.rst:32
+msgid "Translation API"
+msgstr "API"
+
+#: ../../source/models/model_abilities/audio.rst:33
+msgid "/v1/audio/translations"
+msgstr "/v1/audio/translations"
+
+#: ../../source/models/model_abilities/audio.rst:35
+msgid "Speech API"
+msgstr "API de Voz"
+
+#: ../../source/models/model_abilities/audio.rst:36
+msgid "/v1/audio/speech"
+msgstr "/v1/audio/speech"
+
+#: ../../source/models/model_abilities/audio.rst:40
+msgid "Supported models"
+msgstr "Lista de modelos compatibles"
+
+#: ../../source/models/model_abilities/audio.rst:42
+msgid "The audio API is supported with the following models in Xinference:"
+msgstr "En Xinference, los siguientes modelos admiten la API de audio:"
+
+#: ../../source/models/model_abilities/audio.rst:45
+msgid "Audio to text"
+msgstr "Transcripción de voz a texto"
+
+#: ../../source/models/model_abilities/audio.rst:47
+msgid ":ref:`whisper-tiny <models_builtin_whisper-tiny>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:48
+msgid ":ref:`whisper-tiny.en <models_builtin_whisper-tiny.en>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:49
+msgid ":ref:`whisper-base <models_builtin_whisper-base>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:50
+msgid ":ref:`whisper-base.en <models_builtin_whisper-base.en>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:51
+msgid ":ref:`whisper-medium <models_builtin_whisper-medium>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:52
+msgid ":ref:`whisper-medium.en <models_builtin_whisper-medium.en>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:53
+msgid ":ref:`whisper-large-v3 <models_builtin_whisper-large-v3>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:54
+msgid ":ref:`whisper-large-v3-turbo <models_builtin_whisper-large-v3-turbo>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:55
+msgid ""
+":ref:`Belle-distilwhisper-large-v2-zh <models_builtin_belle-distilwhisper-"
+"large-v2-zh>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:56
+msgid ""
+":ref:`Belle-whisper-large-v2-zh <models_builtin_belle-whisper-large-v2-zh>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:57
+msgid ""
+":ref:`Belle-whisper-large-v3-zh <models_builtin_belle-whisper-large-v3-zh>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:58
+msgid ":ref:`SenseVoiceSmall <models_builtin_sensevoicesmall>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:59
+msgid ":ref:`Paraformer-zh <models_builtin_paraformer-zh>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:61
+#: ../../source/models/model_abilities/audio.rst:99
+msgid "For Mac M-series chips only:"
+msgstr "Solo para los chips de la serie Mac M:"
+
+#: ../../source/models/model_abilities/audio.rst:63
+msgid ":ref:`whisper-tiny-mlx <models_builtin_whisper-tiny-mlx>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:64
+msgid ":ref:`whisper-tiny.en-mlx <models_builtin_whisper-tiny.en-mlx>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:65
+msgid ":ref:`whisper-base-mlx <models_builtin_whisper-base-mlx>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:66
+msgid ":ref:`whisper-base.en-mlx <models_builtin_whisper-base.en-mlx>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:67
+msgid ":ref:`whisper-medium-mlx <models_builtin_whisper-medium-mlx>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:68
+msgid ":ref:`whisper-medium.en-mlx <models_builtin_whisper-medium.en-mlx>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:69
+msgid ":ref:`whisper-large-v3-mlx <models_builtin_whisper-large-v3-mlx>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:70
+msgid ""
+":ref:`whisper-large-v3-turbo-mlx <models_builtin_whisper-large-v3-turbo-"
+"mlx>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:74
+msgid "Text to audio (TTS)"
+msgstr "texto a voz (TTS)"
+
+#: ../../source/models/model_abilities/audio.rst:76
+msgid ""
+"**Models supporting zero-shot** (direct synthesis without reference audio):"
+msgstr ""
+"**Modelos compatibles con zero-shot** (sin necesidad de audio de referencia)"
+
+#: ../../source/models/model_abilities/audio.rst:78
+msgid ":ref:`ChatTTS <models_builtin_chattts>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:79
+msgid ":ref:`CosyVoice-300M-SFT <models_builtin_cosyvoice-300m-sft>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:80
+msgid ""
+":ref:`CosyVoice-300M-Instruct <models_builtin_cosyvoice-300m-instruct>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:81
+msgid "MeloTTS series"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:82
+msgid ":ref:`Kokoro-82M <models_builtin_kokoro-82m>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:83
+#: ../../source/models/model_abilities/audio.rst:102
+msgid ":ref:`Kokoro-82M-MLX <models_builtin_kokoro-82m-mlx>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:84
+msgid ":ref:`MegaTTS3 <models_builtin_megatts3>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:86
+msgid "**Models supporting voice cloning** (requires reference audio):"
+msgstr ""
+"**Modelos que admiten clonación de voz** (se requiere audio de referencia)"
+
+#: ../../source/models/model_abilities/audio.rst:88
+msgid ":ref:`CosyVoice-300M <models_builtin_cosyvoice-300m>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:89
+msgid ":ref:`CosyVoice 2.0 <models_builtin_cosyvoice2-0.5b>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:90
+msgid ":ref:`FishSpeech-1.5 <models_builtin_fishspeech-1.5>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:91
+msgid ":ref:`F5-TTS <models_builtin_f5-tts>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:92
+#: ../../source/models/model_abilities/audio.rst:101
+msgid ":ref:`F5-TTS-MLX <models_builtin_f5-tts-mlx>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:93
+#: ../../source/models/model_abilities/audio.rst:97
+msgid ":ref:`IndexTTS2 <models_builtin_indextts2>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:95
+msgid "**Models supporting emotion control**:"
+msgstr "**Modelos que soportan control emocional**"
+
+#: ../../source/models/model_abilities/audio.rst:105
+msgid "Quickstart"
+msgstr "Guía de inicio rápido"
+
+#: ../../source/models/model_abilities/audio.rst:108
+msgid "Transcription"
+msgstr "Transcripción"
+
+#: ../../source/models/model_abilities/audio.rst:110
+msgid ""
+"The Transcription API mimics OpenAI's `create transcriptions API "
+"<https://platform.openai.com/docs/api-"
+"reference/audio/createTranscription>`_. We can try Transcription API out "
+"either via cURL, OpenAI Client, or Xinference's python client:"
+msgstr ""
+"La API de Transcripción imita la `API de transcripciones de OpenAI "
+"<https://platform.openai.com/docs/api-"
+"reference/audio/createTranscription>`_. Puedes probar la API de "
+"Transcripción mediante cURL, el Cliente de OpenAI o el cliente Python de "
+"Xinference:"
+
+#: ../../source/models/model_abilities/audio.rst:161
+msgid "Translation"
+msgstr ""
+"Translate the following Simplified Chinese text into Spanish: [User's "
+"original text would go here]"
+
+#: ../../source/models/model_abilities/audio.rst:163
+msgid ""
+"The Translation API mimics OpenAI's `create translations API "
+"<https://platform.openai.com/docs/api-reference/audio/createTranslation>`_. "
+"We can try Translation API out either via cURL, OpenAI Client, or "
+"Xinference's python client:"
+msgstr ""
+"La API de traducción imita la API de traducciones `create translations API "
+"<https://platform.openai.com/docs/api-reference/audio/createTranslation>`_ "
+"de OpenAI. Puedes probar la API de traducción mediante cURL, el Cliente "
+"OpenAI o el cliente Python de Xinference:"
+
+#: ../../source/models/model_abilities/audio.rst:213
+msgid "Speech"
+msgstr "voz"
+
+#: ../../source/models/model_abilities/audio.rst:217
+msgid ""
+"The Speech API mimics OpenAI's `create speech API "
+"<https://platform.openai.com/docs/api-reference/audio/createSpeech>`_. We "
+"can try Speech API out either via cURL, OpenAI Client, or Xinference's "
+"python client:"
+msgstr ""
+"La API de Transcription imita la `create speech API "
+"<https://platform.openai.com/docs/api-reference/audio/createSpeech>`_ de "
+"OpenAI. Puedes probar la API de Speech mediante cURL, el Cliente de OpenAI o"
+" el cliente Python de Xinference."
+
+#: ../../source/models/model_abilities/audio.rst:220
+msgid "Speech API use non-stream by default as"
+msgstr "La API de voz utiliza por defecto el modo no streaming."
+
+#: ../../source/models/model_abilities/audio.rst:222
+msgid ""
+"The stream output of ChatTTS is not as good as the non-stream output, please"
+" refer to: https://github.com/2noise/ChatTTS/pull/564"
+msgstr ""
+"La salida en streaming de ChatTTS no es tan efectiva como la salida no "
+"streaming, referencia: https://github.com/2noise/ChatTTS/pull/564"
+
+#: ../../source/models/model_abilities/audio.rst:223
+msgid ""
+"The stream requires ffmpeg<7: "
+"https://pytorch.org/audio/stable/installation.html#optional-dependencies"
+msgstr ""
+"Requisitos de streaming ffmpeg<7: "
+"https://pytorch.org/audio/stable/installation.html#optional-dependencies"
+
+#: ../../source/models/model_abilities/audio.rst:275
+msgid "ChatTTS Usage"
+msgstr "ChatTTS use"
+
+#: ../../source/models/model_abilities/audio.rst:277
+#: ../../source/models/model_abilities/audio.rst:480
+msgid "Basic usage, refer to :ref:`audio speech usage <audio_speech>`."
+msgstr "Uso básico, consulte :ref:`el capítulo de uso de voz <audio_speech>`."
+
+#: ../../source/models/model_abilities/audio.rst:279
+msgid ""
+"Fixed tone color. We can use fixed tone color provided by "
+"https://github.com/6drf21e/ChatTTS_Speaker, Download the "
+"`evaluation_result.csv "
+"<https://github.com/6drf21e/ChatTTS_Speaker/blob/main/evaluation_results.csv>`_"
+" , take ``seed_2155`` as example, we get the ``emb_data`` of it."
+msgstr ""
+"Timbre fijo. Podemos usar el timbre fijo proporcionado por "
+"https://github.com/6drf21e/ChatTTS_Speaker, descargar `evaluation_result.csv"
+" "
+"<https://github.com/6drf21e/ChatTTS_Speaker/blob/main/evaluation_results.csv>`_"
+" , tomando como ejemplo el timbre ``seed_2155``, utilizamos los datos de la "
+"columna ``emb_data``."
+
+#: ../../source/models/model_abilities/audio.rst:292
+msgid "Use the fixed tone color of ``seed_2155`` to generate speech."
+msgstr "Usa ``seed_2155`` para fijar el timbre y crear la voz."
+
+#: ../../source/models/model_abilities/audio.rst:308
+msgid "CosyVoice Usage"
+msgstr "Uso del modelo CosyVoice"
+
+#: ../../source/models/model_abilities/audio.rst:310
+msgid ""
+"CosyVoice has two versions: CosyVoice 1.0 and CosyVoice 2.0. CosyVoice 1.0 "
+"has three different models:"
+msgstr ""
+"CosyVoice tiene dos versiones: CosyVoice 1.0 y CosyVoice 2.0. CosyVoice 1.0 "
+"cuenta con 3 modelos diferentes:"
+
+#: ../../source/models/model_abilities/audio.rst:312
+msgid ""
+"**CosyVoice-300M-SFT**: Choose this model if you just want to convert text "
+"to audio. There are pretrained voices available: ['中文女', '中文男', '日语男', "
+"'粤语女', '英文女', '英文男', '韩语女']"
+msgstr ""
+"**CosyVoice-300M-SFT**: Elige este modelo si solo quieres convertir texto "
+"a audio. Hay voces preentrenadas disponibles: [中文女], [中文男], [日语男], "
+"[粤语女], [英文女], [英文男], [韩语女]."
+
+#: ../../source/models/model_abilities/audio.rst:313
+msgid ""
+"**CosyVoice-300M**: Choose this model if you want to clone voice or convert "
+"text to audio in different languages. The ``prompt_speech`` is always "
+"required and should be a WAV file. For optimal performance, use a sample "
+"rate of 16,000 Hz."
+msgstr ""
+"**CosyVoice-300M**: Si deseas clonar una voz o convertir texto en habla de "
+"otro idioma, selecciona este modelo. Para usar este modelo, debes "
+"proporcionar un archivo de audio ``prompt_speech`` en formato WAV. Utiliza "
+"una frecuencia de muestreo de 16,000 Hz para obtener un mejor rendimiento."
+
+#: ../../source/models/model_abilities/audio.rst:314
+msgid ""
+"**CosyVoice-300M-Instruct**: Choose this model If you need precise control "
+"over the tone and pitch."
+msgstr ""
+"**CosyVoice-300M-Instruct**: Si deseas controlar con precisión el tono y el "
+"timbre, elige este modelo."
+
+#: ../../source/models/model_abilities/audio.rst:316
+msgid "Basic usage, launch model ``CosyVoice-300M-SFT``."
+msgstr "Uso básico, cargar el modelo ``CosyVoice-300M-SFT``."
+
+#: ../../source/models/model_abilities/audio.rst:365
+msgid "Clone voice, launch model ``CosyVoice-300M``."
+msgstr "Clona la voz, carga el modelo ``CosyVoice-300M``."
+
+#: ../../source/models/model_abilities/audio.rst:395
+msgid "Cross lingual usage, launch model ``CosyVoice-300M``."
+msgstr "Uso multilingüe, carga el modelo ``CosyVoice-300M``."
+
+#: ../../source/models/model_abilities/audio.rst:418
+msgid "Instruction based, launch model ``CosyVoice-300M-Instruct``."
+msgstr ""
+"Síntesis de voz basada en instrucciones, carga el modelo "
+"``CosyVoice-300M-Instruct``."
+
+#: ../../source/models/model_abilities/audio.rst:435
+msgid ""
+"CosyVoice 2.0 only has one model, it provides all the capabilities of the "
+"three CosyVoice models. The usage is the same as CosyVoice."
+msgstr ""
+"CosyVoice 2.0 solo tiene un modelo, pero contiene todas las capacidades de "
+"los tres modelos de CosyVoice. El método de uso es el mismo que el de "
+"CosyVoice."
+
+#: ../../source/models/model_abilities/audio.rst:437
+msgid "CosyVoice 2.0 stream usage, launch model ``CosyVoice2-0.5B``."
+msgstr ""
+"Uso en streaming de CosyVoice 2.0, cargando el modelo ``CosyVoice2-0.5B``."
+
+#: ../../source/models/model_abilities/audio.rst:474
+msgid ""
+"More instructions and examples, could be found at https://fun-audio-"
+"llm.github.io/ ."
+msgstr ""
+"Para más instrucciones y ejemplos, consulte https://fun-audio-llm.github.io/"
+" ."
+
+#: ../../source/models/model_abilities/audio.rst:478
+msgid "FishSpeech Usage"
+msgstr "Modelo FishSpeech en uso"
+
+#: ../../source/models/model_abilities/audio.rst:482
+msgid ""
+"Clone voice, launch model ``FishSpeech-1.5``. Please use `prompt_speech` "
+"instead of `reference_audio` and `prompt_text` instead of `reference_text` "
+"to clone voice from the reference audio for the FishSpeech model. This "
+"arguments is aligned to voice cloning of CosyVoice."
+msgstr ""
+"Clonar voz, iniciar el modelo ``FishSpeech-1.5``. Utilice `prompt_speech` en"
+" lugar de `reference_audio` y `prompt_text` en lugar de `reference_text` "
+"para proporcionar audio de referencia al modelo FishSpeech. Este parámetro "
+"es consistente con la clonación de voz de CosyVoice."
+
+#: ../../source/models/model_abilities/audio.rst:509
+msgid "Paraformer Usage"
+msgstr "Instrucciones de uso de Paraformer"
+
+#: ../../source/models/model_abilities/audio.rst:512
+msgid "model"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:512
+msgid "vad"
+msgstr "Detección de actividad de voz (VAD)"
+
+#: ../../source/models/model_abilities/audio.rst:512
+msgid "punc"
+msgstr "Reconstrucción de puntuación (punc)"
+
+#: ../../source/models/model_abilities/audio.rst:512
+msgid "timestamp"
+msgstr "timestamp"
+
+#: ../../source/models/model_abilities/audio.rst:512
+msgid "speaker"
+msgstr "orador"
+
+#: ../../source/models/model_abilities/audio.rst:512
+msgid "hotword"
+msgstr "palabra caliente"
+
+#: ../../source/models/model_abilities/audio.rst:514
+msgid ":ref:`models_builtin_paraformer-zh`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:514
+#: ../../source/models/model_abilities/audio.rst:516
+#: ../../source/models/model_abilities/audio.rst:518
+#: ../../source/models/model_abilities/audio.rst:520
+#: ../../source/models/model_abilities/audio.rst:522
+msgid "yes"
+msgstr "Sí"
+
+#: ../../source/models/model_abilities/audio.rst:514
+#: ../../source/models/model_abilities/audio.rst:516
+#: ../../source/models/model_abilities/audio.rst:518
+#: ../../source/models/model_abilities/audio.rst:520
+msgid "no"
+msgstr "No"
+
+#: ../../source/models/model_abilities/audio.rst:516
+msgid ":ref:`models_builtin_paraformer-zh-hotword`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:518
+msgid ":ref:`models_builtin_paraformer-zh-spk`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:520
+msgid ":ref:`models_builtin_paraformer-zh-long`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:522
+msgid ":ref:`models_builtin_seaco-paraformer-zh` (recommend)"
+msgstr ":ref:`models_builtin_seaco-paraformer-zh` (recomendado)"
+
+#: ../../source/models/model_abilities/audio.rst:525
+msgid "**VAD & Punctuation Usage**"
+msgstr "**Uso de VAD y signos de puntuación**"
+
+#: ../../source/models/model_abilities/audio.rst:527
+msgid "All Paraformer models support VAD and punctuation."
+msgstr ""
+"Todos los modelos de Paraformer admiten funciones de VAD y puntuación."
+
+#: ../../source/models/model_abilities/audio.rst:529
+msgid "**Timestamp & Speaker Usage**"
+msgstr ""
+"**Instrucciones de uso de marcas de tiempo e identificación del hablante**"
+
+#: ../../source/models/model_abilities/audio.rst:531
+msgid "Only the following models support `timestamp` and `speaker`:"
+msgstr ""
+"Solo los siguientes modelos admiten el reconocimiento de `marca de tiempo` y"
+" `hablante`:"
+
+#: ../../source/models/model_abilities/audio.rst:533
+msgid "`paraformer-zh-spk`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:534
+msgid "`paraformer-zh-long`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:535
+#: ../../source/models/model_abilities/audio.rst:560
+msgid "`seaco-paraformer-zh`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:537
+msgid ""
+"Among them, only `paraformer-zh-spk` enables **speaker info by default**."
+msgstr ""
+"Entre ellos, solo `paraformer-zh-spk` tiene habilitada la función de "
+"reconocimiento de hablante de forma predeterminada."
+
+#: ../../source/models/model_abilities/audio.rst:539
+msgid ""
+"If you need speaker info when using `paraformer-zh-long` or `seaco-"
+"paraformer-zh`:"
+msgstr ""
+"Si usas `paraformer-zh-long` o `seaco-paraformer-zh` y necesitas habilitar "
+"la función de reconocimiento de hablantes:"
+
+#: ../../source/models/model_abilities/audio.rst:541
+msgid ""
+"In Web UI: add an extra parameter with key ``spk_model`` and value ``cam++``"
+msgstr ""
+"En la interfaz web: agregue el parámetro llamado ``spk_model`` con el valor "
+"``cam++``."
+
+#: ../../source/models/model_abilities/audio.rst:542
+msgid "In command line: add the option ``--spk_model cam++``"
+msgstr "En la línea de comandos: añada el parámetro ``--spk_model cam++``"
+
+#: ../../source/models/model_abilities/audio.rst:544
+#: ../../source/models/model_abilities/audio.rst:562
+msgid "Example:"
+msgstr "Ejemplo:"
+
+#: ../../source/models/model_abilities/audio.rst:555
+msgid "**Hotword Usage**"
+msgstr "**Instrucciones de uso de la función de palabras clave**"
+
+#: ../../source/models/model_abilities/audio.rst:557
+msgid "Only the following models support `hotword`:"
+msgstr ""
+"Solo los siguientes modelos admiten `hotword` (función de palabra clave):"
+
+#: ../../source/models/model_abilities/audio.rst:559
+msgid "`paraformer-zh-hotword`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:576
+msgid "SenseVoiceSmall Offline Usage"
+msgstr "SenseVoiceSmall sin conexión"
+
+#: ../../source/models/model_abilities/audio.rst:578
+msgid ""
+"Now SenseVoiceSmall use a small vad model ``fsmn-vad``, it will be "
+"downloaded thus network required."
+msgstr ""
+"Ahora SenseVoiceSmall utiliza un pequeño modelo VAD ``fsmn-vad``, por lo que"
+" necesita la red para descargarlo."
+
+#: ../../source/models/model_abilities/audio.rst:580
+msgid "For offline environment, you can download the vad model in advance."
+msgstr ""
+"Para entornos fuera de línea, puedes descargar este modelo VAD con "
+"anticipación."
+
+#: ../../source/models/model_abilities/audio.rst:582
+msgid ""
+"Download from `huggingface <https://huggingface.co/funasr/fsmn-vad>`_ or "
+"`modelscope <https://modelscope.cn/models/iic/speech_fsmn_vad_zh-"
+"cn-16k-common-pytorch/files>`_. Assume downloaded to ``/path/to/fsmn-vad``."
+msgstr ""
+"Descárguelo desde `huggingface <https://huggingface.co/funasr/fsmn-vad>`_ o "
+"`modelscope <https://modelscope.cn/models/iic/speech_fsmn_vad_zh-"
+"cn-16k-common-pytorch/files>`_. Suponga que la descarga se realiza en "
+"``/path/to/fsmn-vad``."
+
+#: ../../source/models/model_abilities/audio.rst:585
+msgid ""
+"Then when launching SenseVoiceSmall with Web UI, you can add an additional "
+"parameter with key ``vad_model`` and value ``/path/to/fsmn-vad`` which is "
+"the downloaded path. When launching with command line, you can add an option"
+" ``--vad_model /path/to/fsmn-vad``."
+msgstr ""
+"Luego, al cargar SenseVoiceSmall con la Web UI, agregue una opción "
+"adicional, cuya clave es ``vad_model`` y cuyo valor es la ruta de descarga "
+"anterior ``/path/to/fsmn-vad``. Al cargar con la línea de comandos, agregue "
+"la opción ``--vad_model /path/to/fsmn-vad``."
+
+#: ../../source/models/model_abilities/audio.rst:590
+msgid "Kokoro Usage"
+msgstr "El modelo Kokoro utiliza"
+
+#: ../../source/models/model_abilities/audio.rst:592
+msgid ""
+"The Kokoro model supports multiple languages, but the default language is "
+"English. If you want to use other languages, such as Chinese, you need to "
+"install additional dependency packages and add an additional parameter when "
+"starting the model."
+msgstr ""
+"El modelo Kokoro admite múltiples idiomas, siendo el inglés el "
+"predeterminado. Si deseas usar un idioma no predeterminado, como el chino, "
+"necesitas instalar paquetes de dependencias adicionales y agregar los "
+"parámetros correspondientes al iniciar el modelo."
+
+#: ../../source/models/model_abilities/audio.rst:596
+msgid "pip install misaki[zh]"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:598
+msgid ""
+"Initialize the model with the parameter lang_code='z', For all available "
+"``lang_code`` options, please refer to `kokoro source code "
+"<https://github.com/hexgrad/kokoro/blob/main/kokoro/pipeline.py#L22>`_. If "
+"the model is started through the web UI, an additional parameter needs to be"
+" added, with the key as ``lang_code`` and the value as ``z``. If the model "
+"is started through the xinference client, the parameters are passed via the "
+"launch_model interface:"
+msgstr ""
+"Inicializa el modelo con el parámetro lang_code='z'. Puedes consultar el "
+"`código fuente de kokoro "
+"<https://github.com/hexgrad/kokoro/blob/main/kokoro/pipeline.py#L22>`_ para "
+"ver todos los lang_code admitidos. Si iniciaste el modelo a través de la "
+"interfaz web, necesitas agregar un parámetro adicional, donde la clave es "
+"``lang_code`` y el valor es ``z``. Si iniciaste el modelo a través del "
+"cliente xinference, puedes consultar el siguiente código para pasar el "
+"parámetro:"
+
+#: ../../source/models/model_abilities/audio.rst:615
+msgid ""
+"When inferring, the voice must start with 'z', for example: ``zf_xiaoyi``. "
+"The currently supported voices are: "
+"https://huggingface.co/hexgrad/Kokoro-82M/tree/main/voices. For example:"
+msgstr ""
+"Al inferir, se debe usar una voz que comience con 'z', por ejemplo: "
+"``zf_xiaoyi``. Las voces actualmente compatibles se pueden consultar en "
+"https://huggingface.co/hexgrad/Kokoro-82M/tree/main/voices. El método de uso"
+" es el siguiente:"
+
+#: ../../source/models/model_abilities/audio.rst:625
+msgid "IndexTTS2 Usage"
+msgstr "IndexTTS2 usage"
+
+#: ../../source/models/model_abilities/audio.rst:627
+msgid ""
+"The IndexTTS2 model supports emotion control, you can use this feature by "
+"specifying some additional parameters. Here are several examples of how to "
+"use IndexTTS2:"
+msgstr ""
+"El modelo IndexTTS2 admite control emocional. Puede utilizar esta función "
+"mediante algunos parámetros adicionales. El siguiente es el método de uso de"
+" IndexTTS2:"
+
+#: ../../source/models/model_abilities/audio.rst:630
+msgid ""
+"Synthesize new speech with a single reference audio file (voice cloning):"
+msgstr "Audio de referencia única (clonación de timbre):"
+
+#: ../../source/models/model_abilities/audio.rst:646
+msgid ""
+"Using a separate, emotional reference audio file to condition the speech "
+"synthesis:"
+msgstr "Especificar el audio de referencia emocional:"
+
+#: ../../source/models/model_abilities/audio.rst:666
+msgid ""
+"When an emotional reference audio file is specified, you can optionally set "
+"the ``emo_alpha`` to adjust how much it affects the output. Valid range is "
+"``0.0 - 1.0`` , and the default value is ``1.0`` (100%):"
+msgstr ""
+"Al especificar un audio de referencia emocional, se puede configurar el "
+"parámetro ``emo_alpha`` para ajustar su nivel de influencia en la salida. El"
+" rango válido es ``0.0 - 1.0``, con un valor predeterminado de ``1.0`` "
+"(100%)."
+
+#: ../../source/models/model_abilities/audio.rst:689
+msgid ""
+"It's also possible to omit the emotional reference audio and instead provide"
+" an 8-float list specifying the intensity of each emotion, in the following "
+"order: ``[happy, angry, sad, afraid, disgusted, melancholic, surprised, "
+"calm]`` . You can additionally use the ``use_random`` parameter to introduce"
+" stochasticity during inference; the default is ``False`` , and setting it "
+"to ``True`` enables randomness:"
+msgstr ""
+"Puede omitir el audio de referencia de emociones y, en su lugar, "
+"proporcionar una lista de 8 números de punto flotante que especifique la "
+"intensidad de cada emoción en el siguiente orden: ``[felicidad, ira, "
+"tristeza, miedo, asco, melancolía, sorpresa, calma]`` . También puede usar "
+"el parámetro ``use_random`` para introducir emociones aleatorias durante la "
+"inferencia; el valor predeterminado es ``False`` , y configurarlo como "
+"``True`` habilita las emociones aleatorias."
+
+#: ../../source/models/model_abilities/audio.rst:712
+msgid ""
+"Alternatively, you can enable ``use_emo_text`` to guide the emotions based "
+"on your provided ``text`` script. Your text script will then automatically "
+"be converted into emotion vectors. It's recommended to use ``emo_alpha`` "
+"around 0.6 (or lower) when using the text emotion modes, for more natural "
+"sounding speech. You can introduce randomness with ``use_random`` (default: "
+"``False``; ``True`` enables randomness):"
+msgstr ""
+"Alternativamente, puede habilitar la función ``use_emo_text`` para guiar la "
+"expresión emocional según el script ``text`` que proporcione. Su script de "
+"texto se convertirá automáticamente en vectores emocionales. Al usar el modo"
+" de emoción de texto, se recomienda establecer ``emo_alpha`` alrededor de "
+"0.6 (o menos) para obtener un efecto de voz más natural. Puede introducir "
+"aleatoriedad mediante ``use_random`` (valor predeterminado: ``False`` ; "
+"``True`` para habilitar aleatoriedad):"
+
+#: ../../source/models/model_abilities/audio.rst:737
+msgid ""
+"It's also possible to directly provide a specific text emotion description "
+"via the ``emo_text`` parameter. Your emotion text will then automatically be"
+" converted into emotion vectors. This gives you separate control of the text"
+" script and the text emotion description:"
+msgstr ""
+"También puede proporcionar directamente una descripción textual de la "
+"emoción específica a través del parámetro ``emo_text``. Su texto emocional "
+"se convertirá automáticamente en un vector de emoción. Esto le permite "
+"controlar por separado el guion de texto y la descripción textual de la "
+"emoción:"
+
+#: ../../source/models/model_abilities/audio.rst:761
+msgid "IndexTTS2 Offline Usage"
+msgstr "IndexTTS2 uso sin conexión"
+
+#: ../../source/models/model_abilities/audio.rst:763
+msgid ""
+"IndexTTS2 requires several small models that are downloaded automatically "
+"during initialization. For offline environments, you can download these "
+"models to a single directory and specify the directory path."
+msgstr ""
+"IndexTTS2 requiere varios modelos pequeños, que se descargan automáticamente"
+" durante el proceso de inicialización. En un entorno fuera de línea, puede "
+"descargar estos modelos en un único directorio y especificar la ruta de "
+"dicho directorio."
+
+#: ../../source/models/model_abilities/audio.rst:766
+msgid "**Easy Setup Method**"
+msgstr "**Método de configuración simple**"
+
+#: ../../source/models/model_abilities/audio.rst:768
+msgid ""
+"The simplest way to set up offline usage is to Use the `hf download` command"
+" to download the small model in advance:"
+msgstr ""
+"La forma más sencilla de configurar el uso sin conexión es usar el comando "
+"`hf download` para descargar todos los modelos pequeños con anticipación."
+
+#: ../../source/models/model_abilities/audio.rst:781
+msgid "The final directory structure should look like this:"
+msgstr ""
+"La estructura final del directorio debería verse de la siguiente manera:"
+
+#: ../../source/models/model_abilities/audio.rst:791
+msgid "**Required Models**"
+msgstr "**Lista de modelos compatibles**"
+
+#: ../../source/models/model_abilities/audio.rst:793
+msgid "The small models are automatically mapped as follows:"
+msgstr ""
+"Los modelos pequeños se asignarán automáticamente de la siguiente manera:"
+
+#: ../../source/models/model_abilities/audio.rst:795
+msgid ""
+"**w2v-bert-2.0** (``models--facebook--w2v-bert-2.0``) - Feature extraction "
+"model"
+msgstr ""
+"**w2v-bert-2.0** (``models--facebook--w2v-bert-2.0``) - modelo de extracción"
+" de características"
+
+#: ../../source/models/model_abilities/audio.rst:796
+msgid ""
+"**campplus** (``models--funasr--campplus``) - Speaker recognition model"
+msgstr ""
+"**campplus** (``models--funasr--campplus``) - Modelo de reconocimiento de "
+"locutor"
+
+#: ../../source/models/model_abilities/audio.rst:797
+msgid ""
+"**bigvgan** (``models--nvidia--bigvgan_v2_22khz_80band_256x``) - Vocoder "
+"model"
+msgstr ""
+"**bigvgan** (``models--nvidia--bigvgan_v2_22khz_80band_256x``) - modelo de "
+"codificador de voz"
+
+#: ../../source/models/model_abilities/audio.rst:798
+msgid ""
+"**semantic_codec** (``models--amphion--MaskGCT``) - Semantic "
+"encoding/decoding model"
+msgstr ""
+"**Codificador/decodificador semántico** (``models--amphion--MaskGCT``) - "
+"Modelo de codificación/decodificación semántica"
+
+#: ../../source/models/model_abilities/audio.rst:800
+msgid "**Launching IndexTTS2 with Offline Models**"
+msgstr "**Inicie IndexTTS2 en modo fuera de línea**"
+
+#: ../../source/models/model_abilities/audio.rst:802
+msgid ""
+"When launching IndexTTS2 with Web UI, you can add an additional parameter: -"
+" ``small_models_dir`` - Path to directory containing all small models"
+msgstr ""
+"Al iniciar IndexTTS2 a través de la interfaz web, se puede agregar un "
+"parámetro adicional: - ``small_models_dir`` - ruta del directorio que "
+"contiene todos los modelos pequeños."
+
+#: ../../source/models/model_abilities/audio.rst:805
+msgid "When launching with command line, you can add the option:"
+msgstr ""
+"Al iniciar desde la línea de comandos, puede agregar las siguientes "
+"opciones:"
+
+#: ../../source/models/model_abilities/audio.rst:812
+msgid "When launching with Python client:"
+msgstr "Al iniciar con el cliente Python:"
+
+#~ msgid "**random sampling**"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Enabling random sampling will reduce the voice cloning fidelity of the "
+#~ "speech synthesis."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "5.Alternatively, you can enable `use_emo_text` to guide the emotions based "
+#~ "on"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "your provided `text` script. Your text script will then automatically be "
+#~ "converted into emotion vectors. It's recommended to use `emo_alpha` around "
+#~ "0.6 (or lower) when using the text emotion modes, for more natural sounding "
+#~ "speech. You can introduce randomness with `use_random` (default: `False`; "
+#~ "`True` enables randomness):"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "The required small models are: 1. **w2v-bert-2.0** - Feature extraction "
+#~ "model (place in ``w2v-bert-2.0/`` subdirectory) 2. **semantic_codec** - "
+#~ "Semantic encoding/decoding model (place in ``semantic_codec/`` subdirectory)"
+#~ " 3. **campplus** - Speaker recognition model (place in ``campplus/`` "
+#~ "subdirectory) 4. **bigvgan** - Vocoder model (place in ``bigvgan/`` "
+#~ "subdirectory)"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Assume downloaded to ``/path/to/small_models`` with the following structure:"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "**Find your Hugging Face cache directory** (usually "
+#~ "``~/.cache/huggingface/hub/``)"
+#~ msgstr ""
+
+#~ msgid "**Copy the required models** to your target directory:"
+#~ msgstr ""
+
+#~ msgid "**Note about Directory Structure**"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "The ``snapshots/`` directories contain version-specific model files with "
+#~ "hash names. Xinference automatically detects and uses the correct snapshot "
+#~ "directory, so you don't need to worry about the exact hash values."
+#~ msgstr ""

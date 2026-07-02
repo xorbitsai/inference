@@ -1,0 +1,277 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-29 16:49+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: es <LL@li.org>\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/getting_started/using_docker_image.rst:5
+msgid "Xinference Docker Image"
+msgstr "Imagen de Docker"
+
+#: ../../source/getting_started/using_docker_image.rst:7
+msgid "Xinference provides official images for use on Dockerhub."
+msgstr ""
+"Xinference ha subido imágenes oficiales en Dockerhub y Alibaba Cloud "
+"Container Image Registry."
+
+#: ../../source/getting_started/using_docker_image.rst:11
+msgid ""
+"Starting from **Xinference v2.0**, to use the CUDA version of the image, the"
+" minimum CUDA version must be **CUDA 12.9**."
+msgstr ""
+"A partir de **Xinference v2.0**, si se desea utilizar una imagen con la "
+"versión de CUDA, esta debe ser al menos **CUDA 12.9**."
+
+#: ../../source/getting_started/using_docker_image.rst:14
+msgid "Prerequisites"
+msgstr "Preparación"
+
+#: ../../source/getting_started/using_docker_image.rst:15
+msgid ""
+"The image can only run in an environment with GPUs and CUDA installed, "
+"because Xinference in the image relies on Nvidia GPUs for acceleration."
+msgstr ""
+"Xinference utiliza GPU para acelerar la inferencia, esta imagen debe "
+"ejecutarse en una máquina que tenga una tarjeta GPU y CUDA instalado."
+
+#: ../../source/getting_started/using_docker_image.rst:16
+msgid ""
+"CUDA must be successfully installed on the host machine. This can be "
+"determined by whether you can successfully execute the ``nvidia-smi`` "
+"command."
+msgstr ""
+"Asegúrate de que CUDA esté correctamente instalado en la máquina. Puedes "
+"usar ``nvidia-smi`` para verificar su correcto funcionamiento."
+
+#: ../../source/getting_started/using_docker_image.rst:17
+msgid ""
+"For CUDA version >= 12.9, CUDA version in the docker image is ``12.9``, and "
+"the CUDA version on the host machine should be ``12.9`` or above, and the "
+"NVIDIA driver version should be ``575`` or above."
+msgstr ""
+"Para la versión de CUDA >= 12.9, la versión de CUDA utilizada en la imagen "
+"Docker es ``12.9``. La versión de CUDA en el host debe ser ``12.9`` o "
+"superior, y la versión del controlador NVIDIA debe ser ``575`` o superior."
+
+#: ../../source/getting_started/using_docker_image.rst:18
+msgid ""
+"Ensure `NVIDIA Container Toolkit <https://docs.nvidia.com/datacenter/cloud-"
+"native/container-toolkit/latest/install-guide.html>`_ installed."
+msgstr ""
+"Asegúrese de tener instalado `NVIDIA Container Toolkit "
+"<https://docs.nvidia.com/datacenter/cloud-native/container-"
+"toolkit/latest/install-guide.html>`_."
+
+#: ../../source/getting_started/using_docker_image.rst:22
+msgid "Docker Image"
+msgstr "Imagen de Docker"
+
+#: ../../source/getting_started/using_docker_image.rst:23
+msgid ""
+"The official image of Xinference is available on DockerHub in the repository"
+" ``xprobe/xinference``. Available tags include:"
+msgstr ""
+"La imagen oficial de Xinference ha sido publicada en el repositorio "
+"``xprobe/xinference`` de DockerHub. Las etiquetas actualmente disponibles "
+"incluyen:"
+
+#: ../../source/getting_started/using_docker_image.rst:26
+msgid ""
+"``nightly-main``: This image is built daily from the `GitHub main branch "
+"<https://github.com/xorbitsai/inference>`_ and generally does not guarantee "
+"stability."
+msgstr ""
+"``nightly-main``: Esta imagen se actualiza diariamente desde la rama main de"
+" GitHub, sin garantía de estabilidad o confiabilidad."
+
+#: ../../source/getting_started/using_docker_image.rst:27
+msgid ""
+"``v<release version>``: This image is built each time a Xinference release "
+"version is published, and it is typically more stable."
+msgstr ""
+"``v<release version>``: Esta imagen se crea cada vez que Xinference publica "
+"una versión, y generalmente se puede considerar estable y confiable."
+
+#: ../../source/getting_started/using_docker_image.rst:28
+msgid ""
+"``latest``: This image is built with the latest Xinference release version."
+msgstr ""
+"``latest``: Esta imagen apuntará a la versión de lanzamiento más reciente "
+"cuando se publique Xinference."
+
+#: ../../source/getting_started/using_docker_image.rst:29
+msgid "For CPU version, add ``-cpu`` suffix, e.g. ``nightly-main-cpu``."
+msgstr ""
+"Para la versión CPU, añada el sufijo ``-cpu``, por ejemplo ``nightly-main-"
+"cpu``."
+
+#: ../../source/getting_started/using_docker_image.rst:33
+msgid "Dockerfile for custom build"
+msgstr "Imagen personalizada"
+
+#: ../../source/getting_started/using_docker_image.rst:34
+msgid ""
+"If you need to build the Xinference image according to your own "
+"requirements, the source code for the Dockerfile is located at "
+"`xinference/deploy/docker/Dockerfile "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/deploy/docker/Dockerfile>`_"
+" for reference. Please make sure to be in the top-level directory of "
+"Xinference when using this Dockerfile. For example:"
+msgstr ""
+"Si necesita instalar dependencias adicionales, consulte "
+"`xinference/deploy/docker/Dockerfile "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/deploy/docker/Dockerfile>`_."
+" Asegúrese de estar en el directorio raíz del proyecto Xinference al crear "
+"la imagen con el Dockerfile. Por ejemplo:"
+
+#: ../../source/getting_started/using_docker_image.rst:45
+msgid "Image usage"
+msgstr "Usa el espejo"
+
+#: ../../source/getting_started/using_docker_image.rst:46
+msgid ""
+"You can start Xinference in the container like this, simultaneously mapping "
+"port 9997 in the container to port 9998 on the host, enabling debug logging,"
+" and downloading models from modelscope."
+msgstr ""
+"Puede iniciar Xinference en un contenedor de la siguiente manera, mientras "
+"mapea el puerto 9997 al puerto 9998 del host, y especifica el nivel de "
+"registro como DEBUG. También puede especificar las variables de entorno "
+"necesarias."
+
+#: ../../source/getting_started/using_docker_image.rst:54
+msgid ""
+"The option ``--gpus`` is essential and cannot be omitted, because as "
+"mentioned earlier, the image requires the host machine to have a GPU. "
+"Otherwise, errors will occur."
+msgstr ""
+"``--gpus`` debe especificarse, como se describió anteriormente, la imagen "
+"debe ejecutarse en una máquina con GPU; de lo contrario, se producirá un "
+"error."
+
+#: ../../source/getting_started/using_docker_image.rst:55
+msgid ""
+"The ``-H 0.0.0.0`` parameter after the ``xinference-local`` command cannot "
+"be omitted. Otherwise, the host machine may not be able to access the port "
+"inside the container."
+msgstr ""
+"``-H 0.0.0.0`` también debe especificarse; de lo contrario, no se podrá "
+"conectar al servicio Xinference desde fuera del contenedor."
+
+#: ../../source/getting_started/using_docker_image.rst:56
+msgid ""
+"You can add multiple ``-e`` options to introduce multiple environment "
+"variables."
+msgstr ""
+"Se pueden especificar múltiples opciones ``-e`` para asignar múltiples "
+"variables de entorno."
+
+#: ../../source/getting_started/using_docker_image.rst:59
+msgid ""
+"Certainly, if you prefer, you can also manually enter the docker container "
+"and start Xinference in any desired way."
+msgstr ""
+"Por supuesto, también se puede ejecutar el contenedor, luego ingresar a él y"
+" levantar Xinference manualmente."
+
+#: ../../source/getting_started/using_docker_image.rst:63
+msgid ""
+"For multiple GPUs, make sure to set the shared memory size, for example: "
+"`docker run --shm-size=128g ...`"
+msgstr ""
+"Para varias GPUs, asegúrate de configurar el tamaño de la memoria "
+"compartida, por ejemplo: `docker run --shm-size=128g ...`"
+
+#: ../../source/getting_started/using_docker_image.rst:67
+msgid "Mount your volume for loading and saving models"
+msgstr "Montar el directorio del modelo"
+
+#: ../../source/getting_started/using_docker_image.rst:68
+msgid ""
+"The image does not contain any model files by default, and it downloads the "
+"models into the container. Typically, you would need to mount a directory on"
+" the host machine to the docker container, so that Xinference can download "
+"the models onto it, allowing for reuse. In this case, you need to specify a "
+"volume when running the Docker image and configure environment variables for"
+" Xinference:"
+msgstr ""
+"Por defecto, la imagen no incluye ningún archivo de modelo, y durante su "
+"uso, los modelos se descargarán dentro del contenedor. Si necesita utilizar "
+"modelos ya descargados, es necesario montar el directorio del host en el "
+"contenedor. En este caso, debe especificar un volumen local al ejecutar el "
+"contenedor y configurar variables de entorno para Xinference."
+
+#: ../../source/getting_started/using_docker_image.rst:77
+msgid ""
+"The principle behind the above command is to mount the specified directory "
+"from the host machine into the container, and then set the "
+"``XINFERENCE_HOME`` environment variable to point to that directory inside "
+"the container. This way, all downloaded model files will be stored in the "
+"directory you specified on the host machine. You don't have to worry about "
+"losing them when the Docker container stops, and the next time you run it, "
+"you can directly use the existing models without the need for repetitive "
+"downloads."
+msgstr ""
+"El principio del comando anterior es montar el directorio especificado en el"
+" host dentro del contenedor y establecer la variable de entorno "
+"``XINFERENCE_HOME`` para que apunte a ese directorio dentro del contenedor. "
+"De esta forma, todos los archivos de modelo descargados se almacenarán en el"
+" directorio que usted especificó en el host. No necesita preocuparse por "
+"perder estos archivos cuando el contenedor Docker se detenga; la próxima vez"
+" que ejecute el contenedor, podrá usar directamente los modelos existentes "
+"sin necesidad de descargarlos nuevamente."
+
+#: ../../source/getting_started/using_docker_image.rst:81
+msgid ""
+"If you downloaded the model using the default path on the host machine, and "
+"since the xinference cache directory stores the model using symbolic links, "
+"you need to mount the directory where the original file is located into the "
+"container as well. For example, if you are using HuggingFace and Modelscope "
+"as model hub, you would need to mount the corresponding directories into the"
+" container. Generally, the cache directories for HuggingFace and Modelscope "
+"are located at <home_path>/.cache/huggingface and "
+"<home_path>/.cache/modelscope. The command would be like:"
+msgstr ""
+"Si descargó los modelos en las rutas predeterminadas del host, dado que el "
+"directorio de caché de Xinference utiliza enlaces simbólicos para almacenar "
+"los modelos, es necesario montar el directorio donde se encuentran los "
+"archivos originales dentro del contenedor. Por ejemplo, si utiliza Hugging "
+"Face y ModelScope como repositorios de modelos, deberá montar los "
+"directorios correspondientes en el contenedor. Generalmente, los directorios"
+" de caché correspondientes se encuentran en <home_path>/.cache/huggingface y"
+" <home_path>/.cache/modelscope. El comando a utilizar es el siguiente:"
+
+#~ msgid ""
+#~ "For CUDA 12.8, add ``-cu128`` suffix, e.g. ``nightly-main-cu128``. "
+#~ "(Xinference version should be between v1.8.1 and v1.15.0)"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Starting from **Xinference v2.0**, only ``-cu129`` and ``-cpu`` images are "
+#~ "officially provided."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Starting from **Xinference v2.0**, only two image variants are provided: the"
+#~ " default (no suffix, **CUDA 12.9**) and the ``-cpu`` image."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "For CUDA 12.9, no suffix, e.g. ``nightly-main``. (Xinference version should "
+#~ "be v2.0 at least)"
+#~ msgstr ""

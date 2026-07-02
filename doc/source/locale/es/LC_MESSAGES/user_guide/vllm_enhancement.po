@@ -1,0 +1,79 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-15 13:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: es <LL@li.org>\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/vllm_enhancement.rst:5
+msgid "Xavier: Share KV Cache between vllm replicas"
+msgstr "Xavier: Compartir KV Cache entre múltiples réplicas de VLLM"
+
+#: ../../source/user_guide/vllm_enhancement.rst:6
+msgid ""
+"For scenarios such as long document queries and multi-round conversations, "
+"the computation during the inference prefill phase can be particularly "
+"heavy, which affects overall throughput and the latency of individual "
+"inferences. Xinference enhances the vllm engine by introducing the "
+"``Xavier`` framework, enabling KV cache sharing across multiple vllm "
+"instances. This allows KV cache computed by other replicas to be directly "
+"reused, avoiding redundant computations."
+msgstr ""
+"Para escenarios como consultas de documentos largos y diálogos de múltiples "
+"rondas, la computación en la etapa de prellenado de inferencia puede ser "
+"especialmente intensiva, lo que afecta el rendimiento general y la latencia "
+"de inferencia individual. Xinference optimiza el motor vllm mediante la "
+"introducción del framework ``Xavier``, permitiendo compartir la caché KV "
+"entre múltiples instancias de vllm. Esto posibilita que la caché KV "
+"calculada por otras réplicas pueda reutilizarse directamente, evitando así "
+"cálculos redundantes."
+
+#: ../../source/user_guide/vllm_enhancement.rst:15
+msgid "Usage"
+msgstr "Usar"
+
+#: ../../source/user_guide/vllm_enhancement.rst:16
+msgid ""
+"Simply add the parameter ``enable_xavier=True`` when starting the vllm "
+"model."
+msgstr "Active el parámetro ``enable_xavier=True`` al iniciar el modelo vllm."
+
+#: ../../source/user_guide/vllm_enhancement.rst:20
+msgid "Limitations"
+msgstr "restricción"
+
+#: ../../source/user_guide/vllm_enhancement.rst:21
+msgid ""
+"Xavier requires vllm version >= ``0.7.0``, and currently not supports for "
+"vllm version >= ``0.11.0`` due to vllm reconstruction."
+msgstr ""
+"Xavier requiere que la versión de vllm no sea inferior a ``0.7.0``. "
+"Actualmente no se admite una versión de vllm superior a ``0.11.0``."
+
+#: ../../source/user_guide/vllm_enhancement.rst:22
+msgid ""
+"Due to the underlying communication not recognizing ``0.0.0.0``, the actual "
+"IP address needs to be passed when starting Xinference, for example: "
+"``xinference-local -H 192.168.xx.xx``."
+msgstr ""
+"Debido a que la comunicación subyacente no reconoce la dirección "
+"``0.0.0.0``, al iniciar xinference es necesario configurar una dirección IP "
+"real, por ejemplo: ``xinference-local -H 192.168.xx.xx``."
+
+#: ../../source/user_guide/vllm_enhancement.rst:23
+msgid "Xavier only works for Nvidia product."
+msgstr "Xavier solo es compatible con tarjetas gráficas Nvidia."
