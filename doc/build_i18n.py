@@ -64,6 +64,27 @@ def _build_mo_with_sphinx_intl(locale: str) -> bool:
     return True
 
 
+def _has_babel() -> bool:
+    try:
+        import babel.messages.mofile  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
+def _compile_locale(locale: str, *, has_babel: bool) -> bool:
+    po_root = _messages_dir(locale)
+    if not po_root.is_dir():
+        print(f"[build_i18n] skip {locale}: missing {po_root}", flush=True)
+        return False
+    if not any(po_root.rglob("*.po")):
+        print(f"[build_i18n] skip {locale}: no .po files under {po_root}", flush=True)
+        return False
+    if has_babel:
+        return build_mo(locale)
+    return _build_mo_with_sphinx_intl(locale)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -77,9 +98,12 @@ def main(argv: list[str] | None = None) -> int:
         help="Compile every known locale directory that exists under source/locale/.",
     )
     args = parser.parse_args(argv)
+    has_babel = _has_babel()
+    if not has_babel:
+        print("[build_i18n] babel not installed; using sphinx-intl fallback", flush=True)
 
     if args.all:
-        built = [loc for loc in KNOWN_LOCALES if build_mo(loc)]
+        built = [loc for loc in KNOWN_LOCALES if _compile_locale(loc, has_babel=has_babel)]
         if not built:
             print("[build_i18n] no locale directories found")
         return 0
@@ -89,10 +113,7 @@ def main(argv: list[str] | None = None) -> int:
         print("[build_i18n] English build; skipping mo compilation")
         return 0
 
-    try:
-        build_mo(locale)
-    except ImportError:
-        _build_mo_with_sphinx_intl(locale)
+    _compile_locale(locale, has_babel=has_babel)
     return 0
 
 
