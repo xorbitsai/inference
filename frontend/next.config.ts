@@ -22,8 +22,9 @@ const nextConfig = {
     ignoreDuringBuilds: false,
   },
   async rewrites() {
-    const apiUrl =
-      process.env.XINFERENCE_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:9997';
+    const apiUrl = (
+      process.env.XINFERENCE_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:9997'
+    ).replace(/\/+$/, '');
     return [
       {
         source: '/v1/:path*',
