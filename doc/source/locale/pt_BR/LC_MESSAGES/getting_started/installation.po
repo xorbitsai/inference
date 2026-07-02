@@ -102,7 +102,7 @@ msgstr ""
 
 #: ../../source/getting_started/installation.rst:41
 msgid "Transformers Backend"
-msgstr "Transformers engine"
+msgstr "Backend Transformers"
 
 #: ../../source/getting_started/installation.rst:42
 msgid ""
@@ -135,7 +135,7 @@ msgstr ""
 
 #: ../../source/getting_started/installation.rst:54
 msgid "vLLM Backend"
-msgstr "vLLM engine"
+msgstr "Backend vLLM"
 
 #: ../../source/getting_started/installation.rst:55
 msgid ""
@@ -350,7 +350,7 @@ msgstr "Para instalar Xinference e vLLM::"
 
 #: ../../source/getting_started/installation.rst:114
 msgid "Llama.cpp Backend"
-msgstr "Llama.cpp engine"
+msgstr "Backend Llama.cpp"
 
 #: ../../source/getting_started/installation.rst:115
 msgid ""
@@ -404,7 +404,7 @@ msgstr ""
 
 #: ../../source/getting_started/installation.rst:140
 msgid "MLX Backend"
-msgstr "MLX Engine"
+msgstr "Backend MLX"
 
 #: ../../source/getting_started/installation.rst:141
 msgid "MLX-lm is designed for Apple silicon users to run LLM efficiently."

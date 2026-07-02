@@ -169,7 +169,7 @@ msgstr ""
 
 #: ../../source/user_guide/client_api.rst:320
 msgid "To initiate an audio model and get text from an audio:"
-msgstr "Inicialize um modelo de fala e gere texto por meio dela."
+msgstr "Inicialize um modelo de áudio e obtenha texto a partir de um áudio:"
 
 #: ../../source/user_guide/client_api.rst:349
 msgid ""

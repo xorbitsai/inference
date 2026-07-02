@@ -190,7 +190,7 @@ msgstr ""
 
 #: ../../source/development/contributing_codebase.rst:82
 msgid "Type hints"
-msgstr "Type hints"
+msgstr "Anotações de tipo"
 
 #: ../../source/development/contributing_codebase.rst:84
 msgid ""

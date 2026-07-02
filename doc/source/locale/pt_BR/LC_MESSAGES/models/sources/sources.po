@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../source/models/sources/sources.rst:5
 msgid "Download Sources"
-msgstr "Model source"
+msgstr "Fontes de download"
 
 #: ../../source/models/sources/sources.rst:7
 msgid "Xinference supports downloading various models from different sources."

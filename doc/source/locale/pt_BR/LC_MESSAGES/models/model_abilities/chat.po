@@ -92,7 +92,7 @@ msgstr ""
 
 #: ../../source/models/model_abilities/chat.rst:34
 msgid "MODEL ABILITY"
-msgstr "Model Capabilities"
+msgstr "Capacidades do modelo"
 
 #: ../../source/models/model_abilities/chat.rst:35
 msgid "API ENDPOINT"

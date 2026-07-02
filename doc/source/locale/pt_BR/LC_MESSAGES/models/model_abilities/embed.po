@@ -115,7 +115,7 @@ msgstr ""
 
 #: ../../source/models/model_abilities/embed.rst:107
 msgid "LangChain Streamlit Doc Chat"
-msgstr "Tradução de Documentação do LangChain Streamlit"
+msgstr "Chat de documentos LangChain Streamlit"
 
 #: ../../source/models/model_abilities/embed.rst:110
 msgid "Learn from an example demonstrating how to use embed API via LangChain"

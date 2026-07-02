@@ -251,7 +251,7 @@ msgstr ""
 
 #: ../../source/models/xinference_model_hub.rst:91
 msgid "Model Maintenance"
-msgstr "Model maintenance"
+msgstr "Manutenção de modelos"
 
 #: ../../source/models/xinference_model_hub.rst:93
 msgid "**Function:** Modify and manage existing models"

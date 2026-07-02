@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../source/models/virtualenv.rst:6
 msgid "Model Virtual Environments"
-msgstr "Model virtual environment"
+msgstr "Ambientes virtuais de modelos"
 
 #: ../../source/models/virtualenv.rst:11
 msgid "Background"

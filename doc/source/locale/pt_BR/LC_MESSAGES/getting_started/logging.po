@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../source/getting_started/logging.rst:5
 msgid "Logging in Xinference"
-msgstr "Log"
+msgstr "Registro de logs no Xinference"
 
 #: ../../source/getting_started/logging.rst:8
 msgid "Configure Log Level"

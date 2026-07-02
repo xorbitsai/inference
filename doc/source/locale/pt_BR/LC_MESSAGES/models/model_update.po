@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../source/models/model_update.rst:5
 msgid "Model Update"
-msgstr "Model Update"
+msgstr "Atualização de modelos"
 
 #: ../../source/models/model_update.rst:8
 msgid ""

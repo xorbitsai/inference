@@ -21,10 +21,7 @@ msgstr ""
 
 #: ../../source/user_guide/distributed_inference.rst:5
 msgid "Distributed Inference"
-msgstr ""
-"Tradução para o português brasileiro:\n"
-"\n"
-"Inferência distribuída"
+msgstr "Inferência distribuída"
 
 #: ../../source/user_guide/distributed_inference.rst:6
 msgid ""

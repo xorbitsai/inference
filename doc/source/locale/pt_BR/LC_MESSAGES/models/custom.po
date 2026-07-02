@@ -32,7 +32,7 @@ msgstr ""
 
 #: ../../source/models/custom.rst:10
 msgid "Directly launch an existing model"
-msgstr "Inicie o modelo personalizado sem necessidade de registro."
+msgstr "Iniciar um modelo existente diretamente"
 
 #: ../../source/models/custom.rst:11
 msgid ""
@@ -75,9 +75,8 @@ msgid ""
 "legacy-compatible but not recommended."
 msgstr ""
 "Para uso da interface de linha de comando (CLI), priorize o uso de "
-"``--model-path`` (formato misto de maiúsculas e minúsculas separado por "
-"ponto e vírgula). O ``--model_path`` é compatível com especificações "
-"antigas, mas não é recomendado."
+"``--model-path`` (kebab-case). O ``--model_path`` é compatível com versões "
+"anteriores, mas não é recomendado."
 
 #: ../../source/models/custom.rst:56
 msgid "Define a custom model"
@@ -121,11 +120,11 @@ msgstr ""
 
 #: ../../source/models/custom.rst:71
 msgid "``Context Length``"
-msgstr "``contexto de tamanho``"
+msgstr "``Comprimento de contexto``"
 
 #: ../../source/models/custom.rst:72
 msgid "``Model_Languages``"
-msgstr "``model language``"
+msgstr "``Idiomas do modelo``"
 
 #: ../../source/models/custom.rst:73
 msgid "``Model_Abilities``"
@@ -151,7 +150,7 @@ msgstr "Modelo de linguagem"
 
 #: ../../source/models/custom.rst:129
 msgid "embedding"
-msgstr "Embedding Model"
+msgstr "Modelo de embedding"
 
 #: ../../source/models/custom.rst:164
 msgid "Rerank"
@@ -384,6 +383,8 @@ msgid ""
 "virtualenv: A settings object for model dependency isolation. Please refer "
 "to :ref:`this document <virtualenv>` for details."
 msgstr ""
+"virtualenv: objeto de configuração para isolamento de dependências do "
+"modelo. Consulte :ref:`este documento <virtualenv>` para obter detalhes."
 
 #: ../../source/models/custom.rst:319
 msgid "Register a Custom Model"
@@ -412,11 +413,7 @@ msgstr "Enumere modelos embutidos e personalizados"
 
 #: ../../source/models/custom.rst:348
 msgid "List built-in and custom models programmatically:"
-msgstr ""
-"```markdown\n"
-"- Modelo interno: `ResNet-50`\n"
-"- Modelo personalizado: `CustomNet_v1`\n"
-"```"
+msgstr "Liste modelos integrados e personalizados programaticamente:"
 
 #: ../../source/models/custom.rst:361
 msgid "Launch the Custom Model"
@@ -446,7 +443,7 @@ msgstr ""
 
 #: ../../source/models/custom.rst:416
 msgid "Unregister the Custom Model"
-msgstr "Cancelar modelo personalizado"
+msgstr "Remover registro do modelo personalizado"
 
 #: ../../source/models/custom.rst:418
 msgid "Unregister the custom model programmatically:"

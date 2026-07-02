@@ -173,7 +173,7 @@ msgstr ""
 
 #: ../../source/models/model_abilities/flexible.rst:120
 msgid "ModelScope Pipeline Model"
-msgstr "ModelScope Pipeline Model"
+msgstr "Modelo ModelScope Pipeline"
 
 #: ../../source/models/model_abilities/flexible.rst:122
 msgid ""
@@ -237,11 +237,11 @@ msgstr "Arquivo JSON correspondente:"
 #: ../../source/models/model_abilities/flexible.rst:170
 #: ../../source/models/model_abilities/flexible.rst:241
 msgid "Inference the model:"
-msgstr "model inference"
+msgstr "Inferir o modelo:"
 
 #: ../../source/models/model_abilities/flexible.rst:206
 msgid "YOLO"
-msgstr ""
+msgstr "YOLO"
 
 #: ../../source/models/model_abilities/flexible.rst:208
 msgid ""
@@ -293,7 +293,7 @@ msgstr "Por fim, vamos verificar o resultado:"
 
 #: ../../source/models/model_abilities/flexible.rst:380
 msgid "Conclusion"
-msgstr "conclusão"
+msgstr "Conclusão"
 
 #: ../../source/models/model_abilities/flexible.rst:382
 msgid ""

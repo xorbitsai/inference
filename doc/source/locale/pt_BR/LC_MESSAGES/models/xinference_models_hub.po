@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../source/models/xinference_models_hub.rst:5
 msgid "Xinference Models Hub"
-msgstr "Xinference Models Hub"
+msgstr "Hub de Modelos Xinference"
 
 #: ../../source/models/xinference_models_hub.rst:9
 msgid "Overview"
@@ -277,7 +277,7 @@ msgstr ""
 
 #: ../../source/models/xinference_models_hub.rst:91
 msgid "Model Maintenance"
-msgstr "Model maintenance"
+msgstr "Manutenção de modelos"
 
 #: ../../source/models/xinference_models_hub.rst:93
 msgid "**Function:** Modify the model’s JSON or README"

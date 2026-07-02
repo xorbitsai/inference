@@ -100,7 +100,7 @@ msgstr "Aprenda a conectar LLMs com ferramentas externas."
 
 #: ../../source/index.rst:170
 msgid "Embeddings"
-msgstr "**Embedding**"
+msgstr "Embeddings"
 
 #: ../../source/index.rst:174
 msgid "Learn how to create text embeddings in Xinference."

@@ -21,4 +21,4 @@ msgstr ""
 
 #: ../../source/models/model_abilities/index.rst:5
 msgid "Model Abilities"
-msgstr "Model capabilities"
+msgstr "Capacidades do modelo"

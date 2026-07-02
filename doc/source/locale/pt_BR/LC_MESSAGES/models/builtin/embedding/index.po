@@ -21,7 +21,7 @@ msgstr ""
 
 #: ../../source/models/builtin/embedding/index.rst:5
 msgid "Embedding Models"
-msgstr "Embedding Model"
+msgstr "Modelos de embedding"
 
 #: ../../source/models/builtin/embedding/index.rst:7
 msgid "The following is a list of built-in embedding models in Xinference:"
