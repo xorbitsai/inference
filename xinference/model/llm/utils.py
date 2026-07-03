@@ -147,6 +147,44 @@ class ChatModelMixin:
         jinja_env.globals["raise_exception"] = raise_exception
         return jinja_env.from_string(chat_template)
 
+    @staticmethod
+    @functools.lru_cache(maxsize=64)
+    def _chat_template_needs_dict_arguments(chat_template: Optional[str]) -> bool:
+        # Detect Coder-style templates that iterate `tool_call.arguments|items`.
+        # Content-driven (not name-driven) so future models copying this
+        # template style are covered automatically.
+        return chat_template is not None and (
+            "tool_call.arguments|items" in chat_template
+        )
+
+    @staticmethod
+    def _normalize_tool_call_arguments_to_dict(messages: List[Dict]) -> List[Dict]:
+        # OpenAI spec sends tool_calls.function.arguments as a JSON-encoded
+        # string, but Coder-style templates (Qwen3-Coder / qwen3.5 / qwen3.6)
+        # require a dict to iterate via `|items`. The HF Jinja sandbox does
+        # not register a `from_json` filter, so we normalize at the message
+        # layer before template rendering.
+        for message in messages:
+            if not isinstance(message, dict) or message.get("role") != "assistant":
+                continue
+            tool_calls = message.get("tool_calls")
+            if not isinstance(tool_calls, list):
+                continue
+            for tc in tool_calls:
+                if not isinstance(tc, dict):
+                    continue
+                fn = tc.get("function")
+                if not isinstance(fn, dict):
+                    continue
+                args = fn.get("arguments")
+                if isinstance(args, str) and args:
+                    try:
+                        fn["arguments"] = json.loads(args)
+                    except json.JSONDecodeError:
+                        # leave as-is so downstream surfaces the malformed JSON
+                        pass
+        return messages
+
     def _build_from_raw_template(
         self, messages: List, chat_template: str, **kwargs
     ) -> str:
@@ -164,6 +202,8 @@ class ChatModelMixin:
         tokenize=False,
         **kwargs,
     ):
+        if self._chat_template_needs_dict_arguments(chat_template):
+            messages = self._normalize_tool_call_arguments_to_dict(messages)
         if (
             "vision" not in self.model_family.model_ability
             and "audio" not in self.model_family.model_ability
