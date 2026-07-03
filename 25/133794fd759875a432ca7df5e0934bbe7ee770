@@ -1,0 +1,74 @@
+xinference/ui/web/ui/src/components/PermissionsContext.js
+  8ed0e14fd7172b48 1-92
+xinference/ui/web/ui/src/scenes/monitoring/index.js
+  8ed0e14fd7172b48 34,37,101,108
+xinference/ui/web/ui/src/components/MenuSide.js
+  8ed0e14fd7172b48 41,74,95-98,105-109
+xinference/ui/web/ui/src/router/index.js
+  8ed0e14fd7172b48 6,157-161,163-168
+xinference/ui/web/ui/src/scenes/_layout/index.js
+  8ed0e14fd7172b48 6,10-15,17
+xinference/api/oauth2/advanced/routes.py
+  8ed0e14fd7172b48 82-112,519-521
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "25133794fd759875a432ca7df5e0934bbe7ee770",
+  "prompts": {
+    "78ee352318e1b386": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e6ba6d3c-7b1f-471f-90fa-37fc1f9b3236",
+        "model": "qwen3.7-max"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 123,
+      "overriden_lines": 0,
+      "token_usage": {
+        "input_tokens": 168164,
+        "output_tokens": 13259,
+        "cache_read_tokens": 2651496,
+        "cache_creation_tokens": 307473,
+        "total_cost": null
+      }
+    },
+    "8ed0e14fd7172b48": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "28e9d8a1-396d-4be6-9d39-38042d00108d",
+        "model": "<synthetic>"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 1428,
+      "total_deletions": 19,
+      "accepted_lines": 2662,
+      "overriden_lines": 5,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/9ea961660d7de80c90fe8e130cad0a8dc818d06b495258c2aeb16c94cc109f9c"
+    },
+    "d91e6017ce678dba": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "51c36fad-8371-4669-913a-9150306583b7",
+        "model": "qwen3.7-max"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 94,
+      "overriden_lines": 0,
+      "token_usage": {
+        "input_tokens": 214014,
+        "output_tokens": 452,
+        "cache_read_tokens": 0,
+        "cache_creation_tokens": 108691,
+        "total_cost": null
+      }
+    }
+  }
+}
