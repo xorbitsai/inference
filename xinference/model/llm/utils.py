@@ -180,8 +180,14 @@ class ChatModelMixin:
                 normalized.append(message)
                 continue
             # Identify indices that need rewriting (string arguments that
-            # parse successfully). Malformed JSON is left as-is and the
-            # original tool_call is reused.
+            # parse successfully into a JSON object). Malformed JSON and
+            # non-object JSON values (e.g. `"[]"`, `"null"`, `"1"`) are
+            # left as-is: the Qwen templates iterate `tool_call.arguments|items`
+            # which only works on mappings, so non-object values would still
+            # crash downstream — leaving them untouched lets the template
+            # surface the error naturally rather than masking it with a
+            # confusing type mismatch. This matches the contract of the
+            # existing `_normalize_tool_calls` helper.
             rewrites: Dict[int, Dict] = {}
             for i, tc in enumerate(tool_calls):
                 if not isinstance(tc, dict):
@@ -196,6 +202,12 @@ class ChatModelMixin:
                     parsed = json.loads(args)
                 except json.JSONDecodeError:
                     # leave as-is so downstream surfaces the malformed JSON
+                    continue
+                if not isinstance(parsed, dict):
+                    # JSON parsed but not an object (list / number / str /
+                    # null / bool). Leave the original string so the
+                    # template raises a clear error rather than silently
+                    # producing garbage.
                     continue
                 rewrites[i] = {**fn, "arguments": parsed}
             if not rewrites:

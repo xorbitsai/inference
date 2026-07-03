@@ -2116,6 +2116,32 @@ def test_normalize_tool_call_arguments_to_dict():
                         "arguments": None,  # null, left as-is
                     },
                 },
+                {
+                    "id": "c6",
+                    "type": "function",
+                    "function": {
+                        "name": "list_args",
+                        # valid JSON but not an object — left as-is so
+                        # the template raises a clear error
+                        "arguments": "[1, 2, 3]",
+                    },
+                },
+                {
+                    "id": "c7",
+                    "type": "function",
+                    "function": {
+                        "name": "null_json",
+                        "arguments": "null",  # valid JSON null, left as-is
+                    },
+                },
+                {
+                    "id": "c8",
+                    "type": "function",
+                    "function": {
+                        "name": "number_args",
+                        "arguments": "42",  # valid JSON number, left as-is
+                    },
+                },
             ],
         },
         {"role": "user", "content": "ignored"},  # non-assistant, skipped
@@ -2136,6 +2162,11 @@ def test_normalize_tool_call_arguments_to_dict():
     )  # malformed preserved
     assert assistant_tc[3]["function"]["arguments"] == ""  # empty preserved
     assert assistant_tc[4]["function"]["arguments"] is None  # null preserved
+    # Valid JSON but not an object — must be left as-is so the template
+    # raises a clear error rather than silently producing garbage.
+    assert assistant_tc[5]["function"]["arguments"] == "[1, 2, 3]"  # list
+    assert assistant_tc[6]["function"]["arguments"] == "null"  # JSON null
+    assert assistant_tc[7]["function"]["arguments"] == "42"  # JSON number
 
     # Non-mutating contract: input messages must be unchanged.
     assert messages[0]["tool_calls"][0]["function"]["arguments"] == (
@@ -2145,6 +2176,9 @@ def test_normalize_tool_call_arguments_to_dict():
     assert messages[0]["tool_calls"][2]["function"]["arguments"] == "{not json"
     assert messages[0]["tool_calls"][3]["function"]["arguments"] == ""
     assert messages[0]["tool_calls"][4]["function"]["arguments"] is None
+    assert messages[0]["tool_calls"][5]["function"]["arguments"] == "[1, 2, 3]"
+    assert messages[0]["tool_calls"][6]["function"]["arguments"] == "null"
+    assert messages[0]["tool_calls"][7]["function"]["arguments"] == "42"
     # The returned list is a new list (callers can mutate it independently).
     assert result is not messages
 
