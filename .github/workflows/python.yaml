@@ -252,8 +252,8 @@ jobs:
             pip install -U jieba
             pip install -U soundfile
             pip install tensorizer
-            pip install -U sentence-transformers
-            pip install -U FlagEmbedding
+            pip install -U "sentence-transformers==5.1.1"
+            pip install -U "FlagEmbedding==1.3.5"
             pip install -U "peft<=0.17.1"
             pip install "xllamacpp>=0.2.0" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 --extra-index-url https://pypi.org/simple
             pytest --timeout=3000 \
