@@ -227,7 +227,7 @@ jobs:
             pip install -U "ChatTTS==0.2.4"
             pip install -U HyperPyYAML
             pip uninstall -y matcha-tts
-            pip install -U 'onnxruntime-gpu==1.27.0; sys_platform == "linux"'
+            pip install -U 'onnxruntime-gpu==1.22.0; sys_platform == "linux"'
             pip install -U openai-whisper
             pip install -U "torch==2.7.0" "torchaudio==2.7.0" "torchvision==0.22.0"
             pip install -U "loguru"
