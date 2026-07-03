@@ -20,11 +20,11 @@ msgstr ""
 
 #: ../../source/getting_started/logging.rst:5
 msgid "Logging in Xinference"
-msgstr "Protokoll"
+msgstr "Protokollierung in Xinference"
 
 #: ../../source/getting_started/logging.rst:8
 msgid "Configure Log Level"
-msgstr "Protokollstufe"
+msgstr "Protokollstufe konfigurieren"
 
 #: ../../source/getting_started/logging.rst:9
 msgid ""
@@ -37,7 +37,7 @@ msgstr ""
 
 #: ../../source/getting_started/logging.rst:18
 msgid "Log Files"
-msgstr "Protokolldatei"
+msgstr "Protokolldateien"
 
 #: ../../source/getting_started/logging.rst:19
 msgid ""

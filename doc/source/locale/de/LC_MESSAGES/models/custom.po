@@ -15,7 +15,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "Generated-By: Babel 2.18.0\n"
 
 #: ../../source/models/custom.rst:5
@@ -109,7 +109,7 @@ msgstr ""
 
 #: ../../source/models/custom.rst:67
 msgid "**Model Family**"
-msgstr " **Modellfamilie** "
+msgstr "**Modellfamilie**"
 
 #: ../../source/models/custom.rst:69
 msgid "After parsing, the UI can auto-populate fields such as:"
@@ -119,19 +119,19 @@ msgstr ""
 
 #: ../../source/models/custom.rst:71
 msgid "``Context Length``"
-msgstr " ``Kontextlänge`` "
+msgstr "``Kontextlänge``"
 
 #: ../../source/models/custom.rst:72
 msgid "``Model_Languages``"
-msgstr " ``Modellsprache`` "
+msgstr "``Modellsprache``"
 
 #: ../../source/models/custom.rst:73
 msgid "``Model_Abilities``"
-msgstr " ``Modellfähigkeiten`` "
+msgstr "``Modellfähigkeiten``"
 
 #: ../../source/models/custom.rst:74
 msgid "``Model_Specs``"
-msgstr " ``Modellspezifikationen`` "
+msgstr "``Modellspezifikationen``"
 
 #: ../../source/models/custom.rst:76
 msgid "You can review and edit these fields before saving the custom model."

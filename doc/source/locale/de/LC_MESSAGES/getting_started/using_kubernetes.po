@@ -20,7 +20,7 @@ msgstr ""
 
 #: ../../source/getting_started/using_kubernetes.rst:5
 msgid "Xinference on Kubernetes"
-msgstr "In einem Kubernetes-Cluster Xinference installieren."
+msgstr "Xinference auf Kubernetes"
 
 #: ../../source/getting_started/using_kubernetes.rst:9
 msgid "Helm Support"
@@ -36,7 +36,7 @@ msgstr ""
 
 #: ../../source/getting_started/using_kubernetes.rst:14
 msgid "Prerequisites"
-msgstr "Vorbereitungsbedingungen"
+msgstr "Voraussetzungen"
 
 #: ../../source/getting_started/using_kubernetes.rst:15
 msgid "You have a fully functional Kubernetes cluster."
