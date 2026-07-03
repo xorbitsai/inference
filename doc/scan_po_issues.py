@@ -99,6 +99,7 @@ def main() -> int:
         help="Locale directories to scan",
     )
     args = parser.parse_args()
+    exit_code = 0
     for locale in args.locales:
         if not (LOCALE_DIR / locale).is_dir():
             print(f"[skip] missing locale/{locale}")
@@ -111,7 +112,9 @@ def main() -> int:
                 print(f"  - {item}")
             if len(items) > 8:
                 print(f"  ... and {len(items) - 8} more")
-    return 0
+            if items:
+                exit_code = 1
+    return exit_code
 
 
 if __name__ == "__main__":

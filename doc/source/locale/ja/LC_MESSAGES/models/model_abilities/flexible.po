@@ -1,0 +1,272 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-06-26 13:20+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ja <LL@li.org>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/model_abilities/flexible.rst:5
+msgid "Traditional ML models (Experimental)"
+msgstr "伝統的機械学習モデル（実験的性質）"
+
+#: ../../source/models/model_abilities/flexible.rst:7
+msgid ""
+"Learn how to inference traditional machine learning models with Xinference. "
+"These flexibly extensible models are referred to as **Flexible Models** "
+"within Xinference."
+msgstr ""
+"Xinference を使用して従来の機械学習モデルを推論する方法を学びます。Xinference では、これらの柔軟で拡張可能なモデルは "
+"**フレキシブルモデル** と呼ばれます。"
+
+#: ../../source/models/model_abilities/flexible.rst:10
+msgid ""
+"This ability is public since v1.7.1, now the API is not stable and may "
+"change during evolving."
+msgstr ""
+"本機能は v1.7.1 バージョンから公開されています。現在の API はまだ不安定であり、今後のアップデートで変更される可能性があります。"
+
+#: ../../source/models/model_abilities/flexible.rst:15
+msgid "Introduction"
+msgstr "Introduction"
+
+#: ../../source/models/model_abilities/flexible.rst:17
+msgid ""
+"Traditional machine learning models can still play a significant role within"
+" an LLM-centric ecosystem."
+msgstr "伝統的な機械学習モデルは、大規模モデルを中心とする生態系においても依然として重要な役割を果たすことができる。"
+
+#: ../../source/models/model_abilities/flexible.rst:19
+msgid ""
+"Xinference provides flexible extensibility for performing inference with "
+"traditional machine learning models. It includes built-in support for "
+"loading and running the following types of models:"
+msgstr ""
+"Xinference "
+"は、伝統的な機械学習モデルを推論するための柔軟な拡張機能を提供します。以下のタイプのモデルの読み込みと実行を内蔵でサポートしています。"
+
+#: ../../source/models/model_abilities/flexible.rst:22
+msgid ""
+"HuggingFace Pipelines for tasks such as classification using models hosted "
+"on HuggingFace."
+msgstr "HuggingFace Pipeline は、HuggingFace でホストされているモデルを使用し、分類などのタスクに利用できます。"
+
+#: ../../source/models/model_abilities/flexible.rst:23
+msgid ""
+"ModelScope Pipelines for tasks such as classification using models from "
+"ModelScope."
+msgstr "ModelScope上のモデルを使用するModelScope Pipelineは、分類などのタスクに利用できます。"
+
+#: ../../source/models/model_abilities/flexible.rst:24
+msgid "YOLO for image detection and related computer vision tasks."
+msgstr "YOLO は画像検出および関連するコンピュータビジョンタスクに使用されます。"
+
+#: ../../source/models/model_abilities/flexible.rst:26
+msgid ""
+"A wide range of traditional machine learning models can be used with "
+"Xinference. For each of the categories above, we will walk through a "
+"representative example to demonstrate how to perform inference step by step "
+"on the Xinference platform."
+msgstr ""
+"Xinferenceは複数の伝統的な機械学習モデルをサポートしています。上記の各カテゴリについて、代表的な例を用いて、Xinferenceプラットフォーム上で推論を行う手順を段階的に説明します。"
+
+#: ../../source/models/model_abilities/flexible.rst:31
+msgid "Built-in Model Support Examples"
+msgstr "内蔵モデル対応事例"
+
+#: ../../source/models/model_abilities/flexible.rst:34
+msgid "HuggingFace Pipeline Model"
+msgstr "HuggingFace Pipeline モデル"
+
+#: ../../source/models/model_abilities/flexible.rst:36
+msgid ""
+"First, we use `FacebookAI/roberta-large-mnli "
+"<https://huggingface.co/FacebookAI/roberta-large-mnli>`_ as an example. This"
+" is a zero-shot classification model. For other types of models, simply "
+"specify the corresponding task (which is also a parameter of the Pipeline) "
+"when registering the model."
+msgstr ""
+"まず、`FacebookAI/roberta-large-mnli "
+"<https://huggingface.co/FacebookAI/roberta-large-mnli>`_ "
+"を例にします。このモデルはゼロショット分類モデルに属します。他のタイプのモデルの場合、登録時に対応するタスク（Pipelineのパラメータでもあります）を指定するだけで済みます。"
+
+#: ../../source/models/model_abilities/flexible.rst:41
+msgid "Download the model to the following path::"
+msgstr "以下のパスにモデルをダウンロードします::"
+
+#: ../../source/models/model_abilities/flexible.rst:45
+msgid ""
+"Next, we demonstrate how to register this flexible model in the Xinference "
+"Web UI. For the following examples, unless we have to, we will skip the UI "
+"steps and focus on the core logic."
+msgstr ""
+"次に、Xinference Web UI "
+"でこの柔軟なモデルを登録する方法を説明します。以降の例では、必要がない限り、インターフェース操作を省略し、中核となるロジックに集中します。"
+
+#: ../../source/models/model_abilities/flexible.rst:52
+msgid "The corresponding custom model JSON file is as follows:"
+msgstr "対応するカスタムモデルJSONファイルは以下の通りです："
+
+#: ../../source/models/model_abilities/flexible.rst:77
+msgid ""
+"Refer to the section :ref:`register_custom_model` for instructions on "
+"registering the model using either code or the command line."
+msgstr ""
+"セクション :ref:`register_custom_model` "
+"を参照してください。コードまたはコマンドラインを使用してモデルを登録する方法については、こちらをご覧ください。"
+
+#: ../../source/models/model_abilities/flexible.rst:79
+msgid ""
+"Next, load the model by selecting **Launch Model** / **Custom Model** / "
+"**Flexible Model** in the Web UI. The loading procedure is the same as for "
+"other model types."
+msgstr ""
+"次に、Web UIで**起動モデル** / **カスタムモデル** / **フレキシブルモデル** "
+"を選択してモデルをロードします。ロード手順は他のモデルタイプと同じです。"
+
+#: ../../source/models/model_abilities/flexible.rst:82
+msgid ""
+"When using the command line, remember to specify the option ``--model-type "
+"flexible``."
+msgstr "コマンドラインを使用する際は、引数 ``--model-type flexible`` を指定してください。"
+
+#: ../../source/models/model_abilities/flexible.rst:84
+msgid ""
+"After the model is successfully loaded, we can perform inference using the "
+"following method."
+msgstr "モデルが正常にロードされた後、以下の方法で推論を実行できます。"
+
+#: ../../source/models/model_abilities/flexible.rst:120
+msgid "ModelScope Pipeline Model"
+msgstr "ModelScope Pipeline モデル"
+
+#: ../../source/models/model_abilities/flexible.rst:122
+msgid ""
+"ModelScope Pipeline models are very similar to Huggingface ones. The only "
+"difference lies in the launcher used."
+msgstr ""
+"ModelScope Pipeline モデルは Huggingface モデルと非常に似ていますが、唯一の違いは使用する launcher "
+"が異なることです。"
+
+#: ../../source/models/model_abilities/flexible.rst:125
+msgid ""
+"We take a zero-shot classification model from ModelScope as an example. The "
+"model is `iic/nlp_structbert_zero-shot-classification_chinese-base "
+"<https://modelscope.cn/models/iic/nlp_structbert_zero-shot-"
+"classification_chinese-base>`_."
+msgstr ""
+"ModelScope上のゼロショット分類モデルを例にします。モデルは `iic/nlp_structbert_zero-shot-"
+"classification_chinese-base "
+"<https://modelscope.cn/models/iic/nlp_structbert_zero-shot-"
+"classification_chinese-base>`_ です。"
+
+#: ../../source/models/model_abilities/flexible.rst:128
+msgid ""
+"Here, we make use of Xinference's model virtual environment feature. This is"
+" because the model used in this example requires ``transformers==4.50.3`` to"
+" run properly. To isolate the environment, we use a :ref:`virtual env "
+"<model_virtual_env>` when registering the model."
+msgstr ""
+"ここではXinferenceのモデル仮想環境機能を使用しています。本サンプルで使用するモデルは ``transformers==4.50.3`` "
+"が正常動作に必要なためです。実行環境を隔離するため、モデル登録時に :ref:`仮想環境 <model_virtual_env>` を利用しています。"
+
+#: ../../source/models/model_abilities/flexible.rst:132
+msgid ""
+"When specifying custom packages during registration, the syntax is the same "
+"as for regular packages, with a few special cases. Since the virtual "
+"environment is still based on the site packages of the Python runtime where "
+"Xinference is running, we need to explicitly include ``#system_numpy#``. "
+"Packages wrapped in ``#system_xx#`` ensure consistency with the base "
+"environment during virtual environment creation; otherwise, it may easily "
+"result in runtime errors."
+msgstr ""
+"モデル登録時にカスタムパッケージを指定する構文は通常のパッケージと同じですが、いくつかの特殊なケースがあります。仮想環境は依然としてXinferenceが実行するPythonインタプリタのsite-"
+"packagesに基づいているため、明示的に``#system_numpy#``を含める必要があります。パッケージ名を``#system_xx#``で囲むことで、仮想環境作成時にベース環境と整合性が保たれ、そうしないと実行時エラーが発生しやすくなります。"
+
+#: ../../source/models/model_abilities/flexible.rst:136
+msgid "Registering via Web UI:"
+msgstr "登録方法（Web UI）："
+
+#: ../../source/models/model_abilities/flexible.rst:142
+msgid "Corresponding json file:"
+msgstr "対応する JSON ファイル："
+
+#: ../../source/models/model_abilities/flexible.rst:170
+#: ../../source/models/model_abilities/flexible.rst:241
+msgid "Inference the model:"
+msgstr "モデル推論："
+
+#: ../../source/models/model_abilities/flexible.rst:206
+msgid "YOLO"
+msgstr ""
+
+#: ../../source/models/model_abilities/flexible.rst:208
+msgid ""
+"YOLO is a popular real-time object detection model, widely used in image "
+"detection and video analysis scenarios."
+msgstr "YOLO は、画像検出や動画分析のシナリオで広く使用されている、人気のあるリアルタイム物体検出モデルです。"
+
+#: ../../source/models/model_abilities/flexible.rst:210
+msgid ""
+"First, download the YOLO weights. Here, we use the `yolov11s.pt "
+"<https://huggingface.co/Ultralytics/YOLO11>`_ file as an example."
+msgstr ""
+"まず、YOLOの重みをダウンロードします。ここでは `yolov11s.pt "
+"<https://huggingface.co/Ultralytics/YOLO11>`_ ファイルを例とします。"
+
+#: ../../source/models/model_abilities/flexible.rst:213
+msgid "JSON file of model definition:"
+msgstr "モデル定義のJSONファイル："
+
+#: ../../source/models/model_abilities/flexible.rst:300
+msgid "Writing a Custom Flexible Model"
+msgstr "カスタムフレキシブルモデルを記述する"
+
+#: ../../source/models/model_abilities/flexible.rst:302
+msgid ""
+"First, we implement a custom launcher with a simple model for sentiment "
+"scoring. In this example, we do not use any actual model weights, so the "
+"``load`` function does not perform any model loading."
+msgstr ""
+"まず、感情スコアリングのためのシンプルなカスタムランチャーを実装しました。この例では、実際のモデル重みを使用していないため、``load`` "
+"関数はモデルのロード操作を一切実行しません。"
+
+#: ../../source/models/model_abilities/flexible.rst:334
+msgid "The model JSON definition is as follows:"
+msgstr "モデルJSON定義は次の通りです："
+
+#: ../../source/models/model_abilities/flexible.rst:359
+msgid ""
+"Here, we extend the model by passing in a custom-defined ``pos`` value."
+msgstr "ここでは、カスタムの ``pos`` 値を渡すことでモデルを拡張しました。"
+
+#: ../../source/models/model_abilities/flexible.rst:361
+msgid "Finally, let's verify the result:"
+msgstr "最後に、結果を確認します："
+
+#: ../../source/models/model_abilities/flexible.rst:380
+msgid "Conclusion"
+msgstr "結論"
+
+#: ../../source/models/model_abilities/flexible.rst:382
+msgid ""
+"The built-in Flexible Model launchers in Xinference can be found at `Github "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/model/flexible/launchers>`_."
+" Contributions are welcome to support more traditional machine learning "
+"models!"
+msgstr ""
+"Xinference に組み込まれた柔軟なモデルランチャーは `GitHub "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/model/flexible/launchers>`_"
+" で見つけることができます。従来の機械学習モデルのさらなるサポートのための貢献を歓迎します！"

@@ -1,0 +1,292 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2025, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-11-14 14:59+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ja <LL@li.org>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/xinference_models_hub.rst:5
+msgid "Xinference Models Hub"
+msgstr "Xinference Models Hub"
+
+#: ../../source/models/xinference_models_hub.rst:9
+msgid "Overview"
+msgstr "概要"
+
+#: ../../source/models/xinference_models_hub.rst:11
+msgid ""
+"The `Xinference Models Hub <https://model.xinference.io>`_ is Xinference’s "
+"unified platform for model management and collaboration. It provides end-to-"
+"end support for model browsing, registration, review, updates, and "
+"collaborative maintenance, serving both regular users and model maintainers."
+msgstr ""
+"`Xinference Models Hub <https://model.xinference.io>`_ は、Xinference "
+"においてモデル管理とコラボレーションを実現する統合プラットフォームです。モデルの閲覧、登録、レビュー、更新、および協調的なメンテナンスをエンドツーエンドでサポートし、一般ユーザーとモデル保守担当者の両方に全プロセスを提供します。"
+
+#: ../../source/models/xinference_models_hub.rst:13
+msgid ""
+"Before the introduction of the Models Hub, model JSON files were manually "
+"submitted and modified directly through PRs in the open-source repository "
+"(`xorbitsai/inference`). This approach resulted in uncontrolled versioning, "
+"long iteration cycles, and delays in delivering updated models—since model "
+"updates were tied to product release cycles, users could not obtain new "
+"models promptly."
+msgstr ""
+"Models Hub 導入前、モデルJSONファイルはユーザーが直接PRを通じて `xorbitsai/inference` "
+"オープンソースリポジトリを変更する必要がありました。この方法では、モデルバージョンの制御が不可能で、イテレーションサイクルが長く、モデル更新が製品リリースフローに依存するため、ユーザーは最新モデルをタイムリーに取得できませんでした。"
+
+#: ../../source/models/xinference_models_hub.rst:15
+msgid ""
+"With centralized online model management, the Xinference Models Hub requires"
+" that **all model information—including metadata, parameters, and the "
+"README—be edited within the platform**. Based on modifications made by "
+":ref:`model maintainers <model_maintainer_guide>`, the system "
+"**automatically generates and submits PRs** to the `xorbitsai/inference` "
+"repository, ensuring a standardized, automated, and traceable workflow that "
+"eliminates inconsistencies caused by manual edits."
+msgstr ""
+"集中型オンラインモデル管理メカニズムにより、Xinference Models Hub は **すべてのモデル情報（メタデータ、パラメータ、README"
+" を含む）をプラットフォーム内で編集する必要があります**。システムは :ref:`モデルメンテナー <model_maintainer_guide>`"
+" の変更に基づいて **自動的に PR を生成し**、`xorbitsai/inference` "
+"リポジトリに送信します。これにより、プロセスの標準化、自動化、トレーサビリティが実現し、手動変更による不整合の問題を回避します。"
+
+#: ../../source/models/xinference_models_hub.rst:17
+msgid ""
+"Users can obtain the latest model list at any time through the "
+":ref:`model_update` feature, significantly improving model delivery "
+"efficiency and overall experience."
+msgstr ""
+"ユーザーは:ref:`model_update`機能を通じて随時最新のモデルリストを取得でき、これによりモデル提供効率と全体的な使用体験が大幅に向上します。"
+
+#: ../../source/models/xinference_models_hub.rst:20
+msgid "User Guide for Regular Users"
+msgstr "一般ユーザーガイド"
+
+#: ../../source/models/xinference_models_hub.rst:22
+msgid ""
+"This section introduces the basic features available to regular registered "
+"users."
+msgstr "本節では、一般登録ユーザーが使用できる基本機能について説明します。"
+
+#: ../../source/models/xinference_models_hub.rst:24
+msgid ""
+"**Audience:** Regular users without model registration or maintenance "
+"permissions."
+msgstr "**適用対象：** モデルの登録やメンテナンス権限を持たない一般ユーザー。"
+
+#: ../../source/models/xinference_models_hub.rst:27
+msgid "Core Features"
+msgstr "コア機能"
+
+#: ../../source/models/xinference_models_hub.rst:29
+msgid "Regular users can browse public models without logging in:"
+msgstr "一般ユーザーはログイン不要で公開モデルを閲覧できます："
+
+#: ../../source/models/xinference_models_hub.rst:31
+msgid "**Access:** `Xinference Models Hub <https://model.xinference.io>`_"
+msgstr "**アクセス入口：** `Xinference Models Hub <https://model.xinference.io>`_"
+
+#: ../../source/models/xinference_models_hub.rst:34
+msgid "Browse Models"
+msgstr "モデルを参照する"
+
+#: ../../source/models/xinference_models_hub.rst:36
+msgid "**Function:** View all publicly available models"
+msgstr "**機能:** 公開利用可能な全モデルの表示"
+
+#: ../../source/models/xinference_models_hub.rst:37
+msgid "**Location:** Navigation bar → “Models”"
+msgstr "**エントリ位置：** ナビゲーションバー → 「Models」"
+
+#: ../../source/models/xinference_models_hub.rst:38
+msgid ""
+"**Model Details:** The default tab is “README,” which includes model "
+"description, usage guide, and important notes"
+msgstr "**モデル詳細：** デフォルトでREADMEタブを表示し、モデルの説明、使用ガイド、注意事項を含みます。"
+
+#: ../../source/models/xinference_models_hub.rst:41
+msgid ""
+"Certain advanced or enterprise-level models are visible only to authorized "
+"users."
+msgstr "一部のハイエンドまたはエンタープライズ版モデルは、権限を持つユーザーのみに表示されます。"
+
+#: ../../source/models/xinference_models_hub.rst:46
+msgid "Guide for Model Maintainers"
+msgstr "メンテナンス担当者ガイド"
+
+#: ../../source/models/xinference_models_hub.rst:48
+msgid ""
+"This section describes the features available to users with model "
+"registration or maintenance permissions, including model registration, "
+"updates, and review workflows."
+msgstr ""
+"本節では、モデルの登録またはメンテナンス権限を持つユーザーが利用可能な機能について説明します。これには、モデルの登録、更新、およびレビュープロセスが含まれます。"
+
+#: ../../source/models/xinference_models_hub.rst:50
+msgid ""
+"**Audience:** Users with model registration or maintenance permissions."
+msgstr "**対象者：** モデルの登録またはメンテナンス権限を持つユーザー。"
+
+#: ../../source/models/xinference_models_hub.rst:54
+msgid "Core Features (Login Required)"
+msgstr "コア機能（ログインが必要）"
+
+#: ../../source/models/xinference_models_hub.rst:56
+msgid ""
+"Model maintainers have access to the following advanced features in addition"
+" to the capabilities available to regular users."
+msgstr "モデルメンテナーは一般ユーザーの機能に加えて、以下の高度な機能を使用できます。"
+
+#: ../../source/models/xinference_models_hub.rst:59
+msgid "User Center"
+msgstr "ユーザーセンター"
+
+#: ../../source/models/xinference_models_hub.rst:61
+msgid "**Function:** View and manage personal information"
+msgstr "**機能：** 個人情報の確認と管理"
+
+#: ../../source/models/xinference_models_hub.rst:62
+msgid "**Location:** Top-right avatar → “User Center”"
+msgstr "**入口位置:** 右上のアバター → 「ユーザーセンター」"
+
+#: ../../source/models/xinference_models_hub.rst:63
+msgid "**Account Management:** Update profile, email, and other information"
+msgstr "**アカウント管理：** プロフィール、メールアドレス等の情報を更新"
+
+#: ../../source/models/xinference_models_hub.rst:64
+msgid ""
+"**Token Management:** Configure a personal GitHub Token for model "
+"submissions or updates"
+msgstr "**Token 管理:** 個人 GitHub Token を設定してモデルを提出または更新します"
+
+#: ../../source/models/xinference_models_hub.rst:67
+msgid ""
+"If no GitHub Token is configured, the system will use a default Token when "
+"generating PRs."
+msgstr "個人のGitHub Tokenが設定されていない場合、システムはPR生成時にデフォルトのTokenを使用します。"
+
+#: ../../source/models/xinference_models_hub.rst:70
+msgid "Model Registration"
+msgstr "モデル登録"
+
+#: ../../source/models/xinference_models_hub.rst:72
+msgid "**Function:** Register new models and submit them for review"
+msgstr "**機能：** 新モデルの登録と審査を送信する"
+
+#: ../../source/models/xinference_models_hub.rst:73
+msgid ""
+"**Location:** After logging in → Top-right avatar → “Model Registration”"
+msgstr "**入口位置：** ログイン後 → 右上のアバター → 「モデル登録」"
+
+#: ../../source/models/xinference_models_hub.rst:75
+msgid "**Submission Steps:**"
+msgstr "**提出手順：**"
+
+#: ../../source/models/xinference_models_hub.rst:77
+msgid "Fill in basic model information (name, engine, format, etc.)"
+msgstr "基礎モデル情報（名前、エンジン、形式など）を入力してください。"
+
+#: ../../source/models/xinference_models_hub.rst:78
+msgid "Edit the README (click “Get README” to auto-generate a template)"
+msgstr "READMEを編集（「READMEを取得」をクリックするとテンプレートが自動生成されます）"
+
+#: ../../source/models/xinference_models_hub.rst:79
+msgid ""
+"Submit the model (enable the “Public Model” parameter if registering a "
+"public model)"
+msgstr "モデルを提出する（公開モデルとして登録する場合は、「公開モデル」パラメータを有効にしてください）"
+
+#: ../../source/models/xinference_models_hub.rst:82
+msgid ""
+"When registering a public model, the system automatically creates a PR in "
+"the `xorbitsai/inference` repository."
+msgstr "公開モデルを登録すると、システムは自動的に`xorbitsai/inference`リポジトリにPRを作成します。"
+
+#: ../../source/models/xinference_models_hub.rst:85
+msgid "My Models"
+msgstr "私のモデル"
+
+#: ../../source/models/xinference_models_hub.rst:87
+msgid "**Function:** View all models associated with the current account"
+msgstr "**機能：** 現在のアカウントに関連するすべてのモデルを表示します。"
+
+#: ../../source/models/xinference_models_hub.rst:88
+msgid "**Location:** After logging in → Top-right avatar → “My Models”"
+msgstr "**エントリ位置：** ログイン後 → 右上隅のアバター → 「マイモデル」"
+
+#: ../../source/models/xinference_models_hub.rst:91
+msgid "Model Maintenance"
+msgstr "モデルメンテナンス"
+
+#: ../../source/models/xinference_models_hub.rst:93
+msgid "**Function:** Modify the model’s JSON or README"
+msgstr "**機能:** モデルのJSONまたはREADMEを修正する"
+
+#: ../../source/models/xinference_models_hub.rst:94
+msgid "**Location:** Model details page → “Settings” icon"
+msgstr "**エントリ位置：** モデル詳細ページ → 「設定」アイコン"
+
+#: ../../source/models/xinference_models_hub.rst:97
+msgid ""
+"When updating a public model, the system automatically creates a PR in the "
+"`xorbitsai/inference` repository."
+msgstr "公開モデルを更新する際、システムは自動的に `xorbitsai/inference` リポジトリにPRを作成します。"
+
+#: ../../source/models/xinference_models_hub.rst:100
+msgid "Review Workflow"
+msgstr "審査プロセス"
+
+#: ../../source/models/xinference_models_hub.rst:102
+msgid "**Submitter Workflow:**"
+msgstr "**提出者フロー：**"
+
+#: ../../source/models/xinference_models_hub.rst:104
+msgid "Submit a model"
+msgstr "モデルを提出する"
+
+#: ../../source/models/xinference_models_hub.rst:105
+msgid "Wait for review"
+msgstr "審査待ち"
+
+#: ../../source/models/xinference_models_hub.rst:106
+msgid "Revise based on reviewer feedback"
+msgstr "審査意見に基づいて修正"
+
+#: ../../source/models/xinference_models_hub.rst:107
+msgid "Updated PRs are generated automatically (for public models)"
+msgstr "公開モデルの場合、PRは修正後に自動更新されます。"
+
+#: ../../source/models/xinference_models_hub.rst:109
+msgid ""
+"**Reviewer Permissions:** Access to the model review list and model review "
+"privileges."
+msgstr "**レビュアー権限：** モデルレビューリストにアクセスし、レビュー操作を実行できます。"
+
+#: ../../source/models/xinference_models_hub.rst:111
+msgid "**Reviewer Workflow:**"
+msgstr "**審査者フロー：**"
+
+#: ../../source/models/xinference_models_hub.rst:113
+msgid "Enter the “Review List”"
+msgstr "「レビューリスト」に入る"
+
+#: ../../source/models/xinference_models_hub.rst:114
+msgid "Evaluate the model’s quality, completeness, and compliance"
+msgstr "モデルの品質、情報の完全性と規範性を評価する"
+
+#: ../../source/models/xinference_models_hub.rst:115
+msgid "Approve or reject, providing feedback as necessary"
+msgstr "承認または却下し、それに応じたフィードバックを提供する"
