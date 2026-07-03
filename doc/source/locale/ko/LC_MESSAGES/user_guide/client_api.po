@@ -1,0 +1,183 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-09-09 12:13+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ko <LL@li.org>\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/client_api.rst:5
+msgid "Client API"
+msgstr "클라이언트 API"
+
+#: ../../source/user_guide/client_api.rst:7
+msgid "Complete Client API Reference: :ref:`reference_index`"
+msgstr "완전한 API 가이드: :ref:`reference_index`"
+
+#: ../../source/user_guide/client_api.rst:9
+msgid ""
+"To utilize the Client API, initiate the xinference server using the command "
+"below:"
+msgstr "Client API를 사용하려면 먼저 다음 명령어로 Xinference 서비스를 시작해야 합니다:"
+
+#: ../../source/user_guide/client_api.rst:18
+msgid ""
+"Based on the log above, the endpoint is `http://127.0.0.1:9997`. Users can "
+"connect to the xinference server through this endpoint using the Client."
+msgstr ""
+"명령 로그에 서비스 주소가 출력되며, 위 로그에서는 `http://127.0.0.1:9997`입니다. 사용자는 Client를 통해 "
+"Xinference 서비스에 연결할 수 있습니다."
+
+#: ../../source/user_guide/client_api.rst:20
+msgid ""
+"Models are categorized into LLM, embedding, image, etc. We plan to introduce"
+" more model types in the future."
+msgstr ""
+"모든 모델은 LLM, embedding, rerank 등 유형으로 구분됩니다. 추후 더 많은 유형의 모델을 지원할 수 있습니다."
+
+#: ../../source/user_guide/client_api.rst:23
+msgid "LLM"
+msgstr "LLM"
+
+#: ../../source/user_guide/client_api.rst:25
+msgid "To list the available built-in LLM models:"
+msgstr "지원되는 모든 내장 LLM 모델을 나열합니다:"
+
+#: ../../source/user_guide/client_api.rst:38
+msgid "To initialize an LLM and chat:"
+msgstr "대형 언어 모델을 초기화하고 대화하기:"
+
+#: ../../source/user_guide/client_api.rst:41
+#: ../../source/user_guide/client_api.rst:183
+#: ../../source/user_guide/client_api.rst:254
+#: ../../source/user_guide/client_api.rst:323
+msgid "Xinference Client"
+msgstr "Xinference Client"
+
+#: ../../source/user_guide/client_api.rst:65
+#: ../../source/user_guide/client_api.rst:215
+#: ../../source/user_guide/client_api.rst:278
+#: ../../source/user_guide/client_api.rst:347
+msgid "OpenAI Client"
+msgstr "OpenAI Client"
+
+#: ../../source/user_guide/client_api.rst:67
+msgid ""
+"Openai client request with the same function as before, excluding launch "
+"model. More details refer to: https://platform.openai.com/docs/api-"
+"reference/chat?lang=python"
+msgstr ""
+"OpenAI를 사용하여 요청을 보낼 때, 모델 생성 외의 모든 요청은 OpenAI의 인터페이스와 호환성을 유지합니다. OpenAI 사용 "
+"방법은 https://platform.openai.com/docs/api-reference/chat?lang=python을 참조하세요."
+
+#: ../../source/user_guide/client_api.rst:89
+msgid "OpenAI Client Tool Calls"
+msgstr "OpenAI 도구 호출"
+
+#: ../../source/user_guide/client_api.rst:134
+#: ../../source/user_guide/client_api.rst:197
+#: ../../source/user_guide/client_api.rst:229
+#: ../../source/user_guide/client_api.rst:269
+#: ../../source/user_guide/client_api.rst:293
+#: ../../source/user_guide/client_api.rst:337
+#: ../../source/user_guide/client_api.rst:362
+#: ../../source/user_guide/client_api.rst:391
+msgid "Output:"
+msgstr "출력:"
+
+#: ../../source/user_guide/client_api.rst:142
+msgid "Anthropic Client"
+msgstr "Anthropic Client"
+
+#: ../../source/user_guide/client_api.rst:144
+msgid "Anthropic API's access address is: /anthropic/v1/messages"
+msgstr "Anthropic의 API 접속 주소: /anthropic/v1/messages"
+
+#: ../../source/user_guide/client_api.rst:165
+msgid "Embedding"
+msgstr "Embedding"
+
+#: ../../source/user_guide/client_api.rst:167
+msgid "To list the available built-in embedding models:"
+msgstr "지원되는 모든 내장 임베딩 모델을 나열하십시오:"
+
+#: ../../source/user_guide/client_api.rst:180
+msgid "To launch an embedding model and embed text:"
+msgstr "embedding 모델을 로드하고 텍스트를 벡터화합니다:"
+
+#: ../../source/user_guide/client_api.rst:217
+msgid ""
+"Openai client request with the same function as before, excluding launch "
+"model. More details refer to: https://platform.openai.com/docs/api-"
+"reference/embeddings?lang=python"
+msgstr ""
+"OpenAI를 사용하여 요청을 보낼 때, 모델 생성 외의 모든 요청은 OpenAI의 인터페이스와 호환성을 유지합니다. OpenAI 사용 "
+"방법은 https://platform.openai.com/docs/api-reference/embeddings?lang=python 에서"
+" 참고할 수 있습니다."
+
+#: ../../source/user_guide/client_api.rst:236
+msgid "Image"
+msgstr "사진"
+
+#: ../../source/user_guide/client_api.rst:238
+#: ../../source/user_guide/client_api.rst:303
+msgid "To list the available built-in image models:"
+msgstr "내장된 모든 텍스트-이미지 모델을 나열합니다:"
+
+#: ../../source/user_guide/client_api.rst:251
+msgid "To initiate an image model and generate an image using a text prompt:"
+msgstr "초기화: 텍스트-이미지 모델을 초기화하고 프롬프트를 통해 이미지를 생성합니다."
+
+#: ../../source/user_guide/client_api.rst:280
+msgid ""
+"Openai client request with the same function as before, excluding launch "
+"model. More details refer to: https://platform.openai.com/docs/api-"
+"reference/images/create?lang=python"
+msgstr ""
+"OpenAI를 사용하여 요청을 보낼 때, 모델 생성 외의 모든 요청은 OpenAI의 인터페이스와 호환성을 유지합니다. OpenAI 사용 "
+"방법은 https://platform.openai.com/docs/api-"
+"reference/images/create?lang=python을 참조하세요."
+
+#: ../../source/user_guide/client_api.rst:301
+msgid "Audio"
+msgstr ""
+
+#: ../../source/user_guide/client_api.rst:320
+msgid "To initiate an audio model and get text from an audio:"
+msgstr "음성 모델을 초기화하고 음성을 통해 텍스트를 생성합니다:"
+
+#: ../../source/user_guide/client_api.rst:349
+msgid ""
+"Openai client request with the same function as before. More details refer "
+"to: https://platform.openai.com/docs/api-reference/audio/createTranscription"
+msgstr ""
+"OpenAI를 사용하여 요청을 보낼 때, 모델 생성 외의 모든 요청은 OpenAI의 인터페이스와 호환성을 유지합니다. OpenAI 사용 "
+"방법은 https://platform.openai.com/docs/api-reference/images/create?lang=python"
+" 를 참조하세요."
+
+#: ../../source/user_guide/client_api.rst:370
+msgid "Rerank"
+msgstr "Rerank"
+
+#: ../../source/user_guide/client_api.rst:371
+msgid "To launch a rerank model and compute the similarity scores:"
+msgstr "rerank 모델을 불러와 텍스트 유사도를 계산합니다:"
+
+#~ msgid ""
+#~ "Anthropic client request with the same function as before, excluding launch "
+#~ "model."
+#~ msgstr ""
+#~ "Anthropic을 사용하여 요청을 보낼 때, 모델 생성 외의 모든 요청은 Anthropic의 인터페이스와 호환성을 유지합니다."
