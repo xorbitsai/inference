@@ -3,6 +3,7 @@
 # This file is distributed under the same license as the Xinference package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
 #
+#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
@@ -60,10 +61,9 @@ msgid ""
 "cause the Continuous Integration to fail. Therefore, it is advisable to "
 "run the check yourself before submitting code. This can be done by "
 "installing ``pre-commit``::"
-msgstr ""
-"此外，持续集成将使用 `pre-commit hooks <https://pre-commit.com/>`_ 运行诸如 ``black``、``flake8``、``isort`` "
-"等代码格式检查工具。任何由这些检查生成的警告都将导致持续集成失败。因此，建议在提交代码之前自行运行这些检查。"
-"可以通过在 Xinference 仓库的根目录下安装 ``pre-commit`` 来完成这一操作::"
+msgstr "此外，持续集成将使用 `pre-commit hooks <https://pre-commit.com/>`_ 运行诸如 ``black`"
+"`、``flake8``、``isort`` 等代码格式检查工具。任何由这些检查生成的警告都将导致持续集成失败。因此，建议在提交代码之前自行"
+"运行这些检查。可以通过在 Xinference 仓库的根目录下安装 ``pre-commit`` 来完成这一操作::"
 
 #: ../../source/development/contributing_codebase.rst:30
 msgid "and then running::"
