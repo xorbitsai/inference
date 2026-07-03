@@ -371,12 +371,32 @@ async def list_api_keys(
         owner = current_user_id
 
     keys = auth.db.list_api_keys(user_id=owner)
+    # Batch-resolve owner usernames so non-admin callers (who can't
+    # GET /v1/admin/users) can render the owner column without falling
+    # back to "#<id>". /v1/admin/users stays admin-only because it
+    # exposes permissions/enabled/must_change_password fields.
+    # For admin callers (who can see all keys), fetch all users in one
+    # query to avoid N+1; for non-admin callers (only their own keys),
+    # the user_ids set is typically a single entry so N+1 is fine.
+    user_ids = {k["user_id"] for k in keys if k.get("user_id") is not None}
+    username_map: dict = {}
+    if is_admin and user_ids:
+        for u in auth.db.list_users():
+            if u["id"] in user_ids:
+                username_map[u["id"]] = u["username"]
+    else:
+        for uid in user_ids:
+            owner_user = auth.db.get_user_by_id(uid)
+            if owner_user:
+                username_map[uid] = owner_user["username"]
+
     result = []
     for k in keys:
         result.append(
             {
                 "id": k["id"],
                 "user_id": k["user_id"],
+                "owner_username": username_map.get(k["user_id"]),
                 "key_prefix": k["key_prefix"],
                 "name": k.get("name"),
                 "description": k.get("description"),
@@ -598,7 +618,7 @@ def register_advanced_auth_routes(api: "RESTfulAPI") -> None:
         "/v1/admin/keys/{key_id}/reveal",
         reveal_api_key,
         methods=["GET"],
-        dependencies=[Security(auth_service, scopes=["admin"])],
+        dependencies=[Security(auth_service, scopes=["keys:manage"])],
     )
 
     # Permissions
