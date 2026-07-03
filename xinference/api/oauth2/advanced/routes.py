@@ -107,6 +107,35 @@ def _reject_permission_escalation(
         )
 
 
+def _reject_admin_target_takeover(
+    request: Request, auth: "AdvancedAuthService", target_user_id: int
+) -> None:
+    """Prevent non-admin callers from performing sensitive write operations
+    (delete / change password / disable / change permissions) on admin users.
+
+    Without this guard, a delegated ``users:manage`` operator could delete
+    an admin account, change an admin's password and log in as them, or
+    disable the only admin and lock the deployment out. Admin callers
+    bypass this check entirely.
+    """
+    _, _, caller_scopes = _get_current_user_from_token(request, auth)
+    caller_scopes = caller_scopes or []
+    if "admin" in caller_scopes:
+        return
+    target = auth.db.get_user_by_id(target_user_id)
+    if target is None:
+        # Caller already validated existence upstream; this is a defensive
+        # double-check. Treat missing user as not-admin to avoid leaking
+        # existence via 403-vs-404 distinction.
+        return
+    target_perms = target.get("permissions") or []
+    if "admin" in target_perms:
+        raise HTTPException(
+            status_code=403,
+            detail="Non-admin cannot perform this action on an admin user",
+        )
+
+
 # --- Auth endpoints ---
 
 
@@ -251,6 +280,8 @@ async def update_user(user_id: int, request: Request) -> JSONResponse:
     body = await request.json()
 
     if "enabled" in body:
+        # Layer A: non-admin cannot disable/enable an admin user.
+        _reject_admin_target_takeover(request, auth, user_id)
         enabled = int(body["enabled"])
         if enabled:
             auth.enable_user(user_id)
@@ -258,6 +289,9 @@ async def update_user(user_id: int, request: Request) -> JSONResponse:
             auth.disable_user(user_id)
 
     if "permissions" in body:
+        # Layer A: non-admin cannot change permissions of an admin user.
+        _reject_admin_target_takeover(request, auth, user_id)
+        # Layer B: cannot grant scopes the caller doesn't hold.
         _reject_permission_escalation(request, auth, body["permissions"])
         auth.db.set_user_permissions(user_id, body["permissions"])
 
@@ -269,6 +303,7 @@ async def delete_user(user_id: int, request: Request) -> JSONResponse:
     user = auth.db.get_user_by_id(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    _reject_admin_target_takeover(request, auth, user_id)
     auth.db.delete_user(user_id)
     auth.cache.reload()
     return JSONResponse(content={"ok": True})
@@ -283,6 +318,7 @@ async def change_password(user_id: int, request: Request) -> JSONResponse:
         raise HTTPException(
             status_code=400, detail="Only local users can change password"
         )
+    _reject_admin_target_takeover(request, auth, user_id)
     body = await request.json()
     new_password = body.get("new_password")
     if not new_password:
@@ -465,6 +501,9 @@ async def update_user_permissions(user_id: int, request: Request) -> JSONRespons
         raise HTTPException(status_code=404, detail="User not found")
     body = await request.json()
     permissions = body.get("permissions", [])
+    # Layer A: non-admin cannot change permissions of an admin user.
+    _reject_admin_target_takeover(request, auth, user_id)
+    # Layer B: cannot grant scopes the caller doesn't hold.
     _reject_permission_escalation(request, auth, permissions)
     auth.db.set_user_permissions(user_id, permissions)
     return JSONResponse(content={"ok": True})
