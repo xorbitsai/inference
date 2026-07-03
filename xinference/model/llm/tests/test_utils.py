@@ -268,6 +268,264 @@ def test_transform_messages_rejects_invalid_tool_call_arguments_json():
         mixin._transform_messages(messages)
 
 
+def test_normalize_tool_call_arguments_for_mapping_template():
+    messages = [
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "call_1",
+                    "type": "function",
+                    "function": {
+                        "name": "view_file",
+                        "arguments": '{"file_path": "README*"}',
+                    },
+                },
+                {
+                    "id": "call_2",
+                    "type": "function",
+                    "function": {
+                        "name": "already_mapping",
+                        "arguments": {"path": "README.md"},
+                    },
+                },
+                {
+                    "id": "call_3",
+                    "type": "function",
+                    "function": {
+                        "name": "bad_args",
+                        "arguments": "not json",
+                    },
+                },
+            ],
+        }
+    ]
+    template = (
+        "{% for args_name, args_value in tool_call.arguments|items %}{% endfor %}"
+    )
+
+    normalized = ChatModelMixin._normalize_messages_for_chat_template(
+        messages, template
+    )
+
+    assert normalized[0]["tool_calls"][0]["function"]["arguments"] == {
+        "file_path": "README*"
+    }
+    assert normalized[0]["tool_calls"][1]["function"]["arguments"] == {
+        "path": "README.md"
+    }
+    assert normalized[0]["tool_calls"][2]["function"]["arguments"] == {}
+    # Keep protocol-facing input untouched; normalization is for template render only.
+    assert messages[0]["tool_calls"][0]["function"]["arguments"] == (
+        '{"file_path": "README*"}'
+    )
+
+
+@pytest.mark.parametrize(
+    "template",
+    [
+        "{% for name, value in tool_call.function.arguments|items %}{% endfor %}",
+        "{% for name, value in call.arguments.items() %}{% endfor %}",
+    ],
+)
+def test_normalize_tool_call_arguments_detects_template_aliases(template):
+    messages = [
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "view_file",
+                        "arguments": '{"file_path": "README*"}',
+                    },
+                }
+            ],
+        }
+    ]
+
+    normalized = ChatModelMixin._normalize_messages_for_chat_template(
+        messages, template
+    )
+
+    assert normalized[0]["tool_calls"][0]["function"]["arguments"] == {
+        "file_path": "README*"
+    }
+
+
+def test_normalize_tool_call_arguments_skips_templates_without_mapping_iteration():
+    messages = [
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "view_file",
+                        "arguments": '{"file_path": "README*"}',
+                    },
+                }
+            ],
+        }
+    ]
+    template = "{{ tool_call.function.arguments }}"
+
+    normalized = ChatModelMixin._normalize_messages_for_chat_template(
+        messages, template
+    )
+
+    assert normalized is messages
+    assert (
+        normalized[0]["tool_calls"][0]["function"]["arguments"]
+        == '{"file_path": "README*"}'
+    )
+
+
+def test_normalize_tool_parameters_for_mapping_template():
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "no_properties",
+                "description": "A tool without explicit properties",
+                "parameters": '{"type": "object"}',
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "properties_as_json",
+                "description": "A tool with JSON string properties",
+                "parameters": {
+                    "type": "object",
+                    "properties": '{"path": {"type": "string"}}',
+                },
+            },
+        },
+    ]
+    template = "{% for name, fields in tool.parameters.properties|items %}{% endfor %}"
+
+    normalized = ChatModelMixin._normalize_tools_for_chat_template(tools, template)
+
+    assert normalized[0]["function"]["parameters"] == {
+        "type": "object",
+        "properties": {},
+    }
+    assert normalized[1]["function"]["parameters"]["properties"] == {
+        "path": {"type": "string"}
+    }
+    assert tools[0]["function"]["parameters"] == '{"type": "object"}'
+
+
+def test_normalize_tool_parameters_recursively_for_mapping_template():
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "nested_schema",
+                "description": "A tool with nested JSON string properties",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "payload": {
+                            "type": "object",
+                            "properties": '{"path": {"type": "string"}}',
+                        }
+                    },
+                },
+            },
+        }
+    ]
+    template = """
+{%- for tool in tools %}
+    {%- if tool.function is defined %}
+        {%- set tool = tool.function %}
+    {%- endif %}
+    {%- for name, fields in tool.parameters.properties|items %}
+        {%- for child_name, child_fields in fields.properties|items %}
+            {{- name + "." + child_name + ":" + child_fields.type }}
+        {%- endfor %}
+    {%- endfor %}
+{%- endfor %}
+"""
+
+    normalized = ChatModelMixin._normalize_tools_for_chat_template(tools, template)
+
+    assert normalized[0]["function"]["parameters"]["properties"]["payload"][
+        "properties"
+    ] == {"path": {"type": "string"}}
+    assert normalized[0]["parameters"] == normalized[0]["function"]["parameters"]
+
+
+@pytest.mark.parametrize(
+    "template",
+    [
+        "{% for name, fields in tool.function.parameters.properties|items %}{% endfor %}",
+        "{% for name, fields in parameter.properties.items() %}{% endfor %}",
+    ],
+)
+def test_normalize_tool_parameters_detects_template_aliases(template):
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "properties_as_json",
+                "description": "A tool with JSON string properties",
+                "parameters": {
+                    "type": "object",
+                    "properties": '{"path": {"type": "string"}}',
+                },
+            },
+        }
+    ]
+
+    normalized = ChatModelMixin._normalize_tools_for_chat_template(tools, template)
+
+    assert normalized[0]["function"]["parameters"]["properties"] == {
+        "path": {"type": "string"}
+    }
+
+
+def test_get_full_context_renders_string_tool_arguments_for_mapping_template():
+    mixin = ChatModelMixin()
+    mixin.model_family = SimpleNamespace(model_name="qwen3", model_ability=["chat"])
+    template = """
+{%- for message in messages %}
+    {%- if message.tool_calls %}
+        {%- for tool_call in message.tool_calls %}
+            {%- set tool_call = tool_call.function %}
+            {%- for args_name, args_value in tool_call.arguments|items %}
+                {{- args_name + "=" + args_value }}
+            {%- endfor %}
+        {%- endfor %}
+    {%- endif %}
+{%- endfor %}
+"""
+    messages = [
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "call_1",
+                    "type": "function",
+                    "function": {
+                        "name": "view_file",
+                        "arguments": '{"file_path": "README*"}',
+                    },
+                }
+            ],
+        }
+    ]
+
+    rendered = mixin.get_full_context(messages, template)
+
+    assert rendered == "file_path=README*"
+
+
 def test_deepseekv4_get_full_context_attaches_tools(tmp_path):
     encoding_dir = tmp_path / "encoding"
     encoding_dir.mkdir()

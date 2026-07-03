@@ -164,6 +164,17 @@ class ChatModelMixin:
         tokenize=False,
         **kwargs,
     ):
+        template_for_normalization: Optional[str] = chat_template
+        if not template_for_normalization and tokenizer is not None:
+            template_for_normalization = getattr(tokenizer, "chat_template", None)
+        if template_for_normalization:
+            messages = self._normalize_messages_for_chat_template(
+                messages, template_for_normalization
+            )
+            if kwargs.get("tools"):
+                kwargs["tools"] = self._normalize_tools_for_chat_template(
+                    kwargs["tools"], template_for_normalization
+                )
         if (
             "vision" not in self.model_family.model_ability
             and "audio" not in self.model_family.model_ability
@@ -257,6 +268,184 @@ class ChatModelMixin:
         return None
 
     @staticmethod
+    def _chat_template_needs_mapping_tool_arguments(chat_template: str) -> bool:
+        compact_template = "".join(chat_template.split())
+        return (
+            "arguments|items" in compact_template
+            or "arguments.items()" in compact_template
+            or (
+                (
+                    "_args=tool_call.arguments" in compact_template
+                    or "_args=tc.arguments" in compact_template
+                )
+                and "_args.items()" in compact_template
+            )
+        )
+
+    @staticmethod
+    def _chat_template_needs_mapping_tool_parameters(chat_template: str) -> bool:
+        compact_template = "".join(chat_template.split())
+        return (
+            "properties|items" in compact_template
+            or "properties.items()" in compact_template
+            or "parameters|items" in compact_template
+            or "parameters.items()" in compact_template
+        )
+
+    @staticmethod
+    def _json_string_to_mapping(value: Any) -> Optional[Dict[str, Any]]:
+        if isinstance(value, dict):
+            return value
+        if not isinstance(value, str):
+            return None
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return None
+        return parsed if isinstance(parsed, dict) else None
+
+    @classmethod
+    def _coerce_tool_arguments_mapping(cls, value: Any) -> Dict[str, Any]:
+        parsed = cls._json_string_to_mapping(value)
+        if parsed is not None:
+            return parsed
+        logger.warning(
+            "Tool call arguments should be a JSON object for this chat template, "
+            "got %r; using an empty object.",
+            value,
+        )
+        return {}
+
+    @classmethod
+    def _normalize_tool_call_for_chat_template(cls, tool_call: Any) -> Any:
+        if not isinstance(tool_call, dict):
+            return tool_call
+
+        normalized = dict(tool_call)
+        if "arguments" in normalized:
+            normalized["arguments"] = cls._coerce_tool_arguments_mapping(
+                normalized["arguments"]
+            )
+
+        function = normalized.get("function")
+        if isinstance(function, dict) and "arguments" in function:
+            normalized_function = dict(function)
+            normalized_function["arguments"] = cls._coerce_tool_arguments_mapping(
+                normalized_function["arguments"]
+            )
+            normalized["function"] = normalized_function
+
+        return normalized
+
+    @classmethod
+    def _normalize_messages_for_chat_template(
+        cls, messages: List, chat_template: str
+    ) -> List:
+        if not cls._chat_template_needs_mapping_tool_arguments(chat_template):
+            return messages
+
+        normalized_messages = []
+        for message in messages:
+            if not isinstance(message, dict) or not isinstance(
+                message.get("tool_calls"), list
+            ):
+                normalized_messages.append(message)
+                continue
+
+            normalized_message = dict(message)
+            normalized_message["tool_calls"] = [
+                cls._normalize_tool_call_for_chat_template(tool_call)
+                for tool_call in message["tool_calls"]
+            ]
+            normalized_messages.append(normalized_message)
+        return normalized_messages
+
+    @classmethod
+    def _normalize_json_schema_for_chat_template(cls, schema: Any) -> dict:
+        parsed = cls._json_string_to_mapping(schema)
+        if parsed is None:
+            parsed = schema if isinstance(schema, dict) else {}
+        normalized_schema = dict(parsed)
+
+        properties = normalized_schema.get("properties")
+        parsed_properties = cls._json_string_to_mapping(properties)
+        if parsed_properties is not None:
+            normalized_schema["properties"] = {
+                name: cls._normalize_json_schema_for_chat_template(value)
+                for name, value in parsed_properties.items()
+            }
+        elif isinstance(properties, dict):
+            normalized_schema["properties"] = {
+                name: cls._normalize_json_schema_for_chat_template(value)
+                for name, value in properties.items()
+            }
+        elif "properties" in normalized_schema:
+            normalized_schema["properties"] = {}
+
+        items = normalized_schema.get("items")
+        if isinstance(items, dict) or isinstance(items, str):
+            normalized_schema["items"] = cls._normalize_json_schema_for_chat_template(
+                items
+            )
+        elif isinstance(items, list):
+            normalized_schema["items"] = [
+                cls._normalize_json_schema_for_chat_template(item) for item in items
+            ]
+
+        additional_properties = normalized_schema.get("additionalProperties")
+        if isinstance(additional_properties, dict) or isinstance(
+            additional_properties, str
+        ):
+            normalized_schema["additionalProperties"] = (
+                cls._normalize_json_schema_for_chat_template(additional_properties)
+            )
+
+        return normalized_schema
+
+    @classmethod
+    def _normalize_tool_parameters_for_chat_template(cls, parameters: Any) -> dict:
+        normalized_parameters = cls._normalize_json_schema_for_chat_template(parameters)
+        if "properties" not in normalized_parameters or not isinstance(
+            normalized_parameters["properties"], dict
+        ):
+            normalized_parameters["properties"] = {}
+        return normalized_parameters
+
+    @classmethod
+    def _normalize_tools_for_chat_template(cls, tools: Any, chat_template: str) -> Any:
+        if not cls._chat_template_needs_mapping_tool_parameters(chat_template):
+            return tools
+        if not isinstance(tools, list):
+            return tools
+
+        normalized_tools = []
+        for tool in tools:
+            if not isinstance(tool, dict):
+                normalized_tools.append(tool)
+                continue
+
+            normalized_tool = dict(tool)
+            function = normalized_tool.get("function")
+            if isinstance(function, dict):
+                normalized_function = dict(function)
+                normalized_function["parameters"] = (
+                    cls._normalize_tool_parameters_for_chat_template(
+                        normalized_function.get("parameters", {})
+                    )
+                )
+                normalized_tool["function"] = normalized_function
+                normalized_tool["parameters"] = normalized_function["parameters"]
+            else:
+                normalized_tool["parameters"] = (
+                    cls._normalize_tool_parameters_for_chat_template(
+                        normalized_tool.get("parameters", {})
+                    )
+                )
+            normalized_tools.append(normalized_tool)
+
+        return normalized_tools
+
+    @staticmethod
     def _attach_deepseekv4_tools(messages: List[Dict], tools: List[Dict]) -> List[Dict]:
         prepared_messages = [dict(message) for message in messages]
         for message in prepared_messages:
@@ -272,17 +461,25 @@ class ChatModelMixin:
     ) -> List[Dict]:
         """
         Handles messages with content list conversion, in order to support Cline, see GH#2659 .
+
+        A list ``content`` is always collapsed to a string (text blocks joined
+        with newlines). This must hold even when no text block is present —
+        e.g. Anthropic ``tool_result`` / ``tool_use`` / ``image`` blocks sent by
+        Claude Code — otherwise a raw list would reach the Jinja chat template
+        and raise ``'list' object has no attribute 'startswith'``.
         """
         for message in messages:
-            texts = ""
             msg_content = message.get("content")
-            if msg_content:
-                if isinstance(msg_content, str):
-                    texts = msg_content
-                elif isinstance(msg_content, list):
-                    texts = "\n".join(item.get("text", "") for item in msg_content)
-            if texts:
-                message["content"] = texts
+            if isinstance(msg_content, list):
+                texts = []
+                for item in msg_content:
+                    if isinstance(item, dict):
+                        text = item.get("text")
+                        if isinstance(text, str) and text:
+                            texts.append(text)
+                    elif isinstance(item, str) and item:
+                        texts.append(item)
+                message["content"] = "\n".join(texts)
         return messages
 
     @staticmethod

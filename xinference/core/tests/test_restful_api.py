@@ -1962,3 +1962,216 @@ async def test_anthropic_models_include_original_fields(
     assert data["model_format"] == "pytorch"
     assert data["model_size_in_billions"] == 7
     assert data["quantization"] == "none"
+
+
+# ---------------------------------------------------------------------------
+# Anthropic (Claude Code) tool-flow conversion -- _convert_anthropic_* helpers.
+# System folding is covered by the _normalize_anthropic_messages tests above.
+# ---------------------------------------------------------------------------
+
+
+def test_convert_anthropic_messages_to_openai_plain_unchanged(anthropic_api):
+    """A plain user/assistant conversation keeps its turns unchanged."""
+    messages = [
+        {"role": "user", "content": "hi"},
+        {"role": "assistant", "content": "hello"},
+    ]
+    result = anthropic_api._convert_anthropic_messages_to_openai(messages)
+    assert result == messages
+
+
+def test_convert_anthropic_text_blocks_flattened(anthropic_api):
+    """List content of text blocks is flattened to a string."""
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "line1"},
+                {"type": "text", "text": "line2"},
+            ],
+        }
+    ]
+    result = anthropic_api._convert_anthropic_messages_to_openai(messages)
+    assert result == [{"role": "user", "content": "line1\nline2"}]
+
+
+def test_convert_anthropic_tool_use_to_tool_calls(anthropic_api):
+    """Assistant ``tool_use`` blocks become OpenAI ``tool_calls``."""
+    messages = [
+        {
+            "role": "assistant",
+            "content": [
+                {"type": "text", "text": "let me check"},
+                {
+                    "type": "tool_use",
+                    "id": "toolu_1",
+                    "name": "get_weather",
+                    "input": {"city": "Beijing"},
+                },
+            ],
+        }
+    ]
+    result = anthropic_api._convert_anthropic_messages_to_openai(messages)
+    assert len(result) == 1
+    msg = result[0]
+    assert msg["role"] == "assistant"
+    assert msg["content"] == "let me check"
+    assert msg["tool_calls"] == [
+        {
+            "id": "toolu_1",
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "arguments": '{"city": "Beijing"}',
+            },
+        }
+    ]
+
+
+def test_convert_anthropic_tool_result_to_tool_message(anthropic_api):
+    """User ``tool_result`` blocks become standalone ``tool`` messages."""
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "tool_result", "tool_use_id": "toolu_1", "content": "sunny"},
+            ],
+        }
+    ]
+    result = anthropic_api._convert_anthropic_messages_to_openai(messages)
+    assert result == [{"role": "tool", "tool_call_id": "toolu_1", "content": "sunny"}]
+
+
+def test_convert_anthropic_tool_result_with_block_content(anthropic_api):
+    """A ``tool_result`` whose content is a block list is flattened; user text follows."""
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": "toolu_1",
+                    "content": [{"type": "text", "text": "sunny"}],
+                },
+                {"type": "text", "text": "thanks"},
+            ],
+        }
+    ]
+    result = anthropic_api._convert_anthropic_messages_to_openai(messages)
+    assert result == [
+        {"role": "tool", "tool_call_id": "toolu_1", "content": "sunny"},
+        {"role": "user", "content": "thanks"},
+    ]
+
+
+def test_convert_anthropic_full_agentic_roundtrip(anthropic_api):
+    """A realistic Claude Code agentic exchange converts to OpenAI shape."""
+    messages = [
+        {"role": "user", "content": [{"type": "text", "text": "weather?"}]},
+        {
+            "role": "assistant",
+            "content": [
+                {"type": "tool_use", "id": "toolu_1", "name": "wx", "input": {}},
+            ],
+        },
+        {
+            "role": "user",
+            "content": [
+                {"type": "tool_result", "tool_use_id": "toolu_1", "content": "sunny"},
+            ],
+        },
+    ]
+    result = anthropic_api._convert_anthropic_messages_to_openai(messages)
+    assert [m["role"] for m in result] == ["user", "assistant", "tool"]
+    assert result[1]["tool_calls"][0]["id"] == "toolu_1"
+    assert result[2]["tool_call_id"] == "toolu_1"
+    assert result[2]["name"] == "wx"
+
+
+def test_convert_anthropic_image_block(anthropic_api):
+    """Anthropic base64 ``image`` blocks become OpenAI ``image_url`` parts."""
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "what is this?"},
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/png",
+                        "data": "QUJD",
+                    },
+                },
+            ],
+        }
+    ]
+    result = anthropic_api._convert_anthropic_messages_to_openai(messages)
+    assert result[0]["role"] == "user"
+    parts = result[0]["content"]
+    assert {"type": "text", "text": "what is this?"} in parts
+    assert {
+        "type": "image_url",
+        "image_url": {"url": "data:image/png;base64,QUJD"},
+    } in parts
+
+
+def test_convert_anthropic_tools_to_openai(anthropic_api):
+    """Anthropic tool defs (``input_schema``) become OpenAI ``function`` tools."""
+    tools = [
+        {
+            "name": "get_weather",
+            "description": "Get weather",
+            "input_schema": {
+                "type": "object",
+                "properties": {"city": {"type": "string"}},
+            },
+        }
+    ]
+    result = anthropic_api._convert_anthropic_tools_to_openai(tools)
+    assert result == [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get weather",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"city": {"type": "string"}},
+                },
+            },
+        }
+    ]
+    # already-OpenAI tools pass through untouched
+    openai_tool = {"type": "function", "function": {"name": "x", "parameters": {}}}
+    assert anthropic_api._convert_anthropic_tools_to_openai([openai_tool]) == [
+        openai_tool
+    ]
+
+
+def test_convert_anthropic_tool_choice(anthropic_api):
+    """Anthropic ``tool_choice`` maps to the OpenAI equivalent."""
+    assert anthropic_api._convert_anthropic_tool_choice({"type": "auto"}) == "auto"
+    assert anthropic_api._convert_anthropic_tool_choice({"type": "any"}) == "required"
+    assert anthropic_api._convert_anthropic_tool_choice({"type": "none"}) == "none"
+    assert anthropic_api._convert_anthropic_tool_choice(
+        {"type": "tool", "name": "get_weather"}
+    ) == {"type": "function", "function": {"name": "get_weather"}}
+
+
+def test_extract_text_from_anthropic_content(anthropic_api):
+    """Text extraction handles strings, block lists, and ignores non-text."""
+    assert anthropic_api._extract_text_from_anthropic_content("hello") == "hello"
+    assert (
+        anthropic_api._extract_text_from_anthropic_content(
+            [{"type": "text", "text": "a"}, {"type": "text", "text": "b"}]
+        )
+        == "a\nb"
+    )
+    # non-text blocks (e.g. images) are ignored
+    assert (
+        anthropic_api._extract_text_from_anthropic_content(
+            [{"type": "image", "source": {}}]
+        )
+        == ""
+    )
