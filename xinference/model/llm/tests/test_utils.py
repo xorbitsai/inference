@@ -2137,6 +2137,17 @@ def test_normalize_tool_call_arguments_to_dict():
     assert assistant_tc[3]["function"]["arguments"] == ""  # empty preserved
     assert assistant_tc[4]["function"]["arguments"] is None  # null preserved
 
+    # Non-mutating contract: input messages must be unchanged.
+    assert messages[0]["tool_calls"][0]["function"]["arguments"] == (
+        '{"city":"北京"}'
+    ), "_normalize_tool_call_arguments_to_dict mutated input"
+    assert messages[0]["tool_calls"][1]["function"]["arguments"] == {"already": "dict"}
+    assert messages[0]["tool_calls"][2]["function"]["arguments"] == "{not json"
+    assert messages[0]["tool_calls"][3]["function"]["arguments"] == ""
+    assert messages[0]["tool_calls"][4]["function"]["arguments"] is None
+    # The returned list is a new list (callers can mutate it independently).
+    assert result is not messages
+
 
 def test_qwen3_family_get_full_context_handles_string_arguments():
     # Regression for the OpenAI-spec string tool_calls.function.arguments crash.
@@ -2200,10 +2211,14 @@ def test_qwen3_family_get_full_context_handles_string_arguments():
         # ImmutableSandboxedEnvironment as production (and does NOT register
         # from_json — the constraint that rules out in-template fixes).
         prompt = mixin.get_full_context(
-            [dict(m) if isinstance(m, dict) else m for m in base_messages],
+            base_messages,
             chat_template=fam.chat_template,
             tokenizer=None,
             tools=tools,
         )
         assert "<parameter=city>" in prompt, f"{name}: parameter block missing"
         assert "北京" in prompt, f"{name}: argument value missing"
+        # Non-mutating contract: the input messages must be unchanged.
+        assert base_messages[2]["tool_calls"][0]["function"]["arguments"] == (
+            '{"city":"北京"}'
+        ), f"{name}: _normalize_tool_call_arguments_to_dict mutated input"

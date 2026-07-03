@@ -164,26 +164,49 @@ class ChatModelMixin:
         # require a dict to iterate via `|items`. The HF Jinja sandbox does
         # not register a `from_json` filter, so we normalize at the message
         # layer before template rendering.
+        #
+        # Non-mutating: callers may reuse the input `messages` for history
+        # tracking / logging / serialization, so we deep-copy only the
+        # affected message + tool_call + function dict when a string
+        # argument is successfully parsed. Messages without string
+        # arguments are returned by reference (no copy).
+        normalized: List[Dict] = []
         for message in messages:
             if not isinstance(message, dict) or message.get("role") != "assistant":
+                normalized.append(message)
                 continue
             tool_calls = message.get("tool_calls")
             if not isinstance(tool_calls, list):
+                normalized.append(message)
                 continue
-            for tc in tool_calls:
+            # Identify indices that need rewriting (string arguments that
+            # parse successfully). Malformed JSON is left as-is and the
+            # original tool_call is reused.
+            rewrites: Dict[int, Dict] = {}
+            for i, tc in enumerate(tool_calls):
                 if not isinstance(tc, dict):
                     continue
                 fn = tc.get("function")
                 if not isinstance(fn, dict):
                     continue
                 args = fn.get("arguments")
-                if isinstance(args, str) and args:
-                    try:
-                        fn["arguments"] = json.loads(args)
-                    except json.JSONDecodeError:
-                        # leave as-is so downstream surfaces the malformed JSON
-                        pass
-        return messages
+                if not (isinstance(args, str) and args):
+                    continue
+                try:
+                    parsed = json.loads(args)
+                except json.JSONDecodeError:
+                    # leave as-is so downstream surfaces the malformed JSON
+                    continue
+                rewrites[i] = {**fn, "arguments": parsed}
+            if not rewrites:
+                normalized.append(message)
+                continue
+            new_tool_calls = list(tool_calls)
+            for i, new_fn in rewrites.items():
+                original_tc = tool_calls[i]
+                new_tool_calls[i] = {**original_tc, "function": new_fn}
+            normalized.append({**message, "tool_calls": new_tool_calls})
+        return normalized
 
     def _build_from_raw_template(
         self, messages: List, chat_template: str, **kwargs
