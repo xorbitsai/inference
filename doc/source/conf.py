@@ -59,8 +59,6 @@ templates_path = ['_templates']
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
-_ZH_CN_ONLY_DOCS = ("getting_started/installation_npu.rst",)
-
 # i18n
 locale_dirs = ["locale/"]  # path is example but recommended.
 gettext_compact = False  # optional
@@ -246,12 +244,6 @@ html_theme_options["header_dropdown_text"] = _HEADER_DROPDOWN_TEXT_BY_LOCALE.get
 html_favicon = "_static/xinference-favicon.png"
 
 
-def _is_zh_cn_build(app) -> bool:
-    switcher_version = _resolve_switcher_version(app)
-    current_language = getattr(app.config, "language", None)
-    return switcher_version == "zh-cn" or current_language in {"zh_CN", "zh-cn"}
-
-
 def _apply_locale_theme_options(app, config):
     switcher_version = _resolve_switcher_version(app)
     config.html_theme_options.setdefault("switcher", {})["version_match"] = switcher_version
@@ -261,16 +253,15 @@ def _apply_locale_theme_options(app, config):
     config.html_theme_options["header_dropdown_text"] = (
         _HEADER_DROPDOWN_TEXT_BY_LOCALE.get(switcher_version, "More")
     )
-    if _is_zh_cn_build(app):
+    if switcher_version == "zh-cn":
         app.tags.add("zh_cn")
-    else:
-        for doc in _ZH_CN_ONLY_DOCS:
-            if doc not in config.exclude_patterns:
-                config.exclude_patterns.append(doc)
 
 
 def _remove_non_zh_cn_nodes(app, doctree, docname):
-    if _is_zh_cn_build(app):
+    switcher_version = _resolve_switcher_version(app)
+    current_language = getattr(app.config, "language", None)
+    is_zh_cn = switcher_version == "zh-cn" or current_language in {"zh_CN", "zh-cn"}
+    if is_zh_cn:
         return
 
     for node in list(
