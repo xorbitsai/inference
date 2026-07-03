@@ -1,0 +1,580 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-12-29 12:19+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ko <LL@li.org>\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/getting_started/using_xinference.rst:5
+msgid "Using Xinference"
+msgstr "사용"
+
+#: ../../source/getting_started/using_xinference.rst:9
+msgid "Run Xinference Locally"
+msgstr "로컬에서 Xinference 실행"
+
+#: ../../source/getting_started/using_xinference.rst:11
+msgid ""
+"Let's start by running Xinference on a local machine and running a classic "
+"LLM model: ``qwen2.5-instruct``."
+msgstr ""
+"Let’s use a classic large language model ``qwen2.5-instruct`` as an example "
+"to demonstrate how to run a large model locally with Xinference."
+
+#: ../../source/getting_started/using_xinference.rst:13
+msgid ""
+"After this quickstart, you will move on to learning how to deploy Xinference"
+" in a cluster environment."
+msgstr "이 빠른 시작 이후에는 분산 클러스터 환경에서 Xinference를 배포하는 방법을 계속 학습할 수 있습니다."
+
+#: ../../source/getting_started/using_xinference.rst:16
+msgid "Start Local Server"
+msgstr "로컬 서비스 시작"
+
+#: ../../source/getting_started/using_xinference.rst:18
+msgid ""
+"First, please ensure that you have installed Xinference according to the "
+"instructions provided :ref:`here <installation>`. To start a local instance "
+"of Xinference, run the following command:"
+msgstr ""
+"먼저, :ref:`문서 <installation>` 의 지침에 따라 로컬에 Xinference가 설치되어 있는지 확인하세요. 다음 "
+"명령어를 사용하여 로컬 Xinference 서비스를 시작합니다:"
+
+#: ../../source/getting_started/using_xinference.rst:23
+#: ../../source/getting_started/using_xinference.rst:65
+msgid "shell"
+msgstr "shell"
+
+#: ../../source/getting_started/using_xinference.rst:29
+#: ../../source/getting_started/using_xinference.rst:71
+msgid "output"
+msgstr "출력"
+
+#: ../../source/getting_started/using_xinference.rst:39
+msgid ""
+"By default, Xinference uses ``<HOME>/.xinference`` as home path to store "
+"necessary files such as logs and models, where ``<HOME>`` is the home path "
+"of current user."
+msgstr ""
+"기본적으로 Xinference는 ``<HOME>/.xinference``를 메인 디렉토리로 사용하여 로그 파일 및 모델 파일과 같은 필수"
+" 정보를 저장합니다. 여기서 ``<HOME>``은 현재 사용자의 홈 디렉토리입니다."
+
+#: ../../source/getting_started/using_xinference.rst:42
+msgid ""
+"You can change this directory by configuring the environment variable "
+"``XINFERENCE_HOME``. For example:"
+msgstr ""
+"You can modify the home directory by configuring the environment variable "
+"``XINFERENCE_HOME``, for example:"
+
+#: ../../source/getting_started/using_xinference.rst:49
+msgid ""
+"Congrats! You now have Xinference running on your local machine. Once "
+"Xinference is running, there are multiple ways we can try it: via the web "
+"UI, via cURL, via the command line, or via the Xinference's python client."
+msgstr ""
+"축하합니다! 로컬에서 Xinference 서비스를 실행했습니다. Xinference 서비스가 실행되면 웹 페이지, cURL 명령, 명령줄"
+" 또는 Xinference의 Python SDK를 포함한 다양한 방법으로 사용할 수 있습니다."
+
+#: ../../source/getting_started/using_xinference.rst:52
+msgid ""
+"You can visit the web UI at `http://127.0.0.1:9997/ui "
+"<http://127.0.0.1:9997/ui>`_ and visit `http://127.0.0.1:9997/docs "
+"<http://127.0.0.1:9997/docs>`_ to inspect the API docs."
+msgstr ""
+"UI는 `http://127.0.0.1:9997/ui <http://127.0.0.1:9997/ui>`_ 에 접속하여 사용할 수 있으며,"
+" API 문서는 `http://127.0.0.1:9997/docs <http://127.0.0.1:9997/docs>`_ 에서 확인할 수"
+" 있습니다."
+
+#: ../../source/getting_started/using_xinference.rst:55
+msgid ""
+"You can install the Xinference command line tool and Python client using the"
+" following command:"
+msgstr "다음 명령어를 통해 설치한 후, Xinference 명령줄 도구 또는 Python 코드를 이용하여 사용할 수 있습니다:"
+
+#: ../../source/getting_started/using_xinference.rst:61
+msgid ""
+"The command line tool is ``xinference``. You can list the commands that can "
+"be used by running:"
+msgstr "명령줄 도구는 ``xinference``입니다. 다음 명령을 통해 사용 가능한 명령을 확인할 수 있습니다:"
+
+#: ../../source/getting_started/using_xinference.rst:102
+msgid ""
+"You can install the Xinference Python client with minimal dependencies using"
+" the following command. Please ensure that the version of the client matches"
+" the version of the Xinference server."
+msgstr ""
+"Xinference의 Python SDK만 설치해야 하는 경우, 다음 명령어를 사용하여 최소한의 의존성만 설치할 수 있습니다. 버전은 "
+"반드시 Xinference 서비스 버전과 일치해야 합니다."
+
+#: ../../source/getting_started/using_xinference.rst:112
+msgid "About Model Engine"
+msgstr "모델의 추론 엔진"
+
+#: ../../source/getting_started/using_xinference.rst:113
+msgid ""
+"Since ``v0.11.0`` , before launching the LLM model, you need to specify the "
+"inference engine you want to run. Currently, xinference supports the "
+"following inference engines:"
+msgstr ""
+"``v0.11.0`` 버전부터 LLM 모델을 로드하기 전에 구체적인 추론 엔진을 지정해야 합니다. 현재 Xinference는 다음 추론 "
+"엔진을 지원합니다:"
+
+#: ../../source/getting_started/using_xinference.rst:116
+msgid "``vllm``"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:117
+msgid "``sglang``"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:118
+msgid "``llama.cpp``"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:119
+msgid "``transformers``"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:120
+msgid "``MLX``"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:122
+msgid ""
+"About the details of these inference engine, please refer to :ref:`here "
+"<inference_backend>`."
+msgstr "이러한 추론 엔진에 대한 자세한 내용은 :ref:`여기 <inference_backend>` 를 참조하십시오."
+
+#: ../../source/getting_started/using_xinference.rst:124
+msgid ""
+"Note that when launching a LLM model, the ``model_format`` and "
+"``quantization`` of the model you want to launch is closely related to the "
+"inference engine."
+msgstr ""
+"주의, LLM 모델을 로드할 때 실행 가능한 엔진은 ``model_format`` 및 ``quantization`` 매개변수와 밀접한 "
+"관련이 있습니다."
+
+#: ../../source/getting_started/using_xinference.rst:127
+msgid ""
+"You can use ``xinference engine`` command to query the combination of "
+"parameters of the model you want to launch. This will demonstrate under what"
+" conditions a model can run on which inference engines."
+msgstr ""
+"Xinference는 ``xinference engine`` 명령을 제공하여 관련 매개변수 조합을 조회할 수 있도록 도와줍니다."
+
+#: ../../source/getting_started/using_xinference.rst:130
+msgid "For example:"
+msgstr "예를 들어:"
+
+#: ../../source/getting_started/using_xinference.rst:132
+msgid ""
+"I would like to query about which inference engines the ``qwen-chat`` model "
+"can run on, and what are their respective parameters."
+msgstr ""
+"I want to query the parameter combinations related to the ``qwen-chat`` "
+"model to determine how it can run on various inference engines."
+
+#: ../../source/getting_started/using_xinference.rst:138
+msgid ""
+"I want to run ``qwen-chat`` with ``VLLM`` as the inference engine, but I "
+"don't know how to configure the other parameters."
+msgstr ""
+"I want to run ``qwen-chat`` on the ``VLLM`` inference engine, but I don't "
+"know what other parameters meet this requirement."
+
+#: ../../source/getting_started/using_xinference.rst:144
+msgid ""
+"I want to launch the ``qwen-chat`` model in the ``GGUF`` format, and I need "
+"to know how to configure the remaining parameters."
+msgstr ""
+"I want to load the ``qwen-chat`` model in ``GGUF`` format, I need to know "
+"the rest of the parameter combinations."
+
+#: ../../source/getting_started/using_xinference.rst:151
+msgid ""
+"In summary, compared to previous versions, when launching LLM models, you "
+"need to additionally pass the ``model_engine`` parameter. You can retrieve "
+"information about the supported inference engines and their related "
+"parameter combinations through the ``xinference engine`` command."
+msgstr ""
+"요약하자면, 이전 버전과 달리 LLM 모델을 로드할 때 ``model_engine`` 매개변수를 추가로 전달해야 합니다. "
+"``xinference engine`` 명령어를 통해 실행하려는 추론 엔진과 다른 매개변수 조합의 관계를 확인할 수 있습니다."
+
+#: ../../source/getting_started/using_xinference.rst:158
+msgid "Here are some recommendations on when to use which engine:"
+msgstr "다음은 어떤 엔진을 언제 사용해야 하는지에 대한 몇 가지 제안입니다:"
+
+#: ../../source/getting_started/using_xinference.rst:160
+msgid "**Linux**"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:162
+msgid ""
+"When possible, prioritize using **vLLM** or **SGLang** for better "
+"performance."
+msgstr "사용 가능한 경우, **vLLM** 또는 **SGLang**을 우선적으로 사용하세요. 더 나은 성능을 제공하기 때문입니다."
+
+#: ../../source/getting_started/using_xinference.rst:163
+msgid ""
+"If resources are limited, consider using **llama.cpp**, as it offers more "
+"quantization options."
+msgstr "리소스가 제한된 경우, 더 많은 양자화 옵션을 제공하는 **llama.cpp**를 고려해볼 수 있습니다."
+
+#: ../../source/getting_started/using_xinference.rst:164
+msgid ""
+"For other cases, consider using **Transformers**, which supports nearly all "
+"models."
+msgstr "다른 사용 고려사항으로 **Transformers**를 사용하면 거의 모든 모델을 지원합니다."
+
+#: ../../source/getting_started/using_xinference.rst:166
+msgid "**Windows**"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:168
+msgid ""
+"It is recommended to use **WSL**, and in this case, follow the same choices "
+"as Linux."
+msgstr "**WSL** 사용을 권장하며, 이 경우 Linux와 동일한 옵션을 선택합니다."
+
+#: ../../source/getting_started/using_xinference.rst:169
+msgid ""
+"Otherwise, prefer **llama.cpp**, and for unsupported models, opt for "
+"**Transformers**."
+msgstr "다른 경우에는 **llama.cpp**를 권장하며, 지원되지 않는 모델의 경우 **Transformers**를 사용하세요."
+
+#: ../../source/getting_started/using_xinference.rst:171
+msgid "**Mac**"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:173
+msgid ""
+"If supported by the model, use the **MLX engine**, as it delivers the best "
+"performance."
+msgstr "모델이 지원하는 경우, **MLX 엔진** 사용을 권장합니다. 이는 최상의 성능을 제공합니다."
+
+#: ../../source/getting_started/using_xinference.rst:174
+msgid ""
+"For other cases, prefer **llama.cpp**, and for unsupported models, choose "
+"**Transformers**."
+msgstr ""
+"다른 경우에는 **llama.cpp**를 사용하는 것을 추천하며, 지원되지 않는 모델의 경우 **Transformers**를 선택하여 "
+"사용하세요."
+
+#: ../../source/getting_started/using_xinference.rst:178
+msgid "Run qwen2.5-instruct"
+msgstr "qwen2.5-instruct 실행"
+
+#: ../../source/getting_started/using_xinference.rst:180
+msgid ""
+"Let's start by running a built-in model: ``qwen2.5-instruct``. When you "
+"start a model for the first time, Xinference will download the model "
+"parameters from HuggingFace, which might take a few minutes depending on the"
+" size of the model weights. We cache the model files locally, so there's no "
+"need to redownload them for subsequent starts."
+msgstr ""
+"내장된 ``qwen2.5-instruct`` 모델을 실행해 보겠습니다. 모델을 실행해야 할 때, 처음 실행 시 HuggingFace에서 "
+"모델 파라미터를 다운로드해야 하며, 일반적으로 모델 크기에 따라 10분에서 30분 정도 소요됩니다. 다운로드가 완료되면 "
+"Xinference 로컬에 캐시가 저장되므로, 이후 동일한 모델을 다시 실행할 때는 새로 다운로드할 필요가 없습니다."
+
+#: ../../source/getting_started/using_xinference.rst:185
+msgid ""
+"Xinference also allows you to download models from other sites. You can do "
+"this by setting an environment variable when launching Xinference. For "
+"example, if you want to download models from `modelscope "
+"<https://modelscope.cn>`_, do the following:"
+msgstr ""
+"Xinference는 다른 모델 호스팅 플랫폼에서 모델을 다운로드할 수도 있습니다. Xinference를 실행할 때 환경 변수를 지정하여"
+" 수행할 수 있습니다. 예를 들어, ModelScope에서 모델을 다운로드하려면 다음 명령을 사용할 수 있습니다."
+
+#: ../../source/getting_started/using_xinference.rst:193
+msgid ""
+"We can specify the model's UID using the ``--model-uid`` or ``-u`` flag. If "
+"not specified, Xinference will generate a unique ID. The default unique ID "
+"will be identical to the model name."
+msgstr ""
+"``--model-uid`` 혹은 ``-u`` 매개변수를 사용하여 모델의 UID를 지정할 수 있으며, 지정하지 않으면 "
+"Xinference가 무작위로 ID를 생성합니다. 기본 ID는 모델 이름과 동일하게 유지됩니다."
+
+#: ../../source/getting_started/using_xinference.rst:232
+msgid ""
+"For some engines, such as vllm, users need to specify the engine-related "
+"parameters when running models. In this case, you can directly specify the "
+"parameter name and value in the command line, for example:"
+msgstr ""
+"일부 추론 엔진(예: vllm)의 경우 사용자가 모델을 실행할 때 엔진 관련 매개변수를 지정해야 합니다. 이 경우 명령줄에서 직접 해당 "
+"매개변수 이름과 값을 지정하면 됩니다. 예를 들어:"
+
+#: ../../source/getting_started/using_xinference.rst:240
+msgid "`gpu_memory_utilization=0.9` will pass to vllm when launching model."
+msgstr "모델을 실행할 때 `gpu_memory_utilization=0.9`가 vllm 백엔드로 전달됩니다."
+
+#: ../../source/getting_started/using_xinference.rst:243
+msgid "For more tips on model launching, refer to :ref:`launch`."
+msgstr "모델 로딩에 대한 더 많은 팁은 :ref:`launch`를 참조하세요."
+
+#: ../../source/getting_started/using_xinference.rst:245
+msgid ""
+"Congrats! You now have ``qwen2.5-instruct`` running by Xinference. Once the "
+"model is running, we can try it out either via cURL, or via Xinference's "
+"python client:"
+msgstr ""
+"이 단계까지 오셨다면, 축하합니다! Xinference를 통해 ``qwen2.5-instruct``를 성공적으로 실행하셨습니다. 이 "
+"모델이 실행 중이면 명령줄, cURL 또는 Python 코드를 통해 상호작용할 수 있습니다:"
+
+#: ../../source/getting_started/using_xinference.rst:305
+msgid ""
+"Xinference provides OpenAI-compatible APIs for its supported models, so you "
+"can use Xinference as a local drop-in replacement for OpenAI APIs. For "
+"example:"
+msgstr ""
+"Xinference는 OpenAI 호환 API를 제공하므로 Xinference에서 실행되는 모델을 OpenAI의 로컬 대체품으로 사용할 "
+"수 있습니다. 예를 들어:"
+
+#: ../../source/getting_started/using_xinference.rst:321
+msgid "The following OpenAI APIs are supported:"
+msgstr "지원되는 OpenAI API 목록은 다음과 같습니다:"
+
+#: ../../source/getting_started/using_xinference.rst:323
+msgid ""
+"Chat Completions: `https://platform.openai.com/docs/api-reference/chat "
+"<https://platform.openai.com/docs/api-reference/chat>`_"
+msgstr ""
+"대화 생성: `https://platform.openai.com/docs/api-reference/chat "
+"<https://platform.openai.com/docs/api-reference/chat>`_"
+
+#: ../../source/getting_started/using_xinference.rst:325
+msgid ""
+"Completions: `https://platform.openai.com/docs/api-reference/completions "
+"<https://platform.openai.com/docs/api-reference/completions>`_"
+msgstr ""
+"`https://platform.openai.com/docs/api-reference/completions "
+"<https://platform.openai.com/docs/api-reference/completions>`_"
+
+#: ../../source/getting_started/using_xinference.rst:327
+msgid ""
+"Embeddings: `https://platform.openai.com/docs/api-reference/embeddings "
+"<https://platform.openai.com/docs/api-reference/embeddings>`_"
+msgstr ""
+"벡터 생성: `https://platform.openai.com/docs/api-reference/embeddings "
+"<https://platform.openai.com/docs/api-reference/embeddings>`_"
+
+#: ../../source/getting_started/using_xinference.rst:329
+msgid ""
+"Xinference also supports Anthropic API via base url "
+"``http://127.0.0.1:9997/anthropic``, you can use Xinference in Claude Code "
+"and so forth. Refer to :ref:`anthropic client <anthropic_client>` for more "
+"details."
+msgstr ""
+"Xinference는 기본 URL ``http://127.0.0.1:9997/anthropic``을 통해 Anthropic API를 "
+"호출할 수도 있으며, Claude Code와 같은 환경에서 Xinference를 사용할 수 있습니다. 자세한 내용은 "
+":ref:`anthropic client <anthropic_client>`를 참조하세요."
+
+#: ../../source/getting_started/using_xinference.rst:333
+msgid "Manage Models"
+msgstr "모델 관리"
+
+#: ../../source/getting_started/using_xinference.rst:335
+msgid ""
+"In addition to launching models, Xinference offers various ways to manage "
+"the entire lifecycle of models. You can manage models in Xinference through "
+"the command line, cURL, or Xinference's python client."
+msgstr ""
+"시작 모델 외에도, Xinference는 모델의 전체 라이프사이클을 관리할 수 있는 기능을 제공합니다. 마찬가지로 명령줄, cURL 및 "
+"Python 코드를 사용하여 관리할 수 있습니다:"
+
+#: ../../source/getting_started/using_xinference.rst:338
+msgid ""
+"You can list all models of a certain type that are available to launch in "
+"Xinference:"
+msgstr "다음은 Xinference가 지원하는 모든 지정 유형의 모델입니다:"
+
+#: ../../source/getting_started/using_xinference.rst:356
+msgid ""
+"The following command gives you the currently running models in Xinference:"
+msgstr "다음 명령어는 실행 중인 모든 모델을 나열합니다:"
+
+#: ../../source/getting_started/using_xinference.rst:374
+msgid ""
+"When you no longer need a model that is currently running, you can remove it"
+" in the following way to free up the resources it occupies:"
+msgstr "실행 중인 모델이 더 이상 필요하지 않을 경우, 다음 방법을 통해 중지하고 리소스를 해제할 수 있습니다:"
+
+#: ../../source/getting_started/using_xinference.rst:395
+msgid "Deploy Xinference In a Cluster"
+msgstr "클러스터에 Xinference 배포"
+
+#: ../../source/getting_started/using_xinference.rst:397
+msgid ""
+"To deploy Xinference in a cluster, you need to start a Xinference supervisor"
+" on one server and Xinference workers on the other servers."
+msgstr ""
+"클러스터 환경에서 Xinference를 배포하려면 한 대의 머신에서 supervisor 노드를 시작하고, 현재 또는 다른 노드에서 "
+"worker 노드를 시작해야 합니다."
+
+#: ../../source/getting_started/using_xinference.rst:400
+msgid ""
+"First, make sure you have already installed Xinference on each of the "
+"servers according to the instructions provided :ref:`here <installation>`. "
+"Then follow the steps below:"
+msgstr ""
+"먼저, :ref:`문서 <installation>`에 따라 모든 서버에 Xinference가 설치되어 있는지 확인합니다. 그 다음 단계를"
+" 따릅니다:"
+
+#: ../../source/getting_started/using_xinference.rst:404
+msgid "Start the Supervisor"
+msgstr "Supervisor 시작"
+
+#: ../../source/getting_started/using_xinference.rst:405
+msgid ""
+"On the server where you want to run the Xinference supervisor, run the "
+"following command:"
+msgstr "서버에서 다음 명령을 실행하여 Supervisor 노드를 시작합니다:"
+
+#: ../../source/getting_started/using_xinference.rst:411
+#, python-brace-format
+msgid ""
+"Replace ``${supervisor_host}`` with the actual host of your supervisor "
+"server."
+msgstr "현재 노드의 IP로 ``${supervisor_host}``를 대체합니다."
+
+#: ../../source/getting_started/using_xinference.rst:414
+#, python-brace-format
+msgid ""
+"You can the supervisor's web UI at `http://${supervisor_host}:9997/ui "
+"<http://${supervisor_host}:9997/ui>`_ and visit "
+"`http://${supervisor_host}:9997/docs <http://${supervisor_host}:9997/docs>`_"
+" to inspect the API docs."
+msgstr ""
+"`http://${supervisor_host}:9997/ui <http://${supervisor_host}:9997/ui>`_ 에서 "
+"웹 UI에 접속할 수 있으며, `http://${supervisor_host}:9997/docs "
+"<http://${supervisor_host}:9997/docs>`_ 에서 API 문서에 접속할 수 있습니다."
+
+#: ../../source/getting_started/using_xinference.rst:418
+msgid "Start the Workers"
+msgstr "Worker 시작"
+
+#: ../../source/getting_started/using_xinference.rst:420
+msgid ""
+"On each of the other servers where you want to run Xinference workers, run "
+"the following command:"
+msgstr "Xinference worker를 시작해야 하는 머신에서 다음 명령을 실행하세요:"
+
+#: ../../source/getting_started/using_xinference.rst:427
+#, python-brace-format
+msgid ""
+"Note that you must replace ``${worker_host}``  with the actual host of your "
+"worker server."
+msgstr ""
+"주의해야 할 점은 반드시 현재 Worker 노드의 IP를 사용하여 ``${worker_host}``를 대체해야 한다는 것입니다."
+
+#: ../../source/getting_started/using_xinference.rst:430
+msgid ""
+"Note that if you need to interact with the Xinference in a cluster via the "
+"command line, you should include the ``-e`` or ``--endpoint`` flag to "
+"specify the supervisor server's endpoint. For example:"
+msgstr ""
+"주의할 점은, 명령줄을 통해 클러스터와 상호작용해야 할 경우 ``-e`` 또는 ``--endpoint`` 매개변수를 사용하여 "
+"supervisor의 주소를 지정해야 한다는 것입니다. 예를 들면:"
+
+#: ../../source/getting_started/using_xinference.rst:438
+msgid "Using Xinference With Docker"
+msgstr "Docker를 사용하여 Xinference 배포"
+
+#: ../../source/getting_started/using_xinference.rst:440
+msgid "To start Xinference in a Docker container, run the following command:"
+msgstr "다음 명령어로 컨테이너에서 Xinference를 실행하세요:"
+
+#: ../../source/getting_started/using_xinference.rst:443
+msgid "Run On Nvidia GPU Host"
+msgstr "NVIDIA 그래픽 카드가 장착된 머신에서 실행"
+
+#: ../../source/getting_started/using_xinference.rst:445
+msgid "For cuda 12.4:"
+msgstr "For CUDA 12.4:"
+
+#: ../../source/getting_started/using_xinference.rst:451
+msgid "For cuda 12.8:"
+msgstr "CUDA 12.8"
+
+#: ../../source/getting_started/using_xinference.rst:453
+msgid ""
+"CUDA 12.8 version is experimental, welcome to give us feedbacks to help us "
+"to improve."
+msgstr "CUDA 12.8 버전은 실험적이며, 개선을 위한 피드백을 환영합니다."
+
+#: ../../source/getting_started/using_xinference.rst:456
+msgid "CUDA 12.8 version is removed in v1.16.0 ."
+msgstr "CUDA 12.8 버전은 v1.16.0에서 제거되었습니다."
+
+#: ../../source/getting_started/using_xinference.rst:463
+msgid "For cuda 12.9:"
+msgstr "CUDA 12.9의 경우:"
+
+#: ../../source/getting_started/using_xinference.rst:465
+msgid ""
+"CUDA 12.9 will become the default version when Xinference v2.0.0 released."
+msgstr "Xinference v2.0.0이 출시된 후, CUDA 12.9가 기본 버전이 됩니다."
+
+#: ../../source/getting_started/using_xinference.rst:473
+msgid "Run On CPU Only Host"
+msgstr "CPU만 있는 머신에서 실행"
+
+#: ../../source/getting_started/using_xinference.rst:479
+msgid ""
+"Replace ``<your_version>`` with Xinference versions, e.g. ``v0.10.3``, "
+"``latest`` can be used for the latest version."
+msgstr ""
+"``<your_version>``을 Xinference의 버전으로 교체하세요. 예를 들어 ``v0.10.3``이며, 최신 버전에는 "
+"``latest``를 사용할 수 있습니다."
+
+#: ../../source/getting_started/using_xinference.rst:481
+msgid ""
+"For more docker usage, refer to :ref:`Using Docker Image "
+"<using_docker_image>`."
+msgstr "더 많은 Docker 사용 방법은 :ref:`Docker 이미지 사용 <using_docker_image>`를 참조하십시오."
+
+#: ../../source/getting_started/using_xinference.rst:485
+msgid "What's Next?"
+msgstr "더"
+
+#: ../../source/getting_started/using_xinference.rst:487
+msgid ""
+"Congratulations on getting started with Xinference! To help you navigate and"
+" make the most out of this powerful tool, here are some resources and "
+"guides:"
+msgstr ""
+"축하합니다! Xinference 사용법을 기본적으로 익히셨습니다! 도구를 더 잘 활용할 수 있도록, 아래에 다른 문서와 가이드 리소스를 "
+"제공합니다:"
+
+#: ../../source/getting_started/using_xinference.rst:490
+msgid ""
+":ref:`How to Use Client APIs for Different Types of Models "
+"<user_guide_client_api>`"
+msgstr ":ref:`Python을 사용하여 다양한 유형의 모델을 생성하는 방법 <user_guide_client_api>`"
+
+#: ../../source/getting_started/using_xinference.rst:492
+msgid ""
+":ref:`Choosing the Right Backends for Your Needs <user_guide_backends>`"
+msgstr ":ref:`올바른 추론 엔진 선택 <user_guide_backends>`"
+
+#~ msgid ". code-block:: bash"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "docker run -e XINFERENCE_MODEL_SRC=modelscope -p 9998:9997 --gpus all "
+#~ "xprobe/xinference:<your_version>-cu129 xinference-local -H 0.0.0.0 --log-"
+#~ "level debug"
+#~ msgstr ""

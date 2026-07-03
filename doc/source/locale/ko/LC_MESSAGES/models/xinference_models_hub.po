@@ -1,0 +1,298 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2025, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-11-14 14:59+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ko <LL@li.org>\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/xinference_models_hub.rst:5
+msgid "Xinference Models Hub"
+msgstr "Xinference Models Hub"
+
+#: ../../source/models/xinference_models_hub.rst:9
+msgid "Overview"
+msgstr "개요"
+
+#: ../../source/models/xinference_models_hub.rst:11
+msgid ""
+"The `Xinference Models Hub <https://model.xinference.io>`_ is Xinference’s "
+"unified platform for model management and collaboration. It provides end-to-"
+"end support for model browsing, registration, review, updates, and "
+"collaborative maintenance, serving both regular users and model maintainers."
+msgstr ""
+"`Xinference Models Hub <https://model.xinference.io>`_는 Xinference가 모델 관리 및 "
+"협업을 위해 제공하는 통합 플랫폼입니다. 모델 탐색, 등록, 검토, 업데이트, 협업 유지보수를 위한 종단 간 지원을 제공하며, 일반 "
+"사용자와 모델 유지보수 담당자 모두에게 전체 프로세스 역량을 제공합니다."
+
+#: ../../source/models/xinference_models_hub.rst:13
+msgid ""
+"Before the introduction of the Models Hub, model JSON files were manually "
+"submitted and modified directly through PRs in the open-source repository "
+"(`xorbitsai/inference`). This approach resulted in uncontrolled versioning, "
+"long iteration cycles, and delays in delivering updated models—since model "
+"updates were tied to product release cycles, users could not obtain new "
+"models promptly."
+msgstr ""
+"Models Hub가 도입되기 전에는 모델 JSON 파일을 사용자가 직접 PR을 통해 `xorbitsai/inference` 오픈소스 "
+"저장소를 수정해야 했습니다. 이러한 방식은 모델 버전이 통제 불가능하고, 반복 주기가 길며, 모델 업데이트가 제품 배포 프로세스에 "
+"의존하게 되어 사용자가 최신 모델을 즉시 받을 수 없었습니다."
+
+#: ../../source/models/xinference_models_hub.rst:15
+msgid ""
+"With centralized online model management, the Xinference Models Hub requires"
+" that **all model information—including metadata, parameters, and the "
+"README—be edited within the platform**. Based on modifications made by "
+":ref:`model maintainers <model_maintainer_guide>`, the system "
+"**automatically generates and submits PRs** to the `xorbitsai/inference` "
+"repository, ensuring a standardized, automated, and traceable workflow that "
+"eliminates inconsistencies caused by manual edits."
+msgstr ""
+"중앙 집중식 온라인 모델 관리 메커니즘을 통해, Xinference Models Hub는 **모든 모델 정보(메타데이터, 파라미터 및 "
+"README 포함)를 플랫폼 내에서 편집하도록 요구**합니다. 시스템은 :ref:`모델 유지 관리자 "
+"<model_maintainer_guide>`의 수정 사항을 기반으로 **자동으로 PR을 생성하여 제출**하며, 이를 "
+"`xorbitsai/inference` 저장소에 반영함으로써 프로세스의 표준화, 자동화 및 추적 가능성을 실현하고 수동 수정으로 인한 "
+"불일치 문제를 방지합니다."
+
+#: ../../source/models/xinference_models_hub.rst:17
+msgid ""
+"Users can obtain the latest model list at any time through the "
+":ref:`model_update` feature, significantly improving model delivery "
+"efficiency and overall experience."
+msgstr ""
+"사용자는 :ref:`model_update` 기능을 통해 언제든지 최신 모델 목록을 받아볼 수 있으며, 이를 통해 모델 전달 효율성과 "
+"전반적인 사용 경험이 크게 향상됩니다."
+
+#: ../../source/models/xinference_models_hub.rst:20
+msgid "User Guide for Regular Users"
+msgstr "일반 사용자 가이드"
+
+#: ../../source/models/xinference_models_hub.rst:22
+msgid ""
+"This section introduces the basic features available to regular registered "
+"users."
+msgstr "이 절에서는 일반 등록 사용자가 사용할 수 있는 기본 기능에 대해 설명합니다."
+
+#: ../../source/models/xinference_models_hub.rst:24
+msgid ""
+"**Audience:** Regular users without model registration or maintenance "
+"permissions."
+msgstr "**적용 대상:** 모델 등록 또는 유지 관리 권한이 없는 일반 사용자."
+
+#: ../../source/models/xinference_models_hub.rst:27
+msgid "Core Features"
+msgstr "핵심 기능"
+
+#: ../../source/models/xinference_models_hub.rst:29
+msgid "Regular users can browse public models without logging in:"
+msgstr "일반 사용자는 로그인 없이 공개 모델을 열람할 수 있습니다:"
+
+#: ../../source/models/xinference_models_hub.rst:31
+msgid "**Access:** `Xinference Models Hub <https://model.xinference.io>`_"
+msgstr "**접속 경로:** `Xinference Models Hub <https://model.xinference.io>`_"
+
+#: ../../source/models/xinference_models_hub.rst:34
+msgid "Browse Models"
+msgstr "모델 둘러보기"
+
+#: ../../source/models/xinference_models_hub.rst:36
+msgid "**Function:** View all publicly available models"
+msgstr "**기능:** 모든 공개적으로 사용 가능한 모델 보기"
+
+#: ../../source/models/xinference_models_hub.rst:37
+msgid "**Location:** Navigation bar → “Models”"
+msgstr "**입구 위치:** 내비게이션 바 → \"Models\""
+
+#: ../../source/models/xinference_models_hub.rst:38
+msgid ""
+"**Model Details:** The default tab is “README,” which includes model "
+"description, usage guide, and important notes"
+msgstr "**모델 세부 정보:** README 탭을 기본으로 표시하며, 모델 설명, 사용 가이드 및 주의사항을 포함합니다."
+
+#: ../../source/models/xinference_models_hub.rst:41
+msgid ""
+"Certain advanced or enterprise-level models are visible only to authorized "
+"users."
+msgstr "일부 고급 또는 엔터프라이즈 버전 모델은 권한이 있는 사용자에게만 표시됩니다."
+
+#: ../../source/models/xinference_models_hub.rst:46
+msgid "Guide for Model Maintainers"
+msgstr "모델 관리자 안내서"
+
+#: ../../source/models/xinference_models_hub.rst:48
+msgid ""
+"This section describes the features available to users with model "
+"registration or maintenance permissions, including model registration, "
+"updates, and review workflows."
+msgstr ""
+"이 섹션에서는 모델 등록 또는 유지 관리 권한이 있는 사용자가 사용할 수 있는 기능(모델 등록, 업데이트 및 검토 프로세스 포함)을 "
+"소개합니다."
+
+#: ../../source/models/xinference_models_hub.rst:50
+msgid ""
+"**Audience:** Users with model registration or maintenance permissions."
+msgstr "**적용 대상:** 모델 등록 또는 유지 관리 권한이 있는 사용자."
+
+#: ../../source/models/xinference_models_hub.rst:54
+msgid "Core Features (Login Required)"
+msgstr "핵심 기능 (로그인 필요)"
+
+#: ../../source/models/xinference_models_hub.rst:56
+msgid ""
+"Model maintainers have access to the following advanced features in addition"
+" to the capabilities available to regular users."
+msgstr "모델 유지보수자는 일반 사용자 기능을 기반으로 다음과 같은 고급 기능을 사용할 수 있습니다:"
+
+#: ../../source/models/xinference_models_hub.rst:59
+msgid "User Center"
+msgstr "사용자 센터"
+
+#: ../../source/models/xinference_models_hub.rst:61
+msgid "**Function:** View and manage personal information"
+msgstr "**기능:** 개인 정보 확인 및 관리"
+
+#: ../../source/models/xinference_models_hub.rst:62
+msgid "**Location:** Top-right avatar → “User Center”"
+msgstr "**입구 위치:** 우측 상단 아바타 → “사용자 센터”"
+
+#: ../../source/models/xinference_models_hub.rst:63
+msgid "**Account Management:** Update profile, email, and other information"
+msgstr "**계정 관리:** 개인 프로필, 이메일 등의 정보 업데이트"
+
+#: ../../source/models/xinference_models_hub.rst:64
+msgid ""
+"**Token Management:** Configure a personal GitHub Token for model "
+"submissions or updates"
+msgstr "**Token 관리:** 개인 GitHub Token을 구성하여 모델을 제출하거나 업데이트합니다."
+
+#: ../../source/models/xinference_models_hub.rst:67
+msgid ""
+"If no GitHub Token is configured, the system will use a default Token when "
+"generating PRs."
+msgstr "개인 GitHub Token을 설정하지 않은 경우 시스템은 PR 생성 시 기본 Token을 사용합니다."
+
+#: ../../source/models/xinference_models_hub.rst:70
+msgid "Model Registration"
+msgstr "모델 등록"
+
+#: ../../source/models/xinference_models_hub.rst:72
+msgid "**Function:** Register new models and submit them for review"
+msgstr "**기능:** 새 모델 등록 및 리뷰 제출"
+
+#: ../../source/models/xinference_models_hub.rst:73
+msgid ""
+"**Location:** After logging in → Top-right avatar → “Model Registration”"
+msgstr "**입구 위치:** 로그인 후 → 우측 상단 아바타 → “모델 등록”"
+
+#: ../../source/models/xinference_models_hub.rst:75
+msgid "**Submission Steps:**"
+msgstr "**제출 단계:**"
+
+#: ../../source/models/xinference_models_hub.rst:77
+msgid "Fill in basic model information (name, engine, format, etc.)"
+msgstr "기본 모델 정보(이름, 엔진, 형식 등)를 입력하세요."
+
+#: ../../source/models/xinference_models_hub.rst:78
+msgid "Edit the README (click “Get README” to auto-generate a template)"
+msgstr "README 편집(\"README 가져오기\"를 클릭하면 템플릿이 자동 생성됩니다)"
+
+#: ../../source/models/xinference_models_hub.rst:79
+msgid ""
+"Submit the model (enable the “Public Model” parameter if registering a "
+"public model)"
+msgstr "모델 제출 (공개 모델을 등록하려면 \"공개 모델\" 매개변수를 활성화하세요)"
+
+#: ../../source/models/xinference_models_hub.rst:82
+msgid ""
+"When registering a public model, the system automatically creates a PR in "
+"the `xorbitsai/inference` repository."
+msgstr "공개 모델을 등록할 때, 시스템이 자동으로 `xorbitsai/inference` 저장소에 PR을 생성합니다."
+
+#: ../../source/models/xinference_models_hub.rst:85
+msgid "My Models"
+msgstr "my model"
+
+#: ../../source/models/xinference_models_hub.rst:87
+msgid "**Function:** View all models associated with the current account"
+msgstr "**기능:** 현재 계정과 관련된 모든 모델 보기"
+
+#: ../../source/models/xinference_models_hub.rst:88
+msgid "**Location:** After logging in → Top-right avatar → “My Models”"
+msgstr "**입구 위치:** 로그인 후 → 우측 상단 아바타 → “내 모델”"
+
+#: ../../source/models/xinference_models_hub.rst:91
+msgid "Model Maintenance"
+msgstr "模型 유지보수"
+
+#: ../../source/models/xinference_models_hub.rst:93
+msgid "**Function:** Modify the model’s JSON or README"
+msgstr "**기능:** 모델의 JSON 또는 README 수정"
+
+#: ../../source/models/xinference_models_hub.rst:94
+msgid "**Location:** Model details page → “Settings” icon"
+msgstr "**입구 위치:** 모델 상세 페이지 → \"설정\" 아이콘"
+
+#: ../../source/models/xinference_models_hub.rst:97
+msgid ""
+"When updating a public model, the system automatically creates a PR in the "
+"`xorbitsai/inference` repository."
+msgstr "공개 모델을 업데이트할 때 시스템은 자동으로 `xorbitsai/inference` 저장소에 PR을 생성합니다."
+
+#: ../../source/models/xinference_models_hub.rst:100
+msgid "Review Workflow"
+msgstr "검토 프로세스"
+
+#: ../../source/models/xinference_models_hub.rst:102
+msgid "**Submitter Workflow:**"
+msgstr "**기여자 플로우:**"
+
+#: ../../source/models/xinference_models_hub.rst:104
+msgid "Submit a model"
+msgstr "모델 제출"
+
+#: ../../source/models/xinference_models_hub.rst:105
+msgid "Wait for review"
+msgstr "검토 대기 중"
+
+#: ../../source/models/xinference_models_hub.rst:106
+msgid "Revise based on reviewer feedback"
+msgstr "검토 의견에 따라 수정함"
+
+#: ../../source/models/xinference_models_hub.rst:107
+msgid "Updated PRs are generated automatically (for public models)"
+msgstr "공개 모델의 경우, PR은 수정 후 자동으로 업데이트됩니다."
+
+#: ../../source/models/xinference_models_hub.rst:109
+msgid ""
+"**Reviewer Permissions:** Access to the model review list and model review "
+"privileges."
+msgstr "**검토자 권한:** 모델 검토 목록에 접근하고 검토 작업을 수행할 수 있습니다."
+
+#: ../../source/models/xinference_models_hub.rst:111
+msgid "**Reviewer Workflow:**"
+msgstr "**검토자 프로세스:**"
+
+#: ../../source/models/xinference_models_hub.rst:113
+msgid "Enter the “Review List”"
+msgstr "\"검토 목록\"으로 들어갑니다."
+
+#: ../../source/models/xinference_models_hub.rst:114
+msgid "Evaluate the model’s quality, completeness, and compliance"
+msgstr "모델 품질, 정보 완전성 및 규범성 평가"
+
+#: ../../source/models/xinference_models_hub.rst:115
+msgid "Approve or reject, providing feedback as necessary"
+msgstr "승인 또는 거절하고, 이에 따른 피드백을 제공하십시오."

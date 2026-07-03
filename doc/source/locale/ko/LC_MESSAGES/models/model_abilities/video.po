@@ -1,0 +1,284 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-06-01 16:29+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ko <LL@li.org>\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/model_abilities/video.rst:5
+msgid "Video (Experimental)"
+msgstr "동영상 (실험적 성격)"
+
+#: ../../source/models/model_abilities/video.rst:7
+msgid "Learn how to generate videos with Xinference."
+msgstr "Xinference를 사용하여 동영상을 생성하는 방법 알아보기"
+
+#: ../../source/models/model_abilities/video.rst:11
+msgid "Introduction"
+msgstr "소개"
+
+#: ../../source/models/model_abilities/video.rst:14
+msgid "The Video API provides the ability to interact with videos:"
+msgstr "Video API는 비디오와 상호작용하는 방법을 제공합니다:"
+
+#: ../../source/models/model_abilities/video.rst:17
+msgid ""
+"The text-to-video endpoint create videos from scratch based on a text "
+"prompt."
+msgstr "Text-to-video 엔드포인트는 텍스트 프롬프트를 사용하여 처음부터 비디오를 생성합니다."
+
+#: ../../source/models/model_abilities/video.rst:18
+msgid ""
+"The image-to-video endpoint create videos from scratch based on an input "
+"image."
+msgstr "Image-to-video 엔드포인트가 하나의 이미지를 처음부터 비디오로 생성합니다."
+
+#: ../../source/models/model_abilities/video.rst:19
+msgid ""
+"The firstlastframe-to-video endpoint creates videos based on the transition "
+"between a first and a last frame."
+msgstr "firstlastframe-to-video 인터페이스는 첫 프레임과 마지막 프레임 간의 전환을 기반으로 비디오를 생성합니다."
+
+#: ../../source/models/model_abilities/video.rst:39
+msgid "Supported models"
+msgstr "지원되는 모델 목록"
+
+#: ../../source/models/model_abilities/video.rst:41
+msgid ""
+"The text-to-video API is supported with the following models in Xinference:"
+msgstr "Text-to-video API는 Xinference에서 다음 모델을 지원합니다:"
+
+#: ../../source/models/model_abilities/video.rst:43
+msgid ":ref:`CogVideoX-2b <models_builtin_cogvideox-2b>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:44
+msgid ":ref:`CogVideoX-5b <models_builtin_cogvideox-5b>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:45
+msgid ":ref:`HunyuanVideo <models_builtin_hunyuanvideo>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:46
+msgid ":ref:`Wan2.1-1.3B <models_builtin_wan2.1-1.3b>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:47
+msgid ":ref:`Wan2.1-14B <models_builtin_wan2.1-14b>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:49
+msgid ""
+"The image-to-video API is supported with the following models in Xinference:"
+msgstr "Image-to-video API는 Xinference에서 다음 모델을 지원합니다:"
+
+#: ../../source/models/model_abilities/video.rst:51
+msgid ":ref:`Wan2.1-i2v-14B-480p <models_builtin_wan2.1-i2v-14b-480p>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:52
+msgid ":ref:`Wan2.1-i2v-14B-720p <models_builtin_wan2.1-i2v-14b-720p>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:54
+msgid ""
+"The firstlastframe-to-video API is supported with the following models in "
+"Xinference:"
+msgstr "Xinference에서 다음 모델이 firstlastframe-to-video 인터페이스를 지원합니다:"
+
+#: ../../source/models/model_abilities/video.rst:56
+msgid ":ref:`Wan2.1-flf2v-14B-720p <models_builtin_wan2.1-flf2v-14b-720p>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:59
+msgid "Quickstart"
+msgstr "빠른 시작"
+
+#: ../../source/models/model_abilities/video.rst:62
+msgid "Text-to-video"
+msgstr "Text-to-Video"
+
+#: ../../source/models/model_abilities/video.rst:64
+msgid ""
+"You can try text-to-video API out either via cURL, or Xinference's python "
+"client:"
+msgstr "cURL 또는 Xinference 방식을 통해 text-to-video API를 사용해 볼 수 있습니다."
+
+#: ../../source/models/model_abilities/video.rst:91
+msgid "Image-to-video"
+msgstr "그림을 영상으로"
+
+#: ../../source/models/model_abilities/video.rst:93
+msgid ""
+"You can try image-to-video API out either via cURL, or Xinference's python "
+"client:"
+msgstr "cURL 또는 Xinference 방식을 통해 image-to-video API를 사용해 볼 수 있습니다."
+
+#: ../../source/models/model_abilities/video.rst:118
+msgid "FirstLastFrame-to-video"
+msgstr "시작 및 종료 프레임에서 비디오 생성"
+
+#: ../../source/models/model_abilities/video.rst:120
+msgid ""
+"You can try firstlastframe-to-video API out either via cURL, or Xinference's"
+" python client:"
+msgstr ""
+"cURL 또는 Xinference의 Python 클라이언트를 통해 firstlastframe-to-video 인터페이스를 체험할 수 "
+"있습니다:"
+
+#: ../../source/models/model_abilities/video.rst:147
+msgid "Memory optimization"
+msgstr "메모리 최적화"
+
+#: ../../source/models/model_abilities/video.rst:149
+msgid ""
+"Video generation will occupy huge GPU memory, for instance, running "
+"CogVideoX may require up to around 35 GB GPU memory."
+msgstr ""
+"비디오 생성은 많은 VRAM을 차지합니다. 예를 들어, CogVideoX를 실행하면 약 35GB의 VRAM을 사용할 수 있습니다."
+
+#: ../../source/models/model_abilities/video.rst:152
+msgid ""
+"Xinference supports several options to optimize video model memory (VRAM) "
+"usage."
+msgstr "Xinference는 비디오 모델의 VRAM 사용을 최적화하기 위해 여러 옵션을 지원합니다."
+
+#: ../../source/models/model_abilities/video.rst:154
+msgid "CPU offloading or block level group offloading."
+msgstr "CPU 오프로딩 또는 블록 수준 그룹 오프로딩."
+
+#: ../../source/models/model_abilities/video.rst:155
+msgid "Layerwise casting."
+msgstr "층별 타입 변환 (Layerwise casting)."
+
+#: ../../source/models/model_abilities/video.rst:159
+msgid ""
+"CPU offloading and Block Level Group Offloading cannot be enabled at the "
+"same time, but layerwise casting can be used in combination with either of "
+"them."
+msgstr ""
+"CPU 오프로드와 블록 레벨 그룹 오프로드는 동시에 활성화할 수 없지만, 계층별 타입 변환은 그중 하나와 함께 사용할 수 있습니다."
+
+#: ../../source/models/model_abilities/video.rst:163
+msgid "CPU offloading"
+msgstr "CPU 오프로드"
+
+#: ../../source/models/model_abilities/video.rst:165
+msgid ""
+"CPU offloading keeps the model weights on the CPU and only loads them to the"
+" GPU when a forward pass needs to be executed. It is suitable for scenarios "
+"with extremely limited GPU memory, but it has a significant impact on "
+"performance."
+msgstr ""
+"CPU 오프로딩은 모델 가중치를 CPU에 유지하고, 순전파를 실행할 때만 GPU로 로드합니다. VRAM이 극도로 제한된 상황에 "
+"적합하지만, 성능에 큰 영향을 미칩니다."
+
+#: ../../source/models/model_abilities/video.rst:169
+msgid ""
+"When running on GPU whose memory is less than 24 GB, we recommend to add "
+"``--cpu_offload True`` when launching model. For Web UI, add an extra "
+"option, ``cpu_offload`` with value set to ``True``."
+msgstr ""
+"24 GB 미만의 GPU VRAM을 사용할 때는 모델 시작 시 ``--cpu_offload True``를 추가하는 것이 좋습니다. Web"
+" UI의 경우 추가 옵션 ``cpu_offload``를 추가하고 값을 ``True``로 설정하세요."
+
+#: ../../source/models/model_abilities/video.rst:178
+msgid "Block Level Group Offloading"
+msgstr "블록 수준 그룹 언로드"
+
+#: ../../source/models/model_abilities/video.rst:180
+msgid ""
+"Block Level Group Offloading groups multiple internal layers of the model "
+"(such as ``torch.nn.ModuleList`` or ``torch.nn.Sequential``) and loads these"
+" groups from the CPU to the GPU as needed during inference. Compared to CPU "
+"offloading, it uses more memory but has less impact on performance."
+msgstr ""
+"블록 레벨 그룹 오프로드는 모델의 여러 내부 레이어(예: ``torch.nn.ModuleList`` 또는 "
+"``torch.nn.Sequential``)를 그룹화하고, 필요에 따라 추론 과정에서 이러한 그룹을 CPU에서 GPU로 로드합니다. "
+"CPU 오프로드와 비교하여 더 많은 메모리를 사용하지만 성능에 미치는 영향은 더 적습니다."
+
+#: ../../source/models/model_abilities/video.rst:184
+msgid ""
+"For the command line, add the ``--group_offload True`` option; for the Web "
+"UI, add an additional option ``group_offload`` with the value set to "
+"``True``."
+msgstr ""
+"명령줄의 경우 ``--group_offload True`` 옵션을 추가하고, Web UI의 경우 ``group_offload``라는 추가"
+" 옵션을 추가하고 값을 ``True``로 설정합니다."
+
+#: ../../source/models/model_abilities/video.rst:187
+msgid ""
+"We can speed up group offloading inference, by enabling the use of CUDA "
+"streams. However, using CUDA streams requires moving the model parameters "
+"into pinned memory. This allocation is handled by Pytorch under the hood, "
+"and can result in a significant spike in CPU RAM usage. Please consider this"
+" option if your CPU RAM is atleast 2X the size of the model you are group "
+"offloading. Enable CUDA streams via adding ``--use_stream True`` for command"
+" line; for the Web UI, add an additional option ``use_stream`` with the "
+"value set to ``True``."
+msgstr ""
+"CUDA 스트림을 활성화하면 그룹화된 오프로드 추론을 가속화할 수 있습니다. 그러나 CUDA 스트림을 사용하려면 모델 파라미터를 고정 "
+"메모리로 이동해야 합니다. 이 할당은 Pytorch가 백그라운드에서 처리하며, CPU RAM 사용량이 크게 증가할 수 있습니다. CPU "
+"RAM이 모델 크기의 최소 두 배 이상이라면 이 옵션을 고려하십시오. 명령줄에 ``--use_stream True``를 추가하여 CUDA"
+" 스트림을 활성화하고, Web UI의 경우 ``use_stream``이라는 추가 옵션을 추가하고 값을 ``True``로 설정하십시오."
+
+#: ../../source/models/model_abilities/video.rst:199
+msgid "Applying Layerwise Casting to the Transformer"
+msgstr "층별 타입 변환을 Transformer에 적용합니다."
+
+#: ../../source/models/model_abilities/video.rst:201
+msgid ""
+"Layerwise casting will downcast each layer’s weights to "
+"``torch.float8_e4m3fn``, temporarily upcast to ``torch.bfloat16`` during the"
+" forward pass of the layer, then revert to ``torch.float8_e4m3fn`` "
+"afterward. This approach reduces memory requirements by approximately 50% "
+"while introducing a minor quality reduction in the generated video due to "
+"the precision trade-off. Enable layerwise casting via adding "
+"``--layerwise_cast True`` for command line; for the Web UI, add an "
+"additional option ``layerwise_cast`` with the value set to ``True``."
+msgstr ""
+"층별 형변환은 각 레이어의 가중치를 ``torch.float8_e4m3fn``으로 다운그레이드하고, 레이어 순전파 중에는 일시적으로 "
+"``torch.bfloat16``으로 업그레이드한 후, 이후 다시 ``torch.float8_e4m3fn``으로 복원합니다. 이 방법은 "
+"메모리 요구량을 약 50% 줄이지만, 정밀도 절충으로 인해 생성된 비디오의 품질이 약간 저하됩니다. 명령줄에 "
+"``--layerwise_cast True``를 추가하여 층별 형변환을 활성화하고, Web UI의 경우 값이 ``True``인 추가 옵션"
+" ``layerwise_cast``를 추가합니다."
+
+#: ../../source/models/model_abilities/video.rst:208
+msgid "This example will require 20GB of VRAM."
+msgstr "이 예제는 20GB의 비디오 메모리가 필요합니다."
+
+#~ msgid "OpenAI-compatible ENDPOINT"
+#~ msgstr "OpenAI 호환 엔드포인트"
+
+#~ msgid "API"
+#~ msgstr ""
+
+#~ msgid "Endpoint"
+#~ msgstr "엔드포인트"
+
+#~ msgid "Text-to-Video API"
+#~ msgstr "문생 비디오 API"
+
+#~ msgid "/v1/video/generations"
+#~ msgstr ""
+
+#~ msgid "Image-to-Video API"
+#~ msgstr "그림-비디오 API"
+
+#~ msgid "/v1/video/generations/image"
+#~ msgstr ""

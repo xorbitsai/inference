@@ -1,0 +1,521 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-30 19:14+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ko <LL@li.org>\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/virtualenv.rst:6
+msgid "Model Virtual Environments"
+msgstr "모델 가상 환경"
+
+#: ../../source/models/virtualenv.rst:11
+msgid "Background"
+msgstr "배경"
+
+#: ../../source/models/virtualenv.rst:13
+msgid ""
+"Some models are no longer maintained after their release, and the versions "
+"of the libraries they depend on remain outdated. For example, the ``GOT-"
+"OCR2`` model still relies on ``transformers`` version 4.37.2. If this "
+"library is updated to a newer version, the model can no longer function "
+"properly. On the other hand, many newer models require the latest version of"
+" ``transformers``. This version mismatch leads to dependency conflicts."
+msgstr ""
+"일부 모델은 출시 후 더 이상 유지보수되지 않으며, 이들이 의존하는 라이브러리 버전도 오래된 상태로 유지됩니다. 예를 들어, ``GOT-"
+"OCR2`` 모델은 여전히 ``transformers`` 4.37.2에 의존합니다. 이 라이브러리를 새 버전으로 업그레이드하면 모델이 "
+"정상적으로 실행되지 않으며, 많은 새로운 모델은 최신 버전의 ``transformers``를 필요로 합니다. 이러한 버전 차이는 의존성 "
+"충돌을 초래할 수 있습니다."
+
+#: ../../source/models/virtualenv.rst:19
+msgid "Solution"
+msgstr "해결 방안"
+
+#: ../../source/models/virtualenv.rst:21
+msgid ""
+"To address this issue, we have introduced the **Model Virtual Environment** "
+"feature."
+msgstr "이 문제를 해결하기 위해 **모델 가상 환경** 기능을 도입했습니다."
+
+#: ../../source/models/virtualenv.rst:23
+msgid "Install requirements for this functionality via"
+msgstr "다음 명령어를 통해 해당 기능에 필요한 의존성을 설치하세요:"
+
+#: ../../source/models/virtualenv.rst:32
+msgid ""
+"Enable by setting environment variable ``XINFERENCE_ENABLE_VIRTUAL_ENV=1``."
+msgstr "환경 변수 ``XINFERENCE_ENABLE_VIRTUAL_ENV=1``를 설정하여 해당 기능을 활성화합니다."
+
+#: ../../source/models/virtualenv.rst:34
+#: ../../source/models/virtualenv.rst:217
+#: ../../source/models/virtualenv.rst:233
+msgid "Example usage:"
+msgstr "사용 예시:"
+
+#: ../../source/models/virtualenv.rst:46
+msgid "This feature requires internet access or a self-hosted PyPI mirror."
+msgstr "이 기능은 인터넷 연결이 필요하거나, 자체 구축한 PyPI 미러 서비스를 사용해야 합니다."
+
+#: ../../source/models/virtualenv.rst:48
+msgid "Xinference will by default inherit the config for current pip."
+msgstr "Xinference는 기본적으로 현재 pip의 구성을 상속합니다."
+
+#: ../../source/models/virtualenv.rst:52
+msgid ""
+"Note: When launching a vLLM/SgLang engine model inside a virtual "
+"environment, if you encounter a cuDNN error, you can set:"
+msgstr "참고: 가상 환경에서 vLLM/SgLang 엔진 모델을 시작할 때 cuDNN 오류가 발생하면 다음을 설정할 수 있습니다:"
+
+#: ../../source/models/virtualenv.rst:63
+msgid ""
+"Starting from **Xinference v2.0**, the model virtual environment feature is "
+"enabled by default (i.e., ``XINFERENCE_ENABLE_VIRTUAL_ENV`` defaults to "
+"``1``)."
+msgstr ""
+"**Xinference v2.0** 부터 모델 가상 환경 기능이 기본적으로 활성화됩니다(즉, "
+"``XINFERENCE_ENABLE_VIRTUAL_ENV``의 기본값은 ``1``입니다)."
+
+#: ../../source/models/virtualenv.rst:66
+msgid ""
+"To disable it globally, set ``XINFERENCE_ENABLE_VIRTUAL_ENV=0`` when "
+"starting Xinference."
+msgstr ""
+"기능을 전역적으로 비활성화하려면 Xinference를 시작할 때 ``XINFERENCE_ENABLE_VIRTUAL_ENV=0``을 "
+"설정하십시오."
+
+#: ../../source/models/virtualenv.rst:68
+msgid ""
+"When enabled, Xinference will automatically create a dedicated virtual "
+"environment for each model when it is loaded, and install its specific "
+"dependencies there. This prevents dependency conflicts between models, "
+"allowing them to run in isolation without affecting one another."
+msgstr ""
+"이 기능을 활성화하면, Xinference는 모델 로드 시 자동으로 전용 가상 환경을 생성하고 해당 환경에 필요한 종속성을 설치합니다. "
+"이를 통해 모델 간의 종속성 충돌을 방지하고 각 모델이 서로 격리된 환경에서 독립적으로 실행되도록 보장합니다."
+
+#: ../../source/models/virtualenv.rst:73
+msgid "Using Virtual Environments (v2.0)"
+msgstr "가상 환경 관리(v2.0)"
+
+#: ../../source/models/virtualenv.rst:76
+msgid "Global toggle"
+msgstr "전역 전환"
+
+#: ../../source/models/virtualenv.rst:78
+msgid ""
+"Virtual environments are enabled by default starting from v2.0. You can "
+"still override this globally:"
+msgstr "v2.0 버전부터 가상 환경이 기본적으로 활성화되어 있습니다. 전역 설정을 통해 이 옵션을 재정의할 수 있습니다:"
+
+#: ../../source/models/virtualenv.rst:89
+msgid "Per-model override at launch time"
+msgstr "시작 시 모델별로 덮어씀"
+
+#: ../../source/models/virtualenv.rst:91
+msgid "You can override the global setting when launching a model:"
+msgstr "모델을 시작할 때 전역 설정을 재정의할 수 있습니다:"
+
+#: ../../source/models/virtualenv.rst:102
+msgid "Add or override packages at launch time"
+msgstr "패키지를 시작 시에 추가 또는 덮어쓰기"
+
+#: ../../source/models/virtualenv.rst:104
+msgid "Use ``--virtual-env-package`` (or ``-vp``) multiple times:"
+msgstr "명령줄에서 ``--virtual-env-package`` 또는 ``-vp``를 사용하여 단일 패키지 버전을 지정합니다."
+
+#: ../../source/models/virtualenv.rst:112
+msgid ""
+"If you specify a package that already exists in the model's default "
+"virtualenv package list, your version replaces the default instead of being "
+"appended."
+msgstr ""
+"지정한 소프트웨어 패키지가 모델의 기본 가상 환경 패키지 목록에 이미 존재하는 경우, 지정한 버전이 기본 버전을 대체하며 목록에 추가되지"
+" 않습니다."
+
+#: ../../source/models/virtualenv.rst:117
+msgid "Storage Location"
+msgstr "저장 위치"
+
+#: ../../source/models/virtualenv.rst:119
+msgid "By default, the model’s virtual environment is stored under path:"
+msgstr "기본적으로 모델의 가상 환경은 다음 경로에 저장됩니다:"
+
+#: ../../source/models/virtualenv.rst:121
+#, python-brace-format
+msgid ""
+"Before v1.6.0: :ref:`XINFERENCE_HOME <environments_xinference_home>` / "
+"virtualenv / {model_name}"
+msgstr ""
+"v1.6.0 이전: :ref:`XINFERENCE_HOME <environments_xinference_home>` / "
+"virtualenv / {model_name}"
+
+#: ../../source/models/virtualenv.rst:122
+#, python-brace-format
+msgid ""
+"From v1.6.0 to v1.13.0: :ref:`XINFERENCE_HOME "
+"<environments_xinference_home>` / virtualenv / v2 / {model_name}"
+msgstr ""
+"v1.6.0에서 v1.13.0으로: :ref:`XINFERENCE_HOME <environments_xinference_home>` / "
+"virtualenv / v2 / {model_name}"
+
+#: ../../source/models/virtualenv.rst:123
+#, python-brace-format
+msgid ""
+"Since v1.14.0: :ref:`XINFERENCE_HOME <environments_xinference_home>` / "
+"virtualenv / v3 / {model_name} / {python_version}"
+msgstr ""
+"v1.14.0부터: :ref:`XINFERENCE_HOME <environments_xinference_home>` / "
+"virtualenv / v3 / {model_name} / {python_version}"
+
+#: ../../source/models/virtualenv.rst:124
+#, python-brace-format
+msgid ""
+"Since v2.0: :ref:`XINFERENCE_HOME <environments_xinference_home>` / "
+"virtualenv / v4 / {model_name} / {model_engine} / {python_version}"
+msgstr ""
+"v2.0부터: :ref:`XINFERENCE_HOME <environments_xinference_home>` / virtualenv /"
+" v4 / {model_name} / {model_engine} / {python_version}"
+
+#: ../../source/models/virtualenv.rst:127
+msgid "Skip Installed Libraries"
+msgstr "이미 설치된 라이브러리 건너뛰기"
+
+#: ../../source/models/virtualenv.rst:133
+msgid ""
+"This feature requires ``xoscar >= 0.7.12``, which is the minimum Xoscar "
+"version required for Xinference v1.8.1."
+msgstr ""
+"이 기능은 ``xoscar >= 0.7.12``를 요구하며, 이는 Xinference v1.8.1에서 필요로 하는 최소 Xoscar "
+"버전입니다."
+
+#: ../../source/models/virtualenv.rst:135
+msgid ""
+"``xinference`` uses the ``uv`` tool to create virtual environments, with the"
+" current Python **system site-packages** set as the base environment. By "
+"default, ``uv`` **does not check for existing packages in the system "
+"environment** and reinstalls all dependencies in the virtual environment. "
+"This ensures better isolation from system packages but can result in "
+"redundant installations, longer setup times, and increased disk usage."
+msgstr ""
+"``xinference``는 ``uv`` 도구를 사용하여 가상 환경을 생성하고, 현재 Python의 **시스템 site-"
+"packages**를 기본 환경으로 설정합니다. 기본적으로 ``uv``는 **시스템 환경에 이미 패키지가 설치되어 있는지 확인하지 "
+"않으며**, 가상 환경에 모든 의존성을 다시 설치합니다. 이 방식은 시스템 패키지와 더 잘 격리될 수 있지만, 중복 설치, 초기화 시간 "
+"증가 및 디스크 사용량 증가를 초래할 수 있습니다."
+
+#: ../../source/models/virtualenv.rst:139
+msgid ""
+"Starting from ``v1.8.1``, an **experimental feature** is available: by "
+"setting the environment variable "
+"``XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED=1``, ``uv`` will **skip packages "
+"already available in system site-packages**."
+msgstr ""
+"``v1.8.1``부터 **실험 기능**이 제공됩니다: 환경 변수 "
+"``XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED=1``을 설정하면, ``uv``가 **시스템 site-"
+"packages에 이미 존재하는 패키지를 건너뜁니다**."
+
+#: ../../source/models/virtualenv.rst:144
+msgid ""
+"This feature is enabled by default in ``v2.0``. To disable it, set "
+"``XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED=0``."
+msgstr ""
+"이 기능은 ``v2.0`` 버전에서 기본적으로 활성화되어 있습니다. 비활성화하려면 "
+"``XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED=0``을 설정하세요."
+
+#: ../../source/models/virtualenv.rst:147
+msgid "Advantages"
+msgstr "장점"
+
+#: ../../source/models/virtualenv.rst:149
+msgid ""
+"Avoid redundant installations of large dependencies (e.g., ``torch`` + "
+"``CUDA``)."
+msgstr "반복적으로 큰 의존성을 설치하는 것을 피하십시오 (예: ``torch`` + ``CUDA``)."
+
+#: ../../source/models/virtualenv.rst:150
+msgid "Speed up virtual environment creation."
+msgstr "가상 환경 생성 속도 향상."
+
+#: ../../source/models/virtualenv.rst:151
+msgid "Reduce disk usage."
+msgstr "디스크 공간 사용량 줄이기."
+
+#: ../../source/models/virtualenv.rst:154
+msgid "Usage"
+msgstr "사용"
+
+#: ../../source/models/virtualenv.rst:166
+msgid "Performance Comparison"
+msgstr "성능 비교"
+
+#: ../../source/models/virtualenv.rst:168
+msgid "Using the ``CosyVoice 0.5B`` model as an example:"
+msgstr "``CosyVoice 0.5B`` 모델을 예로 들면:"
+
+#: ../../source/models/virtualenv.rst:170
+msgid "**Without this feature enabled**::"
+msgstr "**해당 기능이 켜져 있지 않은 경우**::"
+
+#: ../../source/models/virtualenv.rst:181
+msgid "**With this feature enabled**::"
+msgstr "**해당 기능을 켠 후**::"
+
+#: ../../source/models/virtualenv.rst:196
+msgid ""
+"Model Launching: Toggle Virtual Environments and Customize Dependencies"
+msgstr "모델 로드: 가상 환경 전환 및 종속성 사용자 지정"
+
+#: ../../source/models/virtualenv.rst:200
+msgid ""
+"Starting from v1.8.1, we support toggling the virtual environment for "
+"individual model launching, as well as overriding the model's default "
+"settings with custom package dependencies."
+msgstr ""
+"v1.8.1부터 단일 모델에 대한 가상 환경 로드 스위치를 지원하며, 사용자 정의 패키지 종속성으로 모델의 기본 설정을 재정의할 수 "
+"있습니다."
+
+#: ../../source/models/virtualenv.rst:204
+msgid "Toggle Virtual Environment"
+msgstr "스위치 모델 가상 공간"
+
+#: ../../source/models/virtualenv.rst:206
+msgid ""
+"When loading a model, you can specify whether to enable the model's virtual "
+"environment. If not specified, the setting will follow the environment "
+"variable configuration."
+msgstr ""
+"모델을 로드할 때, 가상 환경을 활성화할지 여부를 지정할 수 있습니다. 지정하지 않으면 기본적으로 환경 변수의 설정을 따릅니다."
+
+#: ../../source/models/virtualenv.rst:209
+msgid ""
+"For the Web UI, this can be toggled on or off through the optional settings "
+"switch."
+msgstr "Web UI에서 선택적 설정 스위치를 통해 이 기능을 켜거나 끌 수 있습니다."
+
+#: ../../source/models/virtualenv.rst:215
+msgid ""
+"For command-line loading, use the ``--enable-virtual-env`` option to enable "
+"the virtual environment, or ``--disable-virtual-env`` to disable it."
+msgstr ""
+"명령줄 로딩 시 ``--enable-virtual-env`` 옵션을 사용하여 가상 환경을 활성화하고, ``--disable-"
+"virtual-env`` 옵션을 사용하여 가상 환경을 비활성화합니다."
+
+#: ../../source/models/virtualenv.rst:224
+msgid "Set Virtual Environment Package Dependencies"
+msgstr "가상 환경 패키지 의존성 설정"
+
+#: ../../source/models/virtualenv.rst:226
+msgid ""
+"For supported models, Xinference has already defined the package "
+"dependencies and version requirements within the virtual environment. "
+"However, if you need to specify particular versions or install additional "
+"dependencies, you can manually provide them during model loading."
+msgstr ""
+"지원되는 모델의 경우, Xinference는 가상 환경에서 패키지 종속성 및 버전 요구 사항을 이미 정의했습니다. 하지만 특정 버전을 "
+"지정하거나 추가 종속성을 설치해야 하는 경우, 모델을 로드할 때 수동으로 제공할 수 있습니다."
+
+#: ../../source/models/virtualenv.rst:229
+msgid ""
+"In the Web UI, you can add custom dependencies by clicking the plus icon in "
+"the same location as the virtual environment toggle."
+msgstr "Web UI에서 가상 환경 스위치와 동일한 위치에 있는 더하기 아이콘을 클릭하여 사용자 정의 종속성을 추가할 수 있습니다."
+
+#: ../../source/models/virtualenv.rst:231
+msgid ""
+"For the command line, use ``--virtual-env-package`` or ``-vp`` to specify a "
+"single package version."
+msgstr "명령줄에서 ``--virtual-env-package`` 또는 ``-vp``를 사용하여 단일 패키지 버전을 지정합니다."
+
+#: ../../source/models/virtualenv.rst:239
+msgid ""
+"In addition to the standard way of specifying package dependencies, such as "
+"``transformers==xxx``, Xinference also supports some extended syntax."
+msgstr ""
+"일반적인 패키지 의존성 지정 방식(예: ``transformers==xxx``) 외에도, Xinference는 몇 가지 확장 문법을 "
+"지원합니다."
+
+#: ../../source/models/virtualenv.rst:241
+msgid ""
+"``#system_xxx#``: Using the same version as the system site packages, such "
+"as ``#system_numpy#``, ensures that the installed package matches the system"
+" site package version of numpy. This helps prevent dependency conflicts."
+msgstr ""
+"``#system_xxx#``: 시스템 site packages와 동일한 버전을 사용합니다. 예를 들어 "
+"``#system_numpy#``는 설치된 패키지 버전이 시스템 site packages의 numpy 버전과 일치하도록 하여 의존성 "
+"충돌을 방지합니다."
+
+#: ../../source/models/virtualenv.rst:248
+msgid "Manage Virtual Enviroments"
+msgstr "가상 환경 관리"
+
+#: ../../source/models/virtualenv.rst:252
+msgid ""
+"Xinference provides comprehensive virtual environment management for model "
+"dependencies, allowing you to create isolated Python environments for each "
+"model with specific package requirements."
+msgstr ""
+"Xinference는 각 모델에 대해 독립적인 Python 환경을 생성하여 특정 패키지 의존성 요구 사항을 충족할 수 있는 포괄적인 가상"
+" 환경 관리 기능을 제공합니다."
+
+#: ../../source/models/virtualenv.rst:264
+msgid "Key Features"
+msgstr "핵심 기능"
+
+#: ../../source/models/virtualenv.rst:266
+msgid ""
+"**Multiple Python Version Support**: Each model can have virtual "
+"environments with different Python versions (e.g., Python 3.10.18, 3.11.5), "
+"enabling compatibility with various model requirements."
+msgstr ""
+"**다중 Python 버전 지원** : 각 모델은 다양한 Python 버전의 가상 환경(예: Python 3.10.18, 3.11.5)을"
+" 가질 수 있어 다양한 모델 요구 사항과의 호환성을 실현합니다."
+
+#: ../../source/models/virtualenv.rst:271
+msgid ""
+"**Isolated Dependencies**: Each virtual environment contains its own set of "
+"packages, preventing conflicts between different models' requirements."
+msgstr ""
+"**의존성 격리**: 각 가상 환경은 자신만의 독립적인 패키지 집합을 포함하여, 서로 다른 모델 간의 의존성 충돌을 방지합니다."
+
+#: ../../source/models/virtualenv.rst:276
+msgid "Management Operations"
+msgstr "관리 작업"
+
+#: ../../source/models/virtualenv.rst:278
+msgid ""
+"**Listing Virtual Environments**: View all virtual environments across your "
+"cluster, filtered by model name or worker IP address."
+msgstr ""
+"**가상 환경 나열**: 클러스터의 모든 가상 환경을 조회하며, 모델 이름 또는 작업 노드 IP 주소로 필터링할 수 있습니다."
+
+#: ../../source/models/virtualenv.rst:282
+msgid ""
+"**Creating Environments**: Automatically created when launching models with "
+"enable_virtual_env=true. The system detects your current Python version and "
+"creates an isolated environment with the required packages."
+msgstr ""
+"**환경 생성** : enable_virtual_env=true로 모델을 시작할 때 자동으로 생성됩니다. 시스템은 현재 Python "
+"버전을 감지하고 필요한 패키지가 포함된 독립 환경을 생성합니다."
+
+#: ../../source/models/virtualenv.rst:287
+msgid ""
+"**Removing Environments**: Delete specific virtual environments by model "
+"name and optionally Python version, or remove all environments for a model."
+msgstr ""
+"**환경 삭제**: 모델 이름과 선택적 Python 버전을 기준으로 특정 가상 환경을 삭제하거나, 모델의 모든 환경을 삭제할 수 "
+"있습니다."
+
+#: ../../source/models/virtualenv.rst:292
+msgid "ModelHub JSON for Xinference Models"
+msgstr "ModelHub JSON 형식 (Xinference 모델용)"
+
+#: ../../source/models/virtualenv.rst:294
+msgid ""
+"If you plan to add a model to a model hub for Xinference, define a "
+"``virtualenv`` block in the model JSON. Starting from v2.0 (v4 flow), "
+"**engine-aware markers are recommended** so one JSON can cover multiple "
+"engines."
+msgstr ""
+"Xinference의 Model Hub에 모델을 추가하려는 경우, 모델 JSON에 ``virtualenv`` 블록을 정의하십시오. "
+"v2.0(v4 workflow)부터는 **엔진 인식 태그 사용을 권장**하며, 이에 따라 단일 JSON 파일이 여러 엔진을 포괄할 수 "
+"있습니다."
+
+#: ../../source/models/virtualenv.rst:298
+msgid ""
+"Important rule: If a new model supports a specific engine, you **must** "
+"include at least one package entry for that engine in "
+"``virtualenv.packages`` and attach a marker, for example ``#engine# == "
+"\"vllm\"``. Engine availability checks rely on these markers when virtual "
+"environments are enabled."
+msgstr ""
+"중요 규칙: 새 모델이 특정 엔진을 지원하는 경우, **반드시** ``virtualenv.packages``에 해당 엔진의 최소 하나 "
+"이상의 패키지 항목을 포함하고, 태그(예: ``#engine# == \"vllm\"``)를 추가해야 합니다. 가상 환경이 활성화된 경우,"
+" 엔진 사용 가능 여부 확인은 이러한 태그를 통해 검증됩니다."
+
+#: ../../source/models/virtualenv.rst:325
+msgid "``packages`` (required): list of pip requirement strings or markers."
+msgstr "``packages`` (필수): pip 요구 문자열 또는 태그의 목록."
+
+#: ../../source/models/virtualenv.rst:326
+msgid ""
+"``inherit_pip_config`` (default ``true``): inherit system pip configuration "
+"if present."
+msgstr ""
+"``inherit_pip_config`` (기본값: ``true``): 시스템 pip 설정 파일이 존재할 경우 해당 설정을 상속합니다."
+
+#: ../../source/models/virtualenv.rst:327
+msgid ""
+"``index_url`` / ``extra_index_url`` / ``find_links`` / ``trusted_host``: pip"
+" index and mirror controls."
+msgstr ""
+"``index_url`` / ``extra_index_url`` / ``find_links`` / ``trusted_host`` : "
+"pip 인덱스 및 미러 제어."
+
+#: ../../source/models/virtualenv.rst:329
+msgid ""
+"``index_strategy``: passed through to the virtualenv installer (used by some"
+" engines)."
+msgstr "``index_strategy`` : 가상 환경 설치 프로그램에 전달됩니다 (일부 엔진에서 사용됨)."
+
+#: ../../source/models/virtualenv.rst:330
+msgid "``no_build_isolation``: pip build isolation switch for tricky builds."
+msgstr "``no_build_isolation`` ：복잡한 빌드를 처리하기 위한 pip 빌드 격리 스위치입니다."
+
+#: ../../source/models/virtualenv.rst:335
+msgid "Use wrapped placeholders to inject engine defaults:"
+msgstr "패키지된 플레이스홀더를 사용하여 엔진 기본값 주입:"
+
+#: ../../source/models/virtualenv.rst:337
+msgid "``#vllm_dependencies#``"
+msgstr ""
+
+#: ../../source/models/virtualenv.rst:338
+msgid "``#sglang_dependencies#``"
+msgstr ""
+
+#: ../../source/models/virtualenv.rst:339
+msgid "``#mlx_dependencies#``"
+msgstr ""
+
+#: ../../source/models/virtualenv.rst:340
+msgid "``#transformers_dependencies#``"
+msgstr ""
+
+#: ../../source/models/virtualenv.rst:341
+msgid "``#llama_cpp_dependencies#``"
+msgstr ""
+
+#: ../../source/models/virtualenv.rst:342
+msgid "``#diffusers_dependencies#``"
+msgstr ""
+
+#: ../../source/models/virtualenv.rst:343
+msgid "``#sentence_transformers_dependencies#``"
+msgstr ""
+
+#: ../../source/models/virtualenv.rst:348
+msgid ""
+"Markers use ``#engine#`` or ``#model_engine#`` comparisons (case-sensitive)."
+" Engine values are passed in lowercase internally, so prefer lowercase "
+"values, for example ``#engine# == \"vllm\"`` or ``#engine# == "
+"\"transformers\"``."
+msgstr ""
+"``#engine#`` 또는 ``#model_engine#``를 사용하여 비교합니다(대소문자 구분). 엔진 값은 내부적으로 소문자로 "
+"전달되므로, ``#engine# == \"vllm\"`` 또는 ``#engine# == \"transformers\"``와 같이 소문자 "
+"값을 사용하는 것을 권장합니다."
+
+#~ msgid "Manage Virtual Enviroments"
+#~ msgstr "가상 환경 관리"
