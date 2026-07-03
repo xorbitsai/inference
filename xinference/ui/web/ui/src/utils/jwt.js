@@ -3,13 +3,19 @@
 // when the JWT payload shape changes.
 //
 // Token lives in sessionStorage under the key `token`. The payload is the
-// middle base64 segment of a standard JWT; `scopes` is an array of strings.
+// middle base64url segment of a standard JWT; `scopes` is an array of
+// strings.
 
 export function parseTokenFromSession() {
   try {
     const token = sessionStorage.getItem('token')
     if (!token) return null
-    const payload = JSON.parse(atob(token.split('.')[1]))
+    // JWT payload is base64url-encoded: may contain '-' and '_' and
+    // lacks padding. atob() throws DOMException on base64url, so
+    // normalize to standard base64 first.
+    const base64Url = token.split('.')[1]
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+    const payload = JSON.parse(atob(base64))
     const scopes = Array.isArray(payload.scopes) ? payload.scopes : []
     return {
       username: payload.username || payload.sub || '',
