@@ -1,0 +1,254 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-03-19 12:55+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: zh_TW <LL@li.org>\n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/auth_system.rst:5
+msgid "Simple OAuth2 System (experimental)"
+msgstr "OAuth2 系統（實驗性質）"
+
+#: ../../source/user_guide/auth_system.rst:7
+msgid ""
+"Xinference builds an In-memory OAuth2 authentication and authorization "
+"system using the account-password mode."
+msgstr "Xinference 使用了帳號密碼的模式，建構了一個基於記憶體的 OAuth2 身分驗證與授權系統。"
+
+#: ../../source/user_guide/auth_system.rst:10
+msgid ""
+"If you don't have authentication and authorization requirements, you can use"
+" Xinference as before, without any changes."
+msgstr "如果沒有身份驗證和授權的要求，可以像之前一樣使用 Xinference，無需任何改動。"
+
+#: ../../source/user_guide/auth_system.rst:14
+msgid "Permissions"
+msgstr "權限"
+
+#: ../../source/user_guide/auth_system.rst:15
+msgid ""
+"Currently, Xinference system internally defines some interface permissions:"
+msgstr "目前，Xinference 內部定義了以下幾個介面權限："
+
+#: ../../source/user_guide/auth_system.rst:17
+msgid ""
+"``models:list``: Permission to list models and get models' information."
+msgstr "``models:list``: 取得模型清單與資訊的權限。"
+
+#: ../../source/user_guide/auth_system.rst:18
+msgid "``models:read``: Permission to use models."
+msgstr "``models:read``: 使用模型的權限。"
+
+#: ../../source/user_guide/auth_system.rst:19
+msgid "``models:register``: Permission to register custom models."
+msgstr "``models:register``: 註冊模型的權限。"
+
+#: ../../source/user_guide/auth_system.rst:20
+msgid "``models:unregister``: Permission to unregister custom models."
+msgstr "``models:unregister``: 取消註冊模型的權限。"
+
+#: ../../source/user_guide/auth_system.rst:21
+msgid "``models:start``: Permission to launch models."
+msgstr "``models:start``: 啟動模型的權限。"
+
+#: ../../source/user_guide/auth_system.rst:22
+msgid "``models:stop``: Permission to stop running models."
+msgstr "``models:stop``: 停止模型的許可權。"
+
+#: ../../source/user_guide/auth_system.rst:23
+msgid "``admin``: Administrators have permissions for all interfaces."
+msgstr "``admin``：管理員擁有所有介面的權限。"
+
+#: ../../source/user_guide/auth_system.rst:27
+msgid "Startup"
+msgstr "開始使用"
+
+#: ../../source/user_guide/auth_system.rst:28
+msgid ""
+"All authentication and authorization information needs to be specified and "
+"loaded into memory when Xinference is started. Xinference requires a JSON-"
+"formatted file with the following specific fields:"
+msgstr "啟動 Xinference 時，需要指定所有的驗證和授權資訊。目前，Xinference 需要一個 JSON 檔案，其中包含以下特定欄位："
+
+#: ../../source/user_guide/auth_system.rst:67
+msgid ""
+"``auth_config``: This field is used to configure security-related "
+"information."
+msgstr "``auth_config``：此欄位設定與安全相關的資訊。"
+
+#: ../../source/user_guide/auth_system.rst:69
+msgid ""
+"``algorithm``: The algorithm used for token generation and parsing. ``HS`` "
+"series algorithms are recommended. For example, ``HS256``, ``HS384`` or "
+"``HS512``."
+msgstr ""
+"``algorithm``: 用於令牌生成與解析的演算法。推薦使用 ``HS`` 系列演算法，例如 ``HS256``、``HS384`` 或 "
+"``HS512`` 演算法。"
+
+#: ../../source/user_guide/auth_system.rst:71
+msgid ""
+"``secret_key``: The secret_key used for token generation and parsing. Use "
+"this command to generate the secret_key adapted to the ``HS`` algorithms: "
+"``openssl rand -hex 32``."
+msgstr ""
+"``secret_key``：用於令牌生成和解析的密鑰。可以使用該命令生成適用於 ``HS`` 系列算法的密鑰：``openssl rand -hex "
+"32`` 。"
+
+#: ../../source/user_guide/auth_system.rst:73
+msgid ""
+"``token_expire_in_minutes``: Reserved field indicating the expiration time "
+"of the token. The current open-source version of Xinference does not check "
+"the expiration time of tokens."
+msgstr ""
+"``token_expire_in_minutes``: 保留欄位，表示令牌失效時間。目前 Xinference 開源版本不會檢查令牌過期時間。"
+
+#: ../../source/user_guide/auth_system.rst:75
+msgid ""
+"``user_config``: This field is used to configure user and permission "
+"information. Each user information is composed of these fields:"
+msgstr "``user_config``：此欄位用於設定使用者與權限資訊。每個使用者資訊由以下欄位組成："
+
+#: ../../source/user_guide/auth_system.rst:77
+msgid "``username``: string field for username."
+msgstr "``username``：字串，表示使用者名稱"
+
+#: ../../source/user_guide/auth_system.rst:79
+msgid "``password``: string field for password."
+msgstr "``password``：字串，表示密碼"
+
+#: ../../source/user_guide/auth_system.rst:81
+msgid ""
+"``permissions``: A list containing strings representing the permissions that"
+" this user has. The permissions are described as above."
+msgstr "``permissions``: 字串列表，表示該使用者擁有的權限。權限描述如上權限部分文件所述。"
+
+#: ../../source/user_guide/auth_system.rst:83
+msgid ""
+"``api_keys``: A list containing strings representing the api-keys of this "
+"user. With these api-keys, user can access the xinference interfaces without"
+" the need to signin. The api-key here is formatted similar to the "
+"``OPENAI_API_KEY`` , always starting with ``sk-``, followed by 13 "
+"alphanumeric characters."
+msgstr ""
+"``api_keys``: 字串列表，表示該用戶擁有的 api-key。用戶可以透過這些 api-key，無需登入步驟即可存取 xinference "
+"介面。此處的 api_key 組成與 ``OPENAI_API_KEY`` 相似，總是以 ``sk-`` 開頭，後接 13 個數字、大小寫字母。"
+
+#: ../../source/user_guide/auth_system.rst:86
+msgid ""
+"Once you have configured such a JSON file, use the ``--auth-config`` option "
+"to enable Xinference with the authentication and authorization system. For "
+"example, for local startup:"
+msgstr ""
+"配置好這樣一個 JSON 檔案後，可以使用 ``--auth-config`` 選項啟用具有身份驗證和授權系統的 "
+"Xinference。例如，本地啟動的指令如下所示："
+
+#: ../../source/user_guide/auth_system.rst:93
+msgid ""
+"For distributed startup, just specify this option when starting the "
+"supervisor:"
+msgstr "在分散式環境下，只需要在啟動 supervisor 時指定這個選項："
+
+#: ../../source/user_guide/auth_system.rst:101
+msgid "Usage"
+msgstr "使用"
+
+#: ../../source/user_guide/auth_system.rst:102
+msgid ""
+"For Xinference with the authentication and authorization system enabled, all"
+" usage remains the same, except for the addition of a login step at the "
+"beginning or using the api-key."
+msgstr "使用帶有權限管理的 Xinference 服務與正常的版本保持一致，只是在開始階段添加了登錄步驟，或者使用 api-key 進行鑑權。"
+
+#: ../../source/user_guide/auth_system.rst:105
+msgid "Signin"
+msgstr "基於使用者名稱-密碼的使用方式"
+
+#: ../../source/user_guide/auth_system.rst:106
+msgid "Signin for command line users:"
+msgstr "使用命令列登入："
+
+#: ../../source/user_guide/auth_system.rst:113
+msgid "For python SDK users:"
+msgstr "使用 Python SDK 登入："
+
+#: ../../source/user_guide/auth_system.rst:122
+msgid ""
+"For web UI users, when opening the web UI, you will first be directed to the"
+" login page. After logging in, you can use the web UI normally."
+msgstr "對於 Web UI 的使用者，在打開 Web UI 時，將會先跳轉到登入頁面。登入後，即可正常使用 Web UI 的功能。"
+
+#: ../../source/user_guide/auth_system.rst:125
+msgid "Api-Key"
+msgstr "基於 Api-Key 鑑權的使用方式"
+
+#: ../../source/user_guide/auth_system.rst:126
+msgid ""
+"For command line users, just add ``--api-key`` or ``-ak`` option in the "
+"command you want to use."
+msgstr "對於命令列用戶，僅需在所要執行的命令上新增 ``--api-key`` 或 ``-ak`` 選項即可。"
+
+#: ../../source/user_guide/auth_system.rst:133
+msgid ""
+"For python SDK users, pass the ``api_key`` parameter when initializing the "
+"client, just like the ``OPENAI`` Python client."
+msgstr "對於 Python 客戶端使用者，在客戶端物件初始化時傳入 ``api_key`` 參數即可，就像 ``OPENAI`` 客戶端那樣。"
+
+#: ../../source/user_guide/auth_system.rst:141
+msgid "Xinference is also compatible with the ``OPENAI`` Python SDK as well."
+msgstr "當然，Xinference 也與 ``OPENAI`` Python 用戶端的使用方式完全相容。"
+
+#: ../../source/user_guide/auth_system.rst:149
+msgid ""
+"For http request, pass ``Authorization: Bearer api-key`` in request header."
+msgstr "對於 HTTP 請求，在請求頭中傳遞 ``Authorization: Bearer api-key``。"
+
+#: ../../source/user_guide/auth_system.rst:159
+msgid "Http Status Code"
+msgstr "HTTP 狀態碼"
+
+#: ../../source/user_guide/auth_system.rst:160
+msgid "Add the following two HTTP status codes:"
+msgstr "添加了以下兩種 HTTP 狀態碼："
+
+#: ../../source/user_guide/auth_system.rst:162
+msgid "``401 Unauthorized``: login information or token verifies failed."
+msgstr "``401 Unauthorized``：登入資訊或令牌驗證失效。"
+
+#: ../../source/user_guide/auth_system.rst:163
+msgid "``403 Forbidden``: No enough permissions when accessing interfaces."
+msgstr "``403 Forbidden``：沒有足夠的權限存取介面。"
+
+#: ../../source/user_guide/auth_system.rst:165
+msgid ""
+"For the command line, SDK, or web UI users, there will be clear information "
+"prompts when encountering authorization and permissions issues."
+msgstr "對於命令列、SDK 或 Web UI 使用者，在遇到授權和權限問題時，會有明確的資訊提示。"
+
+#: ../../source/user_guide/auth_system.rst:169
+msgid "Note"
+msgstr "注意"
+
+#: ../../source/user_guide/auth_system.rst:170
+msgid ""
+"This feature is still in an experimental stage. Feel free to provide "
+"feedback on usage issues or improvement suggestions through `GitHub issues "
+"<https://github.com/xorbitsai/inference/issues>`_ or `our Telegram group "
+"<https://t.me/+nCNpwmySwk9iYmI1>`_."
+msgstr ""
+"該功能處於實驗階段。歡迎通過 `GitHub issues "
+"<https://github.com/xorbitsai/inference/issues>`_ 或者 `Telegram 群組 "
+"<https://t.me/+nCNpwmySwk9iYmI1>`_ 提供回饋與建議。"
