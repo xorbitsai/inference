@@ -466,7 +466,10 @@
     "cache_list": "キャッシュ表示",
     "cache_delete": "キャッシュ削除",
     "virtualenv_list": "仮想環境表示",
-    "virtualenv_delete": "仮想環境削除"
+    "virtualenv_delete": "仮想環境削除",
+    "models_register": "モデル登録/解除",
+    "logs_list": "ログ表示",
+    "monitor_view": "モニタリング表示"
   },
   "apikeyManagement": {
     "title": "API Key 管理",
