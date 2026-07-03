@@ -68,27 +68,6 @@ def get_advanced_auth(request: Request) -> AdvancedAuthService:
     return request.app.state.advanced_auth
 
 
-def require_keys_read(request: Request):
-    """Dependency for API key read routes (list / get).
-
-    Accepts ``keys:create`` OR ``keys:manage`` (or ``admin`` wildcard).
-    FastAPI's ``Security(scopes=[...])`` is AND-semantics, so a custom
-    dependency is needed for OR. This aligns the backend read path with
-    the frontend ``PermissionGate`` contract (which shows the API Key
-    Management page to users holding either scope) and with the handler
-    ``is_admin`` check (which treats both as admin-capable).
-    """
-    auth = get_advanced_auth(request)
-    _, _, scopes = _get_current_user_from_token(request, auth)
-    scopes = scopes or []
-    if "admin" in scopes or "keys:create" in scopes or "keys:manage" in scopes:
-        return True
-    raise HTTPException(
-        status_code=403,
-        detail="Not enough permissions: requires keys:create or keys:manage",
-    )
-
-
 def _get_current_user_from_token(request: Request, auth: AdvancedAuthService):
     """Extract current user info from the Authorization header."""
     token = request.headers.get("Authorization", "").replace("Bearer ", "")
@@ -561,6 +540,32 @@ def register_advanced_auth_routes(api: "RESTfulAPI") -> None:
     _rl = getattr(auth_service, "_rate_limiter", None)
     if _rl is not None:
         api._app.state.rate_limiter = _rl
+
+    async def require_keys_read(
+        request: Request,
+        _user=Security(auth_service),  # validates JWT + user exists + enabled + audit
+    ):
+        """Dependency for API key read routes (list / get).
+
+        Accepts ``keys:create`` OR ``keys:manage`` (or ``admin``
+        wildcard). FastAPI's ``Security(scopes=[...])`` is
+        AND-semantics, so a custom dependency is needed for OR. This
+        reuses the standard ``auth_service`` dependency (which validates
+        JWT, user existence, enabled status, and audit logs) with no
+        required scopes, then performs the OR check on the JWT scopes —
+        consistent with how ``Security(scopes=[...])`` checks JWT
+        scopes (not DB permissions).
+        """
+        # Security(auth_service) already ran full validation. Now check
+        # OR scopes on the JWT payload (same source as Security(scopes=...)).
+        _, _, scopes = _get_current_user_from_token(request, auth_service)
+        scopes = scopes or []
+        if "admin" in scopes or "keys:create" in scopes or "keys:manage" in scopes:
+            return True
+        raise HTTPException(
+            status_code=403,
+            detail="Not enough permissions: requires keys:create or keys:manage",
+        )
 
     router.add_api_route("/token", advanced_login, methods=["POST"])
     router.add_api_route("/v1/auth/refresh", advanced_refresh, methods=["POST"])
