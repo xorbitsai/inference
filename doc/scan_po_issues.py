@@ -24,6 +24,9 @@ PROMPT_PATTERNS = (
     "german translation",
     "deutsche übersetzung",
     "hier ist die übersetzung",
+    "traduzione richiesta",
+    "traduzione:",
+    "ecco la traduzione",
 )
 
 
