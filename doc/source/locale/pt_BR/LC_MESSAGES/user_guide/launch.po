@@ -1,0 +1,279 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2025, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-28 11:54+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: pt_BR <LL@li.org>\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/launch.rst:5
+msgid "Model Launching Instructions"
+msgstr "Guia de Carregamento de Modelos"
+
+#: ../../source/user_guide/launch.rst:7
+msgid ""
+"This document aims to provide a functional overview of model launching."
+msgstr ""
+"Este documento tem como objetivo fornecer uma explicação funcional sobre o "
+"carregamento de modelos."
+
+#: ../../source/user_guide/launch.rst:10
+msgid "Replica"
+msgstr "réplica"
+
+#: ../../source/user_guide/launch.rst:12
+msgid ""
+"Replicas specify the number of model instances to load. For example, if you "
+"have two GPUs and each can host one replica of the model, you can set the "
+"replica count to 2. This way, two identical instances of the model will be "
+"distributed across the two GPUs. Xinference automatically load-balances "
+"requests to ensure even distribution across multiple GPUs. Meanwhile, users "
+"see it as a single model, which greatly improves overall resource "
+"utilization."
+msgstr ""
+"O parâmetro \"cópias\" (ou \"replicas\") é utilizado para especificar o "
+"número de instâncias do modelo a serem carregadas. Por exemplo, se você "
+"possui duas GPUs e cada placa pode conter uma réplica do modelo, pode "
+"definir o número de cópias como 2. Dessa forma, duas instâncias idênticas do"
+" modelo serão distribuídas entre essas duas GPUs. O Xinference realizará "
+"automaticamente o balanceamento de carga, garantindo que as requisições "
+"sejam distribuídas uniformemente entre as múltiplas placas. Para o usuário, "
+"o modelo ainda é visto como um único, o que aumenta significativamente a "
+"eficiência geral do uso dos recursos."
+
+#: ../../source/user_guide/launch.rst:17
+msgid "Traditional Multi-Instance Deployment："
+msgstr "Implantação de múltiplas instâncias em versão antiga:"
+
+#: ../../source/user_guide/launch.rst:19
+msgid ""
+"When you have multiple GPU cards, each capable of hosting one model "
+"instance, you can set the number of instances equal to the number of GPUs. "
+"For example:"
+msgstr ""
+"Quando você possui múltiplas placas GPU, cada placa pode hospedar uma "
+"instância de modelo. Nesse caso, o número de instâncias pode ser definido "
+"como igual ao número de GPUs. Por exemplo:"
+
+#: ../../source/user_guide/launch.rst:21
+msgid "2 GPUs, 2 instances: Each GPU runs one model instance"
+msgstr "2 GPUs, 2 instances: one model instance per GPU."
+
+#: ../../source/user_guide/launch.rst:22
+msgid "4 GPUs, 4 instances: Each GPU runs one model instance"
+msgstr "4 GPUs, 4 instâncias: cada GPU executa uma instância do modelo"
+
+#: ../../source/user_guide/launch.rst:26
+msgid "Introduce a new environment variable:"
+msgstr "Introduzir uma nova variável de ambiente:"
+
+#: ../../source/user_guide/launch.rst:32
+msgid ""
+"Control whether to enable the single GPU multi-copy feature Default value: 1"
+msgstr ""
+"Controla se a funcionalidade de múltiplas cópias em uma única GPU está "
+"habilitada. Valor padrão: 1"
+
+#: ../../source/user_guide/launch.rst:35
+msgid "New Feature: Smart Replica Deployment"
+msgstr "Novo recurso: implantação inteligente de réplicas"
+
+#: ../../source/user_guide/launch.rst:37
+msgid "Single GPU Multi-Replica"
+msgstr "Réplicas múltiplas em uma única GPU"
+
+#: ../../source/user_guide/launch.rst:39
+msgid "New Support: Run multiple model replicas even with just one GPU."
+msgstr ""
+"Novo suporte: é possível executar múltiplas réplicas de modelos mesmo com "
+"apenas uma GPU."
+
+#: ../../source/user_guide/launch.rst:41
+msgid "Scenario: You have 1 GPU with sufficient VRAM"
+msgstr "Cenário: você possui 1 GPU com memória de vídeo abundante."
+
+#: ../../source/user_guide/launch.rst:42
+msgid "Configuration: Replica Count = 3, GPU Count = 1"
+msgstr "Configuração: número de réplicas = 3, número de GPUs = 1"
+
+#: ../../source/user_guide/launch.rst:43
+msgid ""
+"Result: 3 model instances running on the same GPU, sharing GPU resources"
+msgstr ""
+"Resultado: 3 instâncias do modelo, rodando na mesma GPU, compartilhando os "
+"recursos da GPU."
+
+#: ../../source/user_guide/launch.rst:45
+msgid "Hybrid GPU Allocation"
+msgstr "Alocação Mista de GPU"
+
+#: ../../source/user_guide/launch.rst:47
+msgid ""
+"Smart Allocation: Number of replicas may differ from GPU count; system "
+"intelligently distributes"
+msgstr ""
+"Distribuição inteligente: o número de réplicas não precisa ser igual ao "
+"número de GPUs, o sistema fará a distribuição de forma inteligente."
+
+#: ../../source/user_guide/launch.rst:49
+msgid "Scenario: You have 2 GPUs and need 3 replicas"
+msgstr "Contexto: você tem 2 GPUs e precisa de 3 réplicas."
+
+#: ../../source/user_guide/launch.rst:50
+msgid "Configuration: Replicas=3, GPUs=2"
+msgstr "Configuração: número de réplicas = 3, número de GPUs = 2"
+
+#: ../../source/user_guide/launch.rst:51
+msgid "Result: GPU0 runs 2 instances, GPU1 runs 1 instance"
+msgstr "Resultado: GPU0 executando 2 instâncias, GPU1 executando 1 instância"
+
+#: ../../source/user_guide/launch.rst:54
+msgid "GPU Allocation Strategy"
+msgstr "Estratégia de alocação mista"
+
+#: ../../source/user_guide/launch.rst:56
+msgid ""
+"The current policy is *Idle First*: The scheduler always attempts to assign "
+"replicas to the least utilized GPU. Use the ``XINFERENCE_LAUNCH_STRATEGY`` "
+"parameter to choose launch strategy."
+msgstr ""
+"A estratégia atual é *ociosidade primeiro*: o agendador sempre tenta alocar "
+"réplicas para a GPU mais ociosa. Use o parâmetro "
+"``XINFERENCE_ENV_LAUNCH_STRATEGY`` para selecionar a estratégia de "
+"inicialização."
+
+#: ../../source/user_guide/launch.rst:59
+msgid "Set Environment Variables"
+msgstr "Defina as variáveis de ambiente"
+
+#: ../../source/user_guide/launch.rst:63
+msgid ""
+"Sometimes, we want to specify environment variables for a particular model "
+"at runtime. Since v1.8.1, Xinference provides the capability to configure "
+"these individually without needing to set them before starting Xinference."
+msgstr ""
+"Às vezes, queremos especificar variáveis de ambiente para um modelo "
+"específico em tempo de execução. A partir da v1.8.1, o Xinference oferece a "
+"funcionalidade de configurar variáveis de ambiente separadamente, sem a "
+"necessidade de defini-las antes de iniciar o Xinference."
+
+#: ../../source/user_guide/launch.rst:66
+msgid "For Web UI."
+msgstr "Para Web UI."
+
+#: ../../source/user_guide/launch.rst:72
+msgid ""
+"When using the command line, use ``--env`` to specify an environment "
+"variable."
+msgstr ""
+"Ao usar a linha de comando, especifique as variáveis de ambiente com "
+"``--env``."
+
+#: ../../source/user_guide/launch.rst:74
+#: ../../source/user_guide/launch.rst:123
+msgid "Example usage:"
+msgstr "Exemplo de uso:"
+
+#: ../../source/user_guide/launch.rst:80
+msgid ""
+"Take vLLM as an example: it has versions V1 and V0, and by default, it "
+"automatically determines which version to use. If you want to force the use "
+"of V0 by setting ``VLLM_USE_V1=0`` when launching a model, you can specify "
+"this during model launching."
+msgstr ""
+"Tomando vLLM como exemplo, ele possui duas versões, V1 e V0, e por padrão "
+"decide automaticamente qual versão usar. Se desejar forçar o uso da V0 ao "
+"carregar o modelo, você pode definir a variável de ambiente configurando "
+"``VLLM_USE_V1=0``."
+
+#: ../../source/user_guide/launch.rst:84
+msgid "Configuring Model Virtual Environment"
+msgstr "Configurar espaço virtual do modelo"
+
+#: ../../source/user_guide/launch.rst:88
+msgid ""
+"For this part, please refer to :ref:`toggling virtual environments and "
+"customizing dependencies <model_launching_virtualenv>`."
+msgstr ""
+"Para esta parte, consulte :ref:`switching virtual environments and custom "
+"dependencies <model_launching_virtualenv>`."
+
+#: ../../source/user_guide/launch.rst:91
+msgid "Batching / Continuous Batching"
+msgstr "Lote / Lote Contínuo"
+
+#: ../../source/user_guide/launch.rst:93
+msgid ""
+"Xinference supports batching for higher throughput. For LLMs on the "
+"``transformers`` engine, continuous batching is available and can be enabled"
+" via environment variables at launch time."
+msgstr ""
+"Xinference suporta processamento em lote para aumentar a taxa de "
+"transferência. Para modelos de linguagem grandes baseados no mecanismo "
+"``transformers``, é possível ativar a funcionalidade de processamento em "
+"lote contínuo, que pode ser configurada durante a inicialização por meio de "
+"variáveis de ambiente."
+
+#: ../../source/user_guide/launch.rst:96
+msgid "Key settings:"
+msgstr "**Configuração Chave:**"
+
+#: ../../source/user_guide/launch.rst:98
+msgid ""
+"``XINFERENCE_BATCH_SIZE`` and ``XINFERENCE_BATCH_INTERVAL`` for general "
+"batching behavior."
+msgstr ""
+"`XINFERENCE_BATCH_SIZE` e `XINFERENCE_BATCH_INTERVAL` são usados para "
+"controlar o comportamento comum de processamento em lote."
+
+#: ../../source/user_guide/launch.rst:99
+msgid ""
+"``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` for text-to-image models (when "
+"supported)."
+msgstr ""
+"``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` (modelo de texto para imagem, "
+"quando suportado)."
+
+#: ../../source/user_guide/launch.rst:101
+msgid "Example (LLM, transformers):"
+msgstr "Exemplo (Large Language Model, Transformers)"
+
+#: ../../source/user_guide/launch.rst:108
+msgid "Example (text-to-image):"
+msgstr "Exemplo (Texto para imagem):"
+
+#: ../../source/user_guide/launch.rst:114
+msgid ""
+"For detailed behavior, supported models, and aborting requests, see "
+":ref:`Continuous Batching <user_guide_continuous_batching>`."
+msgstr ""
+"Para informações detalhadas sobre comportamento, modelos suportados e "
+"solicitações de aborto, consulte :ref:`processamento em lote contínuo "
+"<user_guide_continuous_batching>`."
+
+#: ../../source/user_guide/launch.rst:118
+msgid "Thinking Mode"
+msgstr "Modo de Pensamento"
+
+#: ../../source/user_guide/launch.rst:120
+msgid ""
+"Some hybrid reasoning models (for example, Qwen3) support an optional "
+"*thinking mode*. You can enable this at launch time via ``--enable-"
+"thinking``."
+msgstr ""
+"Certos modelos de raciocínio híbrido (como o Qwen3) suportam um *modo de "
+"pensamento* opcional. Você pode ativar esse recurso durante a inicialização "
+"usando o parâmetro ``--enable-thinking``."
