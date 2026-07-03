@@ -1,0 +1,56 @@
+xinference/api/oauth2/auth_service.py
+  8ed0e14fd7172b48 25,112,114,134
+xinference/ui/web/ui/src/locales/ja.json
+  8ed0e14fd7172b48 469-472
+xinference/api/oauth2/scope_aliases.py
+  8ed0e14fd7172b48 1-48
+xinference/ui/web/ui/src/locales/zh.json
+  8ed0e14fd7172b48 476-479
+xinference/api/routers/admin.py
+  8ed0e14fd7172b48 1081,1088,1095
+xinference/ui/web/ui/src/router/index.js
+  8ed0e14fd7172b48 6,20,74-78,82-86,90-94,98-102,106-113,117-121,125-129,151-175
+xinference/api/tests/test_oauth2_admin_target_takeover.py
+  8ed0e14fd7172b48 1-97
+xinference/ui/web/ui/src/locales/ko.json
+  8ed0e14fd7172b48 469-472
+xinference/api/tests/test_oauth2_scope_alias_migration.py
+  8ed0e14fd7172b48 1-73
+xinference/ui/web/ui/src/utils/jwt.js
+  8ed0e14fd7172b48 1-33
+xinference/ui/web/ui/src/scenes/user_management/index.js
+  8ed0e14fd7172b48 35-38,43-44
+xinference/api/oauth2/advanced/auth_service.py
+  8ed0e14fd7172b48 44-46,109,117-118,555
+xinference/api/oauth2/advanced/routes.py
+  8ed0e14fd7172b48 82-112,141-169,314-315,323-325,337,352,535-537,558-560
+xinference/ui/web/ui/src/locales/en.json
+  8ed0e14fd7172b48 476-479
+xinference/ui/web/ui/src/components/MenuSide.js
+  8ed0e14fd7172b48 39,41,74-75,95-101,105-109,145-156,159-167,178,189,198-203,211-214
+xinference/ui/web/ui/src/scenes/monitoring/index.js
+  8ed0e14fd7172b48 34,37,101,104-108,414-424,457-465
+xinference/api/routers/models.py
+  8ed0e14fd7172b48 42-44,56,86,92,130,144,156,174,192,209
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "439effa7e3a2fdf468d4bcf6704850d5830a6ade",
+  "prompts": {
+    "8ed0e14fd7172b48": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "28e9d8a1-396d-4be6-9d39-38042d00108d",
+        "model": "<synthetic>"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 77,
+      "total_deletions": 146,
+      "accepted_lines": 514,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/13c7b8a875057eba40f2d75abe5c975ea028a2ca5bd3c9e5f9ce6a84feb2010a"
+    }
+  }
+}
