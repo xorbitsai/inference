@@ -1,0 +1,202 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-08-02 23:15+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: zh_TW <LL@li.org>\n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/development/contributing_environment.rst:3
+msgid "Creating a development environment"
+msgstr "建立開發環境"
+
+#: ../../source/development/contributing_environment.rst:6
+msgid "Table of contents:"
+msgstr "目錄"
+
+#: ../../source/development/contributing_environment.rst:8
+msgid ""
+"Before proceeding with any code modifications, it's essential to set up the "
+"necessary environment for Xinference development, which includes "
+"familiarizing yourself with Git usage, establishing an isolated environment,"
+" installing Xinference, and compiling the frontend."
+msgstr ""
+"在進行任何程式碼修改之前，建立適用於 Xinference 開發的必要環境至關重要。包括熟悉 Git 的使用、建立獨立環境、安裝 Xinference "
+"以及前端部分的編譯。"
+
+#: ../../source/development/contributing_environment.rst:12
+msgid "Getting started with Git"
+msgstr "Git 入門"
+
+#: ../../source/development/contributing_environment.rst:14
+msgid ""
+"Now that you have identified an issue you wish to resolve, an enhancement to"
+" incorporate, or documentation to enhance, it's crucial to acquaint yourself"
+" with GitHub and the Xinference codebase."
+msgstr "當你需要修復問題、新增功能或改進文件時，熟悉 GitHub 和 Xinference 程式碼庫非常重要。"
+
+#: ../../source/development/contributing_environment.rst:17
+msgid ""
+"To the new user, working with Git is one of the more intimidating aspects of"
+" contributing to Xinference. It can very quickly become overwhelming, but "
+"sticking to the guidelines below will help simplify the process and minimize"
+" potential issues. As always, if you are having difficulties please feel "
+"free to ask for help."
+msgstr ""
+"對新使用者來說，使用 Git 是參與 Xinference "
+"開發最令人畏懼的環節之一。很快就會感到壓力龐大，但以下指南將有助於簡化流程並減少潛在問題。如果您遇到難以解決的問題，歡迎在社群中尋求協助。"
+
+#: ../../source/development/contributing_environment.rst:22
+msgid ""
+"The code is hosted on `GitHub <https://github.com/xorbitsai/inference>`_. To"
+" contribute you will need to sign up for a `free GitHub account "
+"<https://github.com/signup/free>`_. We use `Git <https://git-scm.com/>`_ for"
+" version control to allow many people to work together on the project."
+msgstr ""
+"Xinference 的程式碼託管在 `GitHub <https://github.com/xorbitsai/inference>`_ 。要參與 "
+"Xinference 程式碼貢獻，你需要註冊一個 `免費的 GitHub 帳戶 <https://github.com/signup/free>`_ "
+"。我們使用 `Git <https://git-scm.com/>`_ 進行版本控制，以便大家共同參與專案的開發。"
+
+#: ../../source/development/contributing_environment.rst:27
+msgid ""
+"`GitHub has instructions <https://help.github.com/set-up-git-redirect>`__ "
+"for installing git, setting up your SSH key, and configuring git. All these "
+"steps need to be completed before you can work seamlessly between your local"
+" repository and GitHub."
+msgstr ""
+"你可以參考 `GitHub 指南 <https://help.github.com/set-up-git-redirect>`_ 來安裝 git，設定 "
+"SSH 金鑰以及配置 git。你需要完成這些步驟，以確保你的本地端儲存庫和 GitHub 可以正常運作，後續的工作才能順利進行。"
+
+#: ../../source/development/contributing_environment.rst:31
+msgid "Some great resources for learning Git:"
+msgstr "以下是一些很好的學習 Git 的資源："
+
+#: ../../source/development/contributing_environment.rst:33
+msgid "`Official Git Documentation <https://git-scm.com/doc>`_"
+msgstr "`Git 官方文件 <https://git-scm.com/doc>`_"
+
+#: ../../source/development/contributing_environment.rst:34
+msgid "`Pro Git Book <https://git-scm.com/book/en/v2>`_"
+msgstr "`Pro Git 書籍 <https://git-scm.com/book/en/v2>`_"
+
+#: ../../source/development/contributing_environment.rst:35
+msgid "`Git Tutorial by Atlassian <https://www.atlassian.com/git/tutorials>`_"
+msgstr "`Atlassian 提供的 Git 教程 <https://www.atlassian.com/git/tutorials>`_"
+
+#: ../../source/development/contributing_environment.rst:36
+msgid ""
+"`Git - Concise Guide <http://rogerdudler.github.io/git-"
+"guide/index.zh.html>`_"
+msgstr "`Git-簡明指南 <http://rogerdudler.github.io/git-guide/index.zh.html>`_"
+
+#: ../../source/development/contributing_environment.rst:39
+msgid ""
+"If the speed of ``git clone`` is slow, you can use the following command to "
+"add a proxy:"
+msgstr "如果在 ``git clone`` 程式碼的時候速度較慢，可以透過以下指令添加代理。"
+
+#: ../../source/development/contributing_environment.rst:47
+msgid "Creating an isolated environment"
+msgstr "创建一個隔離環境"
+
+#: ../../source/development/contributing_environment.rst:49
+msgid ""
+"Before formally installing Xinference, it's recommended to create an "
+"isolated environment, using Conda recommended, for ease of subsequent "
+"operations."
+msgstr "在正式安裝 Xinference 之前，建議使用 Conda 建立一個隔離環境以方便後續操作。"
+
+#: ../../source/development/contributing_environment.rst:57
+msgid "``xinf`` can be replaced with a custom Conda environment name."
+msgstr "``xinf`` 可替換為自訂的 Conda 環境名稱。"
+
+#: ../../source/development/contributing_environment.rst:59
+msgid ""
+"Afterward, you'll need to install Python and Node.js (npm) in the newly "
+"created Conda environment. Here are the commands:"
+msgstr "隨後需要在新建的 Conda 環境中安裝 Python 以及 Node.js (npm)。指令如下："
+
+#: ../../source/development/contributing_environment.rst:68
+msgid "Install from source code"
+msgstr "從原始碼安裝"
+
+#: ../../source/development/contributing_environment.rst:70
+msgid ""
+"Before we begin, please make sure that you have cloned the repository. "
+"Suppose you clone the repository as ``inference`` directory,  ``cd`` to this"
+" directory where the ``setup.cfg`` and ``setup.py`` files are located, and "
+"run the following command:"
+msgstr ""
+"在開始之前，請確保您已經克隆了儲存庫。假設您將儲存庫克隆到名為 ``inference`` 的目錄中，請進入該目錄，其中包含 ``setup.cfg``"
+" 和 ``setup.py`` 檔案，並執行以下命令："
+
+#: ../../source/development/contributing_environment.rst:79
+msgid ""
+"If the commands run successfully, you can use Xinference normally. For "
+"detailed usage instructions, refer to `using_xinference "
+"<https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html>`__."
+msgstr ""
+"如果命令能夠成功執行，接下來就能正常使用 Xinference 了，使用教學詳見 `使用 "
+"<https://inference.readthedocs.io/zh-"
+"cn/latest/getting_started/using_xinference.html>`__。"
+
+#: ../../source/development/contributing_environment.rst:83
+msgid ""
+"If errors occur or the process freezes during execution, the next step is to"
+" compile the frontend."
+msgstr "如果出現報錯或者在運行過程中卡死，那就需要進行下一步前端編譯。"
+
+#: ../../source/development/contributing_environment.rst:87
+msgid "Frontend Compilation"
+msgstr "前端編譯"
+
+#: ../../source/development/contributing_environment.rst:89
+msgid ""
+"Navigate to the ``inference/xinference/ui/web/ui`` directory. Then, execute "
+"the following command to clear the cache:"
+msgstr "首先需要進入 ``inference/xinference/ui/web/ui`` 目錄下，隨後執行如下命令清除快取："
+
+#: ../../source/development/contributing_environment.rst:96
+msgid ""
+"If the command fails to execute, you can try adding the ``--force`` option."
+msgstr "如果命令執行失敗，您可以嘗試添加 ``--force`` 選項"
+
+#: ../../source/development/contributing_environment.rst:99
+msgid ""
+"If the ``node_modules`` folder already exists in this directory, it's "
+"recommended to manually delete it before cleaning the cache."
+msgstr "如果該目錄下已經存在 ``node_modules`` 資料夾的話，建議先手動刪除該資料夾。"
+
+#: ../../source/development/contributing_environment.rst:102
+msgid ""
+"Next, execute the following command in this directory to compile the "
+"frontend:"
+msgstr "接著在該目錄下執行以下命令進行前端編譯："
+
+#: ../../source/development/contributing_environment.rst:110
+msgid ""
+"Still, if the first command fails to execute, you can try adding the "
+"``--force`` option."
+msgstr "如果第一個指令執行失敗，您仍然可以嘗試透過加入 ``--force`` 選項解決。"
+
+#: ../../source/development/contributing_environment.rst:112
+msgid ""
+"After compiling the frontend, you can ``cd`` back to the directory where the"
+" ``setup.cfg`` and ``setup.py`` files are located, and install Xinference "
+"via ``pip install -e .``."
+msgstr ""
+"編譯完前端後，您可以返回到包含 ``setup.cfg`` 和 ``setup.py`` 檔案的目錄，然後透過 ``pip install -e .``"
+" 安裝 Xinference。"

@@ -1,0 +1,540 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-07 15:50+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: zh_TW <LL@li.org>\n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/getting_started/troubleshooting.rst:5
+msgid "Troubleshooting"
+msgstr "故障排除"
+
+#: ../../source/getting_started/troubleshooting.rst:9
+msgid "No huggingface repo access"
+msgstr "沒有 huggingface 倉庫權限"
+
+#: ../../source/getting_started/troubleshooting.rst:11
+msgid ""
+"Sometimes, you may face errors accessing huggingface models, such as the "
+"following message when accessing `llama2`:"
+msgstr "獲取模型時，有時候會遇到權限問題。比如在獲取 ``llama2`` 模型時可能會有以下提示："
+
+#: ../../source/getting_started/troubleshooting.rst:18
+msgid ""
+"This typically indicates either a lack of access rights to the repository or"
+" missing huggingface access tokens. The following sections provide guidance "
+"on addressing these issues."
+msgstr ""
+"这种情况通常是缺少 Hugging Face 倉庫的權限，或者是沒有設定 Hugging Face Token。可以按照以下方式解決這個問題。"
+
+#: ../../source/getting_started/troubleshooting.rst:22
+msgid "Get access to the huggingface repo"
+msgstr "申請 Huggingface 倉庫權限"
+
+#: ../../source/getting_started/troubleshooting.rst:24
+msgid ""
+"To obtain access, navigate to the desired huggingface repository and agree "
+"to its terms and conditions. As an illustration, for the `llama2` model, you"
+" can use this link: `https://huggingface.co/meta-llama/Llama-2-7b-hf "
+"<https://huggingface.co/meta-llama/Llama-2-7b-hf>`_."
+msgstr ""
+"想要取得存取權限，請開啟對應的 huggingface 倉庫，同意其條款與注意事項。以 ``llama2`` "
+"為例，可以開啟以下連結進行申請：`https://huggingface.co/meta-llama/Llama-2-7b-hf "
+"<https://huggingface.co/meta-llama/Llama-2-7b-hf>`_."
+
+#: ../../source/getting_started/troubleshooting.rst:29
+msgid "Set up credentials to access huggingface"
+msgstr "設定存取 huggingface 憑證"
+
+#: ../../source/getting_started/troubleshooting.rst:31
+msgid ""
+"Your credential to access huggingface can be found online at "
+"`https://huggingface.co/settings/tokens "
+"<https://huggingface.co/settings/tokens>`_."
+msgstr ""
+"可以在 huggingface 頁面找到憑證，`https://huggingface.co/settings/tokens "
+"<https://huggingface.co/settings/tokens>`_."
+
+#: ../../source/getting_started/troubleshooting.rst:33
+msgid ""
+"You can set the token as an environmental variable, with ``export "
+"HUGGING_FACE_HUB_TOKEN=your_token_here``."
+msgstr "可以透過設定環境變數來設定存取憑證，``export HUGGING_FACE_HUB_TOKEN=your_token_here``。"
+
+#: ../../source/getting_started/troubleshooting.rst:37
+msgid "Incompatibility Between NVIDIA Driver and PyTorch Version"
+msgstr "NVIDIA 驅動與 PyTorch 版本不匹配"
+
+#: ../../source/getting_started/troubleshooting.rst:39
+msgid "If you are using a NVIDIA GPU, you may face the following error:"
+msgstr "如果你在使用NVIDIA顯示卡，可能會遇到以下錯誤："
+
+#: ../../source/getting_started/troubleshooting.rst:50
+msgid ""
+"This typically indicates that your CUDA driver version is not compatible "
+"with the PyTorch version you are using."
+msgstr "這種情況一般是 CUDA 的版本和 Pytorch 版本不相容導致的。"
+
+#: ../../source/getting_started/troubleshooting.rst:52
+msgid ""
+"Go to `https://pytorch.org <https://pytorch.org>`_ to install a PyTorch "
+"version that has been compiled with your version of the CUDA driver. **Do "
+"not install a cuda version smaller than 11.8, preferably between 11.8 and "
+"12.1.**"
+msgstr ""
+"可以到 `https://pytorch.org <https://pytorch.org>`_ 官網安裝和 CUDA 對應的預編譯版本的 "
+"PyTorch。同時，**請檢查安裝的 CUDA 版本不要小於 11.8，最好版本在 11.8 到 12.1 之間。**"
+
+#: ../../source/getting_started/troubleshooting.rst:55
+msgid ""
+"Say if your CUDA driver version is 11.8, then you can install PyTorch with "
+"the following command:"
+msgstr "例如你的 CUDA 版本是 11.8，可以使用以下指令安裝對應的 PyTorch："
+
+#: ../../source/getting_started/troubleshooting.rst:63
+msgid ""
+"Xinference service cannot be accessed from external systems through "
+"``<IP>:9997``"
+msgstr "外部系統無法透過 ``<IP>:9997`` 存取 Xinference 服務"
+
+#: ../../source/getting_started/troubleshooting.rst:65
+msgid "Use ``-H 0.0.0.0`` parameter in when starting Xinference:"
+msgstr "在啟動 Xinference 時記得要加上 ``-H 0.0.0.0`` 參數:"
+
+#: ../../source/getting_started/troubleshooting.rst:71
+msgid ""
+"Then Xinference service will listen on all network interfaces (not limited "
+"to ``127.0.0.1`` or ``localhost``)."
+msgstr "那麼 Xinference 服務將監聽所有網路介面（而不僅限於 ``127.0.0.1`` 或 ``localhost``）。"
+
+#: ../../source/getting_started/troubleshooting.rst:73
+msgid ""
+"If you are using the :ref:`using_docker_image`, please add ``-p "
+"<PORT>:9997`` during the docker run command, then access is available "
+"through ``<IP>:<PORT>`` of the local machine."
+msgstr ""
+"如果使用的是 :ref:`using_docker_image`，請在 Docker 運行命令中加上 ``-p "
+"<PORT>:9997``，你就可以透過本地機器的 ``<IP>:<PORT>`` 進行存取。"
+
+#: ../../source/getting_started/troubleshooting.rst:78
+msgid ""
+"Launching a built-in model takes a long time, and sometimes the model fails "
+"to download"
+msgstr "啟動內建模型需要很長時間，模型有時下載失敗"
+
+#: ../../source/getting_started/troubleshooting.rst:80
+msgid ""
+"Xinference by default uses HuggingFace as the source for models. If your "
+"machines are in Mainland China, there might be accessibility issues when "
+"using built-in models."
+msgstr "Xinference 預設使用 HuggingFace 作為模型來源。如果你的機器在中國大陸，使用內建模型可能會遇到存取問題。"
+
+#: ../../source/getting_started/troubleshooting.rst:84
+msgid ""
+"To address this, add environment variable "
+"``XINFERENCE_MODEL_SRC=modelscope`` when starting the Xinference to change "
+"the model source to ModelScope, which is optimized for Mainland China."
+msgstr ""
+"要解決這個問題，可以在啟動 Xinference 時添加環境變數 "
+"``XINFERENCE_MODEL_SRC=modelscope``，將模型來源更改為 ModelScope，在中國大陸下載速度更快。"
+
+#: ../../source/getting_started/troubleshooting.rst:88
+msgid ""
+"If you’re starting Xinference with Docker, include ``-e "
+"XINFERENCE_MODEL_SRC=modelscope`` during the docker run command."
+msgstr ""
+"如果你用 Docker 啟動 Xinference，可以在 Docker 命令中包含 ``-e "
+"XINFERENCE_MODEL_SRC=modelscope`` 選項。"
+
+#: ../../source/getting_started/troubleshooting.rst:92
+msgid ""
+"When using the official Docker image, RayWorkerVllm died due to OOM, causing"
+" the model to fail to load"
+msgstr "使用官方 Docker 映像時，RayWorkerVllm 因 OOM 而死亡，導致模型無法載入"
+
+#: ../../source/getting_started/troubleshooting.rst:94
+msgid ""
+"Docker's ``--shm-size`` parameter is used to set the size of shared memory. "
+"The default size of shared memory (/dev/shm) is 64MB, which may be too small"
+" for vLLM backend."
+msgstr ""
+"Docker 的 ``--shm-size`` 參數可以用來設定共享記憶體的大小。共享記憶體(/dev/shm)的預設大小是 64MB，對於 vLLM "
+"後端來說可能不夠。"
+
+#: ../../source/getting_started/troubleshooting.rst:98
+msgid ""
+"You can increase its size by setting the ``--shm-size`` parameter as "
+"follows:"
+msgstr "你可以透過設定參數 ``--shm-size`` 來增加它的大小："
+
+#: ../../source/getting_started/troubleshooting.rst:106
+msgid "Missing ``model_engine`` parameter when launching LLM models"
+msgstr "載入 LLM 模型時提示缺少 ``model_engine`` 參數"
+
+#: ../../source/getting_started/troubleshooting.rst:108
+msgid ""
+"Since version ``v0.11.0``, launching LLM models requires an additional "
+"``model_engine`` parameter. For specific information, please refer to "
+":ref:`here <about_model_engine>`."
+msgstr ""
+"自 ``v0.11.0`` 版本開始，載入 LLM 模型時需要傳入額外參數 ``model_engine`` 。具體資訊請參考 :ref:`這裡 "
+"<about_model_engine>` 。"
+
+#: ../../source/getting_started/troubleshooting.rst:112
+msgid "Resolving MKL Threading Layer Conflicts"
+msgstr "解決 MKL 執行緒層衝突"
+
+#: ../../source/getting_started/troubleshooting.rst:114
+msgid ""
+"When starting the Xinference server, you may encounter the error: "
+"``ValueError: Model architectures ['Qwen2ForCausalLM'] failed to be "
+"inspected. Please check the logs for more details.``"
+msgstr ""
+"在啟動 Xinference 伺服器時，如果遇到錯誤：``ValueError: Model architectures "
+"['Qwen2ForCausalLM'] failed to be inspected. . Please check the logs for "
+"more details.``"
+
+#: ../../source/getting_started/troubleshooting.rst:116
+msgid "The underlying cause shown in the logs is:"
+msgstr "日誌中顯示的根本原因是："
+
+#: ../../source/getting_started/troubleshooting.rst:123
+msgid ""
+"This typically occurs when NumPy was installed via conda. Conda's NumPy is "
+"built with Intel MKL optimizations, which conflicts with the GNU OpenMP "
+"library (libgomp) already loaded in your environment."
+msgstr ""
+"這通常是因為你的 NumPy 是透過 conda 安裝的，而 conda 的 NumPy 是使用 Intel MKL "
+"最佳化構建的，這導致它與環境中已載入的 GNU OpenMP 庫（libgomp）產生衝突。"
+
+#: ../../source/getting_started/troubleshooting.rst:126
+msgid "Solution 1: Override the Threading Layer"
+msgstr "解決方案 1：重寫執行緒層"
+
+#: ../../source/getting_started/troubleshooting.rst:128
+msgid "Force Intel's Math Kernel Library to use GNU's OpenMP implementation:"
+msgstr "設定 MKL_THREADING_LAYER=GNU 可以強制 Intel 數學核心庫（MKL）使用 GNU 的 OpenMP 實現："
+
+#: ../../source/getting_started/troubleshooting.rst:135
+msgid "Solution 2: Reinstall NumPy with pip"
+msgstr "解決方案 2：使用 pip 重新安裝 NumPy"
+
+#: ../../source/getting_started/troubleshooting.rst:137
+msgid "Uninstall conda's NumPy and reinstall using pip:"
+msgstr "卸載 conda 安裝的 numpy，然後使用 pip 重新安裝。"
+
+#: ../../source/getting_started/troubleshooting.rst:146
+msgid "Related Note: vLLM and PyTorch"
+msgstr "相關說明：vLLM 與 PyTorch"
+
+#: ../../source/getting_started/troubleshooting.rst:148
+msgid ""
+"If you're using vLLM, avoid installing PyTorch with conda. Refer to the "
+"official vLLM installation guide for GPU-specific instructions: "
+"https://docs.vllm.ai/en/latest/getting_started/installation/gpu.html"
+msgstr ""
+"如果你在使用 vLLM，請避免透過 conda 安裝 PyTorch。有關特定 GPU 的安裝說明，請參閱 vLLM "
+"官方安裝指南：https://docs.vllm.ai/en/latest/getting_started/installation/gpu.html"
+
+#: ../../source/getting_started/troubleshooting.rst:151
+msgid "Configuring PyPI Mirrors to Speed Up Package Installation"
+msgstr "配置 PyPI 鏡像以加快軟體套件安裝速度"
+
+#: ../../source/getting_started/troubleshooting.rst:153
+msgid ""
+"If you're in Mainland China, using a PyPI mirror can significantly speed up "
+"package installation. Here are some commonly used mirrors:"
+msgstr "如果你在中國大陸，使用 PyPI 鏡像可以顯著加快軟體套件的安裝速度。以下是一些常用的鏡像源："
+
+#: ../../source/getting_started/troubleshooting.rst:155
+msgid "Tsinghua University: ``https://pypi.tuna.tsinghua.edu.cn/simple``"
+msgstr "清華大學鏡像：``https://pypi.tuna.tsinghua.edu.cn/simple``"
+
+#: ../../source/getting_started/troubleshooting.rst:156
+msgid "Alibaba Cloud: ``https://mirrors.aliyun.com/pypi/simple/``"
+msgstr "阿里雲鏡像：``https://mirrors.aliyun.com/pypi/simple/``"
+
+#: ../../source/getting_started/troubleshooting.rst:157
+msgid "Tencent Cloud: ``https://mirrors.cloud.tencent.com/pypi/simple``"
+msgstr "騰訊雲鏡像：``https://mirrors.cloud.tencent.com/pypi/simple``"
+
+#: ../../source/getting_started/troubleshooting.rst:159
+msgid ""
+"However, be aware that some packages may not be available on certain "
+"mirrors. For example, if you're installing ``xinference[audio]`` using only "
+"the Aliyun mirror, the installation may fail."
+msgstr "但請注意，某些映像源上可能缺少部分軟體套件。例如，如果你僅使用阿里雲映像安裝 ``xinference[audio]``，安裝可能會失敗。"
+
+#: ../../source/getting_started/troubleshooting.rst:161
+msgid ""
+"This happens because ``num2words``, a dependency used by ``MeloTTS``, is not"
+" available on the Aliyun mirror. As a result, ``pip install "
+"xinference[audio]`` will resolve to older versions like "
+"``xinference==1.2.0`` and ``xoscar==0.8.0`` (as of Oct 27, 2025)."
+msgstr ""
+"這是因為 ``MeloTTS`` 所依賴的 ``num2words`` 軟體套件在阿里雲鏡像上不可用。因此，在執行 ``pip install "
+"xinference[audio]`` 時，可能會回退安裝舊版本，例如 ``xinference==1.2.0`` 和 "
+"``xoscar==0.8.0`` （截至 2025 年 10 月 27 日）。"
+
+#: ../../source/getting_started/troubleshooting.rst:163
+msgid ""
+"These older versions are incompatible and will produce the error: "
+"``MainActorPool.append_sub_pool() got an unexpected keyword argument "
+"'start_method'``"
+msgstr ""
+"這些舊版本不相容，會導致以下錯誤：``MainActorPool.append_sub_pool() got an unexpected keyword"
+" argument 'start_method'``"
+
+#: ../../source/getting_started/troubleshooting.rst:174
+msgid ""
+"To avoid this issue when installing the xinference audio package, use "
+"multiple mirrors:"
+msgstr "為避免在安裝 xinference 音訊套件時出現此問題，建議同時使用多個映像來源："
+
+#: ../../source/getting_started/troubleshooting.rst:188
+msgid "Installing Xinference 1.12.0 with uv Fails (As of November 2025)"
+msgstr "使用 uv 安裝 Xinference 1.12.0 失敗（截至 2025 年 11 月）"
+
+#: ../../source/getting_started/troubleshooting.rst:190
+msgid ""
+"**Note:** This is a temporary issue due to the current package ecosystem and"
+" uv prioritizing **higher versions for direct dependencies** over **indirect"
+" dependencies**."
+msgstr ""
+"**注意：** 這是一個暫時性的問題，原因在於目前的軟體套件生態系統以及 uv 的依賴解析策略——它會優先選擇 **直接依賴的高版本**，而不是 "
+"**間接依賴的版本**。"
+
+#: ../../source/getting_started/troubleshooting.rst:193
+#: ../../source/getting_started/troubleshooting.rst:250
+msgid "Symptom"
+msgstr "症狀"
+
+#: ../../source/getting_started/troubleshooting.rst:195
+msgid ""
+"When installing xinference 1.12.0 as of November 2025 using ``uv pip install"
+" xinference``, you may encounter an issue where very old package versions "
+"are installed, particularly:"
+msgstr ""
+"在 2025 年 11 月使用 ``uv pip install xinference`` 安裝 xinference 1.12.0 "
+"時，你可能會遇到安裝到非常舊版本依賴套件的問題，尤其是："
+
+#: ../../source/getting_started/troubleshooting.rst:197
+msgid "``transformers==4.12.2`` (from 2021)"
+msgstr "``transformers==4.12.2`` （來自 2021 年的版本）"
+
+#: ../../source/getting_started/troubleshooting.rst:198
+msgid "``tokenizers==0.10.3`` (from 2021)"
+msgstr "``tokenizers==0.10.3`` （來自 2021 年的版本）"
+
+#: ../../source/getting_started/troubleshooting.rst:199
+msgid "``huggingface-hub==1.0.1``"
+msgstr ""
+
+#: ../../source/getting_started/troubleshooting.rst:201
+msgid "Then uv fails with \"Failed to build `tokenizers==0.10.3`\""
+msgstr ""
+"隨後 uv 報錯：\"Failed to build `tokenizers==0.10.3`\"（建置 `tokenizers==0.10.3` "
+"失敗）"
+
+#: ../../source/getting_started/troubleshooting.rst:204
+#: ../../source/getting_started/troubleshooting.rst:261
+msgid "Root Cause"
+msgstr "根本原因"
+
+#: ../../source/getting_started/troubleshooting.rst:206
+msgid ""
+"This occurs because uv prioritizes **higher versions for direct "
+"dependencies** over **indirect dependencies**:"
+msgstr "出現該問題的原因是 uv 會優先選擇 **直接依賴的高版本**，而忽略 **間接依賴** 中的版本要求："
+
+#: ../../source/getting_started/troubleshooting.rst:208
+msgid ""
+"xinference 1.12.0 specifies ``huggingface-hub>=0.19.4`` as a **direct "
+"dependency** (no upper bound)"
+msgstr "xinference 1.12.0 將 ``huggingface-hub>=0.19.4`` 指定為 **直接依賴** （沒有上限約束）"
+
+#: ../../source/getting_started/troubleshooting.rst:209
+msgid ""
+"uv selects the latest: ``huggingface-hub==1.0.1`` as of November 06 2025"
+msgstr "截至 2025 年 11 月 6 日，uv 會選擇最新版本：``huggingface-hub==1.0.1``"
+
+#: ../../source/getting_started/troubleshooting.rst:210
+msgid ""
+"However, ``transformers<=4.57.3`` (an **indirect dependency** via ``peft``) "
+"requires ``huggingface-hub<1.0``"
+msgstr ""
+"然而，``transformers<=4.57.3`` （透過 ``peft`` 引入的 **間接依賴** ）要求 ``huggingface-"
+"hub<1.0``"
+
+#: ../../source/getting_started/troubleshooting.rst:211
+msgid ""
+"To resolve the conflict, uv keeps the direct dependency at 1.0.1 and "
+"downgrades the indirect dependency ``transformers`` to ancient version "
+"4.12.2"
+msgstr ""
+"為了解決依賴衝突，uv 保留了直接依賴 ``huggingface-hub==1.0.1``，並將間接依賴 ``transformers`` "
+"降級到了非常舊的版本 4.12.2。"
+
+#: ../../source/getting_started/troubleshooting.rst:213
+msgid ""
+"**This is by design in uv**: it prioritizes what you explicitly ask for "
+"(direct dependencies) over transitive dependencies. Refer to "
+"https://github.com/astral-sh/uv/issues/16601"
+msgstr ""
+"**這屬於 uv "
+"的設計特性**：它會優先滿足你明確指定的相依項目（直接相依），而非遞迴相依。參考連結：https://github.com/astral-"
+"sh/uv/issues/16601"
+
+#: ../../source/getting_started/troubleshooting.rst:215
+msgid ""
+"**Update:** The latest transformers 4.57.3 (as in 2026.01.05) still requires"
+" ``huggingface-hub<1.0``."
+msgstr ""
+"**更新：** 截至 2026.01.05，transformers 最新版本 4.57.3 依然 依賴 ``huggingface-"
+"hub<1.0``。"
+
+#: ../../source/getting_started/troubleshooting.rst:218
+msgid "Solutions"
+msgstr "解決方案"
+
+#: ../../source/getting_started/troubleshooting.rst:220
+msgid "**Solution 1: Pre-constrain huggingface-hub (Recommended)**"
+msgstr "**解決方案 1：預先限定 huggingface-hub 版本（推薦）**"
+
+#: ../../source/getting_started/troubleshooting.rst:222
+msgid ""
+"Explicitly constrain ``huggingface-hub`` to a compatible version range:"
+msgstr "顯式地將 ``huggingface-hub`` 限定在一個相容的版本範圍內："
+
+#: ../../source/getting_started/troubleshooting.rst:228
+msgid ""
+"This forces uv to select a ``huggingface-hub`` version that's compatible "
+"with modern ``transformers``."
+msgstr "這樣可以強制 uv 選擇與現代版本 ``transformers`` 相容的 ``huggingface-hub`` 版本。"
+
+#: ../../source/getting_started/troubleshooting.rst:230
+msgid "**Solution 2: Make transformers a direct dependency**"
+msgstr "**解決方案 2：將 transformers 設為直接依賴**"
+
+#: ../../source/getting_started/troubleshooting.rst:232
+msgid ""
+"By specifying ``transformers`` explicitly, it becomes a direct dependency "
+"and uv will prefer higher versions:"
+msgstr "透過明確指定 ``transformers``，它會成為直接依賴，uv 將優先選擇更高版本："
+
+#: ../../source/getting_started/troubleshooting.rst:238
+msgid "**Solution 3: Use pip**"
+msgstr "**解決方案 3：使用 pip**"
+
+#: ../../source/getting_started/troubleshooting.rst:240
+msgid ""
+"Or just resort to using ``pip install xinference`` which will resolve to the"
+" following versions"
+msgstr "或者直接使用 ``pip install xinference``，它會自動解析到以下版本組合："
+
+#: ../../source/getting_started/troubleshooting.rst:242
+msgid "``transformers==4.57.1``"
+msgstr ""
+
+#: ../../source/getting_started/troubleshooting.rst:243
+msgid "``huggingface-hub==0.36.0``"
+msgstr ""
+
+#: ../../source/getting_started/troubleshooting.rst:244
+msgid "``tokenizers==0.22.1``"
+msgstr ""
+
+#: ../../source/getting_started/troubleshooting.rst:247
+msgid "vLLM + Torch + Xinference Compatibility Issue (Segmentation Fault)"
+msgstr "vLLM + Torch + Xinference 相容性問題（段錯誤）"
+
+#: ../../source/getting_started/troubleshooting.rst:252
+msgid ""
+"If you have **vLLM < 0.12.0** installed and upgrade xinference (particularly"
+" using ``uv pip install -U xinference``), xinference may fail to start with "
+"a segmentation fault:"
+msgstr ""
+"若您安裝的是 **vLLM < 0.12.0**，且已升級 xinference（特別是使用 ``uv pip install -U "
+"xinference`` 時），xinference 可能在啟動時因區段錯誤而失敗："
+
+#: ../../source/getting_started/troubleshooting.rst:263
+msgid "This issue has three contributing factors:"
+msgstr "該問題由三個因素共同導致："
+
+#: ../../source/getting_started/troubleshooting.rst:265
+msgid ""
+"**Binary Incompatibility**: vLLM versions before 0.12.0 were compiled "
+"against PyTorch 2.8.0. These versions are incompatible with PyTorch 2.9. "
+"Reference: `vLLM v0.12.0 Release Notes <https://github.com/vllm-"
+"project/vllm/releases/tag/v0.12.0>`_"
+msgstr ""
+"**二進位不相容性**：vLLM 在 0.12.0 之前的版本是基於 PyTorch 2.8.0 編譯的，這些版本與 PyTorch 2.9 "
+"不相容。參考：`vLLM v0.12.0 發布說明 <https://github.com/vllm-"
+"project/vllm/releases/tag/v0.12.0>`_"
+
+#: ../../source/getting_started/troubleshooting.rst:267
+msgid ""
+"**Xinference's Unbounded Torch Dependency**: Xinference's ``setup.cfg`` does"
+" not specify an upper bound for PyTorch:"
+msgstr ""
+"**Xinference 對 Torch 依賴未設定上限**：Xinference 的 ``setup.cfg`` 中未為 PyTorch "
+"指定版本上限："
+
+#: ../../source/getting_started/troubleshooting.rst:275
+msgid ""
+"This allows package managers to upgrade PyTorch to incompatible versions."
+msgstr ""
+
+#: ../../source/getting_started/troubleshooting.rst:277
+msgid "**Different Package Manager Behaviors**:"
+msgstr "**不同套件管理員的行為差異**："
+
+#: ../../source/getting_started/troubleshooting.rst:279
+msgid ""
+"**pip**: Conservative - only upgrades the specified package unless "
+"dependencies are incompatible"
+msgstr "**pip**：較為保守 —— 僅在相依性不相容時，才會升級相關相依性，否則只升級指定的套件。"
+
+#: ../../source/getting_started/troubleshooting.rst:280
+msgid ""
+"**uv with -U flag**: Aggressive - re-resolves ALL dependencies and picks "
+"latest versions"
+msgstr "**使用 -U 參數的 uv**：策略較為激進 —— 會重新解析**所有**依賴，並選擇最新版本"
+
+#: ../../source/getting_started/troubleshooting.rst:283
+msgid ""
+"Therefore before you're ready to upgrade your entire stack and just want to "
+"upgrade xinference, use either:"
+msgstr "因此，在你尚未準備好升級整個技術棧、而只是想升級 xinference 時，可以選擇使用："
+
+#: ../../source/getting_started/troubleshooting.rst:285
+msgid ""
+"``pip install -U xinference`` (keeps PyTorch unchanged, only upgrades "
+"xinference)"
+msgstr ""
+"```\n"
+"pip install -U xinference\n"
+"``` （保持 PyTorch 版本不變，僅升級 xinference）"
+
+#: ../../source/getting_started/troubleshooting.rst:286
+msgid ""
+"``uv pip install \"xinference==1.16.0\"`` (without -U flag, only upgrades "
+"xinference too)"
+msgstr ""
+"```\n"
+"uv pip install \"xinference==1.16.0\"\n"
+"```（不使用 -U 參數，同樣只會升級 xinference）"
