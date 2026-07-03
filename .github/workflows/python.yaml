@@ -218,7 +218,7 @@ jobs:
             pip install -U "pynvml"
             pip install "transformers==4.53.2"
             pip install "funasr==1.2.7"
-            conda install -y -c conda-forge "pynini==2.1.5" ffmpeg
+            conda install -y -c conda-forge "pynini==2.1.5" "ffmpeg<7"
             pip install -U "nemo_text_processing<1.1.0"
             pip install -U omegaconf~=2.3.0
             pip install -U "WeTextProcessing<1.0.4"
