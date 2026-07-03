@@ -32,11 +32,16 @@ import Title from '../../components/Title'
 
 const ALL_PERMISSIONS = [
   { group: 'admin', items: ['admin'] },
-  { group: 'models', items: ['models:list', 'models:read', 'models:write'] },
+  {
+    group: 'models',
+    items: ['models:list', 'models:read', 'models:write', 'models:register'],
+  },
   { group: 'keys', items: ['keys:create', 'keys:manage'] },
   { group: 'users', items: ['users:manage'] },
   { group: 'cache', items: ['cache:list', 'cache:delete'] },
   { group: 'virtualenv', items: ['virtualenv:list', 'virtualenv:delete'] },
+  { group: 'logs', items: ['logs:list'] },
+  { group: 'monitor', items: ['monitor:view'] },
 ]
 
 const ALL_PERMISSION_VALUES = ALL_PERMISSIONS.flatMap((g) => g.items)
