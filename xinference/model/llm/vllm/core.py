@@ -547,6 +547,7 @@ class VLLMModel(LLM):
             yield
             return
 
+        import errno
         import fcntl
 
         from ....constants import XINFERENCE_CACHE_DIR
@@ -579,7 +580,28 @@ class VLLMModel(LLM):
                     fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
                     lock_acquired = True
                     break
-                except (BlockingIOError, OSError):
+                except OSError as e:
+                    # Distinguish "lock held by another process" from
+                    # "filesystem does not support locking" (e.g. NFS,
+                    # ENOTSUP / ENOSYS). The former is retryable; the
+                    # latter must abort immediately to avoid hanging
+                    # for the full timeout on a fundamentally broken
+                    # cache path.
+                    retryable = e.errno in (
+                        errno.EAGAIN,
+                        errno.EWOULDBLOCK,
+                        errno.EACCES,
+                    )
+                    if not retryable:
+                        logger.warning(
+                            "flashinfer jit serialize UNSUPPORTED FS "
+                            "model=%s errno=%d (%s) - continuing without "
+                            "lock (may race on flashinfer cache)",
+                            self.model_uid,
+                            e.errno,
+                            e.strerror or str(e),
+                        )
+                        break
                     if time.time() >= deadline:
                         logger.warning(
                             "flashinfer jit serialize TIMEOUT model=%s "

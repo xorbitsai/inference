@@ -1691,16 +1691,25 @@ class TestFlashinferWarmup:
                 raise _Boom("simulated engine construction failure")
 
         # Re-enter: would deadlock if previous call leaked the lock.
-        # Use a short timeout to fail fast.
+        # Use a short timeout to fail fast. Also assert the re-entry is
+        # fast (<1s) — if the lock was leaked, the second call would
+        # block for the full 2s timeout and still pass the assertion
+        # without this timing check.
+        import time
+
         import xinference.model.llm.vllm.core as core_mod
 
         original_timeout = core_mod._FLASHINFER_WARMUP_TIMEOUT
         core_mod._FLASHINFER_WARMUP_TIMEOUT = 2
+        t0 = time.time()
         try:
             with serialize_model._serialize_flashinfer_jit():
                 pass
         finally:
             core_mod._FLASHINFER_WARMUP_TIMEOUT = original_timeout
+        assert (
+            time.time() - t0 < 1.0
+        ), "Re-entry took too long — previous call may have leaked the lock"
 
     def test_serialize_yields_without_engine(self, serialize_model):
         """Context manager yields regardless of self._engine state.
@@ -1714,3 +1723,32 @@ class TestFlashinferWarmup:
         assert not hasattr(serialize_model, "_engine")
         with serialize_model._serialize_flashinfer_jit():
             pass
+
+    def test_serialize_unsupported_filesystem(self, serialize_model, monkeypatch):
+        """Should proceed immediately without hanging if flock is
+        unsupported (e.g. NFS with ENOTSUP / ENOSYS).
+
+        Without the errno-based distinction, this would hang for the
+        full _FLASHINFER_WARMUP_TIMEOUT (1800s default) before giving
+        up — a serious operational hazard on network filesystems.
+        """
+        import errno
+        import fcntl
+        import time
+
+        serialize_model.model_family.architectures = [
+            "Qwen3_5MoeForConditionalGeneration"
+        ]
+
+        def mock_flock(fd, op):
+            raise OSError(errno.ENOTSUP, "Operation not supported")
+
+        monkeypatch.setattr(fcntl, "flock", mock_flock)
+
+        t0 = time.time()
+        with serialize_model._serialize_flashinfer_jit():
+            pass
+        # Should not wait for the 1800s default timeout.
+        assert time.time() - t0 < 1.0, (
+            "Lock acquisition on unsupported filesystem hung instead of " "failing fast"
+        )
