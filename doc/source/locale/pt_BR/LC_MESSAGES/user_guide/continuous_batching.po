@@ -1,0 +1,202 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-05-27 19:02+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: pt_BR <LL@li.org>\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/continuous_batching.rst:5
+msgid "Continuous Batching"
+msgstr "Processamento em lote contínuo"
+
+#: ../../source/user_guide/continuous_batching.rst:7
+msgid ""
+"Continuous batching, as a means to improve throughput during model serving, "
+"has already been implemented in inference engines like ``VLLM``. Xinference "
+"aims to provide this optimization capability when using the transformers "
+"engine as well."
+msgstr ""
+"O processamento em lote contínuo é uma tecnologia importante para aumentar a"
+" taxa de transferência em mecanismos de inferência como o ``VLLM``. O "
+"Xinference visa melhorar a taxa de transferência do mecanismo de inferência "
+"``transformers`` por meio dessa tecnologia."
+
+#: ../../source/user_guide/continuous_batching.rst:11
+msgid "Usage"
+msgstr "Modo de uso"
+
+#: ../../source/user_guide/continuous_batching.rst:14
+msgid "LLM"
+msgstr "Grande modelo de linguagem"
+
+#: ../../source/user_guide/continuous_batching.rst:15
+msgid "Currently, this feature can be enabled under the following conditions:"
+msgstr ""
+"Atualmente, este recurso está ativado quando as seguintes condições são "
+"atendidas:"
+
+#: ../../source/user_guide/continuous_batching.rst:17
+msgid ""
+"First, set the environment variable "
+"``XINFERENCE_TRANSFORMERS_ENABLE_BATCHING`` to ``1`` when starting "
+"xinference. For example:"
+msgstr ""
+"Primeiro, ao iniciar o Xinference, você precisa definir a variável de "
+"ambiente ``XINFERENCE_TRANSFORMERS_ENABLE_BATCHING`` como ``1``."
+
+#: ../../source/user_guide/continuous_batching.rst:25
+msgid ""
+"Since ``v0.16.0``, this feature is turned on by default and is no longer "
+"required to set the ``XINFERENCE_TRANSFORMERS_ENABLE_BATCHING`` environment "
+"variable. This environment variable has been removed."
+msgstr ""
+"A partir da ``v0.16.0``, esta função é ativada por padrão, não sendo mais "
+"necessário definir a variável de ambiente "
+"``XINFERENCE_TRANSFORMERS_ENABLE_BATCHING``, e essa variável foi removida."
+
+#: ../../source/user_guide/continuous_batching.rst:30
+msgid ""
+"Then, ensure that the ``transformers`` engine is selected when launching the"
+" model. For example:"
+msgstr ""
+"Em seguida, ao iniciar o modelo LLM, selecione o mecanismo de inferência "
+"``transformers``. Por exemplo:"
+
+#: ../../source/user_guide/continuous_batching.rst:66
+msgid ""
+"Once this feature is enabled, all requests for LLMs will be managed by "
+"continuous batching, and the average throughput of requests made to a single"
+" model will increase. The usage of the LLM interface remains exactly the "
+"same as before, with no differences."
+msgstr ""
+"Uma vez que este recurso esteja ativado, todas as interfaces dos modelos LLM"
+" serão gerenciadas por ele. O modo de uso de todas as interfaces permanece "
+"inalterado."
+
+#: ../../source/user_guide/continuous_batching.rst:71
+msgid "Image Model"
+msgstr "Modelo de imagem"
+
+#: ../../source/user_guide/continuous_batching.rst:72
+msgid ""
+"Currently, for image models, only the ``text_to_image`` interface is "
+"supported for ``FLUX.1`` series models."
+msgstr ""
+"Atualmente, apenas a interface ``text_to_image`` dos modelos da série "
+"``FLUX.1`` suporta essa funcionalidade."
+
+#: ../../source/user_guide/continuous_batching.rst:74
+msgid ""
+"Enabling this feature requires setting the environment variable "
+"``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE``, which indicates the ``size`` of "
+"the generated images."
+msgstr ""
+"Para ativar esta funcionalidade no modelo de imagem, é necessário "
+"especificar a variável de ambiente "
+"``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` ao iniciar o xinference, "
+"indicando o tamanho da imagem a ser gerada."
+
+#: ../../source/user_guide/continuous_batching.rst:76
+msgid "For example, starting xinference like this:"
+msgstr "Por exemplo, inicie o xinference assim:"
+
+#: ../../source/user_guide/continuous_batching.rst:83
+msgid ""
+"Then just use the ``text_to_image`` interface as before, and nothing else "
+"needs to be changed."
+msgstr ""
+"Em seguida, use a interface ``text_to_image`` normalmente, sem precisar "
+"alterar mais nada."
+
+#: ../../source/user_guide/continuous_batching.rst:86
+msgid "Abort your request"
+msgstr "Interromper requisição"
+
+#: ../../source/user_guide/continuous_batching.rst:87
+msgid ""
+"In this mode, you can abort requests that are in the process of inference."
+msgstr ""
+"Neste recurso, você pode interromper elegantemente as requisições que estão "
+"em andamento."
+
+#: ../../source/user_guide/continuous_batching.rst:89
+msgid "First, add ``request_id`` option in ``generate_config``. For example:"
+msgstr ""
+"Primeiro, especifique a opção ``request_id`` no ``generate_config`` da "
+"requisição de inferência. Por exemplo:"
+
+#: ../../source/user_guide/continuous_batching.rst:98
+msgid ""
+"Then, abort the request using the ``request_id`` you have set. For example:"
+msgstr ""
+"Em seguida, utilize o ``request_id`` que você especificou para interromper "
+"essa requisição. Por exemplo:"
+
+#: ../../source/user_guide/continuous_batching.rst:106
+msgid ""
+"Note that if your request has already finished, aborting the request will be"
+" a no-op. Image models also support this feature."
+msgstr ""
+"Nota: se sua solicitação já tiver sido concluída, esta operação não fará "
+"nada."
+
+#: ../../source/user_guide/continuous_batching.rst:110
+msgid "Note"
+msgstr "Avisos"
+
+#: ../../source/user_guide/continuous_batching.rst:112
+msgid ""
+"Currently, for ``LLM`` models, this feature only supports the ``generate``, "
+"``chat``, ``tool call`` and ``vision`` tasks."
+msgstr ""
+"Atualmente, este recurso suporta apenas as funcionalidades ``generate``, "
+"``chat``, ``tool call`` (chamada de ferramenta) e ``vision`` (multimodal) do"
+" modelo LLM."
+
+#: ../../source/user_guide/continuous_batching.rst:114
+msgid ""
+"Currently, for ``image`` models, this feature only supports the "
+"``text_to_image`` tasks. Only ``FLUX.1`` series models are supported."
+msgstr ""
+"Atualmente, para modelos de imagem, apenas o recurso `text_to_image` "
+"(geração de imagem a partir de texto) da série de modelos `FLUX.1` é "
+"suportado."
+
+#: ../../source/user_guide/continuous_batching.rst:116
+msgid ""
+"For ``vision`` tasks, currently only ``qwen2-vl-instruct``, ``qwen2.5-vl-"
+"instruct``, ``QvQ-72B-Preview``, ``glm-4v`` and ``MiniCPM-V-2.6`` (only for "
+"image tasks) models are supported. More models will be supported in the "
+"future. Please let us know your requirements."
+msgstr ""
+"Para tarefas multimodais, atualmente são suportados ``qwen2-vl-instruct``, "
+"``qwen2.5-vl-instruct``, ``QvQ-72B-Preview``, ``glm-4v`` e "
+"``MiniCPM-V-2.6``. Mais modelos serão adicionados no futuro, aguarde "
+"novidades."
+
+#: ../../source/user_guide/continuous_batching.rst:118
+msgid ""
+"If using GPU inference, this method will consume more GPU memory. Please be "
+"cautious when increasing the number of concurrent requests to the same "
+"model. The ``launch_model`` interface provides the ``max_num_seqs`` "
+"parameter to adjust the concurrency level, with a default value of ``16``."
+msgstr ""
+"Se for usar inferência com GPU, este recurso exige alta capacidade de "
+"memória de vídeo. Portanto, aumente com cuidado o número de requisições "
+"concorrentes para o mesmo modelo. A interface ``launch_model`` oferece o "
+"parâmetro opcional ``max_num_seqs`` para ajustar o nível de concorrência, "
+"com valor padrão ``16``."

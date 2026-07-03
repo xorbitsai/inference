@@ -1,0 +1,621 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-07 15:50+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: pt_BR <LL@li.org>\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/getting_started/troubleshooting.rst:5
+msgid "Troubleshooting"
+msgstr "Solução de problemas"
+
+#: ../../source/getting_started/troubleshooting.rst:9
+msgid "No huggingface repo access"
+msgstr "Sem permissão do repositório huggingface"
+
+#: ../../source/getting_started/troubleshooting.rst:11
+msgid ""
+"Sometimes, you may face errors accessing huggingface models, such as the "
+"following message when accessing `llama2`:"
+msgstr ""
+"Ao obter o modelo, às vezes você pode encontrar problemas de permissão. Por "
+"exemplo, ao obter o modelo ``llama2``, pode surgir o seguinte aviso:"
+
+#: ../../source/getting_started/troubleshooting.rst:18
+msgid ""
+"This typically indicates either a lack of access rights to the repository or"
+" missing huggingface access tokens. The following sections provide guidance "
+"on addressing these issues."
+msgstr ""
+"Geralmente isso ocorre por falta de permissão ao repositório do Hugging "
+"Face, ou por não ter configurado o token do Hugging Face. Você pode resolver"
+" esse problema seguindo os passos a seguir."
+
+#: ../../source/getting_started/troubleshooting.rst:22
+msgid "Get access to the huggingface repo"
+msgstr "Solicitar permissão para o repositório do Hugging Face"
+
+#: ../../source/getting_started/troubleshooting.rst:24
+msgid ""
+"To obtain access, navigate to the desired huggingface repository and agree "
+"to its terms and conditions. As an illustration, for the `llama2` model, you"
+" can use this link: `https://huggingface.co/meta-llama/Llama-2-7b-hf "
+"<https://huggingface.co/meta-llama/Llama-2-7b-hf>`_."
+msgstr ""
+"Para obter acesso, abra o repositório correspondente no Hugging Face e "
+"aceite seus termos e condições. Usando ``llama2`` como exemplo, você pode "
+"acessar este link para solicitar: `https://huggingface.co/meta-"
+"llama/Llama-2-7b-hf <https://huggingface.co/meta-llama/Llama-2-7b-hf>`_."
+
+#: ../../source/getting_started/troubleshooting.rst:29
+msgid "Set up credentials to access huggingface"
+msgstr "Defina as credenciais de acesso ao Hugging Face."
+
+#: ../../source/getting_started/troubleshooting.rst:31
+msgid ""
+"Your credential to access huggingface can be found online at "
+"`https://huggingface.co/settings/tokens "
+"<https://huggingface.co/settings/tokens>`_."
+msgstr ""
+"Você pode encontrar as credenciais na página do Hugging Face, "
+"`https://huggingface.co/settings/tokens "
+"<https://huggingface.co/settings/tokens>`_."
+
+#: ../../source/getting_started/troubleshooting.rst:33
+msgid ""
+"You can set the token as an environmental variable, with ``export "
+"HUGGING_FACE_HUB_TOKEN=your_token_here``."
+msgstr ""
+"Você pode configurar a credencial de acesso definindo uma variável de "
+"ambiente: ``export HUGGING_FACE_HUB_TOKEN=your_token_here``."
+
+#: ../../source/getting_started/troubleshooting.rst:37
+msgid "Incompatibility Between NVIDIA Driver and PyTorch Version"
+msgstr "O driver NVIDIA e a versão do PyTorch não são compatíveis."
+
+#: ../../source/getting_started/troubleshooting.rst:39
+msgid "If you are using a NVIDIA GPU, you may face the following error:"
+msgstr ""
+"Se você estiver usando uma placa de vídeo NVIDIA, pode encontrar o seguinte "
+"erro:"
+
+#: ../../source/getting_started/troubleshooting.rst:50
+msgid ""
+"This typically indicates that your CUDA driver version is not compatible "
+"with the PyTorch version you are using."
+msgstr ""
+"Geralmente, isso é causado pela incompatibilidade entre a versão do CUDA e a"
+" versão do PyTorch."
+
+#: ../../source/getting_started/troubleshooting.rst:52
+msgid ""
+"Go to `https://pytorch.org <https://pytorch.org>`_ to install a PyTorch "
+"version that has been compiled with your version of the CUDA driver. **Do "
+"not install a cuda version smaller than 11.8, preferably between 11.8 and "
+"12.1.**"
+msgstr ""
+"Você pode instalar o PyTorch pré-compilado correspondente à versão CUDA no "
+"site oficial `https://pytorch.org <https://pytorch.org>`_. Além disso, "
+"**certifique-se de que a versão do CUDA instalada não seja inferior a 11.8, "
+"sendo ideal que esteja entre 11.8 e 12.1.**"
+
+#: ../../source/getting_started/troubleshooting.rst:55
+msgid ""
+"Say if your CUDA driver version is 11.8, then you can install PyTorch with "
+"the following command:"
+msgstr ""
+"Por exemplo, se sua versão do CUDA for 11.8, você pode usar o seguinte "
+"comando para instalar o PyTorch correspondente:"
+
+#: ../../source/getting_started/troubleshooting.rst:63
+msgid ""
+"Xinference service cannot be accessed from external systems through "
+"``<IP>:9997``"
+msgstr ""
+"O sistema externo não pode acessar o serviço Xinference através de "
+"``<IP>:9997``."
+
+#: ../../source/getting_started/troubleshooting.rst:65
+msgid "Use ``-H 0.0.0.0`` parameter in when starting Xinference:"
+msgstr ""
+"Ao iniciar o Xinference, lembre-se de adicionar o parâmetro ``-H 0.0.0.0``:"
+
+#: ../../source/getting_started/troubleshooting.rst:71
+msgid ""
+"Then Xinference service will listen on all network interfaces (not limited "
+"to ``127.0.0.1`` or ``localhost``)."
+msgstr ""
+"Então o serviço Xinference escutará em todas as interfaces de rede (não "
+"apenas em ``127.0.0.1`` ou ``localhost``)."
+
+#: ../../source/getting_started/troubleshooting.rst:73
+msgid ""
+"If you are using the :ref:`using_docker_image`, please add ``-p "
+"<PORT>:9997`` during the docker run command, then access is available "
+"through ``<IP>:<PORT>`` of the local machine."
+msgstr ""
+"Se estiver usando o :ref:`using_docker_image`, adicione ``-p <PORT>:9997`` "
+"ao comando de execução do Docker, e você poderá acessar através de "
+"``<IP>:<PORT>`` na máquina local."
+
+#: ../../source/getting_started/troubleshooting.rst:78
+msgid ""
+"Launching a built-in model takes a long time, and sometimes the model fails "
+"to download"
+msgstr ""
+"O início do modelo embutido leva muito tempo, e às vezes o download do "
+"modelo falha."
+
+#: ../../source/getting_started/troubleshooting.rst:80
+msgid ""
+"Xinference by default uses HuggingFace as the source for models. If your "
+"machines are in Mainland China, there might be accessibility issues when "
+"using built-in models."
+msgstr ""
+"Xinference usa HuggingFace como fonte de modelo padrão. Se sua máquina "
+"estiver na China continental, o uso de modelos integrados pode ter problemas"
+" de acesso."
+
+#: ../../source/getting_started/troubleshooting.rst:84
+msgid ""
+"To address this, add environment variable "
+"``XINFERENCE_MODEL_SRC=modelscope`` when starting the Xinference to change "
+"the model source to ModelScope, which is optimized for Mainland China."
+msgstr ""
+"Para resolver esse problema, ao iniciar o Xinference, adicione a variável de"
+" ambiente ``XINFERENCE_MODEL_SRC=modelscope`` para alterar a fonte do modelo"
+" para ModelScope, o que resulta em downloads mais rápidos na China "
+"continental."
+
+#: ../../source/getting_started/troubleshooting.rst:88
+msgid ""
+"If you’re starting Xinference with Docker, include ``-e "
+"XINFERENCE_MODEL_SRC=modelscope`` during the docker run command."
+msgstr ""
+"Se você iniciar o Xinference com Docker, pode incluir a opção ``-e "
+"XINFERENCE_MODEL_SRC=modelscope`` no comando Docker."
+
+#: ../../source/getting_started/troubleshooting.rst:92
+msgid ""
+"When using the official Docker image, RayWorkerVllm died due to OOM, causing"
+" the model to fail to load"
+msgstr ""
+"Ao usar a imagem oficial do Docker, o RayWorkerVllm morre devido a OOM, "
+"impedindo o carregamento do modelo."
+
+#: ../../source/getting_started/troubleshooting.rst:94
+msgid ""
+"Docker's ``--shm-size`` parameter is used to set the size of shared memory. "
+"The default size of shared memory (/dev/shm) is 64MB, which may be too small"
+" for vLLM backend."
+msgstr ""
+"O parâmetro ``--shm-size`` do Docker pode ser usado para definir o tamanho "
+"da memória compartilhada. O tamanho padrão da memória compartilhada "
+"(/dev/shm) é de 64MB, que pode ser insuficiente para o backend vLLM."
+
+#: ../../source/getting_started/troubleshooting.rst:98
+msgid ""
+"You can increase its size by setting the ``--shm-size`` parameter as "
+"follows:"
+msgstr "Você pode aumentar seu tamanho definindo o parâmetro ``--shm-size``:"
+
+#: ../../source/getting_started/troubleshooting.rst:106
+msgid "Missing ``model_engine`` parameter when launching LLM models"
+msgstr "Erro ao carregar modelo LLM: parâmetro ``model_engine`` ausente."
+
+#: ../../source/getting_started/troubleshooting.rst:108
+msgid ""
+"Since version ``v0.11.0``, launching LLM models requires an additional "
+"``model_engine`` parameter. For specific information, please refer to "
+":ref:`here <about_model_engine>`."
+msgstr ""
+"A partir da versão ``v0.11.0``, é necessário passar o parâmetro adicional "
+"``model_engine`` ao carregar o modelo LLM. Para mais informações, consulte "
+":ref:`aqui <about_model_engine>`."
+
+#: ../../source/getting_started/troubleshooting.rst:112
+msgid "Resolving MKL Threading Layer Conflicts"
+msgstr "Resolvendo conflitos na camada de threads MKL"
+
+#: ../../source/getting_started/troubleshooting.rst:114
+msgid ""
+"When starting the Xinference server, you may encounter the error: "
+"``ValueError: Model architectures ['Qwen2ForCausalLM'] failed to be "
+"inspected. Please check the logs for more details.``"
+msgstr ""
+"Ao iniciar o servidor Xinference, se encontrar o erro: ``ValueError: Model "
+"architectures ['Qwen2ForCausalLM'] failed to be inspected. . Please check "
+"the logs for more details.``"
+
+#: ../../source/getting_started/troubleshooting.rst:116
+msgid "The underlying cause shown in the logs is:"
+msgstr "A causa raiz mostrada no log é:"
+
+#: ../../source/getting_started/troubleshooting.rst:123
+msgid ""
+"This typically occurs when NumPy was installed via conda. Conda's NumPy is "
+"built with Intel MKL optimizations, which conflicts with the GNU OpenMP "
+"library (libgomp) already loaded in your environment."
+msgstr ""
+"Isso geralmente acontece porque seu NumPy foi instalado via conda, e o NumPy"
+" do conda é construído com a otimização Intel MKL, o que causa conflito com "
+"a biblioteca GNU OpenMP (libgomp) já carregada no ambiente."
+
+#: ../../source/getting_started/troubleshooting.rst:126
+msgid "Solution 1: Override the Threading Layer"
+msgstr "Solução 1: Reescrever a camada de thread"
+
+#: ../../source/getting_started/troubleshooting.rst:128
+msgid "Force Intel's Math Kernel Library to use GNU's OpenMP implementation:"
+msgstr ""
+"Definir `MKL_THREADING_LAYER=GNU` força a Intel Math Kernel Library (MKL) a "
+"usar a implementação OpenMP do GNU:"
+
+#: ../../source/getting_started/troubleshooting.rst:135
+msgid "Solution 2: Reinstall NumPy with pip"
+msgstr "Solução 2: Reinstalar o NumPy usando pip"
+
+#: ../../source/getting_started/troubleshooting.rst:137
+msgid "Uninstall conda's NumPy and reinstall using pip:"
+msgstr "Desinstale o numpy instalado pelo conda e reinstale usando pip."
+
+#: ../../source/getting_started/troubleshooting.rst:146
+msgid "Related Note: vLLM and PyTorch"
+msgstr "Observação relevante: vLLM e PyTorch"
+
+#: ../../source/getting_started/troubleshooting.rst:148
+msgid ""
+"If you're using vLLM, avoid installing PyTorch with conda. Refer to the "
+"official vLLM installation guide for GPU-specific instructions: "
+"https://docs.vllm.ai/en/latest/getting_started/installation/gpu.html"
+msgstr ""
+"Se você estiver usando vLLM, evite instalar o PyTorch via conda. Para "
+"instruções de instalação específicas para GPU, consulte o guia oficial de "
+"instalação do vLLM: "
+"https://docs.vllm.ai/en/latest/getting_started/installation/gpu.html"
+
+#: ../../source/getting_started/troubleshooting.rst:151
+msgid "Configuring PyPI Mirrors to Speed Up Package Installation"
+msgstr ""
+"Configurar o espelho PyPI para acelerar a instalação de pacotes de software"
+
+#: ../../source/getting_started/troubleshooting.rst:153
+msgid ""
+"If you're in Mainland China, using a PyPI mirror can significantly speed up "
+"package installation. Here are some commonly used mirrors:"
+msgstr ""
+"Se você estiver na China continental, usar um mirror do PyPI pode acelerar "
+"significativamente a instalação de pacotes. Abaixo estão algumas fontes de "
+"mirror comuns:"
+
+#: ../../source/getting_started/troubleshooting.rst:155
+msgid "Tsinghua University: ``https://pypi.tuna.tsinghua.edu.cn/simple``"
+msgstr ""
+"Espelho da Universidade de Tsinghua: "
+"``https://pypi.tuna.tsinghua.edu.cn/simple``"
+
+#: ../../source/getting_started/troubleshooting.rst:156
+msgid "Alibaba Cloud: ``https://mirrors.aliyun.com/pypi/simple/``"
+msgstr "Alibaba Cloud Mirror: ``https://mirrors.aliyun.com/pypi/simple/``"
+
+#: ../../source/getting_started/troubleshooting.rst:157
+msgid "Tencent Cloud: ``https://mirrors.cloud.tencent.com/pypi/simple``"
+msgstr "Nuvem Tencent: ``https://mirrors.cloud.tencent.com/pypi/simple``"
+
+#: ../../source/getting_started/troubleshooting.rst:159
+msgid ""
+"However, be aware that some packages may not be available on certain "
+"mirrors. For example, if you're installing ``xinference[audio]`` using only "
+"the Aliyun mirror, the installation may fail."
+msgstr ""
+"No entanto, esteja ciente de que alguns pacotes podem estar faltando em "
+"determinados espelhos de origem. Por exemplo, se você usar apenas o espelho "
+"Alibaba Cloud para instalar ``xinference[audio]``, a instalação pode falhar."
+
+#: ../../source/getting_started/troubleshooting.rst:161
+msgid ""
+"This happens because ``num2words``, a dependency used by ``MeloTTS``, is not"
+" available on the Aliyun mirror. As a result, ``pip install "
+"xinference[audio]`` will resolve to older versions like "
+"``xinference==1.2.0`` and ``xoscar==0.8.0`` (as of Oct 27, 2025)."
+msgstr ""
+"Isso ocorre porque o pacote ``num2words``, do qual o ``MeloTTS`` depende, "
+"não está disponível no espelho da Alibaba Cloud. Portanto, ao executar ``pip"
+" install xinference[audio]``, pode haver um fallback para a instalação de "
+"versões mais antigas, como ``xinference==1.2.0`` e ``xoscar==0.8.0`` (até 27"
+" de outubro de 2025)."
+
+#: ../../source/getting_started/troubleshooting.rst:163
+msgid ""
+"These older versions are incompatible and will produce the error: "
+"``MainActorPool.append_sub_pool() got an unexpected keyword argument "
+"'start_method'``"
+msgstr ""
+"Essas versões antigas são incompatíveis e causam o seguinte erro: "
+"``MainActorPool.append_sub_pool() got an unexpected keyword argument "
+"'start_method'``"
+
+#: ../../source/getting_started/troubleshooting.rst:174
+msgid ""
+"To avoid this issue when installing the xinference audio package, use "
+"multiple mirrors:"
+msgstr ""
+"Para evitar esse problema ao instalar o pacote de áudio do xinference, é "
+"recomendável usar múltiplos mirrors simultaneamente:"
+
+#: ../../source/getting_started/troubleshooting.rst:188
+msgid "Installing Xinference 1.12.0 with uv Fails (As of November 2025)"
+msgstr ""
+"Falha ao instalar o Xinference 1.12.0 usando uv (até novembro de 2025)"
+
+#: ../../source/getting_started/troubleshooting.rst:190
+msgid ""
+"**Note:** This is a temporary issue due to the current package ecosystem and"
+" uv prioritizing **higher versions for direct dependencies** over **indirect"
+" dependencies**."
+msgstr ""
+"**Nota:** Esta é uma questão temporária, decorrente do ecossistema de "
+"pacotes atual e da estratégia de resolução de dependências do uv — ele "
+"prioriza **versões mais altas de dependências diretas** em vez de **versões "
+"de dependências indiretas**."
+
+#: ../../source/getting_started/troubleshooting.rst:193
+#: ../../source/getting_started/troubleshooting.rst:250
+msgid "Symptom"
+msgstr "Sintomas"
+
+#: ../../source/getting_started/troubleshooting.rst:195
+msgid ""
+"When installing xinference 1.12.0 as of November 2025 using ``uv pip install"
+" xinference``, you may encounter an issue where very old package versions "
+"are installed, particularly:"
+msgstr ""
+"Em novembro de 2025, ao instalar o xinference 1.12.0 com ``uv pip install "
+"xinference``, você pode encontrar problemas com a instalação de pacotes de "
+"dependência em versões muito antigas, especialmente:"
+
+#: ../../source/getting_started/troubleshooting.rst:197
+msgid "``transformers==4.12.2`` (from 2021)"
+msgstr "``transformers==4.12.2`` (versão de 2021)"
+
+#: ../../source/getting_started/troubleshooting.rst:198
+msgid "``tokenizers==0.10.3`` (from 2021)"
+msgstr "``tokenizers==0.10.3`` (versão de 2021)"
+
+#: ../../source/getting_started/troubleshooting.rst:199
+msgid "``huggingface-hub==1.0.1``"
+msgstr ""
+
+#: ../../source/getting_started/troubleshooting.rst:201
+msgid "Then uv fails with \"Failed to build `tokenizers==0.10.3`\""
+msgstr ""
+"Em seguida, o uv apresentou o erro: \"Falha ao construir "
+"`tokenizers==0.10.3`\" (Falha ao construir `tokenizers==0.10.3`)."
+
+#: ../../source/getting_started/troubleshooting.rst:204
+#: ../../source/getting_started/troubleshooting.rst:261
+msgid "Root Cause"
+msgstr "Causa raiz"
+
+#: ../../source/getting_started/troubleshooting.rst:206
+msgid ""
+"This occurs because uv prioritizes **higher versions for direct "
+"dependencies** over **indirect dependencies**:"
+msgstr ""
+"A causa do problema é que o uv prioriza a **versão mais alta da dependência "
+"direta**, ignorando os requisitos de versão das **dependências indiretas**:"
+
+#: ../../source/getting_started/troubleshooting.rst:208
+msgid ""
+"xinference 1.12.0 specifies ``huggingface-hub>=0.19.4`` as a **direct "
+"dependency** (no upper bound)"
+msgstr ""
+"xinference 1.12.0 especifica ``huggingface-hub>=0.19.4`` como uma "
+"**dependência direta** (sem limite superior)."
+
+#: ../../source/getting_started/troubleshooting.rst:209
+msgid ""
+"uv selects the latest: ``huggingface-hub==1.0.1`` as of November 06 2025"
+msgstr ""
+"Até 6 de novembro de 2025, o uv selecionará a versão mais recente: "
+"``huggingface-hub==1.0.1``"
+
+#: ../../source/getting_started/troubleshooting.rst:210
+msgid ""
+"However, ``transformers<=4.57.3`` (an **indirect dependency** via ``peft``) "
+"requires ``huggingface-hub<1.0``"
+msgstr ""
+"No entanto, ``transformers<=4.57.3`` (uma **dependência indireta** "
+"introduzida via ``peft``) requer ``huggingface-hub<1.0``."
+
+#: ../../source/getting_started/troubleshooting.rst:211
+msgid ""
+"To resolve the conflict, uv keeps the direct dependency at 1.0.1 and "
+"downgrades the indirect dependency ``transformers`` to ancient version "
+"4.12.2"
+msgstr ""
+"Para resolver o conflito de dependências, o uv manteve a dependência direta "
+"``huggingface-hub==1.0.1`` e fez o downgrade da dependência indireta "
+"``transformers`` para a versão muito antiga 4.12.2."
+
+#: ../../source/getting_started/troubleshooting.rst:213
+msgid ""
+"**This is by design in uv**: it prioritizes what you explicitly ask for "
+"(direct dependencies) over transitive dependencies. Refer to "
+"https://github.com/astral-sh/uv/issues/16601"
+msgstr ""
+"**Isso é uma característica de design do uv**: ele prioriza as dependências "
+"explicitamente especificadas (dependências diretas) em vez de dependências "
+"transitivas. Link de referência: https://github.com/astral-"
+"sh/uv/issues/16601"
+
+#: ../../source/getting_started/troubleshooting.rst:215
+msgid ""
+"**Update:** The latest transformers 4.57.3 (as in 2026.01.05) still requires"
+" ``huggingface-hub<1.0``."
+msgstr ""
+"**Atualização:** Em 05/01/2026, a versão mais recente do transformers, "
+"4.57.3, ainda depende de ``huggingface-hub<1.0``."
+
+#: ../../source/getting_started/troubleshooting.rst:218
+msgid "Solutions"
+msgstr "Solução"
+
+#: ../../source/getting_started/troubleshooting.rst:220
+msgid "**Solution 1: Pre-constrain huggingface-hub (Recommended)**"
+msgstr "**Solução 1: Pré-limitar a versão do huggingface-hub (recomendado)**"
+
+#: ../../source/getting_started/troubleshooting.rst:222
+msgid ""
+"Explicitly constrain ``huggingface-hub`` to a compatible version range:"
+msgstr ""
+"Explicitly restringir o ``huggingface-hub`` a uma faixa de versões "
+"compatível:"
+
+#: ../../source/getting_started/troubleshooting.rst:228
+msgid ""
+"This forces uv to select a ``huggingface-hub`` version that's compatible "
+"with modern ``transformers``."
+msgstr ""
+"Isso força o `uv` a selecionar uma versão do `huggingface-hub` compatível "
+"com a versão moderna do `transformers`."
+
+#: ../../source/getting_started/troubleshooting.rst:230
+msgid "**Solution 2: Make transformers a direct dependency**"
+msgstr "**Solução 2: Definir transformers como dependência direta**"
+
+#: ../../source/getting_started/troubleshooting.rst:232
+msgid ""
+"By specifying ``transformers`` explicitly, it becomes a direct dependency "
+"and uv will prefer higher versions:"
+msgstr ""
+"Ao especificar explicitamente ``transformers``, ele se torna uma dependência"
+" direta, e o uv priorizará a versão mais recente:"
+
+#: ../../source/getting_started/troubleshooting.rst:238
+msgid "**Solution 3: Use pip**"
+msgstr "**Solução 3: Usando pip**"
+
+#: ../../source/getting_started/troubleshooting.rst:240
+msgid ""
+"Or just resort to using ``pip install xinference`` which will resolve to the"
+" following versions"
+msgstr ""
+"Ou use diretamente ``pip install xinference``, que resolverá automaticamente"
+" para a seguinte combinação de versões:"
+
+#: ../../source/getting_started/troubleshooting.rst:242
+msgid "``transformers==4.57.1``"
+msgstr ""
+
+#: ../../source/getting_started/troubleshooting.rst:243
+msgid "``huggingface-hub==0.36.0``"
+msgstr ""
+
+#: ../../source/getting_started/troubleshooting.rst:244
+msgid "``tokenizers==0.22.1``"
+msgstr ""
+
+#: ../../source/getting_started/troubleshooting.rst:247
+msgid "vLLM + Torch + Xinference Compatibility Issue (Segmentation Fault)"
+msgstr ""
+"vLLM + Torch + Xinference Problema de Compatibilidade (Erro de Segmentação)"
+
+#: ../../source/getting_started/troubleshooting.rst:252
+msgid ""
+"If you have **vLLM < 0.12.0** installed and upgrade xinference (particularly"
+" using ``uv pip install -U xinference``), xinference may fail to start with "
+"a segmentation fault:"
+msgstr ""
+"Se você instalou o **vLLM < 0.12.0** e atualizou o xinference (especialmente"
+" ao usar ``uv pip install -U xinference``), o xinference pode falhar na "
+"inicialização devido a um erro de segmentação:"
+
+#: ../../source/getting_started/troubleshooting.rst:263
+msgid "This issue has three contributing factors:"
+msgstr "Esse problema é causado por três fatores em conjunto:"
+
+#: ../../source/getting_started/troubleshooting.rst:265
+msgid ""
+"**Binary Incompatibility**: vLLM versions before 0.12.0 were compiled "
+"against PyTorch 2.8.0. These versions are incompatible with PyTorch 2.9. "
+"Reference: `vLLM v0.12.0 Release Notes <https://github.com/vllm-"
+"project/vllm/releases/tag/v0.12.0>`_"
+msgstr ""
+"**Incompatibilidade binária**: o vLLM foi compilado com base no PyTorch "
+"2.8.0 em versões anteriores à 0.12.0, e essas versões são incompatíveis com "
+"o PyTorch 2.9. Referência: `Notas de lançamento do vLLM v0.12.0 "
+"<https://github.com/vllm-project/vllm/releases/tag/v0.12.0>`_"
+
+#: ../../source/getting_started/troubleshooting.rst:267
+msgid ""
+"**Xinference's Unbounded Torch Dependency**: Xinference's ``setup.cfg`` does"
+" not specify an upper bound for PyTorch:"
+msgstr ""
+"**Dependência do Torch sem limite superior no Xinference**: O ``setup.cfg`` "
+"do Xinference não especifica um limite superior de versão para o PyTorch:"
+
+#: ../../source/getting_started/troubleshooting.rst:275
+msgid ""
+"This allows package managers to upgrade PyTorch to incompatible versions."
+msgstr ""
+
+#: ../../source/getting_started/troubleshooting.rst:277
+msgid "**Different Package Manager Behaviors**:"
+msgstr ""
+"**Diferenças de comportamento entre diferentes gerenciadores de pacotes**:"
+
+#: ../../source/getting_started/troubleshooting.rst:279
+msgid ""
+"**pip**: Conservative - only upgrades the specified package unless "
+"dependencies are incompatible"
+msgstr ""
+"**pip**: mais conservador — só atualiza as dependências relacionadas quando "
+"há incompatibilidade; caso contrário, atualiza apenas o pacote especificado."
+
+#: ../../source/getting_started/troubleshooting.rst:280
+msgid ""
+"**uv with -U flag**: Aggressive - re-resolves ALL dependencies and picks "
+"latest versions"
+msgstr ""
+"**Usando o parâmetro -U no uv**: A estratégia é mais agressiva — irá "
+"resolver **todas** as dependências novamente e selecionar as versões mais "
+"recentes."
+
+#: ../../source/getting_started/troubleshooting.rst:283
+msgid ""
+"Therefore before you're ready to upgrade your entire stack and just want to "
+"upgrade xinference, use either:"
+msgstr ""
+"Portanto, quando você ainda não estiver pronto para atualizar toda a pilha "
+"tecnológica, mas apenas quiser atualizar o xinference, pode optar por usar:"
+
+#: ../../source/getting_started/troubleshooting.rst:285
+msgid ""
+"``pip install -U xinference`` (keeps PyTorch unchanged, only upgrades "
+"xinference)"
+msgstr ""
+"``pip install -U xinference`` (mantendo a versão do PyTorch inalterada, "
+"apenas atualizando o xinference)"
+
+#: ../../source/getting_started/troubleshooting.rst:286
+msgid ""
+"``uv pip install \"xinference==1.16.0\"`` (without -U flag, only upgrades "
+"xinference too)"
+msgstr ""
+"``uv pip install \"xinference==1.16.0\"`` (sem usar o parâmetro -U, também "
+"atualizará apenas o xinference)"
