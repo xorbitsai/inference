@@ -1,0 +1,24 @@
+xinference/api/oauth2/advanced/routes.py
+  8ed0e14fd7172b48 544-569
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "d9f44df3c4e8ec267ba144171c4115a0a6c1acd3",
+  "prompts": {
+    "8ed0e14fd7172b48": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "28e9d8a1-396d-4be6-9d39-38042d00108d",
+        "model": "<synthetic>"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 31,
+      "total_deletions": 26,
+      "accepted_lines": 26,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/1007b2eae4e20a2e9fa8f2fb6053265789ca4fbc27a3c0c51155e6dc58c4bb2d"
+    }
+  }
+}
