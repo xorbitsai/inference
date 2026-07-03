@@ -317,6 +317,11 @@ function ApiKeyManagement() {
       flex: 0.8,
       minWidth: 100,
       renderCell: (params) => {
+        // Prefer backend-provided owner_username (works for non-admin
+        // callers who can't GET /v1/admin/users). Fall back to local
+        // users[] lookup (still populated for admin), then to "#<id>".
+        const row = params.row || {}
+        if (row.owner_username) return row.owner_username
         const user = users.find((u) => u.id === params.value)
         return user ? user.username : `#${params.value}`
       },

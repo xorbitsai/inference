@@ -39,7 +39,9 @@ def register_routes(api: "RESTfulAPI") -> None:
         "/v1/models/update_type",
         api.update_model_type,
         methods=["POST"],
-        dependencies=([Security(auth, scopes=["models:add"])] if is_auth else None),
+        dependencies=(
+            [Security(auth, scopes=["models:register"])] if is_auth else None
+        ),
     )
     router.add_api_route(
         "/v1/models/instances",
@@ -51,7 +53,7 @@ def register_routes(api: "RESTfulAPI") -> None:
         "/v1/models/instance",
         api.launch_model_by_version,
         methods=["POST"],
-        dependencies=([Security(auth, scopes=["models:start"])] if is_auth else None),
+        dependencies=([Security(auth, scopes=["models:write"])] if is_auth else None),
     )
 
     # --- engines ---
@@ -81,13 +83,13 @@ def register_routes(api: "RESTfulAPI") -> None:
     if is_auth:
 
         async def get_autostart_config_handler_authed(
-            user: Any = Security(auth, scopes=["models:start"]),
+            user: Any = Security(auth, scopes=["models:write"]),
         ) -> Response:
             return await api.get_autostart_config(user)
 
         async def upsert_autostart_model_handler_authed(
             request: Request,
-            user: Any = Security(auth, scopes=["models:start"]),
+            user: Any = Security(auth, scopes=["models:write"]),
         ) -> Response:
             return await api.upsert_autostart_model(request, user)
 
@@ -125,7 +127,7 @@ def register_routes(api: "RESTfulAPI") -> None:
         "/v1/autostart/models/{model_uid}",
         api.remove_autostart_model,
         methods=["DELETE"],
-        dependencies=([Security(auth, scopes=["models:stop"])] if is_auth else None),
+        dependencies=([Security(auth, scopes=["models:write"])] if is_auth else None),
     )
 
     # --- CRUD on running models ---
@@ -139,7 +141,7 @@ def register_routes(api: "RESTfulAPI") -> None:
         "/v1/models",
         api.launch_model,
         methods=["POST"],
-        dependencies=([Security(auth, scopes=["models:start"])] if is_auth else None),
+        dependencies=([Security(auth, scopes=["models:write"])] if is_auth else None),
     )
     router.add_api_route(
         "/v1/models/{model_uid}",
@@ -151,7 +153,7 @@ def register_routes(api: "RESTfulAPI") -> None:
         "/v1/models/{model_uid}",
         api.terminate_model,
         methods=["DELETE"],
-        dependencies=([Security(auth, scopes=["models:stop"])] if is_auth else None),
+        dependencies=([Security(auth, scopes=["models:write"])] if is_auth else None),
     )
     router.add_api_route(
         "/v1/models/{model_uid}/events",
@@ -169,7 +171,7 @@ def register_routes(api: "RESTfulAPI") -> None:
         "/v1/models/{model_uid}/replicas/{replica_id}",
         api.terminate_model_replica,
         methods=["DELETE"],
-        dependencies=([Security(auth, scopes=["models:stop"])] if is_auth else None),
+        dependencies=([Security(auth, scopes=["models:write"])] if is_auth else None),
     )
     router.add_api_route(
         "/v1/models/{model_uid}/requests/{request_id}/abort",
@@ -187,7 +189,7 @@ def register_routes(api: "RESTfulAPI") -> None:
         "/v1/models/{model_uid}/cancel",
         api.cancel_launch_model,
         methods=["POST"],
-        dependencies=([Security(auth, scopes=["models:stop"])] if is_auth else None),
+        dependencies=([Security(auth, scopes=["models:write"])] if is_auth else None),
     )
 
     # --- model registrations ---
@@ -204,7 +206,7 @@ def register_routes(api: "RESTfulAPI") -> None:
         api.unregister_model,
         methods=["DELETE"],
         dependencies=(
-            [Security(auth, scopes=["models:unregister"])] if is_auth else None
+            [Security(auth, scopes=["models:register"])] if is_auth else None
         ),
     )
     router.add_api_route(

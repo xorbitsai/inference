@@ -41,6 +41,9 @@ logger = logging.getLogger(__name__)
 _TRUSTED_PROXY_SET: Optional[set] = None
 
 
+from ..scope_aliases import _normalize_scopes  # noqa: E402
+
+
 def _get_trusted_proxies() -> set:
     global _TRUSTED_PROXY_SET
     if _TRUSTED_PROXY_SET is None:
@@ -103,6 +106,7 @@ class AdvancedAuthService:
                 "models:list",
                 "models:read",
                 "models:write",
+                "models:register",
                 "keys:create",
                 "keys:manage",
                 "users:manage",
@@ -110,6 +114,8 @@ class AdvancedAuthService:
                 "cache:delete",
                 "virtualenv:list",
                 "virtualenv:delete",
+                "logs:list",
+                "monitor:view",
             ]
             self._db.create_user(
                 username="admin",
@@ -546,6 +552,7 @@ class AdvancedAuthService:
                 _audit("success", user=username or "", auth_type="jwt")
             return user
 
+        token_scopes = _normalize_scopes(token_scopes)
         for scope in security_scopes.scopes:
             if scope not in token_scopes:
                 _audit("insufficient_scope", user=username or "", auth_type="jwt")

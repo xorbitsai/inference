@@ -1078,21 +1078,21 @@ def register_routes(api: "RESTfulAPI") -> None:
         "/v1/cluster/logs",
         search_logs,
         methods=["GET"],
-        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+        dependencies=([Security(auth, scopes=["logs:list"])] if is_auth else None),
     )
 
     router.add_api_route(
         "/v1/cluster/logs/context",
         search_logs_context,
         methods=["GET"],
-        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+        dependencies=([Security(auth, scopes=["logs:list"])] if is_auth else None),
     )
 
     router.add_api_route(
         "/v1/cluster/logs/nodes",
         list_log_nodes,
         methods=["GET"],
-        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+        dependencies=([Security(auth, scopes=["logs:list"])] if is_auth else None),
     )
 
     router.add_api_route(
