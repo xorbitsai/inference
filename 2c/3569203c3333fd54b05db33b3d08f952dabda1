@@ -1,0 +1,26 @@
+xinference/ui/web/ui/src/scenes/apikey_management/index.js
+  8ed0e14fd7172b48 320-324
+xinference/api/oauth2/advanced/routes.py
+  8ed0e14fd7172b48 374-392,399,621
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "2c3569203c3333fd54b05db33b3d08f952dabda1",
+  "prompts": {
+    "8ed0e14fd7172b48": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "28e9d8a1-396d-4be6-9d39-38042d00108d",
+        "model": "<synthetic>"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 26,
+      "total_deletions": 1,
+      "accepted_lines": 26,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/2f7e039194396a61bf08c52be6fb84cbb61f88751a020adc784654ce1aad2412"
+    }
+  }
+}
