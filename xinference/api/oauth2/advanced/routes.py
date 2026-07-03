@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Optional
 
-from fastapi import HTTPException, Query, Request, Security
+from fastapi import Depends, HTTPException, Query, Request, Security
 
 from ...responses import JSONResponse
 from ..advanced.auth_service import AdvancedAuthService, _get_client_ip
@@ -66,6 +66,27 @@ def _refresh_key_gauges(auth: AdvancedAuthService) -> None:
 
 def get_advanced_auth(request: Request) -> AdvancedAuthService:
     return request.app.state.advanced_auth
+
+
+def require_keys_read(request: Request):
+    """Dependency for API key read routes (list / get).
+
+    Accepts ``keys:create`` OR ``keys:manage`` (or ``admin`` wildcard).
+    FastAPI's ``Security(scopes=[...])`` is AND-semantics, so a custom
+    dependency is needed for OR. This aligns the backend read path with
+    the frontend ``PermissionGate`` contract (which shows the API Key
+    Management page to users holding either scope) and with the handler
+    ``is_admin`` check (which treats both as admin-capable).
+    """
+    auth = get_advanced_auth(request)
+    _, _, scopes = _get_current_user_from_token(request, auth)
+    scopes = scopes or []
+    if "admin" in scopes or "keys:create" in scopes or "keys:manage" in scopes:
+        return True
+    raise HTTPException(
+        status_code=403,
+        detail="Not enough permissions: requires keys:create or keys:manage",
+    )
 
 
 def _get_current_user_from_token(request: Request, auth: AdvancedAuthService):
@@ -594,13 +615,13 @@ def register_advanced_auth_routes(api: "RESTfulAPI") -> None:
         "/v1/admin/keys",
         list_api_keys,
         methods=["GET"],
-        dependencies=[Security(auth_service, scopes=["keys:create"])],
+        dependencies=[Depends(require_keys_read)],
     )
     router.add_api_route(
         "/v1/admin/keys/{key_id}",
         get_api_key,
         methods=["GET"],
-        dependencies=[Security(auth_service, scopes=["keys:create"])],
+        dependencies=[Depends(require_keys_read)],
     )
     router.add_api_route(
         "/v1/admin/keys/{key_id}",
