@@ -16,6 +16,7 @@ import RegisterModel from '../scenes/register_model'
 import RunningModels from '../scenes/running_models'
 import SecuritySettings from '../scenes/security_settings'
 import UserManagement from '../scenes/user_management'
+import { hasPermission, parseTokenFromSession } from '../utils/jwt'
 
 const LoginAuth = () => {
   const [authority, setAuthority] = useState(true)
@@ -69,31 +70,62 @@ const routes = [
       },
       {
         path: 'cluster_info',
-        element: <ClusterInfo />,
+        element: (
+          <PermissionGate requiredScope="admin">
+            <ClusterInfo />
+          </PermissionGate>
+        ),
       },
       {
         path: 'monitoring',
-        element: <Monitoring />,
+        element: (
+          <PermissionGate requiredScope="monitor:view">
+            <Monitoring />
+          </PermissionGate>
+        ),
       },
       {
         path: 'logs',
-        element: <Logs />,
+        element: (
+          <PermissionGate requiredScope="logs:list">
+            <Logs />
+          </PermissionGate>
+        ),
       },
       {
         path: 'user_management',
-        element: <UserManagement />,
+        element: (
+          <PermissionGate requiredScope="users:manage">
+            <UserManagement />
+          </PermissionGate>
+        ),
       },
       {
         path: 'apikey_management',
-        element: <ApiKeyManagement />,
+        element: (
+          <PermissionGate
+            requiredScope="keys:create"
+            alternateScope="keys:manage"
+          >
+            <ApiKeyManagement />
+          </PermissionGate>
+        ),
       },
       {
         path: 'security_settings',
-        element: <SecuritySettings />,
+        element: (
+          <PermissionGate requiredScope="admin">
+            <SecuritySettings />
+          </PermissionGate>
+        ),
       },
       {
         path: 'audit_log',
-        element: <AuditLog />,
+        element: (
+          <PermissionGate requiredScope="admin">
+            <AuditLog />
+          </PermissionGate>
+        ),
       },
     ],
   },
@@ -113,6 +145,21 @@ const routes = [
 const WraperRoutes = () => {
   let element = useRoutes(routes)
   return element
+}
+
+// `PermissionGate` redirects to `/` when the current session lacks the
+// required scope. `admin` is a wildcard (passes any gate). Routes that
+// are A-class (launch / running / register model) are intentionally NOT
+// wrapped — they remain visible to all authenticated users and rely on
+// backend 403 as the only enforcement, matching the menu-visibility
+// contract in MenuSide.js.
+function PermissionGate({ requiredScope, alternateScope, children }) {
+  const { scopes } = parseTokenFromSession() || {}
+  const ok =
+    !requiredScope ||
+    hasPermission(scopes, requiredScope) ||
+    (alternateScope && hasPermission(scopes, alternateScope))
+  return ok ? children : <Navigate to="/" replace />
 }
 
 export default WraperRoutes
