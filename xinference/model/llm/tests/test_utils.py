@@ -2064,3 +2064,195 @@ class TestEvalLlama3ChatArgumentsSecurity:
         text = '{"function": "test", "args": {}}'
         result = Llama3ToolParser().extract_tool_calls(text)
         assert result == [(text, None, None)]
+
+
+def test_normalize_tool_call_arguments_to_dict():
+    # Pure-function unit test for ChatModelMixin._normalize_tool_call_arguments_to_dict.
+    # Contract: string arguments are parsed to dict; dict passthrough; malformed
+    # JSON and empty strings are left as-is so downstream surfaces a clear error;
+    # None / missing arguments are skipped; non-assistant messages are skipped.
+    messages = [
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "c1",
+                    "type": "function",
+                    "function": {
+                        "name": "get_weather",
+                        "arguments": '{"city":"北京"}',  # OpenAI spec: JSON string
+                    },
+                },
+                {
+                    "id": "c2",
+                    "type": "function",
+                    "function": {
+                        "name": "dict_passthrough",
+                        "arguments": {"already": "dict"},  # already dict, untouched
+                    },
+                },
+                {
+                    "id": "c3",
+                    "type": "function",
+                    "function": {
+                        "name": "malformed",
+                        "arguments": "{not json",  # malformed JSON, left as-is
+                    },
+                },
+                {
+                    "id": "c4",
+                    "type": "function",
+                    "function": {
+                        "name": "empty_str",
+                        "arguments": "",  # empty string, left as-is
+                    },
+                },
+                {
+                    "id": "c5",
+                    "type": "function",
+                    "function": {
+                        "name": "null_args",
+                        "arguments": None,  # null, left as-is
+                    },
+                },
+                {
+                    "id": "c6",
+                    "type": "function",
+                    "function": {
+                        "name": "list_args",
+                        # valid JSON but not an object — left as-is so
+                        # the template raises a clear error
+                        "arguments": "[1, 2, 3]",
+                    },
+                },
+                {
+                    "id": "c7",
+                    "type": "function",
+                    "function": {
+                        "name": "null_json",
+                        "arguments": "null",  # valid JSON null, left as-is
+                    },
+                },
+                {
+                    "id": "c8",
+                    "type": "function",
+                    "function": {
+                        "name": "number_args",
+                        "arguments": "42",  # valid JSON number, left as-is
+                    },
+                },
+            ],
+        },
+        {"role": "user", "content": "ignored"},  # non-assistant, skipped
+        "not-a-dict",  # malformed message, skipped
+    ]
+
+    result = ChatModelMixin._normalize_tool_call_arguments_to_dict(
+        [m for m in messages if m != "not-a-dict"] + ["not-a-dict"]
+    )
+
+    assistant_tc = result[0]["tool_calls"]
+    assert assistant_tc[0]["function"]["arguments"] == {"city": "北京"}  # string parsed
+    assert assistant_tc[1]["function"]["arguments"] == {
+        "already": "dict"
+    }  # dict passthrough
+    assert (
+        assistant_tc[2]["function"]["arguments"] == "{not json"
+    )  # malformed preserved
+    assert assistant_tc[3]["function"]["arguments"] == ""  # empty preserved
+    assert assistant_tc[4]["function"]["arguments"] is None  # null preserved
+    # Valid JSON but not an object — must be left as-is so the template
+    # raises a clear error rather than silently producing garbage.
+    assert assistant_tc[5]["function"]["arguments"] == "[1, 2, 3]"  # list
+    assert assistant_tc[6]["function"]["arguments"] == "null"  # JSON null
+    assert assistant_tc[7]["function"]["arguments"] == "42"  # JSON number
+
+    # Non-mutating contract: input messages must be unchanged.
+    assert messages[0]["tool_calls"][0]["function"]["arguments"] == (
+        '{"city":"北京"}'
+    ), "_normalize_tool_call_arguments_to_dict mutated input"
+    assert messages[0]["tool_calls"][1]["function"]["arguments"] == {"already": "dict"}
+    assert messages[0]["tool_calls"][2]["function"]["arguments"] == "{not json"
+    assert messages[0]["tool_calls"][3]["function"]["arguments"] == ""
+    assert messages[0]["tool_calls"][4]["function"]["arguments"] is None
+    assert messages[0]["tool_calls"][5]["function"]["arguments"] == "[1, 2, 3]"
+    assert messages[0]["tool_calls"][6]["function"]["arguments"] == "null"
+    assert messages[0]["tool_calls"][7]["function"]["arguments"] == "42"
+    # The returned list is a new list (callers can mutate it independently).
+    assert result is not messages
+
+
+def test_qwen3_family_get_full_context_handles_string_arguments():
+    # Regression for the OpenAI-spec string tool_calls.function.arguments crash.
+    # Pre-fix: builtin templates Qwen3-Coder / qwen3.5 / qwen3.6 raised
+    # "Can only get item pairs from a mapping" because their templates iterate
+    # `tool_call.arguments|items` while OpenAI sends arguments as a JSON-encoded
+    # string.
+    from .. import BUILTIN_LLM_FAMILIES
+
+    targets = {"Qwen3-Coder", "qwen3.5", "qwen3.6"}
+    families = {
+        f.model_name: f for f in BUILTIN_LLM_FAMILIES if f.model_name in targets
+    }
+    assert set(families) == targets, f"missing: {targets - set(families)}"
+
+    base_messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "北京天气？"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "c1",
+                    "type": "function",
+                    "function": {
+                        "name": "get_weather",
+                        "arguments": '{"city":"北京"}',  # OpenAI spec: string
+                    },
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "c1",
+            "content": '{"temp":25,"condition":"晴"}',
+        },
+    ]
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"city": {"type": "string"}},
+                },
+            },
+        }
+    ]
+
+    for name in targets:
+        fam = families[name]
+        mixin = ChatModelMixin()
+        mixin.model_family = SimpleNamespace(
+            model_name=fam.model_name,
+            model_ability=getattr(fam, "model_ability", ["chat", "tools"]),
+            chat_template=fam.chat_template,
+        )
+        # tokenizer=None forces _build_from_raw_template, which uses the same
+        # ImmutableSandboxedEnvironment as production (and does NOT register
+        # from_json — the constraint that rules out in-template fixes).
+        prompt = mixin.get_full_context(
+            base_messages,
+            chat_template=fam.chat_template,
+            tokenizer=None,
+            tools=tools,
+        )
+        assert "<parameter=city>" in prompt, f"{name}: parameter block missing"
+        assert "北京" in prompt, f"{name}: argument value missing"
+        # Non-mutating contract: the input messages must be unchanged.
+        assert base_messages[2]["tool_calls"][0]["function"]["arguments"] == (
+            '{"city":"北京"}'
+        ), f"{name}: _normalize_tool_call_arguments_to_dict mutated input"
