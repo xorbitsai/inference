@@ -1,0 +1,308 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-03-19 12:55+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: de <LL@li.org>\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/auth_system.rst:5
+msgid "Simple OAuth2 System (experimental)"
+msgstr "OAuth2-System (experimentell)"
+
+#: ../../source/user_guide/auth_system.rst:7
+msgid ""
+"Xinference builds an In-memory OAuth2 authentication and authorization "
+"system using the account-password mode."
+msgstr ""
+"Xinference verwendet ein Benutzername-Passwort-Modell, um ein "
+"speicherbasiertes OAuth2-Authentifizierungs- und Autorisierungssystem "
+"aufzubauen."
+
+#: ../../source/user_guide/auth_system.rst:10
+msgid ""
+"If you don't have authentication and authorization requirements, you can use"
+" Xinference as before, without any changes."
+msgstr ""
+"Wenn keine Anforderungen an Authentifizierung und Autorisierung bestehen, "
+"kann Xinference wie zuvor ohne Änderungen verwendet werden."
+
+#: ../../source/user_guide/auth_system.rst:14
+msgid "Permissions"
+msgstr "Berechtigung"
+
+#: ../../source/user_guide/auth_system.rst:15
+msgid ""
+"Currently, Xinference system internally defines some interface permissions:"
+msgstr ""
+"Derzeit definiert Xinference intern die folgenden "
+"Schnittstellenberechtigungen:"
+
+#: ../../source/user_guide/auth_system.rst:17
+msgid ""
+"``models:list``: Permission to list models and get models' information."
+msgstr ""
+"``models:list``: Berechtigung zum Abrufen der Modellliste und "
+"-informationen."
+
+#: ../../source/user_guide/auth_system.rst:18
+msgid "``models:read``: Permission to use models."
+msgstr "``models:read``: Berechtigung zum Lesen des Modells."
+
+#: ../../source/user_guide/auth_system.rst:19
+msgid "``models:register``: Permission to register custom models."
+msgstr "``models:register``: Berechtigung zum Registrieren von Modellen."
+
+#: ../../source/user_guide/auth_system.rst:20
+msgid "``models:unregister``: Permission to unregister custom models."
+msgstr "``models:unregister``: Berechtigung zum Abmelden eines Modells."
+
+#: ../../source/user_guide/auth_system.rst:21
+msgid "``models:start``: Permission to launch models."
+msgstr "``models:start``: Berechtigung zum Starten von Modellen."
+
+#: ../../source/user_guide/auth_system.rst:22
+msgid "``models:stop``: Permission to stop running models."
+msgstr "``models:stop``: Die Berechtigung, das Modell zu stoppen."
+
+#: ../../source/user_guide/auth_system.rst:23
+msgid "``admin``: Administrators have permissions for all interfaces."
+msgstr ""
+"``admin``: Der Administrator hat Berechtigungen für alle Schnittstellen."
+
+#: ../../source/user_guide/auth_system.rst:27
+msgid "Startup"
+msgstr "Erste Schritte"
+
+#: ../../source/user_guide/auth_system.rst:28
+msgid ""
+"All authentication and authorization information needs to be specified and "
+"loaded into memory when Xinference is started. Xinference requires a JSON-"
+"formatted file with the following specific fields:"
+msgstr ""
+"Beim Starten von Xinference müssen alle Authentifizierungs- und "
+"Autorisierungsinformationen angegeben werden. Derzeit benötigt Xinference "
+"eine JSON-Datei, die die folgenden spezifischen Felder enthält:"
+
+#: ../../source/user_guide/auth_system.rst:67
+msgid ""
+"``auth_config``: This field is used to configure security-related "
+"information."
+msgstr ""
+"``auth_config``: Dieses Feld konfiguriert sicherheitsrelevante "
+"Informationen."
+
+#: ../../source/user_guide/auth_system.rst:69
+msgid ""
+"``algorithm``: The algorithm used for token generation and parsing. ``HS`` "
+"series algorithms are recommended. For example, ``HS256``, ``HS384`` or "
+"``HS512``."
+msgstr ""
+"``algorithm``: Algorithmus zur Token-Erzeugung und -Analyse. Es wird "
+"empfohlen, Algorithmen der ``HS``-Serie wie ``HS256``, ``HS384`` oder "
+"``HS512`` zu verwenden."
+
+#: ../../source/user_guide/auth_system.rst:71
+msgid ""
+"``secret_key``: The secret_key used for token generation and parsing. Use "
+"this command to generate the secret_key adapted to the ``HS`` algorithms: "
+"``openssl rand -hex 32``."
+msgstr ""
+"``secret_key``: Der Schlüssel zur Generierung und Analyse von Token. Mit "
+"folgendem Befehl kann ein für die ``HS``-Algorithmusreihe geeigneter "
+"Schlüssel erstellt werden: ``openssl rand -hex 32``."
+
+#: ../../source/user_guide/auth_system.rst:73
+msgid ""
+"``token_expire_in_minutes``: Reserved field indicating the expiration time "
+"of the token. The current open-source version of Xinference does not check "
+"the expiration time of tokens."
+msgstr ""
+"``token_expire_in_minutes``: Reserviertes Feld, das die Ablaufzeit des "
+"Tokens angibt. Derzeit überprüft die Open-Source-Version von Xinference "
+"nicht die Ablaufzeit des Tokens."
+
+#: ../../source/user_guide/auth_system.rst:75
+msgid ""
+"``user_config``: This field is used to configure user and permission "
+"information. Each user information is composed of these fields:"
+msgstr ""
+"``user_config``: Dieses Feld dient zur Konfiguration von Benutzer- und "
+"Berechtigungsinformationen. Jede Benutzerinformation besteht aus den "
+"folgenden Feldern:"
+
+#: ../../source/user_guide/auth_system.rst:77
+msgid "``username``: string field for username."
+msgstr "``username``: Zeichenfolge, die den Benutzernamen angibt"
+
+#: ../../source/user_guide/auth_system.rst:79
+msgid "``password``: string field for password."
+msgstr "``password``: Zeichenfolge, die das Passwort darstellt"
+
+#: ../../source/user_guide/auth_system.rst:81
+msgid ""
+"``permissions``: A list containing strings representing the permissions that"
+" this user has. The permissions are described as above."
+msgstr ""
+"``permissions``: Eine Liste von Zeichenfolgen, die die Berechtigungen des "
+"Benutzers darstellt. Die Beschreibung der Berechtigungen entspricht dem "
+"Abschnitt über Berechtigungen in der obigen Dokumentation."
+
+#: ../../source/user_guide/auth_system.rst:83
+msgid ""
+"``api_keys``: A list containing strings representing the api-keys of this "
+"user. With these api-keys, user can access the xinference interfaces without"
+" the need to signin. The api-key here is formatted similar to the "
+"``OPENAI_API_KEY`` , always starting with ``sk-``, followed by 13 "
+"alphanumeric characters."
+msgstr ""
+"``api_keys``: Eine Liste von Zeichenketten, die die API-Schlüssel dieses "
+"Benutzers darstellt. Der Benutzer kann über diese API-Schlüssel auf die "
+"xinference-Schnittstelle zugreifen, ohne sich anmelden zu müssen. Die "
+"Zusammensetzung der API-Schlüssel hier ähnelt der von ``OPENAI_API_KEY``, "
+"beginnt immer mit ``sk-`` und wird von 13 Ziffern sowie Groß- und "
+"Kleinbuchstaben gefolgt."
+
+#: ../../source/user_guide/auth_system.rst:86
+msgid ""
+"Once you have configured such a JSON file, use the ``--auth-config`` option "
+"to enable Xinference with the authentication and authorization system. For "
+"example, for local startup:"
+msgstr ""
+"Nachdem Sie eine solche JSON-Datei konfiguriert haben, können Sie mit der "
+"Option ``--auth-config`` ein Xinference mit Authentifizierungs- und "
+"Autorisierungssystem aktivieren. Der Befehl für den lokalen Start lautet "
+"beispielsweise wie folgt:"
+
+#: ../../source/user_guide/auth_system.rst:93
+msgid ""
+"For distributed startup, just specify this option when starting the "
+"supervisor:"
+msgstr ""
+"In einer verteilten Umgebung muss diese Option nur beim Start des "
+"Supervisors angegeben werden:"
+
+#: ../../source/user_guide/auth_system.rst:101
+msgid "Usage"
+msgstr "Benutzen"
+
+#: ../../source/user_guide/auth_system.rst:102
+msgid ""
+"For Xinference with the authentication and authorization system enabled, all"
+" usage remains the same, except for the addition of a login step at the "
+"beginning or using the api-key."
+msgstr ""
+"Die Nutzung des Xinference-Dienstes mit Berechtigungsverwaltung entspricht "
+"der normalen Version, lediglich zu Beginn wird ein Anmeldeschritt "
+"hinzugefügt oder eine Authentifizierung mittels API-Key durchgeführt."
+
+#: ../../source/user_guide/auth_system.rst:105
+msgid "Signin"
+msgstr "Verwendung von Benutzername-Passwort"
+
+#: ../../source/user_guide/auth_system.rst:106
+msgid "Signin for command line users:"
+msgstr "Melden Sie sich über die Befehlszeile an:"
+
+#: ../../source/user_guide/auth_system.rst:113
+msgid "For python SDK users:"
+msgstr "Anmeldung mit dem Python SDK:"
+
+#: ../../source/user_guide/auth_system.rst:122
+msgid ""
+"For web UI users, when opening the web UI, you will first be directed to the"
+" login page. After logging in, you can use the web UI normally."
+msgstr ""
+"Für Benutzer der Weboberfläche wird beim Öffnen der Weboberfläche zunächst "
+"die Anmeldeseite angezeigt. Nach der Anmeldung können die Funktionen der "
+"Weboberfläche normal genutzt werden."
+
+#: ../../source/user_guide/auth_system.rst:125
+msgid "Api-Key"
+msgstr "Nutzung der Api-Key-Authentifizierung"
+
+#: ../../source/user_guide/auth_system.rst:126
+msgid ""
+"For command line users, just add ``--api-key`` or ``-ak`` option in the "
+"command you want to use."
+msgstr ""
+"Für Kommandozeilenbenutzer muss lediglich die Option ``--api-key`` oder "
+"``-ak`` zu dem auszuführenden Befehl hinzugefügt werden."
+
+#: ../../source/user_guide/auth_system.rst:133
+msgid ""
+"For python SDK users, pass the ``api_key`` parameter when initializing the "
+"client, just like the ``OPENAI`` Python client."
+msgstr ""
+"Für Python-Client-Benutzer kann der Parameter ``api_key`` bei der "
+"Initialisierung des Client-Objekts übergeben werden, genau wie beim "
+"``OPENAI``-Client."
+
+#: ../../source/user_guide/auth_system.rst:141
+msgid "Xinference is also compatible with the ``OPENAI`` Python SDK as well."
+msgstr ""
+"Selbstverständlich ist Xinference auch vollständig kompatibel mit der "
+"Verwendungsweise des ``OPENAI`` Python-Clients."
+
+#: ../../source/user_guide/auth_system.rst:149
+msgid ""
+"For http request, pass ``Authorization: Bearer api-key`` in request header."
+msgstr ""
+"Übergeben Sie bei HTTP-Anfragen ``Authorization: Bearer api-key`` im "
+"Request-Header."
+
+#: ../../source/user_guide/auth_system.rst:159
+msgid "Http Status Code"
+msgstr "HTTP-Statuscode"
+
+#: ../../source/user_guide/auth_system.rst:160
+msgid "Add the following two HTTP status codes:"
+msgstr "Folgende zwei HTTP-Statuscodes wurden hinzugefügt:"
+
+#: ../../source/user_guide/auth_system.rst:162
+msgid "``401 Unauthorized``: login information or token verifies failed."
+msgstr ""
+"``401 Unauthorized``: Die Anmeldeinformationen oder die Token-Überprüfung "
+"sind ungültig."
+
+#: ../../source/user_guide/auth_system.rst:163
+msgid "``403 Forbidden``: No enough permissions when accessing interfaces."
+msgstr ""
+"``403 Forbidden``: Keine ausreichenden Berechtigungen für den Zugriff auf "
+"die Schnittstelle."
+
+#: ../../source/user_guide/auth_system.rst:165
+msgid ""
+"For the command line, SDK, or web UI users, there will be clear information "
+"prompts when encountering authorization and permissions issues."
+msgstr ""
+"Für Benutzer der Befehlszeile, des SDK oder der Web-UI gibt es klare "
+"Hinweise bei Autorisierungs- und Berechtigungsproblemen."
+
+#: ../../source/user_guide/auth_system.rst:169
+msgid "Note"
+msgstr "Achtung"
+
+#: ../../source/user_guide/auth_system.rst:170
+msgid ""
+"This feature is still in an experimental stage. Feel free to provide "
+"feedback on usage issues or improvement suggestions through `GitHub issues "
+"<https://github.com/xorbitsai/inference/issues>`_ or `our Telegram group "
+"<https://t.me/+nCNpwmySwk9iYmI1>`_."
+msgstr ""
+"Diese Funktion befindet sich im Experimentierstadium. Feedback und "
+"Vorschläge sind willkommen über `GitHub issues "
+"<https://github.com/xorbitsai/inference/issues>`_ oder die `Telegram-Gruppe "
+"<https://t.me/+nCNpwmySwk9iYmI1>`_."

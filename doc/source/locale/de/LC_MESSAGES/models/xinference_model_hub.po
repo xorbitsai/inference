@@ -1,0 +1,320 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2025, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-11-13 17:28+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: de <LL@li.org>\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/xinference_model_hub.rst:5
+msgid "Xinference Models Hub User Guide"
+msgstr "Xinference Modellzentrum Benutzerhandbuch"
+
+#: ../../source/models/xinference_model_hub.rst:9
+msgid "Overview"
+msgstr "Übersicht"
+
+#: ../../source/models/xinference_model_hub.rst:11
+msgid ""
+"`Xinference Models Hub <https://model.xinference.io>`_ is a full-stack "
+"platform for managing and sharing models, providing a complete solution for "
+"model registration, browsing, review workflows, and collaborative model "
+"management."
+msgstr ""
+"`Xinference Model Center <https://model.xinference.io>`_ ist eine Full-"
+"Stack-Plattform zur Verwaltung und gemeinsamen Nutzung von Modellen, die "
+"eine vollständige Lösung für Modellregistrierung, Durchsicht, "
+"Überprüfungsprozesse und kollaboratives Management bietet."
+
+#: ../../source/models/xinference_model_hub.rst:14
+msgid "User Guide for Regular Users"
+msgstr "Endbenutzerhandbuch"
+
+#: ../../source/models/xinference_model_hub.rst:16
+msgid ""
+"This section introduces the main features available to regular registered "
+"users, including model browsing and personal center management."
+msgstr ""
+"Dieser Abschnitt stellt die Hauptfunktionen vor, die normale registrierte "
+"Benutzer nutzen können, einschließlich Modellnavigation und persönlicher "
+"Verwaltung."
+
+#: ../../source/models/xinference_model_hub.rst:18
+msgid ""
+"**Audience:** Regular registered users without model maintenance or public "
+"model registration permissions."
+msgstr ""
+"**Zielgruppe:** Normale registrierte Benutzer ohne Berechtigung zur "
+"Modellwartung oder zur öffentlichen Modelleintragung."
+
+#: ../../source/models/xinference_model_hub.rst:21
+#: ../../source/models/xinference_model_hub.rst:60
+msgid "Core Features"
+msgstr "Kernfunktionen"
+
+#: ../../source/models/xinference_model_hub.rst:24
+msgid "Browse Models"
+msgstr "Modell durchsuchen"
+
+#: ../../source/models/xinference_model_hub.rst:26
+msgid "**Function:** View available models and click to see details"
+msgstr ""
+"**Funktion:** Verfügbare Modelle anzeigen und durch Klicken die Details "
+"ansehen."
+
+#: ../../source/models/xinference_model_hub.rst:27
+msgid "**Location:** Navigation bar → “Models”"
+msgstr "**Position:** Navigationsleiste → „Modelle“"
+
+#: ../../source/models/xinference_model_hub.rst:28
+msgid ""
+"**Model Details Page:** The default tab is “README,” where you can view "
+"model descriptions, usage instructions, and important notes"
+msgstr ""
+"**Modell-Detailseite:** Standardmäßig wird der Tab „README“ angezeigt, in "
+"dem die Modellbeschreibung, Nutzungshinweise und wichtige Anmerkungen "
+"eingesehen werden können."
+
+#: ../../source/models/xinference_model_hub.rst:31
+msgid "Some advanced models are only visible to authorized users."
+msgstr ""
+"Einige fortgeschrittene Modelle sind nur für autorisierte Benutzer sichtbar."
+
+#: ../../source/models/xinference_model_hub.rst:34
+msgid "User Center"
+msgstr "Benutzerzentrum"
+
+#: ../../source/models/xinference_model_hub.rst:36
+msgid "**Function:** View and manage personal information"
+msgstr "**Funktion:** Persönliche Informationen anzeigen und verwalten"
+
+#: ../../source/models/xinference_model_hub.rst:37
+msgid "**Location:** Click the avatar in the top-right corner → “User Center”"
+msgstr ""
+"**Position:** Klicken Sie auf das Avatar-Symbol oben rechts → "
+"„Benutzercenter“"
+
+#: ../../source/models/xinference_model_hub.rst:38
+msgid ""
+"**Account Management:** Update personal profile, email, and other details"
+msgstr ""
+"**Kontoverwaltung:** Aktualisieren von Profil, E-Mail-Adresse und anderen "
+"Informationen"
+
+#: ../../source/models/xinference_model_hub.rst:39
+msgid ""
+"**Token Management:** Configure a GitHub Token used for model submissions or"
+" updates"
+msgstr ""
+"**Token-Verwaltung:** Konfigurieren des GitHub-Tokens für das Einreichen "
+"oder Aktualisieren von Modellen"
+
+#: ../../source/models/xinference_model_hub.rst:42
+msgid ""
+"If no token is configured, the system will use a default token to create "
+"pull requests (PRs)."
+msgstr ""
+"Wenn kein Token konfiguriert ist, verwendet das System das Standard-Token, "
+"um einen Pull Request (PR) zu erstellen."
+
+#: ../../source/models/xinference_model_hub.rst:45
+msgid "Workflow"
+msgstr "Verwendungsablauf"
+
+#: ../../source/models/xinference_model_hub.rst:47
+msgid "**Register an account** → Log in → Browse models"
+msgstr "**Konto registrieren** → Anmelden → Modelle durchsuchen"
+
+#: ../../source/models/xinference_model_hub.rst:48
+msgid ""
+"**Reset password:** Click “Forgot Password” on the login page and follow the"
+" email instructions"
+msgstr ""
+"**Passwort zurücksetzen:** Klicken Sie auf der Anmeldeseite auf „Passwort "
+"vergessen\" und folgen Sie den Anweisungen in der E-Mail."
+
+#: ../../source/models/xinference_model_hub.rst:49
+msgid "**Logout:** Click the avatar in the top-right corner → “Logout”"
+msgstr "**Abmelden:** Klicken Sie auf das Profilbild oben rechts → „Abmelden“"
+
+#: ../../source/models/xinference_model_hub.rst:52
+msgid "Guide for Model Maintainers"
+msgstr "Modell-Pflegeleitfaden"
+
+#: ../../source/models/xinference_model_hub.rst:54
+msgid ""
+"This section is for users with model registration or maintenance "
+"permissions. It introduces model registration, maintenance, and the review "
+"workflow."
+msgstr ""
+"Dieser Abschnitt richtet sich an Benutzer mit Berechtigungen zur "
+"Modellregistrierung oder -wartung und stellt den Prozess der "
+"Modellregistrierung, -wartung und -prüfung vor."
+
+#: ../../source/models/xinference_model_hub.rst:56
+msgid ""
+"**Audience:** Users with model registration or maintenance permissions."
+msgstr ""
+"**Zielgruppe:** Benutzer mit Berechtigungen zur Modellregistrierung oder "
+"-verwaltung."
+
+#: ../../source/models/xinference_model_hub.rst:62
+msgid ""
+"Includes all features available to regular users, plus the following "
+"advanced functions."
+msgstr ""
+"Enthält alle Funktionen für normale Benutzer und bietet zusätzlich die "
+"folgenden erweiterten Funktionen."
+
+#: ../../source/models/xinference_model_hub.rst:65
+msgid "Model Registration"
+msgstr "Modellregistrierung"
+
+#: ../../source/models/xinference_model_hub.rst:67
+msgid "**Function:** Submit new models"
+msgstr "**Funktion:** Neues Modell einreichen"
+
+#: ../../source/models/xinference_model_hub.rst:68
+msgid ""
+"**Location:** Click the avatar in the top-right corner → “Model "
+"Registration”"
+msgstr ""
+"**Position:** Klicken Sie auf das Symbol oben rechts → „Modell registrieren“"
+
+#: ../../source/models/xinference_model_hub.rst:70
+#: ../../source/models/xinference_model_hub.rst:112
+msgid "**Operation Steps:**"
+msgstr "**Vorgehensschritte:**"
+
+#: ../../source/models/xinference_model_hub.rst:72
+msgid "Fill in basic model information"
+msgstr "Modellbasisdaten ausfüllen"
+
+#: ../../source/models/xinference_model_hub.rst:73
+msgid "Complete the README (click “Get README” to auto-generate)"
+msgstr ""
+"Verbessere die README (klicke auf \"README abrufen\" für automatische "
+"Generierung)."
+
+#: ../../source/models/xinference_model_hub.rst:74
+msgid "Submit (for public models, enable the “Public Model” parameter)"
+msgstr ""
+"Einreichen (Aktivieren Sie bei öffentlichen Modellen den Parameter "
+"\"Öffentliches Modell\")"
+
+#: ../../source/models/xinference_model_hub.rst:77
+msgid ""
+"When registering a public model, the system will automatically create a PR "
+"in the `xorbitsai/inference` repository. If the user has configured a GitHub"
+" Token in their personal settings, the system will use that Token to submit "
+"the PR; otherwise, the default Token will be used."
+msgstr ""
+"Bei der Registrierung eines öffentlichen Modells erstellt das System "
+"automatisch eine PR im `xorbitsai/inference` Repository. Falls der Benutzer "
+"einen GitHub-Token im persönlichen Center konfiguriert hat, verwendet das "
+"System diesen Token für die PR-Erstellung; andernfalls wird der Standard-"
+"Token verwendet."
+
+#: ../../source/models/xinference_model_hub.rst:80
+msgid "**Notes:**"
+msgstr "**Hinweise:**"
+
+#: ../../source/models/xinference_model_hub.rst:82
+msgid ""
+"Enterprise model registration requires enabling the “Public Model” parameter"
+" first."
+msgstr ""
+"Die Registrierung des Unternehmensmodells erfordert die vorherige "
+"Aktivierung des Parameters \"Öffentliches Modell\"."
+
+#: ../../source/models/xinference_model_hub.rst:85
+msgid "My Models"
+msgstr "Mein Modell"
+
+#: ../../source/models/xinference_model_hub.rst:87
+msgid "**Function:** View models associated with your account"
+msgstr ""
+"**Funktion:** Die mit dem aktuellen Konto verknüpften Modelle anzeigen."
+
+#: ../../source/models/xinference_model_hub.rst:88
+msgid "**Location:** Click the avatar in the top-right corner → “My Models”"
+msgstr ""
+"**Position:** Klicken Sie auf das Profilbild oben rechts → „Meine Modelle“"
+
+#: ../../source/models/xinference_model_hub.rst:91
+msgid "Model Maintenance"
+msgstr "Modellwartung"
+
+#: ../../source/models/xinference_model_hub.rst:93
+msgid "**Function:** Modify and manage existing models"
+msgstr "**Funktion:** Ändern und Verwalten vorhandener Modelle"
+
+#: ../../source/models/xinference_model_hub.rst:94
+msgid "**Location:** Model Details → “Settings” icon"
+msgstr "**Position:** Modelldetailseite → Symbol „Einstellungen“"
+
+#: ../../source/models/xinference_model_hub.rst:97
+msgid ""
+"When updating the JSON of a public model or modifying expiration attributes,"
+" the system automatically creates a PR in the `xorbitsai/inference` "
+"repository."
+msgstr ""
+"Wenn die JSON-Datei eines öffentlichen Modells aktualisiert oder veraltete "
+"Eigenschaften geändert werden, erstellt das System automatisch einen PR im "
+"Repository `xorbitsai/inference`."
+
+#: ../../source/models/xinference_model_hub.rst:100
+msgid "Review Workflow"
+msgstr "Prüfungsprozess"
+
+#: ../../source/models/xinference_model_hub.rst:102
+msgid "**For Submitters:**"
+msgstr "**Aktion des Einreichenden:**"
+
+#: ../../source/models/xinference_model_hub.rst:104
+msgid "Submit a model"
+msgstr "Modell einreichen"
+
+#: ../../source/models/xinference_model_hub.rst:105
+msgid "Check the review status"
+msgstr "Prüfungsstatus anzeigen"
+
+#: ../../source/models/xinference_model_hub.rst:106
+msgid "Modify based on reviewer feedback"
+msgstr "Gemäß dem Prüfungsfeedback Änderungen vornehmen."
+
+#: ../../source/models/xinference_model_hub.rst:108
+msgid "**For Reviewers:**"
+msgstr "**Prüfer-Aktion:**"
+
+#: ../../source/models/xinference_model_hub.rst:110
+msgid ""
+"**Required Permissions:** Model review list access and model review "
+"permissions"
+msgstr ""
+"**Erforderliche Berechtigungen:** Zugriffs- und Prüfrechte für die "
+"Modellprüfliste"
+
+#: ../../source/models/xinference_model_hub.rst:114
+msgid "Enter the review list"
+msgstr "Eintritt in die Prüfliste"
+
+#: ../../source/models/xinference_model_hub.rst:115
+msgid "Evaluate model quality and compliance"
+msgstr "Bewertung der Modellqualität und -konformität"
+
+#: ../../source/models/xinference_model_hub.rst:116
+msgid "Approve or reject, providing feedback as needed"
+msgstr "Bei Bedarf zulassen oder ablehnen sowie Prüffeedback bereitstellen."
