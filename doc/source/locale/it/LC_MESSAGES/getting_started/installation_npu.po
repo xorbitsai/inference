@@ -1,0 +1,98 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-07-07 16:58+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: it <LL@li.org>\n"
+"Language: it\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/getting_started/installation_npu.rst:6
+msgid "Installation Guide for Ascend NPU"
+msgstr "Installazione su NPU Ascend"
+
+#: ../../source/getting_started/installation_npu.rst:7
+msgid ""
+"Xinference can run on Ascend NPU, follow below instructions to install."
+msgstr ""
+"Xinference può essere eseguito su Ascend NPU. Installare utilizzando il "
+"seguente comando."
+
+#: ../../source/getting_started/installation_npu.rst:11
+msgid ""
+"The open-source version relies on Transformers for inference, which can be "
+"slow on chips like 310p3. We provide an enterprise version that supports the"
+" MindIE engine, offering better performance and compatibility for Ascend "
+"NPU. Refer to `Xinference Enterprise <https://xinference.io>`_"
+msgstr ""
+"La versione open source dipende da Transformers per l'inferenza, il che può "
+"causare problemi di lentezza su chip come il 310p3. Forniamo una versione "
+"enterprise che supporta il motore MindIE, con prestazioni più elevate e "
+"migliore compatibilità per supportare Ascend NPU. Per maggiori dettagli, "
+"consulta `Xinference versione enterprise <https://xinference.cn>`_"
+
+#: ../../source/getting_started/installation_npu.rst:18
+msgid "Installing PyTorch and Ascend extension for PyTorch"
+msgstr "Installa PyTorch e l'estensione Ascend"
+
+#: ../../source/getting_started/installation_npu.rst:19
+msgid "Install PyTorch CPU version and corresponding Ascend extension."
+msgstr ""
+"Installa la versione CPU di PyTorch e l'estensione Ascend corrispondente."
+
+#: ../../source/getting_started/installation_npu.rst:21
+msgid "Take PyTorch v2.1.0 as example."
+msgstr "Prendendo PyTorch v2.1.0 come esempio."
+
+#: ../../source/getting_started/installation_npu.rst:27
+msgid ""
+"Then install `Ascend extension for PyTorch "
+"<https://github.com/Ascend/pytorch>`_."
+msgstr ""
+"Successivamente, installare l' `estensione PyTorch di Ascend "
+"<https://gitee.com/ascend/pytorch>`_."
+
+#: ../../source/getting_started/installation_npu.rst:35
+msgid ""
+"Running below command to see if it correctly prints the Ascend NPU count."
+msgstr ""
+"Esegui il seguente comando per verificare; se funziona correttamente, verrà "
+"stampato il numero di NPU Ascend."
+
+#: ../../source/getting_started/installation_npu.rst:42
+msgid "Installing Xinference"
+msgstr "Installa Xinference"
+
+#: ../../source/getting_started/installation_npu.rst:48
+msgid ""
+"Now you can use xinference according to :ref:`doc <using_xinference>`. "
+"``Transformers`` backend is the only available engine supported for Ascend "
+"NPU for open source version."
+msgstr ""
+"Ora puoi fare riferimento alla :ref:`documentazione <using_xinference>` per "
+"utilizzare Xinference. ``Transformers`` è l'unico motore open source che "
+"supporta l'NPU Ascend."
+
+#: ../../source/getting_started/installation_npu.rst:52
+msgid "Enterprise Support"
+msgstr "Supporto aziendale"
+
+#: ../../source/getting_started/installation_npu.rst:53
+msgid ""
+"If you encounter any performance or other issues for Ascend NPU, please "
+"reach out to us via `link <https://xinference.io>`_."
+msgstr ""
+"Se riscontri problemi di performance o di altro tipo con Ascend NPU, ti "
+"invitiamo a contattare Xinference Enterprise Edition. Puoi contattarci `qui "
+"<https://xinference.cn/contact>`_."
