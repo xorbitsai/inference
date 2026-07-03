@@ -1,0 +1,319 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-06-01 16:29+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: fr <LL@li.org>\n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/model_abilities/video.rst:5
+msgid "Video (Experimental)"
+msgstr "Vidéo (expérimental)"
+
+#: ../../source/models/model_abilities/video.rst:7
+msgid "Learn how to generate videos with Xinference."
+msgstr "Apprenez à utiliser Xinference pour générer des vidéos"
+
+#: ../../source/models/model_abilities/video.rst:11
+msgid "Introduction"
+msgstr "Introduction"
+
+#: ../../source/models/model_abilities/video.rst:14
+msgid "The Video API provides the ability to interact with videos:"
+msgstr "L'API Video fournit un moyen d'interagir avec la vidéo :"
+
+#: ../../source/models/model_abilities/video.rst:17
+msgid ""
+"The text-to-video endpoint create videos from scratch based on a text "
+"prompt."
+msgstr ""
+"Le point de terminaison texte-vers-vidéo crée une vidéo à partir d'une "
+"invite textuelle, en partant de zéro."
+
+#: ../../source/models/model_abilities/video.rst:18
+msgid ""
+"The image-to-video endpoint create videos from scratch based on an input "
+"image."
+msgstr ""
+"Le point de terminaison Image-to-video crée une vidéo à partir d'une image "
+"depuis le début."
+
+#: ../../source/models/model_abilities/video.rst:19
+msgid ""
+"The firstlastframe-to-video endpoint creates videos based on the transition "
+"between a first and a last frame."
+msgstr ""
+"L'interface `firstlastframe-to-video` génère une vidéo basée sur la "
+"transition entre la première et la dernière image."
+
+#: ../../source/models/model_abilities/video.rst:39
+msgid "Supported models"
+msgstr "Liste des modèles supportés"
+
+#: ../../source/models/model_abilities/video.rst:41
+msgid ""
+"The text-to-video API is supported with the following models in Xinference:"
+msgstr ""
+"L'API texte-vers-vidéo dans Xinference prend en charge les modèles suivants "
+":"
+
+#: ../../source/models/model_abilities/video.rst:43
+msgid ":ref:`CogVideoX-2b <models_builtin_cogvideox-2b>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:44
+msgid ":ref:`CogVideoX-5b <models_builtin_cogvideox-5b>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:45
+msgid ":ref:`HunyuanVideo <models_builtin_hunyuanvideo>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:46
+msgid ":ref:`Wan2.1-1.3B <models_builtin_wan2.1-1.3b>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:47
+msgid ":ref:`Wan2.1-14B <models_builtin_wan2.1-14b>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:49
+msgid ""
+"The image-to-video API is supported with the following models in Xinference:"
+msgstr ""
+"Dans Xinference, l'API image-vers-vidéo prend en charge les modèles suivants"
+" :"
+
+#: ../../source/models/model_abilities/video.rst:51
+msgid ":ref:`Wan2.1-i2v-14B-480p <models_builtin_wan2.1-i2v-14b-480p>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:52
+msgid ":ref:`Wan2.1-i2v-14B-720p <models_builtin_wan2.1-i2v-14b-720p>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:54
+msgid ""
+"The firstlastframe-to-video API is supported with the following models in "
+"Xinference:"
+msgstr ""
+"Les modèles suivants dans Xinference prennent en charge l'interface "
+"firstlastframe-to-video :"
+
+#: ../../source/models/model_abilities/video.rst:56
+msgid ":ref:`Wan2.1-flf2v-14B-720p <models_builtin_wan2.1-flf2v-14b-720p>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/video.rst:59
+msgid "Quickstart"
+msgstr "Démarrage rapide"
+
+#: ../../source/models/model_abilities/video.rst:62
+msgid "Text-to-video"
+msgstr "vidéo généré à partir de texte"
+
+#: ../../source/models/model_abilities/video.rst:64
+msgid ""
+"You can try text-to-video API out either via cURL, or Xinference's python "
+"client:"
+msgstr "Vous pouvez essayer l'API text-to-video via cURL ou Xinference."
+
+#: ../../source/models/model_abilities/video.rst:91
+msgid "Image-to-video"
+msgstr "Générer une vidéo à partir d'une image"
+
+#: ../../source/models/model_abilities/video.rst:93
+msgid ""
+"You can try image-to-video API out either via cURL, or Xinference's python "
+"client:"
+msgstr ""
+"Vous pouvez essayer d'utiliser l'API image-to-video via cURL ou Xinference."
+
+#: ../../source/models/model_abilities/video.rst:118
+msgid "FirstLastFrame-to-video"
+msgstr "Vidéo générée à partir des première et dernière images"
+
+#: ../../source/models/model_abilities/video.rst:120
+msgid ""
+"You can try firstlastframe-to-video API out either via cURL, or Xinference's"
+" python client:"
+msgstr ""
+"Vous pouvez tester l'interface firstlastframe-to-video via cURL ou le client"
+" Python de Xinference :"
+
+#: ../../source/models/model_abilities/video.rst:147
+msgid "Memory optimization"
+msgstr "Optimisation de la mémoire"
+
+#: ../../source/models/model_abilities/video.rst:149
+msgid ""
+"Video generation will occupy huge GPU memory, for instance, running "
+"CogVideoX may require up to around 35 GB GPU memory."
+msgstr ""
+"La génération de vidéos consomme une grande quantité de mémoire vidéo. Par "
+"exemple, l'exécution de CogVideoX peut utiliser environ 35 Go de mémoire "
+"vidéo."
+
+#: ../../source/models/model_abilities/video.rst:152
+msgid ""
+"Xinference supports several options to optimize video model memory (VRAM) "
+"usage."
+msgstr ""
+"Xinference prend en charge plusieurs options pour optimiser l'utilisation de"
+" la mémoire vidéo (VRAM)."
+
+#: ../../source/models/model_abilities/video.rst:154
+msgid "CPU offloading or block level group offloading."
+msgstr "Déchargement CPU ou déchargement groupé au niveau bloc."
+
+#: ../../source/models/model_abilities/video.rst:155
+msgid "Layerwise casting."
+msgstr "Conversion de type par couches (Layerwise casting)."
+
+#: ../../source/models/model_abilities/video.rst:159
+msgid ""
+"CPU offloading and Block Level Group Offloading cannot be enabled at the "
+"same time, but layerwise casting can be used in combination with either of "
+"them."
+msgstr ""
+"Le déchargement CPU et le déchargement groupé au niveau des blocs ne peuvent"
+" pas être activés simultanément, mais la conversion de type couche par "
+"couche peut être utilisée en combinaison avec l'un d'eux."
+
+#: ../../source/models/model_abilities/video.rst:163
+msgid "CPU offloading"
+msgstr "Déchargement du CPU"
+
+#: ../../source/models/model_abilities/video.rst:165
+msgid ""
+"CPU offloading keeps the model weights on the CPU and only loads them to the"
+" GPU when a forward pass needs to be executed. It is suitable for scenarios "
+"with extremely limited GPU memory, but it has a significant impact on "
+"performance."
+msgstr ""
+"Le déchargement CPU conserve les poids du modèle sur le CPU, ne les "
+"chargeant sur le GPU que lors de l'exécution de la propagation avant. Il "
+"convient aux scénarios où la mémoire vidéo est extrêmement limitée, mais a "
+"un impact significatif sur les performances."
+
+#: ../../source/models/model_abilities/video.rst:169
+msgid ""
+"When running on GPU whose memory is less than 24 GB, we recommend to add "
+"``--cpu_offload True`` when launching model. For Web UI, add an extra "
+"option, ``cpu_offload`` with value set to ``True``."
+msgstr ""
+"Lorsque vous utilisez un GPU avec moins de 24 Go de mémoire vidéo, il est "
+"recommandé d'ajouter ``--cpu_offload True`` lors du démarrage du modèle. "
+"Pour l'interface Web UI, vous pouvez ajouter l'option supplémentaire "
+"``cpu_offload``, en définissant sa valeur sur ``True``."
+
+#: ../../source/models/model_abilities/video.rst:178
+msgid "Block Level Group Offloading"
+msgstr "Déchargement de regroupement au niveau des blocs"
+
+#: ../../source/models/model_abilities/video.rst:180
+msgid ""
+"Block Level Group Offloading groups multiple internal layers of the model "
+"(such as ``torch.nn.ModuleList`` or ``torch.nn.Sequential``) and loads these"
+" groups from the CPU to the GPU as needed during inference. Compared to CPU "
+"offloading, it uses more memory but has less impact on performance."
+msgstr ""
+"Le déchargement par groupe de niveau bloc regroupe plusieurs couches "
+"internes du modèle (telles que ``torch.nn.ModuleList`` ou "
+"``torch.nn.Sequential``) et charge ces groupes du CPU vers le GPU selon les "
+"besoins pendant l'inférence. Par rapport au déchargement CPU, il utilise "
+"plus de mémoire mais a un impact moindre sur les performances."
+
+#: ../../source/models/model_abilities/video.rst:184
+msgid ""
+"For the command line, add the ``--group_offload True`` option; for the Web "
+"UI, add an additional option ``group_offload`` with the value set to "
+"``True``."
+msgstr ""
+"Pour la ligne de commande, ajoutez l'option ``--group_offload True`` ; pour "
+"l'interface Web UI, ajoutez une option supplémentaire ``group_offload``, "
+"définie à ``True``."
+
+#: ../../source/models/model_abilities/video.rst:187
+msgid ""
+"We can speed up group offloading inference, by enabling the use of CUDA "
+"streams. However, using CUDA streams requires moving the model parameters "
+"into pinned memory. This allocation is handled by Pytorch under the hood, "
+"and can result in a significant spike in CPU RAM usage. Please consider this"
+" option if your CPU RAM is atleast 2X the size of the model you are group "
+"offloading. Enable CUDA streams via adding ``--use_stream True`` for command"
+" line; for the Web UI, add an additional option ``use_stream`` with the "
+"value set to ``True``."
+msgstr ""
+"En activant les flux CUDA, nous pouvons accélérer l'inférence par "
+"déchargement groupé. Cependant, l'utilisation des flux CUDA nécessite de "
+"déplacer les paramètres du modèle vers la mémoire fixe. Cette allocation est"
+" gérée en arrière-plan par Pytorch et peut entraîner une augmentation "
+"significative de l'utilisation de la RAM CPU. Si votre RAM CPU est au moins "
+"deux fois la taille du modèle, envisagez d'utiliser cette option. Activez "
+"les flux CUDA en ajoutant ``--use_stream True`` dans la ligne de commande ; "
+"pour l'interface Web, ajoutez une option supplémentaire ``use_stream`` avec "
+"la valeur ``True``."
+
+#: ../../source/models/model_abilities/video.rst:199
+msgid "Applying Layerwise Casting to the Transformer"
+msgstr "Appliquer la conversion de type couche par couche au Transformer"
+
+#: ../../source/models/model_abilities/video.rst:201
+msgid ""
+"Layerwise casting will downcast each layer’s weights to "
+"``torch.float8_e4m3fn``, temporarily upcast to ``torch.bfloat16`` during the"
+" forward pass of the layer, then revert to ``torch.float8_e4m3fn`` "
+"afterward. This approach reduces memory requirements by approximately 50% "
+"while introducing a minor quality reduction in the generated video due to "
+"the precision trade-off. Enable layerwise casting via adding "
+"``--layerwise_cast True`` for command line; for the Web UI, add an "
+"additional option ``layerwise_cast`` with the value set to ``True``."
+msgstr ""
+"La conversion par couches abaisse les poids de chaque couche en "
+"``torch.float8_e4m3fn``, les élève temporairement en ``torch.bfloat16`` "
+"pendant la propagation avant de la couche, puis les rétablit en "
+"``torch.float8_e4m3fn`` par la suite. Cette approche réduit les besoins en "
+"mémoire d'environ 50 %, bien que la qualité vidéo produite soit légèrement "
+"dégradée en raison du compromis sur la précision. Pour activer la conversion"
+" par couches, ajoutez ``--layerwise_cast True`` dans la ligne de commande ; "
+"pour l'interface Web, ajoutez une option supplémentaire ``layerwise_cast`` "
+"avec la valeur définie sur ``True``."
+
+#: ../../source/models/model_abilities/video.rst:208
+msgid "This example will require 20GB of VRAM."
+msgstr "Cet exemple nécessitera 20 Go de mémoire vidéo."
+
+#~ msgid "OpenAI-compatible ENDPOINT"
+#~ msgstr "Point de terminaison compatible OpenAI"
+
+#~ msgid "API"
+#~ msgstr ""
+
+#~ msgid "Endpoint"
+#~ msgstr "point de terminaison"
+
+#~ msgid "Text-to-Video API"
+#~ msgstr "API de génération vidéo à partir de texte"
+
+#~ msgid "/v1/video/generations"
+#~ msgstr ""
+
+#~ msgid "Image-to-Video API"
+#~ msgstr "API de génération de vidéo à partir d'image"
+
+#~ msgid "/v1/video/generations/image"
+#~ msgstr ""

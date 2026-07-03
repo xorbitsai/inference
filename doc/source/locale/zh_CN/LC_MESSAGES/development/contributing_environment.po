@@ -40,7 +40,7 @@ msgstr ""
 
 #: ../../source/development/contributing_environment.rst:12
 msgid "Getting started with Git"
-msgstr "Git 的使用"
+msgstr "Git 入门"
 
 #: ../../source/development/contributing_environment.rst:14
 msgid ""
