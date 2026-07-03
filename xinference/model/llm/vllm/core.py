@@ -24,6 +24,7 @@ import sys
 import threading
 import time
 import uuid
+from contextlib import contextmanager
 from functools import partial
 from typing import (
     TYPE_CHECKING,
@@ -163,6 +164,27 @@ except ImportError:
     VLLM_VERSION = None
 
 DEFAULT_VLLM_VERSION = version.parse("0.21.0")
+
+# Architectures known to trigger flashinfer fused_moe JIT deadlock on
+# Blackwell sm_120 when multiple replicas launch concurrently. The lock
+# serializes engine construction (which includes cuda graph capture +
+# JIT) so the first process fills the flashinfer cache and subsequent
+# processes hit the cache without racing on flashinfer's internal
+# `fused_moe_120.lock`.
+_FLASHINFER_WARMUP_ARCHES = frozenset(
+    {
+        "Qwen3_5MoeForConditionalGeneration",
+    }
+)
+
+# Env var to disable the serialization for debugging / fallback.
+_DISABLE_WARMUP_ENV = "XINFERENCE_DISABLE_FLASHINFER_WARMUP"
+
+# Per-process lock-acquisition timeout (seconds). Cold compile on
+# Blackwell sm_120 + MoE-256 may take 30+ min; cache hits finish in <1s.
+_FLASHINFER_WARMUP_TIMEOUT = int(
+    os.getenv("XINFERENCE_FLASHINFER_WARMUP_TIMEOUT", "1800")
+)
 
 
 def _get_effective_vllm_version() -> version.Version:
@@ -483,6 +505,115 @@ class VLLMModel(LLM):
         # For older versions, check the environment variable
         return envs.is_set("VLLM_USE_V1") and envs.VLLM_USE_V1
 
+    @contextmanager
+    def _serialize_flashinfer_jit(self):
+        """Cross-process lock to serialize vLLM engine construction.
+
+        Why: Qwen3_5MoeForConditionalGeneration (qwen3.5 / qwen3.6) on
+        Blackwell sm_120 triggers flashinfer fused_moe JIT during
+        ``AsyncLLMEngine.from_engine_args`` (cuda graph capture phase),
+        not on first inference. With multi-instance launches (e.g.
+        2 replicas x TP=4 = 8 worker processes), all processes race on
+        flashinfer's internal ``fused_moe_120.lock`` and deadlock. This
+        wrapper forces serialization around the engine-construction call
+        so the first process compiles and fills the cache, and subsequent
+        processes get cache hits without lock contention.
+
+        Non-target architectures / disabled via env: yield without locking.
+
+        Thread-safety: uses ``fcntl.LOCK_NB`` + ``time.sleep`` polling
+        (NOT ``signal.SIGALRM``) so it works inside ``_loading_thread``
+        which runs in a non-main thread.
+
+        Failure mode: if the lock cannot be acquired within timeout, the
+        engine is constructed without the lock (falls back to original
+        racing behavior). Engine construction MUST proceed regardless.
+        """
+        if os.name == "nt":
+            yield
+            return
+
+        if os.getenv(_DISABLE_WARMUP_ENV) == "1":
+            logger.debug(
+                "flashinfer jit serialize skipped via %s for model %s",
+                _DISABLE_WARMUP_ENV,
+                self.model_uid,
+            )
+            yield
+            return
+
+        architectures = getattr(self.model_family, "architectures", []) or []
+        if not any(a in _FLASHINFER_WARMUP_ARCHES for a in architectures):
+            yield
+            return
+
+        import fcntl
+
+        from ....constants import XINFERENCE_CACHE_DIR
+
+        matched_arch = next(a for a in architectures if a in _FLASHINFER_WARMUP_ARCHES)
+        lock_dir = os.path.join(XINFERENCE_CACHE_DIR, "flashinfer_warmup")
+        os.makedirs(lock_dir, exist_ok=True)
+        # Keyed by architecture name (not model_uid): flashinfer cache is
+        # keyed by GPU arch + kernel variant, so same arch -> same cache ->
+        # same lock is correct.
+        lock_path = os.path.join(lock_dir, f"{matched_arch}.lock")
+
+        logger.info(
+            "flashinfer jit serialize START model=%s arch=%s lock=%s",
+            self.model_uid,
+            matched_arch,
+            lock_path,
+        )
+        t0 = time.time()
+        fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o644)
+        lock_acquired = False
+        try:
+            # Poll with LOCK_NB instead of blocking LOCK_EX: fcntl.flock has
+            # no native timeout, and signal.alarm() does not work in non-main
+            # threads (ValueError: signal only works in main thread of the
+            # main interpreter). LOCK_NB + sleep is fully thread-safe.
+            deadline = t0 + _FLASHINFER_WARMUP_TIMEOUT
+            while True:
+                try:
+                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    lock_acquired = True
+                    break
+                except (BlockingIOError, OSError):
+                    if time.time() >= deadline:
+                        logger.warning(
+                            "flashinfer jit serialize TIMEOUT model=%s "
+                            "after %.1fs - continuing without lock "
+                            "(may race on flashinfer cache)",
+                            self.model_uid,
+                            time.time() - t0,
+                        )
+                        break
+                    time.sleep(0.5)
+
+            if lock_acquired:
+                logger.info(
+                    "flashinfer jit serialize LOCK ACQUIRED model=%s waited=%.1fs",
+                    self.model_uid,
+                    time.time() - t0,
+                )
+
+            try:
+                yield
+            finally:
+                if lock_acquired:
+                    try:
+                        fcntl.flock(fd, fcntl.LOCK_UN)
+                    except Exception:
+                        pass
+        finally:
+            os.close(fd)
+            logger.info(
+                "flashinfer jit serialize DONE model=%s elapsed=%.1fs",
+                self.model_uid,
+                time.time() - t0,
+            )
+
     def load(self):
         try:
             import vllm
@@ -670,9 +801,12 @@ class VLLMModel(LLM):
                                         loop=loop,
                                     )
 
-                            self._engine = XinferenceAsyncLLMEngine.from_engine_args(
-                                engine_args
-                            )
+                            with self._serialize_flashinfer_jit():
+                                self._engine = (
+                                    XinferenceAsyncLLMEngine.from_engine_args(
+                                        engine_args
+                                    )
+                                )
                         else:
                             from vllm.v1.executor.abstract import Executor
 
@@ -700,7 +834,10 @@ class VLLMModel(LLM):
                                 executor_cls.supports_async_scheduling = lambda: True  # type: ignore
                             # patch vllm Executor.get_class
                             Executor.get_class = lambda vllm_config: executor_cls
-                            self._engine = AsyncLLMEngine.from_engine_args(engine_args)
+                            with self._serialize_flashinfer_jit():
+                                self._engine = AsyncLLMEngine.from_engine_args(
+                                    engine_args
+                                )
                 except Exception:
                     logger.exception("Creating vllm engine failed")
                     self._loading_error = sys.exc_info()
@@ -725,7 +862,8 @@ class VLLMModel(LLM):
                 # lock state causing deadlock. spawn creates a clean process.
                 os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
                 try:
-                    self._engine = AsyncLLMEngine.from_engine_args(engine_args)
+                    with self._serialize_flashinfer_jit():
+                        self._engine = AsyncLLMEngine.from_engine_args(engine_args)
                 except Exception:
                     logger.exception("Creating vllm engine failed")
                     self._loading_error = sys.exc_info()

@@ -1604,3 +1604,113 @@ class TestVLLMSanitizeGenerateConfig:
 
         sanitized = VLLMChatModel._sanitize_generate_config({})
         assert sanitized["guided_json"] is None
+
+
+class TestFlashinferWarmup:
+    """Tests for VLLMModel._serialize_flashinfer_jit() context manager.
+
+    Validates the cross-process lock that serializes vLLM engine
+    construction to prevent flashinfer fused_moe_120.lock deadlock on
+    Qwen3_5MoeForConditionalGeneration (qwen3.5 / qwen3.6) when multiple
+    replicas launch concurrently on Blackwell sm_120.
+    """
+
+    @pytest.fixture
+    def serialize_model(self, monkeypatch, tmp_path):
+        # Redirect XINFERENCE_CACHE_DIR to a per-test tmp path so the
+        # fixture doesn't write lock files into the real user cache.
+        monkeypatch.setattr("xinference.constants.XINFERENCE_CACHE_DIR", str(tmp_path))
+
+        from ..core import VLLMModel
+
+        model = object.__new__(VLLMModel)
+        model.model_family = MagicMock()
+        model.model_uid = "test-serialize-0"
+        return model
+
+    def test_serialize_skips_unsupported_arch(self, serialize_model):
+        """Non-Qwen3_5Moe architectures yield without creating lock dir."""
+        serialize_model.model_family.architectures = ["LlamaForCausalLM"]
+        with serialize_model._serialize_flashinfer_jit():
+            pass
+        import os
+
+        from xinference.constants import XINFERENCE_CACHE_DIR
+
+        lock_dir = os.path.join(XINFERENCE_CACHE_DIR, "flashinfer_warmup")
+        assert not os.path.exists(lock_dir)
+
+    def test_serialize_acquires_lock_for_qwen3_5_moe(self, serialize_model):
+        """Qwen3_5MoeForConditionalGeneration creates & releases lock file."""
+        serialize_model.model_family.architectures = [
+            "Qwen3_5MoeForConditionalGeneration"
+        ]
+        with serialize_model._serialize_flashinfer_jit():
+            pass
+        import os
+
+        from xinference.constants import XINFERENCE_CACHE_DIR
+
+        lock_path = os.path.join(
+            XINFERENCE_CACHE_DIR,
+            "flashinfer_warmup",
+            "Qwen3_5MoeForConditionalGeneration.lock",
+        )
+        assert os.path.exists(lock_path)
+
+    def test_serialize_disabled_via_env(self, serialize_model, monkeypatch):
+        """XINFERENCE_DISABLE_FLASHINFER_WARMUP=1 must skip lock creation."""
+        monkeypatch.setenv("XINFERENCE_DISABLE_FLASHINFER_WARMUP", "1")
+        serialize_model.model_family.architectures = [
+            "Qwen3_5MoeForConditionalGeneration"
+        ]
+        with serialize_model._serialize_flashinfer_jit():
+            pass
+        import os
+
+        from xinference.constants import XINFERENCE_CACHE_DIR
+
+        lock_dir = os.path.join(XINFERENCE_CACHE_DIR, "flashinfer_warmup")
+        assert not os.path.exists(lock_dir)
+
+    def test_serialize_releases_lock_on_exception(self, serialize_model):
+        """Lock must be released even if engine construction raises.
+
+        Verified by re-entering the context: if first call leaked the lock,
+        the second call would block until timeout.
+        """
+        serialize_model.model_family.architectures = [
+            "Qwen3_5MoeForConditionalGeneration"
+        ]
+
+        class _Boom(Exception):
+            pass
+
+        with pytest.raises(_Boom):
+            with serialize_model._serialize_flashinfer_jit():
+                raise _Boom("simulated engine construction failure")
+
+        # Re-enter: would deadlock if previous call leaked the lock.
+        # Use a short timeout to fail fast.
+        import xinference.model.llm.vllm.core as core_mod
+
+        original_timeout = core_mod._FLASHINFER_WARMUP_TIMEOUT
+        core_mod._FLASHINFER_WARMUP_TIMEOUT = 2
+        try:
+            with serialize_model._serialize_flashinfer_jit():
+                pass
+        finally:
+            core_mod._FLASHINFER_WARMUP_TIMEOUT = original_timeout
+
+    def test_serialize_yields_without_engine(self, serialize_model):
+        """Context manager yields regardless of self._engine state.
+
+        _serialize_flashinfer_jit wraps engine construction, so it must
+        not depend on self._engine existence.
+        """
+        serialize_model.model_family.architectures = [
+            "Qwen3_5MoeForConditionalGeneration"
+        ]
+        assert not hasattr(serialize_model, "_engine")
+        with serialize_model._serialize_flashinfer_jit():
+            pass
