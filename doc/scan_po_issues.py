@@ -20,6 +20,10 @@ PROMPT_PATTERNS = (
     "翻译如下",
     "以下は翻訳",
     "traducción solicitada",
+    "übersetzung:",
+    "german translation",
+    "deutsche übersetzung",
+    "hier ist die übersetzung",
 )
 
 
