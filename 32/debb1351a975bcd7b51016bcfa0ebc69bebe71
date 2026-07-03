@@ -1,0 +1,30 @@
+xinference/conftest.py
+  8ed0e14fd7172b48 272
+xinference/ui/web/ui/src/utils/jwt.js
+  8ed0e14fd7172b48 6-7,13-18
+xinference/client/tests/test_client_with_auth.py
+  8ed0e14fd7172b48 43-48,76-79
+xinference/client/tests/test_async_client_with_auth.py
+  8ed0e14fd7172b48 46-51,81-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "32debb1351a975bcd7b51016bcfa0ebc69bebe71",
+  "prompts": {
+    "8ed0e14fd7172b48": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "28e9d8a1-396d-4be6-9d39-38042d00108d",
+        "model": "<synthetic>"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 104,
+      "total_deletions": 86,
+      "accepted_lines": 29,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/2934923ab785031da9ef03de2eb31986f0ae1577a08bd93840d89547ec12fa2b"
+    }
+  }
+}
