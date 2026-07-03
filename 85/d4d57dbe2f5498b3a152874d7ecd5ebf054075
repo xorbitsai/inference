@@ -1,0 +1,51 @@
+xinference/ui/web/ui/src/locales/ko.json
+  8ed0e14fd7172b48 469-472
+xinference/ui/web/ui/src/locales/zh.json
+  8ed0e14fd7172b48 476-479
+xinference/ui/web/ui/src/locales/ja.json
+  8ed0e14fd7172b48 469-472
+xinference/ui/web/ui/src/locales/en.json
+  8ed0e14fd7172b48 476-479
+xinference/ui/web/ui/src/scenes/user_management/index.js
+  8ed0e14fd7172b48 35-38,43-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "85d4d57dbe2f5498b3a152874d7ecd5ebf054075",
+  "prompts": {
+    "8ed0e14fd7172b48": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "28e9d8a1-396d-4be6-9d39-38042d00108d",
+        "model": "<synthetic>"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 1792,
+      "total_deletions": 5,
+      "accepted_lines": 22,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/6cab21e7dbe7cfcb72b4c990c8cc006db393c6fe0bb16d585d03aa4e88ec96eb"
+    },
+    "fdd6695f02a28ed4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f08c6ab1-d013-4490-bdb8-b736e46d1dd0",
+        "model": "deepseek-v4-flash"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 193739,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/621c954fb60ed8328d7bffb6810d8b2d79f214144d0c77776e08fdd6d54c19f0"
+    }
+  },
+  "humans": {
+    "h_9bfd4e7cd8cc2c": {
+      "author": "郑明再"
+    }
+  }
+}
