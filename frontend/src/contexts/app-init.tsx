@@ -3,9 +3,9 @@
 import { useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'sonner';
-import Cookies from 'js-cookie';
 import { NO_AUTH, LOGIN_PATH } from '@/constants';
 import { useGlobal } from '@/contexts/global-context';
+import { migrateLegacyToken, setTokenValue } from '@/lib/auth-token';
 
 interface ClusterAuthResponse {
   auth: boolean;
@@ -38,15 +38,13 @@ export default function AppInit({ clusterAuth, clusterAuthError }: AppInitProps)
       }
       // no_auth (login not required)
       if (clusterAuth?.auth === false) {
-        Cookies.set('token', NO_AUTH, {
-          path: '/',
-        });
+        setTokenValue(NO_AUTH, undefined, { removeLegacy: false });
         if (pathname === LOGIN_PATH) router.push('/');
         fetchGlobalAfterAuth();
         return;
       }
       // The following requires login logic
-      const token = Cookies.get('token');
+      const token = migrateLegacyToken();
       // If auth is true && already logged in -> request global APIs directly
       if (token && token !== NO_AUTH) {
         if (pathname === LOGIN_PATH) router.push('/');

@@ -1,10 +1,10 @@
 import axios from 'axios';
-import Cookies from 'js-cookie';
 import type { AxiosRequestConfig } from 'axios';
 import { RequestEvents, NO_AUTH } from '@/constants';
 import { eventBus } from '@/lib/event-bus';
 import { requestManager } from '@/lib/request-manager';
 import { getApiUrl } from '@/lib/utils';
+import { getTokenValue } from '@/lib/auth-token';
 
 declare module 'axios' {
   export interface AxiosRequestConfig {
@@ -26,7 +26,7 @@ requestInstance.interceptors.request.use(
     if (config.noTimeout) {
       config.timeout = 0;
     }
-    const token = Cookies.get('token');
+    const token = getTokenValue();
     if (token === NO_AUTH) {
       return config;
     }
@@ -64,7 +64,7 @@ requestInstance.interceptors.response.use(
       case 401: {
         /** trigger only once */
         if (requestManager.canHandle401()) {
-          eventBus.emit(RequestEvents.UNAUTHORIZED);
+          eventBus.emit(RequestEvents.UNAUTHORIZED, `Server error: ${status} - ${errorMessage}`);
         }
         break;
       }

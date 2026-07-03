@@ -1,5 +1,5 @@
-import Cookies from 'js-cookie';
 import { NO_AUTH } from '@/constants';
+import { getTokenValue } from '@/lib/auth-token';
 import { getApiUrl } from '@/lib/utils';
 
 export interface PostEventStreamFetcherOptions<T> {
@@ -54,7 +54,7 @@ export async function postEventStreamFetcher<T = any>(
 ): Promise<void> {
   const { url, data, options, headers } = params;
   const { onData, onError, onEnd } = options;
-  const token = Cookies.get('token');
+  const token = getTokenValue();
 
   const fullUrl = `${getApiUrl()}${url}`;
 

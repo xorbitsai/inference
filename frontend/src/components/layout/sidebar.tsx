@@ -3,7 +3,6 @@
 import { ComponentType, FC, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import Cookies from 'js-cookie';
 import { FaGithub } from 'react-icons/fa';
 import {
   Box,
@@ -19,13 +18,15 @@ import {
   Monitor,
   ScrollText,
   Users,
+  UserRound,
   KeyRound,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
 import { useI18n } from '@/contexts/i18n-context';
 import { useGlobal } from '@/contexts/global-context';
-import { cn } from '@/lib/utils';
+import { getTokenValue } from '@/lib/auth-token';
+import { cn, decodeJwtPayload } from '@/lib/utils';
 import { getBrandingFromEnv } from '@/lib/branding';
 import {
   XINFERENCE_DOCS_URL,
@@ -146,11 +147,33 @@ export function Sidebar() {
   const branding = getBrandingFromEnv();
   const { clusterVersion, clusterAuth, clusterUIConfig } = useGlobal();
   const { usersManagePage, keysManageCreate } = useMenuAuth();
-  const token = Cookies.get('token');
+  const token = getTokenValue();
   const showLoginOut = useMemo(
-    () => clusterAuth?.auth && token && token !== NO_AUTH,
+    () => Boolean(clusterAuth?.auth && token && token !== NO_AUTH),
     [clusterAuth, token]
   );
+  const username = useMemo(() => {
+    if (!showLoginOut || !token || token === NO_AUTH) {
+      return '';
+    }
+
+    const payload = decodeJwtPayload(token);
+    if (!payload) {
+      return '';
+    }
+
+    const usernameKeys = ['username', 'preferred_username', 'name', 'sub', 'user_name'];
+    const usernameValue = usernameKeys
+      .map((key) => payload[key])
+      .find((value) => typeof value === 'string' && value.trim());
+
+    if (typeof usernameValue === 'string') {
+      return usernameValue;
+    }
+
+    const userId = payload.user_id;
+    return typeof userId === 'string' || typeof userId === 'number' ? String(userId) : '';
+  }, [showLoginOut, token]);
 
   const navGroups = useMemo<NavGroup[]>(() => {
     const groups: NavGroup[] = [
@@ -209,7 +232,7 @@ export function Sidebar() {
             name: t('menu.userManagement'),
             Icon: Users,
             Extra: ChevronRight,
-            show: usersManagePage
+            show: usersManagePage,
           },
           {
             path: '/api-key-management',
@@ -314,17 +337,39 @@ export function Sidebar() {
         </nav>
       </TooltipProvider>
 
-      {!collapsed && (
-        <div className="py-3 px-5 border-t border-border flex justify-between items-center gap-3">
-          <div className="flex gap-4 shrink-0">
-            <ThemeToggle />
-            <LanguageSwitcher />
-            {showLoginOut && <LoginOut />}
+      {!collapsed ? (
+        <div className="border-t border-border px-4 py-3">
+          <div className="flex h-8 items-center justify-between gap-3">
+            <div className="flex shrink-0 items-center gap-1">
+              <ThemeToggle className="flex h-8 w-8 items-center justify-center rounded-md" />
+              <LanguageSwitcher className="flex h-8 w-8 items-center justify-center rounded-md" />
+            </div>
+            {clusterVersion?.version && (
+              <div className="min-w-0 max-w-[132px] truncate text-right text-xs text-slate-400">
+                v:{clusterVersion.version}
+              </div>
+            )}
           </div>
-          {clusterVersion?.version && (
-            <div className="text-slate-400 truncate">v:{clusterVersion.version}</div>
+          {showLoginOut && (
+            <div className="mt-2 flex h-8 min-w-0 items-center justify-between gap-2">
+              <div className="flex min-w-0 flex-1 items-center gap-1 text-sm text-muted-foreground">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center">
+                  <UserRound className="h-5 w-5" />
+                </span>
+                <span className="truncate" title={username}>
+                  {username}
+                </span>
+              </div>
+              <LoginOut className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md" />
+            </div>
           )}
         </div>
+      ) : (
+        showLoginOut && (
+          <div className="flex justify-center border-t border-border py-3">
+            <LoginOut className="flex h-8 w-8 items-center justify-center rounded-md" />
+          </div>
+        )
       )}
     </div>
   );
