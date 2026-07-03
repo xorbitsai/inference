@@ -28,7 +28,7 @@ from i18n_locales import resolve_sphinx_language  # noqa: E402
 # -- Project information -----------------------------------------------------
 
 project = 'Xinference'
-copyright = '2025, Xorbits Inc.'
+copyright = '2026, XINFERENCE HOLDINGS PTE. LTD.'
 author = 'xorbitsai'
 
 
