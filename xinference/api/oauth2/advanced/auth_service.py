@@ -13,6 +13,7 @@
 # limitations under the License.
 import base64
 import logging
+import os
 import secrets
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
@@ -69,7 +70,9 @@ def _get_client_ip(request: Request) -> str:
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = int(
+    os.environ.get("XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES", "30")
+)
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 JWT_ALGORITHM = "HS256"
 
@@ -552,9 +555,14 @@ class AdvancedAuthService:
                 _audit("success", user=username or "", auth_type="jwt")
             return user
 
-        token_scopes = _normalize_scopes(token_scopes)
+        # Live-read: use DB-current permissions (already loaded above) instead
+        # of the JWT snapshot. The advanced-auth path loads the user from DB on
+        # every request to verify existence/enabled, so user["permissions"] is
+        # already in hand at zero extra DB cost. This makes admin permission
+        # changes take effect on the next request rather than the next login.
+        db_scopes = _normalize_scopes(user.get("permissions", []))
         for scope in security_scopes.scopes:
-            if scope not in token_scopes:
+            if scope not in db_scopes:
                 _audit("insufficient_scope", user=username or "", auth_type="jwt")
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,

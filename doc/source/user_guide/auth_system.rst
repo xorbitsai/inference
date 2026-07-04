@@ -165,6 +165,36 @@ Add the following two HTTP status codes:
 For the command line, SDK, or web UI users, there will be clear information prompts when encountering authorization and permissions issues.
 
 
+Advanced authentication (DB-backed)
+====================================
+When the advanced authentication system is enabled, users, permissions, API
+keys, and refresh tokens are stored in a database rather than the static
+``auth_config.json`` file. This section documents two behaviors that
+operators should know.
+
+Permission changes take effect without re-login
+-----------------------------------------------
+For advanced-auth JWT requests, route scope checks read the user's
+**current** permissions from the database on every request, not the
+scopes baked into the JWT at login. Granting or revoking a permission
+takes effect on the user's next API call — no re-login required.
+
+This applies to JWT-based browser sessions. API keys are also live-read
+(they always have been).
+
+Configurable access-token lifetime
+-----------------------------------
+The access-token lifetime defaults to 30 minutes and can be overridden
+with the ``XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES`` environment variable:
+
+.. code-block::
+
+    export XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES=10
+
+A shorter lifetime shrinks the token-theft window. The refresh token
+lifetime is 7 days and is not currently configurable.
+
+
 Note
 ====
 This feature is still in an experimental stage.
