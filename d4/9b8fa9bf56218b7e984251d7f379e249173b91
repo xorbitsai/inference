@@ -1,0 +1,33 @@
+xinference/core/virtual_env_manager.py
+  b86fe146471800d5 568-570,577-581,585-586,595,613,631-641,644
+xinference/core/tests/test_virtual_env_manager.py
+  b86fe146471800d5 39-40,45-46,52-54,59-70,75-77,82,85,88,92-93,97-100,156,180,195,211,230,236-249
+xinference/core/worker.py
+  b86fe146471800d5 2631
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "d49b8fa9bf56218b7e984251d7f379e249173b91",
+  "prompts": {
+    "b86fe146471800d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "83e95803-db88-4662-aa71-1b6636531c36",
+        "model": "glm-5.2"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 99,
+      "total_deletions": 33,
+      "accepted_lines": 751,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/de9a72c01c244c77ad15e1068032ee55bbce1c09c25236c948bc5a14e8945bed"
+    }
+  },
+  "humans": {
+    "h_9bfd4e7cd8cc2c": {
+      "author": "郑明再"
+    }
+  }
+}
