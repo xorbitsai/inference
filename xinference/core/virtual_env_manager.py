@@ -551,3 +551,112 @@ class VirtualEnvManager:
             return True
         except Exception:
             return False
+
+
+# flashinfer AOT workaround for sm_120 Blackwell consumer GPUs.
+# See optimize/20260702/2026070209.md for full root cause analysis.
+FLASHINFER_AOT_ARCHES = frozenset({"Qwen3_5MoeForConditionalGeneration"})
+FLASHINFER_AOT_PACKAGES = [
+    "flashinfer-python==0.6.11.post3",
+    "flashinfer-cubin==0.6.11.post3",
+    "flashinfer-jit-cache==0.6.11.post3+cu130",
+]
+FLASHINFER_AOT_WHEEL_URL = "https://flashinfer.ai/whl/cu130"
+
+
+def needs_flashinfer_aot(
+    model_engine: Optional[str], architectures: Optional[List[str]]
+) -> bool:
+    """Check if this model needs flashinfer AOT wheel post-install.
+
+    Gate narrowly: only vllm engine + Qwen3_5MoeForConditionalGeneration
+    architecture (qwen3.5 / qwen3.6 / Ornith-1.0-35B) triggers the
+    flashinfer JIT failure on sm_120 Blackwell consumer GPUs.
+    """
+    if not model_engine or model_engine.lower() != "vllm":
+        return False
+    return any(a in FLASHINFER_AOT_ARCHES for a in (architectures or []))
+
+
+def apply_flashinfer_aot_post_install(
+    model_engine: Optional[str],
+    architectures: Optional[List[str]],
+    virtual_env_manager: Any,
+    conf: Dict[str, Any],
+) -> None:
+    """Post-install hook: force-upgrade flashinfer to AOT versions for sm_120.
+
+    vllm 0.21.0 hard-pins flashinfer-cubin==0.6.8.post1, which has JIT
+    compilation failure on sm_120 (ptxas segfault + namespace resolution
+    bug). Force-upgrade to 0.6.11.post3 + AOT wheel to bypass JIT.
+
+    Uses --no-deps --upgrade to bypass vllm's hard pin without triggering
+    uv dependency resolution conflict.
+
+    Fallback: if upgrade fails (e.g. wheel unavailable offline), set
+    FLASHINFER_DISABLE_VERSION_CHECK=1 — model still works because
+    flashinfer 0.6.8.post1 Python binding can load 0.6.11.post3 AOT .so
+    (verified ABI compatible for fused_moe path in production).
+
+    See optimize/20260702/2026070209.md for root cause analysis.
+    """
+    if not needs_flashinfer_aot(model_engine, architectures):
+        return
+
+    logger.info(
+        "Post-install: force-upgrading flashinfer to AOT versions for %s "
+        "(sm_120 Blackwell workaround)",
+        list(architectures or []),
+    )
+
+    extra_urls = conf.get("extra_index_url") or []
+    if isinstance(extra_urls, str):
+        extra_urls = [extra_urls]
+    extra_urls = (
+        list(extra_urls) + [FLASHINFER_AOT_WHEEL_URL]
+        if extra_urls
+        else [FLASHINFER_AOT_WHEEL_URL]
+    )
+
+    cmd = [
+        virtual_env_manager._get_uv_path(),
+        "pip",
+        "install",
+        "-p",
+        str(virtual_env_manager.env_path),
+        "--no-deps",
+        "--upgrade",
+        "--color=always",
+    ]
+    for url in extra_urls:
+        cmd += ["--extra-index-url", url]
+    cmd += FLASHINFER_AOT_PACKAGES
+
+    try:
+        result = subprocess.run(cmd, check=False, capture_output=True, text=True)
+        if result.returncode == 0:
+            logger.info(
+                "Post-install: flashinfer AOT upgrade SUCCEEDED — "
+                "fused_moe JIT bypassed"
+            )
+        else:
+            logger.warning(
+                "Post-install: flashinfer AOT upgrade FAILED (exit %d). "
+                "Falling back to JIT with FLASHINFER_DISABLE_VERSION_CHECK=1. "
+                "stderr: %s",
+                result.returncode,
+                result.stderr[-500:] if result.stderr else "(empty)",
+            )
+            os.environ["FLASHINFER_DISABLE_VERSION_CHECK"] = "1"
+            logger.warning(
+                "Set FLASHINFER_DISABLE_VERSION_CHECK=1 — model may still "
+                "work via AOT .so load (verified 0.6.8.post1 binding + "
+                "0.6.11.post3 .so ABI compatible for fused_moe)"
+            )
+    except Exception as e:
+        logger.warning(
+            "Post-install: flashinfer AOT upgrade exception: %s. "
+            "Falling back to JIT with FLASHINFER_DISABLE_VERSION_CHECK=1.",
+            e,
+        )
+        os.environ["FLASHINFER_DISABLE_VERSION_CHECK"] = "1"
