@@ -36,44 +36,68 @@ class TestNeedsFlashinferAot:
 
     def test_vllm_qwen3_5_moe_triggers(self):
         assert (
-            needs_flashinfer_aot("vllm", ["Qwen3_5MoeForConditionalGeneration"]) is True
+            needs_flashinfer_aot("vllm", ["Qwen3_5MoeForConditionalGeneration"], "13.0")
+            is True
         )
 
     def test_vllm_qwen3_5_moe_case_insensitive_engine(self):
         assert (
-            needs_flashinfer_aot("VLLM", ["Qwen3_5MoeForConditionalGeneration"]) is True
+            needs_flashinfer_aot("VLLM", ["Qwen3_5MoeForConditionalGeneration"], "13.0")
+            is True
         )
 
     def test_vllm_multiple_archs_including_target(self):
         assert (
             needs_flashinfer_aot(
-                "vllm", ["LlamaForCausalLM", "Qwen3_5MoeForConditionalGeneration"]
+                "vllm",
+                ["LlamaForCausalLM", "Qwen3_5MoeForConditionalGeneration"],
+                "13.0",
             )
             is True
         )
 
+    def test_non_cu130_cuda_skipped(self):
+        """AOT packages are +cu130 only; CUDA 12.x must skip to avoid install failures."""
+        assert (
+            needs_flashinfer_aot("vllm", ["Qwen3_5MoeForConditionalGeneration"], "12.0")
+            is False
+        )
+
+    def test_none_cuda_skipped(self):
+        """Unknown CUDA version must skip — can't safely install +cu130 wheels."""
+        assert (
+            needs_flashinfer_aot("vllm", ["Qwen3_5MoeForConditionalGeneration"], None)
+            is False
+        )
+
     def test_non_vllm_engine_skipped(self):
         assert (
-            needs_flashinfer_aot("sglang", ["Qwen3_5MoeForConditionalGeneration"])
+            needs_flashinfer_aot(
+                "sglang", ["Qwen3_5MoeForConditionalGeneration"], "13.0"
+            )
             is False
         )
 
     def test_non_target_arch_skipped(self):
-        assert needs_flashinfer_aot("vllm", ["LlamaForCausalLM"]) is False
+        assert needs_flashinfer_aot("vllm", ["LlamaForCausalLM"], "13.0") is False
 
     def test_empty_architectures_skipped(self):
-        assert needs_flashinfer_aot("vllm", []) is False
+        assert needs_flashinfer_aot("vllm", [], "13.0") is False
 
     def test_none_architectures_skipped(self):
-        assert needs_flashinfer_aot("vllm", None) is False
+        assert needs_flashinfer_aot("vllm", None, "13.0") is False
 
     def test_none_engine_skipped(self):
         assert (
-            needs_flashinfer_aot(None, ["Qwen3_5MoeForConditionalGeneration"]) is False
+            needs_flashinfer_aot(None, ["Qwen3_5MoeForConditionalGeneration"], "13.0")
+            is False
         )
 
     def test_empty_engine_skipped(self):
-        assert needs_flashinfer_aot("", ["Qwen3_5MoeForConditionalGeneration"]) is False
+        assert (
+            needs_flashinfer_aot("", ["Qwen3_5MoeForConditionalGeneration"], "13.0")
+            is False
+        )
 
     def test_constants_sanity(self):
         assert "Qwen3_5MoeForConditionalGeneration" in FLASHINFER_AOT_ARCHES
@@ -129,6 +153,7 @@ class TestApplyFlashinferAotPostInstall:
                 ["Qwen3_5MoeForConditionalGeneration"],
                 fake_venv_manager,
                 {},
+                "13.0",
             )
             run_mock.assert_called_once()
             cmd = run_mock.call_args[0][0]
@@ -152,6 +177,7 @@ class TestApplyFlashinferAotPostInstall:
                 ["Qwen3_5MoeForConditionalGeneration"],
                 fake_venv_manager,
                 {},
+                "13.0",
             )
         assert os.environ.get("FLASHINFER_DISABLE_VERSION_CHECK") == "1"
 
@@ -166,6 +192,7 @@ class TestApplyFlashinferAotPostInstall:
                 ["Qwen3_5MoeForConditionalGeneration"],
                 fake_venv_manager,
                 {},
+                "13.0",
             )
         assert os.environ.get("FLASHINFER_DISABLE_VERSION_CHECK") == "1"
 
@@ -181,6 +208,7 @@ class TestApplyFlashinferAotPostInstall:
                 ["Qwen3_5MoeForConditionalGeneration"],
                 fake_venv_manager,
                 {"extra_index_url": ["https://wheels.vllm.ai/0.19.0/cu130"]},
+                "13.0",
             )
             cmd = run_mock.call_args[0][0]
             cmd_str = " ".join(cmd)
@@ -199,8 +227,23 @@ class TestApplyFlashinferAotPostInstall:
                 ["Qwen3_5MoeForConditionalGeneration"],
                 fake_venv_manager,
                 {"extra_index_url": "https://wheels.vllm.ai/0.19.0/cu130"},
+                "13.0",
             )
             cmd = run_mock.call_args[0][0]
             cmd_str = " ".join(cmd)
             assert "wheels.vllm.ai" in cmd_str
             assert "flashinfer.ai" in cmd_str
+
+    def test_skipped_for_non_cu130_cuda(self, fake_venv_manager):
+        """CUDA 12.x must skip — AOT packages are +cu130 only."""
+        with mock.patch(
+            "xinference.core.virtual_env_manager.subprocess.run"
+        ) as run_mock:
+            apply_flashinfer_aot_post_install(
+                "vllm",
+                ["Qwen3_5MoeForConditionalGeneration"],
+                fake_venv_manager,
+                {},
+                "12.0",
+            )
+            run_mock.assert_not_called()

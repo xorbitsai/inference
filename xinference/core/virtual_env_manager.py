@@ -565,15 +565,24 @@ FLASHINFER_AOT_WHEEL_URL = "https://flashinfer.ai/whl/cu130"
 
 
 def needs_flashinfer_aot(
-    model_engine: Optional[str], architectures: Optional[List[str]]
+    model_engine: Optional[str],
+    architectures: Optional[List[str]],
+    cuda_version: Optional[str] = None,
 ) -> bool:
     """Check if this model needs flashinfer AOT wheel post-install.
 
     Gate narrowly: only vllm engine + Qwen3_5MoeForConditionalGeneration
     architecture (qwen3.5 / qwen3.6 / Ornith-1.0-35B) triggers the
     flashinfer JIT failure on sm_120 Blackwell consumer GPUs.
+
+    Also gates on CUDA runtime version: FLASHINFER_AOT_PACKAGES ships
+    ``+cu130`` variants only, so on non-CUDA-13.0 systems the install
+    would fail and force the fallback. Skip those systems rather than
+    trigger a noisy failed install.
     """
     if not model_engine or model_engine.lower() != "vllm":
+        return False
+    if cuda_version != "13.0":
         return False
     return any(a in FLASHINFER_AOT_ARCHES for a in (architectures or []))
 
@@ -583,6 +592,7 @@ def apply_flashinfer_aot_post_install(
     architectures: Optional[List[str]],
     virtual_env_manager: Any,
     conf: Dict[str, Any],
+    cuda_version: Optional[str] = None,
 ) -> None:
     """Post-install hook: force-upgrade flashinfer to AOT versions for sm_120.
 
@@ -600,7 +610,7 @@ def apply_flashinfer_aot_post_install(
 
     See optimize/20260702/2026070209.md for root cause analysis.
     """
-    if not needs_flashinfer_aot(model_engine, architectures):
+    if not needs_flashinfer_aot(model_engine, architectures, cuda_version):
         return
 
     logger.info(
@@ -618,8 +628,20 @@ def apply_flashinfer_aot_post_install(
         else [FLASHINFER_AOT_WHEEL_URL]
     )
 
+    # Resolve uv path with a fallback. ``_get_uv_path`` is a private method
+    # on xoscar's VirtualEnvManager and could be renamed/removed in future
+    # releases; fall back to PATH lookup so the hook degrades gracefully.
+    uv_path = None
+    if hasattr(virtual_env_manager, "_get_uv_path"):
+        try:
+            uv_path = virtual_env_manager._get_uv_path()
+        except Exception:
+            pass
+    if not uv_path:
+        uv_path = shutil.which("uv") or "uv"
+
     cmd = [
-        virtual_env_manager._get_uv_path(),
+        uv_path,
         "pip",
         "install",
         "-p",

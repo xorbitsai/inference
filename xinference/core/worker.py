@@ -2628,6 +2628,7 @@ class WorkerActor(xo.StatelessActor):
             architectures,
             virtual_env_manager,
             conf,
+            cuda_version,
         )
 
         # Apply engine-specific post-install patches
