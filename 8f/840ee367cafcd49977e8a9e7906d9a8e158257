@@ -1,0 +1,31 @@
+xinference/api/oauth2/advanced/auth_service.py
+  b86fe146471800d5 594-610
+xinference/api/tests/test_oauth2_advanced_live_read.py
+  b86fe146471800d5 169-200
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "8f840ee367cafcd49977e8a9e7906d9a8e158257",
+  "prompts": {
+    "b86fe146471800d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "83e95803-db88-4662-aa71-1b6636531c36",
+        "model": "glm-5.2"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 49,
+      "total_deletions": 5,
+      "accepted_lines": 49,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/53eaeea9f556e85e0b48fb0b91421dc0cc5fcb697504515c7ab4671e47f07348"
+    }
+  },
+  "humans": {
+    "h_9bfd4e7cd8cc2c": {
+      "author": "郑明再"
+    }
+  }
+}
