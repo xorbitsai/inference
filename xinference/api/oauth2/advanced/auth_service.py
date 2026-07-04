@@ -70,9 +70,19 @@ def _get_client_ip(request: Request) -> str:
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
-ACCESS_TOKEN_EXPIRE_MINUTES = int(
-    os.environ.get("XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES", "30")
-)
+try:
+    ACCESS_TOKEN_EXPIRE_MINUTES = int(
+        os.environ.get("XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES", "30")
+    )
+    if ACCESS_TOKEN_EXPIRE_MINUTES <= 0:
+        raise ValueError("must be positive")
+except (TypeError, ValueError):
+    logger.warning(
+        "XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES must be a positive integer "
+        "(got %r); falling back to 30 minutes.",
+        os.environ.get("XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES"),
+    )
+    ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 JWT_ALGORITHM = "HS256"
 
