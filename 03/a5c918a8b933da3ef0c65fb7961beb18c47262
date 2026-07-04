@@ -1,0 +1,50 @@
+doc/source/user_guide/auth_system.rst
+  b86fe146471800d5 168-197
+xinference/ui/web/ui/src/components/MenuSide.js
+  b86fe146471800d5 93-95,103-118
+xinference/api/tests/test_oauth2_advanced_live_read.py
+  b86fe146471800d5 1-168
+xinference/api/oauth2/advanced/auth_service.py
+  b86fe146471800d5 16,73-75,558-563,565
+xinference/ui/web/ui/src/components/fetchWrapper.js
+  b86fe146471800d5 56-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "03a5c918a8b933da3ef0c65fb7961beb18c47262",
+  "prompts": {
+    "b86fe146471800d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "83e95803-db88-4662-aa71-1b6636531c36",
+        "model": "glm-5.2"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 232,
+      "total_deletions": 6,
+      "accepted_lines": 232,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/cf7bcb5db964c06a7e6bc6eabbfd2256c586d228a96b915a615ebd363e4b103c"
+    },
+    "fbd0a7434a0e56c7": {
+      "agent_id": {
+        "tool": "known_human",
+        "id": "known_human_session",
+        "model": "unknown"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 535,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_9bfd4e7cd8cc2c": {
+      "author": "郑明再"
+    }
+  }
+}
