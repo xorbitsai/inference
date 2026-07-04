@@ -13,6 +13,7 @@
 # limitations under the License.
 import base64
 import logging
+import os
 import secrets
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
@@ -69,7 +70,19 @@ def _get_client_ip(request: Request) -> str:
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+try:
+    ACCESS_TOKEN_EXPIRE_MINUTES = int(
+        os.environ.get("XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES", "30")
+    )
+    if ACCESS_TOKEN_EXPIRE_MINUTES <= 0:
+        raise ValueError("must be positive")
+except (TypeError, ValueError):
+    logger.warning(
+        "XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES must be a positive integer "
+        "(got %r); falling back to 30 minutes.",
+        os.environ.get("XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES"),
+    )
+    ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 JWT_ALGORITHM = "HS256"
 
@@ -552,9 +565,14 @@ class AdvancedAuthService:
                 _audit("success", user=username or "", auth_type="jwt")
             return user
 
-        token_scopes = _normalize_scopes(token_scopes)
+        # Live-read: use DB-current permissions (already loaded above) instead
+        # of the JWT snapshot. The advanced-auth path loads the user from DB on
+        # every request to verify existence/enabled, so user["permissions"] is
+        # already in hand at zero extra DB cost. This makes admin permission
+        # changes take effect on the next request rather than the next login.
+        db_scopes = _normalize_scopes(user.get("permissions", []))
         for scope in security_scopes.scopes:
-            if scope not in token_scopes:
+            if scope not in db_scopes:
                 _audit("insufficient_scope", user=username or "", auth_type="jwt")
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
@@ -573,11 +591,23 @@ class AdvancedAuthService:
         if api_key_entry:
             return api_key_entry.has_model_access(model_uid, model_type)
         payload = self.verify_access_token(token)
-        if payload:
-            scopes = payload.get("scopes", [])
-            if "admin" in scopes or "models:read" in scopes:
-                return True
-        return False
+        if not payload:
+            return False
+        # Live-read: use DB-current permissions for consistency with the
+        # route-level scope check in __call__. Otherwise an admin granting
+        # models:read after login would pass Security(scopes=["models:read"])
+        # but still 403 here because the JWT snapshot lacks it.
+        user_id = payload.get("user_id")
+        username = payload.get("sub")
+        user = None
+        if user_id:
+            user = self._db.get_user_by_id(user_id)
+        elif username:
+            user = self._db.get_user_by_username(username)
+        if not user or not user.get("enabled"):
+            return False
+        db_scopes = user.get("permissions", [])
+        return "admin" in db_scopes or "models:read" in db_scopes
 
     # --- User disable cascade ---
 

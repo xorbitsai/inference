@@ -90,15 +90,32 @@ const MenuSide = () => {
       })
       .catch(() => setEsEnabled(false))
 
-    // Parse username + scopes from JWT token (live-read via
-    // PermissionsContext lands in a follow-up PR; for now JWT snapshot
-    // is sufficient because the backend still enforces scopes).
+    // Parse username + scopes from JWT token. The backend (advanced auth)
+    // enforces scopes against DB-current permissions on every request, so
+    // the menu's role is just to reflect what the current token allows.
     const parsed = parseTokenFromSession()
     if (parsed) {
       setCurrentUser(parsed.username)
       setScopes(parsed.scopes)
     }
   }, [endPoint])
+
+  // Re-parse JWT when the access token is refreshed by fetchWrapper, so the
+  // menu recomputes permission-gated items without a page reload.
+  useEffect(() => {
+    const handler = () => {
+      const parsed = parseTokenFromSession()
+      if (parsed) {
+        setCurrentUser(parsed.username)
+        setScopes(parsed.scopes)
+      } else {
+        setScopes([])
+        setCurrentUser('')
+      }
+    }
+    window.addEventListener('auth-refreshed', handler)
+    return () => window.removeEventListener('auth-refreshed', handler)
+  }, [])
 
   const navItems = [
     {

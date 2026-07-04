@@ -53,6 +53,9 @@ const tryRefreshToken = async () => {
           sessionStorage.setItem('refresh_token', data.refresh_token)
         }
         processQueue(true)
+        // Notify listeners (e.g., MenuSide) that the token was refreshed so
+        // they can re-read permissions from the new JWT without a page reload.
+        window.dispatchEvent(new Event('auth-refreshed'))
         return true
       }
       processQueue(false)
