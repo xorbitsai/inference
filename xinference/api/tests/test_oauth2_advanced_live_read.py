@@ -166,3 +166,35 @@ def test_refresh_token_rotation_invalidates_old(auth_service):
 
     second = auth_service.refresh_access_token(refresh_token)
     assert second is None
+
+
+def test_validate_model_access_grant_after_login(auth_service):
+    """``validate_model_access`` reflects DB-current permissions for JWTs.
+
+    If admin grants ``models:read`` after login, the JWT still lacks it,
+    but ``validate_model_access`` must read DB and grant access — otherwise
+    the route-level ``Security(scopes=["models:read"])`` would pass while
+    ``_check_model_access`` 403s, leaving the grant ineffective for
+    inference endpoints.
+    """
+    user_id = _create_user(auth_service, "erin", [])
+    token = auth_service.create_access_token(user_id, "erin", [])
+    # Admin grants models:read in DB after login.
+    auth_service.db.set_user_permissions(user_id, ["models:read"])
+
+    assert auth_service.validate_model_access(token, "any-model", "LLM") is True
+
+
+def test_validate_model_access_revoke_after_login(auth_service):
+    """Revocation must also take effect in ``validate_model_access``.
+
+    JWT still carries ``models:read`` (snapshot), but DB revoked it.
+    ``validate_model_access`` must return False so the model request is
+    denied, consistent with the route-level DB scope check.
+    """
+    user_id = _create_user(auth_service, "frank", ["models:read"])
+    token = auth_service.create_access_token(user_id, "frank", ["models:read"])
+    # Admin revokes models:read in DB after login.
+    auth_service.db.set_user_permissions(user_id, [])
+
+    assert auth_service.validate_model_access(token, "any-model", "LLM") is False

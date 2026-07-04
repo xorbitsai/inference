@@ -591,11 +591,23 @@ class AdvancedAuthService:
         if api_key_entry:
             return api_key_entry.has_model_access(model_uid, model_type)
         payload = self.verify_access_token(token)
-        if payload:
-            scopes = payload.get("scopes", [])
-            if "admin" in scopes or "models:read" in scopes:
-                return True
-        return False
+        if not payload:
+            return False
+        # Live-read: use DB-current permissions for consistency with the
+        # route-level scope check in __call__. Otherwise an admin granting
+        # models:read after login would pass Security(scopes=["models:read"])
+        # but still 403 here because the JWT snapshot lacks it.
+        user_id = payload.get("user_id")
+        username = payload.get("sub")
+        user = None
+        if user_id:
+            user = self._db.get_user_by_id(user_id)
+        elif username:
+            user = self._db.get_user_by_username(username)
+        if not user or not user.get("enabled"):
+            return False
+        db_scopes = user.get("permissions", [])
+        return "admin" in db_scopes or "models:read" in db_scopes
 
     # --- User disable cascade ---
 
