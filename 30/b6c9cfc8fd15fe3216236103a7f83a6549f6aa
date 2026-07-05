@@ -1,0 +1,29 @@
+xinference/core/worker.py
+  b86fe146471800d5 2620-2627,2629-2635
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.3",
+  "base_commit_sha": "30b6c9cfc8fd15fe3216236103a7f83a6549f6aa",
+  "prompts": {
+    "b86fe146471800d5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "83e95803-db88-4662-aa71-1b6636531c36",
+        "model": "glm-5.2"
+      },
+      "human_author": "郑明再 <zhengmingzai@cvte.com>",
+      "messages": [],
+      "total_additions": 15,
+      "total_deletions": 12,
+      "accepted_lines": 688,
+      "overriden_lines": 0,
+      "messages_url": "https://gitai.gz.cvte.cn/cas/1980637b70ed6a7e5f79f821ce24b480a296a1f504368163aacfe7e626a01bb8"
+    }
+  },
+  "humans": {
+    "h_9bfd4e7cd8cc2c": {
+      "author": "郑明再"
+    }
+  }
+}
