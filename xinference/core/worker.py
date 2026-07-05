@@ -2617,6 +2617,23 @@ class WorkerActor(xo.StatelessActor):
         with _exclusive_venv_path_lock(str(virtual_env_manager.env_path)):
             virtual_env_manager.install_packages(packages, **conf, **variables)
 
+            # Post-install: flashinfer AOT workaround for sm_120 Blackwell.
+            # vllm 0.21.0 hard-pins flashinfer-cubin==0.6.8.post1 which has JIT
+            # compilation failure on sm_120. Force-upgrade to AOT versions.
+            # Run under the same lock — uv pip install mutates the venv and
+            # must stay serialized with install_packages() and other AOT
+            # upgrades when multiple replicas/workers share this venv.
+            # See optimize/20260702/2026070209.md
+            from .virtual_env_manager import apply_flashinfer_aot_post_install
+
+            apply_flashinfer_aot_post_install(
+                model_engine,
+                architectures,
+                virtual_env_manager,
+                conf,
+                cuda_version,
+            )
+
         # Apply engine-specific post-install patches
         if model_engine and model_engine.lower() == "vllm":
             try:
