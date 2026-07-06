@@ -77,10 +77,7 @@ jobs:
           - { os: windows-latest, python-version: 3.11 }
           - { os: windows-latest, python-version: 3.12 }
         include:
-          - { os: gpu-t4, module: gpu, python-version: "3.12", gpu-test-group: "core-image" }
-          - { os: gpu-t4, module: gpu, python-version: "3.12", gpu-test-group: "audio-asr" }
-          - { os: gpu-t4, module: gpu, python-version: "3.12", gpu-test-group: "audio-tts" }
-          - { os: gpu-t4, module: gpu, python-version: "3.12", gpu-test-group: "embedding-llm" }
+          - { os: gpu-t4, module: gpu, python-version: "3.12"}
           - { os: macos-latest, module: metal, python-version: "3.10" }
 
     steps:
@@ -137,9 +134,9 @@ jobs:
             ~/.cache/modelscope
             ~/.cache/torch
             ~/.cache/whisper
-          key: ${{ runner.os }}-${{ matrix.module }}-${{ matrix.python-version }}-${{ matrix.gpu-test-group }}-models-v1
+          key: ${{ runner.os }}-${{ matrix.module }}-${{ matrix.python-version }}-models-v1
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.module }}-${{ matrix.python-version }}-${{ matrix.gpu-test-group }}-models-
+            ${{ runner.os }}-${{ matrix.module }}-${{ matrix.python-version }}-models-
 
       - name: Install dependencies
         env:
@@ -298,43 +295,29 @@ jobs:
           }
 
           if [ "$MODULE" == "gpu" ]; then
-            case "${{ matrix.gpu-test-group }}" in
-              core-image)
-                pytest --timeout=3000 \
-                  --disable-warnings \
-                  --cov-config=setup.cfg \
-                  --cov-report=xml \
-                  --cov=xinference \
-                  xinference/core/tests/test_continuous_batching.py
-                run_pytest xinference/model/image/tests/test_stable_diffusion.py
-                run_pytest xinference/model/image/tests/test_got_ocr2.py
-                ;;
-              audio-asr)
-                run_pytest xinference/model/audio/tests/test_whisper.py
-                run_pytest xinference/model/audio/tests/test_funasr.py
-                run_pytest xinference/model/audio/tests/test_chattts.py
-                run_pytest xinference/model/audio/tests/test_cosyvoice.py
-                ;;
-              audio-tts)
-                run_pytest xinference/model/audio/tests/test_f5tts.py
-                run_pytest xinference/model/audio/tests/test_melotts.py
-                run_pytest xinference/model/audio/tests/test_kokoro.py
-                run_pytest xinference/model/audio/tests/test_fish_speech.py
-                run_pytest xinference/model/audio/tests/test_megatts.py
-                ;;
-              embedding-llm)
-                run_pytest xinference/model/embedding/tests/test_qwen3_vl_engine_params.py
-                run_pytest xinference/model/rerank/tests/test_qwen3_vl_reranker_virtualenv.py
-                run_pytest xinference/model/embedding/tests/test_integrated_embedding.py
-                run_pytest xinference/model/embedding/vllm/tests/test_vllm_embedding.py
-                run_pytest xinference/model/llm/transformers/tests/test_tensorizer.py
-                run_pytest xinference/model/llm/tests/test_llm_model.py
-                ;;
-              *)
-                echo "Unknown GPU test group: ${{ matrix.gpu-test-group }}"
-                exit 1
-                ;;
-            esac
+            pytest --timeout=3000 \
+              --disable-warnings \
+              --cov-config=setup.cfg \
+              --cov-report=xml \
+              --cov=xinference \
+              xinference/core/tests/test_continuous_batching.py
+            run_pytest xinference/model/embedding/tests/test_qwen3_vl_engine_params.py
+            run_pytest xinference/model/rerank/tests/test_qwen3_vl_reranker_virtualenv.py
+            run_pytest xinference/model/image/tests/test_stable_diffusion.py
+            run_pytest xinference/model/image/tests/test_got_ocr2.py
+            run_pytest xinference/model/audio/tests/test_whisper.py
+            run_pytest xinference/model/audio/tests/test_funasr.py
+            run_pytest xinference/model/audio/tests/test_chattts.py
+            run_pytest xinference/model/audio/tests/test_cosyvoice.py
+            run_pytest xinference/model/audio/tests/test_f5tts.py
+            run_pytest xinference/model/audio/tests/test_melotts.py
+            run_pytest xinference/model/audio/tests/test_kokoro.py
+            run_pytest xinference/model/audio/tests/test_fish_speech.py
+            run_pytest xinference/model/audio/tests/test_megatts.py
+            run_pytest xinference/model/embedding/tests/test_integrated_embedding.py
+            run_pytest xinference/model/embedding/vllm/tests/test_vllm_embedding.py
+            run_pytest xinference/model/llm/transformers/tests/test_tensorizer.py
+            run_pytest xinference/model/llm/tests/test_llm_model.py
           elif [ "$MODULE" == "metal" ]; then
             run_pytest xinference/model/llm/mlx/tests/test_mlx.py
             run_pytest xinference/model/audio/tests/test_whisper_mlx.py
