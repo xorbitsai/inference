@@ -42,7 +42,7 @@ msgstr ""
 
 #: ../../source/getting_started/release_notes.rst:12
 msgid "`View release notes <https://xinference.io/release_notes/v2.12.0.html>`_"
-msgstr "`查看版本说明 <https://xinference.cn/release_notes/v2.12.0.html>`_"
+msgstr "`查看版本说明 <https://xinference.io/release_notes/v2.12.0.html>`_"
 
 #: ../../source/getting_started/release_notes.rst:14
 msgid "v2.11.0"
@@ -50,7 +50,7 @@ msgstr ""
 
 #: ../../source/getting_started/release_notes.rst:14
 msgid "`View release notes <https://xinference.io/release_notes/v2.11.0.html>`_"
-msgstr "`查看版本说明 <https://xinference.cn/release_notes/v2.11.0.html>`_"
+msgstr "`查看版本说明 <https://xinference.io/release_notes/v2.11.0.html>`_"
 
 #: ../../source/getting_started/release_notes.rst:16
 msgid "v2.10.0"
@@ -58,7 +58,7 @@ msgstr ""
 
 #: ../../source/getting_started/release_notes.rst:16
 msgid "`View release notes <https://xinference.io/release_notes/v2.10.0.html>`_"
-msgstr "`查看版本说明 <https://xinference.cn/release_notes/v2.10.0.html>`_"
+msgstr "`查看版本说明 <https://xinference.io/release_notes/v2.10.0.html>`_"
 
 #: ../../source/getting_started/release_notes.rst:18
 msgid "v2.9.0"
@@ -66,7 +66,7 @@ msgstr ""
 
 #: ../../source/getting_started/release_notes.rst:18
 msgid "`View release notes <https://xinference.io/release_notes/v2.9.0.html>`_"
-msgstr "`查看版本说明 <https://xinference.cn/release_notes/v2.9.0.html>`_"
+msgstr "`查看版本说明 <https://xinference.io/release_notes/v2.9.0.html>`_"
 
 #: ../../source/getting_started/release_notes.rst:20
 msgid "v2.8.0"
@@ -74,7 +74,7 @@ msgstr ""
 
 #: ../../source/getting_started/release_notes.rst:20
 msgid "`View release notes <https://xinference.io/release_notes/v2.8.0.html>`_"
-msgstr "`查看版本说明 <https://xinference.cn/release_notes/v2.8.0.html>`_"
+msgstr "`查看版本说明 <https://xinference.io/release_notes/v2.8.0.html>`_"
 
 #: ../../source/getting_started/release_notes.rst:22
 msgid "v2.7.0"
@@ -82,7 +82,7 @@ msgstr ""
 
 #: ../../source/getting_started/release_notes.rst:22
 msgid "`View release notes <https://xinference.io/release_notes/v2.7.0.html>`_"
-msgstr "`查看版本说明 <https://xinference.cn/release_notes/v2.7.0.html>`_"
+msgstr "`查看版本说明 <https://xinference.io/release_notes/v2.7.0.html>`_"
 
 #: ../../source/getting_started/release_notes.rst:24
 msgid "v2.5.0"
@@ -90,7 +90,7 @@ msgstr ""
 
 #: ../../source/getting_started/release_notes.rst:24
 msgid "`View release notes <https://xinference.io/release_notes/v2.5.0.html>`_"
-msgstr "`查看版本说明 <https://xinference.cn/release_notes/v2.5.0.html>`_"
+msgstr "`查看版本说明 <https://xinference.io/release_notes/v2.5.0.html>`_"
 
 #: ../../source/getting_started/release_notes.rst:26
 msgid "v2.4.0"
@@ -98,7 +98,7 @@ msgstr ""
 
 #: ../../source/getting_started/release_notes.rst:26
 msgid "`View release notes <https://xinference.io/release_notes/v2.4.0.html>`_"
-msgstr "`查看版本说明 <https://xinference.cn/release_notes/v2.4.0.html>`_"
+msgstr "`查看版本说明 <https://xinference.io/release_notes/v2.4.0.html>`_"
 
 #: ../../source/getting_started/release_notes.rst:28
 msgid "v2.3.0"
@@ -106,7 +106,7 @@ msgstr ""
 
 #: ../../source/getting_started/release_notes.rst:28
 msgid "`View release notes <https://xinference.io/release_notes/v2.3.0.html>`_"
-msgstr "`查看版本说明 <https://xinference.cn/release_notes/v2.3.0.html>`_"
+msgstr "`查看版本说明 <https://xinference.io/release_notes/v2.3.0.html>`_"
 
 #: ../../source/getting_started/release_notes.rst:30
 msgid "v2.2.0"
@@ -114,7 +114,7 @@ msgstr ""
 
 #: ../../source/getting_started/release_notes.rst:30
 msgid "`View release notes <https://xinference.io/release_notes/v2.2.0.html>`_"
-msgstr "`查看版本说明 <https://xinference.cn/release_notes/v2.2.0.html>`_"
+msgstr "`查看版本说明 <https://xinference.io/release_notes/v2.2.0.html>`_"
 
 #: ../../source/getting_started/release_notes.rst:32
 msgid "v2.1.0"
@@ -122,7 +122,7 @@ msgstr ""
 
 #: ../../source/getting_started/release_notes.rst:32
 msgid "`View release notes <https://xinference.io/release_notes/v2.1.0.html>`_"
-msgstr "`查看版本说明 <https://xinference.cn/release_notes/v2.1.0.html>`_"
+msgstr "`查看版本说明 <https://xinference.io/release_notes/v2.1.0.html>`_"
 
 #: ../../source/getting_started/release_notes.rst:34
 msgid "v2.0.0"
@@ -130,7 +130,7 @@ msgstr ""
 
 #: ../../source/getting_started/release_notes.rst:34
 msgid "`View release notes <https://xinference.io/release_notes/v2.0.0.html>`_"
-msgstr "`查看版本说明 <https://xinference.cn/release_notes/v2.0.0.html>`_"
+msgstr "`查看版本说明 <https://xinference.io/release_notes/v2.0.0.html>`_"
 
 #: ../../source/getting_started/release_notes.rst:36
 msgid "v1.17.0"
@@ -138,7 +138,7 @@ msgstr ""
 
 #: ../../source/getting_started/release_notes.rst:36
 msgid "`View release notes <https://xinference.io/release_notes/v1.17.0.html>`_"
-msgstr "`查看版本说明 <https://xinference.cn/release_notes/v1.17.0.html>`_"
+msgstr "`查看版本说明 <https://xinference.io/release_notes/v1.17.0.html>`_"
 
 #: ../../source/getting_started/release_notes.rst:38
 msgid "v1.16.0"
@@ -146,7 +146,7 @@ msgstr ""
 
 #: ../../source/getting_started/release_notes.rst:38
 msgid "`View release notes <https://xinference.io/release_notes/v1.16.0.html>`_"
-msgstr "`查看版本说明 <https://xinference.cn/release_notes/v1.16.0.html>`_"
+msgstr "`查看版本说明 <https://xinference.io/release_notes/v1.16.0.html>`_"
 
 #: ../../source/getting_started/release_notes.rst:40
 msgid "v1.15.0"
@@ -154,7 +154,7 @@ msgstr ""
 
 #: ../../source/getting_started/release_notes.rst:40
 msgid "`View release notes <https://xinference.io/release_notes/v1.15.0.html>`_"
-msgstr "`查看版本说明 <https://xinference.cn/release_notes/v1.15.0.html>`_"
+msgstr "`查看版本说明 <https://xinference.io/release_notes/v1.15.0.html>`_"
 
 #: ../../source/getting_started/release_notes.rst:42
 msgid "v1.14.0"
@@ -162,7 +162,7 @@ msgstr ""
 
 #: ../../source/getting_started/release_notes.rst:42
 msgid "`View release notes <https://xinference.io/release_notes/v1.14.0.html>`_"
-msgstr "`查看版本说明 <https://xinference.cn/release_notes/v1.14.0.html>`_"
+msgstr "`查看版本说明 <https://xinference.io/release_notes/v1.14.0.html>`_"
 
 #: ../../source/getting_started/release_notes.rst:44
 msgid "v1.13.0"
@@ -170,7 +170,7 @@ msgstr ""
 
 #: ../../source/getting_started/release_notes.rst:44
 msgid "`View release notes <https://xinference.io/release_notes/v1.13.0.html>`_"
-msgstr "`查看版本说明 <https://xinference.cn/release_notes/v1.13.0.html>`_"
+msgstr "`查看版本说明 <https://xinference.io/release_notes/v1.13.0.html>`_"
 
 #: ../../source/getting_started/release_notes.rst:46
 msgid "v1.12.0"
@@ -178,7 +178,7 @@ msgstr ""
 
 #: ../../source/getting_started/release_notes.rst:46
 msgid "`View release notes <https://xinference.io/release_notes/v1.12.0.html>`_"
-msgstr "`查看版本说明 <https://xinference.cn/release_notes/v1.12.0.html>`_"
+msgstr "`查看版本说明 <https://xinference.io/release_notes/v1.12.0.html>`_"
 
 #: ../../source/getting_started/release_notes.rst:48
 msgid "v1.11.0.post1"
@@ -188,7 +188,7 @@ msgstr ""
 msgid ""
 "`View release notes "
 "<https://xinference.io/release_notes/v1.11.0.post1.html>`_"
-msgstr "`查看版本说明 <https://xinference.cn/release_notes/v1.11.0.post1.html>`_"
+msgstr "`查看版本说明 <https://xinference.io/release_notes/v1.11.0.post1.html>`_"
 
 #: ../../source/getting_started/release_notes.rst:50
 msgid "v1.10.1"
@@ -196,7 +196,7 @@ msgstr ""
 
 #: ../../source/getting_started/release_notes.rst:50
 msgid "`View release notes <https://xinference.io/release_notes/v1.10.1.html>`_"
-msgstr "`查看版本说明 <https://xinference.cn/release_notes/v1.10.1.html>`_"
+msgstr "`查看版本说明 <https://xinference.io/release_notes/v1.10.1.html>`_"
 
 #: ../../source/getting_started/release_notes.rst:55
 msgid ""
