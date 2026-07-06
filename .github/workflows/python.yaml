@@ -112,6 +112,32 @@ jobs:
         run: |
           python -m pip install "numpy<2"
 
+      - name: Cache GPU package downloads
+        if: ${{ matrix.module == 'gpu' }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.conda/pkgs
+            ~/conda_pkgs_dir
+            /usr/share/miniconda/pkgs
+          key: ${{ runner.os }}-${{ matrix.module }}-${{ matrix.python-version }}-packages-${{ hashFiles('.github/workflows/python.yaml', 'setup.py', 'setup.cfg', 'pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.module }}-${{ matrix.python-version }}-packages-
+
+      - name: Cache GPU model downloads
+        if: ${{ matrix.module == 'gpu' }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/huggingface
+            ~/.cache/modelscope
+            ~/.cache/torch
+            ~/.cache/whisper
+          key: ${{ runner.os }}-${{ matrix.module }}-${{ matrix.python-version }}-models-v1
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.module }}-${{ matrix.python-version }}-models-
+
       - name: Install dependencies
         env:
           MODULE: ${{ matrix.module }}
