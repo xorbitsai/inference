@@ -107,7 +107,7 @@ jobs:
 
       - name: Install numpy
         if: |
-          (startsWith(matrix.os, 'macos') && (matrix.python-version == '3.13')) || 
+          (startsWith(matrix.os, 'macos') && (matrix.python-version == '3.13')) ||
           (startsWith(matrix.os, 'windows'))
         run: |
           python -m pip install "numpy<2"
@@ -116,7 +116,6 @@ jobs:
         env:
           MODULE: ${{ matrix.module }}
           OS: ${{ matrix.os }}
-        if: ${{ matrix.module != 'gpu' }}
         run: |
           if [ "$OS" == "ubuntu-latest" ]; then
             sudo rm -rf /usr/share/dotnet
@@ -124,86 +123,6 @@ jobs:
             sudo rm -rf "/usr/local/share/boost"
             sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           fi
-          pip install -e ".[dev]"
-          pip install "xllamacpp>=0.2.0"
-          if [ "$MODULE" == "metal" ]; then
-            conda install -c conda-forge "ffmpeg<7"
-            pip install "mlx>=0.22.0"
-            pip install mlx-lm
-            pip install "mlx-vlm>=0.3.4"
-            pip install mlx-whisper
-            pip install f5-tts-mlx
-            pip install qwen-vl-utils!=0.0.9
-            pip install tomli 
-          else
-            pip install "transformers<4.49"
-            pip install attrdict
-            pip install "timm>=0.9.16"
-            if [ "${{ matrix.python-version }}" != "3.13" ]; then
-              pip install torch torchvision
-            fi
-            pip install accelerate
-            pip install sentencepiece
-            pip install transformers_stream_generator
-            pip install bitsandbytes
-            pip install "sentence-transformers>=5.1.1"
-            pip install modelscope
-            pip install diffusers
-            pip install protobuf
-            pip install "FlagEmbedding==1.3.5"
-            pip install "tenacity>=8.2.0,<8.4.0"
-            pip install "jinja2==3.1.2"
-            pip install jj-pytorchvideo
-            pip install qwen-vl-utils!=0.0.9
-            pip install datamodel_code_generator
-            pip install jsonschema
-          fi
-        working-directory: .
-
-      - name: Clean up disk
-        if: |
-          (startsWith(matrix.os, 'ubuntu'))
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo apt-get clean
-          sudo rm -rf /var/lib/apt/lists/*
-          df -h 
-          
-      - name: Fix SSL on Windows
-        if: startsWith(matrix.os, 'windows')
-        shell: bash
-        run: |
-          echo "activate conda env"
-
-          source $CONDA/etc/profile.d/conda.sh || true
-          conda activate $CONDA_ENV || true
-          
-          python -V
-          which python
-          
-          echo "before: $SSL_CERT_FILE"
-          
-          python -m pip install --quiet certifi || true
-          
-          SSL_CERT_FILE=$(python -c "import certifi,os;print(os.path.normpath(certifi.where()))")
-          
-          export SSL_CERT_FILE
-          export REQUESTS_CA_BUNDLE=$SSL_CERT_FILE
-          export CURL_CA_BUNDLE=$SSL_CERT_FILE
-          
-          echo "after: $SSL_CERT_FILE"
-          echo "SSL_CERT_FILE=$(python -c 'import certifi;print(certifi.where())')" >> $GITHUB_ENV
-    
-      - name: Test with pytest
-        env:
-          MODULE: ${{ matrix.module }}
-          PYTORCH_MPS_HIGH_WATERMARK_RATIO: 1.0
-          PYTORCH_MPS_LOW_WATERMARK_RATIO: 0.2
-          XFORMERS_FORCE_DISABLE_TRITON: 1
-          TORCH_DISABLE_FLASH_ATTENTION: 1
-        run: |
           if [ "$MODULE" == "gpu" ]; then
             pip install -U -e ".[audio,dev]"
             pip install -U "openai>1"
@@ -256,6 +175,89 @@ jobs:
             pip install -U "FlagEmbedding==1.3.5"
             pip install -U "peft<=0.17.1"
             pip install "xllamacpp>=0.2.0" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 --extra-index-url https://pypi.org/simple
+          else
+            pip install -e ".[dev]"
+            pip install "xllamacpp>=0.2.0"
+            if [ "$MODULE" == "metal" ]; then
+              conda install -c conda-forge "ffmpeg<7"
+              pip install "mlx>=0.22.0"
+              pip install mlx-lm
+              pip install "mlx-vlm>=0.3.4"
+              pip install mlx-whisper
+              pip install f5-tts-mlx
+              pip install qwen-vl-utils!=0.0.9
+              pip install tomli
+            else
+              pip install "transformers<4.49"
+              pip install attrdict
+              pip install "timm>=0.9.16"
+              if [ "${{ matrix.python-version }}" != "3.13" ]; then
+                pip install torch torchvision
+              fi
+              pip install accelerate
+              pip install sentencepiece
+              pip install transformers_stream_generator
+              pip install bitsandbytes
+              pip install "sentence-transformers>=5.1.1"
+              pip install modelscope
+              pip install diffusers
+              pip install protobuf
+              pip install "FlagEmbedding==1.3.5"
+              pip install "tenacity>=8.2.0,<8.4.0"
+              pip install "jinja2==3.1.2"
+              pip install jj-pytorchvideo
+              pip install qwen-vl-utils!=0.0.9
+              pip install datamodel_code_generator
+              pip install jsonschema
+            fi
+          fi
+        working-directory: .
+
+      - name: Clean up disk
+        if: |
+          (startsWith(matrix.os, 'ubuntu'))
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo apt-get clean
+          sudo rm -rf /var/lib/apt/lists/*
+          df -h
+
+      - name: Fix SSL on Windows
+        if: startsWith(matrix.os, 'windows')
+        shell: bash
+        run: |
+          echo "activate conda env"
+
+          source $CONDA/etc/profile.d/conda.sh || true
+          conda activate $CONDA_ENV || true
+
+          python -V
+          which python
+
+          echo "before: $SSL_CERT_FILE"
+
+          python -m pip install --quiet certifi || true
+
+          SSL_CERT_FILE=$(python -c "import certifi,os;print(os.path.normpath(certifi.where()))")
+
+          export SSL_CERT_FILE
+          export REQUESTS_CA_BUNDLE=$SSL_CERT_FILE
+          export CURL_CA_BUNDLE=$SSL_CERT_FILE
+
+          echo "after: $SSL_CERT_FILE"
+          echo "SSL_CERT_FILE=$(python -c 'import certifi;print(certifi.where())')" >> $GITHUB_ENV
+
+      - name: Test with pytest
+        env:
+          MODULE: ${{ matrix.module }}
+          PYTORCH_MPS_HIGH_WATERMARK_RATIO: 1.0
+          PYTORCH_MPS_LOW_WATERMARK_RATIO: 0.2
+          XFORMERS_FORCE_DISABLE_TRITON: 1
+          TORCH_DISABLE_FLASH_ATTENTION: 1
+        run: |
+          if [ "$MODULE" == "gpu" ]; then
             pytest --timeout=3000 \
               --disable-warnings \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/core/tests/test_continuous_batching.py && \
@@ -343,6 +345,6 @@ jobs:
               --ignore xinference/client/tests/test_async_client.py \
               --ignore xinference/model/llm/mlx \
               xinference
-          
+
           fi
         working-directory: .
