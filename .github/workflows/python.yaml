@@ -57,6 +57,50 @@ jobs:
             xinference/api/tests/test_frontend_static.py \
             xinference/api/tests/test_frontend_static_real_export.py
 
+
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      gpu: ${{ steps.gpu.outputs.changed }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Detect GPU CI changes
+        id: gpu
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base_sha="${{ github.event.pull_request.base.sha }}"
+            head_sha="${{ github.event.pull_request.head.sha }}"
+          else
+            base_sha="${{ github.event.before }}"
+            head_sha="${{ github.sha }}"
+          fi
+
+          changed=false
+          if [ -z "$base_sha" ] || [[ "$base_sha" =~ ^0+$ ]]; then
+            changed=true
+          else
+            git diff --name-only "$base_sha" "$head_sha" > changed-files.txt
+            while IFS= read -r file; do
+              case "$file" in
+                .github/workflows/python.yaml|setup.py|setup.cfg|pyproject.toml|xinference/conftest.py|xinference/constants.py|xinference/device_utils.py|xinference/core/*|xinference/model/*|xinference/thirdparty/*)
+                  changed=true
+                  break
+                  ;;
+              esac
+            done < changed-files.txt
+          fi
+
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+          echo "GPU CI required: $changed"
+
   build_test_job:
     runs-on: ${{ matrix.os }}
     needs: lint
@@ -77,7 +121,6 @@ jobs:
           - { os: windows-latest, python-version: 3.11 }
           - { os: windows-latest, python-version: 3.12 }
         include:
-          - { os: gpu-t4, module: gpu, python-version: "3.12"}
           - { os: macos-latest, module: metal, python-version: "3.10" }
 
     steps:
@@ -112,31 +155,6 @@ jobs:
         run: |
           python -m pip install "numpy<2"
 
-      - name: Cache GPU package downloads
-        if: ${{ matrix.module == 'gpu' }}
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/pip
-            ~/.conda/pkgs
-            ~/conda_pkgs_dir
-            /usr/share/miniconda/pkgs
-          key: ${{ runner.os }}-${{ matrix.module }}-${{ matrix.python-version }}-packages-${{ hashFiles('.github/workflows/python.yaml', 'setup.py', 'setup.cfg', 'pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.module }}-${{ matrix.python-version }}-packages-
-
-      - name: Cache GPU model downloads
-        if: ${{ matrix.module == 'gpu' }}
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/huggingface
-            ~/.cache/modelscope
-            ~/.cache/torch
-            ~/.cache/whisper
-          key: ${{ runner.os }}-${{ matrix.module }}-${{ matrix.python-version }}-models-v1
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.module }}-${{ matrix.python-version }}-models-
 
       - name: Install dependencies
         env:
@@ -149,93 +167,39 @@ jobs:
             sudo rm -rf "/usr/local/share/boost"
             sudo rm -rf "$AGENT_TOOLSDIRECTORY"
           fi
-          if [ "$MODULE" == "gpu" ]; then
-            pip install -U -e ".[audio,dev]"
-            pip install -U "openai>1"
-            pip install -U modelscope
-            pip install -U gguf
-            pip install -U uv
-            pip install -U sse_starlette
-            pip install -U xoscar
-            pip install -U "python-jose[cryptography]"
-            pip install -U "passlib[bcrypt]"
-            pip install -U "aioprometheus[starlette]"
-            pip install -U "pynvml"
-            pip install "transformers==4.53.2"
-            pip install "funasr==1.2.7"
-            conda install -y -c conda-forge "pynini==2.1.5" "ffmpeg<7"
-            pip install -U "nemo_text_processing<1.1.0"
-            pip install -U omegaconf~=2.3.0
-            pip install -U "WeTextProcessing<1.0.4"
-            pip install -U librosa
-            pip install -U xxhash
-            pip install -U "ChatTTS==0.2.4"
-            pip install -U HyperPyYAML
-            pip uninstall -y matcha-tts
-            pip install -U 'onnxruntime-gpu==1.22.0; sys_platform == "linux"'
-            pip install -U openai-whisper
-            pip install -U "torch==2.7.0" "torchaudio==2.7.0" "torchvision==0.22.0"
-            pip install -U "loguru"
-            pip install -U "natsort"
-            pip install -U "loralib"
-            pip install -U "ormsgpack"
-            pip uninstall -y opencc
-            pip uninstall -y "faster_whisper"
-            pip install -U accelerate
-            pip install -U verovio
-            pip install -U cachetools
-            pip install -U silero-vad
-            pip install -U pydantic
-            pip install -U "diffusers==0.35.1"
-            pip install -U onnx
-            pip install -U onnxconverter_common
-            pip install -U torchdiffeq
-            pip install -U "x_transformers>=1.31.14"
-            pip install -U pypinyin
-            pip install -U tomli
-            pip install -U vocos
-            pip install -U jieba
-            pip install -U soundfile
-            pip install tensorizer
-            pip install -U "sentence-transformers==5.1.1"
-            pip install -U "FlagEmbedding==1.3.5"
-            pip install -U "peft<=0.17.1"
-            pip install "xllamacpp>=0.2.0" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 --extra-index-url https://pypi.org/simple
+          pip install -e ".[dev]"
+          pip install "xllamacpp>=0.2.0"
+          if [ "$MODULE" == "metal" ]; then
+            conda install -c conda-forge "ffmpeg<7"
+            pip install "mlx>=0.22.0"
+            pip install mlx-lm
+            pip install "mlx-vlm>=0.3.4"
+            pip install mlx-whisper
+            pip install f5-tts-mlx
+            pip install qwen-vl-utils!=0.0.9
+            pip install tomli
           else
-            pip install -e ".[dev]"
-            pip install "xllamacpp>=0.2.0"
-            if [ "$MODULE" == "metal" ]; then
-              conda install -c conda-forge "ffmpeg<7"
-              pip install "mlx>=0.22.0"
-              pip install mlx-lm
-              pip install "mlx-vlm>=0.3.4"
-              pip install mlx-whisper
-              pip install f5-tts-mlx
-              pip install qwen-vl-utils!=0.0.9
-              pip install tomli
-            else
-              pip install "transformers<4.49"
-              pip install attrdict
-              pip install "timm>=0.9.16"
-              if [ "${{ matrix.python-version }}" != "3.13" ]; then
-                pip install torch torchvision
-              fi
-              pip install accelerate
-              pip install sentencepiece
-              pip install transformers_stream_generator
-              pip install bitsandbytes
-              pip install "sentence-transformers>=5.1.1"
-              pip install modelscope
-              pip install diffusers
-              pip install protobuf
-              pip install "FlagEmbedding==1.3.5"
-              pip install "tenacity>=8.2.0,<8.4.0"
-              pip install "jinja2==3.1.2"
-              pip install jj-pytorchvideo
-              pip install qwen-vl-utils!=0.0.9
-              pip install datamodel_code_generator
-              pip install jsonschema
+            pip install "transformers<4.49"
+            pip install attrdict
+            pip install "timm>=0.9.16"
+            if [ "${{ matrix.python-version }}" != "3.13" ]; then
+              pip install torch torchvision
             fi
+            pip install accelerate
+            pip install sentencepiece
+            pip install transformers_stream_generator
+            pip install bitsandbytes
+            pip install "sentence-transformers>=5.1.1"
+            pip install modelscope
+            pip install diffusers
+            pip install protobuf
+            pip install "FlagEmbedding==1.3.5"
+            pip install "tenacity>=8.2.0,<8.4.0"
+            pip install "jinja2==3.1.2"
+            pip install jj-pytorchvideo
+            pip install qwen-vl-utils!=0.0.9
+            pip install datamodel_code_generator
+            pip install jsonschema
           fi
         working-directory: .
 
@@ -294,31 +258,7 @@ jobs:
               "$@"
           }
 
-          if [ "$MODULE" == "gpu" ]; then
-            pytest --timeout=3000 \
-              --disable-warnings \
-              --cov-config=setup.cfg \
-              --cov-report=xml \
-              --cov=xinference \
-              xinference/core/tests/test_continuous_batching.py
-            run_pytest xinference/model/embedding/tests/test_qwen3_vl_engine_params.py
-            run_pytest xinference/model/rerank/tests/test_qwen3_vl_reranker_virtualenv.py
-            run_pytest xinference/model/image/tests/test_stable_diffusion.py
-            run_pytest xinference/model/image/tests/test_got_ocr2.py
-            run_pytest xinference/model/audio/tests/test_whisper.py
-            run_pytest xinference/model/audio/tests/test_funasr.py
-            run_pytest xinference/model/audio/tests/test_chattts.py
-            run_pytest xinference/model/audio/tests/test_cosyvoice.py
-            run_pytest xinference/model/audio/tests/test_f5tts.py
-            run_pytest xinference/model/audio/tests/test_melotts.py
-            run_pytest xinference/model/audio/tests/test_kokoro.py
-            run_pytest xinference/model/audio/tests/test_fish_speech.py
-            run_pytest xinference/model/audio/tests/test_megatts.py
-            run_pytest xinference/model/embedding/tests/test_integrated_embedding.py
-            run_pytest xinference/model/embedding/vllm/tests/test_vllm_embedding.py
-            run_pytest xinference/model/llm/transformers/tests/test_tensorizer.py
-            run_pytest xinference/model/llm/tests/test_llm_model.py
-          elif [ "$MODULE" == "metal" ]; then
+          if [ "$MODULE" == "metal" ]; then
             run_pytest xinference/model/llm/mlx/tests/test_mlx.py
             run_pytest xinference/model/audio/tests/test_whisper_mlx.py
             run_pytest xinference/model/audio/tests/test_f5tts_mlx.py
@@ -340,4 +280,141 @@ jobs:
               --ignore xinference/model/llm/mlx \
               xinference
           fi
+        working-directory: .
+
+  gpu_test_job:
+    name: build_test_job (gpu-t4, gpu, 3.12)
+    runs-on: gpu-t4
+    needs: [lint, changes]
+    if: ${{ needs.changes.outputs.gpu == 'true' }}
+    env:
+      CONDA_ENV: test
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up conda 3.12
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          python-version: "3.12"
+          activate-environment: ${{ env.CONDA_ENV }}
+
+      - name: Update pip and setuptools
+        run: |
+          python -m pip install -U pip "setuptools<82"
+
+      - name: Restore GPU package downloads
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.conda/pkgs
+            ~/conda_pkgs_dir
+            /usr/share/miniconda/pkgs
+          key: ${{ runner.os }}-gpu-3.12-packages-${{ hashFiles('setup.py', 'setup.cfg', 'pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gpu-3.12-packages-
+
+      - name: Install dependencies
+        run: |
+          pip install -U -e ".[audio,dev]"
+          pip install -U "openai>1"
+          pip install -U modelscope
+          pip install -U gguf
+          pip install -U uv
+          pip install -U sse_starlette
+          pip install -U xoscar
+          pip install -U "python-jose[cryptography]"
+          pip install -U "passlib[bcrypt]"
+          pip install -U "aioprometheus[starlette]"
+          pip install -U "pynvml"
+          pip install "transformers==4.53.2"
+          pip install "funasr==1.2.7"
+          conda install -y -c conda-forge "pynini==2.1.5" "ffmpeg<7"
+          pip install -U "nemo_text_processing<1.1.0"
+          pip install -U omegaconf~=2.3.0
+          pip install -U "WeTextProcessing<1.0.4"
+          pip install -U librosa
+          pip install -U xxhash
+          pip install -U "ChatTTS==0.2.4"
+          pip install -U HyperPyYAML
+          pip uninstall -y matcha-tts
+          pip install -U 'onnxruntime-gpu==1.22.0; sys_platform == "linux"'
+          pip install -U openai-whisper
+          pip install -U "torch==2.7.0" "torchaudio==2.7.0" "torchvision==0.22.0"
+          pip install -U "loguru"
+          pip install -U "natsort"
+          pip install -U "loralib"
+          pip install -U "ormsgpack"
+          pip uninstall -y opencc
+          pip uninstall -y "faster_whisper"
+          pip install -U accelerate
+          pip install -U verovio
+          pip install -U cachetools
+          pip install -U silero-vad
+          pip install -U pydantic
+          pip install -U "diffusers==0.35.1"
+          pip install -U onnx
+          pip install -U onnxconverter_common
+          pip install -U torchdiffeq
+          pip install -U "x_transformers>=1.31.14"
+          pip install -U pypinyin
+          pip install -U tomli
+          pip install -U vocos
+          pip install -U jieba
+          pip install -U soundfile
+          pip install tensorizer
+          pip install -U "sentence-transformers==5.1.1"
+          pip install -U "FlagEmbedding==1.3.5"
+          pip install -U "peft<=0.17.1"
+          pip install "xllamacpp>=0.2.0" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 --extra-index-url https://pypi.org/simple
+        working-directory: .
+
+      - name: Test with pytest
+        env:
+          PYTORCH_MPS_HIGH_WATERMARK_RATIO: 1.0
+          PYTORCH_MPS_LOW_WATERMARK_RATIO: 0.2
+          XFORMERS_FORCE_DISABLE_TRITON: 1
+          TORCH_DISABLE_FLASH_ATTENTION: 1
+        run: |
+          set -e
+
+          run_pytest() {
+            pytest --timeout=3000 \
+              -W ignore::PendingDeprecationWarning \
+              --cov-config=setup.cfg \
+              --cov-report=xml \
+              --cov=xinference \
+              "$@"
+          }
+
+          pytest --timeout=3000 \
+            --disable-warnings \
+            --cov-config=setup.cfg \
+            --cov-report=xml \
+            --cov=xinference \
+            xinference/core/tests/test_continuous_batching.py
+          run_pytest xinference/model/embedding/tests/test_qwen3_vl_engine_params.py
+          run_pytest xinference/model/rerank/tests/test_qwen3_vl_reranker_virtualenv.py
+          run_pytest xinference/model/image/tests/test_stable_diffusion.py
+          run_pytest xinference/model/image/tests/test_got_ocr2.py
+          run_pytest xinference/model/audio/tests/test_whisper.py
+          run_pytest xinference/model/audio/tests/test_funasr.py
+          run_pytest xinference/model/audio/tests/test_chattts.py
+          run_pytest xinference/model/audio/tests/test_cosyvoice.py
+          run_pytest xinference/model/audio/tests/test_f5tts.py
+          run_pytest xinference/model/audio/tests/test_melotts.py
+          run_pytest xinference/model/audio/tests/test_kokoro.py
+          run_pytest xinference/model/audio/tests/test_fish_speech.py
+          run_pytest xinference/model/audio/tests/test_megatts.py
+          run_pytest xinference/model/embedding/tests/test_integrated_embedding.py
+          run_pytest xinference/model/embedding/vllm/tests/test_vllm_embedding.py
+          run_pytest xinference/model/llm/transformers/tests/test_tensorizer.py
+          run_pytest xinference/model/llm/tests/test_llm_model.py
         working-directory: .
