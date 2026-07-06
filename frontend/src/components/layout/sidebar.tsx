@@ -1,6 +1,6 @@
 'use client';
 
-import { ComponentType, FC, useMemo, useState } from 'react';
+import { ComponentType, FC, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { FaGithub } from 'react-icons/fa';
@@ -147,7 +147,7 @@ export function Sidebar() {
   const branding = getBrandingFromEnv();
   const { clusterVersion, clusterAuth, clusterUIConfig } = useGlobal();
   const { usersManagePage, keysManageCreate } = useMenuAuth();
-  const token = getTokenValue();
+  const [token, setToken] = useState<string | undefined>();
   const showLoginOut = useMemo(
     () => Boolean(clusterAuth?.auth && token && token !== NO_AUTH),
     [clusterAuth, token]
@@ -174,6 +174,10 @@ export function Sidebar() {
     const userId = payload.user_id;
     return typeof userId === 'string' || typeof userId === 'number' ? String(userId) : '';
   }, [showLoginOut, token]);
+
+  useEffect(() => {
+    setToken(getTokenValue());
+  }, []);
 
   const navGroups = useMemo<NavGroup[]>(() => {
     const groups: NavGroup[] = [

@@ -1,12 +1,18 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
+
 import { NO_AUTH } from '@/constants';
 import { getTokenValue } from '@/lib/auth-token';
 import { decodeJwtScopes } from '@/lib/utils';
 
 export function useMenuAuth() {
-  const token = getTokenValue();
-  const jwtScopes = decodeJwtScopes(token === NO_AUTH ? undefined : token);
+  const [token, setToken] = useState<string | undefined>();
+  const jwtScopes = useMemo(() => decodeJwtScopes(token === NO_AUTH ? undefined : token), [token]);
+
+  useEffect(() => {
+    setToken(getTokenValue());
+  }, []);
 
   const hasScope = (...scopes: string[]) => jwtScopes.some((item) => scopes.includes(item));
 

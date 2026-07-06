@@ -29,7 +29,7 @@ export default function RequestProvider({ children }: PropsWithChildren) {
       toast.error('Server error: 403 No auth');
       // restore lock
       setTimeout(() => {
-        router.back();
+        // router.back();
         requestManager.reset403();
       }, 1000);
     };
