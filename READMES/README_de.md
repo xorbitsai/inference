@@ -47,14 +47,14 @@ Xorbits Inference (Xinference) ist eine leistungsfähige und vielseitige Bibliot
 - Verteilte Inferenz: Modelle können über Worker verteilt ausgeführt werden: [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - Verbesserungen für vLLM: Gemeinsame KV-Cache-Nutzung über mehrere Replikate: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### Neue Modelle
+- Eingebaute VibeThinker-Serie ([1.5B](https://huggingface.co/WeiboAI/VibeThinker-1.5B), [3B](https://huggingface.co/WeiboAI/VibeThinker-3B)): [#5085](https://github.com/xorbitsai/inference/pull/5085)
+- Eingebaute Nex-N2-Serie ([mini](https://huggingface.co/nex-agi/Nex-N2-mini), [Pro](https://huggingface.co/nex-agi/Nex-N2-Pro), [Pro-fp8](https://huggingface.co/nex-agi/Nex-N2-Pro-fp8)): [#5094](https://github.com/xorbitsai/inference/pull/5094)
+- Eingebautes [Unlimited-OCR](https://huggingface.co/baidu/Unlimited-OCR): [#5103](https://github.com/xorbitsai/inference/pull/5103)
+- Eingebautes [Ornith-1.0-35B](https://huggingface.co/deepreinforce-ai/Ornith-1.0-35B): [#5119](https://github.com/xorbitsai/inference/pull/5119)
 - Eingebautes [MiniCPM5-1B](https://huggingface.co/openbmb/MiniCPM5-1B): [#5010](https://github.com/xorbitsai/inference/pull/5010)
-- Eingebaute jina-embeddings-v5 Serie (z. B. [text-nano](https://huggingface.co/jinaai/jina-embeddings-v5-text-nano), [text-small](https://huggingface.co/jinaai/jina-embeddings-v5-text-small)): [#5018](https://github.com/xorbitsai/inference/pull/5018)
-- Eingebaute MiniCPM-V-4.6 Serie: [#5025](https://github.com/xorbitsai/inference/pull/5025)
-- Eingebaute Tencent Hy-MT2 Serie (1.8B, 7B, 30B-A3B): [#5029](https://github.com/xorbitsai/inference/pull/5029)
-- Eingebaute [PaddleOCR-VL-1.6](https://huggingface.co/PaddlePaddle/PaddleOCR-VL-1.6): [#5033](https://github.com/xorbitsai/inference/pull/5033)
-- Eingebaute [VoxCPM2](https://huggingface.co/openbmb/VoxCPM2): [#5045](https://github.com/xorbitsai/inference/pull/5045)
-- Eingebaute [DeepSeek V4]: [#4938](https://github.com/xorbitsai/inference/pull/4938)
-- Eingebaute [MiniMax-M2.7]: [#4843](https://github.com/xorbitsai/inference/pull/4843)
+- Eingebaute jina-embeddings-v5 Serie ([text-nano](https://huggingface.co/jinaai/jina-embeddings-v5-text-nano), [text-small](https://huggingface.co/jinaai/jina-embeddings-v5-text-small), [omni-nano](https://huggingface.co/jinaai/jina-embeddings-v5-omni-nano), [omni-small](https://huggingface.co/jinaai/jina-embeddings-v5-omni-small)): [#5018](https://github.com/xorbitsai/inference/pull/5018)
+- Eingebaute MiniCPM-V-4.6 Serie ([MiniCPM-V-4.6](https://huggingface.co/openbmb/MiniCPM-V-4.6), [MiniCPM-V-4.6-Thinking](https://huggingface.co/openbmb/MiniCPM-V-4.6-Thinking)): [#5025](https://github.com/xorbitsai/inference/pull/5025)
+- Eingebaute Tencent Hy-MT2 Serie ([1.8B](https://huggingface.co/tencent/Hy-MT2-1.8B), [7B](https://huggingface.co/tencent/Hy-MT2-7B), [30B-A3B](https://huggingface.co/tencent/Hy-MT2-30B-A3B)): [#5029](https://github.com/xorbitsai/inference/pull/5029)
 ### Integrationen
 - [Xagent](https://github.com/xorbitsai/xagent): Enterprise-Agentenplattform mit Planung, Speicher und Tool-Integration.
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): LLMOps-Plattform zur schnellen Anwendungsentwicklung mit Visualisierung und Bedienoberfläche.
