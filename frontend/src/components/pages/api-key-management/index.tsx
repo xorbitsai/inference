@@ -229,7 +229,11 @@ export default function ApiKeyManagement() {
 
   const getStatusBadge = (key: ApiKey) => {
     if (!key.enabled) {
-      return <Badge variant="secondary">{t('apiKey.disabled')}</Badge>;
+      return (
+        <Badge className="border-red-500/30 bg-red-500/15 text-red-600 dark:text-red-400">
+          {t('apiKey.disabled')}
+        </Badge>
+      );
     }
     return (
       <Badge className="border-green-500/30 bg-green-500/15 text-green-600 dark:text-green-400">
