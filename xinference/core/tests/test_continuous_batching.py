@@ -174,15 +174,21 @@ def test_continuous_batching(setup):
     thread4.join()
 
     # test same request ids
+    # The first request must still be generating when the duplicate one
+    # arrives, otherwise its request id is already evicted from the scheduler
+    # and no error is raised; ask for a long completion to avoid the race.
     thread1 = InferenceThread(
-        "1+1=3正确吗？", {"stream": True, "request_id": "aaabbb"}, client, model
+        "请写一篇两百字左右的短文，介绍篮球运动的发展历史。",
+        {"stream": True, "request_id": "aaabbb", "max_tokens": 512},
+        client,
+        model,
     )
     thread2 = InferenceThreadWithError(
         "中国的首都是哪座城市？",
         {"stream": False, "request_id": "aaabbb"},
         client,
         model,
-        0.1,
+        0.03,
     )
     thread1.start()
     thread2.start()
@@ -190,15 +196,20 @@ def test_continuous_batching(setup):
     thread2.join()
 
     # test abort request for stream
+    # Long completion for the same reason as above: the abort must land while
+    # the request is still running.
     thread1 = InferenceThread(
-        "猫和狗有什么区别吗？", {"stream": True, "request_id": "aaabbb"}, client, model
+        "请写一篇两百字左右的短文，介绍猫和狗的区别。",
+        {"stream": True, "request_id": "aaabbb", "max_tokens": 512},
+        client,
+        model,
     )
     thread2 = AbortThread(
         client, model_uid_res, "bbbaaa", AbortRequestMessage.NOT_FOUND.name
     )
     thread3 = AbortThread(client, "abcd", "aaabbb", AbortRequestMessage.NO_OP.name)
     thread4 = AbortThread(
-        client, model_uid_res, "aaabbb", AbortRequestMessage.DONE.name, 0.1
+        client, model_uid_res, "aaabbb", AbortRequestMessage.DONE.name, 0.01
     )
     thread1.start()
     thread2.start()
@@ -212,10 +223,13 @@ def test_continuous_batching(setup):
 
     # test abort request for non-stream
     thread1 = InferenceThread(
-        "猫和狗有什么区别吗？", {"request_id": "aaabbb"}, client, model
+        "请写一篇两百字左右的短文，介绍猫和狗的区别。",
+        {"request_id": "aaabbb", "max_tokens": 512},
+        client,
+        model,
     )
     thread2 = AbortThread(
-        client, model_uid_res, "aaabbb", AbortRequestMessage.DONE.name, 0.1
+        client, model_uid_res, "aaabbb", AbortRequestMessage.DONE.name, 0.01
     )
     thread1.start()
     thread2.start()

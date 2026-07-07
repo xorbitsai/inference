@@ -61,7 +61,8 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
-      gpu: ${{ steps.gpu.outputs.changed }}
+      gpu: ${{ steps.gpu.outputs.gpu }}
+      groups: ${{ steps.gpu.outputs.groups }}
     steps:
       - name: Check out code
         uses: actions/checkout@v3
@@ -73,7 +74,7 @@ jobs:
         id: gpu
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
 
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             base_sha="${{ github.event.pull_request.base.sha }}"
@@ -83,23 +84,52 @@ jobs:
             head_sha="${{ github.sha }}"
           fi
 
-          changed=false
-          if [ -z "$base_sha" ] || [[ "$base_sha" =~ ^0+$ ]]; then
-            changed=true
+          full=false
+          llm=false; embedding=false; image=false; audio=false
+
+          # Fall back to a full run when there is no usable diff base (new
+          # branch, or a force push whose previous head no longer exists).
+          if [ -z "$base_sha" ] || [[ "$base_sha" =~ ^0+$ ]] \
+              || ! git diff --name-only "$base_sha" "$head_sha" > changed-files.txt 2>/dev/null; then
+            full=true
           else
-            git diff --name-only "$base_sha" "$head_sha" > changed-files.txt
+            # Map each changed path to the GPU test group(s) it affects.
+            # Paths matching no pattern (docs, examples, web UI, other
+            # workflows, ...) do not need GPU CI at all.
             while IFS= read -r file; do
               case "$file" in
-                .github/workflows/python.yaml|setup.py|setup.cfg|pyproject.toml|xinference/conftest.py|xinference/constants.py|xinference/device_utils.py|xinference/core/*|xinference/model/*|xinference/thirdparty/*)
-                  changed=true
-                  break
-                  ;;
+                xinference/model/audio/*) audio=true ;;
+                xinference/model/image/*) image=true ;;
+                xinference/model/embedding/*|xinference/model/rerank/*) embedding=true ;;
+                xinference/model/llm/*|xinference/model/scheduler/*|xinference/core/tests/test_continuous_batching.py) llm=true ;;
+                # Vendored model code is audio-only today (cosyvoice, f5_tts,
+                # matcha, fish_speech, ...).
+                xinference/thirdparty/*) audio=true ;;
+                # The web UI never affects GPU tests.
+                xinference/ui/*) ;;
+                # Anything else in the package, the build config, or this
+                # workflow affects every family.
+                .github/workflows/python.yaml|setup.py|setup.cfg|pyproject.toml|xinference/*) full=true; break ;;
               esac
             done < changed-files.txt
           fi
 
-          echo "changed=$changed" >> "$GITHUB_OUTPUT"
-          echo "GPU CI required: $changed"
+          groups=""
+          if [ "$full" = true ]; then
+            groups="llm embedding image audio"
+          else
+            [ "$llm" = true ] && groups="$groups llm"
+            [ "$embedding" = true ] && groups="$groups embedding"
+            [ "$image" = true ] && groups="$groups image"
+            [ "$audio" = true ] && groups="$groups audio"
+            groups="${groups# }"
+          fi
+
+          gpu=true
+          [ -z "$groups" ] && gpu=false
+          echo "gpu=$gpu" >> "$GITHUB_OUTPUT"
+          echo "groups=$groups" >> "$GITHUB_OUTPUT"
+          echo "GPU CI required: $gpu (groups: ${groups:-none})"
 
   build_test_job:
     runs-on: ${{ matrix.os }}
@@ -287,9 +317,16 @@ jobs:
     name: build_test_job (gpu-t4, gpu, 3.12)
     runs-on: gpu-t4
     needs: [lint, changes]
-    if: ${{ needs.changes.outputs.gpu == 'true' }}
+    # Runners are billed per-minute: skip when no GPU-relevant path changed,
+    # and only run for PRs and pushes to main (a push to a PR branch already
+    # triggers the pull_request run).
+    if: ${{ needs.changes.outputs.gpu == 'true' && (github.event_name == 'pull_request' || github.ref == 'refs/heads/main') }}
+    timeout-minutes: 90
     env:
       CONDA_ENV: test
+      # GPU tests never touch the web UI; skipping the npm build saves
+      # minutes. The API server only warns when the UI bundle is absent.
+      NO_WEB_UI: 1
     defaults:
       run:
         shell: bash -l {0}
@@ -306,99 +343,123 @@ jobs:
           python-version: "3.12"
           activate-environment: ${{ env.CONDA_ENV }}
 
-      - name: Update pip and setuptools
-        run: |
-          python -m pip install -U pip "setuptools<82"
+      - name: Restore uv package cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: gpu-uv-${{ hashFiles('.github/workflows/python.yaml', 'setup.cfg') }}
+          restore-keys: gpu-uv-
+
+      # funasr downloads its auxiliary models (fsmn-vad, ct-punc, cam++) from
+      # ModelScope, whose CDN is very slow from GitHub's US runners (~15min
+      # per run). They are only ~1.5GB in total, so cache them. Main models
+      # come from HuggingFace (fast) and are intentionally not cached — all
+      # of them together would blow the 10GB per-repo cache limit.
+      - name: Restore ModelScope model cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/modelscope
+          key: gpu-modelscope-${{ hashFiles('xinference/model/audio/model_spec.json') }}
+          restore-keys: gpu-modelscope-
 
       - name: Install dependencies
         run: |
-          pip install -U -e ".[audio,dev]"
-          pip install -U "openai>1"
-          pip install -U modelscope
-          pip install -U gguf
-          pip install -U uv
-          pip install -U sse_starlette
-          pip install -U xoscar
-          pip install -U "python-jose[cryptography]"
-          pip install -U "passlib[bcrypt]"
-          pip install -U "aioprometheus[starlette]"
-          pip install -U "pynvml"
-          pip install "transformers==4.53.2"
-          pip install "funasr==1.2.7"
-          conda install -y -c conda-forge "pynini==2.1.5" "ffmpeg<7"
-          pip install -U "nemo_text_processing<1.1.0"
-          pip install -U omegaconf~=2.3.0
-          pip install -U "WeTextProcessing<1.0.4"
-          pip install -U librosa
-          pip install -U xxhash
-          pip install -U "ChatTTS==0.2.4"
-          pip install -U HyperPyYAML
-          pip uninstall -y matcha-tts
-          pip install -U 'onnxruntime-gpu==1.22.0; sys_platform == "linux"'
-          pip install -U openai-whisper
-          pip install -U "torch==2.7.0" "torchaudio==2.7.0" "torchvision==0.22.0"
-          pip install -U "loguru"
-          pip install -U "natsort"
-          pip install -U "loralib"
-          pip install -U "ormsgpack"
-          pip uninstall -y opencc
-          pip uninstall -y "faster_whisper"
-          pip install -U accelerate
-          pip install -U verovio
-          pip install -U cachetools
-          pip install -U silero-vad
-          pip install -U pydantic
-          pip install -U "diffusers==0.35.1"
-          pip install -U onnx
-          pip install -U onnxconverter_common
-          pip install -U torchdiffeq
-          pip install -U "x_transformers>=1.31.14"
-          pip install -U pypinyin
-          pip install -U tomli
-          pip install -U vocos
-          pip install -U jieba
-          pip install -U soundfile
-          pip install tensorizer
-          pip install -U "sentence-transformers==5.1.1"
-          pip install -U "FlagEmbedding==1.3.5"
-          pip install -U "peft<=0.17.1"
-          pip install "xllamacpp>=0.2.0" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 --extra-index-url https://pypi.org/simple
+          python -m pip install -U pip "setuptools<82" uv
+          # pynini (pinned by WeTextProcessing/nemo_text_processing) has no
+          # cp312 wheel on PyPI; conda-forge ships one. ffmpeg is required by
+          # whisper/funasr audio loading, espeak-ng by TTS phonemization.
+          conda install -y -c conda-forge "pynini==2.1.5" "ffmpeg<7" espeak-ng
+          # Installs use uv (much faster than ~50 serial pip calls) and no -U:
+          # unlike pip, uv's --upgrade upgrades the whole dependency closure,
+          # pushing shared deps (numpy, pandas, ...) past what the audio stack
+          # supports. Runners are ephemeral, so everything below resolves
+          # freshly to the latest allowed versions anyway.
+          # Pin torch first so later packages resolve against it instead of
+          # downloading the latest torch and then downgrading.
+          uv pip install "torch==2.7.0" "torchaudio==2.7.0" "torchvision==0.22.0"
+          uv pip install -e ".[audio,dev]"
+          uv pip install "openai>1" modelscope gguf sse_starlette xoscar \
+            "python-jose[cryptography]" "passlib[bcrypt]" "aioprometheus[starlette]" pynvml
+          # numpy/numba guards: numba releases cap numpy (<2.5); without them
+          # the resolver backtracks to ancient numba/llvmlite versions that
+          # cannot build on this Python.
+          uv pip install "transformers==4.53.2" "funasr==1.2.7" \
+            "nemo_text_processing<1.1.0" "omegaconf~=2.3.0" "WeTextProcessing<1.0.4" \
+            "numpy<2.5" "numba>=0.60"
+          uv pip install librosa xxhash HyperPyYAML openai-whisper
+          uv pip install "ChatTTS==0.2.4" "onnxruntime-gpu==1.22.0"
+          uv pip install loguru natsort loralib ormsgpack
+          # diffusers==0.35.1: newer releases add pipelines that import
+          # Qwen3VL* classes missing from the pinned transformers==4.53.2.
+          # sentence-transformers==5.1.1: 5.4+ rejects jina-clip-v2's mixed
+          # text/image batches. FlagEmbedding==1.3.5: newer versions pass
+          # dtype= to from_pretrained, which needs transformers>=4.56.
+          uv pip install accelerate verovio cachetools silero-vad pydantic "diffusers==0.35.1" \
+            onnx onnxconverter_common torchdiffeq "x_transformers>=1.31.14" pypinyin \
+            tomli vocos jieba soundfile "sentence-transformers==5.1.1" "FlagEmbedding==1.3.5"
+          uv pip install tensorizer "peft<=0.17.1"
+          uv pip install "xllamacpp>=0.2.0" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 --extra-index-url https://pypi.org/simple
+          uv pip install hf_transfer
+          uv pip uninstall matcha-tts opencc faster_whisper
         working-directory: .
 
       - name: Test with pytest
         env:
-          PYTORCH_MPS_HIGH_WATERMARK_RATIO: 1.0
-          PYTORCH_MPS_LOW_WATERMARK_RATIO: 0.2
           XFORMERS_FORCE_DISABLE_TRITON: 1
           TORCH_DISABLE_FLASH_ATTENTION: 1
+          # Speed up model downloads from the HuggingFace hub; runners are
+          # ephemeral so every run downloads the main models from scratch.
+          HF_HUB_ENABLE_HF_TRANSFER: 1
+          # Pin the model source instead of relying on locale auto-detection;
+          # ModelScope is very slow from US-hosted runners.
+          XINFERENCE_MODEL_SRC: huggingface
         run: |
           set -e
 
+          # One pytest process per selected group: one cold start per family
+          # instead of one per file, while an import error or crash in one
+          # family cannot take down the others. No --cov: nothing in this
+          # repo consumes the coverage report.
           run_pytest() {
             pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg \
-              --cov-report=xml \
-              --cov=xinference \
               "$@"
           }
 
-          run_pytest \
-            xinference/model/embedding/tests/test_qwen3_vl_engine_params.py \
-            xinference/model/rerank/tests/test_qwen3_vl_reranker_virtualenv.py \
-            xinference/model/image/tests/test_stable_diffusion.py \
-            xinference/model/image/tests/test_got_ocr2.py \
-            xinference/model/audio/tests/test_whisper.py \
-            xinference/model/audio/tests/test_funasr.py \
-            xinference/model/audio/tests/test_chattts.py \
-            xinference/model/audio/tests/test_cosyvoice.py \
-            xinference/model/audio/tests/test_f5tts.py \
-            xinference/model/audio/tests/test_melotts.py \
-            xinference/model/audio/tests/test_kokoro.py \
-            xinference/model/audio/tests/test_fish_speech.py \
-            xinference/model/audio/tests/test_megatts.py \
-            xinference/model/embedding/tests/test_integrated_embedding.py \
-            xinference/model/embedding/vllm/tests/test_vllm_embedding.py \
-            xinference/model/llm/transformers/tests/test_tensorizer.py \
-            xinference/model/llm/tests/test_llm_model.py
+          for group in ${{ needs.changes.outputs.groups }}; do
+            echo "::group::GPU tests: $group"
+            case "$group" in
+              llm)
+                run_pytest \
+                  xinference/core/tests/test_continuous_batching.py \
+                  xinference/model/llm/tests/test_llm_model.py \
+                  xinference/model/llm/transformers/tests/test_tensorizer.py
+                ;;
+              embedding)
+                run_pytest \
+                  xinference/model/embedding/tests/test_qwen3_vl_engine_params.py \
+                  xinference/model/rerank/tests/test_qwen3_vl_reranker_virtualenv.py \
+                  xinference/model/embedding/tests/test_integrated_embedding.py \
+                  xinference/model/embedding/vllm/tests/test_vllm_embedding.py
+                ;;
+              image)
+                run_pytest \
+                  xinference/model/image/tests/test_stable_diffusion.py \
+                  xinference/model/image/tests/test_got_ocr2.py
+                ;;
+              audio)
+                run_pytest \
+                  xinference/model/audio/tests/test_whisper.py \
+                  xinference/model/audio/tests/test_funasr.py \
+                  xinference/model/audio/tests/test_chattts.py \
+                  xinference/model/audio/tests/test_cosyvoice.py \
+                  xinference/model/audio/tests/test_f5tts.py \
+                  xinference/model/audio/tests/test_melotts.py \
+                  xinference/model/audio/tests/test_kokoro.py \
+                  xinference/model/audio/tests/test_fish_speech.py \
+                  xinference/model/audio/tests/test_megatts.py
+                ;;
+            esac
+            echo "::endgroup::"
+          done
         working-directory: .
