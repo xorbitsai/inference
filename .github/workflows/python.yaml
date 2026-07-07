@@ -368,7 +368,18 @@ jobs:
           # pynini (pinned by WeTextProcessing/nemo_text_processing) has no
           # cp312 wheel on PyPI; conda-forge ships one. ffmpeg is required by
           # whisper/funasr audio loading, espeak-ng by TTS phonemization.
-          conda install -y -c conda-forge "pynini==2.1.5" "ffmpeg<7" espeak-ng
+          # Retried because conda's repodata sqlite cache sporadically throws
+          # "database is locked" on the hosted runners.
+          conda_ok=false
+          for attempt in 1 2 3; do
+            if conda install -y -c conda-forge "pynini==2.1.5" "ffmpeg<7" espeak-ng; then
+              conda_ok=true
+              break
+            fi
+            echo "conda install attempt $attempt failed; retrying in 15s"
+            sleep 15
+          done
+          "$conda_ok"
           # Installs use uv (much faster than ~50 serial pip calls) and no -U:
           # unlike pip, uv's --upgrade upgrades the whole dependency closure,
           # pushing shared deps (numpy, pandas, ...) past what the audio stack
@@ -383,9 +394,12 @@ jobs:
           # numpy/numba guards: numba releases cap numpy (<2.5); without them
           # the resolver backtracks to ancient numba/llvmlite versions that
           # cannot build on this Python.
+          # huggingface_hub<1.0: 1.0 removed is_offline_mode, which
+          # diffusers 0.35 and tensorizer still import (transformers 4.53.2
+          # caps it the same way; the pin makes it explicit).
           uv pip install "transformers==4.53.2" "funasr==1.2.7" \
             "nemo_text_processing<1.1.0" "omegaconf~=2.3.0" "WeTextProcessing<1.0.4" \
-            "numpy<2.5" "numba>=0.60"
+            "numpy<2.5" "numba>=0.60" "huggingface_hub<1.0"
           uv pip install librosa xxhash HyperPyYAML openai-whisper
           uv pip install "ChatTTS==0.2.4" "onnxruntime-gpu==1.22.0"
           uv pip install loguru natsort loralib ormsgpack
@@ -436,11 +450,15 @@ jobs:
                   xinference/model/llm/transformers/tests/test_tensorizer.py
                 ;;
               embedding)
+                # The virtualenv-based tests must run last: creating a model
+                # virtualenv leaks its site-packages into the process
+                # environment, and models launched afterwards in the same
+                # pytest process import packages from the wrong env.
                 run_pytest \
                   xinference/model/embedding/tests/test_qwen3_vl_engine_params.py \
-                  xinference/model/rerank/tests/test_qwen3_vl_reranker_virtualenv.py \
                   xinference/model/embedding/tests/test_integrated_embedding.py \
-                  xinference/model/embedding/vllm/tests/test_vllm_embedding.py
+                  xinference/model/embedding/vllm/tests/test_vllm_embedding.py \
+                  xinference/model/rerank/tests/test_qwen3_vl_reranker_virtualenv.py
                 ;;
               image)
                 run_pytest \
