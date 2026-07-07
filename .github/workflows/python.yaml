@@ -451,9 +451,14 @@ jobs:
           # the remaining groups, so one run reports every failure.
           status=0
           run_pytest() {
+            local rc=0
             pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
-              "$@" || status=1
+              "$@" || rc=$?
+            if [ "$rc" -ne 0 ]; then
+              echo "::warning::pytest exited with code $rc for group '$group'"
+              status=1
+            fi
           }
 
           for group in ${{ needs.changes.outputs.groups }}; do
