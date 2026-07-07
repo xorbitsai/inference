@@ -253,7 +253,10 @@ jobs:
       - name: Set up conda
         uses: conda-incubator/setup-miniconda@v3
         with:
-          python-version: "3.12"
+          # Python 3.11, not 3.12: pynini==2.1.5 (pinned by WeTextProcessing
+          # and nemo_text_processing) and onnxruntime-gpu==1.16.0 only publish
+          # wheels up to cp311.
+          python-version: "3.11"
           activate-environment: ${{ env.CONDA_ENV }}
 
       - name: Restore uv package cache
@@ -266,18 +269,27 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install -U pip "setuptools<82" uv
+          # NOTE: no `uv pip install -U` here — unlike pip, uv's --upgrade
+          # upgrades the whole dependency closure to the latest versions, which
+          # pushes shared deps (numpy, pandas, starlette, ...) past what the
+          # audio stack supports. Runners are ephemeral, so everything below is
+          # freshly resolved to the latest allowed versions anyway.
           # Pin torch first so the packages below resolve against it instead of
           # first downloading the latest torch and downgrading afterwards.
           uv pip install "torch==2.7.0" "torchaudio==2.7.0" "torchvision==0.22.0"
           uv pip install -e ".[audio,dev]"
-          uv pip install -U "openai>1" modelscope gguf sse_starlette xoscar \
+          uv pip install "openai>1" modelscope gguf sse_starlette xoscar \
             "python-jose[cryptography]" "passlib[bcrypt]" "aioprometheus[starlette]" pynvml
+          # numpy/numba guards: numba releases cap numpy (<2.5); without them
+          # the resolver backtracks to ancient numba/llvmlite that cannot even
+          # build on this Python.
           uv pip install "transformers==4.53.2" "funasr==1.2.7" \
-            "nemo_text_processing<1.1.0" "omegaconf~=2.3.0" "WeTextProcessing<1.0.4"
-          uv pip install -U librosa xxhash HyperPyYAML openai-whisper
+            "nemo_text_processing<1.1.0" "omegaconf~=2.3.0" "WeTextProcessing<1.0.4" \
+            "numpy<2.5" "numba>=0.60"
+          uv pip install librosa xxhash HyperPyYAML openai-whisper
           uv pip install "ChatTTS==0.2.4" "onnxruntime-gpu==1.16.0"
-          uv pip install -U loguru natsort loralib ormsgpack
-          uv pip install -U accelerate verovio cachetools silero-vad pydantic diffusers \
+          uv pip install loguru natsort loralib ormsgpack
+          uv pip install accelerate verovio cachetools silero-vad pydantic diffusers \
             onnx onnxconverter_common torchdiffeq "x_transformers>=1.31.14" pypinyin \
             tomli vocos jieba soundfile sentence-transformers FlagEmbedding
           uv pip install tensorizer "peft<=0.17.1"
