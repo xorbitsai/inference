@@ -266,6 +266,14 @@ jobs:
           key: gpu-uv-${{ hashFiles('.github/workflows/python.yaml', 'setup.cfg') }}
           restore-keys: gpu-uv-
 
+      - name: Install system dependencies
+        run: |
+          # ffmpeg is required by whisper/funasr audio loading; espeak-ng is
+          # used for phonemization by TTS models. The old self-hosted machine
+          # had both preinstalled; hosted runner images do not.
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg espeak-ng
+
       - name: Install dependencies
         run: |
           python -m pip install -U pip "setuptools<82" uv
