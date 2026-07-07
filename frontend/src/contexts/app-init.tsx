@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'sonner';
 import { NO_AUTH, LOGIN_PATH } from '@/constants';
 import { useGlobal } from '@/contexts/global-context';
-import { migrateLegacyToken, setTokenValue } from '@/lib/auth-token';
+import { getAccessToken, getRefreshToken, setNoAuthToken } from '@/lib/auth-storage';
 
 interface ClusterAuthResponse {
   auth: boolean;
@@ -38,15 +38,16 @@ export default function AppInit({ clusterAuth, clusterAuthError }: AppInitProps)
       }
       // no_auth (login not required)
       if (clusterAuth?.auth === false) {
-        setTokenValue(NO_AUTH, undefined, { removeLegacy: false });
+        setNoAuthToken();
         if (pathname === LOGIN_PATH) router.push('/');
         fetchGlobalAfterAuth();
         return;
       }
       // The following requires login logic
-      const token = migrateLegacyToken();
+      const token = getAccessToken();
+      const refreshToken = getRefreshToken();
       // If auth is true && already logged in -> request global APIs directly
-      if (token && token !== NO_AUTH) {
+      if ((token && token !== NO_AUTH) || refreshToken) {
         if (pathname === LOGIN_PATH) router.push('/');
         fetchGlobalAfterAuth();
         return;

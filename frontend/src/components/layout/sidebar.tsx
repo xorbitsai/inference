@@ -25,7 +25,7 @@ import { usePathname } from 'next/navigation';
 
 import { useI18n } from '@/contexts/i18n-context';
 import { useGlobal } from '@/contexts/global-context';
-import { getTokenValue } from '@/lib/auth-token';
+import { getAccessToken } from '@/lib/auth-storage';
 import { cn, decodeJwtPayload } from '@/lib/utils';
 import { getBrandingFromEnv } from '@/lib/branding';
 import {
@@ -176,7 +176,7 @@ export function Sidebar() {
   }, [showLoginOut, token]);
 
   useEffect(() => {
-    setToken(getTokenValue());
+    setToken(getAccessToken());
   }, []);
 
   const navGroups = useMemo<NavGroup[]>(() => {

@@ -11,7 +11,7 @@ import { Form } from '@/components/ui/form';
 import { useForm } from '@/hooks/use-form';
 import request from '@/lib/request';
 import { decodeJwtPayload } from '@/lib/utils';
-import { setTokenValue } from '@/lib/auth-token';
+import { setAccessToken, setRefreshToken } from '@/lib/auth-storage';
 import { getBrandingFromEnv } from '@/lib/branding';
 import { useI18n } from '@/contexts/i18n-context';
 import { useGlobal } from '@/contexts/global-context';
@@ -48,10 +48,10 @@ export default function LoginPage() {
       if (res?.access_token) {
         toast.success(t('common.loginSuccess'));
 
-        setTokenValue(res.access_token, 7, { removeLegacy: true });
+        setAccessToken(res.access_token);
 
         if (res.refresh_token) {
-          sessionStorage.setItem('refresh_token', res.refresh_token);
+          setRefreshToken(res.refresh_token);
         }
 
         if (res.must_change_password) {

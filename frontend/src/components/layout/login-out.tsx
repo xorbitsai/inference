@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { InfoTooltip } from '@/components/ui/tooltip';
 import { LOGIN_PATH } from '@/constants';
 import { useI18n } from '@/contexts/i18n-context';
-import { removeTokenValue } from '@/lib/auth-token';
+import { removeAuthTokens } from '@/lib/auth-storage';
 import { cn } from '@/lib/utils';
 
 interface LoginOutProps {
@@ -18,8 +18,7 @@ const LoginOut = ({ className }: LoginOutProps) => {
   const router = useRouter();
   const { t } = useI18n();
   const loginout = () => {
-    removeTokenValue();
-    sessionStorage.removeItem('refresh_token');
+    removeAuthTokens();
     toast.success(t('common.loginOutSuccess'));
     router.replace(LOGIN_PATH);
   };

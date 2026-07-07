@@ -1,5 +1,5 @@
 import { NO_AUTH } from '@/constants';
-import { getTokenValue } from '@/lib/auth-token';
+import { getAccessToken } from '@/lib/auth-storage';
 import { getApiUrl } from '@/lib/utils';
 
 export interface PostEventStreamFetcherOptions<T> {
@@ -54,7 +54,7 @@ export async function postEventStreamFetcher<T = any>(
 ): Promise<void> {
   const { url, data, options, headers } = params;
   const { onData, onError, onEnd } = options;
-  const token = getTokenValue();
+  const token = getAccessToken();
 
   const fullUrl = `${getApiUrl()}${url}`;
 

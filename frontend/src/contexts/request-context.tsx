@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { eventBus } from '@/lib/event-bus';
 import { RequestEvents } from '@/constants';
 import { requestManager } from '@/lib/request-manager';
-import { removeTokenValue } from '@/lib/auth-token';
+import { removeAuthTokens } from '@/lib/auth-storage';
 
 export default function RequestProvider({ children }: PropsWithChildren) {
   const router = useRouter();
@@ -16,7 +16,7 @@ export default function RequestProvider({ children }: PropsWithChildren) {
       if (message) toast.error(message);
 
       // clear token;
-      removeTokenValue();
+      removeAuthTokens();
       router.replace('/login');
       // restore lock
       setTimeout(() => {
