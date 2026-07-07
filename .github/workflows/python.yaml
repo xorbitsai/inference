@@ -65,7 +65,6 @@ jobs:
           - { os: windows-latest, python-version: 3.11 }
           - { os: windows-latest, python-version: 3.12 }
         include:
-          # - { os: gpu-t4, module: gpu, python-version: "3.12"}      commented out temporarily
           - { os: macos-latest, module: metal, python-version: "3.10" }
 
     steps:
@@ -104,7 +103,6 @@ jobs:
         env:
           MODULE: ${{ matrix.module }}
           OS: ${{ matrix.os }}
-        if: ${{ matrix.module != 'gpu' }}
         run: |
           if [ "$OS" == "ubuntu-latest" ]; then
             sudo rm -rf /usr/share/dotnet
@@ -192,115 +190,7 @@ jobs:
           XFORMERS_FORCE_DISABLE_TRITON: 1
           TORCH_DISABLE_FLASH_ATTENTION: 1
         run: |
-          if [ "$MODULE" == "gpu" ]; then
-            pip install -U -e ".[audio,dev]"
-            pip install -U "openai>1"
-            pip install -U modelscope
-            pip install -U gguf
-            pip install -U uv
-            pip install -U sse_starlette
-            pip install -U xoscar
-            pip install -U "python-jose[cryptography]"
-            pip install -U "passlib[bcrypt]"
-            pip install -U "aioprometheus[starlette]"
-            pip install -U "pynvml"
-            pip install "transformers==4.53.2"
-            pip install "funasr==1.2.7"
-            pip install -U "nemo_text_processing<1.1.0"
-            pip install -U omegaconf~=2.3.0
-            pip install -U "WeTextProcessing<1.0.4"
-            pip install -U librosa
-            pip install -U xxhash
-            pip install -U "ChatTTS==0.2.4"
-            pip install -U HyperPyYAML
-            pip uninstall -y matcha-tts
-            pip install -U onnxruntime-gpu==1.16.0; sys_platform == 'linux'
-            pip install -U openai-whisper
-            pip install -U "torch==2.7.0" "torchaudio==2.7.0" "torchvision==0.22.0"
-            pip install -U "loguru"
-            pip install -U "natsort"
-            pip install -U "loralib"
-            pip install -U "ormsgpack"
-            pip uninstall -y opencc
-            pip uninstall -y "faster_whisper"
-            pip install -U accelerate
-            pip install -U verovio
-            pip install -U cachetools
-            pip install -U silero-vad
-            pip install -U pydantic
-            pip install -U diffusers
-            pip install -U onnx
-            pip install -U onnxconverter_common
-            pip install -U torchdiffeq
-            pip install -U "x_transformers>=1.31.14"
-            pip install -U pypinyin
-            pip install -U tomli
-            pip install -U vocos
-            pip install -U jieba
-            pip install -U soundfile
-            pip install tensorizer
-            pip install -U sentence-transformers
-            pip install -U FlagEmbedding
-            pip install -U "peft<=0.17.1"
-            pip install "xllamacpp>=0.2.0" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 --extra-index-url https://pypi.org/simple
-            pytest --timeout=3000 \
-              --disable-warnings \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/core/tests/test_continuous_batching.py && \
-            pytest --timeout=3000 \
-              -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/embedding/tests/test_qwen3_vl_engine_params.py && \
-            pytest --timeout=3000 \
-              -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/rerank/tests/test_qwen3_vl_reranker_virtualenv.py && \
-            pytest --timeout=3000 \
-              -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/image/tests/test_stable_diffusion.py && \
-            pytest --timeout=3000 \
-              -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/image/tests/test_got_ocr2.py && \
-            pytest --timeout=3000 \
-              -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_whisper.py && \
-            pytest --timeout=3000 \
-              -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_funasr.py && \
-            pytest --timeout=3000 \
-              -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_chattts.py && \
-            pytest --timeout=3000 \
-              -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_cosyvoice.py && \
-            pytest --timeout=3000 \
-              -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_f5tts.py && \
-            pytest --timeout=3000 \
-              -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_f5tts.py && \
-            pytest --timeout=3000 \
-              -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_melotts.py && \
-            pytest --timeout=3000 \
-              -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_kokoro.py && \
-            pytest --timeout=3000 \
-              -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_fish_speech.py && \
-            pytest --timeout=3000 \
-              -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/audio/tests/test_megatts.py && \
-            pytest --timeout=3000 \
-              -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/embedding/tests/test_integrated_embedding.py && \
-            pytest --timeout=3000 \
-              -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/embedding/vllm/tests/test_vllm_embedding.py && \
-            pytest --timeout=3000 \
-              -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/llm/transformers/tests/test_tensorizer.py && \
-            pytest --timeout=3000 \
-              -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/llm/tests/test_llm_model.py
-          elif [ "$MODULE" == "metal" ]; then
+          if [ "$MODULE" == "metal" ]; then
             pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg --cov-report=xml --cov=xinference xinference/model/llm/mlx/tests/test_mlx.py && \
@@ -333,6 +223,115 @@ jobs:
               --ignore xinference/client/tests/test_async_client.py \
               --ignore xinference/model/llm/mlx \
               xinference
-          
+
           fi
+        working-directory: .
+
+  gpu_test_job:
+    # GPU runners are billed per-minute, so only run for PRs and pushes to main
+    # (a push to a PR branch already triggers the pull_request run).
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    runs-on: gpu-t4
+    needs: lint
+    timeout-minutes: 60
+    env:
+      CONDA_ENV: test
+      # GPU tests never touch the web UI; skipping the npm build saves minutes
+      # on every shard. The API server only warns when the UI bundle is absent.
+      NO_WEB_UI: 1
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Test files are split into shards that run on separate GPU runners in
+        # parallel. Keep the shards roughly balanced by wall-clock time when
+        # adding new GPU tests.
+        shard: [ "llm", "multimodal", "audio" ]
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up conda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          python-version: "3.12"
+          activate-environment: ${{ env.CONDA_ENV }}
+
+      - name: Restore uv package cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: gpu-uv-${{ hashFiles('.github/workflows/python.yaml', 'setup.cfg') }}
+          restore-keys: gpu-uv-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install -U pip "setuptools<82" uv
+          # Pin torch first so the packages below resolve against it instead of
+          # first downloading the latest torch and downgrading afterwards.
+          uv pip install "torch==2.7.0" "torchaudio==2.7.0" "torchvision==0.22.0"
+          uv pip install -e ".[audio,dev]"
+          uv pip install -U "openai>1" modelscope gguf sse_starlette xoscar \
+            "python-jose[cryptography]" "passlib[bcrypt]" "aioprometheus[starlette]" pynvml
+          uv pip install "transformers==4.53.2" "funasr==1.2.7" \
+            "nemo_text_processing<1.1.0" "omegaconf~=2.3.0" "WeTextProcessing<1.0.4"
+          uv pip install -U librosa xxhash HyperPyYAML openai-whisper
+          uv pip install "ChatTTS==0.2.4" "onnxruntime-gpu==1.16.0"
+          uv pip install -U loguru natsort loralib ormsgpack
+          uv pip install -U accelerate verovio cachetools silero-vad pydantic diffusers \
+            onnx onnxconverter_common torchdiffeq "x_transformers>=1.31.14" pypinyin \
+            tomli vocos jieba soundfile sentence-transformers FlagEmbedding
+          uv pip install tensorizer "peft<=0.17.1"
+          uv pip install "xllamacpp>=0.2.0" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 --extra-index-url https://pypi.org/simple
+          uv pip uninstall matcha-tts opencc faster_whisper
+        working-directory: .
+
+      - name: Run GPU tests (${{ matrix.shard }})
+        env:
+          XFORMERS_FORCE_DISABLE_TRITON: 1
+          TORCH_DISABLE_FLASH_ATTENTION: 1
+        run: |
+          case "${{ matrix.shard }}" in
+            llm)
+              tests=(
+                xinference/core/tests/test_continuous_batching.py
+                xinference/model/llm/tests/test_llm_model.py
+                xinference/model/llm/transformers/tests/test_tensorizer.py
+                xinference/model/embedding/tests/test_qwen3_vl_engine_params.py
+                xinference/model/rerank/tests/test_qwen3_vl_reranker_virtualenv.py
+              )
+              ;;
+            multimodal)
+              tests=(
+                xinference/model/image/tests/test_stable_diffusion.py
+                xinference/model/image/tests/test_got_ocr2.py
+                xinference/model/embedding/tests/test_integrated_embedding.py
+                xinference/model/embedding/vllm/tests/test_vllm_embedding.py
+                xinference/model/audio/tests/test_whisper.py
+                xinference/model/audio/tests/test_funasr.py
+              )
+              ;;
+            audio)
+              tests=(
+                xinference/model/audio/tests/test_chattts.py
+                xinference/model/audio/tests/test_cosyvoice.py
+                xinference/model/audio/tests/test_f5tts.py
+                xinference/model/audio/tests/test_melotts.py
+                xinference/model/audio/tests/test_kokoro.py
+                xinference/model/audio/tests/test_fish_speech.py
+                xinference/model/audio/tests/test_megatts.py
+              )
+              ;;
+          esac
+          # Each file runs in its own process so GPU memory is fully released
+          # between test files, matching the previous serial behavior.
+          for t in "${tests[@]}"; do
+            pytest --timeout=3000 -W ignore::PendingDeprecationWarning "$t" || exit 1
+          done
         working-directory: .
