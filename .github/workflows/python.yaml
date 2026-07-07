@@ -289,10 +289,10 @@ jobs:
           uv pip install librosa xxhash HyperPyYAML openai-whisper
           uv pip install "ChatTTS==0.2.4" "onnxruntime-gpu==1.16.0"
           uv pip install loguru natsort loralib ormsgpack
-          # diffusers<0.39: the krea2 pipeline added in 0.39 unconditionally
-          # imports Qwen3VLModel, which does not exist in the pinned
-          # transformers==4.53.2.
-          uv pip install accelerate verovio cachetools silero-vad pydantic "diffusers<0.39" \
+          # diffusers<0.38: the krea2 (0.39) and nucleusmoe_image (0.38)
+          # pipelines unconditionally import Qwen3VL* classes that do not
+          # exist in the pinned transformers==4.53.2; 0.37 imports cleanly.
+          uv pip install accelerate verovio cachetools silero-vad pydantic "diffusers<0.38" \
             onnx onnxconverter_common torchdiffeq "x_transformers>=1.31.14" pypinyin \
             tomli vocos jieba soundfile sentence-transformers FlagEmbedding
           uv pip install tensorizer "peft<=0.17.1"
