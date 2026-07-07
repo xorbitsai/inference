@@ -266,6 +266,18 @@ jobs:
           key: gpu-uv-${{ hashFiles('.github/workflows/python.yaml', 'setup.cfg') }}
           restore-keys: gpu-uv-
 
+      # funasr downloads its auxiliary models (fsmn-vad, ct-punc, cam++) from
+      # ModelScope, whose CDN is very slow from GitHub's US runners (~15min
+      # per run). They are only ~1.5GB in total, so cache them. Main models
+      # come from HuggingFace (fast) and are intentionally not cached — all of
+      # them together would blow the 10GB per-repo cache limit.
+      - name: Restore ModelScope model cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/modelscope
+          key: gpu-modelscope-${{ hashFiles('xinference/model/audio/model_spec.json') }}
+          restore-keys: gpu-modelscope-
+
       - name: Install system dependencies
         run: |
           # ffmpeg is required by whisper/funasr audio loading; espeak-ng is
@@ -316,6 +328,9 @@ jobs:
           # Speed up model downloads from the HuggingFace hub; runners are
           # ephemeral so every run downloads the models from scratch.
           HF_HUB_ENABLE_HF_TRANSFER: 1
+          # Pin the model source instead of relying on locale auto-detection;
+          # ModelScope is very slow from US-hosted runners.
+          XINFERENCE_MODEL_SRC: huggingface
         run: |
           tests=(
             xinference/core/tests/test_continuous_batching.py
