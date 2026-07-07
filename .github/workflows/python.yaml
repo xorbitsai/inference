@@ -444,16 +444,16 @@ jobs:
           # ModelScope is very slow from US-hosted runners.
           XINFERENCE_MODEL_SRC: huggingface
         run: |
-          set -e
-
           # One pytest process per selected group: one cold start per family
           # instead of one per file, while an import error or crash in one
           # family cannot take down the others. No --cov: nothing in this
-          # repo consumes the coverage report.
+          # repo consumes the coverage report. A failing group does not stop
+          # the remaining groups, so one run reports every failure.
+          status=0
           run_pytest() {
             pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
-              "$@"
+              "$@" || status=1
           }
 
           for group in ${{ needs.changes.outputs.groups }}; do
@@ -466,13 +466,15 @@ jobs:
                   xinference/model/llm/transformers/tests/test_tensorizer.py
                 ;;
               embedding)
-                # The virtualenv-based tests must run last: creating a model
-                # virtualenv leaks its site-packages into the process
-                # environment, and models launched afterwards in the same
-                # pytest process import packages from the wrong env.
+                # test_integrated_embedding must run first: the other three
+                # tests launch models in per-model virtualenvs, which leak
+                # their site-packages into the process environment, and models
+                # launched afterwards in the same pytest process import
+                # packages from the wrong env (seen with both the
+                # Qwen3-VL-Embedding and Qwen3-VL-Reranker virtualenvs).
                 run_pytest \
-                  xinference/model/embedding/tests/test_qwen3_vl_engine_params.py \
                   xinference/model/embedding/tests/test_integrated_embedding.py \
+                  xinference/model/embedding/tests/test_qwen3_vl_engine_params.py \
                   xinference/model/embedding/vllm/tests/test_vllm_embedding.py \
                   xinference/model/rerank/tests/test_qwen3_vl_reranker_virtualenv.py
                 ;;
@@ -496,4 +498,5 @@ jobs:
             esac
             echo "::endgroup::"
           done
+          exit "$status"
         working-directory: .
