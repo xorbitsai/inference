@@ -310,18 +310,6 @@ jobs:
         run: |
           python -m pip install -U pip "setuptools<82"
 
-      - name: Restore GPU package downloads
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ~/.cache/pip
-            ~/.conda/pkgs
-            ~/conda_pkgs_dir
-            /usr/share/miniconda/pkgs
-          key: ${{ runner.os }}-gpu-3.12-packages-${{ hashFiles('setup.py', 'setup.cfg', 'pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-gpu-3.12-packages-
-
       - name: Install dependencies
         run: |
           pip install -U -e ".[audio,dev]"
@@ -395,21 +383,22 @@ jobs:
               "$@"
           }
 
-          run_pytest xinference/model/embedding/tests/test_qwen3_vl_engine_params.py
-          run_pytest xinference/model/rerank/tests/test_qwen3_vl_reranker_virtualenv.py
-          run_pytest xinference/model/image/tests/test_stable_diffusion.py
-          run_pytest xinference/model/image/tests/test_got_ocr2.py
-          run_pytest xinference/model/audio/tests/test_whisper.py
-          run_pytest xinference/model/audio/tests/test_funasr.py
-          run_pytest xinference/model/audio/tests/test_chattts.py
-          run_pytest xinference/model/audio/tests/test_cosyvoice.py
-          run_pytest xinference/model/audio/tests/test_f5tts.py
-          run_pytest xinference/model/audio/tests/test_melotts.py
-          run_pytest xinference/model/audio/tests/test_kokoro.py
-          run_pytest xinference/model/audio/tests/test_fish_speech.py
-          run_pytest xinference/model/audio/tests/test_megatts.py
-          run_pytest xinference/model/embedding/tests/test_integrated_embedding.py
-          run_pytest xinference/model/embedding/vllm/tests/test_vllm_embedding.py
-          run_pytest xinference/model/llm/transformers/tests/test_tensorizer.py
-          run_pytest xinference/model/llm/tests/test_llm_model.py
+          run_pytest \
+            xinference/model/embedding/tests/test_qwen3_vl_engine_params.py \
+            xinference/model/rerank/tests/test_qwen3_vl_reranker_virtualenv.py \
+            xinference/model/image/tests/test_stable_diffusion.py \
+            xinference/model/image/tests/test_got_ocr2.py \
+            xinference/model/audio/tests/test_whisper.py \
+            xinference/model/audio/tests/test_funasr.py \
+            xinference/model/audio/tests/test_chattts.py \
+            xinference/model/audio/tests/test_cosyvoice.py \
+            xinference/model/audio/tests/test_f5tts.py \
+            xinference/model/audio/tests/test_melotts.py \
+            xinference/model/audio/tests/test_kokoro.py \
+            xinference/model/audio/tests/test_fish_speech.py \
+            xinference/model/audio/tests/test_megatts.py \
+            xinference/model/embedding/tests/test_integrated_embedding.py \
+            xinference/model/embedding/vllm/tests/test_vllm_embedding.py \
+            xinference/model/llm/transformers/tests/test_tensorizer.py \
+            xinference/model/llm/tests/test_llm_model.py
         working-directory: .
