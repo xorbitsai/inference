@@ -1106,7 +1106,7 @@
       ]
     },
     "featured": false,
-    "updated_at": 1768536254
+    "updated_at": 1783413976
   },
   {
     "model_name": "Fun-ASR-MLT-Nano-2512",
@@ -1142,7 +1142,7 @@
       ]
     },
     "featured": false,
-    "updated_at": 1769514574
+    "updated_at": 1783413976
   },
   {
     "model_name": "Qwen3-ASR-0.6B",
