@@ -233,22 +233,15 @@ jobs:
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
     runs-on: gpu-t4
     needs: lint
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
       CONDA_ENV: test
-      # GPU tests never touch the web UI; skipping the npm build saves minutes
-      # on every shard. The API server only warns when the UI bundle is absent.
+      # GPU tests never touch the web UI; skipping the npm build saves minutes.
+      # The API server only warns when the UI bundle is absent.
       NO_WEB_UI: 1
     defaults:
       run:
         shell: bash -l {0}
-    strategy:
-      fail-fast: false
-      matrix:
-        # Test files are split into shards that run on separate GPU runners in
-        # parallel. Keep the shards roughly balanced by wall-clock time when
-        # adding new GPU tests.
-        shard: [ "llm", "multimodal", "audio" ]
 
     steps:
       - name: Check out code
@@ -289,46 +282,38 @@ jobs:
             tomli vocos jieba soundfile sentence-transformers FlagEmbedding
           uv pip install tensorizer "peft<=0.17.1"
           uv pip install "xllamacpp>=0.2.0" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 --extra-index-url https://pypi.org/simple
+          uv pip install hf_transfer
           uv pip uninstall matcha-tts opencc faster_whisper
         working-directory: .
 
-      - name: Run GPU tests (${{ matrix.shard }})
+      - name: Run GPU tests
         env:
           XFORMERS_FORCE_DISABLE_TRITON: 1
           TORCH_DISABLE_FLASH_ATTENTION: 1
+          # Speed up model downloads from the HuggingFace hub; runners are
+          # ephemeral so every run downloads the models from scratch.
+          HF_HUB_ENABLE_HF_TRANSFER: 1
         run: |
-          case "${{ matrix.shard }}" in
-            llm)
-              tests=(
-                xinference/core/tests/test_continuous_batching.py
-                xinference/model/llm/tests/test_llm_model.py
-                xinference/model/llm/transformers/tests/test_tensorizer.py
-                xinference/model/embedding/tests/test_qwen3_vl_engine_params.py
-                xinference/model/rerank/tests/test_qwen3_vl_reranker_virtualenv.py
-              )
-              ;;
-            multimodal)
-              tests=(
-                xinference/model/image/tests/test_stable_diffusion.py
-                xinference/model/image/tests/test_got_ocr2.py
-                xinference/model/embedding/tests/test_integrated_embedding.py
-                xinference/model/embedding/vllm/tests/test_vllm_embedding.py
-                xinference/model/audio/tests/test_whisper.py
-                xinference/model/audio/tests/test_funasr.py
-              )
-              ;;
-            audio)
-              tests=(
-                xinference/model/audio/tests/test_chattts.py
-                xinference/model/audio/tests/test_cosyvoice.py
-                xinference/model/audio/tests/test_f5tts.py
-                xinference/model/audio/tests/test_melotts.py
-                xinference/model/audio/tests/test_kokoro.py
-                xinference/model/audio/tests/test_fish_speech.py
-                xinference/model/audio/tests/test_megatts.py
-              )
-              ;;
-          esac
+          tests=(
+            xinference/core/tests/test_continuous_batching.py
+            xinference/model/embedding/tests/test_qwen3_vl_engine_params.py
+            xinference/model/rerank/tests/test_qwen3_vl_reranker_virtualenv.py
+            xinference/model/image/tests/test_stable_diffusion.py
+            xinference/model/image/tests/test_got_ocr2.py
+            xinference/model/audio/tests/test_whisper.py
+            xinference/model/audio/tests/test_funasr.py
+            xinference/model/audio/tests/test_chattts.py
+            xinference/model/audio/tests/test_cosyvoice.py
+            xinference/model/audio/tests/test_f5tts.py
+            xinference/model/audio/tests/test_melotts.py
+            xinference/model/audio/tests/test_kokoro.py
+            xinference/model/audio/tests/test_fish_speech.py
+            xinference/model/audio/tests/test_megatts.py
+            xinference/model/embedding/tests/test_integrated_embedding.py
+            xinference/model/embedding/vllm/tests/test_vllm_embedding.py
+            xinference/model/llm/transformers/tests/test_tensorizer.py
+            xinference/model/llm/tests/test_llm_model.py
+          )
           # Each file runs in its own process so GPU memory is fully released
           # between test files, matching the previous serial behavior.
           for t in "${tests[@]}"; do
