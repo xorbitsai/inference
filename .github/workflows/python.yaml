@@ -343,12 +343,12 @@ jobs:
           python-version: "3.12"
           activate-environment: ${{ env.CONDA_ENV }}
 
-      - name: Restore uv package cache
+      - name: Restore pip package cache
         uses: actions/cache@v4
         with:
-          path: ~/.cache/uv
-          key: gpu-uv-${{ hashFiles('.github/workflows/python.yaml', 'setup.cfg') }}
-          restore-keys: gpu-uv-
+          path: ~/.cache/pip
+          key: gpu-pip-${{ hashFiles('.github/workflows/python.yaml', 'setup.cfg') }}
+          restore-keys: gpu-pip-
 
       # funasr downloads its auxiliary models (fsmn-vad, ct-punc, cam++) from
       # ModelScope, whose CDN is very slow from GitHub's US runners (~15min
@@ -362,59 +362,75 @@ jobs:
           key: gpu-modelscope-${{ hashFiles('xinference/model/audio/model_spec.json') }}
           restore-keys: gpu-modelscope-
 
+      - name: Update pip and setuptools
+        run: |
+          python -m pip install -U pip "setuptools<82"
+
       - name: Install dependencies
         run: |
-          python -m pip install -U pip "setuptools<82" uv
-          # pynini (pinned by WeTextProcessing/nemo_text_processing) has no
-          # cp312 wheel on PyPI; conda-forge ships one. ffmpeg is required by
-          # whisper/funasr audio loading, espeak-ng by TTS phonemization.
-          # Retried because conda's repodata sqlite cache sporadically throws
-          # "database is locked" on the hosted runners.
-          conda_ok=false
-          for attempt in 1 2 3; do
-            if conda install -y -c conda-forge "pynini==2.1.5" "ffmpeg<7" espeak-ng; then
-              conda_ok=true
-              break
-            fi
-            echo "conda install attempt $attempt failed; retrying in 15s"
-            sleep 15
-          done
-          "$conda_ok"
-          # Installs use uv (much faster than ~50 serial pip calls) and no -U:
-          # unlike pip, uv's --upgrade upgrades the whole dependency closure,
-          # pushing shared deps (numpy, pandas, ...) past what the audio stack
-          # supports. Runners are ephemeral, so everything below resolves
-          # freshly to the latest allowed versions anyway.
-          # Pin torch first so later packages resolve against it instead of
-          # downloading the latest torch and then downgrading.
-          uv pip install "torch==2.7.0" "torchaudio==2.7.0" "torchvision==0.22.0"
-          uv pip install -e ".[audio,dev]"
-          uv pip install "openai>1" modelscope gguf sse_starlette xoscar \
-            "python-jose[cryptography]" "passlib[bcrypt]" "aioprometheus[starlette]" pynvml
-          # numpy/numba guards: numba releases cap numpy (<2.5); without them
-          # the resolver backtracks to ancient numba/llvmlite versions that
-          # cannot build on this Python.
-          # huggingface_hub<1.0: 1.0 removed is_offline_mode, which
-          # diffusers 0.35 and tensorizer still import (transformers 4.53.2
-          # caps it the same way; the pin makes it explicit).
-          uv pip install "transformers==4.53.2" "funasr==1.2.7" \
-            "nemo_text_processing<1.1.0" "omegaconf~=2.3.0" "WeTextProcessing<1.0.4" \
-            "numpy<2.5" "numba>=0.60" "huggingface_hub<1.0"
-          uv pip install librosa xxhash HyperPyYAML openai-whisper
-          uv pip install "ChatTTS==0.2.4" "onnxruntime-gpu==1.22.0"
-          uv pip install loguru natsort loralib ormsgpack
-          # diffusers==0.35.1: newer releases add pipelines that import
-          # Qwen3VL* classes missing from the pinned transformers==4.53.2.
-          # sentence-transformers==5.1.1: 5.4+ rejects jina-clip-v2's mixed
-          # text/image batches. FlagEmbedding==1.3.5: newer versions pass
-          # dtype= to from_pretrained, which needs transformers>=4.56.
-          uv pip install accelerate verovio cachetools silero-vad pydantic "diffusers==0.35.1" \
-            onnx onnxconverter_common torchdiffeq "x_transformers>=1.31.14" pypinyin \
-            tomli vocos jieba soundfile "sentence-transformers==5.1.1" "FlagEmbedding==1.3.5"
-          uv pip install tensorizer "peft<=0.17.1"
-          uv pip install "xllamacpp>=0.2.0" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 --extra-index-url https://pypi.org/simple
-          uv pip install hf_transfer
-          uv pip uninstall matcha-tts opencc faster_whisper
+          pip install -U -e ".[audio,dev]"
+          pip install -U "openai>1"
+          pip install -U modelscope
+          pip install -U gguf
+          pip install -U uv
+          pip install -U sse_starlette
+          pip install -U xoscar
+          pip install -U "python-jose[cryptography]"
+          pip install -U "passlib[bcrypt]"
+          pip install -U "aioprometheus[starlette]"
+          pip install -U "pynvml"
+          pip install "transformers==4.53.2"
+          pip install "funasr==1.2.7"
+          conda install -y -c conda-forge "pynini==2.1.5" "ffmpeg<7"
+          pip install -U "nemo_text_processing<1.1.0"
+          pip install -U omegaconf~=2.3.0
+          pip install -U "WeTextProcessing<1.0.4"
+          pip install -U librosa
+          pip install -U xxhash
+          pip install -U "ChatTTS==0.2.4"
+          pip install -U HyperPyYAML
+          pip uninstall -y matcha-tts
+          pip install -U 'onnxruntime-gpu==1.22.0; sys_platform == "linux"'
+          pip install -U openai-whisper
+          pip install -U "torch==2.7.0" "torchaudio==2.7.0" "torchvision==0.22.0"
+          pip install -U "loguru"
+          pip install -U "natsort"
+          pip install -U "loralib"
+          pip install -U "ormsgpack"
+          pip uninstall -y opencc
+          pip uninstall -y "faster_whisper"
+          pip install -U accelerate
+          pip install -U verovio
+          pip install -U cachetools
+          pip install -U silero-vad
+          pip install -U pydantic
+          pip install -U "diffusers==0.35.1"
+          pip install -U onnx
+          pip install -U onnxconverter_common
+          pip install -U torchdiffeq
+          pip install -U "x_transformers>=1.31.14"
+          pip install -U pypinyin
+          pip install -U tomli
+          pip install -U vocos
+          pip install -U jieba
+          pip install -U soundfile
+          pip install tensorizer
+          pip install -U "sentence-transformers==5.1.1"
+          pip install -U "FlagEmbedding==1.3.5"
+          pip install -U "peft<=0.17.1"
+          pip install "xllamacpp>=0.2.0" --index-url https://xorbitsai.github.io/xllamacpp/whl/cu124 --extra-index-url https://pypi.org/simple
+          pip install hf_transfer
+          # espeak-ng (TTS phonemization) is not packaged on conda-forge;
+          # install it from apt.
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq espeak-ng
+          # Final guard pins. The serial `pip install -U` calls above ignore
+          # the upper bounds of already-installed packages, letting shared
+          # deps drift past what the stack supports at runtime: numba needs
+          # numpy<2.5, and diffusers 0.35 / tensorizer still import
+          # is_offline_mode, which huggingface_hub 1.0 removed
+          # (transformers==4.53.2 declares the same <1.0 cap).
+          pip install "numpy>=2,<2.5" "huggingface_hub<1.0"
         working-directory: .
 
       - name: Test with pytest
