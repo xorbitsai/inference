@@ -71,11 +71,11 @@ export function PermissionSelector({ selected, onChange }: PermissionSelectorPro
 
   const setPermission = (permission: string, checked: boolean) => {
     if (checked) {
-      onChange([...new Set([...normalizedSelected, permission])]);
+      onChange([...new Set([...selected, permission])]);
       return;
     }
 
-    onChange(normalizedSelected.filter((item) => item !== permission));
+    onChange(selected.filter((item) => item !== permission));
   };
 
   const toggleAll = () => {
