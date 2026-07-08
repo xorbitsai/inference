@@ -355,10 +355,13 @@ jobs:
       # per run). They are only ~1.5GB in total, so cache them. Main models
       # come from HuggingFace (fast) and are intentionally not cached — all
       # of them together would blow the 10GB per-repo cache limit.
+      # NOTE: xinference redirects MODELSCOPE_CACHE to ~/.xinference/modelscope
+      # (see get_xinference_home in xinference/constants.py), so that is the
+      # directory to cache — ~/.cache/modelscope is never created.
       - name: Restore ModelScope model cache
         uses: actions/cache@v4
         with:
-          path: ~/.cache/modelscope
+          path: ~/.xinference/modelscope
           key: gpu-modelscope-${{ hashFiles('xinference/model/audio/model_spec.json') }}
           restore-keys: gpu-modelscope-
 
