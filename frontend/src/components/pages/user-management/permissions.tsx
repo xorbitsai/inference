@@ -79,7 +79,11 @@ export function PermissionSelector({ selected, onChange }: PermissionSelectorPro
   };
 
   const toggleAll = () => {
-    onChange(isAllSelected ? [] : [...ALL_PERMISSIONS]);
+    if (isAllSelected) {
+      onChange(selected.filter((permission) => !ALL_PERMISSIONS.includes(permission)));
+    } else {
+      onChange([...new Set([...selected, ...ALL_PERMISSIONS])]);
+    }
   };
 
   return (

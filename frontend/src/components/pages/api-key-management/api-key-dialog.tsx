@@ -99,7 +99,7 @@ export function ApiKeyDialog({ open, apiKey, users, onOpenChange, onSuccess }: A
     (
       permissions: ModelPermission[] = []
     ): Pick<KeyFormValues, 'permission_mode' | 'model_types' | 'model_ids'> => {
-      if (permissions.length === 0) {
+      if (permissions.length === 0 || !Array.isArray(permissions)) {
         return { permission_mode: 'all' };
       }
 
@@ -395,7 +395,6 @@ export function ApiKeyDialog({ open, apiKey, users, onOpenChange, onSuccess }: A
                 <DateTimePicker
                   showTime={false}
                   showSelectedTime={false}
-                  onChange={() => undefined}
                   inputClassName="h-9"
                 />
               </FormField>

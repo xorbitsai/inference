@@ -16,7 +16,7 @@ interface DateTimePickerProps extends Omit<
   'type' | 'value' | 'onChange'
 > {
   value?: string;
-  onChange: (value: string) => void;
+  onChange?: (value: string) => void;
   label?: string;
   placeholder?: string;
   inputClassName?: string;
@@ -121,7 +121,7 @@ export function DateTimePicker({
     const nextDate = updater(new Date(current));
 
     setViewDate(nextDate);
-    onChange(showTime ? toDateTimeValue(nextDate) : toDateValue(nextDate));
+    onChange?.(showTime ? toDateTimeValue(nextDate) : toDateValue(nextDate));
   };
 
   const handleSelectDay = (day: Date) => {
@@ -155,11 +155,11 @@ export function DateTimePicker({
   const handleToday = () => {
     const now = new Date();
     setViewDate(now);
-    onChange(showTime ? toDateTimeValue(now) : toDateValue(now));
+    onChange?.(showTime ? toDateTimeValue(now) : toDateValue(now));
   };
 
   const handleClear = () => {
-    onChange('');
+    onChange?.('');
     setViewDate(new Date());
   };
 

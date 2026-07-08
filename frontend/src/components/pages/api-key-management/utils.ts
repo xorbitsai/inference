@@ -5,7 +5,7 @@ export interface ModelPermissionRecord {
   permission_value?: string | null;
 }
 
-export type ModelPermission = string | ModelPermissionRecord;
+export type ModelPermission = ModelPermissionRecord;
 
 export interface ApiKey {
   id: number;

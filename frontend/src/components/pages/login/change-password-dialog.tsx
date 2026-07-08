@@ -45,11 +45,12 @@ export function ChangePasswordDialog({ open, userId, onChanged }: ChangePassword
       });
       toast.success(t('userManagement.passwordChanged'));
       onChanged();
+    } catch {
+      // handled by interceptor
     } finally {
       setLoading(false);
     }
   };
-
   return (
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent
