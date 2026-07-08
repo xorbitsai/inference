@@ -118,6 +118,10 @@ def _get_or_create_persisted_secret(env_name: str, file_name: str) -> str:
     (e.g. supervisor and worker starting together) race safely: only one
     process wins the create, and the others fall back to reading the file
     it wrote instead of each keeping a different generated value in memory.
+    A stale, empty file (left behind by a process that was killed between
+    creating and writing to it) is treated as abandoned after a grace
+    period and removed so startup can recover automatically instead of
+    failing forever.
     """
     import time
 
@@ -128,12 +132,30 @@ def _get_or_create_persisted_secret(env_name: str, file_name: str) -> str:
     secret_path = os.path.join(XINFERENCE_AUTH_DIR, file_name)
     os.makedirs(XINFERENCE_AUTH_DIR, exist_ok=True)
 
+    stale_after_seconds = 10
     for _ in range(50):
-        if os.path.exists(secret_path):
-            with open(secret_path, "r") as f:
-                existing = f.read().strip()
-            if existing:
-                return existing
+        try:
+            stat_result = os.stat(secret_path)
+        except OSError:
+            stat_result = None
+
+        if stat_result is not None:
+            if stat_result.st_size > 0:
+                try:
+                    with open(secret_path, "r") as f:
+                        existing = f.read().strip()
+                except OSError:
+                    existing = ""
+                if existing:
+                    return existing
+            elif time.time() - stat_result.st_mtime > stale_after_seconds:
+                # Empty and old: likely left behind by a process that was
+                # killed after creating the file but before writing to it.
+                try:
+                    os.remove(secret_path)
+                except OSError:
+                    pass
+                continue
             # Another process created the file but hasn't written to it yet.
             time.sleep(0.1)
             continue
