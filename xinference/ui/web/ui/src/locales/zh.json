@@ -473,7 +473,10 @@
     "cache_list": "查看缓存",
     "cache_delete": "删除缓存",
     "virtualenv_list": "查看虚拟环境",
-    "virtualenv_delete": "删除虚拟环境"
+    "virtualenv_delete": "删除虚拟环境",
+    "models_register": "注册/注销模型",
+    "logs_list": "查看日志",
+    "monitor_view": "查看监控"
   },
   "apikeyManagement": {
     "title": "API Key 管理",

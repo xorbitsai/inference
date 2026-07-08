@@ -1,0 +1,864 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-11-10 11:08+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ja <LL@li.org>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/model_abilities/audio.rst:5
+msgid "Audio"
+msgstr "オーディオ"
+
+#: ../../source/models/model_abilities/audio.rst:7
+msgid "Learn how to turn audio into text or text into audio with Xinference."
+msgstr "Xinferenceを使用して、音声をテキストに変換したり、テキストを音声に変換する方法を学びます。"
+
+#: ../../source/models/model_abilities/audio.rst:11
+msgid "Introduction"
+msgstr "Introduction"
+
+#: ../../source/models/model_abilities/audio.rst:14
+msgid "The Audio API provides three methods for interacting with audio:"
+msgstr "Audio APIは、音声と対話するための3つの方法を提供します。"
+
+#: ../../source/models/model_abilities/audio.rst:17
+msgid "The transcriptions endpoint transcribes audio into the input language."
+msgstr "文字起こし端末は、音声を入力言語に文字起こしします。"
+
+#: ../../source/models/model_abilities/audio.rst:18
+msgid "The translations endpoint translates audio into English."
+msgstr "翻訳エンドポイントが音声を英語に変換します。"
+
+#: ../../source/models/model_abilities/audio.rst:19
+msgid "The speech endpoint generates audio from the input text."
+msgstr "転写ターミナルは、音声を入力言語に転写します。"
+
+#: ../../source/models/model_abilities/audio.rst:26
+msgid "API ENDPOINT"
+msgstr "API エンドポイント"
+
+#: ../../source/models/model_abilities/audio.rst:27
+msgid "OpenAI-compatible ENDPOINT"
+msgstr "OpenAI 互換エンドポイント"
+
+#: ../../source/models/model_abilities/audio.rst:29
+msgid "Transcription API"
+msgstr "Transcription API"
+
+#: ../../source/models/model_abilities/audio.rst:30
+msgid "/v1/audio/transcriptions"
+msgstr "/v1/audio/transcriptions"
+
+#: ../../source/models/model_abilities/audio.rst:32
+msgid "Translation API"
+msgstr "API"
+
+#: ../../source/models/model_abilities/audio.rst:33
+msgid "/v1/audio/translations"
+msgstr "/v1/audio/translations"
+
+#: ../../source/models/model_abilities/audio.rst:35
+msgid "Speech API"
+msgstr "音声 API"
+
+#: ../../source/models/model_abilities/audio.rst:36
+msgid "/v1/audio/speech"
+msgstr "/v1/audio/speech"
+
+#: ../../source/models/model_abilities/audio.rst:40
+msgid "Supported models"
+msgstr "対応モデル一覧"
+
+#: ../../source/models/model_abilities/audio.rst:42
+msgid "The audio API is supported with the following models in Xinference:"
+msgstr "Xinferenceでは、以下のモデルがオーディオAPIをサポートしています："
+
+#: ../../source/models/model_abilities/audio.rst:45
+msgid "Audio to text"
+msgstr "音声テキスト変換"
+
+#: ../../source/models/model_abilities/audio.rst:47
+msgid ":ref:`whisper-tiny <models_builtin_whisper-tiny>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:48
+msgid ":ref:`whisper-tiny.en <models_builtin_whisper-tiny.en>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:49
+msgid ":ref:`whisper-base <models_builtin_whisper-base>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:50
+msgid ":ref:`whisper-base.en <models_builtin_whisper-base.en>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:51
+msgid ":ref:`whisper-medium <models_builtin_whisper-medium>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:52
+msgid ":ref:`whisper-medium.en <models_builtin_whisper-medium.en>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:53
+msgid ":ref:`whisper-large-v3 <models_builtin_whisper-large-v3>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:54
+msgid ":ref:`whisper-large-v3-turbo <models_builtin_whisper-large-v3-turbo>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:55
+msgid ""
+":ref:`Belle-distilwhisper-large-v2-zh <models_builtin_belle-distilwhisper-"
+"large-v2-zh>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:56
+msgid ""
+":ref:`Belle-whisper-large-v2-zh <models_builtin_belle-whisper-large-v2-zh>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:57
+msgid ""
+":ref:`Belle-whisper-large-v3-zh <models_builtin_belle-whisper-large-v3-zh>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:58
+msgid ":ref:`SenseVoiceSmall <models_builtin_sensevoicesmall>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:59
+msgid ":ref:`Paraformer-zh <models_builtin_paraformer-zh>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:61
+#: ../../source/models/model_abilities/audio.rst:99
+msgid "For Mac M-series chips only:"
+msgstr "Mac Mシリーズチップにのみ対応："
+
+#: ../../source/models/model_abilities/audio.rst:63
+msgid ":ref:`whisper-tiny-mlx <models_builtin_whisper-tiny-mlx>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:64
+msgid ":ref:`whisper-tiny.en-mlx <models_builtin_whisper-tiny.en-mlx>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:65
+msgid ":ref:`whisper-base-mlx <models_builtin_whisper-base-mlx>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:66
+msgid ":ref:`whisper-base.en-mlx <models_builtin_whisper-base.en-mlx>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:67
+msgid ":ref:`whisper-medium-mlx <models_builtin_whisper-medium-mlx>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:68
+msgid ":ref:`whisper-medium.en-mlx <models_builtin_whisper-medium.en-mlx>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:69
+msgid ":ref:`whisper-large-v3-mlx <models_builtin_whisper-large-v3-mlx>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:70
+msgid ""
+":ref:`whisper-large-v3-turbo-mlx <models_builtin_whisper-large-v3-turbo-"
+"mlx>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:74
+msgid "Text to audio (TTS)"
+msgstr "テキスト読み上げ（TTS）"
+
+#: ../../source/models/model_abilities/audio.rst:76
+msgid ""
+"**Models supporting zero-shot** (direct synthesis without reference audio):"
+msgstr "**zero-shot対応モデル** （参照音声不要）"
+
+#: ../../source/models/model_abilities/audio.rst:78
+msgid ":ref:`ChatTTS <models_builtin_chattts>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:79
+msgid ":ref:`CosyVoice-300M-SFT <models_builtin_cosyvoice-300m-sft>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:80
+msgid ""
+":ref:`CosyVoice-300M-Instruct <models_builtin_cosyvoice-300m-instruct>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:81
+msgid "MeloTTS series"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:82
+msgid ":ref:`Kokoro-82M <models_builtin_kokoro-82m>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:83
+#: ../../source/models/model_abilities/audio.rst:102
+msgid ":ref:`Kokoro-82M-MLX <models_builtin_kokoro-82m-mlx>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:84
+msgid ":ref:`MegaTTS3 <models_builtin_megatts3>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:86
+msgid "**Models supporting voice cloning** (requires reference audio):"
+msgstr "**音声クローン対応モデル**（参照音声が必要）"
+
+#: ../../source/models/model_abilities/audio.rst:88
+msgid ":ref:`CosyVoice-300M <models_builtin_cosyvoice-300m>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:89
+msgid ":ref:`CosyVoice 2.0 <models_builtin_cosyvoice2-0.5b>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:90
+msgid ":ref:`FishSpeech-1.5 <models_builtin_fishspeech-1.5>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:91
+msgid ":ref:`F5-TTS <models_builtin_f5-tts>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:92
+#: ../../source/models/model_abilities/audio.rst:101
+msgid ":ref:`F5-TTS-MLX <models_builtin_f5-tts-mlx>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:93
+#: ../../source/models/model_abilities/audio.rst:97
+msgid ":ref:`IndexTTS2 <models_builtin_indextts2>`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:95
+msgid "**Models supporting emotion control**:"
+msgstr "**感情制御をサポートするモデル**"
+
+#: ../../source/models/model_abilities/audio.rst:105
+msgid "Quickstart"
+msgstr "クイックスタート"
+
+#: ../../source/models/model_abilities/audio.rst:108
+msgid "Transcription"
+msgstr "文字起こし"
+
+#: ../../source/models/model_abilities/audio.rst:110
+msgid ""
+"The Transcription API mimics OpenAI's `create transcriptions API "
+"<https://platform.openai.com/docs/api-"
+"reference/audio/createTranscription>`_. We can try Transcription API out "
+"either via cURL, OpenAI Client, or Xinference's python client:"
+msgstr ""
+"Transcription API は OpenAI の `create transcriptions API "
+"<https://platform.openai.com/docs/api-reference/audio/createTranscription>`_"
+" を模倣しています。cURL、OpenAI Client、または Xinference の Python クライアントを通じて "
+"Transcription API を試すことができます："
+
+#: ../../source/models/model_abilities/audio.rst:161
+msgid "Translation"
+msgstr "Please provide the Simplified Chinese text you want me to translate."
+
+#: ../../source/models/model_abilities/audio.rst:163
+msgid ""
+"The Translation API mimics OpenAI's `create translations API "
+"<https://platform.openai.com/docs/api-reference/audio/createTranslation>`_. "
+"We can try Translation API out either via cURL, OpenAI Client, or "
+"Xinference's python client:"
+msgstr ""
+"Translation API は、OpenAI の `create translations API "
+"<https://platform.openai.com/docs/api-reference/audio/createTranslation>`_ "
+"を模倣しています。Translation API は、cURL、OpenAI Client、または Xinference の Python "
+"クライアントを使用して試すことができます。"
+
+#: ../../source/models/model_abilities/audio.rst:213
+msgid "Speech"
+msgstr "音声"
+
+#: ../../source/models/model_abilities/audio.rst:217
+msgid ""
+"The Speech API mimics OpenAI's `create speech API "
+"<https://platform.openai.com/docs/api-reference/audio/createSpeech>`_. We "
+"can try Speech API out either via cURL, OpenAI Client, or Xinference's "
+"python client:"
+msgstr ""
+"Transcription API は OpenAI の `create speech API "
+"<https://platform.openai.com/docs/api-reference/audio/createSpeech>`_ "
+"を模倣しています。cURL、OpenAI Client、または Xinference の Python クライアントを通じて Speech API "
+"を試すことができます。"
+
+#: ../../source/models/model_abilities/audio.rst:220
+msgid "Speech API use non-stream by default as"
+msgstr "Speech APIはデフォルトで非ストリーミングを使用します"
+
+#: ../../source/models/model_abilities/audio.rst:222
+msgid ""
+"The stream output of ChatTTS is not as good as the non-stream output, please"
+" refer to: https://github.com/2noise/ChatTTS/pull/564"
+msgstr ""
+"ChatTTS "
+"のストリーム出力は、非ストリーム出力に比べて効果が劣ります。参考：https://github.com/2noise/ChatTTS/pull/564"
+
+#: ../../source/models/model_abilities/audio.rst:223
+msgid ""
+"The stream requires ffmpeg<7: "
+"https://pytorch.org/audio/stable/installation.html#optional-dependencies"
+msgstr ""
+"ストリーミングには ffmpeg<7 "
+"が必要です：https://pytorch.org/audio/stable/installation.html#optional-"
+"dependencies"
+
+#: ../../source/models/model_abilities/audio.rst:275
+msgid "ChatTTS Usage"
+msgstr "ChatTTSの使用"
+
+#: ../../source/models/model_abilities/audio.rst:277
+#: ../../source/models/model_abilities/audio.rst:480
+msgid "Basic usage, refer to :ref:`audio speech usage <audio_speech>`."
+msgstr "基本使用については、:ref:`音声使用の章 <audio_speech>`を参照してください。"
+
+#: ../../source/models/model_abilities/audio.rst:279
+msgid ""
+"Fixed tone color. We can use fixed tone color provided by "
+"https://github.com/6drf21e/ChatTTS_Speaker, Download the "
+"`evaluation_result.csv "
+"<https://github.com/6drf21e/ChatTTS_Speaker/blob/main/evaluation_results.csv>`_"
+" , take ``seed_2155`` as example, we get the ``emb_data`` of it."
+msgstr ""
+"固定音色を使用します。https://github.com/6drf21e/ChatTTS_Speaker "
+"で提供されている固定音色を利用できます。`evaluation_result.csv "
+"<https://github.com/6drf21e/ChatTTS_Speaker/blob/main/evaluation_results.csv>`_"
+" をダウンロードし、``seed_2155`` 音色を例として、``emb_data`` 列のデータを使用します。"
+
+#: ../../source/models/model_abilities/audio.rst:292
+msgid "Use the fixed tone color of ``seed_2155`` to generate speech."
+msgstr "``seed_2155`` を使用して音色を固定し、音声を作成します。"
+
+#: ../../source/models/model_abilities/audio.rst:308
+msgid "CosyVoice Usage"
+msgstr "CosyVoice モデル使用方法"
+
+#: ../../source/models/model_abilities/audio.rst:310
+msgid ""
+"CosyVoice has two versions: CosyVoice 1.0 and CosyVoice 2.0. CosyVoice 1.0 "
+"has three different models:"
+msgstr ""
+"CosyVoice には2つのバージョンがあります：CosyVoice 1.0とCosyVoice 2.0です。CosyVoice "
+"1.0には3つの異なるモデルがあります："
+
+#: ../../source/models/model_abilities/audio.rst:312
+msgid ""
+"**CosyVoice-300M-SFT**: Choose this model if you just want to convert text "
+"to audio. There are pretrained voices available: ['中文女', '中文男', '日语男', "
+"'粤语女', '英文女', '英文男', '韩语女']"
+msgstr ""
+"**CosyVoice-300M-SFT**: "
+"テキストを音声に変換するだけであれば、このモデルを選択してください。事前学習済みの音色がいくつか用意されています: ['中文女', '中文男', "
+"'日语男', '粤语女', '英文女', '英文男', '韩语女']。"
+
+#: ../../source/models/model_abilities/audio.rst:313
+msgid ""
+"**CosyVoice-300M**: Choose this model if you want to clone voice or convert "
+"text to audio in different languages. The ``prompt_speech`` is always "
+"required and should be a WAV file. For optimal performance, use a sample "
+"rate of 16,000 Hz."
+msgstr ""
+"**CosyVoice-300M**: "
+"声をクローンしたい場合やテキストを別の言語の音声に変換したい場合は、このモデルを選択してください。このモデルを使用する際は、``prompt_speech``"
+" WAV形式のオーディオファイルを提供する必要があります。パフォーマンスを向上させるため、16,000 Hzのサンプリングレートを使用してください。"
+
+#: ../../source/models/model_abilities/audio.rst:314
+msgid ""
+"**CosyVoice-300M-Instruct**: Choose this model If you need precise control "
+"over the tone and pitch."
+msgstr "**CosyVoice-300M-Instruct**: 音程と音色を正確に制御したい場合は、このモデルを選択してください。"
+
+#: ../../source/models/model_abilities/audio.rst:316
+msgid "Basic usage, launch model ``CosyVoice-300M-SFT``."
+msgstr "基本的な使用方法、モデル ``CosyVoice-300M-SFT`` を読み込みます。"
+
+#: ../../source/models/model_abilities/audio.rst:365
+msgid "Clone voice, launch model ``CosyVoice-300M``."
+msgstr "クローン音声、モデル ``CosyVoice-300M`` を読み込む。"
+
+#: ../../source/models/model_abilities/audio.rst:395
+msgid "Cross lingual usage, launch model ``CosyVoice-300M``."
+msgstr "言語を跨いで使用する場合、モデル ``CosyVoice-300M`` をロードします。"
+
+#: ../../source/models/model_abilities/audio.rst:418
+msgid "Instruction based, launch model ``CosyVoice-300M-Instruct``."
+msgstr "指示に基づく音声合成、モデル ``CosyVoice-300M-Instruct`` を読み込みます。"
+
+#: ../../source/models/model_abilities/audio.rst:435
+msgid ""
+"CosyVoice 2.0 only has one model, it provides all the capabilities of the "
+"three CosyVoice models. The usage is the same as CosyVoice."
+msgstr ""
+"CosyVoice "
+"2.0はモデルが1つだけですが、CosyVoiceの3つのモデルのすべての機能を備えています。使用方法はCosyVoiceと同じです。"
+
+#: ../../source/models/model_abilities/audio.rst:437
+msgid "CosyVoice 2.0 stream usage, launch model ``CosyVoice2-0.5B``."
+msgstr "CosyVoice 2.0 ストリーム利用、モデル ``CosyVoice2-0.5B`` をロードします。"
+
+#: ../../source/models/model_abilities/audio.rst:474
+msgid ""
+"More instructions and examples, could be found at https://fun-audio-"
+"llm.github.io/ ."
+msgstr "詳細な指示や例については、https://fun-audio-llm.github.io/ を参照してください。"
+
+#: ../../source/models/model_abilities/audio.rst:478
+msgid "FishSpeech Usage"
+msgstr "FishSpeech モデル使用"
+
+#: ../../source/models/model_abilities/audio.rst:482
+msgid ""
+"Clone voice, launch model ``FishSpeech-1.5``. Please use `prompt_speech` "
+"instead of `reference_audio` and `prompt_text` instead of `reference_text` "
+"to clone voice from the reference audio for the FishSpeech model. This "
+"arguments is aligned to voice cloning of CosyVoice."
+msgstr ""
+"音声をクローンし、モデル ``FishSpeech-1.5`` "
+"を起動します。FishSpeechモデルに参照音声を提供するには、`reference_audio` ではなく `prompt_speech` "
+"を、`reference_text` ではなく `prompt_text` "
+"を使用してください。このパラメータはCosyVoiceの音声クローンと一貫性があります。"
+
+#: ../../source/models/model_abilities/audio.rst:509
+msgid "Paraformer Usage"
+msgstr "Paraformerの使用説明"
+
+#: ../../source/models/model_abilities/audio.rst:512
+msgid "model"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:512
+msgid "vad"
+msgstr "音声アクティビティ検出（vad）"
+
+#: ../../source/models/model_abilities/audio.rst:512
+msgid "punc"
+msgstr "句読点復元（punc）"
+
+#: ../../source/models/model_abilities/audio.rst:512
+msgid "timestamp"
+msgstr "タイムスタンプ"
+
+#: ../../source/models/model_abilities/audio.rst:512
+msgid "speaker"
+msgstr "話し手"
+
+#: ../../source/models/model_abilities/audio.rst:512
+msgid "hotword"
+msgstr "ホットワード"
+
+#: ../../source/models/model_abilities/audio.rst:514
+msgid ":ref:`models_builtin_paraformer-zh`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:514
+#: ../../source/models/model_abilities/audio.rst:516
+#: ../../source/models/model_abilities/audio.rst:518
+#: ../../source/models/model_abilities/audio.rst:520
+#: ../../source/models/model_abilities/audio.rst:522
+msgid "yes"
+msgstr "はい"
+
+#: ../../source/models/model_abilities/audio.rst:514
+#: ../../source/models/model_abilities/audio.rst:516
+#: ../../source/models/model_abilities/audio.rst:518
+#: ../../source/models/model_abilities/audio.rst:520
+msgid "no"
+msgstr "いいえ"
+
+#: ../../source/models/model_abilities/audio.rst:516
+msgid ":ref:`models_builtin_paraformer-zh-hotword`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:518
+msgid ":ref:`models_builtin_paraformer-zh-spk`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:520
+msgid ":ref:`models_builtin_paraformer-zh-long`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:522
+msgid ":ref:`models_builtin_seaco-paraformer-zh` (recommend)"
+msgstr ":ref:`models_builtin_seaco-paraformer-zh` （推奨）"
+
+#: ../../source/models/model_abilities/audio.rst:525
+msgid "**VAD & Punctuation Usage**"
+msgstr "**VADと句読点の使用**"
+
+#: ../../source/models/model_abilities/audio.rst:527
+msgid "All Paraformer models support VAD and punctuation."
+msgstr "すべてのParaformerモデルはVADと句読点機能をサポートしています。"
+
+#: ../../source/models/model_abilities/audio.rst:529
+msgid "**Timestamp & Speaker Usage**"
+msgstr "**タイムスタンプと話者識別の使用説明**"
+
+#: ../../source/models/model_abilities/audio.rst:531
+msgid "Only the following models support `timestamp` and `speaker`:"
+msgstr "以下のモデルのみが「タイムスタンプ」と「話者」認識をサポートしています："
+
+#: ../../source/models/model_abilities/audio.rst:533
+msgid "`paraformer-zh-spk`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:534
+msgid "`paraformer-zh-long`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:535
+#: ../../source/models/model_abilities/audio.rst:560
+msgid "`seaco-paraformer-zh`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:537
+msgid ""
+"Among them, only `paraformer-zh-spk` enables **speaker info by default**."
+msgstr "ただし、`paraformer-zh-spk` のみデフォルトで話者識別機能が有効になっています。"
+
+#: ../../source/models/model_abilities/audio.rst:539
+msgid ""
+"If you need speaker info when using `paraformer-zh-long` or `seaco-"
+"paraformer-zh`:"
+msgstr ""
+"`paraformer-zh-long` または `seaco-paraformer-zh` を使用しており、話者認識機能を有効にする必要がある場合:"
+
+#: ../../source/models/model_abilities/audio.rst:541
+msgid ""
+"In Web UI: add an extra parameter with key ``spk_model`` and value ``cam++``"
+msgstr "Web UI において: ``spk_model`` という名前で値が ``cam++`` のパラメータを追加する"
+
+#: ../../source/models/model_abilities/audio.rst:542
+msgid "In command line: add the option ``--spk_model cam++``"
+msgstr "コマンドラインで：パラメータ ``--spk_model cam++`` を追加する"
+
+#: ../../source/models/model_abilities/audio.rst:544
+#: ../../source/models/model_abilities/audio.rst:562
+msgid "Example:"
+msgstr "お手本："
+
+#: ../../source/models/model_abilities/audio.rst:555
+msgid "**Hotword Usage**"
+msgstr "**ホットワード機能の使用説明**"
+
+#: ../../source/models/model_abilities/audio.rst:557
+msgid "Only the following models support `hotword`:"
+msgstr "以下のモデルのみが `hotword` （ホットワード機能）をサポートしています："
+
+#: ../../source/models/model_abilities/audio.rst:559
+msgid "`paraformer-zh-hotword`"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:576
+msgid "SenseVoiceSmall Offline Usage"
+msgstr "SenseVoiceSmall オフライン使用"
+
+#: ../../source/models/model_abilities/audio.rst:578
+msgid ""
+"Now SenseVoiceSmall use a small vad model ``fsmn-vad``, it will be "
+"downloaded thus network required."
+msgstr ""
+"現在、SenseVoiceSmallは小さなVADモデル ``fsmn-vad`` を使用しているため、ネットワーク経由でダウンロードする必要がある。"
+
+#: ../../source/models/model_abilities/audio.rst:580
+msgid "For offline environment, you can download the vad model in advance."
+msgstr "オフライン環境の場合、このVADモデルを事前にダウンロードすることができます。"
+
+#: ../../source/models/model_abilities/audio.rst:582
+msgid ""
+"Download from `huggingface <https://huggingface.co/funasr/fsmn-vad>`_ or "
+"`modelscope <https://modelscope.cn/models/iic/speech_fsmn_vad_zh-"
+"cn-16k-common-pytorch/files>`_. Assume downloaded to ``/path/to/fsmn-vad``."
+msgstr ""
+"`huggingface <https://huggingface.co/funasr/fsmn-vad>`_ または `modelscope "
+"<https://modelscope.cn/models/iic/speech_fsmn_vad_zh-cn-16k-common-"
+"pytorch/files>`_ からダウンロードします。ダウンロード先は ``/path/to/fsmn-vad`` と仮定します。"
+
+#: ../../source/models/model_abilities/audio.rst:585
+msgid ""
+"Then when launching SenseVoiceSmall with Web UI, you can add an additional "
+"parameter with key ``vad_model`` and value ``/path/to/fsmn-vad`` which is "
+"the downloaded path. When launching with command line, you can add an option"
+" ``--vad_model /path/to/fsmn-vad``."
+msgstr ""
+"その後、Web "
+"UIでSenseVoiceSmallをロードする際に、追加オプションを設定し、キーは``vad_model``、値は以前のダウンロードパス``/path/to/fsmn-"
+"vad``とします。コマンドラインでロードする場合は、オプション``--vad_model /path/to/fsmn-vad``を追加します。"
+
+#: ../../source/models/model_abilities/audio.rst:590
+msgid "Kokoro Usage"
+msgstr "Kokoroモデルを使用する"
+
+#: ../../source/models/model_abilities/audio.rst:592
+msgid ""
+"The Kokoro model supports multiple languages, but the default language is "
+"English. If you want to use other languages, such as Chinese, you need to "
+"install additional dependency packages and add an additional parameter when "
+"starting the model."
+msgstr ""
+"Kokoroモデルは多言語をサポートしており、デフォルトは英語です。デフォルト以外の言語（例えば中国語）を使用したい場合は、追加の依存パッケージをインストールし、モデル起動時に対応するパラメータを追加する必要があります。"
+
+#: ../../source/models/model_abilities/audio.rst:596
+msgid "pip install misaki[zh]"
+msgstr ""
+
+#: ../../source/models/model_abilities/audio.rst:598
+msgid ""
+"Initialize the model with the parameter lang_code='z', For all available "
+"``lang_code`` options, please refer to `kokoro source code "
+"<https://github.com/hexgrad/kokoro/blob/main/kokoro/pipeline.py#L22>`_. If "
+"the model is started through the web UI, an additional parameter needs to be"
+" added, with the key as ``lang_code`` and the value as ``z``. If the model "
+"is started through the xinference client, the parameters are passed via the "
+"launch_model interface:"
+msgstr ""
+"モデルをlang_code='z'パラメータで初期化します。サポートされているすべてのlang_codeは、`kokoroソースコード "
+"<https://github.com/hexgrad/kokoro/blob/main/kokoro/pipeline.py#L22>`_ "
+"で確認できます。Web UIからモデルを起動する場合は、キーを ``lang_code``、値を ``z`` "
+"とする追加パラメータを指定する必要があります。xinferenceクライアントからモデルを起動する場合は、以下のコードを参考にパラメータを渡します："
+
+#: ../../source/models/model_abilities/audio.rst:615
+msgid ""
+"When inferring, the voice must start with 'z', for example: ``zf_xiaoyi``. "
+"The currently supported voices are: "
+"https://huggingface.co/hexgrad/Kokoro-82M/tree/main/voices. For example:"
+msgstr ""
+"推論時は、'z' で始まる音声（例：``zf_xiaoyi``）を使用する必要があります。現在サポートされている音声は "
+"https://huggingface.co/hexgrad/Kokoro-82M/tree/main/voices "
+"で確認できます。使用方法は以下の通りです："
+
+#: ../../source/models/model_abilities/audio.rst:625
+msgid "IndexTTS2 Usage"
+msgstr "IndexTTS2 を使用する"
+
+#: ../../source/models/model_abilities/audio.rst:627
+msgid ""
+"The IndexTTS2 model supports emotion control, you can use this feature by "
+"specifying some additional parameters. Here are several examples of how to "
+"use IndexTTS2:"
+msgstr ""
+"IndexTTS2モデルは感情制御をサポートしており、追加のパラメータを使用することでこの機能を利用できます。以下はIndexTTS2の使用方法です："
+
+#: ../../source/models/model_abilities/audio.rst:630
+msgid ""
+"Synthesize new speech with a single reference audio file (voice cloning):"
+msgstr "単一参照音声（音色クローン）："
+
+#: ../../source/models/model_abilities/audio.rst:646
+msgid ""
+"Using a separate, emotional reference audio file to condition the speech "
+"synthesis:"
+msgstr "指定された感情参照オーディオ："
+
+#: ../../source/models/model_abilities/audio.rst:666
+msgid ""
+"When an emotional reference audio file is specified, you can optionally set "
+"the ``emo_alpha`` to adjust how much it affects the output. Valid range is "
+"``0.0 - 1.0`` , and the default value is ``1.0`` (100%):"
+msgstr ""
+"感情参照用のオーディオを指定する場合、出力への影響度を調整するために ``emo_alpha`` パラメータを設定できます。有効範囲は ``0.0 - "
+"1.0`` で、デフォルト値は ``1.0`` (100%) です。"
+
+#: ../../source/models/model_abilities/audio.rst:689
+msgid ""
+"It's also possible to omit the emotional reference audio and instead provide"
+" an 8-float list specifying the intensity of each emotion, in the following "
+"order: ``[happy, angry, sad, afraid, disgusted, melancholic, surprised, "
+"calm]`` . You can additionally use the ``use_random`` parameter to introduce"
+" stochasticity during inference; the default is ``False`` , and setting it "
+"to ``True`` enables randomness:"
+msgstr ""
+"感情参照音声を省略し、代わりに8つの浮動小数点数を含むリストを提供して、以下の順序で各感情の強度を指定できます：``[喜び, 怒り, 悲しみ, 恐怖, "
+"嫌悪, 憂鬱, 驚き, 平静]``。また、``use_random`` "
+"パラメータを使用して推論中にランダムな感情を導入することもできます。デフォルト値は ``False`` で、``True`` "
+"に設定するとランダムな感情が有効になります。"
+
+#: ../../source/models/model_abilities/audio.rst:712
+msgid ""
+"Alternatively, you can enable ``use_emo_text`` to guide the emotions based "
+"on your provided ``text`` script. Your text script will then automatically "
+"be converted into emotion vectors. It's recommended to use ``emo_alpha`` "
+"around 0.6 (or lower) when using the text emotion modes, for more natural "
+"sounding speech. You can introduce randomness with ``use_random`` (default: "
+"``False``; ``True`` enables randomness):"
+msgstr ""
+"または、``use_emo_text`` 機能を有効にすることで、指定した ``text`` "
+"スクリプトに基づいて感情表現をガイドできます。テキストスクリプトは自動的に感情ベクトルに変換されます。テキスト感情モードを使用する際は、``emo_alpha``"
+" を 0.6 程度（またはそれ以下）に設定し、より自然な音声効果を得ることを推奨します。``use_random`` "
+"を使用してランダム性を導入することも可能です（デフォルト値：``False``；``True`` でランダム性を有効化）："
+
+#: ../../source/models/model_abilities/audio.rst:737
+msgid ""
+"It's also possible to directly provide a specific text emotion description "
+"via the ``emo_text`` parameter. Your emotion text will then automatically be"
+" converted into emotion vectors. This gives you separate control of the text"
+" script and the text emotion description:"
+msgstr ""
+"``emo_text`` "
+"パラメータを使用して、特定のテキスト感情記述を直接提供することもできます。感情テキストは自動的に感情ベクトルに変換されます。これにより、テキストスクリプトとテキスト感情記述を個別に制御できます。"
+
+#: ../../source/models/model_abilities/audio.rst:761
+msgid "IndexTTS2 Offline Usage"
+msgstr "IndexTTS2 オフライン利用"
+
+#: ../../source/models/model_abilities/audio.rst:763
+msgid ""
+"IndexTTS2 requires several small models that are downloaded automatically "
+"during initialization. For offline environments, you can download these "
+"models to a single directory and specify the directory path."
+msgstr ""
+"IndexTTS2は複数の小型モデルを必要とし、これらのモデルは初期化中に自動的にダウンロードされます。オフライン環境では、これらのモデルを単一のディレクトリにダウンロードし、そのディレクトリパスを指定することができます。"
+
+#: ../../source/models/model_abilities/audio.rst:766
+msgid "**Easy Setup Method**"
+msgstr "**簡単設定方法**"
+
+#: ../../source/models/model_abilities/audio.rst:768
+msgid ""
+"The simplest way to set up offline usage is to Use the `hf download` command"
+" to download the small model in advance:"
+msgstr ""
+"オフラインで使用するための最も簡単な方法は、`hf download` コマンドを使用して事前にすべての小モデルをダウンロードすることです。"
+
+#: ../../source/models/model_abilities/audio.rst:781
+msgid "The final directory structure should look like this:"
+msgstr "最終的なディレクトリ構造は以下のようになります："
+
+#: ../../source/models/model_abilities/audio.rst:791
+msgid "**Required Models**"
+msgstr "**サポートされているモデルリスト**"
+
+#: ../../source/models/model_abilities/audio.rst:793
+msgid "The small models are automatically mapped as follows:"
+msgstr "小型モデルは以下のように自動マッピングされます："
+
+#: ../../source/models/model_abilities/audio.rst:795
+msgid ""
+"**w2v-bert-2.0** (``models--facebook--w2v-bert-2.0``) - Feature extraction "
+"model"
+msgstr "**w2v-bert-2.0** (``models--facebook--w2v-bert-2.0``) - 特徴抽出モデル"
+
+#: ../../source/models/model_abilities/audio.rst:796
+msgid ""
+"**campplus** (``models--funasr--campplus``) - Speaker recognition model"
+msgstr "**campplus** (``models--funasr--campplus``) - 話者認識モデル"
+
+#: ../../source/models/model_abilities/audio.rst:797
+msgid ""
+"**bigvgan** (``models--nvidia--bigvgan_v2_22khz_80band_256x``) - Vocoder "
+"model"
+msgstr ""
+"**bigvgan** (``models--nvidia--bigvgan_v2_22khz_80band_256x``) - 音声エンコーダモデル"
+
+#: ../../source/models/model_abilities/audio.rst:798
+msgid ""
+"**semantic_codec** (``models--amphion--MaskGCT``) - Semantic "
+"encoding/decoding model"
+msgstr ""
+"**セマンティックコーデック** (``models--amphion--MaskGCT``) - セマンティックエンコード/デコードモデル"
+
+#: ../../source/models/model_abilities/audio.rst:800
+msgid "**Launching IndexTTS2 with Offline Models**"
+msgstr "**オフラインモードでIndexTTS2を起動する**"
+
+#: ../../source/models/model_abilities/audio.rst:802
+msgid ""
+"When launching IndexTTS2 with Web UI, you can add an additional parameter: -"
+" ``small_models_dir`` - Path to directory containing all small models"
+msgstr ""
+"IndexTTS2をWeb UIから起動する際に、次の追加パラメーターを指定できます：- ``small_models_dir`` - "
+"すべての小規模モデルを含むディレクトリのパス"
+
+#: ../../source/models/model_abilities/audio.rst:805
+msgid "When launching with command line, you can add the option:"
+msgstr "コマンドラインから起動する際、以下のオプションを追加できます："
+
+#: ../../source/models/model_abilities/audio.rst:812
+msgid "When launching with Python client:"
+msgstr "Pythonクライアントを使用して起動する場合："
+
+#~ msgid "**random sampling**"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Enabling random sampling will reduce the voice cloning fidelity of the "
+#~ "speech synthesis."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "5.Alternatively, you can enable `use_emo_text` to guide the emotions based "
+#~ "on"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "your provided `text` script. Your text script will then automatically be "
+#~ "converted into emotion vectors. It's recommended to use `emo_alpha` around "
+#~ "0.6 (or lower) when using the text emotion modes, for more natural sounding "
+#~ "speech. You can introduce randomness with `use_random` (default: `False`; "
+#~ "`True` enables randomness):"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "The required small models are: 1. **w2v-bert-2.0** - Feature extraction "
+#~ "model (place in ``w2v-bert-2.0/`` subdirectory) 2. **semantic_codec** - "
+#~ "Semantic encoding/decoding model (place in ``semantic_codec/`` subdirectory)"
+#~ " 3. **campplus** - Speaker recognition model (place in ``campplus/`` "
+#~ "subdirectory) 4. **bigvgan** - Vocoder model (place in ``bigvgan/`` "
+#~ "subdirectory)"
+#~ msgstr ""
+#~ "必要な小型モデルは以下の通りです：\n"
+#~ "1. **w2v-bert-2.0** - 特徴抽出モデル（``w2v-bert-2.0/``サブディレクトリに配置）\n"
+#~ "2. **semantic_codec** - 意味符号化/復号化モデル（``semantic_codec/``サブディレクトリに配置）\n"
+#~ "3. **campplus** - 話者認識モデル（``campplus/``サブディレクトリに配置）\n"
+#~ "4. **bigvgan** - ボコーダモデル（``bigvgan/``サブディレクトリに配置）"
+
+#~ msgid ""
+#~ "Assume downloaded to ``/path/to/small_models`` with the following structure:"
+#~ msgstr "假设下载到 ``/path/to/small_models`` 目录下，其结构如下："
+
+#~ msgid ""
+#~ "**Find your Hugging Face cache directory** (usually "
+#~ "``~/.cache/huggingface/hub/``)"
+#~ msgstr ""
+#~ "**Hugging Faceキャッシュディレクトリを見つける** （通常は ``~/.cache/huggingface/hub/`` にあります）"
+
+#~ msgid "**Copy the required models** to your target directory:"
+#~ msgstr "**必要なモデル**を対象ディレクトリにコピーします："
+
+#~ msgid "**Note about Directory Structure**"
+#~ msgstr "**ディレクトリ構造に関する注意事項**"
+
+#~ msgid ""
+#~ "The ``snapshots/`` directories contain version-specific model files with "
+#~ "hash names. Xinference automatically detects and uses the correct snapshot "
+#~ "directory, so you don't need to worry about the exact hash values."
+#~ msgstr ""
+#~ "``snapshots/`` ディレクトリには、ハッシュ名を持つ特定バージョンのモデルファイルが含まれています。Xinference "
+#~ "は自動的に正しいスナップショットディレクトリを検出して使用するため、正確なハッシュ値を気にする必要はありません。"

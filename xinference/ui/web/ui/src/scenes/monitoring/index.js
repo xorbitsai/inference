@@ -33,6 +33,7 @@ import { ApiContext } from '../../components/apiContext'
 import { buildGrafanaUrl } from '../../components/grafanaUtils'
 import { useThemeContext } from '../../components/themeContext'
 import Title from '../../components/Title'
+import { isAdmin, parseTokenFromSession } from '../../utils/jwt'
 import MonitorConfigDialog from './MonitorConfigDialog'
 
 const FONT_SIZE = '0.813rem'
@@ -98,6 +99,11 @@ const Monitoring = () => {
   const { themeMode } = useThemeContext()
   const [config, setConfig] = useState(null)
   const { t, i18n } = useTranslation()
+  // Config write is admin-only. The menu visibility already gates this
+  // page behind `monitor:view`, but configuration changes (Grafana URL,
+  // datasource) are gated by `admin` per the existing
+  // `update_monitor_config` route scope.
+  const canConfigure = isAdmin(parseTokenFromSession()?.scopes || [])
 
   const dayjsLocale =
     DAYJS_LOCALE_MAP[(i18n.language || 'en').split('-')[0]] || 'en'
@@ -403,15 +409,17 @@ const Monitoring = () => {
         </Menu>
 
         {/* Settings */}
-        <Tooltip title={t('monitoring.config.title')}>
-          <IconButton
-            size="small"
-            color="inherit"
-            onClick={() => setConfigDialogOpen(true)}
-          >
-            <SettingsIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        {canConfigure && (
+          <Tooltip title={t('monitoring.config.title')}>
+            <IconButton
+              size="small"
+              color="inherit"
+              onClick={() => setConfigDialogOpen(true)}
+            >
+              <SettingsIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
       </Toolbar>
 
       {/* Loading indicator */}
@@ -444,13 +452,15 @@ const Monitoring = () => {
             <Typography variant="body2" color="text.secondary">
               {t('monitoring.configHint')}
             </Typography>
-            <Button
-              variant="contained"
-              startIcon={<SettingsIcon />}
-              onClick={() => setConfigDialogOpen(true)}
-            >
-              {t('monitoring.config.openConfig')}
-            </Button>
+            {canConfigure && (
+              <Button
+                variant="contained"
+                startIcon={<SettingsIcon />}
+                onClick={() => setConfigDialogOpen(true)}
+              >
+                {t('monitoring.config.openConfig')}
+              </Button>
+            )}
           </Box>
         )}
       </Box>

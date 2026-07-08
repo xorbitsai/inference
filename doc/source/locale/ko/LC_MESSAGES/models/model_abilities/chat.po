@@ -1,0 +1,238 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-01 22:58+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ko <LL@li.org>\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/model_abilities/chat.rst:5
+msgid "Chat & Generate"
+msgstr "채팅 & 생성"
+
+#: ../../source/models/model_abilities/chat.rst:7
+msgid "Learn how to chat with LLMs in Xinference."
+msgstr "Xinference에서 LLM과 채팅하는 방법을 알아봅니다."
+
+#: ../../source/models/model_abilities/chat.rst:10
+msgid "Introduction"
+msgstr "Introducción"
+
+#: ../../source/models/model_abilities/chat.rst:12
+msgid ""
+"Models equipped with ``chat`` or ``generate`` abilities are frequently "
+"referred to as large language models (LLM) or text generation models. These "
+"models are designed to respond with text outputs to the inputs they receive,"
+" commonly known as \"prompts\". Typically, one can direct these models using"
+" specific instructions or by providing concrete examples illustrating how to"
+" accomplish a task."
+msgstr ""
+"``chat`` 또는 ``generate`` 기능을 갖춘 모델은 일반적으로 대규모 언어 모델(LLM) 또는 텍스트 생성 모델이라고 "
+"불립니다. 이러한 모델은 수신된 입력에 따라 텍스트 출력 방식으로 응답하도록 설계되었으며, 이 입력은 일반적으로 \"프롬프트\"라고 "
+"합니다. 일반적으로 특정 지침을 제공하거나 구체적인 예시를 제시하여 이러한 모델이 작업을 수행하도록 유도할 수 있습니다."
+
+#: ../../source/models/model_abilities/chat.rst:17
+msgid ""
+"Models with ``generate`` capacities are typically pre-trained large language"
+" models. On the other hand, models equipped with ``chat`` capabilities are "
+"finely-tuned and aligned LLMs, optimized for dialogues use case. In most "
+"cases, models ending with \"chat\" (e.g. ``llama-2-chat``, ``qwen-chat``, "
+"etc) are identified as having ``chat`` capabilities."
+msgstr ""
+"``generate`` 기능을 갖춘 모델은 일반적으로 사전 학습된 대규모 언어 모델입니다. 반면에 ``chat`` 기능이 탑재된 모델은 "
+"대화 시나리오에 최적화되도록 미세 조정 및 정렬된 LLM(Language Model)입니다. 대부분의 경우, \"chat\"으로 끝나는 "
+"모델(예: ``llama-2-chat``, ``qwen-chat`` 등)은 ``chat`` 기능을 가지고 있습니다."
+
+#: ../../source/models/model_abilities/chat.rst:22
+msgid ""
+"The Chat API and Generate API offer two distinct approaches for interacting "
+"with LLMs:"
+msgstr "Chat API와 Generate API는 LLMs와 상호작용하는 두 가지 서로 다른 방법을 제공합니다:"
+
+#: ../../source/models/model_abilities/chat.rst:24
+msgid ""
+"The Chat API (like OpenAI's `Chat Completion API "
+"<https://platform.openai.com/docs/api-reference/chat/create>`__) can conduct"
+" multi-turn conversations."
+msgstr ""
+"Chat API (OpenAI의 `Chat Completion API "
+"<https://platform.openai.com/docs/api-reference/chat/create>`__와 유사)는 다중 턴 "
+"대화를 수행할 수 있습니다."
+
+#: ../../source/models/model_abilities/chat.rst:27
+msgid ""
+"The Generate API (like OpenAI's legacy `Completions API "
+"<https://platform.openai.com/docs/api-reference/completions/create>`__) "
+"allows you to generate text based on a text prompt."
+msgstr ""
+"Generate API는 OpenAI의 `Completions API "
+"<https://platform.openai.com/docs/api-reference/completions/create>`__ 와 "
+"유사하게 텍스트 프롬프트를 기반으로 텍스트를 생성할 수 있게 해줍니다."
+
+#: ../../source/models/model_abilities/chat.rst:34
+msgid "MODEL ABILITY"
+msgstr "Model Capability"
+
+#: ../../source/models/model_abilities/chat.rst:35
+msgid "API ENDPOINT"
+msgstr "API endpoint"
+
+#: ../../source/models/model_abilities/chat.rst:36
+msgid "OpenAI-compatible ENDPOINT"
+msgstr "OpenAI 호환 엔드포인트"
+
+#: ../../source/models/model_abilities/chat.rst:38
+msgid "chat"
+msgstr ""
+
+#: ../../source/models/model_abilities/chat.rst:39
+#: ../../source/models/model_abilities/chat.rst:56
+msgid "Chat API"
+msgstr ""
+
+#: ../../source/models/model_abilities/chat.rst:40
+msgid "/v1/chat/completions"
+msgstr ""
+
+#: ../../source/models/model_abilities/chat.rst:42
+msgid "generate"
+msgstr ""
+
+#: ../../source/models/model_abilities/chat.rst:43
+#: ../../source/models/model_abilities/chat.rst:222
+msgid "Generate API"
+msgstr ""
+
+#: ../../source/models/model_abilities/chat.rst:44
+msgid "/v1/completions"
+msgstr ""
+
+#: ../../source/models/model_abilities/chat.rst:48
+msgid "Supported models"
+msgstr "지원되는 모델 목록"
+
+#: ../../source/models/model_abilities/chat.rst:50
+msgid ""
+"You can examine the abilities of all the :ref:`builtin LLM models in "
+"Xinference <models_llm_index>`."
+msgstr ":ref:`Xinference에 내장된 LLM 모델의 기능을 모두 확인할 수 있습니다 <models_llm_index>`."
+
+#: ../../source/models/model_abilities/chat.rst:53
+msgid "Chat Models"
+msgstr "채팅 모델"
+
+#: ../../source/models/model_abilities/chat.rst:58
+msgid ""
+"The Chat API mimics OpenAI's `Chat Completion API "
+"<https://platform.openai.com/docs/api-reference/chat/create>`__. We can try "
+"Chat API out either via cURL, OpenAI Client, or Xinference's python client:"
+msgstr ""
+"cURL, OpenAI Client 또는 Xinference의 Python 클라이언트를 사용하여 Chat API를 테스트해 보세요:"
+
+#: ../../source/models/model_abilities/chat.rst:145
+msgid "You can find more examples of Chat API in the tutorial notebook:"
+msgstr "튜토리얼 노트북에서 더 많은 Chat API 예제를 찾을 수 있습니다."
+
+#: ../../source/models/model_abilities/chat.rst:149
+msgid "Gradio Chat"
+msgstr ""
+
+#: ../../source/models/model_abilities/chat.rst:152
+msgid ""
+"Learn from an example of utilizing the Chat API with the Xinference Python "
+"client."
+msgstr "Xinference의 Chat API와 Python 클라이언트를 사용하는 방법을 배우는 예시입니다."
+
+#: ../../source/models/model_abilities/chat.rst:155
+msgid "Hybrid Thinking Models"
+msgstr "Mixed Thinking Model"
+
+#: ../../source/models/model_abilities/chat.rst:157
+msgid ""
+"Some LLMs are marked as ``hybrid`` and can run with or without thinking "
+"mode."
+msgstr "일부 대형 언어 모델은 ``혼합형``으로 표시되어 있으며, 사고 모드 실행 여부를 선택할 수 있습니다."
+
+#: ../../source/models/model_abilities/chat.rst:159
+msgid "Request-level ``enable_thinking`` is added in v1.17.0"
+msgstr "요청 수준의 ``enable_thinking`` 스위치는 v1.17.0에서 지원됩니다."
+
+#: ../../source/models/model_abilities/chat.rst:162
+msgid ""
+"Xinference exposes a request-level ``enable_thinking`` switch that works "
+"across different model templates (e.g. Qwen uses ``enable_thinking`` while "
+"some DeepSeek templates use ``thinking``)."
+msgstr ""
+"Xinference는 요청 수준의 ``enable_thinking`` 스위치를 제공하며, 이 스위치는 다양한 모델 템플릿에 "
+"적용됩니다(예: Qwen은 ``enable_thinking``을 사용하고, 일부 DeepSeek 템플릿은 ``thinking``을 "
+"사용합니다)."
+
+#: ../../source/models/model_abilities/chat.rst:165
+msgid "Usage examples:"
+msgstr "사용 예시:"
+
+#: ../../source/models/model_abilities/chat.rst:219
+msgid "Generate Models"
+msgstr "생성 모델"
+
+#: ../../source/models/model_abilities/chat.rst:224
+msgid ""
+"The Generate API mirrors OpenAI's legacy `Completions API "
+"<https://platform.openai.com/docs/api-reference/completions/create>`__."
+msgstr ""
+"Generate API는 OpenAI의 `Completions API "
+"<https://platform.openai.com/docs/api-reference/completions/create>`__를 "
+"복제했습니다."
+
+#: ../../source/models/model_abilities/chat.rst:226
+msgid ""
+"The difference between the Generate API and the Chat API lies primarily in "
+"the form of input. Opposite to the Chat API that takes a list of messages as"
+" input, the Generate API accepts a freeform text string named \"prompt\"."
+msgstr ""
+"Generate API와 Chat API의 주요 차이점은 입력 형식에 있습니다. Chat API는 메시지 목록을 입력으로 받고, "
+"Generate API는 `prompt`라는 자유 텍스트 문자열을 입력으로 받습니다."
+
+#: ../../source/models/model_abilities/chat.rst:297
+msgid "FAQ"
+msgstr ""
+
+#: ../../source/models/model_abilities/chat.rst:300
+msgid ""
+"Does Xinference's LLM provide integration methods for LangChain or "
+"LlamaIndex?"
+msgstr "Xinference의 LLM은 LangChain 또는 LlamaIndex와의 통합 방법을 제공하나요?"
+
+#: ../../source/models/model_abilities/chat.rst:302
+msgid ""
+"Yes, you can refer to the related sections in their respective official "
+"Xinference documentation. Here are the links:"
+msgstr "네, 각각의 공식 Xinference 문서에서 관련 부분을 참고할 수 있습니다. 링크는 다음과 같습니다:"
+
+#: ../../source/models/model_abilities/chat.rst:304
+msgid ""
+"`LangChain LLMs: Xinference "
+"<https://python.langchain.com/docs/integrations/llms/xinference>`__"
+msgstr ""
+
+#: ../../source/models/model_abilities/chat.rst:306
+msgid ""
+"`LlamaIndex LLM integrations: Xinference  "
+"<https://docs.llamaindex.ai/en/stable/examples/llm/xinference_local_deployment.html>`__"
+msgstr ""
+
+#~ msgid "Quickstart"
+#~ msgstr "빠른 시작"

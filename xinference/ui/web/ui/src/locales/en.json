@@ -473,7 +473,10 @@
     "cache_list": "List Cache",
     "cache_delete": "Delete Cache",
     "virtualenv_list": "List Virtualenv",
-    "virtualenv_delete": "Delete Virtualenv"
+    "virtualenv_delete": "Delete Virtualenv",
+    "models_register": "Register / Unregister Models",
+    "logs_list": "View Logs",
+    "monitor_view": "View Monitoring"
   },
   "apikeyManagement": {
     "title": "API Key Management",

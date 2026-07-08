@@ -1,0 +1,242 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-08-02 23:15+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: pt_BR <LL@li.org>\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/development/contributing_environment.rst:3
+msgid "Creating a development environment"
+msgstr "Crie o ambiente de desenvolvimento."
+
+#: ../../source/development/contributing_environment.rst:6
+msgid "Table of contents:"
+msgstr "Índice"
+
+#: ../../source/development/contributing_environment.rst:8
+msgid ""
+"Before proceeding with any code modifications, it's essential to set up the "
+"necessary environment for Xinference development, which includes "
+"familiarizing yourself with Git usage, establishing an isolated environment,"
+" installing Xinference, and compiling the frontend."
+msgstr ""
+"Antes de realizar qualquer modificação no código, é fundamental estabelecer "
+"o ambiente necessário para o desenvolvimento do Xinference. Isso inclui "
+"familiarizar-se com o uso do Git, criar um ambiente isolado, instalar o "
+"Xinference e compilar a parte do frontend."
+
+#: ../../source/development/contributing_environment.rst:12
+msgid "Getting started with Git"
+msgstr "Uso do Git"
+
+#: ../../source/development/contributing_environment.rst:14
+msgid ""
+"Now that you have identified an issue you wish to resolve, an enhancement to"
+" incorporate, or documentation to enhance, it's crucial to acquaint yourself"
+" with GitHub and the Xinference codebase."
+msgstr ""
+"Quando você precisa corrigir um problema, adicionar uma melhoria ou "
+"aprimorar a documentação, é importante estar familiarizado com o GitHub e o "
+"repositório do Xinference."
+
+#: ../../source/development/contributing_environment.rst:17
+msgid ""
+"To the new user, working with Git is one of the more intimidating aspects of"
+" contributing to Xinference. It can very quickly become overwhelming, but "
+"sticking to the guidelines below will help simplify the process and minimize"
+" potential issues. As always, if you are having difficulties please feel "
+"free to ask for help."
+msgstr ""
+"Para novos usuários, usar Git é um dos aspectos mais intimidantes de "
+"participar do desenvolvimento do Xinference. É fácil ficar sobrecarregado "
+"rapidamente, mas o guia abaixo ajudará a simplificar o processo e reduzir "
+"possíveis problemas. Se você encontrar dificuldades que não consegue "
+"resolver, sinta-se à vontade para buscar ajuda na comunidade."
+
+#: ../../source/development/contributing_environment.rst:22
+msgid ""
+"The code is hosted on `GitHub <https://github.com/xorbitsai/inference>`_. To"
+" contribute you will need to sign up for a `free GitHub account "
+"<https://github.com/signup/free>`_. We use `Git <https://git-scm.com/>`_ for"
+" version control to allow many people to work together on the project."
+msgstr ""
+"O código do Xinference está hospedado no `GitHub "
+"<https://github.com/xorbitsai/inference>`_. Para contribuir com o código do "
+"Xinference, você precisa registrar uma `conta gratuita no GitHub "
+"<https://github.com/signup/free>`_. Utilizamos `Git <https://git-scm.com/>`_"
+" para controle de versão, permitindo que todos participem do desenvolvimento"
+" do projeto."
+
+#: ../../source/development/contributing_environment.rst:27
+msgid ""
+"`GitHub has instructions <https://help.github.com/set-up-git-redirect>`__ "
+"for installing git, setting up your SSH key, and configuring git. All these "
+"steps need to be completed before you can work seamlessly between your local"
+" repository and GitHub."
+msgstr ""
+"Você pode consultar o `Guia do GitHub <https://help.github.com/set-up-git-"
+"redirect>`_ para instalar o git, configurar chaves SSH e configurar o git. "
+"Você precisa concluir essas etapas para garantir que seu repositório local e"
+" o GitHub funcionem corretamente, permitindo que o trabalho subsequente "
+"prossiga sem problemas."
+
+#: ../../source/development/contributing_environment.rst:31
+msgid "Some great resources for learning Git:"
+msgstr "Aqui estão alguns bons recursos para aprender Git:"
+
+#: ../../source/development/contributing_environment.rst:33
+msgid "`Official Git Documentation <https://git-scm.com/doc>`_"
+msgstr "`Documentação Oficial do Git <https://git-scm.com/doc>`_"
+
+#: ../../source/development/contributing_environment.rst:34
+msgid "`Pro Git Book <https://git-scm.com/book/en/v2>`_"
+msgstr "`Livro Pro Git <https://git-scm.com/book/en/v2>`_"
+
+#: ../../source/development/contributing_environment.rst:35
+msgid "`Git Tutorial by Atlassian <https://www.atlassian.com/git/tutorials>`_"
+msgstr ""
+"`Tutorial de Git da Atlassian <https://www.atlassian.com/git/tutorials>`_"
+
+#: ../../source/development/contributing_environment.rst:36
+msgid ""
+"`Git - Concise Guide <http://rogerdudler.github.io/git-"
+"guide/index.zh.html>`_"
+msgstr ""
+"`Git - Guia Conciso <http://rogerdudler.github.io/git-guide/index.zh.html>`_"
+
+#: ../../source/development/contributing_environment.rst:39
+msgid ""
+"If the speed of ``git clone`` is slow, you can use the following command to "
+"add a proxy:"
+msgstr ""
+"Se durante o ``git clone`` o código estiver lento, você pode adicionar um "
+"proxy com o seguinte comando."
+
+#: ../../source/development/contributing_environment.rst:47
+msgid "Creating an isolated environment"
+msgstr "Criar um ambiente isolado"
+
+#: ../../source/development/contributing_environment.rst:49
+msgid ""
+"Before formally installing Xinference, it's recommended to create an "
+"isolated environment, using Conda recommended, for ease of subsequent "
+"operations."
+msgstr ""
+"Antes da instalação oficial do Xinference, recomenda-se usar o Conda para "
+"criar um ambiente isolado, facilitando as operações futuras."
+
+#: ../../source/development/contributing_environment.rst:57
+msgid "``xinf`` can be replaced with a custom Conda environment name."
+msgstr ""
+"``xinf`` pode ser substituído pelo nome personalizado do ambiente Conda."
+
+#: ../../source/development/contributing_environment.rst:59
+msgid ""
+"Afterward, you'll need to install Python and Node.js (npm) in the newly "
+"created Conda environment. Here are the commands:"
+msgstr ""
+"Em seguida, é necessário instalar o Python e o Node.js (npm) no ambiente "
+"Conda recém-criado. O comando é:"
+
+#: ../../source/development/contributing_environment.rst:68
+msgid "Install from source code"
+msgstr "Instalação a partir do código-fonte"
+
+#: ../../source/development/contributing_environment.rst:70
+msgid ""
+"Before we begin, please make sure that you have cloned the repository. "
+"Suppose you clone the repository as ``inference`` directory,  ``cd`` to this"
+" directory where the ``setup.cfg`` and ``setup.py`` files are located, and "
+"run the following command:"
+msgstr ""
+"Antes de começar, certifique-se de que você clonou o repositório. Supondo "
+"que você clonou o repositório em um diretório chamado ``inference``, entre "
+"nesse diretório, que contém os arquivos ``setup.cfg`` e ``setup.py``, e "
+"execute o seguinte comando:"
+
+#: ../../source/development/contributing_environment.rst:79
+msgid ""
+"If the commands run successfully, you can use Xinference normally. For "
+"detailed usage instructions, refer to `using_xinference "
+"<https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html>`__."
+msgstr ""
+"Se o comando for executado com sucesso, você poderá usar o Xinference "
+"normalmente. Para mais detalhes sobre o tutorial de uso, consulte `Uso "
+"<https://inference.readthedocs.io/zh-"
+"cn/latest/getting_started/using_xinference.html>`__."
+
+#: ../../source/development/contributing_environment.rst:83
+msgid ""
+"If errors occur or the process freezes during execution, the next step is to"
+" compile the frontend."
+msgstr ""
+"Se ocorrer um erro ou travar durante a execução, será necessário realizar a "
+"próxima etapa de compilação do frontend."
+
+#: ../../source/development/contributing_environment.rst:87
+msgid "Frontend Compilation"
+msgstr "Compilação front-end"
+
+#: ../../source/development/contributing_environment.rst:89
+msgid ""
+"Navigate to the ``inference/xinference/ui/web/ui`` directory. Then, execute "
+"the following command to clear the cache:"
+msgstr ""
+"Primeiro, é necessário entrar no diretório "
+"``inference/xinference/ui/web/ui`` e, em seguida, executar o seguinte "
+"comando para limpar o cache:"
+
+#: ../../source/development/contributing_environment.rst:96
+msgid ""
+"If the command fails to execute, you can try adding the ``--force`` option."
+msgstr ""
+"Se a execução do comando falhar, você pode tentar adicionar a opção "
+"``--force``."
+
+#: ../../source/development/contributing_environment.rst:99
+msgid ""
+"If the ``node_modules`` folder already exists in this directory, it's "
+"recommended to manually delete it before cleaning the cache."
+msgstr ""
+"Se o diretório já contiver a pasta ``node_modules``, é recomendável excluí-"
+"la manualmente primeiro."
+
+#: ../../source/development/contributing_environment.rst:102
+msgid ""
+"Next, execute the following command in this directory to compile the "
+"frontend:"
+msgstr ""
+"Em seguida, execute o seguinte comando nesse diretório para compilar o "
+"front-end:"
+
+#: ../../source/development/contributing_environment.rst:110
+msgid ""
+"Still, if the first command fails to execute, you can try adding the "
+"``--force`` option."
+msgstr ""
+"Se o primeiro comando falhar, você ainda pode tentar resolver adicionando a "
+"opção ``--force``."
+
+#: ../../source/development/contributing_environment.rst:112
+msgid ""
+"After compiling the frontend, you can ``cd`` back to the directory where the"
+" ``setup.cfg`` and ``setup.py`` files are located, and install Xinference "
+"via ``pip install -e .``."
+msgstr ""
+"Depois de compilar o front-end, você pode retornar ao diretório que contém "
+"os arquivos ``setup.cfg`` e ``setup.py`` e, em seguida, instalar o "
+"Xinference usando ``pip install -e .``."

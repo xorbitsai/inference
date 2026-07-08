@@ -1,4 +1,4 @@
-/* Keep the PyData header compact and aligned for the English navigation. */
+/* Keep the PyData header compact and aligned across locales. */
 @media (min-width: 992px) {
   .bd-header .bd-header__inner {
     gap: 1rem;
@@ -28,6 +28,7 @@
   }
 
   .bd-header .navbar-header-items__center {
+    flex: 1 1 auto;
     min-width: 0;
   }
 
@@ -38,7 +39,10 @@
   }
 
   .bd-header .bd-navbar-elements {
+    display: flex;
+    flex-wrap: nowrap;
     gap: 0.25rem;
+    min-width: 0;
   }
 
   .bd-header .bd-navbar-elements .nav-link,
@@ -59,6 +63,38 @@
 
   .bd-header .search-button__button {
     max-width: 11.5rem;
+  }
+
+  /* Translated nav labels are wider; keep the header on one row. */
+  html:not([lang="en"]) .bd-header .bd-header__inner {
+    gap: 0.65rem;
+  }
+
+  html:not([lang="en"]) .bd-header .bd-navbar-elements {
+    gap: 0.15rem;
+  }
+
+  html:not([lang="en"]) .bd-header .bd-navbar-elements .nav-link,
+  html:not([lang="en"]) .bd-header .bd-navbar-elements .dropdown-toggle {
+    font-size: 0.88rem;
+    padding: 0.45rem 0.5rem;
+  }
+
+  html:not([lang="en"]) .bd-header .version-switcher__button {
+    font-size: 0.85rem;
+    max-width: 9.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  html:not([lang="en"]) .bd-header .search-button__button {
+    max-width: 9rem;
+  }
+
+  html:not([lang="en"]) .bd-header .navbar-header-items__end {
+    gap: 0.25rem;
+    margin-left: 0.5rem;
   }
 }
 
@@ -87,7 +123,11 @@
   border-radius: 0.45rem;
   font-weight: 600;
   line-height: 1.2;
+  max-width: 11rem;
+  overflow: hidden;
   padding: 0.45rem 0.6rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .bd-header .search-button__button {

@@ -1,0 +1,479 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-28 14:31+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ko <LL@li.org>\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/custom.rst:5
+msgid "Custom Models"
+msgstr "사용자 정의 모델"
+
+#: ../../source/models/custom.rst:6
+msgid ""
+"Xinference provides a flexible and comprehensive way to integrate, manage, "
+"and utilize custom models."
+msgstr "Xinference는 사용자 정의 모델을 통합, 관리 및 적용할 수 있는 유연하고 포괄적인 방법을 제공합니다."
+
+#: ../../source/models/custom.rst:10
+msgid "Directly launch an existing model"
+msgstr "사용자 등록 없이도 사용자 정의 모델을 직접 시작할 수 있습니다."
+
+#: ../../source/models/custom.rst:11
+msgid ""
+"Since ``v0.14.0``, you can directly launch an existing model by passing "
+"``model_path`` to the launch interface without downloading it. This way "
+"requires that the model's ``model_family`` is among the built-in supported "
+"models, and eliminates the hassle of registering the model."
+msgstr ""
+"``v0.14.0`` 버전부터, 등록하려는 모델의 패밀리가 Xinference에 내장 지원되는 모델인 경우, launch 인터페이스의 "
+"``model_path`` 매개변수를 통해 직접 시작할 수 있어 등록 절차의 번거로움을 피할 수 있습니다. 이제 이 방식을 적극 "
+"권장합니다."
+
+#: ../../source/models/custom.rst:15
+msgid "For example:"
+msgstr "예를 들어:"
+
+#: ../../source/models/custom.rst:47
+msgid ""
+"The above example demonstrates how to directly launch a qwen1.5-chat model "
+"file without registering it."
+msgstr "위의 예시는 제가 이미 qwen1.5-chat 모델 파일을 가지고 있을 때, 이를 어떻게 직접 launch하는지 보여줍니다."
+
+#: ../../source/models/custom.rst:49
+msgid ""
+"For distributed scenarios, if your model file is on a specific worker, you "
+"can directly launch it using the ``worker_ip`` and ``model_path`` parameters"
+" with the launch interface."
+msgstr ""
+"분산 시나리오의 경우, 모델 파일을 특정 워커에 배치한 후 launch 인터페이스의 ``worker_ip`` 및 "
+"``model_path`` 매개변수를 통해 직접 launch 효과를 달성할 수 있습니다."
+
+#: ../../source/models/custom.rst:53
+msgid ""
+"For CLI usage, prefer ``--model-path`` (kebab-case). ``--model_path`` is "
+"legacy-compatible but not recommended."
+msgstr ""
+"CLI(명령줄 인터페이스) 사용 시, ``--model-path``(세미콜론으로 구분된 대소문자 혼합 형식)를 우선 사용하십시오. "
+"``--model_path``는 이전 버전 규격과 호환되지만, 사용을 권장하지 않습니다."
+
+#: ../../source/models/custom.rst:56
+msgid "Define a custom model"
+msgstr "사용자 정의 모델 정의"
+
+#: ../../source/models/custom.rst:59
+msgid "Web UI: Automatic LLM Config Parsing"
+msgstr "Web UI: 자동으로 대규모 언어 모델 설정을 파싱합니다."
+
+#: ../../source/models/custom.rst:61
+msgid ""
+"When registering a custom LLM via the Web UI, Xinference can automatically "
+"parse the model configuration and pre-fill key fields for you."
+msgstr ""
+"Web UI를 통해 사용자 정의 LLM을 등록할 때, Xinference는 모델 구성을 자동으로 분석하여 핵심 필드를 미리 채워줍니다."
+
+#: ../../source/models/custom.rst:64
+msgid "You only need to provide:"
+msgstr "당신은 오직 다음만 제공하면 됩니다:"
+
+#: ../../source/models/custom.rst:66
+msgid ""
+"**Model path / Model ID** (where the model lives, local path or hub ID)"
+msgstr "**모델 경로/모델 ID** (모델이 위치한 곳, 로컬 경로 또는 센터 ID)"
+
+#: ../../source/models/custom.rst:67
+msgid "**Model Family**"
+msgstr "**모델 패밀리**"
+
+#: ../../source/models/custom.rst:69
+msgid "After parsing, the UI can auto-populate fields such as:"
+msgstr "파싱 후, 사용자 인터페이스는 다음 필드를 자동으로 채울 수 있습니다:"
+
+#: ../../source/models/custom.rst:71
+msgid "``Context Length``"
+msgstr "``컨텍스트 길이``"
+
+#: ../../source/models/custom.rst:72
+msgid "``Model_Languages``"
+msgstr "``model language``"
+
+#: ../../source/models/custom.rst:73
+msgid "``Model_Abilities``"
+msgstr "모델 능력"
+
+#: ../../source/models/custom.rst:74
+msgid "``Model_Specs``"
+msgstr "모델 사양"
+
+#: ../../source/models/custom.rst:76
+msgid "You can review and edit these fields before saving the custom model."
+msgstr "사용자 정의 모델을 저장하기 전에 이러한 필드를 확인하고 편집할 수 있습니다."
+
+#: ../../source/models/custom.rst:78
+msgid "Define a custom model based on the following templates:"
+msgstr "다음 템플릿을 기반으로 사용자 정의 모델을 정의하세요:"
+
+#: ../../source/models/custom.rst:82
+msgid "LLM"
+msgstr "언어 모델"
+
+#: ../../source/models/custom.rst:129
+msgid "embedding"
+msgstr "임베딩 모델"
+
+#: ../../source/models/custom.rst:164
+msgid "Rerank"
+msgstr "Re-Ranking Model"
+
+#: ../../source/models/custom.rst:199
+msgid "image"
+msgstr "Image Model"
+
+#: ../../source/models/custom.rst:234
+msgid "audio"
+msgstr "audio model"
+
+#: ../../source/models/custom.rst:267
+msgid "flexible"
+msgstr "flexible model"
+
+#: ../../source/models/custom.rst:294
+msgid ""
+"model_name: A string defining the name of the model. The name must start "
+"with a letter or a digit and can only contain letters, digits, underscores, "
+"or dashes."
+msgstr ""
+"model_name: 모델 이름. 이름은 알파벳 또는 숫자로 시작해야 하며, 오직 알파벳, 숫자, 밑줄 또는 대시만 포함할 수 있습니다."
+
+#: ../../source/models/custom.rst:295
+msgid ""
+"context_length: An optional integer that specifies the maximum context size "
+"the model was trained to accommodate, encompassing both the input and output"
+" lengths. If not defined, the default value is 2048 tokens (~1,500 words)."
+msgstr ""
+"context_length: 선택적 정수로, 모델이 지원하는 최대 컨텍스트 길이로 입력 및 출력 길이를 포함합니다. 정의되지 않은 경우 "
+"기본값은 2048개의 토큰(약 1,500단어)입니다."
+
+#: ../../source/models/custom.rst:296
+msgid ""
+"dimensions: An interger defining the size of the vector output by the "
+"embedding model."
+msgstr "dimensions: 임베딩 모델 출력의 벡터 크기를 정의하는 정수."
+
+#: ../../source/models/custom.rst:297
+msgid ""
+"max_tokens: An interger defining the maximum number of input tokens the "
+"embedding model can process in a single request."
+msgstr "max_tokens: 정수로, 임베딩 모델이 단일 요청에서 처리할 수 있는 최대 입력 토큰 수를 정의합니다."
+
+#: ../../source/models/custom.rst:298
+msgid ""
+"model_lang: A list of strings representing the supported languages for the "
+"model. Example: [\"en\"], which means that the model supports English."
+msgstr ""
+"model_lang: 문자열 리스트로, 모델이 지원하는 언어를 나타냅니다. 예: ['en']은 해당 모델이 영어를 지원함을 의미합니다."
+
+#: ../../source/models/custom.rst:299
+msgid ""
+"model_ability: A list of strings defining the abilities of the model. It "
+"could include options like \"embed\", \"generate\", and \"chat\". In this "
+"case, the model has the ability to \"generate\"."
+msgstr ""
+"model_ability: 모델의 능력을 정의하는 문자열 목록입니다. 'embed', 'generate', 'chat'과 같은 옵션을 "
+"포함할 수 있습니다. 예시는 모델이 'generate' 능력을 가지고 있음을 나타냅니다."
+
+#: ../../source/models/custom.rst:300
+msgid ""
+"model_family: A required string representing the family of the model you "
+"want to register. This parameter must not conflict with any builtin model "
+"names."
+msgstr ""
+"model_family: 등록할 모델 패밀리를 나타내는 필수 문자열입니다. 이 매개변수 이름은 내장 모델 이름과 충돌해서는 안 됩니다."
+
+#: ../../source/models/custom.rst:301
+msgid ""
+"model_specs: An array of objects defining the specifications of the model. "
+"These include:"
+msgstr "model_specs: 모델 사양을 정의하는 객체 배열입니다. 이러한 사양에는 다음이 포함됩니다:"
+
+#: ../../source/models/custom.rst:302
+msgid ""
+"model_format: A string that defines the model format, like \"pytorch\" or "
+"\"ggufv2\"."
+msgstr "model_format: 모델 형식을 정의하는 문자열로, 'pytorch' 또는 'ggufv2'일 수 있습니다."
+
+#: ../../source/models/custom.rst:303
+msgid ""
+"model_size_in_billions: An integer defining the size of the model in "
+"billions of parameters."
+msgstr "model_size_in_billions: 모델의 파라미터 수를 10억 단위로 정의하는 정수입니다."
+
+#: ../../source/models/custom.rst:304
+msgid ""
+"quantizations: A list of strings defining the available quantizations for "
+"the model. For PyTorch models, it could be \"4-bit\", \"8-bit\", or "
+"\"none\". For ggufv2 models, the quantizations should correspond to values "
+"that work with the ``model_file_name_template``. Some engines also support "
+"``fp4`` / ``fp8`` / ``bnb`` formats (see :ref:`installation` for backend "
+"support details)."
+msgstr ""
+"quantizations: 모델의 양자화 방식을 정의하는 문자열 목록입니다. PyTorch 모델의 경우 \"4-bit\", "
+"\"8-bit\" 또는 \"none\"일 수 있습니다. ggufv2 모델의 경우 양자화 방식은 "
+"``model_file_name_template`` 의 값과 일치해야 합니다. 일부 엔진은 ``fp4`` / ``fp8`` / "
+"``bnb`` 형식도 지원합니다(백엔드 지원 세부 사항은 :ref:`installation` 참조)."
+
+#: ../../source/models/custom.rst:306
+msgid ""
+"model_id: A string representing the model ID, possibly referring to an "
+"identifier used by Hugging Face. **If model_uri is missing, Xinference will "
+"try to download the model from the huggingface repository specified here.**."
+msgstr ""
+"model_id: 모델 ID를 나타내는 문자열로, 해당 모델에 해당하는 HuggingFace 저장소 ID일 수 있습니다. "
+"model_uri 필드가 누락된 경우, Xinference는 이 ID가 가리키는 HuggingFace 저장소에서 모델을 다운로드하려고 "
+"시도합니다."
+
+#: ../../source/models/custom.rst:307
+msgid ""
+"model_hub: A string representing where to download the model from, like "
+"\"Huggingface\" or \"modelscope\""
+msgstr ""
+"model_hub: 모델을 다운로드할 위치를 나타내는 선택적 문자열입니다. 예를 들어 HuggingFace 또는 modelscope가 "
+"있습니다."
+
+#: ../../source/models/custom.rst:308
+msgid ""
+"model_uri: A string representing the URI where the model can be loaded from,"
+" such as \"file:///path/to/llama-2-7b\". **When the model format is ggufv2, "
+"model_uri must be the specific file path. When the model format is pytorch, "
+"model_uri must be the path to the directory containing the model files.** If"
+" model URI is absent, Xinference will try to download the model from Hugging"
+" Face with the model ID."
+msgstr ""
+"model_uri: 모델 파일의 위치를 나타내는 문자열입니다. 예를 들어 로컬 디렉토리: "
+"\"file:///path/to/llama-2-7b\". model_format이 ggufv2인 경우, 이 필드는 구체적인 모델 파일 "
+"경여야 합니다. 반면 model_format이 pytorch인 경우, 이 필드는 모든 모델 파일을 포함하는 디렉토리여야 합니다."
+
+#: ../../source/models/custom.rst:309
+msgid ""
+"model_revision: A string representing the specific version or commit hash of"
+" the model files to use from the repository."
+msgstr "model_revision: 모델 파일의 특정 버전이나 저장소에서 사용할 커밋 해시를 나타내는 문자열입니다."
+
+#: ../../source/models/custom.rst:310
+msgid ""
+"chat_template: If ``model_ability`` includes ``chat`` , you must configure "
+"this option to generate the correct full prompt during chat. This is a Jinja"
+" template string. Usually, you can find it in the ``tokenizer_config.json`` "
+"file within the model directory."
+msgstr ""
+"chat_template: ``model_ability``에 ``chat``이 포함된 경우, 적절한 전체 프롬프트를 생성하기 위해 이 "
+"옵션을 반드시 구성해야 합니다. 이는 Jinja 템플릿 문자열입니다. 일반적으로 모델 디렉토리의 "
+"``tokenizer_config.json`` 파일에서 찾을 수 있습니다."
+
+#: ../../source/models/custom.rst:311
+msgid ""
+"stop_token_ids: If ``model_ability`` includes ``chat`` , you can configure "
+"this option to control when the model stops during chat. This is a list of "
+"integers, and you can typically extract the corresponding values from the "
+"``generation_config.json`` or ``tokenizer_config.json`` file in the model "
+"directory."
+msgstr ""
+"stop_token_ids：``model_ability``에 ``chat``이 포함되어 있다면, 대화의 중지를 적절히 제어하기 위해 이 "
+"옵션을 구성하는 것을 권장합니다. 이는 정수 리스트이며, 모델 디렉토리의 ``generation_config.json`` 및 "
+"``tokenizer_config.json`` 파일에서 해당 값을 추출할 수 있습니다."
+
+#: ../../source/models/custom.rst:312
+msgid ""
+"stop: If ``model_ability`` includes ``chat`` , you can configure this option"
+" to control when the model stops during chat. This is a list of strings, and"
+" you can typically extract the corresponding values from the "
+"``generation_config.json`` or ``tokenizer_config.json`` file in the model "
+"directory."
+msgstr ""
+"stop：``model_ability``에 ``chat``이 포함되어 있다면, 대화의 중단을 적절히 제어하기 위해 이 옵션을 설정하는 "
+"것이 좋습니다. 이는 문자열을 포함하는 리스트이며, 모델 디렉터리의 ``tokenizer_config.json`` 파일에서 토큰 값에 "
+"해당하는 문자열을 찾을 수 있습니다."
+
+#: ../../source/models/custom.rst:313
+msgid ""
+"reasoning_start_tag: A special token or prompt used to explicitly instruct "
+"the LLM to begin its chain-of-thought or reasoning process in its output."
+msgstr ""
+"reasoning_start_tag: 대규모 언어 모델이 출력에서 사고 연쇄 또는 추론 과정의 시작 지점을 명확히 표시하도록 지시하는 "
+"특별한 토큰 또는 프롬프트입니다."
+
+#: ../../source/models/custom.rst:314
+msgid ""
+"reasoning_end_tag: A special token or prompt used to explicitly mark the end"
+" of the model's chain-of-thought or reasoning process in its output."
+msgstr ""
+"reasoning_end_tag: 대규모 언어 모델의 출력에서 사고 사슬이나 추론 과정의 종료 지점을 명확히 지시하는 특수 토큰 또는 "
+"프롬프트입니다."
+
+#: ../../source/models/custom.rst:315
+msgid ""
+"cache_config: A string representing the parameters and rules for how the "
+"system stores and manages temporary data (cache)."
+msgstr "cache_config: 시스템이 임시 데이터(캐시)를 저장하고 관리하기 위한 매개변수를 나타내는 문자열입니다."
+
+#: ../../source/models/custom.rst:316
+msgid ""
+"virtualenv: A settings object for model dependency isolation. Please refer "
+"to :ref:`this document <virtualenv>` for details."
+msgstr ""
+
+#: ../../source/models/custom.rst:319
+msgid "Register a Custom Model"
+msgstr "사용자 정의 모델 등록"
+
+#: ../../source/models/custom.rst:321
+msgid "Register a custom model programmatically:"
+msgstr "코드 방식으로 사용자 정의 모델을 등록하는 방법"
+
+#: ../../source/models/custom.rst:336 ../../source/models/custom.rst:354
+#: ../../source/models/custom.rst:369 ../../source/models/custom.rst:424
+msgid "Or via CLI:"
+msgstr "명령줄 방식으로"
+
+#: ../../source/models/custom.rst:342
+msgid ""
+"Note that replace the ``<model_type>`` above with ``LLM``, ``embedding`` or "
+"``rerank``. The same as below."
+msgstr "다음 부분의 ``<model_type>``을 ``LLM``, ``embedding`` 또는 ``rerank``로 바꾸십시오."
+
+#: ../../source/models/custom.rst:346
+msgid "List the Built-in and Custom Models"
+msgstr "내장 모델 및 사용자 정의 모델 나열"
+
+#: ../../source/models/custom.rst:348
+msgid "List built-in and custom models programmatically:"
+msgstr "코드를 사용하여 내장 모델과 사용자 정의 모델을 나열하세요."
+
+#: ../../source/models/custom.rst:361
+msgid "Launch the Custom Model"
+msgstr "사용자 정의 모델 시작"
+
+#: ../../source/models/custom.rst:363
+msgid "Launch the custom model programmatically:"
+msgstr "코드로 사용자 정의 모델을 실행합니다."
+
+#: ../../source/models/custom.rst:376
+msgid "Interact with the Custom Model"
+msgstr "사용자 정의 모델 사용"
+
+#: ../../source/models/custom.rst:378
+msgid "Invoke the model programmatically:"
+msgstr "코드로 모델을 호출하는 방식"
+
+#: ../../source/models/custom.rst:385
+msgid "Result:"
+msgstr "결과는:"
+
+#: ../../source/models/custom.rst:409
+#, python-brace-format
+msgid "Or via CLI, replace ``${UID}`` with real model UID:"
+msgstr "또는 명령줄 방식으로 실제 모델 UID로 ``${UID}``를 대체하세요:"
+
+#: ../../source/models/custom.rst:416
+msgid "Unregister the Custom Model"
+msgstr "사용자 정의 모델 등록 해제"
+
+#: ../../source/models/custom.rst:418
+msgid "Unregister the custom model programmatically:"
+msgstr "코드로 사용자 정의 모델을 등록 해제합니다."
+
+#~ msgid ""
+#~ "model_file_name_template: Required by gguf models. An f-string template used"
+#~ " for defining the model file name based on the quantization. **Note that "
+#~ "this field is just a template for the format of the ggufv2 model file, do "
+#~ "not fill in the specific path of the model file.**"
+#~ msgstr ""
+#~ "model_file_name_template: gguf 모델에 필요합니다. 양자화에 따라 모델 파일 이름을 정의하는 f-string "
+#~ "템플릿입니다. 참고로, 여기에 파일 경로를 입력하지 마십시오."
+
+#~ msgid "Define a custom embedding model"
+#~ msgstr "사용자 정의 임베딩 모델 정의"
+
+#~ msgid "Define a custom embedding model based on the following template:"
+#~ msgstr "다음 템플릿을 기반으로 사용자 정의 임베딩 모델을 정의하세요:"
+
+#~ msgid "dimensions: A integer that specifies the embedding dimensions."
+#~ msgstr "dimensions: embedding 차원을 나타내는 정수 값입니다."
+
+#~ msgid ""
+#~ "max_tokens: A integer that represents the max sequence length that the "
+#~ "embedding model supports."
+#~ msgstr "max_tokens: embedding 모델이 지원하는 최대 입력 시퀀스 길이를 나타내는 정수 값입니다."
+
+#~ msgid ""
+#~ "language: A list of strings representing the supported languages for the "
+#~ "model. Example: [\"en\"], which means that the model supports English."
+#~ msgstr ""
+#~ "model_lang: 모델이 지원하는 언어를 나타내는 문자열 리스트입니다. 예를 들어: ['en']은 해당 모델이 영어를 지원함을 "
+#~ "의미합니다."
+
+#~ msgid ""
+#~ "model_id: A string representing the model ID, possibly referring to an "
+#~ "identifier used by Hugging Face."
+#~ msgstr "model_id: HuggingFace 또는 ModelScope에서 사용하는 식별자와 같은 모델 식별 문자열입니다."
+
+#~ msgid ""
+#~ "model_uri: A string representing the URI where the model can be loaded from,"
+#~ " such as \"file:///path/to/your_model\". If model URI is absent, Xinference "
+#~ "will try to download the model from Hugging Face with the model ID."
+#~ msgstr ""
+#~ "model_uri: 모델의 URI를 나타내는 문자열입니다(예: \"file:///path/to/llama-2-7b\"). 모델 URI가 "
+#~ "존재하지 않으면 Xinference는 model_id를 사용하여 HuggingFace 또는 ModelScope에서 모델을 다운로드하려고 "
+#~ "시도합니다."
+
+#~ msgid "Define a custom Rerank model"
+#~ msgstr "사용자 정의 리랭크 모델 정의"
+
+#~ msgid "Define a custom rerank model based on the following template:"
+#~ msgstr "다음 템플릿을 기반으로 사용자 정의 대규모 언어 모델을 정의하세요:"
+
+#~ msgid ""
+#~ "type: A string defining the type of the model, including ``normal``, ``LLM-"
+#~ "based`` and ``LLM-based layerwise``."
+#~ msgstr ""
+#~ "type: 모델 유형을 나타내며, 선택 가능한 값은 ``normal``, ``LLM-based``, ``LLM-based "
+#~ "layerwise``입니다."
+
+#~ msgid ""
+#~ "virtualenv: An array refers to the name or path of a self-contained Python "
+#~ "environment used to isolate dependencies required to run a specific model or"
+#~ " project. Please refer to :ref:`this document <virtualenv>`."
+#~ msgstr ""
+#~ "virtualenv: 특정 모델이나 프로젝트 실행에 필요한 독립적인 환경의 이름 또는 경로를 나타내는 배열입니다. 자세한 내용은 "
+#~ ":ref:`이 문서 <virtualenv>`를 참조하십시오."
+
+#~ msgid "**Model engine** (e.g., transformers / vllm / sglang)"
+#~ msgstr ""
+
+#~ msgid "``model_family`` / ``model_name``"
+#~ msgstr ""
+
+#~ msgid "``model_format``"
+#~ msgstr ""
+
+#~ msgid "``model_size_in_billions``"
+#~ msgstr ""
+
+#~ msgid "``quantization`` (if detectable)"
+#~ msgstr ""
+
+#~ msgid "``architectures`` and other model metadata (when available)"
+#~ msgstr ""

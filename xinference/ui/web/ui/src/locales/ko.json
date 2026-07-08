@@ -466,7 +466,10 @@
     "cache_list": "캐시 보기",
     "cache_delete": "캐시 삭제",
     "virtualenv_list": "가상환경 보기",
-    "virtualenv_delete": "가상환경 삭제"
+    "virtualenv_delete": "가상환경 삭제",
+    "models_register": "모델 등록/해제",
+    "logs_list": "로그 보기",
+    "monitor_view": "모니터링 보기"
   },
   "apikeyManagement": {
     "title": "API Key 관리",

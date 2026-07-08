@@ -49,8 +49,16 @@ To start a local instance of Xinference, run the following command:
 Congrats! You now have Xinference running on your local machine. Once Xinference is running, there are multiple ways
 we can try it: via the web UI, via cURL, via the command line, or via the Xinference's python client.
 
-You can visit the web UI at `http://127.0.0.1:9997/ui <http://127.0.0.1:9997/ui>`_ and visit `http://127.0.0.1:9997/docs <http://127.0.0.1:9997/docs>`_
+You can visit the web UI at `http://127.0.0.1:9997 <http://127.0.0.1:9997>`_ and visit `http://127.0.0.1:9997/docs <http://127.0.0.1:9997/docs>`_
 to inspect the API docs.
+
+.. note::
+
+   The web UI is a Next.js application bundled into the ``xinference`` package as a static
+   export and served by the backend itself, so no Node.js runtime is required at runtime.
+   When developing Xinference from a source checkout, build it once with
+   ``cd frontend && npm ci && npm run build``, or work on the frontend live with
+   ``npm run dev`` (see the "Creating a development environment" page).
 
 You can install the Xinference command line tool and Python client using the following command:
 

@@ -162,5 +162,7 @@ asv/results
 !SECURITY.md
 .history/
 
-# frontend 
+# frontend
 **/pnpm-lock.yaml
+# staged frontend static export served by the backend
+xinference/ui/web/dist/

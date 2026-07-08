@@ -1,0 +1,654 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-12-29 12:19+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: it <LL@li.org>\n"
+"Language: it\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/getting_started/using_xinference.rst:5
+msgid "Using Xinference"
+msgstr "Utilizzo di Xinference"
+
+#: ../../source/getting_started/using_xinference.rst:9
+msgid "Run Xinference Locally"
+msgstr "Esecuzione locale di Xinference"
+
+#: ../../source/getting_started/using_xinference.rst:11
+msgid ""
+"Let's start by running Xinference on a local machine and running a classic "
+"LLM model: ``qwen2.5-instruct``."
+msgstr ""
+"Cominciamo con un classico modello linguistico di grandi dimensioni "
+"``qwen2.5-instruct`` per mostrare come eseguire un modello di grandi "
+"dimensioni localmente utilizzando Xinference."
+
+#: ../../source/getting_started/using_xinference.rst:13
+msgid ""
+"After this quickstart, you will move on to learning how to deploy Xinference"
+" in a cluster environment."
+msgstr ""
+"Dopo questo avvio rapido, puoi proseguire imparando come distribuire "
+"Xinference in un ambiente cluster distribuito."
+
+#: ../../source/getting_started/using_xinference.rst:16
+msgid "Start Local Server"
+msgstr "Avviare il servizio locale"
+
+#: ../../source/getting_started/using_xinference.rst:18
+msgid ""
+"First, please ensure that you have installed Xinference according to the "
+"instructions provided :ref:`here <installation>`. To start a local instance "
+"of Xinference, run the following command:"
+msgstr ""
+"Prima, assicurati di aver installato Xinference localmente seguendo la guida"
+" in questo :ref:`documento <installation>`. Avvia il servizio Xinference "
+"locale utilizzando il seguente comando:"
+
+#: ../../source/getting_started/using_xinference.rst:23
+#: ../../source/getting_started/using_xinference.rst:65
+msgid "shell"
+msgstr "shell"
+
+#: ../../source/getting_started/using_xinference.rst:29
+#: ../../source/getting_started/using_xinference.rst:71
+msgid "output"
+msgstr "Uscita"
+
+#: ../../source/getting_started/using_xinference.rst:39
+msgid ""
+"By default, Xinference uses ``<HOME>/.xinference`` as home path to store "
+"necessary files such as logs and models, where ``<HOME>`` is the home path "
+"of current user."
+msgstr ""
+"Per impostazione predefinita, Xinference utilizza ``<HOME>/.xinference`` "
+"come directory principale per memorizzare alcune informazioni necessarie, "
+"come file di log e file di modelli, dove ``<HOME>`` è la directory home "
+"dell'utente corrente."
+
+#: ../../source/getting_started/using_xinference.rst:42
+msgid ""
+"You can change this directory by configuring the environment variable "
+"``XINFERENCE_HOME``. For example:"
+msgstr ""
+"Puoi modificare la directory principale configurando la variabile d'ambiente"
+" ``XINFERENCE_HOME``, ad esempio:"
+
+#: ../../source/getting_started/using_xinference.rst:49
+msgid ""
+"Congrats! You now have Xinference running on your local machine. Once "
+"Xinference is running, there are multiple ways we can try it: via the web "
+"UI, via cURL, via the command line, or via the Xinference's python client."
+msgstr ""
+"Congratulazioni! Hai avviato il servizio Xinference in locale. Una volta che"
+" il servizio Xinference è in esecuzione, puoi utilizzarlo in diversi modi, "
+"tra cui tramite interfaccia web, comandi cURL, riga di comando o l'SDK "
+"Python di Xinference."
+
+#: ../../source/getting_started/using_xinference.rst:52
+msgid ""
+"You can visit the web UI at `http://127.0.0.1:9997/ui "
+"<http://127.0.0.1:9997/ui>`_ and visit `http://127.0.0.1:9997/docs "
+"<http://127.0.0.1:9997/docs>`_ to inspect the API docs."
+msgstr ""
+"È possibile utilizzare l'interfaccia utente accedendo a "
+"`http://127.0.0.1:9997/ui <http://127.0.0.1:9997/ui>`_ e visualizzare la "
+"documentazione dell'API all'indirizzo `http://127.0.0.1:9997/docs "
+"<http://127.0.0.1:9997/docs>`_."
+
+#: ../../source/getting_started/using_xinference.rst:55
+msgid ""
+"You can install the Xinference command line tool and Python client using the"
+" following command:"
+msgstr ""
+"È possibile installarlo tramite il seguente comando e poi utilizzarlo con lo"
+" strumento a riga di comando Xinference o con codice Python:"
+
+#: ../../source/getting_started/using_xinference.rst:61
+msgid ""
+"The command line tool is ``xinference``. You can list the commands that can "
+"be used by running:"
+msgstr ""
+"Lo strumento a riga di comando è ``xinference``. È possibile visualizzare i "
+"comandi disponibili tramite il seguente comando:"
+
+#: ../../source/getting_started/using_xinference.rst:102
+msgid ""
+"You can install the Xinference Python client with minimal dependencies using"
+" the following command. Please ensure that the version of the client matches"
+" the version of the Xinference server."
+msgstr ""
+"Se è necessario installare solo l'SDK Python di Xinference, è possibile "
+"utilizzare il seguente comando per installare le dipendenze minime. È "
+"importante notare che la versione deve corrispondere a quella del servizio "
+"Xinference."
+
+#: ../../source/getting_started/using_xinference.rst:112
+msgid "About Model Engine"
+msgstr "motore di inferenza del modello"
+
+#: ../../source/getting_started/using_xinference.rst:113
+msgid ""
+"Since ``v0.11.0`` , before launching the LLM model, you need to specify the "
+"inference engine you want to run. Currently, xinference supports the "
+"following inference engines:"
+msgstr ""
+"A partire dalla versione ``v0.11.0``, prima di caricare un modello LLM, è "
+"necessario specificare il motore di inferenza specifico. Attualmente, "
+"Xinference supporta i seguenti motori di inferenza:"
+
+#: ../../source/getting_started/using_xinference.rst:116
+msgid "``vllm``"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:117
+msgid "``sglang``"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:118
+msgid "``llama.cpp``"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:119
+msgid "``transformers``"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:120
+msgid "``MLX``"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:122
+msgid ""
+"About the details of these inference engine, please refer to :ref:`here "
+"<inference_backend>`."
+msgstr ""
+"Per maggiori dettagli su questi motori di inferenza, consulta :ref:`qui "
+"<inference_backend>`."
+
+#: ../../source/getting_started/using_xinference.rst:124
+msgid ""
+"Note that when launching a LLM model, the ``model_format`` and "
+"``quantization`` of the model you want to launch is closely related to the "
+"inference engine."
+msgstr ""
+"Attenzione, quando si carica il modello LLM, il motore che può essere "
+"eseguito è strettamente correlato ai parametri ``model_format`` e "
+"``quantization``."
+
+#: ../../source/getting_started/using_xinference.rst:127
+msgid ""
+"You can use ``xinference engine`` command to query the combination of "
+"parameters of the model you want to launch. This will demonstrate under what"
+" conditions a model can run on which inference engines."
+msgstr ""
+"Xinference fornisce il comando ``xinference engine`` per aiutarti a "
+"consultare le combinazioni di parametri correlate."
+
+#: ../../source/getting_started/using_xinference.rst:130
+msgid "For example:"
+msgstr "Ad esempio:"
+
+#: ../../source/getting_started/using_xinference.rst:132
+msgid ""
+"I would like to query about which inference engines the ``qwen-chat`` model "
+"can run on, and what are their respective parameters."
+msgstr ""
+"Desidero consultare le combinazioni di parametri relative al modello ``qwen-"
+"chat`` per determinare come possa funzionare su vari motori di inferenza."
+
+#: ../../source/getting_started/using_xinference.rst:138
+msgid ""
+"I want to run ``qwen-chat`` with ``VLLM`` as the inference engine, but I "
+"don't know how to configure the other parameters."
+msgstr ""
+"Voglio eseguire ``qwen-chat`` sul motore di inferenza ``VLLM``, ma non so "
+"quali altri parametri siano adatti a questo requisito."
+
+#: ../../source/getting_started/using_xinference.rst:144
+msgid ""
+"I want to launch the ``qwen-chat`` model in the ``GGUF`` format, and I need "
+"to know how to configure the remaining parameters."
+msgstr ""
+"Voglio caricare il modello ``qwen-chat`` in formato ``GGUF``, ho bisogno di "
+"conoscere le altre combinazioni di parametri."
+
+#: ../../source/getting_started/using_xinference.rst:151
+msgid ""
+"In summary, compared to previous versions, when launching LLM models, you "
+"need to additionally pass the ``model_engine`` parameter. You can retrieve "
+"information about the supported inference engines and their related "
+"parameter combinations through the ``xinference engine`` command."
+msgstr ""
+"In sintesi, rispetto alla versione precedente, quando si carica un modello "
+"LLM, è necessario passare il parametro aggiuntivo ``model_engine``. Puoi "
+"utilizzare il comando ``xinference engine`` per verificare la relazione tra "
+"il motore di inferenza che desideri eseguire e altre combinazioni di "
+"parametri."
+
+#: ../../source/getting_started/using_xinference.rst:158
+msgid "Here are some recommendations on when to use which engine:"
+msgstr "Riguardo a quando utilizzare quale motore, ecco alcuni suggerimenti:"
+
+#: ../../source/getting_started/using_xinference.rst:160
+msgid "**Linux**"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:162
+msgid ""
+"When possible, prioritize using **vLLM** or **SGLang** for better "
+"performance."
+msgstr ""
+"Quando possibile, dai la priorità all'uso di **vLLM** o **SGLang**, poiché "
+"offrono prestazioni migliori."
+
+#: ../../source/getting_started/using_xinference.rst:163
+msgid ""
+"If resources are limited, consider using **llama.cpp**, as it offers more "
+"quantization options."
+msgstr ""
+"Se le risorse sono limitate, si può considerare l'uso di **llama.cpp**, "
+"poiché offre più opzioni di quantizzazione."
+
+#: ../../source/getting_started/using_xinference.rst:164
+msgid ""
+"For other cases, consider using **Transformers**, which supports nearly all "
+"models."
+msgstr ""
+"Altri considerano l'uso di **Transformers**, che supporta quasi tutti i "
+"modelli."
+
+#: ../../source/getting_started/using_xinference.rst:166
+msgid "**Windows**"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:168
+msgid ""
+"It is recommended to use **WSL**, and in this case, follow the same choices "
+"as Linux."
+msgstr ""
+"Si consiglia di utilizzare **WSL**, in questo caso scegliere la stessa "
+"opzione di Linux."
+
+#: ../../source/getting_started/using_xinference.rst:169
+msgid ""
+"Otherwise, prefer **llama.cpp**, and for unsupported models, opt for "
+"**Transformers**."
+msgstr ""
+"Altre volte si consiglia di usare **llama.cpp**, per i modelli non "
+"supportati, si sceglie di usare **Transformers**."
+
+#: ../../source/getting_started/using_xinference.rst:171
+msgid "**Mac**"
+msgstr ""
+
+#: ../../source/getting_started/using_xinference.rst:173
+msgid ""
+"If supported by the model, use the **MLX engine**, as it delivers the best "
+"performance."
+msgstr ""
+"Quando supportato dal modello, si consiglia di utilizzare **MLX Engine**, "
+"che offre le migliori prestazioni."
+
+#: ../../source/getting_started/using_xinference.rst:174
+msgid ""
+"For other cases, prefer **llama.cpp**, and for unsupported models, choose "
+"**Transformers**."
+msgstr ""
+"Altre volte si consiglia di usare **llama.cpp**; per i modelli non "
+"supportati, optare per **Transformers**."
+
+#: ../../source/getting_started/using_xinference.rst:178
+msgid "Run qwen2.5-instruct"
+msgstr "esegui qwen2.5-instruct"
+
+#: ../../source/getting_started/using_xinference.rst:180
+msgid ""
+"Let's start by running a built-in model: ``qwen2.5-instruct``. When you "
+"start a model for the first time, Xinference will download the model "
+"parameters from HuggingFace, which might take a few minutes depending on the"
+" size of the model weights. We cache the model files locally, so there's no "
+"need to redownload them for subsequent starts."
+msgstr ""
+"Eseguiamo un modello integrato ``qwen2.5-instruct``. Quando devi eseguire un"
+" modello, il primo avvio richiede il download dei parametri del modello da "
+"HuggingFace, che generalmente richiede da 10 a 30 minuti a seconda delle "
+"dimensioni del modello. Una volta completato il download, Xinference lo "
+"memorizza nella cache locale, quindi non sarà necessario scaricarlo "
+"nuovamente per futuri esecuzioni dello stesso modello."
+
+#: ../../source/getting_started/using_xinference.rst:185
+msgid ""
+"Xinference also allows you to download models from other sites. You can do "
+"this by setting an environment variable when launching Xinference. For "
+"example, if you want to download models from `modelscope "
+"<https://modelscope.cn>`_, do the following:"
+msgstr ""
+"Xinference consente anche di scaricare modelli da altre piattaforme di "
+"hosting. È possibile specificare variabili d'ambiente quando si avvia "
+"Xinference. Ad esempio, se si desidera scaricare un modello da ModelScope, è"
+" possibile utilizzare il seguente comando:"
+
+#: ../../source/getting_started/using_xinference.rst:193
+msgid ""
+"We can specify the model's UID using the ``--model-uid`` or ``-u`` flag. If "
+"not specified, Xinference will generate a unique ID. The default unique ID "
+"will be identical to the model name."
+msgstr ""
+"È possibile specificare l'UID del modello utilizzando il parametro "
+"``--model-uid`` o ``-u``. Se non specificato, Xinference genererà un ID "
+"casuale. L'ID predefinito corrisponde al nome del modello."
+
+#: ../../source/getting_started/using_xinference.rst:232
+msgid ""
+"For some engines, such as vllm, users need to specify the engine-related "
+"parameters when running models. In this case, you can directly specify the "
+"parameter name and value in the command line, for example:"
+msgstr ""
+"Per alcuni motori di inferenza, come vllm, l'utente deve specificare i "
+"parametri relativi al motore durante l'esecuzione del modello. In questo "
+"caso, è sufficiente specificare direttamente il nome del parametro e il "
+"valore corrispondente nella riga di comando, ad esempio:"
+
+#: ../../source/getting_started/using_xinference.rst:240
+msgid "`gpu_memory_utilization=0.9` will pass to vllm when launching model."
+msgstr ""
+"Durante l'esecuzione del modello, `gpu_memory_utilization=0.9` viene passato"
+" al backend vllm."
+
+#: ../../source/getting_started/using_xinference.rst:243
+msgid "For more tips on model launching, refer to :ref:`launch`."
+msgstr ""
+"Per ulteriori suggerimenti sul caricamento dei modelli, consulta "
+":ref:`launch`."
+
+#: ../../source/getting_started/using_xinference.rst:245
+msgid ""
+"Congrats! You now have ``qwen2.5-instruct`` running by Xinference. Once the "
+"model is running, we can try it out either via cURL, or via Xinference's "
+"python client:"
+msgstr ""
+"A questo punto, congratulazioni, hai avviato con successo "
+"``qwen2.5-instruct`` tramite Xinference. Una volta che il modello è in "
+"esecuzione, puoi interagire con esso tramite riga di comando, cURL o codice "
+"Python:"
+
+#: ../../source/getting_started/using_xinference.rst:305
+msgid ""
+"Xinference provides OpenAI-compatible APIs for its supported models, so you "
+"can use Xinference as a local drop-in replacement for OpenAI APIs. For "
+"example:"
+msgstr ""
+"Xinference fornisce API compatibili con OpenAI, quindi è possibile "
+"utilizzare i modelli eseguiti da Xinference come sostituti locali di OpenAI."
+" Ad esempio:"
+
+#: ../../source/getting_started/using_xinference.rst:321
+msgid "The following OpenAI APIs are supported:"
+msgstr "Ecco le API OpenAI supportate:"
+
+#: ../../source/getting_started/using_xinference.rst:323
+msgid ""
+"Chat Completions: `https://platform.openai.com/docs/api-reference/chat "
+"<https://platform.openai.com/docs/api-reference/chat>`_"
+msgstr ""
+"Generazione di dialoghi: `https://platform.openai.com/docs/api-"
+"reference/chat <https://platform.openai.com/docs/api-reference/chat>`_"
+
+#: ../../source/getting_started/using_xinference.rst:325
+msgid ""
+"Completions: `https://platform.openai.com/docs/api-reference/completions "
+"<https://platform.openai.com/docs/api-reference/completions>`_"
+msgstr ""
+"`https://platform.openai.com/docs/api-reference/completions "
+"<https://platform.openai.com/docs/api-reference/completions>`_"
+
+#: ../../source/getting_started/using_xinference.rst:327
+msgid ""
+"Embeddings: `https://platform.openai.com/docs/api-reference/embeddings "
+"<https://platform.openai.com/docs/api-reference/embeddings>`_"
+msgstr ""
+"Generazione di vettori: `https://platform.openai.com/docs/api-"
+"reference/embeddings <https://platform.openai.com/docs/api-"
+"reference/embeddings>`_"
+
+#: ../../source/getting_started/using_xinference.rst:329
+msgid ""
+"Xinference also supports Anthropic API via base url "
+"``http://127.0.0.1:9997/anthropic``, you can use Xinference in Claude Code "
+"and so forth. Refer to :ref:`anthropic client <anthropic_client>` for more "
+"details."
+msgstr ""
+"Xinference supporta anche la chiamata all'API Anthropic tramite l'URL di "
+"base ``http://127.0.0.1:9997/anthropic``, consentendoti di utilizzare "
+"Xinference in ambienti come Claude Code. Per maggiori dettagli, consulta "
+":ref:`anthropic client <anthropic_client>`."
+
+#: ../../source/getting_started/using_xinference.rst:333
+msgid "Manage Models"
+msgstr "Gestione dei modelli"
+
+#: ../../source/getting_started/using_xinference.rst:335
+msgid ""
+"In addition to launching models, Xinference offers various ways to manage "
+"the entire lifecycle of models. You can manage models in Xinference through "
+"the command line, cURL, or Xinference's python client."
+msgstr ""
+"Oltre ad avviare il modello, Xinference offre la possibilità di gestire "
+"l'intero ciclo di vita del modello. Allo stesso modo, puoi utilizzare la "
+"riga di comando, cURL e il codice Python per la gestione."
+
+#: ../../source/getting_started/using_xinference.rst:338
+msgid ""
+"You can list all models of a certain type that are available to launch in "
+"Xinference:"
+msgstr ""
+"È possibile elencare tutti i modelli di un determinato tipo disponibili per "
+"l'avvio in Xinference:"
+
+#: ../../source/getting_started/using_xinference.rst:356
+msgid ""
+"The following command gives you the currently running models in Xinference:"
+msgstr "Il seguente comando elenca tutti i modelli in esecuzione:"
+
+#: ../../source/getting_started/using_xinference.rst:374
+msgid ""
+"When you no longer need a model that is currently running, you can remove it"
+" in the following way to free up the resources it occupies:"
+msgstr ""
+"Quando non hai più bisogno di un modello in esecuzione, puoi fermarlo e "
+"liberare le risorse nel modo seguente:"
+
+#: ../../source/getting_started/using_xinference.rst:395
+msgid "Deploy Xinference In a Cluster"
+msgstr "Distribuzione di Xinference in un cluster"
+
+#: ../../source/getting_started/using_xinference.rst:397
+msgid ""
+"To deploy Xinference in a cluster, you need to start a Xinference supervisor"
+" on one server and Xinference workers on the other servers."
+msgstr ""
+"Per distribuire Xinference in un ambiente cluster, è necessario avviare un "
+"nodo supervisor su una macchina e avviare i nodi worker sulla stessa "
+"macchina o su altre macchine."
+
+#: ../../source/getting_started/using_xinference.rst:400
+msgid ""
+"First, make sure you have already installed Xinference on each of the "
+"servers according to the instructions provided :ref:`here <installation>`. "
+"Then follow the steps below:"
+msgstr ""
+"Innanzitutto, secondo la :ref:`documentazione <installation>`, assicurati "
+"che Xinference sia installato su tutti i server. Successivamente, segui i "
+"passaggi:"
+
+#: ../../source/getting_started/using_xinference.rst:404
+msgid "Start the Supervisor"
+msgstr "Avviare Supervisor"
+
+#: ../../source/getting_started/using_xinference.rst:405
+msgid ""
+"On the server where you want to run the Xinference supervisor, run the "
+"following command:"
+msgstr "Esegui il seguente comando sul server per avviare il nodo Supervisor:"
+
+#: ../../source/getting_started/using_xinference.rst:411
+#, python-brace-format
+msgid ""
+"Replace ``${supervisor_host}`` with the actual host of your supervisor "
+"server."
+msgstr "Sostituisci ``${supervisor_host}`` con l'IP del nodo corrente."
+
+#: ../../source/getting_started/using_xinference.rst:414
+#, python-brace-format
+msgid ""
+"You can the supervisor's web UI at `http://${supervisor_host}:9997/ui "
+"<http://${supervisor_host}:9997/ui>`_ and visit "
+"`http://${supervisor_host}:9997/docs <http://${supervisor_host}:9997/docs>`_"
+" to inspect the API docs."
+msgstr ""
+"È possibile accedere all'interfaccia web all'indirizzo "
+"`http://${supervisor_host}:9997/ui <http://${supervisor_host}:9997/ui>`_ e "
+"alla documentazione API all'indirizzo `http://${supervisor_host}:9997/docs "
+"<http://${supervisor_host}:9997/docs>`_."
+
+#: ../../source/getting_started/using_xinference.rst:418
+msgid "Start the Workers"
+msgstr "Avviare il Worker"
+
+#: ../../source/getting_started/using_xinference.rst:420
+msgid ""
+"On each of the other servers where you want to run Xinference workers, run "
+"the following command:"
+msgstr ""
+"Esegui il seguente comando sulla macchina in cui deve essere avviato il "
+"worker di Xinference:"
+
+#: ../../source/getting_started/using_xinference.rst:427
+#, python-brace-format
+msgid ""
+"Note that you must replace ``${worker_host}``  with the actual host of your "
+"worker server."
+msgstr ""
+"È importante notare che è necessario utilizzare l'IP del nodo Worker "
+"corrente per sostituire ``${worker_host}``."
+
+#: ../../source/getting_started/using_xinference.rst:430
+msgid ""
+"Note that if you need to interact with the Xinference in a cluster via the "
+"command line, you should include the ``-e`` or ``--endpoint`` flag to "
+"specify the supervisor server's endpoint. For example:"
+msgstr ""
+"È importante notare che, se hai bisogno di interagire con il cluster tramite"
+" la riga di comando, dovresti specificare l'indirizzo del supervisor "
+"utilizzando il parametro ``-e`` o ``--endpoint``, ad esempio:"
+
+#: ../../source/getting_started/using_xinference.rst:438
+msgid "Using Xinference With Docker"
+msgstr "Distribuisci Xinference con Docker"
+
+#: ../../source/getting_started/using_xinference.rst:440
+msgid "To start Xinference in a Docker container, run the following command:"
+msgstr "Esegui Xinference in un contenitore con il seguente comando:"
+
+#: ../../source/getting_started/using_xinference.rst:443
+msgid "Run On Nvidia GPU Host"
+msgstr "Esegui su una macchina con scheda grafica NVIDIA."
+
+#: ../../source/getting_started/using_xinference.rst:445
+msgid "For cuda 12.4:"
+msgstr "Per CUDA 12.4:"
+
+#: ../../source/getting_started/using_xinference.rst:451
+msgid "For cuda 12.8:"
+msgstr "Per CUDA 12.8:"
+
+#: ../../source/getting_started/using_xinference.rst:453
+msgid ""
+"CUDA 12.8 version is experimental, welcome to give us feedbacks to help us "
+"to improve."
+msgstr ""
+"La versione CUDA 12.8 è sperimentale, i vostri feedback per miglioramenti "
+"sono benvenuti."
+
+#: ../../source/getting_started/using_xinference.rst:456
+msgid "CUDA 12.8 version is removed in v1.16.0 ."
+msgstr "CUDA 12.8 è stato rimosso nella versione v1.16.0."
+
+#: ../../source/getting_started/using_xinference.rst:463
+msgid "For cuda 12.9:"
+msgstr "Per CUDA 12.9:"
+
+#: ../../source/getting_started/using_xinference.rst:465
+msgid ""
+"CUDA 12.9 will become the default version when Xinference v2.0.0 released."
+msgstr ""
+"Dopo il rilascio di Xinference v2.0.0, CUDA 12.9 diventerà la versione "
+"predefinita."
+
+#: ../../source/getting_started/using_xinference.rst:473
+msgid "Run On CPU Only Host"
+msgstr "Esecuzione su una macchina con solo CPU"
+
+#: ../../source/getting_started/using_xinference.rst:479
+msgid ""
+"Replace ``<your_version>`` with Xinference versions, e.g. ``v0.10.3``, "
+"``latest`` can be used for the latest version."
+msgstr ""
+"Sostituisci ``<your_version>`` con la versione di Xinference, ad esempio "
+"``v0.10.3``, e puoi usare ``latest`` per la versione più recente."
+
+#: ../../source/getting_started/using_xinference.rst:481
+msgid ""
+"For more docker usage, refer to :ref:`Using Docker Image "
+"<using_docker_image>`."
+msgstr ""
+"Per maggiori dettagli sull'uso di Docker, consultare :ref:`uso dell'immagine"
+" Docker <using_docker_image>`."
+
+#: ../../source/getting_started/using_xinference.rst:485
+msgid "What's Next?"
+msgstr "Altro"
+
+#: ../../source/getting_started/using_xinference.rst:487
+msgid ""
+"Congratulations on getting started with Xinference! To help you navigate and"
+" make the most out of this powerful tool, here are some resources and "
+"guides:"
+msgstr ""
+"Congratulazioni! Hai già acquisito le basi dell'uso di Xinference! Per "
+"aiutarti a utilizzare meglio lo strumento, ecco altri documenti e risorse di"
+" guida:"
+
+#: ../../source/getting_started/using_xinference.rst:490
+msgid ""
+":ref:`How to Use Client APIs for Different Types of Models "
+"<user_guide_client_api>`"
+msgstr ""
+":ref:`Come creare diversi tipi di modelli con Python "
+"<user_guide_client_api>`"
+
+#: ../../source/getting_started/using_xinference.rst:492
+msgid ""
+":ref:`Choosing the Right Backends for Your Needs <user_guide_backends>`"
+msgstr ""
+":ref:`Scegliere il motore di inferenza corretto <user_guide_backends>`"
+
+#~ msgid ". code-block:: bash"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "docker run -e XINFERENCE_MODEL_SRC=modelscope -p 9998:9997 --gpus all "
+#~ "xprobe/xinference:<your_version>-cu129 xinference-local -H 0.0.0.0 --log-"
+#~ "level debug"
+#~ msgstr ""

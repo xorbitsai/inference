@@ -36,6 +36,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import icon from '../media/icon.png'
+import { hasPermission, parseTokenFromSession } from '../utils/jwt'
 import { ApiContext } from './apiContext'
 import ThemeButton from './themeButton'
 import TranslateButton from './translateButton'
@@ -71,7 +72,7 @@ const MenuSide = () => {
   const { endPoint } = useContext(ApiContext)
   const [esEnabled, setEsEnabled] = useState(false)
   const [authAdvanced, setAuthAdvanced] = useState(false)
-  const [isAdmin, setIsAdmin] = useState(false)
+  const [scopes, setScopes] = useState([])
   const [, , removeCookie] = useCookies(['token'])
   const [currentUser, setCurrentUser] = useState('')
 
@@ -89,19 +90,32 @@ const MenuSide = () => {
       })
       .catch(() => setEsEnabled(false))
 
-    // Parse username from JWT token
-    try {
-      const token = sessionStorage.getItem('token')
-      if (token) {
-        const payload = JSON.parse(atob(token.split('.')[1]))
-        setCurrentUser(payload.username || payload.sub || '')
-        const scopes = payload.scopes || []
-        setIsAdmin(scopes.includes('admin'))
-      }
-    } catch {
-      // ignore
+    // Parse username + scopes from JWT token. The backend (advanced auth)
+    // enforces scopes against DB-current permissions on every request, so
+    // the menu's role is just to reflect what the current token allows.
+    const parsed = parseTokenFromSession()
+    if (parsed) {
+      setCurrentUser(parsed.username)
+      setScopes(parsed.scopes)
     }
   }, [endPoint])
+
+  // Re-parse JWT when the access token is refreshed by fetchWrapper, so the
+  // menu recomputes permission-gated items without a page reload.
+  useEffect(() => {
+    const handler = () => {
+      const parsed = parseTokenFromSession()
+      if (parsed) {
+        setCurrentUser(parsed.username)
+        setScopes(parsed.scopes)
+      } else {
+        setScopes([])
+        setCurrentUser('')
+      }
+    }
+    window.addEventListener('auth-refreshed', handler)
+    return () => window.removeEventListener('auth-refreshed', handler)
+  }, [])
 
   const navItems = [
     {
@@ -137,21 +151,29 @@ const MenuSide = () => {
         lastActiveUrl: 'register_model',
       },
     },
-    {
-      text: 'cluster_information',
-      label: t('menu.clusterInfo'),
-      icon: <DnsOutlined />,
-      action: 'navigate',
-      path: '/cluster_info',
-    },
-    {
-      text: 'monitoring',
-      label: t('menu.monitoring'),
-      icon: <MonitorHeartOutlined />,
-      action: 'navigate',
-      path: '/monitoring',
-    },
-    ...(esEnabled
+    ...(hasPermission(scopes, 'admin')
+      ? [
+          {
+            text: 'cluster_information',
+            label: t('menu.clusterInfo'),
+            icon: <DnsOutlined />,
+            action: 'navigate',
+            path: '/cluster_info',
+          },
+        ]
+      : []),
+    ...(hasPermission(scopes, 'monitor:view')
+      ? [
+          {
+            text: 'monitoring',
+            label: t('menu.monitoring'),
+            icon: <MonitorHeartOutlined />,
+            action: 'navigate',
+            path: '/monitoring',
+          },
+        ]
+      : []),
+    ...(esEnabled && hasPermission(scopes, 'logs:list')
       ? [
           {
             text: 'logs',
@@ -162,7 +184,7 @@ const MenuSide = () => {
           },
         ]
       : []),
-    ...(isAdmin
+    ...(hasPermission(scopes, 'admin')
       ? [
           {
             text: 'audit_log',
@@ -173,7 +195,7 @@ const MenuSide = () => {
           },
         ]
       : []),
-    ...(authAdvanced
+    ...(authAdvanced && hasPermission(scopes, 'users:manage')
       ? [
           {
             text: 'user_management',
@@ -182,6 +204,12 @@ const MenuSide = () => {
             action: 'navigate',
             path: '/user_management',
           },
+        ]
+      : []),
+    ...(authAdvanced &&
+    (hasPermission(scopes, 'keys:create') ||
+      hasPermission(scopes, 'keys:manage'))
+      ? [
           {
             text: 'apikey_management',
             label: t('menu.apikeyManagement'),
@@ -189,6 +217,10 @@ const MenuSide = () => {
             action: 'navigate',
             path: '/apikey_management',
           },
+        ]
+      : []),
+    ...(authAdvanced && hasPermission(scopes, 'admin')
+      ? [
           {
             text: 'security_settings',
             label: t('menu.securitySettings') || 'Security',

@@ -1,0 +1,244 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-29 16:49+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ja <LL@li.org>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/getting_started/using_docker_image.rst:5
+msgid "Xinference Docker Image"
+msgstr "Docker イメージ"
+
+#: ../../source/getting_started/using_docker_image.rst:7
+msgid "Xinference provides official images for use on Dockerhub."
+msgstr ""
+"Xinference は Dockerhub および Alibaba Cloud Container Image Service "
+"に公式イメージをアップロードしています。"
+
+#: ../../source/getting_started/using_docker_image.rst:11
+msgid ""
+"Starting from **Xinference v2.0**, to use the CUDA version of the image, the"
+" minimum CUDA version must be **CUDA 12.9**."
+msgstr ""
+"**Xinference v2.0** 以降、CUDAバージョンのイメージを使用する場合、CUDAバージョンは最低でも **CUDA 12.9** "
+"である必要があります。"
+
+#: ../../source/getting_started/using_docker_image.rst:14
+msgid "Prerequisites"
+msgstr "準備作業"
+
+#: ../../source/getting_started/using_docker_image.rst:15
+msgid ""
+"The image can only run in an environment with GPUs and CUDA installed, "
+"because Xinference in the image relies on Nvidia GPUs for acceleration."
+msgstr ""
+"Xinference は GPU を使用して推論を高速化します。このイメージは、GPU グラフィックカードを搭載し、CUDA "
+"がインストールされたマシンで実行する必要があります。"
+
+#: ../../source/getting_started/using_docker_image.rst:16
+msgid ""
+"CUDA must be successfully installed on the host machine. This can be "
+"determined by whether you can successfully execute the ``nvidia-smi`` "
+"command."
+msgstr ""
+"CUDA がマシンに正しくインストールされていることを確認してください。``nvidia-smi`` を使用して正しく動作しているか確認できます。"
+
+#: ../../source/getting_started/using_docker_image.rst:17
+msgid ""
+"For CUDA version >= 12.9, CUDA version in the docker image is ``12.9``, and "
+"the CUDA version on the host machine should be ``12.9`` or above, and the "
+"NVIDIA driver version should be ``575`` or above."
+msgstr ""
+"CUDA バージョンが 12.9 以上の場合、Docker イメージで使用される CUDA バージョンは ``12.9`` です。ホストマシンの "
+"CUDA バージョンは ``12.9`` 以上である必要があり、同時に NVIDIA ドライバのバージョンは ``575`` 以上である必要があります。"
+
+#: ../../source/getting_started/using_docker_image.rst:18
+msgid ""
+"Ensure `NVIDIA Container Toolkit <https://docs.nvidia.com/datacenter/cloud-"
+"native/container-toolkit/latest/install-guide.html>`_ installed."
+msgstr ""
+"`NVIDIA Container Toolkit <https://docs.nvidia.com/datacenter/cloud-"
+"native/container-toolkit/latest/install-guide.html>`_ "
+"がインストールされていることを確認してください。"
+
+#: ../../source/getting_started/using_docker_image.rst:22
+msgid "Docker Image"
+msgstr "Dockerイメージ"
+
+#: ../../source/getting_started/using_docker_image.rst:23
+msgid ""
+"The official image of Xinference is available on DockerHub in the repository"
+" ``xprobe/xinference``. Available tags include:"
+msgstr ""
+"Xinference 公式イメージはDockerHubの ``xprobe/xinference`` "
+"リポジトリに公開されています。現在利用可能なタグは次の通りです。"
+
+#: ../../source/getting_started/using_docker_image.rst:26
+msgid ""
+"``nightly-main``: This image is built daily from the `GitHub main branch "
+"<https://github.com/xorbitsai/inference>`_ and generally does not guarantee "
+"stability."
+msgstr "``nightly-main``: このイメージは毎日 GitHub main ブランチから更新・作成され、安定性は保証されません。"
+
+#: ../../source/getting_started/using_docker_image.rst:27
+msgid ""
+"``v<release version>``: This image is built each time a Xinference release "
+"version is published, and it is typically more stable."
+msgstr ""
+"``v<release version>``: このイメージはXinferenceがリリースされるたびに作成され、通常は安定して信頼できると見なせます。"
+
+#: ../../source/getting_started/using_docker_image.rst:28
+msgid ""
+"``latest``: This image is built with the latest Xinference release version."
+msgstr "``latest``: このイメージは、Xinference のリリース時に最新のリリースバージョンを指します。"
+
+#: ../../source/getting_started/using_docker_image.rst:29
+msgid "For CPU version, add ``-cpu`` suffix, e.g. ``nightly-main-cpu``."
+msgstr "CPU バージョンでは、``-cpu`` サフィックスを追加します（例: ``nightly-main-cpu``）。"
+
+#: ../../source/getting_started/using_docker_image.rst:33
+msgid "Dockerfile for custom build"
+msgstr "カスタムイメージ"
+
+#: ../../source/getting_started/using_docker_image.rst:34
+msgid ""
+"If you need to build the Xinference image according to your own "
+"requirements, the source code for the Dockerfile is located at "
+"`xinference/deploy/docker/Dockerfile "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/deploy/docker/Dockerfile>`_"
+" for reference. Please make sure to be in the top-level directory of "
+"Xinference when using this Dockerfile. For example:"
+msgstr ""
+"追加の依存関係をインストールする必要がある場合は、`xinference/deploy/docker/Dockerfile "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/deploy/docker/Dockerfile>`_"
+" を参照してください。Dockerfile を使用してイメージを作成する際は、Xinference "
+"プロジェクトのルートディレクトリで行ってください。例："
+
+#: ../../source/getting_started/using_docker_image.rst:45
+msgid "Image usage"
+msgstr "ミラーを使用する"
+
+#: ../../source/getting_started/using_docker_image.rst:46
+msgid ""
+"You can start Xinference in the container like this, simultaneously mapping "
+"port 9997 in the container to port 9998 on the host, enabling debug logging,"
+" and downloading models from modelscope."
+msgstr ""
+"コンテナ内でXinferenceを起動するには、以下の方法を使用できます。この際、9997ポートをホストマシンの9998ポートにマッピングし、ログレベルをDEBUGに指定できます。また、必要な環境変数を指定することも可能です。"
+
+#: ../../source/getting_started/using_docker_image.rst:54
+msgid ""
+"The option ``--gpus`` is essential and cannot be omitted, because as "
+"mentioned earlier, the image requires the host machine to have a GPU. "
+"Otherwise, errors will occur."
+msgstr "``--gpus`` は必須で、前述の通り、イメージはGPU搭載のマシンで実行する必要があります。そうしないとエラーが発生します。"
+
+#: ../../source/getting_started/using_docker_image.rst:55
+msgid ""
+"The ``-H 0.0.0.0`` parameter after the ``xinference-local`` command cannot "
+"be omitted. Otherwise, the host machine may not be able to access the port "
+"inside the container."
+msgstr "``-H 0.0.0.0`` も必ず指定してください。指定しないと、コンテナ外から Xinference サービスに接続できません。"
+
+#: ../../source/getting_started/using_docker_image.rst:56
+msgid ""
+"You can add multiple ``-e`` options to introduce multiple environment "
+"variables."
+msgstr "複数の ``-e`` オプションを指定して、複数の環境変数に値を割り当てることができます。"
+
+#: ../../source/getting_started/using_docker_image.rst:59
+msgid ""
+"Certainly, if you prefer, you can also manually enter the docker container "
+"and start Xinference in any desired way."
+msgstr "もちろん、コンテナを実行した後、コンテナ内に入って手動でXinferenceを起動することもできます。"
+
+#: ../../source/getting_started/using_docker_image.rst:63
+msgid ""
+"For multiple GPUs, make sure to set the shared memory size, for example: "
+"`docker run --shm-size=128g ...`"
+msgstr "複数のGPUの場合、共有メモリサイズを設定してください。例：`docker run --shm-size=128g ...`"
+
+#: ../../source/getting_started/using_docker_image.rst:67
+msgid "Mount your volume for loading and saving models"
+msgstr "モデルディレクトリをマウントする"
+
+#: ../../source/getting_started/using_docker_image.rst:68
+msgid ""
+"The image does not contain any model files by default, and it downloads the "
+"models into the container. Typically, you would need to mount a directory on"
+" the host machine to the docker container, so that Xinference can download "
+"the models onto it, allowing for reuse. In this case, you need to specify a "
+"volume when running the Docker image and configure environment variables for"
+" Xinference:"
+msgstr ""
+"デフォルトでは、イメージにモデルファイルは含まれておらず、使用中にコンテナ内でモデルがダウンロードされます。既にダウンロード済みのモデルを使用する場合は、ホストマシンのディレクトリをコンテナにマウントする必要があります。この場合、コンテナ実行時にローカルボリュームを指定し、Xinference"
+" に環境変数を設定する必要があります。"
+
+#: ../../source/getting_started/using_docker_image.rst:77
+msgid ""
+"The principle behind the above command is to mount the specified directory "
+"from the host machine into the container, and then set the "
+"``XINFERENCE_HOME`` environment variable to point to that directory inside "
+"the container. This way, all downloaded model files will be stored in the "
+"directory you specified on the host machine. You don't have to worry about "
+"losing them when the Docker container stops, and the next time you run it, "
+"you can directly use the existing models without the need for repetitive "
+"downloads."
+msgstr ""
+"上記のコマンドの原理は、ホスト上で指定されたディレクトリをコンテナにマウントし、``XINFERENCE_HOME`` "
+"環境変数をコンテナ内のそのディレクトリに設定することです。これにより、ダウンロードされたすべてのモデルファイルは、ホスト上で指定したディレクトリに保存されます。Docker"
+" コンテナが停止してもこれらのファイルが失われる心配はなく、次回コンテナを実行する際には、既存のモデルをそのまま使用でき、再ダウンロードは不要です。"
+
+#: ../../source/getting_started/using_docker_image.rst:81
+msgid ""
+"If you downloaded the model using the default path on the host machine, and "
+"since the xinference cache directory stores the model using symbolic links, "
+"you need to mount the directory where the original file is located into the "
+"container as well. For example, if you are using HuggingFace and Modelscope "
+"as model hub, you would need to mount the corresponding directories into the"
+" container. Generally, the cache directories for HuggingFace and Modelscope "
+"are located at <home_path>/.cache/huggingface and "
+"<home_path>/.cache/modelscope. The command would be like:"
+msgstr ""
+"ホストマシンでデフォルトパスを使用してモデルをダウンロードした場合、xinferenceのキャッシュディレクトリはシンボリックリンク方式でモデルを保存するため、元のファイルが存在するディレクトリもコンテナ内にマウントする必要があります。例えば、huggingfaceやmodelscopeをモデルリポジトリとして使用する場合、これらに対応するディレクトリをコンテナ内にマウントする必要があります。一般的に、対応するキャッシュディレクトリはそれぞれ"
+" `<home_path>/.cache/huggingface` と `<home_path>/.cache/modelscope` "
+"にあります。使用するコマンドは以下の通りです："
+
+#~ msgid ""
+#~ "For CUDA 12.8, add ``-cu128`` suffix, e.g. ``nightly-main-cu128``. "
+#~ "(Xinference version should be between v1.8.1 and v1.15.0)"
+#~ msgstr ""
+#~ "CUDA 12.8 バージョンでは、``-cu128`` 接尾辞を追加します（例：``nightly-main-cu128``）。（Xinference"
+#~ " バージョンは v1.8.1 から v1.15.0 の間である必要があります）"
+
+#~ msgid ""
+#~ "Starting from **Xinference v2.0**, only ``-cu129`` and ``-cpu`` images are "
+#~ "officially provided."
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Starting from **Xinference v2.0**, only two image variants are provided: the"
+#~ " default (no suffix, **CUDA 12.9**) and the ``-cpu`` image."
+#~ msgstr ""
+#~ "**Xinference v2.0** 以降、提供されるイメージのバリアントは2種類のみです：デフォルトイメージ（サフィックスなし、**CUDA "
+#~ "12.9**）と ``-cpu`` イメージです。"
+
+#~ msgid ""
+#~ "For CUDA 12.9, no suffix, e.g. ``nightly-main``. (Xinference version should "
+#~ "be v2.0 at least)"
+#~ msgstr ""
+#~ "CUDA 12.9 の場合、接尾辞なしで、例えば ``nightly-main`` のように指定します。（Xinference のバージョンは少なくとも"
+#~ " v2.0 以上である必要があります）"

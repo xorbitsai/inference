@@ -269,7 +269,7 @@ def setup_with_auth():
     user3 = User(
         username="user3",
         password="pass3",
-        permissions=["models:list", "models:read", "models:start"],
+        permissions=["models:list", "models:read", "models:write"],
         api_keys=["sk-m6jEzEwmCc4iQ", "sk-ZOTLIY4gt9w11"],
     )
     auth_config = AuthConfig(

@@ -1,0 +1,106 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-11-15 19:32+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ja <LL@li.org>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/getting_started/logging.rst:5
+msgid "Logging in Xinference"
+msgstr "ログ"
+
+#: ../../source/getting_started/logging.rst:8
+msgid "Configure Log Level"
+msgstr "ログレベル"
+
+#: ../../source/getting_started/logging.rst:9
+msgid ""
+"You can configure the log level with the ``--log-level`` option. For "
+"example, starting a local cluster with ``DEBUG`` log level:"
+msgstr ""
+"``--log-level`` オプションを使用して、Xinference クラスターのログレベルを設定できます。例えば、``DEBUG`` "
+"ログレベルで Xinference ローカルクラスターを起動する場合："
+
+#: ../../source/getting_started/logging.rst:18
+msgid "Log Files"
+msgstr "ログファイル"
+
+#: ../../source/getting_started/logging.rst:19
+msgid ""
+"Xinference supports log rotation of log files. By default, logs rotate when "
+"they reach 100MB (maxBytes), and up to 30 backup files (backupCount) are "
+"kept. Note that the log level configured above takes effect in both the "
+"command line logs and the log files."
+msgstr ""
+"Xinference はログファイルのローテーションをサポートしています。デフォルトでは、単一のログファイルが 100MB "
+"に達すると新しいログバックアップファイルが生成され、システムは最新の 30 "
+"個のログバックアップを保持します。上記のログレベル設定方法は、コマンドラインログとログファイルの両方に影響を与えます。"
+
+#: ../../source/getting_started/logging.rst:24
+msgid "Log Directory Structure"
+msgstr "ログディレクトリ構造"
+
+#: ../../source/getting_started/logging.rst:25
+msgid ""
+"All the logs are stored in the ``<XINFERENCE_HOME>/logs`` directory, where "
+"``<XINFERENCE_HOME>`` can be configured as mentioned in "
+":ref:`using_xinference`."
+msgstr ""
+"まず、すべてのログは ``<XINFERENCE_HOME>/logs`` ディレクトリに保存されます。ここで、 "
+"``<XINFERENCE_HOME>`` の設定方法については :ref:`using_xinference` を参照してください。"
+
+#: ../../source/getting_started/logging.rst:27
+msgid ""
+"Xinference creates a subdirectory under the log directory "
+"``<XINFERENCE_HOME>/logs``. The name of the subdirectory corresponds to the "
+"Xinference cluster startup time in milliseconds."
+msgstr ""
+"次に、Xinference はログディレクトリ ``<XINFERENCE_HOME>/logs`` "
+"の下にサブディレクトリを作成します。サブディレクトリの名前は、Xinference クラスタが起動した時間（ミリ秒単位）に対応しています。"
+
+#: ../../source/getting_started/logging.rst:31
+msgid "Local deployment"
+msgstr "ローカルデプロイ"
+
+#: ../../source/getting_started/logging.rst:32
+msgid ""
+"In a local deployment, the logs of Xinference supervisor and Xinference "
+"workers are combined into a single file. An example of the log directory "
+"structure is shown below::"
+msgstr "ローカルデプロイメントでは、Xinference supervisor と Xinference workers のログが1つのファイルに統"
+"合されます。ログディレクトリの構造は以下の通りです::"
+
+#: ../../source/getting_started/logging.rst:38
+msgid ""
+"where ``1699503558105`` is the timestamp when the Xinference cluster was "
+"created. Therefore, when you create a cluster locally multiple times, you "
+"can look for the corresponding logs based on this timestamp."
+msgstr ""
+"うち、``1699503558105`` は Xinference "
+"クラスタ作成時のタイムスタンプです。そのため、ローカルでクラスタを複数回作成する場合、このタイムスタンプに基づいて該当するログを検索できます。"
+
+#: ../../source/getting_started/logging.rst:42
+msgid "Distributed deployment"
+msgstr "分散型デプロイメント"
+
+#: ../../source/getting_started/logging.rst:43
+msgid ""
+"In a distributed deployment, Xinference supervisor and Xinference workers "
+"each create their own subdirectory under the log directory. The name of the "
+"subdirectory starts with the role name, followed by the role startup time in"
+" milliseconds. An example of the log directory structure is shown below::"
+msgstr "分散デプロイメントでは、Xinference supervisorとXinference workersがそれぞれログディレクトリ配下にサブ"
+"ディレクトリを作成します。サブディレクトリの名前は、クラスターロール名で始まり、その後に起動時間（ミリ秒単位）が続きます。以下の通りです::"

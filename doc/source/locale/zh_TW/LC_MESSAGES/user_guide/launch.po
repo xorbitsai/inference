@@ -1,0 +1,240 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2025, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-28 11:54+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: zh_TW <LL@li.org>\n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/launch.rst:5
+msgid "Model Launching Instructions"
+msgstr "模型載入指南"
+
+#: ../../source/user_guide/launch.rst:7
+msgid ""
+"This document aims to provide a functional overview of model launching."
+msgstr "本文件旨在提供模型載入的功能說明。"
+
+#: ../../source/user_guide/launch.rst:10
+msgid "Replica"
+msgstr "複本"
+
+#: ../../source/user_guide/launch.rst:12
+msgid ""
+"Replicas specify the number of model instances to load. For example, if you "
+"have two GPUs and each can host one replica of the model, you can set the "
+"replica count to 2. This way, two identical instances of the model will be "
+"distributed across the two GPUs. Xinference automatically load-balances "
+"requests to ensure even distribution across multiple GPUs. Meanwhile, users "
+"see it as a single model, which greatly improves overall resource "
+"utilization."
+msgstr ""
+"副本用來指定模型加載的實例份數。例如，你有兩張 GPU，每張卡可以容納模型的一個副本，你可以將副本數設定為 "
+"2。這樣，兩個完全相同的模型實例將分佈在這兩張 GPU 上。Xinference "
+"會自動進行負載平衡，確保請求均勻分配到多張卡上。使用者看到的仍是一個模型，這大幅提升了整體資源利用率。"
+
+#: ../../source/user_guide/launch.rst:17
+msgid "Traditional Multi-Instance Deployment："
+msgstr "舊版本多實例部署："
+
+#: ../../source/user_guide/launch.rst:19
+msgid ""
+"When you have multiple GPU cards, each capable of hosting one model "
+"instance, you can set the number of instances equal to the number of GPUs. "
+"For example:"
+msgstr "當您擁有多張 GPU 顯示卡時，每張顯示卡可承載一個模型實例，此時可將實例數量設定為等於 GPU 數量。例如："
+
+#: ../../source/user_guide/launch.rst:21
+msgid "2 GPUs, 2 instances: Each GPU runs one model instance"
+msgstr "2張GPU，2個實例：每張GPU運行一個模型實例"
+
+#: ../../source/user_guide/launch.rst:22
+msgid "4 GPUs, 4 instances: Each GPU runs one model instance"
+msgstr "4張GPU，4個實例：每張GPU執行一個模型實例"
+
+#: ../../source/user_guide/launch.rst:26
+msgid "Introduce a new environment variable:"
+msgstr "引入一個新的環境變數："
+
+#: ../../source/user_guide/launch.rst:32
+msgid ""
+"Control whether to enable the single GPU multi-copy feature Default value: 1"
+msgstr "控制是否啟用單 GPU 多副本功能，預設值：1"
+
+#: ../../source/user_guide/launch.rst:35
+msgid "New Feature: Smart Replica Deployment"
+msgstr "新功能：智慧副本部署"
+
+#: ../../source/user_guide/launch.rst:37
+msgid "Single GPU Multi-Replica"
+msgstr "單GPU多副本"
+
+#: ../../source/user_guide/launch.rst:39
+msgid "New Support: Run multiple model replicas even with just one GPU."
+msgstr "新增支援：即使僅有一塊GPU，也能執行多個模型副本。"
+
+#: ../../source/user_guide/launch.rst:41
+msgid "Scenario: You have 1 GPU with sufficient VRAM"
+msgstr "場景：您擁有1個GPU且視訊記憶體充足"
+
+#: ../../source/user_guide/launch.rst:42
+msgid "Configuration: Replica Count = 3, GPU Count = 1"
+msgstr "配置：副本數量=3，GPU數量=1"
+
+#: ../../source/user_guide/launch.rst:43
+msgid ""
+"Result: 3 model instances running on the same GPU, sharing GPU resources"
+msgstr "結果：3個模型實例，在同一GPU上運行，共享GPU資源"
+
+#: ../../source/user_guide/launch.rst:45
+msgid "Hybrid GPU Allocation"
+msgstr "混合GPU分配"
+
+#: ../../source/user_guide/launch.rst:47
+msgid ""
+"Smart Allocation: Number of replicas may differ from GPU count; system "
+"intelligently distributes"
+msgstr "智能分配: 副本數可以不等於GPU數量，系統會智能分配"
+
+#: ../../source/user_guide/launch.rst:49
+msgid "Scenario: You have 2 GPUs and need 3 replicas"
+msgstr "場景: 你有2張GPU，需要3個副本"
+
+#: ../../source/user_guide/launch.rst:50
+msgid "Configuration: Replicas=3, GPUs=2"
+msgstr "配置: 複本數=3，GPU數量=2"
+
+#: ../../source/user_guide/launch.rst:51
+msgid "Result: GPU0 runs 2 instances, GPU1 runs 1 instance"
+msgstr "結果: GPU0 運行 2 個實例，GPU1 運行 1 個實例"
+
+#: ../../source/user_guide/launch.rst:54
+msgid "GPU Allocation Strategy"
+msgstr "混合分配策略"
+
+#: ../../source/user_guide/launch.rst:56
+msgid ""
+"The current policy is *Idle First*: The scheduler always attempts to assign "
+"replicas to the least utilized GPU. Use the ``XINFERENCE_LAUNCH_STRATEGY`` "
+"parameter to choose launch strategy."
+msgstr ""
+"當前策略為 *空閒優先* ：排程器始終嘗試將複本分配至最空閒的 GPU。使用 ``XINFERENCE_ENV_LAUNCH_STRATEGY`` "
+"參數選擇啟動策略。"
+
+#: ../../source/user_guide/launch.rst:59
+msgid "Set Environment Variables"
+msgstr "設定環境變數"
+
+#: ../../source/user_guide/launch.rst:63
+msgid ""
+"Sometimes, we want to specify environment variables for a particular model "
+"at runtime. Since v1.8.1, Xinference provides the capability to configure "
+"these individually without needing to set them before starting Xinference."
+msgstr ""
+"有時我們希望在執行時為特定模型指定環境變數。從 v1.8.1 開始，Xinference 提供了單獨配置環境變數的功能，無需在啟動 Xinference"
+" 前設定。"
+
+#: ../../source/user_guide/launch.rst:66
+msgid "For Web UI."
+msgstr "針對 Web UI。"
+
+#: ../../source/user_guide/launch.rst:72
+msgid ""
+"When using the command line, use ``--env`` to specify an environment "
+"variable."
+msgstr "命令列使用時，使用 ``--env`` 指定環境變數。"
+
+#: ../../source/user_guide/launch.rst:74
+#: ../../source/user_guide/launch.rst:123
+msgid "Example usage:"
+msgstr "範例用法："
+
+#: ../../source/user_guide/launch.rst:80
+msgid ""
+"Take vLLM as an example: it has versions V1 and V0, and by default, it "
+"automatically determines which version to use. If you want to force the use "
+"of V0 by setting ``VLLM_USE_V1=0`` when launching a model, you can specify "
+"this during model launching."
+msgstr ""
+"以 vLLM 為例，它有 V1 和 V0 兩個版本，預設會自動判定使用哪個版本。如果想在載入模型時強制透過設定 ``VLLM_USE_V1=0`` "
+"來使用 V0，可以指定該環境變數。"
+
+#: ../../source/user_guide/launch.rst:84
+msgid "Configuring Model Virtual Environment"
+msgstr "配置模型虛擬空間"
+
+#: ../../source/user_guide/launch.rst:88
+msgid ""
+"For this part, please refer to :ref:`toggling virtual environments and "
+"customizing dependencies <model_launching_virtualenv>`."
+msgstr "對於這部分，請參考 :ref:`開關虛擬空間和定製依賴 <model_launching_virtualenv>`。"
+
+#: ../../source/user_guide/launch.rst:91
+msgid "Batching / Continuous Batching"
+msgstr "批處理 / 連續批處理"
+
+#: ../../source/user_guide/launch.rst:93
+msgid ""
+"Xinference supports batching for higher throughput. For LLMs on the "
+"``transformers`` engine, continuous batching is available and can be enabled"
+" via environment variables at launch time."
+msgstr ""
+"Xinference支援批次處理以提升吞吐量。對於基於 ``transformers`` "
+"引擎的大型語言模型，可啟用連續批次處理功能，該功能可在啟動時透過環境變數進行設定。"
+
+#: ../../source/user_guide/launch.rst:96
+msgid "Key settings:"
+msgstr "關鍵設定："
+
+#: ../../source/user_guide/launch.rst:98
+msgid ""
+"``XINFERENCE_BATCH_SIZE`` and ``XINFERENCE_BATCH_INTERVAL`` for general "
+"batching behavior."
+msgstr ""
+"``XINFERENCE_BATCH_SIZE`` 和 ``XINFERENCE_BATCH_INTERVAL`` 用於控制常規的批次處理行為。"
+
+#: ../../source/user_guide/launch.rst:99
+msgid ""
+"``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` for text-to-image models (when "
+"supported)."
+msgstr "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE（文字轉圖片模型，若支援）。"
+
+#: ../../source/user_guide/launch.rst:101
+msgid "Example (LLM, transformers):"
+msgstr "範例（大型語言模型，Transformers）："
+
+#: ../../source/user_guide/launch.rst:108
+msgid "Example (text-to-image):"
+msgstr "範例（文生圖）："
+
+#: ../../source/user_guide/launch.rst:114
+msgid ""
+"For detailed behavior, supported models, and aborting requests, see "
+":ref:`Continuous Batching <user_guide_continuous_batching>`."
+msgstr ""
+"有關詳細行為、支援的模型以及中止請求的資訊，請參閱 :ref:`連續批處理 <user_guide_continuous_batching>` 。"
+
+#: ../../source/user_guide/launch.rst:118
+msgid "Thinking Mode"
+msgstr "思考模式"
+
+#: ../../source/user_guide/launch.rst:120
+msgid ""
+"Some hybrid reasoning models (for example, Qwen3) support an optional "
+"*thinking mode*. You can enable this at launch time via ``--enable-"
+"thinking``."
+msgstr ""
+"某些混合推理模型（例如Qwen3）支援可選的 *思考模式* 。您可在啟動時透過 ``--enable-thinking`` 參數啟用該功能。"

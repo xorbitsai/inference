@@ -1,0 +1,195 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-06-26 13:20+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ko <LL@li.org>\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/index.rst:5
+msgid "Welcome to Xinference!"
+msgstr "Xinference에 오신 것을 환영합니다!"
+
+#: ../../source/index.rst:19
+msgid ""
+"Xorbits Inference (Xinference) is an open-source platform to streamline the "
+"operation and integration of a wide array of AI models. With Xinference, "
+"you're empowered to run inference using any open-source LLMs, embedding "
+"models, and multimodal models either in the cloud or on your own premises, "
+"and create robust AI-driven applications."
+msgstr ""
+"Xorbits Inference (Xinference)는 다양한 AI 모델의 실행과 통합을 간소화하는 오픈소스 플랫폼입니다. "
+"Xinference를 사용하면 오픈소스 LLM, 임베딩 모델 및 멀티모달 모델을 클라우드 또는 로컬 환경에서 실행하고, 강력한 AI "
+"애플리케이션을 만들 수 있습니다."
+
+#: ../../source/index.rst:25
+msgid "Developing Real-world AI Applications with Xinference"
+msgstr "Xinference를 사용하여 실제 시나리오의 AI 애플리케이션 개발하기"
+
+#: ../../source/index.rst:117
+msgid "Getting Started"
+msgstr "시작 가이드"
+
+#: ../../source/index.rst:121
+msgid "Install Xinference"
+msgstr "Xinference 설치"
+
+#: ../../source/index.rst:125
+msgid "Install Xinference on Linux, Windows, and macOS."
+msgstr "Linux, Windows 및 macOS에 Xinference 설치하기."
+
+#: ../../source/index.rst:127
+msgid "Try it out!"
+msgstr "지금 바로 체험해보세요!"
+
+#: ../../source/index.rst:131
+msgid "Start by running Xinference on a local machine."
+msgstr "먼저 로컬 컴퓨터에서 Xinference를 실행합니다."
+
+#: ../../source/index.rst:136
+msgid "Explore models"
+msgstr "모델 탐색"
+
+#: ../../source/index.rst:140
+msgid "Explore a wide range of models supported by Xinference."
+msgstr "Xinference가 지원하는 다양한 모델 탐색하기."
+
+#: ../../source/index.rst:142
+msgid "Register your own model"
+msgstr "자신의 모델을 등록하세요"
+
+#: ../../source/index.rst:146
+msgid "Register model weights and turn it into an API."
+msgstr "모델 가중치를 등록하고 API로 변환합니다."
+
+#: ../../source/index.rst:151
+msgid "Explore the API"
+msgstr "API 탐색"
+
+#: ../../source/index.rst:155
+msgid "Chat & Generate"
+msgstr "채팅 & 생성"
+
+#: ../../source/index.rst:159
+msgid "Learn how to chat with LLMs in Xinference."
+msgstr "Xinference에서 LLM과 채팅하는 방법을 알아보세요."
+
+#: ../../source/index.rst:161
+msgid "Tools"
+msgstr "도구"
+
+#: ../../source/index.rst:165
+msgid "Learn how to connect LLM with external tools."
+msgstr "LLM을 외부 도구와 연결하는 방법을 학습합니다."
+
+#: ../../source/index.rst:170
+msgid "Embeddings"
+msgstr "임베딩"
+
+#: ../../source/index.rst:174
+msgid "Learn how to create text embeddings in Xinference."
+msgstr "Xinference에서 텍스트 임베딩을 생성하는 방법을 알아보세요."
+
+#: ../../source/index.rst:176
+msgid "Rerank"
+msgstr "리랭킹(Re-ranking)"
+
+#: ../../source/index.rst:180
+msgid "Learn how to use rerank models in Xinference."
+msgstr "Xinference에서 리랭킹 모델을 사용하는 방법을 알아보세요."
+
+#: ../../source/index.rst:185
+msgid "Images"
+msgstr "이미지"
+
+#: ../../source/index.rst:189
+msgid "Learn how to generate images with Xinference."
+msgstr "Xinference를 사용하여 이미지를 생성하는 방법을 학습합니다."
+
+#: ../../source/index.rst:191
+msgid "Multimodal"
+msgstr "다중 모달"
+
+#: ../../source/index.rst:195
+msgid "Learn how to process images and audio with LLMs."
+msgstr "LLM을 사용하여 이미지와 오디오를 처리하는 방법을 학습합니다."
+
+#: ../../source/index.rst:200
+msgid "Audio"
+msgstr "audio"
+
+#: ../../source/index.rst:204
+msgid "Learn how to turn audio into text or text into audio with Xinference."
+msgstr "Xinference를 사용하여 오디오를 텍스트로 변환하거나 텍스트를 오디오로 변환하는 방법을 학습합니다."
+
+#: ../../source/index.rst:206
+msgid "Video"
+msgstr "동영상"
+
+#: ../../source/index.rst:210
+msgid "Learn how to generate video with Xinference."
+msgstr "Xinference를 사용하여 비디오를 생성하는 방법을 학습합니다."
+
+#: ../../source/index.rst:214
+msgid "Flexible"
+msgstr "Flexible model"
+
+#: ../../source/index.rst:218
+msgid "Learn how to inference traditional ML models with Xinference."
+msgstr "Xinference를 사용하여 전통적인 머신러닝 모델을 추론하는 방법을 알아보세요."
+
+#: ../../source/index.rst:222
+msgid "Getting Involved"
+msgstr "참여해 주세요"
+
+#: ../../source/index.rst:231
+msgid "Get Latest News"
+msgstr "최신 뉴스"
+
+#: ../../source/index.rst:239
+msgid ":fab:`twitter` Follow us on Twitter"
+msgstr ":fab:`twitter` Twitter에서 팔로우하세요"
+
+#: ../../source/index.rst:244
+msgid ":fab:`zhihu` Read our blogs"
+msgstr ":fab:`zhihu` 즈후 블로그 읽기"
+
+#: ../../source/index.rst:251
+msgid "Get Support"
+msgstr "도움을 요청합니다"
+
+#: ../../source/index.rst:264
+msgid ":fab:`discord` Find community on Discord"
+msgstr ":fab:`discord` Discord 커뮤니티"
+
+#: ../../source/index.rst:269
+msgid ":fab:`telegram` Join our Telegram group"
+msgstr ":fab:`telegram` Telegram 그룹에 가입"
+
+#: ../../source/index.rst:269
+msgid ":fab:`github` Open an issue"
+msgstr ":fab:`github` Github에서 이슈 제출"
+
+#: ../../source/index.rst:276
+msgid "Contribute to Xinference"
+msgstr "기여"
+
+#: ../../source/index.rst:284
+msgid ":fab:`github` Create a pull request"
+msgstr ":fab:`github` Github에서 PR 제출"
+
+#~ msgid "Vision"
+#~ msgstr "시각"

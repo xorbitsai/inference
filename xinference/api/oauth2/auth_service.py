@@ -22,6 +22,7 @@ from jose import JWTError, jwt
 from typing_extensions import Annotated
 
 from ..._compat import BaseModel, ValidationError, parse_file_as
+from .scope_aliases import _normalize_scopes
 from .types import AuthStartupConfig, User
 from .utils import create_access_token, get_password_hash, verify_password
 
@@ -108,8 +109,9 @@ class AuthService:
             raise credentials_exception
         if "admin" in token_scopes:
             return user
+        normalized_scopes = _normalize_scopes(token_scopes)
         for scope in security_scopes.scopes:
-            if scope not in token_scopes:
+            if scope not in normalized_scopes:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Not enough permissions",
@@ -129,7 +131,7 @@ class AuthService:
         for user in self._config.user_config:
             for key in user.api_keys:
                 if hmac.compare_digest(api_key, key):
-                    return user, user.permissions
+                    return user, list(_normalize_scopes(user.permissions))
         return None, []
 
     def authenticate_user(self, username: str, password: str):

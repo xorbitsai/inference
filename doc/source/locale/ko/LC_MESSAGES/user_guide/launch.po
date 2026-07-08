@@ -1,0 +1,247 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2025, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-28 11:54+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ko <LL@li.org>\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/launch.rst:5
+msgid "Model Launching Instructions"
+msgstr "모델 로딩 가이드"
+
+#: ../../source/user_guide/launch.rst:7
+msgid ""
+"This document aims to provide a functional overview of model launching."
+msgstr "이 문서는 모델 로딩의 기능 설명을 제공하는 것을 목적으로 합니다."
+
+#: ../../source/user_guide/launch.rst:10
+msgid "Replica"
+msgstr "카피"
+
+#: ../../source/user_guide/launch.rst:12
+msgid ""
+"Replicas specify the number of model instances to load. For example, if you "
+"have two GPUs and each can host one replica of the model, you can set the "
+"replica count to 2. This way, two identical instances of the model will be "
+"distributed across the two GPUs. Xinference automatically load-balances "
+"requests to ensure even distribution across multiple GPUs. Meanwhile, users "
+"see it as a single model, which greatly improves overall resource "
+"utilization."
+msgstr ""
+"복제본은 모델 로딩 시 인스턴스의 복사본 개수를 지정하는 데 사용됩니다. 예를 들어, 두 개의 GPU가 있고 각 카드에 모델의 한 "
+"복사본을 배치할 수 있다면 복제본 수를 2로 설정할 수 있습니다. 이렇게 하면 두 개의 완전히 동일한 모델 인스턴스가 두 GPU에 "
+"분산됩니다. Xinference는 자동으로 로드 밸런싱을 수행하여 요청이 여러 카드에 고르게 분배되도록 보장합니다. 사용자는 여전히 "
+"하나의 모델로 인식하며, 이를 통해 전체 리소스 활용도가 크게 향상됩니다."
+
+#: ../../source/user_guide/launch.rst:17
+msgid "Traditional Multi-Instance Deployment："
+msgstr "구 버전 다중 인스턴스 배포:"
+
+#: ../../source/user_guide/launch.rst:19
+msgid ""
+"When you have multiple GPU cards, each capable of hosting one model "
+"instance, you can set the number of instances equal to the number of GPUs. "
+"For example:"
+msgstr ""
+"여러 개의 GPU를 보유하고 있을 때, 각 GPU는 하나의 모델 인스턴스를 실행할 수 있으며, 이때 인스턴스 수를 GPU 개수와 동일하게"
+" 설정할 수 있습니다. 예:"
+
+#: ../../source/user_guide/launch.rst:21
+msgid "2 GPUs, 2 instances: Each GPU runs one model instance"
+msgstr "2개의 GPU, 2개의 인스턴스: 각 GPU에서 하나의 모델 인스턴스 실행"
+
+#: ../../source/user_guide/launch.rst:22
+msgid "4 GPUs, 4 instances: Each GPU runs one model instance"
+msgstr "4개의 GPU, 4개의 인스턴스: 각 GPU에서 하나의 모델 인스턴스 실행"
+
+#: ../../source/user_guide/launch.rst:26
+msgid "Introduce a new environment variable:"
+msgstr "새로운 환경 변수 도입:"
+
+#: ../../source/user_guide/launch.rst:32
+msgid ""
+"Control whether to enable the single GPU multi-copy feature Default value: 1"
+msgstr "단일 GPU 다중 복제 기능 활성화 여부를 제어합니다. 기본값: 1"
+
+#: ../../source/user_guide/launch.rst:35
+msgid "New Feature: Smart Replica Deployment"
+msgstr "새로운 기능: 스마트 복제 배포"
+
+#: ../../source/user_guide/launch.rst:37
+msgid "Single GPU Multi-Replica"
+msgstr "단일 GPU 다중 복제"
+
+#: ../../source/user_guide/launch.rst:39
+msgid "New Support: Run multiple model replicas even with just one GPU."
+msgstr "신규 지원: GPU가 하나만 있어도 여러 모델 복사본을 실행할 수 있습니다."
+
+#: ../../source/user_guide/launch.rst:41
+msgid "Scenario: You have 1 GPU with sufficient VRAM"
+msgstr "시나리오: 1개의 GPU와 충분한 비디오 메모리를 보유하고 있습니다."
+
+#: ../../source/user_guide/launch.rst:42
+msgid "Configuration: Replica Count = 3, GPU Count = 1"
+msgstr "Configuration: 복제본 개수=3, GPU 개수=1"
+
+#: ../../source/user_guide/launch.rst:43
+msgid ""
+"Result: 3 model instances running on the same GPU, sharing GPU resources"
+msgstr "결과: 동일한 GPU에서 실행되는 3개의 모델 인스턴스가 GPU 리소스를 공유합니다."
+
+#: ../../source/user_guide/launch.rst:45
+msgid "Hybrid GPU Allocation"
+msgstr "혼합 GPU 할당"
+
+#: ../../source/user_guide/launch.rst:47
+msgid ""
+"Smart Allocation: Number of replicas may differ from GPU count; system "
+"intelligently distributes"
+msgstr "지능형 할당: 복제본 수는 GPU 수와 같지 않을 수 있으며, 시스템이 지능적으로 할당합니다."
+
+#: ../../source/user_guide/launch.rst:49
+msgid "Scenario: You have 2 GPUs and need 3 replicas"
+msgstr "시나리오: GPU 2개가 있으며, 3개의 복제본이 필요합니다."
+
+#: ../../source/user_guide/launch.rst:50
+msgid "Configuration: Replicas=3, GPUs=2"
+msgstr "설정: 복제본 수=3, GPU 개수=2"
+
+#: ../../source/user_guide/launch.rst:51
+msgid "Result: GPU0 runs 2 instances, GPU1 runs 1 instance"
+msgstr "결과: GPU0에서 2개의 인스턴스 실행, GPU1에서 1개의 인스턴스 실행"
+
+#: ../../source/user_guide/launch.rst:54
+msgid "GPU Allocation Strategy"
+msgstr "혼합 할당 전략"
+
+#: ../../source/user_guide/launch.rst:56
+msgid ""
+"The current policy is *Idle First*: The scheduler always attempts to assign "
+"replicas to the least utilized GPU. Use the ``XINFERENCE_LAUNCH_STRATEGY`` "
+"parameter to choose launch strategy."
+msgstr ""
+"현재 전략은 *유휴 우선*입니다: 스케줄러는 항상 가장 유휴한 GPU에 복제본을 할당하려고 시도합니다. "
+"``XINFERENCE_ENV_LAUNCH_STRATEGY`` 매개변수를 사용하여 시작 전략을 선택하세요."
+
+#: ../../source/user_guide/launch.rst:59
+msgid "Set Environment Variables"
+msgstr "환경 변수 설정"
+
+#: ../../source/user_guide/launch.rst:63
+msgid ""
+"Sometimes, we want to specify environment variables for a particular model "
+"at runtime. Since v1.8.1, Xinference provides the capability to configure "
+"these individually without needing to set them before starting Xinference."
+msgstr ""
+"때로는 런타임에 특정 모델에 대해 환경 변수를 지정하고 싶을 수 있습니다. v1.8.1부터 Xinference는 Xinference를 "
+"시작하기 전에 설정할 필요 없이 환경 변수를 개별적으로 구성할 수 있는 기능을 제공합니다."
+
+#: ../../source/user_guide/launch.rst:66
+msgid "For Web UI."
+msgstr "Web UI용."
+
+#: ../../source/user_guide/launch.rst:72
+msgid ""
+"When using the command line, use ``--env`` to specify an environment "
+"variable."
+msgstr "명령줄에서 사용할 때 ``--env``로 환경 변수를 지정합니다."
+
+#: ../../source/user_guide/launch.rst:74
+#: ../../source/user_guide/launch.rst:123
+msgid "Example usage:"
+msgstr "예시 사용법:"
+
+#: ../../source/user_guide/launch.rst:80
+msgid ""
+"Take vLLM as an example: it has versions V1 and V0, and by default, it "
+"automatically determines which version to use. If you want to force the use "
+"of V0 by setting ``VLLM_USE_V1=0`` when launching a model, you can specify "
+"this during model launching."
+msgstr ""
+"vLLM을 예로 들면, V1과 V0 두 가지 버전이 있으며, 기본적으로 자동으로 어떤 버전을 사용할지 판단합니다. 모델을 로드할 때 "
+"``VLLM_USE_V1=0``을 설정하여 강제로 V0을 사용하려면 해당 환경 변수를 지정할 수 있습니다."
+
+#: ../../source/user_guide/launch.rst:84
+msgid "Configuring Model Virtual Environment"
+msgstr "가상 공간 구성 모델"
+
+#: ../../source/user_guide/launch.rst:88
+msgid ""
+"For this part, please refer to :ref:`toggling virtual environments and "
+"customizing dependencies <model_launching_virtualenv>`."
+msgstr ""
+"이 부분에 대해서는 :ref:`스위치 가상 공간 및 맞춤 종속성 <model_launching_virtualenv>`을 참조하세요."
+
+#: ../../source/user_guide/launch.rst:91
+msgid "Batching / Continuous Batching"
+msgstr "Batch / Continuous Batch"
+
+#: ../../source/user_guide/launch.rst:93
+msgid ""
+"Xinference supports batching for higher throughput. For LLMs on the "
+"``transformers`` engine, continuous batching is available and can be enabled"
+" via environment variables at launch time."
+msgstr ""
+"Xinference는 배치 처리를 지원하여 처리량을 높입니다. ``transformers`` 엔진 기반의 대규모 언어 모델의 경우, 연속"
+" 배치 처리 기능을 활성화할 수 있으며, 이 기능은 시작 시 환경 변수를 통해 구성할 수 있습니다."
+
+#: ../../source/user_guide/launch.rst:96
+msgid "Key settings:"
+msgstr "핵심 설정:"
+
+#: ../../source/user_guide/launch.rst:98
+msgid ""
+"``XINFERENCE_BATCH_SIZE`` and ``XINFERENCE_BATCH_INTERVAL`` for general "
+"batching behavior."
+msgstr ""
+"``XINFERENCE_BATCH_SIZE``와 ``XINFERENCE_BATCH_INTERVAL``은 일반적인 배치 처리 동작을 "
+"제어하는 데 사용됩니다."
+
+#: ../../source/user_guide/launch.rst:99
+msgid ""
+"``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE`` for text-to-image models (when "
+"supported)."
+msgstr "``XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE``（텍스트-이미지 모델, 지원 시)."
+
+#: ../../source/user_guide/launch.rst:101
+msgid "Example (LLM, transformers):"
+msgstr "예시 (Large Language Model, Transformers)"
+
+#: ../../source/user_guide/launch.rst:108
+msgid "Example (text-to-image):"
+msgstr "예시 (텍스트-이미지 생성):"
+
+#: ../../source/user_guide/launch.rst:114
+msgid ""
+"For detailed behavior, supported models, and aborting requests, see "
+":ref:`Continuous Batching <user_guide_continuous_batching>`."
+msgstr ""
+"자세한 동작, 지원되는 모델 및 중단 요청에 대한 정보는 :ref:`연속 배치 "
+"<user_guide_continuous_batching>` 를 참조하세요."
+
+#: ../../source/user_guide/launch.rst:118
+msgid "Thinking Mode"
+msgstr "사고 모드"
+
+#: ../../source/user_guide/launch.rst:120
+msgid ""
+"Some hybrid reasoning models (for example, Qwen3) support an optional "
+"*thinking mode*. You can enable this at launch time via ``--enable-"
+"thinking``."
+msgstr ""
+"일부 하이브리드 추론 모델(예: Qwen3)은 선택적 *사고 모드*를 지원합니다. 시작 시 ``--enable-thinking`` "
+"매개변수를 사용하여 이 기능을 활성화할 수 있습니다."
