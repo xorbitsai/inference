@@ -132,6 +132,13 @@ def mount_frontend(app: FastAPI, dist_dir: Path) -> bool:
         if rel_path and candidate.is_file():
             return candidate
 
+        # A trailing slash (e.g. "running-model/uid1/") would otherwise miss
+        # every lookup below, since none of the emitted file/shell names end
+        # in "/". Strip it before continuing; the root path is already
+        # handled by the caller.
+        rel_path = rel_path.rstrip("/")
+        candidate = dist_dir / rel_path
+
         # Next prefetches a route's RSC flight payload at "<route>.txt". Match it
         # against the route table on the base path and serve the .txt variant, so
         # dynamic-route prefetches get the shell's flight payload (not the HTML,

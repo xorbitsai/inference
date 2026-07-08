@@ -155,9 +155,21 @@ class TestSpaRouting:
         assert resp.status_code == 200
         assert resp.text == "RSC:launch-model"
 
+    def test_static_route_with_trailing_slash(self, dist_dir: Path):
+        client = TestClient(_app_with_backend_routes(dist_dir))
+        resp = client.get("/launch-model/")
+        assert resp.status_code == 200
+        assert "launch-model" in resp.text
+
     def test_dynamic_route_serves_shell(self, dist_dir: Path):
         client = TestClient(_app_with_backend_routes(dist_dir))
         resp = client.get("/running-model/my-model-uid")
+        assert resp.status_code == 200
+        assert "running-shell" in resp.text
+
+    def test_dynamic_route_with_trailing_slash(self, dist_dir: Path):
+        client = TestClient(_app_with_backend_routes(dist_dir))
+        resp = client.get("/running-model/my-model-uid/")
         assert resp.status_code == 200
         assert "running-shell" in resp.text
 
