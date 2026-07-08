@@ -3,8 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3999",
+    "dev": "next dev -H 127.0.0.1 -p 3999",
     "build": "next build",
+    "postbuild": "node scripts/stage-export.mjs",
     "start": "next start",
     "lint": "eslint .",
     "format": "prettier . --write"

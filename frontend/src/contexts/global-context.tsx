@@ -21,10 +21,10 @@ export interface GlobalState {
 const GlobalContext = createContext<GlobalState | null>(null);
 
 interface Props extends PropsWithChildren {
-  initClusterAuth: ClusterAuth | null;
+  initClusterAuth?: ClusterAuth | null;
 }
 
-export function GlobalProvider({ children, initClusterAuth }: Props) {
+export function GlobalProvider({ children, initClusterAuth = null }: Props) {
   const [clusterAuth, setClusterAuth] = useState(initClusterAuth);
   const [clusterVersion, setClusterVersion] = useState({} as ClusterVersion);
   const [clusterUIConfig, setClusterUIConfig] = useState({} as ClusterUIConfig);
