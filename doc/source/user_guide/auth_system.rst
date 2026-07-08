@@ -7,14 +7,18 @@ Simple OAuth2 System (experimental)
 Xinference builds an In-memory OAuth2 authentication and authorization system using the account-password mode.
 
 .. note::
-   Starting from this version, Xinference enables an advanced, database-backed
-   authentication system by default (``XINFERENCE_AUTH_ADVANCED``). On first
-   startup, an ``admin`` account is created automatically and its one-time
-   password is printed to the server log — save it, since it is not shown
-   again. To use the simple, file-based authentication described below
-   instead, set ``XINFERENCE_AUTH_ADVANCED=false`` and pass ``--auth-config``.
-   To disable authentication entirely, also set ``XINFERENCE_AUTH_ADVANCED=false``
-   and omit ``--auth-config``.
+   Since **v3.0**, Xinference enables the :ref:`advanced, database-backed
+   authentication system <user_guide_advanced_auth_system>` by default
+   (``XINFERENCE_AUTH_ADVANCED``), replacing the in-memory system described
+   below as the default behavior. On first startup, an ``admin`` account is
+   created automatically and its one-time password is printed to the server
+   log — save it, since it is not shown again.
+
+   The simple, file-based authentication system on this page still works and
+   is not going away. To use it instead of the advanced system, set
+   ``XINFERENCE_AUTH_ADVANCED=false`` and pass ``--auth-config`` as described
+   below. To disable authentication entirely, also set
+   ``XINFERENCE_AUTH_ADVANCED=false`` and omit ``--auth-config``.
 
 
 Permissions
@@ -172,25 +176,165 @@ Add the following two HTTP status codes:
 For the command line, SDK, or web UI users, there will be clear information prompts when encountering authorization and permissions issues.
 
 
-Advanced authentication (DB-backed)
-====================================
-When the advanced authentication system is enabled, users, permissions, API
-keys, and refresh tokens are stored in a database rather than the static
-``auth_config.json`` file. This section documents two behaviors that
-operators should know.
+This feature is still in an experimental stage — see `Feedback`_ at the
+bottom of this page for how to reach us with issues or suggestions.
+
+
+.. _user_guide_advanced_auth_system:
+
+=====================================================
+Advanced Authentication System (database-backed)
+=====================================================
+
+.. versionadded:: 3.0
+   The advanced authentication system, and its default-enabled status.
+
+Unlike the simple system above, which loads a static ``auth_config.json``
+file into memory, the advanced authentication system stores users,
+permissions, API keys, and refresh tokens in a local SQLite database. It
+supports creating/managing users and API keys at runtime through REST
+endpoints, instead of requiring a server restart to change an ``auth_config.json``
+file.
+
+**Since v3.0, this system is enabled by default** — a fresh Xinference
+deployment requires authentication out of the box.
+
+Enabling / disabling
+=====================
+The advanced authentication system is controlled by the
+``XINFERENCE_AUTH_ADVANCED`` environment variable:
+
+* Unset, or any of ``1`` / ``true`` / ``yes`` (case-insensitive): enabled (the default).
+* Any of ``0`` / ``false`` / ``no`` (case-insensitive): disabled.
+
+It is mutually exclusive with the simple system's ``--auth-config`` option —
+passing ``--auth-config`` while ``XINFERENCE_AUTH_ADVANCED`` is (or defaults
+to) enabled raises a startup error. To use ``--auth-config`` instead, or to
+run with no authentication at all, set ``XINFERENCE_AUTH_ADVANCED=false``:
+
+.. code-block:: bash
+
+   # Fall back to the simple, file-based auth system
+   export XINFERENCE_AUTH_ADVANCED=false
+   xinference-local -H 0.0.0.0 --auth-config /path/to/your_json_config_file
+
+   # Or disable authentication entirely
+   export XINFERENCE_AUTH_ADVANCED=false
+   xinference-local -H 0.0.0.0
+
+Initial admin account
+=======================
+On first startup with the advanced system enabled, Xinference automatically
+creates an ``admin`` user (with the ``admin`` permission) if the user table
+is empty, and prints a one-time, randomly generated password to the server
+log:
+
+.. code-block::
+
+    ============================================================
+      INITIAL ADMIN CREDENTIALS (shown only once)
+      Username: admin
+      Password: <randomly generated>
+      Please change the password on first login.
+    ============================================================
+
+This password is **not stored anywhere in plaintext** and is not shown
+again — save it from the log, and change it on first login (the account is
+flagged ``must_change_password`` until you do).
+
+Secrets and storage locations
+===============================
+The advanced system needs a JWT signing secret and an encryption key (used
+to encrypt stored API keys at rest), plus a database file. All three can be
+overridden with environment variables; if you don't set them, Xinference
+generates and persists them automatically on first run under
+``XINFERENCE_HOME`` (``~/.xinference`` by default):
+
+.. list-table::
+   :header-rows: 1
+
+   * - Purpose
+     - Environment variable
+     - Default location
+   * - JWT signing secret
+     - ``XINFERENCE_AUTH_JWT_SECRET_KEY``
+     - ``<XINFERENCE_HOME>/auth/jwt_secret_key`` (auto-generated)
+   * - API key encryption key
+     - ``XINFERENCE_AUTH_ENCRYPTION_KEY``
+     - ``<XINFERENCE_HOME>/auth/encryption_key`` (auto-generated)
+   * - User/API key database
+     - ``XINFERENCE_AUTH_DB_PATH``
+     - ``<XINFERENCE_HOME>/auth/auth.db``
+
+Auto-generated secrets are written once and reused on subsequent restarts,
+so existing JWTs and encrypted API keys keep working across restarts. In a
+distributed deployment (supervisor + workers), make sure all processes that
+run the RESTful API share the same ``XINFERENCE_HOME`` (or set the same
+explicit environment variables), so they agree on the same secrets and
+database.
+
+Advanced-system permissions
+==============================
+The advanced system uses the same permission names as the simple system
+(``models:list``, ``models:read``, ``models:register``, ``models:unregister``,
+``models:start``, ``models:stop``, ``admin``), plus additional scopes for
+managing the advanced system itself:
+
+* ``keys:create``: Permission to create API keys (for oneself, or for others when combined with ``keys:manage``).
+* ``keys:manage``: Permission to list, update, delete, and reveal any user's API keys.
+* ``users:manage``: Permission to create, update, delete users, and manage their permissions.
+* ``cache:list`` / ``cache:delete``: Permissions to list/delete cached model files.
+* ``virtualenv:list`` / ``virtualenv:delete``: Permissions to list/delete per-model virtual environments.
+* ``admin``: Administrators have all of the above.
+
+A caller may only grant permissions they themselves hold — for example, a
+user with only ``users:manage`` cannot grant ``admin`` to someone else.
+
+Login and API-key usage
+==========================
+Login and API-key usage (signin, ``--api-key``, ``Authorization: Bearer``
+header, OpenAI-SDK compatibility) work the same way as described in the
+`Usage`_ section above for the simple system.
+
+Managing users and API keys
+==============================
+Once logged in as a user with the ``users:manage`` and/or ``keys:manage``
+permission (the bootstrap ``admin`` account has both), you can manage users
+and API keys through REST endpoints under ``/v1/admin``, for example:
+
+.. code-block:: bash
+
+    # Create a new user
+    curl -X POST "<endpoint>/v1/admin/users" \
+      -H "Authorization: Bearer <admin_access_token>" \
+      -H "Content-Type: application/json" \
+      -d '{"username": "alice", "password": "s3cret!", "permissions": ["models:list", "models:read"]}'
+
+    # Create an API key for the current user
+    curl -X POST "<endpoint>/v1/admin/keys" \
+      -H "Authorization: Bearer <access_token>" \
+      -H "Content-Type: application/json" \
+      -d '{"name": "my-key"}'
+
+Other supported endpoints include listing/updating/deleting users
+(``/v1/admin/users``, ``/v1/admin/users/{user_id}``), changing a user's
+password (``/v1/admin/users/{user_id}/password``), and listing, updating,
+deleting, and revealing API keys (``/v1/admin/keys``,
+``/v1/admin/keys/{key_id}``, ``/v1/admin/keys/{key_id}/reveal``).
+
+Behavior notes
+================
 
 Permission changes take effect without re-login
------------------------------------------------
-For advanced-auth JWT requests, route scope checks read the user's
-**current** permissions from the database on every request, not the
-scopes baked into the JWT at login. Granting or revoking a permission
-takes effect on the user's next API call — no re-login required.
-
-This applies to JWT-based browser sessions. API keys are also live-read
-(they always have been).
+-------------------------------------------------
+Route scope checks read the user's **current** permissions from the
+database on every request, not the scopes baked into the JWT at login.
+Granting or revoking a permission takes effect on the user's next API
+call — no re-login required. This applies to JWT-based browser sessions;
+API keys are also live-read (they always have been).
 
 Configurable access-token lifetime
------------------------------------
+-------------------------------------
 The access-token lifetime defaults to 30 minutes and can be overridden
 with the ``XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES`` environment variable:
 
@@ -201,9 +345,8 @@ with the ``XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES`` environment variable:
 A shorter lifetime shrinks the token-theft window. The refresh token
 lifetime is 7 days and is not currently configurable.
 
-
-Note
-====
+Feedback
+==========
 This feature is still in an experimental stage.
 Feel free to provide feedback on usage issues or improvement suggestions through `GitHub issues <https://github.com/xorbitsai/inference/issues>`_ or
 `our Telegram group <https://t.me/+nCNpwmySwk9iYmI1>`_.
