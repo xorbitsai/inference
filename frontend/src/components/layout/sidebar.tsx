@@ -17,6 +17,7 @@ import {
   Rocket,
   Monitor,
   ScrollText,
+  ShieldCheck,
   Users,
   UserRound,
   KeyRound,
@@ -146,7 +147,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const branding = getBrandingFromEnv();
   const { clusterVersion, clusterAuth, clusterUIConfig } = useGlobal();
-  const { usersManagePage, keysManageCreate } = useMenuAuth();
+  const { isAdmin, usersManagePage, keysManageCreate } = useMenuAuth();
   const [token, setToken] = useState<string | undefined>();
   const showLoginOut = useMemo(
     () => Boolean(clusterAuth?.auth && token && token !== NO_AUTH),
@@ -245,8 +246,17 @@ export function Sidebar() {
             Extra: ChevronRight,
             show: keysManageCreate,
           },
+          {
+            path: '/security-settings',
+            name: t('menu.securitySettings'),
+            Icon: ShieldCheck,
+            Extra: ChevronRight,
+            show: Boolean(clusterUIConfig?.auth_advanced) && isAdmin,
+          },
         ],
-        show: (clusterUIConfig?.auth_advanced || false) && (usersManagePage || keysManageCreate),
+        show:
+          (clusterUIConfig?.auth_advanced || false) &&
+          (usersManagePage || keysManageCreate || isAdmin),
       },
       {
         name: t('menu.resourcesAndSupport'),
@@ -289,7 +299,7 @@ export function Sidebar() {
         ...group,
         items: group.items.filter(({ show = true }) => show),
       }));
-  }, [clusterUIConfig, locale, t, usersManagePage, keysManageCreate]);
+  }, [clusterUIConfig, locale, t, usersManagePage, keysManageCreate, isAdmin]);
 
   return (
     <div
