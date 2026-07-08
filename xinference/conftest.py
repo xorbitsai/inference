@@ -190,6 +190,10 @@ def setup():
     if not cluster_health_check(supervisor_addr, max_attempts=10, sleep_interval=5):
         raise RuntimeError("Cluster is not available after multiple attempts")
 
+    # This fixture is used by tests that exercise unauthenticated requests;
+    # advanced auth defaults to on, so it must be explicitly disabled here.
+    os.environ["XINFERENCE_AUTH_ADVANCED"] = "false"
+
     port = xo.utils.get_next_port()
     restful_api_proc = run_restful_api(
         supervisor_addr,
@@ -221,6 +225,10 @@ def setup_with_file_logging():
     )
     if not cluster_health_check(supervisor_addr, max_attempts=10, sleep_interval=5):
         raise RuntimeError("Cluster is not available after multiple attempts")
+
+    # This fixture is used by tests that exercise unauthenticated requests;
+    # advanced auth defaults to on, so it must be explicitly disabled here.
+    os.environ["XINFERENCE_AUTH_ADVANCED"] = "false"
 
     port = xo.utils.get_next_port()
     restful_api_proc = run_restful_api(
@@ -283,6 +291,10 @@ def setup_with_auth():
     _, auth_file = tempfile.mkstemp()
     with open(auth_file, "w") as fd:
         fd.write(json.dumps(startup_config.dict()))
+
+    # This fixture exercises the legacy file-based auth config, which is
+    # mutually exclusive with advanced auth (on by default).
+    os.environ["XINFERENCE_AUTH_ADVANCED"] = "false"
 
     port = xo.utils.get_next_port()
     restful_api_proc = run_restful_api(

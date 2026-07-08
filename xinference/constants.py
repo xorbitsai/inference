@@ -94,13 +94,57 @@ XINFERENCE_LOG_DIR = os.environ.get(
 XINFERENCE_IMAGE_DIR = os.path.join(XINFERENCE_HOME, "image")
 XINFERENCE_VIDEO_DIR = os.path.join(XINFERENCE_HOME, "video")
 XINFERENCE_AUTH_DIR = os.path.join(XINFERENCE_HOME, "auth")
-XINFERENCE_AUTH_ADVANCED = os.environ.get("XINFERENCE_AUTH_ADVANCED", "").lower() in (
-    "1",
-    "true",
-    "yes",
+# Advanced auth (user accounts, API keys) is on by default. Set
+# XINFERENCE_AUTH_ADVANCED=0/false/no to fall back to the legacy
+# --auth-config file mode or to no authentication at all.
+XINFERENCE_AUTH_ADVANCED = os.environ.get(
+    "XINFERENCE_AUTH_ADVANCED", "true"
+).lower() not in (
+    "0",
+    "false",
+    "no",
 )
-XINFERENCE_AUTH_JWT_SECRET_KEY = os.environ.get("XINFERENCE_AUTH_JWT_SECRET_KEY", "")
-XINFERENCE_AUTH_ENCRYPTION_KEY = os.environ.get("XINFERENCE_AUTH_ENCRYPTION_KEY", "")
+
+
+def _get_or_create_persisted_secret(env_name: str, file_name: str) -> str:
+    """Return a secret from the environment, or generate one on first run.
+
+    Generated secrets are persisted under XINFERENCE_AUTH_DIR so that
+    restarts (and multiple supervisor/worker processes sharing the same
+    XINFERENCE_HOME) keep using the same key instead of invalidating
+    existing JWTs / encrypted API keys.
+    """
+    env_val = os.environ.get(env_name, "")
+    if env_val:
+        return env_val
+
+    secret_path = os.path.join(XINFERENCE_AUTH_DIR, file_name)
+    if os.path.exists(secret_path):
+        with open(secret_path, "r") as f:
+            existing = f.read().strip()
+        if existing:
+            return existing
+
+    import secrets as _secrets
+
+    generated = _secrets.token_hex(32)
+    os.makedirs(XINFERENCE_AUTH_DIR, exist_ok=True)
+    fd = os.open(secret_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(generated)
+    return generated
+
+
+XINFERENCE_AUTH_JWT_SECRET_KEY = (
+    _get_or_create_persisted_secret("XINFERENCE_AUTH_JWT_SECRET_KEY", "jwt_secret_key")
+    if XINFERENCE_AUTH_ADVANCED
+    else os.environ.get("XINFERENCE_AUTH_JWT_SECRET_KEY", "")
+)
+XINFERENCE_AUTH_ENCRYPTION_KEY = (
+    _get_or_create_persisted_secret("XINFERENCE_AUTH_ENCRYPTION_KEY", "encryption_key")
+    if XINFERENCE_AUTH_ADVANCED
+    else os.environ.get("XINFERENCE_AUTH_ENCRYPTION_KEY", "")
+)
 XINFERENCE_AUTH_DB_PATH = os.environ.get(
     "XINFERENCE_AUTH_DB_PATH", os.path.join(XINFERENCE_HOME, "auth", "auth.db")
 )

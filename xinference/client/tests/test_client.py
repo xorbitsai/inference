@@ -469,6 +469,10 @@ def setup_cluster():
     if not health_check(address=supervisor_address, max_attempts=20, sleep_interval=1):
         raise RuntimeError("Supervisor is not available after multiple attempts")
 
+    # This fixture is used by tests that exercise unauthenticated requests;
+    # advanced auth defaults to on, so it must be explicitly disabled here.
+    os.environ["XINFERENCE_AUTH_ADVANCED"] = "false"
+
     try:
         port = xo.utils.get_next_port()
         restful_api_proc = restful_api_run_in_subprocess(

@@ -7,7 +7,14 @@ Simple OAuth2 System (experimental)
 Xinference builds an In-memory OAuth2 authentication and authorization system using the account-password mode.
 
 .. note::
-   If you don't have authentication and authorization requirements, you can use Xinference as before, without any changes.
+   Starting from this version, Xinference enables an advanced, database-backed
+   authentication system by default (``XINFERENCE_AUTH_ADVANCED``). On first
+   startup, an ``admin`` account is created automatically and its one-time
+   password is printed to the server log — save it, since it is not shown
+   again. To use the simple, file-based authentication described below
+   instead, set ``XINFERENCE_AUTH_ADVANCED=false`` and pass ``--auth-config``.
+   To disable authentication entirely, also set ``XINFERENCE_AUTH_ADVANCED=false``
+   and omit ``--auth-config``.
 
 
 Permissions
