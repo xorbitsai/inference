@@ -113,26 +113,43 @@ def _get_or_create_persisted_secret(env_name: str, file_name: str) -> str:
     restarts (and multiple supervisor/worker processes sharing the same
     XINFERENCE_HOME) keep using the same key instead of invalidating
     existing JWTs / encrypted API keys.
+
+    File creation uses O_EXCL so that concurrent first-time launches
+    (e.g. supervisor and worker starting together) race safely: only one
+    process wins the create, and the others fall back to reading the file
+    it wrote instead of each keeping a different generated value in memory.
     """
+    import time
+
     env_val = os.environ.get(env_name, "")
     if env_val:
         return env_val
 
     secret_path = os.path.join(XINFERENCE_AUTH_DIR, file_name)
-    if os.path.exists(secret_path):
-        with open(secret_path, "r") as f:
-            existing = f.read().strip()
-        if existing:
-            return existing
-
-    import secrets as _secrets
-
-    generated = _secrets.token_hex(32)
     os.makedirs(XINFERENCE_AUTH_DIR, exist_ok=True)
-    fd = os.open(secret_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w") as f:
-        f.write(generated)
-    return generated
+
+    for _ in range(50):
+        if os.path.exists(secret_path):
+            with open(secret_path, "r") as f:
+                existing = f.read().strip()
+            if existing:
+                return existing
+            # Another process created the file but hasn't written to it yet.
+            time.sleep(0.1)
+            continue
+
+        import secrets as _secrets
+
+        generated = _secrets.token_hex(32)
+        try:
+            fd = os.open(secret_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            continue
+        with os.fdopen(fd, "w") as f:
+            f.write(generated)
+        return generated
+
+    raise RuntimeError(f"Failed to read or create secret file: {secret_path}")
 
 
 XINFERENCE_AUTH_JWT_SECRET_KEY = (

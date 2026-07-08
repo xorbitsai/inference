@@ -183,16 +183,17 @@ def setup():
 
     logging.config.dictConfig(TEST_LOGGING_CONF)  # type: ignore
 
+    # This fixture is used by tests that exercise unauthenticated requests;
+    # advanced auth defaults to on, so it must be explicitly disabled here,
+    # before any subprocess (which inherits this env) is started.
+    os.environ["XINFERENCE_AUTH_ADVANCED"] = "false"
+
     supervisor_addr = f"localhost:{xo.utils.get_next_port()}"
     local_cluster_proc = run_test_cluster_in_subprocess(
         supervisor_addr, TEST_LOGGING_CONF
     )
     if not cluster_health_check(supervisor_addr, max_attempts=10, sleep_interval=5):
         raise RuntimeError("Cluster is not available after multiple attempts")
-
-    # This fixture is used by tests that exercise unauthenticated requests;
-    # advanced auth defaults to on, so it must be explicitly disabled here.
-    os.environ["XINFERENCE_AUTH_ADVANCED"] = "false"
 
     port = xo.utils.get_next_port()
     restful_api_proc = run_restful_api(
@@ -219,16 +220,17 @@ def setup_with_file_logging():
 
     logging.config.dictConfig(TEST_FILE_LOGGING_CONF)  # type: ignore
 
+    # This fixture is used by tests that exercise unauthenticated requests;
+    # advanced auth defaults to on, so it must be explicitly disabled here,
+    # before any subprocess (which inherits this env) is started.
+    os.environ["XINFERENCE_AUTH_ADVANCED"] = "false"
+
     supervisor_addr = f"localhost:{xo.utils.get_next_port()}"
     local_cluster_proc = run_test_cluster_in_subprocess(
         supervisor_addr, TEST_FILE_LOGGING_CONF
     )
     if not cluster_health_check(supervisor_addr, max_attempts=10, sleep_interval=5):
         raise RuntimeError("Cluster is not available after multiple attempts")
-
-    # This fixture is used by tests that exercise unauthenticated requests;
-    # advanced auth defaults to on, so it must be explicitly disabled here.
-    os.environ["XINFERENCE_AUTH_ADVANCED"] = "false"
 
     port = xo.utils.get_next_port()
     restful_api_proc = run_restful_api(
@@ -254,6 +256,11 @@ def setup_with_auth():
     from .deploy.utils import health_check as cluster_health_check
 
     logging.config.dictConfig(TEST_LOGGING_CONF)  # type: ignore
+
+    # This fixture exercises the legacy file-based auth config, which is
+    # mutually exclusive with advanced auth (on by default). Disable it
+    # before any subprocess (which inherits this env) is started.
+    os.environ["XINFERENCE_AUTH_ADVANCED"] = "false"
 
     supervisor_addr = f"localhost:{xo.utils.get_next_port()}"
     local_cluster_proc = run_test_cluster_in_subprocess(
@@ -291,10 +298,6 @@ def setup_with_auth():
     _, auth_file = tempfile.mkstemp()
     with open(auth_file, "w") as fd:
         fd.write(json.dumps(startup_config.dict()))
-
-    # This fixture exercises the legacy file-based auth config, which is
-    # mutually exclusive with advanced auth (on by default).
-    os.environ["XINFERENCE_AUTH_ADVANCED"] = "false"
 
     port = xo.utils.get_next_port()
     restful_api_proc = run_restful_api(
