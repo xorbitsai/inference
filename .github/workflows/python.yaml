@@ -455,6 +455,7 @@ jobs:
             pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
               "$@" || rc=$?
+            echo "group '$group' pytest exit code: $rc"
             if [ "$rc" -ne 0 ]; then
               echo "::warning::pytest exited with code $rc for group '$group'"
               status=1
@@ -503,5 +504,9 @@ jobs:
             esac
             echo "::endgroup::"
           done
-          exit "$status"
+          echo "aggregate pytest status: $status"
+          # Finish with a plain test instead of an explicit `exit`: two runs
+          # with every pytest group green still ended in exit code 1 through
+          # the login shell's explicit-exit path on this runner image.
+          [ "$status" -eq 0 ]
         working-directory: .
