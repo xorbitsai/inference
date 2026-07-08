@@ -74,11 +74,16 @@ class CustomSDist(ExtraCommandMixin, sdist):
     pass
 
 class BuildWeb(Command):
-    """build_web command"""
+    """build_web command
+
+    Builds the Next.js static export under ``frontend/`` and stages it at
+    ``xinference/ui/web/dist`` so it ships inside the wheel/sdist and the
+    backend serves it without a Node runtime.
+    """
 
     user_options = []
     _web_src_path = "frontend"
-    _web_dest_path = "frontend/.next/standalone/server.js"
+    _web_dest_path = "xinference/ui/web/dist/index.html"
     _commands = [
         ["npm", "ci"],
         ["npm", "run", "build"],
@@ -120,9 +125,13 @@ class BuildWeb(Command):
                     cmd_errored = True
                     break
             if not cmd_errored:
+                # `npm run build` stages the static export at
+                # xinference/ui/web/dist via its postbuild hook.
                 assert os.path.exists(web_dest_path)
 
 
+CustomInstall.register_pre_command("build_web")
+CustomDevelop.register_pre_command("build_web")
 CustomSDist.register_pre_command("build_web")
 
 sys.path.append(repo_root)

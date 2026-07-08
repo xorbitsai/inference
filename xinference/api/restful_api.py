@@ -23,6 +23,7 @@ import pprint
 import time
 import uuid
 import warnings
+from pathlib import Path
 from typing import Any, List, Optional, Union, get_type_hints
 
 import gradio as gr
@@ -41,10 +42,9 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from sse_starlette.sse import EventSourceResponse
-from starlette.responses import PlainTextResponse, RedirectResponse
+from starlette.responses import PlainTextResponse
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
@@ -72,6 +72,7 @@ from ..types import (
     PeftModelConfig,
     max_tokens_field,
 )
+from .frontend_static import ensure_spa_fallback_last, mount_frontend
 from .oauth2.auth_service import AuthService
 from .responses import JSONResponse
 from .schemas import (
@@ -554,55 +555,26 @@ class RESTfulAPI(CancelMixin):
                 f"{pprint.pformat(invalid_routes)}"
             )
 
-        class SPAStaticFiles(StaticFiles):
-            async def get_response(self, path: str, scope):
-                response = await super().get_response(path, scope)
-                if response.status_code == 404:
-                    response = await super().get_response(".", scope)
-                return response
-
         try:
             package_file_path = __import__("xinference").__file__
             assert package_file_path is not None
             lib_location = os.path.abspath(os.path.dirname(package_file_path))
-            ui_location = os.path.join(lib_location, "ui/web/ui/build/")
         except ImportError as e:
             raise ImportError(f"Xinference is imported incorrectly: {e}")
 
-        frontend_endpoint = os.environ.get(
-            "XINFERENCE_FRONTEND_ENDPOINT", "http://127.0.0.1:3999"
+        ui_dist_location = os.environ.get(
+            "XINFERENCE_FRONTEND_DIST_DIR",
+            os.path.join(lib_location, "ui", "web", "dist"),
         )
-        if frontend_endpoint:
-            frontend_endpoint = frontend_endpoint.rstrip("/")
-
-            @self._app.get("/")
-            def read_main():
-                response = RedirectResponse(url=frontend_endpoint)
-                return response
-
-            @self._app.get("/ui/")
-            def read_ui():
-                response = RedirectResponse(url=frontend_endpoint)
-                return response
-
-        elif os.path.exists(ui_location):
-
-            @self._app.get("/")
-            def read_main():
-                response = RedirectResponse(url="/ui/")
-                return response
-
-            self._app.mount(
-                "/ui/",
-                SPAStaticFiles(directory=ui_location, html=True),
-            )
-        else:
+        if not mount_frontend(self._app, Path(ui_dist_location)):
             warnings.warn(
                 f"""
-            The legacy Xinference ui is not built at expected directory: {ui_location}
-            The default frontend now runs as a separate Next.js application.
-            Start the backend with "xinference-local" and start the frontend from
-            the repository "frontend/" directory with "npm run dev".
+            The Xinference web UI is not built at expected directory: {ui_dist_location}
+            The API keeps serving without the web UI. To enable it, build the
+            frontend static export from the repository "frontend/" directory with
+            "npm ci && npm run build" (this stages the export at the directory
+            above), or set XINFERENCE_FRONTEND_DIST_DIR to an export directory,
+            and restart. For frontend development, run "npm run dev" instead.
             """
             )
 
@@ -1091,6 +1063,7 @@ class RESTfulAPI(CancelMixin):
                 access_token=access_token,
             ).build()
             gr.mount_gradio_app(self._app, interface, f"/{model_uid}")
+            ensure_spa_fallback_last(self._app)
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))
@@ -1131,6 +1104,7 @@ class RESTfulAPI(CancelMixin):
             ).build()
 
             gr.mount_gradio_app(self._app, interface, f"/{model_uid}")
+            ensure_spa_fallback_last(self._app)
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))
@@ -1172,6 +1146,7 @@ class RESTfulAPI(CancelMixin):
             ).build()
 
             gr.mount_gradio_app(self._app, interface, f"/{model_uid}")
+            ensure_spa_fallback_last(self._app)
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))

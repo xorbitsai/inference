@@ -42,8 +42,20 @@ jobs:
         run: cd frontend && npm ci
       - name: ESLint Check
         run: cd frontend && npx eslint .
-      - name: Build frontend
+      - name: Build frontend (static export)
         run: cd frontend && npm run build
+      - name: Verify static export output
+        run: |
+          test -f frontend/out/index.html
+          test -f frontend/out/404.html
+          # Dynamic routes must emit __shell__ placeholder pages.
+          find frontend/out -name '__shell__*' | grep -q .
+      - name: Serve static export from backend
+        run: |
+          pip install fastapi httpx pytest xoscar
+          pytest --noconftest -vv \
+            xinference/api/tests/test_frontend_static.py \
+            xinference/api/tests/test_frontend_static_real_export.py
 
   build_test_job:
     runs-on: ${{ matrix.os }}

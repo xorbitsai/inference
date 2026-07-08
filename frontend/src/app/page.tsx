@@ -1,5 +1,16 @@
-import { redirect } from 'next/navigation';
+'use client';
 
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+// Client-side redirect: server redirect()/next.config redirects are not
+// supported in static export.
 export default function Home() {
-  redirect('/launch-model');
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace('/launch-model');
+  }, [router]);
+
+  return null;
 }

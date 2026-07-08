@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev -H 127.0.0.1 -p 3999",
     "build": "next build",
+    "postbuild": "node scripts/stage-export.mjs",
     "start": "next start",
     "lint": "eslint .",
     "format": "prettier . --write"

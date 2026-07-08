@@ -109,6 +109,10 @@ frontend:
 
 Still, if the first command fails to execute, you can try adding the ``--force`` option.
 
+The build emits a static export and stages it at ``xinference/ui/web/dist``,
+where the Xinference backend serves it directly — no Node.js runtime is needed
+after building.
+
 For local frontend development, start the Xinference backend separately and then run:
 
 ::
