@@ -856,9 +856,7 @@ class DeepSeekOCRModel(OCRModel):
                     latex_info = processed_result.get("latex_processing")
                     processed_result = processed_result.get("text", result)
                 else:
-                    processed_result = (
-                        processed_result if processed_result else result
-                    )
+                    processed_result = processed_result if processed_result else result
                     latex_info = None
 
                 # Prepare response
