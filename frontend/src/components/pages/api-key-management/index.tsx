@@ -288,7 +288,7 @@ export default function ApiKeyManagement() {
         <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
           {displayValue}
         </span>
-        {isAdmin && (
+        {canManageKeys && (
           <>
             <Button
               type="button"
