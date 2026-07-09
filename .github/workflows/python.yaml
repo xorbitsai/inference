@@ -94,8 +94,8 @@ jobs:
             full=true
           else
             # Map each changed path to the GPU test group(s) it affects.
-            # Paths matching no pattern (docs, examples, web UI, deploy
-            # configs, other workflows, ...) do not need GPU CI at all.
+            # Paths matching no pattern (docs, examples, web UI, other
+            # workflows, ...) do not need GPU CI at all.
             while IFS= read -r file; do
               case "$file" in
                 xinference/model/audio/*) audio=true ;;
@@ -110,9 +110,10 @@ jobs:
                 # Every GPU test launches models through a real RESTful API
                 # server subprocess and the xinference/client/ package (see
                 # conftest.py's `setup` fixture), so changes to either affect
-                # every family. xinference/core/ is the actor runtime shared
-                # by every model family. Any of the three affects every group.
-                xinference/core/*|xinference/api/*|xinference/client/*) full=true; break ;;
+                # every family. The same fixture starts the test cluster through
+                # xinference/deploy/, and xinference/core/ is the actor runtime
+                # shared by every model family. Any of these affects every group.
+                xinference/core/*|xinference/api/*|xinference/client/*|xinference/deploy/*) full=true; break ;;
                 # Model families not broken out above (flexible, video, ...)
                 # and top-level files directly under xinference/model/ have
                 # no dedicated GPU test group; play it safe and run every group.
