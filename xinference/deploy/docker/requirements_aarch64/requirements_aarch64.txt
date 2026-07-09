@@ -6,6 +6,7 @@ tabulate
 requests
 pydantic
 fastapi>=0.110.3
+python-multipart>=0.0.18
 uvicorn
 huggingface-hub>=0.19.4
 typing_extensions
