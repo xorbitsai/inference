@@ -107,9 +107,20 @@ jobs:
                 xinference/thirdparty/*) audio=true ;;
                 # The web UI never affects GPU tests.
                 xinference/ui/*) ;;
-                # Anything else in the package, the build config, or this
-                # workflow affects every family.
-                .github/workflows/python.yaml|setup.py|setup.cfg|pyproject.toml|xinference/*) full=true; break ;;
+                # Every GPU test launches models through a real RESTful API
+                # server subprocess and the xinference/client/ package (see
+                # conftest.py's `setup` fixture), so changes to either affect
+                # every family. The same fixture starts the test cluster through
+                # xinference/deploy/, and xinference/core/ is the actor runtime
+                # shared by every model family. Any of these affects every group.
+                xinference/core/*|xinference/api/*|xinference/client/*|xinference/deploy/*) full=true; break ;;
+                # Model families not broken out above (flexible, video, ...)
+                # and top-level files directly under xinference/model/ have
+                # no dedicated GPU test group; play it safe and run every group.
+                xinference/model/*) full=true; break ;;
+                # The rest of the package (deploy/, docs, examples, other
+                # top-level modules) is not exercised by any GPU test.
+                .github/workflows/python.yaml|setup.py|setup.cfg|pyproject.toml) full=true; break ;;
               esac
             done < changed-files.txt
           fi
