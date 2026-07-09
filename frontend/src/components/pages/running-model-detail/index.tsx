@@ -9,6 +9,7 @@ import { CollapsiblePanel } from '@/components/ui/collapsible';
 import PageContainer from '@/components/ui/page-container';
 import { ModelAbility } from '@/constants';
 import request from '@/lib/request';
+import { SHELL_ROUTE_PARAM } from '@/lib/route-params';
 import type { RunningModelDetail as RunningModelDetailType } from '@/types/services';
 
 import { CAPABILITY_CONFIGS } from './capability-config';
@@ -83,6 +84,11 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
   const tryApiAbility = isChat ? ModelAbility.Chat : selectAbility;
 
   const fetchModel = useCallback(() => {
+    // On first render of the static-exported shell, useParams() still returns
+    // the placeholder baked in by generateStaticParams() rather than the real
+    // URL segment; skip the request until hydration swaps in the actual uid.
+    if (modelUid === SHELL_ROUTE_PARAM) return;
+
     setLoading(true);
     request
       .get<RunningModelDetailType>(`/v1/models/${modelUid}`)
