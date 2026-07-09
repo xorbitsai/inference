@@ -50,7 +50,7 @@ const permissionTypeValues = new Set(['LLM', 'embedding', 'rerank', 'image', 'vi
 
 export default function ApiKeyManagement() {
   const { t } = useI18n();
-  const { isAdmin, keysManagePage, keysManageCreate } = useMenuAuth();
+  const { isAdmin, canCreateKeys, canManageKeys } = useMenuAuth();
 
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,8 +107,8 @@ export default function ApiKeyManagement() {
 
   useEffect(() => {
     fetchKeys();
-    fetchUsers();
-  }, [fetchKeys, fetchUsers]);
+    if (isAdmin) fetchUsers();
+  }, [fetchKeys, fetchUsers, isAdmin]);
 
   const openCreate = () => {
     setEditingKey(null);
@@ -335,7 +335,7 @@ export default function ApiKeyManagement() {
       title={t('menu.apiKeyManagement')}
       subTitle={t('apiKey.pageDescription')}
       extraContent={
-        keysManageCreate && (
+        canCreateKeys && (
           <Button onClick={openCreate}>
             <Plus className="size-4" />
             {t('apiKey.createKey')}
@@ -388,7 +388,7 @@ export default function ApiKeyManagement() {
                     />
                   </button>
 
-                  {keysManagePage && (
+                  {canManageKeys && (
                     <div className="flex shrink-0 items-center gap-1">
                       <Button
                         variant="ghost"
@@ -421,7 +421,7 @@ export default function ApiKeyManagement() {
                         t('apiKey.status'),
                         <div className="flex items-center gap-3">
                           {getStatusBadge(key)}
-                          {keysManagePage && (
+                          {canManageKeys && (
                             <Switch
                               checked={key.enabled}
                               disabled={togglingId === key.id || isExpired(key.expires_at)}

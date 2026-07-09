@@ -19,7 +19,8 @@ export function useMenuAuth() {
   return {
     isAdmin: hasScope('admin'),
     usersManagePage: hasScope('admin', 'users:manage'),
-    keysManagePage: hasScope('admin', 'keys:manage'),
-    keysManageCreate: hasScope('admin', 'keys:create'),
+    canCreateKeys: hasScope('admin', 'keys:create'),
+    canManageKeys: hasScope('admin', 'keys:manage'),
+    canAccessKeysPage: hasScope('admin', 'keys:create', 'keys:manage'),
   };
 }
