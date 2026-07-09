@@ -1,79 +1,94 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { Copy, Eye, EyeOff, KeyRound, Plus, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  ChevronDown,
+  Copy,
+  Edit3,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Loader2,
+  Plus,
+  ShieldBan,
+  Trash2,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Form } from '@/components/ui/form';
-import { FormField } from '@/components/ui/form-field';
-import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import PageContainer from '@/components/ui/page-container';
 import { Switch } from '@/components/ui/switch';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { useI18n } from '@/contexts/i18n-context';
-import { useForm } from '@/hooks/use-form';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
 import request from '@/lib/request';
+import { cn } from '@/lib/utils';
+import { ApiKeyDialog } from './api-key-dialog';
+import {
+  getBannedCount,
+  getPermissionLabel,
+  getPermissionType,
+  getPermissionValue,
+  type ApiKey,
+  type ApiKeyUser,
+  type ModelPermission,
+} from './utils';
 
-interface ApiKey {
-  id: number;
-  user_id: number;
-  key_prefix: string;
-  name: string | null;
-  description: string | null;
-  enabled: boolean;
-  expires_at: string | null;
-  model_permissions: string[];
-  created_at: string | null;
-}
+const toDash = (value: unknown) => {
+  if (value === undefined || value === null || value === '') {
+    return '-';
+  }
+
+  return String(value);
+};
+
+const padDatePart = (value: number) => String(value).padStart(2, '0');
+
+const permissionTypeValues = new Set(['LLM', 'embedding', 'rerank', 'image', 'video', 'audio']);
 
 export default function ApiKeyManagement() {
   const { t } = useI18n();
-  const { isAdmin, keysManagePage } = useMenuAuth();
+  const { isAdmin, canCreateKeys, canManageKeys } = useMenuAuth();
 
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState<ApiKeyUser[]>([]);
 
-  // create
-  const [createOpen, setCreateOpen] = useState(false);
-  const [createLoading, setCreateLoading] = useState(false);
-  const [form] = useForm();
-  const [newKeyValue, setNewKeyValue] = useState<string | null>(null);
-  const [newKeyVisible, setNewKeyVisible] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingKey, setEditingKey] = useState<ApiKey | null>(null);
 
-  // delete
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // reveal
   const [revealedKeys, setRevealedKeys] = useState<Record<number, string>>({});
   const [revealingId, setRevealingId] = useState<number | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Record<number, boolean>>({});
 
-  // toggle enabled
   const [togglingId, setTogglingId] = useState<number | null>(null);
 
-  const fetchKeys = useCallback(async () => {
+  const [bannedKey, setBannedKey] = useState<ApiKey | null>(null);
+  const [bannedLoading, setBannedLoading] = useState(false);
+  const [bannedList, setBannedList] = useState<unknown[]>([]);
+
+  const userNameMap = useMemo(
+    () => new Map(users.map((user) => [String(user.id), user.username])),
+    [users]
+  );
+  const fetchKeys = useCallback(async (expandedId?: number) => {
     setLoading(true);
     try {
       const data = await request.get<ApiKey[]>('/v1/admin/keys');
-      setKeys(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : [];
+      setKeys(list);
+      setExpandedIds(
+        list.some((item) => item.id === expandedId)
+          ? { [String(expandedId)]: true }
+          : list[0]
+            ? { [list[0].id]: true }
+            : {}
+      );
     } catch {
       setKeys([]);
     } finally {
@@ -81,32 +96,33 @@ export default function ApiKeyManagement() {
     }
   }, []);
 
+  const fetchUsers = useCallback(async () => {
+    try {
+      const data = await request.get<ApiKeyUser[]>('/v1/admin/users');
+      setUsers(Array.isArray(data) ? data : []);
+    } catch {
+      setUsers([]);
+    }
+  }, []);
+
   useEffect(() => {
     fetchKeys();
-  }, [fetchKeys]);
+    if (isAdmin) fetchUsers();
+  }, [fetchKeys, fetchUsers, isAdmin]);
 
   const openCreate = () => {
-    form.resetFields();
-    setNewKeyValue(null);
-    setNewKeyVisible(false);
-    setCreateOpen(true);
+    setEditingKey(null);
+    setDialogOpen(true);
   };
 
-  const handleCreate = async (values: Record<string, unknown>) => {
-    setCreateLoading(true);
-    try {
-      const body: Record<string, unknown> = { name: values.name };
-      if (values.description) body.description = values.description;
-      if (values.expires_at) body.expires_at = values.expires_at;
-      const result = await request.post<{ key: string }>('/v1/admin/keys', body);
-      setNewKeyValue(result.key);
-      setNewKeyVisible(false);
-      await fetchKeys();
-    } catch {
-      // handled by interceptor
-    } finally {
-      setCreateLoading(false);
-    }
+  const openEdit = (key: ApiKey) => {
+    setEditingKey(key);
+    setDialogOpen(true);
+  };
+
+  const closeDialog = () => {
+    setDialogOpen(false);
+    setEditingKey(null);
   };
 
   const handleDelete = async () => {
@@ -129,7 +145,7 @@ export default function ApiKeyManagement() {
     try {
       await request.put(`/v1/admin/keys/${key.id}`, { enabled: !key.enabled });
       setKeys((prev) =>
-        prev.map((k) => (k.id === key.id ? { ...k, enabled: !key.enabled } : k))
+        prev.map((item) => (item.id === key.id ? { ...item, enabled: !key.enabled } : item))
       );
     } catch {
       // handled by interceptor
@@ -158,6 +174,27 @@ export default function ApiKeyManagement() {
     }
   };
 
+  const openBannedDialog = async (key: ApiKey) => {
+    setBannedKey(key);
+    setBannedLoading(true);
+    setBannedList([]);
+    try {
+      const data = await request.get<unknown>(`/v1/admin/keys/${key.id}/banned`);
+      const list = Array.isArray(data)
+        ? data
+        : Array.isArray((data as { data?: unknown[] })?.data)
+          ? (data as { data: unknown[] }).data
+          : Array.isArray((data as { items?: unknown[] })?.items)
+            ? (data as { items: unknown[] }).items
+            : [];
+      setBannedList(list);
+    } catch {
+      setBannedList([]);
+    } finally {
+      setBannedLoading(false);
+    }
+  };
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard
       .writeText(text)
@@ -169,11 +206,20 @@ export default function ApiKeyManagement() {
       });
   };
 
-  const maskKey = (prefix: string) => `${prefix}${'•'.repeat(16)}`;
-
   const formatDate = (iso: string | null) => {
-    if (!iso) return '—';
-    return new Date(iso).toLocaleDateString();
+    if (!iso) return '-';
+
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return '-';
+
+    const year = date.getFullYear();
+    const month = padDatePart(date.getMonth() + 1);
+    const day = padDatePart(date.getDate());
+    const hours = padDatePart(date.getHours());
+    const minutes = padDatePart(date.getMinutes());
+    const seconds = padDatePart(date.getSeconds());
+
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
   };
 
   const isExpired = (expiresAt: string | null) => {
@@ -182,17 +228,114 @@ export default function ApiKeyManagement() {
   };
 
   const getStatusBadge = (key: ApiKey) => {
-    if (isExpired(key.expires_at)) {
-      return <Badge variant="destructive">{t('apiKey.expired')}</Badge>;
-    }
     if (!key.enabled) {
-      return <Badge variant="secondary">{t('apiKey.disabled')}</Badge>;
+      return (
+        <Badge className="border-red-500/30 bg-red-500/15 text-red-600 dark:text-red-400">
+          {t('apiKey.disabled')}
+        </Badge>
+      );
     }
     return (
-      <Badge className="bg-green-500/15 text-green-600 border-green-500/30 dark:text-green-400">
-        {t('apiKey.active')}
+      <Badge className="border-green-500/30 bg-green-500/15 text-green-600 dark:text-green-400">
+        {t('apiKey.enabled')}
       </Badge>
     );
+  };
+
+  const renderPermissions = (permissions: ModelPermission[]) => {
+    if (!permissions?.length) {
+      return (
+        <Badge className="border-blue-500/30 bg-blue-500/15 text-blue-700 dark:text-blue-300">
+          {t('apiKey.permissionAll')}
+        </Badge>
+      );
+    }
+
+    return (
+      <div className="flex flex-wrap gap-1.5">
+        {permissions.map((permission, index) => {
+          const type = getPermissionType(permission);
+          const value = getPermissionValue(permission);
+          const isAllPermission = type === 'all';
+          const isModelType = type === 'model_type' || permissionTypeValues.has(value);
+
+          return (
+            <Badge
+              key={`${type}-${value}-${index}`}
+              variant={isAllPermission || isModelType ? 'default' : 'outline'}
+              className={cn(
+                'font-normal',
+                isAllPermission &&
+                  'border-blue-500/30 bg-blue-500/15 text-blue-700 hover:bg-blue-500/20 dark:text-blue-300',
+                isModelType &&
+                  !isAllPermission &&
+                  'border-emerald-500/30 bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300'
+              )}
+            >
+              {isAllPermission ? t('apiKey.permissionAll') : getPermissionLabel(permission)}
+            </Badge>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderKeyValue = (key: ApiKey) => {
+    const revealedValue = revealedKeys[key.id];
+    const displayValue = revealedValue || `${key.key_prefix}${'*'.repeat(44)}`;
+    return (
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
+          {displayValue}
+        </span>
+        {canManageKeys && (
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              title={revealedKeys[key.id] ? t('apiKey.hideKey') : t('apiKey.revealKey')}
+              className="size-7"
+              onClick={() => handleReveal(key.id)}
+              disabled={revealingId === key.id}
+            >
+              {revealingId === key.id ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : revealedKeys[key.id] ? (
+                <EyeOff className="size-3.5" />
+              ) : (
+                <Eye className="size-3.5" />
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              title={t('common.copySuccess')}
+              className="size-7"
+              disabled={!revealedValue}
+              onClick={() => copyToClipboard(revealedValue)}
+            >
+              <Copy className="size-3.5" />
+            </Button>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  const renderField = (label: string, value: ReactNode) => (
+    <div className="rounded-lg bg-muted/40 p-3">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1.5 min-w-0 text-sm font-medium text-foreground">{value}</div>
+    </div>
+  );
+
+  const renderOwner = (key: ApiKey) => {
+    if (key.owner_username) return key.owner_username;
+    if (key.user_id == null) return '-';
+
+    return userNameMap.get(String(key.user_id)) || key.user_id;
   };
 
   return (
@@ -200,215 +343,185 @@ export default function ApiKeyManagement() {
       title={t('menu.apiKeyManagement')}
       subTitle={t('apiKey.pageDescription')}
       extraContent={
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          {t('apiKey.createKey')}
-        </Button>
+        canCreateKeys && (
+          <Button onClick={openCreate}>
+            <Plus className="size-4" />
+            {t('apiKey.createKey')}
+          </Button>
+        )
       }
     >
-      <div className="rounded-xl border border-border overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('apiKey.name')}</TableHead>
-              <TableHead>{t('apiKey.key')}</TableHead>
-              <TableHead>{t('apiKey.description')}</TableHead>
-              <TableHead>{t('apiKey.createdAt')}</TableHead>
-              <TableHead>{t('apiKey.expiresAt')}</TableHead>
-              <TableHead>{t('apiKey.status')}</TableHead>
-              <TableHead>{t('apiKey.enabled')}</TableHead>
-              <TableHead className="text-right">{t('common.operation')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-16 text-muted-foreground">
-                  {t('apiKey.loading')}
-                </TableCell>
-              </TableRow>
-            ) : keys.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="py-16">
-                  <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                    <KeyRound className="h-10 w-10 opacity-30" />
-                    <p className="text-sm">{t('apiKey.noKeys')}</p>
-                    <Button variant="outline" size="sm" onClick={openCreate}>
-                      <Plus className="h-4 w-4 mr-1" />
-                      {t('apiKey.createKey')}
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : (
-              keys.map((key) => (
-                <TableRow key={key.id}>
-                  <TableCell className="font-medium">{key.name || '—'}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1.5 font-mono text-xs">
-                      <span className="text-muted-foreground">
-                        {revealedKeys[key.id] ? revealedKeys[key.id] : maskKey(key.key_prefix)}
-                      </span>
-                      {isAdmin && (
-                        <button
-                          type="button"
-                          title={revealedKeys[key.id] ? t('apiKey.hideKey') : t('apiKey.revealKey')}
-                          className="text-muted-foreground hover:text-foreground transition-colors"
-                          onClick={() => handleReveal(key.id)}
-                          disabled={revealingId === key.id}
-                        >
-                          {revealedKeys[key.id] ? (
-                            <EyeOff className="h-3.5 w-3.5" />
-                          ) : (
-                            <Eye className="h-3.5 w-3.5" />
-                          )}
-                        </button>
+      {loading ? (
+        <div className="flex min-h-[58vh] flex-col items-center justify-center gap-3 text-muted-foreground">
+          <Loader2 className="size-8 animate-spin" />
+          <p className="text-sm">{t('apiKey.loading')}</p>
+        </div>
+      ) : keys.length === 0 ? (
+        <div className="flex min-h-[58vh] flex-col items-center justify-center gap-4 text-center">
+          <div className="flex size-16 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <KeyRound className="size-8" />
+          </div>
+          <p className="text-sm font-medium text-muted-foreground">{t('apiKey.noKeys')}</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {keys.map((key) => {
+            const expanded = expandedIds[key.id] ?? false;
+
+            return (
+              <div
+                key={key.id}
+                className="overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm"
+              >
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <button
+                    type="button"
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                    onClick={() =>
+                      setExpandedIds((prev) => ({
+                        ...prev,
+                        [key.id]: !expanded,
+                      }))
+                    }
+                  >
+                    <KeyRound className="size-5 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                      {t('apiKey.key')} {key.id}
+                    </span>
+                    <ChevronDown
+                      className={cn(
+                        'size-4 shrink-0 text-muted-foreground transition-transform',
+                        expanded && 'rotate-180'
                       )}
-                      <button
-                        type="button"
-                        title={t('common.copySuccess')}
-                        disabled={!revealedKeys[key.id]}
-                        className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                        onClick={() => revealedKeys[key.id] && copyToClipboard(revealedKeys[key.id])}
-                      >
-                        <Copy className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground max-w-[180px] truncate">
-                    {key.description || '—'}
-                  </TableCell>
-                  <TableCell
-                    className="text-muted-foreground whitespace-nowrap"
-                    suppressHydrationWarning
-                  >
-                    {formatDate(key.created_at)}
-                  </TableCell>
-                  <TableCell
-                    className="text-muted-foreground whitespace-nowrap"
-                    suppressHydrationWarning
-                  >
-                    {formatDate(key.expires_at)}
-                  </TableCell>
-                  <TableCell>{getStatusBadge(key)}</TableCell>
-                  <TableCell>
-                    <Switch
-                      checked={key.enabled}
-                      disabled={!keysManagePage || togglingId === key.id || isExpired(key.expires_at)}
-                      onChange={() => handleToggleEnabled(key)}
                     />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {keysManagePage && (
+                  </button>
+
+                  {canManageKeys && (
+                    <div className="flex shrink-0 items-center gap-1">
                       <Button
                         variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        size="icon"
+                        title={t('common.edit')}
+                        className="size-8"
+                        onClick={() => openEdit(key)}
+                      >
+                        <Edit3 className="size-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title={t('common.delete')}
+                        className="size-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
                         onClick={() => setDeleteId(key.id)}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="size-4" />
                       </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                    </div>
+                  )}
+                </div>
 
-      {/* ── Create Dialog ─────────────────────────────── */}
-      <Dialog
-        open={createOpen}
+                {expanded && (
+                  <div className="border-t px-4 py-4">
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      {renderField(t('apiKey.name'), toDash(key.name))}
+                      {renderField(t('apiKey.key'), renderKeyValue(key))}
+                      {renderField(
+                        t('apiKey.status'),
+                        <div className="flex items-center gap-3">
+                          {getStatusBadge(key)}
+                          {canManageKeys && (
+                            <Switch
+                              checked={key.enabled}
+                              disabled={togglingId === key.id || isExpired(key.expires_at)}
+                              onChange={() => handleToggleEnabled(key)}
+                            />
+                          )}
+                        </div>
+                      )}
+                      {renderField(t('apiKey.owner'), renderOwner(key))}
+                      {renderField(t('apiKey.createdAt'), formatDate(key.created_at))}
+                      {renderField(t('apiKey.expiresAt'), formatDate(key.expires_at))}
+                      {renderField(
+                        t('apiKey.modelPermissions'),
+                        renderPermissions(key.model_permissions)
+                      )}
+                      {renderField(
+                        t('apiKey.bannedCount'),
+                        <div className="flex items-center gap-3">
+                          <span>{getBannedCount(key)}</span>
+                          {isAdmin && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openBannedDialog(key)}
+                            >
+                              <ShieldBan className="size-3.5" />
+                              {t('apiKey.view')}
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                      {renderField(t('apiKey.description'), toDash(key.description))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <ApiKeyDialog
+        open={dialogOpen}
+        apiKey={editingKey}
+        users={users}
         onOpenChange={(open) => {
-          if (!open) setCreateOpen(false);
-          else setCreateOpen(true);
+          if (!open) {
+            closeDialog();
+          } else setDialogOpen(true);
+        }}
+        onSuccess={() => fetchKeys(Boolean(editingKey) ? editingKey?.id : undefined)}
+      />
+
+      <Dialog
+        open={!!bannedKey}
+        onOpenChange={(open) => {
+          if (!open) {
+            setBannedKey(null);
+            setBannedList([]);
+          }
         }}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {newKeyValue ? t('apiKey.keyCreated') : t('apiKey.createKey')}
+              {t('apiKey.bannedList')} - {t('apiKey.key')} {bannedKey?.id}
             </DialogTitle>
           </DialogHeader>
 
-          {newKeyValue ? (
-            <div className="flex flex-col gap-4">
-              <p className="text-sm text-muted-foreground">{t('apiKey.saveKeyWarning')}</p>
-              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2">
-                <span className="flex-1 font-mono text-sm break-all">
-                  {newKeyVisible
-                    ? newKeyValue
-                    : '•'.repeat(Math.min(newKeyValue.length, 40))}
-                </span>
-                <button
-                  type="button"
-                  className="text-muted-foreground hover:text-foreground"
-                  onClick={() => setNewKeyVisible((v) => !v)}
-                >
-                  {newKeyVisible ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  className="text-muted-foreground hover:text-foreground"
-                  onClick={() => copyToClipboard(newKeyValue)}
-                >
-                  <Copy className="h-4 w-4" />
-                </button>
-              </div>
-              <DialogFooter>
-                <Button onClick={() => setCreateOpen(false)}>{t('common.confirm')}</Button>
-              </DialogFooter>
+          {bannedLoading ? (
+            <div className="flex min-h-40 items-center justify-center text-muted-foreground">
+              <Loader2 className="size-6 animate-spin" />
+            </div>
+          ) : bannedList.length === 0 ? (
+            <div className="flex min-h-40 flex-col items-center justify-center gap-3 text-muted-foreground">
+              <ShieldBan className="size-8 opacity-50" />
+              <p className="text-sm">{t('apiKey.noBanned')}</p>
             </div>
           ) : (
-            <Form form={form} onFinish={handleCreate}>
-              <FormField
-                name="name"
-                label={t('apiKey.name')}
-                placeholder={t('apiKey.namePlaceholder')}
-                rules={[{ required: true, message: t('apiKey.nameRequired') }]}
-              >
-                <Input />
-              </FormField>
-
-              <FormField
-                name="description"
-                label={t('apiKey.description')}
-                placeholder={t('apiKey.descriptionPlaceholder')}
-              >
-                <Input />
-              </FormField>
-
-              <FormField
-                name="expires_at"
-                label={t('apiKey.expiresAt')}
-                extra={t('apiKey.expiresAtHint')}
-              >
-                <Input
-                  type="date"
-                  min={new Date().toISOString().split('T')[0]}
-                  suppressHydrationWarning
-                />
-              </FormField>
-
-              <DialogFooter>
-                <Button variant="outline" type="button" onClick={() => setCreateOpen(false)}>
-                  {t('common.cancel')}
-                </Button>
-                <Button type="submit" disabled={createLoading}>
-                  {createLoading ? t('apiKey.creating') : t('apiKey.create')}
-                </Button>
-              </DialogFooter>
-            </Form>
+            <div className="space-y-2">
+              {bannedList.map((item, index) => (
+                <div key={index} className="rounded-lg border bg-muted/30 p-3 text-sm">
+                  <pre className="whitespace-pre-wrap break-words font-mono text-xs">
+                    {typeof item === 'string' ? item : JSON.stringify(item, null, 2)}
+                  </pre>
+                </div>
+              ))}
+            </div>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* ── Delete Confirm ────────────────────────────── */}
       <ConfirmDialog
         isOpen={deleteId != null}
         onOpenChange={(open) => {

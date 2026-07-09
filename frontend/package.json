@@ -36,7 +36,6 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "highlight.js": "^11.11.1",
-    "js-cookie": "^3.0.7",
     "lucide-react": "^1.16.0",
     "marked": "^5.1.2",
     "next": "15.2.3",
@@ -59,7 +58,6 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@svgr/webpack": "^8.1.0",
-    "@types/js-cookie": "^3.0.6",
     "@types/node": "^20",
     "@types/nunjucks": "^3.2.6",
     "@types/react": "^19",

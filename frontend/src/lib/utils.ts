@@ -137,11 +137,20 @@ export function getFileMeta(file: File) {
   return { label: 'Document', icon: FileText, kind: 'document' as const };
 }
 
-export function decodeJwtScopes(token: string | undefined): string[] {
-  if (!token) return [];
+export function decodeJwtPayload(token: string | undefined): Record<string, unknown> | null {
+  if (!token) return null;
   try {
     const payload = token.split('.')[1];
-    const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    return JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+  } catch {
+    return null;
+  }
+}
+
+export function decodeJwtScopes(token: string | undefined): string[] {
+  const decoded = decodeJwtPayload(token);
+  if (!decoded) return [];
+  try {
     return Array.isArray(decoded.scopes) ? decoded.scopes : [];
   } catch {
     return [];

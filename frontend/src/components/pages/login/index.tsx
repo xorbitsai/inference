@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import Cookies from 'js-cookie';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -11,9 +10,19 @@ import { FormField } from '@/components/ui/form-field';
 import { Form } from '@/components/ui/form';
 import { useForm } from '@/hooks/use-form';
 import request from '@/lib/request';
+import { decodeJwtPayload } from '@/lib/utils';
+import { setAccessToken, setRefreshToken } from '@/lib/auth-storage';
 import { getBrandingFromEnv } from '@/lib/branding';
 import { useI18n } from '@/contexts/i18n-context';
 import { useGlobal } from '@/contexts/global-context';
+import { ChangePasswordDialog } from './change-password-dialog';
+
+interface TokenResponse {
+  access_token?: string;
+  refresh_token?: string;
+  token_type?: string;
+  must_change_password?: boolean;
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -24,24 +33,52 @@ export default function LoginPage() {
   const branding = getBrandingFromEnv();
 
   const [loading, setLoading] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [changePasswordUserId, setChangePasswordUserId] = useState<number | null>(null);
 
-  const onSubmit = async (values: any) => {
+  const goHomeAfterAuth = () => {
+    fetchGlobalAfterAuth();
+    setTimeout(() => router.push('/'), 0);
+  };
+
+  const onSubmit = async (values: Record<string, unknown>) => {
     setLoading(true);
     try {
-      const res = await request.post('/token', values);
+      const res = await request.post<TokenResponse>('/token', values);
       if (res?.access_token) {
-        Cookies.set('token', res.access_token, {
-          path: '/',
-          expires: 7,
-        });
-        toast.success(t('common.loginSuccess'))
-        fetchGlobalAfterAuth();
-        setTimeout(() => router.push('/'), 0);
+        toast.success(t('common.loginSuccess'));
+
+        setAccessToken(res.access_token);
+
+        if (res.refresh_token) {
+          setRefreshToken(res.refresh_token);
+        }
+
+        if (res.must_change_password) {
+          const payload = decodeJwtPayload(res.access_token);
+          const userId = Number(payload?.user_id);
+
+          if (!Number.isFinite(userId)) {
+            toast.error(t('login.changePasswordUserMissing'));
+            return;
+          }
+          setChangePasswordUserId(userId);
+          setChangePasswordOpen(true);
+          return;
+        }
+        goHomeAfterAuth();
       }
     } finally {
       setLoading(false);
     }
   };
+
+  const handlePasswordChanged = () => {
+    setChangePasswordOpen(false);
+    setChangePasswordUserId(null);
+    goHomeAfterAuth();
+  };
+
   return (
     <div className="min-h-screen grid lg:grid-cols-2 bg-background">
       {/* Left brand section */}
@@ -49,7 +86,15 @@ export default function LoginPage() {
         <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/10 blur-3xl" />
         <div className="absolute -bottom-32 -left-16 w-96 h-96 rounded-full bg-indigo-400/20 blur-3xl" />
         <div className="relative flex items-center gap-3">
-          <Image src={branding.logoPath} width={32} height={32} alt={branding.logoAlt} />
+          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/95 shadow-sm ring-1 ring-white/40">
+            <Image
+              src={branding.logoPath}
+              width={28}
+              height={28}
+              alt={branding.logoAlt}
+              className="h-7 w-7"
+            />
+          </span>
           <span className="text-2xl font-semibold tracking-tight">Xinference</span>
         </div>
 
@@ -80,6 +125,12 @@ export default function LoginPage() {
           </Form>
         </div>
       </div>
+
+      <ChangePasswordDialog
+        open={changePasswordOpen}
+        userId={changePasswordUserId}
+        onChanged={handlePasswordChanged}
+      />
     </div>
   );
 }

@@ -23,6 +23,7 @@ from fastapi import Depends, HTTPException, Query, Request, Security
 from ...responses import JSONResponse
 from ..advanced.auth_service import AdvancedAuthService, _get_client_ip
 from ..advanced.crypto import get_password_hash
+from ..scope_aliases import _normalize_scopes
 
 if TYPE_CHECKING:
     from ...restful_api import RESTfulAPI
@@ -77,6 +78,31 @@ def _get_current_user_from_token(request: Request, auth: AdvancedAuthService):
     if not payload:
         return None, None, []
     return payload.get("user_id"), payload.get("sub"), payload.get("scopes", [])
+
+
+def _get_current_user_live_scopes(request: Request, auth: AdvancedAuthService):
+    """Return current user info plus DB-current scopes for non-admin JWTs."""
+    current_user_id, username, token_scopes = _get_current_user_from_token(
+        request, auth
+    )
+    normalized_token_scopes = _normalize_scopes(token_scopes)
+    if "admin" in normalized_token_scopes:
+        return current_user_id, username, normalized_token_scopes
+
+    user = None
+    if current_user_id:
+        user = auth.db.get_user_by_id(current_user_id)
+    elif username:
+        user = auth.db.get_user_by_username(username)
+
+    if user and user.get("enabled"):
+        return (
+            user["id"],
+            user["username"],
+            _normalize_scopes(user.get("permissions", [])),
+        )
+
+    return current_user_id, username, normalized_token_scopes
 
 
 def _reject_permission_escalation(
@@ -335,7 +361,7 @@ async def create_api_key(request: Request) -> JSONResponse:
     auth: AdvancedAuthService = get_advanced_auth(request)
     body = await request.json()
 
-    current_user_id, _, scopes = _get_current_user_from_token(request, auth)
+    current_user_id, _, scopes = _get_current_user_live_scopes(request, auth)
     is_admin = "admin" in scopes or "keys:manage" in scopes
 
     owner_id = body.get("owner")
@@ -364,7 +390,7 @@ async def list_api_keys(
     request: Request, owner: Optional[int] = Query(None)
 ) -> JSONResponse:
     auth: AdvancedAuthService = get_advanced_auth(request)
-    current_user_id, _, scopes = _get_current_user_from_token(request, auth)
+    current_user_id, _, scopes = _get_current_user_live_scopes(request, auth)
     is_admin = "admin" in scopes or "keys:manage" in scopes
 
     if not is_admin:
@@ -411,7 +437,7 @@ async def list_api_keys(
 
 async def get_api_key(key_id: int, request: Request) -> JSONResponse:
     auth: AdvancedAuthService = get_advanced_auth(request)
-    current_user_id, _, scopes = _get_current_user_from_token(request, auth)
+    current_user_id, _, scopes = _get_current_user_live_scopes(request, auth)
     is_admin = "admin" in scopes or "keys:manage" in scopes
 
     key = auth.db.get_api_key_by_id(key_id)
@@ -550,17 +576,27 @@ def register_advanced_auth_routes(api: "RESTfulAPI") -> None:
         Accepts ``keys:create`` OR ``keys:manage`` (or ``admin``
         wildcard). FastAPI's ``Security(scopes=[...])`` is
         AND-semantics, so a custom dependency is needed for OR. This
-        reuses the standard ``auth_service`` dependency (which validates
-        JWT, user existence, enabled status, and audit logs) with no
-        required scopes, then performs the OR check on the JWT scopes —
-        consistent with how ``Security(scopes=[...])`` checks JWT
-        scopes (not DB permissions).
+        reuses the standard ``auth_service`` dependency with no required
+        scopes, then performs the OR check against DB-current user
+        permissions so permission updates take effect consistently with
+        ``AdvancedAuthService.__call__`` scoped checks.
         """
-        # Security(auth_service) already ran full validation. Now check
-        # OR scopes on the JWT payload (same source as Security(scopes=...)).
-        _, _, scopes = _get_current_user_from_token(request, auth_service)
-        scopes = scopes or []
-        if "admin" in scopes or "keys:create" in scopes or "keys:manage" in scopes:
+        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        payload = auth_service.verify_access_token(token) if token else None
+        if not payload:
+            raise HTTPException(
+                status_code=403,
+                detail="Not enough permissions: requires keys:create or keys:manage",
+            )
+
+        # Keep the existing admin wildcard behavior tied to JWT scopes, while
+        # non-admin delegated permissions are live-read from the DB user row.
+        token_scopes = _normalize_scopes(payload.get("scopes", []))
+        if "admin" in token_scopes:
+            return True
+
+        db_scopes = _normalize_scopes(_user.get("permissions", []))
+        if "keys:create" in db_scopes or "keys:manage" in db_scopes:
             return True
         raise HTTPException(
             status_code=403,

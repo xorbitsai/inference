@@ -226,3 +226,13 @@ export interface EmbeddingsResponse {
   object: string;
   usage: TokenUsage;
 }
+
+export interface UserItem {
+  id: number;
+  username: string;
+  source: string;
+  enabled: boolean;
+  must_change_password: boolean;
+  permissions: string[];
+  created_at: string | null;
+}
