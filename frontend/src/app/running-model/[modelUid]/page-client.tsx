@@ -1,12 +1,12 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import RunningModelDetail from '@/components/pages/running-model-detail';
-import { decodeRouteParam } from '@/lib/route-params';
+import { getPathSegmentsAfter } from '@/lib/route-params';
 
 export default function RunningModelDetailPageClient() {
-  const params = useParams<{ modelUid: string }>();
-  const modelUid = decodeRouteParam(params.modelUid);
+  const pathname = usePathname();
+  const [modelUid = ''] = getPathSegmentsAfter(pathname, '/running-model');
 
   return <RunningModelDetail modelUid={modelUid} />;
 }

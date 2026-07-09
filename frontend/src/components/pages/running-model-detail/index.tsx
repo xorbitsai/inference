@@ -84,9 +84,9 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
   const tryApiAbility = isChat ? ModelAbility.Chat : selectAbility;
 
   const fetchModel = useCallback(() => {
-    // On first render of the static-exported shell, useParams() still returns
-    // the placeholder baked in by generateStaticParams() rather than the real
-    // URL segment; skip the request until hydration swaps in the actual uid.
+    // modelUid is derived from usePathname(), so this only trips if the shell
+    // HTML itself is opened directly (e.g. crawler/prefetch hitting
+    // running-model/__shell__ before any real uid is in the URL).
     if (modelUid === SHELL_ROUTE_PARAM) return;
 
     setLoading(true);
