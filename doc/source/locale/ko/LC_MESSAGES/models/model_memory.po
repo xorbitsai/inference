@@ -1,0 +1,143 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-06-06 17:26+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ko <LL@li.org>\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/model_memory.rst:5
+msgid "Model Memory Calculation"
+msgstr "모델 VRAM 사용량 계산"
+
+#: ../../source/models/model_memory.rst:7
+msgid ""
+"For better planning of VMEM usage, xinference provided tool for model memory"
+" calculation: ``cal-model-mem``"
+msgstr ""
+"Xinference는 VRAM 사용을 더 잘 계획하기 위해 모델 VRAM 사용량을 계산하는 도구인 ``cal-model-mem``을 "
+"제공합니다."
+
+#: ../../source/models/model_memory.rst:9
+msgid "Use algorithm from https://github.com/RahulSChand/gpu_poor"
+msgstr "알고리즘 출처: https://github.com/RahulSChand/gpu_poor"
+
+#: ../../source/models/model_memory.rst:11
+msgid "Output: model_mem, kv_cache, overhead, active_mem"
+msgstr "model_mem, kv_cache, overhead, active_mem"
+
+#: ../../source/models/model_memory.rst:13
+msgid ""
+"Example: To calculate memory usage for qwen1.5-chat, run the following "
+"command:"
+msgstr "예시: qwen1.5-chat 모델의 GPU 메모리 사용량을 계산하려면 다음 예시 명령어를 실행할 수 있습니다:"
+
+#: ../../source/models/model_memory.rst:37
+msgid "Syntax"
+msgstr "문법"
+
+#: ../../source/models/model_memory.rst:39
+#, python-brace-format
+msgid "--size-in-billions {model_size}"
+msgstr ""
+
+#: ../../source/models/model_memory.rst:42
+#, python-brace-format
+msgid "-s {model_size}"
+msgstr ""
+
+#: ../../source/models/model_memory.rst:45
+msgid ""
+"Set the model size. Specify the model size in billions of parameters. Format"
+" accept 1_8 and 1.8. For example, 7 for 7.0B model size."
+msgstr ""
+"모델 크기를 설정합니다. 매개변수 단위로 모델 크기를 지정합니다. 매개변수 형식은 `1_8` 및 `1.8`과 같은 형태를 허용합니다. "
+"예를 들어 `7`은 7.0B의 모델 크기를 나타냅니다."
+
+#: ../../source/models/model_memory.rst:50
+#, python-brace-format
+msgid "--quantization {precision}"
+msgstr ""
+
+#: ../../source/models/model_memory.rst:53
+#, python-brace-format
+msgid "-q {precision} *(Optional)*"
+msgstr "-q {precision} *(선택 사항)*"
+
+#: ../../source/models/model_memory.rst:56
+msgid ""
+"Define the quantization settings for the model. For example, Int4 for INT4 "
+"quantization."
+msgstr "모델의 양자화 구성을 지정합니다. 예: Int4 매개변수는 INT4 양자화를 사용함을 나타냅니다."
+
+#: ../../source/models/model_memory.rst:60
+#, python-brace-format
+msgid "--model-name {model_name}"
+msgstr ""
+
+#: ../../source/models/model_memory.rst:63
+#, python-brace-format
+msgid "-n {model_name} *(Optional)*"
+msgstr "-n {model_name} *(선택 사항)*"
+
+#: ../../source/models/model_memory.rst:66
+msgid ""
+"Specify the model's name. If provided, fetch model config from "
+"huggingface/modelscope; If not specified, use default model layer to "
+"estimate."
+msgstr ""
+"모델 이름을 지정합니다. 이 매개변수를 제공하면 huggingface/modelscope에서 모델 구성을 가져오고, 지정하지 않으면 기본"
+" layer 매개변수를 사용하여 대략적으로 추정합니다."
+
+#: ../../source/models/model_memory.rst:70
+#, python-brace-format
+msgid "--context-length {context_length}"
+msgstr ""
+
+#: ../../source/models/model_memory.rst:73
+#, python-brace-format
+msgid "-c {context_length}"
+msgstr ""
+
+#: ../../source/models/model_memory.rst:76
+msgid ""
+"Specify the maximum number of tokens(context length) that your model "
+"support."
+msgstr "모델의 최대 컨텍스트 길이를 지정합니다."
+
+#: ../../source/models/model_memory.rst:79
+#, python-brace-format
+msgid "--model-format {format}"
+msgstr ""
+
+#: ../../source/models/model_memory.rst:82
+#, python-brace-format
+msgid "-f {format}"
+msgstr ""
+
+#: ../../source/models/model_memory.rst:85
+msgid "Specify the format of the model, e.g. pytorch, ggmlv3, etc."
+msgstr "지정된 모델의 형식, 예: pytorch, ggmlv3 등."
+
+#: ../../source/models/model_memory.rst:89
+msgid ""
+"The environment variable ``HF_ENDPOINT`` could set the endpoint of "
+"HuggingFace. e.g. hf-mirror, etc. Please refer to :ref:`this document "
+"<models_download>`"
+msgstr ""
+"환경 변수 ``HF_ENDPOINT``를 사용하여 HuggingFace 서버의 엔드포인트를 설정할 수 있습니다. 예를 들어, 네트워크 "
+"상태가 좋지 않을 때 hf-mirror를 엔드포인트로 선택할 수 있습니다. 더 자세한 내용은 :ref:`이 문서 "
+"<models_download>`를 참조하십시오."

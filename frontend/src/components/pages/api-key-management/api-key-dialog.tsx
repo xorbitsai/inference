@@ -278,7 +278,7 @@ export function ApiKeyDialog({ open, apiKey, users, onOpenChange, onSuccess }: A
     if (values.name) body.name = values.name;
     if (values.description) body.description = values.description;
     if (values.user_id) {
-      body.user_id = /^\d+$/.test(values.user_id) ? Number(values.user_id) : values.user_id;
+      body.owner = /^\d+$/.test(values.user_id) ? Number(values.user_id) : values.user_id;
     }
 
     const expiresAt = formatExpiresAt(values.expires_at);

@@ -1,0 +1,208 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-08-02 23:15+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ja <LL@li.org>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/development/contributing_environment.rst:3
+msgid "Creating a development environment"
+msgstr "開発環境を作成する"
+
+#: ../../source/development/contributing_environment.rst:6
+msgid "Table of contents:"
+msgstr "目次"
+
+#: ../../source/development/contributing_environment.rst:8
+msgid ""
+"Before proceeding with any code modifications, it's essential to set up the "
+"necessary environment for Xinference development, which includes "
+"familiarizing yourself with Git usage, establishing an isolated environment,"
+" installing Xinference, and compiling the frontend."
+msgstr ""
+"コード修正を行う前に、Xinference 開発に必要な環境を整えることが極めて重要です。これには、Git "
+"の使い方に慣れること、独立した環境を構築すること、Xinference のインストール、そしてフロントエンド部分のコンパイルが含まれます。"
+
+#: ../../source/development/contributing_environment.rst:12
+msgid "Getting started with Git"
+msgstr "Git の使用"
+
+#: ../../source/development/contributing_environment.rst:14
+msgid ""
+"Now that you have identified an issue you wish to resolve, an enhancement to"
+" incorporate, or documentation to enhance, it's crucial to acquaint yourself"
+" with GitHub and the Xinference codebase."
+msgstr ""
+"問題の修正、機能の追加、またはドキュメントの改善が必要な場合、GitHub と Xinference コードベースに精通していることが重要です。"
+
+#: ../../source/development/contributing_environment.rst:17
+msgid ""
+"To the new user, working with Git is one of the more intimidating aspects of"
+" contributing to Xinference. It can very quickly become overwhelming, but "
+"sticking to the guidelines below will help simplify the process and minimize"
+" potential issues. As always, if you are having difficulties please feel "
+"free to ask for help."
+msgstr ""
+"新規ユーザーにとって、Gitを使用したXinference開発への参加は最も気が重い側面の一つです。すぐにプレッシャーを感じるかもしれませんが、以下のガイドがプロセスを簡素化し、潜在的な問題を減らすのに役立ちます。解決が難しい問題に直面した場合は、コミュニティで助けを求めることを歓迎します。"
+
+#: ../../source/development/contributing_environment.rst:22
+msgid ""
+"The code is hosted on `GitHub <https://github.com/xorbitsai/inference>`_. To"
+" contribute you will need to sign up for a `free GitHub account "
+"<https://github.com/signup/free>`_. We use `Git <https://git-scm.com/>`_ for"
+" version control to allow many people to work together on the project."
+msgstr ""
+"Xinference のコードは `GitHub <https://github.com/xorbitsai/inference>`_ "
+"でホストされています。Xinference のコード貢献に参加するには、`無料の GitHub アカウント "
+"<https://github.com/signup/free>`_ を登録する必要があります。バージョン管理には `Git <https://git-"
+"scm.com/>`_ を使用しており、皆でプロジェクトの開発に参加できるようにしています。"
+
+#: ../../source/development/contributing_environment.rst:27
+msgid ""
+"`GitHub has instructions <https://help.github.com/set-up-git-redirect>`__ "
+"for installing git, setting up your SSH key, and configuring git. All these "
+"steps need to be completed before you can work seamlessly between your local"
+" repository and GitHub."
+msgstr ""
+"`GitHub ガイド <https://help.github.com/set-up-git-redirect>`_ を参照して、git "
+"のインストール、SSH キーの設定、および git の構成を行ってください。これらの手順を完了し、ローカルリポジトリと GitHub "
+"が正常に動作することを確認してから、後続の作業を進める必要があります。"
+
+#: ../../source/development/contributing_environment.rst:31
+msgid "Some great resources for learning Git:"
+msgstr "以下は、Gitを学ぶための優れたリソースです："
+
+#: ../../source/development/contributing_environment.rst:33
+msgid "`Official Git Documentation <https://git-scm.com/doc>`_"
+msgstr "`Git 公式ドキュメント <https://git-scm.com/doc>`_"
+
+#: ../../source/development/contributing_environment.rst:34
+msgid "`Pro Git Book <https://git-scm.com/book/en/v2>`_"
+msgstr "`Pro Git 書籍 <https://git-scm.com/book/en/v2>`_"
+
+#: ../../source/development/contributing_environment.rst:35
+msgid "`Git Tutorial by Atlassian <https://www.atlassian.com/git/tutorials>`_"
+msgstr ""
+"`Atlassian 提供の Git チュートリアル <https://www.atlassian.com/git/tutorials>`_"
+
+#: ../../source/development/contributing_environment.rst:36
+msgid ""
+"`Git - Concise Guide <http://rogerdudler.github.io/git-"
+"guide/index.zh.html>`_"
+msgstr "`Git-簡易ガイド <http://rogerdudler.github.io/git-guide/index.zh.html>`_"
+
+#: ../../source/development/contributing_environment.rst:39
+msgid ""
+"If the speed of ``git clone`` is slow, you can use the following command to "
+"add a proxy:"
+msgstr "``git clone`` のコード取得速度が遅い場合は、以下のコマンドでプロキシを追加できます。"
+
+#: ../../source/development/contributing_environment.rst:47
+msgid "Creating an isolated environment"
+msgstr "隔離環境を作成する"
+
+#: ../../source/development/contributing_environment.rst:49
+msgid ""
+"Before formally installing Xinference, it's recommended to create an "
+"isolated environment, using Conda recommended, for ease of subsequent "
+"operations."
+msgstr "Xinferenceを正式にインストールする前に、Condaを使用して隔離環境を作成し、後続の操作を容易にすることをお勧めします。"
+
+#: ../../source/development/contributing_environment.rst:57
+msgid "``xinf`` can be replaced with a custom Conda environment name."
+msgstr "``xinf`` はカスタムの Conda 環境名に置き換えることができます。"
+
+#: ../../source/development/contributing_environment.rst:59
+msgid ""
+"Afterward, you'll need to install Python and Node.js (npm) in the newly "
+"created Conda environment. Here are the commands:"
+msgstr "次に、新しく作成したConda環境にPythonとNode.js (npm)をインストールする必要があります。コマンドは以下の通りです："
+
+#: ../../source/development/contributing_environment.rst:68
+msgid "Install from source code"
+msgstr "ソースコードからインストールする"
+
+#: ../../source/development/contributing_environment.rst:70
+msgid ""
+"Before we begin, please make sure that you have cloned the repository. "
+"Suppose you clone the repository as ``inference`` directory,  ``cd`` to this"
+" directory where the ``setup.cfg`` and ``setup.py`` files are located, and "
+"run the following command:"
+msgstr ""
+"開始する前に、リポジトリをクローンしていることを確認してください。リポジトリを ``inference`` "
+"という名前のディレクトリにクローンしたと仮定し、そのディレクトリに移動してください。このディレクトリには ``setup.cfg`` と "
+"``setup.py`` ファイルが含まれています。以下のコマンドを実行してください："
+
+#: ../../source/development/contributing_environment.rst:79
+msgid ""
+"If the commands run successfully, you can use Xinference normally. For "
+"detailed usage instructions, refer to `using_xinference "
+"<https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html>`__."
+msgstr ""
+"コマンドが正常に実行されれば、その後Xinferenceを通常通り使用できます。使用チュートリアルの詳細は`使用 "
+"<https://inference.readthedocs.io/zh-"
+"cn/latest/getting_started/using_xinference.html>`__を参照してください。"
+
+#: ../../source/development/contributing_environment.rst:83
+msgid ""
+"If errors occur or the process freezes during execution, the next step is to"
+" compile the frontend."
+msgstr "エラーが発生した場合や実行中にフリーズした場合は、次のステップとしてフロントエンドのコンパイルを行う必要があります。"
+
+#: ../../source/development/contributing_environment.rst:87
+msgid "Frontend Compilation"
+msgstr "フロントエンドコンパイル"
+
+#: ../../source/development/contributing_environment.rst:89
+msgid ""
+"Navigate to the ``inference/xinference/ui/web/ui`` directory. Then, execute "
+"the following command to clear the cache:"
+msgstr ""
+"まず ``inference/xinference/ui/web/ui`` "
+"ディレクトリに移動し、その後以下のコマンドを実行してキャッシュをクリアします："
+
+#: ../../source/development/contributing_environment.rst:96
+msgid ""
+"If the command fails to execute, you can try adding the ``--force`` option."
+msgstr "コマンドの実行に失敗した場合は、``--force`` オプションを追加してみてください。"
+
+#: ../../source/development/contributing_environment.rst:99
+msgid ""
+"If the ``node_modules`` folder already exists in this directory, it's "
+"recommended to manually delete it before cleaning the cache."
+msgstr ""
+"もしそのディレクトリにすでに ``node_modules`` フォルダが存在する場合は、事前に手動でそのフォルダを削除することをお勧めします。"
+
+#: ../../source/development/contributing_environment.rst:102
+msgid ""
+"Next, execute the following command in this directory to compile the "
+"frontend:"
+msgstr "次に、そのディレクトリで以下のコマンドを実行してフロントエンドをコンパイルします："
+
+#: ../../source/development/contributing_environment.rst:110
+msgid ""
+"Still, if the first command fails to execute, you can try adding the "
+"``--force`` option."
+msgstr "最初のコマンドが失敗した場合でも、``--force`` オプションを追加することで解決を試みることができます。"
+
+#: ../../source/development/contributing_environment.rst:112
+msgid ""
+"After compiling the frontend, you can ``cd`` back to the directory where the"
+" ``setup.cfg`` and ``setup.py`` files are located, and install Xinference "
+"via ``pip install -e .``."
+msgstr ""
+"フロントエンドのコンパイルが完了したら、``setup.cfg`` と ``setup.py`` ファイルが含まれているディレクトリに戻り、``pip "
+"install -e .`` で Xinference をインストールしてください。"

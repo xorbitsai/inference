@@ -147,9 +147,9 @@ Initial setup::
 
    pip install "xinference[mlx]"
 
-Other Platforms
-~~~~~~~~~~~~~~~
-
 .. only:: zh_cn
+
+   Other Platforms
+   ~~~~~~~~~~~~~~~
 
    * :ref:`Ascend NPU <installation_npu>`

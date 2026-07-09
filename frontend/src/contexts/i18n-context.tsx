@@ -46,6 +46,16 @@ export function I18nProvider({
         setLocaleState(
           (LANGUAGES_KEYS.includes(stored as Locale) ? stored : DEFAULT_LANGUAGE) as Locale
         );
+      } else if (!stored) {
+        // First visit: the app is statically exported, so there is no
+        // request-time Accept-Language detection; use the browser language.
+        const browserLocale: Locale =
+          typeof navigator !== 'undefined' && navigator.language?.toLowerCase().includes('zh')
+            ? 'zh'
+            : DEFAULT_LANGUAGE;
+        if (browserLocale !== locale) {
+          setLocaleState(browserLocale);
+        }
       }
     } catch {
       // ignore

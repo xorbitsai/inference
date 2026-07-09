@@ -1,0 +1,157 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-08-02 15:15+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: de <LL@li.org>\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/getting_started/using_kubernetes.rst:5
+msgid "Xinference on Kubernetes"
+msgstr "Xinference auf Kubernetes"
+
+#: ../../source/getting_started/using_kubernetes.rst:9
+msgid "Helm Support"
+msgstr "Basierend auf der nativen Helm-Methode"
+
+#: ../../source/getting_started/using_kubernetes.rst:10
+msgid ""
+"Xinference provides a method for installation in a Kubernetes cluster via "
+"``Helm`` ."
+msgstr ""
+"Xinference bietet eine Installationsmethode in einem Kubernetes-Cluster über"
+" ``Helm`` ."
+
+#: ../../source/getting_started/using_kubernetes.rst:14
+msgid "Prerequisites"
+msgstr "Voraussetzungen"
+
+#: ../../source/getting_started/using_kubernetes.rst:15
+msgid "You have a fully functional Kubernetes cluster."
+msgstr "Ein verfügbarer Kubernetes-Cluster."
+
+#: ../../source/getting_started/using_kubernetes.rst:16
+msgid ""
+"Enable GPU support in Kubernetes, refer to `here "
+"<https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/>`_."
+msgstr ""
+"Aktivieren Sie die GPU-Unterstützung in Kubernetes, siehe `here "
+"<https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/>`_."
+
+#: ../../source/getting_started/using_kubernetes.rst:17
+msgid "``Helm`` is correctly installed."
+msgstr "``Helm`` ist korrekt installiert."
+
+#: ../../source/getting_started/using_kubernetes.rst:21
+msgid "Steps"
+msgstr "Konkrete Schritte"
+
+#: ../../source/getting_started/using_kubernetes.rst:22
+msgid "Add xinference helm repo."
+msgstr "Füge das Xinference Helm-Repository hinzu"
+
+#: ../../source/getting_started/using_kubernetes.rst:28
+msgid "Update xinference helm repo indexes and query versions."
+msgstr ""
+"Aktualisiere das Repositorium-Index und durchsuche die installierbaren "
+"Versionen."
+
+#: ../../source/getting_started/using_kubernetes.rst:35
+msgid "Install"
+msgstr "Installation"
+
+#: ../../source/getting_started/using_kubernetes.rst:43
+msgid "Customized Installation"
+msgstr "Benutzerdefinierte Installation"
+
+#: ../../source/getting_started/using_kubernetes.rst:44
+msgid ""
+"The installation method mentioned above sets up a Xinference cluster similar"
+" to a single-machine setup, with only one worker and all startup parameters "
+"at their default values. However, this is usually not the desired setup."
+msgstr ""
+"Die oben genannte Installationsmethode installiert eine Art Standalone-"
+"Xinference, das heißt, es gibt nur einen Knoten, während alle anderen "
+"Startparameter auf den Standardwerten belassen werden."
+
+#: ../../source/getting_started/using_kubernetes.rst:48
+msgid "Below are some common custom installation configurations."
+msgstr ""
+"Im Folgenden werden einige gängige benutzerdefinierte "
+"Installationskonfigurationen gezeigt."
+
+#: ../../source/getting_started/using_kubernetes.rst:50
+msgid "I need to download models from ``ModelScope``."
+msgstr "Ich muss das Modell von ``ModelScope`` herunterladen."
+
+#: ../../source/getting_started/using_kubernetes.rst:56
+msgid ""
+"I want to use cpu image of xinference (or use any other version of "
+"xinference images)."
+msgstr ""
+"Ich möchte das CPU-Image von Xinference (oder ein Image einer anderen "
+"Version) verwenden."
+
+#: ../../source/getting_started/using_kubernetes.rst:62
+msgid "I want to have 4 Xinference workers, with each worker managing 4 GPUs."
+msgstr ""
+"Ich muss 4 Xinference-Worker-Knoten starten, wobei jeder Worker 4 GPUs "
+"verwaltet."
+
+#: ../../source/getting_started/using_kubernetes.rst:68
+msgid ""
+"The above installation method is based on Helm ``--set`` option. For more "
+"complex custom installations, such as multiple workers with shared storage, "
+"it is highly recommended to use your own ``values.yaml`` file with Helm "
+"``-f`` option for installation."
+msgstr ""
+"Die obige Installationsmethode basiert auf der Helm-Option ``--set``. Für "
+"komplexere benutzerdefinierte Installationsszenarien, wie z. B. die "
+"gemeinsame Nutzung von Speicher durch mehrere Worker, wird dringend "
+"empfohlen, Ihre eigene ``values.yaml``-Datei zu verwenden und die "
+"Installation über die Helm-Option ``-f`` durchzuführen."
+
+#: ../../source/getting_started/using_kubernetes.rst:72
+msgid ""
+"The default ``values.yaml`` file is located `here "
+"<https://github.com/xorbitsai/xinference-helm-"
+"charts/blob/main/charts/xinference/values.yaml>`_. Some examples can be "
+"found `here <https://github.com/xorbitsai/xinference-helm-"
+"charts/tree/main/examples>`_."
+msgstr ""
+"Die ``values.yaml``-Datei für die Standardinstallation befindet sich `hier "
+"<https://github.com/xorbitsai/xinference-helm-"
+"charts/blob/main/charts/xinference/values.yaml>`_. `Hier "
+"<https://github.com/xorbitsai/xinference-helm-charts/tree/main/examples>`_ "
+"finden Sie einige Beispiele als Referenz."
+
+#: ../../source/getting_started/using_kubernetes.rst:78
+msgid "KubeBlocks Support"
+msgstr "Basierend auf der Drittanbieter-Methode KubeBlocks"
+
+#: ../../source/getting_started/using_kubernetes.rst:79
+msgid ""
+"You can also install Xinference in Kubernetes using the third-party "
+"``KubeBlocks``. This method is not maintained by Xinference and does not "
+"guarantee timely updates or availability. Please refer to the documentation "
+"at `here <https://kubeblocks.io/docs/preview/user_docs/kubeblocks-for-"
+"xinference/manage-xinference>`_."
+msgstr ""
+"Sie können Xinference auch mithilfe des Drittanbieters ``KubeBlocks`` in "
+"Kubernetes installieren. Diese Methode wird nicht von Xinference gepflegt "
+"und garantiert keine zeitnahen Updates oder Verfügbarkeit. Weitere "
+"Informationen finden Sie in der Dokumentation `here "
+"<https://kubeblocks.io/docs/preview/user_docs/kubeblocks-for-"
+"xinference/manage-xinference>`_."

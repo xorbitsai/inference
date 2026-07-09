@@ -60,14 +60,38 @@ def _fix_msgstr(msgid: str, msgstr: str) -> str | None:
         return fixed if fixed != msgstr else None
     if msgstr.endswith(":::"):
         return msgstr[:-1]
-    if msgstr.endswith("："):
-        return msgstr[:-1] + "::"
-    if msgstr.endswith(":"):
-        return msgstr[:-1] + "::"
-    return None
+    for suffix in ("：", ":", "。", ".", "！", "!", "？", "?"):
+        if msgstr.endswith(suffix):
+            return msgstr[: -len(suffix)] + "::"
+    return msgstr + "::"
 
 
 def _write_msgstr(lines: list[str], start: int, end: int, msgstr: str) -> list[str]:
+    old_chunks: list[str] = []
+    for line in lines[start : end + 1]:
+        if line.startswith("msgstr "):
+            old_chunks.append(line[7:].strip().strip('"'))
+        elif line.startswith('"'):
+            old_chunks.append(line.strip().strip('"'))
+    old_msgstr = "".join(old_chunks)
+
+    if old_msgstr and old_msgstr != msgstr:
+        if old_msgstr.endswith("::") and msgstr.endswith("::"):
+            suffix_len = len(old_msgstr) - len(old_msgstr.rstrip(":").rstrip("："))
+        else:
+            suffix_len = 0
+        if suffix_len and msgstr.endswith("::"):
+            prefix = msgstr[: -len("::")]
+            old_prefix = old_msgstr[: -suffix_len] if suffix_len else old_msgstr
+            if prefix == old_prefix or prefix.startswith(old_prefix.rstrip("：:")):
+                msgstr_lines = lines[start : end + 1]
+                last = msgstr_lines[-1]
+                if last.startswith("msgstr "):
+                    msgstr_lines[-1] = f'msgstr "{prefix}::"\n'
+                else:
+                    msgstr_lines[-1] = f'"{prefix}::"\n'
+                return lines[:start] + msgstr_lines + lines[end + 1 :]
+
     wrapped: list[str] = []
     chunk_size = 70
     parts = [msgstr[i : i + chunk_size] for i in range(0, len(msgstr), chunk_size)] or [""]

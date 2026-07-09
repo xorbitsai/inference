@@ -7,7 +7,8 @@ import { toast } from 'sonner';
 import { InfoTooltip } from '@/components/ui/tooltip';
 import { LOGIN_PATH } from '@/constants';
 import { useI18n } from '@/contexts/i18n-context';
-import { removeAuthTokens } from '@/lib/auth-storage';
+import { getRefreshToken, removeAuthTokens } from '@/lib/auth-storage';
+import request from '@/lib/request';
 import { cn } from '@/lib/utils';
 
 interface LoginOutProps {
@@ -17,8 +18,16 @@ interface LoginOutProps {
 const LoginOut = ({ className }: LoginOutProps) => {
   const router = useRouter();
   const { t } = useI18n();
-  const loginout = () => {
+  const loginout = async () => {
+    const refreshToken = getRefreshToken();
     removeAuthTokens();
+    if (refreshToken) {
+      try {
+        await request.post('/v1/auth/logout', { refresh_token: refreshToken });
+      } catch {
+        // Local logout should still complete if server-side token cleanup fails.
+      }
+    }
     toast.success(t('common.loginOutSuccess'));
     router.replace(LOGIN_PATH);
   };

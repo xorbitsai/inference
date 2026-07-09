@@ -1,0 +1,200 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-09-09 12:13+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: it <LL@li.org>\n"
+"Language: it\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/client_api.rst:5
+msgid "Client API"
+msgstr "API del client"
+
+#: ../../source/user_guide/client_api.rst:7
+msgid "Complete Client API Reference: :ref:`reference_index`"
+msgstr "Guida API completa: :ref:`reference_index`"
+
+#: ../../source/user_guide/client_api.rst:9
+msgid ""
+"To utilize the Client API, initiate the xinference server using the command "
+"below:"
+msgstr ""
+"Per utilizzare l'API Client, è necessario prima avviare il servizio "
+"Xinference con il seguente comando:"
+
+#: ../../source/user_guide/client_api.rst:18
+msgid ""
+"Based on the log above, the endpoint is `http://127.0.0.1:9997`. Users can "
+"connect to the xinference server through this endpoint using the Client."
+msgstr ""
+"Nel log dei comandi viene stampato l'indirizzo del servizio, che nel log "
+"sopra è `http://127.0.0.1:9997`. Gli utenti possono connettersi al servizio "
+"Xinference tramite Client."
+
+#: ../../source/user_guide/client_api.rst:20
+msgid ""
+"Models are categorized into LLM, embedding, image, etc. We plan to introduce"
+" more model types in the future."
+msgstr ""
+"Tutti i modelli sono suddivisi in tipi come LLM, embedding, rerank, ecc. In "
+"futuro potrebbero essere supportati ulteriori tipi di modelli."
+
+#: ../../source/user_guide/client_api.rst:23
+msgid "LLM"
+msgstr "LLM"
+
+#: ../../source/user_guide/client_api.rst:25
+msgid "To list the available built-in LLM models:"
+msgstr "Elenco di tutti i modelli LLM supportati nativamente:"
+
+#: ../../source/user_guide/client_api.rst:38
+msgid "To initialize an LLM and chat:"
+msgstr "Inizializzare un Large Language Model e conversare con esso."
+
+#: ../../source/user_guide/client_api.rst:41
+#: ../../source/user_guide/client_api.rst:183
+#: ../../source/user_guide/client_api.rst:254
+#: ../../source/user_guide/client_api.rst:323
+msgid "Xinference Client"
+msgstr "Xinference Client"
+
+#: ../../source/user_guide/client_api.rst:65
+#: ../../source/user_guide/client_api.rst:215
+#: ../../source/user_guide/client_api.rst:278
+#: ../../source/user_guide/client_api.rst:347
+msgid "OpenAI Client"
+msgstr "OpenAI Client"
+
+#: ../../source/user_guide/client_api.rst:67
+msgid ""
+"Openai client request with the same function as before, excluding launch "
+"model. More details refer to: https://platform.openai.com/docs/api-"
+"reference/chat?lang=python"
+msgstr ""
+"Quando si inviano richieste utilizzando OpenAI, tutte le richieste, ad "
+"eccezione della creazione del modello, mantengono la compatibilità con "
+"l'interfaccia di OpenAI. Per le modalità di utilizzo di OpenAI, fare "
+"riferimento a https://platform.openai.com/docs/api-"
+"reference/chat?lang=python"
+
+#: ../../source/user_guide/client_api.rst:89
+msgid "OpenAI Client Tool Calls"
+msgstr "Chiamata agli strumenti di OpenAI"
+
+#: ../../source/user_guide/client_api.rst:134
+#: ../../source/user_guide/client_api.rst:197
+#: ../../source/user_guide/client_api.rst:229
+#: ../../source/user_guide/client_api.rst:269
+#: ../../source/user_guide/client_api.rst:293
+#: ../../source/user_guide/client_api.rst:337
+#: ../../source/user_guide/client_api.rst:362
+#: ../../source/user_guide/client_api.rst:391
+msgid "Output:"
+msgstr ""
+"Ciao! Hai dimenticato di fornire il testo in cinese semplificato da "
+"tradurre. Fornisci il testo e lo tradurrò in italiano seguendo le tue "
+"regole."
+
+#: ../../source/user_guide/client_api.rst:142
+msgid "Anthropic Client"
+msgstr "Anthropic Client"
+
+#: ../../source/user_guide/client_api.rst:144
+msgid "Anthropic API's access address is: /anthropic/v1/messages"
+msgstr "L'indirizzo di accesso all'API di Anthropic è: /anthropic/v1/messages"
+
+#: ../../source/user_guide/client_api.rst:165
+msgid "Embedding"
+msgstr "Embedding"
+
+#: ../../source/user_guide/client_api.rst:167
+msgid "To list the available built-in embedding models:"
+msgstr "Elenco di tutti i modelli di embedding supportati nativamente:"
+
+#: ../../source/user_guide/client_api.rst:180
+msgid "To launch an embedding model and embed text:"
+msgstr ""
+"Avvia il modello di embedding e utilizza la vettorizzazione del testo:"
+
+#: ../../source/user_guide/client_api.rst:217
+msgid ""
+"Openai client request with the same function as before, excluding launch "
+"model. More details refer to: https://platform.openai.com/docs/api-"
+"reference/embeddings?lang=python"
+msgstr ""
+"Quando si inviano richieste utilizzando OpenAI, tutte le richieste tranne la"
+" creazione del modello rimangono compatibili con l'interfaccia di OpenAI. "
+"Per informazioni su come utilizzare OpenAI, fare riferimento a "
+"https://platform.openai.com/docs/api-reference/embeddings?lang=python"
+
+#: ../../source/user_guide/client_api.rst:236
+msgid "Image"
+msgstr "Immagine"
+
+#: ../../source/user_guide/client_api.rst:238
+#: ../../source/user_guide/client_api.rst:303
+msgid "To list the available built-in image models:"
+msgstr "Elenco di tutti i modelli di text-to-image integrati:"
+
+#: ../../source/user_guide/client_api.rst:251
+msgid "To initiate an image model and generate an image using a text prompt:"
+msgstr ""
+"Inizializza un modello text-to-image e genera un'immagine tramite prompt."
+
+#: ../../source/user_guide/client_api.rst:280
+msgid ""
+"Openai client request with the same function as before, excluding launch "
+"model. More details refer to: https://platform.openai.com/docs/api-"
+"reference/images/create?lang=python"
+msgstr ""
+"Quando si inviano richieste con OpenAI, ad eccezione della creazione del "
+"modello, tutte le altre richieste mantengono la compatibilità con "
+"l'interfaccia di OpenAI. Per le modalità di utilizzo di OpenAI, fare "
+"riferimento a https://platform.openai.com/docs/api-"
+"reference/images/create?lang=python"
+
+#: ../../source/user_guide/client_api.rst:301
+msgid "Audio"
+msgstr ""
+
+#: ../../source/user_guide/client_api.rst:320
+msgid "To initiate an audio model and get text from an audio:"
+msgstr "Inizializza un modello vocale e genera testo attraverso la voce:"
+
+#: ../../source/user_guide/client_api.rst:349
+msgid ""
+"Openai client request with the same function as before. More details refer "
+"to: https://platform.openai.com/docs/api-reference/audio/createTranscription"
+msgstr ""
+"Quando si inviano richieste tramite OpenAI, oltre alla creazione del "
+"modello, tutte le altre richieste rimangono compatibili con l'interfaccia di"
+" OpenAI. Per le modalità di utilizzo di OpenAI, fare riferimento a "
+"https://platform.openai.com/docs/api-reference/images/create?lang=python"
+
+#: ../../source/user_guide/client_api.rst:370
+msgid "Rerank"
+msgstr "Rerank"
+
+#: ../../source/user_guide/client_api.rst:371
+msgid "To launch a rerank model and compute the similarity scores:"
+msgstr "Caricare il modello di rerank e calcolare la similarità testuale:"
+
+#~ msgid ""
+#~ "Anthropic client request with the same function as before, excluding launch "
+#~ "model."
+#~ msgstr ""
+#~ "Quando si inviano richieste utilizzando Anthropic, ad eccezione della "
+#~ "creazione del modello, tutte le altre richieste rimangono compatibili con "
+#~ "l'interfaccia di Anthropic."

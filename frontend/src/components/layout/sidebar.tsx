@@ -147,7 +147,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const branding = getBrandingFromEnv();
   const { clusterVersion, clusterAuth, clusterUIConfig } = useGlobal();
-  const { isAdmin, usersManagePage, keysManageCreate } = useMenuAuth();
+  const { isAdmin, usersManagePage, canAccessKeysPage } = useMenuAuth();
   const [token, setToken] = useState<string | undefined>();
   const showLoginOut = useMemo(
     () => Boolean(clusterAuth?.auth && token && token !== NO_AUTH),
@@ -244,7 +244,7 @@ export function Sidebar() {
             name: t('menu.apiKeyManagement'),
             Icon: KeyRound,
             Extra: ChevronRight,
-            show: keysManageCreate,
+            show: canAccessKeysPage,
           },
           {
             path: '/security-settings',
@@ -256,7 +256,7 @@ export function Sidebar() {
         ],
         show:
           (clusterUIConfig?.auth_advanced || false) &&
-          (usersManagePage || keysManageCreate || isAdmin),
+          (usersManagePage || canAccessKeysPage || isAdmin),
       },
       {
         name: t('menu.resourcesAndSupport'),
@@ -299,7 +299,7 @@ export function Sidebar() {
         ...group,
         items: group.items.filter(({ show = true }) => show),
       }));
-  }, [clusterUIConfig, locale, t, usersManagePage, keysManageCreate, isAdmin]);
+  }, [clusterUIConfig, locale, t, usersManagePage, canAccessKeysPage, isAdmin]);
 
   return (
     <div

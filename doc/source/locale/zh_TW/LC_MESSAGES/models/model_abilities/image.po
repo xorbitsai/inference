@@ -1,0 +1,515 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-12-04 17:26+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: zh_TW <LL@li.org>\n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/model_abilities/image.rst:5
+msgid "Images"
+msgstr "圖像"
+
+#: ../../source/models/model_abilities/image.rst:7
+msgid "Learn how to generate images with Xinference."
+msgstr "學習如何使用 Xinference 生成圖像。"
+
+#: ../../source/models/model_abilities/image.rst:11
+msgid "Introduction"
+msgstr "Hello! How can I assist you today?"
+
+#: ../../source/models/model_abilities/image.rst:14
+msgid "The Images API provides two methods for interacting with images:"
+msgstr "Images API 提供了兩種與影像互動的方法："
+
+#: ../../source/models/model_abilities/image.rst:17
+msgid ""
+"The Text-to-image endpoint create images from scratch based on a text "
+"prompt."
+msgstr "文生圖端點根據文字從零開始建立圖像。"
+
+#: ../../source/models/model_abilities/image.rst:18
+msgid ""
+"The Image-to-image endpoint allows you to generate a variation of a given "
+"image."
+msgstr "圖生圖端點允許您生成給定圖像的變體。"
+
+#: ../../source/models/model_abilities/image.rst:25
+msgid "API ENDPOINT"
+msgstr "API 端點"
+
+#: ../../source/models/model_abilities/image.rst:26
+msgid "OpenAI-compatible ENDPOINT"
+msgstr "OpenAI 兼容端點"
+
+#: ../../source/models/model_abilities/image.rst:28
+msgid "Text-to-Image API"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:29
+msgid "/v1/images/generations"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:31
+msgid "Image-to-image API"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:32
+msgid "/v1/images/variations"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:35
+msgid "Supported models"
+msgstr "支援的模型列表"
+
+#: ../../source/models/model_abilities/image.rst:37
+msgid ""
+"The Text-to-image API is supported with the following models in Xinference:"
+msgstr "在 Xinference 中，Text-to-image API 支援以下模型："
+
+#: ../../source/models/model_abilities/image.rst:39
+msgid "sd-turbo"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:40
+msgid "sdxl-turbo"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:41
+msgid "stable-diffusion-v1.5"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:42
+msgid "stable-diffusion-xl-base-1.0"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:43
+#: ../../source/models/model_abilities/image.rst:213
+msgid "sd3-medium"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:44
+#: ../../source/models/model_abilities/image.rst:215
+#: ../../source/models/model_abilities/image.rst:252
+msgid "sd3.5-medium"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:45
+#: ../../source/models/model_abilities/image.rst:217
+#: ../../source/models/model_abilities/image.rst:254
+msgid "sd3.5-large"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:46
+#: ../../source/models/model_abilities/image.rst:219
+#: ../../source/models/model_abilities/image.rst:256
+msgid "sd3.5-large-turbo"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:47
+#: ../../source/models/model_abilities/image.rst:211
+#: ../../source/models/model_abilities/image.rst:250
+msgid "FLUX.1-schnell"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:48
+#: ../../source/models/model_abilities/image.rst:209
+#: ../../source/models/model_abilities/image.rst:248
+msgid "FLUX.1-dev"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:49
+msgid "Kolors"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:50
+msgid "hunyuandit-v1.2"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:51
+msgid "hunyuandit-v1.2-distilled"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:52
+msgid "cogview4"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:53
+#: ../../source/models/model_abilities/image.rst:221
+#: ../../source/models/model_abilities/image.rst:258
+#: ../../source/models/model_abilities/image.rst:292
+msgid "Qwen-Image"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:55
+msgid "Image-to-image supported models:"
+msgstr "支援的模型列表"
+
+#: ../../source/models/model_abilities/image.rst:57
+msgid "Flux.1-Kontext-dev"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:58
+#: ../../source/models/model_abilities/image.rst:223
+#: ../../source/models/model_abilities/image.rst:260
+#: ../../source/models/model_abilities/image.rst:294
+msgid "Qwen-Image-Edit"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:62
+msgid "Quickstart"
+msgstr "快速入門"
+
+#: ../../source/models/model_abilities/image.rst:65
+msgid "Text-to-image"
+msgstr "文生圖"
+
+#: ../../source/models/model_abilities/image.rst:67
+msgid ""
+"The Text-to-image API mimics OpenAI's `create images API "
+"<https://platform.openai.com/docs/api-reference/images/create>`_. We can try"
+" Text-to-image API out either via cURL, OpenAI Client, or Xinference's "
+"python client:"
+msgstr "可以透過 cURL、OpenAI Client 或 Xinference 的方式嘗試使用 Text-to-image API。"
+
+#: ../../source/models/model_abilities/image.rst:121
+msgid "Image-to-image"
+msgstr "圖生圖"
+
+#: ../../source/models/model_abilities/image.rst:123
+msgid ""
+"The Image-to-image API mimics OpenAI's `create image variation API "
+"<https://platform.openai.com/docs/api-reference/images/createVariation>`_. "
+"We can try image-to-image API out either via cURL, OpenAI Client, or "
+"Xinference's python client:"
+msgstr ""
+"圖生圖 API 模擬了 OpenAI 的 `圖像變體建立 API <https://platform.openai.com/docs/api-"
+"reference/images/createVariation>`_。我們可以透過 cURL、OpenAI 客戶端，或 Xinference 的 "
+"Python 客戶端來嘗試使用圖生圖 API："
+
+#: ../../source/models/model_abilities/image.rst:176
+msgid "Memory optimization for Large Image Models e.g. SD3-Medium, FLUX.1"
+msgstr "大型影像模型（例如 SD3-Medium、FLUX.1）的記憶體最佳化"
+
+#: ../../source/models/model_abilities/image.rst:180
+msgid ""
+"From v0.16.1, Xinference by default enabled quantization for large image "
+"models like Flux.1 and SD3.5 series. So if your Xinference version is newer "
+"than v0.16.1, You barely need to do anything to run those large image models"
+" on GPUs with small memory."
+msgstr ""
+"從 v0.16.1 開始，Xinference 預設對大型圖像模型如 Flux.1 和 SD3.5 系列啟用量化。如果你使用新於 v0.16.1 的 "
+"Xinference 版本，你不需要做任何事來在小 GPU 記憶體的機器上執行這些大型圖像模型。"
+
+#: ../../source/models/model_abilities/image.rst:185
+msgid "Useful extra parameters can be passed to launch including:"
+msgstr "有用的傳遞給載入模型的額外參數包括："
+
+#: ../../source/models/model_abilities/image.rst:187
+msgid ""
+"``--cpu_offload True``: specifying ``True`` will offload the components of "
+"the model to CPU during inference in order to save memory, while seeing a "
+"slight increase in inference latency. Model offloading will only move a "
+"model component onto the GPU when it needs to be executed, while keeping the"
+" remaining components on the CPU."
+msgstr ""
+"``--cpu_offload True``：指定 ``True`` 會在推理過程中將模型的組件卸載到 CPU "
+"上以節省記憶體，這會導致推理延遲略微增加。模型卸載僅會在需要執行時將模型組件移動到 GPU 上，同時保持其餘組件在 CPU 上。"
+
+#: ../../source/models/model_abilities/image.rst:191
+msgid ""
+"``--quantize_text_encoder <text encoder layer>``: We leveraged the "
+"``bitsandbytes`` library to load and quantize the T5-XXL text encoder to "
+"8-bit precision. This allows you to keep using all text encoders while only "
+"slightly impacting performance."
+msgstr ""
+"``--quantize_text_encoder <text encoder layer>``：我們利用 ``bitsandbytes`` "
+"函式庫載入並量化 T5-XXL 文字編碼器至 8 位元精確度。這讓你能夠在僅輕微影響效能的情況下，繼續使用完整的文字編碼器。"
+
+#: ../../source/models/model_abilities/image.rst:194
+msgid ""
+"``--text_encoder_3 None``, for sd3-medium, removing the memory-intensive "
+"4.7B parameter T5-XXL text encoder during inference can significantly "
+"decrease the memory requirements with only a slight loss in performance."
+msgstr ""
+"``--text_encoder_3 None``，對於 "
+"sd3-medium，移除在推論過程中記憶體密集型的47億參數T5-XXL文字編碼器可以顯著降低記憶體需求，而僅造成效能上的輕微損失。"
+
+#: ../../source/models/model_abilities/image.rst:197
+msgid "``--transformer_nf4 True``: use nf4 for transformer quantization."
+msgstr "``--transformer_nf4 True`` ：使用 nf4 量化 transformer。"
+
+#: ../../source/models/model_abilities/image.rst:198
+msgid ""
+"``--quantize``: Only work for MLX on Mac, Flux.1-dev and Flux.1-schnell will"
+" switch to MLX engine on Mac, and ``quantize`` can be used to quantize the "
+"model."
+msgstr ""
+"``--quantize`` ：僅對 Mac 上的 MLX 引擎生效，Flux.1-dev 和 Flux.1-schnell 會在 Mac 上使用 "
+"MLX 引擎計算，``quantize`` 可用來量化模型。"
+
+#: ../../source/models/model_abilities/image.rst:201
+msgid ""
+"For WebUI, Just add additional parameters, e.g. add key ``cpu_offload`` and "
+"value ``True`` to enable cpu offloading."
+msgstr "對於 WebUI，只需要添加額外參數，例如，添加 key ``cpu_offload`` 以及值 ``True`` 來開啟 CPU 卸載。"
+
+#: ../../source/models/model_abilities/image.rst:204
+msgid "Below list default options that used from v0.16.1."
+msgstr "以下列出從 v0.16.1 開始預設使用的參數。"
+
+#: ../../source/models/model_abilities/image.rst:207
+#: ../../source/models/model_abilities/image.rst:246
+#: ../../source/models/model_abilities/image.rst:290
+msgid "Model"
+msgstr "模型"
+
+#: ../../source/models/model_abilities/image.rst:207
+msgid "quantize_text_encoder"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:207
+msgid "quantize"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:207
+msgid "transformer_nf4"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:209
+#: ../../source/models/model_abilities/image.rst:211
+msgid "text_encoder_2"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:209
+#: ../../source/models/model_abilities/image.rst:211
+#: ../../source/models/model_abilities/image.rst:217
+#: ../../source/models/model_abilities/image.rst:219
+msgid "True"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:209
+#: ../../source/models/model_abilities/image.rst:211
+#: ../../source/models/model_abilities/image.rst:213
+#: ../../source/models/model_abilities/image.rst:215
+#: ../../source/models/model_abilities/image.rst:221
+#: ../../source/models/model_abilities/image.rst:223
+msgid "False"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:213
+#: ../../source/models/model_abilities/image.rst:215
+#: ../../source/models/model_abilities/image.rst:217
+#: ../../source/models/model_abilities/image.rst:219
+msgid "text_encoder_3"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:213
+#: ../../source/models/model_abilities/image.rst:215
+#: ../../source/models/model_abilities/image.rst:217
+#: ../../source/models/model_abilities/image.rst:219
+#: ../../source/models/model_abilities/image.rst:221
+#: ../../source/models/model_abilities/image.rst:223
+msgid "N/A"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:221
+#: ../../source/models/model_abilities/image.rst:223
+msgid "text_encoder"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:228
+msgid ""
+"If you want to disable some quantization, just set the corresponding option "
+"to False. e.g. for Web UI, set key ``quantize_text_encoder`` and value "
+"``False`` and for command line, specify ``--quantize_text_encoder False`` to"
+" disable quantization for text encoder."
+msgstr ""
+"如果你想關閉某些量化，只需設定相應的選項為 False。例如，對於 Web UI，設定 key ``quantize_text_encoder`` 和值"
+" ``False``，或對於命令列，指定 ``--quantize_text_encoder False`` 來關閉 text encoder 的量化。"
+
+#: ../../source/models/model_abilities/image.rst:233
+msgid ""
+"For :ref:`CogView4 <models_builtin_cogview4>`, we found that quantization "
+"has a significant impact on the model. Therefore, when GPU memory is "
+"limited, we recommend enabling the CPU offload option in the Web UI, and "
+"specifying ``--cpu_offload True`` when loading the model via the command "
+"line."
+msgstr ""
+"對於 :ref:`CogView4 <models_builtin_cogview4>`，我們發現量化對模型的影響較大。因此，當顯存有限時，我們推薦在 "
+"Web UI 中啟用 CPU offload 選項，在命令列載入模型時指定 ``--cpu_offload True``。"
+
+#: ../../source/models/model_abilities/image.rst:238
+msgid "GGUF file format"
+msgstr "GGUF 檔案格式"
+
+#: ../../source/models/model_abilities/image.rst:240
+msgid ""
+"GGUF file format for transformer provides various quantization options. To "
+"use gguf file, you can specify additional option ``gguf_quantization`` for "
+"web UI, or ``--gguf_quantization`` for command line for those image models "
+"which support internally by Xinference. Below is the mode list."
+msgstr ""
+"GGUF 檔案格式為 transformer 模組提供了豐富的量化選項。要使用 GGUF 檔案，你可以在 Web 界面上指定額外選項 "
+"``gguf_quantization`` ，或者在命令列指定 ``--gguf_quantization`` ，以為 Xinference 內建支援 "
+"GGUF 量化的模型開啟。如下是內建支援的模型。"
+
+#: ../../source/models/model_abilities/image.rst:246
+msgid "supported gguf quantization"
+msgstr "支援 GGUF 量化格式"
+
+#: ../../source/models/model_abilities/image.rst:248
+#: ../../source/models/model_abilities/image.rst:250
+msgid "F16, Q2_K, Q3_K_S, Q4_0, Q4_1, Q4_K_S, Q5_0, Q5_1, Q5_K_S, Q6_K, Q8_0"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:252
+#: ../../source/models/model_abilities/image.rst:258
+msgid ""
+"F16, Q3_K_M, Q3_K_S, Q4_0, Q4_1, Q4_K_M, Q4_K_S, Q5_0, Q5_1, Q5_K_M, Q5_K_S,"
+" Q6_K, Q8_0"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:254
+#: ../../source/models/model_abilities/image.rst:256
+msgid "F16, Q4_0, Q4_1, Q5_0, Q5_1, Q8_0"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:260
+#: ../../source/models/model_abilities/image.rst:262
+msgid ""
+"Q2_K, Q3_K_M, Q3_K_S, Q4_0, Q4_1, Q4_K_M, Q4_K_S, Q5_0, Q5_1, Q5_K_M, "
+"Q5_K_S, Q6_K, Q8_0"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:262
+#: ../../source/models/model_abilities/image.rst:296
+msgid "Qwen-Image-Edit-2509"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:267
+msgid ""
+"We stronly recommend to enable additional option ``cpu_offload`` with value "
+"``True`` for WebUI, or specify ``--cpu_offload True`` for command line."
+msgstr ""
+"我們強烈建議在 WebUI 上開啟額外選項 ``cpu_offload`` 並指定為 ``True``，或對命令列，指定 ``--cpu_offload"
+" True``。"
+
+#: ../../source/models/model_abilities/image.rst:270
+msgid "Example:"
+msgstr "例如："
+
+#: ../../source/models/model_abilities/image.rst:276
+msgid ""
+"With ``Q2_K`` quantization, you only need around 5 GiB GPU memory to run "
+"Flux.1-dev."
+msgstr "使用 ``Q2_K`` 量化，你只需要大約 5GB 的顯存來執行 Flux.1-dev。"
+
+#: ../../source/models/model_abilities/image.rst:278
+msgid ""
+"For those models gguf options are not supported internally, or you want to "
+"download gguf files on you own, you can specify additional option "
+"``gguf_model_path`` for web UI or spcecify ``--gguf_model_path "
+"/path/to/model_quant.gguf`` for command line."
+msgstr ""
+"對於非內建支援 GGUF 量化的模型，或者您希望自行下載 GGUF 檔案，您可以在 Web UI 指定額外選項 "
+"``gguf_model_path``，或者使用命令列指定 ``--gguf_model_path "
+"/path/to/model_quant.gguf``。"
+
+#: ../../source/models/model_abilities/image.rst:283
+msgid "Lightning LORA Support"
+msgstr "Lightning LORA 支持"
+
+#: ../../source/models/model_abilities/image.rst:285
+msgid ""
+"Lightning LORA performs distillation on models in the form of LoRA, reducing"
+" the number of inference steps while maintaining model performance, and "
+"significantly speeding up inference. The following models currently support "
+"this LoRA:"
+msgstr ""
+"Lightning LORA 以 LoRA 的形式對模型進行蒸餾，在保持模型效能的同時減少推理步數，並大幅提升推理速度。以下模型目前支援此 LoRA："
+
+#: ../../source/models/model_abilities/image.rst:290
+msgid "Supported lightning version"
+msgstr "支援的 Lightning 版本"
+
+#: ../../source/models/model_abilities/image.rst:292
+msgid ""
+"4steps-V1.0-bf16, 4steps-V1.0, 8steps-V1.0, 8steps-V1.1-bf16, 8steps-V1.1"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:294
+msgid "4steps-V1.0-bf16, 4steps-V1.0, 8steps-V1.0-bf16, 8steps-V1.0"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:296
+msgid "4steps-V1.0-bf16, 4steps-V1.0-fp32, 8steps-V1.0-bf16, 8steps-V1.0-fp32"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:299
+msgid ""
+"4 steps or 8 steps refer to the inference steps (``num_inference_steps``). "
+"When ``lightning_version`` is specified, Xinference will automatically set "
+"the number of inference steps."
+msgstr ""
+"4 步或 8 步是指推理步數（ ``num_inference_steps`` ）。當指定了 ``lightning_version`` "
+"時，Xinference 會自動設定推理步數。"
+
+#: ../../source/models/model_abilities/image.rst:302
+msgid ""
+"When using it, select the lightning version in the interface, or specify it "
+"via the command line."
+msgstr "使用時，可以在界面上選擇 lightning 版本，或者透過命令列指定。"
+
+#: ../../source/models/model_abilities/image.rst:308
+msgid "Use the command line with ``--lightning_version <version>``."
+msgstr "在命令列中使用 ``--lightning_version <version>``。"
+
+#: ../../source/models/model_abilities/image.rst:310
+msgid ""
+"For those who have downloaded the lightning LoRA files themselves, you can "
+"specify them via the Lightning Model Path in the interface or by using the "
+"command line option ``--lightning_model_path``."
+msgstr ""
+"對於自行下載了 lightning LoRA 檔案的使用者，可以在介面上透過 Lightning Model Path 指定，或者使用命令列參數 "
+"``--lightning_model_path`` 。"
+
+#: ../../source/models/model_abilities/image.rst:313
+msgid ""
+"For example, using ``4steps-V1.0``, the inference time is reduced from the "
+"original 34s to 3s."
+msgstr "例如，使用 ``4steps-V1.0`` 時，推理時間從原來的 34 秒減少到 3 秒。"
+
+#: ../../source/models/model_abilities/image.rst:316
+msgid "OCR"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:318
+msgid "The OCR API accepts image bytes and returns the OCR text."
+msgstr "OCR API 接受圖像字節並返回 OCR 文字。"
+
+#: ../../source/models/model_abilities/image.rst:320
+msgid "We can try OCR API out either via cURL, or Xinference's python client:"
+msgstr "可以透過 cURL 或 Xinference 的 Python 客戶端來嘗試 OCR API。"
+
+#~ msgid "You can find more examples of Images API in the tutorial notebook:"
+#~ msgstr "你可以在教學筆記本中找到更多 Images API 的範例。"
+
+#~ msgid "Stable Diffusion ControlNet"
+#~ msgstr ""
+
+#~ msgid "Learn from a Stable Diffusion ControlNet example"
+#~ msgstr "學習一個 Stable Diffusion 控制網路的範例"

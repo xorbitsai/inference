@@ -1,0 +1,203 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-06-26 13:20+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: de <LL@li.org>\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/index.rst:5
+msgid "Welcome to Xinference!"
+msgstr "Willkommen bei Xinference!"
+
+#: ../../source/index.rst:19
+msgid ""
+"Xorbits Inference (Xinference) is an open-source platform to streamline the "
+"operation and integration of a wide array of AI models. With Xinference, "
+"you're empowered to run inference using any open-source LLMs, embedding "
+"models, and multimodal models either in the cloud or on your own premises, "
+"and create robust AI-driven applications."
+msgstr ""
+"Xorbits Inference (Xinference) ist eine Open-Source-Plattform zur "
+"Vereinfachung des Betriebs und der Integration verschiedener KI-Modelle. Mit"
+" Xinference können Sie jedes Open-Source-LLM, Einbettungsmodell und "
+"multimodale Modell in der Cloud oder in der lokalen Umgebung ausführen und "
+"leistungsstarke KI-Anwendungen erstellen."
+
+#: ../../source/index.rst:25
+msgid "Developing Real-world AI Applications with Xinference"
+msgstr ""
+"Verwendung von Xinference zur Entwicklung von KI-Anwendungen in realen "
+"Szenarien"
+
+#: ../../source/index.rst:117
+msgid "Getting Started"
+msgstr "Erste Schritte"
+
+#: ../../source/index.rst:121
+msgid "Install Xinference"
+msgstr "Installieren Sie Xinference"
+
+#: ../../source/index.rst:125
+msgid "Install Xinference on Linux, Windows, and macOS."
+msgstr "Installation von Xinference unter Linux, Windows und macOS."
+
+#: ../../source/index.rst:127
+msgid "Try it out!"
+msgstr "Jetzt ausprobieren!"
+
+#: ../../source/index.rst:131
+msgid "Start by running Xinference on a local machine."
+msgstr "Führen Sie zuerst Xinference auf dem lokalen Computer aus."
+
+#: ../../source/index.rst:136
+msgid "Explore models"
+msgstr "Modell erkunden"
+
+#: ../../source/index.rst:140
+msgid "Explore a wide range of models supported by Xinference."
+msgstr "Entdecken Sie die verschiedenen Modelle, die Xinference unterstützt."
+
+#: ../../source/index.rst:142
+msgid "Register your own model"
+msgstr "Registrieren Sie Ihr eigenes Modell."
+
+#: ../../source/index.rst:146
+msgid "Register model weights and turn it into an API."
+msgstr ""
+"Registrieren Sie die Modellgewichte und konvertieren Sie sie in eine API."
+
+#: ../../source/index.rst:151
+msgid "Explore the API"
+msgstr "API erkunden"
+
+#: ../../source/index.rst:155
+msgid "Chat & Generate"
+msgstr "Chat & Erstellen"
+
+#: ../../source/index.rst:159
+msgid "Learn how to chat with LLMs in Xinference."
+msgstr "Lernen Sie, wie Sie mit LLM in Xinference chatten."
+
+#: ../../source/index.rst:161
+msgid "Tools"
+msgstr "Tools"
+
+#: ../../source/index.rst:165
+msgid "Learn how to connect LLM with external tools."
+msgstr "Lernen Sie, wie Sie LLM mit externen Tools verbinden."
+
+#: ../../source/index.rst:170
+msgid "Embeddings"
+msgstr "Embedding"
+
+#: ../../source/index.rst:174
+msgid "Learn how to create text embeddings in Xinference."
+msgstr "Erfahren Sie, wie Sie Text-Embeddings in Xinference erstellen."
+
+#: ../../source/index.rst:176
+msgid "Rerank"
+msgstr "Neuordnung"
+
+#: ../../source/index.rst:180
+msgid "Learn how to use rerank models in Xinference."
+msgstr "Erfahren Sie, wie Sie das Re-Ranking-Modell in Xinference verwenden."
+
+#: ../../source/index.rst:185
+msgid "Images"
+msgstr "Bild"
+
+#: ../../source/index.rst:189
+msgid "Learn how to generate images with Xinference."
+msgstr "Lernen Sie, mit Xinference Bilder zu generieren."
+
+#: ../../source/index.rst:191
+msgid "Multimodal"
+msgstr "multimodal"
+
+#: ../../source/index.rst:195
+msgid "Learn how to process images and audio with LLMs."
+msgstr "Lernen Sie, wie Sie mit LLM Bilder und Audio verarbeiten."
+
+#: ../../source/index.rst:200
+msgid "Audio"
+msgstr "Audio"
+
+#: ../../source/index.rst:204
+msgid "Learn how to turn audio into text or text into audio with Xinference."
+msgstr ""
+"Lernen Sie, wie Sie mit Xinference Audio in Text oder Text in Audio "
+"umwandeln."
+
+#: ../../source/index.rst:206
+msgid "Video"
+msgstr "Video"
+
+#: ../../source/index.rst:210
+msgid "Learn how to generate video with Xinference."
+msgstr "Lernen Sie, wie Sie mit Xinference Videos generieren."
+
+#: ../../source/index.rst:214
+msgid "Flexible"
+msgstr "Flexibiles Modell"
+
+#: ../../source/index.rst:218
+msgid "Learn how to inference traditional ML models with Xinference."
+msgstr ""
+"Verstehen Sie, wie man traditionelle maschinelle Lernmodelle mit Xinference "
+"ableitet."
+
+#: ../../source/index.rst:222
+msgid "Getting Involved"
+msgstr "Nehmen Sie an uns teil."
+
+#: ../../source/index.rst:231
+msgid "Get Latest News"
+msgstr "Aktuelle Nachrichten"
+
+#: ../../source/index.rst:239
+msgid ":fab:`twitter` Follow us on Twitter"
+msgstr ":fab:`twitter` Folge uns auf Twitter"
+
+#: ../../source/index.rst:244
+msgid ":fab:`zhihu` Read our blogs"
+msgstr ":fab:`zhihu` Lese den Zhihu-Blog"
+
+#: ../../source/index.rst:251
+msgid "Get Support"
+msgstr "Hilfe suchen"
+
+#: ../../source/index.rst:264
+msgid ":fab:`discord` Find community on Discord"
+msgstr ":fab:`discord` Discord-Community"
+
+#: ../../source/index.rst:269
+msgid ":fab:`telegram` Join our Telegram group"
+msgstr ":fab:`telegram` Tritt der Telegram-Gruppe bei"
+
+#: ../../source/index.rst:269
+msgid ":fab:`github` Open an issue"
+msgstr ":fab:`github` auf Github ein Issue eröffnen"
+
+#: ../../source/index.rst:276
+msgid "Contribute to Xinference"
+msgstr "Beitrag"
+
+#: ../../source/index.rst:284
+msgid ":fab:`github` Create a pull request"
+msgstr ":fab:`github` PR auf Github erstellen"
+
+#~ msgid "Vision"
+#~ msgstr "Vision"

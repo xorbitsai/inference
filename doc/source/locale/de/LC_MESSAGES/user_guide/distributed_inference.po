@@ -1,0 +1,133 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-29 11:03+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: de <LL@li.org>\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/distributed_inference.rst:5
+msgid "Distributed Inference"
+msgstr "Verteilte Inferenz (verteiltes Schließen)"
+
+#: ../../source/user_guide/distributed_inference.rst:6
+msgid ""
+"Some language models including **DeepSeek V3**, **DeepSeek R1**, etc are too"
+" large to fit into GPus on a single machine, Xinference supported running "
+"these models across multiple machines."
+msgstr ""
+"Einige Sprachmodelle, darunter **DeepSeek V3**, **DeepSeek R1** usw., sind "
+"zu groß, um auf die GPU einer einzelnen Maschine zu passen. Xinference "
+"unterstützt den Betrieb dieser Modelle auf mehreren Maschinen."
+
+#: ../../source/user_guide/distributed_inference.rst:13
+msgid "Supported Engines"
+msgstr "Unterstützte Engine"
+
+#: ../../source/user_guide/distributed_inference.rst:14
+msgid "Now, Xinference supported below engines to run models across workers."
+msgstr ""
+"Nun unterstützt Xinference die folgenden Engines zum Ausführen von Modellen "
+"auf mehreren Workern."
+
+#: ../../source/user_guide/distributed_inference.rst:16
+msgid ":ref:`SGLang <sglang_backend>` (supported in v1.3.0)"
+msgstr ":ref:`SGLang <sglang_backend>` (unterstützt in v1.3.0)"
+
+#: ../../source/user_guide/distributed_inference.rst:17
+msgid ":ref:`vLLM <vllm_backend>` (supported in v1.4.1)"
+msgstr ":ref:`vLLM <vllm_backend>` (Unterstützung in v1.4.1)"
+
+#: ../../source/user_guide/distributed_inference.rst:18
+msgid ""
+":ref:`MLX <mlx_backend>` (supported in v1.7.1), MLX distributed currently "
+"does not support all models. The following model types are supported at this"
+" time. If you have additional requirements, feel free to submit a GitHub "
+"issue at `https://github.com/xorbitsai/inference/issues "
+"<https://github.com/xorbitsai/inference/issues>`_ to request support."
+msgstr ""
+":ref:`MLX <mlx_backend>` (seit v1.7.1 unterstützt) wird im verteilten Modus "
+"derzeit nicht von allen Modellen unterstützt. Folgende Modelltypen werden "
+"aktuell unterstützt. Falls Sie weitere Anforderungen haben, reichen Sie "
+"bitte ein GitHub-Issue unter `https://github.com/xorbitsai/inference/issues "
+"<https://github.com/xorbitsai/inference/issues>`_ ein, um Unterstützung "
+"anzufragen."
+
+#: ../../source/user_guide/distributed_inference.rst:22
+msgid "DeepSeek v3 and R1"
+msgstr "DeepSeek v3 und R1"
+
+#: ../../source/user_guide/distributed_inference.rst:23
+msgid "Qwen2.5-instruct and the models have the same model architectures."
+msgstr "Qwen2.5-instruct und andere Modelle mit derselben Modellarchitektur."
+
+#: ../../source/user_guide/distributed_inference.rst:24
+msgid "Qwen3 and the models have the same model architectures."
+msgstr "Qwen3 und andere Modelle mit derselben Architektur."
+
+#: ../../source/user_guide/distributed_inference.rst:25
+msgid "Qwen3-moe and the models have the same model architectures."
+msgstr "Qwen3-moe und andere Modelle mit derselben Modellarchitektur."
+
+#: ../../source/user_guide/distributed_inference.rst:30
+msgid "Usage"
+msgstr "Nutzen"
+
+#: ../../source/user_guide/distributed_inference.rst:31
+msgid ""
+"First you need at least 2 workers to support distributed inference. Refer to"
+" :ref:`running Xinference in cluster <distributed_getting_started>` to "
+"create a Xinference cluster including supervisor and workers."
+msgstr ""
+"Zunächst benötigen Sie mindestens 2 Worker-Knoten zur Unterstützung von "
+"verteiltem Inferenz. Siehe :ref:`Ausführen von Xinference in einem Cluster "
+"<distributed_getting_started>` zur Erstellung eines Xinference-Clusters, der"
+" einen Supervisor-Knoten und Worker-Knoten umfasst."
+
+#: ../../source/user_guide/distributed_inference.rst:35
+msgid ""
+"vLLM (v0.11.0+) note: Starting from vLLM v0.11.0, distributed deployment "
+"with vLLM requires Xinference >= v1.17.1. In addition to setting "
+"``--n-worker`` as before, you must also set ``tensor_parallel_size`` (set it"
+" to the **GPU count**) and ``pipeline_parallel_size=1`` when launching the "
+"model."
+msgstr ""
+"vLLM (v0.11.0+) Hinweis: Ab Version v0.11.0 von vLLM erfordert die verteilte"
+" Bereitstellung mit vLLM Xinference >= Version v1.17.1. Zusätzlich zur "
+"ursprünglichen ``--n-worker``-Parametereinstellung müssen beim Starten des "
+"Modells auch die Parameter ``tensor_parallel_size`` (auf **Anzahl der GPUs**"
+" setzen) und ``pipeline_parallel_size=1`` angegeben werden."
+
+#: ../../source/user_guide/distributed_inference.rst:40
+msgid ""
+"Then if are using web UI, choose expected machines for ``worker count`` in "
+"the optional configurations, if you are using command line, add ``--n-worker"
+" <machine number>`` when launching a model. The model will be launched "
+"across multiple workers accordingly."
+msgstr ""
+"Wenn Sie die Weboberfläche verwenden, wählen Sie in den optionalen "
+"Konfigurationen die gewünschte Anzahl an Rechnern als ``worker count`` aus. "
+"Falls Sie die Befehlszeile verwenden, fügen Sie beim Starten des Modells "
+"``--n-worker <Anzahl der Rechner>`` hinzu. Das Modell wird dann entsprechend"
+" auf mehreren Arbeitsknoten gestartet."
+
+#: ../../source/user_guide/distributed_inference.rst:48
+msgid ""
+"``GPU count`` on web UI, or ``--n-gpu`` for command line now mean GPUs count"
+" per worker if you are using distributed inference."
+msgstr ""
+"Bei verteiltem Inferieren steht ``GPU count`` in der Web-Benutzeroberfläche "
+"oder ``--n-gpu`` in der Befehlszeile nun für die Anzahl der GPUs pro "
+"Arbeitsknoten."

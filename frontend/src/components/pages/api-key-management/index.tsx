@@ -50,7 +50,7 @@ const permissionTypeValues = new Set(['LLM', 'embedding', 'rerank', 'image', 'vi
 
 export default function ApiKeyManagement() {
   const { t } = useI18n();
-  const { isAdmin, keysManagePage, keysManageCreate } = useMenuAuth();
+  const { isAdmin, canCreateKeys, canManageKeys } = useMenuAuth();
 
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,8 +107,8 @@ export default function ApiKeyManagement() {
 
   useEffect(() => {
     fetchKeys();
-    fetchUsers();
-  }, [fetchKeys, fetchUsers]);
+    if (isAdmin) fetchUsers();
+  }, [fetchKeys, fetchUsers, isAdmin]);
 
   const openCreate = () => {
     setEditingKey(null);
@@ -288,7 +288,7 @@ export default function ApiKeyManagement() {
         <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
           {displayValue}
         </span>
-        {isAdmin && (
+        {canManageKeys && (
           <>
             <Button
               type="button"
@@ -330,12 +330,20 @@ export default function ApiKeyManagement() {
       <div className="mt-1.5 min-w-0 text-sm font-medium text-foreground">{value}</div>
     </div>
   );
+
+  const renderOwner = (key: ApiKey) => {
+    if (key.owner_username) return key.owner_username;
+    if (key.user_id == null) return '-';
+
+    return userNameMap.get(String(key.user_id)) || key.user_id;
+  };
+
   return (
     <PageContainer
       title={t('menu.apiKeyManagement')}
       subTitle={t('apiKey.pageDescription')}
       extraContent={
-        keysManageCreate && (
+        canCreateKeys && (
           <Button onClick={openCreate}>
             <Plus className="size-4" />
             {t('apiKey.createKey')}
@@ -388,7 +396,7 @@ export default function ApiKeyManagement() {
                     />
                   </button>
 
-                  {keysManagePage && (
+                  {canManageKeys && (
                     <div className="flex shrink-0 items-center gap-1">
                       <Button
                         variant="ghost"
@@ -421,7 +429,7 @@ export default function ApiKeyManagement() {
                         t('apiKey.status'),
                         <div className="flex items-center gap-3">
                           {getStatusBadge(key)}
-                          {keysManagePage && (
+                          {canManageKeys && (
                             <Switch
                               checked={key.enabled}
                               disabled={togglingId === key.id || isExpired(key.expires_at)}
@@ -430,12 +438,7 @@ export default function ApiKeyManagement() {
                           )}
                         </div>
                       )}
-                      {renderField(
-                        t('apiKey.owner'),
-                        key.user_id == null
-                          ? '-'
-                          : userNameMap.get(String(key.user_id)) || key.user_id
-                      )}
+                      {renderField(t('apiKey.owner'), renderOwner(key))}
                       {renderField(t('apiKey.createdAt'), formatDate(key.created_at))}
                       {renderField(t('apiKey.expiresAt'), formatDate(key.expires_at))}
                       {renderField(

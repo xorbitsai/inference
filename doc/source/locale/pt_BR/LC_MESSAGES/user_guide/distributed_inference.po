@@ -1,0 +1,135 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-29 11:03+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: pt_BR <LL@li.org>\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/distributed_inference.rst:5
+msgid "Distributed Inference"
+msgstr "Inferência distribuída"
+
+#: ../../source/user_guide/distributed_inference.rst:6
+msgid ""
+"Some language models including **DeepSeek V3**, **DeepSeek R1**, etc are too"
+" large to fit into GPus on a single machine, Xinference supported running "
+"these models across multiple machines."
+msgstr ""
+"Alguns modelos de linguagem, incluindo **DeepSeek V3**, **DeepSeek R1** e "
+"outros, são muito grandes para serem executados em GPUs de uma única "
+"máquina. O Xinference oferece suporte para executar esses modelos em várias "
+"máquinas."
+
+#: ../../source/user_guide/distributed_inference.rst:13
+msgid "Supported Engines"
+msgstr "Mecanismos compatíveis"
+
+#: ../../source/user_guide/distributed_inference.rst:14
+msgid "Now, Xinference supported below engines to run models across workers."
+msgstr ""
+"Agora, o Xinference suporta os seguintes motores para executar modelos em "
+"vários workers."
+
+#: ../../source/user_guide/distributed_inference.rst:16
+msgid ":ref:`SGLang <sglang_backend>` (supported in v1.3.0)"
+msgstr ":ref:`SGLang <sglang_backend>` (suportado na v1.3.0)"
+
+#: ../../source/user_guide/distributed_inference.rst:17
+msgid ":ref:`vLLM <vllm_backend>` (supported in v1.4.1)"
+msgstr ":ref:`vLLM <vllm_backend>` (suportado na versão 1.4.1)"
+
+#: ../../source/user_guide/distributed_inference.rst:18
+msgid ""
+":ref:`MLX <mlx_backend>` (supported in v1.7.1), MLX distributed currently "
+"does not support all models. The following model types are supported at this"
+" time. If you have additional requirements, feel free to submit a GitHub "
+"issue at `https://github.com/xorbitsai/inference/issues "
+"<https://github.com/xorbitsai/inference/issues>`_ to request support."
+msgstr ""
+":ref:`MLX <mlx_backend>` (suportado desde v1.7.1) atualmente não oferece "
+"suporte a todos os modelos em modo distribuído. Atualmente, os seguintes "
+"tipos de modelo são suportados. Se você tiver outras necessidades, sinta-se "
+"à vontade para abrir uma issue no GitHub em "
+"`https://github.com/xorbitsai/inference/issues "
+"<https://github.com/xorbitsai/inference/issues>`_ para solicitar suporte."
+
+#: ../../source/user_guide/distributed_inference.rst:22
+msgid "DeepSeek v3 and R1"
+msgstr "DeepSeek v3 e R1"
+
+#: ../../source/user_guide/distributed_inference.rst:23
+msgid "Qwen2.5-instruct and the models have the same model architectures."
+msgstr "Qwen2.5-instruct e outros modelos com a mesma arquitetura de modelo."
+
+#: ../../source/user_guide/distributed_inference.rst:24
+msgid "Qwen3 and the models have the same model architectures."
+msgstr "Qwen3 e outros modelos com a mesma arquitetura de modelo."
+
+#: ../../source/user_guide/distributed_inference.rst:25
+msgid "Qwen3-moe and the models have the same model architectures."
+msgstr "Qwen3-moe e outros modelos com a mesma arquitetura de modelo."
+
+#: ../../source/user_guide/distributed_inference.rst:30
+msgid "Usage"
+msgstr "Use"
+
+#: ../../source/user_guide/distributed_inference.rst:31
+msgid ""
+"First you need at least 2 workers to support distributed inference. Refer to"
+" :ref:`running Xinference in cluster <distributed_getting_started>` to "
+"create a Xinference cluster including supervisor and workers."
+msgstr ""
+"Primeiro, você precisa de pelo menos 2 nós de trabalho para suportar "
+"inferência distribuída. Consulte :ref:`Executando Xinference em um cluster "
+"<distributed_getting_started>` para criar um cluster Xinference contendo um "
+"nó supervisor e nós de trabalho."
+
+#: ../../source/user_guide/distributed_inference.rst:35
+msgid ""
+"vLLM (v0.11.0+) note: Starting from vLLM v0.11.0, distributed deployment "
+"with vLLM requires Xinference >= v1.17.1. In addition to setting "
+"``--n-worker`` as before, you must also set ``tensor_parallel_size`` (set it"
+" to the **GPU count**) and ``pipeline_parallel_size=1`` when launching the "
+"model."
+msgstr ""
+"vLLM (v0.11.0+) Nota: A partir da versão vLLM v0.11.0, a implantação "
+"distribuída com vLLM requer a versão Xinference >= v1.17.1. Além da "
+"configuração original do parâmetro ``--n-worker``, ao iniciar o modelo, "
+"também é necessário definir os parâmetros ``tensor_parallel_size`` (definido"
+" como **número de GPUs**) e ``pipeline_parallel_size=1``."
+
+#: ../../source/user_guide/distributed_inference.rst:40
+msgid ""
+"Then if are using web UI, choose expected machines for ``worker count`` in "
+"the optional configurations, if you are using command line, add ``--n-worker"
+" <machine number>`` when launching a model. The model will be launched "
+"across multiple workers accordingly."
+msgstr ""
+"Em seguida, se você estiver usando a interface Web, selecione o número "
+"desejado de máquinas como ``worker count`` na configuração opcional; se "
+"estiver usando a linha de comando, adicione ``--n-worker <número de "
+"máquinas>`` ao iniciar o modelo. O modelo será iniciado em vários nós de "
+"trabalho de acordo."
+
+#: ../../source/user_guide/distributed_inference.rst:48
+msgid ""
+"``GPU count`` on web UI, or ``--n-gpu`` for command line now mean GPUs count"
+" per worker if you are using distributed inference."
+msgstr ""
+"Ao usar inferência distribuída, o ``GPU count`` na interface web ou o "
+"``--n-gpu`` na linha de comando agora representa o número de GPUs por nó de "
+"trabalho."
