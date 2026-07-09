@@ -10,6 +10,7 @@ export type ModelPermission = ModelPermissionRecord;
 export interface ApiKey {
   id: number;
   user_id: number | string | null;
+  owner_username?: string | null;
   key_prefix: string;
   name: string | null;
   description: string | null;

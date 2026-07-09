@@ -330,6 +330,14 @@ export default function ApiKeyManagement() {
       <div className="mt-1.5 min-w-0 text-sm font-medium text-foreground">{value}</div>
     </div>
   );
+
+  const renderOwner = (key: ApiKey) => {
+    if (key.owner_username) return key.owner_username;
+    if (key.user_id == null) return '-';
+
+    return userNameMap.get(String(key.user_id)) || key.user_id;
+  };
+
   return (
     <PageContainer
       title={t('menu.apiKeyManagement')}
@@ -430,12 +438,7 @@ export default function ApiKeyManagement() {
                           )}
                         </div>
                       )}
-                      {renderField(
-                        t('apiKey.owner'),
-                        key.user_id == null
-                          ? '-'
-                          : userNameMap.get(String(key.user_id)) || key.user_id
-                      )}
+                      {renderField(t('apiKey.owner'), renderOwner(key))}
                       {renderField(t('apiKey.createdAt'), formatDate(key.created_at))}
                       {renderField(t('apiKey.expiresAt'), formatDate(key.expires_at))}
                       {renderField(
