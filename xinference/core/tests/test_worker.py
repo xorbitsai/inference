@@ -1489,3 +1489,136 @@ async def test_recover_model_pops_launch_ts_from_kwargs():
         assert launch_args["launch_ts"] == 1780900592
     finally:
         worker_module.parse_replica_model_uid = original_parse
+
+
+class _RecordingSupervisorRef:
+    """Minimal supervisor ref that records mark_replica_dead calls (B2)."""
+
+    def __init__(self):
+        self.evicted: List[str] = []
+
+    async def mark_replica_dead(self, replica_model_uid: str):
+        self.evicted.append(replica_model_uid)
+
+
+class _EvictMockWorker:
+    """Minimal worker stand-in for _evict_replica_from_supervisor tests."""
+
+    def __init__(self, supervisor_ref=None, raise_on_get: bool = False):
+        self._supervisor_ref = supervisor_ref
+        self._raise_on_get = raise_on_get
+
+    async def get_supervisor_ref(self, add_worker: bool = False):
+        if self._raise_on_get:
+            raise RuntimeError("supervisor unreachable")
+        return self._supervisor_ref
+
+
+@pytest.mark.asyncio
+async def test_evict_replica_from_supervisor_calls_mark_replica_dead():
+    """B2 helper: notifies the supervisor to evict the dead replica."""
+    sup = _RecordingSupervisorRef()
+    worker = _EvictMockWorker(supervisor_ref=sup)
+    await WorkerActor._evict_replica_from_supervisor(worker, "model-x-1")
+    assert sup.evicted == ["model-x-1"]
+
+
+@pytest.mark.asyncio
+async def test_evict_replica_from_supervisor_is_non_fatal():
+    """B2 helper: a supervisor-ref failure must not propagate out of the
+    recover_sub_pool tail path (non-fatal; next death/redeploy reconciles)."""
+    worker = _EvictMockWorker(supervisor_ref=None, raise_on_get=True)
+    # Must not raise.
+    await WorkerActor._evict_replica_from_supervisor(worker, "model-x-1")
+
+
+class _MainPoolStub:
+    async def remove_sub_pool(self, address):
+        return None
+
+
+class _RecoverWorkerStub:
+    """Worker stand-in for recover_sub_pool unbounded-branch tests.
+
+    recover_model is overridden per-test (raise vs succeed). The real
+    `_evict_replica_from_supervisor` is bound onto the instance so the
+    recover_sub_pool call exercises the genuine eviction path.
+    """
+
+    def __init__(self, supervisor_ref, recover_raises: bool):
+        self._supervisor_ref = supervisor_ref
+        self._recover_raises = recover_raises
+        self.recover_called = 0
+        # Wiring used by recover_sub_pool:
+        self._main_pool = _MainPoolStub()
+        self._model_uid_to_addr = {"model-x-0": "addr-1"}
+        self._model_uid_to_launch_args = {
+            "model-x-0": {"model_uid": "model-x-0", "model_name": "m"},
+        }
+        self._model_uid_to_recover_count = {"model-x-0": None}  # unbounded branch
+        self._model_uid_to_subpool_pids: dict = {}
+
+    async def get_supervisor_ref(self, add_worker: bool = False):
+        return self._supervisor_ref
+
+    async def terminate_model(self, model_uid, is_model_die: bool = False):
+        return None
+
+    async def recover_model(self, launch_args):
+        self.recover_called += 1
+        if self._recover_raises:
+            raise RuntimeError("recreate failed (e.g. OOM during reload)")
+
+
+def _bind_real_evict(worker):
+    import types
+
+    worker._evict_replica_from_supervisor = types.MethodType(
+        WorkerActor._evict_replica_from_supervisor, worker
+    )
+    return worker
+
+
+@pytest.mark.asyncio
+async def test_recover_sub_pool_unbounded_evicts_on_recover_failure(monkeypatch):
+    """B2 (core): in the default unbounded branch (recover_count is None), a
+    recreate that raises must evict the dead replica via mark_replica_dead, so
+    it cannot poison routing as a permanent 'loading' zombie (the 33% error
+    root cause)."""
+    import xinference.core.worker as worker_module
+
+    # Neutralize GPU/persist machinery for a deterministic, GPU-free test.
+    monkeypatch.setattr(worker_module, "_strip_test_envs", lambda args: (args, set()))
+    monkeypatch.setattr(worker_module, "_parse_gpu_indices", lambda x: [])
+    monkeypatch.setattr(worker_module, "_snapshot_gpu_free_ratio", lambda idx: 1.0)
+
+    sup = _RecordingSupervisorRef()
+    worker = _bind_real_evict(
+        _RecoverWorkerStub(supervisor_ref=sup, recover_raises=True)
+    )
+
+    await WorkerActor.recover_sub_pool(worker, "addr-1")
+
+    assert worker.recover_called == 1
+    assert sup.evicted == ["model-x-0"]  # recreate failed -> evicted
+
+
+@pytest.mark.asyncio
+async def test_recover_sub_pool_unbounded_no_evict_on_success(monkeypatch):
+    """B2 regression: a successful recreate in the unbounded branch must NOT
+    evict (infinite-retry-on-success semantics preserved)."""
+    import xinference.core.worker as worker_module
+
+    monkeypatch.setattr(worker_module, "_strip_test_envs", lambda args: (args, set()))
+    monkeypatch.setattr(worker_module, "_parse_gpu_indices", lambda x: [])
+    monkeypatch.setattr(worker_module, "_snapshot_gpu_free_ratio", lambda idx: 1.0)
+
+    sup = _RecordingSupervisorRef()
+    worker = _bind_real_evict(
+        _RecoverWorkerStub(supervisor_ref=sup, recover_raises=False)
+    )
+
+    await WorkerActor.recover_sub_pool(worker, "addr-1")
+
+    assert worker.recover_called == 1
+    assert sup.evicted == []  # succeeded -> not evicted
