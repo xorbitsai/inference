@@ -164,13 +164,11 @@ jobs:
         include:
           # macos-latest now resolves to macOS 26, where mlx>=0.31's Metal
           # "nax" kernels fail to load on the runner's virtualized GPU
-          # ([metal::Device] Unable to load kernel ..._nax_...). Pin Metal
-          # jobs to macOS 15 and to the last mlx/mlx-lm/mlx-vlm combination
-          # that worked there until the MLX stack supports macOS 26.
-          - { os: macos-15, module: metal-llm, python-version: "3.10" }
-          - { os: macos-15, module: metal-whisper, python-version: "3.10" }
-          - { os: macos-15, module: metal-f5tts, python-version: "3.10" }
-          - { os: macos-15, module: metal-distributed, python-version: "3.10" }
+          # ([metal::Device] Unable to load kernel ..._nax_...). Pin the
+          # Metal job to macOS 15 and to the last mlx/mlx-lm/mlx-vlm
+          # combination that worked there until the MLX stack supports
+          # macOS 26.
+          - { os: macos-15, module: metal, python-version: "3.10" }
 
     steps:
       - name: Check out code
@@ -218,7 +216,7 @@ jobs:
           fi
           pip install -e ".[dev]"
           pip install "xllamacpp>=0.2.0"
-          if [[ "$MODULE" == metal* ]]; then
+          if [ "$MODULE" == "metal" ]; then
             conda install -c conda-forge "ffmpeg<7"
             pip install "mlx>=0.22.0,<0.31"
             pip install "mlx-lm<0.31"
@@ -311,13 +309,10 @@ jobs:
               "$@"
           }
 
-          if [ "$MODULE" == "metal-llm" ]; then
-            run_pytest xinference/model/llm/mlx/tests/test_mlx.py
-          elif [ "$MODULE" == "metal-whisper" ]; then
-            run_pytest xinference/model/audio/tests/test_whisper_mlx.py
-          elif [ "$MODULE" == "metal-f5tts" ]; then
-            run_pytest xinference/model/audio/tests/test_f5tts_mlx.py
-          elif [ "$MODULE" == "metal-distributed" ]; then
+          if [ "$MODULE" == "metal" ]; then
+            run_pytest xinference/model/llm/mlx/tests/test_mlx.py && \
+            run_pytest xinference/model/audio/tests/test_whisper_mlx.py && \
+            run_pytest xinference/model/audio/tests/test_f5tts_mlx.py && \
             run_pytest xinference/model/llm/mlx/tests/test_distributed_model.py
           else
             run_pytest \
