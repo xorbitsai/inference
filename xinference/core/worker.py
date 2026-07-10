@@ -59,6 +59,7 @@ from ..constants import (
     XINFERENCE_LOG_CONSOLE,
     XINFERENCE_LOG_DOWNLOAD_PROGRESS,
     XINFERENCE_MAX_CONCURRENT_LAUNCHES,
+    XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT,
     XINFERENCE_MODEL_DOWNLOAD_WORKERS,
     XINFERENCE_STATUS_GATHER_TIMEOUT,
     XINFERENCE_STATUS_REPORT_MULTIPLIER,
@@ -149,13 +150,6 @@ def _exclusive_venv_path_lock(env_path: str):
         fcntl.flock(fd, fcntl.LOCK_UN)
         os.close(fd)
 
-
-MODEL_ACTOR_AUTO_RECOVER_LIMIT: Optional[int]
-_MODEL_ACTOR_AUTO_RECOVER_LIMIT = os.getenv("XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT")
-if _MODEL_ACTOR_AUTO_RECOVER_LIMIT is not None:
-    MODEL_ACTOR_AUTO_RECOVER_LIMIT = int(_MODEL_ACTOR_AUTO_RECOVER_LIMIT)
-else:
-    MODEL_ACTOR_AUTO_RECOVER_LIMIT = None
 
 # Strip test-injected envs from cached launch_args before recover.
 # All test-specific env vars MUST use the XINFERENCE_TEST_ prefix so they can be
@@ -3116,7 +3110,7 @@ class WorkerActor(xo.StatelessActor):
                     )
                     self._model_uid_to_addr[model_uid] = subpool_address
                     self._model_uid_to_recover_count.setdefault(
-                        model_uid, MODEL_ACTOR_AUTO_RECOVER_LIMIT
+                        model_uid, XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT
                     )
                     self._model_uid_to_launch_args[model_uid] = launch_args
                     # §4.3: Persist for auto-recovery on restart

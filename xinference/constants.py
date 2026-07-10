@@ -268,6 +268,14 @@ XINFERENCE_STATUS_GATHER_TIMEOUT = int(
     os.environ.get(XINFERENCE_ENV_STATUS_GATHER_TIMEOUT, 10)
 )
 
+# Model actor auto-recreate budget after a subpool death (e.g. CUDA OOM).
+# None (default) = unbounded retry; int N = recreate up to N times, then evict
+# the replica on the next death. Set via the env var of the same name.
+_raw_recover_limit = os.getenv("XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT")
+XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT = (
+    int(_raw_recover_limit) if _raw_recover_limit is not None else None
+)
+
 # OTEL resolved values
 XINFERENCE_ENABLE_OTEL = (
     os.getenv(XINFERENCE_ENV_ENABLE_OTEL, "false").strip().lower() == "true"
