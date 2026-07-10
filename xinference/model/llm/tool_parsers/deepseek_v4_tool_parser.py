@@ -147,7 +147,7 @@ class DeepseekV42ToolParser(ToolParser):
         """
         try:
             # First chunk of a new stream — reset state
-            if not previous_text:
+            if not previous_text or not previous_text[-1]:
                 self.is_tool_call_started = False
                 self.current_tool_index = 0
                 self._use_dsml = True
