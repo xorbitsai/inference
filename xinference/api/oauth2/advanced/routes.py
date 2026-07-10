@@ -254,6 +254,16 @@ async def setup_status(request: Request) -> JSONResponse:
 
 async def setup_admin(request: Request) -> JSONResponse:
     auth: AdvancedAuthService = get_advanced_auth(request)
+    # Reject before doing any password validation or hashing: once setup is
+    # complete this stays a public, unauthenticated endpoint, so a completed
+    # deployment must not keep paying for CPU-expensive bcrypt hashing (or
+    # be probed for password policy details) on every call.
+    if not auth.needs_setup():
+        raise HTTPException(
+            status_code=403,
+            detail="Setup already completed; an account already exists.",
+        )
+
     body = await request.json()
     username = body.get("username")
     password = body.get("password")

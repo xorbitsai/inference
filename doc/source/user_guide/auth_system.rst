@@ -10,9 +10,10 @@ Xinference builds an In-memory OAuth2 authentication and authorization system us
    Since **v3.0**, Xinference enables the :ref:`advanced, database-backed
    authentication system <user_guide_advanced_auth_system>` by default
    (``XINFERENCE_AUTH_ADVANCED``), replacing the in-memory system described
-   below as the default behavior. On first startup, an ``admin`` account is
-   created automatically and its one-time password is printed to the server
-   log — save it, since it is not shown again.
+   below as the default behavior. On first startup, no account exists yet;
+   visiting the web UI walks you through a first-run setup page to create
+   the initial admin account, backed by the public ``/v1/admin/setup``
+   endpoint described in `Initial admin account`_ below.
 
    The simple, file-based authentication system on this page still works and
    is not going away. To use it instead of the advanced system, set
@@ -224,23 +225,31 @@ run with no authentication at all, set ``XINFERENCE_AUTH_ADVANCED=false``:
 
 Initial admin account
 =======================
-On first startup with the advanced system enabled, Xinference automatically
-creates an ``admin`` user (with the ``admin`` permission) if the user table
-is empty, and prints a one-time, randomly generated password to the server
-log:
+On first startup with the advanced system enabled, the user table is empty
+and Xinference does **not** create an admin account automatically. Instead,
+two unauthenticated endpoints handle first-run setup:
 
-.. code-block::
+* ``GET /v1/admin/setup/status``: returns ``{"needs_setup": true, "initialized": false}``
+  while no account exists yet.
+* ``POST /v1/admin/setup``: creates the first admin account (with all
+  permissions) given a ``username`` and ``password``.
 
-    ============================================================
-      INITIAL ADMIN CREDENTIALS (shown only once)
-      Username: admin
-      Password: <randomly generated>
-      Please change the password on first login.
-    ============================================================
+.. code-block:: bash
 
-This password is **not stored anywhere in plaintext** and is not shown
-again — save it from the log, and change it on first login (the account is
-flagged ``must_change_password`` until you do).
+    curl -X POST "<endpoint>/v1/admin/setup" \
+      -H "Content-Type: application/json" \
+      -d '{"username": "admin", "password": "choose-a-strong-password"}'
+
+The web UI drives this automatically: opening it for the first time
+redirects to a setup page that walks you through creating the admin
+account, then to the login page.
+
+Both endpoints stay reachable without authentication, but ``/v1/admin/setup``
+permanently refuses to create a second account once one exists — the first
+successful call wins. Because whoever reaches this endpoint first becomes
+the full-privilege administrator, **complete setup immediately after
+deploying or upgrading**, before exposing the instance's port to any
+untrusted network.
 
 Secrets and storage locations
 ===============================

@@ -102,6 +102,15 @@ XINFERENCE_AUTH_ADVANCED = os.environ.get(
 )
 
 
+# How long an empty secret file must sit untouched before it's considered
+# abandoned by a crashed writer (rather than mid-write by a live one).
+_STALE_SECRET_GRACE_SECONDS = 10
+# Overall wait budget for a losing process to read the winner's file. Kept
+# well above _STALE_SECRET_GRACE_SECONDS so the wait can actually reach and
+# act on the staleness check instead of timing out first.
+_SECRET_WAIT_DEADLINE_SECONDS = 30
+
+
 def _get_or_create_persisted_secret(env_name: str, file_name: str) -> str:
     """Return a secret from the environment, or generate one on first run.
 
@@ -117,7 +126,9 @@ def _get_or_create_persisted_secret(env_name: str, file_name: str) -> str:
     A stale, empty file (left behind by a process that was killed between
     creating and writing to it) is treated as abandoned after a grace
     period and removed so startup can recover automatically instead of
-    failing forever.
+    failing forever. The overall wait is bounded by a wall-clock deadline
+    (not a fixed iteration count) so it comfortably outlasts the stale
+    grace period even under scheduling jitter.
     """
     import time
 
@@ -128,8 +139,8 @@ def _get_or_create_persisted_secret(env_name: str, file_name: str) -> str:
     secret_path = os.path.join(XINFERENCE_AUTH_DIR, file_name)
     os.makedirs(XINFERENCE_AUTH_DIR, exist_ok=True)
 
-    stale_after_seconds = 10
-    for _ in range(50):
+    deadline = time.monotonic() + _SECRET_WAIT_DEADLINE_SECONDS
+    while time.monotonic() < deadline:
         try:
             stat_result = os.stat(secret_path)
         except OSError:
@@ -144,7 +155,7 @@ def _get_or_create_persisted_secret(env_name: str, file_name: str) -> str:
                     existing = ""
                 if existing:
                     return existing
-            elif time.time() - stat_result.st_mtime > stale_after_seconds:
+            elif time.time() - stat_result.st_mtime > _STALE_SECRET_GRACE_SECONDS:
                 # Empty and old: likely left behind by a process that was
                 # killed after creating the file but before writing to it.
                 try:
