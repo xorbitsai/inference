@@ -100,7 +100,7 @@ export function DateTimePicker({
 
   const calendarDays = React.useMemo(() => getMonthDays(viewDate), [viewDate]);
   const displayValue = selectedDate
-    ? format(selectedDate, showTime ? 'yyyy/MM/dd HH:mm' : 'yyyy/MM/dd')
+    ? format(selectedDate, showTime ? 'yyyy-MM-dd HH:mm' : 'yyyy-MM-dd')
     : placeholder;
   const weekDays = React.useMemo(
     () => [

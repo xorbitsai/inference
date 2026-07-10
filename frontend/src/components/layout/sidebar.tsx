@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Cpu,
+  FileSearch,
   FileTextIcon,
   SquareArrowOutUpRight,
   Globe,
@@ -253,10 +254,15 @@ export function Sidebar() {
             Extra: ChevronRight,
             show: Boolean(clusterUIConfig?.auth_advanced) && isAdmin,
           },
+          {
+            path: '/audit-center',
+            name: t('menu.auditCenter'),
+            Icon: FileSearch,
+            Extra: ChevronRight,
+            show: isAdmin,
+          },
         ],
-        show:
-          (clusterUIConfig?.auth_advanced || false) &&
-          (usersManagePage || canAccessKeysPage || isAdmin),
+        show: usersManagePage || canAccessKeysPage || isAdmin,
       },
       {
         name: t('menu.resourcesAndSupport'),
