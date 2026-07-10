@@ -17,13 +17,15 @@ import logging
 import tempfile
 from typing import TYPE_CHECKING, List, Optional
 
+from .utils import MLXModelThreadMixin
+
 if TYPE_CHECKING:
     from .core import AudioModelFamilyV2
 
 logger = logging.getLogger(__name__)
 
 
-class WhisperMLXModel:
+class WhisperMLXModel(MLXModelThreadMixin):
     def __init__(
         self,
         model_uid: str,
@@ -32,6 +34,7 @@ class WhisperMLXModel:
         device: Optional[str] = None,
         **kwargs,
     ):
+        super().__init__()
         self.model_family = model_spec
         self._model_uid = model_uid
         self._model_path = model_path
@@ -46,6 +49,9 @@ class WhisperMLXModel:
         return self._model_spec.model_ability
 
     def load(self):
+        self._run_on_mlx_thread(self._load)
+
+    def _load(self):
         use_lightning = self._kwargs.get("use_lightning", "auto")
         if use_lightning not in ("auto", True, False, None):
             raise ValueError("use_lightning can only be True, False, None or auto")
@@ -132,7 +138,10 @@ class WhisperMLXModel:
             task="translate",
         )
 
-    def _call(
+    def _call(self, *args, **kwargs):
+        return self._run_on_mlx_thread(self._call_impl, *args, **kwargs)
+
+    def _call_impl(
         self,
         audio: bytes,
         language: Optional[str] = None,

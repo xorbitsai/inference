@@ -17,12 +17,37 @@ import logging
 import typing
 import wave
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import torch
 from packaging import version
 
 logger = logging.getLogger(__name__)
+
+
+class MLXModelThreadMixin:
+    """Pin every call into an MLX model to a single dedicated thread.
+
+    MLX binds its default GPU stream to the OS thread that first touches
+    it. ``ModelActor`` runs synchronous model methods (``load``, and the
+    per-request inference methods) via ``asyncio.to_thread``, which uses a
+    shared thread pool executor and gives no guarantee that two calls for
+    the same model land on the same thread. When ``load()`` and a later
+    inference call run on different threads, MLX raises
+    ``RuntimeError: There is no Stream(gpu, N) in current thread`` and
+    crashes the worker process. Routing every call through one persistent
+    thread avoids this.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__mlx_executor: typing.Optional[ThreadPoolExecutor] = None
+
+    def _run_on_mlx_thread(self, fn: Callable, *args, **kwargs):
+        if self.__mlx_executor is None:
+            self.__mlx_executor = ThreadPoolExecutor(max_workers=1)
+        return self.__mlx_executor.submit(fn, *args, **kwargs).result()
 
 
 def _extract_pcm_from_wav_bytes(wav_bytes):
