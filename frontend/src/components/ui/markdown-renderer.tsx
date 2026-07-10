@@ -8,48 +8,6 @@ import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import { cn } from '@/lib/utils';
 
-// rehype-sanitize's GitHub-derived default schema doesn't know about the
-// classes/attributes rehype-katex's HTML output needs (span/math/semantics/...
-// with "katex*" classes and inline "style"), so it would strip them back out.
-// Extend the schema rather than replace it, so GFM sanitation elsewhere is
-// unaffected.
-const katexSchema = {
-  ...defaultSchema,
-  attributes: {
-    ...defaultSchema.attributes,
-    span: [...(defaultSchema.attributes?.span || []), 'className', 'style', 'ariaHidden'],
-    math: ['xmlns'],
-    annotation: ['encoding'],
-  },
-  tagNames: [
-    ...(defaultSchema.tagNames || []),
-    'math',
-    'semantics',
-    'mrow',
-    'mi',
-    'mn',
-    'mo',
-    'msup',
-    'msub',
-    'msubsup',
-    'mfrac',
-    'msqrt',
-    'mroot',
-    'mtable',
-    'mtr',
-    'mtd',
-    'mover',
-    'munder',
-    'munderover',
-    'mtext',
-    'mspace',
-    'mstyle',
-    'mpadded',
-    'menclose',
-    'annotation',
-  ],
-};
-
 interface ReactMarkdownProps {
   classnames?: string;
   parseHtml?: boolean;
@@ -66,9 +24,15 @@ const ReactMarkdown: FC<PropsWithChildren<ReactMarkdownProps>> = ({
     <Markdown
       skipHtml={false}
       remarkPlugins={[remarkGfm, remarkMath]}
+      // rehypeKatex runs AFTER rehypeSanitize: raw HTML from the model/user
+      // (via rehypeRaw) is sanitized with the plain default schema first, so
+      // it can never smuggle in a "style"/"className" via e.g. a raw <span>.
+      // KaTeX's own HTML (span/math/... with "katex*" classes and inline
+      // "style") is generated afterwards, so it's never re-sanitized and
+      // always renders correctly.
       rehypePlugins={
         parseHtml
-          ? [rehypeRaw, rehypeKatex, [rehypeSanitize, katexSchema]]
+          ? [rehypeRaw, [rehypeSanitize, defaultSchema], rehypeKatex]
           : [rehypeKatex]
       }
       className={cn('markdown-body break-word', classname)}
