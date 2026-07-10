@@ -23,9 +23,9 @@ import pprint
 import time
 import uuid
 import warnings
+from pathlib import Path
 from typing import Any, List, Optional, Union, get_type_hints
 
-import gradio as gr
 import xoscar as xo
 from aioprometheus import REGISTRY, MetricsMiddleware
 from aioprometheus.asgi.starlette import metrics
@@ -41,10 +41,9 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from sse_starlette.sse import EventSourceResponse
-from starlette.responses import PlainTextResponse, RedirectResponse
+from starlette.responses import PlainTextResponse
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
@@ -72,13 +71,11 @@ from ..types import (
     PeftModelConfig,
     max_tokens_field,
 )
+from .frontend_static import mount_frontend
 from .oauth2.auth_service import AuthService
 from .responses import JSONResponse
 from .schemas import (
     AutoConfigLLMRequest,
-    BuildGradioEmbeddingInterfaceRequest,
-    BuildGradioInterfaceRequest,
-    BuildGradioMediaInterfaceRequest,
     CreateCompletionRequest,
     CreateEmbeddingRequest,
     RegisterModelRequest,
@@ -554,38 +551,26 @@ class RESTfulAPI(CancelMixin):
                 f"{pprint.pformat(invalid_routes)}"
             )
 
-        class SPAStaticFiles(StaticFiles):
-            async def get_response(self, path: str, scope):
-                response = await super().get_response(path, scope)
-                if response.status_code == 404:
-                    response = await super().get_response(".", scope)
-                return response
-
         try:
             package_file_path = __import__("xinference").__file__
             assert package_file_path is not None
             lib_location = os.path.abspath(os.path.dirname(package_file_path))
-            ui_location = os.path.join(lib_location, "ui/web/ui/build/")
         except ImportError as e:
             raise ImportError(f"Xinference is imported incorrectly: {e}")
 
-        if os.path.exists(ui_location):
-
-            @self._app.get("/")
-            def read_main():
-                response = RedirectResponse(url="/ui/")
-                return response
-
-            self._app.mount(
-                "/ui/",
-                SPAStaticFiles(directory=ui_location, html=True),
-            )
-        else:
+        ui_dist_location = os.environ.get(
+            "XINFERENCE_FRONTEND_DIST_DIR",
+            os.path.join(lib_location, "ui", "web", "dist"),
+        )
+        if not mount_frontend(self._app, Path(ui_dist_location)):
             warnings.warn(
                 f"""
-            Xinference ui is not built at expected directory: {ui_location}
-            To resolve this warning, navigate to {os.path.join(lib_location, "ui/web/ui/")}
-            And build the Xinference ui by running "npm run build"
+            The Xinference web UI is not built at expected directory: {ui_dist_location}
+            The API keeps serving without the web UI. To enable it, build the
+            frontend static export from the repository "frontend/" directory with
+            "npm ci && npm run build" (this stages the export at the directory
+            above), or set XINFERENCE_FRONTEND_DIST_DIR to an export directory,
+            and restart. For frontend development, run "npm run dev" instead.
             """
             )
 
@@ -1040,130 +1025,6 @@ class RESTfulAPI(CancelMixin):
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
-
-    async def build_gradio_interface(
-        self, model_uid: str, request: Request
-    ) -> JSONResponse:
-        """
-        Separate build_interface with launch_model
-        build_interface requires RESTful Client for API calls
-        but calling API in async function does not return
-        """
-        payload = await request.json()
-        body = BuildGradioInterfaceRequest.parse_obj(payload)
-        assert self._app is not None
-        assert body.model_type == "LLM"
-
-        from ..ui.gradio.chat_interface import GradioInterface
-
-        try:
-            access_token = request.headers.get("Authorization")
-            internal_host = "localhost" if self._host == "0.0.0.0" else self._host
-            interface = GradioInterface(
-                endpoint="http://" + internal_host + ":" + str(self._port),
-                model_uid=model_uid,
-                model_name=body.model_name,
-                model_size_in_billions=body.model_size_in_billions,
-                model_type=body.model_type,
-                model_format=body.model_format,
-                quantization=body.quantization,
-                context_length=body.context_length,
-                model_ability=body.model_ability,
-                model_description=body.model_description,
-                model_lang=body.model_lang,
-                access_token=access_token,
-            ).build()
-            gr.mount_gradio_app(self._app, interface, f"/{model_uid}")
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            raise HTTPException(status_code=400, detail=str(ve))
-
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-        return JSONResponse(content={"model_uid": model_uid})
-
-    async def build_gradio_media_interface(
-        self, model_uid: str, request: Request
-    ) -> JSONResponse:
-        """
-        Build a Gradio interface for image processing models.
-        """
-        payload = await request.json()
-        body = BuildGradioMediaInterfaceRequest.parse_obj(payload)
-        assert self._app is not None
-        assert body.model_type in ("image", "video", "audio")
-
-        from ..ui.gradio.media_interface import MediaInterface
-
-        try:
-            access_token = request.headers.get("Authorization")
-            internal_host = "localhost" if self._host == "0.0.0.0" else self._host
-            interface = MediaInterface(
-                endpoint="http://" + internal_host + ":" + str(self._port),
-                model_uid=model_uid,
-                model_family=body.model_family,
-                model_name=body.model_name,
-                model_id=body.model_id,
-                model_revision=body.model_revision,
-                controlnet=body.controlnet,
-                access_token=access_token,
-                model_ability=body.model_ability,
-                model_type=body.model_type,
-            ).build()
-
-            gr.mount_gradio_app(self._app, interface, f"/{model_uid}")
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            raise HTTPException(status_code=400, detail=str(ve))
-
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-        return JSONResponse(content={"model_uid": model_uid})
-
-    async def build_gradio_embedding_interface(
-        self, model_uid: str, request: Request
-    ) -> JSONResponse:
-        """
-        Build a Gradio interface for embedding models.
-        """
-        payload = await request.json()
-        body = BuildGradioEmbeddingInterfaceRequest.parse_obj(payload)
-        if self._app is None:
-            raise HTTPException(status_code=500, detail="Application not initialized")
-        if body.model_type != "embedding":
-            raise HTTPException(status_code=400, detail="Invalid model type")
-
-        from ..ui.gradio.embedding_interface import EmbeddingInterface
-
-        try:
-            access_token = request.headers.get("Authorization")
-            internal_host = "localhost" if self._host == "0.0.0.0" else self._host
-            interface = EmbeddingInterface(
-                endpoint="http://" + internal_host + ":" + str(self._port),
-                model_uid=model_uid,
-                model_family=body.model_family,
-                model_name=body.model_name,
-                model_id=body.model_id,
-                model_revision=body.model_revision,
-                access_token=access_token,
-                model_ability=body.model_ability,
-                model_type=body.model_type,
-            ).build()
-
-            gr.mount_gradio_app(self._app, interface, f"/{model_uid}")
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            raise HTTPException(status_code=400, detail=str(ve))
-
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-        return JSONResponse(content={"model_uid": model_uid})
 
     async def terminate_model(self, model_uid: str) -> JSONResponse:
         try:
@@ -2565,6 +2426,19 @@ class RESTfulAPI(CancelMixin):
                     status_code=400,
                     detail=f"Only {total_call_family} support tool messages",
                 )
+
+        # Reject misplaced ``system`` messages before entering the worker for
+        # models whose chat template requires system-first ordering (Qwen3
+        # family: Ornith-1.0-35B / qwen3.5 / qwen3.6 / Nex-N2). Placed before
+        # the stream/non-stream split so BOTH paths return a clean 400 instead
+        # of the worker raising mid-render (non-stream 500 / stream 200+SSE).
+        if desc.get("strict_system_first"):
+            from ..model.llm.utils import MessageRoleOrderError, check_system_role_order
+
+            try:
+                check_system_role_order(messages)
+            except MessageRoleOrderError as ve:
+                raise HTTPException(status_code=400, detail=str(ve))
 
         if "skip_special_tokens" in raw_kwargs and await model.is_vllm_backend():
             kwargs["skip_special_tokens"] = raw_kwargs["skip_special_tokens"]

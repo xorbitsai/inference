@@ -1367,7 +1367,7 @@ export default function LaunchDialog({
             {loading && <Progress value={progress} />}
             <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Switch checked={saveAutostart} disabled={loading} onCheckedChange={setSaveAutostart} />
+                <Switch checked={saveAutostart} disabled={loading} onChange={setSaveAutostart} />
                 {t('launchModel.saveAutostart')}
               </label>
               <div className="flex items-center justify-end gap-2">

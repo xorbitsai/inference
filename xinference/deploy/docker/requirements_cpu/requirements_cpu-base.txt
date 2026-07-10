@@ -1,5 +1,4 @@
 xoscar>=0.7.2
-gradio==5.22.0
 pillow
 click
 tqdm>=4.27
@@ -7,6 +6,7 @@ tabulate
 requests
 pydantic>2
 fastapi>=0.110.3,<0.137  # 0.137 stores include_router routes as _IncludedRouter (no .path), breaking aioprometheus middleware; see setup.cfg
+python-multipart>=0.0.18
 uvicorn
 huggingface-hub>=0.19.4
 typing_extensions

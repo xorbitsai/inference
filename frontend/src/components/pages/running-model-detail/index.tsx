@@ -9,6 +9,7 @@ import { CollapsiblePanel } from '@/components/ui/collapsible';
 import PageContainer from '@/components/ui/page-container';
 import { ModelAbility } from '@/constants';
 import request from '@/lib/request';
+import { SHELL_ROUTE_PARAM } from '@/lib/route-params';
 import type { RunningModelDetail as RunningModelDetailType } from '@/types/services';
 
 import { CAPABILITY_CONFIGS } from './capability-config';
@@ -83,6 +84,11 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
   const tryApiAbility = isChat ? ModelAbility.Chat : selectAbility;
 
   const fetchModel = useCallback(() => {
+    // modelUid is derived from usePathname(), so this only trips if the shell
+    // HTML itself is opened directly (e.g. crawler/prefetch hitting
+    // running-model/__shell__ before any real uid is in the URL).
+    if (modelUid === SHELL_ROUTE_PARAM) return;
+
     setLoading(true);
     request
       .get<RunningModelDetailType>(`/v1/models/${modelUid}`)

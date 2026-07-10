@@ -5,7 +5,7 @@ COPY . /opt/inference
 WORKDIR /opt/inference
 
 ENV NVM_DIR /usr/local/nvm
-ENV NODE_VERSION 18.20.4
+ENV NODE_VERSION 20.19.0
 
 RUN apt-get -y update \
   && apt install -y wget curl procps git libgl1 libfst-dev cmake libssl-dev \

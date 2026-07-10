@@ -86,7 +86,7 @@ is to compile the frontend.
 Frontend Compilation
 --------------------
 
-Navigate to the ``inference/xinference/ui/web/ui`` directory. Then, execute the following command
+Navigate to the ``inference/frontend`` directory. Then, execute the following command
 to clear the cache:
 
 ::
@@ -104,10 +104,20 @@ frontend:
 
 ::
 
-   npm install
+   npm ci
    npm run build
 
 Still, if the first command fails to execute, you can try adding the ``--force`` option.
+
+The build emits a static export and stages it at ``xinference/ui/web/dist``,
+where the Xinference backend serves it directly — no Node.js runtime is needed
+after building.
+
+For local frontend development, start the Xinference backend separately and then run:
+
+::
+
+   XINFERENCE_API_URL=http://127.0.0.1:9997 npm run dev
 
 After compiling the frontend, you can ``cd`` back to the directory
 where the ``setup.cfg`` and ``setup.py`` files are located,

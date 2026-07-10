@@ -12,17 +12,20 @@ token rotation invalidating the old token.
     pytest xinference/api/tests/test_oauth2_advanced_live_read.py -v
 """
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fastapi import HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.security import SecurityScopes
+from fastapi.testclient import TestClient
 from jose import jwt
 
 from xinference.api.oauth2.advanced.auth_service import (
     JWT_ALGORITHM,
     AdvancedAuthService,
 )
+from xinference.api.oauth2.advanced.routes import register_advanced_auth_routes
 
 
 def _make_request(path: str = "/v1/admin/keys"):
@@ -58,6 +61,15 @@ def _create_user(auth_service, username, permissions):
         permissions=permissions,
     )
     return user_id
+
+
+def _make_client(auth_service):
+    app = FastAPI()
+    router = APIRouter()
+    app.state.advanced_auth = auth_service
+    register_advanced_auth_routes(SimpleNamespace(_app=app, _router=router))
+    app.include_router(router)
+    return TestClient(app)
 
 
 @pytest.mark.asyncio
@@ -166,6 +178,86 @@ def test_refresh_token_rotation_invalidates_old(auth_service):
 
     second = auth_service.refresh_access_token(refresh_token)
     assert second is None
+
+
+def test_key_reveal_route_uses_db_permissions_grant(auth_service):
+    """The key reveal route should honor DB-current ``keys:manage`` grants."""
+    user_id = _create_user(auth_service, "gina", [])
+    token = auth_service.create_access_token(user_id, "gina", [])
+    auth_service.db.set_user_permissions(user_id, ["keys:manage"])
+    api_key = auth_service.create_api_key_for_user(user_id=user_id)
+
+    response = _make_client(auth_service).get(
+        f"/v1/admin/keys/{api_key['id']}/reveal",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["key"] == api_key["key"]
+
+
+def test_keys_read_route_uses_db_permissions_grant(auth_service):
+    """The custom OR dependency for key reads must also live-read DB scopes."""
+    user_id = _create_user(auth_service, "harry", [])
+    other_user_id = _create_user(auth_service, "harry-other", [])
+    token = auth_service.create_access_token(user_id, "harry", [])
+    auth_service.db.set_user_permissions(user_id, ["keys:manage"])
+    own_key = auth_service.create_api_key_for_user(user_id=user_id)
+    other_key = auth_service.create_api_key_for_user(user_id=other_user_id)
+
+    response = _make_client(auth_service).get(
+        "/v1/admin/keys", headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 200
+    assert {item["id"] for item in response.json()} == {own_key["id"], other_key["id"]}
+
+
+def test_key_get_route_uses_db_permissions_grant(auth_service):
+    """``keys:manage`` granted after login should allow reading any key."""
+    user_id = _create_user(auth_service, "jane", [])
+    other_user_id = _create_user(auth_service, "jane-other", [])
+    token = auth_service.create_access_token(user_id, "jane", [])
+    auth_service.db.set_user_permissions(user_id, ["keys:manage"])
+    other_key = auth_service.create_api_key_for_user(user_id=other_user_id)
+
+    response = _make_client(auth_service).get(
+        f"/v1/admin/keys/{other_key['id']}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["id"] == other_key["id"]
+
+
+def test_key_create_route_uses_db_permissions_grant_for_owner(auth_service):
+    """A live-granted key manager can create keys for another owner."""
+    user_id = _create_user(auth_service, "kate", [])
+    other_user_id = _create_user(auth_service, "kate-other", [])
+    token = auth_service.create_access_token(user_id, "kate", [])
+    auth_service.db.set_user_permissions(user_id, ["keys:create", "keys:manage"])
+
+    response = _make_client(auth_service).post(
+        "/v1/admin/keys",
+        json={"owner": other_user_id},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 201
+    key = auth_service.db.get_api_key_by_id(response.json()["id"])
+    assert key["user_id"] == other_user_id
+
+
+def test_keys_read_route_rejects_api_key_tokens(auth_service):
+    """API keys must not access key-management routes via owner permissions."""
+    user_id = _create_user(auth_service, "irene", ["keys:manage"])
+    api_key = auth_service.create_api_key_for_user(user_id=user_id)["key"]
+
+    response = _make_client(auth_service).get(
+        "/v1/admin/keys", headers={"Authorization": f"Bearer {api_key}"}
+    )
+
+    assert response.status_code == 403
 
 
 def test_validate_model_access_grant_after_login(auth_service):

@@ -9,8 +9,12 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function getApiUrl(): string {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://10.1.0.45:4466';
-  return apiUrl;
+  if (typeof window === 'undefined') {
+    return (
+      process.env.XINFERENCE_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:9997'
+    ).replace(/\/+$/, '');
+  }
+  return (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
 }
 
 export function formatFileSize(bytes: number): string {
@@ -133,11 +137,20 @@ export function getFileMeta(file: File) {
   return { label: 'Document', icon: FileText, kind: 'document' as const };
 }
 
-export function decodeJwtScopes(token: string | undefined): string[] {
-  if (!token) return [];
+export function decodeJwtPayload(token: string | undefined): Record<string, unknown> | null {
+  if (!token) return null;
   try {
     const payload = token.split('.')[1];
-    const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    return JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+  } catch {
+    return null;
+  }
+}
+
+export function decodeJwtScopes(token: string | undefined): string[] {
+  const decoded = decodeJwtPayload(token);
+  if (!decoded) return [];
+  try {
     return Array.isArray(decoded.scopes) ? decoded.scopes : [];
   } catch {
     return [];
