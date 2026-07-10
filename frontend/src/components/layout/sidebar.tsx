@@ -57,7 +57,6 @@ interface NavItem {
 interface NavGroup {
   name: string;
   items: NavItem[];
-  show?: boolean;
 }
 
 const Nav: FC<NavItem & { collapsed: boolean }> = ({
@@ -238,14 +237,14 @@ export function Sidebar() {
             name: t('menu.userManagement'),
             Icon: Users,
             Extra: ChevronRight,
-            show: usersManagePage,
+            show: Boolean(clusterUIConfig?.auth_advanced) && usersManagePage,
           },
           {
             path: '/api-key-management',
             name: t('menu.apiKeyManagement'),
             Icon: KeyRound,
             Extra: ChevronRight,
-            show: canAccessKeysPage,
+            show: Boolean(clusterUIConfig?.auth_advanced) && canAccessKeysPage,
           },
           {
             path: '/security-settings',
@@ -262,7 +261,6 @@ export function Sidebar() {
             show: isAdmin,
           },
         ],
-        show: usersManagePage || canAccessKeysPage || isAdmin,
       },
       {
         name: t('menu.resourcesAndSupport'),
@@ -300,11 +298,11 @@ export function Sidebar() {
     ];
 
     return groups
-      .filter(({ show = true }) => show)
       .map((group) => ({
         ...group,
         items: group.items.filter(({ show = true }) => show),
-      }));
+      }))
+      .filter(({ items }) => items.length > 0);
   }, [clusterUIConfig, locale, t, usersManagePage, canAccessKeysPage, isAdmin]);
 
   return (
