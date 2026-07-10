@@ -5,8 +5,13 @@ export const XINFERENCE_GITHUB = 'https://github.com/xorbitsai';
 export const XINFERENCE_IO = 'https://model.xinference.io';
 
 export const LOGIN_PATH = '/login';
-export const HIDE_SIDEBAR_PATHS = [LOGIN_PATH];
+export const SETUP_PATH = '/setup';
+export const HIDE_SIDEBAR_PATHS = [LOGIN_PATH, SETUP_PATH];
 export const NO_AUTH = 'no_auth';
+// sessionStorage flag: set by the setup page right before it navigates to
+// /login, so the login page can show a one-time "account created" toast
+// without threading router state through a full page navigation.
+export const SETUP_COMPLETE_FLAG = 'xinference_setup_complete';
 
 export const LANGUAGES = [
   { label: '🇺🇸 English', value: 'en' },

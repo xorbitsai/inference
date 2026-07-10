@@ -479,6 +479,24 @@ const ko = {
     mustChangePasswordDesc: '첫 로그인 시 계속하기 전에 비밀번호를 변경해야 합니다.',
     changePasswordUserMissing: '현재 사용자를 식별할 수 없습니다. 다시 로그인해주세요.',
   },
+  setup: {
+    welcome: 'Xinference에 오신 것을 환영합니다',
+    welcomeDesc:
+      '이 인스턴스에는 아직 계정이 없습니다. 배포 설정을 완료하려면 첫 번째 관리자 계정을 생성하세요.',
+    title: '관리자 계정 설정',
+    description: '계속하려면 첫 번째 관리자 계정을 생성하세요.',
+    submit: '관리자 계정 생성',
+    createSuccess: '관리자 계정이 생성되었습니다. 새 계정으로 로그인하세요.',
+    createFailed: '생성에 실패했습니다. 다시 시도해주세요.',
+    adminAccessNote: '이 계정은 전체 관리자 권한을 갖게 됩니다.',
+    featureServingTitle: '손쉬운 모델 서빙',
+    featureServingDesc: '명령어 하나로 최신 LLM, 임베딩, 멀티모달 모델을 실행할 수 있습니다.',
+    featureApiTitle: 'OpenAI 호환 API',
+    featureApiDesc: '기존 도구 체인과 바로 연동되는 RESTful API, RPC, CLI, Web UI를 제공합니다.',
+    featureDistributedTitle: '분산 환경을 고려한 설계',
+    featureDistributedDesc:
+      '단일 머신이든 클러스터든 GPU와 CPU 전반에서 추론을 확장할 수 있습니다.',
+  },
   common: {
     valueEmpty: '비워둘 수 없습니다',
     patternError: '형식이 올바르지 않습니다. 확인해주세요',

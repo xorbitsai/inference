@@ -483,6 +483,26 @@ const ja = {
     mustChangePasswordDesc: '初回ログイン時は、続行する前にパスワードを変更してください。',
     changePasswordUserMissing: '現在のユーザーを識別できません。もう一度ログインしてください。',
   },
+  setup: {
+    welcome: 'Xinference へようこそ',
+    welcomeDesc:
+      'このインスタンスにはまだアカウントがありません。最初の管理者アカウントを作成してセットアップを完了してください。',
+    title: '管理者アカウントを設定',
+    description: '続行するには最初の管理者アカウントを作成してください。',
+    submit: '管理者アカウントを作成',
+    createSuccess: '管理者アカウントが作成されました。新しい認証情報でサインインしてください。',
+    createFailed: '作成に失敗しました。もう一度お試しください。',
+    adminAccessNote: 'このアカウントには完全な管理者権限が付与されます。',
+    featureServingTitle: '簡単なモデル配信',
+    featureServingDesc:
+      '最先端の LLM、埋め込み、マルチモーダルモデルをワンコマンドで起動できます。',
+    featureApiTitle: 'OpenAI 互換 API',
+    featureApiDesc:
+      'RESTful API、RPC、CLI、Web UI にすぐ対応 -- 既存のツールチェーンをそのまま利用できます。',
+    featureDistributedTitle: '分散対応設計',
+    featureDistributedDesc:
+      '単一マシンでもクラスタでも、GPU と CPU をまたいで推論をスケールできます。',
+  },
   common: {
     valueEmpty: '空にできません',
     patternError: '形式が正しくありません。確認してください',
