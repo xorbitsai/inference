@@ -19,7 +19,7 @@ import logging
 import os
 from abc import abstractmethod
 from collections import defaultdict
-from typing import Annotated, Dict, List, Literal, Optional, Tuple, Union
+from typing import Annotated, Any, Dict, List, Literal, Optional, Tuple, Union
 
 from xoscar import extensible
 
@@ -384,28 +384,55 @@ class EmbeddingModel(abc.ABC):
 
     def _truncate_sentences(
         self,
-        sentences: Union[str, List[str]],
+        sentences: Union[
+            str,
+            List[str],
+            List[int],
+            List[List[int]],
+            Dict[str, str],
+            List[Dict[str, str]],
+        ],
         truncate_prompt_tokens: Optional[int],
-    ) -> Union[str, List[str]]:
+    ) -> Union[
+        str,
+        List[str],
+        List[int],
+        List[List[int]],
+        Dict[str, str],
+        List[Dict[str, str]],
+    ]:
         """Truncate input to ``truncate_prompt_tokens`` tokens before encoding.
 
         Mirrors vLLM LLM semantics (``xinference/model/llm/vllm/core.py``):
-        ``None`` = no truncation, ``>0`` = cap at N tokens, ``<0`` = cap at the
-        model's own ``max_tokens``. Token-based when a tokenizer is available
-        (sentence_transformers / flag / vllm); falls back to a character-based
-        estimate otherwise (llama_cpp has no Python tokenizer, or if the
-        tokenizer call itself raises).
+        ``None`` = no truncation, ``>0`` = cap at N tokens, ``==0`` = explicit
+        empty (``max_length=0``), ``<0`` = cap at the model's own ``max_tokens``.
+
+        Structure-preserving: token arrays (``List[int]`` / ``List[List[int]]``)
+        are sliced to N ids; multimodal dicts (``Dict[str, str]`` /
+        ``List[Dict[str, str]]``) keep their keys and non-text values and only
+        their string values are truncated. Plain ``str`` / ``List[str]`` are
+        truncated token-based (sentence_transformers / flag / vllm) with a
+        character-based fallback (llama_cpp, or tokenizer failure).
 
         This method must never raise: a tokenizer/decode failure degrades to a
-        character-based cut so embedding serving is not interrupted.
+        character-based cut so embedding serving is not interrupted. It runs
+        *before* ``_fix_langchain_openai_inputs`` decodes token arrays, so it
+        must not stringify structured inputs (that would corrupt them -- e.g.
+        ``[[1, 2, 3]]`` embedded as the literal text ``"[[1,"``).
         """
         if truncate_prompt_tokens is None:
             return sentences
 
-        # Resolve the effective token limit.
+        # Resolve the effective token limit, matching vLLM LLM ``_tokenize``:
+        #   None  -> no truncation (handled above)
+        #   >0    -> cap at N tokens
+        #   ==0   -> explicit max_length=0 (empty input)
+        #   <0    -> cap at the model's own max_tokens
         n_tokens: Optional[int]
         if truncate_prompt_tokens > 0:
             n_tokens = truncate_prompt_tokens
+        elif truncate_prompt_tokens == 0:
+            n_tokens = 0
         else:  # <0: cap at the model's own max_tokens
             n_tokens = getattr(self.model_family, "max_tokens", None)
             if not n_tokens:  # None / 0 -> unknown, give up truncation safely
@@ -415,31 +442,57 @@ class EmbeddingModel(abc.ABC):
                 )
                 return sentences
 
-        is_str = isinstance(sentences, str)
-        texts = [sentences] if is_str else list(sentences)
-        truncated: List[str] = []
-        for text in texts:
-            s = text if isinstance(text, str) else str(text)
-            tokenizer = getattr(self, "_tokenizer", None)
-            if tokenizer is not None:
-                try:
-                    ids = tokenizer(
-                        s,
-                        add_special_tokens=True,
-                        truncation=True,
-                        max_length=n_tokens,
-                    ).input_ids
-                    truncated.append(tokenizer.decode(ids, skip_special_tokens=True))
-                    continue
-                except Exception:
-                    logger.debug(
-                        "token-based truncation failed for %s, fallback to char",
-                        self._model_uid,
-                        exc_info=True,
-                    )
-            # Fallback: character-based cut (llama_cpp, or tokenizer failure).
-            truncated.append(s[: n_tokens * _EMBEDDING_TRUNCATE_CHAR_PER_TOKEN])
-        return truncated[0] if is_str else truncated
+        return self._truncate_value(sentences, n_tokens)
+
+    def _truncate_value(self, value: Any, n_tokens: int) -> Any:
+        """Recursively truncate ``value`` to ``n_tokens`` while preserving its
+        structure (see ``_truncate_sentences``)."""
+        # Token arrays: a single doc as a flat list of token ids.
+        if isinstance(value, list) and len(value) > 0 and isinstance(value[0], int):
+            return value[:n_tokens]
+        # Multiple docs, each a list of token ids.
+        if isinstance(value, list) and len(value) > 0 and isinstance(value[0], list):
+            return [inner[:n_tokens] for inner in value]
+        # Multimodal / structured: truncate only string values, preserve keys
+        # and non-text fields.
+        if isinstance(value, dict):
+            return {
+                k: self._truncate_text(v, n_tokens) if isinstance(v, str) else v
+                for k, v in value.items()
+            }
+        # A list of texts or of dicts: recurse per element.
+        if isinstance(value, list):
+            return [self._truncate_value(item, n_tokens) for item in value]
+        if isinstance(value, str):
+            return self._truncate_text(value, n_tokens)
+        # Numbers / None / other primitives: leave untouched.
+        return value
+
+    def _truncate_text(self, s: str, n_tokens: int) -> str:
+        """Token-based truncation of a single string, with a character-based
+        fallback (llama_cpp has no Python tokenizer, or the call may raise).
+
+        ``n_tokens == 0`` matches vLLM ``max_length=0``: both the tokenizer
+        path (empty ``input_ids``) and the char fallback (``s[:0]``) yield "".
+        """
+        tokenizer = getattr(self, "_tokenizer", None)
+        if tokenizer is not None:
+            try:
+                ids = tokenizer(
+                    s,
+                    add_special_tokens=True,
+                    truncation=True,
+                    max_length=n_tokens,
+                ).input_ids
+                return tokenizer.decode(ids, skip_special_tokens=True)
+            except Exception:
+                logger.debug(
+                    "token-based truncation failed for %s, fallback to char",
+                    self._model_uid,
+                    exc_info=True,
+                )
+        # Fallback: character-based cut (llama_cpp, or tokenizer failure).
+        return s[: n_tokens * _EMBEDDING_TRUNCATE_CHAR_PER_TOKEN]
 
     def _get_batch_size(self, *args, **kwargs) -> int:
         sentences = self._extract_sentences_kwargs(args, kwargs)[0]

@@ -30,7 +30,13 @@ class _StrTokenizer:
 
     def __call__(self, text, **kwargs):
         max_length = kwargs.get("max_length", None)
-        tokens = [ord(c) for c in text[: max_length * 4]] if max_length else text
+        if max_length is not None:
+            # Truncation requested: keep the first max_length tokens (~4 chars
+            # each). max_length=0 models HF "max_length=0, truncation=True" ->
+            # empty input_ids.
+            tokens = [ord(c) for c in text[: max_length * 4]]
+        else:
+            tokens = [ord(c) for c in text]
         return MagicMock(input_ids=tokens)
 
     def decode(self, ids, **kwargs):
@@ -150,13 +156,97 @@ def test_truncate_list_input():
         assert len(r) <= 4 * 4
 
 
-# --- _truncate_sentences: non-string items in list ------------------------------
+# --- _truncate_sentences: non-text primitives are preserved ---------------------
 
 
-def test_truncate_non_string_items():
-    """truncate_prompt_tokens=4 + list with non-string items → str() cast works."""
+def test_truncate_non_text_primitive_preserved():
+    """A non-text primitive inside a list is preserved as-is (not str()'d),
+    since only strings are truncatable text."""
     model = _DummyEmbeddingModel(tokenizer=_StrTokenizer())
     texts = ["hello", 123]
     result = model._truncate_sentences(texts, 4)
     assert isinstance(result, list)
     assert len(result) == 2
+    assert result[1] == 123  # int preserved, not stringified to "123"
+
+
+# --- _truncate_sentences: token arrays (List[int] / List[List[int]]) -----------
+# Regression for the corruption bug: token arrays were str()'d, so [[1,2,3]]
+# was embedded as the literal text "[[1,". They must be sliced to n_tokens ids
+# and passed through to _fix_langchain_openai_inputs intact.
+
+
+def test_truncate_flat_token_array_sliced():
+    """List[int] (one doc as token ids) must be sliced to n_tokens ids, NOT
+    stringified to ['1','2','3']."""
+    model = _DummyEmbeddingModel(tokenizer=_StrTokenizer())
+    result = model._truncate_sentences([1, 2, 3, 4, 5], 3)
+    assert result == [1, 2, 3]
+
+
+def test_truncate_nested_token_array_sliced():
+    """List[List[int]] (several docs as token ids) must slice each inner list,
+    preserving the nested structure so _fix_langchain_openai_inputs can still
+    decode each doc."""
+    model = _DummyEmbeddingModel(tokenizer=_StrTokenizer())
+    result = model._truncate_sentences([[1, 2, 3, 4], [5, 6, 7, 8, 9]], 2)
+    assert result == [[1, 2], [5, 6]]
+
+
+def test_truncate_token_array_not_stringified():
+    """Regression: the sliced result must remain int lists, never str."""
+    model = _DummyEmbeddingModel(tokenizer=_StrTokenizer())
+    result = model._truncate_sentences([[1, 2, 3]], 8)
+    assert isinstance(result, list)
+    assert isinstance(result[0], list)
+    assert all(isinstance(i, int) for i in result[0])
+
+
+# --- _truncate_sentences: multimodal / structured dicts ------------------------
+# Regression: list(dict) iterated keys ({"text":"hello"} -> ["text"]) and
+# str(dict) embedded the literal repr. Only string values may be truncated.
+
+
+def test_truncate_single_dict_preserves_keys():
+    """Dict[str,str] (e.g. {"text": ...}) must truncate only the value,
+    preserving the key."""
+    model = _DummyEmbeddingModel(tokenizer=_StrTokenizer())
+    result = model._truncate_sentences({"text": LONG_TEXT}, 8)
+    assert isinstance(result, dict)
+    assert set(result.keys()) == {"text"}
+    assert len(result["text"]) <= 8 * 4
+
+
+def test_truncate_list_of_dicts_preserves_structure():
+    """List[Dict[str,str]] (multimodal): only string values truncated; keys and
+    non-text values preserved verbatim; structure intact."""
+    model = _DummyEmbeddingModel(tokenizer=_StrTokenizer())
+    result = model._truncate_sentences(
+        [{"text": LONG_TEXT}, {"text": "short", "image_url": "http://x/y.png"}],
+        8,
+    )
+    assert isinstance(result, list)
+    assert len(result) == 2
+    assert isinstance(result[0], dict)
+    assert set(result[0].keys()) == {"text"}
+    assert len(result[0]["text"]) <= 8 * 4
+    # non-string value preserved verbatim, key set unchanged
+    assert set(result[1].keys()) == {"text", "image_url"}
+    assert result[1]["image_url"] == "http://x/y.png"
+
+
+# --- _truncate_sentences: ==0 (vLLM parity: explicit empty) --------------------
+
+
+def test_truncate_zero_yields_empty_char_fallback():
+    """truncate_prompt_tokens=0 + no tokenizer -> char fallback s[:0] == ''.
+    Must NOT silently expand to the model's full max_tokens (the bug)."""
+    model = _DummyEmbeddingModel(tokenizer=None, max_tokens=8192)
+    assert model._truncate_sentences(LONG_TEXT, 0) == ""
+
+
+def test_truncate_zero_yields_empty_with_tokenizer():
+    """truncate_prompt_tokens=0 + tokenizer -> max_length=0 -> empty input_ids
+    -> ''. Matches vLLM (xinference/model/llm/vllm/core.py::_tokenize)."""
+    model = _DummyEmbeddingModel(tokenizer=_StrTokenizer(), max_tokens=8192)
+    assert model._truncate_sentences(LONG_TEXT, 0) == ""
