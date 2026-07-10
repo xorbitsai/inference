@@ -2558,6 +2558,19 @@ class RESTfulAPI(CancelMixin):
                     detail=f"Only {total_call_family} support tool messages",
                 )
 
+        # Reject misplaced ``system`` messages before entering the worker for
+        # models whose chat template requires system-first ordering (Qwen3
+        # family: Ornith-1.0-35B / qwen3.5 / qwen3.6 / Nex-N2). Placed before
+        # the stream/non-stream split so BOTH paths return a clean 400 instead
+        # of the worker raising mid-render (non-stream 500 / stream 200+SSE).
+        if desc.get("strict_system_first"):
+            from ..model.llm.utils import MessageRoleOrderError, check_system_role_order
+
+            try:
+                check_system_role_order(messages)
+            except MessageRoleOrderError as ve:
+                raise HTTPException(status_code=400, detail=str(ve))
+
         if "skip_special_tokens" in raw_kwargs and await model.is_vllm_backend():
             kwargs["skip_special_tokens"] = raw_kwargs["skip_special_tokens"]
         if body.stream:

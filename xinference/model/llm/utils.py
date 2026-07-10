@@ -59,6 +59,37 @@ from .tool_parsers.glm4_tool_parser import Glm4ToolParser
 logger = logging.getLogger(__name__)
 
 
+class MessageRoleOrderError(ValueError):
+    """A ``system`` message appeared at a non-first position on a chat template
+    that requires system-first ordering (e.g. the Qwen3 family)."""
+
+
+def check_system_role_order(messages: List) -> None:
+    """Raise ``MessageRoleOrderError`` if a ``system`` role appears at index > 0.
+
+    Callers must gate this on the model description's ``strict_system_first``
+    flag so lenient templates are never rejected (zero regression).
+    """
+    if not messages:
+        return
+    for idx, message in enumerate(messages):
+        if idx == 0:
+            continue
+        if isinstance(message, dict):
+            role = message.get("role")
+        else:
+            role = getattr(message, "role", None)
+        if role == "system":
+            raise MessageRoleOrderError(
+                "messages: this model's chat template requires the 'system' "
+                "role to be the first message; found a system message at "
+                f"position {idx}. Merge all system instructions into "
+                "messages[0]; for mid-conversation reminders/context use a "
+                "'user' role message; tool results must use the 'tool' role "
+                "with tool_call_id."
+            )
+
+
 _CONTEXT_LENGTH_KEYS: Tuple[str, ...] = (
     "max_sequence_length",
     "seq_length",
