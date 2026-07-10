@@ -235,6 +235,58 @@ def test_truncate_list_of_dicts_preserves_structure():
     assert result[1]["image_url"] == "http://x/y.png"
 
 
+# --- _truncate_sentences: multimodal media fields preserved --------------------
+# Regression (PR #5151 review): only the ``text`` field may be truncated in a
+# multimodal dict. ``image`` / ``video`` / ``audio`` carry URLs, file paths or
+# base64 payloads; truncating them corrupts the media (a 222-char base64 was
+# previously reduced to 32 chars at truncate_prompt_tokens=8).
+
+
+def test_truncate_multimodal_media_fields_preserved():
+    """Dict with all media keys: only ``text`` is bounded, media verbatim."""
+    model = _DummyEmbeddingModel(tokenizer=_StrTokenizer())
+    long_b64 = "data:image/png;base64," + "A" * 200  # 222 chars >> 8*4
+    long_url = "https://example.com/path/" + "x" * 200
+    result = model._truncate_sentences(
+        {
+            "text": LONG_TEXT,
+            "image": long_b64,
+            "video": long_url,
+            "audio": long_url,
+        },
+        8,
+    )
+    assert isinstance(result, dict)
+    assert set(result.keys()) == {"text", "image", "video", "audio"}
+    assert len(result["text"]) <= 8 * 4  # text IS truncated
+    assert result["image"] == long_b64  # media preserved verbatim
+    assert result["video"] == long_url
+    assert result["audio"] == long_url
+
+
+def test_truncate_list_of_multimodal_dicts_preserves_media():
+    """List[Dict[str,str]]: each item's media fields survive; only ``text``
+    is bounded. Covers the char-fallback path (no tokenizer)."""
+    model = _DummyEmbeddingModel(tokenizer=None)
+    long_b64 = "data:image/png;base64," + "B" * 200  # >> 8*CHAR_PER_TOKEN
+    result = model._truncate_sentences([{"text": LONG_TEXT, "image": long_b64}], 8)
+    assert isinstance(result, list) and len(result) == 1
+    assert result[0]["image"] == long_b64
+    assert len(result[0]["text"]) <= 8 * _EMBEDDING_TRUNCATE_CHAR_PER_TOKEN
+
+
+def test_truncate_text_field_in_mixed_dict_is_bounded():
+    """A multimodal dict still has its long ``text`` bounded, so the token
+    budget still applies to the text payload alongside the preserved media."""
+    model = _DummyEmbeddingModel(tokenizer=_StrTokenizer())
+    result = model._truncate_sentences(
+        {"image": "data:image/png;base64," + "A" * 200, "text": LONG_TEXT},
+        4,
+    )
+    assert result["image"] == "data:image/png;base64," + "A" * 200
+    assert len(result["text"]) <= 4 * 4
+
+
 # --- _truncate_sentences: ==0 (vLLM parity: explicit empty) --------------------
 
 

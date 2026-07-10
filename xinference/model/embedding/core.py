@@ -409,8 +409,9 @@ class EmbeddingModel(abc.ABC):
 
         Structure-preserving: token arrays (``List[int]`` / ``List[List[int]]``)
         are sliced to N ids; multimodal dicts (``Dict[str, str]`` /
-        ``List[Dict[str, str]]``) keep their keys and non-text values and only
-        their string values are truncated. Plain ``str`` / ``List[str]`` are
+        ``List[Dict[str, str]]``) keep their keys and non-text values, and only
+        the ``text`` field is truncated (``image`` / ``video`` / ``audio`` and
+        other media fields are preserved verbatim). Plain ``str`` / ``List[str]`` are
         truncated token-based (sentence_transformers / flag / vllm) with a
         character-based fallback (llama_cpp, or tokenizer failure).
 
@@ -453,11 +454,18 @@ class EmbeddingModel(abc.ABC):
         # Multiple docs, each a list of token ids.
         if isinstance(value, list) and len(value) > 0 and isinstance(value[0], list):
             return [inner[:n_tokens] for inner in value]
-        # Multimodal / structured: truncate only string values, preserve keys
-        # and non-text fields.
+        # Multimodal / structured: truncate ONLY the ``text`` field. The
+        # other Jina multimodal fields (``image`` / ``video`` / ``audio``)
+        # carry URLs, file paths or base64 payloads; truncating them corrupts
+        # the media (e.g. a 222-char base64 was cut to 32 chars at n=8). Keys
+        # and non-text values are preserved verbatim.
         if isinstance(value, dict):
             return {
-                k: self._truncate_text(v, n_tokens) if isinstance(v, str) else v
+                k: (
+                    self._truncate_text(v, n_tokens)
+                    if k == "text" and isinstance(v, str)
+                    else v
+                )
                 for k, v in value.items()
             }
         # A list of texts or of dicts: recurse per element.
