@@ -19,7 +19,7 @@ import logging
 import os
 from abc import abstractmethod
 from collections import defaultdict
-from typing import Annotated, Dict, List, Literal, Optional, Tuple, Union
+from typing import Annotated, Any, Dict, List, Literal, Optional, Tuple, Union
 
 from xoscar import extensible
 
@@ -44,6 +44,14 @@ EMBEDDING_EMPTY_CACHE_TOKENS = int(
 )
 assert EMBEDDING_EMPTY_CACHE_COUNT > 0
 assert EMBEDDING_EMPTY_CACHE_TOKENS > 0
+
+# Char-per-token estimate used by ``EmbeddingModel._truncate_sentences`` for the
+# character-based fallback (engines without a Python tokenizer, e.g. llama_cpp,
+# or when the tokenizer call itself fails). English-biased; CJK may run longer.
+_EMBEDDING_TRUNCATE_CHAR_PER_TOKEN = int(
+    os.getenv("XINFERENCE_EMBEDDING_TRUNCATE_CHAR_PER_TOKEN", "4")
+)
+assert _EMBEDDING_TRUNCATE_CHAR_PER_TOKEN > 0
 
 
 def get_embedding_model_descriptions():
@@ -276,6 +284,9 @@ class EmbeddingModel(abc.ABC):
         sentences: Union[str, List[str]],
         **kwargs,
     ):
+        truncate_prompt_tokens = kwargs.pop("truncate_prompt_tokens", None)
+        if truncate_prompt_tokens is not None:
+            sentences = self._truncate_sentences(sentences, truncate_prompt_tokens)
         return self._create_embedding(sentences, **kwargs)
 
     @create_embedding.batch  # type: ignore
@@ -307,6 +318,14 @@ class EmbeddingModel(abc.ABC):
             kwargs = group["kwargs"]
             offsets = group["offsets"]
             indices = group["indices"]
+
+            # Honor ``truncate_prompt_tokens`` for embeddings (previously only
+            # implemented for vLLM LLMs). Pop it here so it never leaks into
+            # the engine's encode()/forward(), and bound the input length to
+            # avoid O(L^2) attention OOM on long documents.
+            truncate_prompt_tokens = kwargs.pop("truncate_prompt_tokens", None)
+            if truncate_prompt_tokens is not None:
+                sentences = self._truncate_sentences(sentences, truncate_prompt_tokens)
 
             embedding_list = self._create_embedding(sentences, **kwargs)
             usage = embedding_list.get("usage", {})
@@ -362,6 +381,126 @@ class EmbeddingModel(abc.ABC):
         sentences = bound.arguments["sentences"]
         extra_kwargs = {k: v for k, v in kwargs.items() if k != "sentences"}
         return sentences, extra_kwargs
+
+    def _truncate_sentences(
+        self,
+        sentences: Union[
+            str,
+            List[str],
+            List[int],
+            List[List[int]],
+            Dict[str, str],
+            List[Dict[str, str]],
+        ],
+        truncate_prompt_tokens: Optional[int],
+    ) -> Union[
+        str,
+        List[str],
+        List[int],
+        List[List[int]],
+        Dict[str, str],
+        List[Dict[str, str]],
+    ]:
+        """Truncate input to ``truncate_prompt_tokens`` tokens before encoding.
+
+        Mirrors vLLM LLM semantics (``xinference/model/llm/vllm/core.py``):
+        ``None`` = no truncation, ``>0`` = cap at N tokens, ``==0`` = explicit
+        empty (``max_length=0``), ``<0`` = cap at the model's own ``max_tokens``.
+
+        Structure-preserving: token arrays (``List[int]`` / ``List[List[int]]``)
+        are sliced to N ids; multimodal dicts (``Dict[str, str]`` /
+        ``List[Dict[str, str]]``) keep their keys and non-text values, and only
+        the ``text`` field is truncated (``image`` / ``video`` / ``audio`` and
+        other media fields are preserved verbatim). Plain ``str`` / ``List[str]`` are
+        truncated token-based (sentence_transformers / flag / vllm) with a
+        character-based fallback (llama_cpp, or tokenizer failure).
+
+        This method must never raise: a tokenizer/decode failure degrades to a
+        character-based cut so embedding serving is not interrupted. It runs
+        *before* ``_fix_langchain_openai_inputs`` decodes token arrays, so it
+        must not stringify structured inputs (that would corrupt them -- e.g.
+        ``[[1, 2, 3]]`` embedded as the literal text ``"[[1,"``).
+        """
+        if truncate_prompt_tokens is None:
+            return sentences
+
+        # Resolve the effective token limit, matching vLLM LLM ``_tokenize``:
+        #   None  -> no truncation (handled above)
+        #   >0    -> cap at N tokens
+        #   ==0   -> explicit max_length=0 (empty input)
+        #   <0    -> cap at the model's own max_tokens
+        n_tokens: Optional[int]
+        if truncate_prompt_tokens > 0:
+            n_tokens = truncate_prompt_tokens
+        elif truncate_prompt_tokens == 0:
+            n_tokens = 0
+        else:  # <0: cap at the model's own max_tokens
+            n_tokens = getattr(self.model_family, "max_tokens", None)
+            if not n_tokens:  # None / 0 -> unknown, give up truncation safely
+                logger.debug(
+                    "truncate_prompt_tokens<0 but max_tokens unknown for %s; skip",
+                    self._model_uid,
+                )
+                return sentences
+
+        return self._truncate_value(sentences, n_tokens)
+
+    def _truncate_value(self, value: Any, n_tokens: int) -> Any:
+        """Recursively truncate ``value`` to ``n_tokens`` while preserving its
+        structure (see ``_truncate_sentences``)."""
+        # Token arrays: a single doc as a flat list of token ids.
+        if isinstance(value, list) and len(value) > 0 and isinstance(value[0], int):
+            return value[:n_tokens]
+        # Multiple docs, each a list of token ids.
+        if isinstance(value, list) and len(value) > 0 and isinstance(value[0], list):
+            return [inner[:n_tokens] for inner in value]
+        # Multimodal / structured: truncate ONLY the ``text`` field. The
+        # other Jina multimodal fields (``image`` / ``video`` / ``audio``)
+        # carry URLs, file paths or base64 payloads; truncating them corrupts
+        # the media (e.g. a 222-char base64 was cut to 32 chars at n=8). Keys
+        # and non-text values are preserved verbatim.
+        if isinstance(value, dict):
+            return {
+                k: (
+                    self._truncate_text(v, n_tokens)
+                    if k == "text" and isinstance(v, str)
+                    else v
+                )
+                for k, v in value.items()
+            }
+        # A list of texts or of dicts: recurse per element.
+        if isinstance(value, list):
+            return [self._truncate_value(item, n_tokens) for item in value]
+        if isinstance(value, str):
+            return self._truncate_text(value, n_tokens)
+        # Numbers / None / other primitives: leave untouched.
+        return value
+
+    def _truncate_text(self, s: str, n_tokens: int) -> str:
+        """Token-based truncation of a single string, with a character-based
+        fallback (llama_cpp has no Python tokenizer, or the call may raise).
+
+        ``n_tokens == 0`` matches vLLM ``max_length=0``: both the tokenizer
+        path (empty ``input_ids``) and the char fallback (``s[:0]``) yield "".
+        """
+        tokenizer = getattr(self, "_tokenizer", None)
+        if tokenizer is not None:
+            try:
+                ids = tokenizer(
+                    s,
+                    add_special_tokens=True,
+                    truncation=True,
+                    max_length=n_tokens,
+                ).input_ids
+                return tokenizer.decode(ids, skip_special_tokens=True)
+            except Exception:
+                logger.debug(
+                    "token-based truncation failed for %s, fallback to char",
+                    self._model_uid,
+                    exc_info=True,
+                )
+        # Fallback: character-based cut (llama_cpp, or tokenizer failure).
+        return s[: n_tokens * _EMBEDDING_TRUNCATE_CHAR_PER_TOKEN]
 
     def _get_batch_size(self, *args, **kwargs) -> int:
         sentences = self._extract_sentences_kwargs(args, kwargs)[0]
