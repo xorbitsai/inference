@@ -85,10 +85,21 @@ class ModelActor(xo.StatelessActor):
         return await asyncio.to_thread(self._generate, prompt, **kwargs)
 
 
+# xo.create_actor_pool/create_actor fork worker subprocesses without any
+# built-in timeout. On a loaded CI runner this can hit a fork+GIL race and
+# hang forever (seen hanging until pytest's own --timeout, tens of minutes
+# later, with every thread blocked in os.waitpid). Wrap each call so a stuck
+# fork fails fast and points at the actual stage instead of a generic
+# pytest-timeout with no context.
+_POOL_CREATE_TIMEOUT = 90
+_ACTOR_CREATE_TIMEOUT = 60
+
+
 @pytest_asyncio.fixture
 async def setup_pool():
-    pool = await xo.create_actor_pool(
-        f"127.0.0.1:{xo.utils.get_next_port()}", n_process=2
+    pool = await asyncio.wait_for(
+        xo.create_actor_pool(f"127.0.0.1:{xo.utils.get_next_port()}", n_process=2),
+        timeout=_POOL_CREATE_TIMEOUT,
     )
     async with pool:
         yield pool
@@ -106,23 +117,29 @@ async def test_distributed(setup_pool):
 
     model_path = snapshot_download("mlx-community/Qwen2.5-0.5B-Instruct-4bit")
 
-    shard0 = await xo.create_actor(
-        ModelActor,
-        0,
-        "qwen2.5-instruct",
-        model_path,
-        address=pool.external_address,
-        allocate_strategy=xo.allocate_strategy.ProcessIndex(1),
-        uid="model_0",
+    shard0 = await asyncio.wait_for(
+        xo.create_actor(
+            ModelActor,
+            0,
+            "qwen2.5-instruct",
+            model_path,
+            address=pool.external_address,
+            allocate_strategy=xo.allocate_strategy.ProcessIndex(1),
+            uid="model_0",
+        ),
+        timeout=_ACTOR_CREATE_TIMEOUT,
     )
-    shard1 = await xo.create_actor(
-        ModelActor,
-        1,
-        "qwen2.5-instruct",
-        model_path,
-        address=pool.external_address,
-        allocate_strategy=xo.allocate_strategy.ProcessIndex(2),
-        uid="model_1",
+    shard1 = await asyncio.wait_for(
+        xo.create_actor(
+            ModelActor,
+            1,
+            "qwen2.5-instruct",
+            model_path,
+            address=pool.external_address,
+            allocate_strategy=xo.allocate_strategy.ProcessIndex(2),
+            uid="model_1",
+        ),
+        timeout=_ACTOR_CREATE_TIMEOUT,
     )
     rank_addresses = {0: shard0.address, 1: shard1.address}
     await shard0.set_rank_addresses(rank_addresses)
