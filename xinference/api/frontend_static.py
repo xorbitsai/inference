@@ -86,7 +86,7 @@ def ensure_spa_fallback_last(app: FastAPI) -> None:
     """Move the SPA catch-all back to the end of the route table.
 
     Starlette matches routes in registration order, so anything mounted after
-    startup (e.g. per-model Gradio apps at ``/{model_uid}``) would be shadowed
+    startup (e.g. a per-model sub-app at ``/{model_uid}``) would be shadowed
     by the catch-all. Call this after every runtime mount. No-op if the
     frontend is not mounted.
     """

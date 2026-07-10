@@ -26,7 +26,6 @@ import warnings
 from pathlib import Path
 from typing import Any, List, Optional, Union, get_type_hints
 
-import gradio as gr
 import xoscar as xo
 from aioprometheus import REGISTRY, MetricsMiddleware
 from aioprometheus.asgi.starlette import metrics
@@ -72,14 +71,11 @@ from ..types import (
     PeftModelConfig,
     max_tokens_field,
 )
-from .frontend_static import ensure_spa_fallback_last, mount_frontend
+from .frontend_static import mount_frontend
 from .oauth2.auth_service import AuthService
 from .responses import JSONResponse
 from .schemas import (
     AutoConfigLLMRequest,
-    BuildGradioEmbeddingInterfaceRequest,
-    BuildGradioInterfaceRequest,
-    BuildGradioMediaInterfaceRequest,
     CreateCompletionRequest,
     CreateEmbeddingRequest,
     RegisterModelRequest,
@@ -1029,133 +1025,6 @@ class RESTfulAPI(CancelMixin):
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
-
-    async def build_gradio_interface(
-        self, model_uid: str, request: Request
-    ) -> JSONResponse:
-        """
-        Separate build_interface with launch_model
-        build_interface requires RESTful Client for API calls
-        but calling API in async function does not return
-        """
-        payload = await request.json()
-        body = BuildGradioInterfaceRequest.parse_obj(payload)
-        assert self._app is not None
-        assert body.model_type == "LLM"
-
-        from ..ui.gradio.chat_interface import GradioInterface
-
-        try:
-            access_token = request.headers.get("Authorization")
-            internal_host = "localhost" if self._host == "0.0.0.0" else self._host
-            interface = GradioInterface(
-                endpoint="http://" + internal_host + ":" + str(self._port),
-                model_uid=model_uid,
-                model_name=body.model_name,
-                model_size_in_billions=body.model_size_in_billions,
-                model_type=body.model_type,
-                model_format=body.model_format,
-                quantization=body.quantization,
-                context_length=body.context_length,
-                model_ability=body.model_ability,
-                model_description=body.model_description,
-                model_lang=body.model_lang,
-                access_token=access_token,
-            ).build()
-            gr.mount_gradio_app(self._app, interface, f"/{model_uid}")
-            ensure_spa_fallback_last(self._app)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            raise HTTPException(status_code=400, detail=str(ve))
-
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-        return JSONResponse(content={"model_uid": model_uid})
-
-    async def build_gradio_media_interface(
-        self, model_uid: str, request: Request
-    ) -> JSONResponse:
-        """
-        Build a Gradio interface for image processing models.
-        """
-        payload = await request.json()
-        body = BuildGradioMediaInterfaceRequest.parse_obj(payload)
-        assert self._app is not None
-        assert body.model_type in ("image", "video", "audio")
-
-        from ..ui.gradio.media_interface import MediaInterface
-
-        try:
-            access_token = request.headers.get("Authorization")
-            internal_host = "localhost" if self._host == "0.0.0.0" else self._host
-            interface = MediaInterface(
-                endpoint="http://" + internal_host + ":" + str(self._port),
-                model_uid=model_uid,
-                model_family=body.model_family,
-                model_name=body.model_name,
-                model_id=body.model_id,
-                model_revision=body.model_revision,
-                controlnet=body.controlnet,
-                access_token=access_token,
-                model_ability=body.model_ability,
-                model_type=body.model_type,
-            ).build()
-
-            gr.mount_gradio_app(self._app, interface, f"/{model_uid}")
-            ensure_spa_fallback_last(self._app)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            raise HTTPException(status_code=400, detail=str(ve))
-
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-        return JSONResponse(content={"model_uid": model_uid})
-
-    async def build_gradio_embedding_interface(
-        self, model_uid: str, request: Request
-    ) -> JSONResponse:
-        """
-        Build a Gradio interface for embedding models.
-        """
-        payload = await request.json()
-        body = BuildGradioEmbeddingInterfaceRequest.parse_obj(payload)
-        if self._app is None:
-            raise HTTPException(status_code=500, detail="Application not initialized")
-        if body.model_type != "embedding":
-            raise HTTPException(status_code=400, detail="Invalid model type")
-
-        from ..ui.gradio.embedding_interface import EmbeddingInterface
-
-        try:
-            access_token = request.headers.get("Authorization")
-            internal_host = "localhost" if self._host == "0.0.0.0" else self._host
-            interface = EmbeddingInterface(
-                endpoint="http://" + internal_host + ":" + str(self._port),
-                model_uid=model_uid,
-                model_family=body.model_family,
-                model_name=body.model_name,
-                model_id=body.model_id,
-                model_revision=body.model_revision,
-                access_token=access_token,
-                model_ability=body.model_ability,
-                model_type=body.model_type,
-            ).build()
-
-            gr.mount_gradio_app(self._app, interface, f"/{model_uid}")
-            ensure_spa_fallback_last(self._app)
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            raise HTTPException(status_code=400, detail=str(ve))
-
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-        return JSONResponse(content={"model_uid": model_uid})
 
     async def terminate_model(self, model_uid: str) -> JSONResponse:
         try:

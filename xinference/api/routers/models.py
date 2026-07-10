@@ -221,35 +221,3 @@ def register_routes(api: "RESTfulAPI") -> None:
         methods=["GET"],
         dependencies=([Security(auth, scopes=["models:list"])] if is_auth else None),
     )
-
-    # --- Gradio UI ---
-    router.add_api_route(
-        "/v1/ui/{model_uid}",
-        api.build_gradio_interface,
-        methods=["POST"],
-        dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
-    )
-    router.add_api_route(
-        "/v1/ui/images/{model_uid}",
-        api.build_gradio_media_interface,
-        methods=["POST"],
-        dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
-    )
-    router.add_api_route(
-        "/v1/ui/audios/{model_uid}",
-        api.build_gradio_media_interface,
-        methods=["POST"],
-        dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
-    )
-    router.add_api_route(
-        "/v1/ui/videos/{model_uid}",
-        api.build_gradio_media_interface,
-        methods=["POST"],
-        dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
-    )
-    router.add_api_route(
-        "/v1/ui/embeddings/{model_uid}",
-        api.build_gradio_embedding_interface,
-        methods=["POST"],
-        dependencies=([Security(auth, scopes=["models:read"])] if is_auth else None),
-    )

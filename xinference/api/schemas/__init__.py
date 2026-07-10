@@ -2,9 +2,6 @@
 
 from .requests import (
     AutoConfigLLMRequest,
-    BuildGradioEmbeddingInterfaceRequest,
-    BuildGradioInterfaceRequest,
-    BuildGradioMediaInterfaceRequest,
     CreateCompletionRequest,
     CreateEmbeddingRequest,
     RegisterModelRequest,
@@ -20,9 +17,6 @@ from .requests import (
 
 __all__ = [
     "AutoConfigLLMRequest",
-    "BuildGradioEmbeddingInterfaceRequest",
-    "BuildGradioInterfaceRequest",
-    "BuildGradioMediaInterfaceRequest",
     "CreateCompletionRequest",
     "CreateEmbeddingRequest",
     "RegisterModelRequest",

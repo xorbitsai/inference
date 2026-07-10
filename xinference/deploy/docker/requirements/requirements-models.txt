@@ -10,6 +10,7 @@ tomli  # For F5-TTS
 vocos  # For F5-TTS
 librosa  # For F5-TTS
 jieba  # For F5-TTS
+pydub  # For F5-TTS & MegaTTS3
 soundfile  # For F5-TTS & MeloTTS
 cached_path  # For MeloTTS
 unidic-lite  # For MeloTTS, unidic requires manually download
@@ -49,3 +50,4 @@ julius # IndexTTS2
 tensorboard # IndexTTS2
 randomname # IndexTTS2
 argbind # IndexTTS2
+ffmpy # IndexTTS2 (audiotools' core.ffmpeg imports this unconditionally)

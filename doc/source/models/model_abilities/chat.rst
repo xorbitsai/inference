@@ -142,15 +142,6 @@ We can try Chat API out either via cURL, OpenAI Client, or Xinference's python c
     }
 
 
-You can find more examples of Chat API in the tutorial notebook:
-
-.. grid:: 1
-
-   .. grid-item-card:: Gradio Chat
-      :link: https://github.com/xorbitsai/inference/blob/main/examples/gradio_chatinterface.py
-
-      Learn from an example of utilizing the Chat API with the Xinference Python client.
-
 Hybrid Thinking Models
 ----------------------
 

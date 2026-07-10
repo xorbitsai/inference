@@ -337,7 +337,7 @@ class CustomLLMFamilyV2(LLMFamilyV2):
 
         # check model ability, registering LLM only provides generate and chat
         # but for vision models, we add back the abilities so that
-        # gradio chat interface can be generated properly
+        # the frontend and REST API can detect and expose vision support
         if (
             llm_spec.model_family in vision_model_names
             and "vision" not in llm_spec.model_ability
