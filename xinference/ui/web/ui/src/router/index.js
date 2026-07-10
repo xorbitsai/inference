@@ -15,11 +15,15 @@ import Monitoring from '../scenes/monitoring'
 import RegisterModel from '../scenes/register_model'
 import RunningModels from '../scenes/running_models'
 import SecuritySettings from '../scenes/security_settings'
+import Setup from '../scenes/setup/setup'
 import UserManagement from '../scenes/user_management'
 import { hasPermission, parseTokenFromSession } from '../utils/jwt'
 
 const LoginAuth = () => {
   const [authority, setAuthority] = useState(true)
+  // null = not checked yet, so we don't flash the login form before we
+  // know whether this instance still needs its first admin account.
+  const [needsSetup, setNeedsSetup] = useState(null)
 
   const navigate = useNavigate()
   const { endPoint } = useContext(ApiContext)
@@ -41,9 +45,25 @@ const LoginAuth = () => {
   }, [])
 
   useEffect(() => {
+    if (!authority) return
+    fetch(endPoint + '/v1/admin/setup/status', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+      .then((res) => (res.ok ? res.json() : { needs_setup: false }))
+      .then((data) => setNeedsSetup(Boolean(data.needs_setup)))
+      .catch(() => setNeedsSetup(false))
+  }, [authority])
+
+  useEffect(() => {
     if (!authority) navigate('/launch_model/llm')
   }, [authority])
 
+  if (!authority) return null
+  if (needsSetup === null) return null
+  if (needsSetup) return <Setup />
   return <Login />
 }
 

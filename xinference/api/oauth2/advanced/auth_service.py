@@ -29,8 +29,6 @@ from .crypto import (
     aes_encrypt,
     derive_encryption_key,
     generate_api_key,
-    generate_password,
-    get_password_hash,
     sha256_hex,
     verify_password,
 )
@@ -70,6 +68,26 @@ def _get_client_ip(request: Request) -> str:
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
+# Full permission set granted to the account created through the initial
+# setup flow (POST /v1/admin/setup). Kept as a module-level constant so
+# routes.py can reuse it without duplicating the list.
+INITIAL_ADMIN_PERMISSIONS = [
+    "admin",
+    "models:list",
+    "models:read",
+    "models:write",
+    "models:register",
+    "keys:create",
+    "keys:manage",
+    "users:manage",
+    "cache:list",
+    "cache:delete",
+    "virtualenv:list",
+    "virtualenv:delete",
+    "logs:list",
+    "monitor:view",
+]
+
 try:
     ACCESS_TOKEN_EXPIRE_MINUTES = int(
         os.environ.get("XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES", "30")
@@ -86,6 +104,18 @@ except (TypeError, ValueError):
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 JWT_ALGORITHM = "HS256"
 
+try:
+    PASSWORD_MIN_LENGTH = int(os.environ.get("XINFERENCE_PASSWORD_MIN_LENGTH", "8"))
+    if PASSWORD_MIN_LENGTH <= 0:
+        raise ValueError("must be positive")
+except (TypeError, ValueError):
+    logger.warning(
+        "XINFERENCE_PASSWORD_MIN_LENGTH must be a positive integer (got %r); "
+        "falling back to 8.",
+        os.environ.get("XINFERENCE_PASSWORD_MIN_LENGTH"),
+    )
+    PASSWORD_MIN_LENGTH = 8
+
 
 class AdvancedAuthService:
     def __init__(self, db_path: str, jwt_secret_key: str, encryption_key: str):
@@ -93,7 +123,6 @@ class AdvancedAuthService:
         self._jwt_secret_key = jwt_secret_key
         self._encryption_key = derive_encryption_key(encryption_key)
         self._cache = ApiKeyCache(self._db)
-        self._init_admin()
 
         try:
             from .rate_limiter import RateLimiter
@@ -110,42 +139,9 @@ class AdvancedAuthService:
     def cache(self) -> ApiKeyCache:
         return self._cache
 
-    def _init_admin(self):
-        if self._db.user_count() == 0:
-            password = generate_password()
-            password_hash = get_password_hash(password)
-            admin_perms = [
-                "admin",
-                "models:list",
-                "models:read",
-                "models:write",
-                "models:register",
-                "keys:create",
-                "keys:manage",
-                "users:manage",
-                "cache:list",
-                "cache:delete",
-                "virtualenv:list",
-                "virtualenv:delete",
-                "logs:list",
-                "monitor:view",
-            ]
-            self._db.create_user(
-                username="admin",
-                password_hash=password_hash,
-                source="local",
-                enabled=1,
-                must_change_password=1,
-                permissions=admin_perms,
-            )
-            logger.warning(
-                "\n" + "=" * 60 + "\n"
-                "  INITIAL ADMIN CREDENTIALS (shown only once)\n"
-                "  Username: admin\n"
-                "  Password: %s\n"
-                "  Please change the password on first login.\n" + "=" * 60,
-                password,
-            )
+    def needs_setup(self) -> bool:
+        """True until the first admin account is created via /v1/admin/setup."""
+        return self._db.user_count() == 0
 
     # --- JWT ---
 
