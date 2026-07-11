@@ -21,6 +21,7 @@ import pytest
 
 from ..cache_manager import EmbeddingCacheManager as CacheManager
 from ..core import EmbeddingModelFamilyV2, TransformersEmbeddingSpecV1
+from ..embed_family import BUILTIN_EMBEDDING_MODELS, EMBEDDING_ENGINES
 
 TEST_MODEL_SPEC = EmbeddingModelFamilyV2(
     version=2,
@@ -70,7 +71,6 @@ TEST_MODEL_SPEC_FROM_MODELSCOPE = EmbeddingModelFamilyV2(
         )
     ],
 )
-from ..embed_family import EMBEDDING_ENGINES
 
 
 def test_engine_supported():
@@ -78,6 +78,28 @@ def test_engine_supported():
     assert model_name in EMBEDDING_ENGINES
     assert "flag" in EMBEDDING_ENGINES[model_name]
     assert "sentence_transformers" in EMBEDDING_ENGINES[model_name]
+
+
+def test_bce_embedding_vllm_engine_params_with_virtualenv():
+    from ....model.utils import (
+        _collect_virtualenv_engine_markers,
+        get_engine_params_by_name_with_virtual_env,
+    )
+    from .. import _install
+
+    _install()
+    family = BUILTIN_EMBEDDING_MODELS["bce-embedding-base_v1"][0]
+    assert "vllm" in _collect_virtualenv_engine_markers(family)
+
+    params = get_engine_params_by_name_with_virtual_env(
+        "embedding", "bce-embedding-base_v1", enable_virtual_env=True
+    )
+    assert isinstance(params, dict)
+    assert "vllm" in params
+    assert isinstance(params["vllm"], list)
+    assert params["vllm"]
+    assert params["vllm"][0]["model_format"] == "pytorch"
+    assert params["vllm"][0]["quantization"] == "none"
 
 
 async def test_model_from_modelscope():
