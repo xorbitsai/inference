@@ -22,7 +22,7 @@ from ..core import (
 
 QWEN3_RERANK_TEMPLATE = int(os.getenv("XINFERENCE_QWEN3_RERANK_TEMPLATE", "1"))
 logger = logging.getLogger(__name__)
-SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "gte", "Qwen3"]
+SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "Qwen3"]
 
 
 class VLLMRerankModel(RerankModel, BatchMixin):
