@@ -21,7 +21,7 @@ import pytest
 
 from ..cache_manager import EmbeddingCacheManager as CacheManager
 from ..core import EmbeddingModelFamilyV2, TransformersEmbeddingSpecV1
-from ..embed_family import EMBEDDING_ENGINES
+from ..embed_family import BUILTIN_EMBEDDING_MODELS, EMBEDDING_ENGINES
 
 TEST_MODEL_SPEC = EmbeddingModelFamilyV2(
     version=2,
@@ -81,10 +81,16 @@ def test_engine_supported():
 
 
 def test_bce_embedding_vllm_engine_params_with_virtualenv():
-    from ....model.utils import get_engine_params_by_name_with_virtual_env
+    from ....model.utils import (
+        _collect_virtualenv_engine_markers,
+        get_engine_params_by_name_with_virtual_env,
+    )
     from .. import _install
 
     _install()
+    family = BUILTIN_EMBEDDING_MODELS["bce-embedding-base_v1"][0]
+    assert "vllm" in _collect_virtualenv_engine_markers(family)
+
     params = get_engine_params_by_name_with_virtual_env(
         "embedding", "bce-embedding-base_v1", enable_virtual_env=True
     )

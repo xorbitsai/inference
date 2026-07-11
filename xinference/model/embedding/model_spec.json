@@ -1058,12 +1058,14 @@
         }
       }
     ],
-    "updated_at": 1769418300,
+    "updated_at": 1783506669,
     "featured": false,
     "virtualenv": {
       "packages": [
         "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
-        "#system_torchvision# ; #engine# == \"sentence_transformers\""
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
       ]
     }
   },
