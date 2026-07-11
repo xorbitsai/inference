@@ -2113,9 +2113,7 @@ class SupervisorActor(xo.StatelessActor):
             for ip in requested_ips:
                 matched = ip_to_addresses.get(ip)
                 if not matched:
-                    raise ValueError(
-                        f"Worker ip address {ip} is not in the cluster."
-                    )
+                    raise ValueError(f"Worker ip address {ip} is not in the cluster.")
                 available_workers.extend(matched)
 
         async def _launch_model():
