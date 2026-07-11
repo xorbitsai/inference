@@ -2094,10 +2094,29 @@ class SupervisorActor(xo.StatelessActor):
                 # no registration, use all workers
                 available_workers = all_workers
         else:
+            # ``worker_ip`` may arrive as a comma-separated string (from the
+            # REST API / web UI) or as a list (from the Python client). Normalize
+            # it to a list of IPs, then resolve each IP to the concrete worker
+            # address (``ip:port``) so the values match the keys used by
+            # ``_choose_worker`` and the ``n_worker`` count reflects real workers.
             if isinstance(worker_ip, list):
-                available_workers.extend(worker_ip)
+                requested_ips = [
+                    str(item).strip() for item in worker_ip if str(item).strip()
+                ]
             else:
-                available_workers.append(worker_ip)
+                requested_ips = [
+                    item.strip() for item in str(worker_ip).split(",") if item.strip()
+                ]
+            ip_to_addresses: Dict[str, List[str]] = {}
+            for addr in self._worker_address_to_worker:
+                ip_to_addresses.setdefault(addr.split(":")[0], []).append(addr)
+            for ip in requested_ips:
+                matched = ip_to_addresses.get(ip)
+                if not matched:
+                    raise ValueError(
+                        f"Worker ip address {ip} is not in the cluster."
+                    )
+                available_workers.extend(matched)
 
         async def _launch_model():
             # Validation of n_worker, intercept if it is greater than the available workers.
