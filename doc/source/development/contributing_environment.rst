@@ -15,7 +15,7 @@ Now that you have identified an issue you wish to resolve, an enhancement to inc
 it's crucial to acquaint yourself with GitHub and the Xinference codebase.
 
 To the new user, working with Git is one of the more intimidating aspects of contributing to Xinference.
-It can very quickly become overwhelming, but sticking to the guidelines below will help simplify the process 
+It can very quickly become overwhelming, but sticking to the guidelines below will help simplify the process
 and minimize potential issues. As always, if you are having difficulties please
 feel free to ask for help.
 
@@ -46,7 +46,7 @@ Some great resources for learning Git:
 Creating an isolated environment
 --------------------------------
 
-Before formally installing Xinference, it's recommended to create an isolated 
+Before formally installing Xinference, it's recommended to create an isolated
 environment, using Conda recommended, for ease of subsequent operations.
 
 ::
@@ -67,7 +67,7 @@ Conda environment. Here are the commands:
 Install from source code
 ------------------------
 
-Before we begin, please make sure that you have cloned the repository. 
+Before we begin, please make sure that you have cloned the repository.
 Suppose you clone the repository as ``inference`` directory,  ``cd`` to this directory
 where the ``setup.cfg`` and ``setup.py`` files are located, and run the following command:
 

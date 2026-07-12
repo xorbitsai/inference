@@ -34,10 +34,10 @@
 <br />
 
 
-Xorbits Inference(Xinference) is a powerful and versatile library designed to serve language, 
-speech recognition, and multimodal models. With Xorbits Inference, you can effortlessly deploy 
-and serve your or state-of-the-art built-in models using just a single command. Whether you are a 
-researcher, developer, or data scientist, Xorbits Inference empowers you to unleash the full 
+Xorbits Inference(Xinference) is a powerful and versatile library designed to serve language,
+speech recognition, and multimodal models. With Xorbits Inference, you can effortlessly deploy
+and serve your or state-of-the-art built-in models using just a single command. Whether you are a
+researcher, developer, or data scientist, Xorbits Inference empowers you to unleash the full
 potential of cutting-edge AI models.
 
 <div align="center">
@@ -69,11 +69,11 @@ potential of cutting-edge AI models.
 
 
 ## Key Features
-🌟 **Model Serving Made Easy**: Simplify the process of serving large language, speech 
+🌟 **Model Serving Made Easy**: Simplify the process of serving large language, speech
 recognition, and multimodal models. You can set up and deploy your models
 for experimentation and production with a single command.
 
-⚡️ **State-of-the-Art Models**: Experiment with cutting-edge built-in models using a single 
+⚡️ **State-of-the-Art Models**: Experiment with cutting-edge built-in models using a single
 command. Inference provides access to state-of-the-art open-source models!
 
 🖥 **Heterogeneous Hardware Utilization**: Make the most of your hardware resources with
@@ -81,10 +81,10 @@ command. Inference provides access to state-of-the-art open-source models!
 hardware, including GPUs and CPUs, to accelerate your model inference tasks.
 
 ⚙️ **Flexible API and Interfaces**: Offer multiple interfaces for interacting
-with your models, supporting OpenAI compatible RESTful API (including Function Calling API), RPC, CLI 
+with your models, supporting OpenAI compatible RESTful API (including Function Calling API), RPC, CLI
 and WebUI for seamless model management and interaction.
 
-🌐 **Distributed Deployment**: Excel in distributed deployment scenarios, 
+🌐 **Distributed Deployment**: Excel in distributed deployment scenarios,
 allowing the seamless distribution of model inference across multiple devices or machines.
 
 🔌 **Built-in Integration with Third-Party Libraries**: Xorbits Inference seamlessly integrates
@@ -126,7 +126,7 @@ Star Xinference on GitHub and be instantly notified of new releases.
 * [Custom Models](https://inference.readthedocs.io/en/latest/models/custom.html)
 * [Deployment Docs](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html)
 
-### Docker 
+### Docker
 
 Nvidia GPU users can start Xinference server using [Xinference Docker Image](https://inference.readthedocs.io/en/latest/getting_started/using_docker_image.html). Prior to executing the installation command, ensure that both [Docker](https://docs.docker.com/get-docker/) and [CUDA](https://developer.nvidia.com/cuda-downloads) are set up on your system.
 

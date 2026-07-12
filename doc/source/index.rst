@@ -18,7 +18,7 @@ Welcome to Xinference!
 Xorbits Inference (Xinference) is an open-source platform to streamline the operation and integration
 of a wide array of AI models. With Xinference, you're empowered to run inference using any open-source LLMs,
 embedding models, and multimodal models either in the cloud or on your own premises, and create robust
-AI-driven applications.   
+AI-driven applications.
 
 Developing Real-world AI Applications with Xinference
 -----------------------------------------------------
@@ -37,7 +37,7 @@ Developing Real-world AI Applications with Xinference
        messages=[{"role": "system", "content": "You are a helpful assistant"}, {"role": "user", "content": "What is the largest animal?"}],
        generate_config={"max_tokens": 1024}
     )
-    
+
     # Chat to VL model
     model.chat(
        messages=[
@@ -55,7 +55,7 @@ Developing Real-world AI Applications with Xinference
          }
       ],
       generate_config={"max_tokens": 1024}
-    )    
+    )
 
   .. code-tab:: python Embedding
 
@@ -135,13 +135,13 @@ Getting Started
    .. grid-item-card:: Explore models
       :link: models_builtin_index
       :link-type: ref
-      
+
       Explore a wide range of models supported by Xinference.
 
    .. grid-item-card:: Register your own model
       :link: models_custom
       :link-type: ref
-      
+
       Register model weights and turn it into an API.
 
 
@@ -220,19 +220,19 @@ Explore the API
 Getting Involved
 ----------------
 
-.. grid:: 
+.. grid::
    :gutter: 1
 
    .. grid-item::
-      
+
       .. div:: sd-font-weight-normal sd-fs-5
-         
+
          Get Latest News
 
       .. grid:: 1
          :gutter: 3
 
-         .. grid-item-card::  
+         .. grid-item-card::
             :link: https://twitter.com/Xorbitsio
 
             :fab:`twitter` Follow us on Twitter
@@ -244,7 +244,7 @@ Getting Involved
             :fab:`zhihu` Read our blogs
 
 
-   .. grid-item::      
+   .. grid-item::
 
       .. div:: sd-font-weight-normal sd-fs-5
 
@@ -263,13 +263,13 @@ Getting Involved
 
             :fab:`telegram` Join our Telegram group
 
-         .. grid-item-card::  
+         .. grid-item-card::
             :link: https://github.com/xorbitsai/inference/issues/new/choose
 
             :fab:`github` Open an issue
 
 
-   .. grid-item::      
+   .. grid-item::
 
       .. div:: sd-fs-5
 
@@ -278,7 +278,7 @@ Getting Involved
       .. grid:: 1
          :gutter: 3
 
-         .. grid-item-card::  
+         .. grid-item-card::
             :link: https://github.com/xorbitsai/inference/pulls
 
             :fab:`github` Create a pull request
