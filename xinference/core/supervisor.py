@@ -2096,24 +2096,32 @@ class SupervisorActor(xo.StatelessActor):
         else:
             # ``worker_ip`` may arrive as a comma-separated string (from the
             # REST API / web UI) or as a list (from the Python client). Normalize
-            # it to a list of IPs, then resolve each IP to the concrete worker
-            # address (``ip:port``) so the values match the keys used by
-            # ``_choose_worker`` and the ``n_worker`` count reflects real workers.
+            # it to a list of entries, then resolve each entry to the concrete
+            # worker address(es) (``ip:port``) so the values match the keys used
+            # by ``_choose_worker`` and the ``n_worker`` count reflects real
+            # workers. An entry may be a bare IP or an already-qualified
+            # ``ip:port`` worker address; both are accepted.
             if isinstance(worker_ip, list):
-                requested_ips = [
+                requested = [
                     str(item).strip() for item in worker_ip if str(item).strip()
                 ]
             else:
-                requested_ips = [
+                requested = [
                     item.strip() for item in str(worker_ip).split(",") if item.strip()
                 ]
             ip_to_addresses: Dict[str, List[str]] = {}
             for addr in self._worker_address_to_worker:
                 ip_to_addresses.setdefault(addr.split(":")[0], []).append(addr)
-            for ip in requested_ips:
-                matched = ip_to_addresses.get(ip)
+            for entry in requested:
+                if entry in self._worker_address_to_worker:
+                    # Already a concrete worker address (``ip:port``).
+                    available_workers.append(entry)
+                    continue
+                matched = ip_to_addresses.get(entry)
                 if not matched:
-                    raise ValueError(f"Worker ip address {ip} is not in the cluster.")
+                    raise ValueError(
+                        f"Worker ip address {entry} is not in the cluster."
+                    )
                 available_workers.extend(matched)
 
         async def _launch_model():
