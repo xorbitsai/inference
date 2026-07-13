@@ -49,13 +49,21 @@
       "audio2text"
     ],
     "multilingual": true,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    },
     "model_src": {
       "huggingface": {
         "model_id": "openai/whisper-base",
         "model_revision": "8c1db9b51951100007a96a525d83a8ec81b3c237"
       }
     },
-    "updated_at": 1766387032,
+    "updated_at": 1783912301,
     "featured": false
   },
   {
