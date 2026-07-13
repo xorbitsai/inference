@@ -19,13 +19,15 @@ from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 
+from .utils import MLXModelThreadMixin
+
 if TYPE_CHECKING:
     from .core import AudioModelFamilyV2
 
 logger = logging.getLogger(__name__)
 
 
-class KokoroMLXModel:
+class KokoroMLXModel(MLXModelThreadMixin):
     def __init__(
         self,
         model_uid: str,
@@ -34,6 +36,7 @@ class KokoroMLXModel:
         device: Optional[str] = None,
         **kwargs,
     ):
+        super().__init__()
         self.model_family = model_spec
         self._model_uid = model_uid
         self._model_path = model_path
@@ -47,6 +50,9 @@ class KokoroMLXModel:
         return self._model_spec.model_ability
 
     def load(self):
+        self._run_on_mlx_thread(self._load)
+
+    def _load(self):
         try:
             from mlx_audio.tts.models.kokoro import KokoroPipeline as KokoroPipeline
             from mlx_audio.tts.utils import load_model
@@ -65,7 +71,10 @@ class KokoroMLXModel:
             lang_code=lang_code, model=model, repo_id="prince-canuma/Kokoro-82M"
         )
 
-    def speech(
+    def speech(self, *args, **kwargs):
+        return self._run_on_mlx_thread(self._speech, *args, **kwargs)
+
+    def _speech(
         self,
         input: str,
         voice: str,

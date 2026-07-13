@@ -23,13 +23,15 @@ from typing import TYPE_CHECKING, Literal, Optional, Union
 import numpy as np
 from tqdm import tqdm
 
+from .utils import MLXModelThreadMixin
+
 if TYPE_CHECKING:
     from .core import AudioModelFamilyV2
 
 logger = logging.getLogger(__name__)
 
 
-class F5TTSMLXModel:
+class F5TTSMLXModel(MLXModelThreadMixin):
     def __init__(
         self,
         model_uid: str,
@@ -38,6 +40,7 @@ class F5TTSMLXModel:
         device: Optional[str] = None,
         **kwargs,
     ):
+        super().__init__()
         self.model_family = model_spec
         self._model_uid = model_uid
         self._model_path = model_path
@@ -52,6 +55,9 @@ class F5TTSMLXModel:
         return self._model_spec.model_ability
 
     def load(self):
+        self._run_on_mlx_thread(self._load)
+
+    def _load(self):
         try:
             import mlx.core as mx
             from f5_tts_mlx.cfm import F5TTS
@@ -124,7 +130,10 @@ class F5TTSMLXModel:
 
         self._model = f5tts
 
-    def speech(
+    def speech(self, *args, **kwargs):
+        return self._run_on_mlx_thread(self._speech, *args, **kwargs)
+
+    def _speech(
         self,
         input: str,
         voice: str,
