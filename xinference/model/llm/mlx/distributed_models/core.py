@@ -17,6 +17,7 @@ import logging
 import os
 from typing import TYPE_CHECKING, Dict, Optional
 
+import numpy as np
 import xoscar as xo
 from xoscar.utils import lazy_import
 
@@ -39,11 +40,14 @@ class ReceiverActor(xo.StatelessActor):
     def gen_uid(cls, uid: str, rank: int):
         return f"Receiver-{uid}-{rank}"
 
-    async def send(self, data: "mx.array"):
+    async def send(self, data):
         # no need to use async function,
         # but make it more convenient to patch this function for test purpose
-        if not isinstance(data, mx.array):
-            data = mx.array(data)
+        # NOTE: the payload is a numpy array and is queued untouched. This
+        # coroutine runs on the event-loop thread; constructing an mx.array
+        # here would bind it to this thread's stream, and evaluating it later
+        # from the compute thread fails on mlx>=0.31 with 'There is no
+        # Stream(gpu, N) in current thread'.
         self._recv_queue.put_nowait(data)
 
     async def recv(self):
@@ -90,12 +94,17 @@ class DistributedModelMixin:
                 "Start to send %s partial result to rank %d", self.model_uid, last_rank
             )
 
+        # np.array() evaluates and copies on this (compute) thread, whose
+        # stream owns the pending graph. mx.array payloads must never cross
+        # threads on mlx>=0.31.
+        payload = np.array(result)
+
         async def send():
             receiver_ref = await xo.actor_ref(
                 uid=ReceiverActor.gen_uid(self.model_uid, last_rank),
                 address=self.rank_to_addresses[last_rank],
             )
-            return await receiver_ref.send(result)
+            return await receiver_ref.send(payload)
 
         asyncio.run_coroutine_threadsafe(send(), self.loop).result()
         if DEBUG_DISTRIBUTED_MLX:
@@ -111,6 +120,9 @@ class DistributedModelMixin:
             logger.debug("Wait for partial result from prev shard %d", self.rank + 1)
         coro = self._receiver_ref.recv()
         result = asyncio.run_coroutine_threadsafe(coro, self.loop).result()
+        # The payload arrives as numpy; convert on this (compute) thread so
+        # the new mx.array belongs to the stream that will evaluate it.
+        result = mx.array(result)
         if DEBUG_DISTRIBUTED_MLX:
             logger.debug(
                 "Received partial result from prev shard %d, shape %s",
@@ -123,6 +135,9 @@ class DistributedModelMixin:
         if DEBUG_DISTRIBUTED_MLX:
             logger.debug("broadcast result from driver")
 
+        # Same as _send_stage_result: numpy over the wire.
+        payload = np.array(result)
+
         async def broadcast(rank: int):
             assert self.model_uid is not None
             assert self.rank_to_addresses is not None
@@ -131,7 +146,7 @@ class DistributedModelMixin:
                 uid=ReceiverActor.gen_uid(self.model_uid, rank),
                 address=self.rank_to_addresses[rank],
             )
-            await receiver.send(result)
+            await receiver.send(payload)
 
         async def broadcast_all():
             coros = []
@@ -149,7 +164,9 @@ class DistributedModelMixin:
             uid=ReceiverActor.gen_uid(self.model_uid, self.rank), address=self.address
         )
         ref = asyncio.run_coroutine_threadsafe(coro, self.loop).result()
-        return asyncio.run_coroutine_threadsafe(ref.recv(), loop=self.loop).result()
+        result = asyncio.run_coroutine_threadsafe(ref.recv(), loop=self.loop).result()
+        # The payload arrives as numpy; convert on this (compute) thread.
+        return mx.array(result)
 
     def pipeline(self):
         pipeline_size, rank = self.world_size, self.rank

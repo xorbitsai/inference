@@ -151,7 +151,10 @@ async def test_distributed(setup_pool):
     t1 = asyncio.create_task(shard0.generate("hello", max_tokens=3))
     t2 = asyncio.create_task(shard1.generate("hello", max_tokens=3))
     await asyncio.sleep(0)
-    await t2
-    result = await t1
+    # gather() surfaces the first shard failure immediately. Awaiting the
+    # shards one by one deadlocks instead: when one shard dies mid-pipeline,
+    # its peer blocks forever on the tensor exchange, and the exception is
+    # never observed (seen as a 50-minute silent hang on CI).
+    result, _ = await asyncio.gather(t1, t2)
 
     assert result is not None
