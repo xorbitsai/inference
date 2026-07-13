@@ -196,6 +196,14 @@
       "audio2text"
     ],
     "multilingual": true,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    },
     "model_src": {
       "huggingface": {
         "model_id": "openai/whisper-large-v3-turbo",
@@ -206,7 +214,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387042,
+    "updated_at": 1783912315,
     "featured": false
   },
   {
