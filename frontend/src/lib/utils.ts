@@ -9,7 +9,6 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function getApiUrl(): string {
-  return 'http://10.1.0.45:4466';
   if (typeof window === 'undefined') {
     return (
       process.env.XINFERENCE_API_URL ||
