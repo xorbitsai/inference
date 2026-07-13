@@ -607,6 +607,31 @@ const en = {
     mustChangePasswordDesc: 'You need to change your password before continuing on first login.',
     changePasswordUserMissing: 'Unable to identify the current user. Please log in again.',
   },
+  setup: {
+    welcome: 'Welcome to Xinference',
+    welcomeDesc:
+      'This instance has no accounts yet. Create the first administrator account to finish setting up your deployment.',
+    title: 'Set up admin account',
+    description: 'Create the first administrator account to continue.',
+    tokenHint: 'Find the setup token in the server startup log.',
+    tokenLabel: 'Setup token',
+    tokenPlaceholder: 'Paste the token printed in the server log',
+    tokenRequired: 'Setup token is required',
+    passwordTooShort: 'Password must be at least {{min}} characters',
+    submit: 'Create Admin Account',
+    createSuccess: 'Admin account created. Sign in with your new credentials.',
+    createFailed: 'Setup failed. Please try again.',
+    adminAccessNote: 'This account will have full administrator access.',
+    featureServingTitle: 'Model serving made easy',
+    featureServingDesc:
+      'Launch state-of-the-art LLM, embedding, and multimodal models with a single command.',
+    featureApiTitle: 'OpenAI-compatible API',
+    featureApiDesc:
+      'Drop-in RESTful API, RPC, CLI, and Web UI access -- works with your existing tooling.',
+    featureDistributedTitle: 'Distributed by design',
+    featureDistributedDesc:
+      'Scale inference across GPUs and CPUs, on a single machine or a cluster.',
+  },
   common: {
     valueEmpty: 'Cannot be empty',
     patternError: 'Invalid format, please check',

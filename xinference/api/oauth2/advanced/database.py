@@ -138,25 +138,79 @@ class Database:
     ) -> int:
         with self._lock:
             with self._get_conn() as conn:
-                cursor = conn.execute(
-                    "INSERT INTO users (username, password_hash, source, oidc_sub, enabled, must_change_password) VALUES (?, ?, ?, ?, ?, ?)",
-                    (
-                        username,
-                        password_hash,
-                        source,
-                        oidc_sub,
-                        enabled,
-                        must_change_password,
-                    ),
+                return self._insert_user(
+                    conn,
+                    username,
+                    password_hash,
+                    source,
+                    oidc_sub,
+                    enabled,
+                    must_change_password,
+                    permissions,
                 )
-                user_id = cursor.lastrowid
-                if permissions:
-                    for perm in permissions:
-                        conn.execute(
-                            "INSERT INTO user_permissions (user_id, permission) VALUES (?, ?)",
-                            (user_id, perm),
-                        )
-                return user_id
+
+    def create_first_user(
+        self,
+        username: str,
+        password_hash: Optional[str],
+        permissions: Optional[List[str]] = None,
+    ) -> Optional[int]:
+        """Atomically create ``username`` only if the users table is still
+        empty. Returns the new user id, or None if a user already exists.
+
+        Uses BEGIN IMMEDIATE to take SQLite's write lock before checking the
+        row count, so the check-then-insert is a single atomic step even
+        across multiple processes (e.g. supervisor + worker) sharing the same
+        database file -- a plain SELECT would not block a concurrent writer
+        until the following INSERT, leaving a race window.
+        """
+        with self._lock:
+            with self._get_conn() as conn:
+                conn.execute("BEGIN IMMEDIATE")
+                existing = conn.execute("SELECT COUNT(*) AS cnt FROM users").fetchone()
+                if existing["cnt"] > 0:
+                    return None
+                return self._insert_user(
+                    conn,
+                    username,
+                    password_hash,
+                    "local",
+                    None,
+                    1,
+                    0,
+                    permissions,
+                )
+
+    @staticmethod
+    def _insert_user(
+        conn,
+        username: str,
+        password_hash: Optional[str],
+        source: str,
+        oidc_sub: Optional[str],
+        enabled: int,
+        must_change_password: int,
+        permissions: Optional[List[str]],
+    ) -> int:
+        cursor = conn.execute(
+            "INSERT INTO users (username, password_hash, source, oidc_sub, enabled, must_change_password) VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                username,
+                password_hash,
+                source,
+                oidc_sub,
+                enabled,
+                must_change_password,
+            ),
+        )
+        user_id = cursor.lastrowid
+        if permissions:
+            for perm in permissions:
+                conn.execute(
+                    "INSERT INTO user_permissions (user_id, permission) VALUES (?, ?)",
+                    (user_id, perm),
+                )
+        return user_id
 
     def get_user_by_id(self, user_id: int) -> Optional[Dict[str, Any]]:
         with self._get_conn() as conn:

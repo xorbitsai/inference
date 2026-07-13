@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-03-19 12:55+0800\n"
+"POT-Creation-Date: 2026-07-08 18:28+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: zh_TW <LL@li.org>\n"
@@ -17,80 +17,101 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"Generated-By: Babel 2.18.0\n"
+"Generated-By: Babel 2.17.0\n"
 
-#: ../../source/user_guide/auth_system.rst:5
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:5
 msgid "Simple OAuth2 System (experimental)"
 msgstr "OAuth2 系統（實驗性質）"
 
-#: ../../source/user_guide/auth_system.rst:7
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:7
 msgid ""
 "Xinference builds an In-memory OAuth2 authentication and authorization "
 "system using the account-password mode."
 msgstr "Xinference 使用了帳號密碼的模式，建構了一個基於記憶體的 OAuth2 身分驗證與授權系統。"
 
-#: ../../source/user_guide/auth_system.rst:10
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:10
 msgid ""
-"If you don't have authentication and authorization requirements, you can use"
-" Xinference as before, without any changes."
-msgstr "如果沒有身份驗證和授權的要求，可以像之前一樣使用 Xinference，無需任何改動。"
+"Since **v3.0**, Xinference enables the :ref:`advanced, database-backed "
+"authentication system <user_guide_advanced_auth_system>` by default "
+"(``XINFERENCE_AUTH_ADVANCED``), replacing the in-memory system described "
+"below as the default behavior. On first startup, an ``admin`` account is "
+"created automatically and its one-time password is printed to the server log"
+" — save it, since it is not shown again."
+msgstr ""
+"從 **v3.0** 開始，Xinference 預設啟用了 :ref:`高階的、基於資料庫的身份驗證系統 "
+"<user_guide_advanced_auth_system>`\\ "
+"（``XINFERENCE_AUTH_ADVANCED``），取代下文描述的基於記憶體的系統成為預設行為。首次啟動時，系統會自動建立一個 "
+"``admin`` 賬號，並將一次性密碼列印到伺服器日誌中——請務必儲存，因為該密碼不會再次顯示。"
 
-#: ../../source/user_guide/auth_system.rst:14
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:17
+msgid ""
+"The simple, file-based authentication system on this page still works and is"
+" not going away. To use it instead of the advanced system, set "
+"``XINFERENCE_AUTH_ADVANCED=false`` and pass ``--auth-config`` as described "
+"below. To disable authentication entirely, also set "
+"``XINFERENCE_AUTH_ADVANCED=false`` and omit ``--auth-config``."
+msgstr ""
+"本頁描述的簡單的、基於檔案的身份驗證系統仍然可用，不會被移除。如果想使用它而不是高階系統，請設定 "
+"``XINFERENCE_AUTH_ADVANCED=false`` 並按下文所述傳入 ``--auth-"
+"config``。如果想完全禁用身份驗證，同樣設定 ``XINFERENCE_AUTH_ADVANCED=false`` 並省略 ``--auth-"
+"config``。"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:25
 msgid "Permissions"
 msgstr "權限"
 
-#: ../../source/user_guide/auth_system.rst:15
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:26
 msgid ""
 "Currently, Xinference system internally defines some interface permissions:"
 msgstr "目前，Xinference 內部定義了以下幾個介面權限："
 
-#: ../../source/user_guide/auth_system.rst:17
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:28
 msgid ""
 "``models:list``: Permission to list models and get models' information."
 msgstr "``models:list``: 取得模型清單與資訊的權限。"
 
-#: ../../source/user_guide/auth_system.rst:18
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:29
 msgid "``models:read``: Permission to use models."
 msgstr "``models:read``: 使用模型的權限。"
 
-#: ../../source/user_guide/auth_system.rst:19
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:30
 msgid "``models:register``: Permission to register custom models."
 msgstr "``models:register``: 註冊模型的權限。"
 
-#: ../../source/user_guide/auth_system.rst:20
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:31
 msgid "``models:unregister``: Permission to unregister custom models."
 msgstr "``models:unregister``: 取消註冊模型的權限。"
 
-#: ../../source/user_guide/auth_system.rst:21
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:32
 msgid "``models:start``: Permission to launch models."
 msgstr "``models:start``: 啟動模型的權限。"
 
-#: ../../source/user_guide/auth_system.rst:22
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:33
 msgid "``models:stop``: Permission to stop running models."
 msgstr "``models:stop``: 停止模型的許可權。"
 
-#: ../../source/user_guide/auth_system.rst:23
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:34
 msgid "``admin``: Administrators have permissions for all interfaces."
 msgstr "``admin``：管理員擁有所有介面的權限。"
 
-#: ../../source/user_guide/auth_system.rst:27
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:38
 msgid "Startup"
 msgstr "開始使用"
 
-#: ../../source/user_guide/auth_system.rst:28
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:39
 msgid ""
 "All authentication and authorization information needs to be specified and "
 "loaded into memory when Xinference is started. Xinference requires a JSON-"
 "formatted file with the following specific fields:"
 msgstr "啟動 Xinference 時，需要指定所有的驗證和授權資訊。目前，Xinference 需要一個 JSON 檔案，其中包含以下特定欄位："
 
-#: ../../source/user_guide/auth_system.rst:67
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:78
 msgid ""
 "``auth_config``: This field is used to configure security-related "
 "information."
 msgstr "``auth_config``：此欄位設定與安全相關的資訊。"
 
-#: ../../source/user_guide/auth_system.rst:69
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:80
 msgid ""
 "``algorithm``: The algorithm used for token generation and parsing. ``HS`` "
 "series algorithms are recommended. For example, ``HS256``, ``HS384`` or "
@@ -99,7 +120,7 @@ msgstr ""
 "``algorithm``: 用於令牌生成與解析的演算法。推薦使用 ``HS`` 系列演算法，例如 ``HS256``、``HS384`` 或 "
 "``HS512`` 演算法。"
 
-#: ../../source/user_guide/auth_system.rst:71
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:82
 msgid ""
 "``secret_key``: The secret_key used for token generation and parsing. Use "
 "this command to generate the secret_key adapted to the ``HS`` algorithms: "
@@ -108,7 +129,7 @@ msgstr ""
 "``secret_key``：用於令牌生成和解析的密鑰。可以使用該命令生成適用於 ``HS`` 系列算法的密鑰：``openssl rand -hex "
 "32`` 。"
 
-#: ../../source/user_guide/auth_system.rst:73
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:84
 msgid ""
 "``token_expire_in_minutes``: Reserved field indicating the expiration time "
 "of the token. The current open-source version of Xinference does not check "
@@ -116,27 +137,27 @@ msgid ""
 msgstr ""
 "``token_expire_in_minutes``: 保留欄位，表示令牌失效時間。目前 Xinference 開源版本不會檢查令牌過期時間。"
 
-#: ../../source/user_guide/auth_system.rst:75
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:86
 msgid ""
 "``user_config``: This field is used to configure user and permission "
 "information. Each user information is composed of these fields:"
 msgstr "``user_config``：此欄位用於設定使用者與權限資訊。每個使用者資訊由以下欄位組成："
 
-#: ../../source/user_guide/auth_system.rst:77
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:88
 msgid "``username``: string field for username."
 msgstr "``username``：字串，表示使用者名稱"
 
-#: ../../source/user_guide/auth_system.rst:79
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:90
 msgid "``password``: string field for password."
 msgstr "``password``：字串，表示密碼"
 
-#: ../../source/user_guide/auth_system.rst:81
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:92
 msgid ""
 "``permissions``: A list containing strings representing the permissions that"
 " this user has. The permissions are described as above."
 msgstr "``permissions``: 字串列表，表示該使用者擁有的權限。權限描述如上權限部分文件所述。"
 
-#: ../../source/user_guide/auth_system.rst:83
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:94
 msgid ""
 "``api_keys``: A list containing strings representing the api-keys of this "
 "user. With these api-keys, user can access the xinference interfaces without"
@@ -147,7 +168,7 @@ msgstr ""
 "``api_keys``: 字串列表，表示該用戶擁有的 api-key。用戶可以透過這些 api-key，無需登入步驟即可存取 xinference "
 "介面。此處的 api_key 組成與 ``OPENAI_API_KEY`` 相似，總是以 ``sk-`` 開頭，後接 13 個數字、大小寫字母。"
 
-#: ../../source/user_guide/auth_system.rst:86
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:97
 msgid ""
 "Once you have configured such a JSON file, use the ``--auth-config`` option "
 "to enable Xinference with the authentication and authorization system. For "
@@ -156,93 +177,388 @@ msgstr ""
 "配置好這樣一個 JSON 檔案後，可以使用 ``--auth-config`` 選項啟用具有身份驗證和授權系統的 "
 "Xinference。例如，本地啟動的指令如下所示："
 
-#: ../../source/user_guide/auth_system.rst:93
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:104
 msgid ""
 "For distributed startup, just specify this option when starting the "
 "supervisor:"
 msgstr "在分散式環境下，只需要在啟動 supervisor 時指定這個選項："
 
-#: ../../source/user_guide/auth_system.rst:101
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:112
 msgid "Usage"
 msgstr "使用"
 
-#: ../../source/user_guide/auth_system.rst:102
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:113
 msgid ""
 "For Xinference with the authentication and authorization system enabled, all"
 " usage remains the same, except for the addition of a login step at the "
 "beginning or using the api-key."
 msgstr "使用帶有權限管理的 Xinference 服務與正常的版本保持一致，只是在開始階段添加了登錄步驟，或者使用 api-key 進行鑑權。"
 
-#: ../../source/user_guide/auth_system.rst:105
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:116
 msgid "Signin"
 msgstr "基於使用者名稱-密碼的使用方式"
 
-#: ../../source/user_guide/auth_system.rst:106
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:117
 msgid "Signin for command line users:"
 msgstr "使用命令列登入："
 
-#: ../../source/user_guide/auth_system.rst:113
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:124
 msgid "For python SDK users:"
 msgstr "使用 Python SDK 登入："
 
-#: ../../source/user_guide/auth_system.rst:122
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:133
 msgid ""
 "For web UI users, when opening the web UI, you will first be directed to the"
 " login page. After logging in, you can use the web UI normally."
 msgstr "對於 Web UI 的使用者，在打開 Web UI 時，將會先跳轉到登入頁面。登入後，即可正常使用 Web UI 的功能。"
 
-#: ../../source/user_guide/auth_system.rst:125
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:136
 msgid "Api-Key"
 msgstr "基於 Api-Key 鑑權的使用方式"
 
-#: ../../source/user_guide/auth_system.rst:126
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:137
 msgid ""
 "For command line users, just add ``--api-key`` or ``-ak`` option in the "
 "command you want to use."
 msgstr "對於命令列用戶，僅需在所要執行的命令上新增 ``--api-key`` 或 ``-ak`` 選項即可。"
 
-#: ../../source/user_guide/auth_system.rst:133
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:144
 msgid ""
 "For python SDK users, pass the ``api_key`` parameter when initializing the "
 "client, just like the ``OPENAI`` Python client."
 msgstr "對於 Python 客戶端使用者，在客戶端物件初始化時傳入 ``api_key`` 參數即可，就像 ``OPENAI`` 客戶端那樣。"
 
-#: ../../source/user_guide/auth_system.rst:141
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:152
 msgid "Xinference is also compatible with the ``OPENAI`` Python SDK as well."
 msgstr "當然，Xinference 也與 ``OPENAI`` Python 用戶端的使用方式完全相容。"
 
-#: ../../source/user_guide/auth_system.rst:149
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:160
 msgid ""
 "For http request, pass ``Authorization: Bearer api-key`` in request header."
 msgstr "對於 HTTP 請求，在請求頭中傳遞 ``Authorization: Bearer api-key``。"
 
-#: ../../source/user_guide/auth_system.rst:159
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:170
 msgid "Http Status Code"
 msgstr "HTTP 狀態碼"
 
-#: ../../source/user_guide/auth_system.rst:160
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:171
 msgid "Add the following two HTTP status codes:"
 msgstr "添加了以下兩種 HTTP 狀態碼："
 
-#: ../../source/user_guide/auth_system.rst:162
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:173
 msgid "``401 Unauthorized``: login information or token verifies failed."
 msgstr "``401 Unauthorized``：登入資訊或令牌驗證失效。"
 
-#: ../../source/user_guide/auth_system.rst:163
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:174
 msgid "``403 Forbidden``: No enough permissions when accessing interfaces."
 msgstr "``403 Forbidden``：沒有足夠的權限存取介面。"
 
-#: ../../source/user_guide/auth_system.rst:165
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:176
 msgid ""
 "For the command line, SDK, or web UI users, there will be clear information "
 "prompts when encountering authorization and permissions issues."
 msgstr "對於命令列、SDK 或 Web UI 使用者，在遇到授權和權限問題時，會有明確的資訊提示。"
 
-#: ../../source/user_guide/auth_system.rst:169
-msgid "Note"
-msgstr "注意"
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:179
+msgid ""
+"This feature is still in an experimental stage — see `Feedback`_ at the "
+"bottom of this page for how to reach us with issues or suggestions."
+msgstr "該功能仍處於實驗階段——請參閱本頁底部的 `Feedback`_ 瞭解如何向我們反饋問題或建議。"
 
-#: ../../source/user_guide/auth_system.rst:170
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:187
+msgid "Advanced Authentication System (database-backed)"
+msgstr "高階身份驗證系統（基於資料庫）"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:189
+msgid "The advanced authentication system, and its default-enabled status."
+msgstr "高階身份驗證系統，以及其預設啟用的狀態。"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:192
+msgid ""
+"Unlike the simple system above, which loads a static ``auth_config.json`` "
+"file into memory, the advanced authentication system stores users, "
+"permissions, API keys, and refresh tokens in a local SQLite database. It "
+"supports creating/managing users and API keys at runtime through REST "
+"endpoints, instead of requiring a server restart to change an "
+"``auth_config.json`` file."
+msgstr ""
+"與上文將靜態 ``auth_config.json`` 檔案載入到記憶體中的簡單系統不同，高階身份驗證系統將使用者、許可權、API Key "
+"和重新整理令牌儲存在本地 SQLite 資料庫中。它支援在執行時透過 REST 介面建立/管理使用者和 API Key，而不需要透過重啟伺服器來修改 "
+"``auth_config.json`` 檔案。"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:199
+msgid ""
+"**Since v3.0, this system is enabled by default** — a fresh Xinference "
+"deployment requires authentication out of the box."
+msgstr "**從 v3.0 開始，該系統預設啟用** —— 全新部署的 Xinference 開箱即需要身份驗證。"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:203
+msgid "Enabling / disabling"
+msgstr "啟用與禁用"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:204
+msgid ""
+"The advanced authentication system is controlled by the "
+"``XINFERENCE_AUTH_ADVANCED`` environment variable:"
+msgstr "高階身份驗證系統由 ``XINFERENCE_AUTH_ADVANCED`` 環境變數控制："
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:207
+msgid ""
+"Unset, or any of ``1`` / ``true`` / ``yes`` (case-insensitive): enabled (the"
+" default)."
+msgstr "未設定，或設定為 ``1`` / ``true`` / ``yes``\\ （大小寫不敏感）中的任意一個：啟用（預設行為）。"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:208
+msgid "Any of ``0`` / ``false`` / ``no`` (case-insensitive): disabled."
+msgstr "設定為 ``0`` / ``false`` / ``no``\\ （大小寫不敏感）中的任意一個：禁用。"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:210
+msgid ""
+"It is mutually exclusive with the simple system's ``--auth-config`` option —"
+" passing ``--auth-config`` while ``XINFERENCE_AUTH_ADVANCED`` is (or "
+"defaults to) enabled raises a startup error. To use ``--auth-config`` "
+"instead, or to run with no authentication at all, set "
+"``XINFERENCE_AUTH_ADVANCED=false``:"
+msgstr ""
+"它與簡單系統的 ``--auth-config`` 選項互斥——如果在 ``XINFERENCE_AUTH_ADVANCED`` "
+"處於（或預設處於）啟用狀態時傳入 ``--auth-config``，會在啟動時報錯。如果想改用 ``--auth-"
+"config``，或者完全不使用身份驗證執行，請設定 ``XINFERENCE_AUTH_ADVANCED=false``："
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:226
+msgid "Initial admin account"
+msgstr "初始管理員賬號"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:227
+msgid ""
+"On first startup with the advanced system enabled, Xinference automatically "
+"creates an ``admin`` user (with the ``admin`` permission) if the user table "
+"is empty, and prints a one-time, randomly generated password to the server "
+"log:"
+msgstr ""
+"在啟用高階系統的情況下首次啟動時，如果使用者表為空，Xinference 會自動建立一個擁有 ``admin`` 許可權的 ``admin`` "
+"使用者，並將隨機生成的一次性密碼列印到伺服器日誌中："
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:241
+msgid ""
+"This password is **not stored anywhere in plaintext** and is not shown again"
+" — save it from the log, and change it on first login (the account is "
+"flagged ``must_change_password`` until you do)."
+msgstr ""
+"該密碼**不會以明文形式儲存在任何地方**，也不會再次顯示——請從日誌中儲存該密碼，並在首次登入時修改（在修改之前，該賬號會被標記為 "
+"``must_change_password``）。"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:246
+msgid "Secrets and storage locations"
+msgstr "金鑰與儲存位置"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:247
+msgid ""
+"The advanced system needs a JWT signing secret and an encryption key (used "
+"to encrypt stored API keys at rest), plus a database file. All three can be "
+"overridden with environment variables; if you don't set them, Xinference "
+"generates and persists them automatically on first run under "
+"``XINFERENCE_HOME`` (``~/.xinference`` by default):"
+msgstr ""
+"高階系統需要一個用於簽發 JWT 的金鑰、一個用於加密靜態儲存的 API Key "
+"的加密金鑰，以及一個資料庫檔案。這三者都可以透過環境變數覆蓋；如果不設定，Xinference 會在首次執行時自動生成並持久化到 "
+"``XINFERENCE_HOME``（預設是 ``~/.xinference``）下："
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:256
+msgid "Purpose"
+msgstr "用途"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:257
+msgid "Environment variable"
+msgstr "環境變數"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:258
+msgid "Default location"
+msgstr "預設位置"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:259
+msgid "JWT signing secret"
+msgstr "JWT 簽名金鑰"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:260
+msgid "``XINFERENCE_AUTH_JWT_SECRET_KEY``"
+msgstr "``XINFERENCE_AUTH_JWT_SECRET_KEY``"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:261
+msgid "``<XINFERENCE_HOME>/auth/jwt_secret_key`` (auto-generated)"
+msgstr "``<XINFERENCE_HOME>/auth/jwt_secret_key``\\ （自動生成）"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:262
+msgid "API key encryption key"
+msgstr "API Key 加密金鑰"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:263
+msgid "``XINFERENCE_AUTH_ENCRYPTION_KEY``"
+msgstr "``XINFERENCE_AUTH_ENCRYPTION_KEY``"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:264
+msgid "``<XINFERENCE_HOME>/auth/encryption_key`` (auto-generated)"
+msgstr "``<XINFERENCE_HOME>/auth/encryption_key``\\ （自動生成）"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:265
+msgid "User/API key database"
+msgstr "使用者/API Key 資料庫"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:266
+msgid "``XINFERENCE_AUTH_DB_PATH``"
+msgstr "``XINFERENCE_AUTH_DB_PATH``"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:267
+msgid "``<XINFERENCE_HOME>/auth/auth.db``"
+msgstr "``<XINFERENCE_HOME>/auth/auth.db``"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:269
+msgid ""
+"Auto-generated secrets are written once and reused on subsequent restarts, "
+"so existing JWTs and encrypted API keys keep working across restarts. In a "
+"distributed deployment (supervisor + workers), make sure all processes that "
+"run the RESTful API share the same ``XINFERENCE_HOME`` (or set the same "
+"explicit environment variables), so they agree on the same secrets and "
+"database."
+msgstr ""
+"自動生成的金鑰只會寫入一次，並在後續重啟時複用，因此已簽發的 JWT 和已加密的 API Key 在重啟後仍然可用。在分散式部署（supervisor "
+"+ worker）中，請確保所有執行 RESTful API 的程序共享同一個 ``XINFERENCE_HOME``\\ "
+"（或者設定相同的顯式環境變數），以便它們使用相同的金鑰和資料庫。"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:277
+msgid "Advanced-system permissions"
+msgstr "高階系統許可權"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:278
+msgid ""
+"The advanced system uses the same permission names as the simple system "
+"(``models:list``, ``models:read``, ``models:register``, "
+"``models:unregister``, ``models:start``, ``models:stop``, ``admin``), plus "
+"additional scopes for managing the advanced system itself:"
+msgstr ""
+"高階系統使用與簡單系統相同的許可權名稱（``models:list``、``models:read``、``models:register``、``models:unregister``、``models:start``、``models:stop``、``admin``），並額外提供了一些用於管理高階系統本身的許可權："
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:283
+msgid ""
+"``keys:create``: Permission to create API keys (for oneself, or for others "
+"when combined with ``keys:manage``)."
+msgstr "``keys:create``：建立 API Key 的許可權（為自己建立；若與 ``keys:manage`` 結合，也可為他人建立）。"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:284
+msgid ""
+"``keys:manage``: Permission to list, update, delete, and reveal any user's "
+"API keys."
+msgstr "``keys:manage``：列出、更新、刪除以及檢視任意使用者 API Key 的許可權。"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:285
+msgid ""
+"``users:manage``: Permission to create, update, delete users, and manage "
+"their permissions."
+msgstr "``users:manage``：建立、更新、刪除使用者以及管理其許可權的許可權。"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:286
+msgid ""
+"``cache:list`` / ``cache:delete``: Permissions to list/delete cached model "
+"files."
+msgstr "``cache:list`` / ``cache:delete``：列出/刪除已快取模型檔案的許可權。"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:287
+msgid ""
+"``virtualenv:list`` / ``virtualenv:delete``: Permissions to list/delete per-"
+"model virtual environments."
+msgstr "``virtualenv:list`` / ``virtualenv:delete``：列出/刪除單個模型虛擬環境的許可權。"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:288
+#, fuzzy
+msgid "``admin``: Administrators have all of the above."
+msgstr "``admin``：管理員擁有所有介面的權限。"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:290
+msgid ""
+"A caller may only grant permissions they themselves hold — for example, a "
+"user with only ``users:manage`` cannot grant ``admin`` to someone else."
+msgstr ""
+"呼叫者只能授予自己擁有的許可權——例如，只擁有 ``users:manage`` 許可權的使用者不能將 ``admin`` 許可權授予他人。"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:294
+msgid "Login and API-key usage"
+msgstr "登入與 API Key 使用方式"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:295
+msgid ""
+"Login and API-key usage (signin, ``--api-key``, ``Authorization: Bearer`` "
+"header, OpenAI-SDK compatibility) work the same way as described in the "
+"`Usage`_ section above for the simple system."
+msgstr ""
+"登入與 API Key 的使用方式（登入、``--api-key``、``Authorization: Bearer`` 請求頭、與 OpenAI "
+"SDK 的相容性）與上文簡單系統 `Usage`_ 一節中描述的方式相同。"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:300
+msgid "Managing users and API keys"
+msgstr "管理使用者和 API Key"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:301
+msgid ""
+"Once logged in as a user with the ``users:manage`` and/or ``keys:manage`` "
+"permission (the bootstrap ``admin`` account has both), you can manage users "
+"and API keys through REST endpoints under ``/v1/admin``, for example:"
+msgstr ""
+"以擁有 ``users:manage`` 和/或 ``keys:manage`` 許可權的使用者登入後（初始的 ``admin`` "
+"賬號同時擁有這兩項許可權），即可透過 ``/v1/admin`` 下的 REST 介面管理使用者和 API Key，例如："
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:319
+#, python-brace-format
+msgid ""
+"Other supported endpoints include listing/updating/deleting users "
+"(``/v1/admin/users``, ``/v1/admin/users/{user_id}``), changing a user's "
+"password (``/v1/admin/users/{user_id}/password``), and listing, updating, "
+"deleting, and revealing API keys (``/v1/admin/keys``, "
+"``/v1/admin/keys/{key_id}``, ``/v1/admin/keys/{key_id}/reveal``)."
+msgstr ""
+"其他受支援的介面還包括：列出/更新/刪除使用者（``/v1/admin/users``、``/v1/admin/users/{user_id}``）、修改使用者密碼（``/v1/admin/users/{user_id}/password``），以及列出、更新、刪除和檢視"
+" API "
+"Key（``/v1/admin/keys``、``/v1/admin/keys/{key_id}``、``/v1/admin/keys/{key_id}/reveal``）。"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:326
+msgid "Behavior notes"
+msgstr "行為說明"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:329
+msgid "Permission changes take effect without re-login"
+msgstr "許可權變更無需重新登入即可生效"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:330
+msgid ""
+"Route scope checks read the user's **current** permissions from the database"
+" on every request, not the scopes baked into the JWT at login. Granting or "
+"revoking a permission takes effect on the user's next API call — no re-login"
+" required. This applies to JWT-based browser sessions; API keys are also "
+"live-read (they always have been)."
+msgstr ""
+"路由的許可權檢查會在每次請求時從資料庫讀取使用者**當前**的許可權，而不是使用登入時固化在 JWT 中的許可權。授予或撤銷許可權會在使用者下一次 "
+"API 呼叫時立即生效——無需重新登入。這一點適用於基於 JWT 的瀏覽器會話；API Key 一直以來也是實時讀取許可權的。"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:337
+msgid "Configurable access-token lifetime"
+msgstr "可配置的訪問令牌有效期"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:338
+msgid ""
+"The access-token lifetime defaults to 30 minutes and can be overridden with "
+"the ``XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES`` environment variable:"
+msgstr ""
+"訪問令牌的有效期預設為 30 分鐘，可以透過 ``XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES`` 環境變數覆蓋："
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:345
+msgid ""
+"A shorter lifetime shrinks the token-theft window. The refresh token "
+"lifetime is 7 days and is not currently configurable."
+msgstr "更短的有效期可以縮小令牌被盜用的時間視窗。重新整理令牌的有效期為 7 天，目前尚不可配置。"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:349
+msgid "Feedback"
+msgstr "反饋"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:350
 msgid ""
 "This feature is still in an experimental stage. Feel free to provide "
 "feedback on usage issues or improvement suggestions through `GitHub issues "
@@ -252,3 +568,11 @@ msgstr ""
 "該功能處於實驗階段。歡迎通過 `GitHub issues "
 "<https://github.com/xorbitsai/inference/issues>`_ 或者 `Telegram 群組 "
 "<https://t.me/+nCNpwmySwk9iYmI1>`_ 提供回饋與建議。"
+
+#~ msgid ""
+#~ "If you don't have authentication and authorization requirements, you can use"
+#~ " Xinference as before, without any changes."
+#~ msgstr "如果沒有身份驗證和授權的要求，可以像之前一樣使用 Xinference，無需任何改動。"
+
+#~ msgid "Note"
+#~ msgstr "注意"

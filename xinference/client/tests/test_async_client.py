@@ -527,6 +527,11 @@ def setup_cluster():
     from ...deploy.local import health_check
     from ...deploy.local import run_in_subprocess as supervisor_run_in_subprocess
 
+    # This fixture is used by tests that exercise unauthenticated requests;
+    # advanced auth defaults to on, so it must be explicitly disabled here,
+    # before any subprocess (which inherits this env) is started.
+    os.environ["XINFERENCE_AUTH_ADVANCED"] = "false"
+
     supervisor_address = f"localhost:{xo.utils.get_next_port()}"
     local_cluster = supervisor_run_in_subprocess(
         supervisor_address, None, None, TEST_LOGGING_CONF

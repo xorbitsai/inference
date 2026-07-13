@@ -90,16 +90,146 @@ XINFERENCE_LOG_DIR = os.environ.get(
 XINFERENCE_IMAGE_DIR = os.path.join(XINFERENCE_HOME, "image")
 XINFERENCE_VIDEO_DIR = os.path.join(XINFERENCE_HOME, "video")
 XINFERENCE_AUTH_DIR = os.path.join(XINFERENCE_HOME, "auth")
-XINFERENCE_AUTH_ADVANCED = os.environ.get("XINFERENCE_AUTH_ADVANCED", "").lower() in (
-    "1",
-    "true",
-    "yes",
+# Advanced auth (user accounts, API keys) is on by default. Set
+# XINFERENCE_AUTH_ADVANCED=0/false/no to fall back to the legacy
+# --auth-config file mode or to no authentication at all.
+XINFERENCE_AUTH_ADVANCED = os.environ.get(
+    "XINFERENCE_AUTH_ADVANCED", "true"
+).lower() not in (
+    "0",
+    "false",
+    "no",
 )
-XINFERENCE_AUTH_JWT_SECRET_KEY = os.environ.get("XINFERENCE_AUTH_JWT_SECRET_KEY", "")
-XINFERENCE_AUTH_ENCRYPTION_KEY = os.environ.get("XINFERENCE_AUTH_ENCRYPTION_KEY", "")
+
+
+# How long an empty secret file must sit untouched before it's considered
+# abandoned by a crashed writer (rather than mid-write by a live one).
+_STALE_SECRET_GRACE_SECONDS = 10
+# Overall wait budget for a losing process to read the winner's file. Kept
+# well above _STALE_SECRET_GRACE_SECONDS so the wait can actually reach and
+# act on the staleness check instead of timing out first.
+_SECRET_WAIT_DEADLINE_SECONDS = 30
+
+
+def _get_or_create_persisted_secret(env_name: str, file_name: str) -> str:
+    """Return a secret from the environment, or generate one on first run.
+
+    Generated secrets are persisted under XINFERENCE_AUTH_DIR so that
+    restarts (and multiple supervisor/worker processes sharing the same
+    XINFERENCE_HOME) keep using the same key instead of invalidating
+    existing JWTs / encrypted API keys.
+
+    File creation uses O_EXCL so that concurrent first-time launches
+    (e.g. supervisor and worker starting together) race safely: only one
+    process wins the create, and the others fall back to reading the file
+    it wrote instead of each keeping a different generated value in memory.
+    A stale, empty file (left behind by a process that was killed between
+    creating and writing to it) is treated as abandoned after a grace
+    period and removed so startup can recover automatically instead of
+    failing forever. The overall wait is bounded by a wall-clock deadline
+    (not a fixed iteration count) so it comfortably outlasts the stale
+    grace period even under scheduling jitter.
+    """
+    import time
+
+    env_val = os.environ.get(env_name, "")
+    if env_val:
+        return env_val
+
+    secret_path = os.path.join(XINFERENCE_AUTH_DIR, file_name)
+    os.makedirs(XINFERENCE_AUTH_DIR, exist_ok=True)
+
+    deadline = time.monotonic() + _SECRET_WAIT_DEADLINE_SECONDS
+    while time.monotonic() < deadline:
+        try:
+            stat_result = os.stat(secret_path)
+        except OSError:
+            stat_result = None
+
+        if stat_result is not None:
+            if stat_result.st_size > 0:
+                try:
+                    with open(secret_path, "r") as f:
+                        existing = f.read().strip()
+                except OSError:
+                    existing = ""
+                if existing:
+                    return existing
+            elif time.time() - stat_result.st_mtime > _STALE_SECRET_GRACE_SECONDS:
+                # Empty and old: likely left behind by a process that was
+                # killed after creating the file but before writing to it.
+                try:
+                    os.remove(secret_path)
+                except OSError:
+                    pass
+                continue
+            # Another process created the file but hasn't written to it yet.
+            time.sleep(0.1)
+            continue
+
+        import secrets as _secrets
+
+        generated = _secrets.token_hex(32)
+        try:
+            fd = os.open(secret_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            continue
+        with os.fdopen(fd, "w") as f:
+            f.write(generated)
+        return generated
+
+    raise RuntimeError(f"Failed to read or create secret file: {secret_path}")
+
+
+XINFERENCE_AUTH_JWT_SECRET_KEY = (
+    _get_or_create_persisted_secret("XINFERENCE_AUTH_JWT_SECRET_KEY", "jwt_secret_key")
+    if XINFERENCE_AUTH_ADVANCED
+    else os.environ.get("XINFERENCE_AUTH_JWT_SECRET_KEY", "")
+)
+XINFERENCE_AUTH_ENCRYPTION_KEY = (
+    _get_or_create_persisted_secret("XINFERENCE_AUTH_ENCRYPTION_KEY", "encryption_key")
+    if XINFERENCE_AUTH_ADVANCED
+    else os.environ.get("XINFERENCE_AUTH_ENCRYPTION_KEY", "")
+)
 XINFERENCE_AUTH_DB_PATH = os.environ.get(
     "XINFERENCE_AUTH_DB_PATH", os.path.join(XINFERENCE_HOME, "auth", "auth.db")
 )
+
+# Bootstrap credential gating first-run admin creation via POST
+# /v1/admin/setup: without it, whichever network client reaches that
+# public endpoint first would become the full-privilege administrator.
+# Set explicitly for containers/Kubernetes; otherwise a random token is
+# generated on demand (see get_or_create_setup_token) and must be read
+# from the server's startup log or the persisted file.
+XINFERENCE_AUTH_SETUP_TOKEN_PATH = os.path.join(XINFERENCE_AUTH_DIR, "setup_token")
+
+
+def get_or_create_setup_token() -> str:
+    """Return the one-time setup token, generating and persisting it if needed.
+
+    Mirrors _get_or_create_persisted_secret's race-safe create/read/stale
+    recovery behavior, but is called lazily (only while setup is still
+    needed) rather than eagerly at import time, since the token should stop
+    existing once the first admin account is created.
+    """
+    env_val = os.environ.get("XINFERENCE_AUTH_SETUP_TOKEN", "")
+    if env_val:
+        return env_val
+    return _get_or_create_persisted_secret("XINFERENCE_AUTH_SETUP_TOKEN", "setup_token")
+
+
+def delete_setup_token() -> None:
+    """Remove the persisted setup token file after the first admin is created.
+
+    Safe to call even if the token came from the environment variable
+    (nothing to delete) or was never generated (file doesn't exist).
+    """
+    try:
+        os.remove(XINFERENCE_AUTH_SETUP_TOKEN_PATH)
+    except OSError:
+        pass
+
+
 XINFERENCE_LAUNCH_HISTORY_DB_PATH = os.environ.get(
     "XINFERENCE_LAUNCH_HISTORY_DB_PATH",
     os.path.join(XINFERENCE_HOME, "launch_history.db"),

@@ -16,12 +16,19 @@
 from __future__ import annotations
 
 import logging
+import secrets
 from typing import TYPE_CHECKING, Optional
 
 from fastapi import Depends, HTTPException, Query, Request, Security
 
+from ....constants import delete_setup_token, get_or_create_setup_token
 from ...responses import JSONResponse
-from ..advanced.auth_service import AdvancedAuthService, _get_client_ip
+from ..advanced.auth_service import (
+    INITIAL_ADMIN_PERMISSIONS,
+    PASSWORD_MIN_LENGTH,
+    AdvancedAuthService,
+    _get_client_ip,
+)
 from ..advanced.crypto import get_password_hash
 from ..scope_aliases import _normalize_scopes
 
@@ -229,6 +236,87 @@ async def advanced_logout(request: Request) -> JSONResponse:
     return JSONResponse(content={"ok": True})
 
 
+# --- Initial setup ---
+#
+# Xinference requires authentication out of the box, but a fresh
+# deployment has no accounts to log in with. These two public (no auth
+# required) endpoints let the web UI or an operator create the very
+# first admin account. setup_admin is only usable while the user table
+# is empty; the moment one account exists, it permanently refuses further
+# calls, so it cannot be used to create additional admins after setup.
+#
+# setup_admin additionally requires a one-time setup token (printed to the
+# server log on startup, or set via XINFERENCE_AUTH_SETUP_TOKEN) so that
+# creating the first, full-privilege admin requires access to the
+# deployment's own log/environment, not just network reachability of this
+# public endpoint -- otherwise whichever client reaches it first on a
+# freshly exposed instance would win full admin access.
+
+
+async def setup_status(request: Request) -> JSONResponse:
+    auth: AdvancedAuthService = get_advanced_auth(request)
+    needs_setup = auth.needs_setup()
+    return JSONResponse(
+        content={
+            "needs_setup": needs_setup,
+            "initialized": not needs_setup,
+            "password_min_length": PASSWORD_MIN_LENGTH,
+        }
+    )
+
+
+async def setup_admin(request: Request) -> JSONResponse:
+    auth: AdvancedAuthService = get_advanced_auth(request)
+    # Reject before doing any password validation or hashing: once setup is
+    # complete this stays a public, unauthenticated endpoint, so a completed
+    # deployment must not keep paying for CPU-expensive bcrypt hashing (or
+    # be probed for password policy details) on every call.
+    if not auth.needs_setup():
+        raise HTTPException(
+            status_code=403,
+            detail="Setup already completed; an account already exists.",
+        )
+
+    body = await request.json()
+    username = body.get("username")
+    password = body.get("password")
+    setup_token = body.get("setup_token")
+    if not isinstance(username, str) or not isinstance(password, str):
+        raise HTTPException(
+            status_code=400, detail="username and password must be strings"
+        )
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="username and password required")
+    if len(password) < PASSWORD_MIN_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Password must be at least {PASSWORD_MIN_LENGTH} characters",
+        )
+
+    expected_token = get_or_create_setup_token()
+    if not isinstance(setup_token, str) or not secrets.compare_digest(
+        setup_token, expected_token
+    ):
+        raise HTTPException(status_code=403, detail="Invalid or missing setup token")
+
+    password_hash = get_password_hash(password)
+    # create_first_user checks-and-inserts atomically (BEGIN IMMEDIATE), so
+    # concurrent callers can't both create an admin even across processes.
+    user_id = auth.db.create_first_user(
+        username=username,
+        password_hash=password_hash,
+        permissions=INITIAL_ADMIN_PERMISSIONS,
+    )
+    if user_id is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Setup already completed; an account already exists.",
+        )
+
+    delete_setup_token()
+    return JSONResponse(content={"id": user_id, "username": username}, status_code=201)
+
+
 # --- User management ---
 
 
@@ -239,8 +327,17 @@ async def create_user(request: Request) -> JSONResponse:
     password = body.get("password")
     permissions = body.get("permissions", [])
 
+    if not isinstance(username, str) or not isinstance(password, str):
+        raise HTTPException(
+            status_code=400, detail="username and password must be strings"
+        )
     if not username or not password:
         raise HTTPException(status_code=400, detail="username and password required")
+    if len(password) < PASSWORD_MIN_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Password must be at least {PASSWORD_MIN_LENGTH} characters",
+        )
 
     _reject_permission_escalation(request, auth, permissions)
 
@@ -347,8 +444,15 @@ async def change_password(user_id: int, request: Request) -> JSONResponse:
     _reject_admin_target_takeover(request, auth, user_id)
     body = await request.json()
     new_password = body.get("new_password")
+    if not isinstance(new_password, str):
+        raise HTTPException(status_code=400, detail="new_password must be a string")
     if not new_password:
         raise HTTPException(status_code=400, detail="new_password required")
+    if len(new_password) < PASSWORD_MIN_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Password must be at least {PASSWORD_MIN_LENGTH} characters",
+        )
     password_hash = get_password_hash(new_password)
     auth.db.update_user(user_id, password_hash=password_hash, must_change_password=0)
     return JSONResponse(content={"ok": True})
@@ -606,6 +710,10 @@ def register_advanced_auth_routes(api: "RESTfulAPI") -> None:
     router.add_api_route("/token", advanced_login, methods=["POST"])
     router.add_api_route("/v1/auth/refresh", advanced_refresh, methods=["POST"])
     router.add_api_route("/v1/auth/logout", advanced_logout, methods=["POST"])
+
+    # Initial setup (public, no auth -- see docstring above setup_admin)
+    router.add_api_route("/v1/admin/setup/status", setup_status, methods=["GET"])
+    router.add_api_route("/v1/admin/setup", setup_admin, methods=["POST"])
 
     # User management
     router.add_api_route(
