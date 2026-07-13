@@ -13,9 +13,23 @@
 # limitations under the License.
 
 import importlib
+import os
+
+_LAUNCHER_ALLOWLIST_ENV = "XINFERENCE_FLEXIBLE_LAUNCHERS"
+
+
+def _get_launcher_allowlist() -> set:
+    raw = os.environ.get(_LAUNCHER_ALLOWLIST_ENV, "")
+    return {name.strip() for name in raw.split(",") if name.strip()}
 
 
 def get_launcher(launcher_name: str):
+    if launcher_name not in _get_launcher_allowlist():
+        raise ValueError(
+            f"Launcher {launcher_name!r} is not permitted. Add its exact dotted "
+            f"name to the {_LAUNCHER_ALLOWLIST_ENV} environment variable "
+            "(comma-separated) to allow it."
+        )
     try:
         i = launcher_name.rfind(".")
         if i != -1:

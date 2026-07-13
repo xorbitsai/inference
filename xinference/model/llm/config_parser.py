@@ -2,11 +2,47 @@ import json
 import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+from ...constants import XINFERENCE_CACHE_DIR, XINFERENCE_MODEL_DIR
+
 _BUILTIN_FAMILY_CACHE: Optional[List[Dict[str, Any]]] = None
 
+# Colon/`os.pathsep`-separated extra roots operators may allow models to be
+# registered from via POST /v1/models/llm/auto-register.
+_MODEL_REGISTER_ROOTS_ENV = "XINFERENCE_MODEL_REGISTER_ROOTS"
+
+
+def _get_allowed_roots() -> List[str]:
+    roots = [XINFERENCE_MODEL_DIR, XINFERENCE_CACHE_DIR]
+    extra = os.environ.get(_MODEL_REGISTER_ROOTS_ENV, "")
+    if extra:
+        roots.extend(p for p in extra.split(os.pathsep) if p)
+    resolved: List[str] = []
+    for root in roots:
+        try:
+            resolved.append(os.path.realpath(root))
+        except OSError:
+            continue
+    return resolved
+
+
+def _ensure_within_allowed_roots(model_path: str) -> str:
+    real_path = os.path.realpath(model_path)
+    for root in _get_allowed_roots():
+        try:
+            if os.path.commonpath([real_path, root]) == root:
+                return real_path
+        except ValueError:
+            # e.g. different drive on Windows, or mixed absolute/relative
+            continue
+    raise ValueError(
+        "model_path is outside the allowed model directories. Set the "
+        f"{_MODEL_REGISTER_ROOTS_ENV} environment variable to permit additional "
+        "roots."
+    )
 
 def _resolve_config_and_dir(model_path: str) -> Tuple[str, str]:
     if os.path.isdir(model_path):
+        model_path = _ensure_within_allowed_roots(model_path)
         config_path = os.path.join(model_path, "config.json")
         model_dir = model_path
     else:
