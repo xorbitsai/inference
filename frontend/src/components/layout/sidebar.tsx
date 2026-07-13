@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Cpu,
+  FileSearch,
   FileTextIcon,
   SquareArrowOutUpRight,
   Globe,
@@ -17,6 +18,7 @@ import {
   Rocket,
   Monitor,
   ScrollText,
+  ShieldCheck,
   Users,
   UserRound,
   KeyRound,
@@ -55,7 +57,6 @@ interface NavItem {
 interface NavGroup {
   name: string;
   items: NavItem[];
-  show?: boolean;
 }
 
 const Nav: FC<NavItem & { collapsed: boolean }> = ({
@@ -146,7 +147,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const branding = getBrandingFromEnv();
   const { clusterVersion, clusterAuth, clusterUIConfig } = useGlobal();
-  const { usersManagePage, canAccessKeysPage } = useMenuAuth();
+  const { isAdmin, usersManagePage, canAccessKeysPage } = useMenuAuth();
   const [token, setToken] = useState<string | undefined>();
   const showLoginOut = useMemo(
     () => Boolean(clusterAuth?.auth && token && token !== NO_AUTH),
@@ -236,17 +237,30 @@ export function Sidebar() {
             name: t('menu.userManagement'),
             Icon: Users,
             Extra: ChevronRight,
-            show: usersManagePage,
+            show: Boolean(clusterUIConfig?.auth_advanced) && usersManagePage,
           },
           {
             path: '/api-key-management',
             name: t('menu.apiKeyManagement'),
             Icon: KeyRound,
             Extra: ChevronRight,
-            show: canAccessKeysPage,
+            show: Boolean(clusterUIConfig?.auth_advanced) && canAccessKeysPage,
+          },
+          {
+            path: '/security-settings',
+            name: t('menu.securitySettings'),
+            Icon: ShieldCheck,
+            Extra: ChevronRight,
+            show: Boolean(clusterUIConfig?.auth_advanced) && isAdmin,
+          },
+          {
+            path: '/audit-center',
+            name: t('menu.auditCenter'),
+            Icon: FileSearch,
+            Extra: ChevronRight,
+            show: Boolean(clusterUIConfig?.auth_advanced) && isAdmin,
           },
         ],
-        show: (clusterUIConfig?.auth_advanced || false) && (usersManagePage || canAccessKeysPage),
       },
       {
         name: t('menu.resourcesAndSupport'),
@@ -284,12 +298,12 @@ export function Sidebar() {
     ];
 
     return groups
-      .filter(({ show = true }) => show)
       .map((group) => ({
         ...group,
         items: group.items.filter(({ show = true }) => show),
-      }));
-  }, [clusterUIConfig, locale, t, usersManagePage, canAccessKeysPage]);
+      }))
+      .filter(({ items }) => items.length > 0);
+  }, [clusterUIConfig, locale, t, usersManagePage, canAccessKeysPage, isAdmin]);
 
   return (
     <div
