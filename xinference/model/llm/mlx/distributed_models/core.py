@@ -30,6 +30,30 @@ logger = logging.getLogger(__name__)
 DEBUG_DISTRIBUTED_MLX = bool(int(os.getenv("XINFERENCE_DEBUG_DISTRIBUTED_MLX", "0")))
 
 
+def _to_wire(result: "mx.array"):
+    """Encode an mx.array for the inter-shard exchange.
+
+    Must run on the compute thread: np.array() evaluates and copies there,
+    on the stream that owns the pending graph. numpy has no bfloat16 and
+    np.array() on a bfloat16 mx.array raises, so ship its raw bits as
+    uint16 and let _from_wire restore the dtype.
+    """
+    if result.dtype == mx.bfloat16:
+        return np.array(result.view(mx.uint16)), True
+    return np.array(result), False
+
+
+def _from_wire(payload) -> "mx.array":
+    """Decode an inter-shard payload back into an mx.array.
+
+    Must run on the compute thread so the new mx.array belongs to the
+    stream that will evaluate it.
+    """
+    data, is_bf16 = payload
+    result = mx.array(data)
+    return result.view(mx.bfloat16) if is_bf16 else result
+
+
 class ReceiverActor(xo.StatelessActor):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -43,11 +67,11 @@ class ReceiverActor(xo.StatelessActor):
     async def send(self, data):
         # no need to use async function,
         # but make it more convenient to patch this function for test purpose
-        # NOTE: the payload is a numpy array and is queued untouched. This
-        # coroutine runs on the event-loop thread; constructing an mx.array
-        # here would bind it to this thread's stream, and evaluating it later
-        # from the compute thread fails on mlx>=0.31 with 'There is no
-        # Stream(gpu, N) in current thread'.
+        # NOTE: the payload is a _to_wire() tuple and is queued untouched.
+        # This coroutine runs on the event-loop thread; constructing an
+        # mx.array here would bind it to this thread's stream, and
+        # evaluating it later from the compute thread fails on mlx>=0.31
+        # with 'There is no Stream(gpu, N) in current thread'.
         self._recv_queue.put_nowait(data)
 
     async def recv(self):
@@ -94,10 +118,9 @@ class DistributedModelMixin:
                 "Start to send %s partial result to rank %d", self.model_uid, last_rank
             )
 
-        # np.array() evaluates and copies on this (compute) thread, whose
-        # stream owns the pending graph. mx.array payloads must never cross
-        # threads on mlx>=0.31.
-        payload = np.array(result)
+        # Encode on this (compute) thread: mx.array payloads must never
+        # cross threads on mlx>=0.31.
+        payload = _to_wire(result)
 
         async def send():
             receiver_ref = await xo.actor_ref(
@@ -120,9 +143,9 @@ class DistributedModelMixin:
             logger.debug("Wait for partial result from prev shard %d", self.rank + 1)
         coro = self._receiver_ref.recv()
         result = asyncio.run_coroutine_threadsafe(coro, self.loop).result()
-        # The payload arrives as numpy; convert on this (compute) thread so
-        # the new mx.array belongs to the stream that will evaluate it.
-        result = mx.array(result)
+        # Decode on this (compute) thread so the new mx.array belongs to
+        # the stream that will evaluate it.
+        result = _from_wire(result)
         if DEBUG_DISTRIBUTED_MLX:
             logger.debug(
                 "Received partial result from prev shard %d, shape %s",
@@ -135,8 +158,8 @@ class DistributedModelMixin:
         if DEBUG_DISTRIBUTED_MLX:
             logger.debug("broadcast result from driver")
 
-        # Same as _send_stage_result: numpy over the wire.
-        payload = np.array(result)
+        # Same as _send_stage_result: encode on the compute thread.
+        payload = _to_wire(result)
 
         async def broadcast(rank: int):
             assert self.model_uid is not None
@@ -165,8 +188,8 @@ class DistributedModelMixin:
         )
         ref = asyncio.run_coroutine_threadsafe(coro, self.loop).result()
         result = asyncio.run_coroutine_threadsafe(ref.recv(), loop=self.loop).result()
-        # The payload arrives as numpy; convert on this (compute) thread.
-        return mx.array(result)
+        # Decode on this (compute) thread.
+        return _from_wire(result)
 
     def pipeline(self):
         pipeline_size, rank = self.world_size, self.rank

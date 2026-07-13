@@ -109,6 +109,24 @@ async def setup_pool():
     sys.platform != "darwin" or platform.processor() != "arm",
     reason="MLX only works for Apple silicon chip",
 )
+def test_wire_roundtrip():
+    """The inter-shard exchange must survive every dtype models ship with,
+    including bfloat16, which numpy cannot represent directly."""
+    import mlx.core as mx
+
+    from ..distributed_models.core import _from_wire, _to_wire
+
+    for dtype in (mx.bfloat16, mx.float16, mx.float32):
+        arr = mx.random.normal((3, 5)).astype(dtype)
+        restored = _from_wire(_to_wire(arr))
+        assert restored.dtype == arr.dtype
+        assert mx.array_equal(restored, arr).item()
+
+
+@pytest.mark.skipif(
+    sys.platform != "darwin" or platform.processor() != "arm",
+    reason="MLX only works for Apple silicon chip",
+)
 @pytest.mark.asyncio
 async def test_distributed(setup_pool):
     from huggingface_hub import snapshot_download
