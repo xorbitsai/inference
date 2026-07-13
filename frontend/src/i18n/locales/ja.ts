@@ -188,6 +188,16 @@ const ja = {
   },
   runningModels: {
     searchPlaceholder: 'モデル名またはモデルUIDを検索...',
+    loadingModels: 'モデルを読み込み中...',
+    fetchingModelList: '最新の実行中モデル一覧を取得しています。',
+    noRunningModels: '実行中モデルなし',
+    launchModelFirst: 'モデルを起動するとここに表示されます。',
+    noModelsFound: 'モデルが見つかりません',
+    tryChangingSearchKeywords: '検索キーワードを変更してみてください。',
+    selectModel: 'モデルを選択',
+    selectModelDescription: '左側の一覧から項目をクリックすると詳細を表示します。',
+    tryApi: 'API を試す',
+    refresh: '更新',
     terminateConfirmBody:
       '現在のモデル {{name}} には {{replica}} 個のレプリカがあります。クラスターが混雑している場合やレプリカ数が多い場合、終了処理には数分かかることがあります。所要時間は最も遅い Worker ノードに依存します。終了ボタンを繰り返しクリックしないでください。',
     terminateConfirmOk: '終了',

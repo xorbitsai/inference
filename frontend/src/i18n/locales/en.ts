@@ -189,6 +189,16 @@ const en = {
   },
   runningModels: {
     searchPlaceholder: 'Search model name or model UID...',
+    loadingModels: 'Loading models...',
+    fetchingModelList: 'Fetching the latest running model list.',
+    noRunningModels: 'No models running',
+    launchModelFirst: 'Launch a model to show it here.',
+    noModelsFound: 'No models found',
+    tryChangingSearchKeywords: 'Try changing your search keywords.',
+    selectModel: 'Select a model',
+    selectModelDescription: 'Click an item in the left list to view details.',
+    tryApi: 'Try API',
+    refresh: 'Refresh',
     terminateConfirmBody:
       'The current model {{name}} has {{replica}} replicas. When the cluster is busy or the replica count is high, termination may take several minutes. The total duration depends on the slowest Worker node. Please do not click Terminate repeatedly.',
     terminateConfirmOk: 'Terminate',
