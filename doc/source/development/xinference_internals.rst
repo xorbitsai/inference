@@ -245,12 +245,6 @@ The main code is located in the `xinference/ <https://github.com/xorbitsai/infer
     defines a set of tools for collecting and reporting metrics and the status of node resources, including model throughput,
     latency, the usage of CPU and GPU, memory usage, and more.
 
-  - `image_interface.py <https://github.com/xorbitsai/inference/tree/main/xinference/core/image_interface.py>`_ and
-    `chat_interface.py <https://github.com/xorbitsai/inference/tree/main/xinference/core/chat_interface.py>`_
-    implement `Gradio <https://github.com/gradio-app/gradio>`_ interfaces for image and chat models, respectively.
-    These interfaces allow users to interact with models through a Web UI, such as generating images or engaging in chat.
-    They build user interfaces using the gradio package and communicate with backend models through our RESTful APIs.
-
   - `worker.py <https://github.com/xorbitsai/inference/tree/main/xinference/core/worker.py>`_ and
     `supervisor.py <https://github.com/xorbitsai/inference/tree/main/xinference/core/supervisor.py>`_
     respectively define the logic for worker actors and supervisor actor. Worker actors are responsible for carrying out specific

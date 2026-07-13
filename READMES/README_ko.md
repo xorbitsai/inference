@@ -109,11 +109,6 @@ GitHub에서 Xinference에 별을 눌러 릴리스 알림을 받으세요.
 * [내장 모델](https://inference.readthedocs.io/en/latest/models/builtin/index.html)
 * [커스텀 모델](https://inference.readthedocs.io/en/latest/models/custom.html)
 * [배포 문서](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html)
-* [예제 및 튜토리얼](https://inference.readthedocs.io/en/latest/examples/index.html)
-
-### Jupyter Notebook
-
-Xinference를 가장 쉽게 시험해보려면 [Google Colab Jupyter Notebook](https://colab.research.google.com/github/xorbitsai/inference/blob/main/examples/Xinference_Quick_Start.ipynb)을 이용하세요.
 
 ### Docker
 

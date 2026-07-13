@@ -59,6 +59,7 @@ from ..constants import (
     XINFERENCE_LOG_CONSOLE,
     XINFERENCE_LOG_DOWNLOAD_PROGRESS,
     XINFERENCE_MAX_CONCURRENT_LAUNCHES,
+    XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT,
     XINFERENCE_MODEL_DOWNLOAD_WORKERS,
     XINFERENCE_STATUS_GATHER_TIMEOUT,
     XINFERENCE_STATUS_REPORT_MULTIPLIER,
@@ -149,13 +150,6 @@ def _exclusive_venv_path_lock(env_path: str):
         fcntl.flock(fd, fcntl.LOCK_UN)
         os.close(fd)
 
-
-MODEL_ACTOR_AUTO_RECOVER_LIMIT: Optional[int]
-_MODEL_ACTOR_AUTO_RECOVER_LIMIT = os.getenv("XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT")
-if _MODEL_ACTOR_AUTO_RECOVER_LIMIT is not None:
-    MODEL_ACTOR_AUTO_RECOVER_LIMIT = int(_MODEL_ACTOR_AUTO_RECOVER_LIMIT)
-else:
-    MODEL_ACTOR_AUTO_RECOVER_LIMIT = None
 
 # Strip test-injected envs from cached launch_args before recover.
 # All test-specific env vars MUST use the XINFERENCE_TEST_ prefix so they can be
@@ -782,45 +776,77 @@ class WorkerActor(xo.StatelessActor):
                             self._model_uid_to_recover_count[model_uid] = (
                                 recover_count - 1
                             )
-                            await self.recover_model(launch_args)
-                        else:
-                            logger.warning("Stop recreating model actor.")
-
-                            # Worker has given up recreating; notify supervisor
-                            # to evict the dead replica from round-robin and
-                            # light up the failure gauge. add_worker=False:
-                            # only fetch the ref, do not trigger
-                            # re-registration. The whole notification --
-                            # get_supervisor_ref + mark_replica_dead -- is
-                            # wrapped in a single xo.wait_for(5s): this runs
-                            # inside the recover_sub_pool tail path, and
-                            # get_supervisor_ref itself issues blocking
-                            # xo.actor_ref calls when the cached ref is missing,
-                            # so the bound must cover both to keep a stalled
-                            # supervisor from holding up the worker's local
-                            # shutdown. A failure/timeout is non-fatal -- the
-                            # next death detection / redeploy will reconcile.
-                            async def _notify_replica_dead():
-                                supervisor_ref = await self.get_supervisor_ref(
-                                    add_worker=False
-                                )
-                                await supervisor_ref.mark_replica_dead(model_uid)
-
+                            # Symmetric to the unbounded branch below: if recreate
+                            # itself fails, evict the dead replica so it cannot sit
+                            # in a "stopping"/"error" state poisoning routing with
+                            # persistent 500s. Same launch_args would fail again, and
+                            # recover_model failure leaves no new subpool to retrigger
+                            # recover_sub_pool, so eviction (not retry) is the only
+                            # recovery. mark_replica_dead is idempotent (safe).
                             try:
-                                await xo.wait_for(
-                                    _notify_replica_dead(),
-                                    timeout=5,
-                                )
+                                await self.recover_model(launch_args)
                             except Exception:
                                 logger.warning(
-                                    "Failed to notify supervisor of dead replica %s",
+                                    "Recreate failed for %s, evicting dead replica "
+                                    "from supervisor",
                                     model_uid,
                                     exc_info=True,
                                 )
+                                await self._evict_replica_from_supervisor(model_uid)
+                        else:
+                            logger.warning("Stop recreating model actor.")
+
+                            # Bounded retries exhausted: evict the dead replica
+                            # from the supervisor's round-robin so traffic stops
+                            # routing to it. Failure/timeout is non-fatal -- the
+                            # next death detection / redeploy will reconcile.
+                            await self._evict_replica_from_supervisor(model_uid)
                     else:
                         logger.warning("Recreating model actor %s ...", model_uid)
-                        await self.recover_model(launch_args)
+                        # Unbounded branch (default, recover_count is None). If
+                        # recreate itself fails, evict the dead replica so it
+                        # cannot poison routing as a permanent "loading" zombie.
+                        # mark_replica_dead is idempotent, so this is safe.
+                        try:
+                            await self.recover_model(launch_args)
+                        except Exception:
+                            logger.warning(
+                                "Recreate failed for %s, evicting dead replica "
+                                "from supervisor",
+                                model_uid,
+                                exc_info=True,
+                            )
+                            await self._evict_replica_from_supervisor(model_uid)
                 break
+
+    async def _evict_replica_from_supervisor(self, model_uid: str) -> None:
+        """Notify the supervisor to evict a dead replica from round-robin.
+
+        Best-effort: ``get_supervisor_ref`` (``add_worker=False``, no
+        re-registration) + ``mark_replica_dead`` are wrapped in a single
+        ``xo.wait_for(5s)``. ``get_supervisor_ref`` issues blocking
+        ``xo.actor_ref`` calls when the cached ref is missing, so the bound
+        must cover both to keep a stalled supervisor from holding up the
+        worker's local shutdown. A failure/timeout is non-fatal --
+        ``mark_replica_dead`` is idempotent and the next death detection /
+        redeploy will reconcile.
+        """
+
+        async def _notify_replica_dead():
+            supervisor_ref = await self.get_supervisor_ref(add_worker=False)
+            await supervisor_ref.mark_replica_dead(model_uid)
+
+        try:
+            await xo.wait_for(
+                _notify_replica_dead(),
+                timeout=5,
+            )
+        except Exception:
+            logger.warning(
+                "Failed to notify supervisor of dead replica %s",
+                model_uid,
+                exc_info=True,
+            )
 
     @classmethod
     def default_uid(cls) -> str:
@@ -1292,7 +1318,7 @@ class WorkerActor(xo.StatelessActor):
             tmp_path = filepath + ".tmp"
             with open(tmp_path, "w") as f:
                 json.dump(data, f, ensure_ascii=False)
-            os.rename(tmp_path, filepath)
+            os.replace(tmp_path, filepath)
             logger.debug(
                 "Persisted launch_args for %d models to %s", len(data), filepath
             )
@@ -1315,7 +1341,7 @@ class WorkerActor(xo.StatelessActor):
                 tmp_path = filepath + ".tmp"
                 with open(tmp_path, "w") as f:
                     json.dump(data, f, ensure_ascii=False)
-                os.rename(tmp_path, filepath)
+                os.replace(tmp_path, filepath)
         except Exception:
             logger.warning("Failed to update persisted launch_args", exc_info=True)
 
@@ -1384,6 +1410,12 @@ class WorkerActor(xo.StatelessActor):
                         sorted(_stripped),
                     )
                 await self.launch_builtin_model(**launch_args)
+                # Mark the recovered replica ready, mirroring the normal launch
+                # path. Same gap as recover_model: launch_builtin_model leaves
+                # model_state="loading"; without this, models recovered on worker
+                # restart stay "loading" forever. Idempotent if the supervisor
+                # also reconciles on reconnect.
+                await self.wait_for_load(model_uid)
                 recovered += 1
             except Exception:
                 logger.error(
@@ -3078,7 +3110,7 @@ class WorkerActor(xo.StatelessActor):
                     )
                     self._model_uid_to_addr[model_uid] = subpool_address
                     self._model_uid_to_recover_count.setdefault(
-                        model_uid, MODEL_ACTOR_AUTO_RECOVER_LIMIT
+                        model_uid, XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT
                     )
                     self._model_uid_to_launch_args[model_uid] = launch_args
                     # §4.3: Persist for auto-recovery on restart
@@ -3820,3 +3852,10 @@ class WorkerActor(xo.StatelessActor):
             await supervisor_ref.call_collective_manager(
                 origin_uid, "register_rank", rank, subpool_address, update=True
             )
+        # Mark the recreated replica ready, mirroring the normal launch path
+        # (supervisor calls wait_for_load after launch). Without this the worker
+        # keeps model_state="loading" forever (set in launch_builtin_model), so
+        # get_model raises ModelNotReadyError and the recreated replica is a
+        # permanent "loading" zombie -- the original 33% symptom. launch_builtin_model
+        # already awaited model_ref.load(), so wait_for_load is near-instant here.
+        await self.wait_for_load(rep_model_uid)

@@ -174,7 +174,7 @@ export default function ClusterInfo() {
       title={t('menu.clusterInfo')}
       subTitle={
         <>
-          {t('menu.clusterInfoDesc')}
+          {t('clusterInfo.pageDescription')}
           {t('common.lastUpdateTime')}: {lastUpdateTime}
         </>
       }

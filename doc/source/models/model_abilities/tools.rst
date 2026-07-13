@@ -195,14 +195,3 @@ The output will be:
 
   The API will not actually execute any function calls. It is up to developers to execute function calls using model outputs.
 
-
-
-You can find more examples of ``tools`` ability in the tutorial notebook:
-
-.. grid:: 1
-
-   .. grid-item-card:: Function calling
-      :link: https://github.com/xorbitsai/inference/blob/main/examples/FunctionCall.ipynb
-      
-      Learn from a complete example demonstrating function calling
-

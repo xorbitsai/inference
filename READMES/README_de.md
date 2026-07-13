@@ -109,11 +109,6 @@ Sternen Sie Xinference auf GitHub, um Release-Updates zu erhalten.
 * [Integrierte Modelle](https://inference.readthedocs.io/en/latest/models/builtin/index.html)
 * [Custom-Modelle](https://inference.readthedocs.io/en/latest/models/custom.html)
 * [Deployment-Dokumentation](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html)
-* [Beispiele und Tutorials](https://inference.readthedocs.io/en/latest/examples/index.html)
-
-### Jupyter Notebook
-
-Die einfachste Möglichkeit, Xinference auszuprobieren, ist das [Google Colab Jupyter Notebook](https://colab.research.google.com/github/xorbitsai/inference/blob/main/examples/Xinference_Quick_Start.ipynb).
 
 ### Docker
 

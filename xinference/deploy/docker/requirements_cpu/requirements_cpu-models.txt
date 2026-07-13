@@ -29,6 +29,7 @@ pypinyin
 tomli
 vocos
 jieba
+pydub
 soundfile
 
 # MeloTTS
@@ -81,6 +82,7 @@ julius
 tensorboard
 randomname
 argbind
+ffmpy  # audiotools' core.ffmpeg imports this unconditionally
 
 # Others
 funasr==1.2.7

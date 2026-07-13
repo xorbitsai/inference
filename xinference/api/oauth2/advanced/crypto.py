@@ -77,10 +77,5 @@ def generate_api_key() -> str:
     return f"xf-{random_part}"
 
 
-def generate_password(length: int = 16) -> str:
-    chars = string.ascii_letters + string.digits + "!@#$%^&*"
-    return "".join(secrets.choice(chars) for _ in range(length))
-
-
 def derive_encryption_key(key_str: str) -> bytes:
     return hashlib.sha256(key_str.encode("utf-8")).digest()

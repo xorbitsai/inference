@@ -1,18 +1,18 @@
 'use client';
 
 import { Suspense } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import LaunchModel from '@/components/pages/launch-model';
 import {
   getLaunchModelRouteType,
   getInitialCustomType,
 } from '@/components/pages/launch-model/utils';
-import { decodeRouteParam } from '@/lib/route-params';
+import { getPathSegmentsAfter } from '@/lib/route-params';
 
 function LaunchModelPageInner() {
-  const params = useParams<{ modelType: string }>();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
-  const modelType = decodeRouteParam(params.modelType);
+  const [modelType = ''] = getPathSegmentsAfter(pathname, '/launch-model');
   const activeType = searchParams.get('activeType') ?? undefined;
 
   return (

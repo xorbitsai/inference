@@ -28,6 +28,11 @@ class CreateEmbeddingRequest(BaseModel):
         str, List[str], List[int], List[List[int]], Dict[str, str], List[Dict[str, str]]
     ] = Field(description="The input to embed.")
     user: Optional[str] = None
+    # Truncate each input to this many tokens before encoding. Mirrors the
+    # vLLM LLM semantics: None = no truncation, >0 = cap at N tokens,
+    # <0 = cap at the model's max_tokens. Honored by the embedding model base
+    # class (see ``EmbeddingModel._truncate_sentences``).
+    truncate_prompt_tokens: Optional[int] = None
 
     class Config:
         schema_extra = {
@@ -126,34 +131,3 @@ class AutoConfigLLMRequest(BaseModel):
 
 class UpdateModelRequest(BaseModel):
     model_type: str
-
-
-class BuildGradioInterfaceRequest(BaseModel):
-    model_type: str
-    model_name: str
-    model_size_in_billions: int
-    model_format: str
-    quantization: str
-    context_length: int
-    model_ability: List[str]
-    model_description: str
-    model_lang: List[str]
-
-
-class BuildGradioMediaInterfaceRequest(BaseModel):
-    model_type: str
-    model_name: str
-    model_family: str
-    model_id: str
-    controlnet: Union[None, List[Dict[str, Union[str, dict, None]]]]
-    model_revision: Optional[str]
-    model_ability: List[str]
-
-
-class BuildGradioEmbeddingInterfaceRequest(BaseModel):
-    model_type: str
-    model_name: str
-    model_family: str
-    model_id: str
-    model_revision: Optional[str] = None
-    model_ability: List[str] = []

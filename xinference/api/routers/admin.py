@@ -274,8 +274,8 @@ async def get_ui_config(request: Request) -> JSONResponse:
             "grafana_dashboards": dashboards,
             "cluster_name": mon["cluster_name"],
             "es_enabled": bool(os.environ.get("XINFERENCE_ES_URL", "")),
-            "auth_advanced": os.environ.get("XINFERENCE_AUTH_ADVANCED", "").lower()
-            in ("1", "true", "yes"),
+            "auth_advanced": os.environ.get("XINFERENCE_AUTH_ADVANCED", "true").lower()
+            not in ("0", "false", "no"),
             "oidc_enabled": os.environ.get("XINFERENCE_OIDC_ENABLED", "").lower()
             in ("1", "true", "yes"),
         }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -15,6 +15,7 @@ import { setAccessToken, setRefreshToken } from '@/lib/auth-storage';
 import { getBrandingFromEnv } from '@/lib/branding';
 import { useI18n } from '@/contexts/i18n-context';
 import { useGlobal } from '@/contexts/global-context';
+import { SETUP_COMPLETE_FLAG } from '@/constants';
 import { ChangePasswordDialog } from './change-password-dialog';
 
 interface TokenResponse {
@@ -35,6 +36,16 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [changePasswordUserId, setChangePasswordUserId] = useState<number | null>(null);
+
+  useEffect(() => {
+    // Setup (components/pages/setup) sets this right before navigating here,
+    // since a full page transition can't carry router state directly.
+    if (sessionStorage.getItem(SETUP_COMPLETE_FLAG) === '1') {
+      sessionStorage.removeItem(SETUP_COMPLETE_FLAG);
+      toast.success(t('setup.createSuccess'));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const goHomeAfterAuth = () => {
     fetchGlobalAfterAuth();

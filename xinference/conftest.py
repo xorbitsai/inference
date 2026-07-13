@@ -183,6 +183,11 @@ def setup():
 
     logging.config.dictConfig(TEST_LOGGING_CONF)  # type: ignore
 
+    # This fixture is used by tests that exercise unauthenticated requests;
+    # advanced auth defaults to on, so it must be explicitly disabled here,
+    # before any subprocess (which inherits this env) is started.
+    os.environ["XINFERENCE_AUTH_ADVANCED"] = "false"
+
     supervisor_addr = f"localhost:{xo.utils.get_next_port()}"
     local_cluster_proc = run_test_cluster_in_subprocess(
         supervisor_addr, TEST_LOGGING_CONF
@@ -215,6 +220,11 @@ def setup_with_file_logging():
 
     logging.config.dictConfig(TEST_FILE_LOGGING_CONF)  # type: ignore
 
+    # This fixture is used by tests that exercise unauthenticated requests;
+    # advanced auth defaults to on, so it must be explicitly disabled here,
+    # before any subprocess (which inherits this env) is started.
+    os.environ["XINFERENCE_AUTH_ADVANCED"] = "false"
+
     supervisor_addr = f"localhost:{xo.utils.get_next_port()}"
     local_cluster_proc = run_test_cluster_in_subprocess(
         supervisor_addr, TEST_FILE_LOGGING_CONF
@@ -246,6 +256,11 @@ def setup_with_auth():
     from .deploy.utils import health_check as cluster_health_check
 
     logging.config.dictConfig(TEST_LOGGING_CONF)  # type: ignore
+
+    # This fixture exercises the legacy file-based auth config, which is
+    # mutually exclusive with advanced auth (on by default). Disable it
+    # before any subprocess (which inherits this env) is started.
+    os.environ["XINFERENCE_AUTH_ADVANCED"] = "false"
 
     supervisor_addr = f"localhost:{xo.utils.get_next_port()}"
     local_cluster_proc = run_test_cluster_in_subprocess(

@@ -100,16 +100,6 @@ We can try Embeddings API out either via cURL, OpenAI Client, or Xinference's py
     }
 
 
-You can find more examples of ``embed`` ability in the tutorial notebook:
-
-.. grid:: 1
-
-   .. grid-item-card:: LangChain Streamlit Doc Chat
-      :link: https://github.com/xorbitsai/inference/blob/main/examples/LangChain_Streamlit_Doc_Chat.py
-      
-      Learn from an example demonstrating how to use embed API via LangChain
-
-
 FAQ
 ========
 
