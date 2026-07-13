@@ -508,6 +508,14 @@
       "merge_vad": true,
       "merge_length_s": 15
     },
+    "virtualenv": {
+      "packages": [
+        "funasr==1.2.7",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    },
     "model_src": {
       "huggingface": {
         "model_id": "FunAudioLLM/SenseVoiceSmall",
@@ -518,7 +526,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387063,
+    "updated_at": 1783912343,
     "featured": true
   },
   {
