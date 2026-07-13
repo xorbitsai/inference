@@ -1,0 +1,345 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2025, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-13 16:05+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/getting_started/using_docker_compose.rst:5
+msgid "Docker Compose Deployment"
+msgstr "Docker Compose 部署"
+
+#: ../../source/getting_started/using_docker_compose.rst:7
+msgid ""
+"Xinference ships an official Docker Compose setup for standalone "
+"deployment, located at `xinference/deploy/docker "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/deploy/docker>`_."
+" It supports online hosts as well as fully offline / air-gapped "
+"environments, where an optional private PyPI server is started alongside "
+"Xinference to serve the packages installed at model-launch time."
+msgstr ""
+"Xinference 提供官方的单机 Docker Compose 部署方案，位于 `xinference/"
+"deploy/docker <https://github.com/xorbitsai/inference/tree/main/"
+"xinference/deploy/docker>`_。它同时支持联网主机和完全离线（air-gapped）"
+"环境：离线场景下会随 Xinference 一起启动一个可选的私有 PyPI 服务，为模型"
+"启动时安装的依赖包提供内网源。"
+
+#: ../../source/getting_started/using_docker_compose.rst:14
+msgid "Prerequisites"
+msgstr "准备工作"
+
+#: ../../source/getting_started/using_docker_compose.rst:15
+msgid ""
+"Docker Compose **v2.24.4 or above** (required by the ``env_file: "
+"required: false`` and ``!reset`` features used in the compose files)."
+msgstr ""
+"Docker Compose **v2.24.4 及以上版本** ，compose 文件用到了 ``env_file: "
+"required: false`` 与 ``!reset`` 特性。"
+
+#: ../../source/getting_started/using_docker_compose.rst:16
+msgid ""
+"For GPU deployment: a host with NVIDIA GPUs, CUDA installed, and `NVIDIA "
+"Container Toolkit <https://docs.nvidia.com/datacenter/cloud-native"
+"/container-toolkit/latest/install-guide.html>`_. See "
+":ref:`using_docker_image` for image requirements."
+msgstr ""
+"GPU 部署需要：配备 NVIDIA GPU 且安装了 CUDA 与 `NVIDIA Container Toolkit "
+"<https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest"
+"/install-guide.html>`_ 的主机。镜像要求参见 :ref:`using_docker_image`。"
+
+#: ../../source/getting_started/using_docker_compose.rst:17
+msgid ""
+"Get the whole ``xinference/deploy/docker`` directory. The compose file "
+"bind-mounts ``pip.conf`` and ``./wheels`` from the same directory, so "
+"downloading ``docker-compose.yml`` alone is not sufficient:"
+msgstr ""
+"获取完整的 ``xinference/deploy/docker`` 目录。compose 文件会以 bind mount"
+" 方式挂载同目录下的 ``pip.conf`` 和 ``./wheels``，因此只下载 ``docker-"
+"compose.yml`` 是不够的："
+
+#: ../../source/getting_started/using_docker_compose.rst:26
+msgid "Quick Start (GPU)"
+msgstr "快速开始（GPU）"
+
+#: ../../source/getting_started/using_docker_compose.rst:27
+msgid "Start Xinference with all GPUs of the host:"
+msgstr "使用主机全部 GPU 启动 Xinference："
+
+#: ../../source/getting_started/using_docker_compose.rst:33
+msgid "Wait until the service is healthy, then verify:"
+msgstr "等服务进入 healthy 状态后验证："
+
+#: ../../source/getting_started/using_docker_compose.rst:40
+msgid "The Web UI is served at ``http://localhost:9997``."
+msgstr "Web UI 地址为 ``http://localhost:9997``。"
+
+#: ../../source/getting_started/using_docker_compose.rst:44
+msgid "Configuration"
+msgstr "配置"
+
+#: ../../source/getting_started/using_docker_compose.rst:45
+msgid ""
+"All settings are exposed as variables with sensible defaults and can be "
+"overridden through a ``.env`` file next to ``docker-compose.yml``. Copy "
+"the template and edit as needed:"
+msgstr ""
+"所有配置项都以带默认值的变量形式暴露，可以通过与 ``docker-compose.yml`` "
+"同目录的 ``.env`` 文件覆盖。复制模板后按需修改："
+
+#: ../../source/getting_started/using_docker_compose.rst:52
+msgid "Available variables:"
+msgstr "可用变量："
+
+#: ../../source/getting_started/using_docker_compose.rst:54
+msgid ""
+"``XINFERENCE_IMAGE``: image to run, defaults to "
+"``xprobe/xinference:latest``. Pin a release tag such as "
+"``xprobe/xinference:v<version>`` for production."
+msgstr ""
+"``XINFERENCE_IMAGE``：运行的镜像，默认 ``xprobe/xinference:latest``。生产"
+"环境建议固定为发布版本，如 ``xprobe/xinference:v<version>``。"
+
+#: ../../source/getting_started/using_docker_compose.rst:55
+msgid ""
+"``XINFERENCE_PORT``: host port of the RESTful API / Web UI, defaults to "
+"``9997``."
+msgstr "``XINFERENCE_PORT``：RESTful API / Web UI 的主机端口，默认 ``9997``。"
+
+#: ../../source/getting_started/using_docker_compose.rst:56
+msgid ""
+"``XINFERENCE_MODEL_SRC``: model download source, ``huggingface`` "
+"(default) or ``modelscope``."
+msgstr ""
+"``XINFERENCE_MODEL_SRC``：模型下载源，``huggingface``（默认）或 ``"
+"modelscope``。"
+
+#: ../../source/getting_started/using_docker_compose.rst:57
+msgid ""
+"``XINFERENCE_SHM_SIZE``: shared memory size, defaults to ``8gb``. "
+"Increase for multi-GPU inference."
+msgstr "``XINFERENCE_SHM_SIZE``：共享内存大小，默认 ``8gb``。多卡推理时建议调大。"
+
+#: ../../source/getting_started/using_docker_compose.rst:58
+msgid "``XINFERENCE_LOG_LEVEL``: log level, defaults to ``info``."
+msgstr "``XINFERENCE_LOG_LEVEL``：日志级别，默认 ``info``。"
+
+#: ../../source/getting_started/using_docker_compose.rst:59
+msgid ""
+"``XINFERENCE_HOME_DIR`` / ``XINFERENCE_HF_CACHE_DIR`` / "
+"``XINFERENCE_MODELSCOPE_CACHE_DIR``: persistence locations. They default "
+"to named Docker volumes; point them at absolute host paths to reuse "
+"existing model caches, in the same way as described in "
+":ref:`using_docker_image`."
+msgstr ""
+"``XINFERENCE_HOME_DIR`` / ``XINFERENCE_HF_CACHE_DIR`` / ``XINFERENCE_"
+"MODELSCOPE_CACHE_DIR``：持久化位置。默认使用 Docker 命名卷；指向主机上的"
+"绝对路径即可复用已有的模型缓存，方式与 :ref:`using_docker_image` 中的说明"
+"相同。"
+
+#: ../../source/getting_started/using_docker_compose.rst:60
+msgid ""
+"``XINFERENCE_WHEELS_DIR`` / ``XINFERENCE_PYPISERVER_PORT`` / "
+"``XINFERENCE_PYPISERVER_IMAGE``: offline profile settings, see below."
+msgstr ""
+"``XINFERENCE_WHEELS_DIR`` / ``XINFERENCE_PYPISERVER_PORT`` / ``XINFERENCE"
+"_PYPISERVER_IMAGE``：离线 profile 相关配置，见下文。"
+
+#: ../../source/getting_started/using_docker_compose.rst:62
+msgid ""
+"For other runtime options (authentication, OpenTelemetry, health-check "
+"tuning, ...), add the corresponding variables under the ``environment:`` "
+"section of ``docker-compose.yml``. See :ref:`environments` for the full "
+"list."
+msgstr ""
+"其他运行时选项（认证、OpenTelemetry、健康检查调优等）可在 ``docker-"
+"compose.yml`` 的 ``environment:`` 段落中添加对应变量，完整列表见 :ref:`"
+"environments`。"
+
+#: ../../source/getting_started/using_docker_compose.rst:68
+msgid "CPU-only Deployment"
+msgstr "纯 CPU 部署"
+
+#: ../../source/getting_started/using_docker_compose.rst:69
+msgid ""
+"On hosts without NVIDIA GPUs, apply the CPU override file, which switches"
+" the image to the ``-cpu`` variant and removes the GPU reservation:"
+msgstr ""
+"在没有 NVIDIA GPU 的主机上，叠加 CPU override 文件即可：它会把镜像切换为 "
+"``-cpu`` 变体并移除 GPU 预留配置："
+
+#: ../../source/getting_started/using_docker_compose.rst:78
+msgid "Health Check and Restart Policy"
+msgstr "健康检查与重启策略"
+
+#: ../../source/getting_started/using_docker_compose.rst:79
+msgid ""
+"The ``xinference`` service reports health through the ``/status`` "
+"endpoint and restarts automatically unless explicitly stopped (``restart:"
+" unless-stopped``). ``docker compose ps`` shows the health state; "
+"orchestration on top of compose can rely on it."
+msgstr ""
+"``xinference`` 服务通过 ``/status`` 接口上报健康状态，且除非显式停止否则"
+"会自动重启（``restart: unless-stopped``）。``docker compose ps`` 可查看"
+"健康状态；基于 compose 的上层编排可以依赖该状态。"
+
+#: ../../source/getting_started/using_docker_compose.rst:85
+msgid "Offline / Air-gapped Deployment"
+msgstr "离线 / 内网（Air-gapped）部署"
+
+#: ../../source/getting_started/using_docker_compose.rst:86
+msgid ""
+"By default Xinference installs the extra Python packages declared by a "
+"model at launch time into a per-model virtual environment (controlled by "
+"``XINFERENCE_ENABLE_VIRTUAL_ENV``, see :ref:`environments`). On a host "
+"without Internet access these installs would fail."
+msgstr ""
+"默认情况下，Xinference 会在模型启动时把模型声明的额外 Python 依赖安装到"
+"独立的虚拟环境中（由 ``XINFERENCE_ENABLE_VIRTUAL_ENV`` 控制，见 :ref:`"
+"environments`）。在无法访问互联网的主机上，这些安装会失败。"
+
+#: ../../source/getting_started/using_docker_compose.rst:90
+msgid ""
+"The ``offline`` compose profile solves this by starting a private PyPI "
+"server (`pypiserver <https://github.com/pypiserver/pypiserver>`_) next to"
+" Xinference. It serves wheels from the local ``./wheels`` directory, and "
+"the offline configuration points every runtime ``pip`` / ``uv`` "
+"invocation inside the Xinference container at it."
+msgstr ""
+"``offline`` profile 通过在 Xinference 旁边启动一个私有 PyPI 服务（`"
+"pypiserver <https://github.com/pypiserver/pypiserver>`_）来解决这个问题。"
+"它对外提供本地 ``./wheels`` 目录中的 wheel 包，离线配置会让 Xinference "
+"容器内所有运行时的 ``pip`` / ``uv`` 调用都指向它。"
+
+#: ../../source/getting_started/using_docker_compose.rst:96
+msgid "Step 1: Prepare wheels on an Internet-connected machine"
+msgstr "第一步：在联网机器上准备 wheels"
+
+#: ../../source/getting_started/using_docker_compose.rst:97
+msgid ""
+"Download the wheels of every package your models declare in their "
+"``virtualenv`` section (shown on each model card in the Web UI, or in the"
+" built-in model JSON specs). The GPU image runs Python 3.12 on "
+"``x86_64``:"
+msgstr ""
+"下载你要部署的模型在 ``virtualenv`` 配置段中声明的所有依赖包的 wheel（可"
+"在 Web UI 的模型卡片或内置模型 JSON 配置中查看）。GPU 镜像运行的是 ``x86_"
+"64`` 上的 Python 3.12："
+
+#: ../../source/getting_started/using_docker_compose.rst:110
+msgid ""
+"Copy the resulting ``wheels`` directory into "
+"``xinference/deploy/docker/wheels`` on the offline host. Also transfer "
+"the Docker images (``docker save`` / ``docker load``): the Xinference "
+"image and ``pypiserver/pypiserver:v2.3.2``."
+msgstr ""
+"把得到的 ``wheels`` 目录拷贝到离线主机的 ``xinference/deploy/docker/"
+"wheels`` 下。同时用 ``docker save`` / ``docker load`` 传输 Docker 镜像："
+"Xinference 镜像与 ``pypiserver/pypiserver:v2.3.2``。"
+
+#: ../../source/getting_started/using_docker_compose.rst:115
+msgid "Step 2: Enable the offline configuration"
+msgstr "第二步：启用离线配置"
+
+#: ../../source/getting_started/using_docker_compose.rst:120
+msgid "Then open ``pip.conf`` and uncomment the three lines of the offline block:"
+msgstr "然后打开 ``pip.conf``，取消离线配置块三行的注释："
+
+#: ../../source/getting_started/using_docker_compose.rst:131
+msgid ""
+"Both pieces are required because they cover different code paths. "
+"``pip.conf`` feeds Xinference's pip-config inheritance, which passes the "
+"private index explicitly to the per-model virtual-env installer; the "
+"``UV_*`` variables in ``offline.env`` cover ``uv`` invocations that do "
+"not carry index flags (such as the dependency-resolution dry-run). "
+"Removing either half breaks the offline install chain."
+msgstr ""
+"两部分配置都是必需的，因为它们覆盖不同的代码路径：``pip.conf`` 供 "
+"Xinference 的 pip 配置继承机制读取，把私有源显式传给每个模型虚拟环境的"
+"安装器；``offline.env`` 中的 ``UV_*`` 变量则覆盖不带源参数的 ``uv`` 调用"
+"（例如依赖解析的 dry-run）。缺少任何一半都会破坏离线安装链路。"
+
+#: ../../source/getting_started/using_docker_compose.rst:138
+msgid "Step 3: Start with the offline profile"
+msgstr "第三步：以离线 profile 启动"
+
+#: ../../source/getting_started/using_docker_compose.rst:143
+msgid ""
+"Or set ``COMPOSE_PROFILES=offline`` in ``.env`` to omit the ``--profile``"
+" flag. Combine with the CPU override if needed:"
+msgstr ""
+"也可以在 ``.env`` 中设置 ``COMPOSE_PROFILES=offline`` 以省略 ``--profile`"
+"` 参数。如有需要可与 CPU override 组合使用："
+
+#: ../../source/getting_started/using_docker_compose.rst:150
+msgid ""
+"The private index is also published on the host (default port ``8080``), "
+"so other machines on the same network can reuse it with ``pip install -i "
+"http://<host>:8080/simple ...``."
+msgstr ""
+"私有源同时发布在主机上（默认端口 ``8080``），同一网络内的其他机器可通过 `"
+"`pip install -i http://<host>:8080/simple ...`` 复用它。"
+
+#: ../../source/getting_started/using_docker_compose.rst:155
+msgid ""
+"When launching models with the **vLLM** or **SGLang** engines, Xinference"
+" by default resolves some dependencies from hardcoded public indexes (``"
+"wheels.vllm.ai``, ``download.pytorch.org``). The offline ``pip.conf`` "
+"above overrides them with the private index, which means those wheels "
+"must be present in ``./wheels`` — mirror the required ``vllm`` / ``torch`"
+"` CUDA wheels when preparing Step 1. Alternatively, set ``XINFERENCE_"
+"ENABLE_VIRTUAL_ENV=0`` in ``offline.env`` to skip runtime installs "
+"entirely and rely on the packages baked into the image."
+msgstr ""
+"使用 **vLLM** 或 **SGLang** 引擎启动模型时，Xinference 默认会从硬编码的"
+"公网源（``wheels.vllm.ai``、``download.pytorch.org``）解析部分依赖。上面"
+"的离线 ``pip.conf`` 会用私有源覆盖它们，这意味着相应的 wheel 必须存在于 `"
+"`./wheels`` 中——在第一步准备时请一并镜像所需的 ``vllm`` / ``torch`` CUDA "
+"wheel。或者，在 ``offline.env`` 中设置 ``XINFERENCE_ENABLE_VIRTUAL_ENV=0`"
+"` 完全跳过运行时安装，仅依赖镜像内置的包。"
+
+#: ../../source/getting_started/using_docker_compose.rst:164
+msgid "Offline model weights"
+msgstr "离线模型权重"
+
+#: ../../source/getting_started/using_docker_compose.rst:165
+msgid ""
+"The offline configuration sets ``HF_HUB_OFFLINE=1`` and "
+"``TRANSFORMERS_OFFLINE=1``, so model weights are read from the local "
+"cache only. Populate the cache before going offline, either by pointing "
+"the cache variables in ``.env`` at host directories that already contain "
+"the models, or by launching each model once on a connected host and "
+"copying the volumes. Models can also be loaded from arbitrary local paths"
+" by registering custom models or passing ``--model-path``."
+msgstr ""
+"离线配置设置了 ``HF_HUB_OFFLINE=1`` 和 ``TRANSFORMERS_OFFLINE=1``，模型"
+"权重只会从本地缓存读取。请在离线前准备好缓存：既可以把 ``.env`` 中的缓存"
+"变量指向已包含模型的主机目录，也可以在联网主机上把每个模型启动一次后拷贝"
+"数据卷。此外，也可以通过注册自定义模型或传入 ``--model-path`` 从任意本地"
+"路径加载模型。"
+
+#: ../../source/getting_started/using_docker_compose.rst:172
+msgid "Smoke test"
+msgstr "冒烟验证"
+
+#: ../../source/getting_started/using_docker_compose.rst:182
+msgid ""
+"Then launch a model and watch ``docker compose logs -f xinference`` — "
+"package installation logs should reference ``http://xinference-pypiserver"
+":8080/simple``."
+msgstr ""
+"然后启动一个模型并观察 ``docker compose logs -f xinference``——依赖安装"
+"日志中应出现 ``http://xinference-pypiserver:8080/simple``。"
+
