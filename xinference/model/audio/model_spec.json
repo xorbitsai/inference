@@ -902,6 +902,24 @@
       "text2audio_voice_cloning"
     ],
     "multilingual": true,
+    "virtualenv": {
+      "packages": [
+        "torchdiffeq",
+        "x_transformers>=1.31.14",
+        "pypinyin",
+        "tomli",
+        "vocos",
+        "librosa",
+        "jieba",
+        "pydub",
+        "soundfile",
+        "cached_path",
+        "transformers",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    },
     "model_src": {
       "huggingface": {
         "model_id": "SWivid/F5-TTS",
@@ -912,7 +930,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387087,
+    "updated_at": 1783912367,
     "featured": true
   },
   {
