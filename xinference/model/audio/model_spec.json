@@ -728,6 +728,26 @@
       "text2audio_voice_cloning"
     ],
     "multilingual": true,
+    "virtualenv": {
+      "packages": [
+        "librosa",
+        "tiktoken",
+        "lightning>=2.0.0",
+        "hydra-core>=1.3.2",
+        "inflect",
+        "conformer",
+        "diffusers==0.29.0",
+        "gdown",
+        "pyarrow",
+        "HyperPyYAML",
+        "onnxruntime>=1.16.0",
+        "pyworld>=0.3.4",
+        "wetext==0.0.9",
+        "transformers==4.51.3",
+        "#system_numpy#",
+        "#system_torch#"
+      ]
+    },
     "model_src": {
       "huggingface": {
         "model_id": "FunAudioLLM/CosyVoice-300M",
@@ -738,7 +758,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387078,
+    "updated_at": 1783912357,
     "featured": false
   },
   {
