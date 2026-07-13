@@ -1318,7 +1318,7 @@ class WorkerActor(xo.StatelessActor):
             tmp_path = filepath + ".tmp"
             with open(tmp_path, "w") as f:
                 json.dump(data, f, ensure_ascii=False)
-            os.rename(tmp_path, filepath)
+            os.replace(tmp_path, filepath)
             logger.debug(
                 "Persisted launch_args for %d models to %s", len(data), filepath
             )
@@ -1341,7 +1341,7 @@ class WorkerActor(xo.StatelessActor):
                 tmp_path = filepath + ".tmp"
                 with open(tmp_path, "w") as f:
                     json.dump(data, f, ensure_ascii=False)
-                os.rename(tmp_path, filepath)
+                os.replace(tmp_path, filepath)
         except Exception:
             logger.warning("Failed to update persisted launch_args", exc_info=True)
 
