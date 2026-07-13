@@ -209,6 +209,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         from ..model.llm.sglang.core import SGLANGModel
         from ..model.llm.transformers.core import PytorchModel as LLMPytorchModel
         from ..model.llm.vllm.core import VLLMModel as LLMVLLMModel
+        from ..model.rerank.core import RerankModel
 
         if hasattr(self._model, "stop") and callable(self._model.stop):
             await asyncio.to_thread(self._model.stop)
@@ -223,10 +224,21 @@ class ModelActor(xo.StatelessActor, CancelMixin):
                         f"Destroy transfer actor failed, address: {self.address}, error: {e}"
                     )
 
+        # Free GPU memory on teardown for pytorch-backed models. Pytorch
+        # embedding/rerank models are included here: they hold CUDA tensors
+        # but define no stop()/close(), so without an explicit del +
+        # empty_cache their VRAM is not released until the subpool process
+        # exits. That leak leaves the GPU busy and can crash the next model's
+        # subpool during CUDA init on relaunch (see issue #5156). The pytorch
+        # format guard keeps the torch-free llama.cpp embedding/rerank paths
+        # out of the torch-dependent branch below.
         if (
             isinstance(self._model, (LLMPytorchModel, LLMVLLMModel, SGLANGModel))
             and self._model.model_spec.model_format == "pytorch"
-        ) or isinstance(self._model, EmbeddingModel):
+        ) or (
+            isinstance(self._model, (EmbeddingModel, RerankModel))
+            and self._model._model_spec.model_format == "pytorch"
+        ):
             try:
                 import gc
 
