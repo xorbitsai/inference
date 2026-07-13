@@ -13,6 +13,15 @@
     "default_generate_config": {
       "guidance_scale": 6
     },
+    "virtualenv": {
+      "packages": [
+        "diffusers>=0.33.0",
+        "ftfy",
+        "imageio-ffmpeg",
+        "imageio",
+        "#system_numpy#"
+      ]
+    },
     "model_src": {
       "huggingface": {
         "model_id": "THUDM/CogVideoX-2b",
@@ -23,7 +32,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766385300,
+    "updated_at": 1783911354,
     "featured": false
   },
   {
