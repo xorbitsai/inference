@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CircleAlert,
   Copy,
@@ -200,6 +200,7 @@ export default function AuditCenter() {
   const [draftFilters, setDraftFilters] = useState(defaultTextFilters);
   const [pageFrom, setPageFrom] = useState(0);
   const [selectedRecord, setSelectedRecord] = useState<AuditRecord | null>(null);
+  const requestSeqRef = useRef(0);
 
   const queryParams = useMemo(() => {
     const params = new URLSearchParams();
@@ -220,19 +221,26 @@ export default function AuditCenter() {
   }, [filters, pageFrom, timeRange]);
 
   const fetchAuditRecords = useCallback(async () => {
+    const seq = ++requestSeqRef.current;
     setLoading(true);
     try {
       const data = await request.get<AuditSearchResponse>(
-        `/v1/audit/search?${queryParams.toString()}`
+        '/v1/audit/search?' + queryParams.toString()
       );
 
-      setRecords(Array.isArray(data.hits) ? data.hits : []);
-      setTotal(data.total || 0);
+      if (seq === requestSeqRef.current) {
+        setRecords(Array.isArray(data.hits) ? data.hits : []);
+        setTotal(data.total || 0);
+      }
     } catch {
-      setRecords([]);
-      setTotal(0);
+      if (seq === requestSeqRef.current) {
+        setRecords([]);
+        setTotal(0);
+      }
     } finally {
-      setLoading(false);
+      if (seq === requestSeqRef.current) {
+        setLoading(false);
+      }
     }
   }, [queryParams]);
 
