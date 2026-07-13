@@ -297,12 +297,18 @@
     ],
     "multilingual": true,
     "engine": "mlx",
+    "virtualenv": {
+      "packages": [
+        "mlx-whisper",
+        "#system_numpy#"
+      ]
+    },
     "model_src": {
       "huggingface": {
         "model_id": "mlx-community/whisper-tiny"
       }
     },
-    "updated_at": 1766387051,
+    "updated_at": 1783912323,
     "featured": false
   },
   {
