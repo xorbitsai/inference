@@ -74,6 +74,15 @@
       "torch_dtype": "float16"
     },
     "default_generate_config": {},
+    "virtualenv": {
+      "packages": [
+        "diffusers>=0.33.0",
+        "ftfy",
+        "imageio-ffmpeg",
+        "imageio",
+        "#system_numpy#"
+      ]
+    },
     "model_src": {
       "huggingface": {
         "model_id": "hunyuanvideo-community/HunyuanVideo",
@@ -118,7 +127,7 @@
         "gguf_model_file_name_template": "hunyuan-video-t2v-720p-{quantization}.gguf"
       }
     },
-    "updated_at": 1768188075,
+    "updated_at": 1783911359,
     "featured": false
   },
   {
