@@ -7,13 +7,21 @@
       "audio2text"
     ],
     "multilingual": true,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    },
     "model_src": {
       "huggingface": {
         "model_id": "openai/whisper-tiny",
         "model_revision": "167c219b21f11ef214220b8fdb7536b8a88c2475"
       }
     },
-    "updated_at": 1766386952,
+    "updated_at": 1783912296,
     "featured": false
   },
   {
