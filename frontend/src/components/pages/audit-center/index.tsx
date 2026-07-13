@@ -483,7 +483,7 @@ export default function AuditCenter() {
               ) : (
                 records.map((record, index) => (
                   <TableRow
-                    key={`${record['@timestamp'] || index}-${record.endpoint || ''}`}
+                    key={(record['@timestamp'] || '') + '-' + (record.endpoint || '') + '-' + index}
                     className="cursor-pointer"
                     onClick={() => setSelectedRecord(record)}
                   >
