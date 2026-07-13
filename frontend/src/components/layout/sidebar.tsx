@@ -258,7 +258,7 @@ export function Sidebar() {
             name: t('menu.auditCenter'),
             Icon: FileSearch,
             Extra: ChevronRight,
-            show: isAdmin,
+            show: Boolean(clusterUIConfig?.auth_advanced) && isAdmin,
           },
         ],
       },
