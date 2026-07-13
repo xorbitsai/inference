@@ -1157,13 +1157,40 @@
     ],
     "multilingual": false,
     "language": "ZH",
+    "virtualenv": {
+      "packages": [
+        "cached_path",
+        "unidic-lite",
+        "cn2an",
+        "mecab-python3",
+        "num2words",
+        "pykakasi",
+        "fugashi",
+        "g2p_en",
+        "anyascii",
+        "gruut[de,es,fr]",
+        "g2pkk",
+        "jamo",
+        "jieba",
+        "pypinyin",
+        "nltk",
+        "inflect",
+        "six",
+        "librosa",
+        "soundfile",
+        "transformers",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    },
     "model_src": {
       "huggingface": {
         "model_id": "myshell-ai/MeloTTS-Chinese",
         "model_revision": "af5d207a364ea4208c6f589c89f57f88414bdd16"
       }
     },
-    "updated_at": 1766387097,
+    "updated_at": 1783912382,
     "featured": false
   },
   {
