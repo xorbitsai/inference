@@ -544,6 +544,14 @@
     "default_transcription_config": {
       "batch_size_s": 300
     },
+    "virtualenv": {
+      "packages": [
+        "funasr==1.2.7",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    },
     "model_src": {
       "huggingface": {
         "model_id": "funasr/paraformer-zh",
@@ -554,7 +562,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387065,
+    "updated_at": 1783912345,
     "featured": false
   },
   {
