@@ -638,6 +638,14 @@
     "default_transcription_config": {
       "batch_size_s": 300
     },
+    "virtualenv": {
+      "packages": [
+        "funasr==1.2.7",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    },
     "model_src": {
       "huggingface": {
         "model_id": "JunHowie/speech_paraformer-large-vad-punc-spk_asr_nat-zh-cn",
@@ -648,7 +656,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387072,
+    "updated_at": 1783912351,
     "featured": false
   },
   {
