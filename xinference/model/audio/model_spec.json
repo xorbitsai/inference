@@ -1323,6 +1323,15 @@
       "text2audio_zero_shot"
     ],
     "multilingual": false,
+    "virtualenv": {
+      "packages": [
+        "kokoro>=0.7.15",
+        "misaki[en,zh]>=0.7.15",
+        "soundfile",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    },
     "model_src": {
       "huggingface": {
         "model_id": "hexgrad/Kokoro-82M-v1.1-zh"
@@ -1332,7 +1341,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1775931819,
+    "updated_at": 1783912392,
     "featured": false
   },
   {
