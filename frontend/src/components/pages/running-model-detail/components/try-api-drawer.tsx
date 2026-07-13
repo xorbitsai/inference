@@ -18,7 +18,7 @@ import {
   type CodeLanguage,
 } from '@/constants/running';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
-import { copyText, getApiUrl } from '@/lib/utils';
+import { copyToClipboard, getApiUrl } from '@/lib/utils';
 
 import { CAPABILITY_CONFIGS } from '../capability-config';
 
@@ -539,7 +539,7 @@ export function TryApiDrawer({
                       variant="ghost"
                       size="icon"
                       className="absolute right-3 top-3 z-10 size-8 text-muted-foreground"
-                      onClick={() => copyText(code)}
+                      onClick={() => copyToClipboard(code)}
                     >
                       <Copy className="size-4" />
                     </Button>

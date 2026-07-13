@@ -13,7 +13,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { useI18n } from '@/contexts/i18n-context';
-import { copyText } from '@/lib/utils';
+import { copyToClipboard } from '@/lib/utils';
 import type { FormInstance } from '@/types/form';
 import { transformFormToFetch, generateCommandLineStatement, transformFetchToForm, parseXinferenceCommand } from '../utils';
 
@@ -30,7 +30,7 @@ const CommandLine: FC<CommandLineProps> = ({ canCopyCommandLine, form }) => {
 
     const params = transformFormToFetch(form.getFieldsValue());
 
-    copyText(generateCommandLineStatement(params));
+    copyToClipboard(generateCommandLineStatement(params));
   };
   const onOpenChange = (open: boolean)=>{
     if(!open) setCommandLineParsingValue('');

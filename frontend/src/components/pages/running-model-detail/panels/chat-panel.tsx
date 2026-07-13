@@ -37,7 +37,7 @@ import {
   PostEventStreamFetcherOptions,
   EventStreamController,
 } from '@/lib/eventStream';
-import { cn, sleep, copyText } from '@/lib/utils';
+import { cn, sleep, copyToClipboard } from '@/lib/utils';
 import { isNumber } from '@/lib/is';
 import type { RunningModelDetail, ChatStreamResult, ChatChoicesMessage } from '@/types/services';
 import type { FormValues } from '@/types/form';
@@ -140,7 +140,7 @@ const ChatItem: FC<{ data: ChatMessage }> = ({ data }) => {
         <div>{!!(usage?.total_tokens && usage.total_tokens > 0) && tokens}</div>
         <Copy
           className="size-4 cursor-pointer hover:text-foreground"
-          onClick={() => copyText(content)}
+          onClick={() => copyToClipboard(content)}
         />
       </div>
     );

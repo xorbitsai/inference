@@ -9,9 +9,12 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function getApiUrl(): string {
+  return 'http://10.1.0.45:4466';
   if (typeof window === 'undefined') {
     return (
-      process.env.XINFERENCE_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:9997'
+      process.env.XINFERENCE_API_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      'http://127.0.0.1:9997'
     ).replace(/\/+$/, '');
   }
   return (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
@@ -106,18 +109,31 @@ export const transformObjToFormList = (obj: Record<string, any> = {}) => {
     value: String(value),
   }));
 };
-export const copyText = async (value: string) => {
+export const copyToClipboard = (value: string) => {
   if (!value) return;
 
-  if (!navigator.clipboard) {
-    toast.error('Clipboard API not supported');
-    return;
-  }
-  try {
-    await navigator.clipboard.writeText(value);
-    toast.success('Copy successful!');
-  } catch {
-    toast.error('Failed to copy');
+  if (navigator.clipboard) {
+    navigator.clipboard
+      .writeText(value)
+      .then(() => {
+        toast.success('Copy successful!');
+      })
+      .catch(() => {
+        toast.error('Failed to copy');
+      });
+  } else {
+    const textarea = document.createElement('textarea');
+    textarea.value = value;
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand('copy');
+      toast.success('Copy successful!');
+    } catch (err) {
+      toast.error('Failed to copy');
+    } finally {
+      document.body.removeChild(textarea);
+    }
   }
 };
 

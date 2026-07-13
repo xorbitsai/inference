@@ -24,7 +24,7 @@ import { Switch } from '@/components/ui/switch';
 import { useI18n } from '@/contexts/i18n-context';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
 import request from '@/lib/request';
-import { cn } from '@/lib/utils';
+import { cn, copyToClipboard } from '@/lib/utils';
 import { ApiKeyDialog } from './api-key-dialog';
 import {
   getBannedCount,
@@ -193,17 +193,6 @@ export default function ApiKeyManagement() {
     } finally {
       setBannedLoading(false);
     }
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard
-      .writeText(text)
-      .then(() => {
-        toast.success(t('common.copySuccess'));
-      })
-      .catch((err) => {
-        console.error('Failed to copy text: ', err);
-      });
   };
 
   const formatDate = (iso: string | null) => {

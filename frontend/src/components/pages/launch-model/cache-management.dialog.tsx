@@ -22,7 +22,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useI18n } from '@/contexts/i18n-context';
-import { copyText } from '@/lib/utils';
+import { copyToClipboard } from '@/lib/utils';
 import type { ModelCachedItem } from '@/types/services';
 import type { CatalogModel } from './types';
 
@@ -123,7 +123,7 @@ const CacheManagementDialog: FC<CacheManagementDialogProps> = ({
                         <span className="min-w-0 flex-1 truncate">{item?.real_path}</span>
                         <Copy
                           className="size-4 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-                          onClick={() => copyText(item?.real_path)}
+                          onClick={() => copyToClipboard(item?.real_path)}
                         />
                       </div>
                     </TableCell>
@@ -132,7 +132,7 @@ const CacheManagementDialog: FC<CacheManagementDialogProps> = ({
                         <span className="min-w-0 flex-1 truncate">{item?.path}</span>
                         <Copy
                           className="size-4 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-                          onClick={() => copyText(item?.path)}
+                          onClick={() => copyToClipboard(item?.path)}
                         />
                       </div>
                     </TableCell>

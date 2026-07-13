@@ -8,7 +8,7 @@ import { Form } from '@/components/ui/form';
 import { ModelAbility, ModelType } from '@/constants';
 import { createForm } from '@/hooks/use-form';
 import request from '@/lib/request';
-import { cn, copyText, sleep } from '@/lib/utils';
+import { cn, copyToClipboard, sleep } from '@/lib/utils';
 import { isNumber } from '@/lib/is';
 import type {
   RunningModelDetail,
@@ -219,7 +219,7 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
                 variant="ghost"
                 size="icon"
                 className="size-8 rounded-full text-muted-foreground"
-                onClick={() => copyText(copyResultValue)}
+                onClick={() => copyToClipboard(copyResultValue)}
               >
                 <Copy className="size-4" />
               </Button>

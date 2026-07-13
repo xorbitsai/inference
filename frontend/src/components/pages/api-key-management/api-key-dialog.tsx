@@ -23,7 +23,7 @@ import { DateTimePicker } from '@/components/ui/date-time-picker';
 import { useI18n } from '@/contexts/i18n-context';
 import { useForm, useWatch } from '@/hooks/use-form';
 import request from '@/lib/request';
-import { copyText } from '@/lib/utils';
+import { copyToClipboard } from '@/lib/utils';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
 import {
   MODEL_TYPE_OPTIONS,
@@ -349,7 +349,7 @@ export function ApiKeyDialog({ open, apiKey, users, onOpenChange, onSuccess }: A
                 variant="ghost"
                 size="icon"
                 className="size-8"
-                onClick={() => copyText(newKeyValue)}
+                onClick={() => copyToClipboard(newKeyValue)}
               >
                 <Copy className="size-4" />
               </Button>
