@@ -42,7 +42,7 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers>=0.33.0 ",
+        "diffusers>=0.33.0",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
@@ -59,7 +59,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1783911922,
+    "updated_at": 1783911954,
     "featured": false
   },
   {
