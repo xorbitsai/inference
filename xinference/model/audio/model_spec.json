@@ -242,13 +242,21 @@
       "audio2text"
     ],
     "multilingual": false,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    },
     "model_src": {
       "huggingface": {
         "model_id": "BELLE-2/Belle-whisper-large-v2-zh",
         "model_revision": "ec5bd5d78598545b7585814edde86dac2002b5b9"
       }
     },
-    "updated_at": 1766387048,
+    "updated_at": 1783912319,
     "featured": false
   },
   {
