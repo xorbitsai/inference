@@ -1027,13 +1027,40 @@
     ],
     "multilingual": false,
     "language": "EN",
+    "virtualenv": {
+      "packages": [
+        "cached_path",
+        "unidic-lite",
+        "cn2an",
+        "mecab-python3",
+        "num2words",
+        "pykakasi",
+        "fugashi",
+        "g2p_en",
+        "anyascii",
+        "gruut[de,es,fr]",
+        "g2pkk",
+        "jamo",
+        "jieba",
+        "pypinyin",
+        "nltk",
+        "inflect",
+        "six",
+        "librosa",
+        "soundfile",
+        "transformers",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    },
     "model_src": {
       "huggingface": {
         "model_id": "myshell-ai/MeloTTS-English-v3",
         "model_revision": "f7c4a35392c0e9be24a755f1edb4c3f63040f759"
       }
     },
-    "updated_at": 1766387093,
+    "updated_at": 1783912375,
     "featured": false
   },
   {
