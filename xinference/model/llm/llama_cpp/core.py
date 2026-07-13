@@ -247,11 +247,16 @@ class XllamaCppModel(LLM, ChatModelMixin):
         multimodal_projector = self._llamacpp_model_config.get(
             "multimodal_projector", ""
         )
-        mmproj = (
-            os.path.join(self.model_path, multimodal_projector)
-            if multimodal_projector
-            else ""
-        )
+        if not multimodal_projector:
+            mmproj = ""
+        elif os.path.isabs(multimodal_projector):
+            mmproj = multimodal_projector
+        else:
+            # ``model_path`` resolves to the model *file*; the projector lives
+            # alongside it, so resolve it against the model's directory. Joining
+            # onto ``self.model_path`` directly would yield ".../model.gguf/mmproj"
+            # (a nonexistent path) whenever --model-path points at a single file.
+            mmproj = os.path.join(os.path.dirname(model_path), multimodal_projector)
 
         try:
             params = CommonParams()
