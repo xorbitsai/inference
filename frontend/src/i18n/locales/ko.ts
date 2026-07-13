@@ -562,14 +562,18 @@ const ko = {
     authTypeOptions: {
       api_key: 'API Key',
       jwt: 'JWT',
+      none: '없음',
     },
     statusOptions: {
       success: '성공',
       error: '오류',
       denied: '거부',
+      login_failed: '로그인 실패',
       model_not_found: '모델 없음',
       ip_banned: 'IP 차단',
       key_banned: 'Key 차단',
+      key_expired: 'Key 만료',
+      key_disabled: 'Key 비활성',
       invalid_key: '잘못된 Key',
       invalid_token: '잘못된 Token',
       insufficient_scope: '권한 부족',

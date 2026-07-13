@@ -569,14 +569,18 @@ const en = {
     authTypeOptions: {
       api_key: 'API Key',
       jwt: 'JWT',
+      none: 'None',
     },
     statusOptions: {
       success: 'Success',
       error: 'Error',
       denied: 'Denied',
+      login_failed: 'Login Failed',
       model_not_found: 'Model Not Found',
       ip_banned: 'IP Banned',
       key_banned: 'Key Banned',
+      key_expired: 'Key Expired',
+      key_disabled: 'Key Disabled',
       invalid_key: 'Invalid Key',
       invalid_token: 'Invalid Token',
       insufficient_scope: 'Insufficient Scope',

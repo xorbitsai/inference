@@ -116,14 +116,17 @@ const filterParamMap: Record<AuditFilterKey, string> = {
 };
 
 const categoryValues = ['inference', 'admin', 'auth'];
-const authTypeValues = ['api_key', 'jwt'];
+const authTypeValues = ['api_key', 'jwt', 'none'];
 const statusValues = [
   'success',
   'error',
   'denied',
+  'login_failed',
   'model_not_found',
   'ip_banned',
   'key_banned',
+  'key_expired',
+  'key_disabled',
   'invalid_key',
   'invalid_token',
   'insufficient_scope',
@@ -413,7 +416,7 @@ export default function AuditCenter() {
               placeholder={t('auditCenter.clientIpPlaceholder')}
               onChange={(value) => setTextFilter('clientIp', value)}
             />
-             <FilterSelect
+            <FilterSelect
               label={t('auditCenter.authType')}
               value={filters.authType}
               values={authTypeValues}

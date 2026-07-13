@@ -568,14 +568,18 @@ const ja = {
     authTypeOptions: {
       api_key: 'API キー',
       jwt: 'JWT',
+      none: 'なし',
     },
     statusOptions: {
       success: '成功',
       error: 'エラー',
       denied: '拒否',
+      login_failed: 'ログイン失敗',
       model_not_found: 'モデルなし',
       ip_banned: 'IP ブロック',
       key_banned: 'キー ブロック',
+      key_expired: 'キー期限切れ',
+      key_disabled: 'キー無効',
       invalid_key: '無効なキー',
       invalid_token: '無効なトークン',
       insufficient_scope: '権限不足',

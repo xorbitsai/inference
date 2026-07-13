@@ -563,14 +563,18 @@ const zh = {
     authTypeOptions: {
       api_key: 'API Key',
       jwt: 'JWT',
+      none: '无认证',
     },
     statusOptions: {
       success: '成功',
       error: '错误',
       denied: '拒绝',
+      login_failed: '登录失败',
       model_not_found: '模型不存在',
       ip_banned: 'IP 已封禁',
       key_banned: 'Key 已封禁',
+      key_expired: 'Key 已过期',
+      key_disabled: 'Key 已禁用',
       invalid_key: 'Key 无效',
       invalid_token: 'Token 无效',
       insufficient_scope: '权限不足',
