@@ -66,6 +66,28 @@ class DummyStatusGuard:
         return self.replica_counts[model_uid]
 
 
+class DummySupervisor:
+    def __init__(self, workers):
+        from xinference.core.supervisor import SupervisorActor
+
+        self._worker_address_to_worker = workers
+        self._model_uid_to_replica_info = {}
+        self._replica_model_uid_to_worker = {}
+        self._status_guard_ref = DummyStatusGuard()
+        self._unexpected_down_replicas = {}
+        self._build_replica_info = SupervisorActor._build_replica_info
+        self._choose_worker = SupervisorActor._choose_worker.__get__(self)
+        self._clear_unexpected_down_replicas = (
+            SupervisorActor._clear_unexpected_down_replicas.__get__(self)
+        )
+        self._launch_builtin_sharded_model = (
+            SupervisorActor._launch_builtin_sharded_model.__get__(self)
+        )
+
+    async def terminate_model(self, model_uid: str, suppress_exception: bool = False):
+        return None
+
+
 def test_assign_replica_gpu_single_slot_reused():
     # single gpu_idx with multiple replicas should be invalid
     with pytest.raises(ValueError):
@@ -243,31 +265,6 @@ def test_idle_first_multi_gpu_two_workers():
 
 @pytest.mark.asyncio
 async def test_distributed_launch_avoids_same_worker_for_shards():
-    from xinference.core.supervisor import SupervisorActor
-
-    class DummySupervisor:
-        _build_replica_info = staticmethod(SupervisorActor._build_replica_info)
-        _choose_worker = SupervisorActor._choose_worker
-        _launch_builtin_sharded_model = SupervisorActor._launch_builtin_sharded_model
-        _clear_unexpected_down_replicas = (
-            SupervisorActor._clear_unexpected_down_replicas
-        )
-
-        def __init__(self, workers):
-            self._worker_address_to_worker = workers
-            self._model_uid_to_replica_info = {}
-            self._replica_model_uid_to_worker = {}
-            self._status_guard_ref = DummyStatusGuard()
-            self._unexpected_down_replicas = {}
-
-        def _gen_model_uid(self, model_name: str) -> str:
-            return f"{model_name}-uid"
-
-        async def terminate_model(
-            self, model_uid: str, suppress_exception: bool = False
-        ):
-            return None
-
     launched = []
     worker1 = DummyWorkerRef("w1:1000", model_count=1, launched=launched)
     worker2 = DummyWorkerRef("w2:1000", model_count=0, launched=launched)
@@ -290,6 +287,62 @@ async def test_distributed_launch_avoids_same_worker_for_shards():
 
     assert set(launched) == {"w1:1000", "w2:1000"}
     assert len(launched) == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "worker_ip",
+    ["w1,w2", ["w1,w2"]],
+)
+async def test_distributed_launch_resolves_comma_separated_worker_ips(worker_ip):
+    launched = []
+    worker1 = DummyWorkerRef("w1:1000", model_count=1, launched=launched)
+    worker2 = DummyWorkerRef("w2:1000", model_count=0, launched=launched)
+    supervisor = DummySupervisor({"w1:1000": worker1, "w2:1000": worker2})
+
+    await supervisor._launch_builtin_sharded_model(
+        model_uid="demo-model",
+        model_name="demo",
+        model_size_in_billions=None,
+        model_format=None,
+        quantization=None,
+        model_engine=None,
+        model_type="LLM",
+        n_gpu=1,
+        n_worker=2,
+        worker_ip=worker_ip,
+        wait_ready=True,
+    )
+
+    assert set(launched) == {"w1:1000", "w2:1000"}
+    assert len(launched) == 2
+
+
+@pytest.mark.asyncio
+async def test_distributed_launch_deduplicates_worker_ips():
+    launched = []
+    worker = DummyWorkerRef("w1:1000", model_count=0, launched=launched)
+    supervisor = DummySupervisor({"w1:1000": worker})
+
+    with pytest.raises(
+        ValueError,
+        match="n_worker cannot be larger than the number of available workers",
+    ):
+        await supervisor._launch_builtin_sharded_model(
+            model_uid="demo-model",
+            model_name="demo",
+            model_size_in_billions=None,
+            model_format=None,
+            quantization=None,
+            model_engine=None,
+            model_type="LLM",
+            n_gpu=1,
+            n_worker=2,
+            worker_ip=["w1,w1:1000"],
+            wait_ready=True,
+        )
+
+    assert launched == []
 
 
 @pytest.mark.asyncio

@@ -2101,14 +2101,13 @@ class SupervisorActor(xo.StatelessActor):
             # by ``_choose_worker`` and the ``n_worker`` count reflects real
             # workers. An entry may be a bare IP or an already-qualified
             # ``ip:port`` worker address; both are accepted.
-            if isinstance(worker_ip, list):
-                requested = [
-                    str(item).strip() for item in worker_ip if str(item).strip()
-                ]
-            else:
-                requested = [
-                    item.strip() for item in str(worker_ip).split(",") if item.strip()
-                ]
+            raw_entries = worker_ip if isinstance(worker_ip, list) else [worker_ip]
+            requested = [
+                entry.strip()
+                for item in raw_entries
+                for entry in str(item).split(",")
+                if entry.strip()
+            ]
             ip_to_addresses: Dict[str, List[str]] = {}
             for addr in self._worker_address_to_worker:
                 ip_to_addresses.setdefault(addr.split(":")[0], []).append(addr)
@@ -2123,6 +2122,7 @@ class SupervisorActor(xo.StatelessActor):
                         f"Worker ip address {entry} is not in the cluster."
                     )
                 available_workers.extend(matched)
+            available_workers = list(dict.fromkeys(available_workers))
 
         async def _launch_model():
             # Validation of n_worker, intercept if it is greater than the available workers.
