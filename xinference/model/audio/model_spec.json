@@ -1282,6 +1282,25 @@
       "text2audio_zero_shot"
     ],
     "multilingual": true,
+    "virtualenv": {
+      "packages": [
+        "WeTextProcessing",
+        "langdetect",
+        "pydub",
+        "pyloudnorm",
+        "librosa",
+        "einops",
+        "matplotlib",
+        "six",
+        "pyyaml",
+        "transformers",
+        "numba",
+        "more-itertools",
+        "tiktoken",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    },
     "model_src": {
       "huggingface": {
         "model_id": "ByteDance/MegaTTS3",
@@ -1292,7 +1311,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387103,
+    "updated_at": 1783912390,
     "featured": false
   },
   {
