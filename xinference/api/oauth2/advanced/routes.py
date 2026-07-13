@@ -257,7 +257,11 @@ async def setup_status(request: Request) -> JSONResponse:
     auth: AdvancedAuthService = get_advanced_auth(request)
     needs_setup = auth.needs_setup()
     return JSONResponse(
-        content={"needs_setup": needs_setup, "initialized": not needs_setup}
+        content={
+            "needs_setup": needs_setup,
+            "initialized": not needs_setup,
+            "password_min_length": PASSWORD_MIN_LENGTH,
+        }
     )
 
 

@@ -371,6 +371,7 @@ const zh = {
     tokenLabel: '安装令牌',
     tokenPlaceholder: '粘贴服务器日志中打印的令牌',
     tokenRequired: '请输入安装令牌',
+    passwordTooShort: '密码至少需要 {{min}} 个字符',
     submit: '创建管理员账号',
     createSuccess: '管理员账号创建成功，请使用新账号登录。',
     createFailed: '创建失败，请重试。',

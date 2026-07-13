@@ -489,6 +489,7 @@ const ko = {
     tokenLabel: '설정 토큰',
     tokenPlaceholder: '서버 로그에 출력된 토큰을 붙여넣으세요',
     tokenRequired: '설정 토큰을 입력해주세요',
+    passwordTooShort: '비밀번호는 최소 {{min}}자 이상이어야 합니다',
     submit: '관리자 계정 생성',
     createSuccess: '관리자 계정이 생성되었습니다. 새 계정으로 로그인하세요.',
     createFailed: '생성에 실패했습니다. 다시 시도해주세요.',

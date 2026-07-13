@@ -94,6 +94,40 @@ from .utils import require_model
 logger = logging.getLogger(__name__)
 
 
+def _log_setup_token_notice() -> None:
+    """Log the first-run setup token notice, called while setup is pending.
+
+    Only logs the token itself when it was auto-generated. If the operator
+    set XINFERENCE_AUTH_SETUP_TOKEN explicitly (e.g. from a Kubernetes
+    Secret), it's deliberately being kept out of band, so logging it
+    verbatim would defeat that and let any log reader win the first-admin
+    race; log a generic pointer instead.
+    """
+    if os.environ.get("XINFERENCE_AUTH_SETUP_TOKEN", ""):
+        logger.warning(
+            "\n"
+            + "=" * 60
+            + "\n"
+            + "  FIRST-RUN SETUP REQUIRED\n"
+            + "  Create the initial admin account at POST /v1/admin/setup\n"
+            + "  (or via the web UI's setup page), using the setup token\n"
+            + "  configured via XINFERENCE_AUTH_SETUP_TOKEN.\n"
+            + "=" * 60
+        )
+    else:
+        setup_token = get_or_create_setup_token()
+        logger.warning(
+            "\n"
+            + "=" * 60
+            + "\n"
+            + "  FIRST-RUN SETUP REQUIRED (token shown only until used)\n"
+            + "  Create the initial admin account at POST /v1/admin/setup\n"
+            + "  (or via the web UI's setup page), supplying this token:\n"
+            + f"  Setup token: {setup_token}\n"
+            + "=" * 60
+        )
+
+
 class RESTfulAPI(CancelMixin):
     # Add new class attributes
     _allowed_ip_list: Optional[List[ipaddress.IPv4Network]] = None
@@ -139,17 +173,7 @@ class RESTfulAPI(CancelMixin):
             )
             self._auth_service = self._advanced_auth_service
             if self._advanced_auth_service.needs_setup():
-                setup_token = get_or_create_setup_token()
-                logger.warning(
-                    "\n"
-                    + "=" * 60
-                    + "\n"
-                    + "  FIRST-RUN SETUP REQUIRED (token shown only until used)\n"
-                    + "  Create the initial admin account at POST /v1/admin/setup\n"
-                    + "  (or via the web UI's setup page), supplying this token:\n"
-                    + f"  Setup token: {setup_token}\n"
-                    + "=" * 60
-                )
+                _log_setup_token_notice()
         else:
             self._auth_service = AuthService(auth_config_file)
 

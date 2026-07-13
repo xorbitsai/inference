@@ -35,7 +35,10 @@ from fastapi import APIRouter, FastAPI
 from fastapi.testclient import TestClient
 
 from xinference import constants as xconst
-from xinference.api.oauth2.advanced.auth_service import AdvancedAuthService
+from xinference.api.oauth2.advanced.auth_service import (
+    PASSWORD_MIN_LENGTH,
+    AdvancedAuthService,
+)
 from xinference.api.oauth2.advanced.routes import register_advanced_auth_routes
 
 
@@ -246,7 +249,11 @@ def test_setup_status_reflects_completion(auth_service):
     client = _make_client(auth_service)
 
     before = client.get("/v1/admin/setup/status")
-    assert before.json() == {"needs_setup": True, "initialized": False}
+    assert before.json() == {
+        "needs_setup": True,
+        "initialized": False,
+        "password_min_length": PASSWORD_MIN_LENGTH,
+    }
 
     token = xconst.get_or_create_setup_token()
     client.post(
@@ -259,4 +266,8 @@ def test_setup_status_reflects_completion(auth_service):
     )
 
     after = client.get("/v1/admin/setup/status")
-    assert after.json() == {"needs_setup": False, "initialized": True}
+    assert after.json() == {
+        "needs_setup": False,
+        "initialized": True,
+        "password_min_length": PASSWORD_MIN_LENGTH,
+    }

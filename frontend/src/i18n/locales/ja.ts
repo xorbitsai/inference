@@ -493,6 +493,7 @@ const ja = {
     tokenLabel: 'セットアップトークン',
     tokenPlaceholder: 'サーバーログに表示されたトークンを貼り付けてください',
     tokenRequired: 'セットアップトークンを入力してください',
+    passwordTooShort: 'パスワードは{{min}}文字以上にしてください',
     submit: '管理者アカウントを作成',
     createSuccess: '管理者アカウントが作成されました。新しい認証情報でサインインしてください。',
     createFailed: '作成に失敗しました。もう一度お試しください。',

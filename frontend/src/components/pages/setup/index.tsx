@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -36,6 +36,8 @@ const FEATURES = [
   },
 ];
 
+const DEFAULT_PASSWORD_MIN_LENGTH = 8;
+
 export default function Setup() {
   const router = useRouter();
   const [form] = useForm();
@@ -43,6 +45,24 @@ export default function Setup() {
   const branding = getBrandingFromEnv();
 
   const [loading, setLoading] = useState(false);
+  const [passwordMinLength, setPasswordMinLength] = useState(DEFAULT_PASSWORD_MIN_LENGTH);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(getApiUrl() + '/v1/admin/setup/status')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && typeof data?.password_min_length === 'number') {
+          setPasswordMinLength(data.password_min_length);
+        }
+      })
+      .catch(() => {
+        // Keep the default; the backend will still enforce its own minimum.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const goToLogin = (setupComplete: boolean) => {
     if (setupComplete) {
@@ -160,8 +180,9 @@ export default function Setup() {
               rules={[
                 { required: true, message: t('userManagement.passwordRequired') },
                 {
-                  validator: (val: unknown) => typeof val === 'string' && val.length >= 8,
-                  message: t('userManagement.passwordTooShort'),
+                  validator: (val: unknown) =>
+                    typeof val === 'string' && val.length >= passwordMinLength,
+                  message: t('setup.passwordTooShort', { min: passwordMinLength }),
                 },
               ]}
             >

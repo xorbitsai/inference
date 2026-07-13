@@ -495,6 +495,7 @@ const en = {
     tokenLabel: 'Setup token',
     tokenPlaceholder: 'Paste the token printed in the server log',
     tokenRequired: 'Setup token is required',
+    passwordTooShort: 'Password must be at least {{min}} characters',
     submit: 'Create Admin Account',
     createSuccess: 'Admin account created. Sign in with your new credentials.',
     createFailed: 'Setup failed. Please try again.',
