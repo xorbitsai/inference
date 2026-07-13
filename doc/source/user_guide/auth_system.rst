@@ -232,24 +232,40 @@ two unauthenticated endpoints handle first-run setup:
 * ``GET /v1/admin/setup/status``: returns ``{"needs_setup": true, "initialized": false}``
   while no account exists yet.
 * ``POST /v1/admin/setup``: creates the first admin account (with all
-  permissions) given a ``username`` and ``password``.
+  permissions) given a ``username``, ``password``, and ``setup_token``.
+
+``/v1/admin/setup`` is reachable without authentication (there is no
+account to authenticate with yet), so it requires a one-time **setup
+token** to prove the caller can read the deployment's own log or
+environment, not just reach the endpoint over the network. On startup,
+Xinference prints this token once:
+
+.. code-block::
+
+    ============================================================
+      FIRST-RUN SETUP REQUIRED (token shown only until used)
+      Create the initial admin account at POST /v1/admin/setup
+      (or via the web UI's setup page), supplying this token:
+      Setup token: <randomly generated>
+    ============================================================
+
+Set ``XINFERENCE_AUTH_SETUP_TOKEN`` explicitly (e.g. for containers or
+Kubernetes, where the startup log may not be conveniently accessible)
+to use your own token instead of the generated one.
 
 .. code-block:: bash
 
     curl -X POST "<endpoint>/v1/admin/setup" \
       -H "Content-Type: application/json" \
-      -d '{"username": "admin", "password": "choose-a-strong-password"}'
+      -d '{"username": "admin", "password": "choose-a-strong-password", "setup_token": "<token from the log>"}'
 
 The web UI drives this automatically: opening it for the first time
-redirects to a setup page that walks you through creating the admin
-account, then to the login page.
+redirects to a setup page that asks for the token together with the new
+admin's username and password, then to the login page.
 
-Both endpoints stay reachable without authentication, but ``/v1/admin/setup``
-permanently refuses to create a second account once one exists — the first
-successful call wins. Because whoever reaches this endpoint first becomes
-the full-privilege administrator, **complete setup immediately after
-deploying or upgrading**, before exposing the instance's port to any
-untrusted network.
+``/v1/admin/setup`` permanently refuses to create a second account once
+one exists — the first successful call wins — and the setup token is
+deleted once that first account is created, so it cannot be reused.
 
 Secrets and storage locations
 ===============================
@@ -274,6 +290,9 @@ generates and persists them automatically on first run under
    * - User/API key database
      - ``XINFERENCE_AUTH_DB_PATH``
      - ``<XINFERENCE_HOME>/auth/auth.db``
+   * - First-run setup token
+     - ``XINFERENCE_AUTH_SETUP_TOKEN``
+     - ``<XINFERENCE_HOME>/auth/setup_token`` (auto-generated, deleted after use)
 
 Auto-generated secrets are written once and reused on subsequent restarts,
 so existing JWTs and encrypted API keys keep working across restarts. In a

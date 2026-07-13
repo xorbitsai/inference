@@ -60,6 +60,7 @@ from ..constants import (
     XINFERENCE_LAUNCH_HISTORY_DB_PATH,
     XINFERENCE_MONITOR_CONFIG_DB_PATH,
     XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
+    get_or_create_setup_token,
 )
 from ..core.event import Event, EventCollectorActor, EventType
 from ..core.exceptions import ModelNotReadyError
@@ -137,6 +138,18 @@ class RESTfulAPI(CancelMixin):
                 encryption_key=XINFERENCE_AUTH_ENCRYPTION_KEY,
             )
             self._auth_service = self._advanced_auth_service
+            if self._advanced_auth_service.needs_setup():
+                setup_token = get_or_create_setup_token()
+                logger.warning(
+                    "\n"
+                    + "=" * 60
+                    + "\n"
+                    + "  FIRST-RUN SETUP REQUIRED (token shown only until used)\n"
+                    + "  Create the initial admin account at POST /v1/admin/setup\n"
+                    + "  (or via the web UI's setup page), supplying this token:\n"
+                    + f"  Setup token: {setup_token}\n"
+                    + "=" * 60
+                )
         else:
             self._auth_service = AuthService(auth_config_file)
 

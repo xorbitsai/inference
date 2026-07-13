@@ -61,16 +61,22 @@ export default function Setup() {
       const res = await fetch(getApiUrl() + '/v1/admin/setup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: values.username, password: values.password }),
+        body: JSON.stringify({
+          username: values.username,
+          password: values.password,
+          setup_token: values.setup_token,
+        }),
       });
       if (!res.ok) {
-        if (res.status === 403) {
+        const data = await res.json().catch(() => null);
+        if (res.status === 403 && data?.detail?.includes('already completed')) {
           // Someone else completed setup first; send this browser to the
           // normal login page instead of leaving it stuck here.
           goToLogin(false);
           return;
         }
-        const data = await res.json().catch(() => null);
+        // Wrong/missing setup token, or any other failure: show the
+        // specific message and let the user retry on this page.
         toast.error(data?.detail || t('setup.createFailed'));
         return;
       }
@@ -133,8 +139,17 @@ export default function Setup() {
           <div className="space-y-2">
             <h2 className="text-3xl font-bold text-primary">{t('setup.title')}</h2>
             <p className="text-sm text-muted-foreground">{t('setup.description')}</p>
+            <p className="text-sm text-muted-foreground">{t('setup.tokenHint')}</p>
           </div>
           <Form onFinish={onSubmit} form={form} initialValues={{ username: 'admin' }}>
+            <FormField
+              name="setup_token"
+              label={t('setup.tokenLabel')}
+              placeholder={t('setup.tokenPlaceholder')}
+              rules={[{ required: true, message: t('setup.tokenRequired') }]}
+            >
+              <Input />
+            </FormField>
             <FormField name="username" label={t('login.username')} rules={[{ required: true }]}>
               <Input />
             </FormField>

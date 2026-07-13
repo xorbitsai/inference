@@ -194,6 +194,42 @@ XINFERENCE_AUTH_ENCRYPTION_KEY = (
 XINFERENCE_AUTH_DB_PATH = os.environ.get(
     "XINFERENCE_AUTH_DB_PATH", os.path.join(XINFERENCE_HOME, "auth", "auth.db")
 )
+
+# Bootstrap credential gating first-run admin creation via POST
+# /v1/admin/setup: without it, whichever network client reaches that
+# public endpoint first would become the full-privilege administrator.
+# Set explicitly for containers/Kubernetes; otherwise a random token is
+# generated on demand (see get_or_create_setup_token) and must be read
+# from the server's startup log or the persisted file.
+XINFERENCE_AUTH_SETUP_TOKEN_PATH = os.path.join(XINFERENCE_AUTH_DIR, "setup_token")
+
+
+def get_or_create_setup_token() -> str:
+    """Return the one-time setup token, generating and persisting it if needed.
+
+    Mirrors _get_or_create_persisted_secret's race-safe create/read/stale
+    recovery behavior, but is called lazily (only while setup is still
+    needed) rather than eagerly at import time, since the token should stop
+    existing once the first admin account is created.
+    """
+    env_val = os.environ.get("XINFERENCE_AUTH_SETUP_TOKEN", "")
+    if env_val:
+        return env_val
+    return _get_or_create_persisted_secret("XINFERENCE_AUTH_SETUP_TOKEN", "setup_token")
+
+
+def delete_setup_token() -> None:
+    """Remove the persisted setup token file after the first admin is created.
+
+    Safe to call even if the token came from the environment variable
+    (nothing to delete) or was never generated (file doesn't exist).
+    """
+    try:
+        os.remove(XINFERENCE_AUTH_SETUP_TOKEN_PATH)
+    except OSError:
+        pass
+
+
 XINFERENCE_LAUNCH_HISTORY_DB_PATH = os.environ.get(
     "XINFERENCE_LAUNCH_HISTORY_DB_PATH",
     os.path.join(XINFERENCE_HOME, "launch_history.db"),
