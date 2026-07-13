@@ -858,6 +858,27 @@
       "text2audio_voice_cloning"
     ],
     "multilingual": true,
+    "virtualenv": {
+      "packages": [
+        "loguru",
+        "natsort",
+        "loralib",
+        "ormsgpack",
+        "cachetools",
+        "silero-vad",
+        "vector-quantize-pytorch>=1.14.24,<=1.17.3",
+        "einops",
+        "lightning>=2.0.0",
+        "hydra-core>=1.3.2",
+        "omegaconf~=2.3.0",
+        "matplotlib",
+        "soundfile",
+        "transformers",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    },
     "model_src": {
       "huggingface": {
         "model_id": "fishaudio/fish-speech-1.5",
@@ -868,7 +889,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387086,
+    "updated_at": 1783912365,
     "featured": true
   },
   {
