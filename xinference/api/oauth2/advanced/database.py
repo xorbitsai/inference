@@ -169,7 +169,6 @@ class Database:
                 conn.execute("BEGIN IMMEDIATE")
                 existing = conn.execute("SELECT COUNT(*) AS cnt FROM users").fetchone()
                 if existing["cnt"] > 0:
-                    conn.rollback()
                     return None
                 return self._insert_user(
                     conn,

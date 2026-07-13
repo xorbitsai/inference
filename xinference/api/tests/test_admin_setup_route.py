@@ -115,6 +115,38 @@ def test_setup_rejects_wrong_token(auth_service):
     assert response.status_code == 403
 
 
+def test_setup_rejects_non_string_password(auth_service):
+    """A non-string password (e.g. an int) must be rejected with 400, not
+    crash the endpoint with an unhandled TypeError from len(password).
+    """
+    client = _make_client(auth_service)
+    token = xconst.get_or_create_setup_token()
+
+    response = client.post(
+        "/v1/admin/setup",
+        json={"username": "admin", "password": 12345, "setup_token": token},
+    )
+    assert response.status_code == 400
+
+
+def test_setup_rejects_non_string_setup_token(auth_service):
+    """A non-string setup_token must be rejected with 403, not crash with
+    a TypeError from secrets.compare_digest.
+    """
+    client = _make_client(auth_service)
+    xconst.get_or_create_setup_token()
+
+    response = client.post(
+        "/v1/admin/setup",
+        json={
+            "username": "admin",
+            "password": "a-strong-password",
+            "setup_token": 12345,
+        },
+    )
+    assert response.status_code == 403
+
+
 def test_setup_token_deleted_after_successful_setup(auth_service):
     client = _make_client(auth_service)
     token = xconst.get_or_create_setup_token()

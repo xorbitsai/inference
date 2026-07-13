@@ -277,6 +277,10 @@ async def setup_admin(request: Request) -> JSONResponse:
     username = body.get("username")
     password = body.get("password")
     setup_token = body.get("setup_token")
+    if not isinstance(username, str) or not isinstance(password, str):
+        raise HTTPException(
+            status_code=400, detail="username and password must be strings"
+        )
     if not username or not password:
         raise HTTPException(status_code=400, detail="username and password required")
     if len(password) < PASSWORD_MIN_LENGTH:
@@ -286,7 +290,9 @@ async def setup_admin(request: Request) -> JSONResponse:
         )
 
     expected_token = get_or_create_setup_token()
-    if not setup_token or not secrets.compare_digest(setup_token, expected_token):
+    if not isinstance(setup_token, str) or not secrets.compare_digest(
+        setup_token, expected_token
+    ):
         raise HTTPException(status_code=403, detail="Invalid or missing setup token")
 
     password_hash = get_password_hash(password)
@@ -317,6 +323,10 @@ async def create_user(request: Request) -> JSONResponse:
     password = body.get("password")
     permissions = body.get("permissions", [])
 
+    if not isinstance(username, str) or not isinstance(password, str):
+        raise HTTPException(
+            status_code=400, detail="username and password must be strings"
+        )
     if not username or not password:
         raise HTTPException(status_code=400, detail="username and password required")
     if len(password) < PASSWORD_MIN_LENGTH:
@@ -430,6 +440,8 @@ async def change_password(user_id: int, request: Request) -> JSONResponse:
     _reject_admin_target_takeover(request, auth, user_id)
     body = await request.json()
     new_password = body.get("new_password")
+    if not isinstance(new_password, str):
+        raise HTTPException(status_code=400, detail="new_password must be a string")
     if not new_password:
         raise HTTPException(status_code=400, detail="new_password required")
     if len(new_password) < PASSWORD_MIN_LENGTH:
