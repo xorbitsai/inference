@@ -35,7 +35,7 @@ class BatchMixin:
         self._func_name = func.func.__name__
         setattr(self, self._func_name, types.MethodType(self._wrap_method(), self))
 
-        self._is_process_batch_running = False
+        self._process_batch_task = None
 
         if "batch_size" in kwargs:
             self.batch_size = int(kwargs.pop("batch_size") or XINFERENCE_BATCH_SIZE)
@@ -51,12 +51,11 @@ class BatchMixin:
         return self._queue
 
     def _ensure_process_batch_running(self):
-        if self._is_process_batch_running:
+        if self._process_batch_task is not None and not self._process_batch_task.done():
             return
 
         # create asyncio task to process batch
-        asyncio.create_task(self._process_batch())
-        self._is_process_batch_running = True
+        self._process_batch_task = asyncio.create_task(self._process_batch())
 
     def _get_batch_size(self, *args, **kwargs) -> int:
         raise NotImplementedError
@@ -71,7 +70,7 @@ class BatchMixin:
             futures = [first_future]
 
             # Try to gather more items into the same batch within a short timeout window
-            while size <= self.batch_size:
+            while size < self.batch_size:
                 try:
                     # Wait for a new request for a short time window (e.g. 3ms)
                     # This allows batching multiple requests that arrive close in time.
@@ -88,21 +87,33 @@ class BatchMixin:
 
             logger.debug("Calling batch %s with %d size", self._func_name, size)
 
+            active = [
+                (delay, future)
+                for delay, future in zip(delays, futures)
+                if not future.done()
+            ]
+            if not active:
+                continue
+            delays, futures = map(list, zip(*active))
+
             try:
                 results = self._func.batch(*delays)
                 if inspect.isawaitable(results):
                     results = await results
+                if len(results) != len(futures):
+                    raise RuntimeError(
+                        "#results should be equal to #futures, "
+                        f"got {len(results)} and {len(futures)}"
+                    )
             except Exception as e:  # Handle errors for the entire batch
                 for fut in futures:
-                    fut.set_exception(e)
+                    if not fut.done():
+                        fut.set_exception(e)
             else:
-                # Ensure the number of results matches the number of input futures
-                assert len(results) == len(
-                    futures
-                ), f"#results should be equal to #futures, got {len(results)} and {len(futures)}"
                 # Deliver the results to the corresponding waiting callers
                 for fut, result in zip(futures, results):
-                    fut.set_result(result)
+                    if not fut.done():
+                        fut.set_result(result)
 
     def _wrap_method(self):
 
