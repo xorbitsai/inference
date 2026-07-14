@@ -108,35 +108,36 @@ export const transformObjToFormList = (obj: Record<string, any> = {}) => {
     value: String(value),
   }));
 };
-export const copyToClipboard = (value: string) => {
+const legacyCopy = (value: string): boolean => {
+  const textarea = document.createElement('textarea');
+  textarea.value = value;
+  document.body.appendChild(textarea);
+  textarea.select();
+
+  try {
+    return document.execCommand('copy');
+  } finally {
+    document.body.removeChild(textarea);
+  }
+};
+
+export const copyToClipboard = async (value: string) => {
   if (!value) return;
 
-  if (navigator.clipboard) {
-    navigator.clipboard
-      .writeText(value)
-      .then(() => {
-        toast.success('Copy successful!');
-      })
-      .catch(() => {
-        toast.error('Failed to copy');
-      });
-  } else {
-    const textarea = document.createElement('textarea');
-    textarea.value = value;
-    document.body.appendChild(textarea);
-    textarea.select();
-    try {
-      const successful = document.execCommand('copy');
-      if (successful) {
-        toast.success('Copy successful!');
-      } else {
-        toast.error('Failed to copy');
-      }
-    } catch (err) {
-      toast.error('Failed to copy');
-    } finally {
-      document.body.removeChild(textarea);
+  try {
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(value);
+      toast.success('Copy successful!');
+      return;
     }
+  } catch {
+    // fall through to legacy copy
+  }
+
+  if (legacyCopy(value)) {
+    toast.success('Copy successful!');
+  } else {
+    toast.error('Failed to copy');
   }
 };
 
