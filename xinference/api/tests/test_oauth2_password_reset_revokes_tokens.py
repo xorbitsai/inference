@@ -45,7 +45,7 @@ def _patch(monkeypatch, auth, caller_scopes):
 
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 def test_password_reset_revokes_refresh_tokens(monkeypatch, auth):
