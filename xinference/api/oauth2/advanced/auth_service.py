@@ -14,6 +14,7 @@
 import base64
 import logging
 import os
+import re
 import secrets
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
@@ -103,6 +104,11 @@ except (TypeError, ValueError):
     ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 JWT_ALGORITHM = "HS256"
+
+# Matches the self-service password-change endpoint,
+# PUT /v1/admin/users/{user_id}/password. Anchored on the trailing segments so
+# it is independent of any router mount prefix.
+_PASSWORD_CHANGE_PATH_RE = re.compile(r"^.*/users/(\d+)/password$")
 
 try:
     PASSWORD_MIN_LENGTH = int(os.environ.get("XINFERENCE_PASSWORD_MIN_LENGTH", "8"))
@@ -328,6 +334,16 @@ class AdvancedAuthService:
         return aes_decrypt(encrypted, self._encryption_key)
 
     # --- FastAPI dependency (callable) ---
+
+    @staticmethod
+    def _is_own_password_change(request: Request, user_id: int) -> bool:
+        """True only for ``PUT /v1/admin/users/{user_id}/password`` targeting
+        the caller's own account -- the single request a must_change_password
+        user is allowed to make."""
+        if request.method != "PUT":
+            return False
+        match = _PASSWORD_CHANGE_PATH_RE.match(request.url.path)
+        return match is not None and int(match.group(1)) == user_id
 
     async def __call__(
         self,
@@ -567,6 +583,22 @@ class AdvancedAuthService:
         if not user["enabled"]:
             _audit("user_disabled", user=username or "", auth_type="jwt")
             raise credentials_exception
+
+        # Finding 5: enforce must_change_password server-side. A user still
+        # flagged for a forced password change may do nothing except set a new
+        # password on their own account -- not even the admin bypass below is
+        # reached first. This gates existing accounts (e.g. rows migrated from
+        # an older database) regardless of how they were created, so the flag
+        # is not merely an informational hint returned to the frontend.
+        if user.get("must_change_password") and not self._is_own_password_change(
+            request, user["id"]
+        ):
+            _audit("must_change_password", user=username or "", auth_type="jwt")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Password change required before using this account.",
+                headers={"WWW-Authenticate": authenticate_value},
+            )
 
         if "admin" in token_scopes:
             _category = (
