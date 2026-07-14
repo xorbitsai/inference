@@ -183,6 +183,16 @@ const zh = {
   },
   runningModels: {
     searchPlaceholder: '搜索模型名称或模型UID...',
+    loadingModels: '模型加载中...',
+    fetchingModelList: '正在获取最新的运行模型列表。',
+    noRunningModels: '暂无运行模型',
+    launchModelFirst: '启动模型后会显示在这里',
+    noModelsFound: '未找到模型',
+    tryChangingSearchKeywords: '请尝试更换搜索关键词。',
+    selectModel: '请选择一个模型',
+    selectModelDescription: '点击左侧列表中的模型以查看详情。',
+    tryApi: '调试 API',
+    refresh: '刷新',
     terminateConfirmBody:
       '当前模型 {{name}} 共有 {{replica}} 个副本。集群繁忙或副本较多时，终止操作可能需要数分钟；总耗时取决于最慢的 Worker 节点。请勿重复点击终止。',
     terminateConfirmOk: '终止',

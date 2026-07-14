@@ -35,7 +35,7 @@ import {
 import { DEFAULT_LOG_TIME_RANGE } from '@/constants/logs';
 import { useI18n } from '@/contexts/i18n-context';
 import request from '@/lib/request';
-import { cn, copyText } from '@/lib/utils';
+import { cn, copyToClipboard } from '@/lib/utils';
 
 import { TimeRangePicker } from '../log-center/time-range-picker';
 import type { TimeRangeValue } from '../log-center/types';
@@ -629,7 +629,7 @@ export default function AuditCenter() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => copyText(JSON.stringify(selectedRecord, null, 2))}
+                    onClick={() => copyToClipboard(JSON.stringify(selectedRecord, null, 2))}
                   >
                     <Copy className="mr-2 h-4 w-4" />
                     {t('auditCenter.copyJson')}

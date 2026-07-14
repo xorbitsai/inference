@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { LOG_FONT_SIZE_CLASS } from '@/constants/logs';
 import { useI18n } from '@/contexts/i18n-context';
-import { cn, copyText } from '@/lib/utils';
+import { cn, copyToClipboard } from '@/lib/utils';
 
 import type { FieldFilter, FieldFilterOp, LogRow } from './types';
 import { FieldTypeIcon, formatFieldValue, HighlightText } from './utils';
@@ -80,7 +80,7 @@ export function LogDetail({
   }, [fieldFilters, selectedLevels, selectedLogType]);
 
   const handleCopyJson = () => {
-    copyText(JSON.stringify(row, null, 2));
+    copyToClipboard(JSON.stringify(row, null, 2));
     setCopied(true);
     if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
     copyTimerRef.current = setTimeout(() => setCopied(false), 1500);

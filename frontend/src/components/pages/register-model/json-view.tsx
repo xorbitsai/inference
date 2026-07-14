@@ -5,7 +5,7 @@ import { Copy } from 'lucide-react';
 import { useFormValues } from '@/hooks/use-form';
 import { JSONSyntaxHighlighter } from '@/components/ui/json-syntax-highlighter';
 import { FormInstance } from '@/types/form';
-import { copyText } from '@/lib/utils';
+import { copyToClipboard } from '@/lib/utils';
 
 interface JsonViewProps {
   form: FormInstance;
@@ -17,7 +17,7 @@ const JsonView: FC<JsonViewProps> = ({ form, transformFormValues }) => {
   const handleCopy = (e: MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     const str = JSON.stringify(data, null, 2);
-    copyText(str);
+    copyToClipboard(str);
   };
   return (
     <div className="relative">

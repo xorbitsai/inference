@@ -186,6 +186,16 @@ const ko = {
   },
   runningModels: {
     searchPlaceholder: '모델 이름 또는 모델 UID 검색...',
+    loadingModels: '모델을 불러오는 중...',
+    fetchingModelList: '최신 실행 중인 모델 목록을 가져오는 중입니다.',
+    noRunningModels: '실행 중 모델 없음',
+    launchModelFirst: '모델을 실행하면 여기에 표시됩니다.',
+    noModelsFound: '모델을 찾을 수 없습니다',
+    tryChangingSearchKeywords: '검색 키워드를 변경해 보세요.',
+    selectModel: '모델 선택',
+    selectModelDescription: '왼쪽 목록에서 항목을 클릭하여 상세 정보를 확인하세요.',
+    tryApi: 'API 사용해 보기',
+    refresh: '새로고침',
     terminateConfirmBody:
       '현재 모델 {{name}}에는 {{replica}}개의 복제본이 있습니다. 클러스터가 바쁘거나 복제본 수가 많은 경우 종료 작업에 몇 분 정도 소요될 수 있습니다. 전체 소요 시간은 가장 느린 Worker 노드에 따라 달라집니다. 종료 버튼을 반복해서 클릭하지 마세요.',
     terminateConfirmOk: '종료',
