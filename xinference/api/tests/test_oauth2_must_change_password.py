@@ -156,3 +156,54 @@ def test_get_on_password_path_is_not_a_bypass(tmp_path):
             )
         )
     assert exc.value.status_code == 403
+
+
+def test_flagged_account_api_key_is_blocked(tmp_path):
+    """An API key owned by a still-flagged account must not reach model
+    endpoints (the API-key path does not go through the JWT gate)."""
+    service = _make_service(tmp_path)
+    user_id = service.db.create_user(
+        username="legacy",
+        password_hash="x",
+        source="local",
+        permissions=["models:read"],
+        must_change_password=1,
+    )
+    key = service.create_api_key_for_user(user_id=user_id, name="k")["key"]
+
+    with pytest.raises(HTTPException) as exc:
+        _run(
+            service(
+                _request("POST", "/v1/chat/completions"),
+                SecurityScopes(scopes=["models:read"]),
+                key,
+            )
+        )
+    assert exc.value.status_code == 403
+    assert "Password change required" in exc.value.detail
+
+
+def test_api_key_works_again_after_flag_cleared(tmp_path):
+    """Clearing must_change_password (e.g. the owner changed the password)
+    restores the existing API key rather than banning it permanently."""
+    service = _make_service(tmp_path)
+    user_id = service.db.create_user(
+        username="legacy",
+        password_hash="x",
+        source="local",
+        permissions=["models:read"],
+        must_change_password=1,
+    )
+    key = service.create_api_key_for_user(user_id=user_id, name="k")["key"]
+
+    # Flag cleared as a password change would.
+    service.db.update_user(user_id, must_change_password=0)
+
+    result = _run(
+        service(
+            _request("POST", "/v1/chat/completions"),
+            SecurityScopes(scopes=["models:read"]),
+            key,
+        )
+    )
+    assert result["id"] == user_id

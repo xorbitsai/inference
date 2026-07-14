@@ -535,6 +535,25 @@ class AdvancedAuthService:
                     auth_type="api_key",
                 )
                 raise credentials_exception
+            # Finding 5: enforce must_change_password on the API-key path too.
+            # An API key cannot change a password (it may only reach model
+            # endpoints), so a key owned by a still-flagged account is blocked
+            # outright until the owner clears the flag via a JWT password
+            # change. Without this, a legacy must_change_password=1 account's
+            # existing API key would keep working, bypassing the JWT gate.
+            if user_obj.get("must_change_password"):
+                _audit(
+                    "must_change_password",
+                    user=_username,
+                    key_name=api_key_entry.name or "",
+                    key_prefix=api_key_entry.key_prefix,
+                    auth_type="api_key",
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Password change required before using this account.",
+                    headers={"WWW-Authenticate": authenticate_value},
+                )
             # Success — reset counters
             if client_ip and self._rate_limiter:
                 self._rate_limiter.reset_key(client_ip, api_key_entry.key_id)
