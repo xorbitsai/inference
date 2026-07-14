@@ -111,6 +111,14 @@ Copy the resulting ``wheels`` directory into ``xinference/deploy/docker/wheels``
 host. Also transfer the Docker images (``docker save`` / ``docker load``): the Xinference image
 and ``pypiserver/pypiserver:v2.3.2``.
 
+On Linux hosts, grant the pypiserver container user (UID 9898) access to the directory —
+its entrypoint requires read/write/execute permission bits, although the volume itself is
+mounted read-only:
+
+.. code-block:: bash
+
+   chmod -R a+rwX ./wheels
+
 Step 2: Enable the offline configuration
 ----------------------------------------
 .. code-block:: bash

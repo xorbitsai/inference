@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-13 16:05+0800\n"
+"POT-Creation-Date: 2026-07-14 12:08+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -249,15 +249,24 @@ msgstr ""
 "wheels`` 下。同时用 ``docker save`` / ``docker load`` 传输 Docker 镜像："
 "Xinference 镜像与 ``pypiserver/pypiserver:v2.3.2``。"
 
-#: ../../source/getting_started/using_docker_compose.rst:115
+#: ../../source/getting_started/using_docker_compose.rst:114
+msgid ""
+"On Linux hosts, grant the pypiserver container user (UID 9898) access to "
+"the directory — its entrypoint requires read/write/execute permission "
+"bits, although the volume itself is mounted read-only:"
+msgstr ""
+"在 Linux 主机上，需要让 pypiserver 容器用户（UID 9898）能访问该目录——"
+"其 entrypoint 强制要求读/写/执行权限位，尽管卷本身是以只读方式挂载的："
+
+#: ../../source/getting_started/using_docker_compose.rst:123
 msgid "Step 2: Enable the offline configuration"
 msgstr "第二步：启用离线配置"
 
-#: ../../source/getting_started/using_docker_compose.rst:120
+#: ../../source/getting_started/using_docker_compose.rst:128
 msgid "Then open ``pip.conf`` and uncomment the three lines of the offline block:"
 msgstr "然后打开 ``pip.conf``，取消离线配置块三行的注释："
 
-#: ../../source/getting_started/using_docker_compose.rst:131
+#: ../../source/getting_started/using_docker_compose.rst:139
 msgid ""
 "Both pieces are required because they cover different code paths. "
 "``pip.conf`` feeds Xinference's pip-config inheritance, which passes the "
@@ -271,11 +280,11 @@ msgstr ""
 "安装器；``offline.env`` 中的 ``UV_*`` 变量则覆盖不带源参数的 ``uv`` 调用"
 "（例如依赖解析的 dry-run）。缺少任何一半都会破坏离线安装链路。"
 
-#: ../../source/getting_started/using_docker_compose.rst:138
+#: ../../source/getting_started/using_docker_compose.rst:146
 msgid "Step 3: Start with the offline profile"
 msgstr "第三步：以离线 profile 启动"
 
-#: ../../source/getting_started/using_docker_compose.rst:143
+#: ../../source/getting_started/using_docker_compose.rst:151
 msgid ""
 "Or set ``COMPOSE_PROFILES=offline`` in ``.env`` to omit the ``--profile``"
 " flag. Combine with the CPU override if needed:"
@@ -283,7 +292,7 @@ msgstr ""
 "也可以在 ``.env`` 中设置 ``COMPOSE_PROFILES=offline`` 以省略 ``--profile`"
 "` 参数。如有需要可与 CPU override 组合使用："
 
-#: ../../source/getting_started/using_docker_compose.rst:150
+#: ../../source/getting_started/using_docker_compose.rst:158
 msgid ""
 "The private index is also published on the host (default port ``8080``), "
 "so other machines on the same network can reuse it with ``pip install -i "
@@ -292,7 +301,7 @@ msgstr ""
 "私有源同时发布在主机上（默认端口 ``8080``），同一网络内的其他机器可通过 `"
 "`pip install -i http://<host>:8080/simple ...`` 复用它。"
 
-#: ../../source/getting_started/using_docker_compose.rst:155
+#: ../../source/getting_started/using_docker_compose.rst:163
 msgid ""
 "When launching models with the **vLLM** or **SGLang** engines, Xinference"
 " by default resolves some dependencies from hardcoded public indexes (``"
@@ -310,11 +319,11 @@ msgstr ""
 "wheel。或者，在 ``offline.env`` 中设置 ``XINFERENCE_ENABLE_VIRTUAL_ENV=0`"
 "` 完全跳过运行时安装，仅依赖镜像内置的包。"
 
-#: ../../source/getting_started/using_docker_compose.rst:164
+#: ../../source/getting_started/using_docker_compose.rst:172
 msgid "Offline model weights"
 msgstr "离线模型权重"
 
-#: ../../source/getting_started/using_docker_compose.rst:165
+#: ../../source/getting_started/using_docker_compose.rst:173
 msgid ""
 "The offline configuration sets ``HF_HUB_OFFLINE=1`` and "
 "``TRANSFORMERS_OFFLINE=1``, so model weights are read from the local "
@@ -330,11 +339,11 @@ msgstr ""
 "数据卷。此外，也可以通过注册自定义模型或传入 ``--model-path`` 从任意本地"
 "路径加载模型。"
 
-#: ../../source/getting_started/using_docker_compose.rst:172
+#: ../../source/getting_started/using_docker_compose.rst:180
 msgid "Smoke test"
 msgstr "冒烟验证"
 
-#: ../../source/getting_started/using_docker_compose.rst:182
+#: ../../source/getting_started/using_docker_compose.rst:190
 msgid ""
 "Then launch a model and watch ``docker compose logs -f xinference`` — "
 "package installation logs should reference ``http://xinference-pypiserver"
