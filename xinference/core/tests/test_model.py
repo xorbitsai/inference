@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import types
 
 import pytest
 import pytest_asyncio
@@ -125,3 +126,148 @@ async def test_concurrent_call(setup_pool):
     await check_task
     pending_count = await worker.get_pending_requests_count()
     assert pending_count == 0
+
+
+def _gguf_spec_fields():
+    return {
+        "quantization": "Q8_0",
+        "model_file_name_template": "m.gguf",
+        "model_file_name_split_template": None,
+        "quantization_parts": None,
+        "model_id": None,
+        "model_uri": None,
+        "model_revision": None,
+    }
+
+
+def _make_rerank_model(model_format: str):
+    """Build an unloaded RerankModel with the given spec format (issue #5156)."""
+    from typing import Any, Dict
+
+    from ...model.rerank.core import RerankModel, RerankModelFamilyV2
+
+    spec: Dict[str, Any] = {
+        "model_format": model_format,
+        "model_hub": "huggingface",
+        "quantization": "none",
+    }
+    if model_format == "ggufv2":
+        spec.update(_gguf_spec_fields())
+    family = RerankModelFamilyV2(
+        version=2,
+        model_name="fake-reranker",
+        model_specs=[spec],
+        language=["en"],
+        # non-"unknown" type avoids _auto_detect_type reading a real model path
+        type="normal",
+        max_tokens=512,
+        virtualenv=None,
+    )
+
+    class _FakeRerankModel(RerankModel):
+        @classmethod
+        def check_lib(cls):
+            return True
+
+        @classmethod
+        def match_json(cls, model_family, model_spec, quantization):
+            return True
+
+        def load(self):
+            pass
+
+        def rerank(self, *args, **kwargs):
+            raise NotImplementedError
+
+    model = _FakeRerankModel("fake-reranker-0", "/tmp/fake", family, "none")
+    # emulate a loaded model holding GPU tensors
+    model._model = object()  # type: ignore[assignment]
+    return model
+
+
+def _make_embedding_model(model_format: str):
+    """Build an unloaded EmbeddingModel with the given spec format (issue #5156)."""
+    from typing import Any, Dict
+
+    from ...model.embedding.core import EmbeddingModel, EmbeddingModelFamilyV2
+
+    spec: Dict[str, Any] = {
+        "model_format": model_format,
+        "model_hub": "huggingface",
+        "model_id": None,
+        "model_uri": None,
+        "model_revision": None,
+        "quantization": "none",
+    }
+    if model_format == "ggufv2":
+        spec.update(_gguf_spec_fields())
+    family = EmbeddingModelFamilyV2(
+        version=2,
+        model_name="fake-embedding",
+        dimensions=8,
+        max_tokens=512,
+        language=["en"],
+        model_specs=[spec],
+        cache_config=None,
+        virtualenv=None,
+    )
+
+    class _FakeEmbeddingModel(EmbeddingModel):
+        @classmethod
+        def check_lib(cls):
+            return True
+
+        @classmethod
+        def match_json(cls, model_family, model_spec, quantization):
+            return True
+
+        def load(self):
+            pass
+
+        def _create_embedding(self, *args, **kwargs):
+            raise NotImplementedError
+
+    model = _FakeEmbeddingModel("fake-embedding-0", "/tmp/fake", family)
+    # emulate a loaded model holding GPU tensors
+    model._model = object()  # type: ignore[assignment]
+    return model
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "make_model, model_format, expect_freed",
+    [
+        (_make_rerank_model, "pytorch", True),
+        (_make_rerank_model, "ggufv2", False),
+        (_make_embedding_model, "pytorch", True),
+        (_make_embedding_model, "ggufv2", False),
+    ],
+)
+async def test_pre_destroy_frees_gpu_memory(
+    monkeypatch, make_model, model_format, expect_freed
+):
+    # Regression test for issue #5156: stopping a pytorch (sentence_transformers)
+    # rerank/embedding model must run del + empty_cache so its VRAM is
+    # released; the torch-free llama.cpp (ggufv2) path must be skipped.
+    calls = []
+    monkeypatch.setattr(
+        "xinference.core.model.empty_cache",
+        lambda: calls.append(1),
+    )
+
+    # __pre_destroy__ only touches self._model and (vLLM-only) self._transfer_ref,
+    # so exercise it on a lightweight stand-in to avoid the xoscar actor context.
+    stub = types.SimpleNamespace(
+        _model=make_model(model_format),
+        _transfer_ref=None,
+        address="test:0",
+    )
+
+    await ModelActor.__pre_destroy__(stub)
+
+    if expect_freed:
+        assert len(calls) == 1
+        assert not hasattr(stub, "_model")
+    else:
+        assert len(calls) == 0
+        assert stub._model is not None
