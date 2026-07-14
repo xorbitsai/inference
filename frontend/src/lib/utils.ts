@@ -126,8 +126,12 @@ export const copyToClipboard = (value: string) => {
     document.body.appendChild(textarea);
     textarea.select();
     try {
-      document.execCommand('copy');
-      toast.success('Copy successful!');
+      const successful = document.execCommand('copy');
+      if (successful) {
+        toast.success('Copy successful!');
+      } else {
+        toast.error('Failed to copy');
+      }
     } catch (err) {
       toast.error('Failed to copy');
     } finally {
