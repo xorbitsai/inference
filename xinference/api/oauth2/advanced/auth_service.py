@@ -195,9 +195,24 @@ class AdvancedAuthService:
             self._db.delete_refresh_token(token_hash)
             return None
 
-        # Token rotation: invalidate old token, issue new one
-        self._db.delete_refresh_token(token_hash)
-        new_refresh_token = self.create_refresh_token(user["id"])
+        # Token rotation: delete the old token and issue a new one atomically.
+        # Doing this in a single BEGIN IMMEDIATE transaction serializes it
+        # against a concurrent password reset (which revokes all of the user's
+        # tokens in its own BEGIN IMMEDIATE transaction), so a rotation that
+        # started before the reset cannot leave a live token behind it
+        # (see security report, Finding 4).
+        new_refresh_token = secrets.token_urlsafe(64)
+        new_token_hash = sha256_hex(new_refresh_token)
+        new_expires_at = (
+            datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+        ).isoformat()
+        rotated = self._db.rotate_refresh_token(
+            token_hash, new_token_hash, new_expires_at
+        )
+        if rotated is None:
+            # The token was revoked (e.g. by a password reset) between our read
+            # above and taking the write lock. Refuse to mint a new session.
+            return None
 
         access_token = self.create_access_token(
             user["id"], user["username"], user["permissions"]
