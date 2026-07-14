@@ -455,6 +455,11 @@ async def change_password(user_id: int, request: Request) -> JSONResponse:
         )
     password_hash = get_password_hash(new_password)
     auth.db.update_user(user_id, password_hash=password_hash, must_change_password=0)
+    # Revoke outstanding refresh tokens so a stolen session cannot outlive a
+    # password reset: refresh_access_token only re-checks that the user is
+    # still enabled, not whether the password changed, so without this a leaked
+    # refresh token keeps minting access tokens for up to REFRESH_TOKEN_EXPIRE_DAYS.
+    auth.db.delete_user_refresh_tokens(user_id)
     return JSONResponse(content={"ok": True})
 
 
