@@ -454,7 +454,14 @@ async def change_password(user_id: int, request: Request) -> JSONResponse:
             detail=f"Password must be at least {PASSWORD_MIN_LENGTH} characters",
         )
     password_hash = get_password_hash(new_password)
-    auth.db.update_user(user_id, password_hash=password_hash, must_change_password=0)
+    # Update the password and revoke the user's refresh tokens atomically.
+    # refresh_access_token only re-checks that the user is still enabled, not
+    # whether the password changed, so a leaked refresh token must be revoked
+    # here. Doing the update and revocation in one BEGIN IMMEDIATE transaction
+    # serializes it against a concurrent token rotation, closing the race where
+    # a refresh in flight could otherwise mint a token that outlives the reset
+    # (see security report, Finding 4).
+    auth.db.update_password_and_revoke_tokens(user_id, password_hash)
     return JSONResponse(content={"ok": True})
 
 

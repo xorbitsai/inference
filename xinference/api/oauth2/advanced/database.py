@@ -496,6 +496,13 @@ class Database:
             ).fetchone()
             return dict(row) if row else None
 
+    def get_user_refresh_tokens(self, user_id: int) -> List[Dict[str, Any]]:
+        with self._get_conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM refresh_tokens WHERE user_id = ?", (user_id,)
+            ).fetchall()
+            return [dict(r) for r in rows]
+
     def delete_refresh_token(self, token_hash: str) -> bool:
         with self._lock:
             with self._get_conn() as conn:
@@ -515,6 +522,63 @@ class Database:
                 conn.execute(
                     "DELETE FROM refresh_tokens WHERE expires_at < datetime('now')"
                 )
+
+    def rotate_refresh_token(
+        self, old_token_hash: str, new_token_hash: str, expires_at: str
+    ) -> Optional[Dict[str, Any]]:
+        """Atomically validate-and-rotate a refresh token.
+
+        Deletes ``old_token_hash`` and inserts ``new_token_hash`` in a single
+        write transaction, but only if the old token still exists at delete
+        time. Returns the old token row (so the caller can read ``user_id`` /
+        ``expires_at``) or ``None`` if it was already gone.
+
+        Taking SQLite's write lock up front with BEGIN IMMEDIATE makes the
+        whole read-delete-insert one atomic step even across processes, so a
+        concurrent ``update_password_and_revoke_tokens`` (or another rotation)
+        cannot interleave and leave a token alive after a password reset
+        (see security report, Finding 4).
+        """
+        with self._lock:
+            with self._get_conn() as conn:
+                conn.execute("BEGIN IMMEDIATE")
+                row = conn.execute(
+                    "SELECT * FROM refresh_tokens WHERE token_hash = ?",
+                    (old_token_hash,),
+                ).fetchone()
+                if row is None:
+                    return None
+                conn.execute(
+                    "DELETE FROM refresh_tokens WHERE token_hash = ?",
+                    (old_token_hash,),
+                )
+                conn.execute(
+                    "INSERT INTO refresh_tokens (user_id, token_hash, expires_at) "
+                    "VALUES (?, ?, ?)",
+                    (row["user_id"], new_token_hash, expires_at),
+                )
+                return dict(row)
+
+    def update_password_and_revoke_tokens(
+        self, user_id: int, password_hash: str
+    ) -> None:
+        """Atomically update a user's password and revoke all their refresh
+        tokens in a single write transaction.
+
+        BEGIN IMMEDIATE serializes this against ``rotate_refresh_token`` so a
+        refresh in flight cannot slip a freshly-rotated token past the
+        revocation and survive the password reset (see security report,
+        Finding 4).
+        """
+        with self._lock:
+            with self._get_conn() as conn:
+                conn.execute("BEGIN IMMEDIATE")
+                conn.execute(
+                    "UPDATE users SET password_hash = ?, must_change_password = 0 "
+                    "WHERE id = ?",
+                    (password_hash, user_id),
+                )
+                conn.execute("DELETE FROM refresh_tokens WHERE user_id = ?", (user_id,))
 
     # --- System Config ---
 
