@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-14 12:08+0800\n"
+"POT-Creation-Date: 2026-07-14 12:37+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -255,8 +255,8 @@ msgid ""
 "the directory — its entrypoint requires read/write/execute permission "
 "bits, although the volume itself is mounted read-only:"
 msgstr ""
-"在 Linux 主机上，需要让 pypiserver 容器用户（UID 9898）能访问该目录——"
-"其 entrypoint 强制要求读/写/执行权限位，尽管卷本身是以只读方式挂载的："
+"在 Linux 主机上，需要让 pypiserver 容器用户（UID 9898）能访问该目录——其 "
+"entrypoint 强制要求读/写/执行权限位，尽管卷本身是以只读方式挂载的："
 
 #: ../../source/getting_started/using_docker_compose.rst:123
 msgid "Step 2: Enable the offline configuration"
@@ -340,10 +340,51 @@ msgstr ""
 "路径加载模型。"
 
 #: ../../source/getting_started/using_docker_compose.rst:180
+msgid "Enforced network isolation (optional)"
+msgstr "强制网络隔离（可选）"
+
+#: ../../source/getting_started/using_docker_compose.rst:181
+msgid ""
+"The offline configuration redirects every download to local sources, but "
+"by itself it does not prevent the containers from reaching the Internet "
+"if the host happens to have connectivity. To *guarantee* isolation at the"
+" network level, add the air-gap override, which moves Xinference and the "
+"private PyPI server onto an ``internal`` Docker network with no external "
+"routing:"
+msgstr ""
+"离线配置只是把所有下载重定向到本地源，其本身并不能阻止容器在宿主机联网时"
+"访问互联网。若要在网络层面 *保证* 隔离，可叠加 air-gap override：它会把 "
+"Xinference 和私有 PyPI 服务移入一个没有外部路由的 ``internal`` Docker 网络："
+
+#: ../../source/getting_started/using_docker_compose.rst:191
+msgid ""
+"Because Docker does not publish ports of internal-only networks, the "
+"override adds a minimal TCP gateway (``alpine/socat``) that forwards the "
+"API port from the host into the isolated network. The gateway only relays"
+" inbound traffic to ``xinference:9997``; the containers cannot use it as "
+"an egress path. Remember to transfer the ``alpine/socat`` image to the "
+"offline host along with the others."
+msgstr ""
+"由于 Docker 不会发布纯 internal 网络上的端口，该 override 增加了一个极简 "
+"TCP 网关（``alpine/socat``），把 API 端口从宿主机转发进隔离网络。网关只会"
+"把入站流量转发到 ``xinference:9997``，容器无法把它当作出网通道。记得把 "
+"``alpine/socat`` 镜像与其他镜像一起传输到离线主机。"
+
+#: ../../source/getting_started/using_docker_compose.rst:199
+msgid ""
+"In this mode the private PyPI server is not published on the host; it is "
+"only reachable from containers inside the isolated network. Verify the "
+"isolation from within the container — external requests must fail while "
+"the private index stays reachable:"
+msgstr ""
+"该模式下私有 PyPI 服务不再发布到宿主机，只有隔离网络内的容器可以访问。"
+"可在容器内验证隔离效果——外网请求必须失败，而私有源保持可达："
+
+#: ../../source/getting_started/using_docker_compose.rst:211
 msgid "Smoke test"
 msgstr "冒烟验证"
 
-#: ../../source/getting_started/using_docker_compose.rst:190
+#: ../../source/getting_started/using_docker_compose.rst:221
 msgid ""
 "Then launch a model and watch ``docker compose logs -f xinference`` — "
 "package installation logs should reference ``http://xinference-pypiserver"

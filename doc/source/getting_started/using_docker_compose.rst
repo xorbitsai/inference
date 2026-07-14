@@ -176,6 +176,37 @@ pointing the cache variables in ``.env`` at host directories that already contai
 or by launching each model once on a connected host and copying the volumes. Models can also be
 loaded from arbitrary local paths by registering custom models or passing ``--model-path``.
 
+Enforced network isolation (optional)
+-------------------------------------
+The offline configuration redirects every download to local sources, but by itself it does not
+prevent the containers from reaching the Internet if the host happens to have connectivity. To
+*guarantee* isolation at the network level, add the air-gap override, which moves Xinference and
+the private PyPI server onto an ``internal`` Docker network with no external routing:
+
+.. code-block:: bash
+
+   docker compose --profile offline \
+      -f docker-compose.yml -f docker-compose.airgap.yml up -d
+
+Because Docker does not publish ports of internal-only networks, the override adds a minimal
+TCP gateway (``alpine/socat``) that forwards the API port from the host into the isolated
+network. The gateway only relays inbound traffic to ``xinference:9997``; the containers cannot
+use it as an egress path. Remember to transfer the ``alpine/socat`` image to the offline host
+along with the others.
+
+.. note::
+
+   In this mode the private PyPI server is not published on the host; it is only reachable
+   from containers inside the isolated network. Verify the isolation from within the
+   container — external requests must fail while the private index stays reachable:
+
+   .. code-block:: bash
+
+      docker compose -f docker-compose.yml -f docker-compose.airgap.yml exec xinference \
+         curl -s -m 5 https://pypi.org -o /dev/null || echo "external access blocked"
+      docker compose -f docker-compose.yml -f docker-compose.airgap.yml exec xinference \
+         curl -s http://xinference-pypiserver:8080/health
+
 Smoke test
 ----------
 .. code-block:: bash
