@@ -14,7 +14,7 @@ Prerequisites
 =============
 * Docker Compose **v2.24.4 or above** (required by the ``env_file: required: false`` and ``!reset`` features used in the compose files).
 * For GPU deployment: a host with NVIDIA GPUs, CUDA installed, and `NVIDIA Container Toolkit <https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html>`_. See :ref:`using_docker_image` for image requirements.
-* Get the whole ``xinference/deploy/docker`` directory. The compose file bind-mounts ``pip.conf`` and ``./wheels`` from the same directory, so downloading ``docker-compose.yml`` alone is not sufficient:
+* Get the whole ``xinference/deploy/docker`` directory. The compose file bind-mounts ``pip.conf`` from the same directory, so downloading ``docker-compose.yml`` alone is not sufficient:
 
 .. code-block:: bash
 
@@ -87,37 +87,27 @@ By default Xinference installs the extra Python packages declared by a model at 
 into a per-model virtual environment (controlled by ``XINFERENCE_ENABLE_VIRTUAL_ENV``,
 see :ref:`environments`). On a host without Internet access these installs would fail.
 
-The ``offline`` compose profile solves this by starting a private PyPI server
-(`pypiserver <https://github.com/pypiserver/pypiserver>`_) next to Xinference. It serves wheels
-from the local ``./wheels`` directory, and the offline configuration points every runtime
+The ``offline`` compose profile solves this by starting a private PyPI server next to
+Xinference. Its image, ``xprobe/xinference-pypiserver``, ships **every wheel the runtime may
+install into per-model virtual environments** — including the ``vllm`` / ``sglang`` CUDA
+stacks — so no wheel preparation is needed. The offline configuration points every runtime
 ``pip`` / ``uv`` invocation inside the Xinference container at it.
 
-Step 1: Prepare wheels on an Internet-connected machine
--------------------------------------------------------
-Download the wheels of every package your models declare in their ``virtualenv`` section
-(shown on each model card in the Web UI, or in the built-in model JSON specs). The GPU image
-runs Python 3.12 on ``x86_64``:
+.. note::
+
+   The mirror's GPU stack targets CUDA 13.0; CUDA versions below 13.0 are not supported.
+
+Step 1: Transfer the Docker images
+----------------------------------
+Transfer the Docker images to the offline host (``docker save`` / ``docker load``): the
+Xinference image and the mirror image. Pin both to the **same release tag** so the mirror
+contents match that release's model specs and engine dependency lists, and record the pins
+in ``.env``:
 
 .. code-block:: bash
 
-   python3 -m pip download \
-      --dest ./wheels \
-      --only-binary=:all: \
-      --python-version 312 \
-      --platform manylinux2014_x86_64 \
-      'transformers>=4.53.3' accelerate
-
-Copy the resulting ``wheels`` directory into ``xinference/deploy/docker/wheels`` on the offline
-host. Also transfer the Docker images (``docker save`` / ``docker load``): the Xinference image
-and ``pypiserver/pypiserver:v2.3.2``.
-
-On Linux hosts, grant the pypiserver container user (UID 9898) access to the directory —
-its entrypoint requires read/write/execute permission bits, although the volume itself is
-mounted read-only:
-
-.. code-block:: bash
-
-   chmod -R a+rwX ./wheels
+   XINFERENCE_IMAGE=xprobe/xinference:v2.9.0
+   XINFERENCE_PYPISERVER_IMAGE=xprobe/xinference-pypiserver:v2.9.0
 
 Step 2: Enable the offline configuration
 ----------------------------------------
@@ -158,15 +148,35 @@ CPU override if needed:
 The private index is also published on the host (default port ``8080``), so other machines on
 the same network can reuse it with ``pip install -i http://<host>:8080/simple ...``.
 
-.. warning::
+.. note::
 
    When launching models with the **vLLM** or **SGLang** engines, Xinference by default resolves
    some dependencies from hardcoded public indexes (``wheels.vllm.ai``,
-   ``download.pytorch.org``). The offline ``pip.conf`` above overrides them with the private
-   index, which means those wheels must be present in ``./wheels`` — mirror the required
-   ``vllm`` / ``torch`` CUDA wheels when preparing Step 1. Alternatively, set
-   ``XINFERENCE_ENABLE_VIRTUAL_ENV=0`` in ``offline.env`` to skip runtime installs entirely and
-   rely on the packages baked into the image.
+   ``download.pytorch.org``) and from direct wheel URLs (``sgl_kernel``). The offline
+   ``pip.conf`` above overrides both: the private index replaces the public indexes, and
+   direct wheel-URL requirements are resolved from it as ``name==version``. The baked mirror
+   already carries these CUDA wheels. Alternatively, set ``XINFERENCE_ENABLE_VIRTUAL_ENV=0``
+   in ``offline.env`` to skip runtime installs entirely and rely on the packages baked into
+   the Xinference image.
+
+Bring your own wheels (optional)
+--------------------------------
+To serve a self-curated wheel directory instead of the baked mirror — for example a small
+subset for specific models — add the ``docker-compose.byo-wheels.yml`` override, which swaps
+the image for the stock ``pypiserver/pypiserver:v2.3.2`` and mounts ``./wheels``:
+
+.. code-block:: bash
+
+   python3 -m pip download \
+      --dest ./wheels \
+      --only-binary=:all: \
+      --python-version 312 \
+      --platform manylinux2014_x86_64 \
+      'transformers>=4.53.3' accelerate
+
+   chmod -R a+rwX ./wheels   # pypiserver runs as UID 9898
+   docker compose --profile offline \
+      -f docker-compose.yml -f docker-compose.byo-wheels.yml up -d
 
 Offline model weights
 ---------------------
