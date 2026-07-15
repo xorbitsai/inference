@@ -2551,6 +2551,11 @@ class WorkerActor(xo.StatelessActor):
                 if hasattr(settings, k) and not getattr(settings, k):
                     setattr(settings, k, v)
 
+        # An extra index present at this point was configured explicitly — by
+        # the model spec or inherited pip config (e.g. an offline/private
+        # mirror) — as opposed to the engine defaults applied below.
+        user_configured_extra_index = settings.extra_index_url is not None
+
         apply_engine_virtualenv_settings(settings, model_engine)
 
         base_packages = engine_defaults
@@ -2596,6 +2601,19 @@ class WorkerActor(xo.StatelessActor):
         if system_cuda_urls:
             if settings.extra_index_url is None:
                 settings.extra_index_url = system_cuda_urls
+            elif user_configured_extra_index:
+                # An explicitly configured extra index (model spec or inherited
+                # pip config, e.g. an offline/private mirror) stays
+                # authoritative: uv treats an unreachable extra index as fatal
+                # instead of falling back, so forcing the public CUDA wheel
+                # index here would break air-gapped deployments even when the
+                # wheels exist on the private index.
+                logger.info(
+                    "Skipping auto-configured PyTorch wheel URL %s: explicitly "
+                    "configured extra index takes precedence: %s",
+                    system_cuda_urls,
+                    settings.extra_index_url,
+                )
             else:
                 # Merge with existing extra_index_url, system URLs first for priority
                 existing_urls = (

@@ -875,6 +875,80 @@ def test_prepare_virtual_env_keeps_system_markers():
     ]
 
 
+def test_prepare_virtual_env_system_torch_respects_configured_extra_index(monkeypatch):
+    # Regression test: an explicitly configured extra index (e.g. an
+    # offline/private mirror inherited from pip config) must not be overridden
+    # by the auto-configured public CUDA wheel index when the package list
+    # contains a #system_torch# marker — uv treats an unreachable extra index
+    # as fatal, breaking air-gapped deployments.
+    import importlib.metadata
+
+    from ..virtual_env_manager import PYTORCH_PACKAGES
+
+    manager = DummyVirtualEnvManager()
+    settings = VirtualEnvSettings(
+        packages=["#system_torch#"],
+        inherit_pip_config=True,
+    )
+
+    private_index = "http://pypiserver:8080/simple"
+    monkeypatch.setattr(
+        "xinference.core.worker.get_pip_config_args",
+        lambda: {"index_url": private_index, "extra_index_url": private_index},
+    )
+    real_version = importlib.metadata.version
+    monkeypatch.setattr(
+        "importlib.metadata.version",
+        lambda name: "2.9.0+cu130" if name in PYTORCH_PACKAGES else real_version(name),
+    )
+    monkeypatch.setattr("xoscar.virtualenv.platform.get_cuda_version", lambda: "13.0")
+
+    WorkerActor._prepare_virtual_env(
+        manager,
+        settings,
+        None,
+        model_engine="vllm",
+    )
+
+    assert len(manager.calls) == 1
+    _, kwargs = manager.calls[0]
+    assert kwargs["index_url"] == private_index
+    assert "download.pytorch.org" not in str(kwargs["extra_index_url"])
+    assert kwargs["extra_index_url"] == private_index
+
+
+def test_prepare_virtual_env_system_torch_injects_cuda_index_by_default(monkeypatch):
+    # Without any explicitly configured index, the auto-configured CUDA wheel
+    # index keeps being injected for #system_torch# (default online behavior).
+    import importlib.metadata
+
+    from ..virtual_env_manager import PYTORCH_CUDA_WHEEL_URLS, PYTORCH_PACKAGES
+
+    manager = DummyVirtualEnvManager()
+    settings = VirtualEnvSettings(
+        packages=["#system_torch#"],
+        inherit_pip_config=False,
+    )
+
+    real_version = importlib.metadata.version
+    monkeypatch.setattr(
+        "importlib.metadata.version",
+        lambda name: "2.9.0+cu130" if name in PYTORCH_PACKAGES else real_version(name),
+    )
+    monkeypatch.setattr("xoscar.virtualenv.platform.get_cuda_version", lambda: "13.0")
+
+    WorkerActor._prepare_virtual_env(
+        manager,
+        settings,
+        None,
+        model_engine=None,
+    )
+
+    assert len(manager.calls) == 1
+    _, kwargs = manager.calls[0]
+    assert kwargs["extra_index_url"] == [PYTORCH_CUDA_WHEEL_URLS["cu130"]]
+
+
 def test_prepare_virtual_env_expands_engine_dependencies_before_user_override():
     manager = DummyVirtualEnvManager()
     settings = VirtualEnvSettings(
