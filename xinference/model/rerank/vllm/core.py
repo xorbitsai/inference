@@ -380,7 +380,28 @@ class VLLMRerankModel(RerankModel, BatchMixin):
         quantization: str,
     ) -> Union[bool, Tuple[bool, str]]:
         if model_family.model_name.startswith("Qwen3-VL-Reranker"):
-            return False, "Qwen3-VL reranker requires vLLM>=0.14.0"
+            # In virtualenv mode vLLM (and a compatible version) can be
+            # installed on demand, so only the missing-library / old-version
+            # rejection is exempt here; the format/prefix compatibility checks
+            # below still apply (virtualenv cannot make an incompatible spec
+            # work).
+            from ...utils import virtual_env_allows_missing_engine
+
+            allow_missing_env = virtual_env_allows_missing_engine()
+            try:
+                import vllm
+                from packaging import version
+            except ImportError:
+                if not allow_missing_env:
+                    return False, "Qwen3-VL reranker requires vLLM>=0.14.0"
+            else:
+                if not allow_missing_env and version.parse(
+                    vllm.__version__
+                ) < version.parse("0.14.0"):
+                    return (
+                        False,
+                        f"Qwen3-VL reranker requires vLLM>=0.14.0, current: {vllm.__version__}",
+                    )
         if model_spec.model_format not in ["pytorch"]:
             return False, "vLLM rerank engine only supports pytorch format"
         prefix = model_family.model_name.split("-", 1)[0]

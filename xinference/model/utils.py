@@ -23,6 +23,7 @@ import re
 import sys
 import threading
 from abc import ABC, abstractmethod
+from contextvars import ContextVar
 from copy import deepcopy
 from json import JSONDecodeError
 from pathlib import Path
@@ -93,6 +94,39 @@ def _normalize_match_result(
         return False, result, default_type, None
 
     return False, str(result), default_type, None
+
+
+# Effective virtualenv flag for the current engine-discovery call. The
+# discovery entry point (get_engine_params_by_name_with_virtual_env) sets this
+# to the *request-level* flag so that match_json can honor an explicit
+# enable_virtual_env=False even when the process-global default is true. When
+# unset (e.g. direct match_json calls outside discovery) it is None and callers
+# fall back to the global constant.
+virtualenv_discovery_var: ContextVar[Optional[bool]] = ContextVar(
+    "virtualenv_discovery_var", default=None
+)
+
+
+def virtual_env_allows_missing_engine() -> bool:
+    """Whether virtualenv mode should tolerate a missing engine install.
+
+    When virtualenv is enabled the engine and its runtime are installed on
+    demand, so engine listing must not depend on the library (or a specific
+    already-installed version) being present locally.
+
+    Uses the effective request-level flag published by the discovery path
+    (virtualenv_discovery_var) when available, so an explicit
+    enable_virtual_env=False stays strict; otherwise falls back to the
+    process-global default. Read lazily so the flag can be toggled at runtime.
+    """
+    scoped = virtualenv_discovery_var.get()
+    if scoped is not None:
+        return bool(scoped)
+    try:
+        from ..constants import XINFERENCE_ENABLE_VIRTUAL_ENV as flag
+    except Exception:
+        return False
+    return bool(flag)
 
 
 def _extract_engine_markers_from_packages(packages: List[str]) -> Set[str]:
@@ -330,6 +364,63 @@ def _force_virtualenv_engine_params(
             engine_params[engine_name] = engine_param_list
             available_params[engine_name] = engine_param_list
     return match_status
+
+
+def _drop_unavailable_marker_engines(
+    available_engines: Dict[str, Any],
+    family: Optional[Any],
+    supported_engines: Dict[str, List[Type[Any]]],
+    engine_markers: Set[str],
+) -> None:
+    """Re-validate virtualenv-marker engines for the strict discovery path.
+
+    The per-model engine registries (LLM_ENGINES / EMBEDDING_ENGINES /
+    RERANK_ENGINES) are generated once at import time using the process-global
+    virtualenv flag, so a marker engine (e.g. vLLM for Qwen3-VL) can be baked in
+    as available even though it is only reachable via on-demand install. The
+    strict entry point (enable_virtual_env=False) must not offer such engines,
+    so re-run check_lib + match_json under the current (strict) discovery scope
+    and drop any marker engine that no longer qualifies. Non-marker engines are
+    left untouched — they were matched without any virtualenv exemption.
+    """
+    if family is None or not engine_markers:
+        return
+    specs = getattr(family, "model_specs", []) or []
+    for engine_name in list(available_engines.keys()):
+        if engine_name.lower() not in engine_markers:
+            continue
+        engine_classes = supported_engines.get(engine_name, [])
+        qualifies = False
+        for engine_class in engine_classes:
+            lib_ok, _, _, _ = _normalize_match_result(
+                engine_class.check_lib(),
+                f"Engine {engine_name} library is not installed",
+                "dependency_missing",
+            )
+            if not lib_ok:
+                continue
+            match_func = getattr(engine_class, "match_json", None)
+            for spec in specs:
+                quantization = getattr(spec, "quantization", None) or "none"
+                match_res = (
+                    match_func(family, spec, quantization)
+                    if callable(match_func)
+                    else False
+                )
+                is_match, _, _, _ = _normalize_match_result(
+                    match_res,
+                    f"Engine {engine_name} is not compatible",
+                    "model_compatibility",
+                )
+                if is_match:
+                    qualifies = True
+                    break
+            if qualifies:
+                break
+        if not qualifies:
+            # Remove from the available set; the caller's _collect_supported_engines
+            # pass then annotates it with the proper unavailable reason.
+            available_engines.pop(engine_name, None)
 
 
 def _apply_virtualenv_engine_overrides(
@@ -840,8 +931,33 @@ class CancellableDownloader:
             logger.debug(f"Error during CancellableDownloader cleanup: {e}")
 
 
-@no_type_check
 def get_engine_params_by_name(
+    model_type: Optional[str],
+    model_name: str,
+    enable_virtual_env: Optional[bool] = None,
+) -> Optional[Dict[str, Any]]:
+    """Strict engine discovery entry point (no on-demand install).
+
+    The production Worker calls this when ``enable_virtual_env=False``. It also
+    publishes the effective flag on ``virtualenv_discovery_var`` so engine
+    ``match_json`` stays strict (e.g. keeps the Qwen3-VL vLLM>=0.14.0 check)
+    instead of reading the process-global default, mirroring the virtualenv-
+    aware entry point. The token is always reset so it never leaks.
+    """
+    effective = (
+        XINFERENCE_ENABLE_VIRTUAL_ENV
+        if enable_virtual_env is None
+        else enable_virtual_env
+    )
+    token = virtualenv_discovery_var.set(bool(effective))
+    try:
+        return _get_engine_params_by_name(model_type, model_name, effective)
+    finally:
+        virtualenv_discovery_var.reset(token)
+
+
+@no_type_check
+def _get_engine_params_by_name(
     model_type: Optional[str],
     model_name: str,
     enable_virtual_env: Optional[bool] = None,
@@ -1104,12 +1220,21 @@ def get_engine_params_by_name(
             return None
 
         available_engines = deepcopy(LLM_ENGINES[model_name])
-        for engine, params in available_engines.items():
-            _append_available_engine(engine, params, "llm_class")
-
         llm_family = next(
             (f for f in BUILTIN_LLM_FAMILIES if f.model_name == model_name), None
         )
+        # Strict path: re-validate virtualenv-marker engines that were baked
+        # into the registry under the process-global flag, so an engine only
+        # reachable via on-demand install is not offered here.
+        _drop_unavailable_marker_engines(
+            available_engines,
+            llm_family,
+            SUPPORTED_ENGINES,
+            _collect_virtualenv_engine_markers(llm_family),
+        )
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "llm_class")
+
         _collect_supported_engines(llm_family, SUPPORTED_ENGINES, "LLM")
         return engine_params
 
@@ -1123,11 +1248,17 @@ def get_engine_params_by_name(
             return None
 
         available_engines = deepcopy(EMBEDDING_ENGINES[model_name])
+        embedding_family_list = BUILTIN_EMBEDDING_MODELS.get(model_name, [])
+        embedding_family = embedding_family_list[0] if embedding_family_list else None
+        _drop_unavailable_marker_engines(
+            available_engines,
+            embedding_family,
+            EMBEDDING_SUPPORTED_ENGINES,
+            _collect_virtualenv_engine_markers(embedding_family),
+        )
         for engine, params in available_engines.items():
             _append_available_engine(engine, params, "embedding_class")
 
-        embedding_family_list = BUILTIN_EMBEDDING_MODELS.get(model_name, [])
-        embedding_family = embedding_family_list[0] if embedding_family_list else None
         _collect_supported_engines(
             embedding_family, EMBEDDING_SUPPORTED_ENGINES, "embedding"
         )
@@ -1141,8 +1272,6 @@ def get_engine_params_by_name(
             return None
 
         available_engines = deepcopy(RERANK_ENGINES[model_name])
-        for engine, params in available_engines.items():
-            _append_available_engine(engine, params, "rerank_class")
 
         from .rerank.core import RerankModelFamilyV2
 
@@ -1150,6 +1279,15 @@ def get_engine_params_by_name(
             model_name, []
         )
         rerank_family = rerank_family_list[0] if rerank_family_list else None
+        _drop_unavailable_marker_engines(
+            available_engines,
+            rerank_family,
+            RERANK_SUPPORTED_ENGINES,
+            _collect_virtualenv_engine_markers(rerank_family),
+        )
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "rerank_class")
+
         _collect_supported_engines(rerank_family, RERANK_SUPPORTED_ENGINES, "rerank")
         return engine_params
 
@@ -1217,8 +1355,36 @@ def get_engine_params_by_name(
     return None
 
 
-@no_type_check
 def get_engine_params_by_name_with_virtual_env(
+    model_type: Optional[str],
+    model_name: str,
+    enable_virtual_env: Optional[bool] = None,
+) -> Optional[Dict[str, Any]]:
+    """Public entry point for virtualenv-aware engine discovery.
+
+    Publishes the *effective* request-level virtualenv flag on
+    ``virtualenv_discovery_var`` for the duration of the call so that engine
+    ``match_json`` implementations honor an explicit ``enable_virtual_env=False``
+    (e.g. keep the Qwen3-VL vLLM version check strict) instead of reading the
+    process-global default. The token is always reset so the scope does not leak
+    into subsequent calls (e.g. the launch path) on the same thread.
+    """
+    effective = (
+        XINFERENCE_ENABLE_VIRTUAL_ENV
+        if enable_virtual_env is None
+        else enable_virtual_env
+    )
+    token = virtualenv_discovery_var.set(bool(effective))
+    try:
+        return _get_engine_params_by_name_with_virtual_env(
+            model_type, model_name, effective
+        )
+    finally:
+        virtualenv_discovery_var.reset(token)
+
+
+@no_type_check
+def _get_engine_params_by_name_with_virtual_env(
     model_type: Optional[str],
     model_name: str,
     enable_virtual_env: Optional[bool] = None,
