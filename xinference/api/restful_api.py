@@ -52,7 +52,6 @@ from ..constants import (
     XINFERENCE_AUTH_DB_PATH,
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_DEFAULT_ENDPOINT_PORT,
-    XINFERENCE_DISABLE_METRICS,
     XINFERENCE_ENABLE_OTEL,
     XINFERENCE_LAUNCH_HISTORY_DB_PATH,
     XINFERENCE_MONITOR_CONFIG_DB_PATH,
@@ -60,6 +59,7 @@ from ..constants import (
     get_auth_encryption_key,
     get_auth_jwt_secret_key,
     is_auth_advanced,
+    is_metrics_disabled,
 )
 from ..core.event import Event, EventCollectorActor, EventType
 from ..core.exceptions import ModelNotReadyError
@@ -510,7 +510,7 @@ class RESTfulAPI(CancelMixin):
                 validate_oidc_config()
                 register_oidc_routes(self)
 
-        if XINFERENCE_DISABLE_METRICS:
+        if is_metrics_disabled():
             logger.info(
                 "Supervisor metrics is disabled due to the environment XINFERENCE_DISABLE_METRICS=1"
             )

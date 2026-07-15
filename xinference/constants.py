@@ -325,9 +325,17 @@ XINFERENCE_ENV_MODEL_DOWNLOAD_WORKERS = "XINFERENCE_MODEL_DOWNLOAD_WORKERS"
 XINFERENCE_MODEL_DOWNLOAD_WORKERS = int(
     os.environ.get(XINFERENCE_ENV_MODEL_DOWNLOAD_WORKERS, 2)
 )
-XINFERENCE_DISABLE_METRICS = bool(
-    int(os.environ.get(XINFERENCE_ENV_DISABLE_METRICS, 0))
-)
+
+
+def is_metrics_disabled() -> bool:
+    # Read at call time rather than freezing a module-level constant: the
+    # supervisor/worker often run in a forked subprocess (the default start
+    # method on Linux), which inherits the parent's already-imported modules.
+    # A frozen constant would keep the parent's value and ignore a
+    # XINFERENCE_DISABLE_METRICS set after this module was first imported.
+    return bool(int(os.environ.get(XINFERENCE_ENV_DISABLE_METRICS, 0)))
+
+
 XINFERENCE_DOWNLOAD_MAX_ATTEMPTS = int(
     os.environ.get(XINFERENCE_ENV_DOWNLOAD_MAX_ATTEMPTS, 3)
 )
