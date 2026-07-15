@@ -13,8 +13,16 @@
         "model_revision": "167c219b21f11ef214220b8fdb7536b8a88c2475"
       }
     },
-    "updated_at": 1766386952,
-    "featured": false
+    "updated_at": 1783912296,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -30,8 +38,16 @@
         "model_revision": "87c7102498dcde7456f24cfd30239ca606ed9063"
       }
     },
-    "updated_at": 1766386982,
-    "featured": false
+    "updated_at": 1783912299,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -47,8 +63,16 @@
         "model_revision": "8c1db9b51951100007a96a525d83a8ec81b3c237"
       }
     },
-    "updated_at": 1766387032,
-    "featured": false
+    "updated_at": 1783912301,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -64,8 +88,16 @@
         "model_revision": "911407f4214e0e1d82085af863093ec0b66f9cd6"
       }
     },
-    "updated_at": 1766387034,
-    "featured": false
+    "updated_at": 1783912303,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -81,8 +113,16 @@
         "model_revision": "998cb1a777c20db53d6033a61b977ed4c3792cac"
       }
     },
-    "updated_at": 1766387035,
-    "featured": false
+    "updated_at": 1783912305,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -98,8 +138,16 @@
         "model_revision": "e8727524f962ee844a7319d92be39ac1bd25655a"
       }
     },
-    "updated_at": 1766387036,
-    "featured": false
+    "updated_at": 1783912307,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -115,8 +163,16 @@
         "model_revision": "16688beb1294bedd0a6f5cd86fe7eec57bce41ed"
       }
     },
-    "updated_at": 1766387038,
-    "featured": false
+    "updated_at": 1783912309,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -132,8 +188,16 @@
         "model_revision": "2e98eb6279edf5095af0c8dedb36bdec0acd172b"
       }
     },
-    "updated_at": 1766387039,
-    "featured": false
+    "updated_at": 1783912311,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -153,8 +217,16 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387040,
-    "featured": true
+    "updated_at": 1783912313,
+    "featured": true,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -174,8 +246,16 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387042,
-    "featured": false
+    "updated_at": 1783912315,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -191,8 +271,16 @@
         "model_revision": "ed25d13498fa5bac758b2fc479435b698532dfe8"
       }
     },
-    "updated_at": 1766387046,
-    "featured": false
+    "updated_at": 1783912317,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -208,8 +296,16 @@
         "model_revision": "ec5bd5d78598545b7585814edde86dac2002b5b9"
       }
     },
-    "updated_at": 1766387048,
-    "featured": false
+    "updated_at": 1783912319,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -229,8 +325,16 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387049,
-    "featured": false
+    "updated_at": 1783912321,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "transformers",
+        "accelerate",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -246,8 +350,14 @@
         "model_id": "mlx-community/whisper-tiny"
       }
     },
-    "updated_at": 1766387051,
-    "featured": false
+    "updated_at": 1783912323,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "mlx-whisper",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -263,8 +373,14 @@
         "model_id": "mlx-community/whisper-tiny.en-mlx"
       }
     },
-    "updated_at": 1766387052,
-    "featured": false
+    "updated_at": 1783912325,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "mlx-whisper",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -280,8 +396,14 @@
         "model_id": "mlx-community/whisper-base-mlx"
       }
     },
-    "updated_at": 1766387054,
-    "featured": false
+    "updated_at": 1783912327,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "mlx-whisper",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -297,8 +419,14 @@
         "model_id": "mlx-community/whisper-base.en-mlx"
       }
     },
-    "updated_at": 1766387055,
-    "featured": false
+    "updated_at": 1783912329,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "mlx-whisper",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -314,8 +442,14 @@
         "model_id": "mlx-community/whisper-small-mlx"
       }
     },
-    "updated_at": 1766387056,
-    "featured": false
+    "updated_at": 1783912331,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "mlx-whisper",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -331,8 +465,14 @@
         "model_id": "mlx-community/whisper-small.en-mlx"
       }
     },
-    "updated_at": 1766387057,
-    "featured": false
+    "updated_at": 1783912333,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "mlx-whisper",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -348,8 +488,14 @@
         "model_id": "mlx-community/whisper-medium-mlx"
       }
     },
-    "updated_at": 1766387058,
-    "featured": false
+    "updated_at": 1783912335,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "mlx-whisper",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -365,8 +511,14 @@
         "model_id": "mlx-community/whisper-medium.en-mlx"
       }
     },
-    "updated_at": 1766387060,
-    "featured": false
+    "updated_at": 1783912337,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "mlx-whisper",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -382,8 +534,14 @@
         "model_id": "mlx-community/whisper-large-v3-mlx"
       }
     },
-    "updated_at": 1766387061,
-    "featured": false
+    "updated_at": 1783912339,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "mlx-whisper",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -399,8 +557,14 @@
         "model_id": "mlx-community/whisper-large-v3-turbo"
       }
     },
-    "updated_at": 1766387062,
-    "featured": false
+    "updated_at": 1783912341,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "mlx-whisper",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -432,8 +596,16 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387063,
-    "featured": true
+    "updated_at": 1783912343,
+    "featured": true,
+    "virtualenv": {
+      "packages": [
+        "funasr==1.2.7",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -460,8 +632,16 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387065,
-    "featured": false
+    "updated_at": 1783912345,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "funasr==1.2.7",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -489,8 +669,16 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387068,
-    "featured": false
+    "updated_at": 1783912347,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "funasr==1.2.7",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -517,8 +705,16 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387070,
-    "featured": false
+    "updated_at": 1783912348,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "funasr==1.2.7",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -546,8 +742,16 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387072,
-    "featured": false
+    "updated_at": 1783912351,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "funasr==1.2.7",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -575,8 +779,16 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387074,
-    "featured": false
+    "updated_at": 1783912353,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "funasr==1.2.7",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -628,8 +840,28 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387078,
-    "featured": false
+    "updated_at": 1783912357,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "librosa",
+        "tiktoken",
+        "lightning>=2.0.0",
+        "hydra-core>=1.3.2",
+        "inflect",
+        "conformer",
+        "diffusers==0.29.0",
+        "gdown",
+        "pyarrow",
+        "HyperPyYAML",
+        "onnxruntime>=1.16.0",
+        "pyworld>=0.3.4",
+        "wetext==0.0.9",
+        "transformers==4.51.3",
+        "#system_numpy#",
+        "#system_torch#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -650,8 +882,28 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387080,
-    "featured": false
+    "updated_at": 1783912359,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "librosa",
+        "tiktoken",
+        "lightning>=2.0.0",
+        "hydra-core>=1.3.2",
+        "inflect",
+        "conformer",
+        "diffusers==0.29.0",
+        "gdown",
+        "pyarrow",
+        "HyperPyYAML",
+        "onnxruntime>=1.16.0",
+        "pyworld>=0.3.4",
+        "wetext==0.0.9",
+        "transformers==4.51.3",
+        "#system_numpy#",
+        "#system_torch#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -672,8 +924,28 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387082,
-    "featured": false
+    "updated_at": 1783912361,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "librosa",
+        "tiktoken",
+        "lightning>=2.0.0",
+        "hydra-core>=1.3.2",
+        "inflect",
+        "conformer",
+        "diffusers==0.29.0",
+        "gdown",
+        "pyarrow",
+        "HyperPyYAML",
+        "onnxruntime>=1.16.0",
+        "pyworld>=0.3.4",
+        "wetext==0.0.9",
+        "transformers==4.51.3",
+        "#system_numpy#",
+        "#system_torch#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -738,8 +1010,29 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387086,
-    "featured": true
+    "updated_at": 1783912365,
+    "featured": true,
+    "virtualenv": {
+      "packages": [
+        "loguru",
+        "natsort",
+        "loralib",
+        "ormsgpack",
+        "cachetools",
+        "silero-vad",
+        "vector-quantize-pytorch>=1.14.24,<=1.17.3",
+        "einops",
+        "lightning>=2.0.0",
+        "hydra-core>=1.3.2",
+        "omegaconf~=2.3.0",
+        "matplotlib",
+        "soundfile",
+        "transformers",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -761,8 +1054,26 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387087,
-    "featured": true
+    "updated_at": 1783912367,
+    "featured": true,
+    "virtualenv": {
+      "packages": [
+        "torchdiffeq",
+        "x_transformers>=1.31.14",
+        "pypinyin",
+        "tomli",
+        "vocos",
+        "librosa",
+        "jieba",
+        "pydub",
+        "soundfile",
+        "cached_path",
+        "transformers",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -780,8 +1091,17 @@
         "model_revision": "7642bb232e3fcacf92c51c786edebb8624da6b93"
       }
     },
-    "updated_at": 1766387089,
-    "featured": false
+    "updated_at": 1783912368,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "f5-tts-mlx",
+        "vocos-mlx",
+        "soundfile",
+        "tomli",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -799,8 +1119,35 @@
         "model_revision": "bb4fb7346d566d277ba8c8c7dbfdf6786139b8ef"
       }
     },
-    "updated_at": 1766387090,
-    "featured": false
+    "updated_at": 1783912370,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "cached_path",
+        "unidic-lite",
+        "cn2an",
+        "mecab-python3",
+        "num2words",
+        "pykakasi",
+        "fugashi",
+        "g2p_en",
+        "anyascii",
+        "gruut[de,es,fr]",
+        "g2pkk",
+        "jamo",
+        "jieba",
+        "pypinyin",
+        "nltk",
+        "inflect",
+        "six",
+        "librosa",
+        "soundfile",
+        "transformers",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -818,8 +1165,35 @@
         "model_revision": "a53e3509c4ee4ff16d79272feb2474ff864e18f3"
       }
     },
-    "updated_at": 1766387091,
-    "featured": false
+    "updated_at": 1783912372,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "cached_path",
+        "unidic-lite",
+        "cn2an",
+        "mecab-python3",
+        "num2words",
+        "pykakasi",
+        "fugashi",
+        "g2p_en",
+        "anyascii",
+        "gruut[de,es,fr]",
+        "g2pkk",
+        "jamo",
+        "jieba",
+        "pypinyin",
+        "nltk",
+        "inflect",
+        "six",
+        "librosa",
+        "soundfile",
+        "transformers",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -837,8 +1211,35 @@
         "model_revision": "f7c4a35392c0e9be24a755f1edb4c3f63040f759"
       }
     },
-    "updated_at": 1766387093,
-    "featured": false
+    "updated_at": 1783912375,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "cached_path",
+        "unidic-lite",
+        "cn2an",
+        "mecab-python3",
+        "num2words",
+        "pykakasi",
+        "fugashi",
+        "g2p_en",
+        "anyascii",
+        "gruut[de,es,fr]",
+        "g2pkk",
+        "jamo",
+        "jieba",
+        "pypinyin",
+        "nltk",
+        "inflect",
+        "six",
+        "librosa",
+        "soundfile",
+        "transformers",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -856,8 +1257,35 @@
         "model_revision": "1e9bf590262392d8bffb679b0a3b0c16b0f9fdaf"
       }
     },
-    "updated_at": 1766387094,
-    "featured": false
+    "updated_at": 1783912377,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "cached_path",
+        "unidic-lite",
+        "cn2an",
+        "mecab-python3",
+        "num2words",
+        "pykakasi",
+        "fugashi",
+        "g2p_en",
+        "anyascii",
+        "gruut[de,es,fr]",
+        "g2pkk",
+        "jamo",
+        "jieba",
+        "pypinyin",
+        "nltk",
+        "inflect",
+        "six",
+        "librosa",
+        "soundfile",
+        "transformers",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -875,8 +1303,35 @@
         "model_revision": "367f8795464b531b4e97c1515bddfc1243e60891"
       }
     },
-    "updated_at": 1766387095,
-    "featured": false
+    "updated_at": 1783912379,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "cached_path",
+        "unidic-lite",
+        "cn2an",
+        "mecab-python3",
+        "num2words",
+        "pykakasi",
+        "fugashi",
+        "g2p_en",
+        "anyascii",
+        "gruut[de,es,fr]",
+        "g2pkk",
+        "jamo",
+        "jieba",
+        "pypinyin",
+        "nltk",
+        "inflect",
+        "six",
+        "librosa",
+        "soundfile",
+        "transformers",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -894,8 +1349,35 @@
         "model_revision": "dbb5496df39d11a66c1d5f5a9ca357c3c9fb95fb"
       }
     },
-    "updated_at": 1766387096,
-    "featured": false
+    "updated_at": 1783912380,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "cached_path",
+        "unidic-lite",
+        "cn2an",
+        "mecab-python3",
+        "num2words",
+        "pykakasi",
+        "fugashi",
+        "g2p_en",
+        "anyascii",
+        "gruut[de,es,fr]",
+        "g2pkk",
+        "jamo",
+        "jieba",
+        "pypinyin",
+        "nltk",
+        "inflect",
+        "six",
+        "librosa",
+        "soundfile",
+        "transformers",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -913,8 +1395,35 @@
         "model_revision": "af5d207a364ea4208c6f589c89f57f88414bdd16"
       }
     },
-    "updated_at": 1766387097,
-    "featured": false
+    "updated_at": 1783912382,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "cached_path",
+        "unidic-lite",
+        "cn2an",
+        "mecab-python3",
+        "num2words",
+        "pykakasi",
+        "fugashi",
+        "g2p_en",
+        "anyascii",
+        "gruut[de,es,fr]",
+        "g2pkk",
+        "jamo",
+        "jieba",
+        "pypinyin",
+        "nltk",
+        "inflect",
+        "six",
+        "librosa",
+        "soundfile",
+        "transformers",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -932,8 +1441,35 @@
         "model_revision": "0207e5adfc90129a51b6b03d89be6d84360ed323"
       }
     },
-    "updated_at": 1766387099,
-    "featured": false
+    "updated_at": 1783912384,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "cached_path",
+        "unidic-lite",
+        "cn2an",
+        "mecab-python3",
+        "num2words",
+        "pykakasi",
+        "fugashi",
+        "g2p_en",
+        "anyascii",
+        "gruut[de,es,fr]",
+        "g2pkk",
+        "jamo",
+        "jieba",
+        "pypinyin",
+        "nltk",
+        "inflect",
+        "six",
+        "librosa",
+        "soundfile",
+        "transformers",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -953,8 +1489,17 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1775931837,
-    "featured": false
+    "updated_at": 1783912386,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "kokoro>=0.7.15",
+        "misaki[en,zh]>=0.7.15",
+        "soundfile",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -1006,8 +1551,27 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387103,
-    "featured": false
+    "updated_at": 1783912390,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "WeTextProcessing",
+        "langdetect",
+        "pydub",
+        "pyloudnorm",
+        "librosa",
+        "einops",
+        "matplotlib",
+        "six",
+        "pyyaml",
+        "transformers",
+        "numba",
+        "more-itertools",
+        "tiktoken",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
@@ -1027,8 +1591,17 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1775931819,
-    "featured": false
+    "updated_at": 1783912392,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "kokoro>=0.7.15",
+        "misaki[en,zh]>=0.7.15",
+        "soundfile",
+        "#system_torch#",
+        "#system_numpy#"
+      ]
+    }
   },
   {
     "version": 2,
