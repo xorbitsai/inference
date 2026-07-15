@@ -137,7 +137,7 @@ def reset_admin_password(db: Database, username: str, new_password: str) -> None
     user = db.get_user_by_username(username, source="local")
     if user is None:
         raise ValueError(f"User '{username}' not found")
-    if "admin" not in user.get("permissions", []):
+    if "admin" not in (user.get("permissions") or []):
         raise ValueError(f"User '{username}' is not an admin")
 
     # Atomically update the password and revoke the user's refresh tokens, so
