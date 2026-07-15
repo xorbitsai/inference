@@ -583,14 +583,16 @@ class RESTfulAPI(CancelMixin):
             os.path.join(lib_location, "ui", "web", "dist"),
         )
         if not mount_frontend(self._app, Path(ui_dist_location)):
-            warnings.warn(f"""
+            warnings.warn(
+                f"""
             The Xinference web UI is not built at expected directory: {ui_dist_location}
             The API keeps serving without the web UI. To enable it, build the
             frontend static export from the repository "frontend/" directory with
             "npm ci && npm run build" (this stages the export at the directory
             above), or set XINFERENCE_FRONTEND_DIST_DIR to an export directory,
             and restart. For frontend development, run "npm run dev" instead.
-            """)
+            """
+            )
 
         config = Config(
             app=self._app,
