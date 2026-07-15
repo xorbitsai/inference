@@ -99,6 +99,7 @@ from .utils import (
     merge_virtual_env_packages,
     parse_replica_model_uid,
     purge_dir,
+    rewrite_direct_url_packages_for_index,
 )
 from .virtual_env_manager import VirtualEnvManager as XinferenceVirtualEnvManager
 from .virtual_env_manager import (
@@ -2646,6 +2647,13 @@ class WorkerActor(xo.StatelessActor):
         packages = filter_virtualenv_packages_by_markers(
             packages, model_engine, cuda_version
         )
+
+        if settings.index_url:
+            # A private index was explicitly configured (VirtualEnvSettings or
+            # pip.conf via inherit_pip_config, e.g. an offline mirror). Direct
+            # wheel URLs would bypass it, so resolve them from the index
+            # instead.
+            packages = rewrite_direct_url_packages_for_index(packages)
 
         conf = dict(settings)
         conf.pop("packages", None)
