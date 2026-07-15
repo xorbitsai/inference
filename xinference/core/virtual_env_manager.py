@@ -35,7 +35,6 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
         "sglang>=0.5.6",
         'https://github.com/sgl-project/whl/releases/download/v0.3.21/sgl_kernel-0.3.21+cu130-cp310-abi3-manylinux2014_x86_64.whl ; cuda_version == "13.0" and platform_machine == "x86_64"',
         'https://github.com/sgl-project/whl/releases/download/v0.3.21/sgl_kernel-0.3.21+cu130-cp310-abi3-manylinux2014_aarch64.whl ; cuda_version == "13.0" and platform_machine == "aarch64"',
-        'sgl_kernel ; cuda_version < "13.0"',
     ],
     "vllm": [
         "vllm>=0.11.2",
@@ -80,11 +79,10 @@ ENGINE_VIRTUALENV_INDEX_STRATEGY: Dict[str, str] = {
 }
 
 # Mapping from CUDA version suffix to PyTorch wheel URL
-# e.g., cu128 -> https://download.pytorch.org/whl/cu128
+# e.g., cu130 -> https://download.pytorch.org/whl/cu130
+# CUDA versions below 13.0 are no longer supported.
 PYTORCH_CUDA_WHEEL_URLS: Dict[str, str] = {
     "cu130": "https://download.pytorch.org/whl/cu130",
-    "cu129": "https://download.pytorch.org/whl/cu129",
-    "cu128": "https://download.pytorch.org/whl/cu128",
 }
 
 # Packages that use PyTorch CUDA wheels
