@@ -200,7 +200,9 @@ def main() -> None:
     engine_extra_indexes: Dict[str, List[str]] = (
         venv_manager.ENGINE_VIRTUALENV_EXTRA_INDEX_URLS
     )
-    engine_index_strategy: Dict[str, str] = venv_manager.ENGINE_VIRTUALENV_INDEX_STRATEGY
+    engine_index_strategy: Dict[str, str] = (
+        venv_manager.ENGINE_VIRTUALENV_INDEX_STRATEGY
+    )
 
     excluded_engines = {
         e.strip().lower() for e in args.exclude_engines.split(",") if e.strip()
@@ -246,9 +248,7 @@ def main() -> None:
             else:
                 _add(spec, f"engine:{engine}")
         fname = engine_file_name(engine)
-        (out / "engines" / f"{fname}.in").write_text(
-            "".join(f"{s}\n" for s in specs)
-        )
+        (out / "engines" / f"{fname}.in").write_text("".join(f"{s}\n" for s in specs))
         meta = {
             "engine": engine,
             "extra_index_urls": engine_extra_indexes.get(engine, []),
@@ -270,12 +270,12 @@ def main() -> None:
             for engine in ENGINE_MARKER_RE.findall(pkg):
                 if engine.lower() not in excluded_engines:
                     candidate_engines.add(engine)
-        for engine in candidate_engines:
-            for spec in filter_packages(list(concrete), engine, args.cuda_version):
+        for cand in candidate_engines:
+            for spec in filter_packages(list(concrete), cand, args.cuda_version):
                 sysname = system_placeholder_name(spec)
                 if sysname is not None:
                     spec = sysname
-                source = f"{rel}:{model_name}" + (f" ({engine})" if engine else "")
+                source = f"{rel}:{model_name}" + (f" ({cand})" if cand else "")
                 _add(spec, source)
 
     (out / "urls.txt").write_text("".join(f"{u}\n" for u in sorted(urls)))
