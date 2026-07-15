@@ -156,7 +156,6 @@ def main(
     metrics_exporter_host: Optional[str] = None,
     metrics_exporter_port: Optional[int] = None,
     logging_conf: Optional[Dict] = None,
-    auth_config_file: Optional[str] = None,
 ):
     # force to set spawn,
     # cuda may be inited in xoscar virtualenv
@@ -183,7 +182,6 @@ def main(
             host=host,
             port=port,
             logging_conf=logging_conf,
-            auth_config_file=auth_config_file,
         )
     finally:
         local_cluster.kill()

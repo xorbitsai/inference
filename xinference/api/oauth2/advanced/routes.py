@@ -16,12 +16,10 @@
 from __future__ import annotations
 
 import logging
-import secrets
 from typing import TYPE_CHECKING, Optional
 
 from fastapi import Depends, HTTPException, Query, Request, Security
 
-from ....constants import delete_setup_token, get_or_create_setup_token
 from ...responses import JSONResponse
 from ..advanced.auth_service import (
     INITIAL_ADMIN_PERMISSIONS,
@@ -245,12 +243,10 @@ async def advanced_logout(request: Request) -> JSONResponse:
 # is empty; the moment one account exists, it permanently refuses further
 # calls, so it cannot be used to create additional admins after setup.
 #
-# setup_admin additionally requires a one-time setup token (printed to the
-# server log on startup, or set via XINFERENCE_AUTH_SETUP_TOKEN) so that
-# creating the first, full-privilege admin requires access to the
-# deployment's own log/environment, not just network reachability of this
-# public endpoint -- otherwise whichever client reaches it first on a
-# freshly exposed instance would win full admin access.
+# The first admin is created by whoever reaches setup_admin first. On an
+# instance exposed to untrusted networks before setup completes, that could
+# be someone else; an operator with shell access to the deployment can take
+# control back with the ``xinference-reset-auth-password`` command.
 
 
 async def setup_status(request: Request) -> JSONResponse:
@@ -280,7 +276,6 @@ async def setup_admin(request: Request) -> JSONResponse:
     body = await request.json()
     username = body.get("username")
     password = body.get("password")
-    setup_token = body.get("setup_token")
     if not isinstance(username, str) or not isinstance(password, str):
         raise HTTPException(
             status_code=400, detail="username and password must be strings"
@@ -292,12 +287,6 @@ async def setup_admin(request: Request) -> JSONResponse:
             status_code=400,
             detail=f"Password must be at least {PASSWORD_MIN_LENGTH} characters",
         )
-
-    expected_token = get_or_create_setup_token()
-    if not isinstance(setup_token, str) or not secrets.compare_digest(
-        setup_token, expected_token
-    ):
-        raise HTTPException(status_code=403, detail="Invalid or missing setup token")
 
     password_hash = get_password_hash(password)
     # create_first_user checks-and-inserts atomically (BEGIN IMMEDIATE), so
@@ -313,7 +302,6 @@ async def setup_admin(request: Request) -> JSONResponse:
             detail="Setup already completed; an account already exists.",
         )
 
-    delete_setup_token()
     return JSONResponse(content={"id": user_id, "username": username}, status_code=201)
 
 
