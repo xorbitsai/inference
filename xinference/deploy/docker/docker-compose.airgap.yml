@@ -1,0 +1,40 @@
+# Air-gap enforcement override: moves xinference and the private PyPI server
+# onto an internal Docker network with NO external routing, so offline is
+# guaranteed at the network level rather than by configuration alone.
+# A minimal TCP gateway (socat) publishes the API port, since Docker does not
+# publish ports of internal-only networks. The gateway only forwards inbound
+# traffic to xinference:9997 — it cannot be used by the containers as an
+# egress path.
+#
+# Use together with the offline profile:
+#   docker compose --profile offline \
+#     -f docker-compose.yml -f docker-compose.airgap.yml up -d
+#
+# Note: in this mode the private PyPI server is NOT published on the host;
+# it is only reachable from containers on the isolated network.
+# Requires Docker Compose >= v2.24.4 (for the !reset tag).
+
+networks:
+  isolated:
+    internal: true
+
+services:
+  xinference:
+    networks:
+      - isolated
+    ports: !reset []
+
+  xinference-pypiserver:
+    networks:
+      - isolated
+    ports: !reset []
+
+  xinference-gateway:
+    image: ${XINFERENCE_GATEWAY_IMAGE:-alpine/socat:latest}
+    restart: unless-stopped
+    command: TCP-LISTEN:9997,fork,reuseaddr TCP:xinference:9997
+    ports:
+      - "${XINFERENCE_PORT:-9997}:9997"
+    networks:
+      - default
+      - isolated

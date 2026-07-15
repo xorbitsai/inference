@@ -19,6 +19,11 @@ parts/
 sdist/
 var/
 wheels/
+# Keep the offline-wheels mount point for the Docker Compose deployment,
+# but not the wheels themselves.
+!xinference/deploy/docker/wheels/
+xinference/deploy/docker/wheels/*
+!xinference/deploy/docker/wheels/.gitkeep
 pip-wheel-metadata/
 share/python-wheels/
 *.egg-info/
@@ -102,6 +107,7 @@ celerybeat.pid
 
 # Environments
 .env
+offline.env
 .venv
 .inference_home
 env/
