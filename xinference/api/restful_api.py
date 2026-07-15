@@ -49,10 +49,7 @@ from xoscar.utils import get_next_port
 
 from ..constants import (
     XINFERENCE_ALLOWED_IPS,
-    XINFERENCE_AUTH_ADVANCED,
     XINFERENCE_AUTH_DB_PATH,
-    XINFERENCE_AUTH_ENCRYPTION_KEY,
-    XINFERENCE_AUTH_JWT_SECRET_KEY,
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_DEFAULT_ENDPOINT_PORT,
     XINFERENCE_DISABLE_METRICS,
@@ -60,6 +57,9 @@ from ..constants import (
     XINFERENCE_LAUNCH_HISTORY_DB_PATH,
     XINFERENCE_MONITOR_CONFIG_DB_PATH,
     XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
+    get_auth_encryption_key,
+    get_auth_jwt_secret_key,
+    is_auth_advanced,
 )
 from ..core.event import Event, EventCollectorActor, EventType
 from ..core.exceptions import ModelNotReadyError
@@ -135,12 +135,19 @@ class RESTfulAPI(CancelMixin):
         # all (XINFERENCE_AUTH_ADVANCED=0/false/no). When advanced auth is
         # disabled, _advanced_auth_service stays None and every endpoint is
         # served without authentication.
-        if XINFERENCE_AUTH_ADVANCED:
-            if not XINFERENCE_AUTH_JWT_SECRET_KEY:
+        #
+        # These are resolved at construction time (not from module-level
+        # constants) so a server started in a forked subprocess honors the
+        # XINFERENCE_AUTH_ADVANCED value in its environment rather than a value
+        # frozen when the parent first imported constants.
+        if is_auth_advanced():
+            jwt_secret_key = get_auth_jwt_secret_key()
+            encryption_key = get_auth_encryption_key()
+            if not jwt_secret_key:
                 raise SystemExit(
                     "ERROR: XINFERENCE_AUTH_JWT_SECRET_KEY must be set when using advanced auth."
                 )
-            if not XINFERENCE_AUTH_ENCRYPTION_KEY:
+            if not encryption_key:
                 raise SystemExit(
                     "ERROR: XINFERENCE_AUTH_ENCRYPTION_KEY must be set when using advanced auth."
                 )
@@ -148,8 +155,8 @@ class RESTfulAPI(CancelMixin):
 
             self._advanced_auth_service = AdvancedAuthService(
                 db_path=XINFERENCE_AUTH_DB_PATH,
-                jwt_secret_key=XINFERENCE_AUTH_JWT_SECRET_KEY,
-                encryption_key=XINFERENCE_AUTH_ENCRYPTION_KEY,
+                jwt_secret_key=jwt_secret_key,
+                encryption_key=encryption_key,
             )
             self._auth_service = self._advanced_auth_service
             if self._advanced_auth_service.needs_setup():
@@ -576,16 +583,14 @@ class RESTfulAPI(CancelMixin):
             os.path.join(lib_location, "ui", "web", "dist"),
         )
         if not mount_frontend(self._app, Path(ui_dist_location)):
-            warnings.warn(
-                f"""
+            warnings.warn(f"""
             The Xinference web UI is not built at expected directory: {ui_dist_location}
             The API keeps serving without the web UI. To enable it, build the
             frontend static export from the repository "frontend/" directory with
             "npm ci && npm run build" (this stages the export at the directory
             above), or set XINFERENCE_FRONTEND_DIST_DIR to an export directory,
             and restart. For frontend development, run "npm run dev" instead.
-            """
-            )
+            """)
 
         config = Config(
             app=self._app,

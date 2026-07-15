@@ -90,15 +90,23 @@ XINFERENCE_LOG_DIR = os.environ.get(
 XINFERENCE_IMAGE_DIR = os.path.join(XINFERENCE_HOME, "image")
 XINFERENCE_VIDEO_DIR = os.path.join(XINFERENCE_HOME, "video")
 XINFERENCE_AUTH_DIR = os.path.join(XINFERENCE_HOME, "auth")
+
+
 # Database-backed auth (user accounts, API keys) is on by default. Set
 # XINFERENCE_AUTH_ADVANCED=0/false/no to run with no authentication at all.
-XINFERENCE_AUTH_ADVANCED = os.environ.get(
-    "XINFERENCE_AUTH_ADVANCED", "true"
-).lower() not in (
-    "0",
-    "false",
-    "no",
-)
+#
+# Read the environment at call time rather than caching a module-level
+# constant: the server process is sometimes started in a subprocess created
+# with the ``fork`` start method (the default on Linux), which inherits the
+# parent's already-imported modules. If this were a constant frozen at import
+# time, a forked child would keep the parent's value and ignore an
+# XINFERENCE_AUTH_ADVANCED set after this module was first imported.
+def is_auth_advanced() -> bool:
+    return os.environ.get("XINFERENCE_AUTH_ADVANCED", "true").lower() not in (
+        "0",
+        "false",
+        "no",
+    )
 
 
 # How long an empty secret file must sit untouched before it's considered
@@ -180,16 +188,28 @@ def _get_or_create_persisted_secret(env_name: str, file_name: str) -> str:
     raise RuntimeError(f"Failed to read or create secret file: {secret_path}")
 
 
-XINFERENCE_AUTH_JWT_SECRET_KEY = (
-    _get_or_create_persisted_secret("XINFERENCE_AUTH_JWT_SECRET_KEY", "jwt_secret_key")
-    if XINFERENCE_AUTH_ADVANCED
-    else os.environ.get("XINFERENCE_AUTH_JWT_SECRET_KEY", "")
-)
-XINFERENCE_AUTH_ENCRYPTION_KEY = (
-    _get_or_create_persisted_secret("XINFERENCE_AUTH_ENCRYPTION_KEY", "encryption_key")
-    if XINFERENCE_AUTH_ADVANCED
-    else os.environ.get("XINFERENCE_AUTH_ENCRYPTION_KEY", "")
-)
+def get_auth_jwt_secret_key() -> str:
+    """Resolve the JWT secret at call time (see is_auth_advanced for why this
+    is a function rather than a module-level constant). When advanced auth is
+    on, generate/persist a key on first use; otherwise honor an explicitly set
+    env value or return empty."""
+    if is_auth_advanced():
+        return _get_or_create_persisted_secret(
+            "XINFERENCE_AUTH_JWT_SECRET_KEY", "jwt_secret_key"
+        )
+    return os.environ.get("XINFERENCE_AUTH_JWT_SECRET_KEY", "")
+
+
+def get_auth_encryption_key() -> str:
+    """Resolve the API-key encryption key at call time (see is_auth_advanced).
+    Generated/persisted when advanced auth is on, else read from env."""
+    if is_auth_advanced():
+        return _get_or_create_persisted_secret(
+            "XINFERENCE_AUTH_ENCRYPTION_KEY", "encryption_key"
+        )
+    return os.environ.get("XINFERENCE_AUTH_ENCRYPTION_KEY", "")
+
+
 XINFERENCE_AUTH_DB_PATH = os.environ.get(
     "XINFERENCE_AUTH_DB_PATH", os.path.join(XINFERENCE_HOME, "auth", "auth.db")
 )
