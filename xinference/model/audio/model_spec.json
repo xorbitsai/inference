@@ -1541,6 +1541,11 @@
       "text2audio_zero_shot"
     ],
     "multilingual": true,
+    "virtualenv": {
+      "packages": [
+        "WeTextProcessing==1.0.4.1"
+      ]
+    },
     "model_src": {
       "huggingface": {
         "model_id": "ByteDance/MegaTTS3",
