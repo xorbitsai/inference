@@ -3195,6 +3195,35 @@ class SupervisorActor(xo.StatelessActor):
         self._replica_gpu_cache = replica_gpu_cache
 
         running_model_info = {parse_replica_model_uid(k)[0]: v for k, v in ret.items()}
+
+        # Aggregate per-process GPU memory (real-time, from
+        # nvmlDeviceGetComputeRunningProcesses) into base-model granularity so
+        # the REST /v1/models response can surface it. _worker_model_gpu_memory
+        # is keyed by worker_address -> replica_model_uid -> {gpu_idx -> bytes}.
+        # GPU indices are local to each worker, so the worker dimension must be
+        # preserved: aggregating by gpu_idx alone would merge same-numbered GPUs
+        # on different physical hosts. Result shape:
+        # {base_uid: {worker_address: {gpu_idx: bytes}}}, summed across replicas
+        # that live on the same worker.
+        base_gpu_memory: Dict[str, Dict[str, Dict[int, int]]] = defaultdict(
+            lambda: defaultdict(lambda: defaultdict(int))
+        )
+        for worker_address, per_model in self._worker_model_gpu_memory.items():
+            for replica_uid, per_gpu in per_model.items():
+                try:
+                    base_uid = parse_replica_model_uid(replica_uid)[0]
+                except Exception:
+                    # A malformed replica uid must not break model listing;
+                    # skip this entry instead of propagating the error.
+                    logger.warning(
+                        "list_models: skip malformed replica uid %s in "
+                        "per-model GPU memory",
+                        replica_uid,
+                    )
+                    continue
+                for gpu_idx, mem in per_gpu.items():
+                    base_gpu_memory[base_uid][worker_address][int(gpu_idx)] += int(mem)
+
         # add replica count
         stale_uids = []
         for k, v in running_model_info.items():
@@ -3211,6 +3240,14 @@ class SupervisorActor(xo.StatelessActor):
                 stale_uids.append(k)
                 continue
             v["replica"] = replica_info.replica
+            gpu_mem = base_gpu_memory.get(k)
+            if gpu_mem:
+                # {worker_address: {gpu_idx(str): bytes}}, sorted by GPU index
+                # per worker for deterministic display.
+                v["gpu_memory"] = {
+                    worker_address: {str(idx): per_gpu[idx] for idx in sorted(per_gpu)}
+                    for worker_address, per_gpu in gpu_mem.items()
+                }
         for k in stale_uids:
             running_model_info.pop(k, None)
         return running_model_info
