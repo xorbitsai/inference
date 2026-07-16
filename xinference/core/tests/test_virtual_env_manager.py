@@ -17,6 +17,7 @@
 See optimize/20260702/2026070209.md for root cause analysis.
 """
 
+import importlib.metadata
 import os
 from unittest import mock
 
@@ -27,6 +28,7 @@ from ..virtual_env_manager import (
     FLASHINFER_AOT_PACKAGES,
     FLASHINFER_AOT_WHEEL_URL,
     apply_flashinfer_aot_post_install,
+    get_engine_critical_dependency_specs,
     needs_flashinfer_aot,
 )
 
@@ -247,3 +249,113 @@ class TestApplyFlashinferAotPostInstall:
                 "12.0",
             )
             run_mock.assert_not_called()
+
+
+class TestGetEngineCriticalDependencySpecs:
+    """Tests for get_engine_critical_dependency_specs().
+
+    Covers the skip_installed inheritance hole: when the parent env's engine
+    copy satisfies the requested spec, the venv skips installing the engine,
+    so nothing enforces the engine's own declared dependency requirements
+    (e.g. sglang declares transformers==4.57.1 while the Docker image ships
+    transformers 5.x, which breaks sglang.srt at import).
+    """
+
+    def _patch_metadata(self, versions, requires_map=None):
+        requires_map = requires_map or {}
+
+        def fake_version(name):
+            try:
+                return versions[name.lower()]
+            except KeyError:
+                raise importlib.metadata.PackageNotFoundError(name)
+
+        def fake_requires(name):
+            if name.lower() not in versions:
+                raise importlib.metadata.PackageNotFoundError(name)
+            return requires_map.get(name.lower(), [])
+
+        return mock.patch.multiple(
+            "importlib.metadata", version=fake_version, requires=fake_requires
+        )
+
+    def test_incompatible_parent_dependency_adds_declared_spec(self):
+        with self._patch_metadata(
+            {"sglang": "0.5.6", "transformers": "5.5.0"},
+            {"sglang": ["transformers==4.57.1"]},
+        ):
+            specs = get_engine_critical_dependency_specs("sglang", ["sglang>=0.5.6"])
+        assert specs == ["transformers==4.57.1"]
+
+    def test_compatible_parent_dependency_is_noop(self):
+        with self._patch_metadata(
+            {"sglang": "0.5.6", "transformers": "4.57.1"},
+            {"sglang": ["transformers==4.57.1"]},
+        ):
+            specs = get_engine_critical_dependency_specs("sglang", ["sglang>=0.5.6"])
+        assert specs == []
+
+    def test_engine_absent_from_parent_is_noop(self):
+        """Without a parent copy the venv resolves the engine and its full
+        dependency closure itself; nothing to compensate for."""
+        with self._patch_metadata({"transformers": "5.5.0"}):
+            specs = get_engine_critical_dependency_specs("sglang", ["sglang>=0.5.6"])
+        assert specs == []
+
+    def test_requested_spec_forcing_fresh_engine_install_is_noop(self):
+        """A parent copy not satisfying the requested spec means the venv
+        installs its own engine with full dependency resolution."""
+        with self._patch_metadata(
+            {"sglang": "0.5.6", "transformers": "5.5.0"},
+            {"sglang": ["transformers==4.57.1"]},
+        ):
+            specs = get_engine_critical_dependency_specs("sglang", ["sglang>=0.5.7"])
+        assert specs == []
+
+    def test_explicit_dependency_spec_wins(self):
+        with self._patch_metadata(
+            {"sglang": "0.5.6", "transformers": "5.5.0"},
+            {"sglang": ["transformers==4.57.1"]},
+        ):
+            specs = get_engine_critical_dependency_specs(
+                "sglang", ["sglang>=0.5.6", "transformers==4.55.0"]
+            )
+        assert specs == []
+
+    def test_missing_dependency_is_added(self):
+        with self._patch_metadata(
+            {"sglang": "0.5.6"},
+            {"sglang": ["transformers==4.57.1"]},
+        ):
+            specs = get_engine_critical_dependency_specs("sglang", ["sglang>=0.5.6"])
+        assert specs == ["transformers==4.57.1"]
+
+    def test_extra_marker_requirements_ignored(self):
+        with self._patch_metadata(
+            {"sglang": "0.5.6", "transformers": "5.5.0"},
+            {"sglang": ['transformers==4.57.1 ; extra == "srt"']},
+        ):
+            specs = get_engine_critical_dependency_specs("sglang", ["sglang>=0.5.6"])
+        assert specs == []
+
+    def test_non_critical_engine_is_noop(self):
+        specs = get_engine_critical_dependency_specs("vllm", ["vllm>=0.11.2"])
+        assert specs == []
+
+    def test_no_engine_is_noop(self):
+        assert get_engine_critical_dependency_specs(None, []) == []
+
+    def test_unparseable_package_entries_are_skipped(self):
+        with self._patch_metadata(
+            {"sglang": "0.5.6", "transformers": "5.5.0"},
+            {"sglang": ["transformers==4.57.1"]},
+        ):
+            specs = get_engine_critical_dependency_specs(
+                "sglang",
+                [
+                    "#system_torch#",
+                    'https://example.com/sgl_kernel-0.3.21+cu130-cp310-abi3-manylinux2014_x86_64.whl ; cuda_version == "13.0"',
+                    "sglang>=0.5.6",
+                ],
+            )
+        assert specs == ["transformers==4.57.1"]

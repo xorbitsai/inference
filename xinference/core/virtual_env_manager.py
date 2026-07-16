@@ -64,6 +64,22 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
     ],
 }
 
+# Critical dependencies of engine packages that may be inherited from the
+# parent environment instead of installed into the venv: with skip_installed
+# enabled (the default), an engine spec satisfied by the parent copy is not
+# installed, so nothing pulls the engine's own dependency requirements into
+# the venv. If the parent copy of such a dependency violates the engine's
+# declared requirement (e.g. sglang declares transformers==4.57.1 while the
+# Docker image ships transformers 5.x, which breaks sglang.srt at import),
+# the engine's declared spec is added to the venv install list so the venv
+# gets a compatible copy that shadows the parent's. The specs are read from
+# the installed engine's metadata at launch time, so they follow whatever
+# the installed engine version declares. Structure: engine name ->
+# {distribution name -> [critical dependency names]}.
+ENGINE_CRITICAL_DEPENDENCIES: Dict[str, Dict[str, List[str]]] = {
+    "sglang": {"sglang": ["transformers"]},
+}
+
 ENGINE_VIRTUALENV_EXTRA_INDEX_URLS: Dict[str, List[str]] = {
     "vllm": [
         "https://wheels.vllm.ai/0.19.0/cu130",
@@ -134,6 +150,86 @@ def get_engine_virtualenv_packages(model_engine: Optional[str]) -> List[str]:
     if not model_engine:
         return []
     return ENGINE_VIRTUALENV_PACKAGES.get(model_engine.lower(), []).copy()
+
+
+def get_engine_critical_dependency_specs(
+    model_engine: Optional[str], packages: Optional[List[str]] = None
+) -> List[str]:
+    """
+    Return dependency specs that must be installed into the venv because the
+    engine package will be inherited from the parent environment while the
+    parent copies of its critical dependencies (see
+    ``ENGINE_CRITICAL_DEPENDENCIES``) do not satisfy the engine's own declared
+    requirements.
+
+    Returns an empty list when the engine is absent from the parent
+    environment or the requested spec forces a fresh engine install — in both
+    cases the resolver installs the engine together with its dependencies and
+    there is nothing to compensate for. Dependencies explicitly listed in
+    ``packages`` are also left untouched so user-provided specs win.
+    """
+    if not model_engine:
+        return []
+    critical = ENGINE_CRITICAL_DEPENDENCIES.get(model_engine.lower())
+    if not critical:
+        return []
+
+    import importlib.metadata
+
+    from packaging.requirements import Requirement
+
+    requested: Dict[str, Requirement] = {}
+    for pkg in packages or []:
+        try:
+            req = Requirement(pkg.split(";", 1)[0].strip())
+        except Exception:
+            # placeholders (#system_torch#) and direct wheel URLs
+            continue
+        requested[req.name.lower()] = req
+
+    specs: List[str] = []
+    for dist_name, dep_names in critical.items():
+        try:
+            parent_version = importlib.metadata.version(dist_name)
+        except importlib.metadata.PackageNotFoundError:
+            continue
+
+        engine_req = requested.get(dist_name.lower())
+        if engine_req is not None and engine_req.specifier:
+            try:
+                if not engine_req.specifier.contains(parent_version, prereleases=True):
+                    # parent copy doesn't satisfy the requested spec, the venv
+                    # installs its own engine with full dependency resolution
+                    continue
+            except Exception:
+                continue
+
+        try:
+            declared = importlib.metadata.requires(dist_name) or []
+        except importlib.metadata.PackageNotFoundError:
+            continue
+
+        wanted = {name.lower() for name in dep_names}
+        for req_str in declared:
+            try:
+                req = Requirement(req_str)
+            except Exception:
+                continue
+            name = req.name.lower()
+            if name not in wanted or name in requested:
+                continue
+            if req.marker is not None and not req.marker.evaluate({"extra": ""}):
+                continue
+            try:
+                dep_version: Optional[str] = importlib.metadata.version(req.name)
+            except importlib.metadata.PackageNotFoundError:
+                dep_version = None
+            if dep_version is not None and req.specifier.contains(
+                dep_version, prereleases=True
+            ):
+                continue
+            specs.append(f"{req.name}{req.specifier}" if req.specifier else req.name)
+    return specs
 
 
 def get_engine_virtualenv_extra_index_urls(
