@@ -134,33 +134,6 @@ Nvidia GPU users can start Xinference server using [Xinference Docker Image](htt
 docker run --name xinference -d -p 9997:9997 -e XINFERENCE_HOME=/data -v </on/your/host>:/data --gpus all xprobe/xinference:latest xinference-local -H 0.0.0.0
 ```
 
-### Docker Compose Setup
-
-#### Online Mode (internet access)
-
-Xinference pulls packages from the public PyPI registry. No local PyPI server needed.
-
-> **Note:** Edit `docker-compose.yaml` to adjust environment variables (e.g. `XINFERENCE_HOME`, `XINFERENCE_MODEL_SRC`) for your setup before starting.
-
-```bash
-docker compose up -d
-```
-
-#### Offline Mode (no internet)
-
-Starts a local PyPI server (`pypiserver`) alongside Xinference. Xinference resolves Python packages from this local server instead of the public internet.
-
-```bash
-# 1. Point pip to the local PyPI server
-cat > .env << EOF
-PIP_INDEX_URL=http://pypiserver:8080/simple/
-PIP_TRUSTED_HOST=pypiserver
-EOF
-
-# 2. Start both services
-docker compose --profile pypiserver up -d
-```
-
 ### K8s via helm
 
 Ensure that you have GPU support in your Kubernetes cluster, then install as follows.
