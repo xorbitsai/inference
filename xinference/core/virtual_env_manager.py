@@ -90,6 +90,50 @@ PYTORCH_CUDA_WHEEL_URLS: Dict[str, str] = {
 # Packages that use PyTorch CUDA wheels
 PYTORCH_PACKAGES = {"torch", "torchaudio", "torchvision", "torchcodec"}
 
+# xllamacpp (llama.cpp engine) ships GPU wheels on a self-hosted index, one per
+# CUDA major line. Only these CUDA lines have prebuilt GPU wheels; any other
+# environment (no GPU, or an unsupported CUDA line) falls back to the default
+# PyPI index, which serves the CPU build.
+# See https://github.com/xorbitsai/xllamacpp for the official install commands.
+XLLAMACPP_CUDA_INDEX_URLS: Dict[str, str] = {
+    "cu132": "https://xorbitsai.github.io/xllamacpp/whl/cu132",
+    "cu128": "https://xorbitsai.github.io/xllamacpp/whl/cu128",
+}
+
+
+def get_xllamacpp_cuda_index_url(
+    system_cuda_version: Optional[str],
+) -> Optional[str]:
+    """
+    Pick the xllamacpp GPU wheel index URL matching the detected system CUDA
+    version.
+
+    ``system_cuda_version`` is the dotted version reported by the platform
+    (e.g. ``"13.2"`` or ``"12.6"``). CUDA is backward compatible within a major
+    line, so we map by major version to the highest available minor wheel index
+    that does not exceed the system version:
+
+    - CUDA 13.x  -> cu132
+    - CUDA 12.8+ -> cu128
+
+    Returns ``None`` when no GPU is detected or the CUDA line has no prebuilt
+    wheel, in which case the caller should leave the index untouched so the CPU
+    build is installed from PyPI.
+    """
+    if not system_cuda_version:
+        return None
+    # Minor version is optional so a major-only report (e.g. "13") still maps.
+    match = re.match(r"^(\d+)(?:\.(\d+))?", system_cuda_version.strip())
+    if not match:
+        return None
+    major = int(match.group(1))
+    minor = int(match.group(2)) if match.group(2) is not None else 0
+    if major >= 13:
+        return XLLAMACPP_CUDA_INDEX_URLS["cu132"]
+    if major == 12 and minor >= 8:
+        return XLLAMACPP_CUDA_INDEX_URLS["cu128"]
+    return None
+
 
 def extract_cuda_version_from_url(url: str) -> Optional[str]:
     """Extract CUDA version suffix (e.g. 'cu130') from a wheel index URL."""
