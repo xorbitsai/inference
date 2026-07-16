@@ -202,7 +202,7 @@ Produced automatically by `aioprometheus`'s `MetricsMiddleware` (mounted on the 
 | `status_codes_counter` | Counter | `method`, `path`, `status_code` | Responses by status code (`status_code` is the full code such as `200`/`404`/`500`; not grouped) |
 
 **Use cases:**
-- API error rate = `rate(status_codes_counter{status_code=~"4..|5.."}[5m]) / rate(requests_total_counter[5m])`
+- API error rate = `sum without(status_code) (rate(status_codes_counter{status_code=~"4..|5.."}[5m])) / rate(requests_total_counter[5m])`
 - API QPS = `sum(rate(requests_total_counter[5m]))`
 - Exception spike = `rate(exceptions_total_counter[5m])`
 
