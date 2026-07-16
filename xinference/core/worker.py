@@ -52,7 +52,6 @@ from ..constants import (
     XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU,
     XINFERENCE_CACHE_DIR,
     XINFERENCE_DISABLE_HEALTH_CHECK,
-    XINFERENCE_DISABLE_METRICS,
     XINFERENCE_ENABLE_VIRTUAL_ENV,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
     XINFERENCE_HOME,
@@ -67,6 +66,7 @@ from ..constants import (
     XINFERENCE_TCP_REQUEST_TIMEOUT,
     XINFERENCE_VIRTUAL_ENV_DIR,
     XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED,
+    is_metrics_disabled,
 )
 from ..core.model import ModelActor
 from ..core.status_guard import LaunchStatus
@@ -576,7 +576,7 @@ class WorkerActor(xo.StatelessActor):
         # any process environ.
         self._model_uid_to_subpool_pids: Dict[str, Set[int]] = {}
 
-        if XINFERENCE_DISABLE_METRICS:
+        if is_metrics_disabled():
             logger.info(
                 "Worker metrics is disabled due to the environment XINFERENCE_DISABLE_METRICS=1"
             )

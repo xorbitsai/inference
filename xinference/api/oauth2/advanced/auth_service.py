@@ -152,13 +152,14 @@ class AdvancedAuthService:
     # --- JWT ---
 
     def create_access_token(
-        self, user_id: int, username: str, scopes: List[str]
+        self, user_id: int, username: str, scopes: List[str], token_version: int = 0
     ) -> str:
         expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         payload = {
             "sub": username,
             "user_id": user_id,
             "scopes": scopes,
+            "token_version": token_version,
             "exp": expire,
             "type": "access",
         }
@@ -183,6 +184,19 @@ class AdvancedAuthService:
             )
             if payload.get("type") != "access":
                 return None
+            # Reject tokens whose embedded version is stale (e.g. minted before
+            # a password reset, which bumps the user's token_version). This is
+            # checked against the database on every request so a reset -- even
+            # one done out-of-band by the offline reset command -- immediately
+            # invalidates access tokens issued beforehand, rather than letting
+            # them live on with their scopes until expiry.
+            user_id = payload.get("user_id")
+            if user_id is not None:
+                current_version = self._db.get_user_token_version(user_id)
+                if current_version is None:
+                    return None
+                if payload.get("token_version", 0) != current_version:
+                    return None
             return payload
         except JWTError:
             return None
@@ -221,7 +235,10 @@ class AdvancedAuthService:
             return None
 
         access_token = self.create_access_token(
-            user["id"], user["username"], user["permissions"]
+            user["id"],
+            user["username"],
+            user["permissions"],
+            user.get("token_version", 0),
         )
         return {
             "access_token": access_token,
@@ -256,7 +273,10 @@ class AdvancedAuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
         access_token = self.create_access_token(
-            user["id"], user["username"], user["permissions"]
+            user["id"],
+            user["username"],
+            user["permissions"],
+            user.get("token_version", 0),
         )
         refresh_token = self.create_refresh_token(user["id"])
         result: Dict[str, Any] = {

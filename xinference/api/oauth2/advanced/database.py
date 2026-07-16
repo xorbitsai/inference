@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS users (
     oidc_sub TEXT,
     enabled INTEGER DEFAULT 1,
     must_change_password INTEGER DEFAULT 0,
+    token_version INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -104,6 +105,11 @@ class Database:
             user_columns = {row[1] for row in cursor.fetchall()}
             if "oidc_sub" not in user_columns:
                 conn.execute("ALTER TABLE users ADD COLUMN oidc_sub TEXT")
+            if "token_version" not in user_columns:
+                conn.execute(
+                    "ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL "
+                    "DEFAULT 0"
+                )
             conn.execute(
                 "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_oidc_sub "
                 "ON users(oidc_sub) WHERE oidc_sub IS NOT NULL"
@@ -562,8 +568,15 @@ class Database:
     def update_password_and_revoke_tokens(
         self, user_id: int, password_hash: str
     ) -> None:
-        """Atomically update a user's password and revoke all their refresh
-        tokens in a single write transaction.
+        """Atomically update a user's password, bump their token version, and
+        revoke all their refresh tokens in a single write transaction.
+
+        Bumping token_version invalidates access tokens (JWTs) that were
+        minted before the reset: they embed the old version, which no longer
+        matches the stored one, so verify_access_token rejects them. Without
+        this, a pre-reset access token keeps its ``admin`` scope until it
+        expires (default 30 min), letting a leaked/stolen token keep calling
+        admin routes after the password has been changed.
 
         BEGIN IMMEDIATE serializes this against ``rotate_refresh_token`` so a
         refresh in flight cannot slip a freshly-rotated token past the
@@ -574,11 +587,22 @@ class Database:
             with self._get_conn() as conn:
                 conn.execute("BEGIN IMMEDIATE")
                 conn.execute(
-                    "UPDATE users SET password_hash = ?, must_change_password = 0 "
-                    "WHERE id = ?",
+                    "UPDATE users SET password_hash = ?, must_change_password = 0, "
+                    "token_version = token_version + 1 WHERE id = ?",
                     (password_hash, user_id),
                 )
                 conn.execute("DELETE FROM refresh_tokens WHERE user_id = ?", (user_id,))
+
+    def get_user_token_version(self, user_id: int) -> Optional[int]:
+        """Return the user's current token version, or None if no such user.
+
+        Used on every authenticated request to reject access tokens whose
+        embedded version is stale (e.g. minted before a password reset)."""
+        with self._get_conn() as conn:
+            row = conn.execute(
+                "SELECT token_version FROM users WHERE id = ?", (user_id,)
+            ).fetchone()
+            return row["token_version"] if row else None
 
     # --- System Config ---
 

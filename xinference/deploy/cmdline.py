@@ -98,7 +98,6 @@ def start_local_cluster(
     port: int,
     metrics_exporter_host: Optional[str] = None,
     metrics_exporter_port: Optional[int] = None,
-    auth_config_file: Optional[str] = None,
 ):
     from .local import main
 
@@ -121,7 +120,6 @@ def start_local_cluster(
         metrics_exporter_host=metrics_exporter_host,
         metrics_exporter_port=metrics_exporter_port,
         logging_conf=dict_config,
-        auth_config_file=auth_config_file,
     )
 
 
@@ -213,18 +211,12 @@ def cli(
     type=int,
     help="Specify the port number for the Xinference metrics exporter server.",
 )
-@click.option(
-    "--auth-config",
-    type=str,
-    help="Specify the auth config json file.",
-)
 def local(
     log_level: str,
     host: str,
     port: int,
     metrics_exporter_host: Optional[str],
     metrics_exporter_port: Optional[int],
-    auth_config: Optional[str],
 ):
     if metrics_exporter_host is None:
         metrics_exporter_host = host
@@ -234,7 +226,6 @@ def local(
         port=port,
         metrics_exporter_host=metrics_exporter_host,
         metrics_exporter_port=metrics_exporter_port,
-        auth_config_file=auth_config,
     )
 
 
@@ -267,17 +258,11 @@ def local(
     type=int,
     help="Specify the port number for the Xinference supervisor.",
 )
-@click.option(
-    "--auth-config",
-    type=str,
-    help="Specify the auth config json file.",
-)
 def supervisor(
     log_level: str,
     host: str,
     port: int,
     supervisor_port: Optional[int],
-    auth_config: Optional[str],
 ):
     from ..deploy.supervisor import main
 
@@ -298,7 +283,6 @@ def supervisor(
         port=port,
         supervisor_port=supervisor_port,
         logging_conf=dict_config,
-        auth_config_file=auth_config,
     )
 
 

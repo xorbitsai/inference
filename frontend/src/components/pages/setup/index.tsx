@@ -84,7 +84,6 @@ export default function Setup() {
         body: JSON.stringify({
           username: values.username,
           password: values.password,
-          setup_token: values.setup_token,
         }),
       });
       if (!res.ok) {
@@ -95,8 +94,8 @@ export default function Setup() {
           goToLogin(false);
           return;
         }
-        // Wrong/missing setup token, or any other failure: show the
-        // specific message and let the user retry on this page.
+        // Any other failure (e.g. password too short): show the specific
+        // message and let the user retry on this page.
         toast.error(data?.detail || t('setup.createFailed'));
         return;
       }
@@ -159,17 +158,8 @@ export default function Setup() {
           <div className="space-y-2">
             <h2 className="text-3xl font-bold text-primary">{t('setup.title')}</h2>
             <p className="text-sm text-muted-foreground">{t('setup.description')}</p>
-            <p className="text-sm text-muted-foreground">{t('setup.tokenHint')}</p>
           </div>
           <Form onFinish={onSubmit} form={form} initialValues={{ username: 'admin' }}>
-            <FormField
-              name="setup_token"
-              label={t('setup.tokenLabel')}
-              placeholder={t('setup.tokenPlaceholder')}
-              rules={[{ required: true, message: t('setup.tokenRequired') }]}
-            >
-              <Input />
-            </FormField>
             <FormField name="username" label={t('login.username')} rules={[{ required: true }]}>
               <Input />
             </FormField>
