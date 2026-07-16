@@ -1,0 +1,71 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-15 13:56+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: zh_TW <LL@li.org>\n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/vllm_enhancement.rst:5
+msgid "Xavier: Share KV Cache between vllm replicas"
+msgstr "Xavier: 多VLLM副本間共享KV Cache"
+
+#: ../../source/user_guide/vllm_enhancement.rst:6
+msgid ""
+"For scenarios such as long document queries and multi-round conversations, "
+"the computation during the inference prefill phase can be particularly "
+"heavy, which affects overall throughput and the latency of individual "
+"inferences. Xinference enhances the vllm engine by introducing the "
+"``Xavier`` framework, enabling KV cache sharing across multiple vllm "
+"instances. This allows KV cache computed by other replicas to be directly "
+"reused, avoiding redundant computations."
+msgstr ""
+"對於長文件查詢與多輪對話等場景，在推理預填充階段的計算可能特別繁重，這會影響整體吞吐量與單次推理的延遲。Xinference 透過引入 "
+"``Xavier`` 框架來增強 vllm 引擎，支援在多個 vllm 實例之間共享 KV 緩存。這使得其他副本計算出的 KV "
+"緩存可以被直接重用，從而避免冗餘計算。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:15
+msgid "Usage"
+msgstr "使用"
+
+#: ../../source/user_guide/vllm_enhancement.rst:16
+msgid ""
+"Simply add the parameter ``enable_xavier=True`` when starting the vllm "
+"model."
+msgstr "啟動 vllm 模型時設定選項 ``enable_xavier=True`` 即可。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:20
+msgid "Limitations"
+msgstr "限制"
+
+#: ../../source/user_guide/vllm_enhancement.rst:21
+msgid ""
+"Xavier requires vllm version >= ``0.7.0``, and currently not supports for "
+"vllm version >= ``0.11.0`` due to vllm reconstruction."
+msgstr "Xavier 要求 vllm 版本不低於 ``0.7.0`` 。暫不支援 vllm 版本高於 ``0.11.0``。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:22
+msgid ""
+"Due to the underlying communication not recognizing ``0.0.0.0``, the actual "
+"IP address needs to be passed when starting Xinference, for example: "
+"``xinference-local -H 192.168.xx.xx``."
+msgstr ""
+"由於底層通訊無法識別 ``0.0.0.0`` 位址，啟動 xinference 時需配置實際的 IP 位址，例如：``xinference-local "
+"-H 192.168.xx.xx``。"
+
+#: ../../source/user_guide/vllm_enhancement.rst:23
+msgid "Xavier only works for Nvidia product."
+msgstr "Xavier 只支援 Nvidia 顯示卡。"

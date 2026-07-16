@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ from .hunyuan_ocr import HunyuanOCRModel
 from .mlx import MLXDeepSeekOCRModel
 from .ocr_family import SUPPORTED_ENGINES
 from .paddleocr_vl import PaddleOCRVLModel
+from .unlimited_ocr import UnlimitedOCRModel
 from .vllm import (
     VLLMDeepSeekOCRModel,
     VLLMGotOCR2Model,
@@ -30,6 +31,7 @@ __all__ = [
     "GotOCR2Model",
     "HunyuanOCRModel",
     "PaddleOCRVLModel",
+    "UnlimitedOCRModel",
 ]
 
 
@@ -39,6 +41,7 @@ def register_builtin_ocr_engines() -> None:
         GotOCR2Model,
         HunyuanOCRModel,
         PaddleOCRVLModel,
+        UnlimitedOCRModel,
     ]
     SUPPORTED_ENGINES["vllm"] = [
         VLLMDeepSeekOCRModel,

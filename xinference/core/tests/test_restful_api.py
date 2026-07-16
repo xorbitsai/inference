@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -99,6 +99,7 @@ async def test_restful_api(setup):
         "prompt": "Once upon a time, there was a very old computer.",
     }
     response = requests.post(url, json=payload)
+    response.raise_for_status()
     completion = response.json()
     assert "text" in completion["choices"][0]
 
@@ -1251,8 +1252,13 @@ def test_lang_chain(setup):
         ),
     ],
 )
-async def test_chat_completion_enable_thinking_injected(payload, expected):
+async def test_chat_completion_enable_thinking_injected(monkeypatch, payload, expected):
+    from ... import api as api_module
     from ...api.restful_api import RESTfulAPI
+
+    # This test exercises request-body handling, not auth; advanced auth
+    # defaults to on, so disable it to keep the dummy request unauthenticated.
+    monkeypatch.setattr(api_module.restful_api, "XINFERENCE_AUTH_ADVANCED", False)
 
     api = RESTfulAPI("localhost", "localhost", 9997)
     mock_supervisor = AsyncMock()
@@ -1512,6 +1518,70 @@ def anthropic_setup():
         sample_openai_response_with_tools,
         sample_openai_response_without_tools,
     )
+
+
+def test_normalize_anthropic_messages_top_level_string():
+    """Top-level `system` string becomes a leading system message."""
+    from ...api.restful_api import RESTfulAPI
+
+    result = RESTfulAPI._normalize_anthropic_messages(
+        "Be concise.", [{"role": "user", "content": "Hi"}]
+    )
+    assert result == [
+        {"role": "system", "content": "Be concise."},
+        {"role": "user", "content": "Hi"},
+    ]
+
+
+def test_normalize_anthropic_messages_strips_billing_header():
+    """Claude Code's per-request billing header block is dropped."""
+    from ...api.restful_api import RESTfulAPI
+
+    result = RESTfulAPI._normalize_anthropic_messages(
+        [
+            {"type": "text", "text": "x-anthropic-billing-header: cc_version=2.1.160"},
+            {"type": "text", "text": "You are Claude Code."},
+        ],
+        [{"role": "user", "content": "Hi"}],
+    )
+    assert result[0] == {"role": "system", "content": "You are Claude Code."}
+    assert result[1] == {"role": "user", "content": "Hi"}
+
+
+def test_normalize_anthropic_messages_inline_system_merged():
+    """Inline `role: system` messages are merged with the top-level prompt and
+    removed from the message list (Claude Code >= 2.1.154 compatibility)."""
+    from ...api.restful_api import RESTfulAPI
+
+    result = RESTfulAPI._normalize_anthropic_messages(
+        "Top.",
+        [
+            {"role": "user", "content": "Hi"},
+            {"role": "system", "content": "Inline."},
+            {
+                "role": "system",
+                "content": [
+                    {"type": "text", "text": "A."},
+                    {"type": "text", "text": "B."},
+                ],
+            },
+        ],
+    )
+    assert result == [
+        {"role": "system", "content": "Top.\nInline.\nA.\nB."},
+        {"role": "user", "content": "Hi"},
+    ]
+
+
+def test_normalize_anthropic_messages_no_system_unchanged():
+    """Requests without any system content are passed through unchanged."""
+    from ...api.restful_api import RESTfulAPI
+
+    messages = [
+        {"role": "user", "content": "Hi"},
+        {"role": "assistant", "content": "Yo"},
+    ]
+    assert RESTfulAPI._normalize_anthropic_messages(None, messages) == messages
 
 
 def test_convert_openai_to_anthropic_with_tools(anthropic_setup):

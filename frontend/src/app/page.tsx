@@ -1,20 +1,16 @@
-// "use client";
+'use client';
 
-// import { useGlobal } from '@/contexts/global-context';
-// import { Loader2 } from 'lucide-react';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
-// export default function Home() {
-//   const { globalReady } = useGlobal();
-//   if(!globalReady) {
-//     return (
-//       <div className="h-screen w-screen flex items-center justify-center bg-background">
-//         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-//       </div>
-//     )
-//   }
-//   return null;
-// }
-// next.config: redirect root '/' to '/workbench'
+// Client-side redirect: server redirect()/next.config redirects are not
+// supported in static export.
 export default function Home() {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace('/launch-model');
+  }, [router]);
+
   return null;
 }

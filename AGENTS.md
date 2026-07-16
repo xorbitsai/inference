@@ -19,7 +19,7 @@ Primary package and entry points:
   tests.
 - `xinference/api/`: API server and OpenAI-compatible routes.
 - `xinference/client/`: sync and async Python clients.
-- `xinference/ui/web/ui/`: React Web UI.
+- `frontend/`: Next.js Web UI.
 - `doc/source/`: Sphinx documentation.
 - `.github/workflows/python.yaml`: main lint and test CI.
 
@@ -111,22 +111,22 @@ dependencies, GPU, Metal, network access, or model downloads.
 
 ## Frontend
 
-The Web UI is under `xinference/ui/web/ui` and uses React 18, Material UI,
-react-router, i18next, ESLint, and Prettier.
+The Web UI is under `frontend` and is a Next.js app (React, TypeScript,
+Tailwind CSS), built as a static export and served by the Python backend from
+`xinference/ui/web/dist`.
 
 Common commands:
 
 ```bash
-cd xinference/ui/web/ui
+cd frontend
 npm ci
-npm start
+npm run dev
 npm run build
 npx eslint .
-npx prettier --check .
 ```
 
-Use `npm run format` only when you intentionally want ESLint autofixes and
-Prettier writes across the UI tree.
+Use `npm run format` only when you intentionally want Prettier writes across
+the frontend tree.
 
 ## Documentation
 

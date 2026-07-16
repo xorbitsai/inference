@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,6 +34,8 @@ from ...utils import check_dependency_available
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 
 FLAG_EMBEDDER_MODEL_LIST = support_native_bge_model_list() if flag_installed else []
+from ...utils import allow_trust_remote_code
+
 logger = logging.getLogger(__name__)
 
 
@@ -96,7 +98,7 @@ class FlagEmbeddingModel(EmbeddingModel, BatchMixin):
         self._model = BGEM3FlagModel(
             self._model_path,
             device=self._device,
-            trust_remote_code=True,
+            trust_remote_code=allow_trust_remote_code(self.model_family),
             return_sparse=self._return_sparse,
             **model_kwargs,
         )

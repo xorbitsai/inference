@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ from ...utils import check_dependency_available
 from ..core import EmbeddingModel, EmbeddingModelFamilyV2, EmbeddingSpecV1
 
 logger = logging.getLogger(__name__)
-SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "gte", "Qwen3"]
+SUPPORTED_MODELS_PREFIXES = ["bge", "gte", "text2vec", "m3e", "Qwen3", "bce"]
 
 
 class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
@@ -316,7 +316,7 @@ class VLLMEmbeddingModel(EmbeddingModel, BatchMixin):
         if prefix not in SUPPORTED_MODELS_PREFIXES:
             return (
                 False,
-                f"Model family {model_family.model_name} is not in the supported prefix list for vLLM embeddings",
+                f"Model family {model_family.model_name} is not in the supported model prefix list for vLLM embeddings",
             )
         return True
 

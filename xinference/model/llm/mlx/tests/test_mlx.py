@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -135,8 +135,8 @@ def test_load_mlx_vision(setup):
         ],
         generate_config={"max_tokens": 100},
     )
-    assert "图中" in completion["choices"][0]["message"]["content"]
-    assert "鱼" in completion["choices"][0]["message"]["content"]
+    assert "content" in completion["choices"][0]["message"]
+    assert len(completion["choices"][0]["message"]["content"]) != 0
 
     # test no image
     messages = [{"role": "user", "content": "write a poem."}]

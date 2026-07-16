@@ -1,39 +1,52 @@
-version: '3.8'
+# Xinference standalone Docker Compose deployment.
+#
+# Online (default):
+#   docker compose up -d
+#
+# Offline / air-gapped (starts a private PyPI server backed by ./wheels):
+#   cp offline.env.example offline.env
+#   # uncomment the offline block in pip.conf
+#   docker compose --profile offline up -d
+#
+# CPU-only host:
+#   docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
+#
+# All ${VAR:-default} values below can be overridden via a .env file,
+# see .env.example. Requires Docker Compose >= v2.24.4.
 
 services:
   xinference:
-    image: xprobe/xinference:latest
+    image: ${XINFERENCE_IMAGE:-xprobe/xinference:latest}
+    restart: unless-stopped
+    # Multi-GPU inference needs a larger shared memory segment.
+    shm_size: ${XINFERENCE_SHM_SIZE:-8gb}
     ports:
-      - "9997:9997"
-#    volumes:
-#      # Replace <xinference_home> with your xinference home path on the host machine
-#      - <xinference_home>:/root/.xinference
-#      # Replace <huggingface_cache_dir> with your huggingface cache path, default is
-#      # <home_path>/.cache/huggingface
-#      - <huggingface_cache_dir>:/root/.cache/huggingface
-#      # If models are downloaded from modelscope, replace <huggingface_cache_dir> with
-#      # your modelscope cache path, default is <home_path>/.cache/modelscope
-#      - <modelscope_cache_dir>:/root/.cache/modelscope
-#    environment:
-#      # add envs here. Here's an example, if you want to download model from modelscope
-#      - XINFERENCE_MODEL_SRC=modelscope
-#      # ── OpenTelemetry (OTEL) ──────────────────────────────────────────────
-#      # Set XINFERENCE_ENABLE_OTEL=true and install xinference[otel] to enable OTEL.
-#      - XINFERENCE_ENABLE_OTEL=false
-#      - XINFERENCE_OTLP_BASE_ENDPOINT=http://localhost:4318
-#      - XINFERENCE_OTLP_TRACE_ENDPOINT=
-#      - XINFERENCE_OTLP_METRIC_ENDPOINT=
-#      - XINFERENCE_OTLP_API_KEY=
-#      - XINFERENCE_OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-#      - XINFERENCE_OTEL_EXPORTER_TYPE=otlp
-#      - XINFERENCE_OTEL_SAMPLING_RATE=0.1
-#      - XINFERENCE_OTEL_BATCH_EXPORT_SCHEDULE_DELAY=5000
-#      - XINFERENCE_OTEL_MAX_QUEUE_SIZE=2048
-#      - XINFERENCE_OTEL_MAX_EXPORT_BATCH_SIZE=512
-#      - XINFERENCE_OTEL_METRIC_EXPORT_INTERVAL=60000
-#      - XINFERENCE_OTEL_BATCH_EXPORT_TIMEOUT=10000
-#      - XINFERENCE_OTEL_METRIC_EXPORT_TIMEOUT=30000
-    command: xinference-local --host 0.0.0.0 --port 9997
+      - "${XINFERENCE_PORT:-9997}:9997"
+    command: xinference-local -H 0.0.0.0 --port 9997 --log-level ${XINFERENCE_LOG_LEVEL:-info}
+    environment:
+      # Model download source: huggingface (default) or modelscope.
+      XINFERENCE_MODEL_SRC: ${XINFERENCE_MODEL_SRC:-huggingface}
+    env_file:
+      # Only present in offline deployments (cp offline.env.example offline.env).
+      # Silently skipped when the file does not exist.
+      - path: ./offline.env
+        required: false
+    volumes:
+      # Defaults are named volumes; point the variables at host directories
+      # in .env to reuse existing model caches (see .env.example).
+      - ${XINFERENCE_HOME_DIR:-xinference_home}:/root/.xinference
+      - ${XINFERENCE_HF_CACHE_DIR:-huggingface_cache}:/root/.cache/huggingface
+      - ${XINFERENCE_MODELSCOPE_CACHE_DIR:-modelscope_cache}:/root/.cache/modelscope
+      # No-op by default; holds the private index configuration for the
+      # offline profile. Must be a file next to this compose file.
+      - ./pip.conf:/etc/pip.conf:ro
+    healthcheck:
+      # python3 is guaranteed in every xinference image (curl is not).
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9997/status')"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
     deploy:
       resources:
         reservations:
@@ -41,3 +54,31 @@ services:
             - capabilities: [gpu]
               driver: nvidia
               count: all
+
+  # Private PyPI server for offline / air-gapped deployments. Serves wheels
+  # from ./wheels to the runtime virtual-env installer of xinference
+  # (and to any other host on the LAN via the published port).
+  # Only started with: docker compose --profile offline up -d
+  xinference-pypiserver:
+    image: ${XINFERENCE_PYPISERVER_IMAGE:-pypiserver/pypiserver:v2.3.2}
+    profiles: ["offline"]
+    restart: unless-stopped
+    # Unauthenticated read/download access.
+    command: run -a . -P . /data/packages
+    volumes:
+      # On Linux hosts run `chmod -R a+rwX ./wheels` first: the image's
+      # entrypoint requires these permission bits for its internal user
+      # (UID 9898), even though the mount is read-only.
+      - ${XINFERENCE_WHEELS_DIR:-./wheels}:/data/packages:ro
+    ports:
+      - "${XINFERENCE_PYPISERVER_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  xinference_home:
+  huggingface_cache:
+  modelscope_cache:

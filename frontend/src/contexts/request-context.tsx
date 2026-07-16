@@ -3,18 +3,20 @@
 import { PropsWithChildren, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import Cookies from 'js-cookie';
 import { eventBus } from '@/lib/event-bus';
 import { RequestEvents } from '@/constants';
 import { requestManager } from '@/lib/request-manager';
+import { removeAuthTokens } from '@/lib/auth-storage';
 
 export default function RequestProvider({ children }: PropsWithChildren) {
   const router = useRouter();
   useEffect(() => {
-    /** 401 */ 
-    const handleUnauthorized = async () => {
+    /** 401 */
+    const handleUnauthorized = async (message?: string) => {
+      if (message) toast.error(message);
+
       // clear token;
-      Cookies.remove('token');
+      removeAuthTokens();
       router.replace('/login');
       // restore lock
       setTimeout(() => {
@@ -22,12 +24,12 @@ export default function RequestProvider({ children }: PropsWithChildren) {
       }, 1000);
     };
 
-    /** 403 */ 
+    /** 403 */
     const handleForbidden = () => {
       toast.error('Server error: 403 No auth');
       // restore lock
       setTimeout(() => {
-        router.back();
+        // router.back();
         requestManager.reset403();
       }, 1000);
     };

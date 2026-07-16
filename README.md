@@ -4,7 +4,7 @@
 # Xorbits Inference: Model Serving Made Easy 🤖
 
 <p align="center">
-  <a href="https://xinference.io/en">Xinference Enterprise</a> ·
+  <a href="https://xinference.co">Xinference Enterprise</a> ·
   <a href="https://inference.readthedocs.io/en/latest/getting_started/installation.html#installation">Self-hosting</a> ·
   <a href="https://inference.readthedocs.io/">Documentation</a>
 </p>
@@ -14,14 +14,22 @@
 [![Build Status](https://img.shields.io/github/actions/workflow/status/xorbitsai/inference/python.yaml?branch=main&style=for-the-badge&label=GITHUB%20ACTIONS&logo=github)](https://actions-badge.atrox.dev/xorbitsai/inference/goto?ref=main)
 [![Docker Pulls](https://img.shields.io/docker/pulls/xprobe/xinference?style=for-the-badge&logo=docker)](https://hub.docker.com/r/xprobe/xinference)
 [![Discord](https://img.shields.io/badge/join_Discord-5462eb.svg?logo=discord&style=for-the-badge&logoColor=%23f5f5f5)](https://discord.gg/Xw9tszSkr5)
+[![Telegram](https://img.shields.io/badge/join_Telegram-26A5E4.svg?logo=telegram&style=for-the-badge&logoColor=white)](https://t.me/+nCNpwmySwk9iYmI1)
 [![Twitter](https://img.shields.io/twitter/follow/xorbitsio?logo=x&style=for-the-badge)](https://twitter.com/xorbitsio)
 
 <p align="center">
-  <a href="./README.md"><img alt="README in English" src="https://img.shields.io/badge/English-454545?style=for-the-badge"></a>
-  <a href="./README_zh_CN.md"><img alt="简体中文版自述文件" src="https://img.shields.io/badge/中文介绍-d9d9d9?style=for-the-badge"></a>
-  <a href="./README_ja_JP.md"><img alt="日本語のREADME" src="https://img.shields.io/badge/日本語-d9d9d9?style=for-the-badge"></a>
+  <a href="./README.md"><img alt="English" src="https://img.shields.io/badge/English-454545?style=for-the-badge"></a>
+  <a href="./READMES/README_ja_JP.md"><img alt="日本語" src="https://img.shields.io/badge/日本語-d9d9d9?style=for-the-badge"></a>
+  <a href="./READMES/README_ko.md"><img alt="한국어" src="https://img.shields.io/badge/한국어-d9d9d9?style=for-the-badge"></a>
+  <a href="./READMES/README_de.md"><img alt="Deutsch" src="https://img.shields.io/badge/Deutsch-d9d9d9?style=for-the-badge"></a>
+  <a href="./READMES/README_fr.md"><img alt="Français" src="https://img.shields.io/badge/Français-d9d9d9?style=for-the-badge"></a>
+  <br>
+  <a href="./READMES/README_es.md"><img alt="Español" src="https://img.shields.io/badge/Español-d9d9d9?style=for-the-badge"></a>
+  <a href="./READMES/README_it.md"><img alt="Italiano" src="https://img.shields.io/badge/Italiano-d9d9d9?style=for-the-badge"></a>
+  <a href="./READMES/README_pt_BR.md"><img alt="Português" src="https://img.shields.io/badge/Português-d9d9d9?style=for-the-badge"></a>
+  <a href="./READMES/README_zh_TW.md"><img alt="繁體中文" src="https://img.shields.io/badge/繁體中文-d9d9d9?style=for-the-badge"></a>
+  <a href="./READMES/README_zh_CN.md"><img alt="简体中文" src="https://img.shields.io/badge/简体中文-d9d9d9?style=for-the-badge"></a>
 </p>
-
 </div>
 <br />
 
@@ -33,7 +41,7 @@ researcher, developer, or data scientist, Xorbits Inference empowers you to unle
 potential of cutting-edge AI models.
 
 <div align="center">
-<i><a href="https://discord.gg/Xw9tszSkr5">👉 Join our Discord community!</a></i>
+<i><a href="https://discord.gg/Xw9tszSkr5">👉 Join our Discord community!</a> · <a href="https://t.me/+nCNpwmySwk9iYmI1">Join our Telegram group!</a></i>
 </div>
 
 ## 🔥 Hot Topics
@@ -44,14 +52,14 @@ potential of cutting-edge AI models.
 - Distributed inference: running models across workers: [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - VLLM enhancement: Shared KV cache across multiple replicas: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### New Models
-- Built-in support for [DeepSeek V4](https://api-docs.deepseek.com/news/news260424): [#4938](https://github.com/xorbitsai/inference/pull/4938)
-- Built-in support for [MiniMax-M2.7](https://www.minimax.io/models/text/m27): [#4843](https://github.com/xorbitsai/inference/pull/4843)
-- Built-in support for [GLM-5.1](https://z.ai/blog/glm-5.1): [#4832](https://github.com/xorbitsai/inference/pull/4832)
-- Built-in support for [Qwen3.6](https://github.com/QwenLM/Qwen3.6): [#4831](https://github.com/xorbitsai/inference/pull/4831)
-- Built-in support for [Gemma-4](https://deepmind.google/models/gemma/gemma-4/): [#4768](https://github.com/xorbitsai/inference/pull/4768)
-- Built-in support for [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS): [#4781](https://github.com/xorbitsai/inference/pull/4781)
-- Built-in support for [Qwen-3.5](https://github.com/QwenLM/Qwen3.5): [#4639](https://github.com/xorbitsai/inference/pull/4639)
-- Built-in support for [GLM-5](https://github.com/zai-org/GLM-5): [#4638](https://github.com/xorbitsai/inference/pull/4638)
+- Built-in support for VibeThinker series ([1.5B](https://huggingface.co/WeiboAI/VibeThinker-1.5B), [3B](https://huggingface.co/WeiboAI/VibeThinker-3B)): [#5085](https://github.com/xorbitsai/inference/pull/5085)
+- Built-in support for Nex-N2 series ([mini](https://huggingface.co/nex-agi/Nex-N2-mini), [Pro](https://huggingface.co/nex-agi/Nex-N2-Pro), [Pro-fp8](https://huggingface.co/nex-agi/Nex-N2-Pro-fp8)): [#5094](https://github.com/xorbitsai/inference/pull/5094)
+- Built-in support for [Unlimited-OCR](https://huggingface.co/baidu/Unlimited-OCR): [#5103](https://github.com/xorbitsai/inference/pull/5103)
+- Built-in support for [Ornith-1.0-35B](https://huggingface.co/deepreinforce-ai/Ornith-1.0-35B): [#5119](https://github.com/xorbitsai/inference/pull/5119)
+- Built-in support for [MiniCPM5-1B](https://huggingface.co/openbmb/MiniCPM5-1B): [#5010](https://github.com/xorbitsai/inference/pull/5010)
+- Built-in support for jina-embeddings-v5 series ([text-nano](https://huggingface.co/jinaai/jina-embeddings-v5-text-nano), [text-small](https://huggingface.co/jinaai/jina-embeddings-v5-text-small), [omni-nano](https://huggingface.co/jinaai/jina-embeddings-v5-omni-nano), [omni-small](https://huggingface.co/jinaai/jina-embeddings-v5-omni-small)): [#5018](https://github.com/xorbitsai/inference/pull/5018)
+- Built-in support for MiniCPM-V-4.6 series ([MiniCPM-V-4.6](https://huggingface.co/openbmb/MiniCPM-V-4.6), [MiniCPM-V-4.6-Thinking](https://huggingface.co/openbmb/MiniCPM-V-4.6-Thinking)): [#5025](https://github.com/xorbitsai/inference/pull/5025)
+- Built-in support for Tencent Hy-MT2 series ([1.8B](https://huggingface.co/tencent/Hy-MT2-1.8B), [7B](https://huggingface.co/tencent/Hy-MT2-7B), [30B-A3B](https://huggingface.co/tencent/Hy-MT2-30B-A3B)): [#5029](https://github.com/xorbitsai/inference/pull/5029)
 ### Integrations
 - [Xagent](https://github.com/xorbitsai/xagent): an enterprise agent platform for building and running AI agents with planning, memory, and tool use — not limited to rigid workflows.
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): an LLMOps platform that enables developers (and even non-developers) to quickly build useful applications based on large language models, ensuring they are visual, operable, and improvable.
@@ -103,7 +111,7 @@ Quickly get Xinference running in your environment with this [starter guide](#ge
 Use our [documentation](https://inference.readthedocs.io/) for further references and more in-depth instructions.
 
 - **Xinference for enterprise / organizations</br>**
-We provide additional enterprise-centric features. [send us an email](mailto:business@xprobe.io?subject=[GitHub]Business%20License%20Inquiry) to discuss enterprise needs. </br>
+We provide additional enterprise-centric features. [send us an email](mailto:info@xinference.co?subject=[GitHub]Business%20License%20Inquiry) to discuss enterprise needs. </br>
 
 ## Staying Ahead
 
@@ -117,11 +125,6 @@ Star Xinference on GitHub and be instantly notified of new releases.
 * [Built-in Models](https://inference.readthedocs.io/en/latest/models/builtin/index.html)
 * [Custom Models](https://inference.readthedocs.io/en/latest/models/custom.html)
 * [Deployment Docs](https://inference.readthedocs.io/en/latest/getting_started/using_xinference.html)
-* [Examples and Tutorials](https://inference.readthedocs.io/en/latest/examples/index.html)
-
-### Jupyter Notebook
-
-The lightest way to experience Xinference is to try our [Jupyter Notebook on Google Colab](https://colab.research.google.com/github/xorbitsai/inference/blob/main/examples/Xinference_Quick_Start.ipynb).
 
 ### Docker 
 
@@ -201,6 +204,7 @@ Once Xinference is running, there are multiple ways you can try it: via the web 
 |-------------------------------------------------------------------------------------------------|---------------------------------------------|
 | [Github Issues](https://github.com/xorbitsai/inference/issues)                                  | Reporting bugs and filing feature requests. |
 | [Discord](https://discord.gg/Xw9tszSkr5) | Collaborating with other Xinference users.  |
+| [Telegram](https://t.me/+nCNpwmySwk9iYmI1)                                                       | Chatting with other Xinference users.       |
 | [Twitter](https://twitter.com/xorbitsio)                                                        | Staying up-to-date on new features.         |
 
 ## Citation

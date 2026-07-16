@@ -1,5 +1,5 @@
-import RegisterModel from '@/components/pages/register-model';
+import { redirect } from 'next/navigation';
 
-export default function RegisterModelPage() {
-  return <RegisterModel />;
+export default function LaunchModelPage() {
+  redirect('/register-model/LLM');
 }

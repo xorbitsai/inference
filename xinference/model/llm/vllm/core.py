@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ from packaging import version
 from typing_extensions import NotRequired
 from xoscar.utils import get_next_port
 
-from ....constants import XINFERENCE_MAX_TOKENS
+from ....constants import XINFERENCE_MAX_TOKENS, XINFERENCE_TRUST_REMOTE_CODE
 from ....device_utils import is_npu_available, is_vacc_available
 from ....types import (
     ChatCompletion,
@@ -62,6 +62,7 @@ from ..llm_family import cache_model_tokenizer_and_config
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     GEMMA_TOOL_CALL_FAMILY,
+    GLM5_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_SYMBOLS,
     ChatModelMixin,
@@ -182,6 +183,61 @@ def _virtual_env_allows_missing_vllm() -> bool:
     except Exception:
         return False
     return bool(XINFERENCE_ENABLE_VIRTUAL_ENV)
+
+
+GuidedDecodingParams: Optional[Type[Any]] = None
+StructuredOutputsParams: Optional[Type[Any]] = None
+
+
+def _init_guided_decoding_classes() -> None:
+    # Also re-invoked from VLLMModel after VLLM_VERSION is reassigned at runtime.
+    # Detect into locals and publish at the end so a concurrent async_generate
+    # coroutine (paused at an await) never observes a transient None.
+    global GuidedDecodingParams, StructuredOutputsParams
+    if not (
+        VLLM_INSTALLED
+        and VLLM_VERSION is not None
+        and VLLM_VERSION >= version.parse("0.6.3")
+    ):
+        return
+    supports_guided = VLLM_VERSION < version.parse("1.12.0")
+    try:
+        import vllm.sampling_params as _sampling_params
+    except ImportError:
+        if supports_guided:
+            logger.debug(
+                "GuidedDecodingParams not found in vLLM %s, "
+                "trying StructuredOutputsParams fallback.",
+                VLLM_VERSION,
+            )
+        return
+
+    local_guided: Optional[Type[Any]] = None
+    local_structured: Optional[Type[Any]] = None
+
+    if supports_guided and hasattr(_sampling_params, "GuidedDecodingParams"):
+        local_guided = _sampling_params.GuidedDecodingParams
+    elif supports_guided:
+        logger.debug(
+            "GuidedDecodingParams not found in vLLM %s, "
+            "trying StructuredOutputsParams fallback.",
+            VLLM_VERSION,
+        )
+
+    if hasattr(_sampling_params, "StructuredOutputsParams"):
+        local_structured = _sampling_params.StructuredOutputsParams
+    elif local_guided is None:
+        logger.warning(
+            "No guided decoding support found in vLLM %s "
+            "(GuidedDecodingParams / StructuredOutputsParams).",
+            VLLM_VERSION,
+        )
+
+    GuidedDecodingParams = local_guided
+    StructuredOutputsParams = local_structured
+
+
+_init_guided_decoding_classes()
 
 
 def _append_unique(target: List[str], *items: str) -> None:
@@ -329,6 +385,16 @@ def _update_vllm_supported_lists() -> None:
     if effective_version >= version.parse("0.20.1"):
         _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "DeepseekV4ForCausalLM")
 
+    if effective_version >= version.parse("0.22.0"):
+        _append_unique(
+            VLLM_SUPPORTED_MULTI_MODEL_LIST, "MiniCPMV4_6ForConditionalGeneration"
+        )
+        _append_unique(
+            VLLM_SUPPORTED_CHAT_MODELS,
+            "HunYuanDenseV1ForCausalLM",
+            "HYV3ForCausalLM",
+        )
+
     if is_npu_available() and effective_version >= version.parse("0.18.0"):
         _append_unique(VLLM_SUPPORTED_CHAT_MODELS, "DeepseekV4ForCausalLM")
 
@@ -362,6 +428,7 @@ class VLLMModel(LLM):
         self._driver_info = model_config.pop("driver_info", None)  # type: ignore
         self._loading_thread: Optional[threading.Thread] = None
         self._loading_error = None
+        self._check_health_task = None
         # variables used for distributed inference and multiple GPUs
         self._pool_addresses = None
         self._worker_addresses: Optional[Dict[int, List[str]]] = None
@@ -446,6 +513,14 @@ class VLLMModel(LLM):
         global VLLM_INSTALLED, VLLM_VERSION
         VLLM_INSTALLED = True
         VLLM_VERSION = version.parse(vllm.__version__)
+        _init_guided_decoding_classes()
+        # XINFERENCE_MODEL_UID is injected via the env= dict in
+        # xinference.core.worker.WorkerActor._create_subpool so the sub-pool
+        # and its vLLM descendants (EngineCore / GPU workers) inherit it. Do
+        # NOT set os.environ here: load() runs in a worker thread under
+        # concurrent launches, and os.environ.__setitem__ -> putenv is not
+        # thread-safe; moreover the sub-pool was already forked by the time
+        # this runs, so a main-process env mutation would never reach it.
         _update_vllm_supported_lists()
 
         from ..llm_family import LlamaCppLLMSpecV2
@@ -626,7 +701,7 @@ class VLLMModel(LLM):
                             # patch vllm Executor.get_class
                             Executor.get_class = lambda vllm_config: executor_cls
                             self._engine = AsyncLLMEngine.from_engine_args(engine_args)
-                except:  # noqa: E722
+                except Exception:
                     logger.exception("Creating vllm engine failed")
                     self._loading_error = sys.exc_info()
 
@@ -643,12 +718,21 @@ class VLLMModel(LLM):
                 **self._model_config,
             )
             self._enable_v1_if_supported(engine_args)
-            self._engine = AsyncLLMEngine.from_engine_args(engine_args)
 
-        self._check_health_task = None
-        if hasattr(self._engine, "check_health"):
-            # vLLM introduced `check_health` since v0.4.1
-            self._check_health_task = self._loop.create_task(self._check_healthy())
+            def _load():
+                # Force spawn to avoid fork deadlock: vLLM v1 creates
+                # EngineCore via fork, which inherits parent's multi-thread
+                # lock state causing deadlock. spawn creates a clean process.
+                os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
+                try:
+                    self._engine = AsyncLLMEngine.from_engine_args(engine_args)
+                except Exception:
+                    logger.exception("Creating vllm engine failed")
+                    self._loading_error = sys.exc_info()
+
+            self._loading_thread = threading.Thread(target=_load)
+            self._loading_thread.start()
+            self._loading_thread.join(1)
 
     def wait_for_load(self):
         if self._loading_thread:
@@ -661,6 +745,33 @@ class VLLMModel(LLM):
         # if shard > 0, the engine will be inited in another process
         if self._engine:
             self._set_context_length()
+
+        # Create health check here after engine is fully ready.
+        # Previously in load(), but self._engine was None after
+        # _loading_thread.join(1) for threaded paths (multi-GPU
+        # and single-GPU), causing health check to be silently
+        # skipped. This fix applies to ALL vLLM models that use
+        # _loading_thread (both multi-GPU and single-GPU).
+        # Use call_soon_threadsafe + create_task instead of
+        # run_coroutine_threadsafe: the latter wraps the coroutine
+        # in a concurrent.futures.Future whose exceptions are
+        # silently swallowed if nobody checks the Future. create_task
+        # produces an asyncio.Task whose unhandled exceptions are
+        # logged by the asyncio default exception handler.
+        self._check_health_task = None
+        if self._engine and hasattr(self._engine, "check_health") and self._loop:
+            logger.info(
+                "Creating vLLM health check task for model %s",
+                self.model_uid,
+            )
+
+            def _start_health_check():
+                if self._engine is not None:
+                    self._check_health_task = self._loop.create_task(
+                        self._check_healthy()
+                    )
+
+            self._loop.call_soon_threadsafe(_start_health_check)
 
     def _set_context_length(self):
         if not self._is_vllm_v1():
@@ -769,6 +880,10 @@ class VLLMModel(LLM):
         logger.info("Stopping vLLM engine")
         if self._check_health_task:
             self._check_health_task.cancel()
+        # Wait for loading thread to finish so EngineCore subprocess
+        # can be properly shut down below.
+        if self._loading_thread and self._loading_thread.is_alive():
+            self._loading_thread.join(timeout=30)
         if self._engine:
             if not self._is_vllm_v1():
                 # v0
@@ -786,18 +901,16 @@ class VLLMModel(LLM):
         await self._engine.init_xavier()
 
     async def _check_healthy(self, interval: int = 30):
-        from vllm.engine.async_llm_engine import AsyncEngineDeadError
-
-        logger.debug("Begin to check health of vLLM")
+        logger.info("Begin to check health of vLLM")
 
         while self._engine is not None:
             try:
                 await self._engine.check_health()
-            except (AsyncEngineDeadError, RuntimeError):
+            except RuntimeError:
                 logger.info("Detecting vLLM is not health, prepare to quit the process")
                 try:
                     self.stop()
-                except:  # noqa: E722
+                except Exception:
                     # ignore error when stop
                     pass
                 # Just kill the process and let xinference auto-recover the model
@@ -861,7 +974,11 @@ class VLLMModel(LLM):
             model_config.setdefault("tokenizer_mode", "deepseek_v32")
         else:
             model_config.setdefault("tokenizer_mode", "auto")
-        model_config.setdefault("trust_remote_code", True)
+        # Respect the XINFERENCE_TRUST_REMOTE_CODE setting.
+        model_config["trust_remote_code"] = (
+            bool(model_config.get("trust_remote_code", XINFERENCE_TRUST_REMOTE_CODE))
+            and XINFERENCE_TRUST_REMOTE_CODE
+        )
         model_config.setdefault("tensor_parallel_size", self._device_count)  # type: ignore
         model_config.setdefault("pipeline_parallel_size", self._n_worker)  # type: ignore
         if (
@@ -1282,40 +1399,9 @@ class VLLMModel(LLM):
         )
 
         if VLLM_INSTALLED and VLLM_VERSION >= version.parse("0.6.3"):
-            # guided decoding only available for vllm >= 0.6.3
-            GuidedDecodingParams = None
-            StructuredOutputsParams = None
-            supports_guided = VLLM_VERSION < version.parse("1.12.0")
-            try:
-                import vllm.sampling_params as _sampling_params
-            except ImportError:
-                if supports_guided:
-                    logger.info(
-                        "GuidedDecodingParams not found in vLLM %s, "
-                        "trying StructuredOutputsParams fallback.",
-                        VLLM_VERSION,
-                    )
-            else:
-                if supports_guided and hasattr(
-                    _sampling_params, "GuidedDecodingParams"
-                ):
-                    GuidedDecodingParams = _sampling_params.GuidedDecodingParams
-                elif supports_guided:
-                    logger.info(
-                        "GuidedDecodingParams not found in vLLM %s, "
-                        "trying StructuredOutputsParams fallback.",
-                        VLLM_VERSION,
-                    )
-
-                if hasattr(_sampling_params, "StructuredOutputsParams"):
-                    StructuredOutputsParams = _sampling_params.StructuredOutputsParams
-                elif GuidedDecodingParams is None:
-                    logger.warning(
-                        "No guided decoding support found in vLLM %s "
-                        "(GuidedDecodingParams / StructuredOutputsParams).",
-                        VLLM_VERSION,
-                    )
-
+            # guided decoding only available for vllm >= 0.6.3;
+            # GuidedDecodingParams / StructuredOutputsParams are resolved at
+            # module load by _init_guided_decoding_classes().
             # Extract guided decoding parameters
             guided_params: dict[str, Any] = {}
             guided_json = sanitized_generate_config.pop("guided_json", None)
@@ -1755,6 +1841,7 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 model_family in QWEN_TOOL_CALL_FAMILY
                 or model_family in GEMMA_TOOL_CALL_FAMILY
                 or model_family in DEEPSEEK_TOOL_CALL_FAMILY
+                or model_family in GLM5_TOOL_CALL_FAMILY
             ):
                 full_context_kwargs["tools"] = tools
         assert self.model_family.chat_template is not None
@@ -2050,6 +2137,7 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
             if tools and (
                 model_family in QWEN_TOOL_CALL_FAMILY
                 or model_family in GEMMA_TOOL_CALL_FAMILY
+                or model_family in GLM5_TOOL_CALL_FAMILY
             ):
                 full_context_kwargs["tools"] = tools
             assert self.model_family.chat_template is not None

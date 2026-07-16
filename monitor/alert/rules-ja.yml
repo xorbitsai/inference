@@ -11,13 +11,13 @@ groups:
           description: "Worker {{ $labels.worker_address }} GPU {{ $labels.gpu_index }} メモリ使用率 {{ $value | humanizePercentage }}、5 分間継続。"
 
       - alert: ModelRequestErrorRateHigh
-        expr: rate(xinference:model_request_errors_total[5m]) / rate(xinference:model_request_total[5m]) > 0.05
+        expr: sum without (stream) (rate(xinference:model_request_errors_total[5m])) / sum without (stream) (rate(xinference:model_request_total[5m])) > 0.05
         for: 3m
         labels:
           severity: warning
         annotations:
           summary: "モデルリクエストエラー率が 5% を超過"
-          description: "モデル {{ $labels.model }} エラー率 {{ $value | humanizePercentage }}、3 分間継続。"
+          description: "モデル {{ $labels.model_name }} エラー率 {{ $value | humanizePercentage }}、3 分間継続。"
 
       - alert: TTFTHigh
         expr: rate(xinference:time_to_first_token_seconds_sum[5m]) / rate(xinference:time_to_first_token_seconds_count[5m]) > 10
@@ -26,7 +26,7 @@ groups:
           severity: warning
         annotations:
           summary: "初回トークン遅延が 10 秒を超過"
-          description: "モデル {{ $labels.model }} TTFT {{ $value }}ms、3 分間継続。"
+          description: "モデル {{ $labels.model_name }} TTFT {{ $value }}s、3 分間継続。"
 
       - alert: WorkerOffline
         expr: xinference:workers_total < 1
@@ -47,13 +47,13 @@ groups:
           description: "ノード {{ $labels.instance }} マウントポイント {{ $labels.mountpoint }} 残り容量 {{ $value | humanizePercentage }}。"
 
       - alert: RequestQueueBacklog
-        expr: xinference:model_pending_requests > 10
+        expr: xinference:model_serve_count / (xinference:model_request_limit > 0) > 0.9
         for: 3m
         labels:
           severity: warning
         annotations:
-          summary: "モデルリクエストキューが滞留"
-          description: "モデル {{ $labels.model }} 待機リクエスト数 {{ $value }}、3 分間継続。"
+          summary: "モデルリクエスト同時実行数が上限に接近"
+          description: "モデル {{ $labels.model_name }} 同時実行比率 {{ $value | humanizePercentage }}、3 分間継続。"
 
       - alert: ModelLoadSlow
         expr: xinference:model_last_load_duration_seconds > 300
@@ -62,4 +62,40 @@ groups:
           severity: warning
         annotations:
           summary: "モデルロード時間が 5 分を超過"
-          description: "モデル {{ $labels.model_name }} 直近の平均ロード時間 {{ $value | humanizeDuration }}。"
+          description: "モデル {{ $labels.model_name }} 直近のロード時間 {{ $value | humanizeDuration }}。"
+
+      - alert: ReplicaUnexpectedTerminated
+        expr: xinference:model_unexpected_termination == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "モデルレプリカが予期せず終了"
+          description: "モデル {{ $labels.model_name }} レプリカ {{ $labels.replica_index }} が Worker 障害によりダウンしています。"
+
+      - alert: WorkerMemoryHigh
+        expr: xinference:worker_memory_used_bytes / xinference:worker_memory_total_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Worker メモリ使用率が 90% を超過"
+          description: "Worker {{ $labels.worker_address }} メモリ使用率 {{ $value | humanizePercentage }}、5 分間継続。"
+
+      - alert: RequestLatencyHigh
+        expr: histogram_quantile(0.95, rate(xinference:model_request_duration_seconds_bucket[5m])) > 60
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "P95 リクエスト遅延が 60 秒を超過"
+          description: "モデル {{ $labels.model_name }} P95 遅延 {{ $value }}s、3 分間継続。"
+
+      - alert: BannedIPsSpike
+        expr: xinference:banned_ips_total > 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "BAN された IP 数が異常に多い"
+          description: "現在 {{ $value }} 件の IP が BAN されています。ブルートフォース攻撃や不正利用の可能性があります。"

@@ -262,7 +262,7 @@ const FormContent: FC<FormContentProps> = ({
         rules={[{ required: true }]}
         normalize={(value) => (value ? value.replace(/\\n/g, '\n') : '')}
       >
-        <ChatTepmlate />
+        <ChatTepmlate ref={chatTemplateRef} />
       </FormField>
     ),
     stopTokenIds: (
@@ -465,6 +465,7 @@ const FormContent: FC<FormContentProps> = ({
   };
   return (
     <div className="space-y-3">
+      <FormField name="version" hidden />
       {(modelTypeFields[modelType] || []).map((fieldKey) => (
         <div key={fieldKey}>{fields[fieldKey]}</div>
       ))}

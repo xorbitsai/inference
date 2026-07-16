@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,6 +54,8 @@ class ImageModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
     lightning_model_file_name_template: Optional[str]
 
     virtualenv: Optional[VirtualEnvSettings]
+    # Provenance: True only for bundled built-in models (gates trust_remote_code).
+    is_builtin: bool = False
 
     class Config:
         extra = "allow"

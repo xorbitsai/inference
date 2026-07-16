@@ -1,0 +1,240 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-28 11:54+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ko <LL@li.org>\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/getting_started/environments.rst:5
+msgid "Environments Variables"
+msgstr "환경 변수"
+
+#: ../../source/getting_started/environments.rst:8
+msgid "XINFERENCE_ENDPOINT"
+msgstr "XINFERENCE_ENDPOINT"
+
+#: ../../source/getting_started/environments.rst:9
+msgid ""
+"Endpoint of Xinference, used to connect to Xinference service. Default value"
+" is http://127.0.0.1:9997 , you can get it through logs."
+msgstr ""
+"Xinference의 서비스 주소로, Xinference와 연결하는 데 사용됩니다. 기본 주소는 "
+"http://127.0.0.1:9997이며, 로그에서 이 주소를 확인할 수 있습니다."
+
+#: ../../source/getting_started/environments.rst:13
+msgid "XINFERENCE_MODEL_SRC"
+msgstr "XINFERENCE_MODEL_SRC"
+
+#: ../../source/getting_started/environments.rst:14
+msgid ""
+"Modelhub used for downloading models. Default is \"huggingface\", or you can"
+" set \"modelscope\" as downloading source."
+msgstr ""
+"모델 다운로드 저장소를 구성합니다. 기본 다운로드 소스는 \"huggingface\"이며, \"modelscope\"로 다운로드 소스를 "
+"설정할 수도 있습니다."
+
+#: ../../source/getting_started/environments.rst:20
+msgid "XINFERENCE_HOME"
+msgstr "XINFERENCE_HOME"
+
+#: ../../source/getting_started/environments.rst:21
+msgid ""
+"By default, Xinference uses ``<HOME>/.xinference`` as home path to store "
+"necessary files such as logs and models, where ``<HOME>`` is the home path "
+"of current user. You can change this directory by configuring this "
+"environment variable."
+msgstr ""
+"Xinference는 기본적으로 ``<HOME>/.xinference``를 모델과 로그 등 필요한 파일을 저장하는 기본 디렉토리로 "
+"사용합니다. 여기서 ``<HOME>``은 현재 사용자의 홈 디렉토리입니다. 이 환경 변수를 설정하여 기본 디렉토리를 변경할 수 있습니다."
+
+#: ../../source/getting_started/environments.rst:27
+msgid "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD"
+msgstr "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD"
+
+#: ../../source/getting_started/environments.rst:28
+msgid ""
+"The maximum number of failed health checks tolerated at Xinference startup. "
+"Default value is 5."
+msgstr "Xinference 시작 시 허용되는 최대 건강 점검 실패 횟수입니다. 기본값은 5입니다."
+
+#: ../../source/getting_started/environments.rst:32
+msgid "XINFERENCE_HEALTH_CHECK_INTERVAL"
+msgstr "XINFERENCE_HEALTH_CHECK_INTERVAL"
+
+#: ../../source/getting_started/environments.rst:33
+msgid ""
+"Health check interval (seconds) at Xinference startup. Default value is 5."
+msgstr "Xinference 시작 시의 상태 검사 간격(초). 기본값은 5입니다."
+
+#: ../../source/getting_started/environments.rst:37
+msgid "XINFERENCE_HEALTH_CHECK_TIMEOUT"
+msgstr "XINFERENCE_HEALTH_CHECK_TIMEOUT"
+
+#: ../../source/getting_started/environments.rst:38
+msgid ""
+"Health check timeout (seconds) at Xinference startup. Default value is 10."
+msgstr "Xinference 시작 시 건강 검사 타임아웃 시간(초). 기본값은 10입니다."
+
+#: ../../source/getting_started/environments.rst:42
+msgid "XINFERENCE_DISABLE_HEALTH_CHECK"
+msgstr "XINFERENCE_DISABLE_HEALTH_CHECK"
+
+#: ../../source/getting_started/environments.rst:43
+msgid ""
+"Xinference will automatically report health check at Xinference startup. "
+"Setting this environment to 1 can disable health check."
+msgstr ""
+"조건이 충족되면, Xinference는 자동으로 worker 상태를 보고합니다. 환경 변수를 1로 설정하면 상태 확인을 비활성화할 수 "
+"있습니다."
+
+#: ../../source/getting_started/environments.rst:47
+msgid "XINFERENCE_DISABLE_METRICS"
+msgstr "XINFERENCE_DISABLE_METRICS"
+
+#: ../../source/getting_started/environments.rst:48
+msgid ""
+"Xinference will by default enable the metrics exporter on the supervisor and"
+" worker. Setting this environment to 1 will disable the /metrics endpoint on"
+" the supervisor and the HTTP service (only provide the /metrics endpoint) on"
+" the worker."
+msgstr ""
+"Xinference는 기본적으로 supervisor와 worker에서 metrics exporter를 활성화합니다. 환경 변수를 1로 "
+"설정하면 supervisor에서 /metrics 엔드포인트를 비활성화하고, worker에서 HTTP 서비스(/metrics 엔드포인트만 "
+"제공)를 비활성화할 수 있습니다."
+
+#: ../../source/getting_started/environments.rst:53
+msgid "XINFERENCE_DOWNLOAD_MAX_ATTEMPTS"
+msgstr "XINFERENCE_DOWNLOAD_MAX_ATTEMPTS"
+
+#: ../../source/getting_started/environments.rst:54
+msgid "Maximum download retry attempts for model files. Default value is 3."
+msgstr "모델 파일의 최대 다운로드 재시도 횟수입니다. 기본값은 3입니다."
+
+#: ../../source/getting_started/environments.rst:58
+msgid "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE"
+msgstr "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE"
+
+#: ../../source/getting_started/environments.rst:59
+msgid ""
+"Enable continuous batching for text-to-image models by specifying the target"
+" image size (e.g., ``1024*1024``). Default is unset."
+msgstr ""
+"텍스트-이미지 모델에 대해 대상 이미지 크기(예: ``1024*1024``)를 지정하여 연속 배치 처리를 활성화합니다. 기본적으로 "
+"설정되지 않습니다."
+
+#: ../../source/getting_started/environments.rst:63
+msgid "XINFERENCE_SSE_PING_ATTEMPTS_SECONDS"
+msgstr "XINFERENCE_SSE_PING_ATTEMPTS_SECONDS"
+
+#: ../../source/getting_started/environments.rst:64
+msgid ""
+"Server-Sent Events keepalive ping interval (seconds). Default value is 600."
+msgstr "서버 전송 이벤트의 keep-alive ping 간격(초)입니다. 기본값은 600입니다."
+
+#: ../../source/getting_started/environments.rst:68
+msgid "XINFERENCE_MAX_TOKENS"
+msgstr "XINFERENCE_MAX_TOKENS"
+
+#: ../../source/getting_started/environments.rst:69
+msgid "Global max tokens limit override for requests. Default is unset."
+msgstr "요청의 전역 최대 토큰 제한 재정의. 기본값은 설정되지 않음."
+
+#: ../../source/getting_started/environments.rst:72
+msgid "XINFERENCE_ALLOWED_IPS"
+msgstr "XINFERENCE_ALLOWED_IPS"
+
+#: ../../source/getting_started/environments.rst:73
+msgid ""
+"Restrict access to specified IPs or CIDR blocks. Default is unset (no "
+"restriction)."
+msgstr "특정 IP 주소 또는 CIDR 주소 블록에 대한 접근을 제한합니다. 기본값은 설정되지 않음(제한 없음)입니다."
+
+#: ../../source/getting_started/environments.rst:76
+msgid "XINFERENCE_BATCH_SIZE"
+msgstr "XINFERENCE_BATCH_SIZE"
+
+#: ../../source/getting_started/environments.rst:77
+msgid ""
+"Default batch size used by the server when batching is enabled. Default "
+"value is 32."
+msgstr "배치 처리를 활성화할 때 서버가 사용하는 기본 배치 크기입니다. 기본값은 32입니다."
+
+#: ../../source/getting_started/environments.rst:81
+msgid "XINFERENCE_BATCH_INTERVAL"
+msgstr "XINFERENCE_BATCH_INTERVAL"
+
+#: ../../source/getting_started/environments.rst:82
+msgid "Default batching interval (seconds). Default value is 0.003."
+msgstr "기본 배치 간격(초). 기본값은 0.003입니다."
+
+#: ../../source/getting_started/environments.rst:86
+msgid "XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU"
+msgstr "XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU"
+
+#: ../../source/getting_started/environments.rst:87
+msgid ""
+"Whether to allow multiple replicas on a single GPU. Default value is 1 "
+"(enabled)."
+msgstr "단일 GPU에 여러 복사본을 생성할 수 있는지 여부입니다. 기본값은 1 (활성화)입니다."
+
+#: ../../source/getting_started/environments.rst:91
+msgid "XINFERENCE_LAUNCH_STRATEGY"
+msgstr "XINFERENCE_LAUNCH_STRATEGY"
+
+#: ../../source/getting_started/environments.rst:92
+msgid ""
+"GPU allocation strategy for replicas. Default is "
+"``IDLE_FIRST_LAUNCH_STRATEGY``."
+msgstr "복제본의 GPU 할당 전략입니다. 기본값은 ``IDLE_FIRST_LAUNCH_STRATEGY`` 입니다."
+
+#: ../../source/getting_started/environments.rst:95
+msgid "XINFERENCE_ENABLE_VIRTUAL_ENV"
+msgstr "XINFERENCE_ENABLE_VIRTUAL_ENV"
+
+#: ../../source/getting_started/environments.rst:96
+msgid ""
+"Enable model virtual environments globally. Default value is 1 (enabled, "
+"starting from v2.0)."
+msgstr "전역 모델 가상 환경을 활성화합니다. 기본값은 1입니다(활성화, v2.0 버전부터 적용)."
+
+#: ../../source/getting_started/environments.rst:100
+msgid "XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED"
+msgstr "XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED"
+
+#: ../../source/getting_started/environments.rst:101
+msgid ""
+"Skip packages already present in system site-packages when creating virtual "
+"environments. Default value is 1."
+msgstr "시스템 site-packages에 이미 존재하는 패키지를 건너뛰며 가상 환경을 생성합니다. 기본값은 1입니다."
+
+#: ../../source/getting_started/environments.rst:105
+msgid "XINFERENCE_CSG_TOKEN"
+msgstr "XINFERENCE_CSG_TOKEN"
+
+#: ../../source/getting_started/environments.rst:106
+msgid "Authentication token for CSGHub model source. Default is unset."
+msgstr "CSGHub 모델 소스의 인증 토큰입니다. 기본값은 설정되지 않음입니다."
+
+#: ../../source/getting_started/environments.rst:110
+msgid "XINFERENCE_CSG_ENDPOINT"
+msgstr "XINFERENCE_CSG_ENDPOINT"
+
+#: ../../source/getting_started/environments.rst:111
+msgid ""
+"CSGHub endpoint for model source. Default value is ``https://hub-"
+"stg.opencsg.com/``."
+msgstr "CSGHub 모델 소스 엔드포인트. 기본값은 ``https://hub-stg.opencsg.com/`` 입니다."

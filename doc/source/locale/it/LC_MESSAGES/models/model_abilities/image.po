@@ -1,0 +1,565 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-12-04 17:26+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: it <LL@li.org>\n"
+"Language: it\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/model_abilities/image.rst:5
+msgid "Images"
+msgstr "Immagine"
+
+#: ../../source/models/model_abilities/image.rst:7
+msgid "Learn how to generate images with Xinference."
+msgstr "Impara come generare immagini usando Xinference."
+
+#: ../../source/models/model_abilities/image.rst:11
+msgid "Introduction"
+msgstr "Introduzione"
+
+#: ../../source/models/model_abilities/image.rst:14
+msgid "The Images API provides two methods for interacting with images:"
+msgstr "L'API Images fornisce due metodi per interagire con le immagini:"
+
+#: ../../source/models/model_abilities/image.rst:17
+msgid ""
+"The Text-to-image endpoint create images from scratch based on a text "
+"prompt."
+msgstr "L'endpoint text-to-image crea immagini da zero a partire da un testo."
+
+#: ../../source/models/model_abilities/image.rst:18
+msgid ""
+"The Image-to-image endpoint allows you to generate a variation of a given "
+"image."
+msgstr ""
+"L'endpoint \"immagine in immagine\" ti consente di generare varianti di "
+"un'immagine data."
+
+#: ../../source/models/model_abilities/image.rst:25
+msgid "API ENDPOINT"
+msgstr "Endpoint API"
+
+#: ../../source/models/model_abilities/image.rst:26
+msgid "OpenAI-compatible ENDPOINT"
+msgstr "Endpoint compatibile con OpenAI"
+
+#: ../../source/models/model_abilities/image.rst:28
+msgid "Text-to-Image API"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:29
+msgid "/v1/images/generations"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:31
+msgid "Image-to-image API"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:32
+msgid "/v1/images/variations"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:35
+msgid "Supported models"
+msgstr "Elenco dei modelli supportati"
+
+#: ../../source/models/model_abilities/image.rst:37
+msgid ""
+"The Text-to-image API is supported with the following models in Xinference:"
+msgstr "L'API text-to-image in Xinference supporta i seguenti modelli:"
+
+#: ../../source/models/model_abilities/image.rst:39
+msgid "sd-turbo"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:40
+msgid "sdxl-turbo"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:41
+msgid "stable-diffusion-v1.5"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:42
+msgid "stable-diffusion-xl-base-1.0"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:43
+#: ../../source/models/model_abilities/image.rst:213
+msgid "sd3-medium"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:44
+#: ../../source/models/model_abilities/image.rst:215
+#: ../../source/models/model_abilities/image.rst:252
+msgid "sd3.5-medium"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:45
+#: ../../source/models/model_abilities/image.rst:217
+#: ../../source/models/model_abilities/image.rst:254
+msgid "sd3.5-large"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:46
+#: ../../source/models/model_abilities/image.rst:219
+#: ../../source/models/model_abilities/image.rst:256
+msgid "sd3.5-large-turbo"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:47
+#: ../../source/models/model_abilities/image.rst:211
+#: ../../source/models/model_abilities/image.rst:250
+msgid "FLUX.1-schnell"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:48
+#: ../../source/models/model_abilities/image.rst:209
+#: ../../source/models/model_abilities/image.rst:248
+msgid "FLUX.1-dev"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:49
+msgid "Kolors"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:50
+msgid "hunyuandit-v1.2"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:51
+msgid "hunyuandit-v1.2-distilled"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:52
+msgid "cogview4"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:53
+#: ../../source/models/model_abilities/image.rst:221
+#: ../../source/models/model_abilities/image.rst:258
+#: ../../source/models/model_abilities/image.rst:292
+msgid "Qwen-Image"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:55
+msgid "Image-to-image supported models:"
+msgstr "Elenco dei modelli supportati"
+
+#: ../../source/models/model_abilities/image.rst:57
+msgid "Flux.1-Kontext-dev"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:58
+#: ../../source/models/model_abilities/image.rst:223
+#: ../../source/models/model_abilities/image.rst:260
+#: ../../source/models/model_abilities/image.rst:294
+msgid "Qwen-Image-Edit"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:62
+msgid "Quickstart"
+msgstr "Guida rapida"
+
+#: ../../source/models/model_abilities/image.rst:65
+msgid "Text-to-image"
+msgstr "Testo in immagine"
+
+#: ../../source/models/model_abilities/image.rst:67
+msgid ""
+"The Text-to-image API mimics OpenAI's `create images API "
+"<https://platform.openai.com/docs/api-reference/images/create>`_. We can try"
+" Text-to-image API out either via cURL, OpenAI Client, or Xinference's "
+"python client:"
+msgstr ""
+"Puoi provare a utilizzare l'API Text-to-image tramite cURL, OpenAI Client o "
+"Xinference."
+
+#: ../../source/models/model_abilities/image.rst:121
+msgid "Image-to-image"
+msgstr "Generazione di immagini da immagini"
+
+#: ../../source/models/model_abilities/image.rst:123
+msgid ""
+"The Image-to-image API mimics OpenAI's `create image variation API "
+"<https://platform.openai.com/docs/api-reference/images/createVariation>`_. "
+"We can try image-to-image API out either via cURL, OpenAI Client, or "
+"Xinference's python client:"
+msgstr ""
+"L'API di generazione da immagine a immagine simula l'`API di creazione di "
+"varianti di immagini di OpenAI <https://platform.openai.com/docs/api-"
+"reference/images/createVariation>`_. Possiamo provare a utilizzare l'API di "
+"generazione da immagine a immagine tramite cURL, il client OpenAI o il "
+"client Python di Xinference."
+
+#: ../../source/models/model_abilities/image.rst:176
+msgid "Memory optimization for Large Image Models e.g. SD3-Medium, FLUX.1"
+msgstr ""
+"Ottimizzazione della memoria per modelli di immagini di grandi dimensioni "
+"(ad esempio SD3-Medium, FLUX.1)"
+
+#: ../../source/models/model_abilities/image.rst:180
+msgid ""
+"From v0.16.1, Xinference by default enabled quantization for large image "
+"models like Flux.1 and SD3.5 series. So if your Xinference version is newer "
+"than v0.16.1, You barely need to do anything to run those large image models"
+" on GPUs with small memory."
+msgstr ""
+"A partire da v0.16.1, Xinference abilita per impostazione predefinita la "
+"quantizzazione per modelli di immagini grandi come Flux.1 e la serie SD3.5. "
+"Se stai utilizzando una versione di Xinference successiva a v0.16.1, non è "
+"necessario fare nulla per eseguire questi grandi modelli di immagini su "
+"macchine con memoria GPU ridotta."
+
+#: ../../source/models/model_abilities/image.rst:185
+msgid "Useful extra parameters can be passed to launch including:"
+msgstr "Utili parametri aggiuntivi passati per caricare il modello includono:"
+
+#: ../../source/models/model_abilities/image.rst:187
+msgid ""
+"``--cpu_offload True``: specifying ``True`` will offload the components of "
+"the model to CPU during inference in order to save memory, while seeing a "
+"slight increase in inference latency. Model offloading will only move a "
+"model component onto the GPU when it needs to be executed, while keeping the"
+" remaining components on the CPU."
+msgstr ""
+"``--cpu_offload True``: Specificando ``True``, durante l'inferenza i "
+"componenti del modello verranno scaricati sulla CPU per risparmiare memoria,"
+" il che causerà un leggero aumento della latenza di inferenza. Lo "
+"scaricamento del modello sposta i suoi componenti sulla GPU solo quando "
+"necessario per l'esecuzione, mantenendo gli altri componenti sulla CPU."
+
+#: ../../source/models/model_abilities/image.rst:191
+msgid ""
+"``--quantize_text_encoder <text encoder layer>``: We leveraged the "
+"``bitsandbytes`` library to load and quantize the T5-XXL text encoder to "
+"8-bit precision. This allows you to keep using all text encoders while only "
+"slightly impacting performance."
+msgstr ""
+"``--quantize_text_encoder <livello del codificatore di testo>``: Carichiamo "
+"e quantizziamo il codificatore di testo T5-XXL a una precisione di 8 bit "
+"utilizzando la libreria ``bitsandbytes``. Ciò consente di continuare a "
+"utilizzare l'intero codificatore di testo con un impatto minimo sulle "
+"prestazioni."
+
+#: ../../source/models/model_abilities/image.rst:194
+msgid ""
+"``--text_encoder_3 None``, for sd3-medium, removing the memory-intensive "
+"4.7B parameter T5-XXL text encoder during inference can significantly "
+"decrease the memory requirements with only a slight loss in performance."
+msgstr ""
+"``--text_encoder_3 None``，per sd3-medium, rimuovere il T5-XXL text encoder "
+"da 4,7 miliardi di parametri, che richiede molta memoria durante "
+"l'inferenza, può ridurre significativamente i requisiti di memoria, con solo"
+" una lieve perdita di prestazioni."
+
+#: ../../source/models/model_abilities/image.rst:197
+msgid "``--transformer_nf4 True``: use nf4 for transformer quantization."
+msgstr ""
+"``--transformer_nf4 True`` : usa la quantizzazione nf4 per il trasformatore."
+
+#: ../../source/models/model_abilities/image.rst:198
+msgid ""
+"``--quantize``: Only work for MLX on Mac, Flux.1-dev and Flux.1-schnell will"
+" switch to MLX engine on Mac, and ``quantize`` can be used to quantize the "
+"model."
+msgstr ""
+"``--quantize``: ha effetto solo sul motore MLX su Mac. Flux.1-dev e "
+"Flux.1-schnell utilizzeranno il motore MLX per il calcolo su Mac, e "
+"``quantize`` può essere utilizzato per quantizzare il modello."
+
+#: ../../source/models/model_abilities/image.rst:201
+msgid ""
+"For WebUI, Just add additional parameters, e.g. add key ``cpu_offload`` and "
+"value ``True`` to enable cpu offloading."
+msgstr ""
+"Per la WebUI, è sufficiente aggiungere parametri aggiuntivi, ad esempio, "
+"aggiungere la chiave ``cpu_offload`` con il valore ``True`` per attivare lo "
+"scaricamento sulla CPU."
+
+#: ../../source/models/model_abilities/image.rst:204
+msgid "Below list default options that used from v0.16.1."
+msgstr ""
+"Di seguito sono elencati i parametri utilizzati per impostazione predefinita"
+" a partire dalla v0.16.1."
+
+#: ../../source/models/model_abilities/image.rst:207
+#: ../../source/models/model_abilities/image.rst:246
+#: ../../source/models/model_abilities/image.rst:290
+msgid "Model"
+msgstr "Modello"
+
+#: ../../source/models/model_abilities/image.rst:207
+msgid "quantize_text_encoder"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:207
+msgid "quantize"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:207
+msgid "transformer_nf4"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:209
+#: ../../source/models/model_abilities/image.rst:211
+msgid "text_encoder_2"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:209
+#: ../../source/models/model_abilities/image.rst:211
+#: ../../source/models/model_abilities/image.rst:217
+#: ../../source/models/model_abilities/image.rst:219
+msgid "True"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:209
+#: ../../source/models/model_abilities/image.rst:211
+#: ../../source/models/model_abilities/image.rst:213
+#: ../../source/models/model_abilities/image.rst:215
+#: ../../source/models/model_abilities/image.rst:221
+#: ../../source/models/model_abilities/image.rst:223
+msgid "False"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:213
+#: ../../source/models/model_abilities/image.rst:215
+#: ../../source/models/model_abilities/image.rst:217
+#: ../../source/models/model_abilities/image.rst:219
+msgid "text_encoder_3"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:213
+#: ../../source/models/model_abilities/image.rst:215
+#: ../../source/models/model_abilities/image.rst:217
+#: ../../source/models/model_abilities/image.rst:219
+#: ../../source/models/model_abilities/image.rst:221
+#: ../../source/models/model_abilities/image.rst:223
+msgid "N/A"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:221
+#: ../../source/models/model_abilities/image.rst:223
+msgid "text_encoder"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:228
+msgid ""
+"If you want to disable some quantization, just set the corresponding option "
+"to False. e.g. for Web UI, set key ``quantize_text_encoder`` and value "
+"``False`` and for command line, specify ``--quantize_text_encoder False`` to"
+" disable quantization for text encoder."
+msgstr ""
+"Se si desidera disattivare determinate quantizzazioni, è sufficiente "
+"impostare le opzioni corrispondenti su False. Ad esempio, per l'interfaccia "
+"Web UI, impostare la chiave ``quantize_text_encoder`` e il valore ``False``,"
+" oppure per la riga di comando, specificare ``--quantize_text_encoder "
+"False`` per disattivare la quantizzazione del text encoder."
+
+#: ../../source/models/model_abilities/image.rst:233
+msgid ""
+"For :ref:`CogView4 <models_builtin_cogview4>`, we found that quantization "
+"has a significant impact on the model. Therefore, when GPU memory is "
+"limited, we recommend enabling the CPU offload option in the Web UI, and "
+"specifying ``--cpu_offload True`` when loading the model via the command "
+"line."
+msgstr ""
+"Per :ref:`CogView4 <models_builtin_cogview4>`, abbiamo scoperto che la "
+"quantizzazione ha un impatto significativo sul modello. Pertanto, quando la "
+"memoria video è limitata, consigliamo di abilitare l'opzione di CPU offload "
+"nell'interfaccia Web UI e di specificare ``--cpu_offload True`` quando si "
+"carica il modello tramite riga di comando."
+
+#: ../../source/models/model_abilities/image.rst:238
+msgid "GGUF file format"
+msgstr "Formato file GGUF"
+
+#: ../../source/models/model_abilities/image.rst:240
+msgid ""
+"GGUF file format for transformer provides various quantization options. To "
+"use gguf file, you can specify additional option ``gguf_quantization`` for "
+"web UI, or ``--gguf_quantization`` for command line for those image models "
+"which support internally by Xinference. Below is the mode list."
+msgstr ""
+"Il formato file GGUF fornisce ricche opzioni di quantizzazione per i moduli "
+"transformer. Per utilizzare un file GGUF, puoi specificare l'opzione "
+"aggiuntiva ``gguf_quantization`` nell'interfaccia web, oppure "
+"``--gguf_quantization`` nella riga di comando, per abilitare la "
+"quantizzazione GGUF nei modelli supportati nativamente da Xinference. Di "
+"seguito sono elencati i modelli supportati nativamente."
+
+#: ../../source/models/model_abilities/image.rst:246
+msgid "supported gguf quantization"
+msgstr "Supporta il formato di quantizzazione GGUF"
+
+#: ../../source/models/model_abilities/image.rst:248
+#: ../../source/models/model_abilities/image.rst:250
+msgid "F16, Q2_K, Q3_K_S, Q4_0, Q4_1, Q4_K_S, Q5_0, Q5_1, Q5_K_S, Q6_K, Q8_0"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:252
+#: ../../source/models/model_abilities/image.rst:258
+msgid ""
+"F16, Q3_K_M, Q3_K_S, Q4_0, Q4_1, Q4_K_M, Q4_K_S, Q5_0, Q5_1, Q5_K_M, Q5_K_S,"
+" Q6_K, Q8_0"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:254
+#: ../../source/models/model_abilities/image.rst:256
+msgid "F16, Q4_0, Q4_1, Q5_0, Q5_1, Q8_0"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:260
+#: ../../source/models/model_abilities/image.rst:262
+msgid ""
+"Q2_K, Q3_K_M, Q3_K_S, Q4_0, Q4_1, Q4_K_M, Q4_K_S, Q5_0, Q5_1, Q5_K_M, "
+"Q5_K_S, Q6_K, Q8_0"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:262
+#: ../../source/models/model_abilities/image.rst:296
+msgid "Qwen-Image-Edit-2509"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:267
+msgid ""
+"We stronly recommend to enable additional option ``cpu_offload`` with value "
+"``True`` for WebUI, or specify ``--cpu_offload True`` for command line."
+msgstr ""
+"Raccomandiamo vivamente di attivare l'opzione aggiuntiva ``cpu_offload`` "
+"nell'interfaccia WebUI impostandola su ``True``, oppure, per la riga di "
+"comando, specificare ``--cpu_offload True``."
+
+#: ../../source/models/model_abilities/image.rst:270
+msgid "Example:"
+msgstr "Ad esempio:"
+
+#: ../../source/models/model_abilities/image.rst:276
+msgid ""
+"With ``Q2_K`` quantization, you only need around 5 GiB GPU memory to run "
+"Flux.1-dev."
+msgstr ""
+"Utilizzando la quantizzazione ``Q2_K``, hai bisogno di circa 5 GB di VRAM "
+"per eseguire Flux.1-dev."
+
+#: ../../source/models/model_abilities/image.rst:278
+msgid ""
+"For those models gguf options are not supported internally, or you want to "
+"download gguf files on you own, you can specify additional option "
+"``gguf_model_path`` for web UI or spcecify ``--gguf_model_path "
+"/path/to/model_quant.gguf`` for command line."
+msgstr ""
+"Per i modelli che non supportano nativamente la quantizzazione GGUF, o per i"
+" quali desideri scaricare manualmente il file GGUF, puoi specificare "
+"l'opzione aggiuntiva ``gguf_model_path`` nell'interfaccia Web UI oppure "
+"utilizzare il comando ``--gguf_model_path /path/to/model_quant.gguf`` da "
+"riga di comando."
+
+#: ../../source/models/model_abilities/image.rst:283
+msgid "Lightning LORA Support"
+msgstr "Lightning LORA support"
+
+#: ../../source/models/model_abilities/image.rst:285
+msgid ""
+"Lightning LORA performs distillation on models in the form of LoRA, reducing"
+" the number of inference steps while maintaining model performance, and "
+"significantly speeding up inference. The following models currently support "
+"this LoRA:"
+msgstr ""
+"Lightning LORA distilla il modello sotto forma di LoRA, riducendo i passi di"
+" inferenza e aumentando notevolmente la velocità di inferenza, pur "
+"mantenendo le prestazioni del modello. I seguenti modelli supportano "
+"attualmente questo LoRA:"
+
+#: ../../source/models/model_abilities/image.rst:290
+msgid "Supported lightning version"
+msgstr "Versioni Lightning supportate"
+
+#: ../../source/models/model_abilities/image.rst:292
+msgid ""
+"4steps-V1.0-bf16, 4steps-V1.0, 8steps-V1.0, 8steps-V1.1-bf16, 8steps-V1.1"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:294
+msgid "4steps-V1.0-bf16, 4steps-V1.0, 8steps-V1.0-bf16, 8steps-V1.0"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:296
+msgid "4steps-V1.0-bf16, 4steps-V1.0-fp32, 8steps-V1.0-bf16, 8steps-V1.0-fp32"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:299
+msgid ""
+"4 steps or 8 steps refer to the inference steps (``num_inference_steps``). "
+"When ``lightning_version`` is specified, Xinference will automatically set "
+"the number of inference steps."
+msgstr ""
+"4 o 8 passi si riferiscono al numero di passi di inferenza "
+"(``num_inference_steps``). Quando viene specificato ``lightning_version``, "
+"Xinference imposta automaticamente il numero di passi di inferenza."
+
+#: ../../source/models/model_abilities/image.rst:302
+msgid ""
+"When using it, select the lightning version in the interface, or specify it "
+"via the command line."
+msgstr ""
+"Durante l'uso, è possibile selezionare la versione di lightning "
+"nell'interfaccia o specificarla tramite riga di comando."
+
+#: ../../source/models/model_abilities/image.rst:308
+msgid "Use the command line with ``--lightning_version <version>``."
+msgstr "Usa ``--lightning_version <version>`` nella riga di comando."
+
+#: ../../source/models/model_abilities/image.rst:310
+msgid ""
+"For those who have downloaded the lightning LoRA files themselves, you can "
+"specify them via the Lightning Model Path in the interface or by using the "
+"command line option ``--lightning_model_path``."
+msgstr ""
+"Per gli utenti che hanno scaricato autonomamente il file LoRA lightning, è "
+"possibile specificarlo tramite Lightning Model Path nell'interfaccia o "
+"utilizzando il parametro da riga di comando ``--lightning_model_path``."
+
+#: ../../source/models/model_abilities/image.rst:313
+msgid ""
+"For example, using ``4steps-V1.0``, the inference time is reduced from the "
+"original 34s to 3s."
+msgstr ""
+"Ad esempio, utilizzando ``4steps-V1.0``, il tempo di inferenza è stato "
+"ridotto da 34 secondi originali a 3 secondi."
+
+#: ../../source/models/model_abilities/image.rst:316
+msgid "OCR"
+msgstr ""
+
+#: ../../source/models/model_abilities/image.rst:318
+msgid "The OCR API accepts image bytes and returns the OCR text."
+msgstr "L'API OCR accetta byte dell'immagine e restituisce testo OCR."
+
+#: ../../source/models/model_abilities/image.rst:320
+msgid "We can try OCR API out either via cURL, or Xinference's python client:"
+msgstr "Puoi provare l'API OCR tramite cURL o il client Python di Xinference."
+
+#~ msgid "You can find more examples of Images API in the tutorial notebook:"
+#~ msgstr "Puoi trovare ulteriori esempi delle API Images nei notebook tutorial."
+
+#~ msgid "Stable Diffusion ControlNet"
+#~ msgstr ""
+
+#~ msgid "Learn from a Stable Diffusion ControlNet example"
+#~ msgstr ""
+#~ "Ecco un esempio di apprendimento di una rete di controllo per Stable "
+#~ "Diffusion."

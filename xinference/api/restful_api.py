@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,9 +23,9 @@ import pprint
 import time
 import uuid
 import warnings
+from pathlib import Path
 from typing import Any, List, Optional, Union, get_type_hints
 
-import gradio as gr
 import xoscar as xo
 from aioprometheus import REGISTRY, MetricsMiddleware
 from aioprometheus.asgi.starlette import metrics
@@ -41,10 +41,9 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from sse_starlette.sse import EventSourceResponse
-from starlette.responses import PlainTextResponse, RedirectResponse
+from starlette.responses import PlainTextResponse
 from uvicorn import Config, Server
 from xoscar.utils import get_next_port
 
@@ -59,9 +58,12 @@ from ..constants import (
     XINFERENCE_DISABLE_METRICS,
     XINFERENCE_ENABLE_OTEL,
     XINFERENCE_LAUNCH_HISTORY_DB_PATH,
+    XINFERENCE_MONITOR_CONFIG_DB_PATH,
     XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
+    get_or_create_setup_token,
 )
 from ..core.event import Event, EventCollectorActor, EventType
+from ..core.exceptions import ModelNotReadyError
 from ..core.supervisor import SupervisorActor
 from ..core.utils import CancelMixin
 from ..types import (
@@ -70,12 +72,11 @@ from ..types import (
     PeftModelConfig,
     max_tokens_field,
 )
+from .frontend_static import mount_frontend
 from .oauth2.auth_service import AuthService
 from .responses import JSONResponse
 from .schemas import (
     AutoConfigLLMRequest,
-    BuildGradioInterfaceRequest,
-    BuildGradioMediaInterfaceRequest,
     CreateCompletionRequest,
     CreateEmbeddingRequest,
     RegisterModelRequest,
@@ -91,6 +92,40 @@ from .schemas import (
 from .utils import require_model
 
 logger = logging.getLogger(__name__)
+
+
+def _log_setup_token_notice() -> None:
+    """Log the first-run setup token notice, called while setup is pending.
+
+    Only logs the token itself when it was auto-generated. If the operator
+    set XINFERENCE_AUTH_SETUP_TOKEN explicitly (e.g. from a Kubernetes
+    Secret), it's deliberately being kept out of band, so logging it
+    verbatim would defeat that and let any log reader win the first-admin
+    race; log a generic pointer instead.
+    """
+    if os.environ.get("XINFERENCE_AUTH_SETUP_TOKEN", ""):
+        logger.warning(
+            "\n"
+            + "=" * 60
+            + "\n"
+            + "  FIRST-RUN SETUP REQUIRED\n"
+            + "  Create the initial admin account at POST /v1/admin/setup\n"
+            + "  (or via the web UI's setup page), using the setup token\n"
+            + "  configured via XINFERENCE_AUTH_SETUP_TOKEN.\n"
+            + "=" * 60
+        )
+    else:
+        setup_token = get_or_create_setup_token()
+        logger.warning(
+            "\n"
+            + "=" * 60
+            + "\n"
+            + "  FIRST-RUN SETUP REQUIRED (token shown only until used)\n"
+            + "  Create the initial admin account at POST /v1/admin/setup\n"
+            + "  (or via the web UI's setup page), supplying this token:\n"
+            + f"  Setup token: {setup_token}\n"
+            + "=" * 60
+        )
 
 
 class RESTfulAPI(CancelMixin):
@@ -137,6 +172,8 @@ class RESTfulAPI(CancelMixin):
                 encryption_key=XINFERENCE_AUTH_ENCRYPTION_KEY,
             )
             self._auth_service = self._advanced_auth_service
+            if self._advanced_auth_service.needs_setup():
+                _log_setup_token_notice()
         else:
             self._auth_service = AuthService(auth_config_file)
 
@@ -144,6 +181,12 @@ class RESTfulAPI(CancelMixin):
 
         self._launch_history_store = LaunchHistoryStore(
             XINFERENCE_LAUNCH_HISTORY_DB_PATH
+        )
+
+        from ..core.monitor_config_store import MonitorConfigStore
+
+        self._monitor_config_store = MonitorConfigStore(
+            XINFERENCE_MONITOR_CONFIG_DB_PATH
         )
 
         self._router = APIRouter()
@@ -266,6 +309,7 @@ class RESTfulAPI(CancelMixin):
                     "user": username,
                     "api_key_name": entry.name or "",
                     "model_id": model_uid,
+                    "model_name": model_name,
                     "model_type": model_type,
                     "status": status,
                 }
@@ -455,6 +499,7 @@ class RESTfulAPI(CancelMixin):
         # Attach API instance for dependency injection (Depends(get_api), etc.)
         self._app.state.api = self
         self._app.state.advanced_auth = self._advanced_auth_service
+        self._app.state.monitor_config_store = self._monitor_config_store
 
         # Register all domain routes from routers/ modules
         from .routers import register_all_routes
@@ -543,38 +588,26 @@ class RESTfulAPI(CancelMixin):
                 f"{pprint.pformat(invalid_routes)}"
             )
 
-        class SPAStaticFiles(StaticFiles):
-            async def get_response(self, path: str, scope):
-                response = await super().get_response(path, scope)
-                if response.status_code == 404:
-                    response = await super().get_response(".", scope)
-                return response
-
         try:
             package_file_path = __import__("xinference").__file__
             assert package_file_path is not None
             lib_location = os.path.abspath(os.path.dirname(package_file_path))
-            ui_location = os.path.join(lib_location, "ui/web/ui/build/")
         except ImportError as e:
             raise ImportError(f"Xinference is imported incorrectly: {e}")
 
-        if os.path.exists(ui_location):
-
-            @self._app.get("/")
-            def read_main():
-                response = RedirectResponse(url="/ui/")
-                return response
-
-            self._app.mount(
-                "/ui/",
-                SPAStaticFiles(directory=ui_location, html=True),
-            )
-        else:
+        ui_dist_location = os.environ.get(
+            "XINFERENCE_FRONTEND_DIST_DIR",
+            os.path.join(lib_location, "ui", "web", "dist"),
+        )
+        if not mount_frontend(self._app, Path(ui_dist_location)):
             warnings.warn(
                 f"""
-            Xinference ui is not built at expected directory: {ui_location}
-            To resolve this warning, navigate to {os.path.join(lib_location, "ui/web/ui/")}
-            And build the Xinference ui by running "npm run build"
+            The Xinference web UI is not built at expected directory: {ui_dist_location}
+            The API keeps serving without the web UI. To enable it, build the
+            frontend static export from the repository "frontend/" directory with
+            "npm ci && npm run build" (this stages the export at the directory
+            above), or set XINFERENCE_FRONTEND_DIST_DIR to an export directory,
+            and restart. For frontend development, run "npm run dev" instead.
             """
             )
 
@@ -742,6 +775,12 @@ class RESTfulAPI(CancelMixin):
         try:
             data = await (await self._get_supervisor_ref()).describe_model(model_uid)
             return JSONResponse(content=data)
+        except ModelNotReadyError as e:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Model is loading, please retry later: {e}",
+                headers={"Retry-After": "30"},
+            )
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))
@@ -922,6 +961,68 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(status_code=500, detail=str(e))
         return JSONResponse(content=None)
 
+    async def get_autostart_config(self, user: Optional[Any] = None) -> JSONResponse:
+        try:
+            if isinstance(user, dict):
+                username = user.get("username", "")
+            else:
+                username = getattr(user, "username", "") if user else ""
+            config = await (await self._get_supervisor_ref()).get_autostart_config(
+                username=username
+            )
+            return JSONResponse(content=config)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(str(e), exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def get_autostart_model_summary(self) -> JSONResponse:
+        try:
+            summary = await (
+                await self._get_supervisor_ref()
+            ).get_autostart_model_summary()
+            return JSONResponse(content=summary)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(str(e), exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def upsert_autostart_model(
+        self, request: Request, user: Optional[Any] = None
+    ) -> JSONResponse:
+        try:
+            if isinstance(user, dict):
+                username = user.get("username", "")
+            else:
+                username = getattr(user, "username", "") if user else ""
+            config = await (await self._get_supervisor_ref()).upsert_autostart_model(
+                await request.json(), username=username
+            )
+            return JSONResponse(content=config)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(str(e), exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def remove_autostart_model(self, model_uid: str) -> JSONResponse:
+        try:
+            config = await (await self._get_supervisor_ref()).remove_autostart_model(
+                model_uid
+            )
+            return JSONResponse(content=config)
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(str(e), exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
     async def launch_model_by_version(
         self, request: Request, wait_ready: bool = Query(True)
     ) -> JSONResponse:
@@ -961,89 +1062,6 @@ class RESTfulAPI(CancelMixin):
         except Exception as e:
             logger.error(e, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
-
-    async def build_gradio_interface(
-        self, model_uid: str, request: Request
-    ) -> JSONResponse:
-        """
-        Separate build_interface with launch_model
-        build_interface requires RESTful Client for API calls
-        but calling API in async function does not return
-        """
-        payload = await request.json()
-        body = BuildGradioInterfaceRequest.parse_obj(payload)
-        assert self._app is not None
-        assert body.model_type == "LLM"
-
-        from ..ui.gradio.chat_interface import GradioInterface
-
-        try:
-            access_token = request.headers.get("Authorization")
-            internal_host = "localhost" if self._host == "0.0.0.0" else self._host
-            interface = GradioInterface(
-                endpoint="http://" + internal_host + ":" + str(self._port),
-                model_uid=model_uid,
-                model_name=body.model_name,
-                model_size_in_billions=body.model_size_in_billions,
-                model_type=body.model_type,
-                model_format=body.model_format,
-                quantization=body.quantization,
-                context_length=body.context_length,
-                model_ability=body.model_ability,
-                model_description=body.model_description,
-                model_lang=body.model_lang,
-                access_token=access_token,
-            ).build()
-            gr.mount_gradio_app(self._app, interface, f"/{model_uid}")
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            raise HTTPException(status_code=400, detail=str(ve))
-
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-        return JSONResponse(content={"model_uid": model_uid})
-
-    async def build_gradio_media_interface(
-        self, model_uid: str, request: Request
-    ) -> JSONResponse:
-        """
-        Build a Gradio interface for image processing models.
-        """
-        payload = await request.json()
-        body = BuildGradioMediaInterfaceRequest.parse_obj(payload)
-        assert self._app is not None
-        assert body.model_type in ("image", "video", "audio")
-
-        from ..ui.gradio.media_interface import MediaInterface
-
-        try:
-            access_token = request.headers.get("Authorization")
-            internal_host = "localhost" if self._host == "0.0.0.0" else self._host
-            interface = MediaInterface(
-                endpoint="http://" + internal_host + ":" + str(self._port),
-                model_uid=model_uid,
-                model_family=body.model_family,
-                model_name=body.model_name,
-                model_id=body.model_id,
-                model_revision=body.model_revision,
-                controlnet=body.controlnet,
-                access_token=access_token,
-                model_ability=body.model_ability,
-                model_type=body.model_type,
-            ).build()
-
-            gr.mount_gradio_app(self._app, interface, f"/{model_uid}")
-        except ValueError as ve:
-            logger.error(str(ve), exc_info=True)
-            raise HTTPException(status_code=400, detail=str(ve))
-
-        except Exception as e:
-            logger.error(e, exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-
-        return JSONResponse(content={"model_uid": model_uid})
 
     async def terminate_model(self, model_uid: str) -> JSONResponse:
         try:
@@ -1193,6 +1211,54 @@ class RESTfulAPI(CancelMixin):
                 self.handle_request_limit_error(e)
                 raise HTTPException(status_code=500, detail=str(e))
 
+    @staticmethod
+    def _normalize_anthropic_messages(
+        raw_system: Any, messages: Optional[List[dict]]
+    ) -> List[dict]:
+        """Fold the Anthropic top-level ``system`` prompt and any inline
+        ``role: system`` messages into a single leading OpenAI-style system
+        message.
+
+        Anthropic's Messages API carries the system prompt in a top-level
+        ``system`` field, and some clients (notably Claude Code >= 2.1.154)
+        additionally place ``role: system`` entries inside the ``messages``
+        array. xinference dispatches to an OpenAI-style ``chat`` backend, which
+        expects the system prompt as a leading ``{"role": "system"}`` message
+        and only accepts ``user``/``assistant`` roles in the array. Without this
+        normalization the top-level ``system`` prompt is silently dropped (the
+        ``raw_params`` carrying it are discarded before the model is called) and
+        inline system messages trip the role validation below.
+        """
+
+        def _collect(content: Any, parts: List[str]) -> None:
+            if isinstance(content, str):
+                if content:
+                    parts.append(content)
+            elif isinstance(content, list):
+                for block in content:
+                    if not isinstance(block, dict) or block.get("type") != "text":
+                        continue
+                    text = block.get("text") or ""
+                    # Strip Claude Code's per-request billing header; it carries
+                    # a changing hash that would otherwise defeat prefix caching.
+                    if text.startswith("x-anthropic-billing-header"):
+                        continue
+                    parts.append(text)
+
+        system_parts: List[str] = []
+        _collect(raw_system, system_parts)
+
+        normalized: List[dict] = []
+        for msg in messages or []:
+            if msg.get("role") == "system":
+                _collect(msg.get("content"), system_parts)
+                continue
+            normalized.append(msg)
+
+        if system_parts:
+            normalized.insert(0, {"role": "system", "content": "\n".join(system_parts)})
+        return normalized
+
     async def create_message(self, request: Request) -> Response:
         raw_body = await request.json()
         body = CreateMessage.parse_obj(raw_body)
@@ -1217,6 +1283,13 @@ class RESTfulAPI(CancelMixin):
             kwargs["max_tokens"] = max_tokens_field.default
 
         messages = body.messages and list(body.messages)
+
+        # Fold the top-level `system` prompt and any inline `role: system`
+        # messages into a leading OpenAI-style system message, then drop the
+        # consumed `system` field so it is not forwarded as a stray generation
+        # parameter (which the chat backend discards anyway).
+        messages = self._normalize_anthropic_messages(raw_body.get("system"), messages)
+        raw_kwargs.pop("system", None)
 
         if not messages or messages[-1].get("role") not in ["user", "assistant"]:
             raise HTTPException(
@@ -1634,6 +1707,12 @@ class RESTfulAPI(CancelMixin):
                 raise ValueError("Unknown model")
             await (await self._get_supervisor_ref()).get_model(model_uid)
             return Response()
+        except ModelNotReadyError as e:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Model is loading, please retry later: {e}",
+                headers={"Retry-After": "30"},
+            )
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             await self._report_error_event(model_uid, str(ve))
@@ -2339,6 +2418,12 @@ class RESTfulAPI(CancelMixin):
 
         try:
             desc = await (await self._get_supervisor_ref()).describe_model(model_uid)
+        except ModelNotReadyError as e:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Model is loading, please retry later: {e}",
+                headers={"Retry-After": "30"},
+            )
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             await self._report_error_event(model_uid, str(ve))
@@ -2352,6 +2437,7 @@ class RESTfulAPI(CancelMixin):
             DEEPSEEK_TOOL_CALL_FAMILY,
             GEMMA_TOOL_CALL_FAMILY,
             GLM4_TOOL_CALL_FAMILY,
+            GLM5_TOOL_CALL_FAMILY,
             LLAMA3_TOOL_CALL_FAMILY,
             QWEN_TOOL_CALL_FAMILY,
         )
@@ -2364,6 +2450,7 @@ class RESTfulAPI(CancelMixin):
             | GLM4_TOOL_CALL_FAMILY
             | LLAMA3_TOOL_CALL_FAMILY
             | QWEN_TOOL_CALL_FAMILY
+            | GLM5_TOOL_CALL_FAMILY
         )
         if model_family not in total_call_family:
             if body.tools:
@@ -2376,6 +2463,19 @@ class RESTfulAPI(CancelMixin):
                     status_code=400,
                     detail=f"Only {total_call_family} support tool messages",
                 )
+
+        # Reject misplaced ``system`` messages before entering the worker for
+        # models whose chat template requires system-first ordering (Qwen3
+        # family: Ornith-1.0-35B / qwen3.5 / qwen3.6 / Nex-N2). Placed before
+        # the stream/non-stream split so BOTH paths return a clean 400 instead
+        # of the worker raising mid-render (non-stream 500 / stream 200+SSE).
+        if desc.get("strict_system_first"):
+            from ..model.llm.utils import MessageRoleOrderError, check_system_role_order
+
+            try:
+                check_system_role_order(messages)
+            except MessageRoleOrderError as ve:
+                raise HTTPException(status_code=400, detail=str(ve))
 
         if "skip_special_tokens" in raw_kwargs and await model.is_vllm_backend():
             kwargs["skip_special_tokens"] = raw_kwargs["skip_special_tokens"]

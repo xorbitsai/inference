@@ -25,7 +25,7 @@ All files share the same alert expressions and thresholds — only `summary` and
 
 - **Severity**: warning
 - **Condition**: Model request error rate > 5% for 3 minutes
-- **Expression**: `rate(xinference:model_request_errors_total[5m]) / rate(xinference:model_request_total[5m]) > 0.05`
+- **Expression**: `sum without (stream) (rate(xinference:model_request_errors_total[5m])) / sum without (stream) (rate(xinference:model_request_total[5m])) > 0.05`
 
 ### TTFTHigh
 
@@ -44,18 +44,43 @@ All files share the same alert expressions and thresholds — only `summary` and
 - **Severity**: critical
 - **Condition**: Disk available space < 10% for 5 minutes
 - **Expression**: `(node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.1`
+- **Note**: This rule depends on [node_exporter](https://github.com/prometheus/node_exporter) being deployed on all cluster nodes.
 
 ### RequestQueueBacklog
 
 - **Severity**: warning
-- **Condition**: Pending requests > 10 for 3 minutes
-- **Expression**: `xinference:model_pending_requests > 10`
+- **Condition**: Model concurrency ratio (active / limit) > 90% for 3 minutes
+- **Expression**: `xinference:model_serve_count / (xinference:model_request_limit > 0) > 0.9`
 
 ### ModelLoadSlow
 
 - **Severity**: warning
 - **Condition**: Model load time > 5 minutes
 - **Expression**: `xinference:model_last_load_duration_seconds > 300`
+
+### ReplicaUnexpectedTerminated
+
+- **Severity**: critical
+- **Condition**: A replica is marked as unexpectedly terminated (worker failure) for 1 minute
+- **Expression**: `xinference:model_unexpected_termination == 1`
+
+### WorkerMemoryHigh
+
+- **Severity**: warning
+- **Condition**: Worker memory usage > 90% for 5 minutes
+- **Expression**: `xinference:worker_memory_used_bytes / xinference:worker_memory_total_bytes > 0.9`
+
+### RequestLatencyHigh
+
+- **Severity**: warning
+- **Condition**: P95 request latency > 60 seconds for 3 minutes
+- **Expression**: `histogram_quantile(0.95, rate(xinference:model_request_duration_seconds_bucket[5m])) > 60`
+
+### BannedIPsSpike
+
+- **Severity**: warning
+- **Condition**: Banned IP count > 10 for 2 minutes
+- **Expression**: `xinference:banned_ips_total > 10`
 
 ## Usage
 

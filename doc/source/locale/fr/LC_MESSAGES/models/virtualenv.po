@@ -1,0 +1,598 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-30 19:14+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: fr <LL@li.org>\n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/virtualenv.rst:6
+msgid "Model Virtual Environments"
+msgstr "Environnement virtuel du modèle"
+
+#: ../../source/models/virtualenv.rst:11
+msgid "Background"
+msgstr "Contexte"
+
+#: ../../source/models/virtualenv.rst:13
+msgid ""
+"Some models are no longer maintained after their release, and the versions "
+"of the libraries they depend on remain outdated. For example, the ``GOT-"
+"OCR2`` model still relies on ``transformers`` version 4.37.2. If this "
+"library is updated to a newer version, the model can no longer function "
+"properly. On the other hand, many newer models require the latest version of"
+" ``transformers``. This version mismatch leads to dependency conflicts."
+msgstr ""
+"Certains modèles ne sont plus maintenus après leur publication, et les "
+"versions des bibliothèques dont ils dépendent restent obsolètes. Par "
+"exemple, le modèle ``GOT-OCR2`` dépend toujours de ``transformers`` 4.37.2. "
+"Si cette bibliothèque est mise à jour vers une nouvelle version, le modèle "
+"ne fonctionnera plus correctement ; tandis que de nombreux nouveaux modèles "
+"nécessitent la version la plus récente de ``transformers``. Cette différence"
+" de version peut entraîner des conflits de dépendances."
+
+#: ../../source/models/virtualenv.rst:19
+msgid "Solution"
+msgstr "Solution"
+
+#: ../../source/models/virtualenv.rst:21
+msgid ""
+"To address this issue, we have introduced the **Model Virtual Environment** "
+"feature."
+msgstr ""
+"Pour résoudre ce problème, nous avons introduit la fonctionnalité "
+"**d'environnement virtuel de modèle**."
+
+#: ../../source/models/virtualenv.rst:23
+msgid "Install requirements for this functionality via"
+msgstr ""
+"Installez les dépendances nécessaires pour cette fonctionnalité à l'aide de "
+"la commande suivante."
+
+#: ../../source/models/virtualenv.rst:32
+msgid ""
+"Enable by setting environment variable ``XINFERENCE_ENABLE_VIRTUAL_ENV=1``."
+msgstr ""
+"Activez cette fonctionnalité en définissant la variable d'environnement "
+"``XINFERENCE_ENABLE_VIRTUAL_ENV=1``."
+
+#: ../../source/models/virtualenv.rst:34
+#: ../../source/models/virtualenv.rst:217
+#: ../../source/models/virtualenv.rst:233
+msgid "Example usage:"
+msgstr "Exemple d'utilisation :"
+
+#: ../../source/models/virtualenv.rst:46
+msgid "This feature requires internet access or a self-hosted PyPI mirror."
+msgstr ""
+"Cette fonctionnalité nécessite une connexion réseau ou l'utilisation d'un "
+"service de miroir PyPI auto-hébergé."
+
+#: ../../source/models/virtualenv.rst:48
+msgid "Xinference will by default inherit the config for current pip."
+msgstr "Xinference hérite par défaut de la configuration actuelle de pip."
+
+#: ../../source/models/virtualenv.rst:52
+msgid ""
+"Note: When launching a vLLM/SgLang engine model inside a virtual "
+"environment, if you encounter a cuDNN error, you can set:"
+msgstr ""
+"Attention : lors du démarrage du moteur vLLM/SgLang en environnement "
+"virtuel, en cas d'erreur cuDNN, vous pouvez configurer :"
+
+#: ../../source/models/virtualenv.rst:63
+msgid ""
+"Starting from **Xinference v2.0**, the model virtual environment feature is "
+"enabled by default (i.e., ``XINFERENCE_ENABLE_VIRTUAL_ENV`` defaults to "
+"``1``)."
+msgstr ""
+"À partir de **Xinference v2.0**, la fonction d’environnement virtuel de "
+"modèle est activée par défaut (c’est-à-dire que la valeur par défaut de "
+"``XINFERENCE_ENABLE_VIRTUAL_ENV`` est ``1`` )."
+
+#: ../../source/models/virtualenv.rst:66
+msgid ""
+"To disable it globally, set ``XINFERENCE_ENABLE_VIRTUAL_ENV=0`` when "
+"starting Xinference."
+msgstr ""
+"Pour désactiver globalement cette fonctionnalité, définissez "
+"``XINFERENCE_ENABLE_VIRTUAL_ENV=0`` lors du démarrage de Xinference."
+
+#: ../../source/models/virtualenv.rst:68
+msgid ""
+"When enabled, Xinference will automatically create a dedicated virtual "
+"environment for each model when it is loaded, and install its specific "
+"dependencies there. This prevents dependency conflicts between models, "
+"allowing them to run in isolation without affecting one another."
+msgstr ""
+"Une fois cette fonction activée, Xinference crée automatiquement un "
+"environnement virtuel dédié pour chaque modèle lors de son chargement, et "
+"installe les dépendances correspondantes dans cet environnement. Cela permet"
+" d'éviter les conflits de dépendances entre les modèles et assure que chaque"
+" modèle s'exécute de manière indépendante dans des environnements isolés."
+
+#: ../../source/models/virtualenv.rst:73
+msgid "Using Virtual Environments (v2.0)"
+msgstr "Gestion des environnements virtuels (v2.0)"
+
+#: ../../source/models/virtualenv.rst:76
+msgid "Global toggle"
+msgstr "Bascule globale"
+
+#: ../../source/models/virtualenv.rst:78
+msgid ""
+"Virtual environments are enabled by default starting from v2.0. You can "
+"still override this globally:"
+msgstr ""
+"À partir de la version 2.0, l'environnement virtuel est activé par défaut. "
+"Vous pouvez toujours modifier cette option via les paramètres globaux :"
+
+#: ../../source/models/virtualenv.rst:89
+msgid "Per-model override at launch time"
+msgstr "Remplacements par modèle au démarrage"
+
+#: ../../source/models/virtualenv.rst:91
+msgid "You can override the global setting when launching a model:"
+msgstr ""
+"Au démarrage du modèle, vous pouvez remplacer les paramètres globaux :"
+
+#: ../../source/models/virtualenv.rst:102
+msgid "Add or override packages at launch time"
+msgstr "Ajouter ou remplacer un paquet au démarrage"
+
+#: ../../source/models/virtualenv.rst:104
+msgid "Use ``--virtual-env-package`` (or ``-vp``) multiple times:"
+msgstr ""
+"Dans la ligne de commande, utilisez ``--virtual-env-package`` ou ``-vp`` "
+"pour spécifier une version de paquet unique."
+
+#: ../../source/models/virtualenv.rst:112
+msgid ""
+"If you specify a package that already exists in the model's default "
+"virtualenv package list, your version replaces the default instead of being "
+"appended."
+msgstr ""
+"Si le paquet spécifié existe déjà dans la liste des paquets de "
+"l'environnement virtuel par défaut du modèle, la version que vous spécifiez "
+"remplacera la version par défaut, au lieu de s'ajouter à la liste."
+
+#: ../../source/models/virtualenv.rst:117
+msgid "Storage Location"
+msgstr "Emplacement de stockage"
+
+#: ../../source/models/virtualenv.rst:119
+msgid "By default, the model’s virtual environment is stored under path:"
+msgstr ""
+"Par défaut, l'environnement virtuel du modèle est stocké dans le chemin "
+"suivant :"
+
+#: ../../source/models/virtualenv.rst:121
+#, python-brace-format
+msgid ""
+"Before v1.6.0: :ref:`XINFERENCE_HOME <environments_xinference_home>` / "
+"virtualenv / {model_name}"
+msgstr ""
+"Avant v1.6.0 : :ref:`XINFERENCE_HOME <environments_xinference_home>` / "
+"virtualenv / {model_name}"
+
+#: ../../source/models/virtualenv.rst:122
+#, python-brace-format
+msgid ""
+"From v1.6.0 to v1.13.0: :ref:`XINFERENCE_HOME "
+"<environments_xinference_home>` / virtualenv / v2 / {model_name}"
+msgstr ""
+"De la v1.6.0 à la v1.13.0 : :ref:`XINFERENCE_HOME "
+"<environments_xinference_home>` / virtualenv / v2 / {model_name}"
+
+#: ../../source/models/virtualenv.rst:123
+#, python-brace-format
+msgid ""
+"Since v1.14.0: :ref:`XINFERENCE_HOME <environments_xinference_home>` / "
+"virtualenv / v3 / {model_name} / {python_version}"
+msgstr ""
+"À partir de la version 1.14.0 : :ref:`XINFERENCE_HOME "
+"<environments_xinference_home>` / virtualenv / v3 / {model_name} / "
+"{python_version}"
+
+#: ../../source/models/virtualenv.rst:124
+#, python-brace-format
+msgid ""
+"Since v2.0: :ref:`XINFERENCE_HOME <environments_xinference_home>` / "
+"virtualenv / v4 / {model_name} / {model_engine} / {python_version}"
+msgstr ""
+"Depuis v2.0 : :ref:`XINFERENCE_HOME <environments_xinference_home>` / "
+"virtualenv / v4 / {model_name} / {model_engine} / {python_version}"
+
+#: ../../source/models/virtualenv.rst:127
+msgid "Skip Installed Libraries"
+msgstr "Ignorer les bibliothèques déjà installées"
+
+#: ../../source/models/virtualenv.rst:133
+msgid ""
+"This feature requires ``xoscar >= 0.7.12``, which is the minimum Xoscar "
+"version required for Xinference v1.8.1."
+msgstr ""
+"Cette fonctionnalité nécessite ``xoscar >= 0.7.12``, qui est la version "
+"minimale de Xoscar requise par Xinference v1.8.1."
+
+#: ../../source/models/virtualenv.rst:135
+msgid ""
+"``xinference`` uses the ``uv`` tool to create virtual environments, with the"
+" current Python **system site-packages** set as the base environment. By "
+"default, ``uv`` **does not check for existing packages in the system "
+"environment** and reinstalls all dependencies in the virtual environment. "
+"This ensures better isolation from system packages but can result in "
+"redundant installations, longer setup times, and increased disk usage."
+msgstr ""
+"``xinference`` utilise l'outil ``uv`` pour créer un environnement virtuel et"
+" définit les **system site-packages** Python actuels comme environnement de "
+"base. Par défaut, ``uv`` **ne vérifie pas si des paquets existent déjà dans "
+"l'environnement système**, mais réinstalle toutes les dépendances dans "
+"l'environnement virtuel. Cette approche permet une meilleure isolation par "
+"rapport aux paquets système, mais peut entraîner des installations "
+"redondantes, un temps d'initialisation plus long et une augmentation de "
+"l'occupation disque."
+
+#: ../../source/models/virtualenv.rst:139
+msgid ""
+"Starting from ``v1.8.1``, an **experimental feature** is available: by "
+"setting the environment variable "
+"``XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED=1``, ``uv`` will **skip packages "
+"already available in system site-packages**."
+msgstr ""
+"À partir de ``v1.8.1``, une **fonctionnalité expérimentale** est fournie : "
+"en définissant la variable d'environnement "
+"``XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED=1``, ``uv`` **ignorera les paquets "
+"déjà existants dans les site-packages système**."
+
+#: ../../source/models/virtualenv.rst:144
+msgid ""
+"This feature is enabled by default in ``v2.0``. To disable it, set "
+"``XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED=0``."
+msgstr ""
+"Cette fonctionnalité est activée par défaut dans la version ``v2.0``. Pour "
+"la désactiver, veuillez définir ``XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED=0``."
+
+#: ../../source/models/virtualenv.rst:147
+msgid "Advantages"
+msgstr "Avantage"
+
+#: ../../source/models/virtualenv.rst:149
+msgid ""
+"Avoid redundant installations of large dependencies (e.g., ``torch`` + "
+"``CUDA``)."
+msgstr ""
+"Évitez de réinstaller de grandes dépendances (par exemple ``torch`` + "
+"``CUDA`` )."
+
+#: ../../source/models/virtualenv.rst:150
+msgid "Speed up virtual environment creation."
+msgstr "Accélérer la création d’environnements virtuels."
+
+#: ../../source/models/virtualenv.rst:151
+msgid "Reduce disk usage."
+msgstr "Réduire l'occupation de l'espace disque."
+
+#: ../../source/models/virtualenv.rst:154
+msgid "Usage"
+msgstr "Utilisation"
+
+#: ../../source/models/virtualenv.rst:166
+msgid "Performance Comparison"
+msgstr "Comparaison des performances"
+
+#: ../../source/models/virtualenv.rst:168
+msgid "Using the ``CosyVoice 0.5B`` model as an example:"
+msgstr "Avec le modèle ``CosyVoice 0.5B`` comme exemple :"
+
+#: ../../source/models/virtualenv.rst:170
+msgid "**Without this feature enabled**::"
+msgstr "**Lorsque cette fonction n'est pas activée**::"
+
+#: ../../source/models/virtualenv.rst:181
+msgid "**With this feature enabled**::"
+msgstr "**Après avoir activé cette fonction**::"
+
+#: ../../source/models/virtualenv.rst:196
+msgid ""
+"Model Launching: Toggle Virtual Environments and Customize Dependencies"
+msgstr ""
+"Chargement du modèle : activer l'environnement virtuel et personnaliser les "
+"dépendances"
+
+#: ../../source/models/virtualenv.rst:200
+msgid ""
+"Starting from v1.8.1, we support toggling the virtual environment for "
+"individual model launching, as well as overriding the model's default "
+"settings with custom package dependencies."
+msgstr ""
+"À partir de la v1.8.1, nous prenons en charge le chargement d'un "
+"environnement virtuel de commutation pour un modèle unique et la possibilité"
+" de remplacer les paramètres par défaut du modèle par des dépendances de "
+"paquets personnalisées."
+
+#: ../../source/models/virtualenv.rst:204
+msgid "Toggle Virtual Environment"
+msgstr "Espace virtuel du modèle de commutation"
+
+#: ../../source/models/virtualenv.rst:206
+msgid ""
+"When loading a model, you can specify whether to enable the model's virtual "
+"environment. If not specified, the setting will follow the environment "
+"variable configuration."
+msgstr ""
+"Lors du chargement d’un modèle, vous pouvez spécifier si l’environnement "
+"virtuel du modèle doit être activé. Si cela n’est pas précisé, la "
+"configuration des variables d’environnement est suivie par défaut."
+
+#: ../../source/models/virtualenv.rst:209
+msgid ""
+"For the Web UI, this can be toggled on or off through the optional settings "
+"switch."
+msgstr ""
+"Dans l'interface Web, cette fonction peut être activée ou désactivée via un "
+"interrupteur de paramétrage facultatif."
+
+#: ../../source/models/virtualenv.rst:215
+msgid ""
+"For command-line loading, use the ``--enable-virtual-env`` option to enable "
+"the virtual environment, or ``--disable-virtual-env`` to disable it."
+msgstr ""
+"Lors du chargement en ligne de commande, utilisez l'option ``--enable-"
+"virtual-env`` pour activer l'environnement virtuel, et l'option ``--disable-"
+"virtual-env`` pour le désactiver."
+
+#: ../../source/models/virtualenv.rst:224
+msgid "Set Virtual Environment Package Dependencies"
+msgstr "Définir les dépendances des paquets de l'environnement virtuel"
+
+#: ../../source/models/virtualenv.rst:226
+msgid ""
+"For supported models, Xinference has already defined the package "
+"dependencies and version requirements within the virtual environment. "
+"However, if you need to specify particular versions or install additional "
+"dependencies, you can manually provide them during model loading."
+msgstr ""
+"Pour les modèles pris en charge, Xinference a déjà défini les dépendances de"
+" paquets et les exigences de version dans l'environnement virtuel. "
+"Cependant, si vous devez spécifier une version particulière ou installer des"
+" dépendances supplémentaires, vous pouvez les fournir manuellement lors du "
+"chargement du modèle."
+
+#: ../../source/models/virtualenv.rst:229
+msgid ""
+"In the Web UI, you can add custom dependencies by clicking the plus icon in "
+"the same location as the virtual environment toggle."
+msgstr ""
+"Dans l'interface utilisateur Web, vous pouvez cliquer sur l'icône plus (+) "
+"au même emplacement que l'interrupteur de l'environnement virtuel pour "
+"ajouter des dépendances personnalisées."
+
+#: ../../source/models/virtualenv.rst:231
+msgid ""
+"For the command line, use ``--virtual-env-package`` or ``-vp`` to specify a "
+"single package version."
+msgstr ""
+"En ligne de commande, utilisez ``--virtual-env-package`` ou ``-vp`` pour "
+"spécifier une version de paquet unique."
+
+#: ../../source/models/virtualenv.rst:239
+msgid ""
+"In addition to the standard way of specifying package dependencies, such as "
+"``transformers==xxx``, Xinference also supports some extended syntax."
+msgstr ""
+"En plus de la méthode standard de spécification des dépendances de paquets "
+"(comme ``transformers==xxx``), Xinference prend également en charge "
+"certaines syntaxes étendues."
+
+#: ../../source/models/virtualenv.rst:241
+msgid ""
+"``#system_xxx#``: Using the same version as the system site packages, such "
+"as ``#system_numpy#``, ensures that the installed package matches the system"
+" site package version of numpy. This helps prevent dependency conflicts."
+msgstr ""
+"``#system_xxx#`` : Utilisez la même version que les site packages système, "
+"par exemple ``#system_numpy#``, pour garantir que la version du paquet "
+"installé correspond à celle de numpy dans les site packages système, évitant"
+" ainsi les conflits de dépendances."
+
+#: ../../source/models/virtualenv.rst:248
+msgid "Manage Virtual Enviroments"
+msgstr "Gestion des environnements virtuels"
+
+#: ../../source/models/virtualenv.rst:252
+msgid ""
+"Xinference provides comprehensive virtual environment management for model "
+"dependencies, allowing you to create isolated Python environments for each "
+"model with specific package requirements."
+msgstr ""
+"Xinference offre des fonctionnalités complètes de gestion d'environnements "
+"virtuels, vous permettant de créer un environnement Python indépendant pour "
+"chaque modèle afin de répondre à des besoins spécifiques en matière de "
+"dépendances de paquets."
+
+#: ../../source/models/virtualenv.rst:264
+msgid "Key Features"
+msgstr "Fonctionnalités principales"
+
+#: ../../source/models/virtualenv.rst:266
+msgid ""
+"**Multiple Python Version Support**: Each model can have virtual "
+"environments with different Python versions (e.g., Python 3.10.18, 3.11.5), "
+"enabling compatibility with various model requirements."
+msgstr ""
+"**Prise en charge de plusieurs versions de Python** : Chaque modèle peut "
+"disposer d'un environnement virtuel avec une version de Python différente "
+"(par exemple Python 3.10.18, 3.11.5), assurant la compatibilité avec les "
+"exigences de divers modèles."
+
+#: ../../source/models/virtualenv.rst:271
+msgid ""
+"**Isolated Dependencies**: Each virtual environment contains its own set of "
+"packages, preventing conflicts between different models' requirements."
+msgstr ""
+"**Isolement des dépendances** : chaque environnement virtuel contient son "
+"propre ensemble de paquets indépendant, empêchant les conflits de "
+"dépendances entre différents modèles."
+
+#: ../../source/models/virtualenv.rst:276
+msgid "Management Operations"
+msgstr "Opérations de gestion"
+
+#: ../../source/models/virtualenv.rst:278
+msgid ""
+"**Listing Virtual Environments**: View all virtual environments across your "
+"cluster, filtered by model name or worker IP address."
+msgstr ""
+"**Lister les environnements virtuels** : Afficher tous les environnements "
+"virtuels du cluster, avec la possibilité de filtrer par nom de modèle ou "
+"adresse IP du nœud de travail."
+
+#: ../../source/models/virtualenv.rst:282
+msgid ""
+"**Creating Environments**: Automatically created when launching models with "
+"enable_virtual_env=true. The system detects your current Python version and "
+"creates an isolated environment with the required packages."
+msgstr ""
+"**Création de l'environnement** : Créée automatiquement lors du démarrage du"
+" modèle avec `enable_virtual_env=true`. Le système détecte la version "
+"actuelle de Python et crée un environnement indépendant contenant les "
+"paquets requis."
+
+#: ../../source/models/virtualenv.rst:287
+msgid ""
+"**Removing Environments**: Delete specific virtual environments by model "
+"name and optionally Python version, or remove all environments for a model."
+msgstr ""
+"**Supprimer un environnement** : Vous pouvez supprimer un environnement "
+"virtuel spécifique par nom de modèle et version Python optionnelle, ou "
+"supprimer tous les environnements d’un modèle."
+
+#: ../../source/models/virtualenv.rst:292
+msgid "ModelHub JSON for Xinference Models"
+msgstr "Format JSON de ModelHub (applicable aux modèles Xinference)"
+
+#: ../../source/models/virtualenv.rst:294
+msgid ""
+"If you plan to add a model to a model hub for Xinference, define a "
+"``virtualenv`` block in the model JSON. Starting from v2.0 (v4 flow), "
+"**engine-aware markers are recommended** so one JSON can cover multiple "
+"engines."
+msgstr ""
+"Si vous prévoyez d'ajouter un modèle au Model Hub de Xinference, veuillez "
+"définir un bloc ``virtualenv`` dans le JSON du modèle. Depuis la version "
+"v2.0 (flux v4), **il est recommandé d'utiliser des marqueurs sensibles au "
+"moteur**, afin qu'un seul fichier JSON puisse couvrir plusieurs moteurs."
+
+#: ../../source/models/virtualenv.rst:298
+msgid ""
+"Important rule: If a new model supports a specific engine, you **must** "
+"include at least one package entry for that engine in "
+"``virtualenv.packages`` and attach a marker, for example ``#engine# == "
+"\"vllm\"``. Engine availability checks rely on these markers when virtual "
+"environments are enabled."
+msgstr ""
+"Règle importante : si le nouveau modèle prend en charge un moteur "
+"spécifique, il **doit** inclure au moins une entrée de package de ce moteur "
+"dans ``virtualenv.packages``, avec un marqueur ajouté (par exemple "
+"``#engine# == \"vllm\"``). Lorsque l'environnement virtuel est activé, la "
+"vérification de disponibilité du moteur repose sur ces marqueurs pour "
+"validation."
+
+#: ../../source/models/virtualenv.rst:325
+msgid "``packages`` (required): list of pip requirement strings or markers."
+msgstr ""
+"``packages`` (obligatoire) : liste de chaînes ou de marqueurs d'exigence "
+"pip."
+
+#: ../../source/models/virtualenv.rst:326
+msgid ""
+"``inherit_pip_config`` (default ``true``): inherit system pip configuration "
+"if present."
+msgstr ""
+"``inherit_pip_config`` (par défaut ``true`` ) : si un fichier de "
+"configuration pip système existe, en hérite les paramètres."
+
+#: ../../source/models/virtualenv.rst:327
+msgid ""
+"``index_url`` / ``extra_index_url`` / ``find_links`` / ``trusted_host``: pip"
+" index and mirror controls."
+msgstr ""
+"``index_url`` / ``extra_index_url`` / ``find_links`` / ``trusted_host`` : "
+"Contrôle des index et miroirs pip."
+
+#: ../../source/models/virtualenv.rst:329
+msgid ""
+"``index_strategy``: passed through to the virtualenv installer (used by some"
+" engines)."
+msgstr ""
+"``index_strategy`` : transmis à l'installateur de l'environnement virtuel "
+"(utilisé par certains moteurs)."
+
+#: ../../source/models/virtualenv.rst:330
+msgid "``no_build_isolation``: pip build isolation switch for tricky builds."
+msgstr ""
+"``no_build_isolation`` : commutateur d'isolation de construction pip pour "
+"les constructions complexes."
+
+#: ../../source/models/virtualenv.rst:335
+msgid "Use wrapped placeholders to inject engine defaults:"
+msgstr ""
+"Utilisation des valeurs par défaut du moteur d'injection de placeholders "
+"enveloppés :"
+
+#: ../../source/models/virtualenv.rst:337
+msgid "``#vllm_dependencies#``"
+msgstr ""
+
+#: ../../source/models/virtualenv.rst:338
+msgid "``#sglang_dependencies#``"
+msgstr ""
+
+#: ../../source/models/virtualenv.rst:339
+msgid "``#mlx_dependencies#``"
+msgstr ""
+
+#: ../../source/models/virtualenv.rst:340
+msgid "``#transformers_dependencies#``"
+msgstr ""
+
+#: ../../source/models/virtualenv.rst:341
+msgid "``#llama_cpp_dependencies#``"
+msgstr ""
+
+#: ../../source/models/virtualenv.rst:342
+msgid "``#diffusers_dependencies#``"
+msgstr ""
+
+#: ../../source/models/virtualenv.rst:343
+msgid "``#sentence_transformers_dependencies#``"
+msgstr ""
+
+#: ../../source/models/virtualenv.rst:348
+msgid ""
+"Markers use ``#engine#`` or ``#model_engine#`` comparisons (case-sensitive)."
+" Engine values are passed in lowercase internally, so prefer lowercase "
+"values, for example ``#engine# == \"vllm\"`` or ``#engine# == "
+"\"transformers\"``."
+msgstr ""
+"Utilisez ``#engine#`` ou ``#model_engine#`` pour la comparaison (sensible à "
+"la casse). Les valeurs du moteur sont transmises en minuscules en interne, "
+"il est donc recommandé d'utiliser des valeurs en minuscules, par exemple "
+"``#engine# == \"vllm\"`` ou ``#engine# == \"transformers\"``."
+
+#~ msgid "Manage Virtual Enviroments"
+#~ msgstr "Gestion des environnements virtuels"

@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -98,8 +98,7 @@ def run(
     signal.signal(signal.SIGTERM, sigterm_handler)
 
     try:
-        loop = asyncio.get_event_loop()
-        task = loop.create_task(
+        asyncio.run(
             _start_local_cluster(
                 address=address,
                 metrics_exporter_host=metrics_exporter_host,
@@ -108,7 +107,6 @@ def run(
                 conn=conn,
             )
         )
-        loop.run_until_complete(task)
     except Exception:
         tb = traceback.format_exc()
         if conn:

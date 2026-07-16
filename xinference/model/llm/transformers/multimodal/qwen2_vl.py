@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ from .....core.model import register_batching_multimodal_models
 from .....device_utils import is_npu_available
 from .....types import PytorchModelConfig
 from ....scheduler.request import InferenceRequest
-from ....utils import is_flash_attn_available, select_device
+from ....utils import allow_trust_remote_code, is_flash_attn_available, select_device
 from ...llm_family import LLMFamilyV2, LLMSpecV1, register_transformer
 from ..core import register_non_default_model
 from .core import PytorchMultiModalModel
@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
     "Qwen3-VL-Thinking",
     "qwen3.5",
     "qwen3.6",
+    "Nex-N2",
 )
 @register_transformer
 @register_non_default_model(
@@ -41,6 +42,7 @@ logger = logging.getLogger(__name__)
     "Qwen2_5_VLForConditionalGeneration",
     "Qwen3VLMoeForConditionalGeneration",
     "Qwen3_5ForConditionalGeneration",
+    "Qwen3_5MoeForConditionalGeneration",
 )
 class Qwen2VLChatModel(PytorchMultiModalModel):
     QWEN2_VL_ARCHITECTURES = {
@@ -48,6 +50,7 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
         "Qwen2_5_VLForConditionalGeneration",
         "Qwen3VLMoeForConditionalGeneration",
         "Qwen3_5ForConditionalGeneration",
+        "Qwen3_5MoeForConditionalGeneration",
     }
 
     def _sanitize_model_config(
@@ -97,7 +100,7 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
         max_pixels = self._pytorch_model_config.get("max_pixels")
         self._processor = AutoProcessor.from_pretrained(
             self.model_path,
-            trust_remote_code=True,
+            trust_remote_code=allow_trust_remote_code(self.model_family),
             min_pixels=min_pixels,
             max_pixels=max_pixels,
         )
@@ -126,7 +129,9 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
             model_cls = Qwen2_5_VLForConditionalGeneration
         elif self.model_family.has_architecture("Qwen3_5ForConditionalGeneration"):
             model_cls = Qwen3_5ForConditionalGeneration
-        elif self.model_family.has_architecture("Qwen3VLMoeForConditionalGeneration"):
+        elif self.model_family.has_architecture(
+            "Qwen3_5MoeForConditionalGeneration"
+        ) or self.model_family.has_architecture("Qwen3VLMoeForConditionalGeneration"):
             model_cls = AutoModelForImageTextToText
         else:
             model_cls = Qwen2VLForConditionalGeneration
@@ -144,7 +149,7 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
                 torch_dtype="bfloat16",
                 attn_implementation="flash_attention_2",
                 device_map=device,
-                trust_remote_code=True,
+                trust_remote_code=allow_trust_remote_code(self.model_family),
                 **kwargs,
             ).eval()
         elif is_npu_available():
@@ -152,7 +157,7 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
             self._model = model_cls.from_pretrained(
                 self.model_path,
                 device_map="auto",
-                trust_remote_code=True,
+                trust_remote_code=allow_trust_remote_code(self.model_family),
                 torch_dtype="float16",
                 **kwargs,
             ).eval()
@@ -164,13 +169,13 @@ class Qwen2VLChatModel(PytorchMultiModalModel):
                 device_map=device,
                 attn_implementation="eager",
                 low_cpu_mem_usage=True,
-                trust_remote_code=True,
+                trust_remote_code=allow_trust_remote_code(self.model_family),
             ).eval()
         else:
             self._model = model_cls.from_pretrained(
                 self.model_path,
                 device_map=device,
-                trust_remote_code=True,
+                trust_remote_code=allow_trust_remote_code(self.model_family),
                 **kwargs,
             ).eval()
 

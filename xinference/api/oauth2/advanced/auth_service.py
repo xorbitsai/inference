@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,8 @@
 # limitations under the License.
 import base64
 import logging
+import os
+import re
 import secrets
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
@@ -28,8 +30,6 @@ from .crypto import (
     aes_encrypt,
     derive_encryption_key,
     generate_api_key,
-    generate_password,
-    get_password_hash,
     sha256_hex,
     verify_password,
 )
@@ -39,6 +39,9 @@ logger = logging.getLogger(__name__)
 
 
 _TRUSTED_PROXY_SET: Optional[set] = None
+
+
+from ..scope_aliases import _normalize_scopes  # noqa: E402
 
 
 def _get_trusted_proxies() -> set:
@@ -66,9 +69,58 @@ def _get_client_ip(request: Request) -> str:
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+# Full permission set granted to the account created through the initial
+# setup flow (POST /v1/admin/setup). Kept as a module-level constant so
+# routes.py can reuse it without duplicating the list.
+INITIAL_ADMIN_PERMISSIONS = [
+    "admin",
+    "models:list",
+    "models:read",
+    "models:write",
+    "models:register",
+    "keys:create",
+    "keys:manage",
+    "users:manage",
+    "cache:list",
+    "cache:delete",
+    "virtualenv:list",
+    "virtualenv:delete",
+    "logs:list",
+    "monitor:view",
+]
+
+try:
+    ACCESS_TOKEN_EXPIRE_MINUTES = int(
+        os.environ.get("XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES", "30")
+    )
+    if ACCESS_TOKEN_EXPIRE_MINUTES <= 0:
+        raise ValueError("must be positive")
+except (TypeError, ValueError):
+    logger.warning(
+        "XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES must be a positive integer "
+        "(got %r); falling back to 30 minutes.",
+        os.environ.get("XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES"),
+    )
+    ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 JWT_ALGORITHM = "HS256"
+
+# Matches the self-service password-change endpoint,
+# PUT /v1/admin/users/{user_id}/password. Anchored on the trailing segments so
+# it is independent of any router mount prefix.
+_PASSWORD_CHANGE_PATH_RE = re.compile(r"^.*/users/(\d+)/password$")
+
+try:
+    PASSWORD_MIN_LENGTH = int(os.environ.get("XINFERENCE_PASSWORD_MIN_LENGTH", "8"))
+    if PASSWORD_MIN_LENGTH <= 0:
+        raise ValueError("must be positive")
+except (TypeError, ValueError):
+    logger.warning(
+        "XINFERENCE_PASSWORD_MIN_LENGTH must be a positive integer (got %r); "
+        "falling back to 8.",
+        os.environ.get("XINFERENCE_PASSWORD_MIN_LENGTH"),
+    )
+    PASSWORD_MIN_LENGTH = 8
 
 
 class AdvancedAuthService:
@@ -77,7 +129,6 @@ class AdvancedAuthService:
         self._jwt_secret_key = jwt_secret_key
         self._encryption_key = derive_encryption_key(encryption_key)
         self._cache = ApiKeyCache(self._db)
-        self._init_admin()
 
         try:
             from .rate_limiter import RateLimiter
@@ -94,39 +145,9 @@ class AdvancedAuthService:
     def cache(self) -> ApiKeyCache:
         return self._cache
 
-    def _init_admin(self):
-        if self._db.user_count() == 0:
-            password = generate_password()
-            password_hash = get_password_hash(password)
-            admin_perms = [
-                "admin",
-                "models:list",
-                "models:read",
-                "models:write",
-                "keys:create",
-                "keys:manage",
-                "users:manage",
-                "cache:list",
-                "cache:delete",
-                "virtualenv:list",
-                "virtualenv:delete",
-            ]
-            self._db.create_user(
-                username="admin",
-                password_hash=password_hash,
-                source="local",
-                enabled=1,
-                must_change_password=1,
-                permissions=admin_perms,
-            )
-            logger.warning(
-                "\n" + "=" * 60 + "\n"
-                "  INITIAL ADMIN CREDENTIALS (shown only once)\n"
-                "  Username: admin\n"
-                "  Password: %s\n"
-                "  Please change the password on first login.\n" + "=" * 60,
-                password,
-            )
+    def needs_setup(self) -> bool:
+        """True until the first admin account is created via /v1/admin/setup."""
+        return self._db.user_count() == 0
 
     # --- JWT ---
 
@@ -180,9 +201,24 @@ class AdvancedAuthService:
             self._db.delete_refresh_token(token_hash)
             return None
 
-        # Token rotation: invalidate old token, issue new one
-        self._db.delete_refresh_token(token_hash)
-        new_refresh_token = self.create_refresh_token(user["id"])
+        # Token rotation: delete the old token and issue a new one atomically.
+        # Doing this in a single BEGIN IMMEDIATE transaction serializes it
+        # against a concurrent password reset (which revokes all of the user's
+        # tokens in its own BEGIN IMMEDIATE transaction), so a rotation that
+        # started before the reset cannot leave a live token behind it
+        # (see security report, Finding 4).
+        new_refresh_token = secrets.token_urlsafe(64)
+        new_token_hash = sha256_hex(new_refresh_token)
+        new_expires_at = (
+            datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+        ).isoformat()
+        rotated = self._db.rotate_refresh_token(
+            token_hash, new_token_hash, new_expires_at
+        )
+        if rotated is None:
+            # The token was revoked (e.g. by a password reset) between our read
+            # above and taking the write lock. Refuse to mint a new session.
+            return None
 
         access_token = self.create_access_token(
             user["id"], user["username"], user["permissions"]
@@ -298,6 +334,16 @@ class AdvancedAuthService:
         return aes_decrypt(encrypted, self._encryption_key)
 
     # --- FastAPI dependency (callable) ---
+
+    @staticmethod
+    def _is_own_password_change(request: Request, user_id: int) -> bool:
+        """True only for ``PUT /v1/admin/users/{user_id}/password`` targeting
+        the caller's own account -- the single request a must_change_password
+        user is allowed to make."""
+        if request.method != "PUT":
+            return False
+        match = _PASSWORD_CHANGE_PATH_RE.match(request.url.path)
+        return match is not None and int(match.group(1)) == user_id
 
     async def __call__(
         self,
@@ -489,6 +535,25 @@ class AdvancedAuthService:
                     auth_type="api_key",
                 )
                 raise credentials_exception
+            # Finding 5: enforce must_change_password on the API-key path too.
+            # An API key cannot change a password (it may only reach model
+            # endpoints), so a key owned by a still-flagged account is blocked
+            # outright until the owner clears the flag via a JWT password
+            # change. Without this, a legacy must_change_password=1 account's
+            # existing API key would keep working, bypassing the JWT gate.
+            if user_obj.get("must_change_password"):
+                _audit(
+                    "must_change_password",
+                    user=_username,
+                    key_name=api_key_entry.name or "",
+                    key_prefix=api_key_entry.key_prefix,
+                    auth_type="api_key",
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Password change required before using this account.",
+                    headers={"WWW-Authenticate": authenticate_value},
+                )
             # Success — reset counters
             if client_ip and self._rate_limiter:
                 self._rate_limiter.reset_key(client_ip, api_key_entry.key_id)
@@ -538,6 +603,22 @@ class AdvancedAuthService:
             _audit("user_disabled", user=username or "", auth_type="jwt")
             raise credentials_exception
 
+        # Finding 5: enforce must_change_password server-side. A user still
+        # flagged for a forced password change may do nothing except set a new
+        # password on their own account -- not even the admin bypass below is
+        # reached first. This gates existing accounts (e.g. rows migrated from
+        # an older database) regardless of how they were created, so the flag
+        # is not merely an informational hint returned to the frontend.
+        if user.get("must_change_password") and not self._is_own_password_change(
+            request, user["id"]
+        ):
+            _audit("must_change_password", user=username or "", auth_type="jwt")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Password change required before using this account.",
+                headers={"WWW-Authenticate": authenticate_value},
+            )
+
         if "admin" in token_scopes:
             _category = (
                 classify_endpoint(endpoint) if classify_endpoint is not None else ""
@@ -546,8 +627,14 @@ class AdvancedAuthService:
                 _audit("success", user=username or "", auth_type="jwt")
             return user
 
+        # Live-read: use DB-current permissions (already loaded above) instead
+        # of the JWT snapshot. The advanced-auth path loads the user from DB on
+        # every request to verify existence/enabled, so user["permissions"] is
+        # already in hand at zero extra DB cost. This makes admin permission
+        # changes take effect on the next request rather than the next login.
+        db_scopes = _normalize_scopes(user.get("permissions", []))
         for scope in security_scopes.scopes:
-            if scope not in token_scopes:
+            if scope not in db_scopes:
                 _audit("insufficient_scope", user=username or "", auth_type="jwt")
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
@@ -566,11 +653,23 @@ class AdvancedAuthService:
         if api_key_entry:
             return api_key_entry.has_model_access(model_uid, model_type)
         payload = self.verify_access_token(token)
-        if payload:
-            scopes = payload.get("scopes", [])
-            if "admin" in scopes or "models:read" in scopes:
-                return True
-        return False
+        if not payload:
+            return False
+        # Live-read: use DB-current permissions for consistency with the
+        # route-level scope check in __call__. Otherwise an admin granting
+        # models:read after login would pass Security(scopes=["models:read"])
+        # but still 403 here because the JWT snapshot lacks it.
+        user_id = payload.get("user_id")
+        username = payload.get("sub")
+        user = None
+        if user_id:
+            user = self._db.get_user_by_id(user_id)
+        elif username:
+            user = self._db.get_user_by_username(username)
+        if not user or not user.get("enabled"):
+            return False
+        db_scopes = user.get("permissions", [])
+        return "admin" in db_scopes or "models:read" in db_scopes
 
     # --- User disable cascade ---
 

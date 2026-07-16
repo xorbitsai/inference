@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,6 +47,27 @@ BUILTIN_LLM_PROMPT_STYLE: Dict[str, Dict[str, Any]] = {}
 BUILTIN_LLM_MODEL_CHAT_FAMILIES: Set[str] = set()
 BUILTIN_LLM_MODEL_GENERATE_FAMILIES: Set[str] = set()
 BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES: Set[str] = set()
+
+# Substring(s) whose presence in a chat_template signal that the template
+# enforces system-first ordering (it raises if a ``system`` message is not the
+# first message). Used to derive the ``strict_system_first`` flag exposed in
+# model descriptions, so the API layer can reject misplaced ``system`` messages
+# before the request reaches the worker / GPU. Qwen3-family templates carry
+# this guard (Ornith-1.0-35B / qwen3.5 / qwen3.6 / Nex-N2).
+STRICT_SYSTEM_FIRST_MARKERS: Tuple[str, ...] = (
+    "System message must be at the beginning",
+)
+
+
+def is_strict_system_first_template(chat_template: Optional[str]) -> bool:
+    """True iff the template text (case-insensitive) contains a system-first
+    guard marker."""
+    if chat_template is None:
+        return False
+    chat_template_lower = chat_template.lower()
+    return any(
+        marker.lower() in chat_template_lower for marker in STRICT_SYSTEM_FIRST_MARKERS
+    )
 
 
 class LlamaCppLLMSpecV2(BaseModel):
@@ -156,6 +177,9 @@ class LLMFamilyV2(BaseModel, ModelInstanceInfoMixin):
     cache_config: Optional[dict]
     virtualenv: Optional[VirtualEnvSettings]
     tool_parser: Optional[str]
+    # Provenance: True only for bundled built-in models; user-registered /
+    # custom models keep it False. Gates implicit trust_remote_code (CWE-94).
+    is_builtin: bool = False
 
     class Config:
         extra = "allow"
@@ -202,6 +226,9 @@ class LLMFamilyV2(BaseModel, ModelInstanceInfoMixin):
             "model_hub": spec.model_hub,
             "revision": spec.model_revision,
             "context_length": self.context_length,
+            # Whether the chat template enforces system-first ordering; the
+            # API layer uses this to reject misplaced ``system`` messages early.
+            "strict_system_first": is_strict_system_first_template(self.chat_template),
         }
 
     def to_version_info(self):
@@ -310,7 +337,7 @@ class CustomLLMFamilyV2(LLMFamilyV2):
 
         # check model ability, registering LLM only provides generate and chat
         # but for vision models, we add back the abilities so that
-        # gradio chat interface can be generated properly
+        # the frontend and REST API can detect and expose vision support
         if (
             llm_spec.model_family in vision_model_names
             and "vision" not in llm_spec.model_ability

@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ class LaunchStatus(Enum):
     TERMINATED = 4
     READY = 5
     ERROR = 6
+    LOADING = 7
 
 
 class ReplicaStatus(BaseModel):
@@ -37,7 +38,8 @@ class ReplicaStatus(BaseModel):
     replica_id: int
     replica_model_uid: str
     worker_address: str
-    status: str  # CREATING, READY, ERROR
+    status: str  # CREATING, LOADING, READY, ERROR, TERMINATING, TERMINATED
+    model_state: str = ""  # registering/loading/ready/error/stopping/stopped
     created_ts: int
     error_message: Optional[str] = None
 

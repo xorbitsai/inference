@@ -1189,6 +1189,41 @@
   },
   {
     "version": 2,
+    "model_name": "Unlimited-OCR",
+    "model_family": "ocr",
+    "model_ability": [
+      "ocr"
+    ],
+    "virtualenv": {
+      "packages": [
+        "transformers==4.57.1 ; #engine# == \"transformers\"",
+        "#system_torch# ; #engine# == \"transformers\"",
+        "#system_numpy#",
+        "tokenizers",
+        "pymupdf==1.27.2.2",
+        "einops==0.8.2",
+        "easydict==1.13",
+        "addict==2.4.0",
+        "Pillow==12.1.1",
+        "matplotlib==3.10.8",
+        "psutil==7.2.2"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "baidu/Unlimited-OCR",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "PaddlePaddle/Unlimited-OCR",
+        "model_revision": "master"
+      }
+    },
+    "featured": false,
+    "updated_at": 1782895169
+  },
+  {
+    "version": 2,
     "model_name": "HunyuanOCR",
     "model_family": "ocr",
     "model_ability": [
@@ -1685,5 +1720,33 @@
     },
     "featured": false,
     "updated_at": 1770994886
+  },
+  {
+    "version": 2,
+    "model_name": "PaddleOCR-VL-1.6",
+    "model_family": "ocr",
+    "model_ability": [
+      "ocr"
+    ],
+    "virtualenv": {
+      "packages": [
+        "pillow==11.3.0",
+        "transformers==4.55.0",
+        "#system_numpy#",
+        "#system_torch#"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "PaddlePaddle/PaddleOCR-VL-1.6",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "PaddlePaddle/PaddleOCR-VL-1.6",
+        "model_revision": "master"
+      }
+    },
+    "featured": false,
+    "updated_at": 1781512046
   }
 ]

@@ -1,0 +1,542 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-28 14:31+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: pt_BR <LL@li.org>\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/custom.rst:5
+msgid "Custom Models"
+msgstr "Modelo personalizado"
+
+#: ../../source/models/custom.rst:6
+msgid ""
+"Xinference provides a flexible and comprehensive way to integrate, manage, "
+"and utilize custom models."
+msgstr ""
+"Xinference oferece uma maneira flexível e abrangente de integrar, gerenciar "
+"e aplicar modelos personalizados."
+
+#: ../../source/models/custom.rst:10
+msgid "Directly launch an existing model"
+msgstr "Iniciar um modelo existente diretamente"
+
+#: ../../source/models/custom.rst:11
+msgid ""
+"Since ``v0.14.0``, you can directly launch an existing model by passing "
+"``model_path`` to the launch interface without downloading it. This way "
+"requires that the model's ``model_family`` is among the built-in supported "
+"models, and eliminates the hassle of registering the model."
+msgstr ""
+"A partir da versão ``v0.14.0``, se a família do modelo que você precisa "
+"registrar for compatível nativamente com o Xinference, você pode iniciá-lo "
+"diretamente através do parâmetro ``model_path`` na interface `launch`, "
+"eliminando a necessidade da etapa de registro. Agora, essa abordagem é "
+"altamente recomendada."
+
+#: ../../source/models/custom.rst:15
+msgid "For example:"
+msgstr "Por exemplo:"
+
+#: ../../source/models/custom.rst:47
+msgid ""
+"The above example demonstrates how to directly launch a qwen1.5-chat model "
+"file without registering it."
+msgstr ""
+"O exemplo acima mostra como fazer o launch diretamente quando já tenho o "
+"arquivo do modelo qwen1.5-chat."
+
+#: ../../source/models/custom.rst:49
+msgid ""
+"For distributed scenarios, if your model file is on a specific worker, you "
+"can directly launch it using the ``worker_ip`` and ``model_path`` parameters"
+" with the launch interface."
+msgstr ""
+"Para cenários distribuídos, coloque seu arquivo de modelo em algum worker e,"
+" em seguida, utilize os parâmetros ``worker_ip`` e ``model_path`` da "
+"interface ``launch`` para obter o efeito de um lançamento direto."
+
+#: ../../source/models/custom.rst:53
+msgid ""
+"For CLI usage, prefer ``--model-path`` (kebab-case). ``--model_path`` is "
+"legacy-compatible but not recommended."
+msgstr ""
+"Para uso da interface de linha de comando (CLI), priorize o uso de "
+"``--model-path`` (kebab-case). O ``--model_path`` é compatível com versões "
+"anteriores, mas não é recomendado."
+
+#: ../../source/models/custom.rst:56
+msgid "Define a custom model"
+msgstr "Definir um modelo personalizado"
+
+#: ../../source/models/custom.rst:59
+msgid "Web UI: Automatic LLM Config Parsing"
+msgstr ""
+"Interface Web: Analisar automaticamente a configuração do modelo de "
+"linguagem grande"
+
+#: ../../source/models/custom.rst:61
+msgid ""
+"When registering a custom LLM via the Web UI, Xinference can automatically "
+"parse the model configuration and pre-fill key fields for you."
+msgstr ""
+"Ao registrar um LLM personalizado através da Web UI, o Xinference pode "
+"analisar automaticamente a configuração do modelo e preencher previamente os"
+" campos chave para você."
+
+#: ../../source/models/custom.rst:64
+msgid "You only need to provide:"
+msgstr "Você só precisa fornecer:"
+
+#: ../../source/models/custom.rst:66
+msgid ""
+"**Model path / Model ID** (where the model lives, local path or hub ID)"
+msgstr ""
+"**Caminho do modelo/ID do modelo** (Localização do modelo, caminho local ou "
+"ID do hub)"
+
+#: ../../source/models/custom.rst:67
+msgid "**Model Family**"
+msgstr "**Família de Modelos**"
+
+#: ../../source/models/custom.rst:69
+msgid "After parsing, the UI can auto-populate fields such as:"
+msgstr ""
+"Após a análise, a interface do usuário pode preencher automaticamente os "
+"seguintes campos:"
+
+#: ../../source/models/custom.rst:71
+msgid "``Context Length``"
+msgstr "``Comprimento de contexto``"
+
+#: ../../source/models/custom.rst:72
+msgid "``Model_Languages``"
+msgstr "``Idiomas do modelo``"
+
+#: ../../source/models/custom.rst:73
+msgid "``Model_Abilities``"
+msgstr "Capacidades do Modelo"
+
+#: ../../source/models/custom.rst:74
+msgid "``Model_Specs``"
+msgstr "\"Especificações do modelo\""
+
+#: ../../source/models/custom.rst:76
+msgid "You can review and edit these fields before saving the custom model."
+msgstr ""
+"Antes de salvar o modelo personalizado, você pode visualizar e editar esses "
+"campos."
+
+#: ../../source/models/custom.rst:78
+msgid "Define a custom model based on the following templates:"
+msgstr "Defina um modelo personalizado com base no seguinte template:"
+
+#: ../../source/models/custom.rst:82
+msgid "LLM"
+msgstr "Modelo de linguagem"
+
+#: ../../source/models/custom.rst:129
+msgid "embedding"
+msgstr "Modelo de embedding"
+
+#: ../../source/models/custom.rst:164
+msgid "Rerank"
+msgstr "Modelo de reordenação"
+
+#: ../../source/models/custom.rst:199
+msgid "image"
+msgstr "Modelo de imagem"
+
+#: ../../source/models/custom.rst:234
+msgid "audio"
+msgstr "Modelo de áudio"
+
+#: ../../source/models/custom.rst:267
+msgid "flexible"
+msgstr "Modelo flexível"
+
+#: ../../source/models/custom.rst:294
+msgid ""
+"model_name: A string defining the name of the model. The name must start "
+"with a letter or a digit and can only contain letters, digits, underscores, "
+"or dashes."
+msgstr ""
+"model_name: Nome do modelo. O nome deve começar com uma letra ou número e "
+"pode conter apenas letras, números, sublinhados ou hífens."
+
+#: ../../source/models/custom.rst:295
+msgid ""
+"context_length: An optional integer that specifies the maximum context size "
+"the model was trained to accommodate, encompassing both the input and output"
+" lengths. If not defined, the default value is 2048 tokens (~1,500 words)."
+msgstr ""
+"context_length: um inteiro opcional, o comprimento máximo de contexto "
+"suportado pelo modelo, incluindo o comprimento de entrada e saída. Se não "
+"definido, o valor padrão é de 2048 tokens (aproximadamente 1.500 palavras)."
+
+#: ../../source/models/custom.rst:296
+msgid ""
+"dimensions: An interger defining the size of the vector output by the "
+"embedding model."
+msgstr ""
+"dimensions: um inteiro usado para definir o tamanho do vetor de saída do "
+"modelo de incorporação."
+
+#: ../../source/models/custom.rst:297
+msgid ""
+"max_tokens: An interger defining the maximum number of input tokens the "
+"embedding model can process in a single request."
+msgstr ""
+"max_tokens: um inteiro que define o número máximo de tokens de entrada que o"
+" modelo de embedding pode processar em uma única solicitação."
+
+#: ../../source/models/custom.rst:298
+msgid ""
+"model_lang: A list of strings representing the supported languages for the "
+"model. Example: [\"en\"], which means that the model supports English."
+msgstr ""
+"model_lang: Uma lista de strings que representa os idiomas suportados pelo "
+"modelo. Por exemplo: ['en'], indica que o modelo suporta o inglês."
+
+#: ../../source/models/custom.rst:299
+msgid ""
+"model_ability: A list of strings defining the abilities of the model. It "
+"could include options like \"embed\", \"generate\", and \"chat\". In this "
+"case, the model has the ability to \"generate\"."
+msgstr ""
+"model_ability: uma lista de strings que define as capacidades do modelo. "
+"Pode incluir opções como 'embed', 'generate' e 'chat'. O exemplo indica que "
+"o modelo possui a capacidade 'generate'."
+
+#: ../../source/models/custom.rst:300
+msgid ""
+"model_family: A required string representing the family of the model you "
+"want to register. This parameter must not conflict with any builtin model "
+"names."
+msgstr ""
+"model_family: Uma string obrigatória que indica a família de modelos a ser "
+"registrada. O nome deste parâmetro não pode conflitar com nenhum nome de "
+"modelo interno."
+
+#: ../../source/models/custom.rst:301
+msgid ""
+"model_specs: An array of objects defining the specifications of the model. "
+"These include:"
+msgstr ""
+"model_specs: um array de objetos contendo as especificações que definem o "
+"modelo. Estas especificações incluem:"
+
+#: ../../source/models/custom.rst:302
+msgid ""
+"model_format: A string that defines the model format, like \"pytorch\" or "
+"\"ggufv2\"."
+msgstr ""
+"model_format: uma string que define o formato do modelo, pode ser 'pytorch' "
+"ou 'ggufv2'."
+
+#: ../../source/models/custom.rst:303
+msgid ""
+"model_size_in_billions: An integer defining the size of the model in "
+"billions of parameters."
+msgstr ""
+"model_size_in_billions: um número inteiro que define a quantidade de "
+"parâmetros do modelo, em bilhões."
+
+#: ../../source/models/custom.rst:304
+msgid ""
+"quantizations: A list of strings defining the available quantizations for "
+"the model. For PyTorch models, it could be \"4-bit\", \"8-bit\", or "
+"\"none\". For ggufv2 models, the quantizations should correspond to values "
+"that work with the ``model_file_name_template``. Some engines also support "
+"``fp4`` / ``fp8`` / ``bnb`` formats (see :ref:`installation` for backend "
+"support details)."
+msgstr ""
+"quantizations: uma lista de strings que define o método de quantização do "
+"modelo. Para modelos PyTorch, pode ser \"4-bit\", \"8-bit\" ou \"none\". "
+"Para modelos ggufv2, o método de quantização deve corresponder ao valor em "
+"``model_file_name_template``. Alguns mecanismos também suportam os formatos "
+"``fp4`` / ``fp8`` / ``bnb`` (para mais detalhes sobre suporte de back-end, "
+"consulte :ref:`installation` )."
+
+#: ../../source/models/custom.rst:306
+msgid ""
+"model_id: A string representing the model ID, possibly referring to an "
+"identifier used by Hugging Face. **If model_uri is missing, Xinference will "
+"try to download the model from the huggingface repository specified here.**."
+msgstr ""
+"model_id: uma string que representa o ID do modelo, podendo ser o ID do "
+"repositório HuggingFace correspondente a esse modelo. Se o campo model_uri "
+"estiver ausente, o Xinference tentará baixar o modelo a partir do "
+"repositório HuggingFace indicado por esse ID."
+
+#: ../../source/models/custom.rst:307
+msgid ""
+"model_hub: A string representing where to download the model from, like "
+"\"Huggingface\" or \"modelscope\""
+msgstr ""
+"model_hub: uma string opcional que indica de onde baixar o modelo, como "
+"HuggingFace ou modelscope."
+
+#: ../../source/models/custom.rst:308
+msgid ""
+"model_uri: A string representing the URI where the model can be loaded from,"
+" such as \"file:///path/to/llama-2-7b\". **When the model format is ggufv2, "
+"model_uri must be the specific file path. When the model format is pytorch, "
+"model_uri must be the path to the directory containing the model files.** If"
+" model URI is absent, Xinference will try to download the model from Hugging"
+" Face with the model ID."
+msgstr ""
+"model_uri: Uma string que indica a localização do arquivo do modelo, por "
+"exemplo, diretório local: \"file:///path/to/llama-2-7b\". Quando o "
+"model_format for ggufv2, este campo deve ser o caminho específico do arquivo"
+" do modelo. E quando o model_format for pytorch, este campo deve ser um "
+"diretório contendo todos os arquivos do modelo."
+
+#: ../../source/models/custom.rst:309
+msgid ""
+"model_revision: A string representing the specific version or commit hash of"
+" the model files to use from the repository."
+msgstr ""
+"model_revision: uma string que representa a versão específica ou hash de "
+"commit dos arquivos de modelo usados a partir do repositório."
+
+#: ../../source/models/custom.rst:310
+msgid ""
+"chat_template: If ``model_ability`` includes ``chat`` , you must configure "
+"this option to generate the correct full prompt during chat. This is a Jinja"
+" template string. Usually, you can find it in the ``tokenizer_config.json`` "
+"file within the model directory."
+msgstr ""
+"chat_template: Se ``model_ability`` contiver ``chat``, esta opção deve ser "
+"configurada para gerar um prompt completo adequado. Esta é uma string de "
+"modelo Jinja. Normalmente, você pode encontrá-la no arquivo "
+"``tokenizer_config.json`` do diretório do modelo."
+
+#: ../../source/models/custom.rst:311
+msgid ""
+"stop_token_ids: If ``model_ability`` includes ``chat`` , you can configure "
+"this option to control when the model stops during chat. This is a list of "
+"integers, and you can typically extract the corresponding values from the "
+"``generation_config.json`` or ``tokenizer_config.json`` file in the model "
+"directory."
+msgstr ""
+"stop_token_ids: Se ``model_ability`` incluir ``chat``, é recomendável "
+"configurar esta opção para controlar adequadamente a interrupção da "
+"conversa. Esta é uma lista de inteiros, e você pode extrair os valores "
+"correspondentes dos arquivos ``generation_config.json`` e "
+"``tokenizer_config.json`` no diretório do modelo."
+
+#: ../../source/models/custom.rst:312
+msgid ""
+"stop: If ``model_ability`` includes ``chat`` , you can configure this option"
+" to control when the model stops during chat. This is a list of strings, and"
+" you can typically extract the corresponding values from the "
+"``generation_config.json`` or ``tokenizer_config.json`` file in the model "
+"directory."
+msgstr ""
+"stop: Se ``model_ability`` contiver ``chat``, recomenda-se configurar esta "
+"opção para controlar adequadamente a interrupção da conversa. Esta é uma "
+"lista contendo strings, e você pode encontrar a string correspondente ao "
+"valor do token no arquivo ``tokenizer_config.json`` do diretório do modelo."
+
+#: ../../source/models/custom.rst:313
+msgid ""
+"reasoning_start_tag: A special token or prompt used to explicitly instruct "
+"the LLM to begin its chain-of-thought or reasoning process in its output."
+msgstr ""
+"reasoning_start_tag: Um token ou prompt especial usado para indicar "
+"explicitamente o ponto de partida da cadeia de pensamento ou do processo de "
+"raciocínio na saída do modelo de linguagem grande."
+
+#: ../../source/models/custom.rst:314
+msgid ""
+"reasoning_end_tag: A special token or prompt used to explicitly mark the end"
+" of the model's chain-of-thought or reasoning process in its output."
+msgstr ""
+"reasoning_end_tag: Um token ou prompt especial usado para indicar "
+"explicitamente ao modelo de linguagem de grande porte o ponto final da "
+"cadeia de pensamento ou do processo de raciocínio em sua saída."
+
+#: ../../source/models/custom.rst:315
+msgid ""
+"cache_config: A string representing the parameters and rules for how the "
+"system stores and manages temporary data (cache)."
+msgstr ""
+"cache_config: uma string que representa os parâmetros do sistema para "
+"armazenar e gerenciar dados temporários (cache)."
+
+#: ../../source/models/custom.rst:316
+msgid ""
+"virtualenv: A settings object for model dependency isolation. Please refer "
+"to :ref:`this document <virtualenv>` for details."
+msgstr ""
+"virtualenv: objeto de configuração para isolamento de dependências do "
+"modelo. Consulte :ref:`este documento <virtualenv>` para obter detalhes."
+
+#: ../../source/models/custom.rst:319
+msgid "Register a Custom Model"
+msgstr "Registrar um modelo personalizado"
+
+#: ../../source/models/custom.rst:321
+msgid "Register a custom model programmatically:"
+msgstr "Registre um modelo personalizado por meio de código."
+
+#: ../../source/models/custom.rst:336 ../../source/models/custom.rst:354
+#: ../../source/models/custom.rst:369 ../../source/models/custom.rst:424
+msgid "Or via CLI:"
+msgstr "Ou via CLI:"
+
+#: ../../source/models/custom.rst:342
+msgid ""
+"Note that replace the ``<model_type>`` above with ``LLM``, ``embedding`` or "
+"``rerank``. The same as below."
+msgstr ""
+"Substitua ``<model_type>`` pela parte correspondente por ``LLM``, "
+"``embedding`` ou ``rerank``."
+
+#: ../../source/models/custom.rst:346
+msgid "List the Built-in and Custom Models"
+msgstr "Enumere modelos embutidos e personalizados"
+
+#: ../../source/models/custom.rst:348
+msgid "List built-in and custom models programmatically:"
+msgstr "Liste modelos integrados e personalizados programaticamente:"
+
+#: ../../source/models/custom.rst:361
+msgid "Launch the Custom Model"
+msgstr "Iniciar modelo personalizado"
+
+#: ../../source/models/custom.rst:363
+msgid "Launch the custom model programmatically:"
+msgstr "Iniciar modelo personalizado através de código"
+
+#: ../../source/models/custom.rst:376
+msgid "Interact with the Custom Model"
+msgstr "Usando modelo personalizado"
+
+#: ../../source/models/custom.rst:378
+msgid "Invoke the model programmatically:"
+msgstr "Chamar o modelo via código"
+
+#: ../../source/models/custom.rst:385
+msgid "Result:"
+msgstr "O resultado é:"
+
+#: ../../source/models/custom.rst:409
+#, python-brace-format
+msgid "Or via CLI, replace ``${UID}`` with real model UID:"
+msgstr ""
+"Ou, via linha de comando, substitua ``${UID}`` pelo UID real do modelo:"
+
+#: ../../source/models/custom.rst:416
+msgid "Unregister the Custom Model"
+msgstr "Remover registro do modelo personalizado"
+
+#: ../../source/models/custom.rst:418
+msgid "Unregister the custom model programmatically:"
+msgstr "Revogar o modelo personalizado por meio de código."
+
+#~ msgid ""
+#~ "model_file_name_template: Required by gguf models. An f-string template used"
+#~ " for defining the model file name based on the quantization. **Note that "
+#~ "this field is just a template for the format of the ggufv2 model file, do "
+#~ "not fill in the specific path of the model file.**"
+#~ msgstr ""
+#~ "model_file_name_template: Necessário para modelos gguf. Um modelo f-string "
+#~ "usado para definir o nome do arquivo do modelo com base na definição de "
+#~ "quantização. Observação: não preencha o caminho do arquivo aqui."
+
+#~ msgid "Define a custom embedding model"
+#~ msgstr "Definir um modelo de embedding personalizado"
+
+#~ msgid "Define a custom embedding model based on the following template:"
+#~ msgstr ""
+#~ "Defina um modelo de embedding personalizado com base no seguinte modelo:"
+
+#~ msgid "dimensions: A integer that specifies the embedding dimensions."
+#~ msgstr "dimensions: valor inteiro que representa a dimensão do embedding."
+
+#~ msgid ""
+#~ "max_tokens: A integer that represents the max sequence length that the "
+#~ "embedding model supports."
+#~ msgstr ""
+#~ "max_tokens: Um valor inteiro que representa o comprimento máximo de "
+#~ "sequência de entrada suportado pelo modelo de embedding."
+
+#~ msgid ""
+#~ "language: A list of strings representing the supported languages for the "
+#~ "model. Example: [\"en\"], which means that the model supports English."
+#~ msgstr ""
+#~ "`model_lang`: uma lista de strings que representa os idiomas suportados pelo"
+#~ " modelo. Por exemplo: `['en']`, indica que o modelo suporta inglês."
+
+#~ msgid ""
+#~ "model_id: A string representing the model ID, possibly referring to an "
+#~ "identifier used by Hugging Face."
+#~ msgstr ""
+#~ "model_id: uma string que representa o identificador do modelo, similar aos "
+#~ "identificadores usados pela HuggingFace ou ModelScope."
+
+#~ msgid ""
+#~ "model_uri: A string representing the URI where the model can be loaded from,"
+#~ " such as \"file:///path/to/your_model\". If model URI is absent, Xinference "
+#~ "will try to download the model from Hugging Face with the model ID."
+#~ msgstr ""
+#~ "model_uri: string que representa o URI do modelo, por exemplo, "
+#~ "\"file:///path/to/llama-2-7b\". Se o URI do modelo não existir, o Xinference"
+#~ " tentará baixar o modelo do HuggingFace ou ModelScope usando o model_id."
+
+#~ msgid "Define a custom Rerank model"
+#~ msgstr "Define o modelo de rerank personalizado"
+
+#~ msgid "Define a custom rerank model based on the following template:"
+#~ msgstr ""
+#~ "Defina um modelo de linguagem grande personalizado com base no seguinte "
+#~ "modelo:"
+
+#~ msgid ""
+#~ "type: A string defining the type of the model, including ``normal``, ``LLM-"
+#~ "based`` and ``LLM-based layerwise``."
+#~ msgstr ""
+#~ "type: indica o tipo do modelo, os valores opcionais incluem ``normal``, "
+#~ "``LLM-based`` e ``LLM-based layerwise``."
+
+#~ msgid ""
+#~ "virtualenv: An array refers to the name or path of a self-contained Python "
+#~ "environment used to isolate dependencies required to run a specific model or"
+#~ " project. Please refer to :ref:`this document <virtualenv>`."
+#~ msgstr ""
+#~ "virtualenv: um array que se refere ao nome ou caminho do ambiente isolado "
+#~ "usado para isolar as dependências de execução de um modelo ou projeto "
+#~ "específico. Para mais detalhes, leia :ref:`este documento <virtualenv>`."
+
+#~ msgid "**Model engine** (e.g., transformers / vllm / sglang)"
+#~ msgstr ""
+
+#~ msgid "``model_family`` / ``model_name``"
+#~ msgstr ""
+
+#~ msgid "``model_format``"
+#~ msgstr ""
+
+#~ msgid "``model_size_in_billions``"
+#~ msgstr ""
+
+#~ msgid "``quantization`` (if detectable)"
+#~ msgstr ""
+
+#~ msgid "``architectures`` and other model metadata (when available)"
+#~ msgstr ""

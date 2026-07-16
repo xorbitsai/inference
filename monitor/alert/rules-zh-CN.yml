@@ -11,13 +11,13 @@ groups:
           description: "Worker {{ $labels.worker_address }} GPU {{ $labels.gpu_index }} 显存使用率 {{ $value | humanizePercentage }}，持续 5 分钟。"
 
       - alert: ModelRequestErrorRateHigh
-        expr: rate(xinference:model_request_errors_total[5m]) / rate(xinference:model_request_total[5m]) > 0.05
+        expr: sum without (stream) (rate(xinference:model_request_errors_total[5m])) / sum without (stream) (rate(xinference:model_request_total[5m])) > 0.05
         for: 3m
         labels:
           severity: warning
         annotations:
           summary: "模型请求错误率超过 5%"
-          description: "模型 {{ $labels.model }} 错误率 {{ $value | humanizePercentage }}，持续 3 分钟。"
+          description: "模型 {{ $labels.model_name }} 错误率 {{ $value | humanizePercentage }}，持续 3 分钟。"
 
       - alert: TTFTHigh
         expr: rate(xinference:time_to_first_token_seconds_sum[5m]) / rate(xinference:time_to_first_token_seconds_count[5m]) > 10
@@ -26,7 +26,7 @@ groups:
           severity: warning
         annotations:
           summary: "首 Token 延迟超过 10 秒"
-          description: "模型 {{ $labels.model }} TTFT {{ $value }}ms，持续 3 分钟。"
+          description: "模型 {{ $labels.model_name }} TTFT {{ $value }}s，持续 3 分钟。"
 
       - alert: WorkerOffline
         expr: xinference:workers_total < 1
@@ -47,13 +47,13 @@ groups:
           description: "节点 {{ $labels.instance }} 挂载点 {{ $labels.mountpoint }} 剩余空间 {{ $value | humanizePercentage }}。"
 
       - alert: RequestQueueBacklog
-        expr: xinference:model_pending_requests > 10
+        expr: xinference:model_serve_count / (xinference:model_request_limit > 0) > 0.9
         for: 3m
         labels:
           severity: warning
         annotations:
-          summary: "模型请求队列积压"
-          description: "模型 {{ $labels.model }} 排队请求数 {{ $value }}，持续 3 分钟。"
+          summary: "模型请求并发接近上限"
+          description: "模型 {{ $labels.model_name }} 并发比率 {{ $value | humanizePercentage }}，持续 3 分钟。"
 
       - alert: ModelLoadSlow
         expr: xinference:model_last_load_duration_seconds > 300
@@ -62,4 +62,40 @@ groups:
           severity: warning
         annotations:
           summary: "模型加载耗时超过 5 分钟"
-          description: "模型 {{ $labels.model_name }} 最近加载平均耗时 {{ $value | humanizeDuration }}。"
+          description: "模型 {{ $labels.model_name }} 最近加载耗时 {{ $value | humanizeDuration }}。"
+
+      - alert: ReplicaUnexpectedTerminated
+        expr: xinference:model_unexpected_termination == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "模型副本异常终止"
+          description: "模型 {{ $labels.model_name }} 副本 {{ $labels.replica_index }} 因 Worker 故障而下线。"
+
+      - alert: WorkerMemoryHigh
+        expr: xinference:worker_memory_used_bytes / xinference:worker_memory_total_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Worker 内存使用率超过 90%"
+          description: "Worker {{ $labels.worker_address }} 内存使用率 {{ $value | humanizePercentage }}，持续 5 分钟。"
+
+      - alert: RequestLatencyHigh
+        expr: histogram_quantile(0.95, rate(xinference:model_request_duration_seconds_bucket[5m])) > 60
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "P95 请求延迟超过 60 秒"
+          description: "模型 {{ $labels.model_name }} P95 延迟 {{ $value }}s，持续 3 分钟。"
+
+      - alert: BannedIPsSpike
+        expr: xinference:banned_ips_total > 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "封禁 IP 数量异常偏高"
+          description: "当前封禁 IP 数 {{ $value }}，可能存在暴力攻击或滥用行为。"

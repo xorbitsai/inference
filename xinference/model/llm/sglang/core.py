@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple, TypedDict, 
 
 from xoscar.utils import get_next_port
 
-from ....constants import XINFERENCE_MAX_TOKENS
+from ....constants import XINFERENCE_MAX_TOKENS, XINFERENCE_TRUST_REMOTE_CODE
 from ....types import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -39,6 +39,7 @@ from ..core import chat_context_var
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     GEMMA_TOOL_CALL_FAMILY,
+    GLM5_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_SYMBOLS,
     ChatModelMixin,
@@ -105,11 +106,14 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
     "DeepseekV2ForCausalLM",
     "DeepseekV3ForCausalLM",
     "Qwen3ForCausalLM",
+    "HunYuanDenseV1ForCausalLM",
+    "HYV3ForCausalLM",
 ]
 SGLANG_SUPPORTED_VISION_MODEL_LIST = [
     "Qwen2_5_VLForConditionalGeneration",
     "Gemma3ForConditionalGeneration",
     "MiniCPMV",
+    "MiniCPMV4_6ForConditionalGeneration",
     "MllamaForConditionalGeneration",
     "Qwen3_5MoeForConditionalGeneration",
 ]
@@ -265,7 +269,11 @@ class SGLANGModel(LLM):
 
         cuda_count = self._get_cuda_count()
         model_config.setdefault("tokenizer_mode", "auto")
-        model_config.setdefault("trust_remote_code", True)
+        # Respect the XINFERENCE_TRUST_REMOTE_CODE setting.
+        model_config["trust_remote_code"] = (
+            bool(model_config.get("trust_remote_code", XINFERENCE_TRUST_REMOTE_CODE))
+            and XINFERENCE_TRUST_REMOTE_CODE
+        )
         model_config.setdefault("tp_size", cuda_count * self._n_worker)
         # See https://github.com/sgl-project/sglang/blob/00023d622a6d484e67ef4a0e444f708b8fc861c8/python/sglang/srt/server_args.py#L100-L109
         mem_fraction_static = model_config.get("mem_fraction_static")
@@ -741,6 +749,7 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
                 model_family in QWEN_TOOL_CALL_FAMILY
                 or model_family in GEMMA_TOOL_CALL_FAMILY
                 or model_family in DEEPSEEK_TOOL_CALL_FAMILY
+                or model_family in GLM5_TOOL_CALL_FAMILY
             ):
                 full_context_kwargs["tools"] = tools
         full_prompt = self.get_full_context(

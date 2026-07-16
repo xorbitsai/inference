@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@ from collections import OrderedDict
 from typing import Any, Callable, Optional
 
 from fastapi import HTTPException
+
+from ..core.exceptions import ModelNotReadyError
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +137,12 @@ async def require_model(
         return await supervisor.get_model(model_uid)
     except HTTPException:
         raise
+    except ModelNotReadyError as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Model is loading, please retry later: {e}",
+            headers={"Retry-After": "30"},
+        )
     except ValueError as ve:
         logger.error(str(ve), exc_info=True)
         if report_error_event:

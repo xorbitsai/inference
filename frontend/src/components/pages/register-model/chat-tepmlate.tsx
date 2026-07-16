@@ -25,7 +25,7 @@ import type { BaseFormFieldProps } from '@/types/form';
 const env = new nunjucks.Environment(undefined, {
   autoescape: false,
 });
-interface ChatTemplateProps extends BaseFormFieldProps<string> {}
+type ChatTemplateProps = BaseFormFieldProps<string>;
 
 interface ChatTemplateState {
   testResult: string;
@@ -136,4 +136,7 @@ const ChatTemplate = forwardRef<ChatTemplateMethod, ChatTemplateProps>(
     );
   }
 );
+
+ChatTemplate.displayName = 'ChatTemplate';
+
 export default ChatTemplate;

@@ -1,7 +1,7 @@
 'use client';
 
-import { FC, PropsWithChildren, useState } from 'react';
-import { Copy, Trash2 } from 'lucide-react';
+import { FC, useState } from 'react';
+import { Box, Copy, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import request from '@/lib/request';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useI18n } from '@/contexts/i18n-context';
-import { copyText } from '@/lib/utils';
+import { copyToClipboard } from '@/lib/utils';
 import type { ModelCachedItem } from '@/types/services';
 import type { CatalogModel } from './types';
 
@@ -31,8 +31,7 @@ interface CacheManagementDialogProps {
   onCacheDelete: () => void;
 }
 
-const CacheManagementDialog: FC<PropsWithChildren<CacheManagementDialogProps>> = ({
-  children,
+const CacheManagementDialog: FC<CacheManagementDialogProps> = ({
   modelDetail,
   onCacheDelete,
 }) => {
@@ -86,7 +85,15 @@ const CacheManagementDialog: FC<PropsWithChildren<CacheManagementDialogProps>> =
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-500/20"
+        >
+          <Box className="size-3.5" />
+          {t('launchModel.manageCachedModels')}
+        </button>
+      </DialogTrigger>
       <DialogContent className="!max-w-5xl">
         <DialogHeader>
           <DialogTitle>{modelDetail.model_name}</DialogTitle>
@@ -116,7 +123,7 @@ const CacheManagementDialog: FC<PropsWithChildren<CacheManagementDialogProps>> =
                         <span className="min-w-0 flex-1 truncate">{item?.real_path}</span>
                         <Copy
                           className="size-4 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-                          onClick={() => copyText(item?.real_path)}
+                          onClick={() => copyToClipboard(item?.real_path)}
                         />
                       </div>
                     </TableCell>
@@ -125,7 +132,7 @@ const CacheManagementDialog: FC<PropsWithChildren<CacheManagementDialogProps>> =
                         <span className="min-w-0 flex-1 truncate">{item?.path}</span>
                         <Copy
                           className="size-4 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-                          onClick={() => copyText(item?.path)}
+                          onClick={() => copyToClipboard(item?.path)}
                         />
                       </div>
                     </TableCell>

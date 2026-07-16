@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,6 +50,7 @@ from .utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     GEMMA_TOOL_CALL_FAMILY,
     GLM4_TOOL_CALL_FAMILY,
+    GLM5_TOOL_CALL_FAMILY,
     LLAMA3_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
 )
@@ -229,6 +230,8 @@ def load_model_family_from_json(json_filename, target_families):
                     GEMMA_TOOL_CALL_FAMILY.add(model_spec.model_name)
                 elif tool_parser == "glm4":
                     GLM4_TOOL_CALL_FAMILY.add(model_spec.model_name)
+                elif tool_parser == "glm5":
+                    GLM5_TOOL_CALL_FAMILY.add(model_spec.model_name)
                 elif tool_parser == "llama3":
                     LLAMA3_TOOL_CALL_FAMILY.add(model_spec.model_name)
                 elif tool_parser.startswith("deepseek"):
@@ -268,6 +271,12 @@ def _install():
 
     # Always load built-in models first to ensure we have the latest models
     load_model_family_from_json("llm_family.json", BUILTIN_LLM_FAMILIES)
+
+    # Mark these as vetted built-in models. Loaders may enable trust_remote_code
+    # for built-ins without an operator opt-in; user-supplied / downloaded models
+    # (merged below) keep is_builtin=False and stay gated (CWE-94).
+    for family in BUILTIN_LLM_FAMILIES:
+        family.is_builtin = True
 
     # Then load user-defined models and merge with built-in models
     if has_downloaded_models():

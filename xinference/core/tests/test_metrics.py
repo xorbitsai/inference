@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,6 +25,11 @@ def setup_cluster():
     from ...conftest import TEST_FILE_LOGGING_CONF, TEST_LOGGING_CONF, api_health_check
     from ...deploy.local import health_check
     from ...deploy.local import run_in_subprocess as supervisor_run_in_subprocess
+
+    # This fixture is used by tests that exercise unauthenticated requests;
+    # advanced auth defaults to on, so it must be explicitly disabled here,
+    # before any subprocess (which inherits this env) is started.
+    os.environ["XINFERENCE_AUTH_ADVANCED"] = "false"
 
     metrics_port = xo.utils.get_next_port()
     supervisor_address = f"localhost:{xo.utils.get_next_port()}"
@@ -82,12 +87,13 @@ async def test_metrics_exporter_server(setup_cluster):
     # Check the worker metrics collected model metrics.
     model_ref = await supervisor_ref.get_model(model_uid)
     await model_ref.record_metrics(
-        "input_tokens_total_counter", "inc", {"labels": {"model": model_uid}}
+        "input_tokens_total_counter", "inc", {"labels": {"model_uid": model_uid}}
     )
     response = requests.get(metrics_exporter_address)
     assert response.ok
     assert (
-        'xinference:input_tokens_total_counter{model="qwen1.5-chat"} 1' in response.text
+        'xinference:input_tokens_total_counter{model_uid="qwen1.5-chat"} 1'
+        in response.text
     )
 
 
@@ -146,4 +152,7 @@ async def test_metrics_exporter_data(setup_cluster):
 
     response = requests.get(metrics_exporter_address)
     assert response.ok
-    assert 'format="ggufv2",gpu_index="",model="qwen1.5-chat"' in response.text
+    assert (
+        'format="ggufv2",gpu_index="",model_name="qwen1.5-chat",'
+        'model_type="LLM",model_uid="qwen1.5-chat"' in response.text
+    )

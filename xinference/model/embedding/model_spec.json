@@ -1058,12 +1058,14 @@
         }
       }
     ],
-    "updated_at": 1769418300,
+    "updated_at": 1783786184,
     "featured": false,
     "virtualenv": {
       "packages": [
         "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
-        "#system_torchvision# ; #engine# == \"sentence_transformers\""
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\""
       ]
     }
   },
@@ -1546,6 +1548,176 @@
       "no_build_isolation": true
     },
     "updated_at": 1776783854,
+    "featured": false
+  },
+  {
+    "version": 2,
+    "model_name": "jina-embeddings-v5-text-nano",
+    "dimensions": 768,
+    "max_tokens": 8192,
+    "language": [
+      "multilingual"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "jinaai/jina-embeddings-v5-text-nano",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "jinaai/jina-embeddings-v5-text-nano",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "virtualenv": {
+      "packages": [
+        "sentence_transformers",
+        "einops",
+        "peft==0.18.1",
+        "accelerate>=0.28.0",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\"",
+        "transformers==5.7.0"
+      ]
+    },
+    "updated_at": 1782212980,
+    "featured": true
+  },
+  {
+    "version": 2,
+    "model_name": "jina-embeddings-v5-text-small",
+    "dimensions": 1024,
+    "max_tokens": 32768,
+    "language": [
+      "multilingual"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "jinaai/jina-embeddings-v5-text-small",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "jinaai/jina-embeddings-v5-text-small",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "virtualenv": {
+      "packages": [
+        "sentence_transformers",
+        "einops",
+        "peft==0.18.1",
+        "accelerate>=0.28.0",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\"",
+        "transformers==5.7.0"
+      ]
+    },
+    "updated_at": 1782212980,
+    "featured": true
+  },
+  {
+    "version": 2,
+    "model_name": "jina-embeddings-v5-omni-nano",
+    "dimensions": 768,
+    "max_tokens": 8192,
+    "language": [
+      "multilingual"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "jinaai/jina-embeddings-v5-omni-nano",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "jinaai/jina-embeddings-v5-omni-nano",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "virtualenv": {
+      "packages": [
+        "sentence_transformers",
+        "einops",
+        "peft==0.18.1",
+        "accelerate>=0.28.0",
+        "pillow",
+        "librosa",
+        "soundfile",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\"",
+        "transformers==5.7.0"
+      ]
+    },
+    "updated_at": 1782212980,
+    "featured": false
+  },
+  {
+    "version": 2,
+    "model_name": "jina-embeddings-v5-omni-small",
+    "dimensions": 1024,
+    "max_tokens": 32768,
+    "language": [
+      "multilingual"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "jinaai/jina-embeddings-v5-omni-small",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "jinaai/jina-embeddings-v5-omni-small",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "virtualenv": {
+      "packages": [
+        "sentence_transformers",
+        "einops",
+        "peft==0.18.1",
+        "accelerate>=0.28.0",
+        "pillow",
+        "librosa",
+        "soundfile",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\"",
+        "transformers==5.7.0"
+      ]
+    },
+    "updated_at": 1782212980,
     "featured": false
   },
   {

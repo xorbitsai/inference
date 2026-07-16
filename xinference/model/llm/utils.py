@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -59,6 +59,37 @@ from .tool_parsers.glm4_tool_parser import Glm4ToolParser
 logger = logging.getLogger(__name__)
 
 
+class MessageRoleOrderError(ValueError):
+    """A ``system`` message appeared at a non-first position on a chat template
+    that requires system-first ordering (e.g. the Qwen3 family)."""
+
+
+def check_system_role_order(messages: List) -> None:
+    """Raise ``MessageRoleOrderError`` if a ``system`` role appears at index > 0.
+
+    Callers must gate this on the model description's ``strict_system_first``
+    flag so lenient templates are never rejected (zero regression).
+    """
+    if not messages:
+        return
+    for idx, message in enumerate(messages):
+        if idx == 0:
+            continue
+        if isinstance(message, dict):
+            role = message.get("role")
+        else:
+            role = getattr(message, "role", None)
+        if role == "system":
+            raise MessageRoleOrderError(
+                "messages: this model's chat template requires the 'system' "
+                "role to be the first message; found a system message at "
+                f"position {idx}. Merge all system instructions into "
+                "messages[0]; for mid-conversation reminders/context use a "
+                "'user' role message; tool results must use the 'tool' role "
+                "with tool_call_id."
+            )
+
+
 _CONTEXT_LENGTH_KEYS: Tuple[str, ...] = (
     "max_sequence_length",
     "seq_length",
@@ -106,6 +137,7 @@ GEMMA_TOOL_CALL_FAMILY: Set[str] = set()
 GLM4_TOOL_CALL_FAMILY: Set[str] = set()
 LLAMA3_TOOL_CALL_FAMILY: Set[str] = set()
 QWEN_TOOL_CALL_FAMILY: Set[str] = set()
+GLM5_TOOL_CALL_FAMILY: Set[str] = set()
 
 QWEN_TOOL_CALL_SYMBOLS = ["<tool_call>", "</tool_call>"]
 
@@ -146,6 +178,79 @@ class ChatModelMixin:
         jinja_env.globals["raise_exception"] = raise_exception
         return jinja_env.from_string(chat_template)
 
+    @staticmethod
+    @functools.lru_cache(maxsize=64)
+    def _chat_template_needs_dict_arguments(chat_template: Optional[str]) -> bool:
+        # Detect Coder-style templates that iterate `tool_call.arguments|items`.
+        # Content-driven (not name-driven) so future models copying this
+        # template style are covered automatically.
+        return chat_template is not None and (
+            "tool_call.arguments|items" in chat_template
+        )
+
+    @staticmethod
+    def _normalize_tool_call_arguments_to_dict(messages: List[Dict]) -> List[Dict]:
+        # OpenAI spec sends tool_calls.function.arguments as a JSON-encoded
+        # string, but Coder-style templates (Qwen3-Coder / qwen3.5 / qwen3.6)
+        # require a dict to iterate via `|items`. The HF Jinja sandbox does
+        # not register a `from_json` filter, so we normalize at the message
+        # layer before template rendering.
+        #
+        # Non-mutating: callers may reuse the input `messages` for history
+        # tracking / logging / serialization, so we deep-copy only the
+        # affected message + tool_call + function dict when a string
+        # argument is successfully parsed. Messages without string
+        # arguments are returned by reference (no copy).
+        normalized: List[Dict] = []
+        for message in messages:
+            if not isinstance(message, dict) or message.get("role") != "assistant":
+                normalized.append(message)
+                continue
+            tool_calls = message.get("tool_calls")
+            if not isinstance(tool_calls, list):
+                normalized.append(message)
+                continue
+            # Identify indices that need rewriting (string arguments that
+            # parse successfully into a JSON object). Malformed JSON and
+            # non-object JSON values (e.g. `"[]"`, `"null"`, `"1"`) are
+            # left as-is: the Qwen templates iterate `tool_call.arguments|items`
+            # which only works on mappings, so non-object values would still
+            # crash downstream — leaving them untouched lets the template
+            # surface the error naturally rather than masking it with a
+            # confusing type mismatch. This matches the contract of the
+            # existing `_normalize_tool_calls` helper.
+            rewrites: Dict[int, Dict] = {}
+            for i, tc in enumerate(tool_calls):
+                if not isinstance(tc, dict):
+                    continue
+                fn = tc.get("function")
+                if not isinstance(fn, dict):
+                    continue
+                args = fn.get("arguments")
+                if not (isinstance(args, str) and args):
+                    continue
+                try:
+                    parsed = json.loads(args)
+                except json.JSONDecodeError:
+                    # leave as-is so downstream surfaces the malformed JSON
+                    continue
+                if not isinstance(parsed, dict):
+                    # JSON parsed but not an object (list / number / str /
+                    # null / bool). Leave the original string so the
+                    # template raises a clear error rather than silently
+                    # producing garbage.
+                    continue
+                rewrites[i] = {**fn, "arguments": parsed}
+            if not rewrites:
+                normalized.append(message)
+                continue
+            new_tool_calls = list(tool_calls)
+            for i, new_fn in rewrites.items():
+                original_tc = tool_calls[i]
+                new_tool_calls[i] = {**original_tc, "function": new_fn}
+            normalized.append({**message, "tool_calls": new_tool_calls})
+        return normalized
+
     def _build_from_raw_template(
         self, messages: List, chat_template: str, **kwargs
     ) -> str:
@@ -163,6 +268,8 @@ class ChatModelMixin:
         tokenize=False,
         **kwargs,
     ):
+        if self._chat_template_needs_dict_arguments(chat_template):
+            messages = self._normalize_tool_call_arguments_to_dict(messages)
         if (
             "vision" not in self.model_family.model_ability
             and "audio" not in self.model_family.model_ability
@@ -172,6 +279,13 @@ class ChatModelMixin:
             )
         if tokenizer is not None:
             if self.model_family.model_name.lower().startswith("deepseek-v4"):
+                from ..utils import allow_trust_remote_code
+
+                if not allow_trust_remote_code(self.model_family):
+                    raise ValueError(
+                        "Loading this model executes code shipped in the model "
+                        "repository; set XINFERENCE_TRUST_REMOTE_CODE=1 to allow it."
+                    )
                 module = _load_deepseekv4_encoding_module(self.model_path)  # type: ignore
 
                 target_func = getattr(module, "encode_messages")
@@ -915,10 +1029,68 @@ class ChatModelMixin:
                             msg,
                         )
             new_message = dict(msg)
+            if msg.get("tool_calls") is not None:
+                new_message["tool_calls"] = self._normalize_tool_calls(
+                    msg["tool_calls"]
+                )
             new_message["content"] = new_content if new_content else None
             transformed_messages.append(new_message)
 
         return transformed_messages
+
+    @staticmethod
+    def _normalize_tool_calls(tool_calls: Any) -> Any:
+        if isinstance(tool_calls, (str, bytes)):
+            return tool_calls
+        if isinstance(tool_calls, dict):
+            tool_calls = [tool_calls]
+        try:
+            normalized_tool_calls = list(tool_calls)
+        except TypeError:
+            return tool_calls
+
+        for index, tool_call in enumerate(normalized_tool_calls):
+            if not isinstance(tool_call, dict):
+                continue
+
+            normalized_tool_call = dict(tool_call)
+            function = normalized_tool_call.get("function")
+            if isinstance(function, dict) and "arguments" in function:
+                target = dict(function)
+                is_function_target = True
+            else:
+                target = normalized_tool_call
+                is_function_target = False
+            arguments = target.get("arguments")
+
+            if isinstance(arguments, (str, bytes)):
+                if not arguments or not arguments.strip():
+                    arguments = {}
+                else:
+                    try:
+                        arguments = json.loads(arguments)
+                    except json.JSONDecodeError as exc:
+                        raise ValueError(
+                            "Tool call arguments must be a valid JSON object"
+                        ) from exc
+            elif arguments is not None and not isinstance(arguments, dict):
+                try:
+                    arguments = dict(arguments)
+                except (TypeError, ValueError) as exc:
+                    raise TypeError(
+                        "Tool call arguments must be a mapping or JSON object string"
+                    ) from exc
+
+            if arguments is not None and not isinstance(arguments, dict):
+                raise TypeError("Tool call arguments must decode to a JSON object")
+
+            if "arguments" in target:
+                target["arguments"] = arguments
+            if is_function_target:
+                normalized_tool_call["function"] = target
+            normalized_tool_calls[index] = normalized_tool_call
+
+        return normalized_tool_calls
 
     async def _async_to_tool_completion_chunks(
         self,

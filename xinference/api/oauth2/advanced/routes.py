@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,13 +16,21 @@
 from __future__ import annotations
 
 import logging
+import secrets
 from typing import TYPE_CHECKING, Optional
 
-from fastapi import HTTPException, Query, Request, Security
+from fastapi import Depends, HTTPException, Query, Request, Security
 
+from ....constants import delete_setup_token, get_or_create_setup_token
 from ...responses import JSONResponse
-from ..advanced.auth_service import AdvancedAuthService, _get_client_ip
+from ..advanced.auth_service import (
+    INITIAL_ADMIN_PERMISSIONS,
+    PASSWORD_MIN_LENGTH,
+    AdvancedAuthService,
+    _get_client_ip,
+)
 from ..advanced.crypto import get_password_hash
+from ..scope_aliases import _normalize_scopes
 
 if TYPE_CHECKING:
     from ...restful_api import RESTfulAPI
@@ -77,6 +85,88 @@ def _get_current_user_from_token(request: Request, auth: AdvancedAuthService):
     if not payload:
         return None, None, []
     return payload.get("user_id"), payload.get("sub"), payload.get("scopes", [])
+
+
+def _get_current_user_live_scopes(request: Request, auth: AdvancedAuthService):
+    """Return current user info plus DB-current scopes for non-admin JWTs."""
+    current_user_id, username, token_scopes = _get_current_user_from_token(
+        request, auth
+    )
+    normalized_token_scopes = _normalize_scopes(token_scopes)
+    if "admin" in normalized_token_scopes:
+        return current_user_id, username, normalized_token_scopes
+
+    user = None
+    if current_user_id:
+        user = auth.db.get_user_by_id(current_user_id)
+    elif username:
+        user = auth.db.get_user_by_username(username)
+
+    if user and user.get("enabled"):
+        return (
+            user["id"],
+            user["username"],
+            _normalize_scopes(user.get("permissions", [])),
+        )
+
+    return current_user_id, username, normalized_token_scopes
+
+
+def _reject_permission_escalation(
+    request: Request, auth: "AdvancedAuthService", requested_permissions
+) -> None:
+    """Prevent privilege escalation when granting user permissions.
+
+    A caller may only grant permissions they themselves hold; the ``admin``
+    scope may grant anything. Without this, a delegated ``users:manage``
+    operator could mint the ``admin`` superuser scope for themselves or others
+    (see security report, Finding 2).
+    """
+    if not isinstance(requested_permissions, list) or not all(
+        isinstance(p, str) for p in requested_permissions
+    ):
+        raise HTTPException(
+            status_code=400, detail="Permissions must be a list of strings"
+        )
+    _, _, caller_scopes = _get_current_user_from_token(request, auth)
+    caller_scopes = caller_scopes or []
+    if "admin" in caller_scopes:
+        return
+    escalated = [p for p in requested_permissions if p not in caller_scopes]
+    if escalated:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Cannot grant permissions you do not hold: {escalated}",
+        )
+
+
+def _reject_admin_target_takeover(
+    request: Request, auth: "AdvancedAuthService", target_user_id: int
+) -> None:
+    """Prevent non-admin callers from performing sensitive write operations
+    (delete / change password / disable / change permissions) on admin users.
+
+    Without this guard, a delegated ``users:manage`` operator could delete
+    an admin account, change an admin's password and log in as them, or
+    disable the only admin and lock the deployment out. Admin callers
+    bypass this check entirely.
+    """
+    _, _, caller_scopes = _get_current_user_from_token(request, auth)
+    caller_scopes = caller_scopes or []
+    if "admin" in caller_scopes:
+        return
+    target = auth.db.get_user_by_id(target_user_id)
+    if target is None:
+        # Caller already validated existence upstream; this is a defensive
+        # double-check. Treat missing user as not-admin to avoid leaking
+        # existence via 403-vs-404 distinction.
+        return
+    target_perms = target.get("permissions") or []
+    if "admin" in target_perms:
+        raise HTTPException(
+            status_code=403,
+            detail="Non-admin cannot perform this action on an admin user",
+        )
 
 
 # --- Auth endpoints ---
@@ -146,6 +236,87 @@ async def advanced_logout(request: Request) -> JSONResponse:
     return JSONResponse(content={"ok": True})
 
 
+# --- Initial setup ---
+#
+# Xinference requires authentication out of the box, but a fresh
+# deployment has no accounts to log in with. These two public (no auth
+# required) endpoints let the web UI or an operator create the very
+# first admin account. setup_admin is only usable while the user table
+# is empty; the moment one account exists, it permanently refuses further
+# calls, so it cannot be used to create additional admins after setup.
+#
+# setup_admin additionally requires a one-time setup token (printed to the
+# server log on startup, or set via XINFERENCE_AUTH_SETUP_TOKEN) so that
+# creating the first, full-privilege admin requires access to the
+# deployment's own log/environment, not just network reachability of this
+# public endpoint -- otherwise whichever client reaches it first on a
+# freshly exposed instance would win full admin access.
+
+
+async def setup_status(request: Request) -> JSONResponse:
+    auth: AdvancedAuthService = get_advanced_auth(request)
+    needs_setup = auth.needs_setup()
+    return JSONResponse(
+        content={
+            "needs_setup": needs_setup,
+            "initialized": not needs_setup,
+            "password_min_length": PASSWORD_MIN_LENGTH,
+        }
+    )
+
+
+async def setup_admin(request: Request) -> JSONResponse:
+    auth: AdvancedAuthService = get_advanced_auth(request)
+    # Reject before doing any password validation or hashing: once setup is
+    # complete this stays a public, unauthenticated endpoint, so a completed
+    # deployment must not keep paying for CPU-expensive bcrypt hashing (or
+    # be probed for password policy details) on every call.
+    if not auth.needs_setup():
+        raise HTTPException(
+            status_code=403,
+            detail="Setup already completed; an account already exists.",
+        )
+
+    body = await request.json()
+    username = body.get("username")
+    password = body.get("password")
+    setup_token = body.get("setup_token")
+    if not isinstance(username, str) or not isinstance(password, str):
+        raise HTTPException(
+            status_code=400, detail="username and password must be strings"
+        )
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="username and password required")
+    if len(password) < PASSWORD_MIN_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Password must be at least {PASSWORD_MIN_LENGTH} characters",
+        )
+
+    expected_token = get_or_create_setup_token()
+    if not isinstance(setup_token, str) or not secrets.compare_digest(
+        setup_token, expected_token
+    ):
+        raise HTTPException(status_code=403, detail="Invalid or missing setup token")
+
+    password_hash = get_password_hash(password)
+    # create_first_user checks-and-inserts atomically (BEGIN IMMEDIATE), so
+    # concurrent callers can't both create an admin even across processes.
+    user_id = auth.db.create_first_user(
+        username=username,
+        password_hash=password_hash,
+        permissions=INITIAL_ADMIN_PERMISSIONS,
+    )
+    if user_id is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Setup already completed; an account already exists.",
+        )
+
+    delete_setup_token()
+    return JSONResponse(content={"id": user_id, "username": username}, status_code=201)
+
+
 # --- User management ---
 
 
@@ -156,8 +327,19 @@ async def create_user(request: Request) -> JSONResponse:
     password = body.get("password")
     permissions = body.get("permissions", [])
 
+    if not isinstance(username, str) or not isinstance(password, str):
+        raise HTTPException(
+            status_code=400, detail="username and password must be strings"
+        )
     if not username or not password:
         raise HTTPException(status_code=400, detail="username and password required")
+    if len(password) < PASSWORD_MIN_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Password must be at least {PASSWORD_MIN_LENGTH} characters",
+        )
+
+    _reject_permission_escalation(request, auth, permissions)
 
     existing = auth.db.get_user_by_username(username, "local")
     if existing:
@@ -221,6 +403,8 @@ async def update_user(user_id: int, request: Request) -> JSONResponse:
     body = await request.json()
 
     if "enabled" in body:
+        # Layer A: non-admin cannot disable/enable an admin user.
+        _reject_admin_target_takeover(request, auth, user_id)
         enabled = int(body["enabled"])
         if enabled:
             auth.enable_user(user_id)
@@ -228,6 +412,10 @@ async def update_user(user_id: int, request: Request) -> JSONResponse:
             auth.disable_user(user_id)
 
     if "permissions" in body:
+        # Layer A: non-admin cannot change permissions of an admin user.
+        _reject_admin_target_takeover(request, auth, user_id)
+        # Layer B: cannot grant scopes the caller doesn't hold.
+        _reject_permission_escalation(request, auth, body["permissions"])
         auth.db.set_user_permissions(user_id, body["permissions"])
 
     return JSONResponse(content={"ok": True})
@@ -238,6 +426,7 @@ async def delete_user(user_id: int, request: Request) -> JSONResponse:
     user = auth.db.get_user_by_id(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    _reject_admin_target_takeover(request, auth, user_id)
     auth.db.delete_user(user_id)
     auth.cache.reload()
     return JSONResponse(content={"ok": True})
@@ -248,12 +437,31 @@ async def change_password(user_id: int, request: Request) -> JSONResponse:
     user = auth.db.get_user_by_id(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    if user["source"] != "local":
+        raise HTTPException(
+            status_code=400, detail="Only local users can change password"
+        )
+    _reject_admin_target_takeover(request, auth, user_id)
     body = await request.json()
     new_password = body.get("new_password")
+    if not isinstance(new_password, str):
+        raise HTTPException(status_code=400, detail="new_password must be a string")
     if not new_password:
         raise HTTPException(status_code=400, detail="new_password required")
+    if len(new_password) < PASSWORD_MIN_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Password must be at least {PASSWORD_MIN_LENGTH} characters",
+        )
     password_hash = get_password_hash(new_password)
-    auth.db.update_user(user_id, password_hash=password_hash, must_change_password=0)
+    # Update the password and revoke the user's refresh tokens atomically.
+    # refresh_access_token only re-checks that the user is still enabled, not
+    # whether the password changed, so a leaked refresh token must be revoked
+    # here. Doing the update and revocation in one BEGIN IMMEDIATE transaction
+    # serializes it against a concurrent token rotation, closing the race where
+    # a refresh in flight could otherwise mint a token that outlives the reset
+    # (see security report, Finding 4).
+    auth.db.update_password_and_revoke_tokens(user_id, password_hash)
     return JSONResponse(content={"ok": True})
 
 
@@ -264,7 +472,7 @@ async def create_api_key(request: Request) -> JSONResponse:
     auth: AdvancedAuthService = get_advanced_auth(request)
     body = await request.json()
 
-    current_user_id, _, scopes = _get_current_user_from_token(request, auth)
+    current_user_id, _, scopes = _get_current_user_live_scopes(request, auth)
     is_admin = "admin" in scopes or "keys:manage" in scopes
 
     owner_id = body.get("owner")
@@ -293,19 +501,39 @@ async def list_api_keys(
     request: Request, owner: Optional[int] = Query(None)
 ) -> JSONResponse:
     auth: AdvancedAuthService = get_advanced_auth(request)
-    current_user_id, _, scopes = _get_current_user_from_token(request, auth)
+    current_user_id, _, scopes = _get_current_user_live_scopes(request, auth)
     is_admin = "admin" in scopes or "keys:manage" in scopes
 
     if not is_admin:
         owner = current_user_id
 
     keys = auth.db.list_api_keys(user_id=owner)
+    # Batch-resolve owner usernames so non-admin callers (who can't
+    # GET /v1/admin/users) can render the owner column without falling
+    # back to "#<id>". /v1/admin/users stays admin-only because it
+    # exposes permissions/enabled/must_change_password fields.
+    # For admin callers (who can see all keys), fetch all users in one
+    # query to avoid N+1; for non-admin callers (only their own keys),
+    # the user_ids set is typically a single entry so N+1 is fine.
+    user_ids = {k["user_id"] for k in keys if k.get("user_id") is not None}
+    username_map: dict = {}
+    if is_admin and user_ids:
+        for u in auth.db.list_users():
+            if u["id"] in user_ids:
+                username_map[u["id"]] = u["username"]
+    else:
+        for uid in user_ids:
+            owner_user = auth.db.get_user_by_id(uid)
+            if owner_user:
+                username_map[uid] = owner_user["username"]
+
     result = []
     for k in keys:
         result.append(
             {
                 "id": k["id"],
                 "user_id": k["user_id"],
+                "owner_username": username_map.get(k["user_id"]),
                 "key_prefix": k["key_prefix"],
                 "name": k.get("name"),
                 "description": k.get("description"),
@@ -320,7 +548,7 @@ async def list_api_keys(
 
 async def get_api_key(key_id: int, request: Request) -> JSONResponse:
     auth: AdvancedAuthService = get_advanced_auth(request)
-    current_user_id, _, scopes = _get_current_user_from_token(request, auth)
+    current_user_id, _, scopes = _get_current_user_live_scopes(request, auth)
     is_admin = "admin" in scopes or "keys:manage" in scopes
 
     key = auth.db.get_api_key_by_id(key_id)
@@ -430,6 +658,10 @@ async def update_user_permissions(user_id: int, request: Request) -> JSONRespons
         raise HTTPException(status_code=404, detail="User not found")
     body = await request.json()
     permissions = body.get("permissions", [])
+    # Layer A: non-admin cannot change permissions of an admin user.
+    _reject_admin_target_takeover(request, auth, user_id)
+    # Layer B: cannot grant scopes the caller doesn't hold.
+    _reject_permission_escalation(request, auth, permissions)
     auth.db.set_user_permissions(user_id, permissions)
     return JSONResponse(content={"ok": True})
 
@@ -446,9 +678,49 @@ def register_advanced_auth_routes(api: "RESTfulAPI") -> None:
     if _rl is not None:
         api._app.state.rate_limiter = _rl
 
+    async def require_keys_read(
+        request: Request,
+        _user=Security(auth_service),  # validates JWT + user exists + enabled + audit
+    ):
+        """Dependency for API key read routes (list / get).
+
+        Accepts ``keys:create`` OR ``keys:manage`` (or ``admin``
+        wildcard). FastAPI's ``Security(scopes=[...])`` is
+        AND-semantics, so a custom dependency is needed for OR. This
+        reuses the standard ``auth_service`` dependency with no required
+        scopes, then performs the OR check against DB-current user
+        permissions so permission updates take effect consistently with
+        ``AdvancedAuthService.__call__`` scoped checks.
+        """
+        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        payload = auth_service.verify_access_token(token) if token else None
+        if not payload:
+            raise HTTPException(
+                status_code=403,
+                detail="Not enough permissions: requires keys:create or keys:manage",
+            )
+
+        # Keep the existing admin wildcard behavior tied to JWT scopes, while
+        # non-admin delegated permissions are live-read from the DB user row.
+        token_scopes = _normalize_scopes(payload.get("scopes", []))
+        if "admin" in token_scopes:
+            return True
+
+        db_scopes = _normalize_scopes(_user.get("permissions", []))
+        if "keys:create" in db_scopes or "keys:manage" in db_scopes:
+            return True
+        raise HTTPException(
+            status_code=403,
+            detail="Not enough permissions: requires keys:create or keys:manage",
+        )
+
     router.add_api_route("/token", advanced_login, methods=["POST"])
     router.add_api_route("/v1/auth/refresh", advanced_refresh, methods=["POST"])
     router.add_api_route("/v1/auth/logout", advanced_logout, methods=["POST"])
+
+    # Initial setup (public, no auth -- see docstring above setup_admin)
+    router.add_api_route("/v1/admin/setup/status", setup_status, methods=["GET"])
+    router.add_api_route("/v1/admin/setup", setup_admin, methods=["POST"])
 
     # User management
     router.add_api_route(
@@ -499,13 +771,13 @@ def register_advanced_auth_routes(api: "RESTfulAPI") -> None:
         "/v1/admin/keys",
         list_api_keys,
         methods=["GET"],
-        dependencies=[Security(auth_service, scopes=["keys:create"])],
+        dependencies=[Depends(require_keys_read)],
     )
     router.add_api_route(
         "/v1/admin/keys/{key_id}",
         get_api_key,
         methods=["GET"],
-        dependencies=[Security(auth_service, scopes=["keys:create"])],
+        dependencies=[Depends(require_keys_read)],
     )
     router.add_api_route(
         "/v1/admin/keys/{key_id}",
@@ -523,7 +795,7 @@ def register_advanced_auth_routes(api: "RESTfulAPI") -> None:
         "/v1/admin/keys/{key_id}/reveal",
         reveal_api_key,
         methods=["GET"],
-        dependencies=[Security(auth_service, scopes=["admin"])],
+        dependencies=[Security(auth_service, scopes=["keys:manage"])],
     )
 
     # Permissions

@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,8 +43,12 @@ async def test_async_client_auth(setup_with_auth):
     completion = await model.create_embedding("write a poem.")
     assert len(completion["data"][0]["embedding"]) == 384
 
-    with pytest.raises(RuntimeError):
-        await client.terminate_model(model_uid=model_uid)
+    # C4 merged models:start + models:stop into a single models:write
+    # scope, so user3 (now has models:write) can both launch AND
+    # terminate. The pre-merge "can launch but can't terminate"
+    # distinction is gone by design (see PR description, C4 breaking
+    # change). Let user1 (admin) terminate to preserve the downstream
+    # assertions.
 
     await client.login("user1", "pass1")
     assert len(await client.list_models()) == 1
@@ -74,8 +78,10 @@ async def test_async_client_auth(setup_with_auth):
     completion = await model.create_embedding("write a poem.")
     assert len(completion["data"][0]["embedding"]) == 384
 
-    with pytest.raises(RuntimeError):
-        await client.terminate_model(model_uid=model_uid)
+    # C4 merge: user3's api key (sk-ZOTLIY4gt9w11) has models:write
+    # which covers both launch and terminate. The pre-merge distinction
+    # is gone; admin key (sk-3sjLbdwqAhhAF) takes over for the
+    # downstream list_models() == 1 assertion.
 
     client = AsyncRESTfulClient(endpoint, api_key="sk-3sjLbdwqAhhAF")
     assert len(await client.list_models()) == 1

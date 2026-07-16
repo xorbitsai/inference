@@ -32,6 +32,11 @@ class _FakeLlamaCppServer:
         for response in self.responses:
             callback(response)
 
+    def handle_completions(self, data, callback):
+        self.requests.append(data)
+        for response in self.responses:
+            callback(response)
+
 
 def _new_fake_llamacpp_model(responses):
     model = XllamaCppModel.__new__(XllamaCppModel)
@@ -122,8 +127,58 @@ def test_llamacpp_stream_non_tool_parse_error_still_raises():
         ]
     )
 
-    with pytest.raises(Exception, match="Got error in chat stream"):
+    with pytest.raises(Exception, match="Failed to parse tool call arguments"):
         list(model.chat([{"role": "user", "content": "hi"}], {"stream": True}))
+
+
+@pytest.mark.parametrize("method", ["generate", "chat"])
+@pytest.mark.parametrize("stream", [False, True])
+def test_llamacpp_raises_nested_error_response(method, stream):
+    message = (
+        "Field 'max_tokens': [json.exception.type_error.302] "
+        "type must be number, but is null"
+    )
+    model = _new_fake_llamacpp_model(
+        [
+            {
+                "error": {
+                    "code": 400,
+                    "message": message,
+                    "type": "invalid_request_error",
+                }
+            }
+        ]
+    )
+
+    with pytest.raises(Exception, match="type must be number, but is null") as exc_info:
+        if method == "generate":
+            result = model.generate("hi", {"stream": stream})
+        else:
+            result = model.chat([{"role": "user", "content": "hi"}], {"stream": stream})
+        if stream:
+            list(result)
+
+    assert str(exc_info.value) == message
+
+
+@pytest.mark.parametrize("method", ["generate", "chat"])
+def test_llamacpp_does_not_forward_null_max_tokens(method):
+    response = {
+        "choices": [],
+        "created": 123,
+        "id": "completion-test",
+        "model": "test-model",
+        "object": "text_completion" if method == "generate" else "chat.completion",
+        "usage": {"prompt_tokens": 1, "completion_tokens": 0, "total_tokens": 1},
+    }
+    model = _new_fake_llamacpp_model([response])
+
+    if method == "generate":
+        model.generate("hi", {"max_tokens": None})
+    else:
+        model.chat([{"role": "user", "content": "hi"}], {"max_tokens": None})
+
+    assert "max_tokens" not in model._llm.requests[0]
 
 
 def test_llamacpp_chat_reparses_tool_call_from_reasoning_content():

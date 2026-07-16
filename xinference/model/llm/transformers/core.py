@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Un
 
 import torch
 
-from ....constants import XINFERENCE_MAX_TOKENS
+from ....constants import XINFERENCE_MAX_TOKENS, XINFERENCE_TRUST_REMOTE_CODE
 from ....device_utils import (
     get_device_preferred_dtype,
     gpu_count,
@@ -42,6 +42,7 @@ from ..llm_family import LLMFamilyV2, LLMSpecV1
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     GEMMA_TOOL_CALL_FAMILY,
+    GLM5_TOOL_CALL_FAMILY,
     LLAMA3_TOOL_CALL_FAMILY,
     QWEN_TOOL_CALL_FAMILY,
     ChatModelMixin,
@@ -120,7 +121,15 @@ class PytorchModel(LLM):
         pytorch_model_config.setdefault("gptq_groupsize", -1)
         pytorch_model_config.setdefault("gptq_act_order", False)
         pytorch_model_config.setdefault("device", "auto")
-        pytorch_model_config.setdefault("trust_remote_code", True)
+        # Respect the XINFERENCE_TRUST_REMOTE_CODE setting.
+        pytorch_model_config["trust_remote_code"] = (
+            bool(
+                pytorch_model_config.get(
+                    "trust_remote_code", XINFERENCE_TRUST_REMOTE_CODE
+                )
+            )
+            and XINFERENCE_TRUST_REMOTE_CODE
+        )
         pytorch_model_config.setdefault("max_num_seqs", 16)
         pytorch_model_config.setdefault("enable_tensorizer", False)
         pytorch_model_config.setdefault("reasoning_content", False)
@@ -193,7 +202,14 @@ class PytorchModel(LLM):
                 AutoTokenizer,
                 {
                     "use_fast": self._use_fast_tokenizer,
-                    "trust_remote_code": kwargs.get("trust_remote_code", True),
+                    "trust_remote_code": (
+                        bool(
+                            kwargs.get(
+                                "trust_remote_code", XINFERENCE_TRUST_REMOTE_CODE
+                            )
+                        )
+                        and XINFERENCE_TRUST_REMOTE_CODE
+                    ),
                     "revision": kwargs.get("revision"),
                     "code_revision": kwargs.get("code_revision", None),
                 },
@@ -1085,6 +1101,7 @@ class PytorchChatModel(PytorchModel, ChatModelMixin):
             or model_family in GEMMA_TOOL_CALL_FAMILY
             or model_family in LLAMA3_TOOL_CALL_FAMILY
             or model_family in DEEPSEEK_TOOL_CALL_FAMILY
+            or model_family in GLM5_TOOL_CALL_FAMILY
         ):
             full_context_kwargs["tools"] = tools
         assert self.model_family.chat_template is not None

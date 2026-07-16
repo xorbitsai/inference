@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState, FC, useMemo } from 'react';
 import { PanelRightClose, PanelRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import request from '@/lib/request';
@@ -11,14 +11,13 @@ import { Button } from '@/components/ui/button';
 import { useI18n } from '@/contexts/i18n-context';
 import { useForm } from '@/hooks/use-form';
 import { cn } from '@/lib/utils';
-import { ModelType } from '@/constants';
+import { ModelType, CUSTOM_MODEL_OPTIONS } from '@/constants';
 import { ModelFormat, REGISTER_MODEL_INIT_DATA } from '@/constants/register';
 import type { ModelPrompts, ModelFamily } from '@/types/services';
+import type { RegisterModelType } from '@/types/common';
 import AutoFill from './auto-fill';
 import FormContent from './form-content';
 import JsonView from './json-view';
-
-type RegisterModelType = Exclude<ModelType, ModelType.Video | ModelType.Custom>;
 
 const getPath = (path: string) => {
   const normalizedPath = (path || '').replace(/\\/g, '/');
@@ -26,21 +25,23 @@ const getPath = (path: string) => {
   const filename = normalizedPath.substring(normalizedPath.lastIndexOf('/') + 1);
   return { baseDir, filename };
 };
-const RegisterModel = () => {
+
+interface RegisterModelProps {
+  modelType: RegisterModelType;
+  modelName?: string;
+}
+const RegisterModel: FC<RegisterModelProps> = ({ modelType, modelName }) => {
+  const isEdit = !!modelName;
+  const isLLM = modelType === ModelType.LLM;
   const [form] = useForm();
   const { t } = useI18n();
   const router = useRouter();
-  const tabs = [
-    { key: ModelType.LLM, label: t('model.languageModels') },
-    { key: ModelType.Embedding, label: t('model.embeddingModels') },
-    { key: ModelType.Rerank, label: t('model.rerankModels') },
-    { key: ModelType.Image, label: t('model.imageModels') },
-    { key: ModelType.Audio, label: t('model.audioModels') },
-    { key: ModelType.Flexible, label: t('model.flexibleModels') },
-  ];
+  const tabs = useMemo(
+    () => CUSTOM_MODEL_OPTIONS.map((item) => ({ value: item.value, label: t(item.labelKey) })),
+    []
+  );
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<RegisterModelType>(ModelType.LLM);
-  const [showJsonPreview, setShowJsonPreview] = useState(false);
+  const [showJsonPreview, setShowJsonPreview] = useState(isEdit || false);
   const [modelPromptsMap, setModelPromptsMap] = useState<ModelPrompts>({});
   const [modelFamilyMap, setModelFamilyMap] = useState<ModelFamily>({});
 
@@ -54,17 +55,15 @@ const RegisterModel = () => {
   };
   const handleJsonView = () => setShowJsonPreview(!showJsonPreview);
   const handleTabChange = (tab: string) => {
-    setActiveTab(tab as RegisterModelType);
-
-    setTimeout(() => form.setFieldsValue(REGISTER_MODEL_INIT_DATA[tab as RegisterModelType]), 0);
+    router.push(`/register-model/${tab}`);
   };
 
   const transformFormValues = (values: Record<string, unknown>) => {
-    let newValues: Record<string, unknown> = { version: 2, ...values };
+    const newValues: Record<string, unknown> = { ...values };
 
     if (Array.isArray(newValues?.model_specs)) {
       newValues.model_specs = newValues.model_specs.map((item: any) => {
-        let newItem = { ...item };
+        const newItem = { ...item };
         // Convert decimal model_size_in_billions (e.g., 7.2) to string (e.g., '7_2'), keep integers as numbers.
         if ('model_size_in_billions' in item) {
           const modelSizeInBillions = String(item?.model_size_in_billions);
@@ -73,7 +72,7 @@ const RegisterModel = () => {
             : Number(modelSizeInBillions);
         }
         // model_file_name_template is the part after the last '/', while model_uri is the part before it.
-        if (item.model_format === ModelFormat.GGUF) {
+        if (item.model_format === ModelFormat.GGUFV2) {
           const { baseDir, filename } = getPath(item.model_uri);
           newItem.model_uri = baseDir;
           newItem.model_file_name_template = filename;
@@ -81,7 +80,7 @@ const RegisterModel = () => {
         return newItem;
       });
     }
-    if (activeTab === ModelType.Audio && typeof newValues.model_ability === 'string') {
+    if (modelType === ModelType.Audio && typeof newValues.model_ability === 'string') {
       newValues.model_ability = [newValues.model_ability];
     }
     return newValues;
@@ -90,11 +89,15 @@ const RegisterModel = () => {
     const data = transformFormValues(values);
     setLoading(true);
     try {
-      await request.post(`/v1/model_registrations/${activeTab}`, {
+      // Edit the registration model logic to first delete and then create
+      if (isEdit) {
+        await request.delete(`/v1/model_registrations/${modelType}/${modelName}`);
+      }
+      await request.post(`/v1/model_registrations/${modelType}`, {
         model: JSON.stringify(data),
         persist: true,
       });
-      router.push('/launch-model');
+      router.push(`/launch-model/custom?activeType=${modelType}`);
     } finally {
       setLoading(false);
     }
@@ -102,10 +105,46 @@ const RegisterModel = () => {
   const onAutoFillBack = (data: Record<string, unknown>) => {
     form.setFieldsValue(data);
   };
+
+  const handleGoBack = () => {
+    router.push(`/launch-model/custom?activeType=${modelType}`);
+  };
   useEffect(() => {
     fetchPrompts();
     fetchFamilies();
   }, []);
+
+  useEffect(() => {
+    if (modelType && modelName) {
+      try {
+        // read the model detail
+        const modelStr = sessionStorage.getItem('customJsonData');
+        if (!modelStr) {
+          router.replace(`/register-model/${modelType}`);
+          return;
+        }
+        const formData = JSON.parse(modelStr);
+        if (formData.model_name !== modelName) {
+          router.replace(`/register-model/${modelType}`);
+          return;
+        }
+
+        if (Array.isArray(formData?.model_specs)) {
+          formData.model_specs = formData.model_specs.map((item: any) => ({
+            ...item,
+            model_size_in_billions:
+              typeof item?.model_size_in_billions === 'string' &&
+              item.model_size_in_billions.includes('_')
+                ? item.model_size_in_billions.replace('_', '.')
+                : item?.model_size_in_billions,
+          }));
+        }
+        form.setFieldsValue(formData);
+      } catch {
+        router.replace(`/register-model/${modelType}`);
+      }
+    }
+  }, [modelType, modelName]);
   return (
     <PageContainer
       title={t('menu.registerModel')}
@@ -128,9 +167,9 @@ const RegisterModel = () => {
         </div>
       }
     >
-      <Form form={form} onFinish={handleSubmit} initialValues={REGISTER_MODEL_INIT_DATA[activeTab]}>
+      <Form form={form} onFinish={handleSubmit} initialValues={REGISTER_MODEL_INIT_DATA[modelType]}>
         <Tabs
-          value={activeTab}
+          value={modelType}
           onValueChange={handleTabChange}
           className="w-full gap-6 overflow-hidden"
         >
@@ -138,27 +177,34 @@ const RegisterModel = () => {
             <div className="flex space-x-4">
               {tabs.map((item) => (
                 <TabsTrigger
-                  value={item.key}
-                  key={item.key}
+                  value={item.value}
+                  key={item.value}
                   className="data-[state=active]:text-primary font-medium data-[state=active]:border-b-2 data-[state=active]:border-primary"
                 >
                   {item.label}
                 </TabsTrigger>
               ))}
             </div>
-            <AutoFill modelFamilyMap={modelFamilyMap} autoFillBack={onAutoFillBack} />
+            {isLLM && <AutoFill modelFamilyMap={modelFamilyMap} autoFillBack={onAutoFillBack} />}
           </TabsList>
-          <TabsContent value={activeTab} className="flex">
+          <TabsContent value={modelType} className="flex px-1 pb-1">
             <div className="flex-1 min-w-0">
               <FormContent
-                modelType={activeTab}
+                modelType={modelType}
                 form={form}
                 modelPromptsMap={modelPromptsMap}
                 modelFamilyMap={modelFamilyMap}
               />
-              <Button className="mt-4" type="submit" loading={loading}>
-                {t('registerModel.registerModel')}
-              </Button>
+              <div className="mt-4 flex items-center gap-2">
+                <Button type="submit" loading={loading}>
+                  {isEdit ? t('common.edit') : t('registerModel.registerModel')}
+                </Button>
+                {isEdit && (
+                  <Button variant="outline" onClick={handleGoBack}>
+                    {t('common.goBack')}
+                  </Button>
+                )}
+              </div>
             </div>
             <div
               className={cn(

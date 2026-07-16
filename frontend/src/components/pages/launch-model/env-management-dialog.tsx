@@ -1,7 +1,7 @@
 'use client';
 
-import { FC, PropsWithChildren, useState } from 'react';
-import { Copy, Trash2 } from 'lucide-react';
+import { FC, useState } from 'react';
+import { Settings2, Copy, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import request from '@/lib/request';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useI18n } from '@/contexts/i18n-context';
-import { copyText } from '@/lib/utils';
+import { copyToClipboard } from '@/lib/utils';
 import type { ModelEnvItem } from '@/types/services';
 import type { CatalogModel } from './types';
 
@@ -31,11 +31,7 @@ interface EnvManagementDialogProps {
   onEnvDelete: () => void;
 }
 
-const EnvManagementDialog: FC<PropsWithChildren<EnvManagementDialogProps>> = ({
-  children,
-  modelDetail,
-  onEnvDelete,
-}) => {
+const EnvManagementDialog: FC<EnvManagementDialogProps> = ({ modelDetail, onEnvDelete }) => {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [dataSource, setDataSource] = useState<ModelEnvItem[]>([]);
@@ -55,7 +51,7 @@ const EnvManagementDialog: FC<PropsWithChildren<EnvManagementDialogProps>> = ({
   };
 
   const handleConfirmDelete = async () => {
-    if(!pendingDeleteItem) return;
+    if (!pendingDeleteItem) return;
     setDeletingLoading(true);
 
     try {
@@ -89,7 +85,15 @@ const EnvManagementDialog: FC<PropsWithChildren<EnvManagementDialogProps>> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex shrink-0 items-center gap-1 rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-xs font-medium text-sky-700 transition-colors hover:bg-sky-500/20"
+        >
+          <Settings2 className="size-3.5" />
+          {t('launchModel.manageVirtualEnvironments')}
+        </button>
+      </DialogTrigger>
       <DialogContent className="!max-w-5xl">
         <DialogHeader>
           <DialogTitle>{modelDetail.model_name}</DialogTitle>
@@ -115,7 +119,7 @@ const EnvManagementDialog: FC<PropsWithChildren<EnvManagementDialogProps>> = ({
                         <span className="min-w-0 flex-1 truncate">{item?.path}</span>
                         <Copy
                           className="size-4 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-                          onClick={() => copyText(item?.path)}
+                          onClick={() => copyToClipboard(item?.path)}
                         />
                       </div>
                     </TableCell>

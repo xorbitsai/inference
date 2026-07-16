@@ -1,0 +1,154 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2024-02-01 16:47+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: es <LL@li.org>\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/model_abilities/embed.rst:5
+msgid "Embeddings"
+msgstr "Insertar"
+
+#: ../../source/models/model_abilities/embed.rst:8
+msgid "Learn how to create text embeddings in Xinference."
+msgstr "Aprende cómo crear incrustaciones de texto en Xinference."
+
+#: ../../source/models/model_abilities/embed.rst:12
+msgid "Introduction"
+msgstr "Introducción"
+
+#: ../../source/models/model_abilities/embed.rst:14
+msgid ""
+"Text embeddings are used to quantify how related different pieces of text "
+"are. They can be used in various applications including search, clustering, "
+"recommendations, anomaly detection, diversity measurement, and "
+"classification."
+msgstr ""
+"Los embeddings de texto se utilizan para cuantificar la relevancia entre "
+"diferentes textos. Se pueden aplicar en diversas aplicaciones, incluyendo "
+"búsqueda, agrupamiento, recomendaciones, detección de anomalías, medición de"
+" diversidad y clasificación."
+
+#: ../../source/models/model_abilities/embed.rst:17
+msgid ""
+"An embedding is a vector of floating point numbers. The proximity between "
+"two vectors serves as an indicator of their similarity. Less distance "
+"implies a higher correlation, while a larger distance indicates reduced "
+"correlation."
+msgstr ""
+"Un embedding es un vector de números de punto flotante. La proximidad entre "
+"dos vectores puede servir como indicador de su similitud. Cuanto menor es la"
+" distancia, mayor es la correlación, mientras que una distancia mayor indica"
+" una correlación reducida."
+
+#: ../../source/models/model_abilities/embed.rst:20
+msgid ""
+"Embedding models in Xinference can be invoked through the Embeddings API to "
+"create embeddings. The Embeddings API mimics OpenAI's `create embeddings API"
+" <https://platform.openai.com/docs/api-reference/embeddings/create>`_."
+msgstr ""
+"El modelo de incrustación en Xinference puede ser invocado a través de la "
+"API de Embeddings para crear incrustaciones. La API de Embeddings imita la "
+"`API de creación de incrustaciones de OpenAI "
+"<https://platform.openai.com/docs/api-reference/embeddings/create>`_."
+
+#: ../../source/models/model_abilities/embed.rst:27
+msgid "API ENDPOINT"
+msgstr "API endpoint"
+
+#: ../../source/models/model_abilities/embed.rst:28
+msgid "OpenAI-compatible ENDPOINT"
+msgstr "Punto final compatible con OpenAI"
+
+#: ../../source/models/model_abilities/embed.rst:30
+msgid "Embeddings API"
+msgstr ""
+
+#: ../../source/models/model_abilities/embed.rst:31
+msgid "/v1/embeddings"
+msgstr ""
+
+#: ../../source/models/model_abilities/embed.rst:35
+msgid "Supported models"
+msgstr "Lista de modelos compatibles"
+
+#: ../../source/models/model_abilities/embed.rst:37
+msgid ""
+"You can examine all the :ref:`builtin embedding models in Xinference "
+"<models_embedding_index>`."
+msgstr ""
+"Puedes ver todos los modelos de incrustación integrados en :ref:`Xinference "
+"<models_embedding_index>`."
+
+#: ../../source/models/model_abilities/embed.rst:41
+msgid "Quickstart"
+msgstr "Inicio rápido"
+
+#: ../../source/models/model_abilities/embed.rst:43
+msgid ""
+"We can try Embeddings API out either via cURL, OpenAI Client, or "
+"Xinference's python client:"
+msgstr ""
+"Podemos probar la API de Embeddings mediante cURL, el cliente de OpenAI o el"
+" cliente Python de Xinference."
+
+#: ../../source/models/model_abilities/embed.rst:103
+msgid ""
+"You can find more examples of ``embed`` ability in the tutorial notebook:"
+msgstr ""
+"Puedes encontrar más ejemplos sobre la capacidad de ``embed`` en el cuaderno"
+" de tutoriales."
+
+#: ../../source/models/model_abilities/embed.rst:107
+msgid "LangChain Streamlit Doc Chat"
+msgstr "LangChain Streamlit documentación de diálogo"
+
+#: ../../source/models/model_abilities/embed.rst:110
+msgid "Learn from an example demonstrating how to use embed API via LangChain"
+msgstr ""
+"Aprende cómo usar la API de embeddings a través de LangChain con un ejemplo."
+
+#: ../../source/models/model_abilities/embed.rst:114
+msgid "FAQ"
+msgstr ""
+
+#: ../../source/models/model_abilities/embed.rst:117
+msgid "Does the LLM in Xinference support Embeddings API?"
+msgstr "¿LLM admite la API de Embeddings en Xinference?"
+
+#: ../../source/models/model_abilities/embed.rst:119
+msgid ""
+"No. Xinference doesn't provide embed API for LLMs due to considerations of "
+"performance."
+msgstr ""
+
+#: ../../source/models/model_abilities/embed.rst:123
+msgid "Does Embeddings API provides integration method for LangChain?"
+msgstr ""
+"¿La API de Embeddings proporciona un método de integración con LangChain?"
+
+#: ../../source/models/model_abilities/embed.rst:125
+msgid ""
+"Yes, you can refer to the related sections in LangChain's respective "
+"official Xinference documentation. Here is the link: `Text Embedding Models:"
+" Xinference "
+"<https://python.langchain.com/docs/integrations/text_embedding/xinference>`_"
+msgstr ""
+"Sí, puedes consultar la documentación oficial de Xinference en la parte "
+"relacionada con LangChain. Aquí está el enlace: `Text Embedding Models: "
+"Xinference "
+"<https://python.langchain.com/docs/integrations/text_embedding/xinference>`_"

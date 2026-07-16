@@ -1,4 +1,4 @@
-# Copyright 2022-2023 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -74,13 +74,18 @@ class CustomSDist(ExtraCommandMixin, sdist):
     pass
 
 class BuildWeb(Command):
-    """build_web command"""
+    """build_web command
+
+    Builds the Next.js static export under ``frontend/`` and stages it at
+    ``xinference/ui/web/dist`` so it ships inside the wheel/sdist and the
+    backend serves it without a Node runtime.
+    """
 
     user_options = []
-    _web_src_path = "xinference/ui/web/ui"
-    _web_dest_path = "xinference/ui/web/ui/build/index.html"
+    _web_src_path = "frontend"
+    _web_dest_path = "xinference/ui/web/dist/index.html"
     _commands = [
-        ["npm", "install"],
+        ["npm", "ci"],
         ["npm", "run", "build"],
     ]
 
@@ -104,15 +109,24 @@ class BuildWeb(Command):
             return
         else:
             replacements = {"npm": npm_path}
+            npm_env = os.environ.copy()
+            npm_env.setdefault(
+                "npm_config_cache", os.path.join(web_src_path, ".npm-cache")
+            )
+            npm_env.setdefault(
+                "npm_config_logs_dir", os.path.join(web_src_path, ".npm-logs")
+            )
             cmd_errored = False
             for cmd in cls._commands:
                 cmd = [replacements.get(c, c) for c in cmd]
-                proc_result = subprocess.run(cmd, cwd=web_src_path)
+                proc_result = subprocess.run(cmd, cwd=web_src_path, env=npm_env)
                 if proc_result.returncode != 0:
                     warnings.warn(f'Failed when running `{" ".join(cmd)}`')
                     cmd_errored = True
                     break
             if not cmd_errored:
+                # `npm run build` stages the static export at
+                # xinference/ui/web/dist via its postbuild hook.
                 assert os.path.exists(web_dest_path)
 
 

@@ -1,24 +1,28 @@
 'use client';
 
 import * as React from 'react';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 import { ChevronDown, Check, X } from 'lucide-react';
 import { useI18n } from '@/contexts/i18n-context';
 
-export interface SelectOption {
-  value: string;
+export type SelectValue = string | number;
+
+export interface SelectOption<T extends SelectValue = SelectValue> {
+  value: T;
   label: string;
   disabled?: boolean;
   description?: string;
+  prefix?: React.ReactNode;
   suffix?: React.ReactNode;
 }
 
-interface SelectProps {
-  value?: string;
-  onChange?: (value: string) => void;
+interface SelectProps<T extends SelectValue = SelectValue> {
+  value?: T;
+  onChange?: (value: T | undefined) => void;
 
-  options?: SelectOption[];
+  options?: SelectOption<T>[];
   placeholder?: string;
   className?: string;
   disabled?: boolean;
@@ -34,7 +38,7 @@ interface SelectProps {
   onCustomAdd?: (value: string) => void;
 }
 
-export function Select({
+export function Select<T extends SelectValue = SelectValue>({
   value,
   onChange,
   options = [],
@@ -50,7 +54,7 @@ export function Select({
   customPlaceholder,
   customButtonText,
   onCustomAdd,
-}: SelectProps) {
+}: SelectProps<T>) {
   const { t } = useI18n();
 
   const _customPlaceholder = customPlaceholder || 'Select...';
@@ -69,10 +73,37 @@ export function Select({
 
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>();
+
+  const updateDropdownPosition = useCallback(() => {
+    if (!buttonRef.current) return;
+
+    const buttonRect = buttonRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - buttonRect.bottom - 50;
+    const spaceAbove = buttonRect.top - 50;
+    const direction = spaceBelow < 200 && spaceAbove > spaceBelow ? 'up' : 'down';
+
+    setDropdownDirection(direction);
+    setDropdownStyle({
+      left: buttonRect.left,
+      top: direction === 'down' ? buttonRect.bottom + 4 : buttonRect.top - 4,
+      width: buttonRect.width,
+      transform: direction === 'up' ? 'translateY(-100%)' : undefined,
+    });
+  }, []);
+
   // Handle clicking outside to close the dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(target) &&
+        !dropdownRef.current?.contains(target)
+      ) {
         setOpen(false);
         setSearchValue('');
       }
@@ -89,22 +120,38 @@ export function Select({
 
   // Check if the dropdown menu should expand up or down
   useEffect(() => {
-    if (open && buttonRef.current) {
-      const buttonRect = buttonRef.current.getBoundingClientRect();
+    if (!open) return;
 
-      const spaceBelow = window.innerHeight - buttonRect.bottom - 50;
+    updateDropdownPosition();
+    window.addEventListener('resize', updateDropdownPosition);
+    window.addEventListener('scroll', updateDropdownPosition, true);
 
-      const spaceAbove = buttonRect.top - 50;
+    return () => {
+      window.removeEventListener('resize', updateDropdownPosition);
+      window.removeEventListener('scroll', updateDropdownPosition, true);
+    };
+  }, [open, updateDropdownPosition]);
 
-      if (spaceBelow < 200 && spaceAbove > spaceBelow) {
-        setDropdownDirection('up');
-      } else {
-        setDropdownDirection('down');
-      }
-    }
-  }, [open]);
+  useEffect(() => {
+    const dropdown = dropdownRef.current;
+
+    if (!dropdown) return;
+
+    // Keep portal dropdown scrolling inside the menu instead of letting Dialog's
+    // document-level scroll lock treat it as an outside interaction.
+    const stopScrollPropagation = (event: Event) => event.stopPropagation();
+
+    dropdown.addEventListener('wheel', stopScrollPropagation);
+    dropdown.addEventListener('touchmove', stopScrollPropagation);
+
+    return () => {
+      dropdown.removeEventListener('wheel', stopScrollPropagation);
+      dropdown.removeEventListener('touchmove', stopScrollPropagation);
+    };
+  }, [open, dropdownStyle]);
 
   const selectedOption = options.find((opt) => opt.value === value);
+  const hasValue = value !== undefined && value !== null && String(value) !== '';
 
   const filteredOptions = options.filter((option) => {
     if (!showSearch || !searchValue.trim()) {
@@ -115,12 +162,12 @@ export function Select({
 
     return (
       option.label.toLowerCase().includes(keyword) ||
-      option.value.toLowerCase().includes(keyword) ||
+      String(option.value).toLowerCase().includes(keyword) ||
       option.description?.toLowerCase().includes(keyword)
     );
   });
 
-  const handleOptionClick = (option: SelectOption) => {
+  const handleOptionClick = (option: SelectOption<T>) => {
     if (disabled || option.disabled) return;
 
     onChange?.(option.value);
@@ -133,7 +180,7 @@ export function Select({
 
     if (disabled) return;
 
-    onChange?.('');
+    onChange?.(undefined);
 
     setSearchValue('');
     setOpen(false);
@@ -192,15 +239,16 @@ export function Select({
               }}
             />
           ) : selectedOption ? (
-            <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="flex items-center gap-1 min-w-0 flex-1">
+              {!!selectedOption.prefix && <span className='shrink-0'>{selectedOption.prefix}</span>}
               <span className="font-medium truncate">{selectedOption.label}</span>
             </div>
           ) : (
-            <span className="text-muted-foreground">{placeholder || 'Select...'}</span>
+            <span className="text-muted-foreground truncate">{placeholder || 'Select...'}</span>
           )}
         </div>
 
-        {allowClear && value ? (
+        {allowClear && hasValue ? (
           <button
             type="button"
             onClick={handleClear}
@@ -222,11 +270,16 @@ export function Select({
         )}
       </div>
 
-      {open && (
+      {open &&
+        dropdownStyle &&
+        createPortal(
         <div
+          ref={dropdownRef}
+          data-slot="select-dropdown"
+          style={dropdownStyle}
           className={cn(
-            'absolute left-0 right-0 z-[9999] mt-1 flex flex-col rounded-md border border-border bg-popover shadow-lg',
-            dropdownDirection === 'down' ? 'top-full' : 'bottom-full mb-1 mt-0'
+            'pointer-events-auto fixed z-[9999] flex flex-col rounded-md border border-border bg-popover shadow-lg',
+            dropdownDirection === 'up' && 'origin-bottom'
           )}
         >
           <div className="max-h-60 overflow-auto">
@@ -249,7 +302,8 @@ export function Select({
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <div className="flex min-w-0 flex-1 items-center gap-1">
+                      {!!option.prefix && <span className='shrink-0'>{option.prefix}</span>}
                       <span className="truncate font-medium">{option.label}</span>
                     </div>
 
@@ -313,7 +367,8 @@ export function Select({
               </button>
             </div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

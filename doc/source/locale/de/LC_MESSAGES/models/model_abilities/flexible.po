@@ -1,0 +1,312 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-06-26 13:20+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: de <LL@li.org>\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/models/model_abilities/flexible.rst:5
+msgid "Traditional ML models (Experimental)"
+msgstr "Traditionelles maschinelles Lernmodell (experimentell)"
+
+#: ../../source/models/model_abilities/flexible.rst:7
+msgid ""
+"Learn how to inference traditional machine learning models with Xinference. "
+"These flexibly extensible models are referred to as **Flexible Models** "
+"within Xinference."
+msgstr ""
+"Erfahren Sie, wie Sie mit Xinference traditionelle Machine-Learning-Modelle "
+"inferieren. In Xinference werden diese flexiblen und erweiterbaren Modelle "
+"als **Flexible Modelle** bezeichnet."
+
+#: ../../source/models/model_abilities/flexible.rst:10
+msgid ""
+"This ability is public since v1.7.1, now the API is not stable and may "
+"change during evolving."
+msgstr ""
+"Diese Funktion ist seit Version v1.7.1 öffentlich verfügbar. Die API ist "
+"derzeit noch nicht stabil und kann in zukünftigen Iterationen Änderungen "
+"unterliegen."
+
+#: ../../source/models/model_abilities/flexible.rst:15
+msgid "Introduction"
+msgstr "Einführung"
+
+#: ../../source/models/model_abilities/flexible.rst:17
+msgid ""
+"Traditional machine learning models can still play a significant role within"
+" an LLM-centric ecosystem."
+msgstr ""
+"Traditionelle maschinelle Lernmodelle können im Ökosystem, das von großen "
+"Modellen dominiert wird, weiterhin eine wichtige Rolle spielen."
+
+#: ../../source/models/model_abilities/flexible.rst:19
+msgid ""
+"Xinference provides flexible extensibility for performing inference with "
+"traditional machine learning models. It includes built-in support for "
+"loading and running the following types of models:"
+msgstr ""
+"Xinference bietet flexible Erweiterungsmöglichkeiten für die Inferenz "
+"traditioneller Machine-Learning-Modelle. Es unterstützt nativ das Laden und "
+"Ausführen der folgenden Modelltypen:"
+
+#: ../../source/models/model_abilities/flexible.rst:22
+msgid ""
+"HuggingFace Pipelines for tasks such as classification using models hosted "
+"on HuggingFace."
+msgstr ""
+"Die Verwendung von HuggingFace Pipelines für Modelle, die auf HuggingFace "
+"gehostet werden, ist für Aufgaben wie Klassifikation geeignet."
+
+#: ../../source/models/model_abilities/flexible.rst:23
+msgid ""
+"ModelScope Pipelines for tasks such as classification using models from "
+"ModelScope."
+msgstr ""
+"Verwenden Sie die ModelScope Pipeline für Modelle auf ModelScope, die für "
+"Klassifizierungs- und andere Aufgaben geeignet ist."
+
+#: ../../source/models/model_abilities/flexible.rst:24
+msgid "YOLO for image detection and related computer vision tasks."
+msgstr ""
+"YOLO wird für die Bilderkennung und verwandte Computer-Vision-Aufgaben "
+"verwendet."
+
+#: ../../source/models/model_abilities/flexible.rst:26
+msgid ""
+"A wide range of traditional machine learning models can be used with "
+"Xinference. For each of the categories above, we will walk through a "
+"representative example to demonstrate how to perform inference step by step "
+"on the Xinference platform."
+msgstr ""
+"Xinference unterstützt eine Vielzahl traditioneller Machine-Learning-"
+"Modelle. Für jede der oben genannten Kategorien zeigen wir anhand eines "
+"repräsentativen Beispiels Schritt für Schritt, wie Rückschlüsse auf der "
+"Xinference-Plattform durchgeführt werden können."
+
+#: ../../source/models/model_abilities/flexible.rst:31
+msgid "Built-in Model Support Examples"
+msgstr "Eingebaute Modellunterstützungsfälle"
+
+#: ../../source/models/model_abilities/flexible.rst:34
+msgid "HuggingFace Pipeline Model"
+msgstr "HuggingFace-Pipeline-Modell"
+
+#: ../../source/models/model_abilities/flexible.rst:36
+msgid ""
+"First, we use `FacebookAI/roberta-large-mnli "
+"<https://huggingface.co/FacebookAI/roberta-large-mnli>`_ as an example. This"
+" is a zero-shot classification model. For other types of models, simply "
+"specify the corresponding task (which is also a parameter of the Pipeline) "
+"when registering the model."
+msgstr ""
+"Zunächst nehmen wir als Beispiel das Modell `FacebookAI/roberta-large-mnli "
+"<https://huggingface.co/FacebookAI/roberta-large-mnli>`_. Dieses Modell "
+"gehört zur Kategorie der Zero-Shot-Klassifikationsmodelle. Für andere "
+"Modelltypen muss bei der Registrierung lediglich die entsprechende Aufgabe "
+"angegeben werden (ebenfalls ein Parameter der Pipeline)."
+
+#: ../../source/models/model_abilities/flexible.rst:41
+msgid "Download the model to the following path::"
+msgstr "Laden Sie das Modell in den folgenden Pfad herunter::"
+
+#: ../../source/models/model_abilities/flexible.rst:45
+msgid ""
+"Next, we demonstrate how to register this flexible model in the Xinference "
+"Web UI. For the following examples, unless we have to, we will skip the UI "
+"steps and focus on the core logic."
+msgstr ""
+"Als nächstes zeigen wir, wie man das flexible Modell in der Xinference Web "
+"UI registriert. In den folgenden Beispielen werden wir, sofern nicht "
+"erforderlich, die Benutzeroberflächenoperationen überspringen und uns auf "
+"die Kernlogik konzentrieren."
+
+#: ../../source/models/model_abilities/flexible.rst:52
+msgid "The corresponding custom model JSON file is as follows:"
+msgstr "Das entsprechende benutzerdefinierte Modell-JSON lautet wie folgt:"
+
+#: ../../source/models/model_abilities/flexible.rst:77
+msgid ""
+"Refer to the section :ref:`register_custom_model` for instructions on "
+"registering the model using either code or the command line."
+msgstr ""
+"Siehe Abschnitt :ref:`register_custom_model` für Informationen zur "
+"Registrierung eines Modells über Code oder Kommandozeile."
+
+#: ../../source/models/model_abilities/flexible.rst:79
+msgid ""
+"Next, load the model by selecting **Launch Model** / **Custom Model** / "
+"**Flexible Model** in the Web UI. The loading procedure is the same as for "
+"other model types."
+msgstr ""
+"Wählen Sie anschließend in der Web-Benutzeroberfläche **Modell starten** / "
+"**Benutzerdefiniertes Modell** / **Flexibles Modell** aus, um das Modell zu "
+"laden. Der Ladevorgang ist identisch mit dem anderer Modelltypen."
+
+#: ../../source/models/model_abilities/flexible.rst:82
+msgid ""
+"When using the command line, remember to specify the option ``--model-type "
+"flexible``."
+msgstr ""
+"Wenn Sie die Befehlszeile verwenden, denken Sie daran, den Parameter "
+"``--model-type flexible`` anzugeben."
+
+#: ../../source/models/model_abilities/flexible.rst:84
+msgid ""
+"After the model is successfully loaded, we can perform inference using the "
+"following method."
+msgstr ""
+"Nach erfolgreichem Laden des Modells können wir die Inferenz auf folgende "
+"Weise durchführen."
+
+#: ../../source/models/model_abilities/flexible.rst:120
+msgid "ModelScope Pipeline Model"
+msgstr "ModelScope-Pipeline-Modell"
+
+#: ../../source/models/model_abilities/flexible.rst:122
+msgid ""
+"ModelScope Pipeline models are very similar to Huggingface ones. The only "
+"difference lies in the launcher used."
+msgstr ""
+"ModelScope Pipeline Modelle sind den Huggingface Modellen sehr ähnlich, der "
+"einzige Unterschied liegt in der verwendeten Launcher-Implementierung."
+
+#: ../../source/models/model_abilities/flexible.rst:125
+msgid ""
+"We take a zero-shot classification model from ModelScope as an example. The "
+"model is `iic/nlp_structbert_zero-shot-classification_chinese-base "
+"<https://modelscope.cn/models/iic/nlp_structbert_zero-shot-"
+"classification_chinese-base>`_."
+msgstr ""
+"Wir nehmen als Beispiel ein Zero-Shot-Klassifikationsmodell von ModelScope. "
+"Das Modell ist `iic/nlp_structbert_zero-shot-classification_chinese-base "
+"<https://modelscope.cn/models/iic/nlp_structbert_zero-shot-"
+"classification_chinese-base>`_."
+
+#: ../../source/models/model_abilities/flexible.rst:128
+msgid ""
+"Here, we make use of Xinference's model virtual environment feature. This is"
+" because the model used in this example requires ``transformers==4.50.3`` to"
+" run properly. To isolate the environment, we use a :ref:`virtual env "
+"<model_virtual_env>` when registering the model."
+msgstr ""
+"Hier haben wir die Funktion der virtuellen Modellumgebung von Xinference "
+"verwendet. Da das in diesem Beispiel verwendete Modell "
+"``transformers==4.50.3`` benötigt, um ordnungsgemäß zu funktionieren. Zur "
+"Isolierung der Ausführungsumgebung haben wir bei der Modellregistrierung "
+":ref:`virtuelle Umgebung <model_virtual_env>` verwendet."
+
+#: ../../source/models/model_abilities/flexible.rst:132
+msgid ""
+"When specifying custom packages during registration, the syntax is the same "
+"as for regular packages, with a few special cases. Since the virtual "
+"environment is still based on the site packages of the Python runtime where "
+"Xinference is running, we need to explicitly include ``#system_numpy#``. "
+"Packages wrapped in ``#system_xx#`` ensure consistency with the base "
+"environment during virtual environment creation; otherwise, it may easily "
+"result in runtime errors."
+msgstr ""
+"Die Syntax zur Angabe benutzerdefinierter Pakete bei der Modellregistrierung"
+" ist dieselbe wie bei normalen Paketen, es gibt jedoch einige Sonderfälle. "
+"Da die virtuelle Umgebung weiterhin auf den site-packages des von Xinference"
+" ausgeführten Python-Interpreters basiert, müssen wir explizit "
+"``#system_numpy#`` einfügen. Der Paketname wird mit ``#system_xx#`` "
+"umschlossen, um sicherzustellen, dass die virtuelle Umgebung bei der "
+"Erstellung mit der Basisumgebung übereinstimmt, da sonst leicht "
+"Laufzeitfehler auftreten können."
+
+#: ../../source/models/model_abilities/flexible.rst:136
+msgid "Registering via Web UI:"
+msgstr "Registrierungsmethode (Web UI):"
+
+#: ../../source/models/model_abilities/flexible.rst:142
+msgid "Corresponding json file:"
+msgstr "Entsprechende JSON-Datei:"
+
+#: ../../source/models/model_abilities/flexible.rst:170
+#: ../../source/models/model_abilities/flexible.rst:241
+msgid "Inference the model:"
+msgstr "Modell-Inferenz"
+
+#: ../../source/models/model_abilities/flexible.rst:206
+msgid "YOLO"
+msgstr ""
+
+#: ../../source/models/model_abilities/flexible.rst:208
+msgid ""
+"YOLO is a popular real-time object detection model, widely used in image "
+"detection and video analysis scenarios."
+msgstr ""
+"YOLO ist ein bekanntes Echtzeit-Objektmodell, das in Bilderkennung und "
+"Videoanalyse weit verbreitet ist."
+
+#: ../../source/models/model_abilities/flexible.rst:210
+msgid ""
+"First, download the YOLO weights. Here, we use the `yolov11s.pt "
+"<https://huggingface.co/Ultralytics/YOLO11>`_ file as an example."
+msgstr ""
+"Laden Sie zuerst die YOLO-Gewichte herunter. Hier verwenden wir als Beispiel"
+" die Datei `yolov11s.pt <https://huggingface.co/Ultralytics/YOLO11>`_."
+
+#: ../../source/models/model_abilities/flexible.rst:213
+msgid "JSON file of model definition:"
+msgstr "Modell-Definitions-JSON-Datei:"
+
+#: ../../source/models/model_abilities/flexible.rst:300
+msgid "Writing a Custom Flexible Model"
+msgstr "Schreiben Sie ein benutzerdefiniertes flexibles Modell."
+
+#: ../../source/models/model_abilities/flexible.rst:302
+msgid ""
+"First, we implement a custom launcher with a simple model for sentiment "
+"scoring. In this example, we do not use any actual model weights, so the "
+"``load`` function does not perform any model loading."
+msgstr ""
+"Zunächst implementieren wir einen einfachen benutzerdefinierten Launcher für"
+" die Sentimentbewertung. In diesem Beispiel verwenden wir keine "
+"tatsächlichen Modellgewichte, daher führt die ``load``-Funktion keinerlei "
+"Modellladungsoperationen aus."
+
+#: ../../source/models/model_abilities/flexible.rst:334
+msgid "The model JSON definition is as follows:"
+msgstr "Das Modell JSON ist wie folgt definiert:"
+
+#: ../../source/models/model_abilities/flexible.rst:359
+msgid ""
+"Here, we extend the model by passing in a custom-defined ``pos`` value."
+msgstr ""
+"Hier haben wir das Modell durch die Übergabe eines benutzerdefinierten "
+"``pos``-Werts erweitert."
+
+#: ../../source/models/model_abilities/flexible.rst:361
+msgid "Finally, let's verify the result:"
+msgstr "Schließlich überprüfen wir das Ergebnis:"
+
+#: ../../source/models/model_abilities/flexible.rst:380
+msgid "Conclusion"
+msgstr "Schlussfolgerung"
+
+#: ../../source/models/model_abilities/flexible.rst:382
+msgid ""
+"The built-in Flexible Model launchers in Xinference can be found at `Github "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/model/flexible/launchers>`_."
+" Contributions are welcome to support more traditional machine learning "
+"models!"
+msgstr ""
+"Der flexible Modell-Launcher von Xinference ist auf `Github "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/model/flexible/launchers>`_"
+" zu finden. Beiträge zur Unterstützung weiterer traditioneller maschineller "
+"Lernmodelle sind willkommen!"

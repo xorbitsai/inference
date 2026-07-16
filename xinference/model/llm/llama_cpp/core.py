@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -82,8 +82,27 @@ def _error_message(msg: Any) -> str:
         for key in ("message", "msg", "error"):
             value = msg.get(key)
             if value:
-                return str(value)
+                return _error_message(value)
     return str(msg)
+
+
+def _get_error_payload(response: Any) -> Optional[Any]:
+    if not isinstance(response, dict):
+        return None
+    if response.get("error"):
+        return response["error"]
+    if response.get("code"):
+        return response
+    return None
+
+
+def _normalize_max_tokens(generate_config: Dict[str, Any]) -> None:
+    if generate_config.get("max_tokens") is not None:
+        return
+    if XINFERENCE_MAX_TOKENS is not None:
+        generate_config["max_tokens"] = XINFERENCE_MAX_TOKENS
+    else:
+        generate_config.pop("max_tokens", None)
 
 
 def _is_tool_call_arguments_parse_error(msg: Any) -> bool:
@@ -228,11 +247,16 @@ class XllamaCppModel(LLM, ChatModelMixin):
         multimodal_projector = self._llamacpp_model_config.get(
             "multimodal_projector", ""
         )
-        mmproj = (
-            os.path.join(self.model_path, multimodal_projector)
-            if multimodal_projector
-            else ""
-        )
+        if not multimodal_projector:
+            mmproj = ""
+        elif os.path.isabs(multimodal_projector):
+            mmproj = multimodal_projector
+        else:
+            # ``model_path`` resolves to the model *file*; the projector lives
+            # alongside it, so resolve it against the model's directory. Joining
+            # onto ``self.model_path`` directly would yield ".../model.gguf/mmproj"
+            # (a nonexistent path) whenever --model-path points at a single file.
+            mmproj = os.path.join(os.path.dirname(model_path), multimodal_projector)
 
         try:
             params = CommonParams()
@@ -313,8 +337,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
         self, prompt: str, generate_config: Optional[dict] = None
     ) -> Union[Completion, Iterator[CompletionChunk]]:
         generate_config = generate_config or {}
-        if not generate_config.get("max_tokens") and XINFERENCE_MAX_TOKENS:
-            generate_config["max_tokens"] = XINFERENCE_MAX_TOKENS
+        _normalize_max_tokens(generate_config)
         _apply_response_format(generate_config)
         stream = generate_config.get("stream", False)
         q: queue.Queue = queue.Queue()
@@ -337,11 +360,11 @@ class XllamaCppModel(LLM, ChatModelMixin):
                 def _callback(res):
                     if type(res) is list:
                         for r in res:
-                            q.put(r)
-                    elif res.get("code"):
-                        q.put(_Error(res))
+                            error = _get_error_payload(r)
+                            q.put(_Error(error) if error else r)
                     else:
-                        q.put(res)
+                        error = _get_error_payload(res)
+                        q.put(_Error(error) if error else res)
 
                 self._llm.handle_completions(data, _callback)
             except Exception as ex:
@@ -357,14 +380,14 @@ class XllamaCppModel(LLM, ChatModelMixin):
             def _to_iterator():
                 while (r := q.get()) is not _Done:
                     if type(r) is _Error:
-                        raise Exception("Got error in generate stream: %s", r.msg)
+                        raise Exception(_error_message(r.msg))
                     yield r
 
             return _to_iterator()
         else:
             r = q.get()
             if type(r) is _Error:
-                raise Exception("Got error in generate: %s", r.msg)
+                raise Exception(_error_message(r.msg))
             return r
 
     def _normalize_disabled_thinking_reasoning_content(
@@ -429,8 +452,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
         generate_config: Optional[dict] = None,
     ) -> Union[ChatCompletion, Iterator[ChatCompletionChunk]]:
         generate_config = generate_config or {}
-        if not generate_config.get("max_tokens") and XINFERENCE_MAX_TOKENS:
-            generate_config["max_tokens"] = XINFERENCE_MAX_TOKENS
+        _normalize_max_tokens(generate_config)
         _apply_response_format(generate_config)
         stream = generate_config.get("stream", False)
 
@@ -467,11 +489,11 @@ class XllamaCppModel(LLM, ChatModelMixin):
                 def _callback(res):
                     if type(res) is list:
                         for r in res:
-                            q.put(r)
-                    elif res.get("code"):
-                        q.put(_Error(res))
+                            error = _get_error_payload(r)
+                            q.put(_Error(error) if error else r)
                     else:
-                        q.put(res)
+                        error = _get_error_payload(res)
+                        q.put(_Error(error) if error else res)
 
                 self._llm.handle_chat_completions(data, _callback)
             except Exception as ex:
@@ -502,7 +524,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
                             )
                             yield _make_stream_stop_chunk(last_chunk, self.model_uid)
                             break
-                        raise Exception(f"Got error in chat stream: {r.msg}")
+                        raise Exception(_error_message(r.msg))
                     last_chunk = r
                     yield r
 
@@ -512,6 +534,6 @@ class XllamaCppModel(LLM, ChatModelMixin):
         else:
             r = q.get()
             if type(r) is _Error:
-                raise Exception(f"Got error in chat: {r.msg}")
+                raise Exception(_error_message(r.msg))
             r = self._normalize_disabled_thinking_reasoning_content(r, tools)
             return self._to_chat_completion(r, self.reasoning_parser)

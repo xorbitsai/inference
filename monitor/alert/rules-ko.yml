@@ -11,13 +11,13 @@ groups:
           description: "Worker {{ $labels.worker_address }} GPU {{ $labels.gpu_index }} 메모리 사용률 {{ $value | humanizePercentage }}, 5분간 지속."
 
       - alert: ModelRequestErrorRateHigh
-        expr: rate(xinference:model_request_errors_total[5m]) / rate(xinference:model_request_total[5m]) > 0.05
+        expr: sum without (stream) (rate(xinference:model_request_errors_total[5m])) / sum without (stream) (rate(xinference:model_request_total[5m])) > 0.05
         for: 3m
         labels:
           severity: warning
         annotations:
           summary: "모델 요청 오류율 5% 초과"
-          description: "모델 {{ $labels.model }} 오류율 {{ $value | humanizePercentage }}, 3분간 지속."
+          description: "모델 {{ $labels.model_name }} 오류율 {{ $value | humanizePercentage }}, 3분간 지속."
 
       - alert: TTFTHigh
         expr: rate(xinference:time_to_first_token_seconds_sum[5m]) / rate(xinference:time_to_first_token_seconds_count[5m]) > 10
@@ -26,7 +26,7 @@ groups:
           severity: warning
         annotations:
           summary: "첫 토큰 지연 시간 10초 초과"
-          description: "모델 {{ $labels.model }} TTFT {{ $value }}ms, 3분간 지속."
+          description: "모델 {{ $labels.model_name }} TTFT {{ $value }}s, 3분간 지속."
 
       - alert: WorkerOffline
         expr: xinference:workers_total < 1
@@ -47,13 +47,13 @@ groups:
           description: "노드 {{ $labels.instance }} 마운트 포인트 {{ $labels.mountpoint }} 잔여 공간 {{ $value | humanizePercentage }}."
 
       - alert: RequestQueueBacklog
-        expr: xinference:model_pending_requests > 10
+        expr: xinference:model_serve_count / (xinference:model_request_limit > 0) > 0.9
         for: 3m
         labels:
           severity: warning
         annotations:
-          summary: "모델 요청 대기열 적체"
-          description: "모델 {{ $labels.model }} 대기 요청 수 {{ $value }}, 3분간 지속."
+          summary: "모델 요청 동시 실행 수 한계 접근"
+          description: "모델 {{ $labels.model_name }} 동시 실행 비율 {{ $value | humanizePercentage }}, 3분간 지속."
 
       - alert: ModelLoadSlow
         expr: xinference:model_last_load_duration_seconds > 300
@@ -62,4 +62,40 @@ groups:
           severity: warning
         annotations:
           summary: "모델 로딩 시간 5분 초과"
-          description: "모델 {{ $labels.model_name }} 최근 평균 로딩 시간 {{ $value | humanizeDuration }}."
+          description: "모델 {{ $labels.model_name }} 최근 로딩 소요 시간 {{ $value | humanizeDuration }}."
+
+      - alert: ReplicaUnexpectedTerminated
+        expr: xinference:model_unexpected_termination == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "모델 레플리카 예기치 않은 종료"
+          description: "모델 {{ $labels.model_name }} 레플리카 {{ $labels.replica_index }} 가 Worker 장애로 인해 다운되었습니다."
+
+      - alert: WorkerMemoryHigh
+        expr: xinference:worker_memory_used_bytes / xinference:worker_memory_total_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Worker 메모리 사용률 90% 초과"
+          description: "Worker {{ $labels.worker_address }} 메모리 사용률 {{ $value | humanizePercentage }}, 5분간 지속."
+
+      - alert: RequestLatencyHigh
+        expr: histogram_quantile(0.95, rate(xinference:model_request_duration_seconds_bucket[5m])) > 60
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "P95 요청 지연 시간 60초 초과"
+          description: "모델 {{ $labels.model_name }} P95 지연 시간 {{ $value }}s, 3분간 지속."
+
+      - alert: BannedIPsSpike
+        expr: xinference:banned_ips_total > 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "차단 IP 수 이상 증가"
+          description: "현재 {{ $value }}개의 IP가 차단되었습니다. 무차별 공격 또는 오용 가능성이 있습니다."

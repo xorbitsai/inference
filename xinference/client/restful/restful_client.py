@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # limitations under the License.
 import json
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
+from urllib.parse import quote
 
 import requests
 
@@ -1304,6 +1305,42 @@ class Client:
 
         response_data = response.json()
         return response_data["model_uid"]
+
+    def get_autostart_config(self) -> Dict:
+        url = f"{self.base_url}/v1/autostart/models"
+        response = self.session.get(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get autostart config, detail: {_get_error_string(response)}"
+            )
+        return response.json()
+
+    def get_autostart_model_summary(self) -> Dict:
+        url = f"{self.base_url}/v1/autostart/models/summary"
+        response = self.session.get(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get autostart model summary, detail: {_get_error_string(response)}"
+            )
+        return response.json()
+
+    def upsert_autostart_model(self, entry: Dict) -> Dict:
+        url = f"{self.base_url}/v1/autostart/models"
+        response = self.session.post(url, json=entry, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to upsert autostart model, detail: {_get_error_string(response)}"
+            )
+        return response.json()
+
+    def remove_autostart_model(self, model_uid: str) -> Dict:
+        url = f"{self.base_url}/v1/autostart/models/{quote(model_uid, safe='')}"
+        response = self.session.delete(url, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to remove autostart model, detail: {_get_error_string(response)}"
+            )
+        return response.json()
 
     def terminate_model(self, model_uid: str):
         """

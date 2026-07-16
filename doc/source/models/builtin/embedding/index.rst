@@ -63,6 +63,14 @@ The following is a list of built-in embedding models in Xinference:
   
    jina-embeddings-v4
   
+   jina-embeddings-v5-omni-nano
+  
+   jina-embeddings-v5-omni-small
+  
+   jina-embeddings-v5-text-nano
+  
+   jina-embeddings-v5-text-small
+  
    m3e-base
   
    m3e-large

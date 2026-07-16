@@ -9,10 +9,11 @@ import os
 import re
 import signal
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import aiohttp
-from fastapi import Depends, HTTPException, Query, Request, Security
+from fastapi import Body, Depends, HTTPException, Query, Request, Security
+from pydantic import BaseModel
 
 from ..._version import get_versions
 from ..dependencies import get_api
@@ -259,27 +260,122 @@ async def get_progress(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def get_ui_config() -> JSONResponse:
-    grafana_datasource = os.environ.get("XINFERENCE_GRAFANA_DATASOURCE", "")
+async def get_ui_config(request: Request) -> JSONResponse:
+    store = request.app.state.monitor_config_store
+    mon = store.get_all()
+    dashboards = store.get_dashboards()
+
     return JSONResponse(
         content={
-            "grafana_url": os.environ.get("XINFERENCE_GRAFANA_URL", ""),
-            "grafana_datasource": grafana_datasource,
-            "grafana_alert_datasource": os.environ.get(
-                "XINFERENCE_GRAFANA_ALERT_DATASOURCE", ""
-            )
-            or grafana_datasource,
-            "grafana_dashboard_uid": os.environ.get(
-                "XINFERENCE_GRAFANA_DASHBOARD_UID", "xinference-overview"
-            ),
-            "cluster_name": os.environ.get("XINFERENCE_CLUSTER_NAME", ""),
+            "grafana_url": mon["grafana_url"],
+            "grafana_datasource": mon["grafana_datasource"],
+            "grafana_alert_datasource": mon["grafana_alert_datasource"],
+            "grafana_dashboard_uid": dashboards.get("overview", "xinference-overview"),
+            "grafana_dashboards": dashboards,
+            "cluster_name": mon["cluster_name"],
             "es_enabled": bool(os.environ.get("XINFERENCE_ES_URL", "")),
-            "auth_advanced": os.environ.get("XINFERENCE_AUTH_ADVANCED", "").lower()
-            in ("1", "true", "yes"),
+            "auth_advanced": os.environ.get("XINFERENCE_AUTH_ADVANCED", "true").lower()
+            not in ("0", "false", "no"),
             "oidc_enabled": os.environ.get("XINFERENCE_OIDC_ENABLED", "").lower()
             in ("1", "true", "yes"),
         }
     )
+
+
+class MonitorConfigUpdate(BaseModel):
+    grafana_url: Optional[str] = None
+    grafana_datasource: Optional[str] = None
+    grafana_alert_datasource: Optional[str] = None
+    cluster_name: Optional[str] = None
+    grafana_dashboards: Optional[Dict[str, str]] = None
+
+
+class CheckGrafanaRequest(BaseModel):
+    grafana_url: str
+
+
+async def get_monitor_config(request: Request) -> JSONResponse:
+    store = request.app.state.monitor_config_store
+    all_cfg = store.get_all()
+    sources = store.get_sources()
+    dashboards = store.get_dashboards()
+
+    return JSONResponse(
+        content={
+            "grafana_url": all_cfg["grafana_url"],
+            "grafana_datasource": all_cfg["grafana_datasource"],
+            "grafana_alert_datasource": all_cfg["grafana_alert_datasource"],
+            "cluster_name": all_cfg["cluster_name"],
+            "grafana_dashboards": dashboards,
+            "sources": sources,
+        }
+    )
+
+
+async def update_monitor_config(
+    request: Request,
+    body: MonitorConfigUpdate = Body(...),
+) -> JSONResponse:
+    store = request.app.state.monitor_config_store
+
+    username = ""
+    advanced_auth = getattr(request.app.state, "advanced_auth", None)
+    if advanced_auth:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            try:
+                payload = advanced_auth.verify_access_token(auth_header[7:])
+                username = payload.get("sub", "")
+            except Exception:
+                pass
+
+    data = body.model_dump(exclude_none=True)
+    updates = {}
+    for field in (
+        "grafana_url",
+        "grafana_datasource",
+        "grafana_alert_datasource",
+        "cluster_name",
+    ):
+        if field in data:
+            updates[field] = data[field]
+    if "grafana_dashboards" in data:
+        for dashboard_key, uid in data["grafana_dashboards"].items():
+            updates[f"dashboard_{dashboard_key}"] = uid
+
+    store.update(updates, username=username)
+    return JSONResponse(content={"status": "ok"})
+
+
+async def check_grafana(
+    request: Request,
+    body: CheckGrafanaRequest = Body(...),
+) -> JSONResponse:
+    grafana_url = body.grafana_url.rstrip("/")
+    if not grafana_url:
+        return JSONResponse(
+            content={"ok": False, "error": "Grafana URL is empty"},
+            status_code=400,
+        )
+
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(f"{grafana_url}/api/health")
+            resp.raise_for_status()
+            return JSONResponse(content={"ok": True, "body": resp.json()})
+    except Exception as e:
+        return JSONResponse(
+            content={"ok": False, "error": str(e)},
+            status_code=200,
+        )
+
+
+async def reset_monitor_config(request: Request) -> JSONResponse:
+    store = request.app.state.monitor_config_store
+    store.reset()
+    return JSONResponse(content={"status": "ok"})
 
 
 _FIELD_NAME_RE = re.compile(r"^[a-zA-Z0-9_.@]+$")
@@ -299,6 +395,7 @@ async def search_logs(
     time_to: str = "now",
     size: int = 200,
     page_from: int = 0,
+    node_field: str = "node",
 ) -> JSONResponse:
     es_url = os.environ.get("XINFERENCE_ES_URL", "")
     if not es_url:
@@ -309,6 +406,8 @@ async def search_logs(
 
     size = max(1, min(size, 500))
     page_from = max(0, min(page_from, 10000 - size))
+    if node_field not in ("node", "node.keyword"):
+        node_field = "node"
 
     must = []
     filter_clauses: list[dict[str, Any]] = [
@@ -329,7 +428,7 @@ async def search_logs(
     for field, value in [
         ("level", level),
         ("module", module),
-        ("node", node),
+        (node_field, node),
         ("log_type", log_type),
     ]:
         if value:
@@ -349,6 +448,8 @@ async def search_logs(
         op = token[0]
         field_name = token[1:sep]
         field_value = token[sep + 1 :]
+        if field_name == "node":
+            field_name = node_field
         if not _FIELD_NAME_RE.match(field_name) or not field_value:
             continue
         if op == "+":
@@ -422,10 +523,64 @@ async def search_logs(
     return JSONResponse(content={"hits": hits, "total": total})
 
 
+async def list_log_nodes() -> JSONResponse:
+    es_url = os.environ.get("XINFERENCE_ES_URL", "")
+    if not es_url:
+        raise HTTPException(status_code=503, detail="Elasticsearch is not configured")
+
+    es_index = os.environ.get("XINFERENCE_ES_INDEX", "xinference-logs-*")
+    es_auth = os.environ.get("XINFERENCE_ES_AUTH", "")
+
+    headers = {"Content-Type": "application/json"}
+    auth = None
+    if es_auth:
+        if es_auth.startswith("ApiKey "):
+            headers["Authorization"] = es_auth
+        else:
+            parts = es_auth.split(":", 1)
+            if len(parts) == 2:
+                auth = aiohttp.BasicAuth(parts[0], parts[1])
+
+    url = f"{es_url.rstrip('/')}/{es_index}/_search"
+
+    async def _aggregate(field: str) -> Optional[list[dict[str, Any]]]:
+        body = {"size": 0, "aggs": {"nodes": {"terms": {"field": field, "size": 200}}}}
+        timeout = aiohttp.ClientTimeout(total=10)
+        async with aiohttp.ClientSession(timeout=timeout, auth=auth) as session:
+            async with session.post(url, json=body, headers=headers) as resp:
+                if resp.status != 200:
+                    return None
+                data = await resp.json()
+        return data.get("aggregations", {}).get("nodes", {}).get("buckets", [])
+
+    try:
+        # "node" is usually a keyword field; fall back to "node.keyword" if the
+        # mapping is text (terms aggregation requires a keyword/fielddata field).
+        buckets = await _aggregate("node")
+        node_field = "node"
+        if buckets is None:
+            buckets = await _aggregate("node.keyword")
+            node_field = "node.keyword"
+    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        logger.error("ES connection error or timeout: %s", e)
+        raise HTTPException(
+            status_code=502,
+            detail="Failed to connect to Elasticsearch or query timed out",
+        )
+
+    if buckets is None:
+        logger.error("ES node aggregation failed for both 'node' and 'node.keyword'")
+        raise HTTPException(status_code=502, detail="Elasticsearch query failed")
+
+    nodes = [b["key"] for b in buckets if b.get("key")]
+    return JSONResponse(content={"nodes": nodes, "node_field": node_field})
+
+
 async def search_logs_context(
     timestamp: str = "",
     size: int = 5,
     node: str = "",
+    node_field: str = "node",
 ) -> JSONResponse:
     if not timestamp:
         raise HTTPException(status_code=400, detail="timestamp is required")
@@ -438,10 +593,12 @@ async def search_logs_context(
     es_auth = os.environ.get("XINFERENCE_ES_AUTH", "")
 
     size = max(1, min(size, 50))
+    if node_field not in ("node", "node.keyword"):
+        node_field = "node"
 
     node_filter: list[dict[str, Any]] = []
     if node:
-        node_filter = [{"term": {"node": node}}]
+        node_filter = [{"term": {node_field: node}}]
 
     older_body: dict[str, Any] = {
         "query": {
@@ -812,6 +969,31 @@ def register_routes(api: "RESTfulAPI") -> None:
     router.add_api_route("/v1/cluster/ui_config", get_ui_config, methods=["GET"])
 
     router.add_api_route(
+        "/v1/cluster/monitor_config",
+        get_monitor_config,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/cluster/monitor_config",
+        update_monitor_config,
+        methods=["PUT"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/cluster/monitor_config/check-grafana",
+        check_grafana,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+    router.add_api_route(
+        "/v1/cluster/monitor_config/reset",
+        reset_monitor_config,
+        methods=["POST"],
+        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+    )
+
+    router.add_api_route(
         "/v1/cluster/info",
         get_cluster_device_info,
         methods=["GET"],
@@ -896,14 +1078,21 @@ def register_routes(api: "RESTfulAPI") -> None:
         "/v1/cluster/logs",
         search_logs,
         methods=["GET"],
-        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+        dependencies=([Security(auth, scopes=["logs:list"])] if is_auth else None),
     )
 
     router.add_api_route(
         "/v1/cluster/logs/context",
         search_logs_context,
         methods=["GET"],
-        dependencies=([Security(auth, scopes=["admin"])] if is_auth else None),
+        dependencies=([Security(auth, scopes=["logs:list"])] if is_auth else None),
+    )
+
+    router.add_api_route(
+        "/v1/cluster/logs/nodes",
+        list_log_nodes,
+        methods=["GET"],
+        dependencies=([Security(auth, scopes=["logs:list"])] if is_auth else None),
     )
 
     router.add_api_route(

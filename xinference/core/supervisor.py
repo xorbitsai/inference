@@ -1,4 +1,4 @@
-# Copyright 2022-2026 XProbe Inc.
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,6 +46,7 @@ from ..constants import (
     XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
     XINFERENCE_HEALTH_CHECK_TIMEOUT,
+    XINFERENCE_LAUNCH_HISTORY_DB_PATH,
     XINFERENCE_LAUNCH_STRATEGY,
     XINFERENCE_LIST_MODELS_PER_WORKER_TIMEOUT,
 )
@@ -56,6 +57,7 @@ from ..model.utils import (
     get_engine_params_by_name_with_virtual_env,
 )
 from ..types import PeftModelConfig
+from .exceptions import ModelNotReadyError
 from .launch_strategy import IdleFirstLaunchStrategy
 from .metrics import record_metrics
 from .resource import GPUStatus, ResourceStatus
@@ -158,6 +160,17 @@ class SupervisorActor(xo.StatelessActor):
         # get_cluster_metrics_data() and translated into the
         # xinference:model_unexpected_termination gauge in the API process.
         self._unexpected_down_replicas: Dict[Tuple[str, int], str] = {}
+        self._autostart_task: Optional[asyncio.Task] = None
+        self._autostart_requested = False
+        self._autostart_lock = asyncio.Lock()
+        self._autostart_store_lock = asyncio.Lock()
+        self._autostart_wakeup_event = asyncio.Event()
+        self._autostart_model_states: Dict[str, Dict[str, Any]] = {}
+        from .launch_history_store import LaunchHistoryStore
+
+        self._launch_history_store = LaunchHistoryStore(
+            XINFERENCE_LAUNCH_HISTORY_DB_PATH
+        )
 
     @classmethod
     def default_uid(cls) -> str:
@@ -831,6 +844,314 @@ class SupervisorActor(xo.StatelessActor):
         self._collective_manager_mapping: Dict[  # type: ignore
             str, xo.ActorRefType[CollectiveManager]
         ] = {}
+        self._schedule_autostart()
+
+    def _schedule_autostart(self, delay: float = 0.0):
+        if self._autostart_task is not None and not self._autostart_task.done():
+            if delay <= 0:
+                self._autostart_requested = True
+                self._autostart_wakeup_event.set()
+            return
+        self._autostart_task = asyncio.create_task(
+            self._run_autostart_with_retries(delay)
+        )
+
+    async def _run_in_executor(self, func, *args: Any):
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, func, *args)
+
+    async def _wait_for_autostart_wakeup(self, delay: float):
+        try:
+            await asyncio.wait_for(self._autostart_wakeup_event.wait(), timeout=delay)
+        except asyncio.TimeoutError:
+            pass
+        finally:
+            self._autostart_wakeup_event.clear()
+
+    async def _run_autostart_with_retries(self, delay: float):
+        try:
+            next_delay: Optional[float] = max(delay, 0.0)
+            while True:
+                if next_delay:
+                    await self._wait_for_autostart_wakeup(next_delay)
+                next_delay = await self._run_autostart_once()
+                if self._autostart_requested:
+                    self._autostart_requested = False
+                    next_delay = 0.0
+                if next_delay is None:
+                    break
+        finally:
+            self._autostart_task = None
+
+    async def _run_autostart_once(self) -> Optional[float]:
+        async with self._autostart_lock:
+            try:
+                entries = await self._load_autostart_entries()
+            except Exception:
+                logger.exception("Failed to load autostart entries.")
+                return None
+
+            entries = [entry for entry in entries if entry.get("enabled", True)]
+            if not entries:
+                return None
+            if not self._worker_address_to_worker:
+                for entry in entries:
+                    model_uid = entry["launch"]["model_uid"]
+                    self._autostart_model_states[model_uid] = {
+                        **self._autostart_model_states.get(model_uid, {}),
+                        "status": "waiting_worker",
+                        "message": "Waiting for worker registration.",
+                    }
+                logger.info("Autostart waits for worker registration.")
+                return None
+
+            semaphore = asyncio.Semaphore(1)
+            retry_delays: List[float] = []
+
+            async def _run_entry(entry: Dict[str, Any]):
+                async with semaphore:
+                    retry_delay = await self._autostart_one_model(entry)
+                    if retry_delay is not None:
+                        retry_delays.append(retry_delay)
+
+            await asyncio.gather(
+                *[
+                    _run_entry(entry)
+                    for entry in sorted(
+                        entries,
+                        key=lambda item: (
+                            int(item.get("priority", 100)),
+                            item["launch"]["model_uid"],
+                        ),
+                    )
+                ]
+            )
+            return min(retry_delays) if retry_delays else None
+
+    async def _load_autostart_entries(
+        self, username: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        from .autostart import normalize_autostart_model_entry
+
+        async with self._autostart_store_lock:
+            raw_entries = await self._run_in_executor(
+                self._launch_history_store.list_autostart, username
+            )
+        entries = []
+        for raw_entry in raw_entries:
+            try:
+                entries.append(normalize_autostart_model_entry(raw_entry))
+            except ValueError:
+                logger.exception("Skip invalid autostart entry: %s", raw_entry)
+        return entries
+
+    async def _autostart_model_is_active(self, model_uid: str) -> bool:
+        if model_uid in self._model_uid_to_replica_info:
+            return True
+        infos = await self._status_guard_ref.get_instance_info(model_uid=model_uid)
+        active_statuses = {
+            LaunchStatus.CREATING.name,
+            LaunchStatus.UPDATING.name,
+            LaunchStatus.TERMINATING.name,
+            LaunchStatus.READY.name,
+        }
+        return any(info.status in active_statuses for info in infos)
+
+    def _autostart_waiting_for_worker(self, launch: Dict[str, Any]) -> bool:
+        worker_ip = launch.get("worker_ip")
+        if worker_ip is None or self.is_local_deployment():
+            return False
+        requested_ips = [item.strip() for item in str(worker_ip).split(",")]
+        requested_ips = [item for item in requested_ips if item]
+        if not requested_ips:
+            return False
+        current_ips = {
+            address.split(":")[0] for address in self._worker_address_to_worker
+        }
+        return not any(item in current_ips for item in requested_ips)
+
+    async def _launch_autostart_model(self, launch: Dict[str, Any]) -> str:
+        payload = dict(launch)
+        payload.pop("wait_ready", None)
+        peft_model_config = payload.pop("peft_model_config", None)
+        if peft_model_config is not None:
+            peft_model_config = PeftModelConfig.from_dict(peft_model_config)
+
+        gpu_idx = payload.pop("gpu_idx", None)
+        if isinstance(gpu_idx, int):
+            gpu_idx = [gpu_idx]
+
+        return await self.launch_builtin_model(
+            model_uid=payload.pop("model_uid", None),
+            model_name=payload.pop("model_name"),
+            model_engine=payload.pop("model_engine", None),
+            model_size_in_billions=payload.pop("model_size_in_billions", None),
+            model_format=payload.pop("model_format", None),
+            quantization=payload.pop("quantization", None),
+            model_type=payload.pop("model_type", "LLM"),
+            replica=payload.pop("replica", 1),
+            n_gpu=payload.pop("n_gpu", "auto"),
+            n_worker=payload.pop("n_worker", 1),
+            request_limits=payload.pop("request_limits", None),
+            wait_ready=True,
+            peft_model_config=peft_model_config,
+            worker_ip=payload.pop("worker_ip", None),
+            gpu_idx=gpu_idx,
+            download_hub=payload.pop("download_hub", None),
+            model_path=payload.pop("model_path", None),
+            enable_virtual_env=payload.pop("enable_virtual_env", None),
+            virtual_env_packages=payload.pop("virtual_env_packages", None),
+            envs=payload.pop("envs", None),
+            **payload,
+        )
+
+    async def _autostart_one_model(self, entry: Dict[str, Any]) -> Optional[float]:
+        launch = entry["launch"]
+        model_uid = launch["model_uid"]
+        state = self._autostart_model_states.setdefault(model_uid, {"attempts": 0})
+
+        if await self._autostart_model_is_active(model_uid):
+            state.update(
+                {
+                    "status": "active",
+                    "message": "Model is already active.",
+                    "last_error": None,
+                }
+            )
+            return None
+
+        if self._autostart_waiting_for_worker(launch):
+            state.update(
+                {
+                    "status": "waiting_worker",
+                    "message": "Waiting for configured worker_ip.",
+                }
+            )
+            return None
+
+        max_retries = int(entry.get("max_retries", 3))
+        retry_interval = float(entry.get("retry_interval_seconds", 30))
+        attempts = int(state.get("attempts", 0))
+        if attempts >= max_retries:
+            state.update(
+                {
+                    "status": "error",
+                    "message": "Autostart retry limit reached.",
+                }
+            )
+            return None
+
+        last_attempt_ts = state.get("last_attempt_ts")
+        now = time.time()
+        if isinstance(last_attempt_ts, (int, float)):
+            remaining = retry_interval - (now - last_attempt_ts)
+            if remaining > 0:
+                return remaining
+
+        state.update(
+            {
+                "status": "launching",
+                "attempts": attempts + 1,
+                "last_attempt_ts": int(now),
+                "message": "Launching from autostart history.",
+            }
+        )
+        try:
+            launched_uid = await self._launch_autostart_model(launch)
+            state.update(
+                {
+                    "status": "active",
+                    "model_uid": launched_uid,
+                    "last_started_ts": int(time.time()),
+                    "last_error": None,
+                    "message": "Model is ready.",
+                }
+            )
+            logger.info("Autostart launched model: %s", launched_uid)
+            return None
+        except Exception as e:
+            state.update(
+                {
+                    "status": "error",
+                    "last_error": str(e),
+                    "message": "Launch failed.",
+                }
+            )
+            logger.error(
+                "Autostart failed for model %s: %s", model_uid, e, exc_info=True
+            )
+            if state["attempts"] < max_retries:
+                return retry_interval
+            return None
+
+    async def _build_autostart_response(
+        self, entries: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        from .autostart import redact_autostart_model_entries
+
+        models = redact_autostart_model_entries(entries)
+        for entry in models:
+            launch = entry.get("launch", {})
+            model_uid = launch.get("model_uid")
+            if not model_uid:
+                continue
+            state = dict(self._autostart_model_states.get(model_uid, {}))
+            infos = await self._status_guard_ref.get_instance_info(model_uid=model_uid)
+            if infos:
+                state["instance_status"] = infos[0].status
+            entry["state"] = state
+        return {"models": models}
+
+    async def get_autostart_config(
+        self, username: Optional[str] = None
+    ) -> Dict[str, Any]:
+        entries = await self._load_autostart_entries(username)
+        return await self._build_autostart_response(entries)
+
+    async def get_autostart_model_summary(self) -> Dict[str, Any]:
+        models = []
+        for entry in await self._load_autostart_entries():
+            launch = entry.get("launch", {})
+            model_uid = launch.get("model_uid")
+            if not model_uid:
+                continue
+            models.append(
+                {
+                    "enabled": entry.get("enabled", True),
+                    "model_uid": model_uid,
+                }
+            )
+        return {"models": models}
+
+    async def upsert_autostart_model(
+        self, entry: Dict[str, Any], username: str = ""
+    ) -> Dict[str, Any]:
+        from .autostart import normalize_autostart_model_entry
+
+        normalized_entry = normalize_autostart_model_entry(entry)
+        model_uid = normalized_entry["launch"]["model_uid"]
+        async with self._autostart_store_lock:
+            await self._run_in_executor(
+                self._launch_history_store.upsert_autostart,
+                normalized_entry,
+                username,
+            )
+            self._autostart_model_states.pop(model_uid, None)
+        self._schedule_autostart()
+        return await self.get_autostart_config(username)
+
+    async def remove_autostart_model(self, model_uid: str) -> Dict[str, Any]:
+        if not isinstance(model_uid, str) or not is_valid_model_uid(model_uid):
+            raise ValueError(
+                "The model UID is invalid. Please specify the model UID by 0 < length <= 100."
+            )
+
+        async with self._autostart_store_lock:
+            await self._run_in_executor(
+                self._launch_history_store.remove_autostart, model_uid
+            )
+            self._autostart_model_states.pop(model_uid, None)
+        return await self.get_autostart_model_summary()
 
     @typing.no_type_check
     async def get_cluster_device_info(self, detailed: bool = False) -> List:
@@ -1419,15 +1740,36 @@ class SupervisorActor(xo.StatelessActor):
 
             try:
                 register_fn(model_spec, persist)
-                await self._cache_tracker_ref.record_model_version(
-                    generate_fn(model_spec), self.address
+            except ValueError as e:
+                raise e
+            except Exception as e:
+                unregister_fn(model_spec.model_name, raise_error=False)
+                raise e
+
+            # cache sync is an auxiliary feature; failure must not roll back
+            # the already-successful register_fn. Guard against _cache_tracker_ref
+            # being None (defensive).
+            try:
+                if self._cache_tracker_ref is not None:
+                    await self._cache_tracker_ref.record_model_version(
+                        generate_fn(model_spec), self.address
+                    )
+            except Exception:
+                logger.warning(
+                    "Failed to record model version for %s after registration; "
+                    "cache management may be degraded",
+                    model_spec.model_name,
+                    exc_info=True,
                 )
+
+            # _sync_register_model propagates to all workers. If it fails, the
+            # model will not be registered on the workers, so we must roll back
+            # the supervisor-local registration and propagate the error to keep
+            # the cluster state consistent.
+            try:
                 await self._sync_register_model(
                     model_type, model, persist, model_spec.model_name
                 )
-
-            except ValueError as e:
-                raise e
             except Exception as e:
                 unregister_fn(model_spec.model_name, raise_error=False)
                 raise e
@@ -1748,7 +2090,6 @@ class SupervisorActor(xo.StatelessActor):
                 rank0_address, _port = await worker_ref.launch_rank0_model(
                     _replica_model_uid, xavier_config
                 )
-                self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
                 store_address = rank0_address.split(":")[0]
                 store_port = _port
 
@@ -1756,6 +2097,7 @@ class SupervisorActor(xo.StatelessActor):
                 await self._status_guard_ref.update_replica_status(
                     model_uid, replica_id, {"status": LaunchStatus.READY.name}
                 )
+                self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
                 return rank0_address
 
             replica_gpu_idx = (
@@ -1794,8 +2136,10 @@ class SupervisorActor(xo.StatelessActor):
                     xavier_config=xavier_config,
                     **kwargs,
                 )
-                self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
+                # Wait for engine to be ready BEFORE adding to route table,
+                # so requests are never routed to a still-loading model.
                 await worker_ref.wait_for_load(_replica_model_uid)
+                self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
 
                 # Update replica status to READY
                 await self._status_guard_ref.update_replica_status(
@@ -2091,10 +2435,35 @@ class SupervisorActor(xo.StatelessActor):
                 # no registration, use all workers
                 available_workers = all_workers
         else:
-            if isinstance(worker_ip, list):
-                available_workers.extend(worker_ip)
-            else:
-                available_workers.append(worker_ip)
+            # ``worker_ip`` may arrive as a comma-separated string (from the
+            # REST API / web UI) or as a list (from the Python client). Normalize
+            # it to a list of entries, then resolve each entry to the concrete
+            # worker address(es) (``ip:port``) so the values match the keys used
+            # by ``_choose_worker`` and the ``n_worker`` count reflects real
+            # workers. An entry may be a bare IP or an already-qualified
+            # ``ip:port`` worker address; both are accepted.
+            raw_entries = worker_ip if isinstance(worker_ip, list) else [worker_ip]
+            requested = [
+                entry.strip()
+                for item in raw_entries
+                for entry in str(item).split(",")
+                if entry.strip()
+            ]
+            ip_to_addresses: Dict[str, List[str]] = {}
+            for addr in self._worker_address_to_worker:
+                ip_to_addresses.setdefault(addr.split(":")[0], []).append(addr)
+            for entry in requested:
+                if entry in self._worker_address_to_worker:
+                    # Already a concrete worker address (``ip:port``).
+                    available_workers.append(entry)
+                    continue
+                matched = ip_to_addresses.get(entry)
+                if not matched:
+                    raise ValueError(
+                        f"Worker ip address {entry} is not in the cluster."
+                    )
+                available_workers.extend(matched)
+            available_workers = list(dict.fromkeys(available_workers))
 
         async def _launch_model():
             # Validation of n_worker, intercept if it is greater than the available workers.
@@ -2531,13 +2900,57 @@ class SupervisorActor(xo.StatelessActor):
         self._model_uid_to_replica_info.pop(model_uid, None)
         self._clear_unexpected_down_replicas(model_uid)
 
+        await self._cleanup_distributed_actors(
+            model_uid, terminate_rank0_on_worker=True
+        )
+
+        return 0
+
+    async def _cleanup_distributed_actors(
+        self, model_uid: str, terminate_rank0_on_worker: bool = True
+    ) -> None:
+        """Tear down supervisor-side actors/mappings created for distributed
+        (Xavier) models when the last replica of ``model_uid`` goes away: the
+        rank0 model, the collective manager, and the block tracker.
+
+        Shared by terminate_model_replica (graceful teardown) and
+        mark_replica_dead (auto-recover exhaustion). Without this, exhausting
+        AUTO_RECOVER_LIMIT on a distributed model would leak the rank0 actor and
+        the collective/block-tracker mappings, and a later launch reusing the
+        same uid could hit stale actors.
+
+        terminate_rank0_on_worker: when True, RPC the worker to terminate the
+        rank0 model. Both terminate_model_replica (graceful) and
+        mark_replica_dead (auto-recover exhaustion) pass True: rank0 is a
+        SEPARATE subpool (launch_rank0_model appends its own sub pool with its
+        own address) that a regular replica's OOM does NOT terminate -- the
+        worker's recover_sub_pool only acts on the subpool whose address died,
+        so an exhausted regular replica leaves rank0 alive. Dropping only the
+        supervisor mapping would leak the rank0 actor/subpool. The RPC is
+        bounded by xo.wait_for(5s) so a stalled worker cannot hold up the
+        death-recovery tail path; failure/timeout is non-fatal.
+
+        Deliberately does NOT touch _unexpected_down_replicas: callers decide
+        whether the down marker stays lit (terminate clears it, mark_replica_dead
+        keeps it for the failure gauge).
+        """
         rank0_uid = model_uid + "-rank0"
-        if rank0_uid in self._replica_model_uid_to_worker:
-            rank0_worker_refs = self._replica_model_uid_to_worker.pop(rank0_uid)
+        rank0_worker_refs = self._replica_model_uid_to_worker.pop(rank0_uid, None)
+        if rank0_worker_refs is not None and terminate_rank0_on_worker:
             if not isinstance(rank0_worker_refs, (list, tuple)):
                 rank0_worker_refs = [rank0_worker_refs]
             for worker_ref in rank0_worker_refs:
-                await worker_ref.terminate_model(model_uid=rank0_uid)
+                try:
+                    await xo.wait_for(
+                        worker_ref.terminate_model(model_uid=rank0_uid),
+                        timeout=5,
+                    )
+                except Exception as e:
+                    logger.debug(
+                        "Terminate rank0 model failed, model uid: %s, error: %s",
+                        rank0_uid,
+                        e,
+                    )
 
         collective_manager_ref = self._collective_manager_mapping.pop(model_uid, None)
         if collective_manager_ref is not None:
@@ -2561,7 +2974,92 @@ class SupervisorActor(xo.StatelessActor):
                     e,
                 )
 
-        return 0
+    async def mark_replica_dead(self, replica_model_uid: str) -> None:
+        """Called back by worker after its local recover_sub_pool exhausts
+        AUTO_RECOVER_LIMIT (worker.py "Stop recreating model actor.").
+
+        Responsibilities: evict the dead replica from the round-robin scheduler
+        and light up model_unexpected_termination; when the single/last replica
+        dies, advance base_uid to TERMINATED and tear down the distributed
+        (Xavier) actors/mappings via _cleanup_distributed_actors.
+
+        Does NOT call back worker.terminate_model for the dead replica itself --
+        the worker already terminated it locally before giving up recreating
+        (recover_sub_pool calls terminate_model(is_model_die=True)). It DOES, on
+        last-replica death, terminate the separate rank0 actor via
+        _cleanup_distributed_actors, because a regular replica's OOM does not
+        reach rank0's distinct subpool (see that helper).
+        Equivalent to terminate_model_replica's "eviction half" (minus the dead
+        replica's worker RPC) plus _record_unexpected_down_replicas'
+        "observability half". Idempotent: no-op if the replica is already evicted.
+        """
+        parsed = self._get_model_uid_and_replica_index(replica_model_uid)
+        if parsed is None:
+            return
+        base_uid, replica_idx = parsed
+
+        replica_info = self._model_uid_to_replica_info.get(base_uid)
+        if replica_info is None:
+            return  # model already gone, idempotent no-op
+        if replica_idx not in replica_info.active_replica_ids:
+            return  # replica already evicted, idempotent no-op
+
+        # Observability half: read model_name BEFORE any TERMINATED transition.
+        # get_instance_info filters out TERMINATED entries; right now base_uid is
+        # the ERROR the worker set (not filtered), so model_name is readable.
+        try:
+            info_list = await self._status_guard_ref.get_instance_info(
+                model_uid=base_uid
+            )
+            m_name = info_list[0].model_name if info_list else "unknown"
+        except Exception:
+            m_name = "unknown"
+        self._unexpected_down_replicas[(base_uid, replica_idx)] = m_name
+        logger.warning(
+            "Replica down: worker exhausted auto-recover limit. "
+            "model_uid: %s, model_name: %s, replica_index: %s",
+            base_uid,
+            m_name,
+            replica_idx,
+        )
+
+        # Eviction half: mirror terminate_model_replica, minus
+        # worker_ref.terminate_model.
+        self._replica_model_uid_to_worker.pop(replica_model_uid, None)
+        self._replica_model_uid_to_worker_shards.pop(replica_model_uid, None)
+        replica_info.replica_to_worker_refs.pop(replica_idx, None)
+        replica_info.active_replica_ids.remove(replica_idx)
+        self._refresh_replica_scheduler(replica_info)
+
+        remaining = await self._status_guard_ref.remove_replica_status(
+            base_uid, replica_idx
+        )
+        if remaining > 0:
+            # Degraded: healthy replicas remain -> keep READY.
+            await self._status_guard_ref.update_instance_info(
+                base_uid,
+                {"replica": remaining, "status": LaunchStatus.READY.name},
+            )
+            return
+
+        # Single replica / last replica died -> take the model fully offline.
+        self._model_uid_to_replica_info.pop(base_uid, None)
+
+        # Tear down distributed (Xavier) actors/mappings. rank0 is a separate
+        # subpool that the regular replica's OOM did NOT terminate (the worker
+        # only recovered the dead replica's own subpool), so we must RPC the
+        # worker to terminate it -- dropping just the supervisor mapping would
+        # leak the rank0 actor/subpool. The RPC is bounded (xo.wait_for 5s) and
+        # best-effort. Keeps the _unexpected_down_replicas marker lit for the
+        # failure gauge.
+        await self._cleanup_distributed_actors(base_uid, terminate_rank0_on_worker=True)
+
+        try:
+            await self._status_guard_ref.update_instance_info(
+                base_uid, {"status": LaunchStatus.TERMINATED.name}
+            )
+        except Exception:
+            logger.warning("Failed to mark %s TERMINATED in status guard", base_uid)
 
     @log_async(logger=logger)
     async def get_model(self, model_uid: str) -> xo.ActorRefType["ModelActor"]:
@@ -2582,8 +3080,13 @@ class SupervisorActor(xo.StatelessActor):
 
         worker_ref = self._replica_model_uid_to_worker.get(replica_model_uid, None)
         if worker_ref is None:
-            raise ValueError(
-                f"Model not found in the model list, uid: {replica_model_uid}"
+            # replica_info exists but worker route not yet registered —
+            # model is being launched (wait_ready=False), not missing.
+            # Raise ModelNotReadyError (503) instead of ValueError (404)
+            # so the negative cache is not poisoned and clients get a
+            # retry-friendly response.
+            raise ModelNotReadyError(
+                f"Model {model_uid} is launching, not yet ready for inference"
             )
         if isinstance(worker_ref, (list, tuple)):
             # get first worker to fetch information if model across workers
@@ -2591,10 +3094,15 @@ class SupervisorActor(xo.StatelessActor):
         assert not isinstance(
             worker_ref, (list, tuple)
         ), "worker_ref must be a single worker"
-        return await xo.wait_for(
-            worker_ref.get_model(model_uid=replica_model_uid),
-            XINFERENCE_GET_MODEL_RPC_TIMEOUT,
-        )
+        try:
+            return await xo.wait_for(
+                worker_ref.get_model(model_uid=replica_model_uid),
+                XINFERENCE_GET_MODEL_RPC_TIMEOUT,
+            )
+        except ModelNotReadyError:
+            raise ModelNotReadyError(
+                f"Model {model_uid} is loading, please retry later"
+            )
 
     @log_async(logger=logger)
     async def get_model_status(self, replica_model_uid: str):
@@ -2624,8 +3132,8 @@ class SupervisorActor(xo.StatelessActor):
         )
         worker_ref = self._replica_model_uid_to_worker.get(replica_model_uid, None)
         if worker_ref is None:
-            raise ValueError(
-                f"Model not found in the model list, uid: {replica_model_uid}"
+            raise ModelNotReadyError(
+                f"Model {model_uid} is launching, not yet ready for inference"
             )
         if isinstance(worker_ref, (list, tuple)):
             # get status from first shard if model has multiple shards across workers
@@ -2688,8 +3196,23 @@ class SupervisorActor(xo.StatelessActor):
 
         running_model_info = {parse_replica_model_uid(k)[0]: v for k, v in ret.items()}
         # add replica count
+        stale_uids = []
         for k, v in running_model_info.items():
-            v["replica"] = self._model_uid_to_replica_info[k].replica
+            replica_info = self._model_uid_to_replica_info.get(k)
+            if replica_info is None:
+                # Worker still reports a replica that supervisor no longer
+                # tracks (e.g. failed launch left a stale subprocess). Skip
+                # it instead of raising KeyError, and let recover_sub_pool
+                # clean up later.
+                logger.warning(
+                    "list_models: drop stale running model %s without replica info",
+                    k,
+                )
+                stale_uids.append(k)
+                continue
+            v["replica"] = replica_info.replica
+        for k in stale_uids:
+            running_model_info.pop(k, None)
         return running_model_info
 
     def is_local_deployment(self) -> bool:
@@ -2824,6 +3347,7 @@ class SupervisorActor(xo.StatelessActor):
 
         await self._rebuild_worker_status_guard_state(worker_address, normalized)
         logger.debug("Worker %s has been added successfully", worker_address)
+        self._schedule_autostart()
 
     @log_async(logger=logger)
     async def remove_worker(self, worker_address: str):

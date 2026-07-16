@@ -1,0 +1,7 @@
+# CPU-only override. Use together with the base file:
+#   docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
+# Requires Docker Compose >= v2.24.4 (for the !reset tag).
+services:
+  xinference:
+    image: ${XINFERENCE_IMAGE:-xprobe/xinference:latest-cpu}
+    deploy: !reset null

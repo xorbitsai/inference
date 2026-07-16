@@ -101,6 +101,12 @@ function DialogContent({
         onPointerDownOutside={(event) => {
           onPointerDownOutside?.(event)
 
+          if ((event.target as Element | null)?.closest?.('[data-slot="select-dropdown"]')) {
+            event.preventDefault()
+
+            return
+          }
+
           if (!maskClosable) {
             event.preventDefault()
           }
@@ -109,7 +115,10 @@ function DialogContent({
       >
         {headerChildren}
         {bodyChildren.length > 0 && (
-          <div data-slot="dialog-body" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-2">
+          <div
+            data-slot="dialog-body"
+            className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-1 pl-1 pr-3"
+          >
             {bodyChildren}
           </div>
         )}

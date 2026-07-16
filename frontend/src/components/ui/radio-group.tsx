@@ -7,9 +7,11 @@ import { Circle } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
+export type RadioValue = string | boolean
+
 export interface RadioOption {
   label: React.ReactNode
-  value: string
+  value: RadioValue
   disabled?: boolean
 }
 
@@ -26,12 +28,13 @@ export interface RadioGroupProps
     React.ComponentPropsWithoutRef<
       typeof RadioGroupPrimitive.Root
     >,
-    'onValueChange' | 'onChange'
+    'onValueChange' | 'onChange' | 'value'
   > {
   options?: RadioOption[]
+  value?: RadioValue
   error?: boolean
   direction?: 'horizontal' | 'vertical'
-  onChange?: (value: string) => void
+  onChange?: (value: RadioValue) => void
   renderLabel?: (
     option: RadioOption,
     checked: boolean,
@@ -116,9 +119,21 @@ export const RadioGroup = React.forwardRef<
     return (
       <RadioGroupPrimitive.Root
         ref={ref}
-        value={value}
+        value={
+          value === undefined
+            ? undefined
+            : String(value)
+        }
         disabled={disabled}
-        onValueChange={onChange}
+        onValueChange={(nextValue) => {
+          onChange?.(
+            options.find(
+              (option) =>
+                String(option.value) ===
+                nextValue,
+            )?.value ?? nextValue,
+          )
+        }}
         className={cn(
           'flex gap-3',
           direction === 'vertical'
@@ -133,9 +148,9 @@ export const RadioGroup = React.forwardRef<
 
           return (
             <RadioGroupItem
-              key={option.value}
-              id={option.value}
-              value={option.value}
+              key={String(option.value)}
+              id={String(option.value)}
+              value={String(option.value)}
               error={error}
               disabled={disabled || option.disabled}
               label={

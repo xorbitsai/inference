@@ -1,0 +1,390 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-28 11:54+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ja <LL@li.org>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/getting_started/installation.rst:5
+msgid "Installation"
+msgstr "インストール"
+
+#: ../../source/getting_started/installation.rst:6
+msgid ""
+"Xinference can be installed with ``pip`` on Linux, Windows, and macOS. To "
+"run models using Xinference, you will need to install the backend "
+"corresponding to the type of model you intend to serve."
+msgstr ""
+"XinferenceはLinux、Windows、MacOS上で``pip``を使ってインストールできます。Xinferenceでモデル推論を行う場合、モデルに応じて異なるエンジンを指定できます。"
+
+#: ../../source/getting_started/installation.rst:8
+msgid ""
+"If you aim to serve all supported models, you can install all the necessary "
+"dependencies with a single command::"
+msgstr "すべてのサポート対象モデルを推論できるようにしたい場合は、以下のコマンドで必要な依存関係をすべてインストールしてください::"
+
+#: ../../source/getting_started/installation.rst:14
+msgid ""
+"Due to irreconcilable package dependency conflicts between vLLM and sglang, "
+"we have removed sglang from the all extra. If you want to use sglang, please"
+" install it separately via ``pip install 'xinference[sglang]'``."
+msgstr ""
+"vllm と sglang はパッケージ依存関係の調整ができないため、all から sglang を削除しました。sglang "
+"を使用する場合は、``pip install 'xinference[sglang]'`` を実行してください。"
+
+#: ../../source/getting_started/installation.rst:17
+msgid "Several usage scenarios require special attention."
+msgstr "特定の使用シーンでは特に注意が必要です。"
+
+#: ../../source/getting_started/installation.rst:19
+msgid "**GGUF format** with **llama.cpp engine**"
+msgstr "**GGUF形式** を **llama.cppエンジン** と組み合わせて使用する"
+
+#: ../../source/getting_started/installation.rst:21
+msgid ""
+"In this situation, it's advised to install its dependencies manually based "
+"on your hardware specifications to enable acceleration. For more details, "
+"see the :ref:`installation_gguf` section."
+msgstr ""
+"この場合、お使いのハードウェア仕様に基づき、手動で依存関係をインストールしてアクセラレーションを有効にすることを推奨します。詳細は "
+":ref:`installation_gguf` セクションを参照してください。"
+
+#: ../../source/getting_started/installation.rst:23
+msgid "**AWQ or GPTQ** format with **transformers engine**"
+msgstr "**AWQ または GPTQ 形式** を **transformers エンジン** と組み合わせて使用する"
+
+#: ../../source/getting_started/installation.rst:25
+msgid "**This section is added in v1.6.0.**"
+msgstr "**本セクションの内容は v1.6.0 で新たに追加されました。**"
+
+#: ../../source/getting_started/installation.rst:27
+msgid ""
+"This is because the dependencies at this stage require special options and "
+"are difficult to install. Please run command below in advance"
+msgstr "これは、この段階の依存関係に特別なオプションが必要で、インストールが困難なためです。事前に以下のコマンドを実行してください。"
+
+#: ../../source/getting_started/installation.rst:33
+msgid ""
+"Some dependencies like ``transformers`` might be downgraded, you can run "
+"``pip install \"xinference[all]\"`` afterwards."
+msgstr ""
+"一部の依存関係（例：``transformers``）はダウングレードされる可能性があります。その場合は、後で ``pip install "
+"\"xinference[all]\"`` を実行してください。"
+
+#: ../../source/getting_started/installation.rst:36
+msgid ""
+"If you want to install only the necessary backends, here's a breakdown of "
+"how to do it."
+msgstr "必要な依存関係のみをインストールしたい場合、以下の手順で詳細に操作します。"
+
+#: ../../source/getting_started/installation.rst:41
+msgid "Transformers Backend"
+msgstr "Transformers エンジン"
+
+#: ../../source/getting_started/installation.rst:42
+msgid ""
+"PyTorch (transformers) supports the inference of most state-of-art models. "
+"It is the default backend for models in PyTorch format::"
+msgstr "PyTorch（transformers）エンジンは、ほとんどすべての最新モデルをサポートしています。これは、Pytorchモデルがデフォル"
+"トで使用するエンジンです::"
+
+#: ../../source/getting_started/installation.rst:46
+msgid "Notes:"
+msgstr "注意："
+
+#: ../../source/getting_started/installation.rst:48
+msgid ""
+"The transformers engine supports ``pytorch`` / ``gptq`` / ``awq`` / ``bnb`` "
+"/ ``fp4`` formats."
+msgstr ""
+"Transformersエンジンは ``pytorch`` / ``gptq`` / ``awq`` / ``bnb`` / ``fp4`` "
+"形式をサポートしています。"
+
+#: ../../source/getting_started/installation.rst:49
+msgid ""
+"FP4 format requires ``transformers`` with ``FPQuantConfig`` support. If you "
+"see an import error, please upgrade ``transformers`` to a newer version."
+msgstr ""
+"FP4形式は、FPQuantConfigをサポートするtransformersライブラリが必要です。インポートエラーが発生した場合は、transformersを新しいバージョンにアップグレードしてください。"
+
+#: ../../source/getting_started/installation.rst:54
+msgid "vLLM Backend"
+msgstr "vLLM エンジン"
+
+#: ../../source/getting_started/installation.rst:55
+msgid ""
+"vLLM is a fast and easy-to-use library for LLM inference and serving. "
+"Xinference will choose vLLM as the backend to achieve better throughput when"
+" the following conditions are met:"
+msgstr ""
+"vLLMは、高同時実行性をサポートする高性能大規模モデル推論エンジンです。以下の条件を満たす場合、Xinferenceは自動的にvllmをエンジンとして選択し、より高いスループットを実現します："
+
+#: ../../source/getting_started/installation.rst:57
+msgid ""
+"The model format is ``pytorch``, ``gptq``, ``awq``, ``fp4``, ``fp8`` or "
+"``bnb``."
+msgstr ""
+"モデル形式は ``pytorch`` 、 ``gptq`` 、 ``awq`` 、 ``fp4`` 、 ``fp8`` 、または ``bnb`` です。"
+
+#: ../../source/getting_started/installation.rst:58
+msgid "When the model format is ``pytorch``, the quantization is ``none``."
+msgstr "モデル形式が ``pytorch`` の場合、量子化オプションは ``none`` である必要があります。"
+
+#: ../../source/getting_started/installation.rst:59
+msgid "When the model format is ``awq``, the quantization is ``Int4``."
+msgstr "モデル形式が ``awq`` の場合、量子化オプションは ``Int4`` である必要があります。"
+
+#: ../../source/getting_started/installation.rst:60
+msgid ""
+"When the model format is ``gptq``, the quantization is ``Int3``, ``Int4`` or"
+" ``Int8``."
+msgstr ""
+"モデル形式が ``gptq`` の場合、量子化オプションは ``Int3`` 、 ``Int4`` または ``Int8`` である必要があります。"
+
+#: ../../source/getting_started/installation.rst:61
+msgid "The system is Linux and has at least one CUDA device"
+msgstr "オペレーティングシステムはLinuxであり、少なくとも1つのCUDA対応デバイスがあること。"
+
+#: ../../source/getting_started/installation.rst:62
+msgid ""
+"The model family (for custom models) / model name (for builtin models) is "
+"within the list of models supported by vLLM"
+msgstr ""
+"カスタムモデルの ``model_family`` フィールドと組み込みモデルの ``model_name`` フィールドは、vLLM "
+"のサポートリストに含まれています。"
+
+#: ../../source/getting_started/installation.rst:64
+msgid "Currently, supported models include:"
+msgstr "現在、サポートされているモデルは次の通りです。"
+
+#: ../../source/getting_started/installation.rst:68
+msgid ""
+"``code-llama``, ``code-llama-instruct``, ``code-llama-python``, "
+"``deepseek``, ``deepseek-chat``, ``deepseek-coder``, ``deepseek-coder-"
+"instruct``, ``deepseek-r1-distill-llama``, ``gorilla-openfunctions-v2``, "
+"``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``, ``llama-3``, "
+"``llama-3-instruct``, ``llama-3.1``, ``llama-3.1-instruct``, "
+"``llama-3.3-instruct``, ``tiny-llama``, ``wizardcoder-python-v1.0``, "
+"``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, "
+"``Yi-1.5-chat-16k``, ``Yi-200k``, ``Yi-chat``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:69
+msgid ""
+"``codestral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``, "
+"``mistral-instruct-v0.3``, ``mistral-large-instruct``, ``mistral-nemo-"
+"instruct``, ``mistral-v0.1``, ``openhermes-2.5``, ``seallm_v2``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:70
+msgid ""
+"``Baichuan-M2``, ``codeqwen1.5``, ``codeqwen1.5-chat``, "
+"``deepseek-r1-distill-qwen``, ``DianJin-R1``, ``fin-r1``, "
+"``HuatuoGPT-o1-Qwen2.5``, ``KAT-V1``, ``marco-o1``, ``qwen1.5-chat``, "
+"``qwen2-instruct``, ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-"
+"instruct``, ``qwen2.5-instruct``, ``qwen2.5-instruct-1m``, ``qwenLong-l1``, "
+"``QwQ-32B``, ``QwQ-32B-Preview``, ``seallms-v3``, ``skywork-or1``, "
+"``skywork-or1-preview``, ``XiYanSQL-QwenCoder-2504``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:71
+msgid "``llama-3.2-vision``, ``llama-3.2-vision-instruct``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:72
+msgid "``baichuan-2``, ``baichuan-2-chat``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:73
+msgid "``InternLM2ForCausalLM``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:74
+msgid "``qwen-chat``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:75
+msgid ""
+"``mixtral-8x22B-instruct-v0.1``, ``mixtral-instruct-v0.1``, ``mixtral-v0.1``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:76
+msgid "``cogagent``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:77
+msgid "``glm-edge-chat``, ``glm4-chat``, ``glm4-chat-1m``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:78
+msgid "``codegeex4``, ``glm-4v``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:79
+msgid "``seallm_v2.5``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:80
+msgid "``orion-chat``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:81
+msgid "``qwen1.5-moe-chat``, ``qwen2-moe-instruct``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:82
+msgid "``CohereForCausalLM``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:83
+msgid ""
+"``deepseek-v2-chat``, ``deepseek-v2-chat-0628``, ``deepseek-v2.5``, "
+"``deepseek-vl2``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:84
+msgid ""
+"``deepseek-prover-v2``, ``deepseek-r1``, ``deepseek-r1-0528``, "
+"``deepseek-v3``, ``deepseek-v3-0324``, ``Deepseek-V3.1``, "
+"``moonlight-16b-a3b-instruct``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:85
+msgid "``deepseek-r1-0528-qwen3``, ``qwen3``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:86
+msgid "``minicpm3-4b``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:87
+msgid "``internlm3-instruct``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:88
+msgid "``gemma-3-1b-it``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:89
+msgid "``glm4-0414``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:90
+msgid ""
+"``minicpm-2b-dpo-bf16``, ``minicpm-2b-dpo-fp16``, ``minicpm-2b-dpo-fp32``, "
+"``minicpm-2b-sft-bf16``, ``minicpm-2b-sft-fp32``, ``minicpm4``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:91
+msgid "``Ernie4.5``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:92
+msgid "``Qwen3-Coder``, ``Qwen3-Instruct``, ``Qwen3-Thinking``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:93
+msgid "``glm-4.5``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:94
+msgid "``gpt-oss``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:95
+msgid "``seed-oss``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:96
+msgid "``Qwen3-Next-Instruct``, ``Qwen3-Next-Thinking``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:97
+msgid "``DeepSeek-V3.2``, ``DeepSeek-V3.2-Exp``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:98
+msgid "``MiniMax-M2``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:101
+msgid "To install Xinference and vLLM::"
+msgstr "xinference と vLLM をインストールする::"
+
+#: ../../source/getting_started/installation.rst:114
+msgid "Llama.cpp Backend"
+msgstr "Llama.cpp エンジン"
+
+#: ../../source/getting_started/installation.rst:115
+msgid ""
+"Xinference supports models in ``gguf`` format via ``xllamacpp``. `xllamacpp "
+"<https://github.com/xorbitsai/xllamacpp>`_ is developed by Xinference team, "
+"and is the sole backend for llama.cpp since v1.6.0."
+msgstr ""
+"Xinferenceはxllamacppを通じてgguf形式のモデルをサポートしています。`xllamacpp "
+"<https://github.com/xorbitsai/xllamacpp>`_ "
+"はXinferenceチームによって開発され、v1.6.0からllama.cppの唯一のバックエンドになりました。"
+
+#: ../../source/getting_started/installation.rst:121
+msgid ""
+"Since Xinference v1.5.0, ``llama-cpp-python`` is deprecated. Since "
+"Xinference v1.6.0, ``llama-cpp-python`` has been removed."
+msgstr ""
+"Xinference v1.5.0以降、``llama-cpp-python``は非推奨となりました。Xinference "
+"v1.6.0以降では、このバックエンドは削除されました。"
+
+#: ../../source/getting_started/installation.rst:124
+#: ../../source/getting_started/installation.rst:134
+#: ../../source/getting_started/installation.rst:143
+msgid "Initial setup::"
+msgstr "初期手順::"
+
+#: ../../source/getting_started/installation.rst:128
+msgid ""
+"For more installation instructions for ``xllamacpp`` to enable GPU "
+"acceleration, please refer to: https://github.com/xorbitsai/xllamacpp"
+msgstr ""
+"GPU アクセラレーションを有効にするための詳細な ``xllamacpp`` "
+"インストール手順については、以下を参照してください：https://github.com/xorbitsai/xllamacpp"
+
+#: ../../source/getting_started/installation.rst:131
+msgid "SGLang Backend"
+msgstr "SGLang エンジン"
+
+#: ../../source/getting_started/installation.rst:132
+msgid ""
+"SGLang has a high-performance inference runtime with RadixAttention. It "
+"significantly accelerates the execution of complex LLM programs by automatic"
+" KV cache reuse across multiple calls. And it also supports other common "
+"techniques like continuous batching and tensor parallelism."
+msgstr ""
+"SGLangは、RadixAttentionに基づく高性能推論ランタイムを備えています。複数の呼び出し間でKVキャッシュを自動的に再利用することで、複雑なLLMプログラムの実行を大幅に高速化します。また、連続バッチ処理やテンソル並列処理などの他の一般的な推論技術もサポートしています。"
+
+#: ../../source/getting_started/installation.rst:140
+msgid "MLX Backend"
+msgstr "MLX エンジン"
+
+#: ../../source/getting_started/installation.rst:141
+msgid "MLX-lm is designed for Apple silicon users to run LLM efficiently."
+msgstr "MLX-lm は、Apple Silicon チップ上で効率的な LLM 推論を提供するために使用されます。"
+
+#: ../../source/getting_started/installation.rst:148
+msgid "Other Platforms"
+msgstr "他のプラットフォーム"
+
+#: ../../source/getting_started/installation.rst:150
+msgid ":ref:`Ascend NPU <installation_npu>`"
+msgstr ""

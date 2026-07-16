@@ -1,0 +1,115 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2023.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-11-01 10:48+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: it <LL@li.org>\n"
+"Language: it\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/examples/chatbot.rst:5
+msgid "Example: CLI chatbot 🤖️"
+msgstr "Esempio: Chatbot a riga di comando 🤖️"
+
+#: ../../source/examples/chatbot.rst:7
+msgid "**Description**:"
+msgstr "**Descrizione**:"
+
+#: ../../source/examples/chatbot.rst:9
+msgid ""
+"Demonstrate how to interact with Xinference to play with LLM chat "
+"functionality with an AI agent in command line💻"
+msgstr ""
+"Dimostra come interagire con Xinference, utilizzando la funzione di chat "
+"basata su LLM nella riga di comando per interagire con l'agente AI. 💻"
+
+#: ../../source/examples/chatbot.rst:11
+msgid "**Used Technology**:"
+msgstr "**Tecnologie coinvolte**:"
+
+#: ../../source/examples/chatbot.rst:13
+msgid ""
+"@ `ggerganov <https://twitter.com/ggerganov>`_ 's `ggml "
+"<https://github.com/ggerganov/ggml>`_"
+msgstr ""
+"@ `ggerganov <https://twitter.com/ggerganov>`_ `ggml "
+"<https://github.com/ggerganov/ggml>`_"
+
+#: ../../source/examples/chatbot.rst:15
+msgid "@ `Xinference <https://github.com/xorbitsai/inference>`_ as a launcher"
+msgstr ""
+"@ `Xinference <https://github.com/xorbitsai/inference>`_ come piattaforma"
+
+#: ../../source/examples/chatbot.rst:17
+msgid ""
+"@ All LLaMA and Chatglm models supported by `Xorbitsio inference "
+"<https://github.com/xorbitsai/inference>`_"
+msgstr ""
+"Tutti i modelli LLaMA e Chatglm supportati da `Xinference inference "
+"<https://github.com/xorbitsai/inference>`_."
+
+#: ../../source/examples/chatbot.rst:19
+msgid "**Detailed Explanation on the Demo Functionality** :"
+msgstr "**Spiegazione dettagliata sulle funzionalità demo**:"
+
+#: ../../source/examples/chatbot.rst:21
+msgid ""
+"Take the user command line input in the terminal and grab the required "
+"parameters for model launching."
+msgstr ""
+"Accetta l'input da riga di comando dell'utente nel terminale e ottiene i "
+"parametri necessari per avviare il modello."
+
+#: ../../source/examples/chatbot.rst:23
+msgid ""
+"Launch the Xinference frameworks and automatically deploy the model user "
+"demanded into the cluster."
+msgstr ""
+"Avviare il framework Xinference e distribuire automaticamente il modello "
+"richiesto dall'utente nel cluster."
+
+#: ../../source/examples/chatbot.rst:25
+msgid ""
+"Initialize an empty chat history to store all the context in the chatroom."
+msgstr ""
+"Inizializza una cronologia chat vuota per memorizzare tutto il contesto "
+"della stanza di chat."
+
+#: ../../source/examples/chatbot.rst:27
+msgid ""
+"Recursively ask for user's input as prompt and let the model to generate "
+"response based on the prompt and the chat history. Show the Output of the "
+"response in the terminal."
+msgstr ""
+"Richiedi ricorsivamente l'input dell'utente come prompt, facendo sì che il "
+"modello generi una risposta basata sul prompt e sulla cronologia della chat."
+" Mostra l'output della risposta nel terminale."
+
+#: ../../source/examples/chatbot.rst:30
+msgid ""
+"Store the user's input and agent's response into the chat history as context"
+" for the upcoming rounds."
+msgstr ""
+"Memorizza l'input dell'utente e le risposte dell'agente nella cronologia "
+"chat, come contesto per i prossimi turni di dialogo."
+
+#: ../../source/examples/chatbot.rst:32
+msgid "**Source Code** :"
+msgstr "**Codice sorgente**:"
+
+#: ../../source/examples/chatbot.rst:33
+msgid ""
+"`chat "
+"<https://github.com/RayJi01/Xprobe_inference/blob/main/examples/chat.py>`_"
+msgstr ""

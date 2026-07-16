@@ -125,3 +125,133 @@
 p {
   margin: 0;
 }
+
+@keyframes collapsible-down {
+  from {
+    height: 0;
+    opacity: 0;
+    transform: translateY(-4px);
+    visibility: hidden;
+  }
+  to {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+    transform: translateY(0);
+    visibility: visible;
+  }
+}
+
+@keyframes collapsible-up {
+  from {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+    transform: translateY(0);
+    visibility: visible;
+  }
+  to {
+    height: 0;
+    opacity: 0;
+    transform: translateY(-4px);
+    visibility: hidden;
+  }
+}
+
+.collapsible-content[data-state='open'] {
+  animation: collapsible-down 300ms ease-out;
+  visibility: visible;
+}
+
+.collapsible-content[data-state='closed'] {
+  animation: collapsible-up 300ms ease-out;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px);
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .collapsible-content {
+    animation: none !important;
+  }
+}
+.markdown-body p {
+  margin-bottom: 0.5em;
+}
+
+.markdown-body ol,
+.markdown-body ul {
+  margin: 1em 0;
+  padding-left: 2em;
+  list-style-type: decimal;
+}
+
+.markdown-body li + li {
+  margin-top: 0.35em;
+}
+
+.markdown-body hr {
+  margin: 10px 0;
+}
+
+.markdown-body table {
+  width: 100% !important;
+  margin-bottom: 10px;
+  text-align: left;
+  border-collapse: collapse;
+}
+
+.markdown-body table thead tr {
+  color: #fff;
+  font-weight: 600;
+  background-color: hsl(var(--primary) / 0.6);
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.markdown-body table tbody tr:not(:last-child) {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.markdown-body table td,
+.markdown-body table th {
+  padding: 8px;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  margin-top: 24px;
+  margin-bottom: 10px;
+  font-weight: 600;
+  font-size: 16px;
+  border-bottom: none;
+}
+
+.markdown-body h1 {
+  font-size: 24px;
+}
+
+.markdown-body h2 {
+  font-size: 20px;
+}
+
+.markdown-body h3 {
+  font-size: 18px;
+}
+
+.markdown-body a {
+  color: hsl(var(--primary));
+}
+
+.markdown-body a:hover {
+  color: hsl(var(--primary) / 0.6);
+}
+
+.markdown-body pre {
+  padding: 12px;
+  border-radius: 8px;
+  background: #f5f5f5;
+}

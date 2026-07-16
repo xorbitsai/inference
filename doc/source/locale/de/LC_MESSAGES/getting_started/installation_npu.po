@@ -1,0 +1,100 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-07-07 16:58+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: de <LL@li.org>\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/getting_started/installation_npu.rst:6
+msgid "Installation Guide for Ascend NPU"
+msgstr "Installation auf der Ascend NPU"
+
+#: ../../source/getting_started/installation_npu.rst:7
+msgid ""
+"Xinference can run on Ascend NPU, follow below instructions to install."
+msgstr ""
+"Xinference kann auf der Ascend NPU ausgeführt werden. Verwenden Sie den "
+"folgenden Befehl zur Installation."
+
+#: ../../source/getting_started/installation_npu.rst:11
+msgid ""
+"The open-source version relies on Transformers for inference, which can be "
+"slow on chips like 310p3. We provide an enterprise version that supports the"
+" MindIE engine, offering better performance and compatibility for Ascend "
+"NPU. Refer to `Xinference Enterprise <https://xinference.io>`_"
+msgstr ""
+"Die Open-Source-Version ist für die Inferenz auf Transformers angewiesen, "
+"was auf Chips wie dem 310p3 zu langsamer Ausführung führen kann. Wir bieten "
+"eine Unternehmensversion an, die die MindIE-Engine unterstützt, "
+"leistungsstärker ist und eine bessere Kompatibilität für Ascend NPU bietet. "
+"Weitere Details finden Sie unter `Xinference Enterprise Edition "
+"<https://xinference.io>`_."
+
+#: ../../source/getting_started/installation_npu.rst:18
+msgid "Installing PyTorch and Ascend extension for PyTorch"
+msgstr "Installieren Sie PyTorch und die Ascend-Erweiterung"
+
+#: ../../source/getting_started/installation_npu.rst:19
+msgid "Install PyTorch CPU version and corresponding Ascend extension."
+msgstr ""
+"Installieren Sie die PyTorch CPU-Version und die entsprechende Ascend-"
+"Erweiterung."
+
+#: ../../source/getting_started/installation_npu.rst:21
+msgid "Take PyTorch v2.1.0 as example."
+msgstr "Am Beispiel von PyTorch v2.1.0."
+
+#: ../../source/getting_started/installation_npu.rst:27
+msgid ""
+"Then install `Ascend extension for PyTorch "
+"<https://github.com/Ascend/pytorch>`_."
+msgstr ""
+"Installieren Sie anschließend die `Ascend extension for PyTorch "
+"<https://github.com/Ascend/pytorch>`_."
+
+#: ../../source/getting_started/installation_npu.rst:35
+msgid ""
+"Running below command to see if it correctly prints the Ascend NPU count."
+msgstr ""
+"Führen Sie den folgenden Befehl aus, um zu überprüfen. Wenn er normal "
+"ausgeführt wird, wird die Anzahl der Ascend NPUs ausgegeben."
+
+#: ../../source/getting_started/installation_npu.rst:42
+msgid "Installing Xinference"
+msgstr "Installieren Sie Xinference"
+
+#: ../../source/getting_started/installation_npu.rst:48
+msgid ""
+"Now you can use xinference according to :ref:`doc <using_xinference>`. "
+"``Transformers`` backend is the only available engine supported for Ascend "
+"NPU for open source version."
+msgstr ""
+"Sie können nun gemäß :ref:`doc <using_xinference>` Xinference verwenden. "
+"Das ``Transformers``-Backend ist die einzige verfügbare Engine, die für "
+"Ascend NPU in der Open-Source-Version unterstützt wird."
+
+#: ../../source/getting_started/installation_npu.rst:52
+msgid "Enterprise Support"
+msgstr "Unternehmensunterstützung"
+
+#: ../../source/getting_started/installation_npu.rst:53
+msgid ""
+"If you encounter any performance or other issues for Ascend NPU, please "
+"reach out to us via `link <https://xinference.io>`_."
+msgstr ""
+"Wenn Sie auf dem Ascend NPU auf Leistungs- oder andere Probleme stoßen, "
+"wenden Sie sich bitte an die Xinference Enterprise Edition. Kontaktieren Sie"
+" uns `hier <https://xinference.io/contact>`_."

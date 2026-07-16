@@ -2,7 +2,8 @@
 
 import * as React from 'react';
 import { getNamePathString } from '@/lib/form';
-import { FieldName, FormInstance, FormContextType } from '@/types/form';
+import { cn } from '@/lib/utils';
+import { FieldName, FormInstance, FormContextType, FormValues } from '@/types/form';
 
 const FormContext = React.createContext<FormContextType | null>(null);
 
@@ -16,24 +17,26 @@ export function useFormContext() {
   return context;
 }
 
-interface FormProps {
+interface FormProps extends Omit<React.ComponentProps<'form'>, 'onSubmit'> {
   form: FormInstance;
 
-  initialValues?: Record<string, any>;
+  initialValues?: Record<string, unknown>;
 
-  children: React.ReactNode;
-
-  onFinish?: (values: Record<string, any>) => void;
+  onFinish?: (values: FormValues) => void;
 }
 
-export function Form({ form, initialValues, children, onFinish }: FormProps) {
+export function Form({ form, initialValues, children, onFinish, className, ...props }: FormProps) {
   const [, forceUpdate] = React.useState({});
 
   const [errors, setErrors] = React.useState<Record<string, string>>({});
 
   const [touched, setTouched] = React.useState<Record<string, boolean>>({});
 
+  const touchedRef = React.useRef(touched);
+
   const validatorsRef = React.useRef<Record<string, () => string>>({});
+
+  touchedRef.current = touched;
 
   // Keep initial values as a template; visible fields pull from it when they mount.
   if (initialValues && form.initialValues.current !== initialValues) {
@@ -43,6 +46,35 @@ export function Form({ form, initialValues, children, onFinish }: FormProps) {
   React.useEffect(() => {
     return form.subscribe(() => {
       forceUpdate({});
+
+      setErrors((prev) => {
+        const next = { ...prev };
+
+        Object.keys(touchedRef.current).forEach((name) => {
+          const validate = validatorsRef.current[name];
+
+          if (!validate) return;
+
+          const error = validate();
+
+          if (error) {
+            next[name] = error;
+          } else {
+            delete next[name];
+          }
+        });
+
+        const keys = Object.keys(next);
+
+        if (
+          keys.length === Object.keys(prev).length &&
+          keys.every((name) => next[name] === prev[name])
+        ) {
+          return prev;
+        }
+
+        return next;
+      });
     });
   }, [form]);
 
@@ -194,7 +226,7 @@ export function Form({ form, initialValues, children, onFinish }: FormProps) {
         unregisterField,
       }}
     >
-      <form onSubmit={handleSubmit} className="space-y-3">
+      <form {...props} onSubmit={handleSubmit} className={cn('space-y-3', className)}>
         {children}
       </form>
     </FormContext.Provider>

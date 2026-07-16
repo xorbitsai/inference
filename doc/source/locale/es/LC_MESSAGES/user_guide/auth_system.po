@@ -1,0 +1,696 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2023, Xorbits Inc.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2024.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-08 18:28+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: es <LL@li.org>\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:5
+msgid "Simple OAuth2 System (experimental)"
+msgstr "Sistema OAuth2 (experimental)"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:7
+msgid ""
+"Xinference builds an In-memory OAuth2 authentication and authorization "
+"system using the account-password mode."
+msgstr ""
+"Xinference utiliza un modelo de nombre de usuario y contraseña para "
+"construir un sistema de autenticación y autorización OAuth2 basado en "
+"memoria."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:10
+msgid ""
+"Since **v3.0**, Xinference enables the :ref:`advanced, database-backed "
+"authentication system <user_guide_advanced_auth_system>` by default "
+"(``XINFERENCE_AUTH_ADVANCED``), replacing the in-memory system described "
+"below as the default behavior. On first startup, an ``admin`` account is "
+"created automatically and its one-time password is printed to the server log"
+" — save it, since it is not shown again."
+msgstr ""
+"Desde la **v3.0**, Xinference habilita de forma predeterminada el "
+":ref:`sistema de autenticación avanzado basado en base de datos "
+"<user_guide_advanced_auth_system>` (``XINFERENCE_AUTH_ADVANCED``), que "
+"reemplaza al sistema en memoria descrito a continuación como comportamiento "
+"predeterminado. En el primer inicio, se crea automáticamente una cuenta "
+"``admin`` y su contraseña de un solo uso se imprime en el registro del "
+"servidor; guárdela, ya que no se volverá a mostrar."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:17
+msgid ""
+"The simple, file-based authentication system on this page still works and is"
+" not going away. To use it instead of the advanced system, set "
+"``XINFERENCE_AUTH_ADVANCED=false`` and pass ``--auth-config`` as described "
+"below. To disable authentication entirely, also set "
+"``XINFERENCE_AUTH_ADVANCED=false`` and omit ``--auth-config``."
+msgstr ""
+"El sistema de autenticación simple basado en archivos descrito en esta "
+"página sigue funcionando y no desaparecerá. Para usarlo en lugar del sistema"
+" avanzado, establezca ``XINFERENCE_AUTH_ADVANCED=false`` y pase ``--auth-"
+"config`` como se describe a continuación. Para deshabilitar la autenticación"
+" por completo, establezca también ``XINFERENCE_AUTH_ADVANCED=false`` y omita"
+" ``--auth-config``."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:25
+msgid "Permissions"
+msgstr "Permisos"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:26
+msgid ""
+"Currently, Xinference system internally defines some interface permissions:"
+msgstr ""
+"Actualmente, Xinfe define internamente los siguientes permisos de interfaz:"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:28
+msgid ""
+"``models:list``: Permission to list models and get models' information."
+msgstr ""
+"``models:list``: permiso para obtener la lista de modelos e información."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:29
+msgid "``models:read``: Permission to use models."
+msgstr "``models:read``: Permiso para usar el modelo."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:30
+msgid "``models:register``: Permission to register custom models."
+msgstr "`models:register`: Permiso para registrar modelos."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:31
+msgid "``models:unregister``: Permission to unregister custom models."
+msgstr "``models:unregister``: revoca el permiso de registro del modelo."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:32
+msgid "``models:start``: Permission to launch models."
+msgstr "``models:start``: Permiso para iniciar el modelo."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:33
+msgid "``models:stop``: Permission to stop running models."
+msgstr "``models:stop``: Permiso para detener el modelo."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:34
+msgid "``admin``: Administrators have permissions for all interfaces."
+msgstr "``admin``: El administrador tiene permisos para todas las interfaces."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:38
+msgid "Startup"
+msgstr "Inicio"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:39
+msgid ""
+"All authentication and authorization information needs to be specified and "
+"loaded into memory when Xinference is started. Xinference requires a JSON-"
+"formatted file with the following specific fields:"
+msgstr ""
+"Al iniciar Xinference, es necesario especificar toda la información de "
+"verificación y autorización. Actualmente, Xinference requiere un archivo "
+"JSON que contenga los siguientes campos específicos:"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:78
+msgid ""
+"``auth_config``: This field is used to configure security-related "
+"information."
+msgstr ""
+"``auth_config``: Este campo configura la información relacionada con la "
+"seguridad."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:80
+msgid ""
+"``algorithm``: The algorithm used for token generation and parsing. ``HS`` "
+"series algorithms are recommended. For example, ``HS256``, ``HS384`` or "
+"``HS512``."
+msgstr ""
+"``algorithm``: Algoritmo utilizado para la generación y análisis de tokens. "
+"Se recomienda utilizar algoritmos de la serie ``HS``, como ``HS256``, "
+"``HS384`` o ``HS512``."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:82
+msgid ""
+"``secret_key``: The secret_key used for token generation and parsing. Use "
+"this command to generate the secret_key adapted to the ``HS`` algorithms: "
+"``openssl rand -hex 32``."
+msgstr ""
+"``secret_key``: Clave utilizada para la generación y validación de tokens. "
+"Se puede generar una clave compatible con la serie de algoritmos ``HS`` "
+"mediante el comando: ``openssl rand -hex 32``."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:84
+msgid ""
+"``token_expire_in_minutes``: Reserved field indicating the expiration time "
+"of the token. The current open-source version of Xinference does not check "
+"the expiration time of tokens."
+msgstr ""
+"``token_expire_in_minutes``: campo reservado, indica el tiempo de expiración"
+" del token. Actualmente, la versión de código abierto de Xinference no "
+"verifica el tiempo de expiración del token."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:86
+msgid ""
+"``user_config``: This field is used to configure user and permission "
+"information. Each user information is composed of these fields:"
+msgstr ""
+"``user_config``: Este campo se utiliza para configurar información de "
+"usuarios y permisos. Cada usuario está compuesto por los siguientes campos:"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:88
+msgid "``username``: string field for username."
+msgstr "``username``: cadena que representa el nombre de usuario"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:90
+msgid "``password``: string field for password."
+msgstr "``password``: cadena, que representa la contraseña"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:92
+msgid ""
+"``permissions``: A list containing strings representing the permissions that"
+" this user has. The permissions are described as above."
+msgstr ""
+"``permissions``: lista de cadenas que representa los permisos que tiene el "
+"usuario. La descripción de los permisos es la indicada en la sección de "
+"permisos de la documentación anterior."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:94
+msgid ""
+"``api_keys``: A list containing strings representing the api-keys of this "
+"user. With these api-keys, user can access the xinference interfaces without"
+" the need to signin. The api-key here is formatted similar to the "
+"``OPENAI_API_KEY`` , always starting with ``sk-``, followed by 13 "
+"alphanumeric characters."
+msgstr ""
+"``api_keys``: Lista de cadenas que representa las claves API que posee este "
+"usuario. El usuario puede acceder a la interfaz de xinference a través de "
+"estas claves API sin necesidad de iniciar sesión. La composición de la clave"
+" API aquí es similar a ``OPENAI_API_KEY``, siempre comienza con ``sk-``, "
+"seguido de 13 caracteres que pueden ser dígitos o letras mayúsculas y "
+"minúsculas."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:97
+msgid ""
+"Once you have configured such a JSON file, use the ``--auth-config`` option "
+"to enable Xinference with the authentication and authorization system. For "
+"example, for local startup:"
+msgstr ""
+"Una vez configurado un archivo JSON de este tipo, se puede usar la opción "
+"``--auth-config`` para habilitar Xinference con un sistema de autenticación "
+"y autorización. Por ejemplo, el comando de inicio local se muestra a "
+"continuación:"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:104
+msgid ""
+"For distributed startup, just specify this option when starting the "
+"supervisor:"
+msgstr ""
+"En un entorno distribuido, solo es necesario especificar esta opción al "
+"iniciar el supervisor:"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:112
+msgid "Usage"
+msgstr "Usar"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:113
+msgid ""
+"For Xinference with the authentication and authorization system enabled, all"
+" usage remains the same, except for the addition of a login step at the "
+"beginning or using the api-key."
+msgstr ""
+"El uso del servicio Xinference con gestión de permisos es consistente con la"
+" versión normal, solo que se ha añadido un paso de inicio de sesión al "
+"inicio, o se utiliza api-key para la autenticación."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:116
+msgid "Signin"
+msgstr "Uso basado en nombre de usuario y contraseña"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:117
+msgid "Signin for command line users:"
+msgstr "Inicio de sesión mediante línea de comandos:"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:124
+msgid "For python SDK users:"
+msgstr "Inicia sesión usando el SDK de Python:"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:133
+msgid ""
+"For web UI users, when opening the web UI, you will first be directed to the"
+" login page. After logging in, you can use the web UI normally."
+msgstr ""
+"Para los usuarios de la interfaz web, al abrirla, se les redirigirá primero "
+"a la página de inicio de sesión. Después de iniciar sesión, podrán utilizar "
+"las funciones de la interfaz web con normalidad."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:136
+msgid "Api-Key"
+msgstr "Modo de uso basado en autenticación Api-Key"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:137
+msgid ""
+"For command line users, just add ``--api-key`` or ``-ak`` option in the "
+"command you want to use."
+msgstr ""
+"Para usuarios de línea de comandos, solo es necesario añadir la opción "
+"``--api-key`` o ``-ak`` al comando que se desea ejecutar."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:144
+msgid ""
+"For python SDK users, pass the ``api_key`` parameter when initializing the "
+"client, just like the ``OPENAI`` Python client."
+msgstr ""
+"Para los usuarios del cliente Python, basta con pasar el parámetro "
+"``api_key`` al inicializar el objeto cliente, tal como se hace con el "
+"cliente ``OPENAI``."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:152
+msgid "Xinference is also compatible with the ``OPENAI`` Python SDK as well."
+msgstr ""
+"Por supuesto, Xinference también es completamente compatible con el uso del "
+"cliente Python de ``OPENAI``."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:160
+msgid ""
+"For http request, pass ``Authorization: Bearer api-key`` in request header."
+msgstr ""
+"Para solicitudes HTTP, pase ``Authorization: Bearer api-key`` en el "
+"encabezado de la solicitud."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:170
+msgid "Http Status Code"
+msgstr "Código de estado HTTP"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:171
+msgid "Add the following two HTTP status codes:"
+msgstr "Se han agregado los siguientes dos códigos de estado HTTP:"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:173
+msgid "``401 Unauthorized``: login information or token verifies failed."
+msgstr ""
+"``401 Unauthorized``: La información de inicio de sesión o la verificación "
+"del token ha fallado."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:174
+msgid "``403 Forbidden``: No enough permissions when accessing interfaces."
+msgstr ""
+"``403 Forbidden``: No hay suficientes permisos para acceder a la interfaz."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:176
+msgid ""
+"For the command line, SDK, or web UI users, there will be clear information "
+"prompts when encountering authorization and permissions issues."
+msgstr ""
+"Para los usuarios de línea de comandos, SDK o interfaz web, hay mensajes "
+"claros cuando se encuentran problemas de autorización y permisos."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:179
+msgid ""
+"This feature is still in an experimental stage — see `Feedback`_ at the "
+"bottom of this page for how to reach us with issues or suggestions."
+msgstr ""
+"Esta función todavía se encuentra en una etapa experimental; consulte "
+"`Feedback`_ al final de esta página para saber cómo contactarnos con "
+"problemas o sugerencias."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:187
+msgid "Advanced Authentication System (database-backed)"
+msgstr "Sistema de autenticación avanzado (basado en base de datos)"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:189
+msgid "The advanced authentication system, and its default-enabled status."
+msgstr ""
+"El sistema de autenticación avanzado y su estado habilitado de forma "
+"predeterminada."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:192
+msgid ""
+"Unlike the simple system above, which loads a static ``auth_config.json`` "
+"file into memory, the advanced authentication system stores users, "
+"permissions, API keys, and refresh tokens in a local SQLite database. It "
+"supports creating/managing users and API keys at runtime through REST "
+"endpoints, instead of requiring a server restart to change an "
+"``auth_config.json`` file."
+msgstr ""
+"A diferencia del sistema simple anterior, que carga un archivo estático "
+"``auth_config.json`` en memoria, el sistema de autenticación avanzado "
+"almacena usuarios, permisos, claves de API y tokens de actualización en una "
+"base de datos SQLite local. Permite crear/gestionar usuarios y claves de API"
+" en tiempo de ejecución mediante endpoints REST, en lugar de requerir "
+"reiniciar el servidor para modificar un archivo ``auth_config.json``."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:199
+msgid ""
+"**Since v3.0, this system is enabled by default** — a fresh Xinference "
+"deployment requires authentication out of the box."
+msgstr ""
+"**Desde la v3.0, este sistema está habilitado de forma predeterminada** — "
+"una nueva implementación de Xinference requiere autenticación desde el "
+"primer momento."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:203
+msgid "Enabling / disabling"
+msgstr "Habilitar / deshabilitar"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:204
+msgid ""
+"The advanced authentication system is controlled by the "
+"``XINFERENCE_AUTH_ADVANCED`` environment variable:"
+msgstr ""
+"El sistema de autenticación avanzado se controla mediante la variable de "
+"entorno ``XINFERENCE_AUTH_ADVANCED``:"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:207
+msgid ""
+"Unset, or any of ``1`` / ``true`` / ``yes`` (case-insensitive): enabled (the"
+" default)."
+msgstr ""
+"Sin definir, o cualquiera de ``1`` / ``true`` / ``yes`` (sin distinguir "
+"mayúsculas/minúsculas): habilitado (el valor predeterminado)."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:208
+msgid "Any of ``0`` / ``false`` / ``no`` (case-insensitive): disabled."
+msgstr ""
+"Cualquiera de ``0`` / ``false`` / ``no`` (sin distinguir "
+"mayúsculas/minúsculas): deshabilitado."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:210
+msgid ""
+"It is mutually exclusive with the simple system's ``--auth-config`` option —"
+" passing ``--auth-config`` while ``XINFERENCE_AUTH_ADVANCED`` is (or "
+"defaults to) enabled raises a startup error. To use ``--auth-config`` "
+"instead, or to run with no authentication at all, set "
+"``XINFERENCE_AUTH_ADVANCED=false``:"
+msgstr ""
+"Es mutuamente excluyente con la opción ``--auth-config`` del sistema simple;"
+" pasar ``--auth-config`` mientras ``XINFERENCE_AUTH_ADVANCED`` está "
+"habilitado (o lo está de forma predeterminada) genera un error al iniciar. "
+"Para usar ``--auth-config`` en su lugar, o para ejecutar sin ninguna "
+"autenticación, establezca ``XINFERENCE_AUTH_ADVANCED=false``:"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:226
+msgid "Initial admin account"
+msgstr "Cuenta de administrador inicial"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:227
+msgid ""
+"On first startup with the advanced system enabled, Xinference automatically "
+"creates an ``admin`` user (with the ``admin`` permission) if the user table "
+"is empty, and prints a one-time, randomly generated password to the server "
+"log:"
+msgstr ""
+"En el primer inicio con el sistema avanzado habilitado, Xinference crea "
+"automáticamente un usuario ``admin`` (con el permiso ``admin``) si la tabla "
+"de usuarios está vacía, e imprime en el registro del servidor una contraseña"
+" de un solo uso generada aleatoriamente:"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:241
+msgid ""
+"This password is **not stored anywhere in plaintext** and is not shown again"
+" — save it from the log, and change it on first login (the account is "
+"flagged ``must_change_password`` until you do)."
+msgstr ""
+"Esta contraseña **no se almacena en ningún lugar en texto plano** y no se "
+"volverá a mostrar; guárdela del registro y cámbiela en el primer inicio de "
+"sesión (la cuenta quedará marcada como ``must_change_password`` hasta que lo"
+" haga)."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:246
+msgid "Secrets and storage locations"
+msgstr "Secretos y ubicaciones de almacenamiento"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:247
+msgid ""
+"The advanced system needs a JWT signing secret and an encryption key (used "
+"to encrypt stored API keys at rest), plus a database file. All three can be "
+"overridden with environment variables; if you don't set them, Xinference "
+"generates and persists them automatically on first run under "
+"``XINFERENCE_HOME`` (``~/.xinference`` by default):"
+msgstr ""
+"El sistema avanzado necesita un secreto de firma JWT y una clave de cifrado "
+"(utilizada para cifrar las claves de API almacenadas), además de un archivo "
+"de base de datos. Los tres pueden anularse con variables de entorno; si no "
+"los define, Xinference los genera y persiste automáticamente en la primera "
+"ejecución bajo ``XINFERENCE_HOME`` (``~/.xinference`` de forma "
+"predeterminada):"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:256
+msgid "Purpose"
+msgstr "Propósito"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:257
+msgid "Environment variable"
+msgstr "Variable de entorno"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:258
+msgid "Default location"
+msgstr "Ubicación predeterminada"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:259
+msgid "JWT signing secret"
+msgstr "Secreto de firma JWT"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:260
+msgid "``XINFERENCE_AUTH_JWT_SECRET_KEY``"
+msgstr "``XINFERENCE_AUTH_JWT_SECRET_KEY``"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:261
+msgid "``<XINFERENCE_HOME>/auth/jwt_secret_key`` (auto-generated)"
+msgstr "``<XINFERENCE_HOME>/auth/jwt_secret_key`` (generado automáticamente)"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:262
+msgid "API key encryption key"
+msgstr "Clave de cifrado de claves de API"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:263
+msgid "``XINFERENCE_AUTH_ENCRYPTION_KEY``"
+msgstr "``XINFERENCE_AUTH_ENCRYPTION_KEY``"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:264
+msgid "``<XINFERENCE_HOME>/auth/encryption_key`` (auto-generated)"
+msgstr "``<XINFERENCE_HOME>/auth/encryption_key`` (generado automáticamente)"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:265
+msgid "User/API key database"
+msgstr "Base de datos de usuarios/claves de API"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:266
+msgid "``XINFERENCE_AUTH_DB_PATH``"
+msgstr "``XINFERENCE_AUTH_DB_PATH``"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:267
+msgid "``<XINFERENCE_HOME>/auth/auth.db``"
+msgstr "``<XINFERENCE_HOME>/auth/auth.db``"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:269
+msgid ""
+"Auto-generated secrets are written once and reused on subsequent restarts, "
+"so existing JWTs and encrypted API keys keep working across restarts. In a "
+"distributed deployment (supervisor + workers), make sure all processes that "
+"run the RESTful API share the same ``XINFERENCE_HOME`` (or set the same "
+"explicit environment variables), so they agree on the same secrets and "
+"database."
+msgstr ""
+"Los secretos generados automáticamente se escriben una sola vez y se "
+"reutilizan en reinicios posteriores, de modo que los JWT existentes y las "
+"claves de API cifradas siguen funcionando tras los reinicios. En una "
+"implementación distribuida (supervisor + workers), asegúrese de que todos "
+"los procesos que ejecutan la API RESTful compartan el mismo "
+"``XINFERENCE_HOME`` (o establezcan las mismas variables de entorno "
+"explícitas), para que utilicen los mismos secretos y la misma base de datos."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:277
+msgid "Advanced-system permissions"
+msgstr "Permisos del sistema avanzado"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:278
+msgid ""
+"The advanced system uses the same permission names as the simple system "
+"(``models:list``, ``models:read``, ``models:register``, "
+"``models:unregister``, ``models:start``, ``models:stop``, ``admin``), plus "
+"additional scopes for managing the advanced system itself:"
+msgstr ""
+"El sistema avanzado utiliza los mismos nombres de permisos que el sistema "
+"simple (``models:list``, ``models:read``, ``models:register``, "
+"``models:unregister``, ``models:start``, ``models:stop``, ``admin``), además"
+" de permisos adicionales para gestionar el propio sistema avanzado:"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:283
+msgid ""
+"``keys:create``: Permission to create API keys (for oneself, or for others "
+"when combined with ``keys:manage``)."
+msgstr ""
+"``keys:create``: Permiso para crear claves de API (para uno mismo, o para "
+"otros si se combina con ``keys:manage``)."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:284
+msgid ""
+"``keys:manage``: Permission to list, update, delete, and reveal any user's "
+"API keys."
+msgstr ""
+"``keys:manage``: Permiso para listar, actualizar, eliminar y revelar las "
+"claves de API de cualquier usuario."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:285
+msgid ""
+"``users:manage``: Permission to create, update, delete users, and manage "
+"their permissions."
+msgstr ""
+"``users:manage``: Permiso para crear, actualizar, eliminar usuarios y "
+"gestionar sus permisos."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:286
+msgid ""
+"``cache:list`` / ``cache:delete``: Permissions to list/delete cached model "
+"files."
+msgstr ""
+"``cache:list`` / ``cache:delete``: Permisos para listar/eliminar archivos de"
+" modelos en caché."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:287
+msgid ""
+"``virtualenv:list`` / ``virtualenv:delete``: Permissions to list/delete per-"
+"model virtual environments."
+msgstr ""
+"``virtualenv:list`` / ``virtualenv:delete``: Permisos para listar/eliminar "
+"entornos virtuales por modelo."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:288
+#, fuzzy
+msgid "``admin``: Administrators have all of the above."
+msgstr "``admin``: El administrador tiene permisos para todas las interfaces."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:290
+msgid ""
+"A caller may only grant permissions they themselves hold — for example, a "
+"user with only ``users:manage`` cannot grant ``admin`` to someone else."
+msgstr ""
+"Un llamante solo puede otorgar los permisos que él mismo posee; por ejemplo,"
+" un usuario que solo tiene ``users:manage`` no puede otorgar ``admin`` a "
+"otra persona."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:294
+msgid "Login and API-key usage"
+msgstr "Uso de inicio de sesión y claves de API"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:295
+msgid ""
+"Login and API-key usage (signin, ``--api-key``, ``Authorization: Bearer`` "
+"header, OpenAI-SDK compatibility) work the same way as described in the "
+"`Usage`_ section above for the simple system."
+msgstr ""
+"El uso del inicio de sesión y las claves de API (inicio de sesión, ``--api-"
+"key``, cabecera ``Authorization: Bearer``, compatibilidad con el SDK de "
+"OpenAI) funciona de la misma manera descrita en la sección `Usage`_ anterior"
+" para el sistema simple."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:300
+msgid "Managing users and API keys"
+msgstr "Gestión de usuarios y claves de API"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:301
+msgid ""
+"Once logged in as a user with the ``users:manage`` and/or ``keys:manage`` "
+"permission (the bootstrap ``admin`` account has both), you can manage users "
+"and API keys through REST endpoints under ``/v1/admin``, for example:"
+msgstr ""
+"Una vez iniciada la sesión como usuario con el permiso ``users:manage`` y/o "
+"``keys:manage`` (la cuenta inicial ``admin`` tiene ambos), puede gestionar "
+"usuarios y claves de API mediante endpoints REST bajo ``/v1/admin``, por "
+"ejemplo:"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:319
+#, python-brace-format
+msgid ""
+"Other supported endpoints include listing/updating/deleting users "
+"(``/v1/admin/users``, ``/v1/admin/users/{user_id}``), changing a user's "
+"password (``/v1/admin/users/{user_id}/password``), and listing, updating, "
+"deleting, and revealing API keys (``/v1/admin/keys``, "
+"``/v1/admin/keys/{key_id}``, ``/v1/admin/keys/{key_id}/reveal``)."
+msgstr ""
+"Otros endpoints admitidos incluyen listar/actualizar/eliminar usuarios "
+"(``/v1/admin/users``, ``/v1/admin/users/{user_id}``), cambiar la contraseña "
+"de un usuario (``/v1/admin/users/{user_id}/password``), y listar, "
+"actualizar, eliminar y revelar claves de API (``/v1/admin/keys``, "
+"``/v1/admin/keys/{key_id}``, ``/v1/admin/keys/{key_id}/reveal``)."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:326
+msgid "Behavior notes"
+msgstr "Notas sobre el comportamiento"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:329
+msgid "Permission changes take effect without re-login"
+msgstr ""
+"Los cambios de permisos surten efecto sin necesidad de volver a iniciar "
+"sesión"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:330
+msgid ""
+"Route scope checks read the user's **current** permissions from the database"
+" on every request, not the scopes baked into the JWT at login. Granting or "
+"revoking a permission takes effect on the user's next API call — no re-login"
+" required. This applies to JWT-based browser sessions; API keys are also "
+"live-read (they always have been)."
+msgstr ""
+"Las comprobaciones de permisos de las rutas leen los permisos **actuales** "
+"del usuario desde la base de datos en cada solicitud, no los permisos "
+"incluidos en el JWT al iniciar sesión. Otorgar o revocar un permiso surte "
+"efecto en la siguiente llamada a la API del usuario, sin necesidad de volver"
+" a iniciar sesión. Esto se aplica a las sesiones de navegador basadas en "
+"JWT; las claves de API también se leen en tiempo real (como siempre lo han "
+"hecho)."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:337
+msgid "Configurable access-token lifetime"
+msgstr "Duración configurable del token de acceso"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:338
+msgid ""
+"The access-token lifetime defaults to 30 minutes and can be overridden with "
+"the ``XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES`` environment variable:"
+msgstr ""
+"La duración del token de acceso es de 30 minutos de forma predeterminada y "
+"puede anularse con la variable de entorno "
+"``XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES``:"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:345
+msgid ""
+"A shorter lifetime shrinks the token-theft window. The refresh token "
+"lifetime is 7 days and is not currently configurable."
+msgstr ""
+"Una duración más corta reduce la ventana de riesgo ante el robo del token. "
+"La duración del token de actualización es de 7 días y actualmente no es "
+"configurable."
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:349
+msgid "Feedback"
+msgstr "Comentarios"
+
+#: ../../../Users/oliver/Documents/Xorbits/inference/.claude/worktrees/xinference-builtin-database-355e03/doc/source/user_guide/auth_system.rst:350
+msgid ""
+"This feature is still in an experimental stage. Feel free to provide "
+"feedback on usage issues or improvement suggestions through `GitHub issues "
+"<https://github.com/xorbitsai/inference/issues>`_ or `our Telegram group "
+"<https://t.me/+nCNpwmySwk9iYmI1>`_."
+msgstr ""
+"Esta funcionalidad se encuentra en fase experimental. Puedes enviar tus "
+"comentarios y sugerencias a través de los `GitHub issues "
+"<https://github.com/xorbitsai/inference/issues>`_ o del `grupo de Telegram "
+"<https://t.me/+nCNpwmySwk9iYmI1>`_."
+
+#~ msgid ""
+#~ "If you don't have authentication and authorization requirements, you can use"
+#~ " Xinference as before, without any changes."
+#~ msgstr ""
+#~ "Si no hay requisitos de autenticación y autorización, se puede usar "
+#~ "Xinference como antes, sin necesidad de realizar ningún cambio."
+
+#~ msgid "Note"
+#~ msgstr "atención"

@@ -13,4 +13,10 @@ include xinference/locale/*.json
 include xinference/model/llm/*.json
 include xinference/model/embedding/*.json
 graft xinference/thirdparty
-global-include xinference/ui/web/ui/build/**/*
+graft xinference/ui/web/dist
+graft frontend
+prune frontend/.next
+prune frontend/out
+prune frontend/node_modules
+prune frontend/.npm-cache
+prune frontend/.npm-logs
