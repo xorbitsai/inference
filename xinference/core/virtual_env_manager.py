@@ -33,6 +33,11 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
         "ninja",
         "numpy>=2.4.1",
         "sglang>=0.5.6",
+        # sglang 0.5.x requires exactly transformers 4.57.1; pin it here so the
+        # venv gets a compatible copy even when skip_installed inherits sglang
+        # from a parent env that ships transformers 5.x (e.g. the Docker image),
+        # where importing sglang.srt crashes at DeepseekVL2Config.
+        "transformers==4.57.1",
         'https://github.com/sgl-project/whl/releases/download/v0.3.21/sgl_kernel-0.3.21+cu130-cp310-abi3-manylinux2014_x86_64.whl ; cuda_version == "13.0" and platform_machine == "x86_64"',
         'https://github.com/sgl-project/whl/releases/download/v0.3.21/sgl_kernel-0.3.21+cu130-cp310-abi3-manylinux2014_aarch64.whl ; cuda_version == "13.0" and platform_machine == "aarch64"',
         'sgl_kernel ; cuda_version < "13.0"',
