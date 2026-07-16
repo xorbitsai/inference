@@ -103,6 +103,7 @@ from .utils import (
 from .virtual_env_manager import VirtualEnvManager as XinferenceVirtualEnvManager
 from .virtual_env_manager import (
     expand_engine_dependency_placeholders,
+    get_engine_critical_dependency_specs,
     is_cuda_compatible,
     resolve_virtualenv_python_path,
 )
@@ -2646,6 +2647,17 @@ class WorkerActor(xo.StatelessActor):
         packages = filter_virtualenv_packages_by_markers(
             packages, model_engine, cuda_version
         )
+
+        critical_specs = get_engine_critical_dependency_specs(model_engine, packages)
+        if critical_specs:
+            logger.info(
+                "Engine %s will be inherited from the parent environment whose "
+                "copies of its critical dependencies do not satisfy the "
+                "engine's declared requirements; installing %s into the venv",
+                model_engine,
+                critical_specs,
+            )
+            packages = packages + critical_specs
 
         conf = dict(settings)
         conf.pop("packages", None)
