@@ -157,12 +157,25 @@ msgid "``logs:list``"
 msgstr "``logs:list``"
 
 #: ../../source/getting_started/migration_3_0.rst:73
-msgid "``admin`` (for revealing API keys)"
-msgstr "``admin`` (para revelar chaves de API)"
+msgid "``admin`` (required by the legacy API-key reveal route)"
+msgstr "``admin`` (exigido pela rota legada de revelação de chaves de API)"
 
 #: ../../source/getting_started/migration_3_0.rst:74
-msgid "``keys:manage``"
-msgstr "``keys:manage``"
+msgid ""
+"``keys:manage`` (list any user's keys; update, delete, reveal, and manage per-"
+"key model permissions)"
+msgstr ""
+"``keys:manage`` (listar as chaves de qualquer usuário; atualizar, excluir e "
+"revelar chaves, além de gerenciar permissões por modelo)"
+
+msgid ""
+"API key creation remains separate: ``keys:create`` is required to create a "
+"key, and ``keys:manage`` is additionally required when creating one for "
+"another user."
+msgstr ""
+"A criação de chaves de API permanece separada: ``keys:create`` é necessário "
+"para criar uma chave, e ``keys:manage`` também é necessário ao criar uma "
+"chave para outro usuário."
 
 #: ../../source/getting_started/migration_3_0.rst:76
 msgid ""

@@ -70,8 +70,13 @@ Several fine-grained permission scopes were consolidated and renamed:
      - ``models:register``
    * - ``admin`` (for log routes)
      - ``logs:list``
-   * - ``admin`` (for revealing API keys)
-     - ``keys:manage``
+   * - ``admin`` (required by the legacy API-key reveal route)
+     - ``keys:manage`` (list any user's keys; update, delete, reveal, and
+       manage per-key model permissions)
+
+API key creation remains separate: ``keys:create`` is required to create a
+key, and ``keys:manage`` is additionally required when creating one for
+another user.
 
 Tokens and API keys that carry the legacy scope names keep working: the
 server transparently maps legacy names to their replacements. This

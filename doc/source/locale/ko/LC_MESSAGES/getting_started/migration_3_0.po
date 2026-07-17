@@ -145,12 +145,24 @@ msgid "``logs:list``"
 msgstr "``logs:list``"
 
 #: ../../source/getting_started/migration_3_0.rst:73
-msgid "``admin`` (for revealing API keys)"
-msgstr "``admin`` (API 키 확인용)"
+msgid "``admin`` (required by the legacy API-key reveal route)"
+msgstr "``admin`` (기존 API 키 표시 경로에 필요)"
 
 #: ../../source/getting_started/migration_3_0.rst:74
-msgid "``keys:manage``"
-msgstr "``keys:manage``"
+msgid ""
+"``keys:manage`` (list any user's keys; update, delete, reveal, and manage per-"
+"key model permissions)"
+msgstr ""
+"``keys:manage`` (모든 사용자의 키 목록 조회, 업데이트, 삭제, 원문 표시 및 키별 모델 "
+"권한 관리)"
+
+msgid ""
+"API key creation remains separate: ``keys:create`` is required to create a "
+"key, and ``keys:manage`` is additionally required when creating one for "
+"another user."
+msgstr ""
+"API 키 생성 권한은 별도입니다. 키를 생성하려면 ``keys:create``가 필요하며 다른 "
+"사용자의 키를 생성할 때는 ``keys:manage``도 필요합니다."
 
 #: ../../source/getting_started/migration_3_0.rst:76
 msgid ""

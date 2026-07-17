@@ -144,12 +144,24 @@ msgid "``logs:list``"
 msgstr "``logs:list``"
 
 #: ../../source/getting_started/migration_3_0.rst:73
-msgid "``admin`` (for revealing API keys)"
-msgstr "``admin`` （顯示 API 金鑰）"
+msgid "``admin`` (required by the legacy API-key reveal route)"
+msgstr "``admin`` （舊版 API 金鑰明文顯示端點所需）"
 
 #: ../../source/getting_started/migration_3_0.rst:74
-msgid "``keys:manage``"
-msgstr "``keys:manage``"
+msgid ""
+"``keys:manage`` (list any user's keys; update, delete, reveal, and manage per-"
+"key model permissions)"
+msgstr ""
+"``keys:manage`` （列出任意使用者的金鑰，以及更新、刪除、顯示明文和管理每個金鑰的模"
+"型權限）"
+
+msgid ""
+"API key creation remains separate: ``keys:create`` is required to create a "
+"key, and ``keys:manage`` is additionally required when creating one for "
+"another user."
+msgstr ""
+"API 金鑰建立權限維持獨立：建立金鑰需要 ``keys:create``；為其他使用者建立時還需要 "
+"``keys:manage``。"
 
 #: ../../source/getting_started/migration_3_0.rst:76
 msgid ""
