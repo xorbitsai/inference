@@ -14,8 +14,8 @@
 # selfcheck stage). Git/non-wheel direct references are explicitly reported as
 # unsupported by the offline profile.
 
-# Must match the Python of the xinference runtime image
-# (xinference/deploy/docker/Dockerfile, base vllm/vllm-openai).
+# Must match the Python of the slim xinference GPU runtime image
+# (xinference/deploy/docker/Dockerfile).
 ARG PYTHON_VERSION=3.12
 
 # ============================================================================
