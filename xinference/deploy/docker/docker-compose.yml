@@ -3,8 +3,8 @@
 # Online (default):
 #   docker compose up -d
 #
-# Offline / air-gapped (starts a private PyPI server with all model-engine
-# wheels baked in — no preparation needed):
+# Offline / air-gapped (starts a private PyPI server with index-compatible
+# model-engine wheels baked in — no preparation needed for supported models):
 #   cp offline.env.example offline.env
 #   # uncomment the offline block in pip.conf
 #   docker compose --profile offline up -d
@@ -62,8 +62,8 @@ services:
               count: all
 
   # Private PyPI server for offline / air-gapped deployments. The default
-  # image ships every wheel the xinference runtime may install into
-  # per-model virtual environments; pin it to the same release tag as
+  # image ships the index-compatible wheels used by per-model virtual
+  # environments; pin it to the same release tag as
   # XINFERENCE_IMAGE so the mirror matches the runtime's model specs.
   # Only started with: docker compose --profile offline up -d
   xinference-pypiserver:

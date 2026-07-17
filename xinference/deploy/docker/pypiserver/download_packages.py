@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Download all wheels for the xinference-pypiserver image.
+Download index-compatible wheels for the xinference-pypiserver image.
 
 Consumes the output of ``generate_package_lists.py`` and fills a wheel
 directory in four passes:

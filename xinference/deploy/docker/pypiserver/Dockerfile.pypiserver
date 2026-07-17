@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # Build the xprobe/xinference-pypiserver image: a pypiserver preloaded with
-# every wheel the xinference runtime may install into per-model virtual
+# the index-compatible wheels used by xinference per-model virtual
 # environments, for offline / air-gapped deployments.
 #
 #   docker build -f xinference/deploy/docker/pypiserver/Dockerfile.pypiserver \
@@ -9,17 +9,17 @@
 #   docker build -f xinference/deploy/docker/pypiserver/Dockerfile.pypiserver \
 #     --build-arg PLATFORM=arm64 -t xinference-pypiserver:arm64 .
 #
-# The build fails if any engine set, model pin or direct wheel cannot be
-# downloaded — or cannot later be resolved from the baked mirror alone
-# (see the selfcheck stage), so a published image is guaranteed to be
-# self-sufficient offline.
+# The build fails if any index-compatible engine set, model pin or direct
+# wheel cannot be downloaded or resolved from the baked mirror alone (see the
+# selfcheck stage). Git/non-wheel direct references are explicitly reported as
+# unsupported by the offline profile.
 
 # Must match the Python of the xinference runtime image
 # (xinference/deploy/docker/Dockerfile, base vllm/vllm-openai).
 ARG PYTHON_VERSION=3.12
 
 # ============================================================================
-# Stage 1 — download every wheel needed by the xinference model engines
+# Stage 1 — download index-compatible wheels needed by model engines
 # ============================================================================
 FROM python:${PYTHON_VERSION}-slim AS downloader
 

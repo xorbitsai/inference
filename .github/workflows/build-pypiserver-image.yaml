@@ -22,8 +22,8 @@ jobs:
 
   # ------------------------------------------------------------------
   # Build the image per architecture on native runners. The Dockerfile
-  # downloads every wheel, then a selfcheck stage proves the mirror is
-  # self-sufficient offline — the build fails otherwise.
+  # downloads every index-compatible wheel, then a selfcheck stage proves
+  # that indexed content is self-sufficient offline — the build fails otherwise.
   # On workflow_dispatch the image is built and gated but NOT pushed.
   # ------------------------------------------------------------------
   build-and-push-image:
