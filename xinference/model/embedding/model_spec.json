@@ -1834,7 +1834,7 @@
         "transformers>=4.57.0 ; #engine# == \"sentence_transformers\"",
         "qwen-vl-utils>=0.0.14",
         "Pillow",
-        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "vllm>=0.14.0 ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ]
     },
@@ -1875,7 +1875,7 @@
         "transformers==4.57.1 ; #engine# == \"sentence_transformers\"",
         "qwen-vl-utils==0.0.11",
         "Pillow",
-        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "vllm>=0.14.0 ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ]
     },
