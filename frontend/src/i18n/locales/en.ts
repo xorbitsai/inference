@@ -211,6 +211,7 @@ const en = {
     resources: 'Resource Allocation',
     workerAddress: 'Worker Node',
     gpuIndexes: 'GPU Indexes',
+    gpuMemory: 'GPU Memory',
     replicaDetail: 'Replica Details',
     removeReplicaConfirm:
       'Are you sure you want to remove replica {{replicaId}} of model {{modelUid}}?',

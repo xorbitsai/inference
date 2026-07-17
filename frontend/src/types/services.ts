@@ -115,6 +115,10 @@ export interface RunningModelItem {
   revision: string | null;
   context_length: number;
   replica: number;
+  // Real-time per-model GPU memory usage in bytes, keyed by worker address
+  // and then by (worker-local) GPU index. Only present for NVIDIA GPUs;
+  // absent otherwise.
+  gpu_memory?: Record<string, Record<string, number>>;
 }
 
 export interface RunningModelDetail {

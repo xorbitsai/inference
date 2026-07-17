@@ -208,6 +208,7 @@ const ko = {
     resources: '리소스 할당',
     workerAddress: 'Worker 노드',
     gpuIndexes: 'GPU 인덱스',
+    gpuMemory: 'GPU 메모리',
     replicaDetail: '복제본 상세 정보',
     removeReplicaConfirm: '모델 {{modelUid}}의 복제본 {{replicaId}}을(를) 제거하시겠습니까?',
     autostartEnabled: '자동 시작이 설정됨',

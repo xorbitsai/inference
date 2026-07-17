@@ -205,6 +205,7 @@ const zh = {
     resources: '资源分配',
     workerAddress: '工作节点',
     gpuIndexes: 'GPU 索引',
+    gpuMemory: 'GPU 显存',
     replicaDetail: '副本详情',
     removeReplicaConfirm: '确认移除模型 {{modelUid}} 的副本 {{replicaId}} 吗？',
     autostartEnabled: '已配置开机自启',

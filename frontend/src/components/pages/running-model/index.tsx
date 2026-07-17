@@ -73,6 +73,14 @@ const ContentItemInfo = ({ title, value }: ContentItemInfoProps) => {
   );
 };
 
+const formatGpuMemory = (bytes: number): string => {
+  const gib = bytes / 1024 ** 3;
+  if (gib >= 1) {
+    return `${gib.toFixed(2)} GiB`;
+  }
+  return `${(bytes / 1024 ** 2).toFixed(2)} MiB`;
+};
+
 const RunningModel = () => {
   const { t } = useI18n();
   const router = useRouter();
@@ -366,6 +374,32 @@ const RunningModel = () => {
                         GPU {item}
                       </span>
                     ))}
+                  </div>
+                ) : (
+                  '-'
+                )
+              }
+            />
+            <ContentItemInfo
+              title={t('runningModels.gpuMemory')}
+              value={
+                activeModel?.gpu_memory && Object.keys(activeModel.gpu_memory).length > 0 ? (
+                  <div className="flex flex-col gap-0.5 text-xs">
+                    {Object.keys(activeModel.gpu_memory)
+                      .sort()
+                      .map((workerAddress, _, workers) => {
+                        const perGpu = activeModel.gpu_memory![workerAddress];
+                        const multiWorker = workers.length > 1;
+                        return Object.keys(perGpu)
+                          .map((k) => [Number(k), perGpu[k]] as [number, number])
+                          .sort((a, b) => a[0] - b[0])
+                          .map(([gpuIdx, bytes]) => (
+                            <span key={`${workerAddress}-${gpuIdx}`}>
+                              {multiWorker ? `${workerAddress} · ` : ''}
+                              GPU {gpuIdx}: {formatGpuMemory(bytes)}
+                            </span>
+                          ));
+                      })}
                   </div>
                 ) : (
                   '-'

@@ -686,12 +686,12 @@
       }
     ],
     "featured": false,
-    "updated_at": 1769418439,
+    "updated_at": 1784276407,
     "virtualenv": {
       "packages": [
         "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
         "#system_torchvision# ; #engine# == \"sentence_transformers\"",
-        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "vllm>=0.14.0 ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ]
     }
@@ -726,12 +726,12 @@
       }
     ],
     "featured": true,
-    "updated_at": 1769418438,
+    "updated_at": 1784276407,
     "virtualenv": {
       "packages": [
         "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
         "#system_torchvision# ; #engine# == \"sentence_transformers\"",
-        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "vllm>=0.14.0 ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ]
     }

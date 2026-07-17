@@ -41,6 +41,14 @@ scrape_configs:
 
 > **Metric isolation:** The Supervisor endpoint never exposes Worker-only metrics (e.g. token counters), and the Worker endpoint never exposes Supervisor-only metrics (e.g. cluster overview), avoiding empty HELP/TYPE headers.
 
+> **Cluster label convention (`cluster`):** Xinference code writes the `cluster` label only on `xinference:build_info` and `xinference:config_info`. To filter all `xinference:*` metrics and HTTP middleware counters by cluster (multi-cluster Prometheus / federation), inject `cluster` onto every series via `relabel_configs` in the Prometheus scrape config. Example:
+>
+> ```yaml
+> relabel_configs:
+>   - target_label: cluster
+>     replacement: <cluster-id>
+> ```
+
 ## OpenTelemetry Endpoint
 
 OTLP export is configured via environment variables (see `xinference/core/otel.py`):
@@ -144,7 +152,7 @@ Supervisor metrics provide a **cluster-wide view**, covering node resources, mod
 | Metric | Labels | Description |
 |--------|--------|-------------|
 | `xinference:model_info` | `model_uid`, `model_name`, `model_type`, `worker_address`, `replica_on_worker`, `replica_total` | Running model replica distribution |
-| `xinference:model_status` | `model_uid`, `model_name`, `status` | Model lifecycle status (starting / ready / stopping / etc.) |
+| `xinference:model_status` | `model_uid`, `model_name`, `status` | Model lifecycle status. `status` comes from the `LaunchStatus` enum: `CREATING` / `UPDATING` / `LOADING` / `READY` / `ERROR` / `TERMINATING` / `TERMINATED`. The live set on `/metrics` is mostly `CREATING` / `LOADING` / `READY` / `ERROR` (`TERMINATED` replicas are dropped; `UPDATING` / `TERMINATING` appear transiently) |
 | `xinference:model_gpu_binding` | `model_uid`, `model_name`, `model_type`, `worker_address`, `gpu_index`, `replica_index` | GPU list bound to each replica |
 | `xinference:model_gpu_memory_used_bytes` | `model_uid`, `model_name`, `model_type`, `gpu_index`, `worker_address`, `replica_index` | Actual GPU memory used per replica process |
 | `xinference:model_unexpected_termination` | `model_uid`, `model_name`, `replica_index` | Replica terminated due to Worker failure (auto-cleared on redeploy) |
@@ -159,7 +167,7 @@ Supervisor metrics provide a **cluster-wide view**, covering node resources, mod
 
 | Metric | Type | Unit | Description |
 |--------|------|------|-------------|
-| `xinference:api_key_requests_total` | Counter | requests | Total API Key auth requests |
+| `xinference:api_key_requests_total` | Counter | requests | Total API Key auth requests. `status` label ∈ {`success`, `model_not_found`, `error`, `denied`} (`denied` means the API key cannot access the requested model; otherwise <400 is success, 404 is model_not_found, and other response codes are error) |
 | `xinference:api_key_request_duration_seconds` | Histogram | seconds | Auth request duration distribution |
 | `xinference:api_keys_active_total` | Gauge | count | Number of active API Keys |
 | `xinference:api_keys_expired_total` | Gauge | count | Number of expired API Keys |
@@ -175,12 +183,30 @@ Supervisor metrics provide a **cluster-wide view**, covering node resources, mod
 
 | Metric | Labels | Description |
 |--------|--------|-------------|
-| `xinference:build_info` | `version`, `python_version`, `cluster`, `xinference_role`, `worker_address`, `supervisor_address` | Version and runtime information |
+| `xinference:build_info` | `version`, `python_version`, `cluster`, `xinference_role` (`supervisor` / `worker`), `worker_address`, `supervisor_address` | Version and runtime information |
 | `xinference:config_info` | `xinference_home`, `xinference_role`, `cluster`, `worker_address`, `supervisor_address` | Configuration information (e.g. XINFERENCE_HOME) |
 
 **Use cases:**
 - Disambiguate version, cluster, and role in multi-cluster deployments
 - Join with business metrics to compare across versions
+
+#### 2.6 HTTP Middleware Metrics (Supervisor only)
+
+Produced automatically by `aioprometheus`'s `MetricsMiddleware` (mounted on the Supervisor API Server) for HTTP health / error-rate monitoring at the API layer. These metrics **do not carry the `xinference:` prefix** and are exposed only on the Supervisor (the Worker metrics server is a standalone FastAPI app without this middleware).
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `requests_total_counter` | Counter | `method`, `path` | Total API requests |
+| `responses_total_counter` | Counter | `method`, `path` | Total API responses |
+| `exceptions_total_counter` | Counter | `method`, `path` | Requests that raised an exception |
+| `status_codes_counter` | Counter | `method`, `path`, `status_code` | Responses by status code (`status_code` is the full code such as `200`/`404`/`500`; not grouped) |
+
+**Use cases:**
+- API error rate = `sum without(status_code) (rate(status_codes_counter{status_code=~"4..|5.."}[5m])) / rate(requests_total_counter[5m])`
+- API QPS = `sum(rate(requests_total_counter[5m]))`
+- Exception spike = `rate(exceptions_total_counter[5m])`
+
+> **`cluster` label:** These middleware metrics are produced by Xinference but do not carry a `cluster` label; it must be injected via Prometheus scrape relabel (see "Cluster label convention" above).
 
 ---
 

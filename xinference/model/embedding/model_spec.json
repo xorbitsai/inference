@@ -1834,12 +1834,12 @@
         "transformers>=4.57.0 ; #engine# == \"sentence_transformers\"",
         "qwen-vl-utils>=0.0.14",
         "Pillow",
-        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "vllm>=0.14.0 ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ]
     },
     "featured": true,
-    "updated_at": 1769675758
+    "updated_at": 1784276332
   },
   {
     "version": 2,
@@ -1875,11 +1875,11 @@
         "transformers==4.57.1 ; #engine# == \"sentence_transformers\"",
         "qwen-vl-utils==0.0.11",
         "Pillow",
-        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "vllm>=0.14.0 ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ]
     },
     "featured": false,
-    "updated_at": 1769418314
+    "updated_at": 1784276332
   }
 ]

@@ -210,6 +210,7 @@ const ja = {
     resources: 'リソース割り当て',
     workerAddress: 'Worker ノード',
     gpuIndexes: 'GPU インデックス',
+    gpuMemory: 'GPU メモリ',
     replicaDetail: 'レプリカ詳細',
     removeReplicaConfirm:
       'モデル {{modelUid}} のレプリカ {{replicaId}} を削除してもよろしいですか？',
