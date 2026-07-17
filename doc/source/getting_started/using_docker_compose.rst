@@ -39,6 +39,14 @@ Wait until the service is healthy, then verify:
 
 The Web UI is served at ``http://localhost:9997``.
 
+.. note::
+
+   Since v3.0, authentication is enabled by default: the first visit to the
+   Web UI asks you to create the initial admin account, and API calls require
+   a login or API key afterwards. To run without authentication, add
+   ``XINFERENCE_AUTH_ADVANCED=false`` under the ``environment:`` section of
+   ``docker-compose.yml``. See :ref:`user_guide_auth_system`.
+
 
 Configuration
 =============

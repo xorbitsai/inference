@@ -164,6 +164,11 @@ Currently, supported model includes:
 - ``DeepSeek-V4-Flash``, ``DeepSeek-V4-Pro``
 .. vllm_end
 
+Besides LLMs, vLLM can also serve embedding models. Model families whose
+names start with ``bge``, ``gte``, ``text2vec``, ``m3e``, ``Qwen3``, or
+``bce`` can be launched with ``--model-engine vllm`` — see
+:ref:`Embeddings <embed>`.
+
 .. _sglang_backend:
 
 SGLang

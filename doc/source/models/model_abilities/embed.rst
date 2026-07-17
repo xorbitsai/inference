@@ -36,6 +36,42 @@ Supported models
 
 You can examine all the :ref:`builtin embedding models in Xinference <models_embedding_index>`.
 
+Embedding engines
+-------------------
+
+When launching an embedding model, you can pick the serving engine with the
+``model_engine`` parameter (``--model-engine`` on the command line):
+
+* ``sentence_transformers``: the default engine, available for all embedding
+  models.
+* ``vllm``: high-throughput serving for supported model families — currently
+  models whose names start with ``bge``, ``gte``, ``text2vec``, ``m3e``,
+  ``Qwen3``, or ``bce`` (e.g. ``bce-embedding-base_v1``).
+* ``flag``: FlagEmbedding-based engine; also supports hybrid (sparse+dense)
+  output, see the FAQ below.
+* ``llama.cpp``: serve GGUF-format embedding models.
+
+Truncating input
+-------------------
+
+The Embeddings API accepts an optional ``truncate_prompt_tokens`` parameter
+to cap the token length of each input before encoding:
+
+* unset / ``null``: no truncation.
+* a positive integer ``N``: truncate each input to at most ``N`` tokens.
+* ``-1``: truncate to the model's own maximum input length.
+
+.. code-block:: bash
+
+    curl -X 'POST' \
+      'http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1/embeddings' \
+      -H 'Content-Type: application/json' \
+      -d '{
+        "model": "<MODEL_UID>",
+        "input": "A very long document ...",
+        "truncate_prompt_tokens": 512
+      }'
+
 
 Quickstart
 ============
