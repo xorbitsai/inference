@@ -5,10 +5,24 @@ on:
     tags:
       - '*'
   workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Image tag used for a manual build
+        required: true
+        default: nightly-main
+        type: string
+      push_to_dockerhub:
+        description: Push the manually built image to Docker Hub
+        required: true
+        default: false
+        type: boolean
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  PYPISERVER_IMAGE: xprobe/xinference-pypiserver
 
 jobs:
   check-release-permission:
@@ -24,7 +38,8 @@ jobs:
   # Build the image per architecture on native runners. The Dockerfile
   # downloads every index-compatible wheel, then a selfcheck stage proves
   # that indexed content is self-sufficient offline — the build fails otherwise.
-  # On workflow_dispatch the image is built and gated but NOT pushed.
+  # A manual run only pushes when push_to_dockerhub is explicitly enabled.
+  # Docker Hub creates the repository on the first authenticated push.
   # ------------------------------------------------------------------
   build-and-push-image:
     name: Build and push ${{ matrix.arch }} image
@@ -60,7 +75,7 @@ jobs:
         uses: docker/setup-buildx-action@v4
 
       - name: Log in to Docker Hub
-        if: ${{ startsWith(github.ref, 'refs/tags/') && github.repository == 'xorbitsai/inference' }}
+        if: ${{ github.repository == 'xorbitsai/inference' && (startsWith(github.ref, 'refs/tags/') || inputs.push_to_dockerhub) }}
         uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -69,21 +84,22 @@ jobs:
       - name: Determine image tag
         shell: bash
         env:
-          DOCKER_ORG: ${{ secrets.DOCKERHUB_USERNAME }}
+          MANUAL_IMAGE_TAG: ${{ inputs.image_tag }}
         run: |
           if [[ "$GITHUB_REF" =~ ^"refs/tags/" ]]; then
             IMAGE_TAG="${GITHUB_REF#refs/tags/}"
             echo "Will handle tag $IMAGE_TAG"
           else
-            # Branch names may contain characters invalid in image tags.
-            IMAGE_TAG="nightly-$(printf %s "$GITHUB_REF_NAME" | tr -c 'a-zA-Z0-9_.-' '-')"
+            IMAGE_TAG="$MANUAL_IMAGE_TAG"
+            echo "Will handle manual tag $IMAGE_TAG"
+          fi
+          if [[ ! "$IMAGE_TAG" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]]; then
+            echo "Invalid Docker image tag: $IMAGE_TAG" >&2
+            exit 1
           fi
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
-          # Build-only runs (forks, workflow_dispatch) have no Docker Hub
-          # secrets; any org name yields a valid local tag.
-          echo "DOCKER_ORG=${DOCKER_ORG:-xprobe}" >> $GITHUB_ENV
 
-      - name: Build (and push on release tags) ${{ matrix.arch }} image
+      - name: Build (and optionally push) ${{ matrix.arch }} image
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -91,10 +107,10 @@ jobs:
           platforms: linux/${{ matrix.arch }}
           build-args: |
             PLATFORM=${{ matrix.arch }}
-          push: ${{ startsWith(github.ref, 'refs/tags/') && github.repository == 'xorbitsai/inference' }}
+          push: ${{ github.repository == 'xorbitsai/inference' && (startsWith(github.ref, 'refs/tags/') || inputs.push_to_dockerhub) }}
           provenance: false
           tags: |
-            ${{ env.DOCKER_ORG }}/xinference-pypiserver:${{ env.IMAGE_TAG }}-${{ matrix.arch }}
+            ${{ env.PYPISERVER_IMAGE }}:${{ env.IMAGE_TAG }}-${{ matrix.arch }}
 
   # ------------------------------------------------------------------
   # Merge architecture-specific images into multi-arch manifest lists.
@@ -106,7 +122,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    if: ${{ startsWith(github.ref, 'refs/tags/') && github.repository == 'xorbitsai/inference' }}
+    if: ${{ github.repository == 'xorbitsai/inference' && (startsWith(github.ref, 'refs/tags/') || inputs.push_to_dockerhub) }}
 
     steps:
       - name: Set up Docker Buildx
@@ -120,14 +136,15 @@ jobs:
 
       - name: Create and push multi-arch manifests
         env:
-          DOCKER_ORG: ${{ secrets.DOCKERHUB_USERNAME }}
+          IMAGE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.image_tag || github.ref_name }}
         run: |
-          IMAGE_TAG="${GITHUB_REF#refs/tags/}"
           docker buildx imagetools create \
-            --tag "$DOCKER_ORG/xinference-pypiserver:$IMAGE_TAG" \
-            "$DOCKER_ORG/xinference-pypiserver:$IMAGE_TAG-amd64" \
-            "$DOCKER_ORG/xinference-pypiserver:$IMAGE_TAG-arm64"
-          docker buildx imagetools create \
-            --tag "$DOCKER_ORG/xinference-pypiserver:latest" \
-            "$DOCKER_ORG/xinference-pypiserver:$IMAGE_TAG-amd64" \
-            "$DOCKER_ORG/xinference-pypiserver:$IMAGE_TAG-arm64"
+            --tag "$PYPISERVER_IMAGE:$IMAGE_TAG" \
+            "$PYPISERVER_IMAGE:$IMAGE_TAG-amd64" \
+            "$PYPISERVER_IMAGE:$IMAGE_TAG-arm64"
+          if [[ "$GITHUB_REF" =~ ^"refs/tags/" ]]; then
+            docker buildx imagetools create \
+              --tag "$PYPISERVER_IMAGE:latest" \
+              "$PYPISERVER_IMAGE:$IMAGE_TAG-amd64" \
+              "$PYPISERVER_IMAGE:$IMAGE_TAG-arm64"
+          fi

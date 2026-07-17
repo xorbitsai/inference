@@ -53,8 +53,12 @@ Build args: `PLATFORM` (amd64/arm64), `TORCH_VERSION` (must match the torch of
 the `xprobe/xinference` runtime image), `CUDA_SUFFIX` (default cu130),
 `PYTHON_VERSION` (default 3.12).
 
-CI (`.github/workflows/build-pypiserver-image.yaml`) builds both architectures
-on release tags and merges them into multi-arch `:<tag>` / `:latest` manifests.
+CI (`.github/workflows/build-pypiserver-image.yaml`) builds both architectures;
+published runs merge them into a multi-arch manifest. Release tags publish both
+`:<tag>` and `:latest`. A manual run builds without publishing by default; set
+`push_to_dockerhub` to publish the requested `image_tag`. Manual runs never
+replace `:latest`, and the first authenticated push creates the Docker Hub
+repository if it does not exist yet.
 
 ## Verifying offline behavior end to end
 
