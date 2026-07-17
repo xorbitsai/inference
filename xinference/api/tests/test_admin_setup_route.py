@@ -13,16 +13,13 @@
 # limitations under the License.
 """Regression tests for the ``/v1/admin/setup`` first-run route.
 
-Covers Gemini review findings on PR #5144:
-
+* The first admin account is created by whoever reaches ``setup_admin``
+  first; no setup token is required (an operator can recover a lost/stolen
+  admin with ``xinference-reset-auth-password``).
 * Once setup has completed, ``setup_admin`` must reject immediately --
   before validating the password or computing its bcrypt hash -- so the
   endpoint doesn't stay a permanently unauthenticated, CPU-expensive route
   after the first admin exists.
-* A bootstrap ``setup_token`` (printed to the server log, or provided via
-  ``XINFERENCE_AUTH_SETUP_TOKEN``) is required to create the first admin,
-  so reaching the public endpoint over the network isn't by itself enough
-  to win full admin access.
 
     pytest xinference/api/tests/test_admin_setup_route.py -v
 """
@@ -34,27 +31,11 @@ import pytest
 from fastapi import APIRouter, FastAPI
 from fastapi.testclient import TestClient
 
-from xinference import constants as xconst
 from xinference.api.oauth2.advanced.auth_service import (
     PASSWORD_MIN_LENGTH,
     AdvancedAuthService,
 )
 from xinference.api.oauth2.advanced.routes import register_advanced_auth_routes
-
-
-@pytest.fixture(autouse=True)
-def _isolated_auth_dir(tmp_path, monkeypatch):
-    # setup_token generation/deletion reads XINFERENCE_AUTH_DIR from
-    # xinference.constants; isolate it so tests don't touch the real
-    # ~/.xinference/auth directory or collide with each other.
-    monkeypatch.setattr(xconst, "XINFERENCE_AUTH_DIR", str(tmp_path / "auth"))
-    monkeypatch.setattr(
-        xconst,
-        "XINFERENCE_AUTH_SETUP_TOKEN_PATH",
-        str(tmp_path / "auth" / "setup_token"),
-    )
-    monkeypatch.delenv("XINFERENCE_AUTH_SETUP_TOKEN", raising=False)
-    yield
 
 
 @pytest.fixture
@@ -76,46 +57,25 @@ def _make_client(auth_service):
     return TestClient(app)
 
 
-def test_setup_succeeds_with_valid_token(auth_service):
+def test_setup_succeeds(auth_service):
     client = _make_client(auth_service)
-    token = xconst.get_or_create_setup_token()
-
-    response = client.post(
-        "/v1/admin/setup",
-        json={
-            "username": "admin",
-            "password": "a-strong-password",
-            "setup_token": token,
-        },
-    )
-    assert response.status_code == 201
-    assert response.json()["username"] == "admin"
-
-
-def test_setup_rejects_missing_token(auth_service):
-    client = _make_client(auth_service)
-    xconst.get_or_create_setup_token()
 
     response = client.post(
         "/v1/admin/setup",
         json={"username": "admin", "password": "a-strong-password"},
     )
-    assert response.status_code == 403
+    assert response.status_code == 201
+    assert response.json()["username"] == "admin"
 
 
-def test_setup_rejects_wrong_token(auth_service):
+def test_setup_rejects_short_password(auth_service):
     client = _make_client(auth_service)
-    xconst.get_or_create_setup_token()
 
     response = client.post(
         "/v1/admin/setup",
-        json={
-            "username": "admin",
-            "password": "a-strong-password",
-            "setup_token": "definitely-not-the-right-token",
-        },
+        json={"username": "admin", "password": "short"},
     )
-    assert response.status_code == 403
+    assert response.status_code == 400
 
 
 def test_setup_rejects_non_string_password(auth_service):
@@ -123,116 +83,38 @@ def test_setup_rejects_non_string_password(auth_service):
     crash the endpoint with an unhandled TypeError from len(password).
     """
     client = _make_client(auth_service)
-    token = xconst.get_or_create_setup_token()
 
     response = client.post(
         "/v1/admin/setup",
-        json={"username": "admin", "password": 12345, "setup_token": token},
+        json={"username": "admin", "password": 12345},
     )
     assert response.status_code == 400
 
 
-def test_setup_rejects_non_string_setup_token(auth_service):
-    """A non-string setup_token must be rejected with 403, not crash with
-    a TypeError from secrets.compare_digest.
-    """
-    client = _make_client(auth_service)
-    xconst.get_or_create_setup_token()
-
-    response = client.post(
-        "/v1/admin/setup",
-        json={
-            "username": "admin",
-            "password": "a-strong-password",
-            "setup_token": 12345,
-        },
-    )
-    assert response.status_code == 403
-
-
-def test_setup_token_deleted_after_successful_setup(auth_service):
-    client = _make_client(auth_service)
-    token = xconst.get_or_create_setup_token()
-
-    response = client.post(
-        "/v1/admin/setup",
-        json={
-            "username": "admin",
-            "password": "a-strong-password",
-            "setup_token": token,
-        },
-    )
-    assert response.status_code == 201
-    assert not __import__("os").path.exists(xconst.XINFERENCE_AUTH_SETUP_TOKEN_PATH)
-
-
-def test_env_setup_token_is_honored(auth_service, monkeypatch):
-    monkeypatch.setenv("XINFERENCE_AUTH_SETUP_TOKEN", "env-provided-token")
-    client = _make_client(auth_service)
-
-    wrong = client.post(
-        "/v1/admin/setup",
-        json={
-            "username": "admin",
-            "password": "a-strong-password",
-            "setup_token": "wrong",
-        },
-    )
-    assert wrong.status_code == 403
-
-    right = client.post(
-        "/v1/admin/setup",
-        json={
-            "username": "admin",
-            "password": "a-strong-password",
-            "setup_token": "env-provided-token",
-        },
-    )
-    assert right.status_code == 201
-
-
 def test_setup_rejects_second_call_after_completion(auth_service):
     client = _make_client(auth_service)
-    token = xconst.get_or_create_setup_token()
     first = client.post(
         "/v1/admin/setup",
-        json={
-            "username": "admin",
-            "password": "a-strong-password",
-            "setup_token": token,
-        },
+        json={"username": "admin", "password": "a-strong-password"},
     )
     assert first.status_code == 201
 
-    # A second attempt gets a fresh token (the first was deleted), so this
-    # exercises the needs_setup() guard, not the token check.
-    second_token = xconst.get_or_create_setup_token()
     second = client.post(
         "/v1/admin/setup",
-        json={
-            "username": "someone-else",
-            "password": "another-password",
-            "setup_token": second_token,
-        },
+        json={"username": "someone-else", "password": "another-password"},
     )
     assert second.status_code == 403
 
 
 def test_setup_rejects_before_hashing_password_once_completed(auth_service):
     """The 403 for a completed setup must be raised before bcrypt hashing
-    (or password-length / token validation) runs, so a completed
-    deployment isn't stuck paying CPU cost on every call to this still
-    -public endpoint.
+    (or password-length validation) runs, so a completed deployment isn't
+    stuck paying CPU cost on every call to this still-public endpoint.
     """
     client = _make_client(auth_service)
-    token = xconst.get_or_create_setup_token()
     first = client.post(
         "/v1/admin/setup",
-        json={
-            "username": "admin",
-            "password": "a-strong-password",
-            "setup_token": token,
-        },
+        json={"username": "admin", "password": "a-strong-password"},
     )
     assert first.status_code == 201
 
@@ -255,14 +137,9 @@ def test_setup_status_reflects_completion(auth_service):
         "password_min_length": PASSWORD_MIN_LENGTH,
     }
 
-    token = xconst.get_or_create_setup_token()
     client.post(
         "/v1/admin/setup",
-        json={
-            "username": "admin",
-            "password": "a-strong-password",
-            "setup_token": token,
-        },
+        json={"username": "admin", "password": "a-strong-password"},
     )
 
     after = client.get("/v1/admin/setup/status")

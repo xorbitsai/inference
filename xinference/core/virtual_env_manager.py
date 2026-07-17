@@ -35,6 +35,7 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
         "sglang>=0.5.6",
         'https://github.com/sgl-project/whl/releases/download/v0.3.21/sgl_kernel-0.3.21+cu130-cp310-abi3-manylinux2014_x86_64.whl ; cuda_version == "13.0" and platform_machine == "x86_64"',
         'https://github.com/sgl-project/whl/releases/download/v0.3.21/sgl_kernel-0.3.21+cu130-cp310-abi3-manylinux2014_aarch64.whl ; cuda_version == "13.0" and platform_machine == "aarch64"',
+        'sgl_kernel ; cuda_version < "13.0"',
     ],
     "vllm": [
         "vllm>=0.11.2",
@@ -63,6 +64,22 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
     ],
 }
 
+# Critical dependencies of engine packages that may be inherited from the
+# parent environment instead of installed into the venv: with skip_installed
+# enabled (the default), an engine spec satisfied by the parent copy is not
+# installed, so nothing pulls the engine's own dependency requirements into
+# the venv. If the parent copy of such a dependency violates the engine's
+# declared requirement (e.g. sglang declares transformers==4.57.1 while the
+# Docker image ships transformers 5.x, which breaks sglang.srt at import),
+# the engine's declared spec is added to the venv install list so the venv
+# gets a compatible copy that shadows the parent's. The specs are read from
+# the installed engine's metadata at launch time, so they follow whatever
+# the installed engine version declares. Structure: engine name ->
+# {distribution name -> [critical dependency names]}.
+ENGINE_CRITICAL_DEPENDENCIES: Dict[str, Dict[str, List[str]]] = {
+    "sglang": {"sglang": ["transformers"]},
+}
+
 ENGINE_VIRTUALENV_EXTRA_INDEX_URLS: Dict[str, List[str]] = {
     "vllm": [
         "https://wheels.vllm.ai/0.19.0/cu130",
@@ -79,14 +96,61 @@ ENGINE_VIRTUALENV_INDEX_STRATEGY: Dict[str, str] = {
 }
 
 # Mapping from CUDA version suffix to PyTorch wheel URL
-# e.g., cu130 -> https://download.pytorch.org/whl/cu130
-# CUDA versions below 13.0 are no longer supported.
+# e.g., cu128 -> https://download.pytorch.org/whl/cu128
+# The prebuilt offline mirror targets cu130, but online/non-Docker installs
+# keep the CUDA wheel mappings they supported before that mirror was added.
 PYTORCH_CUDA_WHEEL_URLS: Dict[str, str] = {
     "cu130": "https://download.pytorch.org/whl/cu130",
+    "cu129": "https://download.pytorch.org/whl/cu129",
+    "cu128": "https://download.pytorch.org/whl/cu128",
 }
 
 # Packages that use PyTorch CUDA wheels
 PYTORCH_PACKAGES = {"torch", "torchaudio", "torchvision", "torchcodec"}
+
+# xllamacpp (llama.cpp engine) ships GPU wheels on a self-hosted index, one per
+# CUDA major line. Only these CUDA lines have prebuilt GPU wheels; any other
+# environment (no GPU, or an unsupported CUDA line) falls back to the default
+# PyPI index, which serves the CPU build.
+# See https://github.com/xorbitsai/xllamacpp for the official install commands.
+XLLAMACPP_CUDA_INDEX_URLS: Dict[str, str] = {
+    "cu132": "https://xorbitsai.github.io/xllamacpp/whl/cu132",
+    "cu128": "https://xorbitsai.github.io/xllamacpp/whl/cu128",
+}
+
+
+def get_xllamacpp_cuda_index_url(
+    system_cuda_version: Optional[str],
+) -> Optional[str]:
+    """
+    Pick the xllamacpp GPU wheel index URL matching the detected system CUDA
+    version.
+
+    ``system_cuda_version`` is the dotted version reported by the platform
+    (e.g. ``"13.2"`` or ``"12.6"``). CUDA is backward compatible within a major
+    line, so we map by major version to the highest available minor wheel index
+    that does not exceed the system version:
+
+    - CUDA 13.x  -> cu132
+    - CUDA 12.8+ -> cu128
+
+    Returns ``None`` when no GPU is detected or the CUDA line has no prebuilt
+    wheel, in which case the caller should leave the index untouched so the CPU
+    build is installed from PyPI.
+    """
+    if not system_cuda_version:
+        return None
+    # Minor version is optional so a major-only report (e.g. "13") still maps.
+    match = re.match(r"^(\d+)(?:\.(\d+))?", system_cuda_version.strip())
+    if not match:
+        return None
+    major = int(match.group(1))
+    minor = int(match.group(2)) if match.group(2) is not None else 0
+    if major >= 13:
+        return XLLAMACPP_CUDA_INDEX_URLS["cu132"]
+    if major == 12 and minor >= 8:
+        return XLLAMACPP_CUDA_INDEX_URLS["cu128"]
+    return None
 
 
 def extract_cuda_version_from_url(url: str) -> Optional[str]:
@@ -132,6 +196,86 @@ def get_engine_virtualenv_packages(model_engine: Optional[str]) -> List[str]:
     if not model_engine:
         return []
     return ENGINE_VIRTUALENV_PACKAGES.get(model_engine.lower(), []).copy()
+
+
+def get_engine_critical_dependency_specs(
+    model_engine: Optional[str], packages: Optional[List[str]] = None
+) -> List[str]:
+    """
+    Return dependency specs that must be installed into the venv because the
+    engine package will be inherited from the parent environment while the
+    parent copies of its critical dependencies (see
+    ``ENGINE_CRITICAL_DEPENDENCIES``) do not satisfy the engine's own declared
+    requirements.
+
+    Returns an empty list when the engine is absent from the parent
+    environment or the requested spec forces a fresh engine install — in both
+    cases the resolver installs the engine together with its dependencies and
+    there is nothing to compensate for. Dependencies explicitly listed in
+    ``packages`` are also left untouched so user-provided specs win.
+    """
+    if not model_engine:
+        return []
+    critical = ENGINE_CRITICAL_DEPENDENCIES.get(model_engine.lower())
+    if not critical:
+        return []
+
+    import importlib.metadata
+
+    from packaging.requirements import Requirement
+
+    requested: Dict[str, Requirement] = {}
+    for pkg in packages or []:
+        try:
+            req = Requirement(pkg.split(";", 1)[0].strip())
+        except Exception:
+            # placeholders (#system_torch#) and direct wheel URLs
+            continue
+        requested[req.name.lower()] = req
+
+    specs: List[str] = []
+    for dist_name, dep_names in critical.items():
+        try:
+            parent_version = importlib.metadata.version(dist_name)
+        except importlib.metadata.PackageNotFoundError:
+            continue
+
+        engine_req = requested.get(dist_name.lower())
+        if engine_req is not None and engine_req.specifier:
+            try:
+                if not engine_req.specifier.contains(parent_version, prereleases=True):
+                    # parent copy doesn't satisfy the requested spec, the venv
+                    # installs its own engine with full dependency resolution
+                    continue
+            except Exception:
+                continue
+
+        try:
+            declared = importlib.metadata.requires(dist_name) or []
+        except importlib.metadata.PackageNotFoundError:
+            continue
+
+        wanted = {name.lower() for name in dep_names}
+        for req_str in declared:
+            try:
+                req = Requirement(req_str)
+            except Exception:
+                continue
+            name = req.name.lower()
+            if name not in wanted or name in requested:
+                continue
+            if req.marker is not None and not req.marker.evaluate({"extra": ""}):
+                continue
+            try:
+                dep_version: Optional[str] = importlib.metadata.version(req.name)
+            except importlib.metadata.PackageNotFoundError:
+                dep_version = None
+            if dep_version is not None and req.specifier.contains(
+                dep_version, prereleases=True
+            ):
+                continue
+            specs.append(f"{req.name}{req.specifier}" if req.specifier else req.name)
+    return specs
 
 
 def get_engine_virtualenv_extra_index_urls(

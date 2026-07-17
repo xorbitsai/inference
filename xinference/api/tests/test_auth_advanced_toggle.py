@@ -32,7 +32,6 @@ import pytest
 from fastapi import HTTPException
 
 from xinference.api.oauth2.advanced.auth_service import AdvancedAuthService
-from xinference.api.oauth2.auth_service import AuthService
 from xinference.api.restful_api import RESTfulAPI
 
 
@@ -138,7 +137,7 @@ def test_model_access_is_unchecked_when_advanced_auth_disabled(tmp_path):
     """
     api = _bare_api_instance()
     api._advanced_auth_service = None
-    api._auth_service = AuthService(auth_config_file=None)
+    api._auth_service = None
 
     for headers in (
         {},
@@ -157,7 +156,7 @@ def test_admin_key_routes_not_registered_when_advanced_auth_disabled():
     """
     api = _bare_api_instance()
     api._advanced_auth_service = None
-    api._auth_service = AuthService(auth_config_file=None)
+    api._auth_service = None
 
     assert api._advanced_auth_service is None
     # Mirrors the gating condition in RESTfulAPI init_app / __init__.

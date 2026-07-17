@@ -14,10 +14,11 @@
 """
 Offline-resolution quality gate for the xinference-pypiserver image.
 
-Resolves every engine set, every per-model pin and every direct-URL wheel
-against ONLY the local pypiserver (started with --disable-fallback), which
-is exactly what an air-gapped deployment sees. Any unresolvable entry fails
-the image build instead of failing the user at model-launch time.
+Resolves every index-compatible engine set, per-model pin and direct-wheel
+requirement against ONLY the local pypiserver (started with
+--disable-fallback). Git and non-wheel direct references cannot be represented
+faithfully by a simple index; they are reported as explicitly unsupported by
+the offline profile and rejected before install by the runtime.
 """
 
 from __future__ import annotations
@@ -33,6 +34,8 @@ import urllib.request
 from pathlib import Path
 from typing import List, Optional
 from urllib.parse import unquote, urlparse
+
+from packaging.utils import InvalidWheelFilename, parse_wheel_filename
 
 
 def wait_for_server(index_url: str, timeout: int = 60) -> None:
@@ -54,10 +57,14 @@ def wheel_url_to_spec(url: str) -> Optional[str]:
     filename = unquote(posixpath.basename(urlparse(url).path))
     if not filename.endswith(".whl"):
         return None
-    parts = filename[: -len(".whl")].split("-")
-    if len(parts) < 5 or not parts[1][:1].isdigit():
+    try:
+        _, version, _, _ = parse_wheel_filename(filename)
+    except InvalidWheelFilename:
         return None
-    return f"{parts[0]}=={parts[1]}"
+    # parse_wheel_filename canonicalizes the distribution name. Keep the
+    # filename spelling for compatibility with existing manifests and logs.
+    distribution = filename.split("-", 1)[0]
+    return f"{distribution}=={version}"
 
 
 def compile_against_index(
@@ -128,27 +135,47 @@ def main() -> None:
             if line.strip() and not line.startswith("#")
         ]
         if requirements:
-            gate(f"engine:{in_file.stem}", requirements)
+            gate("engine:" + in_file.stem, requirements)
 
     for entry in json.loads((args.manifest_dir / "pins.json").read_text()):
-        gate(f"pin:{entry['spec']}", [entry["spec"]])
+        gate("pin:" + entry["spec"], [entry["spec"]])
 
     for url in (args.manifest_dir / "urls.txt").read_text().splitlines():
         if not url.strip():
             continue
         spec = wheel_url_to_spec(url.strip())
         if spec is None:
-            failures.append(f"url:{url} (unparsable wheel filename)")
-            print(f"FAIL url:{url} (unparsable wheel filename)", flush=True)
+            failures.append("url:" + url + " (unparsable wheel filename)")
+            print("FAIL url:" + url + " (unparsable wheel filename)", flush=True)
             continue
-        gate(f"url:{spec}", [spec])
+        gate("url:" + spec, [spec])
+
+    unsupported_direct_references = [
+        line.strip()
+        for line in (args.manifest_dir / "git.txt").read_text().splitlines()
+        if line.strip()
+    ]
+    for requirement in unsupported_direct_references:
+        print(
+            "UNSUPPORTED offline direct reference " + requirement,
+            flush=True,
+        )
 
     if failures:
         sys.exit(
             f"FATAL: {len(failures)} entr{'y' if len(failures) == 1 else 'ies'} "
             "cannot be resolved from the mirror alone:\n  " + "\n  ".join(failures)
         )
-    print("selfcheck passed: mirror is self-sufficient", flush=True)
+    suffix = (
+        f"; {len(unsupported_direct_references)} git/direct reference(s) are "
+        "explicitly unsupported by the offline profile"
+        if unsupported_direct_references
+        else ""
+    )
+    print(
+        "selfcheck passed: indexed mirror content is self-sufficient" + suffix,
+        flush=True,
+    )
 
 
 if __name__ == "__main__":

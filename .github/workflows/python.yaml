@@ -107,12 +107,30 @@ jobs:
                 xinference/thirdparty/*) audio=true ;;
                 # The web UI never affects GPU tests.
                 xinference/ui/*) ;;
+                # Tests under the shared runtime packages exercise CPU logic
+                # that the ubuntu/macos/windows CI already covers; editing a
+                # test file does not change the GPU launch/inference path, so
+                # it needs no GPU CI. (test_continuous_batching is matched by
+                # the llm rule above and still triggers the llm group.)
+                xinference/core/tests/*|xinference/api/tests/*|xinference/client/tests/*) ;;
+                # OAuth2 / auth and the admin & launch-history routers are pure
+                # HTTP/auth logic with no model inference path; the non-GPU CI
+                # covers them. Keep them out of GPU CI entirely.
+                xinference/api/oauth2/*|xinference/api/routers/admin.py|xinference/api/routers/launch_history.py) ;;
+                # Per-family HTTP routers map to a single GPU group instead of
+                # forcing a full run.
+                xinference/api/routers/llm.py) llm=true ;;
+                xinference/api/routers/embeddings.py|xinference/api/routers/rerank.py) embedding=true ;;
+                xinference/api/routers/images.py) image=true ;;
+                xinference/api/routers/audio.py) audio=true ;;
                 # Every GPU test launches models through a real RESTful API
                 # server subprocess and the xinference/client/ package (see
                 # conftest.py's `setup` fixture), so changes to either affect
                 # every family. The same fixture starts the test cluster through
                 # xinference/deploy/, and xinference/core/ is the actor runtime
                 # shared by every model family. Any of these affects every group.
+                # This also covers restful_api.py (the launch/inference
+                # endpoints), dependencies.py, and the models/videos routers.
                 xinference/core/*|xinference/api/*|xinference/client/*|xinference/deploy/*) full=true; break ;;
                 # Model families not broken out above (flexible, video, ...)
                 # and top-level files directly under xinference/model/ have
@@ -513,16 +531,20 @@ jobs:
                   xinference/model/rerank/tests/test_qwen3_vl_reranker_virtualenv.py
                 ;;
               image)
+                # test_got_ocr2 is intentionally omitted: it self-skips on
+                # transformers >= 4.48.0 and this job pins 4.53.2, so it never
+                # runs a single case here.
                 run_pytest \
-                  xinference/model/image/tests/test_stable_diffusion.py \
-                  xinference/model/image/tests/test_got_ocr2.py
+                  xinference/model/image/tests/test_stable_diffusion.py
                 ;;
               audio)
+                # test_cosyvoice is intentionally omitted: all of its cases
+                # are @pytest.mark.skip'd (diffusers on this image is
+                # incompatible), so it never runs anything here.
                 run_pytest \
                   xinference/model/audio/tests/test_whisper.py \
                   xinference/model/audio/tests/test_funasr.py \
                   xinference/model/audio/tests/test_chattts.py \
-                  xinference/model/audio/tests/test_cosyvoice.py \
                   xinference/model/audio/tests/test_f5tts.py \
                   xinference/model/audio/tests/test_melotts.py \
                   xinference/model/audio/tests/test_kokoro.py \

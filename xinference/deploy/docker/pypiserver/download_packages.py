@@ -35,15 +35,18 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import subprocess
 import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 from packaging.requirements import InvalidRequirement, Requirement
-from packaging.utils import canonicalize_name
+from packaging.utils import (
+    InvalidWheelFilename,
+    canonicalize_name,
+    parse_wheel_filename,
+)
 
 TORCH_FAMILY = ("torch", "torchvision", "torchaudio", "torchcodec")
 
@@ -67,6 +70,17 @@ def spec_name(spec: str) -> Optional[str]:
         return canonicalize_name(Requirement(spec.split(";", 1)[0].strip()).name)
     except InvalidRequirement:
         return None
+
+
+def wheel_name_version(filename: str) -> Optional[Tuple[str, str]]:
+    """Return a normalized ``(name, version)`` pair for a wheel filename."""
+    if not filename.endswith(".whl"):
+        return None
+    try:
+        name, version, _, _ = parse_wheel_filename(filename)
+    except InvalidWheelFilename:
+        return None
+    return canonicalize_name(name), str(version)
 
 
 def lock_names(lock_file: Path) -> Dict[str, str]:
@@ -399,18 +413,18 @@ def main() -> None:
     versions: Dict[str, Set[str]] = defaultdict(set)
     total_size = 0
     files = sorted(p for p in dest.iterdir() if p.is_file())
-    wheel_re = re.compile(r"^([A-Za-z0-9_.]+)-([0-9][^-]*)-")
     for f in files:
         total_size += f.stat().st_size
-        m = wheel_re.match(f.name)
-        if m:
-            versions[canonicalize_name(m.group(1))].add(m.group(2))
+        name_version = wheel_name_version(f.name)
+        if name_version is not None:
+            name, version = name_version
+            versions[name].add(version)
     report: Dict[str, object] = {
         "unconstrained_fallbacks": unconstrained_fallbacks,
         "sdist_left": sdist_left,
         "file_count": len(files),
         "total_size_bytes": total_size,
-        "total_size_human": f"{total_size / 1024 ** 3:.2f} GiB",
+        "total_size_human": format(total_size / 1024**3, ".2f") + " GiB",
         "multi_version_packages": {
             name: sorted(vs) for name, vs in sorted(versions.items()) if len(vs) > 1
         },

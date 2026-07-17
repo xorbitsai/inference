@@ -88,14 +88,17 @@ into a per-model virtual environment (controlled by ``XINFERENCE_ENABLE_VIRTUAL_
 see :ref:`environments`). On a host without Internet access these installs would fail.
 
 The ``offline`` compose profile solves this by starting a private PyPI server next to
-Xinference. Its image, ``xprobe/xinference-pypiserver``, ships **every wheel the runtime may
-install into per-model virtual environments** — including the ``vllm`` / ``sglang`` CUDA
-stacks — so no wheel preparation is needed. The offline configuration points every runtime
-``pip`` / ``uv`` invocation inside the Xinference container at it.
+Xinference. Its image, ``xprobe/xinference-pypiserver``, ships the index-compatible wheels
+the runtime may install into per-model virtual environments — including the ``vllm`` /
+``sglang`` CUDA stacks — so no wheel preparation is needed for supported models. The offline
+configuration points every runtime ``pip`` / ``uv`` invocation inside the Xinference container
+at it.
 
 .. note::
 
-   The mirror's GPU stack targets CUDA 13.0; CUDA versions below 13.0 are not supported.
+   The prebuilt mirror's GPU stack targets CUDA 13.0. This does not remove the runtime's
+   existing online support for CUDA 12.8/12.9, but those stacks are not included in this
+   mirror image.
 
 Step 1: Transfer the Docker images
 ----------------------------------
@@ -126,11 +129,13 @@ Then open ``pip.conf`` and uncomment the three lines of the offline block:
 
 .. note::
 
-   Both pieces are required because they cover different code paths. ``pip.conf`` feeds
+   All three pieces are required because they cover different code paths. ``pip.conf`` feeds
    Xinference's pip-config inheritance, which passes the private index explicitly to the
    per-model virtual-env installer; the ``UV_*`` variables in ``offline.env`` cover ``uv``
-   invocations that do not carry index flags (such as the dependency-resolution dry-run).
-   Removing either half breaks the offline install chain.
+   invocations that do not carry index flags (such as the dependency-resolution dry-run);
+   ``XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL=1`` enables direct-wheel rewriting only for this
+   self-contained mirror. A normal pip mirror configured by an online user does not enable
+   that behavior.
 
 Step 3: Start with the offline profile
 --------------------------------------
@@ -158,6 +163,18 @@ the same network can reuse it with ``pip install -i http://<host>:8080/simple ..
    already carries these CUDA wheels. Alternatively, set ``XINFERENCE_ENABLE_VIRTUAL_ENV=0``
    in ``offline.env`` to skip runtime installs entirely and rely on the packages baked into
    the Xinference image.
+
+.. warning::
+
+   Model specifications containing ``git+`` or other non-wheel direct references cannot be
+   represented faithfully by a Python simple index. In explicit offline-install mode,
+   Xinference rejects them before attempting network egress and reports the offending
+   requirement. The current built-ins in this category include the Transformers path of
+   HunyuanOCR and MiniCPM-V-4.6, plus FLUX.2-klein. Preinstall the required source revision in
+   a custom image or replace it with an index-resolvable package before using these models
+   air-gapped. The FlashInfer AOT repair fetched from its public wheel index is also skipped in
+   explicit offline mode; Blackwell deployments that require it should bake those packages
+   into a custom image.
 
 Bring your own wheels (optional)
 --------------------------------

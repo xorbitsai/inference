@@ -87,6 +87,26 @@ try:
 except ImportError:
     SGLANG_INSTALLED = False
 
+
+def _virtual_env_allows_missing_sglang() -> bool:
+    """Whether virtualenv mode should tolerate a missing SGLang install.
+
+    When enabled, SGLang and its runtime are installed on demand, so engine
+    listing must not depend on the library being present locally. Delegates to
+    the shared helper so discovery honors the effective request-level flag
+    (virtualenv_discovery_var), falling back to the global constant otherwise.
+    """
+    try:
+        from ...utils import virtual_env_allows_missing_engine
+    except Exception:
+        try:
+            from ....constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+        except Exception:
+            return False
+        return bool(XINFERENCE_ENABLE_VIRTUAL_ENV)
+    return virtual_env_allows_missing_engine()
+
+
 SGLANG_SUPPORTED_MODELS = [
     "LlamaForCausalLM",
     "MistralForCausalLM",
@@ -385,7 +405,7 @@ class SGLANGModel(LLM):
             )
         if "generate" not in llm_family.model_ability:
             return False, "SGLang base engine requires generate ability"
-        if not SGLANG_INSTALLED:
+        if not SGLANG_INSTALLED and not _virtual_env_allows_missing_sglang():
             return False, "sglang library is not installed"
         return True
 
@@ -699,7 +719,7 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
             )
         if "chat" not in llm_family.model_ability:
             return False, "SGLang chat engine requires chat ability"
-        if not SGLANG_INSTALLED:
+        if not SGLANG_INSTALLED and not _virtual_env_allows_missing_sglang():
             return False, "sglang library is not installed"
         return True
 
@@ -809,7 +829,10 @@ class SGLANGVisionModel(SGLANGModel, ChatModelMixin):
             )
         if "vision" not in llm_family.model_ability:
             return False, "SGLang vision engine requires vision ability"
-        if not SGLANG_INSTALLED:
+        # Align with SGLANGChatModel: virtualenv installs SGLang on demand, so a
+        # missing local install must not hide the engine. GPU/OS checks above
+        # stay unconditional because virtualenv cannot add a GPU or change the OS.
+        if not SGLANG_INSTALLED and not _virtual_env_allows_missing_sglang():
             return False, "sglang library is not installed"
         return True
 

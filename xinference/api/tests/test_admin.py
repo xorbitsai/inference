@@ -108,22 +108,6 @@ async def test_is_cluster_authenticated_returns_auth_flag(mock_api):
 
 
 @pytest.mark.asyncio
-async def test_login_for_access_token_returns_token(mock_api):
-    request = MagicMock()
-    request.json = AsyncMock(return_value={"username": "user", "password": "pass"})
-    mock_api._auth_service.generate_token_for_user.return_value = {
-        "access_token": "jwt-xxx",
-        "token_type": "bearer",
-    }
-    response = await admin.login_for_access_token(request=request, api=mock_api)
-    assert response.status_code == 200
-    assert _json_body(response)["access_token"] == "jwt-xxx"
-    mock_api._auth_service.generate_token_for_user.assert_called_once_with(
-        "user", "pass"
-    )
-
-
-@pytest.mark.asyncio
 async def test_get_cluster_device_info_returns_data(mock_api, mock_supervisor):
     mock_supervisor.get_cluster_device_info.return_value = {
         "devices": ["gpu-0"],

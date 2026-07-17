@@ -476,6 +476,28 @@ def rewrite_direct_url_packages_for_index(packages: List[str]) -> List[str]:
     return rewritten
 
 
+def find_direct_reference_packages(packages: List[str]) -> List[str]:
+    """Return requirements that still bypass package indexes.
+
+    Wheel URLs supported by :func:`rewrite_direct_url_packages_for_index`
+    disappear before this helper is called. Remaining HTTP(S), ``git+`` and
+    PEP 508 direct references cannot be satisfied reliably by an offline
+    simple index, so callers can fail before an installer attempts egress.
+    """
+
+    direct_references: List[str] = []
+    for pkg in packages:
+        candidate = pkg.partition(";")[0].strip()
+        if candidate.startswith(("http://", "https://", "git+")):
+            direct_references.append(pkg)
+            continue
+        if "@" in candidate:
+            target = candidate.partition("@")[2].strip()
+            if target.startswith(("http://", "https://", "git+")):
+                direct_references.append(pkg)
+    return direct_references
+
+
 def assign_replica_gpu(
     _replica_model_uid: str, replica: int, gpu_idx: Optional[Union[int, List[int]]]
 ) -> Optional[List[int]]:

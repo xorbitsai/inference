@@ -783,3 +783,88 @@ def test_query_engine_general():
     unregister_llm(family.model_name)
     assert family not in get_user_defined_llm_families()
     assert "custom-qwen1.5-chat" not in LLM_ENGINES
+
+
+def test_multimodal_engine_available_with_virtualenv(monkeypatch):
+    """Regression test for qwen3.5-style multimodal models.
+
+    A model whose only chat/vision architecture is served by the vLLM/SGLang
+    multimodal engines must still list those engines when virtualenv is enabled
+    on a supported worker (GPU + Linux) even if the libraries are not installed
+    locally. Previously the vision match_json returned "library is not
+    installed" unconditionally, unlike the chat match_json which honored the
+    virtualenv exemption.
+
+    virtualenv can install Python packages on demand but cannot add a GPU or
+    change the OS, so the hardware/OS checks stay unconditional and are
+    simulated here to isolate the library-exemption behavior.
+    """
+    import xinference.model.llm as llm_pkg
+    from xinference.model.llm.sglang import core as sglang_core
+    from xinference.model.llm.vllm import core as vllm_core
+
+    from ...utils import get_engine_params_by_name_with_virtual_env
+
+    llm_pkg._install()
+
+    # Simulate a supported worker: CUDA present and Linux. This isolates the
+    # library-missing exemption from the (unconditional) hardware/OS gates.
+    for core in (vllm_core, sglang_core):
+        for model_cls in vars(core).values():
+            if isinstance(model_cls, type) and hasattr(model_cls, "_has_cuda_device"):
+                monkeypatch.setattr(
+                    model_cls, "_has_cuda_device", classmethod(lambda cls: True)
+                )
+                monkeypatch.setattr(
+                    model_cls, "_is_linux", classmethod(lambda cls: True)
+                )
+
+    params = get_engine_params_by_name_with_virtual_env(
+        "LLM", "qwen3.5", enable_virtual_env=True
+    )
+    assert params is not None
+
+    # vLLM/SGLang (GPU multimodal engines), Transformers and llama.cpp are all
+    # declared virtualenv markers for qwen3.5, so on a GPU+Linux worker they
+    # must be offered (as available lists, flagged virtualenv_required when the
+    # lib is missing) even without the library installed locally.
+    for engine in ("vLLM", "SGLang", "Transformers", "llama.cpp"):
+        assert isinstance(
+            params.get(engine), list
+        ), f"{engine} should be available for qwen3.5 under virtualenv, got {params.get(engine)!r}"
+
+    # MLX and LMDEPLOY are not declared for qwen3.5, so they must NOT be listed
+    # as available (kept as string reasons instead).
+    for engine in ("MLX", "LMDEPLOY"):
+        assert not isinstance(
+            params.get(engine), list
+        ), f"{engine} should not be available for qwen3.5, got {params.get(engine)!r}"
+
+
+def test_multimodal_vllm_engine_requires_gpu_even_with_virtualenv():
+    """virtualenv must not bypass the hardware/OS gate.
+
+    On a worker without a supported GPU, the vLLM multimodal engine must not
+    match even when virtualenv is enabled, because virtualenv cannot provide an
+    accelerator. Guards the correctness fix where GPU/OS checks were previously
+    (incorrectly) exempted under virtualenv.
+    """
+    import xinference.model.llm as llm_pkg
+    from xinference.model.llm.llm_family import BUILTIN_LLM_FAMILIES
+    from xinference.model.llm.vllm.core import VLLMMultiModel
+
+    llm_pkg._install()
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == "qwen3.5")
+    spec = family.model_specs[0]
+
+    if (
+        VLLMMultiModel._has_cuda_device()
+        or VLLMMultiModel._has_mlu_device()
+        or VLLMMultiModel._has_vacc_device()
+        or VLLMMultiModel._has_musa_device()
+    ):
+        pytest.skip("host has an accelerator; cannot assert the no-GPU gate")
+
+    result = VLLMMultiModel.match_json(family, spec, spec.quantization)
+    assert result is not True
+    assert isinstance(result, tuple) and result[0] is False

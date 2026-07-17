@@ -15,6 +15,7 @@ import platform
 
 from ..utils import (
     filter_virtualenv_packages_by_markers,
+    find_direct_reference_packages,
     rewrite_direct_url_packages_for_index,
 )
 from ..virtual_env_manager import ENGINE_VIRTUALENV_PACKAGES
@@ -75,6 +76,19 @@ def test_non_url_and_non_wheel_entries_unchanged():
     assert rewrite_direct_url_packages_for_index(packages) == packages
 
 
+def test_find_direct_references_after_wheel_rewrite():
+    packages = [
+        SGL_KERNEL_X86_URL,
+        "transformers @ git+https://github.com/huggingface/transformers.git",
+        "git+https://github.com/huggingface/diffusers",
+        "https://example.com/pkg-1.0.0.tar.gz",
+        "transformers>=4.53.3",
+    ]
+    rewritten = rewrite_direct_url_packages_for_index(packages)
+
+    assert find_direct_reference_packages(rewritten) == packages[1:4]
+
+
 def test_malformed_wheel_filename_unchanged():
     packages = [
         # too few dash-separated fields to be a valid wheel filename
@@ -103,3 +117,13 @@ def test_filter_then_rewrite_sglang_cu130():
     if machine:
         # the arch-matching direct URL survives filtering and is rewritten
         assert "sgl_kernel==0.3.21+cu130" in rewritten
+
+
+def test_filter_sglang_keeps_cuda_12_fallback():
+    """The cu130 offline mirror must not remove online CUDA 12 support."""
+    packages = filter_virtualenv_packages_by_markers(
+        ENGINE_VIRTUALENV_PACKAGES["sglang"], "sglang", "12.8"
+    )
+
+    assert "sgl_kernel" in packages
+    assert not any("+cu130" in package for package in packages)

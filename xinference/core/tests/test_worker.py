@@ -850,6 +850,59 @@ def test_prepare_virtual_env_inherit_pip_config(monkeypatch):
     assert kwargs["index_url"] == "https://example.invalid/simple"
 
 
+def test_prepare_virtual_env_normal_pip_mirror_keeps_direct_wheel(monkeypatch):
+    manager = DummyVirtualEnvManager()
+    direct_wheel = "https://example.invalid/" "pkg-1.0.0-py3-none-any.whl"
+    settings = VirtualEnvSettings(
+        packages=[direct_wheel],
+        inherit_pip_config=False,
+        index_url="https://pypi-mirror.example/simple",
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL", False
+    )
+
+    WorkerActor._prepare_virtual_env(manager, settings, None, model_engine=None)
+
+    packages, _ = manager.calls[0]
+    assert packages == [direct_wheel]
+
+
+def test_prepare_virtual_env_offline_mirror_rewrites_direct_wheel(monkeypatch):
+    manager = DummyVirtualEnvManager()
+    direct_wheel = "https://example.invalid/" "pkg-1.0.0-py3-none-any.whl"
+    settings = VirtualEnvSettings(
+        packages=[direct_wheel],
+        inherit_pip_config=False,
+        index_url="http://xinference-pypiserver:8080/simple",
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL", True
+    )
+
+    WorkerActor._prepare_virtual_env(manager, settings, None, model_engine=None)
+
+    packages, _ = manager.calls[0]
+    assert packages == ["pkg==1.0.0"]
+
+
+def test_prepare_virtual_env_offline_mirror_rejects_git_source(monkeypatch):
+    manager = DummyVirtualEnvManager()
+    settings = VirtualEnvSettings(
+        packages=["diffusers @ git+https://github.com/huggingface/diffusers"],
+        inherit_pip_config=False,
+        index_url="http://xinference-pypiserver:8080/simple",
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL", True
+    )
+
+    with pytest.raises(ValueError, match="non-wheel direct references"):
+        WorkerActor._prepare_virtual_env(manager, settings, None, model_engine=None)
+
+    assert manager.calls == []
+
+
 def test_prepare_virtual_env_keeps_system_markers():
     manager = DummyVirtualEnvManager()
     settings = VirtualEnvSettings(

@@ -52,7 +52,6 @@ from ..constants import (
     XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU,
     XINFERENCE_CACHE_DIR,
     XINFERENCE_DISABLE_HEALTH_CHECK,
-    XINFERENCE_DISABLE_METRICS,
     XINFERENCE_ENABLE_VIRTUAL_ENV,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
     XINFERENCE_HOME,
@@ -66,7 +65,9 @@ from ..constants import (
     XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT,
     XINFERENCE_TCP_REQUEST_TIMEOUT,
     XINFERENCE_VIRTUAL_ENV_DIR,
+    XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL,
     XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED,
+    is_metrics_disabled,
 )
 from ..core.model import ModelActor
 from ..core.status_guard import LaunchStatus
@@ -94,6 +95,7 @@ from .utils import (
     apply_engine_virtualenv_settings,
     build_subpool_envs_for_virtual_env,
     filter_virtualenv_packages_by_markers,
+    find_direct_reference_packages,
     log_async,
     log_sync,
     merge_virtual_env_packages,
@@ -104,6 +106,7 @@ from .utils import (
 from .virtual_env_manager import VirtualEnvManager as XinferenceVirtualEnvManager
 from .virtual_env_manager import (
     expand_engine_dependency_placeholders,
+    get_engine_critical_dependency_specs,
     is_cuda_compatible,
     resolve_virtualenv_python_path,
 )
@@ -577,7 +580,7 @@ class WorkerActor(xo.StatelessActor):
         # any process environ.
         self._model_uid_to_subpool_pids: Dict[str, Set[int]] = {}
 
-        if XINFERENCE_DISABLE_METRICS:
+        if is_metrics_disabled():
             logger.info(
                 "Worker metrics is disabled due to the environment XINFERENCE_DISABLE_METRICS=1"
             )
@@ -2511,6 +2514,59 @@ class WorkerActor(xo.StatelessActor):
 
             return virtual_env_manager
 
+    @staticmethod
+    def _is_cuda_device_available() -> bool:
+        """
+        Whether a usable CUDA device is actually present.
+
+        ``get_cuda_version()`` reports ``torch.version.cuda`` (the version the
+        installed PyTorch was built against), which is set even on a CPU-only
+        host with a CUDA-built torch. Selecting a GPU wheel off that alone
+        installs a wheel whose ``libcuda.so.1`` cannot be loaded at import time.
+        Gate the GPU path on real device availability instead.
+        """
+        try:
+            from xoscar.virtualenv.platform import check_cuda_available
+
+            return bool(check_cuda_available())
+        except Exception:
+            try:
+                import torch
+
+                return bool(torch.cuda.is_available())
+            except Exception:
+                return False
+
+    @staticmethod
+    def _uninstall_venv_package(
+        virtual_env_manager: "VirtualEnvManager", package: str
+    ) -> None:
+        """
+        Uninstall a package from the virtual environment, if present.
+
+        Used to force a fresh install of a package whose currently-installed
+        build must be replaced (e.g. swapping a CPU xllamacpp wheel for the GPU
+        wheel, which shares the same version number). Failures are logged and
+        swallowed so a missing package or uninstall hiccup does not abort the
+        launch.
+        """
+        import subprocess
+
+        from .virtual_env_manager import resolve_virtualenv_python_path
+
+        venv_python = resolve_virtualenv_python_path(virtual_env_manager)
+        if not venv_python:
+            return
+        try:
+            subprocess.run(
+                [venv_python, "-m", "pip", "uninstall", "-y", package],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+        except Exception as e:  # pragma: no cover - best effort cleanup
+            logger.warning("Failed to uninstall %s from virtual env: %s", package, e)
+
     @classmethod
     def _prepare_virtual_env(
         cls,
@@ -2644,22 +2700,101 @@ class WorkerActor(xo.StatelessActor):
                 f"[DEBUG] CUDA version check passed: cuda_version={cuda_version}, keeping settings.extra_index_url={settings.extra_index_url}"
             )
 
+        # For the llama.cpp engine, xllamacpp ships CPU wheels on PyPI and GPU
+        # wheels on a self-hosted per-CUDA index. When a compatible CUDA runtime
+        # is detected, install from the matching GPU index so the GPU build is
+        # pulled instead of the default CPU build.
+        #
+        # The GPU index is used exclusively: it becomes the sole index_url and
+        # any inherited index/extra-index/find-links (e.g. a Tencent/Tsinghua
+        # PyPI mirror pulled in via inherit_pip_config) is dropped for this
+        # install. This is required for correctness: PyPI (and its mirrors)
+        # only carry the CPU build of xllamacpp, and the CPU and GPU wheels
+        # share the same version number, so leaving a mirror in the resolution
+        # set lets the resolver satisfy "xllamacpp" with the CPU wheel -- the
+        # user then gets a CPU runtime while believing the GPU build was
+        # installed. Restricting to the GPU index guarantees the GPU wheel (or a
+        # visible failure). xllamacpp GPU wheels are self-contained abi3 wheels
+        # with no required runtime dependencies, so an exclusive index does not
+        # break resolution.
+        force_reinstall_xllamacpp = False
+        if model_engine and model_engine.lower() == "llama.cpp":
+            from .virtual_env_manager import get_xllamacpp_cuda_index_url
+
+            xllamacpp_index_url = get_xllamacpp_cuda_index_url(cuda_version)
+            # Only switch to the GPU wheel when a CUDA device is actually usable.
+            # cuda_version reflects the PyTorch build, not device availability,
+            # so a CPU-only host with a CUDA-built torch would otherwise get a
+            # GPU wheel that fails to import (missing libcuda.so.1). In that
+            # case keep the default CPU index and behavior.
+            if (
+                not XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL
+                and xllamacpp_index_url
+                and cls._is_cuda_device_available()
+            ):
+                logger.info(
+                    "Detected CUDA %s, installing GPU build of xllamacpp "
+                    "exclusively from %s",
+                    cuda_version,
+                    xllamacpp_index_url,
+                )
+                settings.index_url = xllamacpp_index_url
+                settings.extra_index_url = None
+                settings.find_links = None
+                settings.index_strategy = None
+                # A CPU build of xllamacpp may already satisfy the
+                # "xllamacpp>=..." requirement (e.g. inherited from the parent
+                # env, or installed on a previous CPU-only launch). Because the
+                # CPU and GPU wheels share the same version, the skip-installed
+                # filter would drop the requirement before uv ever sees the GPU
+                # index, leaving the CPU build in place. Uninstall it first and
+                # force this install so the GPU wheel actually replaces it.
+                force_reinstall_xllamacpp = True
+
         packages = filter_virtualenv_packages_by_markers(
             packages, model_engine, cuda_version
         )
 
-        if settings.index_url:
-            # A private index was explicitly configured (VirtualEnvSettings or
-            # pip.conf via inherit_pip_config, e.g. an offline mirror). Direct
-            # wheel URLs would bypass it, so resolve them from the index
-            # instead.
+        critical_specs = get_engine_critical_dependency_specs(model_engine, packages)
+        if critical_specs:
+            logger.info(
+                "Engine %s will be inherited from the parent environment whose "
+                "copies of its critical dependencies do not satisfy the "
+                "engine's declared requirements; installing %s into the venv",
+                model_engine,
+                critical_specs,
+            )
+            packages = packages + critical_specs
+
+        if XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL:
+            if not settings.index_url:
+                raise ValueError(
+                    "XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL=1 requires a "
+                    "private index_url (configure the offline pip.conf)"
+                )
+            # This explicit flag distinguishes the bundled offline mirror from
+            # an ordinary user-configured PyPI proxy. Rewriting merely because
+            # index_url is present breaks online users whose mirror does not
+            # carry the direct wheel.
             packages = rewrite_direct_url_packages_for_index(packages)
+            direct_references = find_direct_reference_packages(packages)
+            if direct_references:
+                raise ValueError(
+                    "Offline virtualenv installation does not support "
+                    "non-wheel direct references; preinstall or replace these "
+                    f"requirements: {direct_references}"
+                )
 
         conf = dict(settings)
         conf.pop("packages", None)
         conf.pop("inherit_pip_config", None)
         if XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED:
             conf["skip_installed"] = XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED
+        if force_reinstall_xllamacpp:
+            # Bypass the satisfied-package filter so uv is actually invoked with
+            # the GPU index even when a same-version CPU wheel is already
+            # present.
+            conf["skip_installed"] = False
         variables = {}
         if model_engine:
             engine_value = model_engine.lower()
@@ -2673,6 +2808,8 @@ class WorkerActor(xo.StatelessActor):
             ", ".join([f"{k}={v}" for k, v in conf.items() if v]),
         )
         with _exclusive_venv_path_lock(str(virtual_env_manager.env_path)):
+            if force_reinstall_xllamacpp:
+                cls._uninstall_venv_package(virtual_env_manager, "xllamacpp")
             virtual_env_manager.install_packages(packages, **conf, **variables)
 
             # Post-install: flashinfer AOT workaround for sm_120 Blackwell.
@@ -2684,13 +2821,19 @@ class WorkerActor(xo.StatelessActor):
             # See optimize/20260702/2026070209.md
             from .virtual_env_manager import apply_flashinfer_aot_post_install
 
-            apply_flashinfer_aot_post_install(
-                model_engine,
-                architectures,
-                virtual_env_manager,
-                conf,
-                cuda_version,
-            )
+            if XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL:
+                logger.info(
+                    "Skipping the FlashInfer AOT post-install from its public "
+                    "wheel index in explicit offline-install mode"
+                )
+            else:
+                apply_flashinfer_aot_post_install(
+                    model_engine,
+                    architectures,
+                    virtual_env_manager,
+                    conf,
+                    cuda_version,
+                )
 
         # Apply engine-specific post-install patches
         if model_engine and model_engine.lower() == "vllm":

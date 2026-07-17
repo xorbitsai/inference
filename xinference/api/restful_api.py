@@ -49,18 +49,17 @@ from xoscar.utils import get_next_port
 
 from ..constants import (
     XINFERENCE_ALLOWED_IPS,
-    XINFERENCE_AUTH_ADVANCED,
     XINFERENCE_AUTH_DB_PATH,
-    XINFERENCE_AUTH_ENCRYPTION_KEY,
-    XINFERENCE_AUTH_JWT_SECRET_KEY,
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_DEFAULT_ENDPOINT_PORT,
-    XINFERENCE_DISABLE_METRICS,
     XINFERENCE_ENABLE_OTEL,
     XINFERENCE_LAUNCH_HISTORY_DB_PATH,
     XINFERENCE_MONITOR_CONFIG_DB_PATH,
     XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
-    get_or_create_setup_token,
+    get_auth_encryption_key,
+    get_auth_jwt_secret_key,
+    is_auth_advanced,
+    is_metrics_disabled,
 )
 from ..core.event import Event, EventCollectorActor, EventType
 from ..core.exceptions import ModelNotReadyError
@@ -73,7 +72,6 @@ from ..types import (
     max_tokens_field,
 )
 from .frontend_static import mount_frontend
-from .oauth2.auth_service import AuthService
 from .responses import JSONResponse
 from .schemas import (
     AutoConfigLLMRequest,
@@ -94,38 +92,22 @@ from .utils import require_model
 logger = logging.getLogger(__name__)
 
 
-def _log_setup_token_notice() -> None:
-    """Log the first-run setup token notice, called while setup is pending.
+def _log_setup_required_notice() -> None:
+    """Log the first-run setup notice, called while setup is pending.
 
-    Only logs the token itself when it was auto-generated. If the operator
-    set XINFERENCE_AUTH_SETUP_TOKEN explicitly (e.g. from a Kubernetes
-    Secret), it's deliberately being kept out of band, so logging it
-    verbatim would defeat that and let any log reader win the first-admin
-    race; log a generic pointer instead.
+    The first admin account is created by whoever reaches POST /v1/admin/setup
+    first. If someone else wins that race, an operator with shell access to the
+    deployment can take control back with ``xinference-reset-auth-password``.
     """
-    if os.environ.get("XINFERENCE_AUTH_SETUP_TOKEN", ""):
-        logger.warning(
-            "\n"
-            + "=" * 60
-            + "\n"
-            + "  FIRST-RUN SETUP REQUIRED\n"
-            + "  Create the initial admin account at POST /v1/admin/setup\n"
-            + "  (or via the web UI's setup page), using the setup token\n"
-            + "  configured via XINFERENCE_AUTH_SETUP_TOKEN.\n"
-            + "=" * 60
-        )
-    else:
-        setup_token = get_or_create_setup_token()
-        logger.warning(
-            "\n"
-            + "=" * 60
-            + "\n"
-            + "  FIRST-RUN SETUP REQUIRED (token shown only until used)\n"
-            + "  Create the initial admin account at POST /v1/admin/setup\n"
-            + "  (or via the web UI's setup page), supplying this token:\n"
-            + f"  Setup token: {setup_token}\n"
-            + "=" * 60
-        )
+    logger.warning(
+        "\n"
+        + "=" * 60
+        + "\n"
+        + "  FIRST-RUN SETUP REQUIRED\n"
+        + "  Create the initial admin account at POST /v1/admin/setup\n"
+        + "  (or via the web UI's setup page).\n"
+        + "=" * 60
+    )
 
 
 class RESTfulAPI(CancelMixin):
@@ -137,7 +119,6 @@ class RESTfulAPI(CancelMixin):
         supervisor_address: str,
         host: str,
         port: int,
-        auth_config_file: Optional[str] = None,
     ):
         super().__init__()
         self._supervisor_address = supervisor_address
@@ -149,18 +130,24 @@ class RESTfulAPI(CancelMixin):
         self._auth_service: Any = None
         self._uid_to_model_name: dict = {}
 
-        if XINFERENCE_AUTH_ADVANCED and auth_config_file:
-            raise SystemExit(
-                "ERROR: Cannot use both XINFERENCE_AUTH_ADVANCED and --auth-config. "
-                "Please choose one authentication mode."
-            )
-
-        if XINFERENCE_AUTH_ADVANCED:
-            if not XINFERENCE_AUTH_JWT_SECRET_KEY:
+        # Authentication has two modes: the database-backed advanced auth
+        # (enabled by default via XINFERENCE_AUTH_ADVANCED), and no auth at
+        # all (XINFERENCE_AUTH_ADVANCED=0/false/no). When advanced auth is
+        # disabled, _advanced_auth_service stays None and every endpoint is
+        # served without authentication.
+        #
+        # These are resolved at construction time (not from module-level
+        # constants) so a server started in a forked subprocess honors the
+        # XINFERENCE_AUTH_ADVANCED value in its environment rather than a value
+        # frozen when the parent first imported constants.
+        if is_auth_advanced():
+            jwt_secret_key = get_auth_jwt_secret_key()
+            encryption_key = get_auth_encryption_key()
+            if not jwt_secret_key:
                 raise SystemExit(
                     "ERROR: XINFERENCE_AUTH_JWT_SECRET_KEY must be set when using advanced auth."
                 )
-            if not XINFERENCE_AUTH_ENCRYPTION_KEY:
+            if not encryption_key:
                 raise SystemExit(
                     "ERROR: XINFERENCE_AUTH_ENCRYPTION_KEY must be set when using advanced auth."
                 )
@@ -168,14 +155,12 @@ class RESTfulAPI(CancelMixin):
 
             self._advanced_auth_service = AdvancedAuthService(
                 db_path=XINFERENCE_AUTH_DB_PATH,
-                jwt_secret_key=XINFERENCE_AUTH_JWT_SECRET_KEY,
-                encryption_key=XINFERENCE_AUTH_ENCRYPTION_KEY,
+                jwt_secret_key=jwt_secret_key,
+                encryption_key=encryption_key,
             )
             self._auth_service = self._advanced_auth_service
             if self._advanced_auth_service.needs_setup():
-                _log_setup_token_notice()
-        else:
-            self._auth_service = AuthService(auth_config_file)
+                _log_setup_required_notice()
 
         from ..core.launch_history_store import LaunchHistoryStore
 
@@ -232,9 +217,7 @@ class RESTfulAPI(CancelMixin):
             return False
 
     def is_authenticated(self):
-        if self._advanced_auth_service:
-            return True
-        return False if self._auth_service.config is None else True
+        return self._advanced_auth_service is not None
 
     def _check_model_access(
         self, request, model_uid: str, model_type: Optional[str] = None
@@ -527,7 +510,7 @@ class RESTfulAPI(CancelMixin):
                 validate_oidc_config()
                 register_oidc_routes(self)
 
-        if XINFERENCE_DISABLE_METRICS:
+        if is_metrics_disabled():
             logger.info(
                 "Supervisor metrics is disabled due to the environment XINFERENCE_DISABLE_METRICS=1"
             )
@@ -2865,7 +2848,6 @@ def run(
     host: str,
     port: int,
     logging_conf: Optional[dict] = None,
-    auth_config_file: Optional[str] = None,
 ):
     logger.info("Starting Xinference at endpoint: http://%s:%s", host, port)
     try:
@@ -2873,7 +2855,6 @@ def run(
             supervisor_address=supervisor_address,
             host=host,
             port=port,
-            auth_config_file=auth_config_file,
         )
         api.serve(logging_conf=logging_conf)
     except SystemExit:
@@ -2888,7 +2869,6 @@ def run(
                 supervisor_address=supervisor_address,
                 host=host,
                 port=port,
-                auth_config_file=auth_config_file,
             )
             api.serve(logging_conf=logging_conf)
         else:
@@ -2900,11 +2880,10 @@ def run_in_subprocess(
     host: str,
     port: int,
     logging_conf: Optional[dict] = None,
-    auth_config_file: Optional[str] = None,
 ) -> multiprocessing.Process:
     p = multiprocessing.Process(
         target=run,
-        args=(supervisor_address, host, port, logging_conf, auth_config_file),
+        args=(supervisor_address, host, port, logging_conf),
     )
     p.daemon = True
     p.start()

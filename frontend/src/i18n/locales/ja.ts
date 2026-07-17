@@ -210,6 +210,7 @@ const ja = {
     resources: 'リソース割り当て',
     workerAddress: 'Worker ノード',
     gpuIndexes: 'GPU インデックス',
+    gpuMemory: 'GPU メモリ',
     replicaDetail: 'レプリカ詳細',
     removeReplicaConfirm:
       'モデル {{modelUid}} のレプリカ {{replicaId}} を削除してもよろしいですか？',
@@ -622,10 +623,6 @@ const ja = {
       'このインスタンスにはまだアカウントがありません。最初の管理者アカウントを作成してセットアップを完了してください。',
     title: '管理者アカウントを設定',
     description: '続行するには最初の管理者アカウントを作成してください。',
-    tokenHint: 'セットアップトークンはサーバーの起動ログで確認できます。',
-    tokenLabel: 'セットアップトークン',
-    tokenPlaceholder: 'サーバーログに表示されたトークンを貼り付けてください',
-    tokenRequired: 'セットアップトークンを入力してください',
     passwordTooShort: 'パスワードは{{min}}文字以上にしてください',
     submit: '管理者アカウントを作成',
     createSuccess: '管理者アカウントが作成されました。新しい認証情報でサインインしてください。',

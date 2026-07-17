@@ -178,11 +178,19 @@ def _get_effective_vllm_version() -> version.Version:
 
 
 def _virtual_env_allows_missing_vllm() -> bool:
+    # Delegate to the shared helper so engine discovery honors the effective
+    # request-level virtualenv flag (via virtualenv_discovery_var) instead of
+    # only the process-global default; falls back to the global constant when
+    # called outside a discovery scope (e.g. the launch path).
     try:
-        from ....constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+        from ...utils import virtual_env_allows_missing_engine
     except Exception:
-        return False
-    return bool(XINFERENCE_ENABLE_VIRTUAL_ENV)
+        try:
+            from ....constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+        except Exception:
+            return False
+        return bool(XINFERENCE_ENABLE_VIRTUAL_ENV)
+    return virtual_env_allows_missing_engine()
 
 
 GuidedDecodingParams: Optional[Type[Any]] = None
@@ -1941,7 +1949,11 @@ class VLLMMultiModel(VLLMModel, ChatModelMixin):
                 False,
                 "vLLM multimodal engine requires vision, audio, or omni ability",
             )
-        if not VLLM_INSTALLED:
+        # Align with VLLMChatModel: in virtualenv mode vLLM is installed on
+        # demand, so a missing local install must not hide the engine at listing
+        # time. Hardware/OS checks above stay unconditional because virtualenv
+        # cannot add a GPU or change the OS.
+        if not VLLM_INSTALLED and not _virtual_env_allows_missing_vllm():
             return False, "vLLM library is not installed"
         return True
 

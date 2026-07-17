@@ -40,6 +40,7 @@ XINFERENCE_ENV_DOWNLOAD_MAX_ATTEMPTS = "XINFERENCE_DOWNLOAD_MAX_ATTEMPTS"
 XINFERENCE_ENV_TEXT_TO_IMAGE_BATCHING_SIZE = "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE"
 XINFERENCE_ENV_VIRTUAL_ENV = "XINFERENCE_ENABLE_VIRTUAL_ENV"
 XINFERENCE_ENV_VIRTUAL_ENV_SKIP_INSTALLED = "XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED"
+XINFERENCE_ENV_VIRTUAL_ENV_OFFLINE_INSTALL = "XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL"
 XINFERENCE_ENV_SSE_PING_ATTEMPTS_SECONDS = "XINFERENCE_SSE_PING_ATTEMPTS_SECONDS"
 XINFERENCE_ENV_MAX_TOKENS = "XINFERENCE_MAX_TOKENS"
 XINFERENCE_ENV_ALLOWED_IPS = "XINFERENCE_ALLOWED_IPS"
@@ -90,16 +91,23 @@ XINFERENCE_LOG_DIR = os.environ.get(
 XINFERENCE_IMAGE_DIR = os.path.join(XINFERENCE_HOME, "image")
 XINFERENCE_VIDEO_DIR = os.path.join(XINFERENCE_HOME, "video")
 XINFERENCE_AUTH_DIR = os.path.join(XINFERENCE_HOME, "auth")
-# Advanced auth (user accounts, API keys) is on by default. Set
-# XINFERENCE_AUTH_ADVANCED=0/false/no to fall back to the legacy
-# --auth-config file mode or to no authentication at all.
-XINFERENCE_AUTH_ADVANCED = os.environ.get(
-    "XINFERENCE_AUTH_ADVANCED", "true"
-).lower() not in (
-    "0",
-    "false",
-    "no",
-)
+
+
+# Database-backed auth (user accounts, API keys) is on by default. Set
+# XINFERENCE_AUTH_ADVANCED=0/false/no to run with no authentication at all.
+#
+# Read the environment at call time rather than caching a module-level
+# constant: the server process is sometimes started in a subprocess created
+# with the ``fork`` start method (the default on Linux), which inherits the
+# parent's already-imported modules. If this were a constant frozen at import
+# time, a forked child would keep the parent's value and ignore an
+# XINFERENCE_AUTH_ADVANCED set after this module was first imported.
+def is_auth_advanced() -> bool:
+    return os.environ.get("XINFERENCE_AUTH_ADVANCED", "true").lower() not in (
+        "0",
+        "false",
+        "no",
+    )
 
 
 # How long an empty secret file must sit untouched before it's considered
@@ -181,54 +189,31 @@ def _get_or_create_persisted_secret(env_name: str, file_name: str) -> str:
     raise RuntimeError(f"Failed to read or create secret file: {secret_path}")
 
 
-XINFERENCE_AUTH_JWT_SECRET_KEY = (
-    _get_or_create_persisted_secret("XINFERENCE_AUTH_JWT_SECRET_KEY", "jwt_secret_key")
-    if XINFERENCE_AUTH_ADVANCED
-    else os.environ.get("XINFERENCE_AUTH_JWT_SECRET_KEY", "")
-)
-XINFERENCE_AUTH_ENCRYPTION_KEY = (
-    _get_or_create_persisted_secret("XINFERENCE_AUTH_ENCRYPTION_KEY", "encryption_key")
-    if XINFERENCE_AUTH_ADVANCED
-    else os.environ.get("XINFERENCE_AUTH_ENCRYPTION_KEY", "")
-)
+def get_auth_jwt_secret_key() -> str:
+    """Resolve the JWT secret at call time (see is_auth_advanced for why this
+    is a function rather than a module-level constant). When advanced auth is
+    on, generate/persist a key on first use; otherwise honor an explicitly set
+    env value or return empty."""
+    if is_auth_advanced():
+        return _get_or_create_persisted_secret(
+            "XINFERENCE_AUTH_JWT_SECRET_KEY", "jwt_secret_key"
+        )
+    return os.environ.get("XINFERENCE_AUTH_JWT_SECRET_KEY", "")
+
+
+def get_auth_encryption_key() -> str:
+    """Resolve the API-key encryption key at call time (see is_auth_advanced).
+    Generated/persisted when advanced auth is on, else read from env."""
+    if is_auth_advanced():
+        return _get_or_create_persisted_secret(
+            "XINFERENCE_AUTH_ENCRYPTION_KEY", "encryption_key"
+        )
+    return os.environ.get("XINFERENCE_AUTH_ENCRYPTION_KEY", "")
+
+
 XINFERENCE_AUTH_DB_PATH = os.environ.get(
     "XINFERENCE_AUTH_DB_PATH", os.path.join(XINFERENCE_HOME, "auth", "auth.db")
 )
-
-# Bootstrap credential gating first-run admin creation via POST
-# /v1/admin/setup: without it, whichever network client reaches that
-# public endpoint first would become the full-privilege administrator.
-# Set explicitly for containers/Kubernetes; otherwise a random token is
-# generated on demand (see get_or_create_setup_token) and must be read
-# from the server's startup log or the persisted file.
-XINFERENCE_AUTH_SETUP_TOKEN_PATH = os.path.join(XINFERENCE_AUTH_DIR, "setup_token")
-
-
-def get_or_create_setup_token() -> str:
-    """Return the one-time setup token, generating and persisting it if needed.
-
-    Mirrors _get_or_create_persisted_secret's race-safe create/read/stale
-    recovery behavior, but is called lazily (only while setup is still
-    needed) rather than eagerly at import time, since the token should stop
-    existing once the first admin account is created.
-    """
-    env_val = os.environ.get("XINFERENCE_AUTH_SETUP_TOKEN", "")
-    if env_val:
-        return env_val
-    return _get_or_create_persisted_secret("XINFERENCE_AUTH_SETUP_TOKEN", "setup_token")
-
-
-def delete_setup_token() -> None:
-    """Remove the persisted setup token file after the first admin is created.
-
-    Safe to call even if the token came from the environment variable
-    (nothing to delete) or was never generated (file doesn't exist).
-    """
-    try:
-        os.remove(XINFERENCE_AUTH_SETUP_TOKEN_PATH)
-    except OSError:
-        pass
-
 
 XINFERENCE_LAUNCH_HISTORY_DB_PATH = os.environ.get(
     "XINFERENCE_LAUNCH_HISTORY_DB_PATH",
@@ -341,9 +326,17 @@ XINFERENCE_ENV_MODEL_DOWNLOAD_WORKERS = "XINFERENCE_MODEL_DOWNLOAD_WORKERS"
 XINFERENCE_MODEL_DOWNLOAD_WORKERS = int(
     os.environ.get(XINFERENCE_ENV_MODEL_DOWNLOAD_WORKERS, 2)
 )
-XINFERENCE_DISABLE_METRICS = bool(
-    int(os.environ.get(XINFERENCE_ENV_DISABLE_METRICS, 0))
-)
+
+
+def is_metrics_disabled() -> bool:
+    # Read at call time rather than freezing a module-level constant: the
+    # supervisor/worker often run in a forked subprocess (the default start
+    # method on Linux), which inherits the parent's already-imported modules.
+    # A frozen constant would keep the parent's value and ignore a
+    # XINFERENCE_DISABLE_METRICS set after this module was first imported.
+    return bool(int(os.environ.get(XINFERENCE_ENV_DISABLE_METRICS, 0)))
+
+
 XINFERENCE_DOWNLOAD_MAX_ATTEMPTS = int(
     os.environ.get(XINFERENCE_ENV_DOWNLOAD_MAX_ATTEMPTS, 3)
 )
@@ -358,6 +351,9 @@ XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION = 30
 XINFERENCE_ENABLE_VIRTUAL_ENV = bool(int(os.getenv(XINFERENCE_ENV_VIRTUAL_ENV, "1")))
 XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED = bool(
     int(os.getenv(XINFERENCE_ENV_VIRTUAL_ENV_SKIP_INSTALLED, "1"))
+)
+XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL = bool(
+    int(os.getenv(XINFERENCE_ENV_VIRTUAL_ENV_OFFLINE_INSTALL, "0"))
 )
 XINFERENCE_MAX_TOKENS = os.getenv(XINFERENCE_ENV_MAX_TOKENS)
 XINFERENCE_MAX_TOKENS = int(XINFERENCE_MAX_TOKENS) if XINFERENCE_MAX_TOKENS else None  # type: ignore
