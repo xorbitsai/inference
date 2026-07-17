@@ -2886,21 +2886,38 @@ class WorkerActor(xo.StatelessActor):
                     subpool_envs = build_subpool_envs_for_virtual_env(
                         envs, enable_virtual_env, virtual_env_manager
                     )
-                    subpool_address, devices = await self._create_subpool(
-                        model_uid,
-                        model_type,
-                        n_gpu=n_gpu,
-                        gpu_idx=gpu_idx,
-                        start_python=subpool_python_path,
-                        env=subpool_envs,
-                    )
-                    all_subpool_addresses = [subpool_address]
+                    # The model subprocess must not be spawned before the
+                    # virtualenv is populated: the subprocess boots on the
+                    # venv's python, and base libraries imported during its
+                    # bootstrap (numpy, and torch via xinference's own import
+                    # chain) are cached in sys.modules from whatever is
+                    # visible at that moment — packages installed afterwards
+                    # cannot replace them. Spawning before install therefore
+                    # made the first launch after a venv (re)build fail with
+                    # host/venv version mixes (e.g. venv numba vs host numpy,
+                    # venv torchvision vs host torch). Single-worker launches
+                    # defer subprocess creation until after
+                    # _prepare_virtual_env; sharded multi-worker launches need
+                    # the subpool address inside model_kwargs before model
+                    # instantiation, so they keep the legacy subprocess-first
+                    # order.
+                    subpool_address: Optional[str] = None
+                    devices: List[str] = []
+                    all_subpool_addresses: List[str] = []
+                    if n_worker > 1:  # type: ignore
+                        subpool_address, devices = await self._create_subpool(
+                            model_uid,
+                            model_type,
+                            n_gpu=n_gpu,
+                            gpu_idx=gpu_idx,
+                            start_python=subpool_python_path,
+                            env=subpool_envs,
+                        )
+                        all_subpool_addresses.append(subpool_address)
                     try:
                         xavier_config: Optional[Dict] = kwargs.pop(
                             "xavier_config", None
                         )
-                        if xavier_config is not None:
-                            xavier_config["rank_address"] = subpool_address
                         model_kwargs = kwargs.copy()
                         model_kwargs["enable_virtual_env"] = enable_virtual_env
                         if n_worker > 1:  # type: ignore
@@ -2990,8 +3007,6 @@ class WorkerActor(xo.StatelessActor):
                                         )
                                     else:
                                         os.environ.pop("HF_HUB_DOWNLOAD_WORKERS", None)
-                            model.model_family.address = subpool_address
-                            model.model_family.accelerators = devices
                             model.model_family.multimodal_projector = model_kwargs.get(
                                 "multimodal_projector", None
                             )
@@ -3028,8 +3043,23 @@ class WorkerActor(xo.StatelessActor):
                             )
                             launch_info.virtual_env_manager = virtual_env_manager
 
-                        # check before creating model actor
+                        # check before creating subpool and model actor
                         check_cancel()
+
+                        if subpool_address is None:
+                            subpool_address, devices = await self._create_subpool(
+                                model_uid,
+                                model_type,
+                                n_gpu=n_gpu,
+                                gpu_idx=gpu_idx,
+                                start_python=subpool_python_path,
+                                env=subpool_envs,
+                            )
+                            all_subpool_addresses.append(subpool_address)
+                        if xavier_config is not None:
+                            xavier_config["rank_address"] = subpool_address
+                        model.model_family.address = subpool_address
+                        model.model_family.accelerators = devices
 
                         model_ref = await xo.create_actor(
                             ModelActor,
