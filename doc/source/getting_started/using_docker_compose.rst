@@ -164,9 +164,10 @@ the same network can reuse it with ``pip install -i http://<host>:8080/simple ..
    some dependencies from hardcoded public indexes (``wheels.vllm.ai``,
    ``download.pytorch.org``). The offline ``pip.conf`` above overrides them with the private
    index, which means those wheels must be present in ``./wheels`` — mirror the required
-   ``vllm`` / ``torch`` CUDA wheels when preparing Step 1. Alternatively, set
-   ``XINFERENCE_ENABLE_VIRTUAL_ENV=0`` in ``offline.env`` to skip runtime installs entirely and
-   rely on the packages baked into the image.
+   ``vllm`` / ``torch`` CUDA wheels when preparing Step 1. Setting
+   ``XINFERENCE_ENABLE_VIRTUAL_ENV=0`` in ``offline.env`` skips runtime installs entirely,
+   but then only the engines baked into the image are available — the slim GPU image
+   only ships the Transformers engine (see :ref:`using_docker_image`).
 
 Offline model weights
 ---------------------
