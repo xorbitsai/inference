@@ -26167,7 +26167,7 @@
     "architectures": [
       "Glm4MoeForCausalLM"
     ],
-    "updated_at": 1778125438
+    "updated_at": 1784296176
   },
   {
     "version": 2,
@@ -26318,7 +26318,7 @@
     "architectures": [
       "Glm4MoeForCausalLM"
     ],
-    "updated_at": 1770100010
+    "updated_at": 1784296177
   },
   {
     "version": 2,
