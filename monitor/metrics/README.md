@@ -167,7 +167,7 @@ Supervisor metrics provide a **cluster-wide view**, covering node resources, mod
 
 | Metric | Type | Unit | Description |
 |--------|------|------|-------------|
-| `xinference:api_key_requests_total` | Counter | requests | Total API Key auth requests. `status` label ∈ {`success`, `model_not_found`, `error`} (by response code: <400 success, 404 model_not_found, otherwise error) |
+| `xinference:api_key_requests_total` | Counter | requests | Total API Key auth requests. `status` label ∈ {`success`, `model_not_found`, `error`, `denied`} (`denied` means the API key cannot access the requested model; otherwise <400 is success, 404 is model_not_found, and other response codes are error) |
 | `xinference:api_key_request_duration_seconds` | Histogram | seconds | Auth request duration distribution |
 | `xinference:api_keys_active_total` | Gauge | count | Number of active API Keys |
 | `xinference:api_keys_expired_total` | Gauge | count | Number of expired API Keys |
