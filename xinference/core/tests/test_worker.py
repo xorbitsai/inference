@@ -131,6 +131,18 @@ class MockWorkerActor(WorkerActor):
         self._model_uid_to_launch_args.pop(model_uid, None)
         del self._model_uid_to_addr[model_uid]
 
+    # --- test helpers for failed-launch cleanup ---
+    def set_model_ref_for_test(self, model_uid: str, model_ref):
+        self._model_uid_to_model[model_uid] = model_ref
+
+    def get_launch_state_presence_for_test(self, model_uid: str):
+        return {
+            "model": model_uid in self._model_uid_to_model,
+            "model_spec": model_uid in self._model_uid_to_model_spec,
+            "launch_args": model_uid in self._model_uid_to_launch_args,
+            "addr": model_uid in self._model_uid_to_addr,
+        }
+
     # --- test helpers for report_status GPU attribution ---
     def set_supervisor_ref_for_test(self, ref):
         self._supervisor_ref = ref
@@ -227,6 +239,58 @@ async def test_terminate_model_flag(setup_pool):
     gpu_to_model_id = await worker.get_gpu_to_model_uid()
     for dev in devices:
         assert dev not in gpu_to_model_id
+
+
+class _FailingLoadModelRef:
+    """Model ref whose engine loads asynchronously and fails, mirroring a
+    vLLM EngineCore init crash that only surfaces in wait_for_load."""
+
+    async def wait_for_load(self):
+        raise RuntimeError("EngineCore init failed")
+
+
+@pytest.mark.asyncio
+async def test_wait_for_load_failure_cleans_up_worker_state(setup_pool):
+    """A launch that fails after launch_builtin_model registered the model_uid
+    (e.g. the vLLM engine crashes during async load, surfacing in
+    wait_for_load) must roll back the worker state, otherwise relaunching the
+    same model_uid hits `assert model_uid not in self._model_uid_to_model`
+    until the whole service is restarted."""
+    pool = setup_pool
+    addr = pool.external_address
+
+    worker: xo.ActorRefType["MockWorkerActor"] = await xo.create_actor(  # type: ignore
+        MockWorkerActor,
+        address=addr,
+        uid=WorkerActor.default_uid(),
+        supervisor_address="test",
+        main_pool=pool,
+        cuda_devices=[0],
+    )
+
+    model_uid = "async_load_model-0"
+    await worker.launch_builtin_model(
+        model_uid, "mock_model_name", None, None, None, n_gpu=1
+    )
+    await worker.set_model_ref_for_test(model_uid, _FailingLoadModelRef())
+
+    with pytest.raises(RuntimeError, match="EngineCore init failed"):
+        await worker.wait_for_load(model_uid)
+
+    # all registration state must be rolled back
+    presence = await worker.get_launch_state_presence_for_test(model_uid)
+    assert not any(presence.values()), presence
+    gpu_to_model_uid = await worker.get_gpu_to_model_uid()
+    for model_uids in gpu_to_model_uid.values():
+        assert model_uid not in model_uids
+
+    # the same model_uid can be relaunched immediately
+    await worker.launch_builtin_model(
+        model_uid, "mock_model_name", None, None, None, n_gpu=1
+    )
+    presence = await worker.get_launch_state_presence_for_test(model_uid)
+    assert presence["model"] and presence["addr"]
+    await worker.terminate_model(model_uid)
 
 
 def test_merge_virtual_env_packages_override_and_append():
