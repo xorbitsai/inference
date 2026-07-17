@@ -1,0 +1,112 @@
+# syntax=docker/dockerfile:1
+# Build the xprobe/xinference-pypiserver image: a pypiserver preloaded with
+# the index-compatible wheels used by xinference per-model virtual
+# environments, for offline / air-gapped deployments.
+#
+#   docker build -f xinference/deploy/docker/pypiserver/Dockerfile.pypiserver \
+#     --build-arg PLATFORM=amd64 -t xinference-pypiserver:amd64 .
+#
+#   docker build -f xinference/deploy/docker/pypiserver/Dockerfile.pypiserver \
+#     --build-arg PLATFORM=arm64 -t xinference-pypiserver:arm64 .
+#
+# The build fails if any index-compatible engine set, model pin or direct
+# wheel cannot be downloaded or resolved from the baked mirror alone (see the
+# selfcheck stage). Git/non-wheel direct references are explicitly reported as
+# unsupported by the offline profile.
+
+# Must match the Python of the xinference runtime image
+# (xinference/deploy/docker/Dockerfile, base vllm/vllm-openai).
+ARG PYTHON_VERSION=3.12
+
+# ============================================================================
+# Stage 1 — download index-compatible wheels needed by model engines
+# ============================================================================
+FROM python:${PYTHON_VERSION}-slim AS downloader
+
+ARG PLATFORM=amd64
+ARG PYTHON_VERSION
+# CUDA versions below 13.0 are not supported.
+ARG CUDA_SUFFIX=cu130
+# torch of the xinference runtime image; per-model venvs install the
+# system-matching version, so the mirror must carry exactly this one.
+ARG TORCH_VERSION=2.11.*
+
+RUN case "${PLATFORM}" in \
+      amd64|arm64) ;; \
+      *) echo "ERROR: PLATFORM must be 'amd64' or 'arm64'" >&2; exit 1 ;; \
+    esac
+
+# git                  -> build wheels from git+https:// sources
+# cmake/gcc/g++/make   -> build wheels from sdist-only packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      git cmake gcc g++ make \
+    && rm -rf /var/lib/apt/lists/*
+
+# uv resolves the engine locks; the rest are imports of the list generator
+# and helpers for building sdist wheels.
+RUN pip install --no-cache-dir uv pydantic packaging orjson \
+      setuptools wheel cython numpy
+
+WORKDIR /build
+
+# The list generator loads the engine-dependency definitions and the marker
+# filter straight from the xinference sources, so the mirror cannot drift
+# from what the runtime actually installs.
+COPY xinference/constants.py xinference/_compat.py /build/src/xinference/
+COPY xinference/core/utils.py \
+     xinference/core/virtual_env_manager.py /build/src/xinference/core/
+COPY xinference/model/ /build/src/xinference/model/
+COPY xinference/deploy/docker/pypiserver/generate_package_lists.py \
+     xinference/deploy/docker/pypiserver/download_packages.py \
+     xinference/deploy/docker/pypiserver/selfcheck.py /build/
+
+RUN python generate_package_lists.py \
+      --platform "${PLATFORM}" \
+      --src-root /build/src \
+      --out /build/out \
+    && cat /build/out/manifest.json
+
+RUN python download_packages.py \
+      --manifest-dir /build/out \
+      --dest /data/packages \
+      --platform "${PLATFORM}" \
+      --python-version "${PYTHON_VERSION}" \
+      --torch-version "${TORCH_VERSION}" \
+      --pytorch-index "https://download.pytorch.org/whl/${CUDA_SUFFIX}" \
+    && rm -rf /root/.cache
+
+# ============================================================================
+# Stage 2 — quality gate: everything must resolve from the mirror ALONE
+# ============================================================================
+FROM downloader AS selfcheck
+
+ARG PLATFORM=amd64
+ARG PYTHON_VERSION
+
+RUN pip install --no-cache-dir pypiserver==2.3.2 waitress
+RUN (pypi-server run -p 8080 --disable-fallback /data/packages &) \
+    && python selfcheck.py \
+         --index http://127.0.0.1:8080/simple/ \
+         --manifest-dir /build/out \
+         --platform "${PLATFORM}" \
+         --python-version "${PYTHON_VERSION}" \
+    && touch /selfcheck.ok
+
+# ============================================================================
+# Stage 3 — minimal pypiserver runtime
+# ============================================================================
+FROM pypiserver/pypiserver:v2.3.2
+
+COPY --chown=pypiserver:pypiserver --from=downloader /data/packages/ /data/packages/
+# Bake the generation manifest and download report for debuggability, and
+# the selfcheck marker so the quality gate cannot be skipped.
+COPY --chown=pypiserver:pypiserver --from=downloader /build/out/manifest.json \
+     /build/out/pins.json /build/out/urls.txt /build/out/git.txt \
+     /build/out/report.json /data/manifest/
+COPY --chown=pypiserver:pypiserver --from=selfcheck /selfcheck.ok /data/manifest/
+
+EXPOSE 8080
+
+# --disable-fallback: never redirect to public PyPI for missing packages —
+# an incomplete mirror must fail loudly, not silently go online.
+CMD ["run", "--disable-fallback", "-p", "8080", "/data/packages"]

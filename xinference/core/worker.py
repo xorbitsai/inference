@@ -65,6 +65,7 @@ from ..constants import (
     XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT,
     XINFERENCE_TCP_REQUEST_TIMEOUT,
     XINFERENCE_VIRTUAL_ENV_DIR,
+    XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL,
     XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED,
     is_metrics_disabled,
 )
@@ -94,11 +95,13 @@ from .utils import (
     apply_engine_virtualenv_settings,
     build_subpool_envs_for_virtual_env,
     filter_virtualenv_packages_by_markers,
+    find_direct_reference_packages,
     log_async,
     log_sync,
     merge_virtual_env_packages,
     parse_replica_model_uid,
     purge_dir,
+    rewrite_direct_url_packages_for_index,
 )
 from .virtual_env_manager import VirtualEnvManager as XinferenceVirtualEnvManager
 from .virtual_env_manager import (
@@ -2769,7 +2772,19 @@ class WorkerActor(xo.StatelessActor):
             # so a CPU-only host with a CUDA-built torch would otherwise get a
             # GPU wheel that fails to import (missing libcuda.so.1). In that
             # case keep the default CPU index and behavior.
-            if xllamacpp_index_url and cls._is_cuda_device_available():
+            cuda_device_available = bool(
+                xllamacpp_index_url and cls._is_cuda_device_available()
+            )
+            if XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL and cuda_device_available:
+                logger.warning(
+                    "Explicit offline-install mode cannot use the xllamacpp "
+                    "GPU wheel index %s; installing the CPU build from the "
+                    "configured private index instead. Preinstall the matching "
+                    "GPU wheel in a custom runtime image to retain llama.cpp "
+                    "GPU acceleration offline.",
+                    xllamacpp_index_url,
+                )
+            elif xllamacpp_index_url and cuda_device_available:
                 logger.info(
                     "Detected CUDA %s, installing GPU build of xllamacpp "
                     "exclusively from %s",
@@ -2803,6 +2818,25 @@ class WorkerActor(xo.StatelessActor):
                 critical_specs,
             )
             packages = packages + critical_specs
+
+        if XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL:
+            if not settings.index_url:
+                raise ValueError(
+                    "XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL=1 requires a "
+                    "private index_url (configure the offline pip.conf)"
+                )
+            # This explicit flag distinguishes the bundled offline mirror from
+            # an ordinary user-configured PyPI proxy. Rewriting merely because
+            # index_url is present breaks online users whose mirror does not
+            # carry the direct wheel.
+            packages = rewrite_direct_url_packages_for_index(packages)
+            direct_references = find_direct_reference_packages(packages)
+            if direct_references:
+                raise ValueError(
+                    "Offline virtualenv installation does not support "
+                    "non-wheel direct references; preinstall or replace these "
+                    f"requirements: {direct_references}"
+                )
 
         conf = dict(settings)
         conf.pop("packages", None)
@@ -2840,13 +2874,19 @@ class WorkerActor(xo.StatelessActor):
             # See optimize/20260702/2026070209.md
             from .virtual_env_manager import apply_flashinfer_aot_post_install
 
-            apply_flashinfer_aot_post_install(
-                model_engine,
-                architectures,
-                virtual_env_manager,
-                conf,
-                cuda_version,
-            )
+            if XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL:
+                logger.info(
+                    "Skipping the FlashInfer AOT post-install from its public "
+                    "wheel index in explicit offline-install mode"
+                )
+            else:
+                apply_flashinfer_aot_post_install(
+                    model_engine,
+                    architectures,
+                    virtual_env_manager,
+                    conf,
+                    cuda_version,
+                )
 
         # Apply engine-specific post-install patches
         if model_engine and model_engine.lower() == "vllm":
