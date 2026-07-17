@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: Image tag used for a manual build
+        description: Image tag used for a manual build (latest is reserved for releases)
         required: true
         default: nightly-main
         type: string
@@ -92,6 +92,10 @@ jobs:
           else
             IMAGE_TAG="$MANUAL_IMAGE_TAG"
             echo "Will handle manual tag $IMAGE_TAG"
+            if [[ "$IMAGE_TAG" == "latest" ]]; then
+              echo "The latest tag is reserved for tag-triggered releases" >&2
+              exit 1
+            fi
           fi
           if [[ ! "$IMAGE_TAG" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]]; then
             echo "Invalid Docker image tag: $IMAGE_TAG" >&2
