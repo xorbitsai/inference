@@ -12,7 +12,10 @@
 
 services:
   xinference-pypiserver:
-    image: ${XINFERENCE_PYPISERVER_IMAGE:-pypiserver/pypiserver:v2.3.2}
+    # This variable is intentionally separate from the baked mirror image
+    # setting used by docker-compose.yml. Override it when the stock image is
+    # mirrored into a private registry for an air-gapped deployment.
+    image: ${XINFERENCE_BYO_PYPISERVER_IMAGE:-pypiserver/pypiserver:v2.3.2}
     command: run -a . -P . --disable-fallback /data/packages
     volumes:
       # On Linux hosts run `chmod -R a+rwX ./wheels` first: the image's

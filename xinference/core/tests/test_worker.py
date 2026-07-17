@@ -903,6 +903,74 @@ def test_prepare_virtual_env_offline_mirror_rejects_git_source(monkeypatch):
     assert manager.calls == []
 
 
+def test_prepare_virtual_env_offline_sglang_engine_dispatch(monkeypatch):
+    manager = DummyVirtualEnvManager()
+    private_index = "http://xinference-pypiserver:8080/simple"
+    settings = VirtualEnvSettings(
+        packages=["#sglang_dependencies#"],
+        inherit_pip_config=False,
+        index_url=private_index,
+        extra_index_url=private_index,
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL", True
+    )
+    monkeypatch.setattr("xoscar.virtualenv.platform.get_cuda_version", lambda: "13.0")
+    monkeypatch.setattr("xinference.core.utils.platform.machine", lambda: "x86_64")
+    monkeypatch.setattr(
+        "xinference.core.worker.get_engine_critical_dependency_specs",
+        lambda *_args, **_kwargs: [],
+    )
+
+    WorkerActor._prepare_virtual_env(
+        manager,
+        settings,
+        None,
+        model_engine="sglang",
+    )
+
+    packages, kwargs = manager.calls[0]
+    assert "sglang>=0.5.6" in packages
+    assert "sgl_kernel==0.3.21+cu130" in packages
+    assert "sgl_kernel" not in packages
+    assert all("github.com/sgl-project" not in package for package in packages)
+    assert kwargs["index_url"] == private_index
+    assert kwargs["extra_index_url"] == private_index
+    assert kwargs["engine"] == "sglang"
+
+
+def test_prepare_virtual_env_offline_llama_cpp_warns_cpu_fallback(monkeypatch, caplog):
+    manager = DummyVirtualEnvManager()
+    private_index = "http://xinference-pypiserver:8080/simple"
+    settings = VirtualEnvSettings(
+        packages=["xllamacpp>=0.2.6"],
+        inherit_pip_config=False,
+        index_url=private_index,
+        extra_index_url=private_index,
+    )
+    monkeypatch.setattr(
+        "xinference.core.worker.XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL", True
+    )
+    monkeypatch.setattr("xoscar.virtualenv.platform.get_cuda_version", lambda: "13.0")
+    monkeypatch.setattr(WorkerActor, "_is_cuda_device_available", lambda: True)
+    monkeypatch.setattr(
+        "xinference.core.worker.get_engine_critical_dependency_specs",
+        lambda *_args, **_kwargs: [],
+    )
+
+    WorkerActor._prepare_virtual_env(
+        manager,
+        settings,
+        None,
+        model_engine="llama.cpp",
+    )
+
+    packages, kwargs = manager.calls[0]
+    assert packages == ["xllamacpp>=0.2.6"]
+    assert kwargs["index_url"] == private_index
+    assert "installing the CPU build" in caplog.text
+
+
 def test_prepare_virtual_env_keeps_system_markers():
     manager = DummyVirtualEnvManager()
     settings = VirtualEnvSettings(

@@ -25,7 +25,8 @@ directory in four passes:
    constrained to the versions already locked (falling back to an
    unconstrained fetch when a pin genuinely conflicts — availability wins
    over minimization; every fallback is recorded in the report).
-3. Fetch direct wheel URLs and build wheels for git sources.
+3. Fetch direct wheel URLs. Git sources are recorded by the generator but
+   intentionally skipped because explicit offline mode rejects them.
 4. Build wheels for any sdist-only downloads so the runtime never compiles.
 
 Writes ``report.json`` with size/version statistics next to the manifest.
@@ -315,7 +316,9 @@ def main() -> None:
             unconstrained_fallbacks.append(spec)
 
     # ------------------------------------------------------------------
-    # 3. Direct wheel URLs and git sources.
+    # 3. Direct wheel URLs. Git sources are deliberately not built: the
+    #    runtime rejects git/direct references in explicit offline mode, and
+    #    a simple index cannot preserve their requested source revisions.
     # ------------------------------------------------------------------
     for url in (manifest_dir / "urls.txt").read_text().splitlines():
         if not url.strip():
@@ -341,42 +344,6 @@ def main() -> None:
             if proc.returncode != 0:
                 sys.exit(f"FATAL: failed to download '{url}'")
             unconstrained_fallbacks.append(url.strip())
-
-    def pip_wheel(src: str, constraints: Optional[Path]) -> subprocess.CompletedProcess:
-        cmd = [
-            sys.executable,
-            "-m",
-            "pip",
-            "wheel",
-            "--quiet",
-            "--wheel-dir",
-            str(dest),
-            "--index-url",
-            args.index_url,
-        ]
-        if constraints is not None:
-            cmd += ["-c", str(constraints)]
-        return run(cmd + [src])
-
-    for src in (manifest_dir / "git.txt").read_text().splitlines():
-        src = src.strip()
-        if not src:
-            continue
-        # Constraining a package to a locked version while building that
-        # same package from git is self-contradictory — prune its own name
-        # (when stated in 'name @ git+…' form) from the constraints.
-        src_name = spec_name(src)
-        pruned = work / "constraints-pruned.txt"
-        pruned.write_text(
-            "".join(f"{line}\n" for n, line in merged.items() if n != src_name)
-        )
-        proc = pip_wheel(src, pruned)
-        if proc.returncode != 0:
-            print(f"WARN: retrying '{src}' without constraints", flush=True)
-            proc = pip_wheel(src, None)
-            if proc.returncode != 0:
-                sys.exit(f"FATAL: failed to build wheel for '{src}'")
-            unconstrained_fallbacks.append(src)
 
     # ------------------------------------------------------------------
     # 4. Build wheels for sdist-only downloads so the runtime never

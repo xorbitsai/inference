@@ -2727,11 +2727,19 @@ class WorkerActor(xo.StatelessActor):
             # so a CPU-only host with a CUDA-built torch would otherwise get a
             # GPU wheel that fails to import (missing libcuda.so.1). In that
             # case keep the default CPU index and behavior.
-            if (
-                not XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL
-                and xllamacpp_index_url
-                and cls._is_cuda_device_available()
-            ):
+            cuda_device_available = bool(
+                xllamacpp_index_url and cls._is_cuda_device_available()
+            )
+            if XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL and cuda_device_available:
+                logger.warning(
+                    "Explicit offline-install mode cannot use the xllamacpp "
+                    "GPU wheel index %s; installing the CPU build from the "
+                    "configured private index instead. Preinstall the matching "
+                    "GPU wheel in a custom runtime image to retain llama.cpp "
+                    "GPU acceleration offline.",
+                    xllamacpp_index_url,
+                )
+            elif xllamacpp_index_url and cuda_device_available:
                 logger.info(
                     "Detected CUDA %s, installing GPU build of xllamacpp "
                     "exclusively from %s",

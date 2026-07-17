@@ -164,23 +164,32 @@ the same network can reuse it with ``pip install -i http://<host>:8080/simple ..
    in ``offline.env`` to skip runtime installs entirely and rely on the packages baked into
    the Xinference image.
 
+   For the **llama.cpp** engine, the mirror carries the CPU build of ``xllamacpp`` from PyPI.
+   Its GPU wheels live on a separate CUDA-specific index that is unavailable offline, so a GPU
+   host falls back to the CPU build and logs a warning. To retain llama.cpp GPU acceleration,
+   preinstall the matching ``xllamacpp`` GPU wheel in a custom runtime image.
+
 .. warning::
 
    Model specifications containing ``git+`` or other non-wheel direct references cannot be
    represented faithfully by a Python simple index. In explicit offline-install mode,
    Xinference rejects them before attempting network egress and reports the offending
    requirement. The current built-ins in this category include the Transformers path of
-   HunyuanOCR and MiniCPM-V-4.6, plus FLUX.2-klein. Preinstall the required source revision in
-   a custom image or replace it with an index-resolvable package before using these models
-   air-gapped. The FlashInfer AOT repair fetched from its public wheel index is also skipped in
-   explicit offline mode; Blackwell deployments that require it should bake those packages
-   into a custom image.
+   HunyuanOCR, MiniCPM-V-4.6, and MiniCPM-V-4.6-Thinking, plus FLUX.2-klein. Preinstall the
+   required source revision in a custom image or replace it with an index-resolvable package
+   before using these models air-gapped. The FlashInfer AOT repair fetched from its public
+   wheel index is also skipped in explicit offline mode; Blackwell deployments that require it
+   should bake those packages into a custom image.
 
 Bring your own wheels (optional)
 --------------------------------
 To serve a self-curated wheel directory instead of the baked mirror — for example a small
 subset for specific models — add the ``docker-compose.byo-wheels.yml`` override, which swaps
 the image for the stock ``pypiserver/pypiserver:v2.3.2`` and mounts ``./wheels``:
+
+Set ``XINFERENCE_BYO_PYPISERVER_IMAGE`` if that stock image has been mirrored into a private
+registry. This setting is intentionally independent of ``XINFERENCE_PYPISERVER_IMAGE``, which
+selects the prebuilt Xinference mirror in the normal offline profile.
 
 .. code-block:: bash
 

@@ -10,6 +10,9 @@ of the Docker Compose docs).
 The mirror's GPU stack targets CUDA 13.0 and Python 3.12 (matching the
 `xprobe/xinference` runtime image). CUDA 12.8/12.9 remain supported by online
 runtime installs, but their stacks are not included in this prebuilt mirror.
+The mirror also carries only the CPU build of `xllamacpp`; its GPU wheels come
+from a separate CUDA-specific index. Preinstall the matching GPU wheel in a
+custom runtime image when llama.cpp GPU acceleration is required air-gapped.
 
 Git and non-wheel direct references cannot be reproduced faithfully through a
 simple index. The generator records them, the selfcheck reports them as
@@ -29,8 +32,10 @@ in a custom runtime image when the corresponding model is needed air-gapped.
    fully-pinned locks with `pip download --no-deps` — one coherent resolution
    per engine, so unpinned specs cannot fan out into many versions. Model pins
    are fetched constrained to the shared locks (with a recorded unconstrained
-   fallback on conflicts), git sources and sdist-only downloads are built into
-   wheels.
+   fallback on conflicts), direct wheel URLs are downloaded with their
+   dependencies, and sdist-only downloads are built into wheels. Git sources
+   are recorded but deliberately skipped because the offline runtime rejects
+   them.
 3. **`selfcheck.py`** (a dedicated build stage) re-resolves every
    index-compatible engine set, pin and direct wheel against the baked mirror
    ALONE (`--disable-fallback`). Any gap fails the image build; recorded git
