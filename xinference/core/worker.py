@@ -2904,17 +2904,22 @@ class WorkerActor(xo.StatelessActor):
                     subpool_address: Optional[str] = None
                     devices: List[str] = []
                     all_subpool_addresses: List[str] = []
-                    if n_worker > 1:  # type: ignore
-                        subpool_address, devices = await self._create_subpool(
-                            model_uid,
-                            model_type,
-                            n_gpu=n_gpu,
-                            gpu_idx=gpu_idx,
-                            start_python=subpool_python_path,
-                            env=subpool_envs,
-                        )
-                        all_subpool_addresses.append(subpool_address)
                     try:
+                        # Multi-worker/sharded launches create the subpool up
+                        # front (the address is needed in model_kwargs before
+                        # model instantiation). Keep it inside the try so a
+                        # failure here is caught below and release_devices +
+                        # subpool cleanup run, avoiding GPU/subpool leaks.
+                        if n_worker > 1:  # type: ignore
+                            subpool_address, devices = await self._create_subpool(
+                                model_uid,
+                                model_type,
+                                n_gpu=n_gpu,
+                                gpu_idx=gpu_idx,
+                                start_python=subpool_python_path,
+                                env=subpool_envs,
+                            )
+                            all_subpool_addresses.append(subpool_address)
                         xavier_config: Optional[Dict] = kwargs.pop(
                             "xavier_config", None
                         )
