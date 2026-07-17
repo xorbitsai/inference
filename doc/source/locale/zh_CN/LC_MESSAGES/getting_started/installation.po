@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-28 11:54+0800\n"
+"POT-Creation-Date: 2026-07-17 17:20+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -28,8 +28,8 @@ msgid ""
 " run models using Xinference, you will need to install the backend "
 "corresponding to the type of model you intend to serve."
 msgstr ""
-"Xinference 在 Linux, Windows, MacOS 上都可以通过 ``pip`` 来安装。如果需要使用 Xinference "
-"进行模型推理，可以根据不同的模型指定不同的引擎。"
+"Xinference 在 Linux, Windows, MacOS 上都可以通过 ``pip`` 来安装。如果需要"
+"使用 Xinference 进行模型推理，可以根据不同的模型指定不同的引擎。"
 
 #: ../../source/getting_started/installation.rst:8
 msgid ""
@@ -44,8 +44,8 @@ msgid ""
 "sglang, please install it separately via ``pip install "
 "'xinference[sglang]'``."
 msgstr ""
-"由于 vllm 和 sglang 在包依赖上无法调和，因此，我们从 all 里移除了 sglang，如果要使用 sglang，请使用 ``pip "
-"install 'xinference[sglang]'`` 。"
+"由于 vllm 和 sglang 在包依赖上无法调和，因此，我们从 all 里移除了 sglang"
+"，如果要使用 sglang，请使用 ``pip install 'xinference[sglang]'`` 。"
 
 #: ../../source/getting_started/installation.rst:17
 msgid "Several usage scenarios require special attention."
@@ -60,7 +60,9 @@ msgid ""
 "In this situation, it's advised to install its dependencies manually "
 "based on your hardware specifications to enable acceleration. For more "
 "details, see the :ref:`installation_gguf` section."
-msgstr "在这种情况下，建议根据您的硬件规格手动安装其依赖项以启用加速。更多详情请参见 :ref:`installation_gguf` 部分。"
+msgstr ""
+"在这种情况下，建议根据您的硬件规格手动安装其依赖项以启用加速。更多详情请"
+"参见 :ref:`installation_gguf` 部分。"
 
 #: ../../source/getting_started/installation.rst:23
 msgid "**AWQ or GPTQ** format with **transformers engine**"
@@ -74,15 +76,17 @@ msgstr "**本节内容新增于 v1.6.0。**"
 msgid ""
 "This is because the dependencies at this stage require special options "
 "and are difficult to install. Please run command below in advance"
-msgstr "这是因为此阶段的依赖项需要特殊选项，并且安装起来比较困难。请提前运行以下命令"
+msgstr ""
+"这是因为此阶段的依赖项需要特殊选项，并且安装起来比较困难。请提前运行以下"
+"命令"
 
 #: ../../source/getting_started/installation.rst:33
 msgid ""
 "Some dependencies like ``transformers`` might be downgraded, you can run "
 "``pip install \"xinference[all]\"`` afterwards."
 msgstr ""
-"某些依赖项，如 ``transformers``，可能会被降级，您可以之后运行 ``pip install "
-"\"xinference[all]\"``。"
+"某些依赖项，如 ``transformers``，可能会被降级，您可以之后运行 ``pip "
+"install \"xinference[all]\"``。"
 
 #: ../../source/getting_started/installation.rst:36
 msgid ""
@@ -98,7 +102,9 @@ msgstr "Transformers 引擎"
 msgid ""
 "PyTorch (transformers) supports the inference of most state-of-art "
 "models. It is the default backend for models in PyTorch format::"
-msgstr "PyTorch(transformers) 引擎支持几乎有所的最新模型，这是 Pytorch 模型默认使用的引擎::"
+msgstr ""
+"PyTorch(transformers) 引擎支持几乎有所的最新模型，这是 Pytorch 模型默认"
+"使用的引擎::"
 
 #: ../../source/getting_started/installation.rst:46
 msgid "Notes:"
@@ -108,14 +114,18 @@ msgstr "注意："
 msgid ""
 "The transformers engine supports ``pytorch`` / ``gptq`` / ``awq`` / "
 "``bnb`` / ``fp4`` formats."
-msgstr "Transformers引擎支持 ``pytorch`` / ``gptq`` / ``awq`` / ``bnb`` / ``fp4`` 格式。"
+msgstr ""
+"Transformers引擎支持 ``pytorch`` / ``gptq`` / ``awq`` / ``bnb`` / ``fp4``"
+" 格式。"
 
 #: ../../source/getting_started/installation.rst:49
 msgid ""
 "FP4 format requires ``transformers`` with ``FPQuantConfig`` support. If "
 "you see an import error, please upgrade ``transformers`` to a newer "
 "version."
-msgstr "FP4格式需要支持FPQuantConfig的transformers库。若遇到导入错误，请将transformers升级至新版本。"
+msgstr ""
+"FP4格式需要支持FPQuantConfig的transformers库。若遇到导入错误，请将"
+"transformers升级至新版本。"
 
 #: ../../source/getting_started/installation.rst:54
 msgid "vLLM Backend"
@@ -126,13 +136,17 @@ msgid ""
 "vLLM is a fast and easy-to-use library for LLM inference and serving. "
 "Xinference will choose vLLM as the backend to achieve better throughput "
 "when the following conditions are met:"
-msgstr "vLLM 是一个支持高并发的高性能大模型推理引擎。当满足以下条件时，Xinference 会自动选择 vllm 作为引擎来达到更高的吞吐量："
+msgstr ""
+"vLLM 是一个支持高并发的高性能大模型推理引擎。当满足以下条件时，Xinference"
+" 会自动选择 vllm 作为引擎来达到更高的吞吐量："
 
 #: ../../source/getting_started/installation.rst:57
 msgid ""
 "The model format is ``pytorch``, ``gptq``, ``awq``, ``fp4``, ``fp8`` or "
 "``bnb``."
-msgstr "模型格式为 ``pytorch`` ， ``gptq`` ， ``awq`` ， ``fp4`` ， ``fp8`` 或者 ``bnb`` 。"
+msgstr ""
+"模型格式为 ``pytorch`` ， ``gptq`` ， ``awq`` ， ``fp4`` ， ``fp8`` 或者 "
+"``bnb`` 。"
 
 #: ../../source/getting_started/installation.rst:58
 msgid "When the model format is ``pytorch``, the quantization is ``none``."
@@ -146,7 +160,9 @@ msgstr "当模型格式为 ``awq`` 时，量化选项需为 ``Int4`` 。"
 msgid ""
 "When the model format is ``gptq``, the quantization is ``Int3``, ``Int4``"
 " or ``Int8``."
-msgstr "当模型格式为 ``gptq`` 时，量化选项需为 ``Int3`` 、 ``Int4`` 或者 ``Int8`` 。"
+msgstr ""
+"当模型格式为 ``gptq`` 时，量化选项需为 ``Int3`` 、 ``Int4`` 或者 ``Int8``"
+" 。"
 
 #: ../../source/getting_started/installation.rst:61
 msgid "The system is Linux and has at least one CUDA device"
@@ -156,7 +172,9 @@ msgstr "操作系统为 Linux 并且至少有一个支持 CUDA 的设备"
 msgid ""
 "The model family (for custom models) / model name (for builtin models) is"
 " within the list of models supported by vLLM"
-msgstr "自定义模型的 ``model_family`` 字段和内置模型的 ``model_name`` 字段在 vLLM 的支持列表中。"
+msgstr ""
+"自定义模型的 ``model_family`` 字段和内置模型的 ``model_name`` 字段在 vLLM"
+" 的支持列表中。"
 
 #: ../../source/getting_started/installation.rst:64
 msgid "Currently, supported models include:"
@@ -169,9 +187,9 @@ msgid ""
 "instruct``, ``deepseek-r1-distill-llama``, ``gorilla-openfunctions-v2``, "
 "``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``, ``llama-3``, "
 "``llama-3-instruct``, ``llama-3.1``, ``llama-3.1-instruct``, "
-"``llama-3.3-instruct``, ``tiny-llama``, ``wizardcoder-python-v1.0``, "
-"``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, ``Yi-1.5-chat-"
-"16k``, ``Yi-200k``, ``Yi-chat``"
+"``llama-3.3-instruct``, ``minicpm5-1b``, ``tiny-llama``, ``wizardcoder-"
+"python-v1.0``, ``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, "
+"``Yi-1.5-chat-16k``, ``Yi-200k``, ``Yi-chat``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:69
@@ -189,7 +207,7 @@ msgid ""
 "``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-instruct``, "
 "``qwen2.5-instruct``, ``qwen2.5-instruct-1m``, ``qwenLong-l1``, ``QwQ-"
 "32B``, ``QwQ-32B-Preview``, ``seallms-v3``, ``skywork-or1``, ``skywork-"
-"or1-preview``, ``XiYanSQL-QwenCoder-2504``"
+"or1-preview``, ``vibethinker``, ``XiYanSQL-QwenCoder-2504``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:71
@@ -290,7 +308,7 @@ msgid "``Qwen3-Coder``, ``Qwen3-Instruct``, ``Qwen3-Thinking``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:93
-msgid "``glm-4.5``"
+msgid "``glm-4.5``, ``GLM-4.6``, ``GLM-4.7``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:94
@@ -310,75 +328,132 @@ msgid "``DeepSeek-V3.2``, ``DeepSeek-V3.2-Exp``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:98
-msgid "``MiniMax-M2``"
+msgid "``MiniMax-M2``, ``MiniMax-M2.5``, ``MiniMax-M2.7``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:99
+msgid "``GLM-4.7-Flash``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:100
+msgid "``glm-5``, ``glm-5.1``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:101
+msgid "``DeepSeek-V4-Flash``, ``DeepSeek-V4-Pro``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:104
 msgid "To install Xinference and vLLM::"
 msgstr "安装 xinference 和 vLLM::"
 
-#: ../../source/getting_started/installation.rst:114
+#: ../../source/getting_started/installation.rst:117
 msgid "Llama.cpp Backend"
 msgstr "Llama.cpp 引擎"
 
-#: ../../source/getting_started/installation.rst:115
+#: ../../source/getting_started/installation.rst:118
 msgid ""
 "Xinference supports models in ``gguf`` format via ``xllamacpp``. "
 "`xllamacpp <https://github.com/xorbitsai/xllamacpp>`_ is developed by "
 "Xinference team, and is the sole backend for llama.cpp since v1.6.0."
 msgstr ""
-"Xinference 通过 xllamacpp 支持 gguf 格式的模型。`xllamacpp "
-"<https://github.com/xorbitsai/xllamacpp>`_ 由 Xinference 团队开发，并从 v1.6.0 "
+"Xinference 通过 xllamacpp 支持 gguf 格式的模型。`xllamacpp <https://"
+"github.com/xorbitsai/xllamacpp>`_ 由 Xinference 团队开发，并从 v1.6.0 "
 "开始成为 llama.cpp 的唯一后端。"
 
-#: ../../source/getting_started/installation.rst:121
+#: ../../source/getting_started/installation.rst:124
 msgid ""
 "Since Xinference v1.5.0, ``llama-cpp-python`` is deprecated. Since "
 "Xinference v1.6.0, ``llama-cpp-python`` has been removed."
 msgstr ""
-"自 Xinference v1.5.0 起，``llama-cpp-python`` 被弃用；在 Xinference 从 v1.6.0 "
-"开始，该后端已被移除。"
+"自 Xinference v1.5.0 起，``llama-cpp-python`` 被弃用；在 Xinference 从 "
+"v1.6.0 开始，该后端已被移除。"
 
-#: ../../source/getting_started/installation.rst:124
-#: ../../source/getting_started/installation.rst:134
-#: ../../source/getting_started/installation.rst:143
+#: ../../source/getting_started/installation.rst:127
+#: ../../source/getting_started/installation.rst:140
+#: ../../source/getting_started/installation.rst:149
 msgid "Initial setup::"
 msgstr "初始步骤::"
 
-#: ../../source/getting_started/installation.rst:128
-msgid ""
-"For more installation instructions for ``xllamacpp`` to enable GPU "
-"acceleration, please refer to: https://github.com/xorbitsai/xllamacpp"
-msgstr ""
-"更多的 ``xllamacpp`` 安装说明以便开启 GPU "
-"加速，请参考：https://github.com/xorbitsai/xllamacpp"
-
 #: ../../source/getting_started/installation.rst:131
+msgid ""
+"With per-model virtual environments enabled, Xinference 3.0 automatically"
+" selects the matching ``xllamacpp`` GPU wheel for supported CUDA "
+"versions; see :ref:`user_guide_backends`. For a manual installation into "
+"the process environment, refer to https://github.com/xorbitsai/xllamacpp."
+msgstr "启用按模型虚拟环境后，Xinference 3.0 会为受支持的 CUDA 版本自动选择匹配的 ``xllamacpp`` GPU wheel；参见 :ref:`user_guide_backends`。若要手动安装到进程环境中，请参阅 https://github.com/xorbitsai/xllamacpp。"
+
+#: ../../source/getting_started/installation.rst:137
 msgid "SGLang Backend"
 msgstr "SGLang 引擎"
 
-#: ../../source/getting_started/installation.rst:132
+#: ../../source/getting_started/installation.rst:138
 msgid ""
 "SGLang has a high-performance inference runtime with RadixAttention. It "
 "significantly accelerates the execution of complex LLM programs by "
 "automatic KV cache reuse across multiple calls. And it also supports "
 "other common techniques like continuous batching and tensor parallelism."
 msgstr ""
-"SGLang 具有基于 RadixAttention 的高性能推理运行时。它通过在多个调用之间自动重用KV缓存，显著加速了复杂 LLM "
-"程序的执行。它还支持其他常见推理技术，如连续批处理和张量并行处理。"
+"SGLang 具有基于 RadixAttention 的高性能推理运行时。它通过在多个调用之间"
+"自动重用KV缓存，显著加速了复杂 LLM 程序的执行。它还支持其他常见推理技术，"
+"如连续批处理和张量并行处理。"
 
-#: ../../source/getting_started/installation.rst:140
+#: ../../source/getting_started/installation.rst:146
 msgid "MLX Backend"
 msgstr "MLX 引擎"
 
-#: ../../source/getting_started/installation.rst:141
+#: ../../source/getting_started/installation.rst:147
 msgid "MLX-lm is designed for Apple silicon users to run LLM efficiently."
 msgstr "MLX-lm 用来在苹果 silicon 芯片上提供高效的 LLM 推理。"
 
-#: ../../source/getting_started/installation.rst:148
+#: ../../source/getting_started/installation.rst:156
 msgid "Other Platforms"
 msgstr "其他平台"
 
-#: ../../source/getting_started/installation.rst:150
+#: ../../source/getting_started/installation.rst:158
 msgid ":ref:`Ascend NPU <installation_npu>`"
 msgstr ""
+
+#~ msgid ""
+#~ "``code-llama``, ``code-llama-instruct``, "
+#~ "``code-llama-python``, ``deepseek``, "
+#~ "``deepseek-chat``, ``deepseek-coder``, "
+#~ "``deepseek-coder-instruct``, ``deepseek-r1-distill-"
+#~ "llama``, ``gorilla-openfunctions-v2``, "
+#~ "``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``,"
+#~ " ``llama-3``, ``llama-3-instruct``, ``llama-3.1``, "
+#~ "``llama-3.1-instruct``, ``llama-3.3-instruct``, ``tiny-"
+#~ "llama``, ``wizardcoder-python-v1.0``, "
+#~ "``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, "
+#~ "``Yi-1.5-chat``, ``Yi-1.5-chat-16k``, ``Yi-"
+#~ "200k``, ``Yi-chat``"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "``Baichuan-M2``, ``codeqwen1.5``, ``codeqwen1.5-chat``,"
+#~ " ``deepseek-r1-distill-qwen``, ``DianJin-R1``, "
+#~ "``fin-r1``, ``HuatuoGPT-o1-Qwen2.5``, ``KAT-V1``, "
+#~ "``marco-o1``, ``qwen1.5-chat``, ``qwen2-instruct``, "
+#~ "``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-"
+#~ "instruct``, ``qwen2.5-instruct``, ``qwen2.5-instruct-"
+#~ "1m``, ``qwenLong-l1``, ``QwQ-32B``, ``QwQ-"
+#~ "32B-Preview``, ``seallms-v3``, ``skywork-"
+#~ "or1``, ``skywork-or1-preview``, ``XiYanSQL-"
+#~ "QwenCoder-2504``"
+#~ msgstr ""
+
+#~ msgid "``glm-4.5``"
+#~ msgstr ""
+
+#~ msgid "``MiniMax-M2``"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "For more installation instructions for "
+#~ "``xllamacpp`` to enable GPU acceleration, "
+#~ "please refer to: "
+#~ "https://github.com/xorbitsai/xllamacpp"
+#~ msgstr ""
+#~ "更多的 ``xllamacpp`` 安装说明以便"
+#~ "开启 GPU 加速，请参考：https://"
+#~ "github.com/xorbitsai/xllamacpp"

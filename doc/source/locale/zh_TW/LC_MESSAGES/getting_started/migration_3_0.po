@@ -1,0 +1,236 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2026, XINFERENCE HOLDINGS PTE. LTD.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-17 17:20+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_TW\n"
+"Language-Team: zh_TW <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: ../../source/getting_started/migration_3_0.rst:5
+msgid "Migrating to Xinference 3.0"
+msgstr "遷移至 Xinference 3.0"
+
+#: ../../source/getting_started/migration_3_0.rst:7
+msgid ""
+"Xinference 3.0 modernizes authentication, the web UI, and container "
+"deployment. Most workloads keep working unchanged, but a few behaviors "
+"and flags were removed or renamed. This page lists every breaking change "
+"and how to adapt."
+msgstr ""
+"Xinference 3.0 對身分驗證、Web UI 與容器部署進行了現代化改造。大多數工作負載可以維持原樣"
+"繼續運作，但有少數行為與旗標被移除或重新命名。本頁列出所有重大變更（breaking change）"
+"以及對應的調整方式。"
+
+#: ../../source/getting_started/migration_3_0.rst:13
+msgid "Authentication is enabled by default"
+msgstr "身分驗證預設啟用"
+
+#: ../../source/getting_started/migration_3_0.rst:15
+msgid ""
+"Starting with v3.0, the database-backed authentication system is "
+"**enabled by default**. A fresh deployment requires a login or an API key"
+" for every API call."
+msgstr "自 v3.0 起，以資料庫為後端的身分驗證系統**預設啟用**。全新部署的每個 API 呼叫都需要登入或使用 API 金鑰。"
+
+#: ../../source/getting_started/migration_3_0.rst:19
+msgid ""
+"On first startup, open the web UI (or call ``POST /v1/admin/setup``) to "
+"create the initial admin account. See :ref:`user_guide_auth_system` for "
+"the full flow."
+msgstr ""
+"首次啟動時，請開啟 Web UI（或呼叫 ``POST /v1/admin/setup``）建立初始管理員帳號。"
+"完整流程參見 :ref:`user_guide_auth_system`。"
+
+#: ../../source/getting_started/migration_3_0.rst:22
+msgid "To restore the previous unauthenticated behavior, set:"
+msgstr "若要恢復先前不需驗證的行為，請設定："
+
+#: ../../source/getting_started/migration_3_0.rst:28
+msgid ""
+"Existing clients and scripts that talk to an authenticated server must "
+"now log in (``xinference login`` / ``client.login()``) or pass an API key"
+" (``--api-key`` / ``api_key=`` / ``Authorization: Bearer <key>``)."
+msgstr ""
+"與已啟用驗證的伺服器溝通的既有用戶端與腳本，現在必須登入（``xinference login`` / ``client"
+".login()``）或傳入 API 金鑰（``--api-key`` / ``api_key=`` / ``Authorization: "
+"Bearer <key>``）。"
+
+#: ../../source/getting_started/migration_3_0.rst:33
+msgid "The legacy ``--auth-config`` system is removed"
+msgstr "舊版 ``--auth-config`` 系統已移除"
+
+#: ../../source/getting_started/migration_3_0.rst:35
+msgid ""
+"The in-memory JSON authentication system configured through the ``--auth-"
+"config`` flag of ``xinference-local`` and ``xinference-supervisor`` has "
+"been removed, together with its static ``auth_config.json`` format. The "
+"flag no longer exists."
+msgstr ""
+"透過 ``xinference-local`` 與 ``xinference-supervisor`` 的 ``--auth-config`` "
+"旗標設定的記憶體內 JSON 身分驗證系統已被移除，其靜態的 ``auth_config.json`` 格式也一併"
+"移除。該旗標已不存在。"
+
+#: ../../source/getting_started/migration_3_0.rst:40
+msgid ""
+"To carry your old users and API keys over to the new database-backed "
+"system, use the migration command:"
+msgstr "若要將舊有的使用者與 API 金鑰轉移到新的資料庫後端系統，請使用遷移命令："
+
+#: ../../source/getting_started/migration_3_0.rst:51
+msgid ""
+"If an admin password is ever lost, an operator with shell access can "
+"reset it offline with ``xinference-reset-auth-password`` — see :ref:`user"
+"_guide_auth_system`."
+msgstr ""
+"若管理員密碼遺失，具有 shell 存取權的維運人員可以使用 ``xinference-reset-auth-"
+"password`` 離線重設密碼——參見 :ref:`user_guide_auth_system`。"
+
+#: ../../source/getting_started/migration_3_0.rst:56
+msgid "Permission scope renames"
+msgstr "權限範圍（scope）重新命名"
+
+#: ../../source/getting_started/migration_3_0.rst:58
+msgid "Several fine-grained permission scopes were consolidated and renamed:"
+msgstr "數個細粒度權限範圍已被整併並重新命名："
+
+#: ../../source/getting_started/migration_3_0.rst:63
+msgid "Legacy scope"
+msgstr "舊版範圍"
+
+#: ../../source/getting_started/migration_3_0.rst:64
+msgid "Replacement"
+msgstr "替代名稱"
+
+#: ../../source/getting_started/migration_3_0.rst:65
+msgid "``models:start``"
+msgstr "``models:start``"
+
+#: ../../source/getting_started/migration_3_0.rst:66
+#: ../../source/getting_started/migration_3_0.rst:68
+msgid "``models:write``"
+msgstr "``models:write``"
+
+#: ../../source/getting_started/migration_3_0.rst:67
+msgid "``models:stop``"
+msgstr "``models:stop``"
+
+#: ../../source/getting_started/migration_3_0.rst:69
+msgid "``models:add``"
+msgstr "``models:add``"
+
+#: ../../source/getting_started/migration_3_0.rst:70
+msgid "``models:register``"
+msgstr "``models:register``"
+
+#: ../../source/getting_started/migration_3_0.rst:71
+msgid "``admin`` (for log routes)"
+msgstr "``admin`` （日誌相關路由）"
+
+#: ../../source/getting_started/migration_3_0.rst:72
+msgid "``logs:list``"
+msgstr "``logs:list``"
+
+#: ../../source/getting_started/migration_3_0.rst:73
+msgid "``admin`` (for revealing API keys)"
+msgstr "``admin`` （顯示 API 金鑰）"
+
+#: ../../source/getting_started/migration_3_0.rst:74
+msgid "``keys:manage``"
+msgstr "``keys:manage``"
+
+#: ../../source/getting_started/migration_3_0.rst:76
+msgid ""
+"Tokens and API keys that carry the legacy scope names keep working: the "
+"server transparently maps legacy names to their replacements. This "
+"compatibility mapping is deprecated and will be removed in a future "
+"release, so update any automation that grants permissions to use the new "
+"names."
+msgstr ""
+"帶有舊版範圍名稱的權杖與 API 金鑰仍可繼續使用：伺服器會自動將舊名稱對應到新名稱。此相容性對應已被棄用，"
+"將在未來版本中移除，因此請更新所有授予權限的自動化流程，改用新名稱。"
+
+#: ../../source/getting_started/migration_3_0.rst:82
+msgid "New default web UI (Next.js)"
+msgstr "新的預設 Web UI（Next.js）"
+
+#: ../../source/getting_started/migration_3_0.rst:84
+msgid ""
+"The web UI has been rewritten in Next.js and is now the default; the "
+"legacy React UI has been removed. The UI is exported statically at build "
+"time and served by the Xinference server itself — no separate frontend "
+"process is needed."
+msgstr ""
+"Web UI 已使用 Next.js 重寫並成為預設介面；舊版 React UI 已被移除。UI 會在建置時靜態匯出"
+"，並由 Xinference 伺服器本身提供服務——不需要獨立的前端程序。"
+
+#: ../../source/getting_started/migration_3_0.rst:89
+msgid ""
+"The ``XINFERENCE_FRONTEND_ENDPOINT`` environment variable has been "
+"**removed**. To serve a custom frontend build, point "
+"``XINFERENCE_FRONTEND_DIST_DIR`` at its directory instead."
+msgstr ""
+"``XINFERENCE_FRONTEND_ENDPOINT`` 環境變數已被**移除**。若要提供自訂的前端建置"
+"成果，請改將 ``XINFERENCE_FRONTEND_DIST_DIR`` 指向其目錄。"
+
+#: ../../source/getting_started/migration_3_0.rst:92
+msgid ""
+"The old ``/ui/`` path redirects to ``/``. Opening ``/`` takes you to the "
+"model launch page."
+msgstr "舊的 ``/ui/`` 路徑會重新導向到 ``/``。開啟 ``/`` 會進入模型啟動頁面。"
+
+#: ../../source/getting_started/migration_3_0.rst:96
+msgid "Built-in Gradio demo pages are removed"
+msgstr "內建 Gradio 示範頁面已移除"
+
+#: ../../source/getting_started/migration_3_0.rst:98
+#, python-brace-format
+msgid ""
+"The per-model Gradio demo UI (previously mounted at ``/{model_uid}``) and"
+" the ``/v1/ui/*`` endpoints behind it have been removed, along with the "
+"``gradio`` dependency. To interact with a running model, use the web UI, "
+"the OpenAI-compatible API, or the Python client instead."
+msgstr ""
+"各模型的 Gradio 示範 UI（先前掛載於 ``/{model_uid}``）及其背後的 ``/v1/ui/*``"
+" 端點已被移除， ``gradio`` 依賴也一併移除。若要與執行中的模型互動，請改用 Web UI、"
+"OpenAI 相容 API 或 Python 用戶端。"
+
+#: ../../source/getting_started/migration_3_0.rst:104
+msgid "Strict Qwen3-family system-message ordering"
+msgstr "嚴格的 Qwen3 系列系統訊息順序"
+
+#: ../../source/getting_started/migration_3_0.rst:106
+msgid ""
+"For model families whose chat template requires the system message to "
+"come first (including Ornith-1.0-35B, qwen3.5, qwen3.6, and Nex-N2), "
+"Xinference now validates message order before dispatching a request. A "
+"``system`` message at any position other than ``messages[0]`` returns "
+"HTTP 400. Move all system instructions into a single leading system "
+"message before upgrading."
+msgstr "對於聊天範本要求系統訊息位於首位的模型系列（包括 Ornith-1.0-35B、qwen3.5、qwen3.6 和 Nex-N2），Xinference 現在會在分派請求前驗證訊息順序。若 ``system`` 訊息不在 ``messages[0]``，將回傳 HTTP 400。升級前，請將所有系統指令合併到一則位於首位的系統訊息中。"
+
+#: ../../source/getting_started/migration_3_0.rst:113
+msgid "Docker Compose requirements"
+msgstr "Docker Compose 需求"
+
+#: ../../source/getting_started/migration_3_0.rst:115
+msgid ""
+"The bundled Compose files dropped the deprecated ``version:`` field and "
+"use newer Compose features, so deploying with them requires **Docker "
+"Compose v2.24.4 or later**. See :ref:`using_docker_compose`."
+msgstr ""
+"內附的 Compose 檔案已移除被棄用的 ``version:`` 欄位並使用較新的 Compose 功能，因此"
+"使用它們部署需要 **Docker Compose v2.24.4 或更新版本**。參見 :ref:`using_"
+"docker_compose`。"

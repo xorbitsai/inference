@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Xinference \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-28 11:54+0800\n"
+"POT-Creation-Date: 2026-07-17 15:37+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_CN\n"
@@ -17,7 +17,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.17.0\n"
+"Generated-By: Babel 2.18.0\n"
 
 #: ../../source/getting_started/environments.rst:5
 msgid "Environments Variables"
@@ -194,39 +194,200 @@ msgid ""
 msgstr "副本的GPU分配策略。默认值为 ``IDLE_FIRST_LAUNCH_STRATEGY`` 。"
 
 #: ../../source/getting_started/environments.rst:95
+msgid "XINFERENCE_MAX_CONCURRENT_LAUNCHES"
+msgstr "XINFERENCE_MAX_CONCURRENT_LAUNCHES"
+
+#: ../../source/getting_started/environments.rst:96
+msgid ""
+"Maximum number of model launches that can proceed concurrently on a "
+"single worker node. When more replicas are launched than this limit, "
+"excess launches queue and proceed as slots free up. This prevents "
+"resource exhaustion (fork storms, disk IO saturation, GPU memory "
+"contention) that can cause heartbeat timeouts. Default value is 5."
+msgstr ""
+"单个 worker "
+"节点上允许并发执行的模型启动数量上限。当启动的副本数超过该限制时，多余的启动任务会进入队列，等待空闲名额后继续执行。这可以避免因资源耗尽（fork"
+" 风暴、磁盘 IO 饱和、GPU 显存争用）导致的心跳超时。默认值为 5。"
+
+#: ../../source/getting_started/environments.rst:103
 msgid "XINFERENCE_ENABLE_VIRTUAL_ENV"
 msgstr "XINFERENCE_ENABLE_VIRTUAL_ENV"
 
-#: ../../source/getting_started/environments.rst:96
+#: ../../source/getting_started/environments.rst:104
 msgid ""
 "Enable model virtual environments globally. Default value is 1 (enabled, "
 "starting from v2.0)."
 msgstr "全局启用模型虚拟环境。默认值为1（启用，自v2.0版本生效）"
 
-#: ../../source/getting_started/environments.rst:100
+#: ../../source/getting_started/environments.rst:108
 msgid "XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED"
 msgstr "XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED"
 
-#: ../../source/getting_started/environments.rst:101
+#: ../../source/getting_started/environments.rst:109
 msgid ""
 "Skip packages already present in system site-packages when creating "
 "virtual environments. Default value is 1."
 msgstr "创建虚拟环境时跳过系统site-packages中已存在的包。默认值为1。"
 
-#: ../../source/getting_started/environments.rst:105
+#: ../../source/getting_started/environments.rst:113
 msgid "XINFERENCE_CSG_TOKEN"
 msgstr "XINFERENCE_CSG_TOKEN"
 
-#: ../../source/getting_started/environments.rst:106
+#: ../../source/getting_started/environments.rst:114
 msgid "Authentication token for CSGHub model source. Default is unset."
 msgstr "CSGHub模型源的认证令牌。默认值为未设置。"
 
-#: ../../source/getting_started/environments.rst:110
+#: ../../source/getting_started/environments.rst:118
 msgid "XINFERENCE_CSG_ENDPOINT"
 msgstr "XINFERENCE_CSG_ENDPOINT"
 
-#: ../../source/getting_started/environments.rst:111
+#: ../../source/getting_started/environments.rst:119
 msgid ""
 "CSGHub endpoint for model source. Default value is ``https://hub-"
 "stg.opencsg.com/``."
 msgstr "CSGHub 模型源端点。默认值为 ``https://hub-stg.opencsg.com/`` 。"
+
+#: ../../source/getting_started/environments.rst:123
+msgid "XINFERENCE_QWEN3_RERANK_TEMPLATE"
+msgstr "XINFERENCE_QWEN3_RERANK_TEMPLATE"
+
+#: ../../source/getting_started/environments.rst:124
+msgid ""
+"Enable template for Qwen3 rerank model family (0.6B, 4B, 8B,etc) "
+"globally. Default value is 1."
+msgstr "全局启用 Qwen3 rerank 系列模型（0.6B、4B、8B 等）的模板。默认值为 1。"
+
+#: ../../source/getting_started/environments.rst:128
+msgid "XINFERENCE_LAUNCH_HISTORY_DB_PATH"
+msgstr "XINFERENCE_LAUNCH_HISTORY_DB_PATH"
+
+#: ../../source/getting_started/environments.rst:129
+msgid ""
+"Path to the SQLite database that stores the model launch configuration "
+"history shown in the \"Launch Model\" drawer of the Web UI. This store is"
+" shared across all clients so the history is available from any browser "
+"or machine, and it is independent of the authentication database. When "
+"authentication is enabled, each record keeps the creator's username "
+"(``created_by``). Default value is "
+"``<XINFERENCE_HOME>/launch_history.db``."
+msgstr ""
+"用于存储 Web UI「启动模型」窗口中显示的模型启动配置历史的 SQLite "
+"数据库路径。该存储在所有客户端之间共享，因此可以从任意浏览器或机器访问这些历史记录；它与身份验证数据库相互独立。启用身份验证后，每条记录会保留创建者的用户名（``created_by``）。默认值为"
+" ``<XINFERENCE_HOME>/launch_history.db``。"
+
+#: ../../source/getting_started/environments.rst:137
+msgid "XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT"
+msgstr "XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT"
+
+#: ../../source/getting_started/environments.rst:138
+msgid ""
+"Maximum number of times a crashed model actor is automatically recovered."
+" Default is unset (no limit)."
+msgstr "崩溃的模型 actor 自动恢复的最大次数。默认不设置（即无限制）。"
+
+#: ../../source/getting_started/environments.rst:142
+msgid "XINFERENCE_FRONTEND_DIST_DIR"
+msgstr "XINFERENCE_FRONTEND_DIST_DIR"
+
+#: ../../source/getting_started/environments.rst:143
+msgid ""
+"Path to a static export of the web UI to serve instead of the one bundled"
+" with the package. Default is unset (serve the bundled Next.js export)."
+msgstr "用于替代包内自带 Web UI 的静态导出目录路径。默认不设置（使用自带的 Next.js 静态导出）。"
+
+#: ../../source/getting_started/environments.rst:146
+msgid ""
+"Replaces the removed ``XINFERENCE_FRONTEND_ENDPOINT`` variable; the web "
+"UI is now served by the Xinference server itself."
+msgstr ""
+"用于替代已移除的 ``XINFERENCE_FRONTEND_ENDPOINT`` 变量；Web UI 现在由 Xinference "
+"服务器本身提供。"
+
+#: ../../source/getting_started/environments.rst:151
+msgid "XINFERENCE_AUTH_ADVANCED"
+msgstr "XINFERENCE_AUTH_ADVANCED"
+
+#: ../../source/getting_started/environments.rst:152
+msgid ""
+"Enable the database-backed authentication system. Default value is 1 "
+"(enabled, starting from v3.0). Set to ``0`` / ``false`` / ``no`` to run "
+"Xinference without any authentication. See :ref:`user_guide_auth_system`."
+msgstr ""
+"启用基于数据库的身份验证系统。默认值为 1（自 v3.0 起默认启用）。设置为 ``0`` / ``false`` / ``no`` 可让 "
+"Xinference 在无任何身份验证的情况下运行。参见 :ref:`user_guide_auth_system`。"
+
+#: ../../source/getting_started/environments.rst:158
+msgid "XINFERENCE_AUTH_DB_PATH"
+msgstr "XINFERENCE_AUTH_DB_PATH"
+
+#: ../../source/getting_started/environments.rst:159
+msgid ""
+"Path to the SQLite database that stores users, permissions, API keys, and"
+" refresh tokens. Default value is ``<XINFERENCE_HOME>/auth/auth.db``."
+msgstr ""
+"用于存储用户、权限、API Key 和刷新令牌的 SQLite 数据库路径。默认值为 "
+"``<XINFERENCE_HOME>/auth/auth.db``。"
+
+#: ../../source/getting_started/environments.rst:163
+msgid "XINFERENCE_AUTH_JWT_SECRET_KEY"
+msgstr "XINFERENCE_AUTH_JWT_SECRET_KEY"
+
+#: ../../source/getting_started/environments.rst:164
+msgid ""
+"JWT signing secret for the authentication system. If unset, a secret is "
+"auto-generated and persisted at ``<XINFERENCE_HOME>/auth/jwt_secret_key``"
+" on first run."
+msgstr ""
+"身份验证系统使用的 JWT 签名密钥。若未设置，首次运行时会自动生成并持久化到 "
+"``<XINFERENCE_HOME>/auth/jwt_secret_key``。"
+
+#: ../../source/getting_started/environments.rst:169
+msgid "XINFERENCE_AUTH_ENCRYPTION_KEY"
+msgstr "XINFERENCE_AUTH_ENCRYPTION_KEY"
+
+#: ../../source/getting_started/environments.rst:170
+msgid ""
+"Key used to encrypt stored API keys at rest. If unset, a key is auto-"
+"generated and persisted at ``<XINFERENCE_HOME>/auth/encryption_key`` on "
+"first run."
+msgstr ""
+"用于加密静态存储的 API Key 的密钥。若未设置，首次运行时会自动生成并持久化到 "
+"``<XINFERENCE_HOME>/auth/encryption_key``。"
+
+#: ../../source/getting_started/environments.rst:175
+msgid "XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES"
+msgstr "XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES"
+
+#: ../../source/getting_started/environments.rst:176
+msgid ""
+"Lifetime (minutes) of access tokens issued by the authentication system. "
+"Default value is 30."
+msgstr "身份验证系统签发的访问令牌的有效期（分钟）。默认值为 30。"
+
+#: ../../source/getting_started/environments.rst:180
+msgid "XINFERENCE_OIDC_ENABLED"
+msgstr "XINFERENCE_OIDC_ENABLED"
+
+#: ../../source/getting_started/environments.rst:181
+msgid ""
+"Enable OIDC single sign-on (e.g. Keycloak). Default value is 0 "
+"(disabled). When enabled, ``XINFERENCE_OIDC_ISSUER``, "
+"``XINFERENCE_OIDC_CLIENT_ID``, ``XINFERENCE_OIDC_CLIENT_SECRET``, and "
+"``XINFERENCE_OIDC_REDIRECT_URI`` are required. See "
+":ref:`user_guide_oidc`."
+msgstr ""
+"启用 OIDC 单点登录（例如 Keycloak）。默认值为 0（禁用）。启用后必须同时设置 "
+"``XINFERENCE_OIDC_ISSUER``、 ``XINFERENCE_OIDC_CLIENT_ID``、 "
+"``XINFERENCE_OIDC_CLIENT_SECRET`` 和 ``XINFERENCE_OIDC_REDIRECT_URI``。参见 "
+":ref:`user_guide_oidc`。"
+
+#: ../../source/getting_started/environments.rst:187
+msgid "XINFERENCE_AUDIT_LOG_RETENTION_DAYS"
+msgstr "XINFERENCE_AUDIT_LOG_RETENTION_DAYS"
+
+#: ../../source/getting_started/environments.rst:188
+msgid ""
+"Number of days audit log files are retained. Default value is 90. See "
+":ref:`user_guide_audit_security`."
+msgstr "审计日志文件的保留天数。默认值为 90。参见 :ref:`user_guide_audit_security`。"
+

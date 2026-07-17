@@ -6,17 +6,17 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: Xinference\n"
+"Project-Id-Version:  Xinference\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-28 11:54+0800\n"
+"POT-Creation-Date: 2026-07-17 15:37+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: es <LL@li.org>\n"
 "Language: es\n"
+"Language-Team: es <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
 #: ../../source/getting_started/environments.rst:5
@@ -29,8 +29,8 @@ msgstr "XINFERENCE_ENDPOINT"
 
 #: ../../source/getting_started/environments.rst:9
 msgid ""
-"Endpoint of Xinference, used to connect to Xinference service. Default value"
-" is http://127.0.0.1:9997 , you can get it through logs."
+"Endpoint of Xinference, used to connect to Xinference service. Default "
+"value is http://127.0.0.1:9997 , you can get it through logs."
 msgstr ""
 "Dirección del servicio de Xinference, utilizada para conectarse con "
 "Xinference. La dirección predeterminada es http://127.0.0.1:9997, que se "
@@ -42,8 +42,8 @@ msgstr "XINFERENCE_MODEL_SRC"
 
 #: ../../source/getting_started/environments.rst:14
 msgid ""
-"Modelhub used for downloading models. Default is \"huggingface\", or you can"
-" set \"modelscope\" as downloading source."
+"Modelhub used for downloading models. Default is \"huggingface\", or you "
+"can set \"modelscope\" as downloading source."
 msgstr ""
 "Configurar el repositorio de descarga del modelo. La fuente de descarga "
 "predeterminada es \"huggingface\", también se puede configurar "
@@ -56,14 +56,15 @@ msgstr "XINFERENCE_HOME"
 #: ../../source/getting_started/environments.rst:21
 msgid ""
 "By default, Xinference uses ``<HOME>/.xinference`` as home path to store "
-"necessary files such as logs and models, where ``<HOME>`` is the home path "
-"of current user. You can change this directory by configuring this "
+"necessary files such as logs and models, where ``<HOME>`` is the home "
+"path of current user. You can change this directory by configuring this "
 "environment variable."
 msgstr ""
 "Xinference utiliza por defecto ``<HOME>/.xinference`` como directorio "
-"predeterminado para almacenar modelos y archivos necesarios como registros. "
-"``<HOME>`` es el directorio principal del usuario actual. Se puede modificar"
-" el directorio predeterminado configurando esta variable de entorno."
+"predeterminado para almacenar modelos y archivos necesarios como "
+"registros. ``<HOME>`` es el directorio principal del usuario actual. Se "
+"puede modificar el directorio predeterminado configurando esta variable "
+"de entorno."
 
 #: ../../source/getting_started/environments.rst:27
 msgid "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD"
@@ -71,8 +72,8 @@ msgstr "XINFERENCE_HEALTH_CHECK_FAILURE_THRESHOLD"
 
 #: ../../source/getting_started/environments.rst:28
 msgid ""
-"The maximum number of failed health checks tolerated at Xinference startup. "
-"Default value is 5."
+"The maximum number of failed health checks tolerated at Xinference "
+"startup. Default value is 5."
 msgstr ""
 "Número máximo de fallos de verificación de salud permitidos al iniciar "
 "Xinference. El valor predeterminado es 5."
@@ -82,19 +83,17 @@ msgid "XINFERENCE_HEALTH_CHECK_INTERVAL"
 msgstr "XINFERENCE_HEALTH_CHECK_INTERVAL"
 
 #: ../../source/getting_started/environments.rst:33
-msgid ""
-"Health check interval (seconds) at Xinference startup. Default value is 5."
+msgid "Health check interval (seconds) at Xinference startup. Default value is 5."
 msgstr ""
-"Intervalo de verificación de salud al iniciar Xinference (en segundos). El "
-"valor predeterminado es 5."
+"Intervalo de verificación de salud al iniciar Xinference (en segundos). "
+"El valor predeterminado es 5."
 
 #: ../../source/getting_started/environments.rst:37
 msgid "XINFERENCE_HEALTH_CHECK_TIMEOUT"
 msgstr "XINFERENCE_HEALTH_CHECK_TIMEOUT"
 
 #: ../../source/getting_started/environments.rst:38
-msgid ""
-"Health check timeout (seconds) at Xinference startup. Default value is 10."
+msgid "Health check timeout (seconds) at Xinference startup. Default value is 10."
 msgstr ""
 "Tiempo de espera de la verificación de salud al iniciar Xinference (en "
 "segundos). El valor predeterminado es 10."
@@ -108,8 +107,8 @@ msgid ""
 "Xinference will automatically report health check at Xinference startup. "
 "Setting this environment to 1 can disable health check."
 msgstr ""
-"Cuando se cumplan las condiciones, Xinference informará automáticamente del "
-"estado del worker; establecer esta variable de entorno en 1 puede "
+"Cuando se cumplan las condiciones, Xinference informará automáticamente "
+"del estado del worker; establecer esta variable de entorno en 1 puede "
 "deshabilitar la verificación de estado."
 
 #: ../../source/getting_started/environments.rst:47
@@ -118,15 +117,15 @@ msgstr "XINFERENCE_DISABLE_METRICS"
 
 #: ../../source/getting_started/environments.rst:48
 msgid ""
-"Xinference will by default enable the metrics exporter on the supervisor and"
-" worker. Setting this environment to 1 will disable the /metrics endpoint on"
-" the supervisor and the HTTP service (only provide the /metrics endpoint) on"
-" the worker."
+"Xinference will by default enable the metrics exporter on the supervisor "
+"and worker. Setting this environment to 1 will disable the /metrics "
+"endpoint on the supervisor and the HTTP service (only provide the "
+"/metrics endpoint) on the worker."
 msgstr ""
-"Xinference habilita por defecto el exportador de métricas en supervisor y "
-"worker. Establecer la variable de entorno en 1 permite deshabilitar el punto"
-" final /metrics en el supervisor y deshabilitar el servicio HTTP en el "
-"worker (solo proporciona el punto final /metrics)."
+"Xinference habilita por defecto el exportador de métricas en supervisor y"
+" worker. Establecer la variable de entorno en 1 permite deshabilitar el "
+"punto final /metrics en el supervisor y deshabilitar el servicio HTTP en "
+"el worker (solo proporciona el punto final /metrics)."
 
 #: ../../source/getting_started/environments.rst:53
 msgid "XINFERENCE_DOWNLOAD_MAX_ATTEMPTS"
@@ -135,8 +134,8 @@ msgstr "XINFERENCE_DOWNLOAD_MAX_ATTEMPTS"
 #: ../../source/getting_started/environments.rst:54
 msgid "Maximum download retry attempts for model files. Default value is 3."
 msgstr ""
-"El número máximo de reintentos de descarga para el archivo del modelo. El "
-"valor predeterminado es 3."
+"El número máximo de reintentos de descarga para el archivo del modelo. El"
+" valor predeterminado es 3."
 
 #: ../../source/getting_started/environments.rst:58
 msgid "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE"
@@ -144,8 +143,8 @@ msgstr "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE"
 
 #: ../../source/getting_started/environments.rst:59
 msgid ""
-"Enable continuous batching for text-to-image models by specifying the target"
-" image size (e.g., ``1024*1024``). Default is unset."
+"Enable continuous batching for text-to-image models by specifying the "
+"target image size (e.g., ``1024*1024``). Default is unset."
 msgstr ""
 "Habilitar el procesamiento por lotes continuo para el modelo de texto a "
 "imagen especificando el tamaño de la imagen de destino (por ejemplo, "
@@ -157,7 +156,8 @@ msgstr "XINFERENCE_SSE_PING_ATTEMPTS_SECONDS"
 
 #: ../../source/getting_started/environments.rst:64
 msgid ""
-"Server-Sent Events keepalive ping interval (seconds). Default value is 600."
+"Server-Sent Events keepalive ping interval (seconds). Default value is "
+"600."
 msgstr ""
 "Intervalo de ping de keep-alive de eventos enviados por el servidor (en "
 "segundos). El valor predeterminado es 600."
@@ -169,8 +169,8 @@ msgstr "XINFERENCE_MAX_TOKENS"
 #: ../../source/getting_started/environments.rst:69
 msgid "Global max tokens limit override for requests. Default is unset."
 msgstr ""
-"El límite máximo global de tokens de la solicitud está sobrescrito. El valor"
-" predeterminado es no establecido."
+"El límite máximo global de tokens de la solicitud está sobrescrito. El "
+"valor predeterminado es no establecido."
 
 #: ../../source/getting_started/environments.rst:72
 msgid "XINFERENCE_ALLOWED_IPS"
@@ -193,8 +193,8 @@ msgid ""
 "Default batch size used by the server when batching is enabled. Default "
 "value is 32."
 msgstr ""
-"Tamaño de lote predeterminado utilizado por el servidor cuando se habilita "
-"el procesamiento por lotes. El valor predeterminado es 32."
+"Tamaño de lote predeterminado utilizado por el servidor cuando se "
+"habilita el procesamiento por lotes. El valor predeterminado es 32."
 
 #: ../../source/getting_started/environments.rst:81
 msgid "XINFERENCE_BATCH_INTERVAL"
@@ -203,8 +203,8 @@ msgstr "XINFERENCE_BATCH_INTERVAL"
 #: ../../source/getting_started/environments.rst:82
 msgid "Default batching interval (seconds). Default value is 0.003."
 msgstr ""
-"Intervalo de procesamiento por lotes predeterminado (en segundos). El valor "
-"predeterminado es 0.003."
+"Intervalo de procesamiento por lotes predeterminado (en segundos). El "
+"valor predeterminado es 0.003."
 
 #: ../../source/getting_started/environments.rst:86
 msgid "XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU"
@@ -227,51 +227,239 @@ msgid ""
 "GPU allocation strategy for replicas. Default is "
 "``IDLE_FIRST_LAUNCH_STRATEGY``."
 msgstr ""
-"La estrategia de asignación de GPU para réplicas. El valor predeterminado es"
-" ``IDLE_FIRST_LAUNCH_STRATEGY``."
+"La estrategia de asignación de GPU para réplicas. El valor predeterminado"
+" es ``IDLE_FIRST_LAUNCH_STRATEGY``."
 
 #: ../../source/getting_started/environments.rst:95
+msgid "XINFERENCE_MAX_CONCURRENT_LAUNCHES"
+msgstr "XINFERENCE_MAX_CONCURRENT_LAUNCHES"
+
+#: ../../source/getting_started/environments.rst:96
+msgid ""
+"Maximum number of model launches that can proceed concurrently on a "
+"single worker node. When more replicas are launched than this limit, "
+"excess launches queue and proceed as slots free up. This prevents "
+"resource exhaustion (fork storms, disk IO saturation, GPU memory "
+"contention) that can cause heartbeat timeouts. Default value is 5."
+msgstr ""
+"Número máximo de lanzamientos de modelos que pueden ejecutarse de forma "
+"concurrente en un mismo nodo worker. Cuando se lanzan más réplicas de las"
+" que permite este límite, los lanzamientos excedentes se ponen en cola y "
+"continúan a medida que se liberan espacios. Esto evita el agotamiento de "
+"recursos (tormentas de forks, saturación de E/S de disco, contención de "
+"memoria de la GPU) que puede provocar tiempos de espera agotados en los "
+"latidos (heartbeats). El valor predeterminado es 5."
+
+#: ../../source/getting_started/environments.rst:103
 msgid "XINFERENCE_ENABLE_VIRTUAL_ENV"
 msgstr "XINFERENCE_ENABLE_VIRTUAL_ENV"
 
-#: ../../source/getting_started/environments.rst:96
+#: ../../source/getting_started/environments.rst:104
 msgid ""
 "Enable model virtual environments globally. Default value is 1 (enabled, "
 "starting from v2.0)."
 msgstr ""
-"Habilitar globalmente el entorno virtual del modelo. El valor predeterminado"
-" es 1 (habilitado, efectivo desde la versión v2.0)."
+"Habilitar globalmente el entorno virtual del modelo. El valor "
+"predeterminado es 1 (habilitado, efectivo desde la versión v2.0)."
 
-#: ../../source/getting_started/environments.rst:100
+#: ../../source/getting_started/environments.rst:108
 msgid "XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED"
 msgstr "XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED"
 
-#: ../../source/getting_started/environments.rst:101
+#: ../../source/getting_started/environments.rst:109
 msgid ""
-"Skip packages already present in system site-packages when creating virtual "
-"environments. Default value is 1."
+"Skip packages already present in system site-packages when creating "
+"virtual environments. Default value is 1."
 msgstr ""
-"Al crear el entorno virtual, omita los paquetes ya existentes en los site-"
-"packages del sistema. El valor predeterminado es 1."
+"Al crear el entorno virtual, omita los paquetes ya existentes en los "
+"site-packages del sistema. El valor predeterminado es 1."
 
-#: ../../source/getting_started/environments.rst:105
+#: ../../source/getting_started/environments.rst:113
 msgid "XINFERENCE_CSG_TOKEN"
 msgstr "XINFERENCE_CSG_TOKEN"
 
-#: ../../source/getting_started/environments.rst:106
+#: ../../source/getting_started/environments.rst:114
 msgid "Authentication token for CSGHub model source. Default is unset."
 msgstr ""
 "El token de autenticación para la fuente del modelo CSGHub. El valor "
 "predeterminado es no establecido."
 
-#: ../../source/getting_started/environments.rst:110
+#: ../../source/getting_started/environments.rst:118
 msgid "XINFERENCE_CSG_ENDPOINT"
 msgstr "XINFERENCE_CSG_ENDPOINT"
 
-#: ../../source/getting_started/environments.rst:111
+#: ../../source/getting_started/environments.rst:119
 msgid ""
 "CSGHub endpoint for model source. Default value is ``https://hub-"
 "stg.opencsg.com/``."
 msgstr ""
-"CSGHub extremo de origen del modelo. El valor predeterminado es "
-"``https://hub-stg.opencsg.com/`` ."
+"CSGHub extremo de origen del modelo. El valor predeterminado es ``https"
+"://hub-stg.opencsg.com/`` ."
+
+#: ../../source/getting_started/environments.rst:123
+msgid "XINFERENCE_QWEN3_RERANK_TEMPLATE"
+msgstr "XINFERENCE_QWEN3_RERANK_TEMPLATE"
+
+#: ../../source/getting_started/environments.rst:124
+msgid ""
+"Enable template for Qwen3 rerank model family (0.6B, 4B, 8B,etc) "
+"globally. Default value is 1."
+msgstr ""
+"Habilitar globalmente la plantilla para la familia de modelos de rerank "
+"Qwen3 (0.6B, 4B, 8B, etc.). El valor predeterminado es 1."
+
+#: ../../source/getting_started/environments.rst:128
+msgid "XINFERENCE_LAUNCH_HISTORY_DB_PATH"
+msgstr "XINFERENCE_LAUNCH_HISTORY_DB_PATH"
+
+#: ../../source/getting_started/environments.rst:129
+msgid ""
+"Path to the SQLite database that stores the model launch configuration "
+"history shown in the \"Launch Model\" drawer of the Web UI. This store is"
+" shared across all clients so the history is available from any browser "
+"or machine, and it is independent of the authentication database. When "
+"authentication is enabled, each record keeps the creator's username "
+"(``created_by``). Default value is "
+"``<XINFERENCE_HOME>/launch_history.db``."
+msgstr ""
+"Ruta a la base de datos SQLite que almacena el historial de "
+"configuraciones de lanzamiento de modelos que se muestra en el panel "
+"\"Launch Model\" de la interfaz web. Este almacén se comparte entre todos"
+" los clientes, de modo que el historial está disponible desde cualquier "
+"navegador o máquina, y es independiente de la base de datos de "
+"autenticación. Cuando la autenticación está habilitada, cada registro "
+"conserva el nombre de usuario del creador (``created_by``). El valor "
+"predeterminado es ``<XINFERENCE_HOME>/launch_history.db``."
+
+#: ../../source/getting_started/environments.rst:137
+msgid "XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT"
+msgstr "XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT"
+
+#: ../../source/getting_started/environments.rst:138
+msgid ""
+"Maximum number of times a crashed model actor is automatically recovered."
+" Default is unset (no limit)."
+msgstr ""
+"Número máximo de veces que un actor de modelo caído se recupera "
+"automáticamente. Por defecto no está establecido (sin límite)."
+
+#: ../../source/getting_started/environments.rst:142
+msgid "XINFERENCE_FRONTEND_DIST_DIR"
+msgstr "XINFERENCE_FRONTEND_DIST_DIR"
+
+#: ../../source/getting_started/environments.rst:143
+msgid ""
+"Path to a static export of the web UI to serve instead of the one bundled"
+" with the package. Default is unset (serve the bundled Next.js export)."
+msgstr ""
+"Ruta a una exportación estática de la interfaz web que se servirá en "
+"lugar de la incluida en el paquete. Por defecto no está establecido (se "
+"sirve la exportación de Next.js incluida)."
+
+#: ../../source/getting_started/environments.rst:146
+msgid ""
+"Replaces the removed ``XINFERENCE_FRONTEND_ENDPOINT`` variable; the web "
+"UI is now served by the Xinference server itself."
+msgstr ""
+"Sustituye a la variable eliminada ``XINFERENCE_FRONTEND_ENDPOINT``; la "
+"interfaz web ahora la sirve el propio servidor de Xinference."
+
+#: ../../source/getting_started/environments.rst:151
+msgid "XINFERENCE_AUTH_ADVANCED"
+msgstr "XINFERENCE_AUTH_ADVANCED"
+
+#: ../../source/getting_started/environments.rst:152
+msgid ""
+"Enable the database-backed authentication system. Default value is 1 "
+"(enabled, starting from v3.0). Set to ``0`` / ``false`` / ``no`` to run "
+"Xinference without any authentication. See :ref:`user_guide_auth_system`."
+msgstr ""
+"Habilitar el sistema de autenticación respaldado por base de datos. El "
+"valor predeterminado es 1 (habilitado a partir de la versión v3.0). "
+"Establézcalo en ``0`` / ``false`` / ``no`` para ejecutar Xinference sin "
+"ninguna autenticación. Consulte :ref:`user_guide_auth_system`."
+
+#: ../../source/getting_started/environments.rst:158
+msgid "XINFERENCE_AUTH_DB_PATH"
+msgstr "XINFERENCE_AUTH_DB_PATH"
+
+#: ../../source/getting_started/environments.rst:159
+msgid ""
+"Path to the SQLite database that stores users, permissions, API keys, and"
+" refresh tokens. Default value is ``<XINFERENCE_HOME>/auth/auth.db``."
+msgstr ""
+"Ruta a la base de datos SQLite que almacena usuarios, permisos, claves de"
+" API y tokens de actualización. El valor predeterminado es "
+"``<XINFERENCE_HOME>/auth/auth.db``."
+
+#: ../../source/getting_started/environments.rst:163
+msgid "XINFERENCE_AUTH_JWT_SECRET_KEY"
+msgstr "XINFERENCE_AUTH_JWT_SECRET_KEY"
+
+#: ../../source/getting_started/environments.rst:164
+msgid ""
+"JWT signing secret for the authentication system. If unset, a secret is "
+"auto-generated and persisted at ``<XINFERENCE_HOME>/auth/jwt_secret_key``"
+" on first run."
+msgstr ""
+"Secreto de firma JWT del sistema de autenticación. Si no se establece, en"
+" la primera ejecución se genera automáticamente un secreto y se guarda en"
+" ``<XINFERENCE_HOME>/auth/jwt_secret_key``."
+
+#: ../../source/getting_started/environments.rst:169
+msgid "XINFERENCE_AUTH_ENCRYPTION_KEY"
+msgstr "XINFERENCE_AUTH_ENCRYPTION_KEY"
+
+#: ../../source/getting_started/environments.rst:170
+msgid ""
+"Key used to encrypt stored API keys at rest. If unset, a key is auto-"
+"generated and persisted at ``<XINFERENCE_HOME>/auth/encryption_key`` on "
+"first run."
+msgstr ""
+"Clave utilizada para cifrar en reposo las claves de API almacenadas. Si "
+"no se establece, en la primera ejecución se genera automáticamente una "
+"clave y se guarda en ``<XINFERENCE_HOME>/auth/encryption_key``."
+
+#: ../../source/getting_started/environments.rst:175
+msgid "XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES"
+msgstr "XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES"
+
+#: ../../source/getting_started/environments.rst:176
+msgid ""
+"Lifetime (minutes) of access tokens issued by the authentication system. "
+"Default value is 30."
+msgstr ""
+"Tiempo de vida (en minutos) de los tokens de acceso emitidos por el "
+"sistema de autenticación. El valor predeterminado es 30."
+
+#: ../../source/getting_started/environments.rst:180
+msgid "XINFERENCE_OIDC_ENABLED"
+msgstr "XINFERENCE_OIDC_ENABLED"
+
+#: ../../source/getting_started/environments.rst:181
+msgid ""
+"Enable OIDC single sign-on (e.g. Keycloak). Default value is 0 "
+"(disabled). When enabled, ``XINFERENCE_OIDC_ISSUER``, "
+"``XINFERENCE_OIDC_CLIENT_ID``, ``XINFERENCE_OIDC_CLIENT_SECRET``, and "
+"``XINFERENCE_OIDC_REDIRECT_URI`` are required. See "
+":ref:`user_guide_oidc`."
+msgstr ""
+"Habilitar el inicio de sesión único OIDC (por ejemplo, Keycloak). El "
+"valor predeterminado es 0 (deshabilitado). Cuando está habilitado, se "
+"requieren ``XINFERENCE_OIDC_ISSUER``, ``XINFERENCE_OIDC_CLIENT_ID``, "
+"``XINFERENCE_OIDC_CLIENT_SECRET`` y ``XINFERENCE_OIDC_REDIRECT_URI``. "
+"Consulte :ref:`user_guide_oidc`."
+
+#: ../../source/getting_started/environments.rst:187
+msgid "XINFERENCE_AUDIT_LOG_RETENTION_DAYS"
+msgstr "XINFERENCE_AUDIT_LOG_RETENTION_DAYS"
+
+#: ../../source/getting_started/environments.rst:188
+msgid ""
+"Number of days audit log files are retained. Default value is 90. See "
+":ref:`user_guide_audit_security`."
+msgstr ""
+"Número de días durante los cuales se conservan los archivos de registro "
+"de auditoría. El valor predeterminado es 90. Consulte "
+":ref:`user_guide_audit_security`."
+

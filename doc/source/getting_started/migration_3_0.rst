@@ -100,6 +100,15 @@ The per-model Gradio demo UI (previously mounted at ``/{model_uid}``) and the
 dependency. To interact with a running model, use the web UI, the
 OpenAI-compatible API, or the Python client instead.
 
+Strict Qwen3-family system-message ordering
+============================================
+
+For model families whose chat template requires the system message to come
+first (including Ornith-1.0-35B, qwen3.5, qwen3.6, and Nex-N2), Xinference now
+validates message order before dispatching a request. A ``system`` message at
+any position other than ``messages[0]`` returns HTTP 400. Move all system
+instructions into a single leading system message before upgrading.
+
 Docker Compose requirements
 ============================
 

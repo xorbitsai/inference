@@ -5,17 +5,17 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: Xinference\n"
+"Project-Id-Version:  Xinference\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-05 01:08+0800\n"
+"POT-Creation-Date: 2026-07-17 15:37+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: it <LL@li.org>\n"
 "Language: it\n"
+"Language-Team: it <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "Generated-By: Babel 2.18.0\n"
 
 #: ../../source/getting_started/release_notes.rst:4
@@ -25,11 +25,11 @@ msgstr "Note di rilascio della versione"
 
 #: ../../source/getting_started/release_notes.rst:6
 msgid ""
-"This page provides a version-by-version index of Xinference release notes. "
-"For detailed updates, please visit the corresponding links below."
+"This page provides a version-by-version index of Xinference release "
+"notes. For detailed updates, please visit the corresponding links below."
 msgstr ""
-"Questa pagina fornisce un indice delle note di rilascio per ogni versione di"
-" Xinference. Per aggiornamenti dettagliati, visita i collegamenti "
+"Questa pagina fornisce un indice delle note di rilascio per ogni versione"
+" di Xinference. Per aggiornamenti dettagliati, visita i collegamenti "
 "corrispondenti."
 
 #: ../../source/getting_started/release_notes.rst:10
@@ -37,206 +37,200 @@ msgid "Version"
 msgstr "versione"
 
 #: ../../source/getting_started/release_notes.rst:12
-msgid "v2.12.0"
-msgstr ""
+msgid "v3.0.0"
+msgstr "v3.0.0"
 
 #: ../../source/getting_started/release_notes.rst:12
-msgid ""
-"`View release notes <https://xinference.io/release_notes/v2.12.0.html>`_"
+msgid "`View release notes <https://xinference.io/release_notes/v3.0.0.html>`_"
 msgstr ""
-"`Vedi note di versione <https://xinference.io/release_notes/v2.12.0.html>`_"
+"`Visualizza le note di rilascio "
+"<https://xinference.io/release_notes/v3.0.0.html>`_"
 
 #: ../../source/getting_started/release_notes.rst:14
+msgid "v2.12.0"
+msgstr "v2.12.0"
+
+#: ../../source/getting_started/release_notes.rst:14
+msgid "`View release notes <https://xinference.io/release_notes/v2.12.0.html>`_"
+msgstr ""
+"`Vedi note di versione "
+"<https://xinference.io/release_notes/v2.12.0.html>`_"
+
+#: ../../source/getting_started/release_notes.rst:16
 msgid "v2.11.0"
-msgstr ""
-
-#: ../../source/getting_started/release_notes.rst:14
-msgid ""
-"`View release notes <https://xinference.io/release_notes/v2.11.0.html>`_"
-msgstr ""
-"`Vedi note di versione <https://xinference.io/release_notes/v2.11.0.html>`_"
+msgstr "v2.11.0"
 
 #: ../../source/getting_started/release_notes.rst:16
+msgid "`View release notes <https://xinference.io/release_notes/v2.11.0.html>`_"
+msgstr ""
+"`Vedi note di versione "
+"<https://xinference.io/release_notes/v2.11.0.html>`_"
+
+#: ../../source/getting_started/release_notes.rst:18
 msgid "v2.10.0"
-msgstr ""
+msgstr "v2.10.0"
 
-#: ../../source/getting_started/release_notes.rst:16
-msgid ""
-"`View release notes <https://xinference.io/release_notes/v2.10.0.html>`_"
+#: ../../source/getting_started/release_notes.rst:18
+msgid "`View release notes <https://xinference.io/release_notes/v2.10.0.html>`_"
 msgstr ""
 "`Visualizza le note di rilascio "
 "<https://xinference.io/release_notes/v2.10.0.html>`_"
 
-#: ../../source/getting_started/release_notes.rst:18
+#: ../../source/getting_started/release_notes.rst:20
 msgid "v2.9.0"
-msgstr ""
+msgstr "v2.9.0"
 
-#: ../../source/getting_started/release_notes.rst:18
-msgid ""
-"`View release notes <https://xinference.io/release_notes/v2.9.0.html>`_"
+#: ../../source/getting_started/release_notes.rst:20
+msgid "`View release notes <https://xinference.io/release_notes/v2.9.0.html>`_"
 msgstr ""
 "`Vedi le note di rilascio "
 "<https://xinference.io/release_notes/v2.9.0.html>`_"
 
-#: ../../source/getting_started/release_notes.rst:20
+#: ../../source/getting_started/release_notes.rst:22
 msgid "v2.8.0"
-msgstr ""
+msgstr "v2.8.0"
 
-#: ../../source/getting_started/release_notes.rst:20
-msgid ""
-"`View release notes <https://xinference.io/release_notes/v2.8.0.html>`_"
+#: ../../source/getting_started/release_notes.rst:22
+msgid "`View release notes <https://xinference.io/release_notes/v2.8.0.html>`_"
 msgstr ""
 "`Visualizza le note di rilascio "
 "<https://xinference.io/release_notes/v2.8.0.html>`_"
 
-#: ../../source/getting_started/release_notes.rst:22
+#: ../../source/getting_started/release_notes.rst:24
 msgid "v2.7.0"
-msgstr ""
+msgstr "v2.7.0"
 
-#: ../../source/getting_started/release_notes.rst:22
-msgid ""
-"`View release notes <https://xinference.io/release_notes/v2.7.0.html>`_"
+#: ../../source/getting_started/release_notes.rst:24
+msgid "`View release notes <https://xinference.io/release_notes/v2.7.0.html>`_"
 msgstr ""
 "`Visualizzare le note di rilascio "
 "<https://xinference.io/release_notes/v2.7.0.html>`_"
 
-#: ../../source/getting_started/release_notes.rst:24
+#: ../../source/getting_started/release_notes.rst:26
 msgid "v2.5.0"
-msgstr ""
+msgstr "v2.5.0"
 
-#: ../../source/getting_started/release_notes.rst:24
-msgid ""
-"`View release notes <https://xinference.io/release_notes/v2.5.0.html>`_"
+#: ../../source/getting_started/release_notes.rst:26
+msgid "`View release notes <https://xinference.io/release_notes/v2.5.0.html>`_"
 msgstr ""
 "`Visualizza le note di rilascio "
 "<https://xinference.io/release_notes/v2.5.0.html>`_"
 
-#: ../../source/getting_started/release_notes.rst:26
+#: ../../source/getting_started/release_notes.rst:28
 msgid "v2.4.0"
-msgstr ""
+msgstr "v2.4.0"
 
-#: ../../source/getting_started/release_notes.rst:26
-msgid ""
-"`View release notes <https://xinference.io/release_notes/v2.4.0.html>`_"
+#: ../../source/getting_started/release_notes.rst:28
+msgid "`View release notes <https://xinference.io/release_notes/v2.4.0.html>`_"
 msgstr ""
 "`Visualizza le note di versione "
 "<https://xinference.io/release_notes/v2.4.0.html>`_"
 
-#: ../../source/getting_started/release_notes.rst:28
+#: ../../source/getting_started/release_notes.rst:30
 msgid "v2.3.0"
-msgstr ""
+msgstr "v2.3.0"
 
-#: ../../source/getting_started/release_notes.rst:28
-msgid ""
-"`View release notes <https://xinference.io/release_notes/v2.3.0.html>`_"
+#: ../../source/getting_started/release_notes.rst:30
+msgid "`View release notes <https://xinference.io/release_notes/v2.3.0.html>`_"
 msgstr ""
 "`Visualizza le note di rilascio "
 "<https://xinference.io/release_notes/v2.3.0.html>`_"
 
-#: ../../source/getting_started/release_notes.rst:30
+#: ../../source/getting_started/release_notes.rst:32
 msgid "v2.2.0"
-msgstr ""
+msgstr "v2.2.0"
 
-#: ../../source/getting_started/release_notes.rst:30
-msgid ""
-"`View release notes <https://xinference.io/release_notes/v2.2.0.html>`_"
+#: ../../source/getting_started/release_notes.rst:32
+msgid "`View release notes <https://xinference.io/release_notes/v2.2.0.html>`_"
 msgstr ""
 "`Vedi le note di rilascio "
 "<https://xinference.io/release_notes/v2.2.0.html>`_"
 
-#: ../../source/getting_started/release_notes.rst:32
+#: ../../source/getting_started/release_notes.rst:34
 msgid "v2.1.0"
-msgstr ""
+msgstr "v2.1.0"
 
-#: ../../source/getting_started/release_notes.rst:32
-msgid ""
-"`View release notes <https://xinference.io/release_notes/v2.1.0.html>`_"
+#: ../../source/getting_started/release_notes.rst:34
+msgid "`View release notes <https://xinference.io/release_notes/v2.1.0.html>`_"
 msgstr ""
 "`Visualizza le note di rilascio "
 "<https://xinference.io/release_notes/v2.1.0.html>`_"
 
-#: ../../source/getting_started/release_notes.rst:34
+#: ../../source/getting_started/release_notes.rst:36
 msgid "v2.0.0"
-msgstr ""
+msgstr "v2.0.0"
 
-#: ../../source/getting_started/release_notes.rst:34
-msgid ""
-"`View release notes <https://xinference.io/release_notes/v2.0.0.html>`_"
+#: ../../source/getting_started/release_notes.rst:36
+msgid "`View release notes <https://xinference.io/release_notes/v2.0.0.html>`_"
 msgstr ""
 "`Visualizza le note di rilascio "
 "<https://xinference.io/release_notes/v2.0.0.html>`_"
 
-#: ../../source/getting_started/release_notes.rst:36
+#: ../../source/getting_started/release_notes.rst:38
 msgid "v1.17.0"
-msgstr ""
+msgstr "v1.17.0"
 
-#: ../../source/getting_started/release_notes.rst:36
-msgid ""
-"`View release notes <https://xinference.io/release_notes/v1.17.0.html>`_"
+#: ../../source/getting_started/release_notes.rst:38
+msgid "`View release notes <https://xinference.io/release_notes/v1.17.0.html>`_"
 msgstr ""
 "`Visualizza le note di rilascio "
 "<https://xinference.io/release_notes/v1.17.0.html>`_"
 
-#: ../../source/getting_started/release_notes.rst:38
+#: ../../source/getting_started/release_notes.rst:40
 msgid "v1.16.0"
-msgstr ""
+msgstr "v1.16.0"
 
-#: ../../source/getting_started/release_notes.rst:38
-msgid ""
-"`View release notes <https://xinference.io/release_notes/v1.16.0.html>`_"
+#: ../../source/getting_started/release_notes.rst:40
+msgid "`View release notes <https://xinference.io/release_notes/v1.16.0.html>`_"
 msgstr ""
 "`Visualizza le note di rilascio "
 "<https://xinference.io/release_notes/v1.16.0.html>`_"
 
-#: ../../source/getting_started/release_notes.rst:40
+#: ../../source/getting_started/release_notes.rst:42
 msgid "v1.15.0"
-msgstr ""
+msgstr "v1.15.0"
 
-#: ../../source/getting_started/release_notes.rst:40
-msgid ""
-"`View release notes <https://xinference.io/release_notes/v1.15.0.html>`_"
+#: ../../source/getting_started/release_notes.rst:42
+msgid "`View release notes <https://xinference.io/release_notes/v1.15.0.html>`_"
 msgstr ""
 "`Visualizza le note di rilascio "
 "<https://xinference.io/release_notes/v1.15.0.html>`_"
 
-#: ../../source/getting_started/release_notes.rst:42
+#: ../../source/getting_started/release_notes.rst:44
 msgid "v1.14.0"
-msgstr ""
+msgstr "v1.14.0"
 
-#: ../../source/getting_started/release_notes.rst:42
-msgid ""
-"`View release notes <https://xinference.io/release_notes/v1.14.0.html>`_"
+#: ../../source/getting_started/release_notes.rst:44
+msgid "`View release notes <https://xinference.io/release_notes/v1.14.0.html>`_"
 msgstr ""
 "`Visualizza le note di versione "
 "<https://xinference.io/release_notes/v1.14.0.html>`_"
 
-#: ../../source/getting_started/release_notes.rst:44
+#: ../../source/getting_started/release_notes.rst:46
 msgid "v1.13.0"
-msgstr ""
+msgstr "v1.13.0"
 
-#: ../../source/getting_started/release_notes.rst:44
-msgid ""
-"`View release notes <https://xinference.io/release_notes/v1.13.0.html>`_"
+#: ../../source/getting_started/release_notes.rst:46
+msgid "`View release notes <https://xinference.io/release_notes/v1.13.0.html>`_"
 msgstr ""
 "`Visualizza le note di versione "
 "<https://xinference.io/release_notes/v1.13.0.html>`_"
 
-#: ../../source/getting_started/release_notes.rst:46
+#: ../../source/getting_started/release_notes.rst:48
 msgid "v1.12.0"
-msgstr ""
+msgstr "v1.12.0"
 
-#: ../../source/getting_started/release_notes.rst:46
-msgid ""
-"`View release notes <https://xinference.io/release_notes/v1.12.0.html>`_"
+#: ../../source/getting_started/release_notes.rst:48
+msgid "`View release notes <https://xinference.io/release_notes/v1.12.0.html>`_"
 msgstr ""
 "`Vedi le note di rilascio "
 "<https://xinference.io/release_notes/v1.12.0.html>`_"
 
-#: ../../source/getting_started/release_notes.rst:48
+#: ../../source/getting_started/release_notes.rst:50
 msgid "v1.11.0.post1"
-msgstr ""
+msgstr "v1.11.0.post1"
 
-#: ../../source/getting_started/release_notes.rst:48
+#: ../../source/getting_started/release_notes.rst:50
 msgid ""
 "`View release notes "
 "<https://xinference.io/release_notes/v1.11.0.post1.html>`_"
@@ -244,21 +238,21 @@ msgstr ""
 "`Visualizza le note di versione "
 "<https://xinference.io/release_notes/v1.11.0.post1.html>`_"
 
-#: ../../source/getting_started/release_notes.rst:50
+#: ../../source/getting_started/release_notes.rst:52
 msgid "v1.10.1"
-msgstr ""
+msgstr "v1.10.1"
 
-#: ../../source/getting_started/release_notes.rst:50
-msgid ""
-"`View release notes <https://xinference.io/release_notes/v1.10.1.html>`_"
+#: ../../source/getting_started/release_notes.rst:52
+msgid "`View release notes <https://xinference.io/release_notes/v1.10.1.html>`_"
 msgstr ""
 "`Visualizza le note di rilascio "
 "<https://xinference.io/release_notes/v1.10.1.html>`_"
 
-#: ../../source/getting_started/release_notes.rst:55
+#: ../../source/getting_started/release_notes.rst:57
 msgid ""
 "For older versions and source history, see our GitHub releases page: "
 "https://github.com/xorbitsai/inference/releases"
 msgstr ""
-"Per ulteriori versioni storiche e codice sorgente, visitare GitHub Releases:"
-" https://github.com/xorbitsai/inference/releases"
+"Per ulteriori versioni storiche e codice sorgente, visitare GitHub "
+"Releases: https://github.com/xorbitsai/inference/releases"
+

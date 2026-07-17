@@ -5,17 +5,17 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: Xinference\n"
+"Project-Id-Version:  Xinference\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-02-01 16:47+0800\n"
+"POT-Creation-Date: 2026-07-17 15:37+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: ja <LL@li.org>\n"
 "Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
 "Generated-By: Babel 2.18.0\n"
 
 #: ../../source/models/model_abilities/embed.rst:5
@@ -32,30 +32,29 @@ msgstr "Introduction"
 
 #: ../../source/models/model_abilities/embed.rst:14
 msgid ""
-"Text embeddings are used to quantify how related different pieces of text "
-"are. They can be used in various applications including search, clustering, "
-"recommendations, anomaly detection, diversity measurement, and "
-"classification."
-msgstr ""
-"テキスト埋め込みは、異なるテキスト間の関連性を定量化するために使用されます。検索、クラスタリング、レコメンデーション、異常検出、多様性測定、分類など、さまざまなアプリケーションに適用できます。"
+"Text embeddings are used to quantify how related different pieces of text"
+" are. They can be used in various applications including search, "
+"clustering, recommendations, anomaly detection, diversity measurement, "
+"and classification."
+msgstr "テキスト埋め込みは、異なるテキスト間の関連性を定量化するために使用されます。検索、クラスタリング、レコメンデーション、異常検出、多様性測定、分類など、さまざまなアプリケーションに適用できます。"
 
 #: ../../source/models/model_abilities/embed.rst:17
 msgid ""
-"An embedding is a vector of floating point numbers. The proximity between "
-"two vectors serves as an indicator of their similarity. Less distance "
+"An embedding is a vector of floating point numbers. The proximity between"
+" two vectors serves as an indicator of their similarity. Less distance "
 "implies a higher correlation, while a larger distance indicates reduced "
 "correlation."
-msgstr ""
-"埋め込みとは、浮動小数点数のベクトル集合です。2つのベクトル間の近接度は、それらの類似性を示す指標として使用できます。距離が小さいほど関連性が高く、距離が大きいほど関連性が低いことを示します。"
+msgstr "埋め込みとは、浮動小数点数のベクトル集合です。2つのベクトル間の近接度は、それらの類似性を示す指標として使用できます。距離が小さいほど関連性が高く、距離が大きいほど関連性が低いことを示します。"
 
 #: ../../source/models/model_abilities/embed.rst:20
 msgid ""
-"Embedding models in Xinference can be invoked through the Embeddings API to "
-"create embeddings. The Embeddings API mimics OpenAI's `create embeddings API"
-" <https://platform.openai.com/docs/api-reference/embeddings/create>`_."
+"Embedding models in Xinference can be invoked through the Embeddings API "
+"to create embeddings. The Embeddings API mimics OpenAI's `create "
+"embeddings API <https://platform.openai.com/docs/api-"
+"reference/embeddings/create>`_."
 msgstr ""
-"Embeddings APIにより、Xinference内でモデルを埋め込むことで呼び出し可能となり、埋め込みを作成できます。Embeddings "
-"APIはOpenAIの`create embeddings API <https://platform.openai.com/docs/api-"
+"Embeddings APIにより、Xinference内でモデルを埋め込むことで呼び出し可能となり、埋め込みを作成できます。Embeddings"
+" APIはOpenAIの`create embeddings API <https://platform.openai.com/docs/api-"
 "reference/embeddings/create>`_を模倣しています。"
 
 #: ../../source/models/model_abilities/embed.rst:27
@@ -68,11 +67,11 @@ msgstr "OpenAI 互換エンドポイント"
 
 #: ../../source/models/model_abilities/embed.rst:30
 msgid "Embeddings API"
-msgstr ""
+msgstr "Embeddings API"
 
 #: ../../source/models/model_abilities/embed.rst:31
 msgid "/v1/embeddings"
-msgstr ""
+msgstr "/v1/embeddings"
 
 #: ../../source/models/model_abilities/embed.rst:35
 msgid "Supported models"
@@ -84,55 +83,133 @@ msgid ""
 "<models_embedding_index>`."
 msgstr ":ref:`Xinference 内置中的嵌入模型 <models_embedding_index>` のすべてを確認できます。"
 
-#: ../../source/models/model_abilities/embed.rst:41
+#: ../../source/models/model_abilities/embed.rst:40
+msgid "Embedding engines"
+msgstr "埋め込みエンジン"
+
+#: ../../source/models/model_abilities/embed.rst:42
+msgid ""
+"When launching an embedding model, you can pick the serving engine with "
+"the ``model_engine`` parameter (``--model-engine`` on the command line):"
+msgstr ""
+"埋め込みモデルを起動する際、 ``model_engine`` パラメーター（コマンドラインでは ``--model-"
+"engine``）でサービングエンジンを選択できます："
+
+#: ../../source/models/model_abilities/embed.rst:45
+msgid ""
+"``sentence_transformers``: the default engine, available for all "
+"embedding models."
+msgstr "``sentence_transformers``：デフォルトのエンジンで、すべての埋め込みモデルで利用できます。"
+
+#: ../../source/models/model_abilities/embed.rst:47
+msgid ""
+"``vllm``: high-throughput serving for supported model families — "
+"currently models whose names start with ``bge``, ``gte``, ``text2vec``, "
+"``m3e``, ``Qwen3``, or ``bce`` (e.g. ``bce-embedding-base_v1``)."
+msgstr ""
+"``vllm``：対応モデルファミリー向けの高スループットなサービングです。現在は、名前が ``bge``、 ``gte``、 "
+"``text2vec``、 ``m3e``、 ``Qwen3``、 ``bce`` で始まるモデル（例： ``bce-embedding-"
+"base_v1``）が対象です。"
+
+#: ../../source/models/model_abilities/embed.rst:50
+msgid ""
+"``flag``: FlagEmbedding-based engine; also supports hybrid (sparse+dense)"
+" output, see the FAQ below."
+msgstr ""
+"``flag``：FlagEmbedding ベースのエンジンです。ハイブリッド（スパース + デンス）出力にも対応しています。下記の FAQ "
+"を参照してください。"
+
+#: ../../source/models/model_abilities/embed.rst:52
+msgid "``llama.cpp``: serve GGUF-format embedding models."
+msgstr "``llama.cpp``：GGUF フォーマットの埋め込みモデルを提供します。"
+
+#: ../../source/models/model_abilities/embed.rst:55
+msgid "Truncating input"
+msgstr "入力の切り詰め"
+
+#: ../../source/models/model_abilities/embed.rst:57
+msgid ""
+"The Embeddings API accepts an optional ``truncate_prompt_tokens`` "
+"parameter to cap the token length of each input before encoding:"
+msgstr ""
+"Embeddings API はオプションの ``truncate_prompt_tokens`` "
+"パラメーターを受け付けます。これにより、エンコード前に各入力のトークン長に上限を設けられます："
+
+#: ../../source/models/model_abilities/embed.rst:60
+msgid "unset / ``null``: no truncation."
+msgstr "未設定 / ``null``：切り詰めを行いません。"
+
+#: ../../source/models/model_abilities/embed.rst:61
+msgid "a positive integer ``N``: truncate each input to at most ``N`` tokens."
+msgstr "正の整数 ``N``：各入力を最大 ``N`` トークンに切り詰めます。"
+
+#: ../../source/models/model_abilities/embed.rst:62
+msgid "``-1``: truncate to the model's own maximum input length."
+msgstr "``-1``：モデル自身の最大入力長に切り詰めます。"
+
+#: ../../source/models/model_abilities/embed.rst:77
 msgid "Quickstart"
 msgstr "クイックスタート"
 
-#: ../../source/models/model_abilities/embed.rst:43
+#: ../../source/models/model_abilities/embed.rst:79
 msgid ""
 "We can try Embeddings API out either via cURL, OpenAI Client, or "
 "Xinference's python client:"
 msgstr ""
-"cURL、OpenAI Client、またはXinferenceのPythonクライアントを使用して、Embeddings APIを試すことができます。"
+"cURL、OpenAI Client、またはXinferenceのPythonクライアントを使用して、Embeddings "
+"APIを試すことができます。"
 
-#: ../../source/models/model_abilities/embed.rst:103
-msgid ""
-"You can find more examples of ``embed`` ability in the tutorial notebook:"
-msgstr "チュートリアルノートブックで ``embed`` 機能に関する詳細な例を見つけることができます。"
-
-#: ../../source/models/model_abilities/embed.rst:107
-msgid "LangChain Streamlit Doc Chat"
-msgstr "LangChain Streamlit ドキュメント対話"
-
-#: ../../source/models/model_abilities/embed.rst:110
-msgid "Learn from an example demonstrating how to use embed API via LangChain"
-msgstr "LangChainを使って埋め込みAPIを使用する方法を、例題を通して学びましょう。"
-
-#: ../../source/models/model_abilities/embed.rst:114
+#: ../../source/models/model_abilities/embed.rst:140
 msgid "FAQ"
-msgstr ""
+msgstr "FAQ"
 
-#: ../../source/models/model_abilities/embed.rst:117
+#: ../../source/models/model_abilities/embed.rst:143
 msgid "Does the LLM in Xinference support Embeddings API?"
 msgstr "LLM は Xinference で Embeddings API をサポートしていますか？"
 
-#: ../../source/models/model_abilities/embed.rst:119
+#: ../../source/models/model_abilities/embed.rst:145
 msgid ""
-"No. Xinference doesn't provide embed API for LLMs due to considerations of "
-"performance."
-msgstr ""
+"No. Xinference doesn't provide embed API for LLMs due to considerations "
+"of performance."
+msgstr "いいえ。パフォーマンス上の考慮から、Xinference は LLM に対する埋め込み API を提供していません。"
 
-#: ../../source/models/model_abilities/embed.rst:123
+#: ../../source/models/model_abilities/embed.rst:149
 msgid "Does Embeddings API provides integration method for LangChain?"
 msgstr "Embeddings API は LangChain との統合方法を提供していますか？"
 
-#: ../../source/models/model_abilities/embed.rst:125
+#: ../../source/models/model_abilities/embed.rst:151
 msgid ""
 "Yes, you can refer to the related sections in LangChain's respective "
-"official Xinference documentation. Here is the link: `Text Embedding Models:"
-" Xinference "
+"official Xinference documentation. Here is the link: `Text Embedding "
+"Models: Xinference "
 "<https://python.langchain.com/docs/integrations/text_embedding/xinference>`_"
 msgstr ""
-"はい、LangChain関連部分の公式Xinferenceドキュメントを参照できます。こちらがリンクです：`Text Embedding Models:"
-" Xinference "
+"はい、LangChain関連部分の公式Xinferenceドキュメントを参照できます。こちらがリンクです：`Text Embedding "
+"Models: Xinference "
 "<https://python.langchain.com/docs/integrations/text_embedding/xinference>`_"
+
+#: ../../source/models/model_abilities/embed.rst:156
+msgid "Does Embeddings API support hrbrid model?"
+msgstr "Embeddings API はハイブリッドモデルに対応していますか？"
+
+#: ../../source/models/model_abilities/embed.rst:158
+msgid ""
+"Yes, you can use ``flag`` as the engine to deploy the model and call "
+"Embeddings API by setting the extra parameter ``return_parse=True`` which"
+" will return sparse vectors."
+msgstr ""
+"はい。エンジンに ``flag`` を指定してモデルをデプロイし、追加パラメーター ``return_parse=True`` を設定して "
+"Embeddings API を呼び出すと、スパースベクトルが返されます。"
+
+#~ msgid ""
+#~ "You can find more examples of "
+#~ "``embed`` ability in the tutorial "
+#~ "notebook:"
+#~ msgstr "チュートリアルノートブックで ``embed`` 機能に関する詳細な例を見つけることができます。"
+
+#~ msgid "LangChain Streamlit Doc Chat"
+#~ msgstr "LangChain Streamlit ドキュメント対話"
+
+#~ msgid "Learn from an example demonstrating how to use embed API via LangChain"
+#~ msgstr "LangChainを使って埋め込みAPIを使用する方法を、例題を通して学びましょう。"
+
