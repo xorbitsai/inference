@@ -1,0 +1,24 @@
+# Bring-your-own-wheels override: serve a local ./wheels directory with the
+# stock pypiserver image instead of the baked xprobe/xinference-pypiserver
+# mirror. Useful when you curate the wheel set yourself (e.g. a subset for
+# specific models, or wheels for a custom CUDA stack).
+#
+#   docker compose --profile offline \
+#     -f docker-compose.yml -f docker-compose.byo-wheels.yml up -d
+#
+# Composable with the air-gap override as well:
+#   docker compose --profile offline -f docker-compose.yml \
+#     -f docker-compose.byo-wheels.yml -f docker-compose.airgap.yml up -d
+
+services:
+  xinference-pypiserver:
+    # This variable is intentionally separate from the baked mirror image
+    # setting used by docker-compose.yml. Override it when the stock image is
+    # mirrored into a private registry for an air-gapped deployment.
+    image: ${XINFERENCE_BYO_PYPISERVER_IMAGE:-pypiserver/pypiserver:v2.3.2}
+    command: run -a . -P . --disable-fallback /data/packages
+    volumes:
+      # On Linux hosts run `chmod -R a+rwX ./wheels` first: the image's
+      # entrypoint requires these permission bits for its internal user
+      # (UID 9898), even though the mount is read-only.
+      - ${XINFERENCE_WHEELS_DIR:-./wheels}:/data/packages:ro

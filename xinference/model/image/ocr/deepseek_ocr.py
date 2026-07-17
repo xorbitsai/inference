@@ -23,7 +23,6 @@ import numpy as np
 import PIL.Image
 import torch
 import torch.nn as nn
-from torchvision import transforms
 
 if TYPE_CHECKING:
     from ..core import ImageModelFamilyV2
@@ -171,6 +170,8 @@ def normalize_transform(
     std: Optional[Union[Tuple[float, float, float], List[float]]],
 ):
     """Create normalization transform."""
+    from torchvision import transforms
+
     if mean is None and std is None:
         return None
     elif mean is None and std is not None:
@@ -192,6 +193,8 @@ class BasicImageTransform:
         std: Optional[Tuple[float, float, float]] = (0.5, 0.5, 0.5),
         normalize: bool = True,
     ):
+        from torchvision import transforms
+
         self.mean = mean
         self.std = std
 

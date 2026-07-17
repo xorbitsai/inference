@@ -424,6 +424,80 @@ def filter_virtualenv_packages_by_markers(
     return resolved_packages
 
 
+def rewrite_direct_url_packages_for_index(packages: List[str]) -> List[str]:
+    """
+    Rewrite direct wheel-URL requirements to ``name==version`` specs.
+
+    When a private index is explicitly configured (e.g. an offline mirror
+    inherited from pip.conf via ``inherit_pip_config``), direct wheel URLs
+    would bypass the index and hit the public internet, which fails in
+    air-gapped deployments. The private index carries these wheels, so
+    resolving them as ``name==version`` (keeping any local version segment
+    such as ``+cu130``) is equivalent and stays fully offline.
+
+    Non-wheel URLs (git+ sources, sdists) and unparsable entries are
+    returned unchanged.
+    """
+    import posixpath
+    from urllib.parse import unquote, urlparse
+
+    rewritten: List[str] = []
+    for pkg in packages:
+        spec, sep, marker = pkg.partition(";")
+        candidate = spec.strip()
+        # Accept both "https://…/x.whl" and PEP 508 "name @ https://…/x.whl".
+        if candidate.startswith(("http://", "https://")):
+            url = candidate
+        elif "@" in candidate:
+            url = candidate.partition("@")[2].strip()
+        else:
+            rewritten.append(pkg)
+            continue
+        if not url.startswith(("http://", "https://")):
+            rewritten.append(pkg)
+            continue
+        filename = unquote(posixpath.basename(urlparse(url).path))
+        if not filename.endswith(".whl"):
+            rewritten.append(pkg)
+            continue
+        # PEP 427: {name}-{version}(-{build})?-{python}-{abi}-{platform}.whl,
+        # dashes inside name/version are escaped, so the first two fields
+        # are exact.
+        parts = filename[: -len(".whl")].split("-")
+        if len(parts) < 5:
+            rewritten.append(pkg)
+            continue
+        name, version = parts[0], parts[1]
+        if not name or not version or not version[0].isdigit():
+            rewritten.append(pkg)
+            continue
+        new_spec = f"{name}=={version}"
+        rewritten.append(f"{new_spec} ; {marker.strip()}" if sep else new_spec)
+    return rewritten
+
+
+def find_direct_reference_packages(packages: List[str]) -> List[str]:
+    """Return requirements that still bypass package indexes.
+
+    Wheel URLs supported by :func:`rewrite_direct_url_packages_for_index`
+    disappear before this helper is called. Remaining HTTP(S), ``git+`` and
+    PEP 508 direct references cannot be satisfied reliably by an offline
+    simple index, so callers can fail before an installer attempts egress.
+    """
+
+    direct_references: List[str] = []
+    for pkg in packages:
+        candidate = pkg.partition(";")[0].strip()
+        if candidate.startswith(("http://", "https://", "git+")):
+            direct_references.append(pkg)
+            continue
+        if "@" in candidate:
+            target = candidate.partition("@")[2].strip()
+            if target.startswith(("http://", "https://", "git+")):
+                direct_references.append(pkg)
+    return direct_references
+
+
 def assign_replica_gpu(
     _replica_model_uid: str, replica: int, gpu_idx: Optional[Union[int, List[int]]]
 ) -> Optional[List[int]]:

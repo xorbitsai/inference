@@ -26153,9 +26153,8 @@
         "mlx_dependencies ; #engine# == \"MLX\"",
         "vllm_dependencies ; #engine# == \"vllm\"",
         "sglang_dependencies ; #engine# == \"sglang\"",
-        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
-        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
-        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.21/sgl_kernel-0.3.21+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.21/sgl_kernel-0.3.21+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ],
       "extra_index_url": [
@@ -26168,7 +26167,7 @@
     "architectures": [
       "Glm4MoeForCausalLM"
     ],
-    "updated_at": 1778125438
+    "updated_at": 1784296176
   },
   {
     "version": 2,
@@ -26306,9 +26305,8 @@
         "mlx_dependencies ; #engine# == \"MLX\"",
         "vllm_dependencies ; #engine# == \"vllm\"",
         "sglang_dependencies ; #engine# == \"sglang\"",
-        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
-        "https://github.com/sgl-project/whl/releases/download/v0.3.20/sgl_kernel-0.3.20+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
-        "sgl_kernel ; #engine# == \"sglang\" and cuda_version < \"13.0\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.21/sgl_kernel-0.3.21+cu130-cp310-abi3-manylinux2014_x86_64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"x86_64\"",
+        "https://github.com/sgl-project/whl/releases/download/v0.3.21/sgl_kernel-0.3.21+cu130-cp310-abi3-manylinux2014_aarch64.whl ; #engine# == \"sglang\" and cuda_version == \"13.0\" and platform_machine == \"aarch64\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ],
       "extra_index_url": [
@@ -26320,7 +26318,7 @@
     "architectures": [
       "Glm4MoeForCausalLM"
     ],
-    "updated_at": 1770100010
+    "updated_at": 1784296177
   },
   {
     "version": 2,

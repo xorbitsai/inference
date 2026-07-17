@@ -3,10 +3,16 @@
 # Online (default):
 #   docker compose up -d
 #
-# Offline / air-gapped (starts a private PyPI server backed by ./wheels):
+# Offline / air-gapped (starts a private PyPI server with index-compatible
+# model-engine wheels baked in — no preparation needed for supported models):
 #   cp offline.env.example offline.env
 #   # uncomment the offline block in pip.conf
 #   docker compose --profile offline up -d
+#
+# To serve your own wheel directory instead of the baked image, add the
+# bring-your-own-wheels override:
+#   docker compose --profile offline \
+#     -f docker-compose.yml -f docker-compose.byo-wheels.yml up -d
 #
 # CPU-only host:
 #   docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
@@ -55,21 +61,18 @@ services:
               driver: nvidia
               count: all
 
-  # Private PyPI server for offline / air-gapped deployments. Serves wheels
-  # from ./wheels to the runtime virtual-env installer of xinference
-  # (and to any other host on the LAN via the published port).
+  # Private PyPI server for offline / air-gapped deployments. The default
+  # image ships the index-compatible wheels used by per-model virtual
+  # environments; pin it to the same release tag as
+  # XINFERENCE_IMAGE so the mirror matches the runtime's model specs.
   # Only started with: docker compose --profile offline up -d
   xinference-pypiserver:
-    image: ${XINFERENCE_PYPISERVER_IMAGE:-pypiserver/pypiserver:v2.3.2}
+    image: ${XINFERENCE_PYPISERVER_IMAGE:-xprobe/xinference-pypiserver:latest}
     profiles: ["offline"]
     restart: unless-stopped
-    # Unauthenticated read/download access.
-    command: run -a . -P . /data/packages
-    volumes:
-      # On Linux hosts run `chmod -R a+rwX ./wheels` first: the image's
-      # entrypoint requires these permission bits for its internal user
-      # (UID 9898), even though the mount is read-only.
-      - ${XINFERENCE_WHEELS_DIR:-./wheels}:/data/packages:ro
+    # Unauthenticated read/download access; --disable-fallback makes an
+    # incomplete mirror fail loudly instead of silently going online.
+    command: run -a . -P . --disable-fallback /data/packages
     ports:
       - "${XINFERENCE_PYPISERVER_PORT:-8080}:8080"
     healthcheck:

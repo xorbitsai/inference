@@ -72,6 +72,8 @@ def _make_worker():
     self.allocate_devices_with_gpu_idx = (
         WorkerActor.allocate_devices_with_gpu_idx.__get__(self)
     )
+    self._allocate_subpool_devices = WorkerActor._allocate_subpool_devices.__get__(self)
+    self._spawn_subpool = WorkerActor._spawn_subpool.__get__(self)
     self._create_subpool = WorkerActor._create_subpool.__get__(self)
     self._append_sub_pool_protected = WorkerActor._append_sub_pool_protected.__get__(
         self
