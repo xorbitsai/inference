@@ -1633,15 +1633,26 @@ class WorkerActor(xo.StatelessActor):
                     )
                 raise
 
-    async def _create_subpool(
+    async def _allocate_subpool_devices(
         self,
         model_uid: str,
         model_type: Optional[str] = None,
         n_gpu: Optional[Union[int, str]] = "auto",
         gpu_idx: Optional[List[int]] = None,
         env: Optional[Dict[str, str]] = None,
-        start_python: Optional[str] = None,
-    ) -> Tuple[str, List[str]]:
+    ) -> Tuple[Dict[str, str], List[str]]:
+        """Reserve GPU devices for a model launch and build the sub-pool env.
+
+        Split out of _create_subpool so callers can reserve devices before a
+        lengthy preparation phase (model download, virtualenv install).
+        allocate_devices/allocate_devices_with_gpu_idx record the reservation
+        synchronously in self._gpu_to_model_uids /
+        self._user_specified_gpu_to_model_uids. Concurrent launches (up to
+        XINFERENCE_MAX_CONCURRENT_LAUNCHES) must see that reservation
+        immediately for idle-first placement and multi-replica load
+        balancing to work; deferring allocation until after preparation lets
+        them all race for the same "idle" GPU snapshot instead.
+        """
         env = {} if env is None else env
         devices = []
         env_name = get_available_device_env_name() or "CUDA_VISIBLE_DEVICES"
@@ -1668,6 +1679,17 @@ class WorkerActor(xo.StatelessActor):
         # here lets the sub-pool and its vLLM descendants inherit the tag.
         env["XINFERENCE_MODEL_UID"] = model_uid
 
+        return env, [str(dev) for dev in devices]
+
+    async def _spawn_subpool(
+        self,
+        model_uid: str,
+        env: Dict[str, str],
+        devices: List[str],
+        start_python: Optional[str] = None,
+    ) -> str:
+        """Spawn the model sub-pool process for devices already reserved by
+        _allocate_subpool_devices."""
         # H2: pre-launch VRAM recheck. _cleanup_gpu_orphans_on_startup runs at
         # worker start, but orphans may appear between startup and this launch
         # (e.g. another worker on the same host died). If free VRAM on the
@@ -1744,7 +1766,30 @@ class WorkerActor(xo.StatelessActor):
             self.release_devices(model_uid=model_uid)
             raise
         await self._ensure_subpool_monitor()
-        return subpool_address, [str(dev) for dev in devices]
+        return subpool_address
+
+    async def _create_subpool(
+        self,
+        model_uid: str,
+        model_type: Optional[str] = None,
+        n_gpu: Optional[Union[int, str]] = "auto",
+        gpu_idx: Optional[List[int]] = None,
+        env: Optional[Dict[str, str]] = None,
+        start_python: Optional[str] = None,
+    ) -> Tuple[str, List[str]]:
+        """Allocate devices and spawn the sub-pool in one call.
+
+        Convenience wrapper combining _allocate_subpool_devices and
+        _spawn_subpool for callers that don't need to split allocation from
+        spawning (e.g. launch paths with no intervening preparation phase).
+        """
+        subpool_env, devices = await self._allocate_subpool_devices(
+            model_uid, model_type, n_gpu=n_gpu, gpu_idx=gpu_idx, env=env
+        )
+        subpool_address = await self._spawn_subpool(
+            model_uid, subpool_env, devices, start_python=start_python
+        )
+        return subpool_address, devices
 
     def _check_model_is_valid(self, model_name: str, model_format: Optional[str]):
         # baichuan-base and baichuan-chat depend on `cpm_kernels` module,
@@ -2886,38 +2931,50 @@ class WorkerActor(xo.StatelessActor):
                     subpool_envs = build_subpool_envs_for_virtual_env(
                         envs, enable_virtual_env, virtual_env_manager
                     )
-                    # The model subprocess must not be spawned before the
-                    # virtualenv is populated: the subprocess boots on the
-                    # venv's python, and base libraries imported during its
-                    # bootstrap (numpy, and torch via xinference's own import
-                    # chain) are cached in sys.modules from whatever is
-                    # visible at that moment — packages installed afterwards
-                    # cannot replace them. Spawning before install therefore
-                    # made the first launch after a venv (re)build fail with
-                    # host/venv version mixes (e.g. venv numba vs host numpy,
-                    # venv torchvision vs host torch). Single-worker launches
-                    # defer subprocess creation until after
-                    # _prepare_virtual_env; sharded multi-worker launches need
-                    # the subpool address inside model_kwargs before model
-                    # instantiation, so they keep the legacy subprocess-first
-                    # order.
+                    # Reserve devices now (before download/virtualenv
+                    # install): allocate_devices/allocate_devices_with_gpu_idx
+                    # record the reservation synchronously, so concurrent
+                    # launches (up to XINFERENCE_MAX_CONCURRENT_LAUNCHES) see
+                    # each other's picks for idle-first placement and
+                    # multi-replica load balancing instead of all racing to
+                    # allocate off the same stale snapshot once their prep
+                    # phase finishes.
+                    subpool_alloc_env, devices = await self._allocate_subpool_devices(
+                        model_uid,
+                        model_type,
+                        n_gpu=n_gpu,
+                        gpu_idx=gpu_idx,
+                        env=subpool_envs,
+                    )
+                    # The model subprocess itself must not be spawned before
+                    # the virtualenv is populated: the subprocess boots on
+                    # the venv's python, and base libraries imported during
+                    # its bootstrap (numpy, and torch via xinference's own
+                    # import chain) are cached in sys.modules from whatever
+                    # is visible at that moment — packages installed
+                    # afterwards cannot replace them. Spawning before install
+                    # therefore made the first launch after a venv (re)build
+                    # fail with host/venv version mixes (e.g. venv numba vs
+                    # host numpy, venv torchvision vs host torch).
+                    # Single-worker launches defer only the spawn (not the
+                    # device reservation above) until after
+                    # _prepare_virtual_env; sharded multi-worker launches
+                    # need the subpool address inside model_kwargs before
+                    # model instantiation, so they still spawn immediately.
                     subpool_address: Optional[str] = None
-                    devices: List[str] = []
                     all_subpool_addresses: List[str] = []
                     try:
-                        # Multi-worker/sharded launches create the subpool up
+                        # Multi-worker/sharded launches spawn the subpool up
                         # front (the address is needed in model_kwargs before
                         # model instantiation). Keep it inside the try so a
                         # failure here is caught below and release_devices +
                         # subpool cleanup run, avoiding GPU/subpool leaks.
                         if n_worker > 1:  # type: ignore
-                            subpool_address, devices = await self._create_subpool(
+                            subpool_address = await self._spawn_subpool(
                                 model_uid,
-                                model_type,
-                                n_gpu=n_gpu,
-                                gpu_idx=gpu_idx,
+                                subpool_alloc_env,
+                                devices,
                                 start_python=subpool_python_path,
-                                env=subpool_envs,
                             )
                             all_subpool_addresses.append(subpool_address)
                         xavier_config: Optional[Dict] = kwargs.pop(
@@ -3052,13 +3109,14 @@ class WorkerActor(xo.StatelessActor):
                         check_cancel()
 
                         if subpool_address is None:
-                            subpool_address, devices = await self._create_subpool(
+                            # Devices were already reserved above; only spawn
+                            # the subprocess now that the virtualenv (if any)
+                            # is installed.
+                            subpool_address = await self._spawn_subpool(
                                 model_uid,
-                                model_type,
-                                n_gpu=n_gpu,
-                                gpu_idx=gpu_idx,
+                                subpool_alloc_env,
+                                devices,
                                 start_python=subpool_python_path,
-                                env=subpool_envs,
                             )
                             all_subpool_addresses.append(subpool_address)
                         if xavier_config is not None:
