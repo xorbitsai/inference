@@ -1,81 +1,113 @@
-FROM vllm/vllm-openai:v0.21.0
+# Slim GPU image for Xinference.
+#
+# The image intentionally ships NO inference engine (vllm / sglang / ...).
+# At model launch time the worker creates a per-model virtual environment
+# (XINFERENCE_ENABLE_VIRTUAL_ENV, on by default) and installs the engine
+# packages declared by the model spec — from public PyPI online, or from the
+# private mirror wired up by the offline Docker Compose profile.
+#
+# What IS baked in, and why:
+#   * Python 3.12 toolchain — runtime interpreter, matches the Python the
+#     per-model venvs are created from.
+#   * torch / torchvision / torchaudio / torchcodec (cu130) — model specs
+#     reference the parent environment's versions via #system_torch#-style
+#     placeholders, which fail if the package is absent; keeping one shared
+#     CUDA torch stack also lets venvs reuse it via
+#     XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED instead of downloading
+#     multi-GB wheels per model.
+#   * transformers + accelerate — the default Transformers engine's venv
+#     requirements verbatim, so the most common engine works out of the box
+#     and its venv install is a no-op.
+#   * xinference itself with its core dependencies and the prebuilt Web UI.
+#   * ffmpeg, libsndfile, git, curl — runtime tools the venv-installed model
+#     stacks rely on (audio decoding, VCS package installs, health probes).
+#
+# The CUDA *devel* base keeps nvcc and the CUDA headers as a fallback for
+# model venv packages that only ship sdists and compile CUDA extensions on
+# the fly. Requires a host driver supporting CUDA >= 13.0.
+
+# ---------------------------------------------------------------------------
+# Stage 1: build the Web UI static export
+# ---------------------------------------------------------------------------
+FROM node:20-slim AS web-builder
+
+WORKDIR /opt/inference/frontend
+COPY frontend ./
+RUN npm ci && npm run build
+# `npm run build` stages the static export at ../xinference/ui/web/dist via
+# its postbuild hook (frontend/scripts/stage-export.mjs).
+
+# ---------------------------------------------------------------------------
+# Stage 2: runtime image
+# ---------------------------------------------------------------------------
+FROM nvidia/cuda:13.0.2-devel-ubuntu22.04
+
+ARG PIP_INDEX=https://pypi.org/simple
+ARG TORCH_INDEX=https://download.pytorch.org/whl/cu130
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# System packages:
+#   * python3.12 (deadsnakes) — Ubuntu 22.04 ships 3.10, the project runtime
+#     is 3.12; python3.12-dev provides Python.h for sdist builds in venvs.
+#   * build-essential / ninja-build — host compiler and build driver for
+#     nvcc runtime JIT (vLLM engine startup shells out to ninja) and for
+#     sdist fallbacks.
+#   * git — model venvs may install VCS requirements.
+#   * ffmpeg / libsndfile1 — audio decoding for venv-installed audio stacks
+#     (librosa/soundfile/torchcodec load these shared libraries).
+#   * libgl1 / libglib2.0-0 — required by non-headless opencv variants that
+#     model venvs may pull in.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates curl gnupg && \
+    curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xF23C5A6CF475977595C89F51BA6932366A755776" \
+      | gpg --dearmor -o /usr/share/keyrings/deadsnakes.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/deadsnakes.gpg] https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu jammy main" \
+      > /etc/apt/sources.list.d/deadsnakes.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+      python3.12 python3.12-dev python3.12-venv \
+      build-essential ninja-build git procps \
+      ffmpeg libsndfile1 libgl1 libglib2.0-0 && \
+    ln -sf /usr/bin/python3.12 /usr/local/bin/python3 && \
+    ln -sf /usr/bin/python3.12 /usr/local/bin/python && \
+    curl -sS https://bootstrap.pypa.io/get-pip.py | python3 && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Shared CUDA torch stack (see header). requirements-runtime.txt is also
+# consumed by the offline pypiserver build, so parent-version constraints can
+# never refer to a version that the mirror omitted. The +cu130 local version is
+# significant: the worker reads it to auto-configure the matching PyTorch
+# wheel index for per-model venv installs. pandas backs the #system_pandas#
+# placeholder used by several audio model specs.
+COPY xinference/deploy/docker/requirements-runtime.txt /opt/requirements-runtime.txt
+RUN pip install --no-cache-dir -i "$PIP_INDEX" --upgrade pip "setuptools<82" wheel && \
+    pip install --no-cache-dir --constraint /opt/requirements-runtime.txt \
+      torch torchvision torchaudio torchcodec --index-url "$TORCH_INDEX" && \
+    pip install --no-cache-dir --constraint /opt/requirements-runtime.txt \
+      -i "$PIP_INDEX" numpy pandas
 
 COPY . /opt/inference
+COPY --from=web-builder /opt/inference/xinference/ui/web/dist /opt/inference/xinference/ui/web/dist
 WORKDIR /opt/inference
 
-ENV NVM_DIR=/usr/local/nvm
-ENV NODE_VERSION=20.19.0
+# NO_WEB_UI=1: the static Web UI was already staged by the builder stage and
+# is packaged via MANIFEST.in; skip the npm build hook of setup.py.
+# Keep only the engine core in the slim parent image. Optional model-side and
+# format-specific quantization dependencies live in model virtualenv specs;
+# they are installed only into matching per-model venvs and are also collected
+# by the offline pypiserver generator.
+# uv (a runtime dependency anyway, it powers the per-model venv installer)
+# also does the image install: parallel downloads with per-request timeouts
+# recover from throttled/stalled index connections that serial pip rides
+# to a crawl.
+RUN pip install --no-cache-dir -i "$PIP_INDEX" uv && \
+    NO_WEB_UI=1 uv pip install --system --no-cache --index-url "$PIP_INDEX" \
+      --extra-index-url "$TORCH_INDEX" --index-strategy unsafe-best-match \
+      --constraint /opt/requirements-runtime.txt \
+      ".[otel]" transformers accelerate
 
-# Install system dependencies and Node.js (libfst-dev should be able to solve the errors of pyini)
-RUN apt-get -y update \
-  && apt install -y wget curl procps git libgl1 libfst-dev cmake libssl-dev \
-  && printf "\ndeb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ jammy main restricted universe multiverse" >> /etc/apt/sources.list \
-  && apt-get -y update \
-  && apt-get install -y --only-upgrade libstdc++6 && apt install -y libc6 \
-  && mkdir -p $NVM_DIR \
-  && curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash \
-  && . $NVM_DIR/nvm.sh \
-  && nvm install $NODE_VERSION \
-  && nvm alias default $NODE_VERSION \
-  && nvm use default \
-  && apt-get -yq clean
-
-ENV PATH=$NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
-ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/python3.12/dist-packages/nvidia/cublas/lib
-# ENV FLASH_ATTENTION_SKIP_CUDA_BUILD=TRUE
-
-# Install pip dependencies
-ARG LLAMA_CPP_USE_CUDA=true
-ARG PIP_INDEX=https://pypi.org/simple
-RUN pip install --upgrade -i "$PIP_INDEX" pip "setuptools<82" wheel && \
-    apt-get -y update && \
-    ( wget -O openfst-1.7.2.tar.gz http://www.openslr.org/resources/2/openfst-1.7.2.tar.gz \
-      || wget -O openfst-1.7.2.tar.gz https://www.openfst.org/twiki/pub/FST/FstDownload/openfst-1.7.2.tar.gz ) && \
-    tar zxvf openfst-1.7.2.tar.gz && cd openfst-1.7.2 && \
-    ./configure --enable-shared --enable-static && make -j$(nproc) && make install && ldconfig && \
-    CPLUS_INCLUDE_PATH=/usr/local/include LIBRARY_PATH=/usr/local/lib LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH \
-    pip install -i "$PIP_INDEX" pynini==2.1.6.post1 && \
-    apt install -y wget curl procps git libgl1 rsync sqlite libpcre3 libpcre3-dev dmidecode libssl-dev perl make build-essential zlib1g-dev && \
-    apt-get -yq clean && \
-    # use pre-built whl package for llama-cpp-python, otherwise may core dump when init llama in some envs
-    pip install -i "$PIP_INDEX" "diskcache>=5.6.1" "jinja2>=2.11.3" && \
-    pip install -i "$PIP_INDEX" "cython>=0.29" && \
-    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements/requirements-base.txt && \
-    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements/requirements-ml.txt && \
-    pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements/requirements-models.txt && \
-    pip install -i "$PIP_INDEX" transformers==5.5.0 && \
-    pip install -i "$PIP_INDEX" --no-deps sglang==0.5.6 && \
-    pip install -i "$PIP_INDEX" sgl-kernel==0.3.18.post2 && \
-    pip install -i "$PIP_INDEX" wetext && \
-    pip uninstall flashinfer -y && \
-    pip install -i "$PIP_INDEX" SQLAlchemy==1.4.54 && \
-    pip install https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.9.4/flash_attn-2.8.3+cu130torch2.11-cp312-cp312-linux_x86_64.whl && \
-    cd /opt/inference && \
-    python3 setup.py build_web && \
-    git restore . && \
-    pip install -i "$PIP_INDEX" --no-deps "." && \
-    pip uninstall xllamacpp -y && \
-    pip install xllamacpp --index-url https://xorbitsai.github.io/xllamacpp/whl/cu128 && \
-    # clean packages
-    pip cache purge
-
-# Install Miniforge3 and FFmpeg
-RUN wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/download/4.12.0-0/Miniforge3-4.12.0-0-Linux-x86_64.sh" && \
-    bash Miniforge3.sh -b -p /opt/conda && \
-    rm Miniforge3.sh
-
-# When installing the Conda environment, only FFmpeg should be installed to avoid modifying the system Python
-RUN /opt/conda/bin/conda create -n ffmpeg-env -c conda-forge 'ffmpeg<7' -y && \
-    #Create a soft link to the system path
-    ln -s /opt/conda/envs/ffmpeg-env/bin/ffmpeg /usr/local/bin/ffmpeg && \
-    ln -s /opt/conda/envs/ffmpeg-env/bin/ffprobe /usr/local/bin/ffprobe && \
-    # Clear the Conda cache
-    /opt/conda/bin/conda clean --all -y
-
-# The pre-release version used should be noted for date changes
-RUN pip install torchcodec==0.10.0 && \
-    pip cache purge
-
-# Override the default entrypoint of the vllm base image
+# Parity with previous images: no entrypoint, plain shell by default; deploy
+# commands (xinference-local / supervisor / worker) are passed explicitly.
 ENTRYPOINT []
 CMD ["/bin/bash"]

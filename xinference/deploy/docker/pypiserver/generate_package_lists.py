@@ -72,25 +72,36 @@ def load_xinference_modules(src_root: Path) -> Tuple[Any, Any]:
         spec.loader.exec_module(module)
         return module
 
-    pkg_root = src_root / "xinference"
-    _load("xinference", pkg_root, is_pkg=True)
-    _load("xinference.constants", pkg_root / "constants.py")
-    # Stub xinference._compat instead of loading the real module: it drags
-    # in openai at import time, while core.utils only needs BaseModel.
-    compat = types.ModuleType("xinference._compat")
+    saved_modules = {
+        name: module
+        for name, module in sys.modules.items()
+        if name == "xinference" or name.startswith("xinference.")
+    }
     try:
-        from pydantic.v1 import BaseModel  # pydantic v2, matches _compat
-    except ImportError:
-        from pydantic import BaseModel  # type: ignore[assignment]
-    compat.BaseModel = BaseModel  # type: ignore[attr-defined]
-    sys.modules["xinference._compat"] = compat
-    _load("xinference.core", pkg_root / "core", is_pkg=True)
-    core_utils = _load("xinference.core.utils", pkg_root / "core" / "utils.py")
-    venv_manager = _load(
-        "xinference.core.virtual_env_manager",
-        pkg_root / "core" / "virtual_env_manager.py",
-    )
-    return core_utils, venv_manager
+        pkg_root = src_root / "xinference"
+        _load("xinference", pkg_root, is_pkg=True)
+        _load("xinference.constants", pkg_root / "constants.py")
+        # Stub xinference._compat instead of loading the real module: it drags
+        # in openai at import time, while core.utils only needs BaseModel.
+        compat = types.ModuleType("xinference._compat")
+        try:
+            from pydantic.v1 import BaseModel  # pydantic v2, matches _compat
+        except ImportError:
+            from pydantic import BaseModel  # type: ignore[assignment]
+        compat.BaseModel = BaseModel  # type: ignore[attr-defined]
+        sys.modules["xinference._compat"] = compat
+        _load("xinference.core", pkg_root / "core", is_pkg=True)
+        core_utils = _load("xinference.core.utils", pkg_root / "core" / "utils.py")
+        venv_manager = _load(
+            "xinference.core.virtual_env_manager",
+            pkg_root / "core" / "virtual_env_manager.py",
+        )
+        return core_utils, venv_manager
+    finally:
+        for name in list(sys.modules):
+            if name == "xinference" or name.startswith("xinference."):
+                sys.modules.pop(name, None)
+        sys.modules.update(saved_modules)
 
 
 def iter_virtualenv_packages(
@@ -114,7 +125,7 @@ def iter_virtualenv_packages(
 
     for json_path in sorted(model_dir.rglob("*.json")):
         try:
-            data = json.loads(json_path.read_text())
+            data = json.loads(json_path.read_text(encoding="utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError):
             continue
         rel = str(json_path.relative_to(model_dir))
@@ -197,6 +208,9 @@ def main() -> None:
     core_utils, venv_manager = load_xinference_modules(src_root)
     filter_packages = core_utils.filter_virtualenv_packages_by_markers
     engine_packages: Dict[str, List[str]] = venv_manager.ENGINE_VIRTUALENV_PACKAGES
+    engine_format_packages: Dict[str, Dict[str, List[str]]] = getattr(
+        venv_manager, "ENGINE_VIRTUALENV_MODEL_FORMAT_PACKAGES", {}
+    )
     engine_extra_indexes: Dict[str, List[str]] = (
         venv_manager.ENGINE_VIRTUALENV_EXTRA_INDEX_URLS
     )
@@ -239,14 +253,21 @@ def main() -> None:
     for engine, packages in sorted(engine_packages.items()):
         if engine.lower() in excluded_engines:
             continue
-        filtered = filter_packages(list(packages), engine, args.cuda_version)
+        combined_packages = list(packages)
+        for format_packages in engine_format_packages.get(engine, {}).values():
+            for package in format_packages:
+                if package not in combined_packages:
+                    combined_packages.append(package)
+        filtered = filter_packages(
+            combined_packages, engine, args.cuda_version, "linux"
+        )
         specs: List[str] = []
         for spec in filtered:
             if classify_spec(spec) == "pin":
                 if spec not in specs:
                     specs.append(spec)
             else:
-                _add(spec, f"engine:{engine}")
+                _add(spec, "engine:" + engine)
         fname = engine_file_name(engine)
         (out / "engines" / f"{fname}.in").write_text("".join(f"{s}\n" for s in specs))
         meta = {
@@ -271,11 +292,13 @@ def main() -> None:
                 if engine.lower() not in excluded_engines:
                     candidate_engines.add(engine)
         for cand in candidate_engines:
-            for spec in filter_packages(list(concrete), cand, args.cuda_version):
+            for spec in filter_packages(
+                list(concrete), cand, args.cuda_version, "linux"
+            ):
                 sysname = system_placeholder_name(spec)
                 if sysname is not None:
                     spec = sysname
-                source = f"{rel}:{model_name}" + (f" ({cand})" if cand else "")
+                source = rel + ":" + model_name + (f" ({cand})" if cand else "")
                 _add(spec, source)
 
     (out / "urls.txt").write_text("".join(f"{u}\n" for u in sorted(urls)))

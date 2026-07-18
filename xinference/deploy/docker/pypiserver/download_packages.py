@@ -17,10 +17,10 @@ Download index-compatible wheels for the xinference-pypiserver image.
 Consumes the output of ``generate_package_lists.py`` and fills a wheel
 directory in four passes:
 
-1. Lock the torch family to the runtime image's version, then lock each
-   engine set with ``uv pip compile`` and fetch the fully-pinned locks with
-   ``pip download --no-deps`` — one coherent resolution per engine, so
-   unpinned specs cannot fan out into many versions of the same package.
+1. Lock the exact shared runtime constraints (including the torch family),
+   then lock each engine set with ``uv pip compile`` and fetch the fully-pinned
+   locks with ``pip download --no-deps`` — one coherent resolution per engine,
+   so unpinned specs cannot fan out into many versions of the same package.
 2. Fetch per-model concrete pins with their transitive dependencies,
    constrained to the versions already locked (falling back to an
    unconstrained fetch when a pin genuinely conflicts — availability wins
@@ -53,6 +53,40 @@ TORCH_FAMILY = ("torch", "torchvision", "torchaudio", "torchcodec")
 
 # Engines whose releases hard-pin their own torch stack.
 SELF_PINNING_ENGINES = ("vllm", "sglang")
+
+
+def load_runtime_constraints(path: Path) -> Dict[str, str]:
+    """Load exact runtime pins as canonical package name -> requirement."""
+
+    pins: Dict[str, str] = {}
+    for raw_line in path.read_text().splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        try:
+            requirement = Requirement(line)
+        except InvalidRequirement as exc:
+            raise ValueError(f"invalid runtime constraint: {line}") from exc
+        specifiers = list(requirement.specifier)
+        if (
+            requirement.url is not None
+            or len(specifiers) != 1
+            or specifiers[0].operator not in ("==", "===")
+            or "*" in specifiers[0].version
+        ):
+            raise ValueError(f"runtime constraint must be an exact pin: {line}")
+        name = canonicalize_name(requirement.name)
+        if name in pins:
+            raise ValueError(f"duplicate runtime constraint for {name}")
+        pins[name] = line
+
+    missing_torch = set(TORCH_FAMILY).difference(pins)
+    if missing_torch:
+        raise ValueError(
+            "runtime constraints are missing the torch family: "
+            + ", ".join(sorted(missing_torch))
+        )
+    return pins
 
 
 def run(cmd: List[str], **kwargs) -> subprocess.CompletedProcess:
@@ -170,10 +204,10 @@ def main() -> None:
     parser.add_argument("--platform", required=True, choices=("amd64", "arm64"))
     parser.add_argument("--python-version", default="3.12")
     parser.add_argument(
-        "--torch-version",
-        default="2.11.*",
-        help="torch version of the xinference runtime image "
-        "(see xinference/deploy/docker/Dockerfile)",
+        "--runtime-constraints",
+        type=Path,
+        required=True,
+        help="exact pins shared with xinference/deploy/docker/Dockerfile",
     )
     parser.add_argument("--index-url", default="https://pypi.org/simple")
     parser.add_argument(
@@ -187,6 +221,11 @@ def main() -> None:
     work = manifest_dir / "locks"
     work.mkdir(exist_ok=True)
 
+    try:
+        runtime_pins = load_runtime_constraints(args.runtime_constraints)
+    except ValueError as exc:
+        sys.exit(f"FATAL: {exc}")
+
     machine = {"amd64": "x86_64", "arm64": "aarch64"}[args.platform]
     # The runtime image's glibc supports manylinux_2_34 wheels; the default
     # (manylinux_2_17) would hide e.g. recent sglang releases.
@@ -195,13 +234,23 @@ def main() -> None:
     sdist_left: List[str] = []
 
     # ------------------------------------------------------------------
-    # 1a. Lock the torch family to the runtime image's version.
+    # 1a. Lock and fetch the exact substrate baked into the runtime image.
     # ------------------------------------------------------------------
-    big_in = work / "torch-family.in"
-    big_in.write_text(
-        f"torch=={args.torch_version}\n"
-        + "".join(f"{p}\n" for p in TORCH_FAMILY if p != "torch")
+    runtime_lock = work / "runtime.lock"
+    proc = uv_compile(
+        args.runtime_constraints,
+        runtime_lock,
+        python_version=args.python_version,
+        python_platform=python_platform,
+        index_url=args.index_url,
+        extra_index_urls=[args.pytorch_index],
+        index_strategy="unsafe-best-match",
     )
+    if proc.returncode != 0:
+        sys.exit("FATAL: failed to lock the shared runtime constraints")
+
+    big_in = work / "torch-family.in"
+    big_in.write_text("".join(f"{runtime_pins[p]}\n" for p in TORCH_FAMILY))
     torch_family_lock = work / "torch-family.lock"
     proc = uv_compile(
         big_in,
@@ -214,21 +263,20 @@ def main() -> None:
     )
     if proc.returncode != 0:
         sys.exit("FATAL: failed to lock the torch family")
-    # Constrain other resolutions with ONLY the torch-family pins, not the
+    # Constrain other resolutions with ONLY the explicit runtime pins, not the
     # lock's transitive deps (which would over-constrain e.g. setuptools).
-    constraints_big = work / "constraints-big.txt"
-    constraints_big.write_text(
-        "".join(
-            f"{line}\n"
-            for name, line in lock_names(torch_family_lock).items()
-            if name in TORCH_FAMILY
-        )
+    constraints_runtime = work / "constraints-runtime.txt"
+    constraints_runtime.write_text(
+        "".join(f"{line}\n" for line in runtime_pins.values())
     )
 
     # ------------------------------------------------------------------
     # 1b. Lock each engine set, then fetch the pinned locks.
     # ------------------------------------------------------------------
-    engine_locks: Dict[str, Path] = {"torch-family": torch_family_lock}
+    engine_locks: Dict[str, Path] = {
+        "runtime": runtime_lock,
+        "torch-family": torch_family_lock,
+    }
     for in_file in sorted((manifest_dir / "engines").glob("*.in")):
         engine = in_file.stem
         meta = json.loads(in_file.with_suffix(".meta.json").read_text())
@@ -252,19 +300,19 @@ def main() -> None:
                 )
             ),
             index_strategy="unsafe-best-match",
-            constraints=None if self_pinning else constraints_big,
+            constraints=None if self_pinning else constraints_runtime,
         )
         if proc.returncode != 0:
             sys.exit(
                 f"FATAL: engine set '{engine}' does not resolve with "
-                f"torch=={args.torch_version}; align --torch-version with the "
-                "runtime image or pin the engine set"
+                "the shared runtime constraints; update the constraints and "
+                "runtime image together or pin the engine set"
             )
         engine_locks[engine] = lock
 
     # Shared substrate to keep unpinned transitive deps from fanning out.
     master_constraints = work / "constraints-master.txt"
-    merged: Dict[str, str] = lock_names(constraints_big)
+    merged: Dict[str, str] = dict(runtime_pins)
     for engine in ("transformers", "vllm"):
         if engine in engine_locks:
             for name, line in lock_names(engine_locks[engine]).items():
@@ -387,6 +435,7 @@ def main() -> None:
             name, version = name_version
             versions[name].add(version)
     report: Dict[str, object] = {
+        "runtime_constraints": list(runtime_pins.values()),
         "unconstrained_fallbacks": unconstrained_fallbacks,
         "sdist_left": sdist_left,
         "file_count": len(files),

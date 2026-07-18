@@ -64,6 +64,28 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
     ],
 }
 
+# Optional engine packages selected by model format. Unlike
+# ENGINE_VIRTUALENV_PACKAGES, these are not installed for every model using an
+# engine: a plain-text pytorch Transformers launch remains limited to the two
+# core packages above. The pypiserver generator includes the union in its
+# wheel inventory so every format remains available offline.
+ENGINE_VIRTUALENV_MODEL_FORMAT_PACKAGES: Dict[str, Dict[str, List[str]]] = {
+    "transformers": {
+        "gptq": [
+            "gptqmodel",
+            "optimum",
+            "datasets>=3.4.0",
+        ],
+        "awq": [
+            "autoawq!=0.2.6 ; sys_platform=='linux'",
+            "datasets>=3.4.0",
+        ],
+        "bnb": [
+            "bitsandbytes ; sys_platform=='linux'",
+        ],
+    }
+}
+
 # Critical dependencies of engine packages that may be inherited from the
 # parent environment instead of installed into the venv: with skip_installed
 # enabled (the default), an engine spec satisfied by the parent copy is not
@@ -196,6 +218,17 @@ def get_engine_virtualenv_packages(model_engine: Optional[str]) -> List[str]:
     if not model_engine:
         return []
     return ENGINE_VIRTUALENV_PACKAGES.get(model_engine.lower(), []).copy()
+
+
+def get_engine_model_format_virtualenv_packages(
+    model_engine: Optional[str], model_format: Optional[str]
+) -> List[str]:
+    if not model_engine or not model_format:
+        return []
+    engine_formats = ENGINE_VIRTUALENV_MODEL_FORMAT_PACKAGES.get(
+        model_engine.lower(), {}
+    )
+    return engine_formats.get(model_format.lower(), []).copy()
 
 
 def get_engine_critical_dependency_specs(

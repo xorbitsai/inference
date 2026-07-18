@@ -18,6 +18,7 @@ import platform
 import random
 import re
 import string
+import sys
 import uuid
 import weakref
 from enum import Enum
@@ -343,6 +344,7 @@ def filter_virtualenv_packages_by_markers(
     packages: List[str],
     model_engine: Optional[str],
     cuda_version: Optional[str],
+    target_sys_platform: Optional[str] = None,
 ) -> List[str]:
     """
     Filter virtualenv packages using custom markers and system placeholders.
@@ -352,6 +354,7 @@ def filter_virtualenv_packages_by_markers(
     """
     if not packages:
         return []
+    effective_sys_platform = target_sys_platform or sys.platform
     system_markers = {
         "#system_torch#",
         "#system_torchaudio#",
@@ -382,6 +385,13 @@ def filter_virtualenv_packages_by_markers(
                 check_marker(op_version, "cuda_version", cuda_version)
                 for op_version in op_versions
             ):
+                return False
+        for operator, expected in re.findall(
+            r"\bsys_platform\b\s*(==|!=)\s*['\"]([^'\"]+)['\"]", marker
+        ):
+            if operator == "==" and effective_sys_platform != expected:
+                return False
+            if operator == "!=" and effective_sys_platform == expected:
                 return False
         if (
             'platform_machine == "x86_64"' in marker

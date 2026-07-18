@@ -10,11 +10,22 @@ Xinference provides official images for use on Dockerhub.
 
    Starting from **Xinference v2.0**, to use the CUDA version of the image, the minimum CUDA version must be **CUDA 12.9**.
 
+.. versionchanged:: v3.0.0
+
+   Starting from **Xinference v3.0.0**, the GPU image is a *slim* image based on
+   ``nvidia/cuda:13.0.2-devel-ubuntu22.04``. It no longer pre-installs inference
+   engines such as vLLM or SGLang; engines are installed automatically into a
+   per-model virtual environment at model launch time (see
+   ``XINFERENCE_ENABLE_VIRTUAL_ENV`` in :ref:`environments`). This requires access
+   to PyPI at model launch — for offline / air-gapped hosts, use the private PyPI
+   mirror of the Docker Compose offline profile, see :ref:`using_docker_compose`.
+   The minimum supported CUDA version of the image is **CUDA 13.0**.
+
 Prerequisites
 =============
 * The image can only run in an environment with GPUs and CUDA installed, because Xinference in the image relies on Nvidia GPUs for acceleration.
 * CUDA must be successfully installed on the host machine. This can be determined by whether you can successfully execute the ``nvidia-smi`` command.
-* For CUDA version >= 12.9, CUDA version in the docker image is ``12.9``, and the CUDA version on the host machine should be ``12.9`` or above, and the NVIDIA driver version should be ``575`` or above.
+* The CUDA version in the docker image is ``13.0``; the CUDA version on the host machine should be ``13.0`` or above, and the NVIDIA driver version should be ``580`` or above.
 * Ensure `NVIDIA Container Toolkit <https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html>`_ installed.
 
 
@@ -27,6 +38,17 @@ Available tags include:
 * ``v<release version>``: This image is built each time a Xinference release version is published, and it is typically more stable.
 * ``latest``: This image is built with the latest Xinference release version.
 * For CPU version, add ``-cpu`` suffix, e.g. ``nightly-main-cpu``.
+
+What is inside the GPU image
+============================
+The GPU image ships Python 3.12, the CUDA 13.0 toolkit, a shared CUDA build of
+PyTorch, the Transformers engine (``transformers`` / ``accelerate``) and
+Xinference itself with the Web UI. Other inference engines (vLLM, SGLang,
+llama.cpp, ...) are **not** pre-installed: when a model is launched, Xinference
+creates a virtual environment for it and installs the engine packages declared
+by the model spec. The first launch of a model with a given engine therefore
+downloads packages from PyPI (or from a private mirror in offline deployments)
+and takes longer; subsequent launches reuse the virtual environment.
 
 
 Dockerfile for custom build

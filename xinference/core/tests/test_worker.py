@@ -13,6 +13,7 @@
 # limitations under the License.
 import asyncio
 import itertools
+from types import SimpleNamespace
 from typing import Any, List, Optional, Tuple, Union
 
 import pytest
@@ -1088,6 +1089,46 @@ def test_prepare_virtual_env_expands_engine_dependencies_before_user_override():
     packages, _ = manager.calls[0]
     assert packages.count("vllm==0.10.2") == 1
     assert "vllm>=0.11.2" not in packages
+
+
+def test_prepare_virtual_env_selects_transformers_packages_by_model_format():
+    settings = VirtualEnvSettings(
+        packages=['#transformers_dependencies# ; #engine# == "Transformers"'],
+        inherit_pip_config=False,
+    )
+
+    # ``match_llm`` narrows model_specs to the selected spec. The request may
+    # still omit model_format, so dependency selection must use that spec.
+    model = SimpleNamespace(
+        model_family=SimpleNamespace(model_specs=[SimpleNamespace(model_format="gptq")])
+    )
+    resolved_model_format = WorkerActor._resolve_virtualenv_model_format(model, None)
+    assert resolved_model_format == "gptq"
+
+    gptq_manager = DummyVirtualEnvManager()
+    WorkerActor._prepare_virtual_env(
+        gptq_manager,
+        settings,
+        None,
+        model_engine="Transformers",
+        model_format=resolved_model_format,
+    )
+    gptq_packages, _ = gptq_manager.calls[0]
+    assert any(package.startswith("gptqmodel") for package in gptq_packages)
+    assert "optimum" in gptq_packages
+    assert "datasets>=3.4.0" in gptq_packages
+    assert not any(package.startswith("autoawq") for package in gptq_packages)
+
+    pytorch_manager = DummyVirtualEnvManager()
+    WorkerActor._prepare_virtual_env(
+        pytorch_manager,
+        settings,
+        None,
+        model_engine="Transformers",
+        model_format="pytorch",
+    )
+    pytorch_packages, _ = pytorch_manager.calls[0]
+    assert pytorch_packages == ["transformers>=4.53.3", "accelerate>=0.28.0"]
 
 
 @pytest.mark.asyncio

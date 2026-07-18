@@ -20,6 +20,20 @@ from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1]
+REPO_ROOT = SCRIPT_DIR.parents[3]
+
+
+def _write_runtime_constraints(path: Path) -> None:
+    path.write_text(
+        "torch==2.11.0\n"
+        "torchvision==0.26.0\n"
+        "torchaudio==2.11.0\n"
+        "torchcodec==0.14.0\n"
+        "transformers==5.13.1\n"
+        "accelerate==1.14.0\n"
+        "numpy==2.3.5\n"
+        "pandas==3.0.3\n"
+    )
 
 
 def _load_script(name: str) -> ModuleType:
@@ -40,6 +54,67 @@ def test_generate_package_list_classification():
     assert generator.classify_spec("pkg @ git+https://github.com/org/repo") == "git"
     assert generator.system_placeholder_name("#system_torch#") == "torch"
     assert generator.system_placeholder_name("#system_numpy# ; marker") == "numpy"
+
+
+def test_load_xinference_modules_restores_sys_modules():
+    generator = _load_script("generate_package_lists")
+    original_xinference = sys.modules.get("xinference")
+    sentinel = original_xinference or ModuleType("xinference")
+    sys.modules["xinference"] = sentinel
+    try:
+        before = {
+            name: module
+            for name, module in sys.modules.items()
+            if name == "xinference" or name.startswith("xinference.")
+        }
+
+        core_utils, venv_manager = generator.load_xinference_modules(REPO_ROOT)
+
+        after = {
+            name: module
+            for name, module in sys.modules.items()
+            if name == "xinference" or name.startswith("xinference.")
+        }
+        assert after == before
+        assert sys.modules["xinference"] is sentinel
+        assert callable(core_utils.filter_virtualenv_packages_by_markers)
+        assert "transformers" in venv_manager.ENGINE_VIRTUALENV_PACKAGES
+    finally:
+        if original_xinference is None:
+            sys.modules.pop("xinference", None)
+        else:
+            sys.modules["xinference"] = original_xinference
+
+
+def test_iter_virtualenv_packages_reads_json_as_utf8(monkeypatch, tmp_path):
+    generator = _load_script("generate_package_lists")
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    model_json = model_dir / "model.json"
+    model_json.write_text(
+        json.dumps(
+            {
+                "model_name": "中文模型",
+                "virtualenv": {"packages": ["model-package"]},
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    original_read_text = Path.read_text
+    encodings = []
+
+    def tracked_read_text(path, *args, **kwargs):
+        if path == model_json:
+            encodings.append(kwargs.get("encoding"))
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", tracked_read_text)
+
+    assert list(generator.iter_virtualenv_packages(model_dir)) == [
+        ("model.json", "中文模型", ["model-package"])
+    ]
+    assert encodings == ["utf-8"]
 
 
 def test_selfcheck_wheel_url_to_spec():
@@ -64,6 +139,146 @@ def test_download_report_wheel_filename_parsing():
     ) == ("sentence-transformers", "5.1.2")
     assert downloader.wheel_name_version("package.tar.gz") is None
     assert downloader.wheel_name_version("invalid.whl") is None
+
+
+def test_runtime_constraints_require_exact_pins(tmp_path):
+    downloader = _load_script("download_packages")
+    constraints = tmp_path / "runtime.txt"
+    _write_runtime_constraints(constraints)
+
+    pins = downloader.load_runtime_constraints(constraints)
+    assert pins["torch"] == "torch==2.11.0"
+    assert pins["transformers"] == "transformers==5.13.1"
+
+    constraints.write_text(constraints.read_text().replace("pandas==3.0.3", "pandas"))
+    try:
+        downloader.load_runtime_constraints(constraints)
+    except ValueError as exc:
+        assert "must be an exact pin" in str(exc)
+    else:
+        raise AssertionError("an unpinned runtime package must be rejected")
+
+
+def test_runtime_and_mirror_share_the_same_constraints_file():
+    downloader = _load_script("download_packages")
+    constraints = REPO_ROOT / "xinference/deploy/docker/requirements-runtime.txt"
+    pins = downloader.load_runtime_constraints(constraints)
+    assert set(pins) == {
+        "accelerate",
+        "numpy",
+        "pandas",
+        "torch",
+        "torchaudio",
+        "torchcodec",
+        "torchvision",
+        "transformers",
+    }
+
+    runtime_dockerfile = (REPO_ROOT / "xinference/deploy/docker/Dockerfile").read_text()
+    assert (
+        "COPY xinference/deploy/docker/requirements-runtime.txt" in runtime_dockerfile
+    )
+    mirror_dockerfile = (
+        REPO_ROOT / "xinference/deploy/docker/pypiserver/Dockerfile.pypiserver"
+    ).read_text()
+    assert "COPY xinference/deploy/docker/requirements-runtime.txt" in mirror_dockerfile
+    assert "--runtime-constraints /build/requirements-runtime.txt" in mirror_dockerfile
+
+
+def test_transformers_optional_dependencies_are_scoped_and_mirrored(
+    monkeypatch, tmp_path
+):
+    dockerfile = (REPO_ROOT / "xinference/deploy/docker/Dockerfile").read_text()
+    assert '".[otel]" transformers accelerate' in dockerfile
+    assert '".[otel,transformers,transformers_quantization]"' not in dockerfile
+    assert "--constraint /opt/requirements-runtime.txt" in dockerfile
+    for package in ("qwen-vl-utils", "eva-decord"):
+        assert package not in dockerfile
+
+    generator = _load_script("generate_package_lists")
+    _, venv_manager = generator.load_xinference_modules(REPO_ROOT)
+    assert venv_manager.ENGINE_VIRTUALENV_PACKAGES["transformers"] == [
+        "transformers>=4.53.3",
+        "accelerate>=0.28.0",
+    ]
+    assert (
+        venv_manager.get_engine_model_format_virtualenv_packages(
+            "Transformers", "pytorch"
+        )
+        == []
+    )
+    assert any(
+        package.startswith("gptqmodel")
+        for package in venv_manager.get_engine_model_format_virtualenv_packages(
+            "Transformers", "gptq"
+        )
+    )
+    assert "optimum" in venv_manager.get_engine_model_format_virtualenv_packages(
+        "Transformers", "gptq"
+    )
+
+    out = tmp_path / "manifest"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "generate_package_lists.py",
+            "--platform",
+            "amd64",
+            "--src-root",
+            str(REPO_ROOT),
+            "--out",
+            str(out),
+        ],
+    )
+    original_machine = generator._platform.machine
+    try:
+        generator.main()
+    finally:
+        generator._platform.machine = original_machine
+
+    mirrored = (out / "engines" / "transformers.in").read_text().lower()
+    for package in ("bitsandbytes", "gptqmodel", "optimum", "autoawq"):
+        assert package in mirrored
+    for package in (
+        "qwen-vl-utils",
+        "attrdict",
+        "einops",
+        "tiktoken",
+        "sentencepiece",
+        "transformers_stream_generator",
+        "datamodel_code_generator",
+        "jsonschema",
+        "blobfile",
+        "eva-decord",
+    ):
+        assert package not in mirrored
+
+    pin_entries = json.loads((out / "pins.json").read_text())
+    model_pins = {item["spec"].split(";", 1)[0].strip().lower() for item in pin_entries}
+    for package in (
+        "qwen-vl-utils!=0.0.9",
+        "attrdict",
+        "einops",
+        "timm>=0.9.16",
+        "tiktoken>=0.6.0",
+        "sentencepiece",
+        "transformers_stream_generator",
+        "datamodel_code_generator",
+        "jsonschema",
+        "blobfile",
+        "eva-decord",
+    ):
+        assert package in model_pins
+
+    qwen_vl_sources = next(
+        item["sources"]
+        for item in pin_entries
+        if item["spec"].split(";", 1)[0].strip().lower() == "qwen-vl-utils!=0.0.9"
+    )
+    for model_name in ("qwen3.5", "qwen3.6"):
+        source = "llm/llm_family.json:" + model_name + " (Transformers)"
+        assert source in qwen_vl_sources
 
 
 def test_generate_package_lists_main_orchestration(monkeypatch, tmp_path):
@@ -158,14 +373,16 @@ def test_download_packages_main_orchestration_skips_git(monkeypatch, tmp_path):
     git_source = "git-package @ git+https://example.invalid/repo.git@abc"
     (manifest / "git.txt").write_text(git_source + "\n")
     dest = tmp_path / "packages"
+    runtime_constraints = tmp_path / "runtime.txt"
+    _write_runtime_constraints(runtime_constraints)
     compile_calls = []
     download_calls = []
     run_calls = []
 
     def fake_uv_compile(in_file, out_file, **kwargs):
         compile_calls.append((in_file, out_file, kwargs))
-        if out_file.name == "torch-family.lock":
-            out_file.write_text("torch==2.11.0\n")
+        if out_file.name in ("runtime.lock", "torch-family.lock"):
+            out_file.write_text(runtime_constraints.read_text())
         else:
             out_file.write_text("engine-pkg==1.0\n")
         return subprocess.CompletedProcess([], 0)
@@ -194,12 +411,15 @@ def test_download_packages_main_orchestration_skips_git(monkeypatch, tmp_path):
             str(dest),
             "--platform",
             "amd64",
+            "--runtime-constraints",
+            str(runtime_constraints),
         ],
     )
 
     downloader.main()
 
-    assert len(compile_calls) == 2
+    assert len(compile_calls) == 3
+    assert compile_calls[0][0] == runtime_constraints
     assert ["-r", str(manifest / "locks" / "test.lock")] in [
         call[0] for call in download_calls
     ]
@@ -211,6 +431,7 @@ def test_download_packages_main_orchestration_skips_git(monkeypatch, tmp_path):
     assert all(git_source not in " ".join(call) for call in run_calls)
     assert not (dest / "source-1.0.tar.gz").exists()
     report = json.loads((manifest / "report.json").read_text())
+    assert "transformers==5.13.1" in report["runtime_constraints"]
     assert report["unconstrained_fallbacks"] == []
     assert report["sdist_left"] == []
 
@@ -230,6 +451,8 @@ def test_selfcheck_main_orchestration(monkeypatch, tmp_path, capsys):
     git_source = "git-package @ git+https://example.invalid/repo.git@abc"
     (manifest / "git.txt").write_text(git_source + "\n")
     compile_calls = []
+    runtime_constraints = tmp_path / "runtime.txt"
+    _write_runtime_constraints(runtime_constraints)
 
     def fake_compile(requirements, index_url, python_version, python_platform):
         compile_calls.append((requirements, index_url, python_version, python_platform))
@@ -248,12 +471,15 @@ def test_selfcheck_main_orchestration(monkeypatch, tmp_path, capsys):
             str(manifest),
             "--platform",
             "amd64",
+            "--runtime-constraints",
+            str(runtime_constraints),
         ],
     )
 
     selfcheck.main()
 
     assert [call[0] for call in compile_calls] == [
+        runtime_constraints.read_text().splitlines(),
         ["engine-pkg>=1.0"],
         ["model-pin==1.0"],
         ["direct==1.0"],

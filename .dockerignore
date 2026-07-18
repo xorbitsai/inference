@@ -3,5 +3,10 @@ doc/
 .github/
 build/
 xinference.egg-info/
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.npm-cache/
+frontend/.npm-logs/
 xinference/web/ui/build/
 xinference/web/ui/node_modules/

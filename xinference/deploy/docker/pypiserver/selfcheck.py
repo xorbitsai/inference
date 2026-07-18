@@ -14,11 +14,11 @@
 """
 Offline-resolution quality gate for the xinference-pypiserver image.
 
-Resolves every index-compatible engine set, per-model pin and direct-wheel
-requirement against ONLY the local pypiserver (started with
---disable-fallback). Git and non-wheel direct references cannot be represented
-faithfully by a simple index; they are reported as explicitly unsupported by
-the offline profile and rejected before install by the runtime.
+Resolves the shared runtime constraints, every index-compatible engine set,
+per-model pin and direct-wheel requirement against ONLY the local pypiserver
+(started with --disable-fallback). Git and non-wheel direct references cannot
+be represented faithfully by a simple index; they are reported as explicitly
+unsupported by the offline profile and rejected before install by the runtime.
 """
 
 from __future__ import annotations
@@ -107,6 +107,12 @@ def main() -> None:
     parser.add_argument("--manifest-dir", type=Path, required=True)
     parser.add_argument("--platform", required=True, choices=("amd64", "arm64"))
     parser.add_argument("--python-version", default="3.12")
+    parser.add_argument(
+        "--runtime-constraints",
+        type=Path,
+        required=True,
+        help="exact pins shared with the slim GPU runtime image",
+    )
     args = parser.parse_args()
 
     machine = {"amd64": "x86_64", "arm64": "aarch64"}[args.platform]
@@ -127,6 +133,13 @@ def main() -> None:
             print(f"FAIL {label}\n{proc.stderr.strip()}", flush=True)
         else:
             print(f"OK   {label}", flush=True)
+
+    runtime_requirements = [
+        line.strip()
+        for line in args.runtime_constraints.read_text().splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    gate("runtime-constraints", runtime_requirements)
 
     for in_file in sorted((args.manifest_dir / "engines").glob("*.in")):
         requirements = [

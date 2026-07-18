@@ -127,3 +127,20 @@ def test_filter_sglang_keeps_cuda_12_fallback():
 
     assert "sgl_kernel" in packages
     assert not any("+cu130" in package for package in packages)
+
+
+def test_filter_combined_engine_and_linux_platform_markers(monkeypatch):
+    package = (
+        'eva-decord ; #engine# == "Transformers" and '
+        'sys_platform == "linux" and platform_machine == "x86_64"'
+    )
+    monkeypatch.setattr(platform, "machine", lambda: "x86_64")
+
+    assert filter_virtualenv_packages_by_markers(
+        [package], "Transformers", None, "linux"
+    ) == ["eva-decord"]
+    assert (
+        filter_virtualenv_packages_by_markers([package], "Transformers", None, "darwin")
+        == []
+    )
+    assert filter_virtualenv_packages_by_markers([package], "vllm", None, "linux") == []

@@ -25,21 +25,24 @@ in a custom runtime image when the corresponding model is needed air-gapped.
 1. **`generate_package_lists.py`** loads `ENGINE_VIRTUALENV_PACKAGES` and the
    marker-filtering logic straight from the xinference sources (no install),
    so the lists cannot drift from what the runtime installs. It emits one
-   requirement set per engine, the per-model concrete pins, direct wheel URLs
-   and git sources, filtered for the target platform/CUDA.
-2. **`download_packages.py`** locks the torch family to the runtime image's
-   version, locks each engine set with `uv pip compile`, and fetches the
-   fully-pinned locks with `pip download --no-deps` — one coherent resolution
-   per engine, so unpinned specs cannot fan out into many versions. Model pins
-   are fetched constrained to the shared locks (with a recorded unconstrained
-   fallback on conflicts), direct wheel URLs are downloaded with their
-   dependencies, and sdist-only downloads are built into wheels. Git sources
-   are recorded but deliberately skipped because the offline runtime rejects
-   them.
+   requirement set per engine (including the union of its format-scoped
+   optional dependencies), the per-model concrete pins, direct wheel URLs and
+   git sources, filtered for the target platform/CUDA. Runtime venvs still
+   select only the dependencies for the launched model and format.
+2. **`download_packages.py`** first locks the exact shared runtime pins from
+   `xinference/deploy/docker/requirements-runtime.txt`, then locks each engine
+   set with `uv pip compile`, and fetches the fully-pinned locks with
+   `pip download --no-deps` — one coherent resolution per engine, so unpinned
+   specs cannot fan out into many versions. Model pins are fetched constrained
+   to the shared locks (with a recorded unconstrained fallback on conflicts),
+   direct wheel URLs are downloaded with their dependencies, and sdist-only
+   downloads are built into wheels. Git sources are recorded but deliberately
+   skipped because the offline runtime rejects them.
 3. **`selfcheck.py`** (a dedicated build stage) re-resolves every
-   index-compatible engine set, pin and direct wheel against the baked mirror
-   ALONE (`--disable-fallback`). Any gap fails the image build; recorded git
-   and non-wheel direct references are reported as unsupported.
+   shared runtime constraint, index-compatible engine set, pin and direct wheel
+   against the baked mirror ALONE (`--disable-fallback`). Any gap fails the
+   image build; recorded git and non-wheel direct references are reported as
+   unsupported.
 
 The generation manifest and download report are baked into the image under
 `/data/manifest/` for debugging (`report.json` lists total size, packages with
@@ -54,9 +57,10 @@ docker build -f xinference/deploy/docker/pypiserver/Dockerfile.pypiserver \
   --build-arg PLATFORM=amd64 -t xinference-pypiserver:amd64 .
 ```
 
-Build args: `PLATFORM` (amd64/arm64), `TORCH_VERSION` (must match the torch of
-the `xprobe/xinference` runtime image), `CUDA_SUFFIX` (default cu130),
-`PYTHON_VERSION` (default 3.12).
+Build args: `PLATFORM` (amd64/arm64), `CUDA_SUFFIX` (default cu130), and
+`PYTHON_VERSION` (default 3.12). Runtime package versions come exclusively from
+`xinference/deploy/docker/requirements-runtime.txt`, which is also consumed by
+the slim GPU runtime Dockerfile.
 
 CI (`.github/workflows/build-pypiserver-image.yaml`) builds both architectures;
 published runs merge them into a multi-arch manifest. Release tags publish both

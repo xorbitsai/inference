@@ -1624,6 +1624,7 @@
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "eva-decord ; #engine# == \"Transformers\" and sys_platform == \"linux\" and platform_machine == \"x86_64\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ]
@@ -1702,6 +1703,7 @@
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "eva-decord ; #engine# == \"Transformers\" and sys_platform == \"linux\" and platform_machine == \"x86_64\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ]
@@ -2335,6 +2337,7 @@
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "qwen-vl-utils!=0.0.9 ; #engine# == \"Transformers\"",
         "#mlx_dependencies# ; #engine# == \"MLX\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
@@ -3828,7 +3831,9 @@
     "model_type": "baichuan",
     "virtualenv": {
       "packages": [
-        "#transformers_dependencies# ; #engine# == \"Transformers\""
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "sentencepiece ; #engine# == \"Transformers\"",
+        "transformers_stream_generator ; #engine# == \"Transformers\""
       ]
     }
   },
@@ -3912,7 +3917,9 @@
     "model_type": "baichuan",
     "virtualenv": {
       "packages": [
-        "#transformers_dependencies# ; #engine# == \"Transformers\""
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "sentencepiece ; #engine# == \"Transformers\"",
+        "transformers_stream_generator ; #engine# == \"Transformers\""
       ]
     }
   },
@@ -7748,6 +7755,9 @@
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "attrdict ; #engine# == \"Transformers\"",
+        "einops ; #engine# == \"Transformers\"",
+        "timm>=0.9.16 ; #engine# == \"Transformers\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ]
@@ -11229,6 +11239,8 @@
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "datamodel_code_generator ; #engine# == \"Transformers\"",
+        "jsonschema ; #engine# == \"Transformers\"",
         "#mlx_dependencies# ; #engine# == \"MLX\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
@@ -12281,6 +12293,7 @@
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "blobfile ; #engine# == \"Transformers\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ]
@@ -12751,6 +12764,8 @@
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "tiktoken>=0.6.0 ; #engine# == \"Transformers\"",
+        "transformers_stream_generator ; #engine# == \"Transformers\"",
         "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
         "#sglang_dependencies# ; #engine# == \"sglang\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
@@ -14769,6 +14784,7 @@
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "qwen-vl-utils!=0.0.9 ; #engine# == \"Transformers\"",
         "#mlx_dependencies# ; #engine# == \"MLX\"",
         "#sglang_dependencies# ; #engine# == \"sglang\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
@@ -17640,6 +17656,7 @@
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "qwen-vl-utils!=0.0.9 ; #engine# == \"Transformers\"",
         "#mlx_dependencies# ; #engine# == \"MLX\"",
         "#sglang_dependencies# ; #engine# == \"sglang\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
@@ -24755,6 +24772,7 @@
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "qwen-vl-utils!=0.0.9 ; #engine# == \"Transformers\"",
         "#mlx_dependencies# ; #engine# == \"MLX\"",
         "#sglang_dependencies# ; #engine# == \"sglang\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
@@ -25243,6 +25261,7 @@
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "qwen-vl-utils!=0.0.9 ; #engine# == \"Transformers\"",
         "#mlx_dependencies# ; #engine# == \"MLX\"",
         "#sglang_dependencies# ; #engine# == \"sglang\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
@@ -25569,6 +25588,7 @@
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "eva-decord ; #engine# == \"Transformers\" and sys_platform == \"linux\" and platform_machine == \"x86_64\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#sglang_dependencies# ; #engine# == \"sglang\"",
         "#system_numpy# ; #engine# == \"vllm\""
@@ -30146,6 +30166,7 @@
       "packages": [
         "sglang_dependencies ; #engine# == \"sglang\"",
         "transformers>=5.2.0 ; #engine# == \"Transformers\"",
+        "qwen-vl-utils!=0.0.9 ; #engine# == \"Transformers\"",
         "qwen_omni_utils==0.0.9 ; #engine# == \"vllm\"",
         "vllm>=0.17.0 ; #engine# == \"vllm\"",
         "transformers==4.57.6 ; #engine# == \"vllm\"",
@@ -30903,6 +30924,7 @@
       "packages": [
         "sglang_dependencies ; #engine# == \"sglang\"",
         "transformers>=5.2.0 ; #engine# == \"Transformers\"",
+        "qwen-vl-utils!=0.0.9 ; #engine# == \"Transformers\"",
         "qwen_omni_utils ; #engine# == \"vllm\"",
         "vllm==0.21.0 ; #engine# == \"vllm\"",
         "ninja ; #engine# == \"vllm\"",

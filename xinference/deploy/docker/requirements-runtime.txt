@@ -1,0 +1,14 @@
+# Shared runtime pins for the slim GPU image and its offline PyPI mirror.
+#
+# Keep this file as the single source of truth: Dockerfile installs these
+# versions, while pypiserver/Dockerfile.pypiserver downloads and self-checks
+# the same constraints.  PyTorch's CUDA local version (for example
+# 2.11.0+cu130) satisfies the public-version pin below.
+torch==2.11.0
+torchvision==0.26.0
+torchaudio==2.11.0
+torchcodec==0.14.0
+transformers==5.13.1
+accelerate==1.14.0
+numpy==2.3.5
+pandas==3.0.3

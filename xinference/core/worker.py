@@ -107,6 +107,7 @@ from .virtual_env_manager import VirtualEnvManager as XinferenceVirtualEnvManage
 from .virtual_env_manager import (
     expand_engine_dependency_placeholders,
     get_engine_critical_dependency_specs,
+    get_engine_model_format_virtualenv_packages,
     is_cuda_compatible,
     resolve_virtualenv_python_path,
 )
@@ -2612,6 +2613,22 @@ class WorkerActor(xo.StatelessActor):
         except Exception as e:  # pragma: no cover - best effort cleanup
             logger.warning("Failed to uninstall %s from virtual env: %s", package, e)
 
+    @staticmethod
+    def _resolve_virtualenv_model_format(
+        model: Any, requested_model_format: Optional[str]
+    ) -> Optional[str]:
+        """Return the concrete format selected while creating ``model``."""
+        model_family = getattr(model, "model_family", None)
+        model_specs = getattr(model_family, "model_specs", None)
+        if model_specs:
+            resolved_model_format = getattr(model_specs[0], "model_format", None)
+            if resolved_model_format:
+                return resolved_model_format
+
+        model_spec = getattr(model, "model_spec", None)
+        resolved_model_format = getattr(model_spec, "model_format", None)
+        return resolved_model_format or requested_model_format
+
     @classmethod
     def _prepare_virtual_env(
         cls,
@@ -2621,8 +2638,11 @@ class WorkerActor(xo.StatelessActor):
         model_engine: Optional[str],
         model_name: Optional[str] = None,
         architectures: Optional[List[str]] = None,
+        model_format: Optional[str] = None,
     ):
-        engine_defaults: List[str] = []
+        engine_defaults = get_engine_model_format_virtualenv_packages(
+            model_engine, model_format
+        )
         if (
             (not settings or not settings.packages)
             and not virtual_env_packages
@@ -3261,6 +3281,9 @@ class WorkerActor(xo.StatelessActor):
                                     "_resolve_architectures",
                                     lambda: None,
                                 )(),
+                                model_format=self._resolve_virtualenv_model_format(
+                                    model, model_format
+                                ),
                             )
                             launch_info.virtual_env_manager = virtual_env_manager
 
