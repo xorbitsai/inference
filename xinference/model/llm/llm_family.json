@@ -3829,7 +3829,9 @@
     "model_type": "baichuan",
     "virtualenv": {
       "packages": [
-        "#transformers_dependencies# ; #engine# == \"Transformers\""
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "sentencepiece ; #engine# == \"Transformers\"",
+        "transformers_stream_generator ; #engine# == \"Transformers\""
       ]
     }
   },
@@ -3913,7 +3915,9 @@
     "model_type": "baichuan",
     "virtualenv": {
       "packages": [
-        "#transformers_dependencies# ; #engine# == \"Transformers\""
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "sentencepiece ; #engine# == \"Transformers\"",
+        "transformers_stream_generator ; #engine# == \"Transformers\""
       ]
     }
   },
@@ -11233,6 +11237,8 @@
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "datamodel_code_generator ; #engine# == \"Transformers\"",
+        "jsonschema ; #engine# == \"Transformers\"",
         "#mlx_dependencies# ; #engine# == \"MLX\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
@@ -12285,6 +12291,7 @@
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "blobfile ; #engine# == \"Transformers\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ]
@@ -12755,6 +12762,8 @@
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "tiktoken>=0.6.0 ; #engine# == \"Transformers\"",
+        "transformers_stream_generator ; #engine# == \"Transformers\"",
         "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
         "#sglang_dependencies# ; #engine# == \"sglang\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",

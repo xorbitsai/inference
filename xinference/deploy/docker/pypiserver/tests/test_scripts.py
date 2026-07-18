@@ -150,6 +150,9 @@ def test_transformers_optional_dependencies_are_scoped_and_mirrored(
             "Transformers", "gptq"
         )
     )
+    assert "optimum" in venv_manager.get_engine_model_format_virtualenv_packages(
+        "Transformers", "gptq"
+    )
 
     out = tmp_path / "manifest"
     monkeypatch.setattr(
@@ -172,9 +175,19 @@ def test_transformers_optional_dependencies_are_scoped_and_mirrored(
         generator._platform.machine = original_machine
 
     mirrored = (out / "engines" / "transformers.in").read_text().lower()
-    for package in ("bitsandbytes", "gptqmodel", "autoawq"):
+    for package in ("bitsandbytes", "gptqmodel", "optimum", "autoawq"):
         assert package in mirrored
-    for package in ("qwen-vl-utils", "attrdict", "einops"):
+    for package in (
+        "qwen-vl-utils",
+        "attrdict",
+        "einops",
+        "tiktoken",
+        "sentencepiece",
+        "transformers_stream_generator",
+        "datamodel_code_generator",
+        "jsonschema",
+        "blobfile",
+    ):
         assert package not in mirrored
 
     model_pins = {
@@ -186,6 +199,12 @@ def test_transformers_optional_dependencies_are_scoped_and_mirrored(
         "attrdict",
         "einops",
         "timm>=0.9.16",
+        "tiktoken>=0.6.0",
+        "sentencepiece",
+        "transformers_stream_generator",
+        "datamodel_code_generator",
+        "jsonschema",
+        "blobfile",
     ):
         assert package in model_pins
 

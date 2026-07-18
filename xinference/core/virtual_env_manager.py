@@ -73,6 +73,7 @@ ENGINE_VIRTUALENV_MODEL_FORMAT_PACKAGES: Dict[str, Dict[str, List[str]]] = {
     "transformers": {
         "gptq": [
             "gptqmodel",
+            "optimum",
             "datasets>=3.4.0",
         ],
         "awq": [

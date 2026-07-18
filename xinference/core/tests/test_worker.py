@@ -13,6 +13,7 @@
 # limitations under the License.
 import asyncio
 import itertools
+from types import SimpleNamespace
 from typing import Any, List, Optional, Tuple, Union
 
 import pytest
@@ -1096,16 +1097,25 @@ def test_prepare_virtual_env_selects_transformers_packages_by_model_format():
         inherit_pip_config=False,
     )
 
+    # ``match_llm`` narrows model_specs to the selected spec. The request may
+    # still omit model_format, so dependency selection must use that spec.
+    model = SimpleNamespace(
+        model_family=SimpleNamespace(model_specs=[SimpleNamespace(model_format="gptq")])
+    )
+    resolved_model_format = WorkerActor._resolve_virtualenv_model_format(model, None)
+    assert resolved_model_format == "gptq"
+
     gptq_manager = DummyVirtualEnvManager()
     WorkerActor._prepare_virtual_env(
         gptq_manager,
         settings,
         None,
         model_engine="Transformers",
-        model_format="gptq",
+        model_format=resolved_model_format,
     )
     gptq_packages, _ = gptq_manager.calls[0]
     assert any(package.startswith("gptqmodel") for package in gptq_packages)
+    assert "optimum" in gptq_packages
     assert "datasets>=3.4.0" in gptq_packages
     assert not any(package.startswith("autoawq") for package in gptq_packages)
 

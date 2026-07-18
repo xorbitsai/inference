@@ -10,9 +10,9 @@ Xinference provides official images for use on Dockerhub.
 
    Starting from **Xinference v2.0**, to use the CUDA version of the image, the minimum CUDA version must be **CUDA 12.9**.
 
-.. versionchanged:: v2.13.0
+.. versionchanged:: v3.0.0
 
-   Starting from **Xinference v2.13.0**, the GPU image is a *slim* image based on
+   Starting from **Xinference v3.0.0**, the GPU image is a *slim* image based on
    ``nvidia/cuda:13.0.2-devel-ubuntu22.04``. It no longer pre-installs inference
    engines such as vLLM or SGLang; engines are installed automatically into a
    per-model virtual environment at model launch time (see
