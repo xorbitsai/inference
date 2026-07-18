@@ -193,10 +193,8 @@ def test_transformers_optional_dependencies_are_scoped_and_mirrored(
     ):
         assert package not in mirrored
 
-    model_pins = {
-        item["spec"].split(";", 1)[0].strip().lower()
-        for item in json.loads((out / "pins.json").read_text())
-    }
+    pin_entries = json.loads((out / "pins.json").read_text())
+    model_pins = {item["spec"].split(";", 1)[0].strip().lower() for item in pin_entries}
     for package in (
         "qwen-vl-utils!=0.0.9",
         "attrdict",
@@ -211,6 +209,15 @@ def test_transformers_optional_dependencies_are_scoped_and_mirrored(
         "eva-decord",
     ):
         assert package in model_pins
+
+    qwen_vl_sources = next(
+        item["sources"]
+        for item in pin_entries
+        if item["spec"].split(";", 1)[0].strip().lower() == "qwen-vl-utils!=0.0.9"
+    )
+    for model_name in ("qwen3.5", "qwen3.6"):
+        source = "llm/llm_family.json:" + model_name + " (Transformers)"
+        assert source in qwen_vl_sources
 
 
 def test_generate_package_lists_main_orchestration(monkeypatch, tmp_path):
