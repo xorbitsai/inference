@@ -1615,7 +1615,7 @@
     "stop": [
       "<|im_end|>"
     ],
-    "updated_at": 1769418483,
+    "updated_at": 1784394363,
     "featured": false,
     "architectures": [
       "InternVLChatModel"
@@ -1694,7 +1694,7 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1769418484,
+    "updated_at": 1784394363,
     "featured": false,
     "architectures": [
       "MiniCPMV"
@@ -2328,7 +2328,7 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1769418486,
+    "updated_at": 1784394363,
     "featured": false,
     "architectures": [
       "Qwen2VLForConditionalGeneration"
@@ -3823,7 +3823,7 @@
         }
       }
     ],
-    "updated_at": 1769418498,
+    "updated_at": 1784394363,
     "featured": false,
     "architectures": [
       "BaichuanForCausalLM"
@@ -3909,7 +3909,7 @@
       195
     ],
     "stop": [],
-    "updated_at": 1769418499,
+    "updated_at": 1784394364,
     "featured": false,
     "architectures": [
       "BaichuanForCausalLM"
@@ -7746,7 +7746,7 @@
     "stop": [
       "<｜end▁of▁sentence｜>"
     ],
-    "updated_at": 1769418522,
+    "updated_at": 1784394364,
     "featured": false,
     "architectures": [
       "DeepseekV2ForCausalLM"
@@ -11230,7 +11230,7 @@
       "</s>",
       "<|im_end|>"
     ],
-    "updated_at": 1769418546,
+    "updated_at": 1784394364,
     "featured": false,
     "architectures": [
       "MiniCPMForCausalLM"
@@ -12284,7 +12284,7 @@
     "stop": [
       "<|im_end|>"
     ],
-    "updated_at": 1769418553,
+    "updated_at": 1784394364,
     "featured": false,
     "architectures": [
       "DeepseekV3ForCausalLM"
@@ -12755,7 +12755,7 @@
       "<|im_start|>",
       "<|im_end|>"
     ],
-    "updated_at": 1769418557,
+    "updated_at": 1784394364,
     "featured": false,
     "architectures": [
       "QWenLMHeadModel"
@@ -14775,7 +14775,7 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1769418564,
+    "updated_at": 1784394365,
     "featured": false,
     "architectures": [
       "Qwen2VLForConditionalGeneration"
@@ -17647,7 +17647,7 @@
       "<|im_end|>",
       "<|endoftext|>"
     ],
-    "updated_at": 1769418570,
+    "updated_at": 1784394365,
     "featured": false,
     "architectures": [
       "Qwen2_5_VLForConditionalGeneration"
@@ -24763,7 +24763,7 @@
       "<|im_end|>"
     ],
     "tool_parser": "qwen",
-    "updated_at": 1769418594,
+    "updated_at": 1784394365,
     "featured": true,
     "architectures": [
       "Qwen3VLMoeForConditionalGeneration"
@@ -25252,7 +25252,7 @@
     "reasoning_start_tag": "<think>",
     "reasoning_end_tag": "</think>",
     "tool_parser": "qwen",
-    "updated_at": 1769418596,
+    "updated_at": 1784394365,
     "featured": false,
     "architectures": [
       "Qwen3VLMoeForConditionalGeneration"
@@ -25594,7 +25594,7 @@
         "#system_numpy# ; #engine# == \"vllm\""
       ]
     },
-    "updated_at": 1769418599,
+    "updated_at": 1784394366,
     "featured": false,
     "architectures": [
       "MiniCPMV"
@@ -30190,7 +30190,7 @@
     ],
     "tool_parser": "qwen",
     "featured": true,
-    "updated_at": 1782995874
+    "updated_at": 1784394366
   },
   {
     "model_name": "gemma-4",
@@ -30947,7 +30947,7 @@
     ],
     "tool_parser": "qwen",
     "featured": false,
-    "updated_at": 1782995875
+    "updated_at": 1784394366
   },
   {
     "model_name": "MiniMax-M2.7",
