@@ -43,29 +43,7 @@ RUN npm ci && npm run build
 FROM nvidia/cuda:13.0.2-devel-ubuntu22.04
 
 ARG PIP_INDEX=https://pypi.org/simple
-ARG TORCH_VERSION=2.11.*
-ARG TORCHVISION_VERSION=0.26.0
-ARG TORCHAUDIO_VERSION=2.11.0
-# torchcodec follows its own release cadence; it must match TORCH_VERSION per
-# https://github.com/pytorch/torchcodec#installing-torchcodec (0.12+ ~ torch
-# >=2.11). Its FFmpeg 4-8 runtime libraries are provided by apt ffmpeg below.
-ARG TORCHCODEC_VERSION=0.14.0
 ARG TORCH_INDEX=https://download.pytorch.org/whl/cu130
-# Pinned (not floating) on purpose: with skip_installed, per-model venv
-# resolution pins the parent environment's installed versions as constraints,
-# and the #system_numpy#/#system_pandas# spec placeholders pin the parent
-# versions into venv install requests outright — so every version baked here
-# must also exist on the offline mirror (xprobe/xinference-pypiserver). Keep
-# these aligned with the mirror's locks when bumping either side.
-# transformers/accelerate must satisfy the floors in
-# ENGINE_VIRTUALENV_PACKAGES ("transformers" entry).
-ARG TRANSFORMERS_VERSION=5.13.1
-ARG ACCELERATE_VERSION=1.14.0
-# numpy stays below 2.4: every vllm release on the mirror requires numpy<2.4
-# (via mistral-common), and #system_numpy# pins this exact version into the
-# vllm venv install request.
-ARG NUMPY_VERSION=2.3.5
-ARG PANDAS_VERSION=3.0.3
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -96,16 +74,18 @@ RUN apt-get update && \
     curl -sS https://bootstrap.pypa.io/get-pip.py | python3 && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Shared CUDA torch stack (see header). The +cu130 local version is
+# Shared CUDA torch stack (see header). requirements-runtime.txt is also
+# consumed by the offline pypiserver build, so parent-version constraints can
+# never refer to a version that the mirror omitted. The +cu130 local version is
 # significant: the worker reads it to auto-configure the matching PyTorch
 # wheel index for per-model venv installs. pandas backs the #system_pandas#
 # placeholder used by several audio model specs.
+COPY xinference/deploy/docker/requirements-runtime.txt /opt/requirements-runtime.txt
 RUN pip install --no-cache-dir -i "$PIP_INDEX" --upgrade pip "setuptools<82" wheel && \
-    pip install --no-cache-dir "torch==${TORCH_VERSION}" \
-      "torchvision==${TORCHVISION_VERSION}" "torchaudio==${TORCHAUDIO_VERSION}" \
-      "torchcodec==${TORCHCODEC_VERSION}" --index-url "$TORCH_INDEX" && \
-    pip install --no-cache-dir -i "$PIP_INDEX" \
-      "numpy==${NUMPY_VERSION}" "pandas==${PANDAS_VERSION}"
+    pip install --no-cache-dir --constraint /opt/requirements-runtime.txt \
+      torch torchvision torchaudio torchcodec --index-url "$TORCH_INDEX" && \
+    pip install --no-cache-dir --constraint /opt/requirements-runtime.txt \
+      -i "$PIP_INDEX" numpy pandas
 
 COPY . /opt/inference
 COPY --from=web-builder /opt/inference/xinference/ui/web/dist /opt/inference/xinference/ui/web/dist
@@ -113,15 +93,19 @@ WORKDIR /opt/inference
 
 # NO_WEB_UI=1: the static Web UI was already staged by the builder stage and
 # is packaged via MANIFEST.in; skip the npm build hook of setup.py.
-# transformers/accelerate satisfy ENGINE_VIRTUALENV_PACKAGES["transformers"]
-# so the default engine's venv install is satisfied by the parent env.
+# Keep only the engine core in the slim parent image. Model-side and
+# quantization dependencies live in ENGINE_VIRTUALENV_PACKAGES["transformers"];
+# they are installed into the per-model venv and are therefore also collected
+# by the offline pypiserver generator.
 # uv (a runtime dependency anyway, it powers the per-model venv installer)
 # also does the image install: parallel downloads with per-request timeouts
 # recover from throttled/stalled index connections that serial pip rides
 # to a crawl.
 RUN pip install --no-cache-dir -i "$PIP_INDEX" uv && \
     NO_WEB_UI=1 uv pip install --system --no-cache --index-url "$PIP_INDEX" \
-      ".[otel]" "transformers==${TRANSFORMERS_VERSION}" "accelerate==${ACCELERATE_VERSION}"
+      --extra-index-url "$TORCH_INDEX" --index-strategy unsafe-best-match \
+      --constraint /opt/requirements-runtime.txt \
+      ".[otel]" transformers accelerate
 
 # Parity with previous images: no entrypoint, plain shell by default; deploy
 # commands (xinference-local / supervisor / worker) are passed explicitly.

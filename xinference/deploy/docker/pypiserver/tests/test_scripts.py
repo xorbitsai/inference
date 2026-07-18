@@ -20,6 +20,20 @@ from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1]
+REPO_ROOT = SCRIPT_DIR.parents[3]
+
+
+def _write_runtime_constraints(path: Path) -> None:
+    path.write_text(
+        "torch==2.11.0\n"
+        "torchvision==0.26.0\n"
+        "torchaudio==2.11.0\n"
+        "torchcodec==0.14.0\n"
+        "transformers==5.13.1\n"
+        "accelerate==1.14.0\n"
+        "numpy==2.3.5\n"
+        "pandas==3.0.3\n"
+    )
 
 
 def _load_script(name: str) -> ModuleType:
@@ -64,6 +78,89 @@ def test_download_report_wheel_filename_parsing():
     ) == ("sentence-transformers", "5.1.2")
     assert downloader.wheel_name_version("package.tar.gz") is None
     assert downloader.wheel_name_version("invalid.whl") is None
+
+
+def test_runtime_constraints_require_exact_pins(tmp_path):
+    downloader = _load_script("download_packages")
+    constraints = tmp_path / "runtime.txt"
+    _write_runtime_constraints(constraints)
+
+    pins = downloader.load_runtime_constraints(constraints)
+    assert pins["torch"] == "torch==2.11.0"
+    assert pins["transformers"] == "transformers==5.13.1"
+
+    constraints.write_text(constraints.read_text().replace("pandas==3.0.3", "pandas"))
+    try:
+        downloader.load_runtime_constraints(constraints)
+    except ValueError as exc:
+        assert "must be an exact pin" in str(exc)
+    else:
+        raise AssertionError("an unpinned runtime package must be rejected")
+
+
+def test_runtime_and_mirror_share_the_same_constraints_file():
+    downloader = _load_script("download_packages")
+    constraints = REPO_ROOT / "xinference/deploy/docker/requirements-runtime.txt"
+    pins = downloader.load_runtime_constraints(constraints)
+    assert set(pins) == {
+        "accelerate",
+        "numpy",
+        "pandas",
+        "torch",
+        "torchaudio",
+        "torchcodec",
+        "torchvision",
+        "transformers",
+    }
+
+    runtime_dockerfile = (REPO_ROOT / "xinference/deploy/docker/Dockerfile").read_text()
+    assert (
+        "COPY xinference/deploy/docker/requirements-runtime.txt" in runtime_dockerfile
+    )
+    mirror_dockerfile = (
+        REPO_ROOT / "xinference/deploy/docker/pypiserver/Dockerfile.pypiserver"
+    ).read_text()
+    assert "COPY xinference/deploy/docker/requirements-runtime.txt" in mirror_dockerfile
+    assert "--runtime-constraints /build/requirements-runtime.txt" in mirror_dockerfile
+
+
+def test_transformers_model_dependencies_are_mirrored_not_baked(monkeypatch, tmp_path):
+    dockerfile = (REPO_ROOT / "xinference/deploy/docker/Dockerfile").read_text()
+    assert '".[otel]" transformers accelerate' in dockerfile
+    assert '".[otel,transformers,transformers_quantization]"' not in dockerfile
+    assert "--constraint /opt/requirements-runtime.txt" in dockerfile
+
+    generator = _load_script("generate_package_lists")
+    out = tmp_path / "manifest"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "generate_package_lists.py",
+            "--platform",
+            "amd64",
+            "--src-root",
+            str(REPO_ROOT),
+            "--out",
+            str(out),
+        ],
+    )
+    original_machine = generator._platform.machine
+    try:
+        generator.main()
+    finally:
+        generator._platform.machine = original_machine
+
+    mirrored = (out / "engines" / "transformers.in").read_text().lower()
+    for package in (
+        "qwen-vl-utils",
+        "attrdict",
+        "einops",
+        "bitsandbytes",
+        "gptqmodel",
+        "autoawq",
+    ):
+        assert package in mirrored
 
 
 def test_generate_package_lists_main_orchestration(monkeypatch, tmp_path):
@@ -158,14 +255,16 @@ def test_download_packages_main_orchestration_skips_git(monkeypatch, tmp_path):
     git_source = "git-package @ git+https://example.invalid/repo.git@abc"
     (manifest / "git.txt").write_text(git_source + "\n")
     dest = tmp_path / "packages"
+    runtime_constraints = tmp_path / "runtime.txt"
+    _write_runtime_constraints(runtime_constraints)
     compile_calls = []
     download_calls = []
     run_calls = []
 
     def fake_uv_compile(in_file, out_file, **kwargs):
         compile_calls.append((in_file, out_file, kwargs))
-        if out_file.name == "torch-family.lock":
-            out_file.write_text("torch==2.11.0\n")
+        if out_file.name in ("runtime.lock", "torch-family.lock"):
+            out_file.write_text(runtime_constraints.read_text())
         else:
             out_file.write_text("engine-pkg==1.0\n")
         return subprocess.CompletedProcess([], 0)
@@ -194,12 +293,15 @@ def test_download_packages_main_orchestration_skips_git(monkeypatch, tmp_path):
             str(dest),
             "--platform",
             "amd64",
+            "--runtime-constraints",
+            str(runtime_constraints),
         ],
     )
 
     downloader.main()
 
-    assert len(compile_calls) == 2
+    assert len(compile_calls) == 3
+    assert compile_calls[0][0] == runtime_constraints
     assert ["-r", str(manifest / "locks" / "test.lock")] in [
         call[0] for call in download_calls
     ]
@@ -211,6 +313,7 @@ def test_download_packages_main_orchestration_skips_git(monkeypatch, tmp_path):
     assert all(git_source not in " ".join(call) for call in run_calls)
     assert not (dest / "source-1.0.tar.gz").exists()
     report = json.loads((manifest / "report.json").read_text())
+    assert "transformers==5.13.1" in report["runtime_constraints"]
     assert report["unconstrained_fallbacks"] == []
     assert report["sdist_left"] == []
 
@@ -230,6 +333,8 @@ def test_selfcheck_main_orchestration(monkeypatch, tmp_path, capsys):
     git_source = "git-package @ git+https://example.invalid/repo.git@abc"
     (manifest / "git.txt").write_text(git_source + "\n")
     compile_calls = []
+    runtime_constraints = tmp_path / "runtime.txt"
+    _write_runtime_constraints(runtime_constraints)
 
     def fake_compile(requirements, index_url, python_version, python_platform):
         compile_calls.append((requirements, index_url, python_version, python_platform))
@@ -248,12 +353,15 @@ def test_selfcheck_main_orchestration(monkeypatch, tmp_path, capsys):
             str(manifest),
             "--platform",
             "amd64",
+            "--runtime-constraints",
+            str(runtime_constraints),
         ],
     )
 
     selfcheck.main()
 
     assert [call[0] for call in compile_calls] == [
+        runtime_constraints.read_text().splitlines(),
         ["engine-pkg>=1.0"],
         ["model-pin==1.0"],
         ["direct==1.0"],

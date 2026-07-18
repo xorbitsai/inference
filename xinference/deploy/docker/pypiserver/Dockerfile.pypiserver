@@ -27,9 +27,6 @@ ARG PLATFORM=amd64
 ARG PYTHON_VERSION
 # CUDA versions below 13.0 are not supported.
 ARG CUDA_SUFFIX=cu130
-# torch of the xinference runtime image; per-model venvs install the
-# system-matching version, so the mirror must carry exactly this one.
-ARG TORCH_VERSION=2.11.*
 
 RUN case "${PLATFORM}" in \
       amd64|arm64) ;; \
@@ -56,6 +53,7 @@ COPY xinference/constants.py xinference/_compat.py /build/src/xinference/
 COPY xinference/core/utils.py \
      xinference/core/virtual_env_manager.py /build/src/xinference/core/
 COPY xinference/model/ /build/src/xinference/model/
+COPY xinference/deploy/docker/requirements-runtime.txt /build/requirements-runtime.txt
 COPY xinference/deploy/docker/pypiserver/generate_package_lists.py \
      xinference/deploy/docker/pypiserver/download_packages.py \
      xinference/deploy/docker/pypiserver/selfcheck.py /build/
@@ -71,7 +69,7 @@ RUN python download_packages.py \
       --dest /data/packages \
       --platform "${PLATFORM}" \
       --python-version "${PYTHON_VERSION}" \
-      --torch-version "${TORCH_VERSION}" \
+      --runtime-constraints /build/requirements-runtime.txt \
       --pytorch-index "https://download.pytorch.org/whl/${CUDA_SUFFIX}" \
     && rm -rf /root/.cache
 
@@ -90,6 +88,7 @@ RUN (pypi-server run -p 8080 --disable-fallback /data/packages &) \
          --manifest-dir /build/out \
          --platform "${PLATFORM}" \
          --python-version "${PYTHON_VERSION}" \
+         --runtime-constraints /build/requirements-runtime.txt \
     && touch /selfcheck.ok
 
 # ============================================================================
@@ -102,7 +101,7 @@ COPY --chown=pypiserver:pypiserver --from=downloader /data/packages/ /data/packa
 # the selfcheck marker so the quality gate cannot be skipped.
 COPY --chown=pypiserver:pypiserver --from=downloader /build/out/manifest.json \
      /build/out/pins.json /build/out/urls.txt /build/out/git.txt \
-     /build/out/report.json /data/manifest/
+     /build/out/report.json /build/requirements-runtime.txt /data/manifest/
 COPY --chown=pypiserver:pypiserver --from=selfcheck /selfcheck.ok /data/manifest/
 
 EXPOSE 8080

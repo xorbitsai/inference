@@ -43,6 +43,32 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
     "transformers": [
         "transformers>=4.53.3",
         "accelerate>=0.28.0",
+        # Model-side dependencies formerly baked into the GPU image. Keep
+        # them in the engine venv declaration so they are installed only when
+        # a Transformers model venv is prepared, while the offline mirror
+        # generator automatically downloads the same package set.
+        "sentencepiece",
+        "transformers_stream_generator",
+        "bitsandbytes ; sys_platform=='linux'",
+        "protobuf",
+        "einops",
+        "tiktoken",
+        "optimum",
+        "attrdict",
+        "timm>=0.9.16",
+        "peft",
+        # eva-decord publishes Linux wheels only for x86_64.
+        "eva-decord ; platform_machine=='x86_64'",
+        "jj-pytorchvideo",
+        "qwen-vl-utils!=0.0.9",
+        "qwen_omni_utils",
+        "datamodel_code_generator",
+        "jsonschema",
+        "blobfile",
+        # Quantization backends advertised by the Transformers engine.
+        "gptqmodel",
+        "autoawq!=0.2.6 ; sys_platform!='darwin'",
+        "datasets>=3.4.0",
     ],
     "sentence_transformers": [
         "sentence_transformers",
