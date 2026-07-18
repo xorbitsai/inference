@@ -40,14 +40,19 @@ msgstr "감사 로깅"
 
 #: ../../source/user_guide/audit_security.rst:15
 msgid ""
-"Every API request is recorded as one JSON line in "
+"Protected and authenticated API activity is recorded as JSON lines in "
 "``<XINFERENCE_LOG_DIR>/audit.log`` (``<XINFERENCE_HOME>/logs`` by "
 "default). Files rotate daily (and by size) and are kept for "
 "``XINFERENCE_AUDIT_LOG_RETENTION_DAYS`` days (default 90)."
 msgstr ""
-"모든 API 요청은 ``<XINFERENCE_LOG_DIR>/audit.log``\\ (기본값 "
-"``<XINFERENCE_HOME>/logs``)에 JSON 한 줄로 기록됩니다. 파일은 매일(그리고 크기 기준으로) 로테이션되며 "
-"``XINFERENCE_AUDIT_LOG_RETENTION_DAYS`` 일(기본 90일) 동안 보관됩니다."
+
+msgid ""
+"This is an authentication and security audit trail, not a complete HTTP "
+"access log. Xinference intentionally excludes ``/v1/audit/*``, "
+"``/v1/cluster/auth``, ``/v1/cluster/ui_config``, ``/status``, and "
+"``/v1/address``; public or bootstrap routes that do not pass through the "
+"authenticated audit path may also be absent."
+msgstr ""
 
 #: ../../source/user_guide/audit_security.rst:20
 msgid "Each entry contains, among others:"

@@ -40,15 +40,19 @@ msgstr "監査ログ"
 
 #: ../../source/user_guide/audit_security.rst:15
 msgid ""
-"Every API request is recorded as one JSON line in "
+"Protected and authenticated API activity is recorded as JSON lines in "
 "``<XINFERENCE_LOG_DIR>/audit.log`` (``<XINFERENCE_HOME>/logs`` by "
 "default). Files rotate daily (and by size) and are kept for "
 "``XINFERENCE_AUDIT_LOG_RETENTION_DAYS`` days (default 90)."
 msgstr ""
-"すべての API リクエストは、 ``<XINFERENCE_LOG_DIR>/audit.log`` （デフォルトは "
-"``<XINFERENCE_HOME>/logs``）に 1 行の JSON "
-"として記録されます。ファイルは日次（およびサイズ）でローテーションされ、 "
-"``XINFERENCE_AUDIT_LOG_RETENTION_DAYS`` 日間（デフォルト 90 日）保持されます。"
+
+msgid ""
+"This is an authentication and security audit trail, not a complete HTTP "
+"access log. Xinference intentionally excludes ``/v1/audit/*``, "
+"``/v1/cluster/auth``, ``/v1/cluster/ui_config``, ``/status``, and "
+"``/v1/address``; public or bootstrap routes that do not pass through the "
+"authenticated audit path may also be absent."
+msgstr ""
 
 #: ../../source/user_guide/audit_security.rst:20
 msgid "Each entry contains, among others:"
