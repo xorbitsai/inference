@@ -411,31 +411,78 @@ def main() -> None:
     # 4. Build wheels for sdist-only downloads so the runtime never
     #    compiles. Failures keep the sdist (the runtime image has a
     #    toolchain) and are recorded in the report.
+    #
+    #    A built wheel can declare dependencies that the sdist's static
+    #    metadata omitted (e.g. GPTQModel publishes an sdist whose
+    #    PKG-INFO lists no runtime requirements, while the wheel its
+    #    setup.py builds does). The locks above only saw the sdist
+    #    metadata, so fetch each built wheel's dependencies explicitly
+    #    and repeat until no new sdists arrive.
     # ------------------------------------------------------------------
-    for sdist in sorted(dest.iterdir()):
-        if sdist.suffix not in (".gz", ".zip", ".bz2") and not sdist.name.endswith(
-            ".tar.gz"
-        ):
-            continue
-        proc = run(
-            [
-                sys.executable,
-                "-m",
-                "pip",
-                "wheel",
-                "--quiet",
-                "--no-deps",
-                "--wheel-dir",
-                str(dest),
-                str(sdist),
-            ],
-            env=package_build_env,
-        )
-        if proc.returncode == 0:
-            sdist.unlink()
-        else:
-            print(f"WARN: keeping sdist {sdist.name}", flush=True)
-            sdist_left.append(sdist.name)
+    failed_sdists: Set[str] = set()
+    while True:
+        built_wheels: List[Path] = []
+        for sdist in sorted(dest.iterdir()):
+            if sdist.suffix not in (".gz", ".zip", ".bz2") and not sdist.name.endswith(
+                ".tar.gz"
+            ):
+                continue
+            if sdist.name in failed_sdists:
+                continue
+            wheels_before = {p.name for p in dest.glob("*.whl")}
+            proc = run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "wheel",
+                    "--quiet",
+                    "--no-deps",
+                    "--wheel-dir",
+                    str(dest),
+                    str(sdist),
+                ],
+                env=package_build_env,
+            )
+            if proc.returncode == 0:
+                sdist.unlink()
+                built_wheels.extend(
+                    p for p in dest.glob("*.whl") if p.name not in wheels_before
+                )
+            else:
+                print(f"WARN: keeping sdist {sdist.name}", flush=True)
+                failed_sdists.add(sdist.name)
+        if not built_wheels:
+            break
+        for wheel in built_wheels:
+            proc = pip_download(
+                [str(wheel)],
+                dest,
+                index_url=args.index_url,
+                extra_index_urls=[args.pytorch_index],
+                constraints=master_constraints,
+                env=package_build_env,
+            )
+            if proc.returncode != 0:
+                print(
+                    f"WARN: retrying dependencies of '{wheel.name}' "
+                    "without constraints",
+                    flush=True,
+                )
+                proc = pip_download(
+                    [str(wheel)],
+                    dest,
+                    index_url=args.index_url,
+                    extra_index_urls=[args.pytorch_index],
+                    env=package_build_env,
+                )
+                if proc.returncode != 0:
+                    sys.exit(
+                        f"FATAL: failed to fetch dependencies of built "
+                        f"wheel '{wheel.name}'"
+                    )
+                unconstrained_fallbacks.append(wheel.name)
+    sdist_left.extend(sorted(failed_sdists))
 
     # ------------------------------------------------------------------
     # Report.

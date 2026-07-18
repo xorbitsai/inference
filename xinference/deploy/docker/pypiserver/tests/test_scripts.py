@@ -417,10 +417,18 @@ def test_download_packages_main_orchestration_skips_git(monkeypatch, tmp_path):
         download_calls.append((list(args), kwargs))
         if args == ["model-pin==1.0"]:
             (target / "source-1.0.tar.gz").write_text("sdist")
+        # The wheel built from the sdist declares a dependency that the
+        # sdist metadata omitted; it only exists as an sdist itself.
+        if args == [str(dest / "source-1.0-py3-none-any.whl")]:
+            (target / "hiddendep-1.0.tar.gz").write_text("sdist")
         return subprocess.CompletedProcess([], 0)
 
     def fake_run(cmd, **kwargs):
         run_calls.append((list(cmd), kwargs))
+        if "wheel" in cmd:
+            sdist_name = Path(cmd[-1]).name
+            wheel_name = sdist_name.replace(".tar.gz", "-py3-none-any.whl")
+            (dest / wheel_name).write_text("wheel")
         return subprocess.CompletedProcess(cmd, 0)
 
     monkeypatch.setattr(downloader, "uv_compile", fake_uv_compile)
@@ -458,6 +466,15 @@ def test_download_packages_main_orchestration_skips_git(monkeypatch, tmp_path):
     assert all(call[1]["env"]["TORCH_VERSION"] == "2.12.3" for call in download_calls)
     assert all(call[1]["env"]["TORCH_VERSION"] == "2.12.3" for call in run_calls)
     assert not (dest / "source-1.0.tar.gz").exists()
+    # Dependencies of wheels built from sdists are fetched from the built
+    # wheel's own metadata, transitively until no new sdists arrive.
+    assert [str(dest / "source-1.0-py3-none-any.whl")] in [
+        call[0] for call in download_calls
+    ]
+    assert [str(dest / "hiddendep-1.0-py3-none-any.whl")] in [
+        call[0] for call in download_calls
+    ]
+    assert not (dest / "hiddendep-1.0.tar.gz").exists()
     report = json.loads((manifest / "report.json").read_text())
     assert "transformers==5.13.1" in report["runtime_constraints"]
     assert report["unconstrained_fallbacks"] == []
