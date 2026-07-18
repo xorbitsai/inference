@@ -72,25 +72,36 @@ def load_xinference_modules(src_root: Path) -> Tuple[Any, Any]:
         spec.loader.exec_module(module)
         return module
 
-    pkg_root = src_root / "xinference"
-    _load("xinference", pkg_root, is_pkg=True)
-    _load("xinference.constants", pkg_root / "constants.py")
-    # Stub xinference._compat instead of loading the real module: it drags
-    # in openai at import time, while core.utils only needs BaseModel.
-    compat = types.ModuleType("xinference._compat")
+    saved_modules = {
+        name: module
+        for name, module in sys.modules.items()
+        if name == "xinference" or name.startswith("xinference.")
+    }
     try:
-        from pydantic.v1 import BaseModel  # pydantic v2, matches _compat
-    except ImportError:
-        from pydantic import BaseModel  # type: ignore[assignment]
-    compat.BaseModel = BaseModel  # type: ignore[attr-defined]
-    sys.modules["xinference._compat"] = compat
-    _load("xinference.core", pkg_root / "core", is_pkg=True)
-    core_utils = _load("xinference.core.utils", pkg_root / "core" / "utils.py")
-    venv_manager = _load(
-        "xinference.core.virtual_env_manager",
-        pkg_root / "core" / "virtual_env_manager.py",
-    )
-    return core_utils, venv_manager
+        pkg_root = src_root / "xinference"
+        _load("xinference", pkg_root, is_pkg=True)
+        _load("xinference.constants", pkg_root / "constants.py")
+        # Stub xinference._compat instead of loading the real module: it drags
+        # in openai at import time, while core.utils only needs BaseModel.
+        compat = types.ModuleType("xinference._compat")
+        try:
+            from pydantic.v1 import BaseModel  # pydantic v2, matches _compat
+        except ImportError:
+            from pydantic import BaseModel  # type: ignore[assignment]
+        compat.BaseModel = BaseModel  # type: ignore[attr-defined]
+        sys.modules["xinference._compat"] = compat
+        _load("xinference.core", pkg_root / "core", is_pkg=True)
+        core_utils = _load("xinference.core.utils", pkg_root / "core" / "utils.py")
+        venv_manager = _load(
+            "xinference.core.virtual_env_manager",
+            pkg_root / "core" / "virtual_env_manager.py",
+        )
+        return core_utils, venv_manager
+    finally:
+        for name in list(sys.modules):
+            if name == "xinference" or name.startswith("xinference."):
+                sys.modules.pop(name, None)
+        sys.modules.update(saved_modules)
 
 
 def iter_virtualenv_packages(
@@ -114,7 +125,7 @@ def iter_virtualenv_packages(
 
     for json_path in sorted(model_dir.rglob("*.json")):
         try:
-            data = json.loads(json_path.read_text())
+            data = json.loads(json_path.read_text(encoding="utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError):
             continue
         rel = str(json_path.relative_to(model_dir))

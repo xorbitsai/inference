@@ -56,6 +56,67 @@ def test_generate_package_list_classification():
     assert generator.system_placeholder_name("#system_numpy# ; marker") == "numpy"
 
 
+def test_load_xinference_modules_restores_sys_modules():
+    generator = _load_script("generate_package_lists")
+    original_xinference = sys.modules.get("xinference")
+    sentinel = original_xinference or ModuleType("xinference")
+    sys.modules["xinference"] = sentinel
+    try:
+        before = {
+            name: module
+            for name, module in sys.modules.items()
+            if name == "xinference" or name.startswith("xinference.")
+        }
+
+        core_utils, venv_manager = generator.load_xinference_modules(REPO_ROOT)
+
+        after = {
+            name: module
+            for name, module in sys.modules.items()
+            if name == "xinference" or name.startswith("xinference.")
+        }
+        assert after == before
+        assert sys.modules["xinference"] is sentinel
+        assert callable(core_utils.filter_virtualenv_packages_by_markers)
+        assert "transformers" in venv_manager.ENGINE_VIRTUALENV_PACKAGES
+    finally:
+        if original_xinference is None:
+            sys.modules.pop("xinference", None)
+        else:
+            sys.modules["xinference"] = original_xinference
+
+
+def test_iter_virtualenv_packages_reads_json_as_utf8(monkeypatch, tmp_path):
+    generator = _load_script("generate_package_lists")
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    model_json = model_dir / "model.json"
+    model_json.write_text(
+        json.dumps(
+            {
+                "model_name": "中文模型",
+                "virtualenv": {"packages": ["model-package"]},
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    original_read_text = Path.read_text
+    encodings = []
+
+    def tracked_read_text(path, *args, **kwargs):
+        if path == model_json:
+            encodings.append(kwargs.get("encoding"))
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", tracked_read_text)
+
+    assert list(generator.iter_virtualenv_packages(model_dir)) == [
+        ("model.json", "中文模型", ["model-package"])
+    ]
+    assert encodings == ["utf-8"]
+
+
 def test_selfcheck_wheel_url_to_spec():
     selfcheck = _load_script("selfcheck")
 
