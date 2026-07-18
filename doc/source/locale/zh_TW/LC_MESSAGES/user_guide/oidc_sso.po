@@ -1,0 +1,181 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2026, XINFERENCE HOLDINGS PTE. LTD.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-17 15:37+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_TW\n"
+"Language-Team: zh_TW <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/oidc_sso.rst:5
+msgid "OIDC Single Sign-On"
+msgstr "OIDC 單一登入"
+
+#: ../../source/user_guide/oidc_sso.rst:7
+msgid ""
+"Xinference can authenticate users against an external OpenID Connect "
+"(OIDC) identity provider such as `Keycloak <https://www.keycloak.org/>`_,"
+" in addition to the built-in username/password login. SSO users are "
+"provisioned automatically on first login and managed like any other user "
+"afterwards."
+msgstr ""
+"除了內建的使用者名稱／密碼登入外，Xinference 還可以透過外部 OpenID Connect（OIDC）身分提供者（例如 "
+"`Keycloak <https://www.keycloak.org/>`_）驗證使用者。SSO "
+"使用者會在首次登入時自動建立，之後的管理方式與其他使用者相同。"
+
+#: ../../source/user_guide/oidc_sso.rst:12
+msgid ""
+"OIDC requires the database-backed authentication system to be enabled "
+"(the default) — see :ref:`user_guide_auth_system`."
+msgstr "OIDC 需要啟用以資料庫為後端的身分驗證系統（預設啟用）——參見 :ref:`user_guide_auth_system`。"
+
+#: ../../source/user_guide/oidc_sso.rst:16
+msgid "Configuration"
+msgstr "設定"
+
+#: ../../source/user_guide/oidc_sso.rst:18
+msgid ""
+"Enable OIDC by setting the following environment variables on the process"
+" that runs the RESTful API:"
+msgstr "在執行 RESTful API 的程序上設定以下環境變數即可啟用 OIDC："
+
+#: ../../source/user_guide/oidc_sso.rst:24
+msgid "Environment variable"
+msgstr "環境變數"
+
+#: ../../source/user_guide/oidc_sso.rst:25
+msgid "Meaning"
+msgstr "含義"
+
+#: ../../source/user_guide/oidc_sso.rst:26
+msgid "``XINFERENCE_OIDC_ENABLED``"
+msgstr "``XINFERENCE_OIDC_ENABLED``"
+
+#: ../../source/user_guide/oidc_sso.rst:27
+msgid "Set to ``1`` / ``true`` / ``yes`` to enable OIDC. Default: disabled."
+msgstr "設定為 ``1`` / ``true`` / ``yes`` 以啟用 OIDC。預設：停用。"
+
+#: ../../source/user_guide/oidc_sso.rst:28
+msgid "``XINFERENCE_OIDC_ISSUER``"
+msgstr "``XINFERENCE_OIDC_ISSUER``"
+
+#: ../../source/user_guide/oidc_sso.rst:29
+msgid ""
+"Issuer URL of your identity provider, e.g. "
+"``https://keycloak.example.com/realms/myrealm``. Xinference discovers the"
+" provider's endpoints from ``<issuer>/.well-known/openid-configuration``."
+msgstr ""
+"身分提供者的簽發者（issuer）URL，例如 "
+"``https://keycloak.example.com/realms/myrealm``。Xinference 會從 ``<issuer"
+">/.well-known/openid-configuration`` 探索提供者的各端點。"
+
+#: ../../source/user_guide/oidc_sso.rst:33
+msgid "``XINFERENCE_OIDC_CLIENT_ID``"
+msgstr "``XINFERENCE_OIDC_CLIENT_ID``"
+
+#: ../../source/user_guide/oidc_sso.rst:34
+msgid "OAuth client ID registered at the provider."
+msgstr "在提供者處註冊的 OAuth 用戶端 ID。"
+
+#: ../../source/user_guide/oidc_sso.rst:35
+msgid "``XINFERENCE_OIDC_CLIENT_SECRET``"
+msgstr "``XINFERENCE_OIDC_CLIENT_SECRET``"
+
+#: ../../source/user_guide/oidc_sso.rst:36
+msgid "OAuth client secret (a *confidential* client is required)."
+msgstr "OAuth 用戶端密鑰（必須使用*機密（confidential）*用戶端）。"
+
+#: ../../source/user_guide/oidc_sso.rst:37
+msgid "``XINFERENCE_OIDC_REDIRECT_URI``"
+msgstr "``XINFERENCE_OIDC_REDIRECT_URI``"
+
+#: ../../source/user_guide/oidc_sso.rst:38
+msgid ""
+"Callback URL pointing back at Xinference, i.e. ``http(s)://<xinference-"
+"endpoint>/api/oidc/callback``. The same URL must be registered as a valid"
+" redirect URI at the provider."
+msgstr ""
+"指回 Xinference 的回呼 URL，即 ``http(s)://<xinference-"
+"endpoint>/api/oidc/callback``。同一個 URL 也必須在提供者處註冊為有效的重新導向 URI。"
+
+#: ../../source/user_guide/oidc_sso.rst:42
+msgid ""
+"When ``XINFERENCE_OIDC_ENABLED`` is set, all four remaining variables are"
+" required — Xinference refuses to start and reports the missing ones "
+"otherwise."
+msgstr "設定 ``XINFERENCE_OIDC_ENABLED`` 後，其餘四個變數皆為必填——否則 Xinference 會拒絕啟動並回報缺少的變數。"
+
+#: ../../source/user_guide/oidc_sso.rst:46
+msgid "Example (Keycloak):"
+msgstr "範例（Keycloak）："
+
+#: ../../source/user_guide/oidc_sso.rst:58
+msgid "Login flow"
+msgstr "登入流程"
+
+#: ../../source/user_guide/oidc_sso.rst:60
+msgid ""
+"Direct users to ``GET /api/oidc/authorize`` on the Xinference endpoint. "
+"Xinference redirects the browser to the provider's authorization page "
+"(requesting the ``openid profile email`` scopes)."
+msgstr ""
+"將使用者導向 Xinference 端點上的 ``GET /api/oidc/authorize``。Xinference "
+"會將瀏覽器重新導向到提供者的授權頁面（請求 ``openid profile email`` 範圍）。"
+
+#: ../../source/user_guide/oidc_sso.rst:63
+msgid ""
+"After a successful provider login, the browser returns to "
+"``/api/oidc/callback``. Xinference exchanges the authorization code, "
+"verifies the ID token signature against the provider's published JWKS, "
+"issues its own access and refresh tokens, and redirects to the web UI."
+msgstr ""
+"在提供者端成功登入後，瀏覽器會返回 ``/api/oidc/callback``。Xinference 會交換授權碼、根據提供者發布的 JWKS "
+"驗證 ID 權杖簽章、簽發自己的存取權杖與重新整理權杖，並重新導向到 Web UI。"
+
+#: ../../source/user_guide/oidc_sso.rst:69
+msgid "User provisioning and permissions"
+msgstr "使用者建立與權限"
+
+#: ../../source/user_guide/oidc_sso.rst:71
+msgid ""
+"Users are matched by the OIDC ``sub`` claim. On first login an account is"
+" created automatically with the provider's ``preferred_username`` "
+"(falling back to ``email``) as the username and ``source`` set to "
+"``oidc``."
+msgstr ""
+"使用者透過 OIDC 的 ``sub`` 宣告（claim）進行比對。首次登入時會自動建立帳號，使用者名稱取自提供者的 "
+"``preferred_username`` （若無則使用 ``email``），且 ``source`` 設為 ``oidc``。"
+
+#: ../../source/user_guide/oidc_sso.rst:74
+msgid ""
+"Newly provisioned SSO users start with only the ``models:list`` "
+"permission. An administrator grants further permissions through the "
+"**User Management** page or the ``/v1/admin/users`` API — changes take "
+"effect on the user's next request, without re-login."
+msgstr ""
+"新建立的 SSO 使用者一開始只擁有 ``models:list`` 權限。管理員可透過**使用者管理**頁面或 "
+"``/v1/admin/users`` API 授予更多權限——變更會在使用者的下一次請求時生效，無需重新登入。"
+
+#: ../../source/user_guide/oidc_sso.rst:78
+msgid ""
+"Disabling an SSO user in user management blocks their login even if their"
+" provider account is still active."
+msgstr "在使用者管理中停用 SSO 使用者後，即使其在提供者端的帳號仍然有效，也無法登入。"
+
+#: ../../source/user_guide/oidc_sso.rst:80
+msgid ""
+"OIDC users have no local password, so local password login and password "
+"change do not apply to them."
+msgstr "OIDC 使用者沒有本機密碼，因此本機密碼登入與密碼變更不適用於他們。"
+

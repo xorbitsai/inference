@@ -120,7 +120,7 @@ CSGHub endpoint for model source.
 Default value is ``https://hub-stg.opencsg.com/``.
 
 XINFERENCE_QWEN3_RERANK_TEMPLATE
-~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Enable template for Qwen3 rerank model family (0.6B, 4B, 8B,etc) globally.
 Default value is 1.
 
@@ -132,3 +132,58 @@ all clients so the history is available from any browser or machine, and it is
 independent of the authentication database. When authentication is enabled, each
 record keeps the creator's username (``created_by``).
 Default value is ``<XINFERENCE_HOME>/launch_history.db``.
+
+XINFERENCE_MODEL_ACTOR_AUTO_RECOVER_LIMIT
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Maximum number of times a crashed model actor is automatically recovered.
+Default is unset (no limit).
+
+XINFERENCE_FRONTEND_DIST_DIR
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Path to a static export of the web UI to serve instead of the one bundled
+with the package. Default is unset (serve the bundled Next.js export).
+
+.. versionchanged:: 3.0
+   Replaces the removed ``XINFERENCE_FRONTEND_ENDPOINT`` variable; the web UI
+   is now served by the Xinference server itself.
+
+XINFERENCE_AUTH_ADVANCED
+~~~~~~~~~~~~~~~~~~~~~~~~
+Enable the database-backed authentication system. Default value is 1
+(enabled, starting from v3.0). Set to ``0`` / ``false`` / ``no`` to run
+Xinference without any authentication.
+See :ref:`user_guide_auth_system`.
+
+XINFERENCE_AUTH_DB_PATH
+~~~~~~~~~~~~~~~~~~~~~~~
+Path to the SQLite database that stores users, permissions, API keys, and
+refresh tokens. Default value is ``<XINFERENCE_HOME>/auth/auth.db``.
+
+XINFERENCE_AUTH_JWT_SECRET_KEY
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+JWT signing secret for the authentication system. If unset, a secret is
+auto-generated and persisted at ``<XINFERENCE_HOME>/auth/jwt_secret_key`` on
+first run.
+
+XINFERENCE_AUTH_ENCRYPTION_KEY
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Key used to encrypt stored API keys at rest. If unset, a key is
+auto-generated and persisted at ``<XINFERENCE_HOME>/auth/encryption_key`` on
+first run.
+
+XINFERENCE_ACCESS_TOKEN_EXPIRE_MINUTES
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Lifetime (minutes) of access tokens issued by the authentication system.
+Default value is 30.
+
+XINFERENCE_OIDC_ENABLED
+~~~~~~~~~~~~~~~~~~~~~~~
+Enable OIDC single sign-on (e.g. Keycloak). Default value is 0 (disabled).
+When enabled, ``XINFERENCE_OIDC_ISSUER``, ``XINFERENCE_OIDC_CLIENT_ID``,
+``XINFERENCE_OIDC_CLIENT_SECRET``, and ``XINFERENCE_OIDC_REDIRECT_URI`` are
+required. See :ref:`user_guide_oidc`.
+
+XINFERENCE_AUDIT_LOG_RETENTION_DAYS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Number of days audit log files are retained.
+Default value is 90. See :ref:`user_guide_audit_security`.

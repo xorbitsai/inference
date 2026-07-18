@@ -1,0 +1,195 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2026, XINFERENCE HOLDINGS PTE. LTD.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-17 15:37+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_TW\n"
+"Language-Team: zh_TW <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/audit_security.rst:5
+msgid "Audit Logging and Security"
+msgstr "稽核日誌與安全性"
+
+#: ../../source/user_guide/audit_security.rst:7
+msgid ""
+"When the database-backed authentication system is enabled (the default, "
+"see :ref:`user_guide_auth_system`), Xinference records an audit trail of "
+"API activity and protects the API against brute-force attacks. "
+"Administrators can inspect both from the web UI."
+msgstr ""
+"啟用以資料庫為後端的身分驗證系統時（預設啟用，參見 :ref:`user_guide_auth_system`），Xinference 會記錄 "
+"API 活動的稽核軌跡，並保護 API 免受暴力破解攻擊。管理員可以在 Web UI 中檢視這兩項功能。"
+
+#: ../../source/user_guide/audit_security.rst:13
+msgid "Audit logging"
+msgstr "稽核日誌"
+
+#: ../../source/user_guide/audit_security.rst:15
+msgid ""
+"Protected and authenticated API activity is recorded as JSON lines in "
+"``<XINFERENCE_LOG_DIR>/audit.log`` (``<XINFERENCE_HOME>/logs`` by "
+"default). Files rotate daily (and by size) and are kept for "
+"``XINFERENCE_AUDIT_LOG_RETENTION_DAYS`` days (default 90)."
+msgstr ""
+"受保護且已驗證的 API 活動會以 JSON Lines 格式記錄在 ``<XINFERENCE_LOG_DIR>/audit.log`` "
+"中（預設為 ``<XINFERENCE_HOME>/logs``）。檔案會每天以及依大小輪替，並保留 "
+"``XINFERENCE_AUDIT_LOG_RETENTION_DAYS`` 天（預設為 90 天）。"
+
+msgid ""
+"This is an authentication and security audit trail, not a complete HTTP "
+"access log. Xinference intentionally excludes ``/v1/audit/*``, "
+"``/v1/cluster/auth``, ``/v1/cluster/ui_config``, ``/status``, and "
+"``/v1/address``; public or bootstrap routes that do not pass through the "
+"authenticated audit path may also be absent."
+msgstr ""
+"這是驗證與安全性的稽核軌跡，不是完整的 HTTP 存取日誌。Xinference 會刻意排除 "
+"``/v1/audit/*``、``/v1/cluster/auth``、``/v1/cluster/ui_config``、``/status``"
+" 和 ``/v1/address``；未經過已驗證稽核路徑的公開或啟動路由也可能不會出現在記錄中。"
+
+#: ../../source/user_guide/audit_security.rst:20
+msgid "Each entry contains, among others:"
+msgstr "每筆紀錄包含以下欄位（不限於此）："
+
+#: ../../source/user_guide/audit_security.rst:22
+msgid ""
+"``category``: ``inference`` (model calls such as ``/v1/chat/...``, "
+"``/v1/embeddings``), ``auth`` (login/token endpoints), or ``admin`` "
+"(everything else)."
+msgstr ""
+"``category``： ``inference`` （模型呼叫，例如 ``/v1/chat/...``、 "
+"``/v1/embeddings``）、 ``auth`` （登入／權杖端點）或 ``admin`` （其餘所有端點）。"
+
+#: ../../source/user_guide/audit_security.rst:25
+msgid ""
+"``user``, ``auth_type``, ``api_key_name`` / ``api_key_prefix``: who made "
+"the call and how it was authenticated."
+msgstr ""
+"``user``、 ``auth_type``、 ``api_key_name`` / "
+"``api_key_prefix``：發出呼叫的使用者及其驗證方式。"
+
+#: ../../source/user_guide/audit_security.rst:27
+msgid ""
+"``model_id`` / ``model_name`` / ``model_type``: the model involved, if "
+"any."
+msgstr "``model_id`` / ``model_name`` / ``model_type``：所涉及的模型（如果有）。"
+
+#: ../../source/user_guide/audit_security.rst:28
+msgid ""
+"``endpoint``, ``status``, ``latency_ms``, ``client_ip``, ``node``, "
+"``address``: what was called, the outcome, and where it ran."
+msgstr ""
+"``endpoint``、 ``status``、 ``latency_ms``、 ``client_ip``、 ``node``、 "
+"``address``：所呼叫的端點、結果，以及執行的位置。"
+
+#: ../../source/user_guide/audit_security.rst:32
+msgid "Audit Center"
+msgstr "稽核中心"
+
+#: ../../source/user_guide/audit_security.rst:34
+msgid ""
+"The **Audit Center** page of the web UI lets administrators search and "
+"filter the audit trail (by time range, user, API key, model, category, "
+"status, and client IP). It is backed by ``GET /v1/audit/search``, which "
+"requires the ``admin`` permission."
+msgstr ""
+"Web UI 的**稽核中心**頁面讓管理員可以搜尋與篩選稽核軌跡（依時間範圍、使用者、API 金鑰、模型、類別、狀態與用戶端 IP）。其背後由 "
+"``GET /v1/audit/search`` 提供支援，該端點需要 ``admin`` 權限。"
+
+#: ../../source/user_guide/audit_security.rst:39
+msgid ""
+"By default the search reads the local ``audit.log``. If the "
+"``XINFERENCE_ES_URL`` environment variable points at an Elasticsearch "
+"cluster (e.g. with the audit log shipped by Filebeat), the search queries"
+" Elasticsearch instead, using the index pattern from "
+"``XINFERENCE_AUDIT_ES_INDEX`` (default ``xinference-audit-*``)."
+msgstr ""
+"預設情況下，搜尋會讀取本機的 ``audit.log``。若 ``XINFERENCE_ES_URL`` 環境變數指向一個 "
+"Elasticsearch 叢集（例如透過 Filebeat 傳送稽核日誌），搜尋會改為查詢 Elasticsearch，並使用 "
+"``XINFERENCE_AUDIT_ES_INDEX`` 指定的索引樣式（預設為 ``xinference-audit-*``）。"
+
+#: ../../source/user_guide/audit_security.rst:46
+msgid "Brute-force protection"
+msgstr "暴力破解防護"
+
+#: ../../source/user_guide/audit_security.rst:48
+msgid "Failed API-key authentication attempts are rate-limited on two levels:"
+msgstr "失敗的 API 金鑰驗證嘗試會在兩個層級受到速率限制："
+
+#: ../../source/user_guide/audit_security.rst:50
+msgid ""
+"**Per IP**: an IP presenting invalid API keys is banned after "
+"``XINFERENCE_RATE_LIMIT_IP_MAX_FAILURES`` failures (default 10) within "
+"``XINFERENCE_RATE_LIMIT_IP_WINDOW_SECONDS`` (default 300), for "
+"``XINFERENCE_RATE_LIMIT_IP_BAN_SECONDS`` (default 3600). Requests from a "
+"banned IP are rejected with ``429 Too Many Requests``."
+msgstr ""
+"**依 IP**：提交無效 API 金鑰的 IP 在 ``XINFERENCE_RATE_LIMIT_IP_WINDOW_SECONDS`` "
+"（預設 300）秒內失敗 ``XINFERENCE_RATE_LIMIT_IP_MAX_FAILURES`` 次（預設 10 次）後會被封鎖 "
+"``XINFERENCE_RATE_LIMIT_IP_BAN_SECONDS`` 秒（預設 3600）。來自被封鎖 IP 的請求會以 ``429 "
+"Too Many Requests`` 拒絕。"
+
+#: ../../source/user_guide/audit_security.rst:55
+msgid ""
+"**Per (IP, API key)**: repeated failures with one specific key from one "
+"IP ban that combination after ``XINFERENCE_RATE_LIMIT_KEY_MAX_FAILURES`` "
+"failures (default 5) within ``XINFERENCE_RATE_LIMIT_KEY_WINDOW_SECONDS`` "
+"(default 300), for ``XINFERENCE_RATE_LIMIT_KEY_BAN_SECONDS`` (default "
+"3600)."
+msgstr ""
+"**依（IP、API 金鑰）組合**：同一 IP 使用某一特定金鑰在 "
+"``XINFERENCE_RATE_LIMIT_KEY_WINDOW_SECONDS`` （預設 300）秒內重複失敗 "
+"``XINFERENCE_RATE_LIMIT_KEY_MAX_FAILURES`` 次（預設 5 次）後，該組合會被封鎖 "
+"``XINFERENCE_RATE_LIMIT_KEY_BAN_SECONDS`` 秒（預設 3600）。"
+
+#: ../../source/user_guide/audit_security.rst:61
+msgid ""
+"Individual API keys can override the key-level limits with the "
+"``rate_limit_max_failures`` / ``rate_limit_window_seconds`` / "
+"``rate_limit_ban_seconds`` fields when creating or updating the key."
+msgstr ""
+"個別 API 金鑰可以在建立或更新金鑰時，透過 ``rate_limit_max_failures`` / "
+"``rate_limit_window_seconds`` / ``rate_limit_ban_seconds`` 欄位覆寫金鑰層級的限制。"
+
+#: ../../source/user_guide/audit_security.rst:66
+msgid "Security Settings"
+msgstr "安全設定"
+
+#: ../../source/user_guide/audit_security.rst:68
+msgid "The **Security Settings** page of the web UI lets administrators:"
+msgstr "Web UI 的**安全設定**頁面讓管理員可以："
+
+#: ../../source/user_guide/audit_security.rst:70
+msgid "view and tune the rate-limit configuration at runtime,"
+msgstr "在執行期檢視並調整速率限制設定、"
+
+#: ../../source/user_guide/audit_security.rst:71
+msgid "list currently banned IPs and (IP, key) pairs,"
+msgstr "列出目前被封鎖的 IP 與（IP、金鑰）組合、"
+
+#: ../../source/user_guide/audit_security.rst:72
+msgid "lift bans individually or all at once."
+msgstr "逐一或一次性解除封鎖。"
+
+#: ../../source/user_guide/audit_security.rst:74
+msgid ""
+"The equivalent REST endpoints live under ``/v1/admin/security/*`` (e.g. "
+"``GET``/``PUT /v1/admin/security/rate-limit``, ``GET /v1/admin/security"
+"/banned-ips``, ``POST /v1/admin/security/unban-ip``) and require the "
+"``admin`` permission."
+msgstr ""
+"對應的 REST 端點位於 ``/v1/admin/security/*`` 之下（例如 ``GET``/``PUT "
+"/v1/admin/security/rate-limit``、 ``GET /v1/admin/security/banned-ips``、 "
+"``POST /v1/admin/security/unban-ip``），並需要 ``admin`` 權限。"
+

@@ -1,0 +1,302 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2026, XINFERENCE HOLDINGS PTE. LTD.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-17 17:20+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: ../../source/getting_started/migration_3_0.rst:5
+msgid "Migrating to Xinference 3.0"
+msgstr "迁移到 Xinference 3.0"
+
+#: ../../source/getting_started/migration_3_0.rst:7
+msgid ""
+"Xinference 3.0 modernizes authentication, the web UI, and container "
+"deployment. Most workloads keep working unchanged, but a few behaviors "
+"and flags were removed or renamed. This page lists every breaking change "
+"and how to adapt."
+msgstr ""
+"Xinference 3.0 对身份验证、Web UI 和容器部署进行了现代化改造。大多数工作"
+"负载无需修改即可继续使用，但少数行为和参数被移除或重命名。本页列出了所有"
+"不兼容变更及相应的应对方法。"
+
+#: ../../source/getting_started/migration_3_0.rst:13
+msgid "Authentication is enabled by default"
+msgstr "身份验证默认启用"
+
+#: ../../source/getting_started/migration_3_0.rst:15
+msgid ""
+"Starting with v3.0, the database-backed authentication system is "
+"**enabled by default**. A fresh deployment requires a login or an API key"
+" for every API call."
+msgstr ""
+"从 v3.0 开始，基于数据库的身份验证系统 **默认启用**。在全新部署中，每次 "
+"API 调用都需要登录或提供 API Key。"
+
+#: ../../source/getting_started/migration_3_0.rst:19
+msgid ""
+"On first startup, open the web UI (or call ``POST /v1/admin/setup``) to "
+"create the initial admin account. See :ref:`user_guide_auth_system` for "
+"the full flow."
+msgstr ""
+"首次启动时，请打开 Web UI（或调用 ``POST /v1/admin/setup``）创建初始"
+"管理员账号。完整流程参见 :ref:`user_guide_auth_system`。"
+
+#: ../../source/getting_started/migration_3_0.rst:22
+msgid "To restore the previous unauthenticated behavior, set:"
+msgstr "若要恢复之前的无身份验证行为，请设置："
+
+#: ../../source/getting_started/migration_3_0.rst:28
+msgid ""
+"Existing clients and scripts that talk to an authenticated server must "
+"now log in (``xinference login`` / ``client.login()``) or pass an API key"
+" (``--api-key`` / ``api_key=`` / ``Authorization: Bearer <key>``)."
+msgstr ""
+"与启用身份验证的服务器通信的现有客户端和脚本，现在必须先登录（``"
+"xinference login`` / ``client.login()``）或传入 API Key（``--api-key`` / "
+"``api_key=`` / ``Authorization: Bearer <key>``）。"
+
+#: ../../source/getting_started/migration_3_0.rst:33
+msgid "The legacy ``--auth-config`` system is removed"
+msgstr "旧版 ``--auth-config`` 系统已移除"
+
+#: ../../source/getting_started/migration_3_0.rst:35
+msgid ""
+"The in-memory JSON authentication system configured through the ``--auth-"
+"config`` flag of ``xinference-local`` and ``xinference-supervisor`` has "
+"been removed, together with its static ``auth_config.json`` format. The "
+"flag no longer exists."
+msgstr ""
+"通过 ``xinference-local`` 和 ``xinference-supervisor`` 的 ``--auth-config"
+"`` 参数配置的内存态 JSON 身份验证系统已被移除，其静态 ``auth_config.json`"
+"` 格式也一并移除。该参数已不复存在。"
+
+#: ../../source/getting_started/migration_3_0.rst:40
+msgid ""
+"To carry your old users and API keys over to the new database-backed "
+"system, use the migration command:"
+msgstr "若要将旧的用户和 API Key 迁移到新的基于数据库的系统，请使用迁移命令："
+
+msgid ""
+"The value passed to ``--encryption-key`` must be the **same key** that the "
+"upgraded server uses at runtime: either the value of "
+"``XINFERENCE_AUTH_ENCRYPTION_KEY`` or the value persisted in "
+"``<XINFERENCE_HOME>/auth/encryption_key``. It is not a one-time migration "
+"secret. If a different key is used, the migrated API-key hashes can still "
+"authenticate requests, but Xinference cannot decrypt or reveal the stored "
+"plaintext keys."
+msgstr ""
+"传给 ``--encryption-key`` 的值必须与升级后服务运行时使用的密钥**完全相同**，即 "
+"``XINFERENCE_AUTH_ENCRYPTION_KEY`` 的值或持久化在 "
+"``<XINFERENCE_HOME>/auth/encryption_key`` 中的值。它不是一次性的迁移密钥。如果使用"
+"了不同的密钥，迁移后的 API Key 哈希仍可用于鉴权，但 Xinference 无法解密或显示已保存"
+"的 Key 明文。"
+
+#: ../../source/getting_started/migration_3_0.rst:51
+msgid ""
+"If an admin password is ever lost, an operator with shell access can "
+"reset it offline with ``xinference-reset-auth-password`` — see :ref:`user"
+"_guide_auth_system`."
+msgstr ""
+"如果管理员密码丢失，拥有 shell 访问权限的运维人员可以使用 ``xinference-"
+"reset-auth-password`` 离线重置——参见 :ref:`user_guide_auth_system`。"
+
+#: ../../source/getting_started/migration_3_0.rst:56
+msgid "Permission scope renames"
+msgstr "权限范围重命名"
+
+#: ../../source/getting_started/migration_3_0.rst:58
+msgid "Several fine-grained permission scopes were consolidated and renamed:"
+msgstr "若干细粒度的权限范围被合并并重命名："
+
+#: ../../source/getting_started/migration_3_0.rst:63
+msgid "Legacy scope"
+msgstr "旧权限范围"
+
+#: ../../source/getting_started/migration_3_0.rst:64
+msgid "Replacement"
+msgstr "新权限范围"
+
+#: ../../source/getting_started/migration_3_0.rst:65
+msgid "``models:start``"
+msgstr "``models:start``"
+
+#: ../../source/getting_started/migration_3_0.rst:66
+#: ../../source/getting_started/migration_3_0.rst:68
+msgid "``models:write``"
+msgstr "``models:write``"
+
+#: ../../source/getting_started/migration_3_0.rst:67
+msgid "``models:stop``"
+msgstr "``models:stop``"
+
+#: ../../source/getting_started/migration_3_0.rst:69
+msgid "``models:add``"
+msgstr "``models:add``"
+
+#: ../../source/getting_started/migration_3_0.rst:70
+msgid "``models:register``"
+msgstr "``models:register``"
+
+#: ../../source/getting_started/migration_3_0.rst:71
+msgid "``admin`` (for log routes)"
+msgstr "``admin`` （用于日志相关接口）"
+
+#: ../../source/getting_started/migration_3_0.rst:72
+msgid "``logs:list``"
+msgstr "``logs:list``"
+
+#: ../../source/getting_started/migration_3_0.rst:73
+msgid "``admin`` (required by the legacy API-key reveal route)"
+msgstr "``admin`` （旧版 API Key 明文查看接口所需）"
+
+#: ../../source/getting_started/migration_3_0.rst:74
+msgid ""
+"``keys:manage`` (list any user's keys; update, delete, reveal, and manage per-"
+"key model permissions)"
+msgstr ""
+"``keys:manage`` （查看任意用户的 Key 列表，以及更新、删除、查看明文和管理每个 Key "
+"的模型权限）"
+
+msgid ""
+"API key creation remains separate: ``keys:create`` is required to create a "
+"key, and ``keys:manage`` is additionally required when creating one for "
+"another user."
+msgstr ""
+"API Key 创建权限保持独立：创建 Key 需要 ``keys:create``；为其他用户创建时还需要 "
+"``keys:manage``。"
+
+#: ../../source/getting_started/migration_3_0.rst:76
+msgid ""
+"Tokens and API keys that carry the legacy scope names keep working: the "
+"server transparently maps legacy names to their replacements. This "
+"compatibility mapping is deprecated and will be removed in a future "
+"release, so update any automation that grants permissions to use the new "
+"names."
+msgstr ""
+"携带旧权限范围名称的令牌和 API Key 仍然可用：服务器会透明地将旧名称映射到"
+"新名称。该兼容映射已被弃用，并将在未来版本中移除，因此请更新所有授予权限"
+"的自动化脚本，改用新名称。"
+
+#: ../../source/getting_started/migration_3_0.rst:82
+msgid "New default web UI (Next.js)"
+msgstr "新的默认 Web UI（Next.js）"
+
+#: ../../source/getting_started/migration_3_0.rst:84
+msgid ""
+"The web UI has been rewritten in Next.js and is now the default; the "
+"legacy React UI has been removed. The UI is exported statically at build "
+"time and served by the Xinference server itself — no separate frontend "
+"process is needed."
+msgstr ""
+"Web UI 已使用 Next.js 重写并成为默认界面；旧版 React UI 已被移除。UI 在"
+"构建时静态导出，并由 Xinference 服务器本身提供服务——无需单独的前端进程。"
+
+#: ../../source/getting_started/migration_3_0.rst:89
+msgid ""
+"The ``XINFERENCE_FRONTEND_ENDPOINT`` environment variable has been "
+"**removed**. To serve a custom frontend build, point "
+"``XINFERENCE_FRONTEND_DIST_DIR`` at its directory instead."
+msgstr ""
+"``XINFERENCE_FRONTEND_ENDPOINT`` 环境变量已被 **移除**。若要提供自定义的"
+"前端构建产物，请改用 ``XINFERENCE_FRONTEND_DIST_DIR`` 指向其所在目录。"
+
+#: ../../source/getting_started/migration_3_0.rst:92
+msgid ""
+"The old ``/ui/`` path redirects to ``/``. Opening ``/`` takes you to the "
+"model launch page."
+msgstr "旧的 ``/ui/`` 路径会重定向到 ``/``。打开 ``/`` 即进入模型启动页面。"
+
+#: ../../source/getting_started/migration_3_0.rst:96
+msgid "Built-in Gradio demo pages are removed"
+msgstr "内置 Gradio 演示页面已移除"
+
+#: ../../source/getting_started/migration_3_0.rst:98
+#, python-brace-format
+msgid ""
+"The per-model Gradio demo UI (previously mounted at ``/{model_uid}``) and"
+" the ``/v1/ui/*`` endpoints behind it have been removed, along with the "
+"``gradio`` dependency. To interact with a running model, use the web UI, "
+"the OpenAI-compatible API, or the Python client instead."
+msgstr ""
+"针对每个模型的 Gradio 演示 UI（之前挂载在 ``/{model_uid}``）及其背后的 ``"
+"/v1/ui/*`` 接口已被移除， ``gradio`` 依赖也一并移除。若要与运行中的模型"
+"交互，请改用 Web UI、OpenAI 兼容 API 或 Python 客户端。"
+
+msgid "The official GPU image requires CUDA 13 and installs engines on demand"
+msgstr "官方 GPU 镜像要求 CUDA 13，并按需安装推理引擎"
+
+msgid ""
+"The official 3.0 GPU image is now a slim image based on "
+"``nvidia/cuda:13.0.2-devel-ubuntu22.04``. It requires an NVIDIA driver "
+"version of **580 or later**. The image still includes Python 3.12, the "
+"shared CUDA PyTorch stack, and the Transformers engine, but it no longer "
+"pre-installs vLLM, SGLang, llama.cpp, or other optional inference engines."
+msgstr ""
+"官方 3.0 GPU 镜像现在是基于 ``nvidia/cuda:13.0.2-devel-ubuntu22.04`` 的精简镜"
+"像，要求 NVIDIA 驱动版本为 **580 或更高**。镜像仍包含 Python 3.12、共享的 CUDA "
+"PyTorch 栈和 Transformers 引擎，但不再预装 vLLM、SGLang、llama.cpp 或其他可选推"
+"理引擎。"
+
+msgid ""
+"When a model needs one of those engines, Xinference installs it into a per-"
+"model virtual environment on first launch. The first launch therefore takes "
+"longer and requires access to PyPI or a compatible private package mirror; "
+"later launches reuse the environment."
+msgstr ""
+"模型需要这些引擎时，Xinference 会在首次启动时将其安装到该模型专属的虚拟环境中。因此"
+"首次启动耗时更长，并且需要访问 PyPI 或兼容的私有软件包镜像；后续启动会复用该环境。"
+
+msgid ""
+"For offline or air-gapped Compose deployments, pull or transfer the matching "
+"``xprobe/xinference-pypiserver`` image and pin it to the same release tag as "
+"``xprobe/xinference``. Alternatively, supply your own wheel directory with "
+"the ``docker-compose.byo-wheels.yml`` override. See "
+":ref:`using_docker_image` and :ref:`using_docker_compose` for the complete "
+"requirements."
+msgstr ""
+"对于离线或隔离网络的 Compose 部署，请拉取或传输匹配的 ``xprobe/xinference-"
+"pypiserver`` 镜像，并将其固定为与 ``xprobe/xinference`` 相同的发行标签。也可以通过 "
+"``docker-compose.byo-wheels.yml`` 覆盖文件提供自己的 wheel 目录。完整要求请参见 "
+":ref:`using_docker_image` 和 :ref:`using_docker_compose`。"
+
+#: ../../source/getting_started/migration_3_0.rst:104
+msgid "Strict Qwen3-family system-message ordering"
+msgstr "严格的 Qwen3 系列系统消息顺序"
+
+#: ../../source/getting_started/migration_3_0.rst:106
+msgid ""
+"For model families whose chat template requires the system message to "
+"come first (including Ornith-1.0-35B, qwen3.5, qwen3.6, and Nex-N2), "
+"Xinference now validates message order before dispatching a request. A "
+"``system`` message at any position other than ``messages[0]`` returns "
+"HTTP 400. Move all system instructions into a single leading system "
+"message before upgrading."
+msgstr "对于聊天模板要求系统消息位于首位的模型系列（包括 Ornith-1.0-35B、qwen3.5、qwen3.6 和 Nex-N2），Xinference 现在会在分发请求前验证消息顺序。若 ``system`` 消息不在 ``messages[0]``，将返回 HTTP 400。升级前，请将所有系统指令合并到一条位于首位的系统消息中。"
+
+#: ../../source/getting_started/migration_3_0.rst:113
+msgid "Docker Compose requirements"
+msgstr "Docker Compose 版本要求"
+
+#: ../../source/getting_started/migration_3_0.rst:115
+msgid ""
+"The bundled Compose files dropped the deprecated ``version:`` field and "
+"use newer Compose features, so deploying with them requires **Docker "
+"Compose v2.24.4 or later**. See :ref:`using_docker_compose`."
+msgstr ""
+"随附的 Compose 文件移除了已弃用的 ``version:`` 字段，并使用了较新的 "
+"Compose 特性，因此使用它们部署需要 **Docker Compose v2.24.4 或更高版本**"
+"。参见 :ref:`using_docker_compose`。"

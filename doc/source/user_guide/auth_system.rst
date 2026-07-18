@@ -122,19 +122,28 @@ Xinference defines the following interface permissions:
 
 * ``models:list``: Permission to list models and get models' information.
 * ``models:read``: Permission to use models.
-* ``models:register``: Permission to register custom models.
-* ``models:unregister``: Permission to unregister custom models.
-* ``models:start``: Permission to launch models.
-* ``models:stop``: Permission to stop running models.
+* ``models:write``: Permission to launch and stop models.
+* ``models:register``: Permission to register and unregister custom models.
 * ``keys:create``: Permission to create API keys (for oneself, or for others when combined with ``keys:manage``).
 * ``keys:manage``: Permission to list, update, delete, and reveal any user's API keys.
 * ``users:manage``: Permission to create, update, delete users, and manage their permissions.
 * ``cache:list`` / ``cache:delete``: Permissions to list/delete cached model files.
 * ``virtualenv:list`` / ``virtualenv:delete``: Permissions to list/delete per-model virtual environments.
+* ``logs:list``: Permission to view cluster logs.
+* ``monitor:view``: Permission to view the monitoring dashboards.
 * ``admin``: Administrators have all of the above.
 
 A caller may only grant permissions they themselves hold — for example, a
 user with only ``users:manage`` cannot grant ``admin`` to someone else.
+
+.. note::
+   Earlier releases used finer-grained scope names: ``models:start`` and
+   ``models:stop`` (now ``models:write``), and ``models:add`` /
+   ``models:unregister`` (now ``models:register``). Tokens and API keys
+   carrying the legacy names keep working — the server transparently maps
+   them to the new scopes — but this compatibility mapping is deprecated and
+   will be removed in a future release. Use the new names when granting
+   permissions.
 
 Usage
 =====
@@ -219,6 +228,21 @@ Other supported endpoints include listing/updating/deleting users
 password (``/v1/admin/users/{user_id}/password``), and listing, updating,
 deleting, and revealing API keys (``/v1/admin/keys``,
 ``/v1/admin/keys/{key_id}``, ``/v1/admin/keys/{key_id}/reveal``).
+
+Managing via the web UI
+--------------------------
+Everything above is also available from dedicated pages in the web UI:
+
+* **User Management**: create, update, disable, and delete users, and edit
+  their permissions (requires ``users:manage``).
+* **API Key Management**: create, update, delete, and reveal API keys, with
+  optional per-model access restrictions (requires ``keys:create`` for your
+  own keys, ``keys:manage`` for other users' keys).
+* **Security Settings**: view and tune brute-force protection (login/API-key
+  failure rate limits) and unban blocked IPs or keys (requires ``admin``).
+  See :ref:`user_guide_audit_security` for details.
+* **Audit Center**: browse recorded API activity (requires ``admin``). See
+  :ref:`user_guide_audit_security`.
 
 Http Status Code
 ================

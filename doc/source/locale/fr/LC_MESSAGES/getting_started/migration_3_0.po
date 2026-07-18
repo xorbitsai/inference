@@ -1,0 +1,344 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2026, XINFERENCE HOLDINGS PTE. LTD.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-17 17:20+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: fr\n"
+"Language-Team: fr <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: ../../source/getting_started/migration_3_0.rst:5
+msgid "Migrating to Xinference 3.0"
+msgstr "Migrer vers Xinference 3.0"
+
+#: ../../source/getting_started/migration_3_0.rst:7
+msgid ""
+"Xinference 3.0 modernizes authentication, the web UI, and container "
+"deployment. Most workloads keep working unchanged, but a few behaviors "
+"and flags were removed or renamed. This page lists every breaking change "
+"and how to adapt."
+msgstr ""
+"Xinference 3.0 modernise l'authentification, l'interface Web et le "
+"déploiement en conteneurs. La plupart des charges de travail continuent "
+"de fonctionner sans changement, mais quelques comportements et drapeaux "
+"ont été supprimés ou renommés. Cette page liste chaque changement "
+"incompatible et la façon de s'y adapter."
+
+#: ../../source/getting_started/migration_3_0.rst:13
+msgid "Authentication is enabled by default"
+msgstr "L'authentification est activée par défaut"
+
+#: ../../source/getting_started/migration_3_0.rst:15
+msgid ""
+"Starting with v3.0, the database-backed authentication system is "
+"**enabled by default**. A fresh deployment requires a login or an API key"
+" for every API call."
+msgstr ""
+"À partir de la v3.0, le système d'authentification basé sur une base de "
+"données est **activé par défaut**. Un nouveau déploiement exige une "
+"connexion ou une clé API pour chaque appel d'API."
+
+#: ../../source/getting_started/migration_3_0.rst:19
+msgid ""
+"On first startup, open the web UI (or call ``POST /v1/admin/setup``) to "
+"create the initial admin account. See :ref:`user_guide_auth_system` for "
+"the full flow."
+msgstr ""
+"Au premier démarrage, ouvrez l'interface Web (ou appelez ``POST "
+"/v1/admin/setup``) pour créer le compte administrateur initial. Voir "
+":ref:`user_guide_auth_system` pour le déroulement complet."
+
+#: ../../source/getting_started/migration_3_0.rst:22
+msgid "To restore the previous unauthenticated behavior, set:"
+msgstr "Pour rétablir l'ancien comportement sans authentification, définissez :"
+
+#: ../../source/getting_started/migration_3_0.rst:28
+msgid ""
+"Existing clients and scripts that talk to an authenticated server must "
+"now log in (``xinference login`` / ``client.login()``) or pass an API key"
+" (``--api-key`` / ``api_key=`` / ``Authorization: Bearer <key>``)."
+msgstr ""
+"Les clients et scripts existants qui communiquent avec un serveur "
+"authentifié doivent désormais se connecter (``xinference login`` / "
+"``client.login()``) ou passer une clé API (``--api-key`` / ``api_key=`` /"
+" ``Authorization: Bearer <key>``)."
+
+#: ../../source/getting_started/migration_3_0.rst:33
+msgid "The legacy ``--auth-config`` system is removed"
+msgstr "L'ancien système ``--auth-config`` est supprimé"
+
+#: ../../source/getting_started/migration_3_0.rst:35
+msgid ""
+"The in-memory JSON authentication system configured through the ``--auth-"
+"config`` flag of ``xinference-local`` and ``xinference-supervisor`` has "
+"been removed, together with its static ``auth_config.json`` format. The "
+"flag no longer exists."
+msgstr ""
+"Le système d'authentification JSON en mémoire configuré via le drapeau "
+"``--auth-config`` de ``xinference-local`` et ``xinference-supervisor`` a "
+"été supprimé, ainsi que son format statique ``auth_config.json``. Le "
+"drapeau n'existe plus."
+
+#: ../../source/getting_started/migration_3_0.rst:40
+msgid ""
+"To carry your old users and API keys over to the new database-backed "
+"system, use the migration command:"
+msgstr ""
+"Pour transférer vos anciens utilisateurs et clés API vers le nouveau "
+"système basé sur une base de données, utilisez la commande de migration :"
+
+msgid ""
+"The value passed to ``--encryption-key`` must be the **same key** that "
+"the upgraded server uses at runtime: either the value of "
+"``XINFERENCE_AUTH_ENCRYPTION_KEY`` or the value persisted in "
+"``<XINFERENCE_HOME>/auth/encryption_key``. It is not a one-time migration"
+" secret. If a different key is used, the migrated API-key hashes can "
+"still authenticate requests, but Xinference cannot decrypt or reveal the "
+"stored plaintext keys."
+msgstr ""
+"La valeur transmise à ``--encryption-key`` doit être **la même clé** que "
+"celle utilisée par le serveur mis à niveau lors de son exécution : soit "
+"la valeur de ``XINFERENCE_AUTH_ENCRYPTION_KEY``, soit celle enregistrée "
+"dans ``<XINFERENCE_HOME>/auth/encryption_key``. Il ne s'agit pas d'un "
+"secret de migration à usage unique. Si une autre clé est utilisée, les "
+"hachages des clés API migrées peuvent toujours authentifier les requêtes,"
+" mais Xinference ne peut ni déchiffrer ni afficher les clés stockées en "
+"clair."
+
+#: ../../source/getting_started/migration_3_0.rst:51
+msgid ""
+"If an admin password is ever lost, an operator with shell access can "
+"reset it offline with ``xinference-reset-auth-password`` — see "
+":ref:`user_guide_auth_system`."
+msgstr ""
+"Si un mot de passe administrateur est perdu, un opérateur disposant d'un "
+"accès shell peut le réinitialiser hors ligne avec ``xinference-reset-"
+"auth-password`` — voir :ref:`user_guide_auth_system`."
+
+#: ../../source/getting_started/migration_3_0.rst:56
+msgid "Permission scope renames"
+msgstr "Renommage des portées de permissions"
+
+#: ../../source/getting_started/migration_3_0.rst:58
+msgid "Several fine-grained permission scopes were consolidated and renamed:"
+msgstr "Plusieurs portées de permissions fines ont été consolidées et renommées :"
+
+#: ../../source/getting_started/migration_3_0.rst:63
+msgid "Legacy scope"
+msgstr "Ancienne portée"
+
+#: ../../source/getting_started/migration_3_0.rst:64
+msgid "Replacement"
+msgstr "Remplacement"
+
+#: ../../source/getting_started/migration_3_0.rst:65
+msgid "``models:start``"
+msgstr "``models:start``"
+
+#: ../../source/getting_started/migration_3_0.rst:66
+#: ../../source/getting_started/migration_3_0.rst:68
+msgid "``models:write``"
+msgstr "``models:write``"
+
+#: ../../source/getting_started/migration_3_0.rst:67
+msgid "``models:stop``"
+msgstr "``models:stop``"
+
+#: ../../source/getting_started/migration_3_0.rst:69
+msgid "``models:add``"
+msgstr "``models:add``"
+
+#: ../../source/getting_started/migration_3_0.rst:70
+msgid "``models:register``"
+msgstr "``models:register``"
+
+#: ../../source/getting_started/migration_3_0.rst:71
+msgid "``admin`` (for log routes)"
+msgstr "``admin`` (pour les routes de journaux)"
+
+#: ../../source/getting_started/migration_3_0.rst:72
+msgid "``logs:list``"
+msgstr "``logs:list``"
+
+#: ../../source/getting_started/migration_3_0.rst:73
+msgid "``admin`` (required by the legacy API-key reveal route)"
+msgstr "``admin`` (requis par l'ancienne route d'affichage des clés API)"
+
+#: ../../source/getting_started/migration_3_0.rst:74
+msgid ""
+"``keys:manage`` (list any user's keys; update, delete, reveal, and manage"
+" per-key model permissions)"
+msgstr ""
+"``keys:manage`` (lister les clés de tout utilisateur, les modifier, les "
+"supprimer, les révéler et gérer leurs autorisations par modèle)"
+
+msgid ""
+"API key creation remains separate: ``keys:create`` is required to create "
+"a key, and ``keys:manage`` is additionally required when creating one for"
+" another user."
+msgstr ""
+"La création de clés API reste distincte : ``keys:create`` est requis pour"
+" créer une clé et ``keys:manage`` est également requis pour en créer une "
+"pour un autre utilisateur."
+
+#: ../../source/getting_started/migration_3_0.rst:76
+msgid ""
+"Tokens and API keys that carry the legacy scope names keep working: the "
+"server transparently maps legacy names to their replacements. This "
+"compatibility mapping is deprecated and will be removed in a future "
+"release, so update any automation that grants permissions to use the new "
+"names."
+msgstr ""
+"Les tokens et clés API qui portent les anciens noms de portées continuent"
+" de fonctionner : le serveur mappe de manière transparente les anciens "
+"noms vers leurs remplacements. Ce mappage de compatibilité est déprécié "
+"et sera supprimé dans une version future ; mettez donc à jour toute "
+"automatisation qui accorde des permissions afin d'utiliser les nouveaux "
+"noms."
+
+#: ../../source/getting_started/migration_3_0.rst:82
+msgid "New default web UI (Next.js)"
+msgstr "Nouvelle interface Web par défaut (Next.js)"
+
+#: ../../source/getting_started/migration_3_0.rst:84
+msgid ""
+"The web UI has been rewritten in Next.js and is now the default; the "
+"legacy React UI has been removed. The UI is exported statically at build "
+"time and served by the Xinference server itself — no separate frontend "
+"process is needed."
+msgstr ""
+"L'interface Web a été réécrite en Next.js et est désormais l'interface "
+"par défaut ; l'ancienne interface React a été supprimée. L'interface est "
+"exportée statiquement au moment de la construction et servie par le "
+"serveur Xinference lui-même — aucun processus frontend séparé n'est "
+"nécessaire."
+
+#: ../../source/getting_started/migration_3_0.rst:89
+msgid ""
+"The ``XINFERENCE_FRONTEND_ENDPOINT`` environment variable has been "
+"**removed**. To serve a custom frontend build, point "
+"``XINFERENCE_FRONTEND_DIST_DIR`` at its directory instead."
+msgstr ""
+"La variable d'environnement ``XINFERENCE_FRONTEND_ENDPOINT`` a été "
+"**supprimée**. Pour servir une construction de frontend personnalisée, "
+"faites pointer ``XINFERENCE_FRONTEND_DIST_DIR`` vers son répertoire."
+
+#: ../../source/getting_started/migration_3_0.rst:92
+msgid ""
+"The old ``/ui/`` path redirects to ``/``. Opening ``/`` takes you to the "
+"model launch page."
+msgstr ""
+"L'ancien chemin ``/ui/`` redirige vers ``/``. Ouvrir ``/`` vous amène à "
+"la page de lancement des modèles."
+
+#: ../../source/getting_started/migration_3_0.rst:96
+msgid "Built-in Gradio demo pages are removed"
+msgstr "Les pages de démonstration Gradio intégrées sont supprimées"
+
+#: ../../source/getting_started/migration_3_0.rst:98
+#, python-brace-format
+msgid ""
+"The per-model Gradio demo UI (previously mounted at ``/{model_uid}``) and"
+" the ``/v1/ui/*`` endpoints behind it have been removed, along with the "
+"``gradio`` dependency. To interact with a running model, use the web UI, "
+"the OpenAI-compatible API, or the Python client instead."
+msgstr ""
+"L'interface de démonstration Gradio par modèle (précédemment montée sur "
+"``/{model_uid}``) et les points de terminaison ``/v1/ui/*`` sous-jacents "
+"ont été supprimés, ainsi que la dépendance ``gradio``. Pour interagir "
+"avec un modèle en cours d'exécution, utilisez l'interface Web, l'API "
+"compatible OpenAI ou le client Python."
+
+msgid "The official GPU image requires CUDA 13 and installs engines on demand"
+msgstr ""
+"L'image GPU officielle nécessite CUDA 13 et installe les moteurs à la "
+"demande"
+
+msgid ""
+"The official 3.0 GPU image is now a slim image based on "
+"``nvidia/cuda:13.0.2-devel-ubuntu22.04``. It requires an NVIDIA driver "
+"version of **580 or later**. The image still includes Python 3.12, the "
+"shared CUDA PyTorch stack, and the Transformers engine, but it no longer "
+"pre-installs vLLM, SGLang, llama.cpp, or other optional inference "
+"engines."
+msgstr ""
+"L'image GPU officielle de la version 3.0 est désormais une image allégée "
+"basée sur ``nvidia/cuda:13.0.2-devel-ubuntu22.04``. Elle nécessite un "
+"pilote NVIDIA en version **580 ou ultérieure**. L'image inclut toujours "
+"Python 3.12, la pile CUDA PyTorch partagée et le moteur Transformers, "
+"mais elle ne préinstalle plus vLLM, SGLang, llama.cpp ni les autres "
+"moteurs d'inférence facultatifs."
+
+msgid ""
+"When a model needs one of those engines, Xinference installs it into a "
+"per-model virtual environment on first launch. The first launch therefore"
+" takes longer and requires access to PyPI or a compatible private package"
+" mirror; later launches reuse the environment."
+msgstr ""
+"Lorsqu'un modèle nécessite l'un de ces moteurs, Xinference l'installe "
+"dans un environnement virtuel propre au modèle lors du premier lancement."
+" Ce premier lancement est donc plus long et nécessite un accès à PyPI ou "
+"à un miroir de paquets privé compatible ; les lancements suivants "
+"réutilisent l'environnement."
+
+msgid ""
+"For offline or air-gapped Compose deployments, pull or transfer the "
+"matching ``xprobe/xinference-pypiserver`` image and pin it to the same "
+"release tag as ``xprobe/xinference``. Alternatively, supply your own "
+"wheel directory with the ``docker-compose.byo-wheels.yml`` override. See "
+":ref:`using_docker_image` and :ref:`using_docker_compose` for the "
+"complete requirements."
+msgstr ""
+"Pour les déploiements Compose hors ligne ou isolés, récupérez ou "
+"transférez l'image ``xprobe/xinference-pypiserver`` correspondante et "
+"épinglez-la sur la même étiquette de version que ``xprobe/xinference``. "
+"Vous pouvez également fournir votre propre répertoire de wheels avec la "
+"surcharge ``docker-compose.byo-wheels.yml``. Consultez "
+":ref:`using_docker_image` et :ref:`using_docker_compose` pour connaître "
+"l'ensemble des prérequis."
+
+#: ../../source/getting_started/migration_3_0.rst:104
+msgid "Strict Qwen3-family system-message ordering"
+msgstr "Ordre strict des messages système pour la famille Qwen3"
+
+#: ../../source/getting_started/migration_3_0.rst:106
+msgid ""
+"For model families whose chat template requires the system message to "
+"come first (including Ornith-1.0-35B, qwen3.5, qwen3.6, and Nex-N2), "
+"Xinference now validates message order before dispatching a request. A "
+"``system`` message at any position other than ``messages[0]`` returns "
+"HTTP 400. Move all system instructions into a single leading system "
+"message before upgrading."
+msgstr ""
+"Pour les familles de modèles dont le modèle de chat exige que le message "
+"système soit placé en premier (notamment Ornith-1.0-35B, qwen3.5, qwen3.6"
+" et Nex-N2), Xinference valide désormais l’ordre des messages avant "
+"d’envoyer la requête. Un message ``system`` placé ailleurs que dans "
+"``messages[0]`` renvoie HTTP 400. Avant la mise à niveau, regroupez "
+"toutes les instructions système dans un seul message système initial."
+
+#: ../../source/getting_started/migration_3_0.rst:113
+msgid "Docker Compose requirements"
+msgstr "Exigences Docker Compose"
+
+#: ../../source/getting_started/migration_3_0.rst:115
+msgid ""
+"The bundled Compose files dropped the deprecated ``version:`` field and "
+"use newer Compose features, so deploying with them requires **Docker "
+"Compose v2.24.4 or later**. See :ref:`using_docker_compose`."
+msgstr ""
+"Les fichiers Compose fournis ont abandonné le champ déprécié ``version:``"
+" et utilisent des fonctionnalités Compose plus récentes ; leur "
+"déploiement nécessite donc **Docker Compose v2.24.4 ou ultérieur**. Voir "
+":ref:`using_docker_compose`."

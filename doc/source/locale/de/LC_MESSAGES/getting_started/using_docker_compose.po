@@ -1,0 +1,466 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2026, XINFERENCE HOLDINGS PTE. LTD.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-17 15:37+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: de\n"
+"Language-Team: de <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/getting_started/using_docker_compose.rst:5
+msgid "Docker Compose Deployment"
+msgstr "Bereitstellung mit Docker Compose"
+
+#: ../../source/getting_started/using_docker_compose.rst:7
+msgid ""
+"Xinference ships an official Docker Compose setup for standalone "
+"deployment, located at `xinference/deploy/docker "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/deploy/docker>`_."
+" It supports online hosts as well as fully offline / air-gapped "
+"environments, where an optional private PyPI server is started alongside "
+"Xinference to serve the packages installed at model-launch time."
+msgstr ""
+"Xinference liefert eine offizielle Docker-Compose-Konfiguration für die "
+"eigenständige Bereitstellung mit, die sich unter "
+"`xinference/deploy/docker "
+"<https://github.com/xorbitsai/inference/tree/main/xinference/deploy/docker>`_"
+" befindet. Sie unterstützt sowohl Hosts mit Internetzugang als auch "
+"vollständig offline betriebene bzw. isolierte (air-gapped) Umgebungen, in"
+" denen optional ein privater PyPI-Server neben Xinference gestartet wird,"
+" um die beim Modellstart installierten Pakete bereitzustellen."
+
+#: ../../source/getting_started/using_docker_compose.rst:14
+msgid "Prerequisites"
+msgstr "Voraussetzungen"
+
+#: ../../source/getting_started/using_docker_compose.rst:15
+msgid ""
+"Docker Compose **v2.24.4 or above** (required by the ``env_file: "
+"required: false`` and ``!reset`` features used in the compose files)."
+msgstr ""
+"Docker Compose **v2.24.4 oder höher** (erforderlich für die in den "
+"Compose-Dateien verwendeten Funktionen ``env_file: required: false`` und "
+"``!reset``)."
+
+#: ../../source/getting_started/using_docker_compose.rst:16
+msgid ""
+"For GPU deployment: a host with NVIDIA GPUs, CUDA installed, and `NVIDIA "
+"Container Toolkit <https://docs.nvidia.com/datacenter/cloud-native"
+"/container-toolkit/latest/install-guide.html>`_. See "
+":ref:`using_docker_image` for image requirements."
+msgstr ""
+"Für die GPU-Bereitstellung: ein Host mit NVIDIA-GPUs, installiertem CUDA "
+"und dem `NVIDIA Container Toolkit <https://docs.nvidia.com/datacenter"
+"/cloud-native/container-toolkit/latest/install-guide.html>`_. Siehe "
+":ref:`using_docker_image` für die Anforderungen an das Image."
+
+#: ../../source/getting_started/using_docker_compose.rst:17
+msgid ""
+"Get the whole ``xinference/deploy/docker`` directory. The compose file "
+"bind-mounts ``pip.conf`` and ``./wheels`` from the same directory, so "
+"downloading ``docker-compose.yml`` alone is not sufficient:"
+msgstr ""
+"Laden Sie das gesamte Verzeichnis ``xinference/deploy/docker`` herunter. "
+"Die Compose-Datei bindet ``pip.conf`` und ``./wheels`` aus demselben "
+"Verzeichnis per Bind-Mount ein, daher reicht es nicht aus, nur ``docker-"
+"compose.yml`` herunterzuladen:"
+
+#: ../../source/getting_started/using_docker_compose.rst:26
+msgid "Quick Start (GPU)"
+msgstr "Schnellstart (GPU)"
+
+#: ../../source/getting_started/using_docker_compose.rst:27
+msgid "Start Xinference with all GPUs of the host:"
+msgstr "Starten Sie Xinference mit allen GPUs des Hosts:"
+
+#: ../../source/getting_started/using_docker_compose.rst:33
+msgid "Wait until the service is healthy, then verify:"
+msgstr ""
+"Warten Sie, bis der Dienst als \"healthy\" gemeldet wird, und überprüfen "
+"Sie dann:"
+
+#: ../../source/getting_started/using_docker_compose.rst:40
+msgid "The Web UI is served at ``http://localhost:9997``."
+msgstr "Die Web-UI ist unter ``http://localhost:9997`` erreichbar."
+
+#: ../../source/getting_started/using_docker_compose.rst:44
+msgid ""
+"Since v3.0, authentication is enabled by default: the first visit to the "
+"Web UI asks you to create the initial admin account, and API calls "
+"require a login or API key afterwards. To run without authentication, add"
+" ``XINFERENCE_AUTH_ADVANCED=false`` under the ``environment:`` section of"
+" ``docker-compose.yml``. See :ref:`user_guide_auth_system`."
+msgstr ""
+"Seit v3.0 ist die Authentifizierung standardmäßig aktiviert: Beim ersten "
+"Aufruf der Web-UI werden Sie aufgefordert, das initiale "
+"Administratorkonto anzulegen, und API-Aufrufe erfordern anschließend eine"
+" Anmeldung oder einen API-Schlüssel. Um ohne Authentifizierung zu "
+"arbeiten, fügen Sie ``XINFERENCE_AUTH_ADVANCED=false`` im Abschnitt "
+"``environment:`` der ``docker-compose.yml`` hinzu. Siehe "
+":ref:`user_guide_auth_system`."
+
+#: ../../source/getting_started/using_docker_compose.rst:52
+msgid "Configuration"
+msgstr "Konfiguration"
+
+#: ../../source/getting_started/using_docker_compose.rst:53
+msgid ""
+"All settings are exposed as variables with sensible defaults and can be "
+"overridden through a ``.env`` file next to ``docker-compose.yml``. Copy "
+"the template and edit as needed:"
+msgstr ""
+"Alle Einstellungen sind als Variablen mit sinnvollen Standardwerten "
+"verfügbar und können über eine ``.env``-Datei neben der ``docker-"
+"compose.yml`` überschrieben werden. Kopieren Sie die Vorlage und passen "
+"Sie sie nach Bedarf an:"
+
+#: ../../source/getting_started/using_docker_compose.rst:60
+msgid "Available variables:"
+msgstr "Verfügbare Variablen:"
+
+#: ../../source/getting_started/using_docker_compose.rst:62
+msgid ""
+"``XINFERENCE_IMAGE``: image to run, defaults to "
+"``xprobe/xinference:latest``. Pin a release tag such as "
+"``xprobe/xinference:v<version>`` for production."
+msgstr ""
+"``XINFERENCE_IMAGE``: das auszuführende Image, standardmäßig "
+"``xprobe/xinference:latest``. Fixieren Sie für den Produktionsbetrieb ein"
+" Release-Tag wie ``xprobe/xinference:v<version>``."
+
+#: ../../source/getting_started/using_docker_compose.rst:63
+msgid ""
+"``XINFERENCE_PORT``: host port of the RESTful API / Web UI, defaults to "
+"``9997``."
+msgstr ""
+"``XINFERENCE_PORT``: Host-Port der RESTful-API / Web-UI, standardmäßig "
+"``9997``."
+
+#: ../../source/getting_started/using_docker_compose.rst:64
+msgid ""
+"``XINFERENCE_MODEL_SRC``: model download source, ``huggingface`` "
+"(default) or ``modelscope``."
+msgstr ""
+"``XINFERENCE_MODEL_SRC``: Downloadquelle für Modelle, ``huggingface`` "
+"(Standard) oder ``modelscope``."
+
+#: ../../source/getting_started/using_docker_compose.rst:65
+msgid ""
+"``XINFERENCE_SHM_SIZE``: shared memory size, defaults to ``8gb``. "
+"Increase for multi-GPU inference."
+msgstr ""
+"``XINFERENCE_SHM_SIZE``: Größe des Shared Memory, standardmäßig ``8gb``. "
+"Erhöhen Sie den Wert für Multi-GPU-Inferenz."
+
+#: ../../source/getting_started/using_docker_compose.rst:66
+msgid "``XINFERENCE_LOG_LEVEL``: log level, defaults to ``info``."
+msgstr "``XINFERENCE_LOG_LEVEL``: Log-Level, standardmäßig ``info``."
+
+#: ../../source/getting_started/using_docker_compose.rst:67
+msgid ""
+"``XINFERENCE_HOME_DIR`` / ``XINFERENCE_HF_CACHE_DIR`` / "
+"``XINFERENCE_MODELSCOPE_CACHE_DIR``: persistence locations. They default "
+"to named Docker volumes; point them at absolute host paths to reuse "
+"existing model caches, in the same way as described in "
+":ref:`using_docker_image`."
+msgstr ""
+"``XINFERENCE_HOME_DIR`` / ``XINFERENCE_HF_CACHE_DIR`` / "
+"``XINFERENCE_MODELSCOPE_CACHE_DIR``: Speicherorte für persistente Daten. "
+"Standardmäßig werden benannte Docker-Volumes verwendet; verweisen Sie auf"
+" absolute Host-Pfade, um vorhandene Modell-Caches wiederzuverwenden, so "
+"wie in :ref:`using_docker_image` beschrieben."
+
+#: ../../source/getting_started/using_docker_compose.rst:68
+msgid ""
+"``XINFERENCE_WHEELS_DIR`` / ``XINFERENCE_PYPISERVER_PORT`` / "
+"``XINFERENCE_PYPISERVER_IMAGE``: offline profile settings, see below."
+msgstr ""
+"``XINFERENCE_WHEELS_DIR`` / ``XINFERENCE_PYPISERVER_PORT`` / "
+"``XINFERENCE_PYPISERVER_IMAGE``: Einstellungen für das Offline-Profil, "
+"siehe unten."
+
+#: ../../source/getting_started/using_docker_compose.rst:70
+msgid ""
+"For other runtime options (authentication, OpenTelemetry, health-check "
+"tuning, ...), add the corresponding variables under the ``environment:`` "
+"section of ``docker-compose.yml``. See :ref:`environments` for the full "
+"list."
+msgstr ""
+"Für weitere Laufzeitoptionen (Authentifizierung, OpenTelemetry, "
+"Feinabstimmung der Health-Checks, ...) fügen Sie die entsprechenden "
+"Variablen im Abschnitt ``environment:`` der ``docker-compose.yml`` hinzu."
+" Die vollständige Liste finden Sie unter :ref:`environments`."
+
+#: ../../source/getting_started/using_docker_compose.rst:76
+msgid "CPU-only Deployment"
+msgstr "Reine CPU-Bereitstellung"
+
+#: ../../source/getting_started/using_docker_compose.rst:77
+msgid ""
+"On hosts without NVIDIA GPUs, apply the CPU override file, which switches"
+" the image to the ``-cpu`` variant and removes the GPU reservation:"
+msgstr ""
+"Verwenden Sie auf Hosts ohne NVIDIA-GPUs die CPU-Override-Datei, die das "
+"Image auf die ``-cpu``-Variante umstellt und die GPU-Reservierung "
+"entfernt:"
+
+#: ../../source/getting_started/using_docker_compose.rst:86
+msgid "Health Check and Restart Policy"
+msgstr "Health-Check und Neustart-Richtlinie"
+
+#: ../../source/getting_started/using_docker_compose.rst:87
+msgid ""
+"The ``xinference`` service reports health through the ``/status`` "
+"endpoint and restarts automatically unless explicitly stopped (``restart:"
+" unless-stopped``). ``docker compose ps`` shows the health state; "
+"orchestration on top of compose can rely on it."
+msgstr ""
+"Der ``xinference``-Dienst meldet seinen Zustand über den Endpunkt "
+"``/status`` und startet automatisch neu, sofern er nicht explizit "
+"gestoppt wurde (``restart: unless-stopped``). ``docker compose ps`` zeigt"
+" den Health-Status an; eine auf Compose aufsetzende Orchestrierung kann "
+"sich darauf verlassen."
+
+#: ../../source/getting_started/using_docker_compose.rst:93
+msgid "Offline / Air-gapped Deployment"
+msgstr "Offline- / Air-gapped-Bereitstellung"
+
+#: ../../source/getting_started/using_docker_compose.rst:94
+msgid ""
+"By default Xinference installs the extra Python packages declared by a "
+"model at launch time into a per-model virtual environment (controlled by "
+"``XINFERENCE_ENABLE_VIRTUAL_ENV``, see :ref:`environments`). On a host "
+"without Internet access these installs would fail."
+msgstr ""
+"Standardmäßig installiert Xinference die von einem Modell deklarierten "
+"zusätzlichen Python-Pakete beim Modellstart in eine modell-spezifische "
+"virtuelle Umgebung (gesteuert über ``XINFERENCE_ENABLE_VIRTUAL_ENV``, "
+"siehe :ref:`environments`). Auf einem Host ohne Internetzugang würden "
+"diese Installationen fehlschlagen."
+
+#: ../../source/getting_started/using_docker_compose.rst:98
+msgid ""
+"The ``offline`` compose profile solves this by starting a private PyPI "
+"server (`pypiserver <https://github.com/pypiserver/pypiserver>`_) next to"
+" Xinference. It serves wheels from the local ``./wheels`` directory, and "
+"the offline configuration points every runtime ``pip`` / ``uv`` "
+"invocation inside the Xinference container at it."
+msgstr ""
+"Das Compose-Profil ``offline`` löst dieses Problem, indem es einen "
+"privaten PyPI-Server (`pypiserver "
+"<https://github.com/pypiserver/pypiserver>`_) neben Xinference startet. "
+"Dieser stellt Wheels aus dem lokalen Verzeichnis ``./wheels`` bereit, und"
+" die Offline-Konfiguration richtet jeden ``pip``- / ``uv``-Aufruf zur "
+"Laufzeit innerhalb des Xinference-Containers auf ihn aus."
+
+#: ../../source/getting_started/using_docker_compose.rst:104
+msgid "Step 1: Prepare wheels on an Internet-connected machine"
+msgstr "Schritt 1: Wheels auf einem Rechner mit Internetzugang vorbereiten"
+
+#: ../../source/getting_started/using_docker_compose.rst:105
+msgid ""
+"Download the wheels of every package your models declare in their "
+"``virtualenv`` section (shown on each model card in the Web UI, or in the"
+" built-in model JSON specs). The GPU image runs Python 3.12 on "
+"``x86_64``:"
+msgstr ""
+"Laden Sie die Wheels aller Pakete herunter, die Ihre Modelle in ihrem "
+"``virtualenv``-Abschnitt deklarieren (angezeigt auf der jeweiligen "
+"Modellkarte in der Web-UI oder in den integrierten JSON-"
+"Modellspezifikationen). Das GPU-Image verwendet Python 3.12 auf "
+"``x86_64``:"
+
+#: ../../source/getting_started/using_docker_compose.rst:118
+msgid ""
+"Copy the resulting ``wheels`` directory into "
+"``xinference/deploy/docker/wheels`` on the offline host. Also transfer "
+"the Docker images (``docker save`` / ``docker load``): the Xinference "
+"image and ``pypiserver/pypiserver:v2.3.2``."
+msgstr ""
+"Kopieren Sie das resultierende Verzeichnis ``wheels`` nach "
+"``xinference/deploy/docker/wheels`` auf dem Offline-Host. Übertragen Sie "
+"außerdem die Docker-Images (``docker save`` / ``docker load``): das "
+"Xinference-Image und ``pypiserver/pypiserver:v2.3.2``."
+
+#: ../../source/getting_started/using_docker_compose.rst:122
+msgid ""
+"On Linux hosts, grant the pypiserver container user (UID 9898) access to "
+"the directory — its entrypoint requires read/write/execute permission "
+"bits, although the volume itself is mounted read-only:"
+msgstr ""
+"Gewähren Sie auf Linux-Hosts dem Container-Benutzer des pypiserver (UID "
+"9898) Zugriff auf das Verzeichnis — sein Entrypoint erfordert die "
+"Berechtigungsbits für Lesen/Schreiben/Ausführen, obwohl das Volume selbst"
+" schreibgeschützt eingebunden wird:"
+
+#: ../../source/getting_started/using_docker_compose.rst:131
+msgid "Step 2: Enable the offline configuration"
+msgstr "Schritt 2: Die Offline-Konfiguration aktivieren"
+
+#: ../../source/getting_started/using_docker_compose.rst:136
+msgid "Then open ``pip.conf`` and uncomment the three lines of the offline block:"
+msgstr ""
+"Öffnen Sie anschließend ``pip.conf`` und entfernen Sie die "
+"Kommentarzeichen der drei Zeilen des Offline-Blocks:"
+
+#: ../../source/getting_started/using_docker_compose.rst:147
+msgid ""
+"Both pieces are required because they cover different code paths. "
+"``pip.conf`` feeds Xinference's pip-config inheritance, which passes the "
+"private index explicitly to the per-model virtual-env installer; the "
+"``UV_*`` variables in ``offline.env`` cover ``uv`` invocations that do "
+"not carry index flags (such as the dependency-resolution dry-run). "
+"Removing either half breaks the offline install chain."
+msgstr ""
+"Beide Teile sind erforderlich, da sie unterschiedliche Codepfade "
+"abdecken. ``pip.conf`` speist die pip-Konfigurationsvererbung von "
+"Xinference, die den privaten Index explizit an den Installer der modell-"
+"spezifischen virtuellen Umgebungen weitergibt; die ``UV_*``-Variablen in "
+"``offline.env`` decken ``uv``-Aufrufe ab, die keine Index-Flags tragen "
+"(etwa den Probelauf der Abhängigkeitsauflösung). Wird eine der beiden "
+"Hälften entfernt, ist die Offline-Installationskette unterbrochen."
+
+#: ../../source/getting_started/using_docker_compose.rst:154
+msgid "Step 3: Start with the offline profile"
+msgstr "Schritt 3: Mit dem Offline-Profil starten"
+
+#: ../../source/getting_started/using_docker_compose.rst:159
+msgid ""
+"Or set ``COMPOSE_PROFILES=offline`` in ``.env`` to omit the ``--profile``"
+" flag. Combine with the CPU override if needed:"
+msgstr ""
+"Oder setzen Sie ``COMPOSE_PROFILES=offline`` in der ``.env``, um das Flag"
+" ``--profile`` wegzulassen. Kombinieren Sie dies bei Bedarf mit dem CPU-"
+"Override:"
+
+#: ../../source/getting_started/using_docker_compose.rst:166
+msgid ""
+"The private index is also published on the host (default port ``8080``), "
+"so other machines on the same network can reuse it with ``pip install -i "
+"http://<host>:8080/simple ...``."
+msgstr ""
+"Der private Index wird auch auf dem Host veröffentlicht (Standardport "
+"``8080``), sodass andere Rechner im selben Netzwerk ihn mit ``pip install"
+" -i http://<host>:8080/simple ...`` mitbenutzen können."
+
+#: ../../source/getting_started/using_docker_compose.rst:171
+msgid ""
+"When launching models with the **vLLM** or **SGLang** engines, Xinference"
+" by default resolves some dependencies from hardcoded public indexes "
+"(``wheels.vllm.ai``, ``download.pytorch.org``). The offline ``pip.conf`` "
+"above overrides them with the private index, which means those wheels "
+"must be present in ``./wheels`` — mirror the required ``vllm`` / "
+"``torch`` CUDA wheels when preparing Step 1. Alternatively, set "
+"``XINFERENCE_ENABLE_VIRTUAL_ENV=0`` in ``offline.env`` to skip runtime "
+"installs entirely and rely on the packages baked into the image."
+msgstr ""
+"Beim Starten von Modellen mit den Engines **vLLM** oder **SGLang** löst "
+"Xinference einige Abhängigkeiten standardmäßig über fest hinterlegte "
+"öffentliche Indexe auf (``wheels.vllm.ai``, ``download.pytorch.org``). "
+"Die obige Offline-``pip.conf`` überschreibt diese mit dem privaten Index,"
+" was bedeutet, dass die entsprechenden Wheels in ``./wheels`` vorhanden "
+"sein müssen — spiegeln Sie beim Vorbereiten von Schritt 1 die benötigten "
+"``vllm``- / ``torch``-CUDA-Wheels. Alternativ können Sie "
+"``XINFERENCE_ENABLE_VIRTUAL_ENV=0`` in ``offline.env`` setzen, um "
+"Installationen zur Laufzeit vollständig zu überspringen und sich auf die "
+"im Image enthaltenen Pakete zu verlassen."
+
+#: ../../source/getting_started/using_docker_compose.rst:180
+msgid "Offline model weights"
+msgstr "Offline-Modellgewichte"
+
+#: ../../source/getting_started/using_docker_compose.rst:181
+msgid ""
+"The offline configuration sets ``HF_HUB_OFFLINE=1`` and "
+"``TRANSFORMERS_OFFLINE=1``, so model weights are read from the local "
+"cache only. Populate the cache before going offline, either by pointing "
+"the cache variables in ``.env`` at host directories that already contain "
+"the models, or by launching each model once on a connected host and "
+"copying the volumes. Models can also be loaded from arbitrary local paths"
+" by registering custom models or passing ``--model-path``."
+msgstr ""
+"Die Offline-Konfiguration setzt ``HF_HUB_OFFLINE=1`` und "
+"``TRANSFORMERS_OFFLINE=1``, sodass Modellgewichte ausschließlich aus dem "
+"lokalen Cache gelesen werden. Befüllen Sie den Cache, bevor Sie offline "
+"gehen — entweder indem Sie die Cache-Variablen in der ``.env`` auf Host-"
+"Verzeichnisse verweisen, die die Modelle bereits enthalten, oder indem "
+"Sie jedes Modell einmal auf einem verbundenen Host starten und die "
+"Volumes kopieren. Modelle können auch aus beliebigen lokalen Pfaden "
+"geladen werden, indem Sie benutzerdefinierte Modelle registrieren oder "
+"``--model-path`` übergeben."
+
+#: ../../source/getting_started/using_docker_compose.rst:188
+msgid "Enforced network isolation (optional)"
+msgstr "Erzwungene Netzwerkisolation (optional)"
+
+#: ../../source/getting_started/using_docker_compose.rst:189
+msgid ""
+"The offline configuration redirects every download to local sources, but "
+"by itself it does not prevent the containers from reaching the Internet "
+"if the host happens to have connectivity. To *guarantee* isolation at the"
+" network level, add the air-gap override, which moves Xinference and the "
+"private PyPI server onto an ``internal`` Docker network with no external "
+"routing:"
+msgstr ""
+"Die Offline-Konfiguration leitet jeden Download auf lokale Quellen um, "
+"verhindert aber für sich genommen nicht, dass die Container das Internet "
+"erreichen, falls der Host über Konnektivität verfügt. Um die Isolation "
+"auf Netzwerkebene zu *garantieren*, fügen Sie das Air-Gap-Override hinzu,"
+" das Xinference und den privaten PyPI-Server in ein ``internal``-Docker-"
+"Netzwerk ohne externes Routing verschiebt:"
+
+#: ../../source/getting_started/using_docker_compose.rst:199
+msgid ""
+"Because Docker does not publish ports of internal-only networks, the "
+"override adds a minimal TCP gateway (``alpine/socat``) that forwards the "
+"API port from the host into the isolated network. The gateway only relays"
+" inbound traffic to ``xinference:9997``; the containers cannot use it as "
+"an egress path. Remember to transfer the ``alpine/socat`` image to the "
+"offline host along with the others."
+msgstr ""
+"Da Docker keine Ports rein interner Netzwerke veröffentlicht, fügt das "
+"Override ein minimales TCP-Gateway (``alpine/socat``) hinzu, das den API-"
+"Port vom Host in das isolierte Netzwerk weiterleitet. Das Gateway leitet "
+"ausschließlich eingehenden Datenverkehr an ``xinference:9997`` weiter; "
+"die Container können es nicht als Ausgangspfad verwenden. Denken Sie "
+"daran, das Image ``alpine/socat`` zusammen mit den anderen auf den "
+"Offline-Host zu übertragen."
+
+#: ../../source/getting_started/using_docker_compose.rst:207
+msgid ""
+"In this mode the private PyPI server is not published on the host; it is "
+"only reachable from containers inside the isolated network. Verify the "
+"isolation from within the container — external requests must fail while "
+"the private index stays reachable:"
+msgstr ""
+"In diesem Modus wird der private PyPI-Server nicht auf dem Host "
+"veröffentlicht; er ist nur von Containern innerhalb des isolierten "
+"Netzwerks aus erreichbar. Überprüfen Sie die Isolation aus dem Container "
+"heraus — externe Anfragen müssen fehlschlagen, während der private Index "
+"erreichbar bleibt:"
+
+#: ../../source/getting_started/using_docker_compose.rst:219
+msgid "Smoke test"
+msgstr "Funktionstest"
+
+#: ../../source/getting_started/using_docker_compose.rst:229
+msgid ""
+"Then launch a model and watch ``docker compose logs -f xinference`` — "
+"package installation logs should reference ``http://xinference-"
+"pypiserver:8080/simple``."
+msgstr ""
+"Starten Sie anschließend ein Modell und beobachten Sie ``docker compose "
+"logs -f xinference`` — die Protokolle der Paketinstallation sollten auf "
+"``http://xinference-pypiserver:8080/simple`` verweisen."
+

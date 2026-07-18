@@ -16,4 +16,5 @@ Getting Started
    using_kubernetes
    troubleshooting
    environments
+   migration_3_0
    release_notes

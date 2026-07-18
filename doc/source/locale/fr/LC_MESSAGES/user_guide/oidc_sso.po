@@ -1,0 +1,212 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2026, XINFERENCE HOLDINGS PTE. LTD.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-17 15:37+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: fr\n"
+"Language-Team: fr <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/oidc_sso.rst:5
+msgid "OIDC Single Sign-On"
+msgstr "Authentification unique OIDC"
+
+#: ../../source/user_guide/oidc_sso.rst:7
+msgid ""
+"Xinference can authenticate users against an external OpenID Connect "
+"(OIDC) identity provider such as `Keycloak <https://www.keycloak.org/>`_,"
+" in addition to the built-in username/password login. SSO users are "
+"provisioned automatically on first login and managed like any other user "
+"afterwards."
+msgstr ""
+"Xinference peut authentifier les utilisateurs auprès d'un fournisseur "
+"d'identité OpenID Connect (OIDC) externe tel que `Keycloak "
+"<https://www.keycloak.org/>`_, en plus de la connexion intégrée par nom "
+"d'utilisateur/mot de passe. Les utilisateurs SSO sont provisionnés "
+"automatiquement lors de leur première connexion, puis gérés comme "
+"n'importe quel autre utilisateur."
+
+#: ../../source/user_guide/oidc_sso.rst:12
+msgid ""
+"OIDC requires the database-backed authentication system to be enabled "
+"(the default) — see :ref:`user_guide_auth_system`."
+msgstr ""
+"OIDC nécessite que le système d'authentification basé sur une base de "
+"données soit activé (le comportement par défaut) — voir "
+":ref:`user_guide_auth_system`."
+
+#: ../../source/user_guide/oidc_sso.rst:16
+msgid "Configuration"
+msgstr "Configuration"
+
+#: ../../source/user_guide/oidc_sso.rst:18
+msgid ""
+"Enable OIDC by setting the following environment variables on the process"
+" that runs the RESTful API:"
+msgstr ""
+"Activez OIDC en définissant les variables d'environnement suivantes sur "
+"le processus qui exécute l'API RESTful :"
+
+#: ../../source/user_guide/oidc_sso.rst:24
+msgid "Environment variable"
+msgstr "Variable d'environnement"
+
+#: ../../source/user_guide/oidc_sso.rst:25
+msgid "Meaning"
+msgstr "Signification"
+
+#: ../../source/user_guide/oidc_sso.rst:26
+msgid "``XINFERENCE_OIDC_ENABLED``"
+msgstr "``XINFERENCE_OIDC_ENABLED``"
+
+#: ../../source/user_guide/oidc_sso.rst:27
+msgid "Set to ``1`` / ``true`` / ``yes`` to enable OIDC. Default: disabled."
+msgstr ""
+"Définissez ``1`` / ``true`` / ``yes`` pour activer OIDC. Par défaut : "
+"désactivé."
+
+#: ../../source/user_guide/oidc_sso.rst:28
+msgid "``XINFERENCE_OIDC_ISSUER``"
+msgstr "``XINFERENCE_OIDC_ISSUER``"
+
+#: ../../source/user_guide/oidc_sso.rst:29
+msgid ""
+"Issuer URL of your identity provider, e.g. "
+"``https://keycloak.example.com/realms/myrealm``. Xinference discovers the"
+" provider's endpoints from ``<issuer>/.well-known/openid-configuration``."
+msgstr ""
+"URL de l'émetteur (issuer) de votre fournisseur d'identité, par ex. "
+"``https://keycloak.example.com/realms/myrealm``. Xinference découvre les "
+"points de terminaison du fournisseur via ``<issuer>/.well-known/openid-"
+"configuration``."
+
+#: ../../source/user_guide/oidc_sso.rst:33
+msgid "``XINFERENCE_OIDC_CLIENT_ID``"
+msgstr "``XINFERENCE_OIDC_CLIENT_ID``"
+
+#: ../../source/user_guide/oidc_sso.rst:34
+msgid "OAuth client ID registered at the provider."
+msgstr "ID du client OAuth enregistré auprès du fournisseur."
+
+#: ../../source/user_guide/oidc_sso.rst:35
+msgid "``XINFERENCE_OIDC_CLIENT_SECRET``"
+msgstr "``XINFERENCE_OIDC_CLIENT_SECRET``"
+
+#: ../../source/user_guide/oidc_sso.rst:36
+msgid "OAuth client secret (a *confidential* client is required)."
+msgstr "Secret du client OAuth (un client *confidentiel* est requis)."
+
+#: ../../source/user_guide/oidc_sso.rst:37
+msgid "``XINFERENCE_OIDC_REDIRECT_URI``"
+msgstr "``XINFERENCE_OIDC_REDIRECT_URI``"
+
+#: ../../source/user_guide/oidc_sso.rst:38
+msgid ""
+"Callback URL pointing back at Xinference, i.e. ``http(s)://<xinference-"
+"endpoint>/api/oidc/callback``. The same URL must be registered as a valid"
+" redirect URI at the provider."
+msgstr ""
+"URL de rappel (callback) pointant vers Xinference, c'est-à-dire ``http(s"
+")://<xinference-endpoint>/api/oidc/callback``. La même URL doit être "
+"enregistrée comme URI de redirection valide auprès du fournisseur."
+
+#: ../../source/user_guide/oidc_sso.rst:42
+msgid ""
+"When ``XINFERENCE_OIDC_ENABLED`` is set, all four remaining variables are"
+" required — Xinference refuses to start and reports the missing ones "
+"otherwise."
+msgstr ""
+"Lorsque ``XINFERENCE_OIDC_ENABLED`` est définie, les quatre autres "
+"variables sont toutes requises — sinon, Xinference refuse de démarrer et "
+"signale celles qui manquent."
+
+#: ../../source/user_guide/oidc_sso.rst:46
+msgid "Example (Keycloak):"
+msgstr "Exemple (Keycloak) :"
+
+#: ../../source/user_guide/oidc_sso.rst:58
+msgid "Login flow"
+msgstr "Déroulement de la connexion"
+
+#: ../../source/user_guide/oidc_sso.rst:60
+msgid ""
+"Direct users to ``GET /api/oidc/authorize`` on the Xinference endpoint. "
+"Xinference redirects the browser to the provider's authorization page "
+"(requesting the ``openid profile email`` scopes)."
+msgstr ""
+"Dirigez les utilisateurs vers ``GET /api/oidc/authorize`` sur le point de"
+" terminaison Xinference. Xinference redirige le navigateur vers la page "
+"d'autorisation du fournisseur (en demandant les portées ``openid profile "
+"email``)."
+
+#: ../../source/user_guide/oidc_sso.rst:63
+msgid ""
+"After a successful provider login, the browser returns to "
+"``/api/oidc/callback``. Xinference exchanges the authorization code, "
+"verifies the ID token signature against the provider's published JWKS, "
+"issues its own access and refresh tokens, and redirects to the web UI."
+msgstr ""
+"Après une connexion réussie chez le fournisseur, le navigateur revient "
+"sur ``/api/oidc/callback``. Xinference échange le code d'autorisation, "
+"vérifie la signature du jeton d'identité (ID token) par rapport au JWKS "
+"publié par le fournisseur, émet ses propres tokens d'accès et de "
+"rafraîchissement, puis redirige vers l'interface Web."
+
+#: ../../source/user_guide/oidc_sso.rst:69
+msgid "User provisioning and permissions"
+msgstr "Provisionnement des utilisateurs et permissions"
+
+#: ../../source/user_guide/oidc_sso.rst:71
+msgid ""
+"Users are matched by the OIDC ``sub`` claim. On first login an account is"
+" created automatically with the provider's ``preferred_username`` "
+"(falling back to ``email``) as the username and ``source`` set to "
+"``oidc``."
+msgstr ""
+"Les utilisateurs sont mis en correspondance via la revendication (claim) "
+"OIDC ``sub``. Lors de la première connexion, un compte est créé "
+"automatiquement avec le ``preferred_username`` du fournisseur (ou, à "
+"défaut, ``email``) comme nom d'utilisateur et ``source`` défini à "
+"``oidc``."
+
+#: ../../source/user_guide/oidc_sso.rst:74
+msgid ""
+"Newly provisioned SSO users start with only the ``models:list`` "
+"permission. An administrator grants further permissions through the "
+"**User Management** page or the ``/v1/admin/users`` API — changes take "
+"effect on the user's next request, without re-login."
+msgstr ""
+"Les utilisateurs SSO nouvellement provisionnés ne disposent au départ que"
+" de la permission ``models:list``. Un administrateur accorde des "
+"permissions supplémentaires via la page **Gestion des utilisateurs** ou "
+"l'API ``/v1/admin/users`` — les changements prennent effet à la requête "
+"suivante de l'utilisateur, sans reconnexion."
+
+#: ../../source/user_guide/oidc_sso.rst:78
+msgid ""
+"Disabling an SSO user in user management blocks their login even if their"
+" provider account is still active."
+msgstr ""
+"Désactiver un utilisateur SSO dans la gestion des utilisateurs bloque sa "
+"connexion même si son compte chez le fournisseur est toujours actif."
+
+#: ../../source/user_guide/oidc_sso.rst:80
+msgid ""
+"OIDC users have no local password, so local password login and password "
+"change do not apply to them."
+msgstr ""
+"Les utilisateurs OIDC n'ont pas de mot de passe local ; la connexion par "
+"mot de passe local et le changement de mot de passe ne s'appliquent donc "
+"pas à eux."
+

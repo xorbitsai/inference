@@ -21,6 +21,18 @@ the LLaMA series models and their variants.
     ``xllamacpp`` becomes default option for llama.cpp, and ``llama-cpp-python`` is deprecated.
     Since Xinference v1.6.0, ``llama-cpp-python`` has been removed.
 
+Automatic GPU wheel selection
+-----------------------------
+
+.. versionadded:: 3.0
+
+When per-model virtual environments are enabled and a usable NVIDIA GPU is
+present, Xinference automatically installs the ``xllamacpp`` wheel matching
+the detected CUDA line. CUDA 12.8 and later in the 12.x line use the ``cu128``
+wheel index, while CUDA 13.x uses the ``cu132`` wheel index. CPU-only hosts and
+unsupported CUDA versions keep the default CPU wheel from PyPI. No separate
+``xllamacpp`` GPU installation command is required for this launch path.
+
 
 For all configurable llama.cpp parameters, please refer to the definition of the ``common_params`` structure in ``llama.cpp`` `common.h <https://github.com/ggml-org/llama.cpp/blob/master/common/common.h>`_
 
@@ -164,6 +176,11 @@ Currently, supported model includes:
 - ``DeepSeek-V4-Flash``, ``DeepSeek-V4-Pro``
 .. vllm_end
 
+Besides LLMs, vLLM can also serve embedding models. Model families whose
+names start with ``bge``, ``gte``, ``text2vec``, ``m3e``, ``Qwen3``, or
+``bce`` can be launched with ``--model-engine vllm`` — see
+:ref:`Embeddings <embed>`.
+
 .. _sglang_backend:
 
 SGLang
@@ -179,4 +196,3 @@ MLX
 `MLX <https://github.com/ml-explore/mlx-examples/tree/main/llms>`_ provides efficient runtime
 to run LLM on Apple silicon. It's recommended to use for Mac users when running on Apple silicon
 if the model has MLX format support.
-

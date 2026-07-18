@@ -1,0 +1,304 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2026, XINFERENCE HOLDINGS PTE. LTD.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-17 17:20+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ko\n"
+"Language-Team: ko <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: ../../source/getting_started/migration_3_0.rst:5
+msgid "Migrating to Xinference 3.0"
+msgstr "Xinference 3.0으로 마이그레이션"
+
+#: ../../source/getting_started/migration_3_0.rst:7
+msgid ""
+"Xinference 3.0 modernizes authentication, the web UI, and container "
+"deployment. Most workloads keep working unchanged, but a few behaviors "
+"and flags were removed or renamed. This page lists every breaking change "
+"and how to adapt."
+msgstr ""
+"Xinference 3.0은 인증, 웹 UI, 컨테이너 배포를 현대화했습니다. 대부분의 워크로드는 변경 없이 계속 동작하지만, 일부"
+" 동작과 플래그가 제거되거나 이름이 변경되었습니다. 이 페이지는 호환성이 깨지는 모든 변경 사항과 대응 방법을 정리합니다."
+
+#: ../../source/getting_started/migration_3_0.rst:13
+msgid "Authentication is enabled by default"
+msgstr "인증이 기본적으로 활성화됩니다"
+
+#: ../../source/getting_started/migration_3_0.rst:15
+msgid ""
+"Starting with v3.0, the database-backed authentication system is "
+"**enabled by default**. A fresh deployment requires a login or an API key"
+" for every API call."
+msgstr ""
+"v3.0부터 데이터베이스 기반 인증 시스템이 **기본적으로 활성화됩니다**. 새로 배포한 환경에서는 모든 API 호출에 로그인 또는"
+" API 키가 필요합니다."
+
+#: ../../source/getting_started/migration_3_0.rst:19
+msgid ""
+"On first startup, open the web UI (or call ``POST /v1/admin/setup``) to "
+"create the initial admin account. See :ref:`user_guide_auth_system` for "
+"the full flow."
+msgstr ""
+"최초 기동 시 웹 UI를 열거나 ``POST /v1/admin/setup`` 엔드포인트를 호출하여 초기 관리자 계정을 생성하세요. "
+"전체 절차는 :ref:`user_guide_auth_system` 문서를 참조하세요."
+
+#: ../../source/getting_started/migration_3_0.rst:22
+msgid "To restore the previous unauthenticated behavior, set:"
+msgstr "이전의 인증 없는 동작으로 되돌리려면 다음과 같이 설정하세요:"
+
+#: ../../source/getting_started/migration_3_0.rst:28
+msgid ""
+"Existing clients and scripts that talk to an authenticated server must "
+"now log in (``xinference login`` / ``client.login()``) or pass an API key"
+" (``--api-key`` / ``api_key=`` / ``Authorization: Bearer <key>``)."
+msgstr ""
+"인증이 활성화된 서버와 통신하는 기존 클라이언트와 스크립트는 이제 로그인(``xinference login`` / "
+"``client.login()``)하거나 API 키(``--api-key`` / ``api_key=`` / "
+"``Authorization: Bearer <key>``)를 전달해야 합니다."
+
+#: ../../source/getting_started/migration_3_0.rst:33
+msgid "The legacy ``--auth-config`` system is removed"
+msgstr "레거시 ``--auth-config`` 시스템 제거"
+
+#: ../../source/getting_started/migration_3_0.rst:35
+msgid ""
+"The in-memory JSON authentication system configured through the ``--auth-"
+"config`` flag of ``xinference-local`` and ``xinference-supervisor`` has "
+"been removed, together with its static ``auth_config.json`` format. The "
+"flag no longer exists."
+msgstr ""
+"``xinference-local`` 및 ``xinference-supervisor`` 의 ``--auth-config`` 플래그로"
+" 구성하던 인메모리 JSON 인증 시스템이 정적 ``auth_config.json`` 형식과 함께 제거되었습니다. 이 플래그는 더 "
+"이상 존재하지 않습니다."
+
+#: ../../source/getting_started/migration_3_0.rst:40
+msgid ""
+"To carry your old users and API keys over to the new database-backed "
+"system, use the migration command:"
+msgstr "기존 사용자와 API 키를 새 데이터베이스 기반 시스템으로 이전하려면 다음 마이그레이션 명령을 사용하세요:"
+
+msgid ""
+"The value passed to ``--encryption-key`` must be the **same key** that "
+"the upgraded server uses at runtime: either the value of "
+"``XINFERENCE_AUTH_ENCRYPTION_KEY`` or the value persisted in "
+"``<XINFERENCE_HOME>/auth/encryption_key``. It is not a one-time migration"
+" secret. If a different key is used, the migrated API-key hashes can "
+"still authenticate requests, but Xinference cannot decrypt or reveal the "
+"stored plaintext keys."
+msgstr ""
+"``--encryption-key`` 에 전달하는 값은 업그레이드된 서버가 런타임에 사용하는 키와 **동일한 키**여야 합니다. "
+"즉, ``XINFERENCE_AUTH_ENCRYPTION_KEY`` 값 또는 "
+"``<XINFERENCE_HOME>/auth/encryption_key`` 에 저장된 값이어야 합니다. 이는 일회성 마이그레이션 "
+"비밀 값이 아닙니다. 다른 키를 사용하면 마이그레이션된 API 키 해시로 요청을 인증할 수는 있지만, Xinference가 저장된 "
+"평문 키를 복호화하거나 표시할 수 없습니다."
+
+#: ../../source/getting_started/migration_3_0.rst:51
+msgid ""
+"If an admin password is ever lost, an operator with shell access can "
+"reset it offline with ``xinference-reset-auth-password`` — see "
+":ref:`user_guide_auth_system`."
+msgstr ""
+"관리자 비밀번호를 분실한 경우, 셸 접근 권한이 있는 운영자가 ``xinference-reset-auth-password`` "
+"명령으로 오프라인에서 재설정할 수 있습니다. :ref:`user_guide_auth_system` 문서를 참조하세요."
+
+#: ../../source/getting_started/migration_3_0.rst:56
+msgid "Permission scope renames"
+msgstr "권한 스코프 이름 변경"
+
+#: ../../source/getting_started/migration_3_0.rst:58
+msgid "Several fine-grained permission scopes were consolidated and renamed:"
+msgstr "여러 세분화된 권한 스코프가 통합되고 이름이 변경되었습니다:"
+
+#: ../../source/getting_started/migration_3_0.rst:63
+msgid "Legacy scope"
+msgstr "레거시 스코프"
+
+#: ../../source/getting_started/migration_3_0.rst:64
+msgid "Replacement"
+msgstr "대체 스코프"
+
+#: ../../source/getting_started/migration_3_0.rst:65
+msgid "``models:start``"
+msgstr "``models:start``"
+
+#: ../../source/getting_started/migration_3_0.rst:66
+#: ../../source/getting_started/migration_3_0.rst:68
+msgid "``models:write``"
+msgstr "``models:write``"
+
+#: ../../source/getting_started/migration_3_0.rst:67
+msgid "``models:stop``"
+msgstr "``models:stop``"
+
+#: ../../source/getting_started/migration_3_0.rst:69
+msgid "``models:add``"
+msgstr "``models:add``"
+
+#: ../../source/getting_started/migration_3_0.rst:70
+msgid "``models:register``"
+msgstr "``models:register``"
+
+#: ../../source/getting_started/migration_3_0.rst:71
+msgid "``admin`` (for log routes)"
+msgstr "``admin`` (로그 라우트용)"
+
+#: ../../source/getting_started/migration_3_0.rst:72
+msgid "``logs:list``"
+msgstr "``logs:list``"
+
+#: ../../source/getting_started/migration_3_0.rst:73
+msgid "``admin`` (required by the legacy API-key reveal route)"
+msgstr "``admin`` (기존 API 키 표시 경로에 필요)"
+
+#: ../../source/getting_started/migration_3_0.rst:74
+msgid ""
+"``keys:manage`` (list any user's keys; update, delete, reveal, and manage"
+" per-key model permissions)"
+msgstr "``keys:manage`` (모든 사용자의 키 목록 조회, 업데이트, 삭제, 원문 표시 및 키별 모델 권한 관리)"
+
+msgid ""
+"API key creation remains separate: ``keys:create`` is required to create "
+"a key, and ``keys:manage`` is additionally required when creating one for"
+" another user."
+msgstr ""
+"API 키 생성 권한은 별도입니다. 키를 생성하려면 ``keys:create``가 필요하며 다른 사용자의 키를 생성할 때는 "
+"``keys:manage``도 필요합니다."
+
+#: ../../source/getting_started/migration_3_0.rst:76
+msgid ""
+"Tokens and API keys that carry the legacy scope names keep working: the "
+"server transparently maps legacy names to their replacements. This "
+"compatibility mapping is deprecated and will be removed in a future "
+"release, so update any automation that grants permissions to use the new "
+"names."
+msgstr ""
+"레거시 스코프 이름을 가진 토큰과 API 키는 계속 동작합니다. 서버가 레거시 이름을 대체 스코프로 투명하게 매핑하기 때문입니다. "
+"다만 이 호환성 매핑은 더 이상 권장되지 않으며 향후 릴리스에서 제거될 예정이므로, 권한을 부여하는 자동화 도구는 새 이름을 "
+"사용하도록 업데이트하세요."
+
+#: ../../source/getting_started/migration_3_0.rst:82
+msgid "New default web UI (Next.js)"
+msgstr "새 기본 웹 UI (Next.js)"
+
+#: ../../source/getting_started/migration_3_0.rst:84
+msgid ""
+"The web UI has been rewritten in Next.js and is now the default; the "
+"legacy React UI has been removed. The UI is exported statically at build "
+"time and served by the Xinference server itself — no separate frontend "
+"process is needed."
+msgstr ""
+"웹 UI가 Next.js로 재작성되어 이제 기본 UI가 되었으며, 레거시 React UI는 제거되었습니다. UI는 빌드 시점에 "
+"정적으로 내보내져 Xinference 서버가 직접 제공하므로 별도의 프런트엔드 프로세스가 필요하지 않습니다."
+
+#: ../../source/getting_started/migration_3_0.rst:89
+msgid ""
+"The ``XINFERENCE_FRONTEND_ENDPOINT`` environment variable has been "
+"**removed**. To serve a custom frontend build, point "
+"``XINFERENCE_FRONTEND_DIST_DIR`` at its directory instead."
+msgstr ""
+"``XINFERENCE_FRONTEND_ENDPOINT`` 환경 변수는 **제거되었습니다**. 사용자 정의 프런트엔드 빌드를 "
+"제공하려면 대신 ``XINFERENCE_FRONTEND_DIST_DIR`` 변수를 해당 디렉토리로 지정하세요."
+
+#: ../../source/getting_started/migration_3_0.rst:92
+msgid ""
+"The old ``/ui/`` path redirects to ``/``. Opening ``/`` takes you to the "
+"model launch page."
+msgstr "기존 ``/ui/`` 경로는 ``/`` 로 리디렉션됩니다. ``/`` 를 열면 모델 시작 페이지로 이동합니다."
+
+#: ../../source/getting_started/migration_3_0.rst:96
+msgid "Built-in Gradio demo pages are removed"
+msgstr "내장 Gradio 데모 페이지 제거"
+
+#: ../../source/getting_started/migration_3_0.rst:98
+#, python-brace-format
+msgid ""
+"The per-model Gradio demo UI (previously mounted at ``/{model_uid}``) and"
+" the ``/v1/ui/*`` endpoints behind it have been removed, along with the "
+"``gradio`` dependency. To interact with a running model, use the web UI, "
+"the OpenAI-compatible API, or the Python client instead."
+msgstr ""
+"모델별 Gradio 데모 UI(이전에는 ``/{model_uid}`` 경로에 마운트)와 그 뒤의 ``/v1/ui/*`` 엔드포인트가"
+" ``gradio`` 의존성과 함께 제거되었습니다. 실행 중인 모델과 상호작용하려면 웹 UI, OpenAI 호환 API 또는 "
+"Python 클라이언트를 사용하세요."
+
+msgid "The official GPU image requires CUDA 13 and installs engines on demand"
+msgstr "공식 GPU 이미지는 CUDA 13이 필요하며 엔진을 필요할 때 설치합니다"
+
+msgid ""
+"The official 3.0 GPU image is now a slim image based on "
+"``nvidia/cuda:13.0.2-devel-ubuntu22.04``. It requires an NVIDIA driver "
+"version of **580 or later**. The image still includes Python 3.12, the "
+"shared CUDA PyTorch stack, and the Transformers engine, but it no longer "
+"pre-installs vLLM, SGLang, llama.cpp, or other optional inference "
+"engines."
+msgstr ""
+"공식 3.0 GPU 이미지는 이제 ``nvidia/cuda:13.0.2-devel-ubuntu22.04`` 기반의 경량 "
+"이미지입니다. NVIDIA 드라이버 **580 이상**이 필요합니다. 이 이미지에는 Python 3.12, 공유 CUDA "
+"PyTorch 스택 및 Transformers 엔진이 계속 포함되지만, vLLM, SGLang, llama.cpp 및 기타 선택적 "
+"추론 엔진은 더 이상 미리 설치되지 않습니다."
+
+msgid ""
+"When a model needs one of those engines, Xinference installs it into a "
+"per-model virtual environment on first launch. The first launch therefore"
+" takes longer and requires access to PyPI or a compatible private package"
+" mirror; later launches reuse the environment."
+msgstr ""
+"모델에 이러한 엔진 중 하나가 필요하면 Xinference가 첫 실행 시 모델별 가상 환경에 설치합니다. 따라서 첫 실행은 더 오래"
+" 걸리며 PyPI 또는 호환되는 비공개 패키지 미러에 접근할 수 있어야 합니다. 이후 실행에서는 해당 환경을 재사용합니다."
+
+msgid ""
+"For offline or air-gapped Compose deployments, pull or transfer the "
+"matching ``xprobe/xinference-pypiserver`` image and pin it to the same "
+"release tag as ``xprobe/xinference``. Alternatively, supply your own "
+"wheel directory with the ``docker-compose.byo-wheels.yml`` override. See "
+":ref:`using_docker_image` and :ref:`using_docker_compose` for the "
+"complete requirements."
+msgstr ""
+"오프라인 또는 에어갭 Compose 배포에서는 해당 ``xprobe/xinference-pypiserver`` 이미지를 가져오거나 "
+"전송하고 ``xprobe/xinference`` 와 동일한 릴리스 태그로 고정하십시오. 또는 ``docker-compose.byo-"
+"wheels.yml`` 오버라이드를 사용해 자체 wheel 디렉터리를 제공할 수 있습니다. 전체 요구 사항은 "
+":ref:`using_docker_image` 및 :ref:`using_docker_compose` 를 참조하십시오."
+
+#: ../../source/getting_started/migration_3_0.rst:104
+msgid "Strict Qwen3-family system-message ordering"
+msgstr "Qwen3 계열의 엄격한 시스템 메시지 순서"
+
+#: ../../source/getting_started/migration_3_0.rst:106
+msgid ""
+"For model families whose chat template requires the system message to "
+"come first (including Ornith-1.0-35B, qwen3.5, qwen3.6, and Nex-N2), "
+"Xinference now validates message order before dispatching a request. A "
+"``system`` message at any position other than ``messages[0]`` returns "
+"HTTP 400. Move all system instructions into a single leading system "
+"message before upgrading."
+msgstr ""
+"채팅 템플릿에서 시스템 메시지가 맨 앞에 있어야 하는 모델 계열(Ornith-1.0-35B, qwen3.5, qwen3.6, "
+"Nex-N2 포함)의 경우 Xinference는 요청을 전달하기 전에 메시지 순서를 검증합니다. ``messages[0]`` 이외의"
+" 위치에 있는 ``system`` 메시지는 HTTP 400을 반환합니다. 업그레이드하기 전에 모든 시스템 지시를 하나의 선행 시스템"
+" 메시지로 합치십시오."
+
+#: ../../source/getting_started/migration_3_0.rst:113
+msgid "Docker Compose requirements"
+msgstr "Docker Compose 요구 사항"
+
+#: ../../source/getting_started/migration_3_0.rst:115
+msgid ""
+"The bundled Compose files dropped the deprecated ``version:`` field and "
+"use newer Compose features, so deploying with them requires **Docker "
+"Compose v2.24.4 or later**. See :ref:`using_docker_compose`."
+msgstr ""
+"번들로 제공되는 Compose 파일은 더 이상 사용되지 않는 ``version:`` 필드를 제거하고 최신 Compose 기능을 "
+"사용하므로, 이를 이용해 배포하려면 **Docker Compose v2.24.4 이상**\\ 이 필요합니다. "
+":ref:`using_docker_compose` 문서를 참조하세요."

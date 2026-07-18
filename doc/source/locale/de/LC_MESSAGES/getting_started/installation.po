@@ -5,18 +5,18 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: Xinference\n"
+"Project-Id-Version:  Xinference\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-28 11:54+0800\n"
+"POT-Creation-Date: 2026-07-17 17:20+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: de <LL@li.org>\n"
 "Language: de\n"
+"Language-Team: de <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"Generated-By: Babel 2.18.0\n"
+"Generated-By: Babel 2.17.0\n"
 
 #: ../../source/getting_started/installation.rst:5
 msgid "Installation"
@@ -24,31 +24,33 @@ msgstr "Installation"
 
 #: ../../source/getting_started/installation.rst:6
 msgid ""
-"Xinference can be installed with ``pip`` on Linux, Windows, and macOS. To "
-"run models using Xinference, you will need to install the backend "
+"Xinference can be installed with ``pip`` on Linux, Windows, and macOS. To"
+" run models using Xinference, you will need to install the backend "
 "corresponding to the type of model you intend to serve."
 msgstr ""
 "Xinference kann unter Linux, Windows und MacOS über ``pip`` installiert "
-"werden. Wenn Sie Xinference für Modellinferenz verwenden möchten, können Sie"
-" je nach Modell unterschiedliche Engines festlegen."
+"werden. Wenn Sie Xinference für Modellinferenz verwenden möchten, können "
+"Sie je nach Modell unterschiedliche Engines festlegen."
 
 #: ../../source/getting_started/installation.rst:8
 msgid ""
-"If you aim to serve all supported models, you can install all the necessary "
-"dependencies with a single command::"
+"If you aim to serve all supported models, you can install all the "
+"necessary dependencies with a single command::"
 msgstr ""
-"Wenn Sie alle unterstützten Modelle bereitstellen möchten, können Sie alle "
-"erforderlichen Abhängigkeiten mit einem einzigen Befehl installieren::"
+"Wenn Sie alle unterstützten Modelle bereitstellen möchten, können Sie "
+"alle erforderlichen Abhängigkeiten mit einem einzigen Befehl "
+"installieren::"
 
 #: ../../source/getting_started/installation.rst:14
 msgid ""
-"Due to irreconcilable package dependency conflicts between vLLM and sglang, "
-"we have removed sglang from the all extra. If you want to use sglang, please"
-" install it separately via ``pip install 'xinference[sglang]'``."
+"Due to irreconcilable package dependency conflicts between vLLM and "
+"sglang, we have removed sglang from the all extra. If you want to use "
+"sglang, please install it separately via ``pip install "
+"'xinference[sglang]'``."
 msgstr ""
-"Da vllm und sglang in Bezug auf Paketabhängigkeiten nicht kompatibel sind, "
-"haben wir sglang aus dem all-Paket entfernt. Wenn Sie sglang verwenden "
-"möchten, nutzen Sie bitte ``pip install 'xinference[sglang]'``."
+"Da vllm und sglang in Bezug auf Paketabhängigkeiten nicht kompatibel "
+"sind, haben wir sglang aus dem all-Paket entfernt. Wenn Sie sglang "
+"verwenden möchten, nutzen Sie bitte ``pip install 'xinference[sglang]'``."
 
 #: ../../source/getting_started/installation.rst:17
 msgid "Several usage scenarios require special attention."
@@ -60,13 +62,13 @@ msgstr "**GGUF-Format** in Kombination mit der **llama.cpp-Engine**"
 
 #: ../../source/getting_started/installation.rst:21
 msgid ""
-"In this situation, it's advised to install its dependencies manually based "
-"on your hardware specifications to enable acceleration. For more details, "
-"see the :ref:`installation_gguf` section."
+"In this situation, it's advised to install its dependencies manually "
+"based on your hardware specifications to enable acceleration. For more "
+"details, see the :ref:`installation_gguf` section."
 msgstr ""
 "In diesem Fall wird empfohlen, die Abhängigkeiten basierend auf Ihren "
-"Hardwarespezifikationen manuell zu installieren, um die Beschleunigung zu "
-"aktivieren. Weitere Details finden Sie im Abschnitt "
+"Hardwarespezifikationen manuell zu installieren, um die Beschleunigung zu"
+" aktivieren. Weitere Details finden Sie im Abschnitt "
 ":ref:`installation_gguf`."
 
 #: ../../source/getting_started/installation.rst:23
@@ -81,28 +83,28 @@ msgstr "**Der Inhalt dieses Abschnitts wurde in v1.6.0 hinzugefügt.**"
 
 #: ../../source/getting_started/installation.rst:27
 msgid ""
-"This is because the dependencies at this stage require special options and "
-"are difficult to install. Please run command below in advance"
+"This is because the dependencies at this stage require special options "
+"and are difficult to install. Please run command below in advance"
 msgstr ""
-"Dies liegt daran, dass die Abhängigkeiten in dieser Phase spezielle Optionen"
-" erfordern und schwer zu installieren sind. Bitte führen Sie die folgenden "
-"Befehle vorab aus:"
+"Dies liegt daran, dass die Abhängigkeiten in dieser Phase spezielle "
+"Optionen erfordern und schwer zu installieren sind. Bitte führen Sie die "
+"folgenden Befehle vorab aus:"
 
 #: ../../source/getting_started/installation.rst:33
 msgid ""
 "Some dependencies like ``transformers`` might be downgraded, you can run "
 "``pip install \"xinference[all]\"`` afterwards."
 msgstr ""
-"Bestimmte Abhängigkeiten, wie ``transformers``, könnten herabgestuft werden."
-" Sie können später ``pip install \"xinference[all]\"`` ausführen."
+"Bestimmte Abhängigkeiten, wie ``transformers``, könnten herabgestuft "
+"werden. Sie können später ``pip install \"xinference[all]\"`` ausführen."
 
 #: ../../source/getting_started/installation.rst:36
 msgid ""
-"If you want to install only the necessary backends, here's a breakdown of "
-"how to do it."
+"If you want to install only the necessary backends, here's a breakdown of"
+" how to do it."
 msgstr ""
-"Wenn Sie nur die erforderlichen Abhängigkeiten installieren möchten, finden "
-"Sie hier die detaillierten Schritte zur Vorgehensweise."
+"Wenn Sie nur die erforderlichen Abhängigkeiten installieren möchten, "
+"finden Sie hier die detaillierten Schritte zur Vorgehensweise."
 
 #: ../../source/getting_started/installation.rst:41
 msgid "Transformers Backend"
@@ -110,11 +112,12 @@ msgstr "Transformers-Engine"
 
 #: ../../source/getting_started/installation.rst:42
 msgid ""
-"PyTorch (transformers) supports the inference of most state-of-art models. "
-"It is the default backend for models in PyTorch format::"
+"PyTorch (transformers) supports the inference of most state-of-art "
+"models. It is the default backend for models in PyTorch format::"
 msgstr ""
-"Der PyTorch(transformers) Engine unterstützt nahezu alle neuesten Modelle. "
-"Dies ist die standardmäßig verwendete Engine für PyTorch-Modelle::"
+"Der PyTorch(transformers) Engine unterstützt nahezu alle neuesten "
+"Modelle. Dies ist die standardmäßig verwendete Engine für PyTorch-"
+"Modelle::"
 
 #: ../../source/getting_started/installation.rst:46
 msgid "Notes:"
@@ -122,20 +125,21 @@ msgstr "Hinweis:"
 
 #: ../../source/getting_started/installation.rst:48
 msgid ""
-"The transformers engine supports ``pytorch`` / ``gptq`` / ``awq`` / ``bnb`` "
-"/ ``fp4`` formats."
+"The transformers engine supports ``pytorch`` / ``gptq`` / ``awq`` / "
+"``bnb`` / ``fp4`` formats."
 msgstr ""
 "Die Transformers-Engine unterstützt die Formate ``pytorch`` / ``gptq`` / "
 "``awq`` / ``bnb`` / ``fp4``."
 
 #: ../../source/getting_started/installation.rst:49
 msgid ""
-"FP4 format requires ``transformers`` with ``FPQuantConfig`` support. If you "
-"see an import error, please upgrade ``transformers`` to a newer version."
+"FP4 format requires ``transformers`` with ``FPQuantConfig`` support. If "
+"you see an import error, please upgrade ``transformers`` to a newer "
+"version."
 msgstr ""
 "Das FP4-Format erfordert ``transformers`` mit Unterstützung für "
-"``FPQuantConfig``. Wenn ein Importfehler auftritt, aktualisieren Sie bitte "
-"``transformers`` auf eine neuere Version."
+"``FPQuantConfig``. Wenn ein Importfehler auftritt, aktualisieren Sie "
+"bitte ``transformers`` auf eine neuere Version."
 
 #: ../../source/getting_started/installation.rst:54
 msgid "vLLM Backend"
@@ -144,21 +148,21 @@ msgstr "vLLM-Engine"
 #: ../../source/getting_started/installation.rst:55
 msgid ""
 "vLLM is a fast and easy-to-use library for LLM inference and serving. "
-"Xinference will choose vLLM as the backend to achieve better throughput when"
-" the following conditions are met:"
+"Xinference will choose vLLM as the backend to achieve better throughput "
+"when the following conditions are met:"
 msgstr ""
-"vLLM ist eine leistungsstarke Inferenz-Engine für große Modelle, die hohe "
-"Parallelität unterstützt. Wenn die folgenden Bedingungen erfüllt sind, wählt"
-" Xinference automatisch vLLM als Engine aus, um einen höheren Durchsatz zu "
-"erreichen:"
+"vLLM ist eine leistungsstarke Inferenz-Engine für große Modelle, die hohe"
+" Parallelität unterstützt. Wenn die folgenden Bedingungen erfüllt sind, "
+"wählt Xinference automatisch vLLM als Engine aus, um einen höheren "
+"Durchsatz zu erreichen:"
 
 #: ../../source/getting_started/installation.rst:57
 msgid ""
 "The model format is ``pytorch``, ``gptq``, ``awq``, ``fp4``, ``fp8`` or "
 "``bnb``."
 msgstr ""
-"Das Modellformat ist ``pytorch``, ``gptq``, ``awq``, ``fp4``, ``fp8`` oder "
-"``bnb``."
+"Das Modellformat ist ``pytorch``, ``gptq``, ``awq``, ``fp4``, ``fp8`` "
+"oder ``bnb``."
 
 #: ../../source/getting_started/installation.rst:58
 msgid "When the model format is ``pytorch``, the quantization is ``none``."
@@ -169,13 +173,13 @@ msgstr ""
 #: ../../source/getting_started/installation.rst:59
 msgid "When the model format is ``awq``, the quantization is ``Int4``."
 msgstr ""
-"Wenn das Modellformat ``awq`` ist, muss die Quantisierungsoption ``Int4`` "
-"sein."
+"Wenn das Modellformat ``awq`` ist, muss die Quantisierungsoption ``Int4``"
+" sein."
 
 #: ../../source/getting_started/installation.rst:60
 msgid ""
-"When the model format is ``gptq``, the quantization is ``Int3``, ``Int4`` or"
-" ``Int8``."
+"When the model format is ``gptq``, the quantization is ``Int3``, ``Int4``"
+" or ``Int8``."
 msgstr ""
 "Wenn das Modellformat ``gptq`` ist, müssen die Quantisierungsoptionen "
 "``Int3``, ``Int4`` oder ``Int8`` sein."
@@ -188,8 +192,8 @@ msgstr ""
 
 #: ../../source/getting_started/installation.rst:62
 msgid ""
-"The model family (for custom models) / model name (for builtin models) is "
-"within the list of models supported by vLLM"
+"The model family (for custom models) / model name (for builtin models) is"
+" within the list of models supported by vLLM"
 msgstr ""
 "Das Feld ``model_family`` für benutzerdefinierte Modelle und das Feld "
 "``model_name`` für integrierte Modelle befinden sich in der "
@@ -206,27 +210,27 @@ msgid ""
 "instruct``, ``deepseek-r1-distill-llama``, ``gorilla-openfunctions-v2``, "
 "``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``, ``llama-3``, "
 "``llama-3-instruct``, ``llama-3.1``, ``llama-3.1-instruct``, "
-"``llama-3.3-instruct``, ``tiny-llama``, ``wizardcoder-python-v1.0``, "
-"``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, "
+"``llama-3.3-instruct``, ``minicpm5-1b``, ``tiny-llama``, ``wizardcoder-"
+"python-v1.0``, ``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, ``Yi-1.5-chat``, "
 "``Yi-1.5-chat-16k``, ``Yi-200k``, ``Yi-chat``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:69
 msgid ""
-"``codestral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``, "
-"``mistral-instruct-v0.3``, ``mistral-large-instruct``, ``mistral-nemo-"
+"``codestral-v0.1``, ``mistral-instruct-v0.1``, ``mistral-instruct-v0.2``,"
+" ``mistral-instruct-v0.3``, ``mistral-large-instruct``, ``mistral-nemo-"
 "instruct``, ``mistral-v0.1``, ``openhermes-2.5``, ``seallm_v2``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:70
 msgid ""
-"``Baichuan-M2``, ``codeqwen1.5``, ``codeqwen1.5-chat``, "
-"``deepseek-r1-distill-qwen``, ``DianJin-R1``, ``fin-r1``, "
-"``HuatuoGPT-o1-Qwen2.5``, ``KAT-V1``, ``marco-o1``, ``qwen1.5-chat``, "
-"``qwen2-instruct``, ``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-"
-"instruct``, ``qwen2.5-instruct``, ``qwen2.5-instruct-1m``, ``qwenLong-l1``, "
-"``QwQ-32B``, ``QwQ-32B-Preview``, ``seallms-v3``, ``skywork-or1``, "
-"``skywork-or1-preview``, ``XiYanSQL-QwenCoder-2504``"
+"``Baichuan-M2``, ``codeqwen1.5``, ``codeqwen1.5-chat``, ``deepseek-r1"
+"-distill-qwen``, ``DianJin-R1``, ``fin-r1``, ``HuatuoGPT-o1-Qwen2.5``, "
+"``KAT-V1``, ``marco-o1``, ``qwen1.5-chat``, ``qwen2-instruct``, "
+"``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-instruct``, "
+"``qwen2.5-instruct``, ``qwen2.5-instruct-1m``, ``qwenLong-l1``, ``QwQ-"
+"32B``, ``QwQ-32B-Preview``, ``seallms-v3``, ``skywork-or1``, ``skywork-"
+"or1-preview``, ``vibethinker``, ``XiYanSQL-QwenCoder-2504``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:71
@@ -247,7 +251,8 @@ msgstr ""
 
 #: ../../source/getting_started/installation.rst:75
 msgid ""
-"``mixtral-8x22B-instruct-v0.1``, ``mixtral-instruct-v0.1``, ``mixtral-v0.1``"
+"``mixtral-8x22B-instruct-v0.1``, ``mixtral-instruct-v0.1``, "
+"``mixtral-v0.1``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:76
@@ -287,8 +292,8 @@ msgstr ""
 #: ../../source/getting_started/installation.rst:84
 msgid ""
 "``deepseek-prover-v2``, ``deepseek-r1``, ``deepseek-r1-0528``, "
-"``deepseek-v3``, ``deepseek-v3-0324``, ``Deepseek-V3.1``, "
-"``moonlight-16b-a3b-instruct``"
+"``deepseek-v3``, ``deepseek-v3-0324``, ``Deepseek-V3.1``, ``moonlight-"
+"16b-a3b-instruct``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:85
@@ -313,8 +318,8 @@ msgstr ""
 
 #: ../../source/getting_started/installation.rst:90
 msgid ""
-"``minicpm-2b-dpo-bf16``, ``minicpm-2b-dpo-fp16``, ``minicpm-2b-dpo-fp32``, "
-"``minicpm-2b-sft-bf16``, ``minicpm-2b-sft-fp32``, ``minicpm4``"
+"``minicpm-2b-dpo-bf16``, ``minicpm-2b-dpo-fp16``, ``minicpm-2b-dpo-"
+"fp32``, ``minicpm-2b-sft-bf16``, ``minicpm-2b-sft-fp32``, ``minicpm4``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:91
@@ -326,7 +331,7 @@ msgid "``Qwen3-Coder``, ``Qwen3-Instruct``, ``Qwen3-Thinking``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:93
-msgid "``glm-4.5``"
+msgid "``glm-4.5``, ``GLM-4.6``, ``GLM-4.7``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:94
@@ -346,80 +351,139 @@ msgid "``DeepSeek-V3.2``, ``DeepSeek-V3.2-Exp``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:98
-msgid "``MiniMax-M2``"
+msgid "``MiniMax-M2``, ``MiniMax-M2.5``, ``MiniMax-M2.7``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:99
+msgid "``GLM-4.7-Flash``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:100
+msgid "``glm-5``, ``glm-5.1``"
 msgstr ""
 
 #: ../../source/getting_started/installation.rst:101
+msgid "``DeepSeek-V4-Flash``, ``DeepSeek-V4-Pro``"
+msgstr ""
+
+#: ../../source/getting_started/installation.rst:104
 msgid "To install Xinference and vLLM::"
 msgstr "Installiere xinference und vLLM::"
 
-#: ../../source/getting_started/installation.rst:114
+#: ../../source/getting_started/installation.rst:117
 msgid "Llama.cpp Backend"
 msgstr "Llama.cpp Engine"
 
-#: ../../source/getting_started/installation.rst:115
+#: ../../source/getting_started/installation.rst:118
 msgid ""
-"Xinference supports models in ``gguf`` format via ``xllamacpp``. `xllamacpp "
-"<https://github.com/xorbitsai/xllamacpp>`_ is developed by Xinference team, "
-"and is the sole backend for llama.cpp since v1.6.0."
+"Xinference supports models in ``gguf`` format via ``xllamacpp``. "
+"`xllamacpp <https://github.com/xorbitsai/xllamacpp>`_ is developed by "
+"Xinference team, and is the sole backend for llama.cpp since v1.6.0."
 msgstr ""
 "Xinference unterstützt Modelle im ``gguf``-Format über ``xllamacpp``. "
-"`xllamacpp <https://github.com/xorbitsai/xllamacpp>`_ wird vom Xinference-"
-"Team entwickelt und ist seit v1.6.0 das einzige Backend für llama.cpp."
+"`xllamacpp <https://github.com/xorbitsai/xllamacpp>`_ wird vom "
+"Xinference-Team entwickelt und ist seit v1.6.0 das einzige Backend für "
+"llama.cpp."
 
-#: ../../source/getting_started/installation.rst:121
+#: ../../source/getting_started/installation.rst:124
 msgid ""
 "Since Xinference v1.5.0, ``llama-cpp-python`` is deprecated. Since "
 "Xinference v1.6.0, ``llama-cpp-python`` has been removed."
 msgstr ""
-"Seit Xinference v1.5.0 ist ``llama-cpp-python`` veraltet; seit Xinference "
-"v1.6.0 wurde dieses Backend entfernt."
+"Seit Xinference v1.5.0 ist ``llama-cpp-python`` veraltet; seit Xinference"
+" v1.6.0 wurde dieses Backend entfernt."
 
-#: ../../source/getting_started/installation.rst:124
-#: ../../source/getting_started/installation.rst:134
-#: ../../source/getting_started/installation.rst:143
+#: ../../source/getting_started/installation.rst:127
+#: ../../source/getting_started/installation.rst:140
+#: ../../source/getting_started/installation.rst:149
 msgid "Initial setup::"
 msgstr "Erste Schritte::"
 
-#: ../../source/getting_started/installation.rst:128
-msgid ""
-"For more installation instructions for ``xllamacpp`` to enable GPU "
-"acceleration, please refer to: https://github.com/xorbitsai/xllamacpp"
-msgstr ""
-"Weitere Installationsanleitungen für ``xllamacpp`` zur Aktivierung der GPU-"
-"Beschleunigung finden Sie unter: https://github.com/xorbitsai/xllamacpp"
-
 #: ../../source/getting_started/installation.rst:131
+msgid ""
+"With per-model virtual environments enabled, Xinference 3.0 automatically"
+" selects the matching ``xllamacpp`` GPU wheel for supported CUDA "
+"versions; see :ref:`user_guide_backends`. For a manual installation into "
+"the process environment, refer to https://github.com/xorbitsai/xllamacpp."
+msgstr "Bei aktivierten virtuellen Umgebungen pro Modell wählt Xinference 3.0 für unterstützte CUDA-Versionen automatisch das passende ``xllamacpp``-GPU-Wheel aus; siehe :ref:`user_guide_backends`. Hinweise zur manuellen Installation in die Prozessumgebung finden Sie unter https://github.com/xorbitsai/xllamacpp."
+
+#: ../../source/getting_started/installation.rst:137
 msgid "SGLang Backend"
 msgstr "SGLang-Engine"
 
-#: ../../source/getting_started/installation.rst:132
+#: ../../source/getting_started/installation.rst:138
 msgid ""
 "SGLang has a high-performance inference runtime with RadixAttention. It "
-"significantly accelerates the execution of complex LLM programs by automatic"
-" KV cache reuse across multiple calls. And it also supports other common "
-"techniques like continuous batching and tensor parallelism."
+"significantly accelerates the execution of complex LLM programs by "
+"automatic KV cache reuse across multiple calls. And it also supports "
+"other common techniques like continuous batching and tensor parallelism."
 msgstr ""
-"SGLang besitzt eine leistungsstarke Inferenz-Laufzeitumgebung basierend auf "
-"RadixAttention. Sie beschleunigt die Ausführung komplexer LLM-Programme "
-"erheblich, indem sie den KV-Cache automatisch über mehrere Aufrufe hinweg "
-"wiederverwendet. Sie unterstützt zudem andere gängige Inferenztechniken wie "
-"kontinuierliches Batching und Tensor-Parallelverarbeitung."
+"SGLang besitzt eine leistungsstarke Inferenz-Laufzeitumgebung basierend "
+"auf RadixAttention. Sie beschleunigt die Ausführung komplexer LLM-"
+"Programme erheblich, indem sie den KV-Cache automatisch über mehrere "
+"Aufrufe hinweg wiederverwendet. Sie unterstützt zudem andere gängige "
+"Inferenztechniken wie kontinuierliches Batching und Tensor-"
+"Parallelverarbeitung."
 
-#: ../../source/getting_started/installation.rst:140
+#: ../../source/getting_started/installation.rst:146
 msgid "MLX Backend"
 msgstr "MLX-Engine"
 
-#: ../../source/getting_started/installation.rst:141
+#: ../../source/getting_started/installation.rst:147
 msgid "MLX-lm is designed for Apple silicon users to run LLM efficiently."
 msgstr ""
-"MLX-lm wird verwendet, um effiziente LLM-Inferenz auf Apple-Silicon-Chips "
-"bereitzustellen."
+"MLX-lm wird verwendet, um effiziente LLM-Inferenz auf Apple-Silicon-Chips"
+" bereitzustellen."
 
-#: ../../source/getting_started/installation.rst:148
+#: ../../source/getting_started/installation.rst:156
 msgid "Other Platforms"
 msgstr "Andere Plattformen"
 
-#: ../../source/getting_started/installation.rst:150
+#: ../../source/getting_started/installation.rst:158
 msgid ":ref:`Ascend NPU <installation_npu>`"
 msgstr ""
+
+#~ msgid ""
+#~ "``code-llama``, ``code-llama-instruct``, "
+#~ "``code-llama-python``, ``deepseek``, "
+#~ "``deepseek-chat``, ``deepseek-coder``, "
+#~ "``deepseek-coder-instruct``, ``deepseek-r1-distill-"
+#~ "llama``, ``gorilla-openfunctions-v2``, "
+#~ "``HuatuoGPT-o1-LLaMA-3.1``, ``llama-2``, ``llama-2-chat``,"
+#~ " ``llama-3``, ``llama-3-instruct``, ``llama-3.1``, "
+#~ "``llama-3.1-instruct``, ``llama-3.3-instruct``, ``tiny-"
+#~ "llama``, ``wizardcoder-python-v1.0``, "
+#~ "``wizardmath-v1.0``, ``Yi``, ``Yi-1.5``, "
+#~ "``Yi-1.5-chat``, ``Yi-1.5-chat-16k``, ``Yi-"
+#~ "200k``, ``Yi-chat``"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "``Baichuan-M2``, ``codeqwen1.5``, ``codeqwen1.5-chat``,"
+#~ " ``deepseek-r1-distill-qwen``, ``DianJin-R1``, "
+#~ "``fin-r1``, ``HuatuoGPT-o1-Qwen2.5``, ``KAT-V1``, "
+#~ "``marco-o1``, ``qwen1.5-chat``, ``qwen2-instruct``, "
+#~ "``qwen2.5``, ``qwen2.5-coder``, ``qwen2.5-coder-"
+#~ "instruct``, ``qwen2.5-instruct``, ``qwen2.5-instruct-"
+#~ "1m``, ``qwenLong-l1``, ``QwQ-32B``, ``QwQ-"
+#~ "32B-Preview``, ``seallms-v3``, ``skywork-"
+#~ "or1``, ``skywork-or1-preview``, ``XiYanSQL-"
+#~ "QwenCoder-2504``"
+#~ msgstr ""
+
+#~ msgid "``glm-4.5``"
+#~ msgstr ""
+
+#~ msgid "``MiniMax-M2``"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "For more installation instructions for "
+#~ "``xllamacpp`` to enable GPU acceleration, "
+#~ "please refer to: "
+#~ "https://github.com/xorbitsai/xllamacpp"
+#~ msgstr ""
+#~ "Weitere Installationsanleitungen für ``xllamacpp``"
+#~ " zur Aktivierung der GPU-Beschleunigung "
+#~ "finden Sie unter: "
+#~ "https://github.com/xorbitsai/xllamacpp"

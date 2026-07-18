@@ -10,6 +10,8 @@ User Guide
    backends
    client_api
    auth_system
+   oidc_sso
+   audit_security
    launch
    metrics
    distributed_inference

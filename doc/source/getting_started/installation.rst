@@ -128,7 +128,10 @@ Initial setup::
 
    pip install "xinference[llama_cpp]"
 
-For more installation instructions for ``xllamacpp`` to enable GPU acceleration, please refer to: https://github.com/xorbitsai/xllamacpp
+With per-model virtual environments enabled, Xinference 3.0 automatically
+selects the matching ``xllamacpp`` GPU wheel for supported CUDA versions; see
+:ref:`user_guide_backends`. For a manual installation into the process
+environment, refer to https://github.com/xorbitsai/xllamacpp.
 
 SGLang Backend
 ~~~~~~~~~~~~~~

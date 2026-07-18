@@ -1,0 +1,306 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2026, XINFERENCE HOLDINGS PTE. LTD.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-17 17:20+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: ja\n"
+"Language-Team: ja <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: ../../source/getting_started/migration_3_0.rst:5
+msgid "Migrating to Xinference 3.0"
+msgstr "Xinference 3.0 への移行"
+
+#: ../../source/getting_started/migration_3_0.rst:7
+msgid ""
+"Xinference 3.0 modernizes authentication, the web UI, and container "
+"deployment. Most workloads keep working unchanged, but a few behaviors "
+"and flags were removed or renamed. This page lists every breaking change "
+"and how to adapt."
+msgstr ""
+"Xinference 3.0 では、認証、Web "
+"UI、コンテナデプロイが刷新されました。ほとんどのワークロードは変更なしで動作し続けますが、一部の挙動やフラグは削除または名称変更されています。このページでは、すべての破壊的変更とその対応方法を説明します。"
+
+#: ../../source/getting_started/migration_3_0.rst:13
+msgid "Authentication is enabled by default"
+msgstr "認証はデフォルトで有効"
+
+#: ../../source/getting_started/migration_3_0.rst:15
+msgid ""
+"Starting with v3.0, the database-backed authentication system is "
+"**enabled by default**. A fresh deployment requires a login or an API key"
+" for every API call."
+msgstr ""
+"v3.0 以降、データベースを用いた認証システムが **デフォルトで有効** になっています。新規デプロイでは、すべての API "
+"呼び出しにログインまたは API キーが必要です。"
+
+#: ../../source/getting_started/migration_3_0.rst:19
+msgid ""
+"On first startup, open the web UI (or call ``POST /v1/admin/setup``) to "
+"create the initial admin account. See :ref:`user_guide_auth_system` for "
+"the full flow."
+msgstr ""
+"初回起動時に Web UI を開いて（または ``POST /v1/admin/setup`` "
+"を呼び出して）初期管理者アカウントを作成してください。手順の全体像は :ref:`user_guide_auth_system` "
+"を参照してください。"
+
+#: ../../source/getting_started/migration_3_0.rst:22
+msgid "To restore the previous unauthenticated behavior, set:"
+msgstr "以前の認証なしの挙動に戻すには、次を設定します："
+
+#: ../../source/getting_started/migration_3_0.rst:28
+msgid ""
+"Existing clients and scripts that talk to an authenticated server must "
+"now log in (``xinference login`` / ``client.login()``) or pass an API key"
+" (``--api-key`` / ``api_key=`` / ``Authorization: Bearer <key>``)."
+msgstr ""
+"認証が有効なサーバーと通信する既存のクライアントやスクリプトは、ログインする（``xinference login`` / "
+"``client.login()``）か、API キーを渡す（``--api-key`` / ``api_key=`` / "
+"``Authorization: Bearer <key>``）必要があります。"
+
+#: ../../source/getting_started/migration_3_0.rst:33
+msgid "The legacy ``--auth-config`` system is removed"
+msgstr "レガシーの ``--auth-config`` システムは削除"
+
+#: ../../source/getting_started/migration_3_0.rst:35
+msgid ""
+"The in-memory JSON authentication system configured through the ``--auth-"
+"config`` flag of ``xinference-local`` and ``xinference-supervisor`` has "
+"been removed, together with its static ``auth_config.json`` format. The "
+"flag no longer exists."
+msgstr ""
+"``xinference-local`` と ``xinference-supervisor`` の ``--auth-config`` "
+"フラグで設定していたインメモリ JSON 認証システムは、静的な ``auth_config.json`` "
+"フォーマットとともに削除されました。このフラグはもう存在しません。"
+
+#: ../../source/getting_started/migration_3_0.rst:40
+msgid ""
+"To carry your old users and API keys over to the new database-backed "
+"system, use the migration command:"
+msgstr "以前のユーザーと API キーを新しいデータベースベースのシステムに引き継ぐには、移行コマンドを使用します："
+
+msgid ""
+"The value passed to ``--encryption-key`` must be the **same key** that "
+"the upgraded server uses at runtime: either the value of "
+"``XINFERENCE_AUTH_ENCRYPTION_KEY`` or the value persisted in "
+"``<XINFERENCE_HOME>/auth/encryption_key``. It is not a one-time migration"
+" secret. If a different key is used, the migrated API-key hashes can "
+"still authenticate requests, but Xinference cannot decrypt or reveal the "
+"stored plaintext keys."
+msgstr ""
+"``--encryption-key`` "
+"に渡す値は、アップグレード後のサーバーが実行時に使用するものと**同じキー**でなければなりません。つまり、``XINFERENCE_AUTH_ENCRYPTION_KEY``"
+" の値、または ``<XINFERENCE_HOME>/auth/encryption_key`` "
+"に保存された値です。これは移行時だけ使用する一時的なシークレットではありません。別のキーを使用した場合、移行された API "
+"キーのハッシュでリクエストを認証することはできますが、Xinference は保存された平文キーを復号したり表示したりできません。"
+
+#: ../../source/getting_started/migration_3_0.rst:51
+msgid ""
+"If an admin password is ever lost, an operator with shell access can "
+"reset it offline with ``xinference-reset-auth-password`` — see "
+":ref:`user_guide_auth_system`."
+msgstr ""
+"管理者パスワードを紛失した場合は、シェルアクセスを持つオペレーターが ``xinference-reset-auth-password`` "
+"でオフラインでリセットできます。:ref:`user_guide_auth_system` を参照してください。"
+
+#: ../../source/getting_started/migration_3_0.rst:56
+msgid "Permission scope renames"
+msgstr "権限スコープの名称変更"
+
+#: ../../source/getting_started/migration_3_0.rst:58
+msgid "Several fine-grained permission scopes were consolidated and renamed:"
+msgstr "いくつかの細かい権限スコープが統合・名称変更されました："
+
+#: ../../source/getting_started/migration_3_0.rst:63
+msgid "Legacy scope"
+msgstr "レガシーのスコープ"
+
+#: ../../source/getting_started/migration_3_0.rst:64
+msgid "Replacement"
+msgstr "置き換え先"
+
+#: ../../source/getting_started/migration_3_0.rst:65
+msgid "``models:start``"
+msgstr "``models:start``"
+
+#: ../../source/getting_started/migration_3_0.rst:66
+#: ../../source/getting_started/migration_3_0.rst:68
+msgid "``models:write``"
+msgstr "``models:write``"
+
+#: ../../source/getting_started/migration_3_0.rst:67
+msgid "``models:stop``"
+msgstr "``models:stop``"
+
+#: ../../source/getting_started/migration_3_0.rst:69
+msgid "``models:add``"
+msgstr "``models:add``"
+
+#: ../../source/getting_started/migration_3_0.rst:70
+msgid "``models:register``"
+msgstr "``models:register``"
+
+#: ../../source/getting_started/migration_3_0.rst:71
+msgid "``admin`` (for log routes)"
+msgstr "``admin`` （ログ関連ルート用）"
+
+#: ../../source/getting_started/migration_3_0.rst:72
+msgid "``logs:list``"
+msgstr "``logs:list``"
+
+#: ../../source/getting_started/migration_3_0.rst:73
+msgid "``admin`` (required by the legacy API-key reveal route)"
+msgstr "``admin`` （従来の API キー表示ルートで必要）"
+
+#: ../../source/getting_started/migration_3_0.rst:74
+msgid ""
+"``keys:manage`` (list any user's keys; update, delete, reveal, and manage"
+" per-key model permissions)"
+msgstr "``keys:manage`` （任意のユーザーのキー一覧表示、更新、削除、キー値の表示、およびキーごとのモデル権限の管理）"
+
+msgid ""
+"API key creation remains separate: ``keys:create`` is required to create "
+"a key, and ``keys:manage`` is additionally required when creating one for"
+" another user."
+msgstr ""
+"API キーの作成権限は独立しています。キーの作成には ``keys:create`` が必要で、別のユーザー用に作成する場合はさらに "
+"``keys:manage`` が必要です。"
+
+#: ../../source/getting_started/migration_3_0.rst:76
+msgid ""
+"Tokens and API keys that carry the legacy scope names keep working: the "
+"server transparently maps legacy names to their replacements. This "
+"compatibility mapping is deprecated and will be removed in a future "
+"release, so update any automation that grants permissions to use the new "
+"names."
+msgstr ""
+"レガシーのスコープ名を持つトークンや API "
+"キーは引き続き動作します。サーバーがレガシー名を置き換え先の名前へ透過的にマッピングするためです。ただし、この互換マッピングは非推奨であり、将来のリリースで削除される予定です。権限を付与する自動化処理は、新しい名前を使うように更新してください。"
+
+#: ../../source/getting_started/migration_3_0.rst:82
+msgid "New default web UI (Next.js)"
+msgstr "新しいデフォルト Web UI（Next.js）"
+
+#: ../../source/getting_started/migration_3_0.rst:84
+msgid ""
+"The web UI has been rewritten in Next.js and is now the default; the "
+"legacy React UI has been removed. The UI is exported statically at build "
+"time and served by the Xinference server itself — no separate frontend "
+"process is needed."
+msgstr ""
+"Web UI は Next.js で書き直され、デフォルトになりました。レガシーの React UI は削除されています。UI "
+"はビルド時に静的にエクスポートされ、Xinference サーバー自体によって配信されるため、別個のフロントエンドプロセスは不要です。"
+
+#: ../../source/getting_started/migration_3_0.rst:89
+msgid ""
+"The ``XINFERENCE_FRONTEND_ENDPOINT`` environment variable has been "
+"**removed**. To serve a custom frontend build, point "
+"``XINFERENCE_FRONTEND_DIST_DIR`` at its directory instead."
+msgstr ""
+"環境変数 ``XINFERENCE_FRONTEND_ENDPOINT`` は **削除** "
+"されました。カスタムのフロントエンドビルドを配信するには、代わりに ``XINFERENCE_FRONTEND_DIST_DIR`` "
+"をそのディレクトリに向けてください。"
+
+#: ../../source/getting_started/migration_3_0.rst:92
+msgid ""
+"The old ``/ui/`` path redirects to ``/``. Opening ``/`` takes you to the "
+"model launch page."
+msgstr "旧来の ``/ui/`` パスは ``/`` にリダイレクトされます。 ``/`` を開くとモデル起動ページが表示されます。"
+
+#: ../../source/getting_started/migration_3_0.rst:96
+msgid "Built-in Gradio demo pages are removed"
+msgstr "組み込み Gradio デモページは削除"
+
+#: ../../source/getting_started/migration_3_0.rst:98
+#, python-brace-format
+msgid ""
+"The per-model Gradio demo UI (previously mounted at ``/{model_uid}``) and"
+" the ``/v1/ui/*`` endpoints behind it have been removed, along with the "
+"``gradio`` dependency. To interact with a running model, use the web UI, "
+"the OpenAI-compatible API, or the Python client instead."
+msgstr ""
+"モデルごとの Gradio デモ UI（以前は ``/{model_uid}`` にマウント）と、その背後にあった ``/v1/ui/*`` "
+"エンドポイントは、 ``gradio`` 依存関係とともに削除されました。実行中のモデルを操作するには、代わりに Web UI、OpenAI 互換"
+" API、または Python クライアントを使用してください。"
+
+msgid "The official GPU image requires CUDA 13 and installs engines on demand"
+msgstr "公式 GPU イメージには CUDA 13 が必要で、エンジンはオンデマンドでインストールされます"
+
+msgid ""
+"The official 3.0 GPU image is now a slim image based on "
+"``nvidia/cuda:13.0.2-devel-ubuntu22.04``. It requires an NVIDIA driver "
+"version of **580 or later**. The image still includes Python 3.12, the "
+"shared CUDA PyTorch stack, and the Transformers engine, but it no longer "
+"pre-installs vLLM, SGLang, llama.cpp, or other optional inference "
+"engines."
+msgstr ""
+"公式の 3.0 GPU イメージは、``nvidia/cuda:13.0.2-devel-ubuntu22.04`` "
+"をベースとする軽量イメージになりました。NVIDIA ドライバーは **580 以降**が必要です。Python 3.12、共有 CUDA "
+"PyTorch スタック、Transformers "
+"エンジンは引き続き含まれますが、vLLM、SGLang、llama.cpp、その他のオプションの推論エンジンはプリインストールされません。"
+
+msgid ""
+"When a model needs one of those engines, Xinference installs it into a "
+"per-model virtual environment on first launch. The first launch therefore"
+" takes longer and requires access to PyPI or a compatible private package"
+" mirror; later launches reuse the environment."
+msgstr ""
+"モデルがこれらのエンジンのいずれかを必要とする場合、Xinference "
+"は初回起動時にモデルごとの仮想環境へインストールします。そのため初回起動には時間がかかり、PyPI "
+"または互換性のあるプライベートパッケージミラーへのアクセスが必要です。以降の起動では同じ環境が再利用されます。"
+
+msgid ""
+"For offline or air-gapped Compose deployments, pull or transfer the "
+"matching ``xprobe/xinference-pypiserver`` image and pin it to the same "
+"release tag as ``xprobe/xinference``. Alternatively, supply your own "
+"wheel directory with the ``docker-compose.byo-wheels.yml`` override. See "
+":ref:`using_docker_image` and :ref:`using_docker_compose` for the "
+"complete requirements."
+msgstr ""
+"オフラインまたはエアギャップ環境の Compose デプロイでは、対応する ``xprobe/xinference-pypiserver`` "
+"イメージを取得または転送し、``xprobe/xinference`` と同じリリースタグに固定してください。または、``docker-"
+"compose.byo-wheels.yml`` オーバーライドを使用して独自の wheel ディレクトリを指定できます。完全な要件については "
+":ref:`using_docker_image` と :ref:`using_docker_compose` を参照してください。"
+
+#: ../../source/getting_started/migration_3_0.rst:104
+msgid "Strict Qwen3-family system-message ordering"
+msgstr "Qwen3 ファミリーの厳格なシステムメッセージ順序"
+
+#: ../../source/getting_started/migration_3_0.rst:106
+msgid ""
+"For model families whose chat template requires the system message to "
+"come first (including Ornith-1.0-35B, qwen3.5, qwen3.6, and Nex-N2), "
+"Xinference now validates message order before dispatching a request. A "
+"``system`` message at any position other than ``messages[0]`` returns "
+"HTTP 400. Move all system instructions into a single leading system "
+"message before upgrading."
+msgstr ""
+"チャットテンプレートでシステムメッセージを先頭に置く必要があるモデルファミリー（Ornith-1.0-35B、qwen3.5、qwen3.6、Nex-N2"
+" など）では、Xinference はリクエストを送信する前にメッセージ順序を検証します。``messages[0]`` 以外の位置にある "
+"``system`` メッセージには HTTP 400 が返されます。アップグレード前に、すべてのシステム指示を先頭の 1 "
+"つのシステムメッセージにまとめてください。"
+
+#: ../../source/getting_started/migration_3_0.rst:113
+msgid "Docker Compose requirements"
+msgstr "Docker Compose の要件"
+
+#: ../../source/getting_started/migration_3_0.rst:115
+msgid ""
+"The bundled Compose files dropped the deprecated ``version:`` field and "
+"use newer Compose features, so deploying with them requires **Docker "
+"Compose v2.24.4 or later**. See :ref:`using_docker_compose`."
+msgstr ""
+"同梱の Compose ファイルは非推奨の ``version:`` フィールドを廃止し、より新しい Compose "
+"の機能を使用しています。そのため、これらを用いたデプロイには **Docker Compose v2.24.4 以降** "
+"が必要です。:ref:`using_docker_compose` を参照してください。"

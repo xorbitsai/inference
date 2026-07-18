@@ -1,0 +1,224 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) 2026, XINFERENCE HOLDINGS PTE. LTD.
+# This file is distributed under the same license as the Xinference package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Xinference \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-17 15:37+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: es\n"
+"Language-Team: es <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: ../../source/user_guide/audit_security.rst:5
+msgid "Audit Logging and Security"
+msgstr "Registro de auditoría y seguridad"
+
+#: ../../source/user_guide/audit_security.rst:7
+msgid ""
+"When the database-backed authentication system is enabled (the default, "
+"see :ref:`user_guide_auth_system`), Xinference records an audit trail of "
+"API activity and protects the API against brute-force attacks. "
+"Administrators can inspect both from the web UI."
+msgstr ""
+"Cuando el sistema de autenticación respaldado por base de datos está "
+"habilitado (el valor predeterminado; consulte "
+":ref:`user_guide_auth_system`), Xinference registra una traza de "
+"auditoría de la actividad de la API y protege la API contra ataques de "
+"fuerza bruta. Los administradores pueden inspeccionar ambas cosas desde "
+"la interfaz web."
+
+#: ../../source/user_guide/audit_security.rst:13
+msgid "Audit logging"
+msgstr "Registro de auditoría"
+
+#: ../../source/user_guide/audit_security.rst:15
+msgid ""
+"Protected and authenticated API activity is recorded as JSON lines in "
+"``<XINFERENCE_LOG_DIR>/audit.log`` (``<XINFERENCE_HOME>/logs`` by "
+"default). Files rotate daily (and by size) and are kept for "
+"``XINFERENCE_AUDIT_LOG_RETENTION_DAYS`` days (default 90)."
+msgstr ""
+"La actividad de API protegida y autenticada se registra como líneas JSON "
+"en ``<XINFERENCE_LOG_DIR>/audit.log`` (de forma predeterminada, "
+"``<XINFERENCE_HOME>/logs``). Los archivos rotan diariamente y por tamaño,"
+" y se conservan durante ``XINFERENCE_AUDIT_LOG_RETENTION_DAYS`` días (90 "
+"de forma predeterminada)."
+
+msgid ""
+"This is an authentication and security audit trail, not a complete HTTP "
+"access log. Xinference intentionally excludes ``/v1/audit/*``, "
+"``/v1/cluster/auth``, ``/v1/cluster/ui_config``, ``/status``, and "
+"``/v1/address``; public or bootstrap routes that do not pass through the "
+"authenticated audit path may also be absent."
+msgstr ""
+"Se trata de un registro de auditoría de autenticación y seguridad, no de "
+"un registro completo de acceso HTTP. Xinference excluye intencionadamente"
+" ``/v1/audit/*``, ``/v1/cluster/auth``, ``/v1/cluster/ui_config``, "
+"``/status`` y ``/v1/address``; también pueden faltar rutas públicas o de "
+"inicialización que no pasen por la ruta de auditoría autenticada."
+
+#: ../../source/user_guide/audit_security.rst:20
+msgid "Each entry contains, among others:"
+msgstr "Cada entrada contiene, entre otros, los siguientes campos:"
+
+#: ../../source/user_guide/audit_security.rst:22
+msgid ""
+"``category``: ``inference`` (model calls such as ``/v1/chat/...``, "
+"``/v1/embeddings``), ``auth`` (login/token endpoints), or ``admin`` "
+"(everything else)."
+msgstr ""
+"``category``: ``inference`` (llamadas a modelos como ``/v1/chat/...``, "
+"``/v1/embeddings``), ``auth`` (puntos finales de inicio de sesión y "
+"tokens) o ``admin`` (todo lo demás)."
+
+#: ../../source/user_guide/audit_security.rst:25
+msgid ""
+"``user``, ``auth_type``, ``api_key_name`` / ``api_key_prefix``: who made "
+"the call and how it was authenticated."
+msgstr ""
+"``user``, ``auth_type``, ``api_key_name`` / ``api_key_prefix``: quién "
+"realizó la llamada y cómo se autenticó."
+
+#: ../../source/user_guide/audit_security.rst:27
+msgid ""
+"``model_id`` / ``model_name`` / ``model_type``: the model involved, if "
+"any."
+msgstr ""
+"``model_id`` / ``model_name`` / ``model_type``: el modelo implicado, si "
+"lo hay."
+
+#: ../../source/user_guide/audit_security.rst:28
+msgid ""
+"``endpoint``, ``status``, ``latency_ms``, ``client_ip``, ``node``, "
+"``address``: what was called, the outcome, and where it ran."
+msgstr ""
+"``endpoint``, ``status``, ``latency_ms``, ``client_ip``, ``node``, "
+"``address``: qué se llamó, el resultado y dónde se ejecutó."
+
+#: ../../source/user_guide/audit_security.rst:32
+msgid "Audit Center"
+msgstr "Centro de auditoría"
+
+#: ../../source/user_guide/audit_security.rst:34
+msgid ""
+"The **Audit Center** page of the web UI lets administrators search and "
+"filter the audit trail (by time range, user, API key, model, category, "
+"status, and client IP). It is backed by ``GET /v1/audit/search``, which "
+"requires the ``admin`` permission."
+msgstr ""
+"La página **Centro de auditoría** de la interfaz web permite a los "
+"administradores buscar y filtrar la traza de auditoría (por intervalo de "
+"tiempo, usuario, clave de API, modelo, categoría, estado e IP del "
+"cliente). Está respaldada por ``GET /v1/audit/search``, que requiere el "
+"permiso ``admin``."
+
+#: ../../source/user_guide/audit_security.rst:39
+msgid ""
+"By default the search reads the local ``audit.log``. If the "
+"``XINFERENCE_ES_URL`` environment variable points at an Elasticsearch "
+"cluster (e.g. with the audit log shipped by Filebeat), the search queries"
+" Elasticsearch instead, using the index pattern from "
+"``XINFERENCE_AUDIT_ES_INDEX`` (default ``xinference-audit-*``)."
+msgstr ""
+"De forma predeterminada, la búsqueda lee el ``audit.log`` local. Si la "
+"variable de entorno ``XINFERENCE_ES_URL`` apunta a un clúster de "
+"Elasticsearch (por ejemplo, con el registro de auditoría enviado mediante"
+" Filebeat), la búsqueda consulta Elasticsearch en su lugar, utilizando el"
+" patrón de índice de ``XINFERENCE_AUDIT_ES_INDEX`` (``xinference-"
+"audit-*`` de forma predeterminada)."
+
+#: ../../source/user_guide/audit_security.rst:46
+msgid "Brute-force protection"
+msgstr "Protección contra ataques de fuerza bruta"
+
+#: ../../source/user_guide/audit_security.rst:48
+msgid "Failed API-key authentication attempts are rate-limited on two levels:"
+msgstr ""
+"Los intentos fallidos de autenticación con clave de API se limitan en dos"
+" niveles:"
+
+#: ../../source/user_guide/audit_security.rst:50
+msgid ""
+"**Per IP**: an IP presenting invalid API keys is banned after "
+"``XINFERENCE_RATE_LIMIT_IP_MAX_FAILURES`` failures (default 10) within "
+"``XINFERENCE_RATE_LIMIT_IP_WINDOW_SECONDS`` (default 300), for "
+"``XINFERENCE_RATE_LIMIT_IP_BAN_SECONDS`` (default 3600). Requests from a "
+"banned IP are rejected with ``429 Too Many Requests``."
+msgstr ""
+"**Por IP**: una IP que presenta claves de API no válidas se bloquea tras "
+"``XINFERENCE_RATE_LIMIT_IP_MAX_FAILURES`` fallos (10 de forma "
+"predeterminada) dentro de ``XINFERENCE_RATE_LIMIT_IP_WINDOW_SECONDS`` "
+"(300 de forma predeterminada), durante "
+"``XINFERENCE_RATE_LIMIT_IP_BAN_SECONDS`` (3600 de forma predeterminada). "
+"Las solicitudes procedentes de una IP bloqueada se rechazan con ``429 Too"
+" Many Requests``."
+
+#: ../../source/user_guide/audit_security.rst:55
+msgid ""
+"**Per (IP, API key)**: repeated failures with one specific key from one "
+"IP ban that combination after ``XINFERENCE_RATE_LIMIT_KEY_MAX_FAILURES`` "
+"failures (default 5) within ``XINFERENCE_RATE_LIMIT_KEY_WINDOW_SECONDS`` "
+"(default 300), for ``XINFERENCE_RATE_LIMIT_KEY_BAN_SECONDS`` (default "
+"3600)."
+msgstr ""
+"**Por (IP, clave de API)**: los fallos repetidos con una clave concreta "
+"desde una misma IP bloquean esa combinación tras "
+"``XINFERENCE_RATE_LIMIT_KEY_MAX_FAILURES`` fallos (5 de forma "
+"predeterminada) dentro de ``XINFERENCE_RATE_LIMIT_KEY_WINDOW_SECONDS`` "
+"(300 de forma predeterminada), durante "
+"``XINFERENCE_RATE_LIMIT_KEY_BAN_SECONDS`` (3600 de forma predeterminada)."
+
+#: ../../source/user_guide/audit_security.rst:61
+msgid ""
+"Individual API keys can override the key-level limits with the "
+"``rate_limit_max_failures`` / ``rate_limit_window_seconds`` / "
+"``rate_limit_ban_seconds`` fields when creating or updating the key."
+msgstr ""
+"Las claves de API individuales pueden sobrescribir los límites a nivel de"
+" clave con los campos ``rate_limit_max_failures`` / "
+"``rate_limit_window_seconds`` / ``rate_limit_ban_seconds`` al crear o "
+"actualizar la clave."
+
+#: ../../source/user_guide/audit_security.rst:66
+msgid "Security Settings"
+msgstr "Configuración de seguridad"
+
+#: ../../source/user_guide/audit_security.rst:68
+msgid "The **Security Settings** page of the web UI lets administrators:"
+msgstr ""
+"La página **Configuración de seguridad** de la interfaz web permite a los"
+" administradores:"
+
+#: ../../source/user_guide/audit_security.rst:70
+msgid "view and tune the rate-limit configuration at runtime,"
+msgstr "ver y ajustar la configuración de límites de tasa en tiempo de ejecución,"
+
+#: ../../source/user_guide/audit_security.rst:71
+msgid "list currently banned IPs and (IP, key) pairs,"
+msgstr "listar las IP y los pares (IP, clave) bloqueados actualmente,"
+
+#: ../../source/user_guide/audit_security.rst:72
+msgid "lift bans individually or all at once."
+msgstr "levantar los bloqueos de forma individual o todos a la vez."
+
+#: ../../source/user_guide/audit_security.rst:74
+msgid ""
+"The equivalent REST endpoints live under ``/v1/admin/security/*`` (e.g. "
+"``GET``/``PUT /v1/admin/security/rate-limit``, ``GET /v1/admin/security"
+"/banned-ips``, ``POST /v1/admin/security/unban-ip``) and require the "
+"``admin`` permission."
+msgstr ""
+"Los puntos finales REST equivalentes se encuentran bajo "
+"``/v1/admin/security/*`` (por ejemplo, ``GET``/``PUT /v1/admin/security"
+"/rate-limit``, ``GET /v1/admin/security/banned-ips``, ``POST "
+"/v1/admin/security/unban-ip``) y requieren el permiso ``admin``."
+
