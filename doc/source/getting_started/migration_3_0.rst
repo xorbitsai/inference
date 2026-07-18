@@ -48,6 +48,14 @@ use the migration command:
      --encryption-key <your-encryption-key> \
      --dry-run   # preview first, then run again without --dry-run
 
+The value passed to ``--encryption-key`` must be the **same key** that the
+upgraded server uses at runtime: either the value of
+``XINFERENCE_AUTH_ENCRYPTION_KEY`` or the value persisted in
+``<XINFERENCE_HOME>/auth/encryption_key``. It is not a one-time migration
+secret. If a different key is used, the migrated API-key hashes can still
+authenticate requests, but Xinference cannot decrypt or reveal the stored
+plaintext keys.
+
 If an admin password is ever lost, an operator with shell access can reset it
 offline with ``xinference-reset-auth-password`` — see
 :ref:`user_guide_auth_system`.
@@ -104,6 +112,27 @@ The per-model Gradio demo UI (previously mounted at ``/{model_uid}``) and the
 ``/v1/ui/*`` endpoints behind it have been removed, along with the ``gradio``
 dependency. To interact with a running model, use the web UI, the
 OpenAI-compatible API, or the Python client instead.
+
+The official GPU image requires CUDA 13 and installs engines on demand
+=======================================================================
+
+The official 3.0 GPU image is now a slim image based on
+``nvidia/cuda:13.0.2-devel-ubuntu22.04``. It requires an NVIDIA driver version
+of **580 or later**. The image still includes Python 3.12, the shared CUDA
+PyTorch stack, and the Transformers engine, but it no longer pre-installs
+vLLM, SGLang, llama.cpp, or other optional inference engines.
+
+When a model needs one of those engines, Xinference installs it into a
+per-model virtual environment on first launch. The first launch therefore
+takes longer and requires access to PyPI or a compatible private package
+mirror; later launches reuse the environment.
+
+For offline or air-gapped Compose deployments, pull or transfer the matching
+``xprobe/xinference-pypiserver`` image and pin it to the same release tag as
+``xprobe/xinference``. Alternatively, supply your own wheel directory with
+the ``docker-compose.byo-wheels.yml`` override. See
+:ref:`using_docker_image` and :ref:`using_docker_compose` for the complete
+requirements.
 
 Strict Qwen3-family system-message ordering
 ============================================

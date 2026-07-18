@@ -12,10 +12,16 @@ can inspect both from the web UI.
 Audit logging
 =============
 
-Every API request is recorded as one JSON line in
+Protected and authenticated API activity is recorded as JSON lines in
 ``<XINFERENCE_LOG_DIR>/audit.log`` (``<XINFERENCE_HOME>/logs`` by default).
 Files rotate daily (and by size) and are kept for
 ``XINFERENCE_AUDIT_LOG_RETENTION_DAYS`` days (default 90).
+
+This is an authentication and security audit trail, not a complete HTTP
+access log. Xinference intentionally excludes ``/v1/audit/*``,
+``/v1/cluster/auth``, ``/v1/cluster/ui_config``, ``/status``, and
+``/v1/address``; public or bootstrap routes that do not pass through the
+authenticated audit path may also be absent.
 
 Each entry contains, among others:
 
