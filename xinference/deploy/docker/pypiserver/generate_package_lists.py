@@ -247,7 +247,9 @@ def main() -> None:
             for package in format_packages:
                 if package not in combined_packages:
                     combined_packages.append(package)
-        filtered = filter_packages(combined_packages, engine, args.cuda_version)
+        filtered = filter_packages(
+            combined_packages, engine, args.cuda_version, "linux"
+        )
         specs: List[str] = []
         for spec in filtered:
             if classify_spec(spec) == "pin":
@@ -279,7 +281,9 @@ def main() -> None:
                 if engine.lower() not in excluded_engines:
                     candidate_engines.add(engine)
         for cand in candidate_engines:
-            for spec in filter_packages(list(concrete), cand, args.cuda_version):
+            for spec in filter_packages(
+                list(concrete), cand, args.cuda_version, "linux"
+            ):
                 sysname = system_placeholder_name(spec)
                 if sysname is not None:
                     spec = sysname

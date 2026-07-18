@@ -1624,6 +1624,7 @@
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "eva-decord ; #engine# == \"Transformers\" and sys_platform == \"linux\" and platform_machine == \"x86_64\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ]
@@ -1702,6 +1703,7 @@
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "eva-decord ; #engine# == \"Transformers\" and sys_platform == \"linux\" and platform_machine == \"x86_64\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ]
@@ -17654,6 +17656,7 @@
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "qwen-vl-utils!=0.0.9 ; #engine# == \"Transformers\"",
         "#mlx_dependencies# ; #engine# == \"MLX\"",
         "#sglang_dependencies# ; #engine# == \"sglang\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
@@ -24769,6 +24772,7 @@
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "qwen-vl-utils!=0.0.9 ; #engine# == \"Transformers\"",
         "#mlx_dependencies# ; #engine# == \"MLX\"",
         "#sglang_dependencies# ; #engine# == \"sglang\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
@@ -25257,6 +25261,7 @@
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "qwen-vl-utils!=0.0.9 ; #engine# == \"Transformers\"",
         "#mlx_dependencies# ; #engine# == \"MLX\"",
         "#sglang_dependencies# ; #engine# == \"sglang\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
@@ -25583,6 +25588,7 @@
     "virtualenv": {
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "eva-decord ; #engine# == \"Transformers\" and sys_platform == \"linux\" and platform_machine == \"x86_64\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#sglang_dependencies# ; #engine# == \"sglang\"",
         "#system_numpy# ; #engine# == \"vllm\""

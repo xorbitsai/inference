@@ -131,6 +131,8 @@ def test_transformers_optional_dependencies_are_scoped_and_mirrored(
     assert '".[otel]" transformers accelerate' in dockerfile
     assert '".[otel,transformers,transformers_quantization]"' not in dockerfile
     assert "--constraint /opt/requirements-runtime.txt" in dockerfile
+    for package in ("qwen-vl-utils", "eva-decord"):
+        assert package not in dockerfile
 
     generator = _load_script("generate_package_lists")
     _, venv_manager = generator.load_xinference_modules(REPO_ROOT)
@@ -187,6 +189,7 @@ def test_transformers_optional_dependencies_are_scoped_and_mirrored(
         "datamodel_code_generator",
         "jsonschema",
         "blobfile",
+        "eva-decord",
     ):
         assert package not in mirrored
 
@@ -205,6 +208,7 @@ def test_transformers_optional_dependencies_are_scoped_and_mirrored(
         "datamodel_code_generator",
         "jsonschema",
         "blobfile",
+        "eva-decord",
     ):
         assert package in model_pins
 
