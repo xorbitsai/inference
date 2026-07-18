@@ -141,6 +141,29 @@ def test_download_report_wheel_filename_parsing():
     assert downloader.wheel_name_version("invalid.whl") is None
 
 
+def test_pip_download_forwards_package_build_environment(monkeypatch, tmp_path):
+    downloader = _load_script("download_packages")
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append((cmd, kwargs))
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(downloader, "run", fake_run)
+    build_env = {"TORCH_VERSION": "2.12.3"}
+
+    downloader.pip_download(
+        ["gptqmodel==4.2.5"],
+        tmp_path,
+        index_url="https://example.invalid/simple",
+        extra_index_urls=[],
+        no_deps=True,
+        env=build_env,
+    )
+
+    assert calls[0][1]["env"] is build_env
+
+
 def test_runtime_constraints_require_exact_pins(tmp_path):
     downloader = _load_script("download_packages")
     constraints = tmp_path / "runtime.txt"
@@ -375,6 +398,9 @@ def test_download_packages_main_orchestration_skips_git(monkeypatch, tmp_path):
     dest = tmp_path / "packages"
     runtime_constraints = tmp_path / "runtime.txt"
     _write_runtime_constraints(runtime_constraints)
+    runtime_constraints.write_text(
+        runtime_constraints.read_text().replace("torch==2.11.0", "torch==2.12.3")
+    )
     compile_calls = []
     download_calls = []
     run_calls = []
@@ -393,8 +419,8 @@ def test_download_packages_main_orchestration_skips_git(monkeypatch, tmp_path):
             (target / "source-1.0.tar.gz").write_text("sdist")
         return subprocess.CompletedProcess([], 0)
 
-    def fake_run(cmd, **_kwargs):
-        run_calls.append(list(cmd))
+    def fake_run(cmd, **kwargs):
+        run_calls.append((list(cmd), kwargs))
         return subprocess.CompletedProcess(cmd, 0)
 
     monkeypatch.setattr(downloader, "uv_compile", fake_uv_compile)
@@ -428,7 +454,9 @@ def test_download_packages_main_orchestration_skips_git(monkeypatch, tmp_path):
         call[0] for call in download_calls
     ]
     assert all(git_source not in " ".join(call[0]) for call in download_calls)
-    assert all(git_source not in " ".join(call) for call in run_calls)
+    assert all(git_source not in " ".join(call[0]) for call in run_calls)
+    assert all(call[1]["env"]["TORCH_VERSION"] == "2.12.3" for call in download_calls)
+    assert all(call[1]["env"]["TORCH_VERSION"] == "2.12.3" for call in run_calls)
     assert not (dest / "source-1.0.tar.gz").exists()
     report = json.loads((manifest / "report.json").read_text())
     assert "transformers==5.13.1" in report["runtime_constraints"]

@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from collections import defaultdict
@@ -175,6 +176,7 @@ def pip_download(
     extra_index_urls: List[str],
     no_deps: bool = False,
     constraints: Optional[Path] = None,
+    env: Optional[Dict[str, str]] = None,
 ) -> subprocess.CompletedProcess:
     cmd = [
         sys.executable,
@@ -194,7 +196,7 @@ def pip_download(
         cmd.append("--no-deps")
     if constraints is not None:
         cmd += ["-c", str(constraints)]
-    return run(cmd + args)
+    return run(cmd + args, env=env)
 
 
 def main() -> None:
@@ -225,6 +227,13 @@ def main() -> None:
         runtime_pins = load_runtime_constraints(args.runtime_constraints)
     except ValueError as exc:
         sys.exit(f"FATAL: {exc}")
+
+    package_build_env = dict(os.environ)
+    torch_specifier = next(iter(Requirement(runtime_pins["torch"]).specifier))
+    # Some sdist-only packages inspect torch while preparing metadata or
+    # building a wheel. The mirror downloads torch instead of installing it,
+    # so expose the exact runtime version through their supported build hook.
+    package_build_env["TORCH_VERSION"] = torch_specifier.version
 
     machine = {"amd64": "x86_64", "arm64": "aarch64"}[args.platform]
     # The runtime image's glibc supports manylinux_2_34 wheels; the default
@@ -329,6 +338,7 @@ def main() -> None:
             extra_index_urls=(meta.get("extra_index_urls") or [])
             + [args.pytorch_index],
             no_deps=True,
+            env=package_build_env,
         )
         if proc.returncode != 0:
             sys.exit(f"FATAL: failed to fetch locked engine set '{engine}'")
@@ -350,6 +360,7 @@ def main() -> None:
             index_url=args.index_url,
             extra_index_urls=[args.pytorch_index],
             constraints=pruned,
+            env=package_build_env,
         )
         if proc.returncode != 0:
             print(f"WARN: retrying '{spec}' without constraints", flush=True)
@@ -358,6 +369,7 @@ def main() -> None:
                 dest,
                 index_url=args.index_url,
                 extra_index_urls=[args.pytorch_index],
+                env=package_build_env,
             )
             if proc.returncode != 0:
                 sys.exit(f"FATAL: pin '{spec}' cannot be downloaded")
@@ -380,6 +392,7 @@ def main() -> None:
             index_url=args.index_url,
             extra_index_urls=[args.pytorch_index],
             constraints=master_constraints,
+            env=package_build_env,
         )
         if proc.returncode != 0:
             print(f"WARN: retrying '{url}' without constraints", flush=True)
@@ -388,6 +401,7 @@ def main() -> None:
                 dest,
                 index_url=args.index_url,
                 extra_index_urls=[args.pytorch_index],
+                env=package_build_env,
             )
             if proc.returncode != 0:
                 sys.exit(f"FATAL: failed to download '{url}'")
@@ -414,7 +428,8 @@ def main() -> None:
                 "--wheel-dir",
                 str(dest),
                 str(sdist),
-            ]
+            ],
+            env=package_build_env,
         )
         if proc.returncode == 0:
             sdist.unlink()
