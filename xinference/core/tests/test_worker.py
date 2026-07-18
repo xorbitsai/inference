@@ -1090,6 +1090,37 @@ def test_prepare_virtual_env_expands_engine_dependencies_before_user_override():
     assert "vllm>=0.11.2" not in packages
 
 
+def test_prepare_virtual_env_selects_transformers_packages_by_model_format():
+    settings = VirtualEnvSettings(
+        packages=['#transformers_dependencies# ; #engine# == "Transformers"'],
+        inherit_pip_config=False,
+    )
+
+    gptq_manager = DummyVirtualEnvManager()
+    WorkerActor._prepare_virtual_env(
+        gptq_manager,
+        settings,
+        None,
+        model_engine="Transformers",
+        model_format="gptq",
+    )
+    gptq_packages, _ = gptq_manager.calls[0]
+    assert any(package.startswith("gptqmodel") for package in gptq_packages)
+    assert "datasets>=3.4.0" in gptq_packages
+    assert not any(package.startswith("autoawq") for package in gptq_packages)
+
+    pytorch_manager = DummyVirtualEnvManager()
+    WorkerActor._prepare_virtual_env(
+        pytorch_manager,
+        settings,
+        None,
+        model_engine="Transformers",
+        model_format="pytorch",
+    )
+    pytorch_packages, _ = pytorch_manager.calls[0]
+    assert pytorch_packages == ["transformers>=4.53.3", "accelerate>=0.28.0"]
+
+
 @pytest.mark.asyncio
 async def test_launch_embedding_model(setup_pool):
     pool = setup_pool

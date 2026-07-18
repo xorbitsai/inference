@@ -124,13 +124,33 @@ def test_runtime_and_mirror_share_the_same_constraints_file():
     assert "--runtime-constraints /build/requirements-runtime.txt" in mirror_dockerfile
 
 
-def test_transformers_model_dependencies_are_mirrored_not_baked(monkeypatch, tmp_path):
+def test_transformers_optional_dependencies_are_scoped_and_mirrored(
+    monkeypatch, tmp_path
+):
     dockerfile = (REPO_ROOT / "xinference/deploy/docker/Dockerfile").read_text()
     assert '".[otel]" transformers accelerate' in dockerfile
     assert '".[otel,transformers,transformers_quantization]"' not in dockerfile
     assert "--constraint /opt/requirements-runtime.txt" in dockerfile
 
     generator = _load_script("generate_package_lists")
+    _, venv_manager = generator.load_xinference_modules(REPO_ROOT)
+    assert venv_manager.ENGINE_VIRTUALENV_PACKAGES["transformers"] == [
+        "transformers>=4.53.3",
+        "accelerate>=0.28.0",
+    ]
+    assert (
+        venv_manager.get_engine_model_format_virtualenv_packages(
+            "Transformers", "pytorch"
+        )
+        == []
+    )
+    assert any(
+        package.startswith("gptqmodel")
+        for package in venv_manager.get_engine_model_format_virtualenv_packages(
+            "Transformers", "gptq"
+        )
+    )
+
     out = tmp_path / "manifest"
     monkeypatch.setattr(
         sys,
@@ -152,15 +172,22 @@ def test_transformers_model_dependencies_are_mirrored_not_baked(monkeypatch, tmp
         generator._platform.machine = original_machine
 
     mirrored = (out / "engines" / "transformers.in").read_text().lower()
+    for package in ("bitsandbytes", "gptqmodel", "autoawq"):
+        assert package in mirrored
+    for package in ("qwen-vl-utils", "attrdict", "einops"):
+        assert package not in mirrored
+
+    model_pins = {
+        item["spec"].split(";", 1)[0].strip().lower()
+        for item in json.loads((out / "pins.json").read_text())
+    }
     for package in (
-        "qwen-vl-utils",
+        "qwen-vl-utils!=0.0.9",
         "attrdict",
         "einops",
-        "bitsandbytes",
-        "gptqmodel",
-        "autoawq",
+        "timm>=0.9.16",
     ):
-        assert package in mirrored
+        assert package in model_pins
 
 
 def test_generate_package_lists_main_orchestration(monkeypatch, tmp_path):

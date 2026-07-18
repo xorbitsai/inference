@@ -93,9 +93,9 @@ WORKDIR /opt/inference
 
 # NO_WEB_UI=1: the static Web UI was already staged by the builder stage and
 # is packaged via MANIFEST.in; skip the npm build hook of setup.py.
-# Keep only the engine core in the slim parent image. Model-side and
-# quantization dependencies live in ENGINE_VIRTUALENV_PACKAGES["transformers"];
-# they are installed into the per-model venv and are therefore also collected
+# Keep only the engine core in the slim parent image. Optional model-side and
+# format-specific quantization dependencies live in model virtualenv specs;
+# they are installed only into matching per-model venvs and are also collected
 # by the offline pypiserver generator.
 # uv (a runtime dependency anyway, it powers the per-model venv installer)
 # also does the image install: parallel downloads with per-request timeouts

@@ -197,6 +197,9 @@ def main() -> None:
     core_utils, venv_manager = load_xinference_modules(src_root)
     filter_packages = core_utils.filter_virtualenv_packages_by_markers
     engine_packages: Dict[str, List[str]] = venv_manager.ENGINE_VIRTUALENV_PACKAGES
+    engine_format_packages: Dict[str, Dict[str, List[str]]] = getattr(
+        venv_manager, "ENGINE_VIRTUALENV_MODEL_FORMAT_PACKAGES", {}
+    )
     engine_extra_indexes: Dict[str, List[str]] = (
         venv_manager.ENGINE_VIRTUALENV_EXTRA_INDEX_URLS
     )
@@ -239,14 +242,19 @@ def main() -> None:
     for engine, packages in sorted(engine_packages.items()):
         if engine.lower() in excluded_engines:
             continue
-        filtered = filter_packages(list(packages), engine, args.cuda_version)
+        combined_packages = list(packages)
+        for format_packages in engine_format_packages.get(engine, {}).values():
+            for package in format_packages:
+                if package not in combined_packages:
+                    combined_packages.append(package)
+        filtered = filter_packages(combined_packages, engine, args.cuda_version)
         specs: List[str] = []
         for spec in filtered:
             if classify_spec(spec) == "pin":
                 if spec not in specs:
                     specs.append(spec)
             else:
-                _add(spec, f"engine:{engine}")
+                _add(spec, "engine:" + engine)
         fname = engine_file_name(engine)
         (out / "engines" / f"{fname}.in").write_text("".join(f"{s}\n" for s in specs))
         meta = {
@@ -275,7 +283,7 @@ def main() -> None:
                 sysname = system_placeholder_name(spec)
                 if sysname is not None:
                     spec = sysname
-                source = f"{rel}:{model_name}" + (f" ({cand})" if cand else "")
+                source = rel + ":" + model_name + (f" ({cand})" if cand else "")
                 _add(spec, source)
 
     (out / "urls.txt").write_text("".join(f"{u}\n" for u in sorted(urls)))

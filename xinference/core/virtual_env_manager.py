@@ -43,32 +43,6 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
     "transformers": [
         "transformers>=4.53.3",
         "accelerate>=0.28.0",
-        # Model-side dependencies formerly baked into the GPU image. Keep
-        # them in the engine venv declaration so they are installed only when
-        # a Transformers model venv is prepared, while the offline mirror
-        # generator automatically downloads the same package set.
-        "sentencepiece",
-        "transformers_stream_generator",
-        "bitsandbytes ; sys_platform=='linux'",
-        "protobuf",
-        "einops",
-        "tiktoken",
-        "optimum",
-        "attrdict",
-        "timm>=0.9.16",
-        "peft",
-        # eva-decord publishes Linux wheels only for x86_64.
-        "eva-decord ; platform_machine=='x86_64'",
-        "jj-pytorchvideo",
-        "qwen-vl-utils!=0.0.9",
-        "qwen_omni_utils",
-        "datamodel_code_generator",
-        "jsonschema",
-        "blobfile",
-        # Quantization backends advertised by the Transformers engine.
-        "gptqmodel",
-        "autoawq!=0.2.6 ; sys_platform!='darwin'",
-        "datasets>=3.4.0",
     ],
     "sentence_transformers": [
         "sentence_transformers",
@@ -88,6 +62,27 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
     "llama.cpp": [
         "xllamacpp>=0.2.6",
     ],
+}
+
+# Optional engine packages selected by model format. Unlike
+# ENGINE_VIRTUALENV_PACKAGES, these are not installed for every model using an
+# engine: a plain-text pytorch Transformers launch remains limited to the two
+# core packages above. The pypiserver generator includes the union in its
+# wheel inventory so every format remains available offline.
+ENGINE_VIRTUALENV_MODEL_FORMAT_PACKAGES: Dict[str, Dict[str, List[str]]] = {
+    "transformers": {
+        "gptq": [
+            "gptqmodel",
+            "datasets>=3.4.0",
+        ],
+        "awq": [
+            "autoawq!=0.2.6 ; sys_platform=='linux'",
+            "datasets>=3.4.0",
+        ],
+        "bnb": [
+            "bitsandbytes ; sys_platform=='linux'",
+        ],
+    }
 }
 
 # Critical dependencies of engine packages that may be inherited from the
@@ -222,6 +217,17 @@ def get_engine_virtualenv_packages(model_engine: Optional[str]) -> List[str]:
     if not model_engine:
         return []
     return ENGINE_VIRTUALENV_PACKAGES.get(model_engine.lower(), []).copy()
+
+
+def get_engine_model_format_virtualenv_packages(
+    model_engine: Optional[str], model_format: Optional[str]
+) -> List[str]:
+    if not model_engine or not model_format:
+        return []
+    engine_formats = ENGINE_VIRTUALENV_MODEL_FORMAT_PACKAGES.get(
+        model_engine.lower(), {}
+    )
+    return engine_formats.get(model_format.lower(), []).copy()
 
 
 def get_engine_critical_dependency_specs(

@@ -25,8 +25,10 @@ in a custom runtime image when the corresponding model is needed air-gapped.
 1. **`generate_package_lists.py`** loads `ENGINE_VIRTUALENV_PACKAGES` and the
    marker-filtering logic straight from the xinference sources (no install),
    so the lists cannot drift from what the runtime installs. It emits one
-   requirement set per engine, the per-model concrete pins, direct wheel URLs
-   and git sources, filtered for the target platform/CUDA.
+   requirement set per engine (including the union of its format-scoped
+   optional dependencies), the per-model concrete pins, direct wheel URLs and
+   git sources, filtered for the target platform/CUDA. Runtime venvs still
+   select only the dependencies for the launched model and format.
 2. **`download_packages.py`** first locks the exact shared runtime pins from
    `xinference/deploy/docker/requirements-runtime.txt`, then locks each engine
    set with `uv pip compile`, and fetches the fully-pinned locks with
