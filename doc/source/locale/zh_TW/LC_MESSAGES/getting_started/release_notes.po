@@ -40,7 +40,7 @@ msgstr "v3.0.0"
 
 #: ../../source/getting_started/release_notes.rst:12
 msgid "`View release notes <https://xinference.io/release_notes/v3.0.0.html>`_"
-msgstr "`查看版本說明 <https://xinference.io/release_notes/v3.0.0.html>`_"
+msgstr "`查看版本說明 <https://xinference.cn/release_notes/v3.0.0.html>`_"
 
 #: ../../source/getting_started/release_notes.rst:14
 msgid "v2.12.0"

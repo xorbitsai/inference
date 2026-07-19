@@ -42,6 +42,7 @@ Xorbits Inference (Xinference) es una biblioteca potente y versátil para modelo
 
 ## 🔥 Temas destacados
 ### Mejora del framework
+- Xinference 3.0.0 está disponible con notas de migración y cambios incompatibles: [Notas de la versión](https://xinference.io/release_notes/v3.0.0.html)
 - Implementación nativa de agentes: Xinference se integra con [Xagent](https://github.com/xorbitsai/xagent) y permite planificación dinámica, uso de herramientas e inferencias multietapa autónomas, superando los límites de las tuberías estáticas.
 - Batching automático: múltiples solicitudes concurrentes se agrupan automáticamente para aumentar significativamente el rendimiento.: [#4197](https://github.com/xorbitsai/inference/pull/4197)
 - [Xllamacpp](https://github.com/xorbitsai/xllamacpp): los nuevos bindings de Python para llama.cpp, mantenidos por el equipo de Xinference, soportan batching continuo y son más aptos para producción.: [#2997](https://github.com/xorbitsai/inference/pull/2997)
