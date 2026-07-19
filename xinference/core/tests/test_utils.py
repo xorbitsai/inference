@@ -105,6 +105,19 @@ def test_merge_virtual_env_packages_user_package_overrides_system_marker():
     ]
 
 
+def test_merge_virtual_env_packages_user_package_overrides_marked_system_marker():
+    base_packages = [
+        "funasr==1.2.7",
+        "#system_torchaudio# ; sys_platform == 'linux'",
+    ]
+    extra_packages = ["torchaudio==2.13.0"]
+
+    assert merge_virtual_env_packages(base_packages, extra_packages) == [
+        "funasr==1.2.7",
+        "torchaudio==2.13.0",
+    ]
+
+
 def _run_prepare_virtual_env(
     cuda_version, inherited_index_url, skip_installed=True, cuda_available=True
 ):
