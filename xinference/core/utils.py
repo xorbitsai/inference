@@ -261,17 +261,19 @@ def merge_virtual_env_packages(
     """
 
     def get_key(package: str) -> str:
-        if package.startswith("#"):
-            # special placeholders like #system_torch#
-            return package
+        pkg_name = package.split(";", 1)[0].strip()
+        if pkg_name.startswith("#system_") and pkg_name.endswith("#"):
+            return pkg_name[len("#system_") : -1].lower()
+        if pkg_name.startswith("#"):
+            return pkg_name
         try:
             return Requirement(package).name.lower()
         except Exception:
             # fallback: strip version/url markers best effort
             for sep in ["@", "==", ">=", "<=", "~=", "!=", "[", " "]:
-                if sep in package:
-                    return package.split(sep, 1)[0].strip().lower()
-            return package.lower()
+                if sep in pkg_name:
+                    return pkg_name.split(sep, 1)[0].strip().lower()
+            return pkg_name.lower()
 
     merged: List[str] = []
     index_map: Dict[str, int] = {}

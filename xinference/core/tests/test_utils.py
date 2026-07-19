@@ -16,6 +16,7 @@ from ..utils import (
     build_replica_model_uid,
     build_subpool_envs_for_virtual_env,
     iter_replica_model_uid,
+    merge_virtual_env_packages,
     parse_replica_model_uid,
 )
 from ..virtual_env_manager import (
@@ -83,6 +84,25 @@ def test_get_xllamacpp_cuda_index_url():
     assert get_xllamacpp_cuda_index_url(None) is None
     assert get_xllamacpp_cuda_index_url("") is None
     assert get_xllamacpp_cuda_index_url("unknown") is None
+
+
+def test_merge_virtual_env_packages_user_package_overrides_system_marker():
+    base_packages = [
+        "funasr==1.2.7",
+        "#system_torch# ; sys_platform == 'linux'",
+        "#system_torchaudio#",
+        "#system_numpy#",
+    ]
+    extra_packages = ["torch==2.1.0", "torchaudio==2.13.0", "numpy==2.1.0"]
+
+    merged = merge_virtual_env_packages(base_packages, extra_packages)
+
+    assert merged == [
+        "funasr==1.2.7",
+        "torch==2.1.0",
+        "torchaudio==2.13.0",
+        "numpy==2.1.0",
+    ]
 
 
 def _run_prepare_virtual_env(

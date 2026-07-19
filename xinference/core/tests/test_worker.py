@@ -243,7 +243,6 @@ def test_merge_virtual_env_packages_override_and_append():
     assert merged == [
         "transformers==5.0.0.dev0",  # user-specified overrides default
         "accelerate>=0.34.2",
-        "#system_numpy#",
         "numpy==2.1.0",
     ]
 
