@@ -53,6 +53,9 @@ from ..constants import (
     XINFERENCE_DEFAULT_CANCEL_BLOCK_DURATION,
     XINFERENCE_DEFAULT_ENDPOINT_PORT,
     XINFERENCE_ENABLE_OTEL,
+    XINFERENCE_HTTP_LIMIT_CONCURRENCY,
+    XINFERENCE_HTTP_REQUEST_TIMEOUT,
+    XINFERENCE_HTTP_TIMEOUT_KEEP_ALIVE,
     XINFERENCE_LAUNCH_HISTORY_DB_PATH,
     XINFERENCE_MONITOR_CONFIG_DB_PATH,
     XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
@@ -63,6 +66,7 @@ from ..constants import (
 )
 from ..core.event import Event, EventCollectorActor, EventType
 from ..core.exceptions import ModelNotReadyError
+from ..core.http_protocol import create_hardened_http_protocol
 from ..core.supervisor import SupervisorActor
 from ..core.utils import CancelMixin
 from ..types import (
@@ -601,6 +605,10 @@ class RESTfulAPI(CancelMixin):
             log_config=logging_conf,
             proxy_headers=True,
             forwarded_allow_ips="*",
+            # Slow HTTP DoS (Slowloris) protection, see xinference/core/http_protocol.py
+            http=create_hardened_http_protocol(XINFERENCE_HTTP_REQUEST_TIMEOUT),
+            timeout_keep_alive=XINFERENCE_HTTP_TIMEOUT_KEEP_ALIVE,
+            limit_concurrency=XINFERENCE_HTTP_LIMIT_CONCURRENCY,
         )
         server = Server(config)
         server.run()

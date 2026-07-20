@@ -466,3 +466,19 @@ XINFERENCE_RATE_LIMIT_KEY_BAN_SECONDS = int(
 
 # Trusted proxy IPs — only honor X-Forwarded-For/X-Real-IP from these peers
 XINFERENCE_TRUSTED_PROXIES = os.environ.get("XINFERENCE_TRUSTED_PROXIES", "")
+
+# Slow HTTP DoS (Slowloris, CVE-2007-6750) protection: max seconds allowed to
+# receive a complete HTTP request (headers + body). 0 disables the protection.
+XINFERENCE_HTTP_REQUEST_TIMEOUT = float(
+    os.environ.get("XINFERENCE_HTTP_REQUEST_TIMEOUT", "120")
+)
+# Idle keep-alive timeout between requests (passed to uvicorn).
+XINFERENCE_HTTP_TIMEOUT_KEEP_ALIVE = int(
+    os.environ.get("XINFERENCE_HTTP_TIMEOUT_KEEP_ALIVE", "5")
+)
+# Optional cap on concurrent connections/tasks (uvicorn limit_concurrency,
+# requests above the cap get a 503 response). 0 means unlimited.
+_http_limit_concurrency = int(os.environ.get("XINFERENCE_HTTP_LIMIT_CONCURRENCY", "0"))
+XINFERENCE_HTTP_LIMIT_CONCURRENCY = (
+    _http_limit_concurrency if _http_limit_concurrency > 0 else None
+)

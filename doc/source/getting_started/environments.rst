@@ -72,6 +72,24 @@ XINFERENCE_ALLOWED_IPS
 ~~~~~~~~~~~~~~~~~~~~~~
 Restrict access to specified IPs or CIDR blocks. Default is unset (no restriction).
 
+XINFERENCE_HTTP_REQUEST_TIMEOUT
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Maximum seconds allowed to receive a complete HTTP request (headers and body).
+Connections that fail to deliver a full request in time are closed, protecting
+against slow-request denial-of-service attacks such as Slowloris. Streaming
+responses and websockets are not affected. Set to 0 to disable.
+Default value is 120.
+
+XINFERENCE_HTTP_TIMEOUT_KEEP_ALIVE
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Idle timeout (seconds) for keep-alive connections between requests.
+Default value is 5.
+
+XINFERENCE_HTTP_LIMIT_CONCURRENCY
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Maximum number of concurrent connections or tasks the HTTP server allows
+before returning 503 responses. Default is unset (unlimited).
+
 XINFERENCE_BATCH_SIZE
 ~~~~~~~~~~~~~~~~~~~~~
 Default batch size used by the server when batching is enabled.
