@@ -200,6 +200,8 @@ def create_ocr_model_instance(
         )
     # Record the engine actually used (including the default fallback above) on
     # the family object so ``to_description`` can surface it to ``/v1/models``.
+    # Copy first to avoid mutating the shared builtin family object.
+    model_spec = model_spec.copy()
     model_spec.model_engine = model_engine
     return ocr_cls(
         model_uid,
@@ -332,6 +334,8 @@ def create_image_model_instance(
 
     # Record the engine actually used (including the default fallback above) on
     # the family object so ``to_description`` can surface it to ``/v1/models``.
+    # Copy first to avoid mutating the shared builtin family object.
+    model_spec = model_spec.copy()
     model_spec.model_engine = model_engine
     model = model_cls(
         model_uid,

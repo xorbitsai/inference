@@ -608,6 +608,8 @@ def create_embedding_model_instance(
         )
     # Record the engine actually used (including the default fallback above) on
     # the family object so ``to_description`` can surface it to ``/v1/models``.
+    # Copy first to avoid mutating a possibly shared family object.
+    model_family = model_family.copy()
     model_family.model_engine = model_engine
     model = embedding_cls(
         model_uid,
