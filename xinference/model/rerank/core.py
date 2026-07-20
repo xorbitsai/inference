@@ -93,6 +93,7 @@ class RerankModelFamilyV2(BaseModel, ModelInstanceInfoMixin):
             "accelerators": getattr(self, "accelerators", None),
             "type": self.type,
             "model_name": self.model_name,
+            "model_engine": getattr(self, "model_engine", None),
             "model_format": spec.model_format,
             "language": self.language,
             "model_revision": spec.model_revision,
@@ -265,6 +266,9 @@ def create_rerank_model_instance(
             model_format,
             quantization,
         )
+    # Record the engine actually used (including the default fallback above) on
+    # the family object so ``to_description`` can surface it to ``/v1/models``.
+    model_family.model_engine = model_engine
     model = rerank_cls(
         model_uid,
         model_path,

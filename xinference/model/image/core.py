@@ -70,6 +70,7 @@ class ImageModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
             "address": getattr(self, "address", None),
             "accelerators": getattr(self, "accelerators", None),
             "model_name": self.model_name,
+            "model_engine": getattr(self, "model_engine", None),
             "model_family": self.model_family,
             "model_revision": self.model_revision,
             "model_ability": self.model_ability,
@@ -197,6 +198,9 @@ def create_ocr_model_instance(
             model_format,
             quantization,
         )
+    # Record the engine actually used (including the default fallback above) on
+    # the family object so ``to_description`` can surface it to ``/v1/models``.
+    model_spec.model_engine = model_engine
     return ocr_cls(
         model_uid,
         model_path,
@@ -326,6 +330,9 @@ def create_image_model_instance(
             quantization,
         )
 
+    # Record the engine actually used (including the default fallback above) on
+    # the family object so ``to_description`` can surface it to ``/v1/models``.
+    model_spec.model_engine = model_engine
     model = model_cls(
         model_uid,
         model_path,
