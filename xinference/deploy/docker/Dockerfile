@@ -29,8 +29,9 @@
 # This single Dockerfile builds both linux/amd64 and linux/arm64 (the CI
 # aarch64 job builds it on an arm64 runner): the CUDA base image, the
 # deadsnakes Python packages, and every pinned wheel in
-# requirements-runtime.txt ship both architectures. Keep any addition
-# multi-arch, or gate it on TARGETARCH.
+# requirements-runtime.txt ship both architectures. Keep any additions
+# multi-arch, or gate them on TARGETARCH (declare `ARG TARGETARCH` inside
+# the stage first — undeclared it expands to an empty string).
 
 # ---------------------------------------------------------------------------
 # Stage 1: build the Web UI static export
