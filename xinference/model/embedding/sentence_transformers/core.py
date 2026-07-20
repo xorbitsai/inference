@@ -178,6 +178,16 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                 model_name_or_path=self._model_path, **self._kwargs
             )
             return
+        # sentence-transformers >= 5.4 imports torchcodec at import time and only
+        # tolerates ImportError/OSError; a broken (version-mismatched) torchcodec
+        # raises RuntimeError and would abort loading of a text-only model. Defuse
+        # it before importing sentence_transformers (see #5208). Kept outside the
+        # try/except below so a mistake here surfaces instead of being reported as
+        # a missing sentence-transformers.
+        from ...utils import neutralize_broken_torchcodec
+
+        neutralize_broken_torchcodec()
+
         try:
             import sentence_transformers
             from sentence_transformers import SentenceTransformer

@@ -26,6 +26,7 @@ from ..utils import (
     _collect_virtualenv_engine_markers,
     _extract_engine_markers_from_packages,
     _force_virtualenv_engine_params,
+    neutralize_broken_torchcodec,
     parse_uri,
 )
 
@@ -298,3 +299,136 @@ async def test_cancel():
         with pytest.raises(asyncio.CancelledError):
             await cache_task
         assert downloader.get_progress() == 1.0
+
+
+def _clear_torchcodec_from_sys_modules():
+    for name in [
+        n for n in list(sys.modules) if n == "torchcodec" or n.startswith("torchcodec.")
+    ]:
+        del sys.modules[name]
+
+
+def test_neutralize_broken_torchcodec_runtime_error(monkeypatch):
+    """A torchcodec that raises RuntimeError on import (e.g. version-mismatched
+    shared libs) is poisoned so importers see ImportError and can degrade."""
+    _clear_torchcodec_from_sys_modules()
+    import importlib as _importlib
+
+    def fake_import(name, *args, **kwargs):
+        if name == "torchcodec":
+            raise RuntimeError("Could not load libtorchcodec")
+        return _importlib.import_module(name, *args, **kwargs)
+
+    monkeypatch.setattr("xinference.model.utils.importlib.import_module", fake_import)
+    try:
+        neutralize_broken_torchcodec()
+        # torchcodec is now poisoned -> importing it raises ImportError, which is
+        # exactly what sentence-transformers' guard tolerates.
+        assert sys.modules.get("torchcodec", "missing") is None
+        with pytest.raises(ImportError):
+            import torchcodec  # noqa: F401
+    finally:
+        _clear_torchcodec_from_sys_modules()
+
+
+def test_neutralize_broken_torchcodec_missing(monkeypatch):
+    """A genuinely absent torchcodec is left as-is (its own ImportError stands)."""
+    _clear_torchcodec_from_sys_modules()
+    import importlib as _importlib
+
+    def fake_import(name, *args, **kwargs):
+        if name == "torchcodec":
+            raise ModuleNotFoundError("No module named 'torchcodec'")
+        return _importlib.import_module(name, *args, **kwargs)
+
+    monkeypatch.setattr("xinference.model.utils.importlib.import_module", fake_import)
+    neutralize_broken_torchcodec()
+    # Not poisoned: absence is handled by the caller's own guard.
+    assert "torchcodec" not in sys.modules
+
+
+def test_neutralize_broken_torchcodec_healthy(monkeypatch):
+    """A healthy torchcodec is left untouched."""
+    _clear_torchcodec_from_sys_modules()
+    import types
+
+    fake_mod = types.ModuleType("torchcodec")
+    sys.modules["torchcodec"] = fake_mod
+    try:
+        neutralize_broken_torchcodec()
+        assert sys.modules["torchcodec"] is fake_mod
+    finally:
+        _clear_torchcodec_from_sys_modules()
+
+
+def test_sentence_transformers_loaders_resolve_neutralizer():
+    """The embedding and rerank loaders reference neutralize_broken_torchcodec
+    via a relative import; verify that import path actually resolves (a wrong
+    relative-import depth previously pointed at xinference.utils and broke load
+    at runtime, see #5208)."""
+    import ast
+    import importlib
+    import os
+
+    here = os.path.dirname(__file__)
+    core_files = {
+        "xinference.model.embedding.sentence_transformers.core": os.path.join(
+            here, "..", "embedding", "sentence_transformers", "core.py"
+        ),
+        "xinference.model.rerank.sentence_transformers.core": os.path.join(
+            here, "..", "rerank", "sentence_transformers", "core.py"
+        ),
+    }
+
+    for module_name, path in core_files.items():
+        with open(path) as f:
+            tree = ast.parse(f.read())
+        found = False
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and any(
+                alias.name == "neutralize_broken_torchcodec" for alias in node.names
+            ):
+                found = True
+                # Resolve the relative import against the core module's package.
+                pkg = module_name.rsplit(".", 1)[0]
+                base = pkg
+                for _ in range(node.level - 1):
+                    base = base.rsplit(".", 1)[0]
+                target = f"{base}.{node.module}" if node.module else base
+                mod = importlib.import_module(target)
+                assert hasattr(mod, "neutralize_broken_torchcodec"), (
+                    f"{module_name} imports neutralize_broken_torchcodec from "
+                    f"{target!r}, which has no such symbol"
+                )
+        assert found, f"{module_name} no longer imports neutralize_broken_torchcodec"
+
+
+def test_neutralize_broken_torchcodec_idempotent(monkeypatch):
+    """After poisoning, a second call must be a no-op and must NOT re-import
+    torchcodec (a stale re-import would raise+swallow ModuleNotFoundError on
+    every subsequent model load)."""
+    _clear_torchcodec_from_sys_modules()
+    import importlib as _importlib
+
+    calls = {"n": 0}
+    real_import = _importlib.import_module
+
+    def counting_import(name, *args, **kwargs):
+        if name == "torchcodec":
+            calls["n"] += 1
+            raise RuntimeError("Could not load libtorchcodec")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(
+        "xinference.model.utils.importlib.import_module", counting_import
+    )
+    try:
+        neutralize_broken_torchcodec()
+        neutralize_broken_torchcodec()
+        neutralize_broken_torchcodec()
+        # torchcodec import is attempted only on the first call; later calls
+        # short-circuit on the sys.modules guard.
+        assert calls["n"] == 1
+        assert sys.modules.get("torchcodec", "missing") is None
+    finally:
+        _clear_torchcodec_from_sys_modules()
