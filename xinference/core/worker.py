@@ -105,6 +105,7 @@ from .utils import (
 )
 from .virtual_env_manager import VirtualEnvManager as XinferenceVirtualEnvManager
 from .virtual_env_manager import (
+    ensure_system_torch_pin,
     expand_engine_dependency_placeholders,
     get_engine_critical_dependency_specs,
     get_engine_model_format_virtualenv_packages,
@@ -2688,17 +2689,36 @@ class WorkerActor(xo.StatelessActor):
         )
         packages = merge_virtual_env_packages(base_packages, virtual_env_packages)
 
+        try:
+            from xoscar.virtualenv.platform import get_cuda_version
+
+            cuda_version = get_cuda_version()
+        except Exception:
+            cuda_version = None
+
         # Auto-configure PyTorch wheel URL based on system packages
         # Check if packages contain PyTorch system markers (#system_torch#, etc.)
         # If so, detect CUDA version from system and configure wheel URL
         # Note: markers are kept as-is and resolved later by xoscar's process_packages
         from .virtual_env_manager import PYTORCH_CUDA_WHEEL_URLS, PYTORCH_PACKAGES
 
+        # Only consider markers that actually apply to the current engine/CUDA/
+        # platform. Built-in embedding/rerank specs carry an engine-guarded entry
+        # such as '#system_torchvision# ; #engine# == "sentence_transformers"';
+        # evaluating it for a non-matching engine (e.g. flag/vllm) would otherwise
+        # auto-configure the PyTorch CUDA index from an inactive marker (issue
+        # #5156). filter_virtualenv_packages_by_markers drops non-applicable
+        # entries and strips the guard from the ones that remain.
+        active_packages = filter_virtualenv_packages_by_markers(
+            packages, model_engine, cuda_version
+        )
+
         system_cuda_urls = None
-        for pkg in packages:
-            if pkg.startswith("#system_") and pkg.endswith("#"):
+        for pkg in active_packages:
+            marker_head = pkg.split(";", 1)[0].strip()
+            if marker_head.startswith("#system_") and marker_head.endswith("#"):
                 # Extract package name from marker
-                marker_pkg = pkg[len("#system_") : -1].lower()
+                marker_pkg = marker_head[len("#system_") : -1].lower()
                 if marker_pkg in PYTORCH_PACKAGES:
                     try:
                         import importlib.metadata
@@ -2746,13 +2766,6 @@ class WorkerActor(xo.StatelessActor):
                 settings.extra_index_url = system_cuda_urls + [
                     u for u in existing_urls if u not in system_cuda_urls
                 ]
-
-        try:
-            from xoscar.virtualenv.platform import get_cuda_version
-
-            cuda_version = get_cuda_version()
-        except Exception:
-            cuda_version = None
 
         if not is_cuda_compatible(settings.extra_index_url, cuda_version):
             logger.debug(
@@ -2824,9 +2837,9 @@ class WorkerActor(xo.StatelessActor):
                 # force this install so the GPU wheel actually replaces it.
                 force_reinstall_xllamacpp = True
 
-        packages = filter_virtualenv_packages_by_markers(
-            packages, model_engine, cuda_version
-        )
+        # Reuse the engine/CUDA/platform-filtered list computed above for the
+        # PyTorch index decision — same inputs, so the result is identical.
+        packages = active_packages
 
         critical_specs = get_engine_critical_dependency_specs(model_engine, packages)
         if critical_specs:
@@ -2857,6 +2870,13 @@ class WorkerActor(xo.StatelessActor):
                     "non-wheel direct references; preinstall or replace these "
                     f"requirements: {direct_references}"
                 )
+
+        # Keep torch aligned with any system-pinned torch companion package
+        # (torchvision/torchaudio/torchcodec). Without this, the resolver may
+        # upgrade torch in the child venv while the companion stays at the system
+        # version, and the ABI mismatch crashes the model subprocess on relaunch
+        # (issue #5156).
+        packages = ensure_system_torch_pin(packages)
 
         conf = dict(settings)
         conf.pop("packages", None)
