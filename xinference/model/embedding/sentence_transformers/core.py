@@ -188,13 +188,19 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                     "Please upgrade your version via `pip install -U sentence_transformers` or refer to "
                     "https://github.com/UKPLab/sentence-transformers"
                 )
-        except ImportError:
+        except ImportError as e:
             error_message = "Failed to import module 'SentenceTransformer'"
             installation_guide = [
                 "Please make sure 'sentence-transformers' is installed. ",
                 "You can install it by `pip install sentence-transformers`\n",
             ]
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+            # Preserve the original exception so that the real root cause is not
+            # swallowed. A common case is a torch/torchvision version mismatch
+            # (e.g. "operator torchvision::nms does not exist"), where the actual
+            # error has nothing to do with sentence-transformers being missing.
+            raise ImportError(
+                f"{error_message}: {e}\n\n{''.join(installation_guide)}"
+            ) from e
 
         class XSentenceTransformer(SentenceTransformer):
             def to(self, *args, **kwargs):
