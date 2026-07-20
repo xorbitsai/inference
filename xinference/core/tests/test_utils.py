@@ -15,6 +15,7 @@
 from ..utils import (
     build_replica_model_uid,
     build_subpool_envs_for_virtual_env,
+    is_valid_model_uid,
     iter_replica_model_uid,
     parse_replica_model_uid,
 )
@@ -35,6 +36,29 @@ def test_replica_model_uid():
         all_gen_ids.append(replica_model_uid)
     assert len(all_gen_ids) == 5
     assert len(set(all_gen_ids)) == 5
+
+
+def test_parse_replica_model_uid_bare_names_ending_in_digits():
+    """Bare model uids like llama-2 must not be treated as replicas (#5198)."""
+    assert parse_replica_model_uid("llama-2") == ("llama-2", -1)
+    assert parse_replica_model_uid("phi-2") == ("phi-2", -1)
+    assert parse_replica_model_uid("gpt-4") == ("gpt-4", -1)
+    assert parse_replica_model_uid("mymodel") == ("mymodel", -1)
+
+    built = build_replica_model_uid("llama-2", 0)
+    assert built == "llama-2-rep0"
+    assert parse_replica_model_uid(built) == ("llama-2", 0)
+
+    built2 = build_replica_model_uid("gpt-4", 3)
+    assert parse_replica_model_uid(built2) == ("gpt-4", 3)
+    assert build_replica_model_uid(*parse_replica_model_uid(built2)) == built2
+
+
+def test_is_valid_model_uid_rejects_replica_shaped_names():
+    assert is_valid_model_uid("llama-2")
+    assert is_valid_model_uid("my-model")
+    assert not is_valid_model_uid("llama-2-rep0")
+    assert not is_valid_model_uid("")
 
 
 class DummyVirtualEnvManager:

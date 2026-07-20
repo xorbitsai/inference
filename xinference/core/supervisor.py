@@ -1366,7 +1366,7 @@ class SupervisorActor(xo.StatelessActor):
             worker_replica_count: Dict[str, int] = defaultdict(int)
             replica_gpu_details: list = []
             for _rep_idx, ref_list in replica_info.replica_to_worker_refs.items():
-                replica_uid = f"{model_uid}-{_rep_idx}"
+                replica_uid = build_replica_model_uid(model_uid, _rep_idx)
                 gpu_indices = self._replica_gpu_cache.get(replica_uid, [])
                 for ref in ref_list:
                     worker_replica_count[ref.address] += 1

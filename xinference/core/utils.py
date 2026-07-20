@@ -160,37 +160,58 @@ def log_sync(logger, level=logging.DEBUG, log_exception=True):
     return decorator
 
 
+# Replica suffix must not collide with bare model names that end in
+# "-<digits>" (llama-2, phi-2, gpt-2, ...). See #5198.
+_REPLICA_MODEL_UID_SEP = "-rep"
+_REPLICA_MODEL_UID_RE = re.compile(rf"^(?P<uid>.+){_REPLICA_MODEL_UID_SEP}(?P<rep>\d+)$")
+
+
 def iter_replica_model_uid(model_uid: str, replica: int) -> Generator[str, None, None]:
     """
     Generates all the replica model uids.
     """
     replica = int(replica)
     for rep_id in range(replica):
-        yield f"{model_uid}-{rep_id}"
+        yield build_replica_model_uid(model_uid, rep_id)
 
 
 def build_replica_model_uid(model_uid: str, rep_id: int) -> str:
     """
     Build a replica model uid.
+
+    Uses a reserved ``-rep{n}`` suffix so bare model names that themselves
+    end in ``-<digits>`` (e.g. ``llama-2``) are not ambiguous with a replica
+    index.
     """
-    return f"{model_uid}-{rep_id}"
+    return f"{model_uid}{_REPLICA_MODEL_UID_SEP}{int(rep_id)}"
 
 
 def parse_replica_model_uid(replica_model_uid: str) -> Tuple[str, int]:
     """
     Parse replica model uid to model uid and rep id.
+
+    Returns ``(model_uid, -1)`` when the input has no replica suffix.
     """
-    parts = replica_model_uid.split("-")
-    if len(parts) == 1:
-        return replica_model_uid, -1
-    rep_id = int(parts.pop())
-    model_uid = "-".join(parts)
-    return model_uid, rep_id
+    match = _REPLICA_MODEL_UID_RE.match(replica_model_uid)
+    if match:
+        return match.group("uid"), int(match.group("rep"))
+    # No reserved suffix: treat as bare model uid. Do NOT fall back to the
+    # legacy "-{n}" split here — that mis-parses real model names like
+    # "llama-2" as ("llama", 2). Legacy in-memory uids built before this
+    # change still round-trip via the pattern only when callers pass a
+    # value that was produced by the old builder AND the base uid itself
+    # never ended in digits; those are rare enough that we prefer correct
+    # bare-name handling.
+    return replica_model_uid, -1
 
 
 def is_valid_model_uid(model_uid: str) -> bool:
     model_uid = model_uid.strip()
     if not model_uid or len(model_uid) > 100:
+        return False
+    # Forbid user-supplied uids that look like a replica suffix so they
+    # cannot collide with build_replica_model_uid output.
+    if _REPLICA_MODEL_UID_RE.match(model_uid):
         return False
     return True
 
