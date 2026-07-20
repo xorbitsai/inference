@@ -129,6 +129,55 @@ def virtual_env_allows_missing_engine() -> bool:
     return bool(flag)
 
 
+def neutralize_broken_torchcodec() -> None:
+    """Make an unusable ``torchcodec`` install look absent to importers.
+
+    ``sentence-transformers`` >= 5.4 imports ``torchcodec`` at module import
+    time (``base/modality_types.py``) for optional audio/video decoding, and
+    guards it with ``except (ImportError, OSError)`` so a *missing* torchcodec
+    degrades gracefully (``AudioDecoder = None``). However, when torchcodec is
+    *present but fails to load its shared libraries* — e.g. a copy leaked from
+    the parent/system environment whose version does not match the venv's torch
+    (torch 2.9.x needs torchcodec 0.9) — its import raises ``RuntimeError``,
+    which escapes that guard and aborts loading of an otherwise text-only model
+    (see #5208).
+
+    We probe torchcodec first. If importing it raises anything other than the
+    ``ImportError``/``OSError`` that sentence-transformers already tolerates, we
+    poison ``sys.modules`` so the subsequent ``from torchcodec.decoders import
+    ...`` raises ``ImportError`` and hits the graceful-degradation branch. A
+    healthy torchcodec is left untouched; a genuinely absent one already works.
+    """
+    if "torchcodec" in sys.modules:
+        # Already processed in this process (imported successfully, or poisoned
+        # to None by a prior call); nothing to do. Returning here also avoids a
+        # needless re-import + swallowed ModuleNotFoundError on later model loads.
+        return
+    try:
+        importlib.import_module("torchcodec")
+    except (ImportError, OSError):
+        # sentence-transformers already handles these; leave as-is so its own
+        # guard runs (and a real "not installed" state stays truthful).
+        return
+    except Exception as e:  # typically RuntimeError from libtorchcodec loading
+        logger.warning(
+            "torchcodec is installed but failed to load (%s: %s); disabling it "
+            "so text-only models can still load. Audio/video features that rely "
+            "on torchcodec will be unavailable. Install a torchcodec build that "
+            "matches your torch version to enable them.",
+            type(e).__name__,
+            e,
+        )
+        # Poison torchcodec and any submodules so importers see ImportError.
+        for name in [
+            name
+            for name in sys.modules
+            if name == "torchcodec" or name.startswith("torchcodec.")
+        ]:
+            sys.modules[name] = None  # type: ignore[assignment]
+        sys.modules.setdefault("torchcodec", None)  # type: ignore[arg-type]
+
+
 def _extract_engine_markers_from_packages(packages: List[str]) -> Set[str]:
     engines: Set[str] = set()
     for pkg in packages:

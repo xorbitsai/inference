@@ -178,6 +178,16 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                 model_name_or_path=self._model_path, **self._kwargs
             )
             return
+        # sentence-transformers >= 5.4 imports torchcodec at import time and only
+        # tolerates ImportError/OSError; a broken (version-mismatched) torchcodec
+        # raises RuntimeError and would abort loading of a text-only model. Defuse
+        # it before importing sentence_transformers (see #5208). Kept outside the
+        # try/except below so a mistake here surfaces instead of being reported as
+        # a missing sentence-transformers.
+        from ...utils import neutralize_broken_torchcodec
+
+        neutralize_broken_torchcodec()
+
         try:
             import sentence_transformers
             from sentence_transformers import SentenceTransformer
@@ -188,13 +198,19 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                     "Please upgrade your version via `pip install -U sentence_transformers` or refer to "
                     "https://github.com/UKPLab/sentence-transformers"
                 )
-        except ImportError:
+        except ImportError as e:
             error_message = "Failed to import module 'SentenceTransformer'"
             installation_guide = [
                 "Please make sure 'sentence-transformers' is installed. ",
                 "You can install it by `pip install sentence-transformers`\n",
             ]
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+            # Preserve the original exception so that the real root cause is not
+            # swallowed. A common case is a torch/torchvision version mismatch
+            # (e.g. "operator torchvision::nms does not exist"), where the actual
+            # error has nothing to do with sentence-transformers being missing.
+            raise ImportError(
+                f"{error_message}: {e}\n\n{''.join(installation_guide)}"
+            ) from e
 
         class XSentenceTransformer(SentenceTransformer):
             def to(self, *args, **kwargs):

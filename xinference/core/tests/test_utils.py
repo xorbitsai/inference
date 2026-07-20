@@ -225,3 +225,51 @@ def test_build_subpool_envs_for_virtual_env_enabled():
     assert result["VIRTUAL_ENV"] == "/venv"
     assert result["FLASHINFER_NINJA_PATH"] == "/custom/ninja"
     assert result is not base_envs
+
+
+def test_model_specs_pin_system_torch_with_torchvision():
+    """Every model that pins torchvision to the system version must also pin
+    torch to the system version under the same environment markers/conditions.
+
+    Otherwise torch is pulled fresh from PyPI into the sub venv while
+    torchvision stays on the (older) system version, producing an ABI
+    mismatch such as ``operator torchvision::nms does not exist`` (see #5208).
+    """
+    import json
+    import os
+
+    here = os.path.dirname(__file__)
+    spec_files = [
+        os.path.join(here, "..", "..", "model", "embedding", "model_spec.json"),
+        os.path.join(here, "..", "..", "model", "rerank", "model_spec.json"),
+    ]
+
+    offenders = []
+    for spec_file in spec_files:
+        with open(spec_file) as f:
+            data = json.load(f)
+        for m in data:
+            pkgs = (m.get("virtualenv") or {}).get("packages") or []
+            parsed_pkgs = []
+            for p in pkgs:
+                parts = p.split(";", 1)
+                name = parts[0].strip()
+                marker = parts[1].strip() if len(parts) > 1 else ""
+                parsed_pkgs.append((name, marker))
+
+            torchvision_markers = {
+                marker for name, marker in parsed_pkgs if name == "#system_torchvision#"
+            }
+            torch_markers = {
+                marker for name, marker in parsed_pkgs if name == "#system_torch#"
+            }
+
+            if torchvision_markers - torch_markers:
+                family = os.path.basename(os.path.dirname(spec_file))
+                offenders.append("{}/{}".format(family, m.get("model_name")))
+
+    assert not offenders, (
+        "Models declare #system_torchvision# but not #system_torch# under the "
+        "same environment markers (torch/torchvision would be mixed-source): "
+        + ", ".join(offenders)
+    )
