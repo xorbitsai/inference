@@ -23,11 +23,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Form } from '@/components/ui/form';
-import type { ModelEngine, ModelEngineItem, ReplicaItem } from '@/types/services';
+import type {
+  ClusterInfoResponse,
+  ModelEngine,
+  ModelEngineItem,
+  ReplicaItem,
+} from '@/types/services';
 import type { FormValues } from '@/types/form';
 import CollapsibleConfig from './advanced-config';
 import ConfigCache, { getLatestModelConfigHistory, saveLaunchConfigHistory } from './config-cache';
-import type { CatalogModel, LaunchFieldConfig, RequestModelType } from '../types';
+import type { CatalogModel, LaunchFieldConfig, RequestModelType, WorkerOption } from '../types';
 import {
   MODEL_ENGINE_TYPES,
   buildEngineIndex,
@@ -44,6 +49,8 @@ import {
   normalizeReplicaStatuses,
   isEmptyLaunchValue,
   isVisibleRequiredLaunchField,
+  extractWorkerItems,
+  requiresGpuWorkers,
 } from '../utils';
 import CommandLine from './command-line';
 import { FormField } from '@/components/ui/form-field';
@@ -87,7 +94,14 @@ export default function LaunchDialog({
   const quantizationValue = toOptionValue(useWatch('quantization', form));
   const multimodalProjectorValue = toOptionValue(useWatch('multimodal_projector', form));
   const nGpuValue = useWatch('n_gpu', form);
+  const [workerOptions, setWorkerOptions] = useState<WorkerOption[]>([]);
 
+  const fetchWorkers = useCallback(async () => {
+    const data = await request.get<ClusterInfoResponse>('/v1/cluster/info', {
+      params: { detailed: true },
+    });
+    setWorkerOptions(extractWorkerItems(data));
+  }, []);
   const fetchModelEngine = useCallback(async () => {
     if (!model?.model_name || !MODEL_ENGINE_TYPES.includes(modelType)) {
       setModelEngineMap({});
@@ -226,19 +240,33 @@ export default function LaunchDialog({
       })),
     [modelSizeInBillionsKey, selectedFormatIndex]
   );
-  const nGpuOptions = useMemo(() => {
+
+  const nGpuFieldProps = useMemo(() => {
     let options = [];
     if ([ModelType.LLM, ModelType.Image].includes(modelType)) {
       options = gpuAvailable > 0 ? ['auto', 'CPU', ...range(1, gpuAvailable)] : ['auto', 'CPU'];
     } else {
       options = gpuAvailable === 0 ? ['CPU'] : ['GPU', 'CPU'];
     }
-    return options.map((item) => ({ label: String(item), value: item }));
-  }, [gpuAvailable, modelType]);
+    return {
+      options: options.map((item) => ({ label: String(item), value: item })),
+      onChange: () => form.setFieldValue('worker_ip', undefined),
+    };
+  }, [gpuAvailable, modelType, form]);
 
   const downloadHubOptions = useMemo(
     () => ['none', ...(model?.download_hubs || [])].map((item) => ({ label: item, value: item })),
     [model?.download_hubs]
+  );
+
+  const workerIpFieldProps = useMemo(
+    () => ({
+      options: requiresGpuWorkers(nGpuValue)
+        ? workerOptions.filter((workerOption) => workerOption.gpuCount > 0)
+        : workerOptions,
+      searchable: false,
+    }),
+    [workerOptions, nGpuValue]
   );
   const ggufQuantizations =
     model?.gguf_quantizations ??
@@ -368,7 +396,7 @@ export default function LaunchDialog({
             ? 'launchModel.nGPUPerWorker'
             : 'launchModel.nGPU'
         ),
-        fieldProps: { options: nGpuOptions },
+        fieldProps: nGpuFieldProps,
       },
       {
         name: 'n_gpu_layers',
@@ -458,10 +486,11 @@ export default function LaunchDialog({
       },
       {
         name: 'worker_ip',
-        type: 'input',
+        type: 'multi-select',
         label: t('launchModel.workerIp'),
         placeholder: t('launchModel.workerIpPlaceholder'),
         colSpan: 2,
+        fieldProps: workerIpFieldProps,
         normalize: (v) => v || undefined,
       },
       {
@@ -518,7 +547,7 @@ export default function LaunchDialog({
         name: 'n_gpu',
         type: 'select',
         label: t('launchModel.nGPUDevice'),
-        fieldProps: { options: nGpuOptions },
+        fieldProps: nGpuFieldProps,
       },
       {
         name: 'gpu_idx',
@@ -562,10 +591,11 @@ export default function LaunchDialog({
       },
       {
         name: 'worker_ip',
-        type: 'input',
+        type: 'multi-select',
         label: t('launchModel.workerIp'),
         placeholder: t('launchModel.workerIpPlaceholder'),
         colSpan: 2,
+        fieldProps: workerIpFieldProps,
         normalize: (v) => v || undefined,
       },
       {
@@ -622,7 +652,7 @@ export default function LaunchDialog({
         name: 'n_gpu',
         type: 'select',
         label: t('launchModel.nGPUDevice'),
-        fieldProps: { options: nGpuOptions },
+        fieldProps: nGpuFieldProps,
       },
       {
         name: 'gpu_idx',
@@ -681,10 +711,11 @@ export default function LaunchDialog({
       },
       {
         name: 'worker_ip',
-        type: 'input',
+        type: 'multi-select',
         label: t('launchModel.workerIp'),
         placeholder: t('launchModel.workerIpPlaceholder'),
         colSpan: 2,
+        fieldProps: workerIpFieldProps,
         normalize: (v) => v || undefined,
       },
       {
@@ -747,7 +778,7 @@ export default function LaunchDialog({
         name: 'n_gpu',
         type: 'select',
         label: t('launchModel.nGPU'),
-        fieldProps: { options: nGpuOptions },
+        fieldProps: nGpuFieldProps,
       },
       {
         name: 'gpu_idx',
@@ -815,10 +846,11 @@ export default function LaunchDialog({
       },
       {
         name: 'worker_ip',
-        type: 'input',
+        type: 'multi-select',
         label: t('launchModel.workerIp'),
         placeholder: t('launchModel.workerIpPlaceholder'),
         colSpan: 2,
+        fieldProps: workerIpFieldProps,
         normalize: (v) => v || undefined,
       },
       {
@@ -865,7 +897,7 @@ export default function LaunchDialog({
         name: 'n_gpu',
         type: 'select',
         label: t('launchModel.nGPUDevice'),
-        fieldProps: { options: nGpuOptions },
+        fieldProps: nGpuFieldProps,
       },
       {
         name: 'gpu_idx',
@@ -919,10 +951,11 @@ export default function LaunchDialog({
       },
       {
         name: 'worker_ip',
-        type: 'input',
+        type: 'multi-select',
         label: t('launchModel.workerIp'),
         placeholder: t('launchModel.workerIpPlaceholder'),
         colSpan: 2,
+        fieldProps: workerIpFieldProps,
         normalize: (v) => v || undefined,
       },
       {
@@ -962,7 +995,7 @@ export default function LaunchDialog({
         name: 'n_gpu',
         type: 'select',
         label: t('launchModel.nGPUDevice'),
-        fieldProps: { options: nGpuOptions },
+        fieldProps: nGpuFieldProps,
       },
       {
         name: 'gpu_idx',
@@ -1016,10 +1049,11 @@ export default function LaunchDialog({
       },
       {
         name: 'worker_ip',
-        type: 'input',
+        type: 'multi-select',
         label: t('launchModel.workerIp'),
         placeholder: t('launchModel.workerIpPlaceholder'),
         colSpan: 2,
+        fieldProps: workerIpFieldProps,
         normalize: (v) => v || undefined,
       },
       {
@@ -1066,7 +1100,7 @@ export default function LaunchDialog({
         name: 'n_gpu',
         type: 'select',
         label: t('launchModel.nGPUDevice'),
-        fieldProps: { options: nGpuOptions },
+        fieldProps: nGpuFieldProps,
       },
       {
         name: 'gpu_idx',
@@ -1097,10 +1131,11 @@ export default function LaunchDialog({
       },
       {
         name: 'worker_ip',
-        type: 'input',
+        type: 'multi-select',
         label: t('launchModel.workerIp'),
         placeholder: t('launchModel.workerIpPlaceholder'),
         colSpan: 2,
+        fieldProps: workerIpFieldProps,
         normalize: (v) => v || undefined,
       },
       {
@@ -1222,7 +1257,6 @@ export default function LaunchDialog({
 
   const handleLaunch = async (values: FormValues) => {
     const newValues = transformFormToFetch(values);
-
     isCanceledLaunchRef.current = false;
     setLoading(true);
     setProgress(0);
@@ -1290,8 +1324,9 @@ export default function LaunchDialog({
   useEffect(() => {
     if (isOpen) {
       fetchModelEngine();
+      fetchWorkers();
     }
-  }, [fetchModelEngine, isOpen]);
+  }, [fetchModelEngine, fetchWorkers, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;

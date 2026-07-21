@@ -255,7 +255,7 @@ export function MultiSelect({
               </div>
             )}
 
-            <div className="max-h-60 overflow-auto">
+            <div className="max-h-60 overflow-auto p-1">
               {filteredOptions.length === 0 && !creatable ? (
                 <div className="py-10 text-center text-sm text-muted-foreground">
                   {t('common.noOptions')}
@@ -270,11 +270,13 @@ export function MultiSelect({
                       type="button"
                       onClick={() => handleSelect(option.value)}
                       className={cn(
-                        'w-full border-b border-border px-3 py-2 text-left text-sm transition-colors last:border-b-0',
+                        'w-full rounded-[4px] px-3 py-2 text-left text-sm transition-colors',
 
-                        'hover:bg-accent hover:text-accent-foreground',
+                        active
+                          ? 'hover:bg-primary/10 hover:text-primary'
+                          : 'hover:bg-accent hover:text-accent-foreground',
 
-                        active && 'bg-accent text-accent-foreground'
+                        active && 'bg-primary/10 text-primary'
                       )}
                     >
                       <div className="flex items-center justify-between gap-2">

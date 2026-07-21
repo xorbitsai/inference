@@ -282,7 +282,7 @@ export function Select<T extends SelectValue = SelectValue>({
             dropdownDirection === 'up' && 'origin-bottom'
           )}
         >
-          <div className="max-h-60 overflow-auto">
+          <div className="max-h-60 overflow-auto p-1">
             {filteredOptions.length === 0 ? (
               <div className="py-10 text-center text-sm text-muted-foreground">
                 {t('common.noOptions')}
@@ -295,9 +295,12 @@ export function Select<T extends SelectValue = SelectValue>({
                   disabled={option.disabled}
                   onClick={() => handleOptionClick(option)}
                   className={cn(
-                    'w-full border-b border-border px-3 py-2 text-left text-sm transition-colors last:border-b-0',
-                    !option.disabled && 'hover:bg-accent hover:text-accent-foreground',
-                    value === option.value && 'bg-accent text-accent-foreground',
+                    'w-full rounded-[4px] px-3 py-2 text-left text-sm transition-colors',
+                    !option.disabled &&
+                      (value === option.value
+                        ? 'hover:bg-primary/10 hover:text-primary'
+                        : 'hover:bg-accent hover:text-accent-foreground'),
+                    value === option.value && 'bg-primary/10 text-primary',
                     option.disabled && 'cursor-not-allowed text-muted-foreground opacity-50'
                   )}
                 >
