@@ -28,7 +28,7 @@ interface TokenResponse {
 export default function LoginPage() {
   const router = useRouter();
   const [form] = useForm();
-  const { fetchGlobalAfterAuth } = useGlobal();
+  const { fetchGlobalAfterAuth, clusterUIConfig } = useGlobal();
 
   const { t } = useI18n();
   const branding = getBrandingFromEnv();
@@ -134,6 +134,31 @@ export default function LoginPage() {
               {t('login.login')}
             </Button>
           </Form>
+
+          {clusterUIConfig.oidc_enabled && (
+            <>
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    {t('login.or')}
+                  </span>
+                </div>
+              </div>
+              <Button
+                block
+                variant="outline"
+                type="button"
+                onClick={() => {
+                  window.location.href = '/api/oidc/authorize';
+                }}
+              >
+                {t('login.ssoLogin')}
+              </Button>
+            </>
+          )}
         </div>
       </div>
 

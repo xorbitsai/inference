@@ -374,6 +374,8 @@ const zh = {
     password: '密码',
     mustChangePasswordDesc: '首次登录，需要先修改密码才能继续使用。',
     changePasswordUserMissing: '无法识别当前用户，请重新登录后再试。',
+    or: '或',
+    ssoLogin: '使用 Keycloak 登录',
   },
   setup: {
     welcome: '欢迎使用 Xinference',
