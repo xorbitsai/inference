@@ -57,7 +57,7 @@ jobs:
             IMAGE_TAG="nightly-$BRANCH"
           fi
 
-          docker buildx build --platform linux/arm64 --load -t "$DOCKER_ORG/xinference:${IMAGE_TAG}-aarch64" --progress=plain -f xinference/deploy/docker/Dockerfile.aarch64 .
+          docker buildx build --platform linux/arm64 --load -t "$DOCKER_ORG/xinference:${IMAGE_TAG}-aarch64" --progress=plain -f xinference/deploy/docker/Dockerfile .
           docker push "$DOCKER_ORG/xinference:${IMAGE_TAG}-aarch64"
 
   build-gpu:

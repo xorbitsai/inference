@@ -25,6 +25,13 @@
 # The CUDA *devel* base keeps nvcc and the CUDA headers as a fallback for
 # model venv packages that only ship sdists and compile CUDA extensions on
 # the fly. Requires a host driver supporting CUDA >= 13.0.
+#
+# This single Dockerfile builds both linux/amd64 and linux/arm64 (the CI
+# aarch64 job builds it on an arm64 runner): the CUDA base image, the
+# deadsnakes Python packages, and every pinned wheel in
+# requirements-runtime.txt ship both architectures. Keep any additions
+# multi-arch, or gate them on TARGETARCH (declare `ARG TARGETARCH` inside
+# the stage first — undeclared it expands to an empty string).
 
 # ---------------------------------------------------------------------------
 # Stage 1: build the Web UI static export
