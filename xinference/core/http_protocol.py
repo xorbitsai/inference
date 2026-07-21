@@ -140,7 +140,6 @@ def create_hardened_http_protocol(request_timeout: float) -> Union[type, str]:
             "connection_made",
             "data_received",
             "connection_lost",
-            "on_response_complete",
             "handle_websocket_upgrade",
         ):
             if not hasattr(_Base, attr):
