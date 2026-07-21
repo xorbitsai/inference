@@ -135,7 +135,7 @@ export default function LoginPage() {
             </Button>
           </Form>
 
-          {clusterUIConfig.oidc_enabled && (
+          {clusterUIConfig.auth_advanced && clusterUIConfig.oidc_enabled && (
             <>
               <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">

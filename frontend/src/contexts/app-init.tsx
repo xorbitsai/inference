@@ -7,7 +7,7 @@ import { NO_AUTH, LOGIN_PATH, SETUP_PATH } from '@/constants';
 import { useGlobal } from '@/contexts/global-context';
 import { getAccessToken, getRefreshToken, setNoAuthToken } from '@/lib/auth-storage';
 import { getApiUrl } from '@/lib/utils';
-import type { ClusterAuth } from '@/types/services';
+import type { ClusterAuth, ClusterUIConfig } from '@/types/services';
 
 interface SetupStatus {
   needs_setup?: boolean;
@@ -31,7 +31,7 @@ async function fetchNeedsSetup(): Promise<boolean> {
 export default function AppInit() {
   const router = useRouter();
   const pathname = usePathname();
-  const { setClusterAuth, fetchGlobalAfterAuth } = useGlobal();
+  const { setClusterAuth, fetchGlobalAfterAuth, setClusterUIConfig } = useGlobal();
 
   const initialized = useRef(false);
 
@@ -84,6 +84,20 @@ export default function AppInit() {
       }
       // Not logged in: a fresh deployment with no accounts yet needs to be
       // routed to /setup instead of /login (there's nothing to log into).
+
+      // Fetch ui_config before rendering the login page so SSO state
+      // (oidc_enabled, auth_advanced) is available on first render.
+      try {
+        const uiConfigRes = await fetch(getApiUrl() + '/v1/cluster/ui_config', {
+          cache: 'no-store',
+        });
+        if (uiConfigRes.ok) {
+          setClusterUIConfig((await uiConfigRes.json()) as ClusterUIConfig);
+        }
+      } catch {
+        // ui_config unavailable — login page renders without SSO button.
+      }
+
       const needsSetup = await fetchNeedsSetup();
       if (needsSetup) {
         if (pathname !== SETUP_PATH) router.replace(SETUP_PATH);
