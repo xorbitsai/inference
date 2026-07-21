@@ -24,6 +24,12 @@ from aioprometheus.asgi.starlette import metrics
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 
+from ..constants import (
+    XINFERENCE_HTTP_REQUEST_TIMEOUT,
+    XINFERENCE_HTTP_TIMEOUT_KEEP_ALIVE,
+)
+from .http_protocol import create_hardened_http_protocol
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_METRICS_SERVER_LOG_LEVEL = "warning"
@@ -679,20 +685,18 @@ def launch_metrics_export_server(q, host=None, port=None):
         return response
 
     async def main():
-        if host is not None and port is not None:
-            config = uvicorn.Config(
-                app, host=host, port=port, log_level=DEFAULT_METRICS_SERVER_LOG_LEVEL
-            )
-        elif host is not None:
-            config = uvicorn.Config(
-                app, host=host, port=0, log_level=DEFAULT_METRICS_SERVER_LOG_LEVEL
-            )
+        kwargs: Dict[str, Any] = {
+            "log_level": DEFAULT_METRICS_SERVER_LOG_LEVEL,
+            # Slow HTTP DoS (Slowloris) protection, see http_protocol.py
+            "http": create_hardened_http_protocol(XINFERENCE_HTTP_REQUEST_TIMEOUT),
+            "timeout_keep_alive": XINFERENCE_HTTP_TIMEOUT_KEEP_ALIVE,
+        }
+        if host is not None:
+            kwargs["host"] = host
+            kwargs["port"] = port if port is not None else 0
         elif port is not None:
-            config = uvicorn.Config(
-                app, port=port, log_level=DEFAULT_METRICS_SERVER_LOG_LEVEL
-            )
-        else:
-            config = uvicorn.Config(app, log_level=DEFAULT_METRICS_SERVER_LOG_LEVEL)
+            kwargs["port"] = port
+        config = uvicorn.Config(app, **kwargs)
 
         server = uvicorn.Server(config)
         task = asyncio.create_task(server.serve())
