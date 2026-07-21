@@ -783,7 +783,18 @@ class RESTfulAPI(CancelMixin):
         model_format = payload.get("model_format")
         quantization = payload.get("quantization")
         model_type = payload.get("model_type", "LLM")
-        replica = int(payload.get("replica", 1))
+        try:
+            replica = int(payload.get("replica", 1))
+        except (TypeError, ValueError):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid input. The `replica` field must be a valid integer.",
+            )
+        if replica < 1:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid input. The `replica` field must be at least 1.",
+            )
         n_gpu = payload.get("n_gpu", "auto")
         request_limits = payload.get("request_limits", None)
         peft_model_config = payload.get("peft_model_config", None)
@@ -1014,7 +1025,18 @@ class RESTfulAPI(CancelMixin):
         model_engine = payload.get("model_engine")
         model_type = payload.get("model_type")
         model_version = payload.get("model_version")
-        replica = int(payload.get("replica", 1))
+        try:
+            replica = int(payload.get("replica", 1))
+        except (TypeError, ValueError):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid input. The `replica` field must be a valid integer.",
+            )
+        if replica < 1:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid input. The `replica` field must be at least 1.",
+            )
         n_gpu = payload.get("n_gpu", "auto")
 
         try:
