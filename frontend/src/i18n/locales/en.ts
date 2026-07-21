@@ -106,6 +106,7 @@ const en = {
     multimodelProjector: 'Multimodel Projector',
     nGPU: 'GPU Count per Replica',
     nGPUPerWorker: 'GPU Count per Worker',
+    nGPUDevice: 'Device',
     nGpuLayers: 'N GPU Layers',
     replica: 'Replica',
     advancedConfiguration: 'Advanced Configuration',

@@ -517,7 +517,7 @@ export default function LaunchDialog({
       {
         name: 'n_gpu',
         type: 'select',
-        label: t('launchModel.nGPU'),
+        label: t('launchModel.nGPUDevice'),
         fieldProps: { options: nGpuOptions },
       },
       {
@@ -621,7 +621,7 @@ export default function LaunchDialog({
       {
         name: 'n_gpu',
         type: 'select',
-        label: t('launchModel.nGPU'),
+        label: t('launchModel.nGPUDevice'),
         fieldProps: { options: nGpuOptions },
       },
       {
@@ -864,7 +864,7 @@ export default function LaunchDialog({
       {
         name: 'n_gpu',
         type: 'select',
-        label: t('launchModel.nGPU'),
+        label: t('launchModel.nGPUDevice'),
         fieldProps: { options: nGpuOptions },
       },
       {
@@ -961,7 +961,7 @@ export default function LaunchDialog({
       {
         name: 'n_gpu',
         type: 'select',
-        label: t('launchModel.nGPU'),
+        label: t('launchModel.nGPUDevice'),
         fieldProps: { options: nGpuOptions },
       },
       {
@@ -1065,7 +1065,7 @@ export default function LaunchDialog({
       {
         name: 'n_gpu',
         type: 'select',
-        label: t('launchModel.nGPU'),
+        label: t('launchModel.nGPUDevice'),
         fieldProps: { options: nGpuOptions },
       },
       {

@@ -106,6 +106,7 @@ const ko = {
     multimodelProjector: '멀티모델 프로젝터',
     nGPU: '레플리카당 GPU 수',
     nGPUPerWorker: '워커당 GPU 수',
+    nGPUDevice: '장치',
     nGpuLayers: 'GPU 레이어 수',
     replica: '레플리카',
     advancedConfiguration: '고급 설정',

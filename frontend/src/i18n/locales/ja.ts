@@ -106,6 +106,7 @@ const ja = {
     multimodelProjector: 'マルチモデルプロジェクター',
     nGPU: 'レプリカあたりのGPU数',
     nGPUPerWorker: 'ワーカーあたりのGPU数',
+    nGPUDevice: 'デバイス',
     nGpuLayers: 'GPUレイヤー数',
     replica: 'レプリカ',
     advancedConfiguration: '高度な設定',
