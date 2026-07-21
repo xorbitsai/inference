@@ -611,6 +611,8 @@ const ko = {
     password: '비밀번호',
     mustChangePasswordDesc: '첫 로그인 시 계속하기 전에 비밀번호를 변경해야 합니다.',
     changePasswordUserMissing: '현재 사용자를 식별할 수 없습니다. 다시 로그인해주세요.',
+    or: '또는',
+    ssoLogin: 'Keycloak으로 로그인',
   },
   setup: {
     welcome: 'Xinference에 오신 것을 환영합니다',

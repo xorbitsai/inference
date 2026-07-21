@@ -10,7 +10,7 @@ import { FormField } from '@/components/ui/form-field';
 import { Form } from '@/components/ui/form';
 import { useForm } from '@/hooks/use-form';
 import request from '@/lib/request';
-import { decodeJwtPayload } from '@/lib/utils';
+import { decodeJwtPayload, getApiUrl } from '@/lib/utils';
 import { setAccessToken, setRefreshToken } from '@/lib/auth-storage';
 import { getBrandingFromEnv } from '@/lib/branding';
 import { useI18n } from '@/contexts/i18n-context';
@@ -36,6 +36,17 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [changePasswordUserId, setChangePasswordUserId] = useState<number | null>(null);
+  const [oidcEnabled, setOidcEnabled] = useState(false);
+  const [authAdvanced, setAuthAdvanced] = useState(false);
+
+  useEffect(() => {
+    request.get('/v1/cluster/ui_config')
+      .then((config: any) => {
+        setOidcEnabled(config?.oidc_enabled ?? false);
+        setAuthAdvanced(config?.auth_advanced ?? false);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     // Setup (components/pages/setup) sets this right before navigating here,
@@ -134,6 +145,31 @@ export default function LoginPage() {
               {t('login.login')}
             </Button>
           </Form>
+
+          {authAdvanced && oidcEnabled && (
+            <>
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    {t('login.or')}
+                  </span>
+                </div>
+              </div>
+              <Button
+                block
+                variant="outline"
+                type="button"
+                onClick={() => {
+                  window.location.href = getApiUrl() + '/api/oidc/authorize';
+                }}
+              >
+                {t('login.ssoLogin')}
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
