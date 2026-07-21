@@ -128,7 +128,10 @@ def iter_virtualenv_packages(
             data = json.loads(json_path.read_text(encoding="utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError):
             continue
-        rel = str(json_path.relative_to(model_dir))
+        # Use forward slashes so the emitted source labels are identical across
+        # platforms (Path str-ifies with backslashes on Windows), keeping the
+        # generated package lists and their tests portable.
+        rel = json_path.relative_to(model_dir).as_posix()
         for model_name, packages in _walk(data, "<unknown>"):
             yield rel, model_name, packages
 
