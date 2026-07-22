@@ -3403,9 +3403,20 @@ class WorkerActor(xo.StatelessActor):
             logger.error("report_event error: %s" % (e))
 
         if self._status_guard_ref is not None:
-            await self._status_guard_ref.update_instance_info(
-                origin_uid, {"status": LaunchStatus.TERMINATING.name}
-            )
+            try:
+                await self._status_guard_ref.update_instance_info(
+                    origin_uid, {"status": LaunchStatus.TERMINATING.name}
+                )
+            except Exception:
+                # Status reporting must not block the local map/resource
+                # cleanup below, e.g. when terminating precisely because the
+                # status guard became unavailable during launch finalization.
+                logger.warning(
+                    "Failed to report TERMINATING status for %s, "
+                    "continuing with local cleanup",
+                    model_uid,
+                    exc_info=True,
+                )
         model_ref = self._model_uid_to_model.get(model_uid, None)
         if model_ref is None:
             logger.debug("Model not found, uid: %s", model_uid)
@@ -3500,12 +3511,22 @@ class WorkerActor(xo.StatelessActor):
                 await self._update_model_state(model_uid, "stopped")
                 self._model_uid_to_model_status.pop(model_uid, None)
 
-            if self._status_guard_ref is None:
-                _ = await self.get_supervisor_ref()
-            assert self._status_guard_ref is not None
-            await self._status_guard_ref.update_instance_info(
-                origin_uid, {"status": status}
-            )
+            try:
+                if self._status_guard_ref is None:
+                    _ = await self.get_supervisor_ref()
+                assert self._status_guard_ref is not None
+                await self._status_guard_ref.update_instance_info(
+                    origin_uid, {"status": status}
+                )
+            except Exception:
+                # Local cleanup already happened above; a status guard or
+                # supervisor outage must not fail the terminate itself.
+                logger.warning(
+                    "Failed to report %s status for %s after cleanup",
+                    status,
+                    model_uid,
+                    exc_info=True,
+                )
 
         # Per-uid persist state cleanup (prevent zombie entries on long-running workers)
         self._persist_launch_args_dirty_uids.discard(model_uid)
