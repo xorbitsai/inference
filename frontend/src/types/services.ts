@@ -22,6 +22,7 @@ export interface ClusterUIConfig {
 export interface ClusterInfo {
   node_type: 'Supervisor' | 'Worker';
   ip_address: string;
+  ip?: string;
   gpu_count: number;
   gpu_vram_total: number;
   cpu_available: number;
@@ -29,9 +30,16 @@ export interface ClusterInfo {
   mem_used: number;
   mem_available: number;
   mem_total: number;
-  gpu_utilization: number;
+  gpu_utilization: number | null;
   gpu_vram_available: number;
 }
+
+export type ClusterInfoResponse =
+  | ClusterInfo[]
+  | {
+      supervisors?: ClusterInfo[];
+      workers?: ClusterInfo[];
+    };
 
 interface PromptsItem {
   chat_template: string;

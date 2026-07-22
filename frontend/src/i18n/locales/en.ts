@@ -120,11 +120,11 @@ const en = {
     requestLimitsPlaceholder: 'The request limit for this model, default is None',
     workerIp: 'Worker IP',
     workerIpPlaceholder:
-      'Specify the worker IP where the model is located in a distributed scenario. Multiple IPs can be separated by commas.',
+      'Specify worker IPs in distributed mode. Select multiple or type one, then Add.',
     workerCount: 'Worker Count',
     workerCountPlaceholder: 'Worker Count',
     GPUIdx: 'GPU Idx',
-    GPUIdxPlaceholder: 'Specify the GPU index where the model is located',
+    GPUIdxPlaceholder: 'Specify the GPU indexes where the model is located, e.g. 0,1,2',
     downloadHub: 'Download Hub',
     downloadHubPlaceholder: 'Download_hub',
     modelPath: 'Model Path',

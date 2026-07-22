@@ -120,11 +120,11 @@ const ko = {
     requestLimitsPlaceholder: '이 모델의 요청 제한 수, 기본값은 없음',
     workerIp: '워커 IP',
     workerIpPlaceholder:
-      '분산 시나리오에서 모델이 위치한 워커 IP 지정. 여러 개의 IP를 쉼표로 구분하여 지정할 수 있습니다.',
+      '분산 환경의 워커 IP 지정. 여러 개를 선택하거나 입력 후 Add.',
     workerCount: '워커 수',
     workerCountPlaceholder: '워커 수',
     GPUIdx: 'GPU 인덱스',
-    GPUIdxPlaceholder: '모델이 위치한 GPU 인덱스 지정',
+    GPUIdxPlaceholder: '모델이 위치할 GPU 인덱스를 지정하세요. 예: 0,1,2',
     downloadHub: '다운로드 허브',
     downloadHubPlaceholder: '다운로드 허브',
     modelPath: '모델 경로',
