@@ -97,6 +97,11 @@ class TextNormalizer:
                 from tn.chinese.normalizer import Normalizer as NormalizerZh
                 from tn.english.normalizer import Normalizer as NormalizerEn
             except ImportError:
+                if platform.machine() == "x86_64":
+                    # pynini wheels exist for linux x86_64, so tn should be
+                    # installed there; surface the real import problem
+                    # instead of a misleading wetext ModuleNotFoundError.
+                    raise
                 # WeTextProcessing depends on pynini, which only ships
                 # prebuilt wheels for linux x86_64; fall back to wetext on
                 # other Linux architectures (e.g. aarch64).
