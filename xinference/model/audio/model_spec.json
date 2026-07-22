@@ -1620,8 +1620,18 @@
     "virtualenv": {
       "packages": [
         "transformers==4.52.1",
+        "accelerate",
         "#system_torch#",
+        "#system_torchaudio#",
         "#system_numpy#",
+        "librosa",
+        "soundfile",
+        "einops",
+        "omegaconf",
+        "sentencepiece",
+        "textstat",
+        "WeTextProcessing ; sys_platform == 'linux' and platform_machine == 'x86_64'",
+        "wetext ; sys_platform != 'linux' or platform_machine != 'x86_64'",
         "json5",
         "munch",
         "matplotlib",
@@ -1642,7 +1652,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1766387108,
+    "updated_at": 1784694838,
     "featured": true
   },
   {
