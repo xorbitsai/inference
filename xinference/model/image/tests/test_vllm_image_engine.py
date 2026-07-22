@@ -170,6 +170,24 @@ def test_builtin_specs_have_vllm_virtualenv_marker():
     for model_name in VLLM_SUPPORTED_IMAGE_MODELS:
         for spec in BUILTIN_IMAGE_MODELS[model_name]:
             packages = spec.virtualenv.packages if spec.virtualenv else []
-            assert any(
-                "vllm-omni" in pkg and '#engine# == "vLLM"' in pkg for pkg in packages
-            ), f"{model_name} misses vllm-omni virtualenv marker"
+            omni = [
+                pkg
+                for pkg in packages
+                if pkg.startswith("vllm-omni") and '#engine# == "vLLM"' in pkg
+            ]
+            assert omni, f"{model_name} misses vllm-omni virtualenv marker"
+            # vllm-omni does not declare its vllm dependency and requires a
+            # vllm with the same major.minor version, so the spec must pin a
+            # matching vllm alongside it
+            vllm = [
+                pkg
+                for pkg in packages
+                if pkg.startswith("vllm==") and '#engine# == "vLLM"' in pkg
+            ]
+            assert vllm, f"{model_name} misses paired vllm virtualenv pin"
+            omni_ver = omni[0].split(";")[0].strip().split("==")[1]
+            vllm_ver = vllm[0].split(";")[0].strip().split("==")[1]
+            assert omni_ver == vllm_ver, (
+                f"{model_name}: vllm-omni ({omni_ver}) and vllm ({vllm_ver}) "
+                "pins must share the same version"
+            )

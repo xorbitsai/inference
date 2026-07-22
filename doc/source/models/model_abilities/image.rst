@@ -75,9 +75,10 @@ for faster inference:
 * Z-Image-Turbo
 
 To use them, install SGLang with diffusion support via
-``pip install 'sglang[diffusion]'`` or vLLM-Omni via
-``pip install vllm-omni``, then launch the model with
-``--model-engine SGLang`` or ``--model-engine vLLM``, for example:
+``pip install 'sglang[diffusion]'``, or vLLM-Omni together with a vLLM of the
+same major.minor version via ``pip install 'vllm-omni==0.24.*' 'vllm==0.24.*'``,
+then launch the model with ``--model-engine SGLang`` or
+``--model-engine vLLM``, for example:
 
 .. code-block:: bash
 

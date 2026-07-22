@@ -99,13 +99,17 @@ class VLLMDiffusionModel:
     def load(self):
         try:
             from vllm_omni.entrypoints.omni import Omni
-        except ImportError:
-            error_message = "Failed to import module 'vllm_omni'"
+        except ImportError as e:
+            error_message = f"Failed to import module 'vllm_omni': {e}"
             installation_guide = [
-                "Please make sure 'vllm-omni' is installed. ",
-                "You can install it by `pip install vllm-omni`\n",
+                "Please make sure 'vllm-omni' is installed and that the installed ",
+                "'vllm' shares the same major.minor version (e.g. vllm-omni 0.24.x ",
+                "requires vllm 0.24.x). You can install a matching pair by ",
+                "`pip install 'vllm-omni==0.24.*' 'vllm==0.24.*'`\n",
             ]
-            raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+            raise ImportError(
+                f"{error_message}\n\n{''.join(installation_guide)}"
+            ) from e
 
         logger.debug(
             "Loading vLLM-Omni diffusion model from %s, kwargs: %s",

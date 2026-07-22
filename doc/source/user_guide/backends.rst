@@ -183,8 +183,9 @@ names start with ``bge``, ``gte``, ``text2vec``, ``m3e``, ``Qwen3``, or
 
 vLLM can also serve as the engine for some text-to-image models
 (e.g. ``Qwen-Image``, ``Z-Image-Turbo``) on Linux with NVIDIA GPUs, see
-:ref:`image engines <image>`. This requires the vLLM-Omni add-on:
-``pip install vllm-omni``.
+:ref:`image engines <image>`. This requires the vLLM-Omni add-on with a vLLM
+of the same major.minor version, e.g.
+``pip install 'vllm-omni==0.24.*' 'vllm==0.24.*'``.
 
 .. _sglang_backend:
 
