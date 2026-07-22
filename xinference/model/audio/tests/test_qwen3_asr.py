@@ -55,6 +55,20 @@ def _new_model(batch_size=8, batch_interval=0.01, **kwargs):
     return model
 
 
+def test_qwen3_asr_uses_audio_batch_interval_default():
+    model_spec = SimpleNamespace(
+        model_name="Qwen3-ASR-0.6B",
+        model_ability=["audio2text"],
+        default_transcription_config={},
+    )
+
+    model = Qwen3ASRModel("default", "/unused", model_spec)
+    overridden = Qwen3ASRModel("overridden", "/unused", model_spec, batch_interval=0.02)
+
+    assert model.batch_interval == pytest.approx(0.1)
+    assert overridden.batch_interval == pytest.approx(0.02)
+
+
 async def _shutdown_batch_processor(model):
     task = model._process_batch_task
     if task is not None:

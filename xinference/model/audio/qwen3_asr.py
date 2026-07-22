@@ -34,6 +34,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+QWEN3_ASR_DEFAULT_BATCH_INTERVAL = 0.1
+
 
 class Qwen3ASRModel(BatchMixin):
     def __init__(
@@ -51,7 +53,7 @@ class Qwen3ASRModel(BatchMixin):
         self._device = device
         self._model = None
         batch_size = kwargs.pop("batch_size", None)
-        batch_interval = kwargs.pop("batch_interval", None)
+        batch_interval = kwargs.pop("batch_interval", QWEN3_ASR_DEFAULT_BATCH_INTERVAL)
         self._kwargs = kwargs
 
         batching_kwargs = {}
