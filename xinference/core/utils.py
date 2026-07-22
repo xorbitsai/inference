@@ -163,7 +163,9 @@ def log_sync(logger, level=logging.DEBUG, log_exception=True):
 # Replica suffix must not collide with bare model names that end in
 # "-<digits>" (llama-2, phi-2, gpt-2, ...). See #5198.
 _REPLICA_MODEL_UID_SEP = "-rep"
-_REPLICA_MODEL_UID_RE = re.compile(rf"^(?P<uid>.+){_REPLICA_MODEL_UID_SEP}(?P<rep>\d+)$")
+_REPLICA_MODEL_UID_RE = re.compile(
+    rf"^(?P<uid>.+){_REPLICA_MODEL_UID_SEP}(?P<rep>\d+)$"
+)
 
 
 def iter_replica_model_uid(model_uid: str, replica: int) -> Generator[str, None, None]:
@@ -197,12 +199,34 @@ def parse_replica_model_uid(replica_model_uid: str) -> Tuple[str, int]:
         return match.group("uid"), int(match.group("rep"))
     # No reserved suffix: treat as bare model uid. Do NOT fall back to the
     # legacy "-{n}" split here — that mis-parses real model names like
-    # "llama-2" as ("llama", 2). Legacy in-memory uids built before this
-    # change still round-trip via the pattern only when callers pass a
-    # value that was produced by the old builder AND the base uid itself
-    # never ended in digits; those are rare enough that we prefer correct
-    # bare-name handling.
+    # "llama-2" as ("llama", 2). UIDs built by the old builder therefore no
+    # longer parse as replicas; migration paths that may still see them
+    # (e.g. worker recovery files written by an older version) must handle
+    # the legacy format explicitly via parse_legacy_replica_model_uid.
     return replica_model_uid, -1
+
+
+_LEGACY_REPLICA_MODEL_UID_RE = re.compile(r"^(?P<uid>.+)-(?P<rep>\d+)$")
+
+
+def parse_legacy_replica_model_uid(
+    replica_model_uid: str,
+) -> Optional[Tuple[str, int]]:
+    """
+    Parse the legacy ``{model_uid}-{n}`` replica format used before the
+    reserved ``-rep{n}`` suffix was introduced.
+
+    Only intended for migration paths (e.g. worker recovery files written
+    by an older version). The legacy format is ambiguous by design — a bare
+    model name like ``llama-2`` also matches — so callers must verify that
+    the returned base uid actually refers to a known model before trusting
+    the result. Returns ``None`` when the input does not match the legacy
+    pattern.
+    """
+    match = _LEGACY_REPLICA_MODEL_UID_RE.match(replica_model_uid)
+    if match:
+        return match.group("uid"), int(match.group("rep"))
+    return None
 
 
 def is_valid_model_uid(model_uid: str) -> bool:

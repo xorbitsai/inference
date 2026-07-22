@@ -1143,7 +1143,9 @@ class SupervisorActor(xo.StatelessActor):
     async def remove_autostart_model(self, model_uid: str) -> Dict[str, Any]:
         if not isinstance(model_uid, str) or not is_valid_model_uid(model_uid):
             raise ValueError(
-                "The model UID is invalid. Please specify the model UID by 0 < length <= 100."
+                "The model UID is invalid. Please specify the model UID by "
+                "0 < length <= 100, not ending with the reserved replica "
+                "suffix '-rep<number>'."
             )
 
         async with self._autostart_store_lock:
@@ -2358,7 +2360,9 @@ class SupervisorActor(xo.StatelessActor):
 
         if not is_valid_model_uid(model_uid):
             raise ValueError(
-                "The model UID is invalid. Please specify the model UID by 0 < length <= 100."
+                "The model UID is invalid. Please specify the model UID by "
+                "0 < length <= 100, not ending with the reserved replica "
+                "suffix '-rep<number>'."
             )
 
         if request_limits is not None and request_limits < 0:
@@ -2550,7 +2554,9 @@ class SupervisorActor(xo.StatelessActor):
 
         if not is_valid_model_uid(model_uid):
             raise ValueError(
-                "The model UID is invalid. Please specify the model UID by 0 < length <= 100."
+                "The model UID is invalid. Please specify the model UID by "
+                "0 < length <= 100, not ending with the reserved replica "
+                "suffix '-rep<number>'."
             )
 
         if request_limits is not None and request_limits < 0:
