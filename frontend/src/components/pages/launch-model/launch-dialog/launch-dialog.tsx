@@ -10,6 +10,7 @@ import { ENGINES_WITH_WORKER } from '@/constants/launch';
 import { ModelFormat } from '@/constants/register';
 import { useI18n } from '@/contexts/i18n-context';
 import { useForm, useFormValues, useWatch } from '@/hooks/use-form';
+import { useMenuAuth } from '@/hooks/use-menu-auth';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
@@ -72,6 +73,7 @@ export default function LaunchDialog({
   const formId = useId();
   const [form] = useForm();
   const { t } = useI18n();
+  const { isAdmin } = useMenuAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [canceling, setCanceling] = useState(false);
@@ -97,6 +99,11 @@ export default function LaunchDialog({
   const [workerOptions, setWorkerOptions] = useState<WorkerOption[]>([]);
 
   const fetchWorkers = useCallback(async () => {
+    if (!isAdmin) {
+      setWorkerOptions([]);
+      return;
+    }
+
     try {
       const data = await request.get<ClusterInfoResponse>('/v1/cluster/info', {
         params: { detailed: true },
@@ -105,7 +112,7 @@ export default function LaunchDialog({
     } catch {
       setWorkerOptions([]);
     }
-  }, []);
+  }, [isAdmin]);
   const fetchModelEngine = useCallback(async () => {
     if (!model?.model_name || !MODEL_ENGINE_TYPES.includes(modelType)) {
       setModelEngineMap({});

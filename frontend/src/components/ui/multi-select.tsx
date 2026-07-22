@@ -57,22 +57,43 @@ export function MultiSelect({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const selectedValues = Array.isArray(value) ? value : [];
-  const updateDropdownPosition = useCallback(() => {
-    if (!triggerRef.current) return;
+  const getPortalContainer = useCallback(() => {
+    if (typeof document === 'undefined') return null;
 
-    const rect = triggerRef.current.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom - 50;
-    const spaceAbove = rect.top - 50;
+    return (
+      (containerRef.current?.closest('[data-slot="dialog-content"]') as HTMLElement | null) ||
+      document.body
+    );
+  }, []);
+  const updateDropdownPosition = useCallback(() => {
+    const trigger = triggerRef.current;
+    const portalContainer = getPortalContainer();
+
+    if (!trigger || !portalContainer) return;
+
+    const rect = trigger.getBoundingClientRect();
+    const boundaryRect = trigger
+      .closest('[data-slot="dialog-body"]')
+      ?.getBoundingClientRect();
+    const boundaryTop = boundaryRect?.top ?? 0;
+    const boundaryBottom = boundaryRect?.bottom ?? window.innerHeight;
+    const spaceBelow = boundaryBottom - rect.bottom - 50;
+    const spaceAbove = rect.top - boundaryTop - 50;
     const direction = spaceBelow < 200 && spaceAbove > spaceBelow ? 'up' : 'down';
+    const portalRect =
+      portalContainer === document.body
+        ? { left: 0, top: 0 }
+        : portalContainer.getBoundingClientRect();
 
     setDropdownDirection(direction);
     setDropdownStyle({
-      left: 0,
-      top: direction === 'down' ? triggerRef.current.offsetHeight + 4 : -4,
-      width: triggerRef.current.offsetWidth,
+      position: portalContainer === document.body ? 'fixed' : 'absolute',
+      left: rect.left - portalRect.left,
+      top: direction === 'down' ? rect.bottom - portalRect.top + 4 : rect.top - portalRect.top - 4,
+      width: rect.width,
       transform: direction === 'up' ? 'translateY(-100%)' : undefined,
     });
-  }, []);
+  }, [getPortalContainer]);
 
   // click outside
   useEffect(() => {
@@ -180,8 +201,7 @@ export function MultiSelect({
 
     setInputValue('');
   };
-  const portalContainer =
-    containerRef.current || (typeof document === 'undefined' ? null : document.body);
+  const portalContainer = getPortalContainer();
 
   return (
     <div ref={containerRef} className={cn('relative w-full', className)}>
@@ -242,7 +262,7 @@ export function MultiSelect({
             data-slot="select-dropdown"
             style={dropdownStyle}
             className={cn(
-              'pointer-events-auto absolute z-[9999] overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md',
+              'pointer-events-auto z-[9999] overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md',
               dropdownDirection === 'up' && 'origin-bottom'
             )}
           >

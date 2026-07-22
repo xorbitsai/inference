@@ -118,7 +118,7 @@ const zh = {
     requestLimits: '请求限制',
     requestLimitsPlaceholder: '模型的请求限制数，默认值为无',
     workerIp: '工作节点 IP',
-    workerIpPlaceholder: '在分布式场景中指定模型所在的工作节点 IP，可以用英文逗号分隔指定多个 IP',
+    workerIpPlaceholder: '在分布式场景中指定模型所在的工作节点 IP，可多选，也可输入后 Add 添加',
     workerCount: 'Worker 数量',
     workerCountPlaceholder: 'Worker 数量',
     GPUIdx: 'GPU 索引',

@@ -120,7 +120,7 @@ const ja = {
     requestLimitsPlaceholder: 'このモデルのリクエスト制限数、デフォルトは無制限',
     workerIp: 'ワーカーIP',
     workerIpPlaceholder:
-      '分散シナリオでモデルが配置されているワーカーIPを指定。カンマで区切ることで複数の IP を指定できます。',
+      '分散環境のワーカーIPを指定。複数選択、または入力してAdd。',
     workerCount: 'ワーカー数',
     workerCountPlaceholder: 'ワーカー数',
     GPUIdx: 'GPUインデックス',
