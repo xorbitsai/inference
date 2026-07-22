@@ -278,7 +278,13 @@ def merge_virtual_env_packages(
     merged: List[str] = []
     index_map: Dict[str, int] = {}
     for pkg in base_packages:
-        key = get_key(pkg)
+        canonical_key = get_key(pkg)
+        pkg_name, separator, marker = pkg.partition(";")
+        key = (
+            f"{canonical_key};{marker.strip()}"
+            if separator and pkg_name.strip().startswith("#system_")
+            else canonical_key
+        )
         if key in index_map:
             merged[index_map[key]] = pkg
         else:
@@ -288,10 +294,14 @@ def merge_virtual_env_packages(
     if extra_packages:
         for pkg in extra_packages:
             key = get_key(pkg)
-            if key in index_map:
-                merged[index_map[key]] = pkg
+            matching_indexes = [
+                index for index, base_pkg in enumerate(merged) if get_key(base_pkg) == key
+            ]
+            if matching_indexes:
+                merged[matching_indexes[0]] = pkg
+                for index in reversed(matching_indexes[1:]):
+                    merged.pop(index)
             else:
-                index_map[key] = len(merged)
                 merged.append(pkg)
 
     return merged
