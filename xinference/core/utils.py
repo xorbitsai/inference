@@ -281,7 +281,7 @@ def merge_virtual_env_packages(
         canonical_key = get_key(pkg)
         pkg_name, separator, marker = pkg.partition(";")
         key = (
-            f"{canonical_key};{marker.strip()}"
+            f"{canonical_key}; {marker.strip()}"
             if separator and pkg_name.strip().startswith("#system_")
             else canonical_key
         )
@@ -295,7 +295,9 @@ def merge_virtual_env_packages(
         for pkg in extra_packages:
             key = get_key(pkg)
             matching_indexes = [
-                index for index, base_pkg in enumerate(merged) if get_key(base_pkg) == key
+                index
+                for index, base_pkg in enumerate(merged)
+                if get_key(base_pkg) == key
             ]
             if matching_indexes:
                 merged[matching_indexes[0]] = pkg
