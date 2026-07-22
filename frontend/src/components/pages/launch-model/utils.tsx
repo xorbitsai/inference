@@ -932,6 +932,7 @@ export function normalizeWorkerAddress(value: unknown) {
 }
 
 export function extractWorkerItems(clusterInfo: ClusterInfoResponse): WorkerOption[] {
+  if (!clusterInfo) return [];
   const isFlatNodeList = Array.isArray(clusterInfo);
   const nodes = isFlatNodeList ? clusterInfo : clusterInfo.workers || [];
   const workerMap = nodes.reduce<Map<string, WorkerOption>>((acc, node: ClusterInfo) => {
