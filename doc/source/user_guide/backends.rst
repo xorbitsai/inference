@@ -181,6 +181,11 @@ names start with ``bge``, ``gte``, ``text2vec``, ``m3e``, ``Qwen3``, or
 ``bce`` can be launched with ``--model-engine vllm`` — see
 :ref:`Embeddings <embed>`.
 
+vLLM can also serve as the engine for some text-to-image models
+(e.g. ``Qwen-Image``, ``Z-Image-Turbo``) on Linux with NVIDIA GPUs, see
+:ref:`image engines <image>`. This requires the vLLM-Omni add-on:
+``pip install vllm-omni``.
+
 .. _sglang_backend:
 
 SGLang

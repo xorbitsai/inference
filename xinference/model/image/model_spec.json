@@ -130,6 +130,7 @@
       "packages": [
         "#diffusers_dependencies# ; #engine# == \"diffusers\"",
         "sglang[diffusion] ; #engine# == \"SGLang\"",
+        "vllm-omni ; #engine# == \"vLLM\"",
         "transformers>=4.51.0",
         "#system_torch#",
         "#system_numpy#"
@@ -293,6 +294,7 @@
         "diffusers==0.35.1 ; #engine# == \"diffusers\"",
         "huggingface-hub<1.0 ; #engine# == \"diffusers\"",
         "sglang[diffusion] ; #engine# == \"SGLang\"",
+        "vllm-omni ; #engine# == \"vLLM\"",
         "peft>=0.17.0",
         "#system_torch#",
         "#system_numpy#"
@@ -1352,6 +1354,7 @@
       "packages": [
         "#diffusers_dependencies# ; #engine# == \"diffusers\"",
         "sglang[diffusion] ; #engine# == \"SGLang\"",
+        "vllm-omni ; #engine# == \"vLLM\"",
         "transformers>=4.51.0",
         "#system_torch#",
         "#system_numpy#"
@@ -1609,6 +1612,7 @@
         "diffusers==0.35.1 ; #engine# == \"diffusers\"",
         "huggingface-hub<1.0 ; #engine# == \"diffusers\"",
         "sglang[diffusion] ; #engine# == \"SGLang\"",
+        "vllm-omni ; #engine# == \"vLLM\"",
         "peft>=0.17.0",
         "#system_torch#",
         "#system_numpy#"
@@ -1637,6 +1641,7 @@
       "packages": [
         "#diffusers_dependencies# ; #engine# == \"diffusers\"",
         "sglang[diffusion] ; #engine# == \"SGLang\"",
+        "vllm-omni ; #engine# == \"vLLM\"",
         "transformers>=4.51.0",
         "#system_torch#",
         "#system_numpy#"
