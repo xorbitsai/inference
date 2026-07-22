@@ -97,10 +97,14 @@ export default function LaunchDialog({
   const [workerOptions, setWorkerOptions] = useState<WorkerOption[]>([]);
 
   const fetchWorkers = useCallback(async () => {
-    const data = await request.get<ClusterInfoResponse>('/v1/cluster/info', {
-      params: { detailed: true },
-    });
-    setWorkerOptions(extractWorkerItems(data));
+    try {
+      const data = await request.get<ClusterInfoResponse>('/v1/cluster/info', {
+        params: { detailed: true },
+      });
+      setWorkerOptions(extractWorkerItems(data));
+    } catch {
+      setWorkerOptions([]);
+    }
   }, []);
   const fetchModelEngine = useCallback(async () => {
     if (!model?.model_name || !MODEL_ENGINE_TYPES.includes(modelType)) {
@@ -270,6 +274,7 @@ export default function LaunchDialog({
         ? workerOptions.filter((workerOption) => workerOption.gpuCount > 0)
         : workerOptions,
       searchable: false,
+      creatable: true,
     }),
     [workerOptions, nGpuValue]
   );

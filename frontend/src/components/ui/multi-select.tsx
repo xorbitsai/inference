@@ -67,9 +67,9 @@ export function MultiSelect({
 
     setDropdownDirection(direction);
     setDropdownStyle({
-      left: rect.left,
-      top: direction === 'down' ? rect.bottom + 4 : rect.top - 4,
-      width: rect.width,
+      left: 0,
+      top: direction === 'down' ? triggerRef.current.offsetHeight + 4 : -4,
+      width: triggerRef.current.offsetWidth,
       transform: direction === 'up' ? 'translateY(-100%)' : undefined,
     });
   }, []);
@@ -180,6 +180,8 @@ export function MultiSelect({
 
     setInputValue('');
   };
+  const portalContainer =
+    containerRef.current || (typeof document === 'undefined' ? null : document.body);
 
   return (
     <div ref={containerRef} className={cn('relative w-full', className)}>
@@ -233,13 +235,14 @@ export function MultiSelect({
 
       {open &&
         dropdownStyle &&
+        portalContainer &&
         createPortal(
           <div
             ref={dropdownRef}
             data-slot="select-dropdown"
             style={dropdownStyle}
             className={cn(
-              'pointer-events-auto fixed z-[9999] overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md',
+              'pointer-events-auto absolute z-[9999] overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md',
               dropdownDirection === 'up' && 'origin-bottom'
             )}
           >
@@ -299,6 +302,7 @@ export function MultiSelect({
               {creatable && (
                 <div
                   className="sticky bottom-0 border-t bg-background p-2"
+                  onMouseDown={(e) => e.stopPropagation()}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex gap-2">
@@ -327,7 +331,7 @@ export function MultiSelect({
               )}
             </div>
           </div>,
-          document.body
+          portalContainer
         )}
     </div>
   );
