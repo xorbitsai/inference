@@ -124,7 +124,7 @@ const ko = {
     workerCount: '워커 수',
     workerCountPlaceholder: '워커 수',
     GPUIdx: 'GPU 인덱스',
-    GPUIdxPlaceholder: '모델이 위치한 GPU 인덱스 지정',
+    GPUIdxPlaceholder: '모델이 위치할 GPU 인덱스를 지정하세요. 예: 0,1,2',
     downloadHub: '다운로드 허브',
     downloadHubPlaceholder: '다운로드 허브',
     modelPath: '모델 경로',

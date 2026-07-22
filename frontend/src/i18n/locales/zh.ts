@@ -122,7 +122,7 @@ const zh = {
     workerCount: 'Worker 数量',
     workerCountPlaceholder: 'Worker 数量',
     GPUIdx: 'GPU 索引',
-    GPUIdxPlaceholder: '指定模型所在的 GPU 索引',
+    GPUIdxPlaceholder: '指定模型所在的 GPU 索引，例如：0,1,2',
     downloadHub: '下载中心',
     downloadHubPlaceholder: '下载中心',
     modelPath: '模型路径',

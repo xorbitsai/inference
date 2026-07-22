@@ -250,7 +250,12 @@ export default function LaunchDialog({
     }
     return {
       options: options.map((item) => ({ label: String(item), value: item })),
-      onChange: () => form.setFieldValue('worker_ip', undefined),
+      onChange: () => {
+        form.setFieldsValue({
+          gpu_idx: undefined,
+          worker_ip: undefined,
+        });
+      },
     };
   }, [gpuAvailable, modelType, form]);
 
@@ -462,6 +467,7 @@ export default function LaunchDialog({
             message: t('launchModel.enterCommaSeparatedNumbers'),
           },
         ],
+        show: nGpuValue && nGpuValue !== 'CPU',
       },
       {
         name: 'download_hub',
@@ -791,7 +797,7 @@ export default function LaunchDialog({
             message: t('launchModel.enterCommaSeparatedNumbers'),
           },
         ],
-        show: nGpuValue === 'GPU',
+        show: nGpuValue && nGpuValue !== 'CPU',
       },
       {
         name: 'download_hub',

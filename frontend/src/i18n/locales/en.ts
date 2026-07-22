@@ -124,7 +124,7 @@ const en = {
     workerCount: 'Worker Count',
     workerCountPlaceholder: 'Worker Count',
     GPUIdx: 'GPU Idx',
-    GPUIdxPlaceholder: 'Specify the GPU index where the model is located',
+    GPUIdxPlaceholder: 'Specify the GPU indexes where the model is located, e.g. 0,1,2',
     downloadHub: 'Download Hub',
     downloadHubPlaceholder: 'Download_hub',
     modelPath: 'Model Path',

@@ -124,7 +124,7 @@ const ja = {
     workerCount: 'ワーカー数',
     workerCountPlaceholder: 'ワーカー数',
     GPUIdx: 'GPUインデックス',
-    GPUIdxPlaceholder: 'モデルが配置されているGPUインデックスを指定',
+    GPUIdxPlaceholder: 'モデルを配置するGPUインデックスを指定します。例: 0,1,2',
     downloadHub: 'ダウンロードハブ',
     downloadHubPlaceholder: 'ダウンロードハブ',
     modelPath: 'モデルパス',
