@@ -337,10 +337,12 @@ const RunningModel = () => {
           <h3 className="font-medium">{t('runningModels.baseInfo')}</h3>
           <div className="grid grid-cols-2 gap-4">
             <ContentItemInfo title={t('runningModels.modelType')} value={activeModel.model_type} />
-            <ContentItemInfo
-              title={t('runningModels.modelEngine')}
-              value={activeModel.model_engine || '-'}
-            />
+            {'model_engine' in activeModel && (
+              <ContentItemInfo
+                title={t('runningModels.modelEngine')}
+                value={activeModel.model_engine || '-'}
+              />
+            )}
             <ContentItemInfo
               title={t('runningModels.modelFormat')}
               value={activeModel.model_format || '-'}

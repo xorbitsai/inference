@@ -106,6 +106,7 @@ const en = {
     multimodelProjector: 'Multimodel Projector',
     nGPU: 'GPU Count per Replica',
     nGPUPerWorker: 'GPU Count per Worker',
+    nGPUDevice: 'Device',
     nGpuLayers: 'N GPU Layers',
     replica: 'Replica',
     advancedConfiguration: 'Advanced Configuration',
@@ -617,6 +618,8 @@ const en = {
     password: 'Password',
     mustChangePasswordDesc: 'You need to change your password before continuing on first login.',
     changePasswordUserMissing: 'Unable to identify the current user. Please log in again.',
+    or: 'or',
+    ssoLogin: 'Sign in with Keycloak',
   },
   setup: {
     welcome: 'Welcome to Xinference',

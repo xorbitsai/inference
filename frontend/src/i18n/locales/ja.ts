@@ -106,6 +106,7 @@ const ja = {
     multimodelProjector: 'マルチモデルプロジェクター',
     nGPU: 'レプリカあたりのGPU数',
     nGPUPerWorker: 'ワーカーあたりのGPU数',
+    nGPUDevice: 'デバイス',
     nGpuLayers: 'GPUレイヤー数',
     replica: 'レプリカ',
     advancedConfiguration: '高度な設定',
@@ -616,6 +617,8 @@ const ja = {
     password: 'パスワード',
     mustChangePasswordDesc: '初回ログイン時は、続行する前にパスワードを変更してください。',
     changePasswordUserMissing: '現在のユーザーを識別できません。もう一度ログインしてください。',
+    or: 'または',
+    ssoLogin: 'Keycloak でログイン',
   },
   setup: {
     welcome: 'Xinference へようこそ',

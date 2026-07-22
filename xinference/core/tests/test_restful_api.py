@@ -88,6 +88,8 @@ async def test_restful_api(setup):
     response_data = response.json()
     assert response_data["model_name"] == "qwen1.5-chat"
     assert response_data["replica"] == 1
+    # the engine selected at launch is surfaced so the Web UI can display it
+    assert response_data["model_engine"] == "llama.cpp"
 
     response = requests.delete(f"{endpoint}/v1/models/bogus")
     assert response.status_code == 400
@@ -342,6 +344,12 @@ def test_restful_api_for_embedding(setup):
     response = requests.get(url)
     response_data = response.json()
     assert len(response_data["data"]) == 1
+
+    # describe: even without an explicitly selected engine, the default engine
+    # actually used at load time is surfaced (so the Web UI shows it, not a dash)
+    response = requests.get(f"{endpoint}/v1/models/test_embedding")
+    response_data = response.json()
+    assert response_data["model_engine"] == "sentence_transformers"
 
     # test embedding
     url = f"{endpoint}/v1/embeddings"

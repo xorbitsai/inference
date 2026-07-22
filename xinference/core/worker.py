@@ -3397,6 +3397,12 @@ class WorkerActor(xo.StatelessActor):
                             continue
                     self._model_uid_to_subpool_pids[model_uid] = subpool_pids
                     model_spec = model.model_family.to_description()
+                    # ``to_description`` is derived from the model family alone and
+                    # therefore does not know which engine was selected at launch.
+                    # Surface it here so ``/v1/models`` can report the running
+                    # engine (shown in the Web UI running-model detail view).
+                    if model_engine is not None:
+                        model_spec["model_engine"] = model_engine
                     self._model_uid_to_model_spec[model_uid] = model_spec
                     self._model_uid_to_model_status[model_uid] = ModelStatus(
                         model_state="loading"
