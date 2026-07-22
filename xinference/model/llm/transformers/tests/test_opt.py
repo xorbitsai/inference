@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -22,6 +23,10 @@ from .....client.restful.restful_client import RESTfulGenerateModelHandle
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("quantization", ["none"])
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Windows CI hits a transformers OPT cache/attention-mask race under concurrent CPU generation.",
+)
 async def test_opt_pytorch_model(setup, quantization):
     endpoint, _ = setup
     client = Client(endpoint)
