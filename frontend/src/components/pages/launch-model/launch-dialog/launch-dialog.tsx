@@ -8,6 +8,7 @@ import request from '@/lib/request';
 import { ModelType, ModelAbility } from '@/constants';
 import { ENGINES_WITH_WORKER } from '@/constants/launch';
 import { ModelFormat } from '@/constants/register';
+import { useGlobal } from '@/contexts/global-context';
 import { useI18n } from '@/contexts/i18n-context';
 import { useForm, useFormValues, useWatch } from '@/hooks/use-form';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
@@ -73,6 +74,7 @@ export default function LaunchDialog({
   const formId = useId();
   const [form] = useForm();
   const { t } = useI18n();
+  const { clusterAuth } = useGlobal();
   const { isAdmin } = useMenuAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -99,7 +101,7 @@ export default function LaunchDialog({
   const [workerOptions, setWorkerOptions] = useState<WorkerOption[]>([]);
 
   const fetchWorkers = useCallback(async () => {
-    if (!isAdmin) {
+    if (clusterAuth?.auth && !isAdmin) {
       setWorkerOptions([]);
       return;
     }
@@ -112,7 +114,7 @@ export default function LaunchDialog({
     } catch {
       setWorkerOptions([]);
     }
-  }, [isAdmin]);
+  }, [clusterAuth?.auth, isAdmin]);
   const fetchModelEngine = useCallback(async () => {
     if (!model?.model_name || !MODEL_ENGINE_TYPES.includes(modelType)) {
       setModelEngineMap({});
