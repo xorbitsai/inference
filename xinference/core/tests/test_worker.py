@@ -24,7 +24,7 @@ from ...model.core import VirtualEnvSettings
 from ..status_guard import InstanceInfo, LaunchStatus, ReplicaStatus
 from ..supervisor import ReplicaInfo, SupervisorActor
 from ..utils import merge_virtual_env_packages
-from ..worker import WorkerActor
+from ..worker import ModelStatus, WorkerActor
 
 
 class MockWorkerActor(WorkerActor):
@@ -120,6 +120,7 @@ class MockWorkerActor(WorkerActor):
             **kwargs,
         }
         self._model_uid_to_addr[model_uid] = subpool_address
+        self._model_uid_to_model_status[model_uid] = ModelStatus(model_state="loading")
 
     async def terminate_model(self, model_uid: str, is_model_die: bool = False):
         self.release_devices(model_uid)
@@ -141,6 +142,7 @@ class MockWorkerActor(WorkerActor):
             "model_spec": model_uid in self._model_uid_to_model_spec,
             "launch_args": model_uid in self._model_uid_to_launch_args,
             "addr": model_uid in self._model_uid_to_addr,
+            "model_status": model_uid in self._model_uid_to_model_status,
         }
 
     # --- test helpers for report_status GPU attribution ---

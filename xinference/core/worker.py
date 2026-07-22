@@ -3325,6 +3325,12 @@ class WorkerActor(xo.StatelessActor):
                 model_uid,
                 exc_info=True,
             )
+        finally:
+            # terminate_model(is_model_die=True) keeps _model_uid_to_model_status
+            # for the auto-recovery path, which relaunches the same model_uid;
+            # a failed launch has no relaunch, so drop it here to avoid leaking
+            # a stale "loading" entry.
+            self._model_uid_to_model_status.pop(model_uid, None)
 
     @log_async(logger=logger, level=logging.INFO)
     async def wait_for_load(self, model_uid: str):
