@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, ChevronDown, Clock, RotateCw } from 'lucide-react';
+import { Check, ChevronDown, Clock, RotateCw, Settings } from 'lucide-react';
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { format } from 'date-fns';
 import { useTheme } from 'next-themes';
@@ -10,10 +10,13 @@ import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { DateTimePicker } from '@/components/ui/date-time-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useGlobal } from '@/contexts/global-context';
 import { useI18n } from '@/contexts/i18n-context';
-import { TIME_RANGES, REFRESH } from '@/constants/monitor';
+import { MONITOR_DASHBOARD_TABS, REFRESH, TIME_RANGES } from '@/constants/monitor';
+import { useMenuAuth } from '@/hooks/use-menu-auth';
 import { cn } from '@/lib/utils';
+import { MonitorConfigDialog } from './monitor-config-dialog';
 
 type TimeRangeValue = {
   from: string;
@@ -173,13 +176,16 @@ function TimeRangePicker({
 }
 
 const MonitorCenter = () => {
-  const { clusterUIConfig, globalReady } = useGlobal();
+  const { clusterUIConfig, globalReady, fetchGlobalAfterAuth } = useGlobal();
+  const { isAdmin } = useMenuAuth();
   const { t } = useI18n();
   const { theme } = useTheme();
   const [timeRange, setTimeRange] = useState<TimeRangeValue>(DEFAULT_TIME_RANGE);
   const [grafanaRefresh, setGrafanaRefresh] = useState(DEFAULT_GRAFANA_REFRESH);
   const [refreshInterval, setRefreshInterval] = useState(DEFAULT_REFRESH_INTERVAL);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [activeTab, setActiveTab] = useState<string>('overview');
+  const [configOpen, setConfigOpen] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const TIME_RANGES_OPTIONS = useMemo(
@@ -196,18 +202,26 @@ const MonitorCenter = () => {
       })),
     [t]
   );
+  const dashboards = useMemo<Record<string, string>>(
+    () => clusterUIConfig.grafana_dashboards ?? {},
+    [clusterUIConfig.grafana_dashboards]
+  );
+  const visibleTabs = useMemo(
+    () => MONITOR_DASHBOARD_TABS.filter((tab) => dashboards[tab.key]),
+    [dashboards]
+  );
+  const currentUid =
+    dashboards[activeTab] ||
+    dashboards['overview'] ||
+    clusterUIConfig.grafana_dashboard_uid ||
+    '';
   const dashboardUrl = useMemo(() => {
-    const {
-      grafana_url,
-      grafana_dashboard_uid,
-      grafana_datasource,
-      grafana_alert_datasource,
-      cluster_name,
-    } = clusterUIConfig;
-    if (!grafana_url) {
+    const { grafana_url, grafana_datasource, grafana_alert_datasource, cluster_name } =
+      clusterUIConfig;
+    if (!grafana_url || !currentUid) {
       return '';
     }
-    const url = joinGrafanaPath(grafana_url, `/d/${grafana_dashboard_uid}`);
+    const url = joinGrafanaPath(grafana_url, `/d/${currentUid}`);
     // Using url.searchParams.set() would generate "?orgId=1&kiosk=&theme=light", but we need "?orgId=1&kiosk&theme=light" (without the extra "=" after kiosk).
     const queryParams = [
       buildQueryParam('orgId', '1'),
@@ -236,7 +250,7 @@ const MonitorCenter = () => {
     queryParams.push(buildQueryParam('_t', String(refreshKey)));
 
     return `${url}?${queryParams.join('&')}`;
-  }, [clusterUIConfig, theme, timeRange, grafanaRefresh, refreshKey]);
+  }, [clusterUIConfig, theme, timeRange, grafanaRefresh, refreshKey, currentUid]);
 
   const handleTimeRange = (value: TimeRangeValue) => {
     setTimeRange(value);
@@ -319,17 +333,51 @@ const MonitorCenter = () => {
             onChange={handleRefreshValue}
             allowClear={false}
           />
+          {isAdmin && (
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label={t('monitorCenter.config.button')}
+              onClick={() => setConfigOpen(true)}
+            >
+              <Settings className="size-4" />
+            </Button>
+          )}
         </div>
       }
     >
+      {visibleTabs.length > 1 && (
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full gap-6">
+          <div className="flex items-end justify-between gap-4 border-b border-border/80">
+            <TabsList className="min-w-0 flex-1 justify-start bg-transparent p-0 h-auto rounded-none overflow-x-auto">
+              <div className="flex space-x-4">
+                {visibleTabs.map((tab) => (
+                  <TabsTrigger
+                    key={tab.key}
+                    value={tab.key}
+                    className="data-[state=active]:text-primary font-medium data-[state=active]:border-b-2 data-[state=active]:border-primary"
+                  >
+                    {t(tab.labelKey)}
+                  </TabsTrigger>
+                ))}
+              </div>
+            </TabsList>
+          </div>
+        </Tabs>
+      )}
       <div className="h-[calc(100vh-8rem)] min-h-[30rem]">
         <iframe
-          key={refreshKey}
+          key={`${activeTab}-${refreshKey}`}
           src={dashboardUrl}
           className="h-full w-full rounded-md border"
           title="Grafana Monitoring"
         />
       </div>
+      <MonitorConfigDialog
+        open={configOpen}
+        onOpenChange={setConfigOpen}
+        onSaved={fetchGlobalAfterAuth}
+      />
     </PageContainer>
   );
 };
