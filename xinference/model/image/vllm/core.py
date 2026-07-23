@@ -13,9 +13,12 @@
 # limitations under the License.
 
 import asyncio
+import concurrent.futures
 import logging
 import random
 import re
+import threading
+import uuid
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from ....types import LoRA
@@ -49,7 +52,24 @@ def _filter_kwargs_by_dataclass_fields(
     return {k: v for k, v in kwargs.items() if k in valid_keys}
 
 
+class _RequestWaiter:
+    """Bookkeeping for one in-flight engine request routed by the dispatcher."""
+
+    __slots__ = ("future", "outputs")
+
+    def __init__(self):
+        self.future: concurrent.futures.Future = concurrent.futures.Future()
+        self.outputs: List[Any] = []
+
+
 class VLLMDiffusionModel:
+    # ModelActor skips its serializing lock when allow_batch is True.
+    # Omni.generate itself is NOT safe for concurrent callers (it drains the
+    # shared engine output queue and drops messages of other requests), so
+    # concurrent requests are submitted through engine.add_request with a
+    # single dispatcher thread routing outputs back by request_id.
+    allow_batch = True
+
     def __init__(
         self,
         model_uid: str,
@@ -91,6 +111,14 @@ class VLLMDiffusionModel:
         self._model_spec = model_spec
         self._abilities = model_spec.model_ability or []  # type: ignore
         self._kwargs = kwargs
+        # concurrent-dispatch state, see class docstring on allow_batch
+        self._submit_lock = threading.Lock()
+        self._waiters: Dict[str, _RequestWaiter] = {}
+        self._dispatcher_thread: Optional[threading.Thread] = None
+        # serializes the Omni.generate fallback path when the engine internals
+        # needed for concurrent dispatch are unavailable
+        self._generate_lock = threading.Lock()
+        self._closed = False
 
     @property
     def model_ability(self):
@@ -123,6 +151,8 @@ class VLLMDiffusionModel:
         )
 
     def stop(self):
+        self._closed = True
+        self._fail_all_waiters(RuntimeError("model is being stopped"))
         if self._model is not None:
             try:
                 self._model.close()
@@ -131,6 +161,172 @@ class VLLMDiffusionModel:
                     "Failed to shutdown vLLM-Omni diffusion model", exc_info=True
                 )
             self._model = None
+
+    # --- concurrent request dispatch -------------------------------------
+
+    def _concurrency_available(self) -> bool:
+        engine = getattr(self._model, "engine", None)
+        return (
+            engine is not None
+            and hasattr(engine, "add_request")
+            and hasattr(engine, "try_get_output")
+        )
+
+    def _fail_all_waiters(self, error: BaseException) -> None:
+        with self._submit_lock:
+            waiters = list(self._waiters.values())
+            self._waiters.clear()
+        for waiter in waiters:
+            if not waiter.future.done():
+                waiter.future.set_exception(error)
+
+    def _ensure_dispatcher(self) -> None:
+        # caller must hold _submit_lock
+        if self._dispatcher_thread is None or not self._dispatcher_thread.is_alive():
+            thread = threading.Thread(
+                target=self._dispatch_outputs,
+                name=f"vllm-omni-dispatch-{self._model_uid}",
+                daemon=True,
+            )
+            self._dispatcher_thread = thread
+            thread.start()
+
+    def _dispatch_outputs(self) -> None:
+        """Single consumer of the shared engine output queue.
+
+        The queue interleaves messages of all in-flight requests, so exactly
+        one thread drains it and routes each message to the waiter registered
+        for its request_id. Exits when no request is in flight; the next
+        submission restarts it.
+        """
+        while True:
+            with self._submit_lock:
+                if self._closed or not self._waiters or self._model is None:
+                    self._dispatcher_thread = None
+                    return
+                model = self._model
+            try:
+                msg = model.engine.try_get_output(timeout=0.5)
+            except Exception as e:
+                logger.error(
+                    "vLLM-Omni engine output loop failed, failing %d in-flight "
+                    "request(s)",
+                    len(self._waiters),
+                    exc_info=True,
+                )
+                with self._submit_lock:
+                    self._dispatcher_thread = None
+                self._fail_all_waiters(e)
+                return
+            if msg is None:
+                continue
+            self._route_message(msg)
+
+    def _route_message(self, msg: Any) -> None:
+        from vllm_omni.engine.messages import ErrorMessage, OutputMessage
+
+        if isinstance(msg, ErrorMessage):
+            error = RuntimeError(f"vLLM-Omni engine error: {msg.error}")
+            request_id = getattr(msg, "request_id", None)
+            if getattr(msg, "fatal", False) or request_id is None:
+                self._fail_all_waiters(error)
+                return
+            with self._submit_lock:
+                waiter = self._waiters.pop(request_id, None)
+            if waiter is not None and not waiter.future.done():
+                waiter.future.set_exception(error)
+            return
+
+        if not isinstance(msg, OutputMessage):
+            # e.g. StageMetricsMessage — nothing to route
+            return
+
+        with self._submit_lock:
+            waiter = self._waiters.get(msg.request_id)
+        if waiter is None:
+            return
+        engine_outputs = msg.engine_outputs
+        error_text = getattr(engine_outputs, "error", None)
+        if error_text is not None:
+            with self._submit_lock:
+                self._waiters.pop(msg.request_id, None)
+            if not waiter.future.done():
+                waiter.future.set_exception(
+                    RuntimeError(f"vLLM-Omni generation failed: {error_text}")
+                )
+            return
+        waiter.outputs.append(engine_outputs)
+        if msg.finished:
+            with self._submit_lock:
+                self._waiters.pop(msg.request_id, None)
+            if not waiter.future.done():
+                waiter.future.set_result(list(waiter.outputs))
+
+    def _resolve_stage_args(self, prompt_payload: Any, sampling_params: Any) -> Any:
+        """Mirror the per-request preparation Omni.generate applies before
+        engine.add_request, degrading gracefully across vllm-omni versions."""
+        omni = self._model
+        sp_list = [sampling_params]
+        resolve = getattr(omni, "resolve_sampling_params_list", None)
+        if callable(resolve):
+            sp_list = resolve(sp_list)
+        force_final = getattr(omni, "_maybe_force_final_only_for_llm_stages", None)
+        if callable(force_final):
+            sp_list = force_final(sp_list)
+        modalities = (
+            prompt_payload.get("modalities")
+            if isinstance(prompt_payload, dict)
+            else None
+        )
+        final_stage_id = 0
+        compute_final = getattr(omni, "_compute_final_stage_id", None)
+        if callable(compute_final):
+            final_stage_id = compute_final(modalities)
+        final_output_stage_ids = None
+        compute_outputs = getattr(omni, "_compute_final_output_stage_ids", None)
+        if callable(compute_outputs):
+            final_output_stage_ids = compute_outputs(modalities)
+        if not final_output_stage_ids:
+            final_output_stage_ids = [final_stage_id]
+        return sp_list, final_stage_id, final_output_stage_ids
+
+    async def _submit_and_wait(
+        self, prompt_payload: Any, sampling_params: Any
+    ) -> List[Any]:
+        (
+            sp_list,
+            final_stage_id,
+            final_output_stage_ids,
+        ) = self._resolve_stage_args(prompt_payload, sampling_params)
+        request_id = f"xinf-{uuid.uuid4()}"
+        waiter = _RequestWaiter()
+        with self._submit_lock:
+            if self._closed:
+                raise RuntimeError("model is stopped")
+            self._waiters[request_id] = waiter
+            self._ensure_dispatcher()
+        try:
+            self._model.engine.add_request(  # type: ignore
+                request_id=request_id,
+                prompt=prompt_payload,
+                sampling_params_list=sp_list,
+                final_stage_id=final_stage_id,
+                final_output_stage_ids=final_output_stage_ids,
+            )
+        except Exception:
+            with self._submit_lock:
+                self._waiters.pop(request_id, None)
+            raise
+        return await asyncio.wrap_future(waiter.future)
+
+    def _generate_serial(self, prompt_payload: Any, sampling_params: Any) -> Any:
+        # Omni.generate is unsafe for concurrent callers and the actor no
+        # longer serializes calls (allow_batch=True), so guard it here.
+        with self._generate_lock:
+            return self._model.generate(  # type: ignore
+                prompt_payload,
+                sampling_params_list=[sampling_params],
+            )
 
     def _build_sampling_params(
         self,
@@ -237,10 +433,11 @@ class VLLMDiffusionModel:
         generate_config.update({k: v for k, v in kwargs.items() if v is not None})
         sampling_params = self._build_sampling_params(n, width, height, generate_config)
         prompt_payload = self._build_prompt(prompt, width, height)
-        outputs = await asyncio.to_thread(
-            self._model.generate,
-            prompt_payload,
-            sampling_params_list=[sampling_params],
-        )
+        if self._concurrency_available():
+            outputs = await self._submit_and_wait(prompt_payload, sampling_params)
+        else:
+            outputs = await asyncio.to_thread(
+                self._generate_serial, prompt_payload, sampling_params
+            )
         images = self._extract_images(outputs)
         return handle_image_result(response_format, images)

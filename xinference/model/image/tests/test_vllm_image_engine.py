@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import dataclasses
+import queue
 import sys
 import types
 from typing import Any, Optional
@@ -164,6 +166,241 @@ def test_extract_images():
 
     with pytest.raises(RuntimeError, match="Unexpected image type"):
         VLLMDiffusionModel._extract_images([FakeOutput(images=[object()])])
+
+
+# --- concurrent dispatch ---------------------------------------------------
+
+
+@dataclasses.dataclass
+class _FakeEngineOutputs:
+    images: Any = None
+    error: Any = None
+
+
+@dataclasses.dataclass
+class _FakeOutputMessage:
+    request_id: str
+    engine_outputs: Any
+    finished: bool
+    stage_id: int = 0
+
+
+@dataclasses.dataclass
+class _FakeErrorMessage:
+    error: str
+    fatal: bool = False
+    request_id: Optional[str] = None
+
+
+class _FakeEngine:
+    def __init__(self):
+        self.output_queue: "queue.Queue" = queue.Queue()
+        self.requests: list = []
+
+    def add_request(
+        self,
+        request_id,
+        prompt,
+        sampling_params_list,
+        final_stage_id,
+        final_output_stage_ids,
+    ):
+        self.requests.append(
+            {
+                "request_id": request_id,
+                "prompt": prompt,
+                "sampling_params_list": sampling_params_list,
+                "final_stage_id": final_stage_id,
+                "final_output_stage_ids": final_output_stage_ids,
+            }
+        )
+
+    def try_get_output(self, timeout=0.5):
+        try:
+            return self.output_queue.get(timeout=timeout)
+        except queue.Empty:
+            return None
+
+
+class _FakeOmni:
+    def __init__(self):
+        self.engine = _FakeEngine()
+
+
+@pytest.fixture
+def fake_vllm_omni_messages():
+    messages_mod = types.ModuleType("vllm_omni.engine.messages")
+    messages_mod.OutputMessage = _FakeOutputMessage
+    messages_mod.ErrorMessage = _FakeErrorMessage
+    fake_modules = {
+        "vllm_omni": types.ModuleType("vllm_omni"),
+        "vllm_omni.engine": types.ModuleType("vllm_omni.engine"),
+        "vllm_omni.engine.messages": messages_mod,
+    }
+    to_restore = {name: sys.modules.get(name) for name in fake_modules}
+    sys.modules.update(fake_modules)
+    try:
+        yield
+    finally:
+        for name, orig in to_restore.items():
+            if orig is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = orig
+
+
+def _make_concurrent_model():
+    model = VLLMDiffusionModel("uid", "/path", model_spec=_get_spec("Z-Image"))
+    model._model = _FakeOmni()
+    return model, model._model.engine
+
+
+async def _wait_for_requests(engine, count, timeout=5.0):
+    async def _poll():
+        while len(engine.requests) < count:
+            await asyncio.sleep(0.01)
+
+    await asyncio.wait_for(_poll(), timeout)
+
+
+def test_allow_batch_enabled():
+    # unlocks ModelActor serialization; concurrency safety comes from the
+    # dispatcher in VLLMDiffusionModel, see class comment
+    assert VLLMDiffusionModel.allow_batch is True
+
+
+@pytest.mark.asyncio
+async def test_concurrent_requests_route_outputs_by_request_id(
+    fake_vllm_omni_messages,
+):
+    model, engine = _make_concurrent_model()
+    tasks = [
+        asyncio.create_task(model._submit_and_wait(f"prompt-{i}", object()))
+        for i in range(3)
+    ]
+    await _wait_for_requests(engine, 3)
+    # every submission carries its own sampling params and request id
+    assert len({r["request_id"] for r in engine.requests}) == 3
+
+    # answer in reverse submission order with interleaved partial outputs
+    by_prompt = {r["prompt"]: r["request_id"] for r in engine.requests}
+    for i in reversed(range(3)):
+        rid = by_prompt[f"prompt-{i}"]
+        engine.output_queue.put(
+            _FakeOutputMessage(
+                request_id=rid,
+                engine_outputs=_FakeEngineOutputs(images=[f"partial-{i}"]),
+                finished=False,
+            )
+        )
+        engine.output_queue.put(
+            _FakeOutputMessage(
+                request_id=rid,
+                engine_outputs=_FakeEngineOutputs(images=[f"final-{i}"]),
+                finished=True,
+            )
+        )
+    results = await asyncio.wait_for(asyncio.gather(*tasks), timeout=5.0)
+    for i, outputs in enumerate(results):
+        assert [o.images for o in outputs] == [[f"partial-{i}"], [f"final-{i}"]]
+    # dispatcher exits once idle
+    thread = model._dispatcher_thread
+    if thread is not None:
+        thread.join(timeout=5.0)
+    assert not model._waiters
+
+
+@pytest.mark.asyncio
+async def test_dispatcher_restarts_after_idle(fake_vllm_omni_messages):
+    model, engine = _make_concurrent_model()
+    for round_no in range(2):
+        task = asyncio.create_task(model._submit_and_wait(f"p{round_no}", object()))
+        await _wait_for_requests(engine, round_no + 1)
+        rid = engine.requests[-1]["request_id"]
+        engine.output_queue.put(
+            _FakeOutputMessage(
+                request_id=rid,
+                engine_outputs=_FakeEngineOutputs(images=["img"]),
+                finished=True,
+            )
+        )
+        outputs = await asyncio.wait_for(task, timeout=5.0)
+        assert outputs[0].images == ["img"]
+        thread = model._dispatcher_thread
+        if thread is not None:
+            thread.join(timeout=5.0)
+
+
+@pytest.mark.asyncio
+async def test_request_error_fails_only_that_request(fake_vllm_omni_messages):
+    model, engine = _make_concurrent_model()
+    ok = asyncio.create_task(model._submit_and_wait("ok", object()))
+    bad = asyncio.create_task(model._submit_and_wait("bad", object()))
+    await _wait_for_requests(engine, 2)
+    by_prompt = {r["prompt"]: r["request_id"] for r in engine.requests}
+    engine.output_queue.put(
+        _FakeOutputMessage(
+            request_id=by_prompt["bad"],
+            engine_outputs=_FakeEngineOutputs(error="boom"),
+            finished=False,
+        )
+    )
+    engine.output_queue.put(
+        _FakeOutputMessage(
+            request_id=by_prompt["ok"],
+            engine_outputs=_FakeEngineOutputs(images=["img"]),
+            finished=True,
+        )
+    )
+    with pytest.raises(RuntimeError, match="boom"):
+        await asyncio.wait_for(bad, timeout=5.0)
+    outputs = await asyncio.wait_for(ok, timeout=5.0)
+    assert outputs[0].images == ["img"]
+
+
+@pytest.mark.asyncio
+async def test_fatal_engine_error_fails_all_requests(fake_vllm_omni_messages):
+    model, engine = _make_concurrent_model()
+    tasks = [
+        asyncio.create_task(model._submit_and_wait(f"p{i}", object())) for i in range(2)
+    ]
+    await _wait_for_requests(engine, 2)
+    engine.output_queue.put(_FakeErrorMessage(error="engine died", fatal=True))
+    for task in tasks:
+        with pytest.raises(RuntimeError, match="engine died"):
+            await asyncio.wait_for(task, timeout=5.0)
+    assert not model._waiters
+
+
+@pytest.mark.asyncio
+async def test_serial_fallback_without_engine_internals(
+    fake_vllm_omni_sampling_params,
+):
+    @dataclasses.dataclass
+    class FakeOutput:
+        images: Any = None
+
+    generate_calls = []
+
+    class _LegacyOmni:
+        # no `engine` attribute → concurrent dispatch unavailable
+        def generate(self, prompt, sampling_params_list):
+            # the actor no longer serializes calls, so the fallback itself
+            # must hold the model-level lock while Omni.generate runs
+            assert model._generate_lock.locked()
+            generate_calls.append(prompt)
+            return [FakeOutput(images=[Image.new("RGB", (4, 4))])]
+
+    model = VLLMDiffusionModel("uid", "/path", model_spec=_get_spec("Z-Image"))
+    model._model = _LegacyOmni()
+    assert model._concurrency_available() is False
+
+    result = await model.text_to_image(
+        "a cat", n=1, size="64*64", response_format="b64_json"
+    )
+    assert generate_calls == ["a cat"]
+    assert len(result["data"]) == 1
+    assert result["data"][0]["b64_json"]
 
 
 def test_builtin_specs_have_vllm_virtualenv_marker():
