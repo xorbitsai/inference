@@ -361,6 +361,7 @@ def filter_virtualenv_packages_by_markers(
         "#system_torchvision#",
         "#system_torchcodec#",
         "#system_numpy#",
+        "#system_pandas#",
     }
 
     def _marker_allows(marker: str) -> bool:
