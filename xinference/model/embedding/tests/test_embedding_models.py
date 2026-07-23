@@ -80,6 +80,28 @@ def test_engine_supported():
     assert "sentence_transformers" in EMBEDDING_ENGINES[model_name]
 
 
+def test_jina_v5_requires_transformers_5_compatible_sentence_transformers():
+    from packaging.requirements import Requirement
+
+    from .. import _install
+
+    _install()
+    for model_name in (
+        "jina-embeddings-v5-text-nano",
+        "jina-embeddings-v5-text-small",
+        "jina-embeddings-v5-omni-nano",
+        "jina-embeddings-v5-omni-small",
+    ):
+        family = BUILTIN_EMBEDDING_MODELS[model_name][0]
+        assert family.virtualenv is not None
+        sentence_transformers = next(
+            Requirement(package)
+            for package in family.virtualenv.packages
+            if package.startswith("sentence_transformers")
+        )
+        assert str(sentence_transformers.specifier) == ">=5.2.0"
+
+
 def test_bce_embedding_vllm_engine_params_with_virtualenv():
     from ....model.utils import (
         _collect_virtualenv_engine_markers,
