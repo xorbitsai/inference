@@ -1035,10 +1035,6 @@ def test_restful_api_for_qwen_tool_calls(setup, model_format, quantization):
     # _check_invalid_tool_calls(endpoint, model_uid_res)
 
 
-@pytest.mark.skipif(
-    sys.platform == "win32",
-    reason="Windows CI can deny local actor-pool socket binds for this cluster-backed request-limit test.",
-)
 def test_restful_api_with_request_limits(setup):
     model_name = "gte-base"
 
