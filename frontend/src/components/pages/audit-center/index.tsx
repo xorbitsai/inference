@@ -203,7 +203,6 @@ export default function AuditCenter() {
   const [selectedRecord, setSelectedRecord] = useState<AuditRecord | null>(null);
   const requestSeqRef = useRef(0);
   const [refreshInterval, setRefreshInterval] = useState(0);
-  const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const queryParams = useMemo(() => {
     const params = new URLSearchParams();
@@ -223,9 +222,13 @@ export default function AuditCenter() {
     return params;
   }, [filters, pageFrom, timeRange]);
 
-  const fetchAuditRecords = useCallback(async () => {
+  const fetchAuditRecords = useCallback(async (silent = false) => {
     const seq = ++requestSeqRef.current;
-    setLoading(true);
+    // Background refreshes stay silent so the table does not flip to the
+    // loading spinner every interval; only user-initiated fetches show it.
+    if (!silent) {
+      setLoading(true);
+    }
     try {
       const data = await request.get<AuditSearchResponse>(
         '/v1/audit/search?' + queryParams.toString()
@@ -252,16 +255,10 @@ export default function AuditCenter() {
   }, [fetchAuditRecords]);
 
   useEffect(() => {
-    if (refreshTimerRef.current) {
-      clearInterval(refreshTimerRef.current);
-      refreshTimerRef.current = null;
-    }
     if (refreshInterval > 0) {
-      refreshTimerRef.current = setInterval(() => fetchAuditRecords(), refreshInterval);
+      const timer = setInterval(() => fetchAuditRecords(true), refreshInterval);
+      return () => clearInterval(timer);
     }
-    return () => {
-      if (refreshTimerRef.current) clearInterval(refreshTimerRef.current);
-    };
   }, [fetchAuditRecords, refreshInterval]);
 
   useEffect(() => {
@@ -373,7 +370,7 @@ export default function AuditCenter() {
                   variant="outline"
                   size="icon"
                   aria-label={t('auditCenter.refresh')}
-                  onClick={fetchAuditRecords}
+                  onClick={() => fetchAuditRecords()}
                   disabled={loading}
                 >
                   <RefreshCw className={cn('size-4', loading && 'animate-spin')} />
