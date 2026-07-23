@@ -24,6 +24,7 @@ interface MonitorConfigResponse {
   grafana_alert_datasource: string;
   cluster_name: string;
   grafana_dashboards: Record<string, string>;
+  grafana_dashboards_configured: string[];
   sources: Record<string, string>;
 }
 
@@ -81,7 +82,18 @@ export function MonitorConfigDialog({
         grafana_alert_datasource: data.grafana_alert_datasource ?? '',
         cluster_name: data.cluster_name ?? '',
       });
-      setDashboards(data.grafana_dashboards ?? {});
+      // Only pre-fill dashboard UIDs for tabs that are explicitly configured
+      // (DB or env). Non-configured tabs must stay empty so that resolved
+      // fallback UIDs are never written back as real configuration, which would
+      // silently mark every tab as enabled (see GET→PUT round-trip regression).
+      const configured = new Set(data.grafana_dashboards_configured ?? []);
+      const nextDashboards: Record<string, string> = {};
+      for (const tab of MONITOR_DASHBOARD_TABS) {
+        nextDashboards[tab.key] = configured.has(tab.key)
+          ? data.grafana_dashboards?.[tab.key] ?? ''
+          : '';
+      }
+      setDashboards(nextDashboards);
       setSources(data.sources ?? {});
     } finally {
       setLoading(false);
@@ -111,9 +123,17 @@ export function MonitorConfigDialog({
   async function handleSave() {
     setSaving(true);
     try {
+      // Submit every dashboard key explicitly: enabled tabs send their UID,
+      // disabled tabs send an empty string so the backend overwrites any stale
+      // DB value and the tab falls back to "default" (not configured). This
+      // keeps the configured set stable across an unchanged save.
+      const payloadDashboards: Record<string, string> = {};
+      for (const tab of MONITOR_DASHBOARD_TABS) {
+        payloadDashboards[tab.key] = dashboards[tab.key]?.trim() ?? '';
+      }
       await request.put('/v1/cluster/monitor_config', {
         ...form,
-        grafana_dashboards: dashboards,
+        grafana_dashboards: payloadDashboards,
       });
       onSaved?.();
       onOpenChange(false);
