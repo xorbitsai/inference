@@ -197,9 +197,9 @@ def test_runtime_and_mirror_share_the_same_constraints_file():
         "transformers",
     }
 
-    runtime_dockerfile = (
-        REPO_ROOT / "xinference/deploy/docker/Dockerfile"
-    ).read_text(encoding="utf-8")
+    runtime_dockerfile = (REPO_ROOT / "xinference/deploy/docker/Dockerfile").read_text(
+        encoding="utf-8"
+    )
     assert (
         "COPY xinference/deploy/docker/requirements-runtime.txt" in runtime_dockerfile
     )
