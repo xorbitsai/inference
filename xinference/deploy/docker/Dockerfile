@@ -38,7 +38,7 @@
 # ---------------------------------------------------------------------------
 # Stage 1: build the Web UI static export
 # ---------------------------------------------------------------------------
-FROM node:20-slim AS web-builder
+FROM node:20.19.0-slim AS web-builder
 
 WORKDIR /opt/inference/frontend
 # Keep dependency installation cached when only frontend sources change.
