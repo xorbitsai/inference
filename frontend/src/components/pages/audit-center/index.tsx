@@ -202,6 +202,9 @@ export default function AuditCenter() {
   const [pageFrom, setPageFrom] = useState(0);
   const [selectedRecord, setSelectedRecord] = useState<AuditRecord | null>(null);
   const requestSeqRef = useRef(0);
+  // Tracks whether the latest fetch is still pending so the auto-refresh
+  // interval can skip a tick instead of stacking overlapping requests.
+  const inFlightRef = useRef(false);
   const [refreshInterval, setRefreshInterval] = useState(0);
 
   const queryParams = useMemo(() => {
@@ -224,6 +227,7 @@ export default function AuditCenter() {
 
   const fetchAuditRecords = useCallback(async (silent = false) => {
     const seq = ++requestSeqRef.current;
+    inFlightRef.current = true;
     // Background refreshes stay silent so the table does not flip to the
     // loading spinner every interval; only user-initiated fetches show it.
     if (!silent) {
@@ -239,12 +243,16 @@ export default function AuditCenter() {
         setTotal(data.total || 0);
       }
     } catch {
-      if (seq === requestSeqRef.current) {
+      // A transient failure during a silent background refresh must not wipe
+      // the table — keep the last good results. Foreground (user-initiated)
+      // fetches keep the original clear-on-error behavior.
+      if (!silent && seq === requestSeqRef.current) {
         setRecords([]);
         setTotal(0);
       }
     } finally {
       if (seq === requestSeqRef.current) {
+        inFlightRef.current = false;
         setLoading(false);
       }
     }
@@ -256,7 +264,13 @@ export default function AuditCenter() {
 
   useEffect(() => {
     if (refreshInterval > 0) {
-      const timer = setInterval(() => fetchAuditRecords(true), refreshInterval);
+      const timer = setInterval(() => {
+        // Skip a tick while a request is in flight so a slow/hung query does
+        // not stack overlapping requests or make every response stale.
+        if (!inFlightRef.current) {
+          fetchAuditRecords(true);
+        }
+      }, refreshInterval);
       return () => clearInterval(timer);
     }
   }, [fetchAuditRecords, refreshInterval]);
