@@ -61,9 +61,17 @@ class BatchMixin:
         raise NotImplementedError
 
     async def _process_batch(self):
+        pending = None
         while True:
             # Wait until at least one item is available
-            (first_args, first_kwargs), first_future = await self._queue.get()
+            if pending is None:
+                (first_args, first_kwargs), first_future = await self._queue.get()
+            else:
+                (first_args, first_kwargs), first_future = pending
+                pending = None
+
+            if first_future.done():
+                continue
 
             delays = [self._func.delay(*first_args, **first_kwargs)]
             size = self._get_batch_size(*first_args, **first_kwargs)
@@ -77,7 +85,15 @@ class BatchMixin:
                     (args, kwargs), future = await asyncio.wait_for(
                         self._queue.get(), timeout=self.batch_interval
                     )
-                    size += self._get_batch_size(*args, **kwargs)
+                    if future.done():
+                        continue
+                    next_size = self._get_batch_size(*args, **kwargs)
+                    if size + next_size > self.batch_size:
+                        # Preserve FIFO order without putting the request back
+                        # behind newer queue entries.
+                        pending = ((args, kwargs), future)
+                        break
+                    size += next_size
                     delays.append(self._func.delay(*args, **kwargs))
                     futures.append(future)
                 except asyncio.TimeoutError:

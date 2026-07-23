@@ -61,6 +61,8 @@ class Qwen3ASRModel(BatchMixin):
         if batch_size is not None:
             batching_kwargs["batch_size"] = batch_size
         elif max_inference_batch_size is not None and int(max_inference_batch_size) > 0:
+            # qwen_asr consumes this as a native from_pretrained argument;
+            # reuse it as Xinference's request-batch limit when no override is set.
             batching_kwargs["batch_size"] = max_inference_batch_size
         if batch_interval is not None:
             batching_kwargs["batch_interval"] = batch_interval
