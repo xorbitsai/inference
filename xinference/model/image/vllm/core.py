@@ -137,6 +137,20 @@ class VLLMDiffusionModel:
         self._generate_lock = threading.Lock()
         self._closed = False
 
+    def __getstate__(self):
+        # the instance is pickled when handed to the model actor subprocess
+        # (before load); locks and threads cannot cross that boundary
+        state = self.__dict__.copy()
+        state["_submit_lock"] = None
+        state["_generate_lock"] = None
+        state["_dispatcher_thread"] = None
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self._submit_lock = threading.Lock()
+        self._generate_lock = threading.Lock()
+
     @property
     def model_ability(self):
         return self._abilities

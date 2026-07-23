@@ -73,6 +73,19 @@ def test_abilities_restricted_to_text2image():
     assert spec.model_ability == original_abilities
 
 
+def test_instance_is_picklable():
+    # the worker pickles the constructed model into the actor subprocess;
+    # dispatcher locks must not cross that boundary
+    import pickle
+
+    spec = _get_spec("Z-Image")
+    model = VLLMDiffusionModel("uid", "/path", model_spec=spec)
+    restored = pickle.loads(pickle.dumps(model))
+    assert restored._submit_lock is not None
+    assert restored._generate_lock is not None
+    assert restored.model_ability == ["text2image"]
+
+
 def test_constructor_rejects_unsupported_features():
     spec = _get_spec("Z-Image")
     with pytest.raises(ValueError, match="GGUF"):
