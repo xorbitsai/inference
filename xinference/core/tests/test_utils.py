@@ -15,6 +15,7 @@
 from ..utils import (
     build_replica_model_uid,
     build_subpool_envs_for_virtual_env,
+    filter_virtualenv_packages_by_markers,
     iter_replica_model_uid,
     parse_replica_model_uid,
 )
@@ -24,6 +25,21 @@ from ..virtual_env_manager import (
     ensure_system_torch_pin,
     get_xllamacpp_cuda_index_url,
 )
+
+
+def test_filter_virtualenv_packages_keeps_system_pandas_marker():
+    # #system_pandas# is used in model specs (e.g. audio) and must be treated
+    # as a system placeholder like the torch/numpy ones
+    packages = [
+        '#system_pandas# ; #engine# == "vllm"',
+        "#system_pandas#",
+    ]
+    assert filter_virtualenv_packages_by_markers(
+        packages, model_engine="vllm", cuda_version=None
+    ) == ["#system_pandas#", "#system_pandas#"]
+    assert filter_virtualenv_packages_by_markers(
+        packages, model_engine="transformers", cuda_version=None
+    ) == ["#system_pandas#"]
 
 
 def test_replica_model_uid():
