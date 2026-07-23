@@ -14,8 +14,10 @@
 
 import asyncio
 import logging
+import os
 import random
 import re
+import sys
 import uuid
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -115,6 +117,13 @@ class SGLangDiffusionModel:
         return self._abilities
 
     def load(self):
+        # sglang JIT-compiles kernels at runtime via the ninja binary, which
+        # the ninja wheel installs into the interpreter's bin directory; that
+        # directory is not on PATH when the model subprocess is spawned with
+        # a virtualenv interpreter
+        bin_dir = os.path.dirname(sys.executable)
+        if bin_dir not in os.environ.get("PATH", "").split(os.pathsep):
+            os.environ["PATH"] = bin_dir + os.pathsep + os.environ.get("PATH", "")
         try:
             from sglang.multimodal_gen import DiffGenerator
             from sglang.multimodal_gen.runtime.server_args import ServerArgs
