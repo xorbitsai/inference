@@ -460,7 +460,7 @@ export default function AuditCenter() {
         </div>
 
         <div className="overflow-hidden">
-          <Table>
+          <Table className="w-max min-w-full">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-48">{t('auditCenter.time')}</TableHead>
@@ -527,14 +527,16 @@ export default function AuditCenter() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="max-w-0">
-                      <div className="truncate font-mono text-xs">{toDash(record.endpoint)}</div>
-                      <div className="truncate text-xs text-muted-foreground">
+                    <TableCell>
+                      <div className="whitespace-nowrap font-mono text-xs">
+                        {toDash(record.endpoint)}
+                      </div>
+                      <div className="whitespace-nowrap text-xs text-muted-foreground">
                         {toDash(record.node || record.address)}
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="truncate text-xs">{record.api_key_name || '-'}</div>
+                      <div className="whitespace-nowrap text-xs">{record.api_key_name || '-'}</div>
                     </TableCell>
                     <TableCell>
                       <div className="truncate">{record.model_name || record.model_id || '-'}</div>
@@ -543,7 +545,9 @@ export default function AuditCenter() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="truncate font-mono text-xs">{record.model_id || '-'}</div>
+                      <div className="whitespace-nowrap font-mono text-xs">
+                        {record.model_id || '-'}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge className={statusTone(record.status)}>
