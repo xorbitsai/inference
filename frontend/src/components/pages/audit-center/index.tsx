@@ -509,7 +509,7 @@ export default function AuditCenter() {
                         )}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="max-w-44">
                       <div className="flex min-w-0 items-center gap-2">
                         {record.auth_type === 'api_key' ? (
                           <KeyRound className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -538,7 +538,7 @@ export default function AuditCenter() {
                     <TableCell>
                       <div className="whitespace-nowrap text-xs">{record.api_key_name || '-'}</div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="max-w-44">
                       <div className="truncate">{record.model_name || record.model_id || '-'}</div>
                       <div className="truncate text-xs text-muted-foreground">
                         {record.model_type || '-'}
