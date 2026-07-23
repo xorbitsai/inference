@@ -93,12 +93,13 @@ class SGLangDiffusionModel:
         # family first to keep the caller's (possibly shared builtin) spec
         # untouched
         if model_spec is not None:
-            model_spec = model_spec.copy()
-            model_spec.model_ability = [
+            restricted_spec = model_spec.copy()
+            restricted_spec.model_ability = [
                 ability
-                for ability in (model_spec.model_ability or [])
+                for ability in (restricted_spec.model_ability or [])
                 if ability in SGLANG_SUPPORTED_ABILITIES
             ]
+            model_spec = restricted_spec
         self.model_family = model_spec
         self._model_uid = model_uid
         self._model_path = model_path
