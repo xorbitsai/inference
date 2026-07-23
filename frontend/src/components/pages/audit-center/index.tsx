@@ -467,7 +467,9 @@ export default function AuditCenter() {
                 <TableHead className="w-28">{t('auditCenter.category')}</TableHead>
                 <TableHead className="w-44">{t('auditCenter.identity')}</TableHead>
                 <TableHead>{t('auditCenter.endpoint')}</TableHead>
+                <TableHead>{t('auditCenter.apiKeyNameColumn')}</TableHead>
                 <TableHead className="w-44">{t('auditCenter.model')}</TableHead>
+                <TableHead>{t('auditCenter.modelIdColumn')}</TableHead>
                 <TableHead className="w-32">{t('auditCenter.status')}</TableHead>
                 <TableHead className="w-28 text-right">{t('auditCenter.latency')}</TableHead>
               </TableRow>
@@ -475,7 +477,7 @@ export default function AuditCenter() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-20 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="py-20 text-center text-muted-foreground">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       {t('auditCenter.loading')}
@@ -484,7 +486,7 @@ export default function AuditCenter() {
                 </TableRow>
               ) : records.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-20 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="py-20 text-center text-muted-foreground">
                     {t('auditCenter.noRecords')}
                   </TableCell>
                 </TableRow>
@@ -532,10 +534,16 @@ export default function AuditCenter() {
                       </div>
                     </TableCell>
                     <TableCell>
+                      <div className="truncate text-xs">{record.api_key_name || '-'}</div>
+                    </TableCell>
+                    <TableCell>
                       <div className="truncate">{record.model_name || record.model_id || '-'}</div>
                       <div className="truncate text-xs text-muted-foreground">
                         {record.model_type || '-'}
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="truncate font-mono text-xs">{record.model_id || '-'}</div>
                     </TableCell>
                     <TableCell>
                       <Badge className={statusTone(record.status)}>
