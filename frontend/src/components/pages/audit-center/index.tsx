@@ -32,7 +32,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { DEFAULT_LOG_TIME_RANGE } from '@/constants/logs';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DEFAULT_LOG_TIME_RANGE, LOG_REFRESH_OPTIONS } from '@/constants/logs';
 import { useI18n } from '@/contexts/i18n-context';
 import request from '@/lib/request';
 import { cn, copyToClipboard } from '@/lib/utils';
@@ -201,6 +202,8 @@ export default function AuditCenter() {
   const [pageFrom, setPageFrom] = useState(0);
   const [selectedRecord, setSelectedRecord] = useState<AuditRecord | null>(null);
   const requestSeqRef = useRef(0);
+  const [refreshInterval, setRefreshInterval] = useState(0);
+  const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const queryParams = useMemo(() => {
     const params = new URLSearchParams();
@@ -247,6 +250,19 @@ export default function AuditCenter() {
   useEffect(() => {
     fetchAuditRecords();
   }, [fetchAuditRecords]);
+
+  useEffect(() => {
+    if (refreshTimerRef.current) {
+      clearInterval(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+    if (refreshInterval > 0) {
+      refreshTimerRef.current = setInterval(() => fetchAuditRecords(), refreshInterval);
+    }
+    return () => {
+      if (refreshTimerRef.current) clearInterval(refreshTimerRef.current);
+    };
+  }, [fetchAuditRecords, refreshInterval]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -350,10 +366,33 @@ export default function AuditCenter() {
               setPageFrom(0);
             }}
           />
-          <Button variant="outline" onClick={fetchAuditRecords} disabled={loading}>
-            <RefreshCw className={cn('mr-2 h-4 w-4', loading && 'animate-spin')} />
-            {t('auditCenter.refresh')}
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label={t('auditCenter.refresh')}
+                  onClick={fetchAuditRecords}
+                  disabled={loading}
+                >
+                  <RefreshCw className={cn('size-4', loading && 'animate-spin')} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t('auditCenter.refresh')}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <Select
+            value={refreshInterval}
+            onChange={(value) => setRefreshInterval(Number(value || 0))}
+            options={LOG_REFRESH_OPTIONS.map((option) => ({
+              value: option.value,
+              label: t(option.labelKey),
+              prefix: <RefreshCw className="size-4" />,
+            }))}
+            allowClear={false}
+            className="w-32"
+          />
         </div>
       }
     >
