@@ -1,23 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM continuumio/miniconda3:23.10.0-1 AS runtime-base
-
-ENV NVM_DIR /usr/local/nvm
-ENV NODE_VERSION 20.19.0
-
-RUN apt-get -y update \
-  && apt install -y build-essential curl procps git libgl1 \
-  && mkdir -p $NVM_DIR \
-  && curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash \
-  && . $NVM_DIR/nvm.sh \
-  && nvm install $NODE_VERSION \
-  && nvm alias default $NODE_VERSION \
-  && nvm use default \
-  && apt-get -yq clean
-
-ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
-
-FROM runtime-base AS web-builder
+FROM node:20.19.0-slim AS web-builder
 
 WORKDIR /opt/inference/frontend
 COPY frontend/package.json frontend/package-lock.json ./
@@ -25,7 +8,11 @@ RUN --mount=type=cache,target=/root/.npm npm ci
 COPY frontend ./
 RUN npm run build
 
-FROM runtime-base
+FROM continuumio/miniconda3:23.10.0-1
+
+RUN apt-get -y update \
+  && apt install -y build-essential curl procps git libgl1 \
+  && apt-get -yq clean
 
 ARG PIP_INDEX=https://pypi.org/simple
 COPY xinference/deploy/docker/requirements_cpu/ /opt/inference/xinference/deploy/docker/requirements_cpu/
