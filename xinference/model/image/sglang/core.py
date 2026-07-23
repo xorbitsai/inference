@@ -36,6 +36,11 @@ SGLANG_SUPPORTED_IMAGE_MODELS = (
     "FLUX.1-dev",
 )
 
+# Abilities this engine actually implements; the builtin specs of the models
+# above also advertise image2image/inpainting, which only the diffusers
+# engine provides
+SGLANG_SUPPORTED_ABILITIES = ("text2image",)
+
 
 def _filter_kwargs_by_dataclass_fields(
     kwargs: Dict[str, Any], dataclass_type: Any, purpose: str
@@ -83,6 +88,17 @@ class SGLangDiffusionModel:
                 "Controlnet is not supported by the SGLang image engine, "
                 "please use the diffusers engine instead"
             )
+        # only advertise the abilities this engine implements, so the model
+        # description does not report endpoints that would fail; copy the
+        # family first to keep the caller's (possibly shared builtin) spec
+        # untouched
+        if model_spec is not None:
+            model_spec = model_spec.copy()
+            model_spec.model_ability = [
+                ability
+                for ability in (model_spec.model_ability or [])
+                if ability in SGLANG_SUPPORTED_ABILITIES
+            ]
         self.model_family = model_spec
         self._model_uid = model_uid
         self._model_path = model_path

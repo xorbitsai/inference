@@ -61,6 +61,18 @@ def test_match_rejects_without_cuda():
         assert VLLMImageModel.match(_get_spec("Z-Image")) is False
 
 
+def test_abilities_restricted_to_text2image():
+    spec = _get_spec("Z-Image")
+    original_abilities = list(spec.model_ability)
+    assert "image2image" in original_abilities
+
+    model = VLLMDiffusionModel("uid", "/path", model_spec=spec)
+    assert model.model_ability == ["text2image"]
+    assert model.model_family.model_ability == ["text2image"]
+    # the shared builtin spec must stay untouched
+    assert spec.model_ability == original_abilities
+
+
 def test_constructor_rejects_unsupported_features():
     spec = _get_spec("Z-Image")
     with pytest.raises(ValueError, match="GGUF"):
