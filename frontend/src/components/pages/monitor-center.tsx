@@ -210,6 +210,13 @@ const MonitorCenter = () => {
     () => MONITOR_DASHBOARD_TABS.filter((tab) => dashboards[tab.key]),
     [dashboards]
   );
+  // If the active tab's dashboard is removed/disabled via the config dialog,
+  // fall back to the first visible tab so the tab bar stays consistent.
+  useEffect(() => {
+    if (visibleTabs.length > 0 && !visibleTabs.some((tab) => tab.key === activeTab)) {
+      setActiveTab(visibleTabs[0].key);
+    }
+  }, [visibleTabs, activeTab]);
   const currentUid =
     dashboards[activeTab] ||
     dashboards['overview'] ||
@@ -349,18 +356,16 @@ const MonitorCenter = () => {
       {visibleTabs.length > 1 && (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full gap-6">
           <div className="flex items-end justify-between gap-4 border-b border-border/80">
-            <TabsList className="min-w-0 flex-1 justify-start bg-transparent p-0 h-auto rounded-none overflow-x-auto">
-              <div className="flex space-x-4">
-                {visibleTabs.map((tab) => (
-                  <TabsTrigger
-                    key={tab.key}
-                    value={tab.key}
-                    className="data-[state=active]:text-primary font-medium data-[state=active]:border-b-2 data-[state=active]:border-primary"
-                  >
-                    {t(tab.labelKey)}
-                  </TabsTrigger>
-                ))}
-              </div>
+            <TabsList className="flex min-w-0 flex-1 justify-start gap-4 bg-transparent p-0 h-auto rounded-none overflow-x-auto">
+              {visibleTabs.map((tab) => (
+                <TabsTrigger
+                  key={tab.key}
+                  value={tab.key}
+                  className="data-[state=active]:text-primary font-medium data-[state=active]:border-b-2 data-[state=active]:border-primary"
+                >
+                  {t(tab.labelKey)}
+                </TabsTrigger>
+              ))}
             </TabsList>
           </div>
         </Tabs>
