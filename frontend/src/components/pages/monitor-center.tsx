@@ -176,7 +176,7 @@ function TimeRangePicker({
 }
 
 const MonitorCenter = () => {
-  const { clusterUIConfig, globalReady, fetchGlobalAfterAuth } = useGlobal();
+  const { clusterUIConfig, globalReady, fetchGlobalAfterAuth, clusterAuth } = useGlobal();
   const { isAdmin } = useMenuAuth();
   const { t } = useI18n();
   const { theme } = useTheme();
@@ -206,9 +206,13 @@ const MonitorCenter = () => {
     () => clusterUIConfig.grafana_dashboards ?? {},
     [clusterUIConfig.grafana_dashboards]
   );
+  const configuredDashboards = useMemo<string[]>(
+    () => clusterUIConfig.grafana_dashboards_configured ?? [],
+    [clusterUIConfig.grafana_dashboards_configured]
+  );
   const visibleTabs = useMemo(
-    () => MONITOR_DASHBOARD_TABS.filter((tab) => dashboards[tab.key]),
-    [dashboards]
+    () => MONITOR_DASHBOARD_TABS.filter((tab) => configuredDashboards.includes(tab.key)),
+    [configuredDashboards]
   );
   // If the active tab's dashboard is removed/disabled via the config dialog,
   // fall back to the first visible tab so the tab bar stays consistent.
@@ -307,40 +311,40 @@ const MonitorCenter = () => {
     return <PageContainer loading />;
   }
 
-  if (!clusterUIConfig?.grafana_url) {
-    return (
-      <div className="h-full flex items-center justify-center text-muted-foreground font-medium">
-        {t('monitorCenter.notConfigured')}
-      </div>
-    );
-  }
+  const showSettings = isAdmin || clusterAuth?.auth === false;
 
   return (
     <PageContainer
       title={t('menu.monitorCenter')}
       extraContent={
         <div className="flex items-center justify-between gap-3">
-          <TimeRangePicker
-            options={TIME_RANGES_OPTIONS}
-            value={timeRange}
-            onChange={handleTimeRange}
-          />
-          <Button
-            variant="outline"
-            size="icon"
-            aria-label={t('monitorCenter.manualRefresh')}
-            onClick={() => setRefreshKey((current) => current + 1)}
-          >
-            <RotateCw className="size-4" />
-          </Button>
-          <Select
-            options={REFRESH_OPTIONS}
-            className="w-32"
-            value={grafanaRefresh}
-            onChange={handleRefreshValue}
-            allowClear={false}
-          />
-          {isAdmin && (
+          <div className="flex items-center gap-3">
+            {clusterUIConfig?.grafana_url && (
+              <>
+                <TimeRangePicker
+                  options={TIME_RANGES_OPTIONS}
+                  value={timeRange}
+                  onChange={handleTimeRange}
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label={t('monitorCenter.manualRefresh')}
+                  onClick={() => setRefreshKey((current) => current + 1)}
+                >
+                  <RotateCw className="size-4" />
+                </Button>
+                <Select
+                  options={REFRESH_OPTIONS}
+                  className="w-32"
+                  value={grafanaRefresh}
+                  onChange={handleRefreshValue}
+                  allowClear={false}
+                />
+              </>
+            )}
+          </div>
+          {showSettings && (
             <Button
               variant="outline"
               size="icon"
@@ -353,31 +357,50 @@ const MonitorCenter = () => {
         </div>
       }
     >
-      {visibleTabs.length > 1 && (
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full gap-6">
-          <div className="flex items-end justify-between gap-4 border-b border-border/80">
-            <TabsList className="flex min-w-0 flex-1 justify-start gap-4 bg-transparent p-0 h-auto rounded-none overflow-x-auto">
-              {visibleTabs.map((tab) => (
-                <TabsTrigger
-                  key={tab.key}
-                  value={tab.key}
-                  className="data-[state=active]:text-primary font-medium data-[state=active]:border-b-2 data-[state=active]:border-primary"
-                >
-                  {t(tab.labelKey)}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+      {clusterUIConfig?.grafana_url ? (
+        <>
+          {visibleTabs.length > 1 && (
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full gap-6">
+              <div className="flex items-end justify-between gap-4 border-b border-border/80">
+                <TabsList className="flex min-w-0 flex-1 justify-start gap-4 bg-transparent p-0 h-auto rounded-none overflow-x-auto">
+                  {visibleTabs.map((tab) => (
+                    <TabsTrigger
+                      key={tab.key}
+                      value={tab.key}
+                      className="data-[state=active]:text-primary font-medium data-[state=active]:border-b-2 data-[state=active]:border-primary"
+                    >
+                      {t(tab.labelKey)}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </div>
+            </Tabs>
+          )}
+          <div className="h-[calc(100vh-8rem)] min-h-[30rem]">
+            <iframe
+              key={`${activeTab}-${refreshKey}`}
+              src={dashboardUrl}
+              className="h-full w-full rounded-md border"
+              title="Grafana Monitoring"
+            />
           </div>
-        </Tabs>
+        </>
+      ) : (
+        <div className="h-full flex items-center justify-center text-muted-foreground font-medium">
+          <div className="flex flex-col items-center gap-4">
+            <span>{t('monitorCenter.notConfigured')}</span>
+            {showSettings && (
+              <Button
+                variant="outline"
+                onClick={() => setConfigOpen(true)}
+              >
+                <Settings className="size-4" />
+                {t('monitorCenter.config.button')}
+              </Button>
+            )}
+          </div>
+        </div>
       )}
-      <div className="h-[calc(100vh-8rem)] min-h-[30rem]">
-        <iframe
-          key={`${activeTab}-${refreshKey}`}
-          src={dashboardUrl}
-          className="h-full w-full rounded-md border"
-          title="Grafana Monitoring"
-        />
-      </div>
       <MonitorConfigDialog
         open={configOpen}
         onOpenChange={setConfigOpen}

@@ -17,7 +17,7 @@ import sqlite3
 import threading
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +136,20 @@ class MonitorConfigStore:
             dashboard_name = key.replace("dashboard_", "")
             dashboards[dashboard_name] = all_cfg.get(key, "")
         return dashboards
+
+    def get_configured_dashboard_keys(self) -> List[str]:
+        """Dashboard keys that are explicitly configured (DB or env), not code defaults.
+
+        The ``overview`` dashboard is always included so that backward-compatible
+        single-dashboard deployments still work out of the box.
+        """
+        sources = self.get_sources()
+        configured: list[str] = []
+        for key in DEFAULT_UIDS.keys():
+            name = key.replace("dashboard_", "")
+            if name == "overview" or sources.get(key, "default") in ("db", "env"):
+                configured.append(name)
+        return configured
 
     def get_sources(self) -> Dict[str, str]:
         """Return value source for each key: 'db', 'env', or 'default'."""

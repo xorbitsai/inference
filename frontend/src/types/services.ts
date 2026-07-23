@@ -15,6 +15,7 @@ export interface ClusterUIConfig {
   grafana_alert_datasource: string;
   grafana_dashboard_uid: string;
   grafana_dashboards?: Record<string, string>;
+  grafana_dashboards_configured?: string[];
   cluster_name: string;
   es_enabled: boolean;
   auth_advanced: boolean;
