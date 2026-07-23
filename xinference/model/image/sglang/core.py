@@ -16,6 +16,7 @@ import asyncio
 import logging
 import random
 import re
+import uuid
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from ....types import LoRA
@@ -173,9 +174,13 @@ class SGLangDiffusionModel:
             save_output=False,
             return_frames=True,
         )
-        return _filter_kwargs_by_dataclass_fields(
+        params = _filter_kwargs_by_dataclass_fields(
             params, SamplingParams, "sampling params"
         )
+        # xinference injects request_id as uuid.UUID, which SamplingParams
+        # accepts but sglang cannot JSON-serialize when shipping the request
+        # to its runtime
+        return {k: str(v) if isinstance(v, uuid.UUID) else v for k, v in params.items()}
 
     @staticmethod
     def _extract_images(result: Any) -> List[Any]:

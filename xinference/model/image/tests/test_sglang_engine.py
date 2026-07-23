@@ -101,6 +101,7 @@ def fake_sglang_sampling_params():
         num_outputs_per_prompt: int = 1
         save_output: bool = True
         return_frames: bool = False
+        request_id: Optional[str] = None
 
     mod = types.ModuleType("sglang.multimodal_gen.configs.sample.sampling_params")
     mod.SamplingParams = FakeSamplingParams
@@ -152,6 +153,18 @@ def test_build_sampling_params(fake_sglang_sampling_params):
     assert params["save_output"] is False
     assert params["return_frames"] is True
     assert "true_cfg_scale" not in params
+
+
+def test_build_sampling_params_stringifies_uuid(fake_sglang_sampling_params):
+    import uuid
+
+    spec = _get_spec("Qwen-Image")
+    model = SGLangDiffusionModel("uid", "/path", model_spec=spec)
+    request_id = uuid.uuid4()
+    params = model._build_sampling_params(
+        "a cat", 1, 512, 512, {"request_id": request_id}
+    )
+    assert params["request_id"] == str(request_id)
 
 
 @pytest.mark.parametrize("seed", [None, -1])
