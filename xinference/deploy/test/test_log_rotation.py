@@ -450,6 +450,66 @@ class TestSafeRotatingFileHandler:
         assert "test.log.2" in files
 
 
+class TestInitStatRace:
+    """__init__ must survive a foreign-process rename of the base file
+    landing between the stdlib's os.path.exists() and os.stat() calls
+    (TOCTOU race in TimedRotatingFileHandler.__init__)."""
+
+    def test_init_retries_on_stat_race(self, log_file):
+        real_stat = os.stat
+        calls = {"n": 0}
+
+        def racy_stat(path, *args, **kwargs):
+            if isinstance(path, (str, os.PathLike)) and os.fspath(path) == log_file:
+                calls["n"] += 1
+                # 1st stat on the log file comes from os.path.exists();
+                # the 2nd is the mtime stat — fail it once to simulate a
+                # rename landing in between.
+                if calls["n"] == 2:
+                    raise FileNotFoundError(2, "No such file or directory", path)
+            return real_stat(path, *args, **kwargs)
+
+        with mock.patch("os.stat", side_effect=racy_stat):
+            h = SafeTimedAndSizeRotatingFileHandler(
+                filename=log_file,
+                when="midnight",
+                backupCount=3,
+                maxBytes=1000,
+                retention_days=30,
+                encoding="utf8",
+            )
+        h.setFormatter(logging.Formatter("%(message)s"))
+        h.emit(_make_record("survived"))
+        h.close()
+        with open(log_file, encoding="utf8") as f:
+            assert "survived" in f.read()
+
+    def test_init_gives_up_after_bounded_retries(self, log_file):
+        real_stat = os.stat
+        calls = {"n": 0}
+
+        def always_racy_stat(path, *args, **kwargs):
+            if isinstance(path, (str, os.PathLike)) and os.fspath(path) == log_file:
+                calls["n"] += 1
+                # every exists() passes, every following mtime stat fails
+                if calls["n"] % 2 == 0:
+                    raise FileNotFoundError(2, "No such file or directory", path)
+            return real_stat(path, *args, **kwargs)
+
+        with mock.patch("os.stat", side_effect=always_racy_stat):
+            with pytest.raises(FileNotFoundError):
+                SafeTimedAndSizeRotatingFileHandler(
+                    filename=log_file,
+                    when="midnight",
+                    backupCount=3,
+                    maxBytes=1000,
+                    retention_days=30,
+                    encoding="utf8",
+                )
+        # 5 bounded attempts, each doing exists() + mtime stat
+        assert calls["n"] == 10
+
+
 def _mp_worker_size(proc_id, log_path, max_bytes, n_records):
     """Module-level worker for multiprocessing (size mode)."""
     from ..utils import SafeRotatingFileHandler

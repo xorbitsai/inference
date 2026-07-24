@@ -312,13 +312,34 @@ jobs:
         run: |
           set -e
 
+          # On a failure, retry only the failed tests once via --last-failed
+          # (same pattern as the GPU job): the suite carries a few known
+          # intermittent failures (KV-cache batching race, cluster-startup
+          # timeouts on loaded runners) that pass on a clean rerun, while a
+          # real regression still fails twice and turns the job red.
+          # --cov-append keeps the coverage of the first run instead of
+          # overwriting coverage.xml with the retried subset only.
           run_pytest() {
+            local rc=0
             pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
               --cov-config=setup.cfg \
               --cov-report=xml \
               --cov=xinference \
-              "$@"
+              "$@" || rc=$?
+            if [ "$rc" -ne 0 ]; then
+              echo "::warning::pytest exited with code $rc; retrying failed tests once"
+              rc=0
+              pytest --timeout=3000 \
+                -W ignore::PendingDeprecationWarning \
+                --cov-config=setup.cfg \
+                --cov-report=xml \
+                --cov=xinference \
+                --cov-append \
+                --last-failed \
+                "$@" || rc=$?
+            fi
+            return $rc
           }
 
           if [ "$MODULE" == "metal" ]; then

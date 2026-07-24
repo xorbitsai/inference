@@ -1748,5 +1748,30 @@
     },
     "featured": false,
     "updated_at": 1781512046
+  },
+  {
+    "version": 2,
+    "model_name": "DeepDoc",
+    "model_family": "ocr",
+    "model_ability": [
+      "ocr"
+    ],
+    "virtualenv": {
+      "packages": [
+        "deepdoc-lib~=0.2.2"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "InfiniFlow/deepdoc",
+        "model_revision": "de0e793dc6d744406c96dabd688ccc969f41b443"
+      },
+      "modelscope": {
+        "model_id": "Xorbits/deepdoc",
+        "model_revision": "master"
+      }
+    },
+    "featured": false,
+    "updated_at": 1784811600
   }
 ]
