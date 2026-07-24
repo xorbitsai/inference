@@ -1,42 +1,41 @@
+# syntax=docker/dockerfile:1
+
+FROM node:20.19.0-slim AS web-builder
+
+WORKDIR /opt/inference/frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm npm ci
+COPY frontend ./
+RUN npm run build
+
 FROM continuumio/miniconda3:23.10.0-1
-
-COPY . /opt/inference
-
-ENV NVM_DIR /usr/local/nvm
-ENV NODE_VERSION 20.19.0
 
 RUN apt-get -y update \
   && apt install -y build-essential curl procps git libgl1 \
-  && mkdir -p $NVM_DIR \
-  && curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash \
-  && . $NVM_DIR/nvm.sh \
-  && nvm install $NODE_VERSION \
-  && nvm alias default $NODE_VERSION \
-  && nvm use default \
   && apt-get -yq clean
 
-ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
-
 ARG PIP_INDEX=https://pypi.org/simple
-RUN python -m pip install --upgrade -i "$PIP_INDEX" pip "setuptools<82" wheel "packaging>=24.2" && \
+COPY xinference/deploy/docker/requirements_cpu/ /opt/inference/xinference/deploy/docker/requirements_cpu/
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install --upgrade -i "$PIP_INDEX" pip "setuptools<82" wheel "packaging>=24.2" && \
     pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_cpu/requirements_cpu-base.txt && \
-    pip install --no-cache-dir -i "$PIP_INDEX" --no-build-isolation "gptqmodel<6.0.0" && \
+    pip install -i "$PIP_INDEX" --no-build-isolation "gptqmodel<6.0.0" && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_cpu/requirements_cpu-ml.txt && \
     pip install -i "$PIP_INDEX" --upgrade-strategy  only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_cpu/requirements_cpu-models.txt && \
-    cd /opt/inference && \
-    python setup.py build_web && \
-    git restore . && \
-    pip install -i "$PIP_INDEX" --no-deps "." && \
     pip install -i "$PIP_INDEX" "xllamacpp" && \
-    pip install -i "$PIP_INDEX" "kernels==0.14.1" && \
-    # clean packages
-    pip cache purge
+    pip install -i "$PIP_INDEX" "kernels==0.14.1"
 
 RUN /opt/conda/bin/conda create -n ffmpeg-env -c conda-forge 'ffmpeg<7' -y && \
     ln -s /opt/conda/envs/ffmpeg-env/bin/ffmpeg /usr/local/bin/ffmpeg && \
     ln -s /opt/conda/envs/ffmpeg-env/bin/ffprobe /usr/local/bin/ffprobe && \
     /opt/conda/bin/conda clean --all -y
+
+COPY . /opt/inference
+COPY --from=web-builder /opt/inference/xinference/ui/web/dist /opt/inference/xinference/ui/web/dist
+WORKDIR /opt/inference
+RUN --mount=type=cache,target=/root/.cache/pip \
+    NO_WEB_UI=1 pip install -i "$PIP_INDEX" --no-deps "."
 
 ENTRYPOINT []
 CMD ["/bin/bash"]
