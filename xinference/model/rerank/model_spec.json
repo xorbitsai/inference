@@ -396,41 +396,28 @@
         "model_format": "ggufv2",
         "model_src": {
           "huggingface": {
-            "model_id": "QuantFactory/Qwen3-Reranker-0.6B-GGUF",
+            "model_id": "Voodisss/Qwen3-Reranker-0.6B-GGUF-llama_cpp",
+            "model_revision": "eb9ad47d4e53c2a6abd6158b505f1539d1c5650c",
             "quantizations": [
               "Q2_K",
-              "Q3_K_S",
               "Q3_K_M",
-              "Q3_K_L",
               "Q4_0",
-              "Q4_1",
-              "Q4_K_S",
               "Q4_K_M",
               "Q5_0",
-              "Q5_1",
-              "Q5_K_S",
               "Q5_K_M",
-              "Q6_K",
-              "Q8_0"
+              "Q6_K"
             ],
-            "model_file_name_template": "Qwen3-Reranker-0.6B.{quantization}.gguf"
-          },
-          "modelscope": {
-            "model_id": "QuantFactory/Qwen3-Reranker-0.6B-GGUF",
+            "model_file_name_template": "Qwen3-Reranker-0.6B-{quantization}.gguf"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Voodisss/Qwen3-Reranker-0.6B-GGUF-llama_cpp",
+            "model_revision": "eb9ad47d4e53c2a6abd6158b505f1539d1c5650c",
             "quantizations": [
-              "Q2_K",
-              "Q3_K_S",
-              "Q3_K_M",
-              "Q3_K_L",
-              "Q4_0",
-              "Q4_1",
-              "Q4_K_S",
-              "Q4_K_M",
-              "Q5_0",
-              "Q5_1",
-              "Q5_K_S",
-              "Q5_K_M",
-              "Q6_K",
               "Q8_0"
             ],
             "model_file_name_template": "Qwen3-Reranker-0.6B.{quantization}.gguf"
@@ -439,7 +426,7 @@
       }
     ],
     "featured": false,
-    "updated_at": 1784543901,
+    "updated_at": 1784861071,
     "virtualenv": {
       "packages": [
         "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
@@ -483,41 +470,28 @@
         "model_format": "ggufv2",
         "model_src": {
           "huggingface": {
-            "model_id": "QuantFactory/Qwen3-Reranker-4B-GGUF",
+            "model_id": "Voodisss/Qwen3-Reranker-4B-GGUF-llama_cpp",
+            "model_revision": "1b452c803342e73ac3644551b727dfd51a09fd5b",
             "quantizations": [
               "Q2_K",
-              "Q3_K_S",
               "Q3_K_M",
-              "Q3_K_L",
               "Q4_0",
-              "Q4_1",
-              "Q4_K_S",
               "Q4_K_M",
               "Q5_0",
-              "Q5_1",
-              "Q5_K_S",
               "Q5_K_M",
-              "Q6_K",
-              "Q8_0"
+              "Q6_K"
             ],
-            "model_file_name_template": "Qwen3-Reranker-4B.{quantization}.gguf"
-          },
-          "modelscope": {
-            "model_id": "QuantFactory/Qwen3-Reranker-4B-GGUF",
+            "model_file_name_template": "Qwen3-Reranker-4B-{quantization}.gguf"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Voodisss/Qwen3-Reranker-4B-GGUF-llama_cpp",
+            "model_revision": "1b452c803342e73ac3644551b727dfd51a09fd5b",
             "quantizations": [
-              "Q2_K",
-              "Q3_K_S",
-              "Q3_K_M",
-              "Q3_K_L",
-              "Q4_0",
-              "Q4_1",
-              "Q4_K_S",
-              "Q4_K_M",
-              "Q5_0",
-              "Q5_1",
-              "Q5_K_S",
-              "Q5_K_M",
-              "Q6_K",
               "Q8_0"
             ],
             "model_file_name_template": "Qwen3-Reranker-4B.{quantization}.gguf"
@@ -526,7 +500,7 @@
       }
     ],
     "featured": false,
-    "updated_at": 1784543901,
+    "updated_at": 1784861071,
     "virtualenv": {
       "packages": [
         "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
@@ -570,41 +544,28 @@
         "model_format": "ggufv2",
         "model_src": {
           "huggingface": {
-            "model_id": "QuantFactory/Qwen3-Reranker-8B-GGUF",
+            "model_id": "Voodisss/Qwen3-Reranker-8B-GGUF-llama_cpp",
+            "model_revision": "646e3a1fc04936cab940ad02e18ee6b14af46263",
             "quantizations": [
               "Q2_K",
-              "Q3_K_S",
               "Q3_K_M",
-              "Q3_K_L",
               "Q4_0",
-              "Q4_1",
-              "Q4_K_S",
               "Q4_K_M",
               "Q5_0",
-              "Q5_1",
-              "Q5_K_S",
               "Q5_K_M",
-              "Q6_K",
-              "Q8_0"
+              "Q6_K"
             ],
-            "model_file_name_template": "Qwen3-Reranker-8B.{quantization}.gguf"
-          },
-          "modelscope": {
-            "model_id": "QuantFactory/Qwen3-Reranker-8B-GGUF",
+            "model_file_name_template": "Qwen3-Reranker-8B-{quantization}.gguf"
+          }
+        }
+      },
+      {
+        "model_format": "ggufv2",
+        "model_src": {
+          "huggingface": {
+            "model_id": "Voodisss/Qwen3-Reranker-8B-GGUF-llama_cpp",
+            "model_revision": "646e3a1fc04936cab940ad02e18ee6b14af46263",
             "quantizations": [
-              "Q2_K",
-              "Q3_K_S",
-              "Q3_K_M",
-              "Q3_K_L",
-              "Q4_0",
-              "Q4_1",
-              "Q4_K_S",
-              "Q4_K_M",
-              "Q5_0",
-              "Q5_1",
-              "Q5_K_S",
-              "Q5_K_M",
-              "Q6_K",
               "Q8_0"
             ],
             "model_file_name_template": "Qwen3-Reranker-8B.{quantization}.gguf"
@@ -613,7 +574,7 @@
       }
     ],
     "featured": false,
-    "updated_at": 1784543902,
+    "updated_at": 1784861071,
     "virtualenv": {
       "packages": [
         "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
