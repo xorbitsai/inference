@@ -24,7 +24,7 @@ from xoscar import MainActorPoolType, create_actor_pool, get_pool_config
 from ...model.core import VirtualEnvSettings
 from ..status_guard import InstanceInfo, LaunchStatus, ReplicaStatus
 from ..supervisor import ReplicaInfo, SupervisorActor
-from ..utils import build_replica_model_uid, merge_virtual_env_packages
+from ..utils import merge_virtual_env_packages
 from ..worker import WorkerActor
 
 
@@ -390,8 +390,8 @@ async def test_worker_report_status_reconnects_and_replays_running_models(
         cuda_devices=[0],
     )
 
-    model_a_replica_uid = build_replica_model_uid("model-a", 0)
-    model_b_replica_uid = build_replica_model_uid("model-b", 1)
+    model_a_replica_uid = "model-a-rep0"
+    model_b_replica_uid = "model-b-rep1"
     await worker.launch_builtin_model(
         model_a_replica_uid, "mock_model_name", None, None, None, n_gpu=1
     )
@@ -474,7 +474,7 @@ async def test_worker_report_status_refreshes_supervisor_internal_address_on_rec
         cuda_devices=[0],
     )
 
-    replica_model_uid = build_replica_model_uid("model-a", 0)
+    replica_model_uid = "model-a-rep0"
     await worker.launch_builtin_model(
         replica_model_uid, "mock_model_name", None, None, None, n_gpu=1
     )
@@ -576,7 +576,7 @@ async def test_worker_report_status_does_not_refresh_address_when_connection_is_
 async def test_supervisor_add_worker_idempotent_rebuilds_replica_state(monkeypatch):
     supervisor = SupervisorActor()
     supervisor._status_guard_ref = DummyStatusGuardRef()
-    replica_uids = [build_replica_model_uid("model-a", i) for i in range(2)]
+    replica_uids = ["model-a-rep0", "model-a-rep1"]
     worker_ref = DummyReplicaWorkerRef(
         "worker-1",
         models={
@@ -644,7 +644,7 @@ async def test_supervisor_report_worker_status_accepts_registered_worker():
 async def test_supervisor_add_worker_preserves_sharded_replicas_on_replay(monkeypatch):
     supervisor = SupervisorActor()
     supervisor._status_guard_ref = DummyStatusGuardRef()
-    replica_model_uid = build_replica_model_uid("model-s", 0)
+    replica_model_uid = "model-s-rep0"
     shard0 = DummyReplicaWorkerRef(
         "worker-0",
         models={
@@ -710,7 +710,7 @@ async def test_supervisor_add_worker_preserves_sharded_replicas_on_replay(monkey
 async def test_supervisor_add_worker_rebuilds_sharded_replica_order(monkeypatch):
     supervisor = SupervisorActor()
     supervisor._status_guard_ref = DummyStatusGuardRef()
-    replica_model_uid = build_replica_model_uid("model-s", 0)
+    replica_model_uid = "model-s-rep0"
     shard0 = DummyReplicaWorkerRef(
         "worker-0",
         models={
@@ -772,7 +772,7 @@ async def test_supervisor_add_worker_rebuilds_replica_details_after_reconnect(
 ):
     supervisor = SupervisorActor()
     supervisor._status_guard_ref = DummyStatusGuardRef()
-    replica_uids = [build_replica_model_uid("model-a", i) for i in range(2)]
+    replica_uids = ["model-a-rep0", "model-a-rep1"]
     worker_ref = DummyReplicaWorkerRef(
         "worker-1",
         models={
@@ -1684,7 +1684,7 @@ async def test_mark_replica_dead_last_replica_terminates_rank0():
     replica_info.active_replica_ids.append(0)
     replica_info.replica_to_worker_refs[0].append(replica_ref)
     supervisor._model_uid_to_replica_info = {"model-x": replica_info}
-    replica_model_uid = build_replica_model_uid("model-x", 0)
+    replica_model_uid = "model-x-rep0"
     supervisor._replica_model_uid_to_worker = {
         replica_model_uid: replica_ref,
         "model-x-rank0": rank0_ref,
@@ -2005,7 +2005,7 @@ async def test_try_recover_models_marks_ready_via_wait_for_load(monkeypatch):
     import xinference.core.worker as worker_module
 
     monkeypatch.setattr(worker_module, "_strip_test_envs", lambda args: (args, set()))
-    replica_model_uid = build_replica_model_uid("test-model", 0)
+    replica_model_uid = "test-model-rep0"
 
     class _SupervisorRef:
         async def describe_model(self, origin_uid):
@@ -2048,7 +2048,7 @@ async def test_try_recover_models_migrates_legacy_replica_uid(monkeypatch):
 
     monkeypatch.setattr(worker_module, "_strip_test_envs", lambda args: (args, set()))
     legacy_replica_uid = "test-model-0"
-    replica_model_uid = build_replica_model_uid("test-model", 0)
+    replica_model_uid = "test-model-rep0"
 
     class _SupervisorRef:
         def __init__(self):
