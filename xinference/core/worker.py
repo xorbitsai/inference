@@ -3469,26 +3469,60 @@ class WorkerActor(xo.StatelessActor):
             except Exception as e:
                 logger.warning(f"Failed to handle virtual environment info: {e}")
 
-        # update status to READY
-        abilities = await self._get_model_ability(model, model_type)
-        _ = await self.get_supervisor_ref(add_worker=False)
+        try:
+            # update status to READY
+            abilities = await self._get_model_ability(model, model_type)
+            _ = await self.get_supervisor_ref(add_worker=False)
 
-        if self._status_guard_ref is None:
-            _ = await self.get_supervisor_ref()
-        assert self._status_guard_ref is not None
-        await self._status_guard_ref.update_instance_info(
-            origin_uid,
-            {"model_ability": abilities, "status": LaunchStatus.READY.name},
-        )
-        if n_worker > 1 and shard == 0:  # type: ignore
-            return subpool_address, await model_ref.get_driver_info()
-        else:
-            return subpool_address
+            if self._status_guard_ref is None:
+                _ = await self.get_supervisor_ref()
+            assert self._status_guard_ref is not None
+            await self._status_guard_ref.update_instance_info(
+                origin_uid,
+                {"model_ability": abilities, "status": LaunchStatus.READY.name},
+            )
+            if n_worker > 1 and shard == 0:  # type: ignore
+                return subpool_address, await model_ref.get_driver_info()
+            else:
+                return subpool_address
+        except Exception:
+            logger.error(
+                f"Failed to finalize launch of model {model_uid}", exc_info=True
+            )
+            await self._clean_up_failed_launch(model_uid)
+            raise
+
+    async def _clean_up_failed_launch(self, model_uid: str):
+        """Roll back the state registered by ``launch_builtin_model`` when the
+        launch fails after registration (e.g. an engine that loads
+        asynchronously crashes at init and the error only surfaces in
+        ``wait_for_load``). Without this, the stale ``_model_uid_to_model``
+        entry makes relaunching the same model_uid fail on the registration
+        assert until the whole service is restarted."""
+        try:
+            await self.terminate_model(model_uid, is_model_die=True)
+        except Exception:
+            logger.error(
+                "Failed to clean up worker state after failed launch, model uid: %s",
+                model_uid,
+                exc_info=True,
+            )
+        finally:
+            # terminate_model(is_model_die=True) keeps _model_uid_to_model_status
+            # for the auto-recovery path, which relaunches the same model_uid;
+            # a failed launch has no relaunch, so drop it here to avoid leaking
+            # a stale "loading" entry.
+            self._model_uid_to_model_status.pop(model_uid, None)
 
     @log_async(logger=logger, level=logging.INFO)
     async def wait_for_load(self, model_uid: str):
         model_ref = self._model_uid_to_model[model_uid]
-        await model_ref.wait_for_load()
+        try:
+            await model_ref.wait_for_load()
+        except Exception:
+            logger.error(f"Failed to load model {model_uid}", exc_info=True)
+            await self._clean_up_failed_launch(model_uid)
+            raise
         await self._update_model_state(model_uid, "ready")
 
     @log_sync(logger=logger, level=logging.INFO)
@@ -3551,9 +3585,20 @@ class WorkerActor(xo.StatelessActor):
             logger.error("report_event error: %s" % (e))
 
         if self._status_guard_ref is not None:
-            await self._status_guard_ref.update_instance_info(
-                origin_uid, {"status": LaunchStatus.TERMINATING.name}
-            )
+            try:
+                await self._status_guard_ref.update_instance_info(
+                    origin_uid, {"status": LaunchStatus.TERMINATING.name}
+                )
+            except Exception:
+                # Status reporting must not block the local map/resource
+                # cleanup below, e.g. when terminating precisely because the
+                # status guard became unavailable during launch finalization.
+                logger.warning(
+                    "Failed to report TERMINATING status for %s, "
+                    "continuing with local cleanup",
+                    model_uid,
+                    exc_info=True,
+                )
         model_ref = self._model_uid_to_model.get(model_uid, None)
         if model_ref is None:
             logger.debug("Model not found, uid: %s", model_uid)
@@ -3648,12 +3693,22 @@ class WorkerActor(xo.StatelessActor):
                 await self._update_model_state(model_uid, "stopped")
                 self._model_uid_to_model_status.pop(model_uid, None)
 
-            if self._status_guard_ref is None:
-                _ = await self.get_supervisor_ref()
-            assert self._status_guard_ref is not None
-            await self._status_guard_ref.update_instance_info(
-                origin_uid, {"status": status}
-            )
+            try:
+                if self._status_guard_ref is None:
+                    _ = await self.get_supervisor_ref()
+                assert self._status_guard_ref is not None
+                await self._status_guard_ref.update_instance_info(
+                    origin_uid, {"status": status}
+                )
+            except Exception:
+                # Local cleanup already happened above; a status guard or
+                # supervisor outage must not fail the terminate itself.
+                logger.warning(
+                    "Failed to report %s status for %s after cleanup",
+                    status,
+                    model_uid,
+                    exc_info=True,
+                )
 
         # Per-uid persist state cleanup (prevent zombie entries on long-running workers)
         self._persist_launch_args_dirty_uids.discard(model_uid)
