@@ -510,14 +510,16 @@ export default function AuditCenter() {
         </div>
 
         <div className="overflow-hidden">
-          <Table>
+          <Table className="w-max min-w-full">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-48">{t('auditCenter.time')}</TableHead>
                 <TableHead className="w-28">{t('auditCenter.category')}</TableHead>
                 <TableHead className="w-44">{t('auditCenter.identity')}</TableHead>
                 <TableHead>{t('auditCenter.endpoint')}</TableHead>
+                <TableHead>{t('auditCenter.apiKeyNameColumn')}</TableHead>
                 <TableHead className="w-44">{t('auditCenter.model')}</TableHead>
+                <TableHead>{t('auditCenter.modelIdColumn')}</TableHead>
                 <TableHead className="w-32">{t('auditCenter.status')}</TableHead>
                 <TableHead className="w-28 text-right">{t('auditCenter.latency')}</TableHead>
               </TableRow>
@@ -525,7 +527,7 @@ export default function AuditCenter() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-20 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="py-20 text-center text-muted-foreground">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       {t('auditCenter.loading')}
@@ -534,7 +536,7 @@ export default function AuditCenter() {
                 </TableRow>
               ) : records.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-20 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="py-20 text-center text-muted-foreground">
                     {t('auditCenter.noRecords')}
                   </TableCell>
                 </TableRow>
@@ -557,7 +559,7 @@ export default function AuditCenter() {
                         )}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="max-w-44">
                       <div className="flex min-w-0 items-center gap-2">
                         {record.auth_type === 'api_key' ? (
                           <KeyRound className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -575,16 +577,26 @@ export default function AuditCenter() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="max-w-0">
-                      <div className="truncate font-mono text-xs">{toDash(record.endpoint)}</div>
-                      <div className="truncate text-xs text-muted-foreground">
+                    <TableCell>
+                      <div className="whitespace-nowrap font-mono text-xs">
+                        {toDash(record.endpoint)}
+                      </div>
+                      <div className="whitespace-nowrap text-xs text-muted-foreground">
                         {toDash(record.node || record.address)}
                       </div>
                     </TableCell>
                     <TableCell>
+                      <div className="whitespace-nowrap text-xs">{record.api_key_name || '-'}</div>
+                    </TableCell>
+                    <TableCell className="max-w-44">
                       <div className="truncate">{record.model_name || record.model_id || '-'}</div>
                       <div className="truncate text-xs text-muted-foreground">
                         {record.model_type || '-'}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="whitespace-nowrap font-mono text-xs">
+                        {record.model_id || '-'}
                       </div>
                     </TableCell>
                     <TableCell>
