@@ -32,7 +32,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { DEFAULT_LOG_TIME_RANGE } from '@/constants/logs';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DEFAULT_LOG_TIME_RANGE, LOG_REFRESH_OPTIONS } from '@/constants/logs';
 import { useI18n } from '@/contexts/i18n-context';
 import request from '@/lib/request';
 import { cn, copyToClipboard } from '@/lib/utils';
@@ -201,6 +202,10 @@ export default function AuditCenter() {
   const [pageFrom, setPageFrom] = useState(0);
   const [selectedRecord, setSelectedRecord] = useState<AuditRecord | null>(null);
   const requestSeqRef = useRef(0);
+  // Tracks whether the latest fetch is still pending so the auto-refresh
+  // interval can skip a tick instead of stacking overlapping requests.
+  const inFlightRef = useRef(false);
+  const [refreshInterval, setRefreshInterval] = useState(0);
 
   const queryParams = useMemo(() => {
     const params = new URLSearchParams();
@@ -220,9 +225,14 @@ export default function AuditCenter() {
     return params;
   }, [filters, pageFrom, timeRange]);
 
-  const fetchAuditRecords = useCallback(async () => {
+  const fetchAuditRecords = useCallback(async (silent = false) => {
     const seq = ++requestSeqRef.current;
-    setLoading(true);
+    inFlightRef.current = true;
+    // Background refreshes stay silent so the table does not flip to the
+    // loading spinner every interval; only user-initiated fetches show it.
+    if (!silent) {
+      setLoading(true);
+    }
     try {
       const data = await request.get<AuditSearchResponse>(
         '/v1/audit/search?' + queryParams.toString()
@@ -233,12 +243,16 @@ export default function AuditCenter() {
         setTotal(data.total || 0);
       }
     } catch {
-      if (seq === requestSeqRef.current) {
+      // A transient failure during a silent background refresh must not wipe
+      // the table — keep the last good results. Foreground (user-initiated)
+      // fetches keep the original clear-on-error behavior.
+      if (!silent && seq === requestSeqRef.current) {
         setRecords([]);
         setTotal(0);
       }
     } finally {
       if (seq === requestSeqRef.current) {
+        inFlightRef.current = false;
         setLoading(false);
       }
     }
@@ -247,6 +261,19 @@ export default function AuditCenter() {
   useEffect(() => {
     fetchAuditRecords();
   }, [fetchAuditRecords]);
+
+  useEffect(() => {
+    if (refreshInterval > 0) {
+      const timer = setInterval(() => {
+        // Skip a tick while a request is in flight so a slow/hung query does
+        // not stack overlapping requests or make every response stale.
+        if (!inFlightRef.current) {
+          fetchAuditRecords(true);
+        }
+      }, refreshInterval);
+      return () => clearInterval(timer);
+    }
+  }, [fetchAuditRecords, refreshInterval]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -350,10 +377,33 @@ export default function AuditCenter() {
               setPageFrom(0);
             }}
           />
-          <Button variant="outline" onClick={fetchAuditRecords} disabled={loading}>
-            <RefreshCw className={cn('mr-2 h-4 w-4', loading && 'animate-spin')} />
-            {t('auditCenter.refresh')}
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label={t('auditCenter.refresh')}
+                  onClick={() => fetchAuditRecords()}
+                  disabled={loading}
+                >
+                  <RefreshCw className={cn('size-4', loading && 'animate-spin')} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t('auditCenter.refresh')}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <Select
+            value={refreshInterval}
+            onChange={(value) => setRefreshInterval(Number(value || 0))}
+            options={LOG_REFRESH_OPTIONS.map((option) => ({
+              value: option.value,
+              label: t(option.labelKey),
+              prefix: <RefreshCw className="size-4" />,
+            }))}
+            allowClear={false}
+            className="w-32"
+          />
         </div>
       }
     >
@@ -460,14 +510,16 @@ export default function AuditCenter() {
         </div>
 
         <div className="overflow-hidden">
-          <Table>
+          <Table className="w-max min-w-full">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-48">{t('auditCenter.time')}</TableHead>
                 <TableHead className="w-28">{t('auditCenter.category')}</TableHead>
                 <TableHead className="w-44">{t('auditCenter.identity')}</TableHead>
                 <TableHead>{t('auditCenter.endpoint')}</TableHead>
+                <TableHead>{t('auditCenter.apiKeyNameColumn')}</TableHead>
                 <TableHead className="w-44">{t('auditCenter.model')}</TableHead>
+                <TableHead>{t('auditCenter.modelIdColumn')}</TableHead>
                 <TableHead className="w-32">{t('auditCenter.status')}</TableHead>
                 <TableHead className="w-28 text-right">{t('auditCenter.latency')}</TableHead>
               </TableRow>
@@ -475,7 +527,7 @@ export default function AuditCenter() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-20 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="py-20 text-center text-muted-foreground">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       {t('auditCenter.loading')}
@@ -484,7 +536,7 @@ export default function AuditCenter() {
                 </TableRow>
               ) : records.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-20 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="py-20 text-center text-muted-foreground">
                     {t('auditCenter.noRecords')}
                   </TableCell>
                 </TableRow>
@@ -507,7 +559,7 @@ export default function AuditCenter() {
                         )}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="max-w-44">
                       <div className="flex min-w-0 items-center gap-2">
                         {record.auth_type === 'api_key' ? (
                           <KeyRound className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -525,16 +577,26 @@ export default function AuditCenter() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="max-w-0">
-                      <div className="truncate font-mono text-xs">{toDash(record.endpoint)}</div>
-                      <div className="truncate text-xs text-muted-foreground">
+                    <TableCell>
+                      <div className="whitespace-nowrap font-mono text-xs">
+                        {toDash(record.endpoint)}
+                      </div>
+                      <div className="whitespace-nowrap text-xs text-muted-foreground">
                         {toDash(record.node || record.address)}
                       </div>
                     </TableCell>
                     <TableCell>
+                      <div className="whitespace-nowrap text-xs">{record.api_key_name || '-'}</div>
+                    </TableCell>
+                    <TableCell className="max-w-44">
                       <div className="truncate">{record.model_name || record.model_id || '-'}</div>
                       <div className="truncate text-xs text-muted-foreground">
                         {record.model_type || '-'}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="whitespace-nowrap font-mono text-xs">
+                        {record.model_id || '-'}
                       </div>
                     </TableCell>
                     <TableCell>

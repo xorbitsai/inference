@@ -261,6 +261,7 @@ async def get_ui_config(request: Request) -> JSONResponse:
             "grafana_alert_datasource": mon["grafana_alert_datasource"],
             "grafana_dashboard_uid": dashboards.get("overview", "xinference-overview"),
             "grafana_dashboards": dashboards,
+            "grafana_dashboards_configured": store.get_configured_dashboard_keys(),
             "cluster_name": mon["cluster_name"],
             "es_enabled": bool(os.environ.get("XINFERENCE_ES_URL", "")),
             "auth_advanced": os.environ.get("XINFERENCE_AUTH_ADVANCED", "true").lower()
@@ -296,6 +297,7 @@ async def get_monitor_config(request: Request) -> JSONResponse:
             "grafana_alert_datasource": all_cfg["grafana_alert_datasource"],
             "cluster_name": all_cfg["cluster_name"],
             "grafana_dashboards": dashboards,
+            "grafana_dashboards_configured": store.get_configured_dashboard_keys(),
             "sources": sources,
         }
     )

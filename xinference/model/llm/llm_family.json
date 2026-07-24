@@ -30168,7 +30168,8 @@
         "transformers>=5.2.0 ; #engine# == \"Transformers\"",
         "qwen-vl-utils!=0.0.9 ; #engine# == \"Transformers\"",
         "qwen_omni_utils==0.0.9 ; #engine# == \"vllm\"",
-        "vllm>=0.17.0 ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\"",
+        "vllm==0.21.0 ; #engine# == \"vllm\"",
         "transformers==4.57.6 ; #engine# == \"vllm\"",
         "ninja ; #engine# == \"vllm\"",
         "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\""
@@ -30926,6 +30927,7 @@
         "transformers>=5.2.0 ; #engine# == \"Transformers\"",
         "qwen-vl-utils!=0.0.9 ; #engine# == \"Transformers\"",
         "qwen_omni_utils ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\"",
         "vllm==0.21.0 ; #engine# == \"vllm\"",
         "ninja ; #engine# == \"vllm\"",
         "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\""
@@ -32778,7 +32780,8 @@
         "sglang_dependencies ; #engine# == \"sglang\"",
         "transformers>=5.2.0 ; #engine# == \"Transformers\"",
         "qwen_omni_utils ; #engine# == \"vllm\"",
-        "vllm>=0.17.0 ; #engine# == \"vllm\"",
+        "#system_numpy# ; #engine# == \"vllm\"",
+        "vllm==0.21.0 ; #engine# == \"vllm\"",
         "transformers==4.57.6 ; #engine# == \"vllm\"",
         "ninja ; #engine# == \"vllm\"",
         "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\""
