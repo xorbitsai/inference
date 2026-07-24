@@ -291,7 +291,7 @@ export function MonitorConfigDialog({
                 confirmReset ? 'text-destructive' : 'text-orange-600 hover:text-orange-700'
               )}
               onClick={handleReset}
-              disabled={resetting}
+              disabled={loading || resetting}
             >
               {resetting && <Loader2 className="size-3.5 animate-spin" />}
               {t('monitorCenter.config.reset')}
@@ -301,7 +301,7 @@ export function MonitorConfigDialog({
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               {t('monitorCenter.config.cancel')}
             </Button>
-            <Button onClick={handleSave} disabled={saving}>
+            <Button onClick={handleSave} disabled={loading || saving || resetting}>
               {saving && <Loader2 className="size-3.5 animate-spin" />}
               {t('monitorCenter.config.save')}
             </Button>
