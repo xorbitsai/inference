@@ -291,7 +291,7 @@ export function MonitorConfigDialog({
                 confirmReset ? 'text-destructive' : 'text-orange-600 hover:text-orange-700'
               )}
               onClick={handleReset}
-              disabled={loading || resetting}
+              disabled={loading || saving || resetting}
             >
               {resetting && <Loader2 className="size-3.5 animate-spin" />}
               {t('monitorCenter.config.reset')}
