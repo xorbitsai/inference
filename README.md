@@ -155,7 +155,13 @@ For more customized installation methods on K8s, please refer to the [documentat
 
 ### Quick Start
 
-Install Xinference by using pip as follows. (For more options, see [Installation page](https://inference.readthedocs.io/en/latest/getting_started/installation.html).)
+On Linux or macOS, install Xinference with a single command (installs it as an isolated [uv](https://docs.astral.sh/uv/) tool, no system Python changes):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
+```
+
+Or install with pip. (For more options, see [Installation page](https://inference.readthedocs.io/en/latest/getting_started/installation.html).)
 
 ```bash
 pip install "xinference[all]"

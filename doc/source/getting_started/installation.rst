@@ -5,6 +5,34 @@ Installation
 ============
 Xinference can be installed with ``pip`` on Linux, Windows, and macOS. To run models using Xinference, you will need to install the backend corresponding to the type of model you intend to serve.
 
+One-line install (Linux/macOS)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+On Linux or macOS you can install Xinference with a single command::
+
+   curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | sh
+
+This installs Xinference as an isolated `uv <https://docs.astral.sh/uv/>`_ tool, so it does not touch your
+system Python or run into ``externally-managed-environment`` (PEP 668) errors. It installs ``uv`` first if
+it is not already present.
+
+By default it installs only the base package. To include optional backends, or to pin a version, set
+environment variables before running::
+
+   # Install with all backends (large; some extras require Linux + CUDA)
+   curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | XINFERENCE_EXTRAS=all sh
+
+   # Pin a specific version
+   curl -fsSL https://raw.githubusercontent.com/xorbitsai/inference/main/scripts/install.sh | XINFERENCE_VERSION=1.8.1 sh
+
+After installation, start the server with ``xinference-local`` and open the Web UI at ``http://127.0.0.1:9997``.
+
+.. note::
+
+   Windows is not covered by the one-line installer. Install with ``pip`` in a virtualenv instead
+   (see below).
+
+Install with pip
+~~~~~~~~~~~~~~~~~
 If you aim to serve all supported models, you can install all the necessary dependencies with a single command::
 
    pip install "xinference[all]"
