@@ -174,7 +174,23 @@ def create_ocr_model_instance(
         model_path = cache_manager.cache()
 
     if model_engine is None:
-        model_engine = "transformers"
+        from .ocr.ocr_family import OCR_ENGINES
+
+        # Default to transformers, but fall back to the model's sole engine
+        # for models that don't support transformers (e.g. DeepDoc).
+        available_engines = OCR_ENGINES.get(model_spec.model_name, {})
+        if "transformers" in available_engines or not available_engines:
+            model_engine = "transformers"
+        else:
+            model_engine = next(iter(available_engines))
+            if len(available_engines) > 1:
+                logger.warning(
+                    "Multiple engines available for model %s (%s); "
+                    "defaulting to %s. Pass model_engine to choose explicitly.",
+                    model_spec.model_name,
+                    ", ".join(available_engines),
+                    model_engine,
+                )
 
     model_format = getattr(model_spec, "model_format", None)
     quantization = getattr(model_spec, "quantization", None)

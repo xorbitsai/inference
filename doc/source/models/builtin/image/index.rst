@@ -13,6 +13,8 @@ The following is a list of built-in image models in Xinference:
   
    cogview4
   
+   deepdoc
+  
    deepseek-ocr
   
    flux.1-dev
