@@ -24,7 +24,7 @@ from xoscar import MainActorPoolType, create_actor_pool, get_pool_config
 from ...model.core import VirtualEnvSettings
 from ..status_guard import InstanceInfo, LaunchStatus, ReplicaStatus
 from ..supervisor import ReplicaInfo, SupervisorActor
-from ..utils import merge_virtual_env_packages
+from ..utils import build_replica_model_uid, merge_virtual_env_packages
 from ..worker import WorkerActor
 
 
@@ -390,11 +390,13 @@ async def test_worker_report_status_reconnects_and_replays_running_models(
         cuda_devices=[0],
     )
 
+    model_a_replica_uid = build_replica_model_uid("model-a", 0)
+    model_b_replica_uid = build_replica_model_uid("model-b", 1)
     await worker.launch_builtin_model(
-        "model-a-0", "mock_model_name", None, None, None, n_gpu=1
+        model_a_replica_uid, "mock_model_name", None, None, None, n_gpu=1
     )
     await worker.launch_builtin_model(
-        "model-b-1", "mock_model_name", None, None, None, n_gpu=None
+        model_b_replica_uid, "mock_model_name", None, None, None, n_gpu=None
     )
 
     first_supervisor = DummySupervisorRef(fail_report_status_times=1)
@@ -425,7 +427,7 @@ async def test_worker_report_status_reconnects_and_replays_running_models(
             addr,
             [
                 {
-                    "replica_model_uid": "model-a-0",
+                    "replica_model_uid": model_a_replica_uid,
                     "n_worker": 1,
                     "shard": 0,
                     "model_uid": "model-a",
@@ -437,7 +439,7 @@ async def test_worker_report_status_reconnects_and_replays_running_models(
                     "instance_created_ts": 1710000000,
                 },
                 {
-                    "replica_model_uid": "model-b-1",
+                    "replica_model_uid": model_b_replica_uid,
                     "n_worker": 1,
                     "shard": 0,
                     "model_uid": "model-b",
@@ -472,8 +474,9 @@ async def test_worker_report_status_refreshes_supervisor_internal_address_on_rec
         cuda_devices=[0],
     )
 
+    replica_model_uid = build_replica_model_uid("model-a", 0)
     await worker.launch_builtin_model(
-        "model-a-0", "mock_model_name", None, None, None, n_gpu=1
+        replica_model_uid, "mock_model_name", None, None, None, n_gpu=1
     )
 
     refreshed_supervisor = DummySupervisorRef()
@@ -514,7 +517,7 @@ async def test_worker_report_status_refreshes_supervisor_internal_address_on_rec
     assert worker_address == addr
     assert replica_model_uids == []
     assert len(replica_states) == 1
-    assert replica_states[0]["replica_model_uid"] == "model-a-0"
+    assert replica_states[0]["replica_model_uid"] == replica_model_uid
     assert replica_states[0]["n_worker"] == 1
     assert replica_states[0]["shard"] == 0
     assert refreshed_supervisor.report_worker_status_calls == [(addr, {"cpu": "ok"})]
@@ -573,11 +576,12 @@ async def test_worker_report_status_does_not_refresh_address_when_connection_is_
 async def test_supervisor_add_worker_idempotent_rebuilds_replica_state(monkeypatch):
     supervisor = SupervisorActor()
     supervisor._status_guard_ref = DummyStatusGuardRef()
+    replica_uids = [build_replica_model_uid("model-a", i) for i in range(2)]
     worker_ref = DummyReplicaWorkerRef(
         "worker-1",
         models={
-            "model-a-0": {"model_uid": "model-a-0", "address": "worker-1"},
-            "model-a-1": {"model_uid": "model-a-1", "address": "worker-1"},
+            replica_uid: {"model_uid": replica_uid, "address": "worker-1"}
+            for replica_uid in replica_uids
         },
     )
 
@@ -588,8 +592,8 @@ async def test_supervisor_add_worker_idempotent_rebuilds_replica_state(monkeypat
     monkeypatch.setattr(xo, "actor_ref", fake_actor_ref)
 
     replica_states = [
-        {"replica_model_uid": "model-a-0", "n_worker": 1, "shard": 0},
-        {"replica_model_uid": "model-a-1", "n_worker": 1, "shard": 0},
+        {"replica_model_uid": replica_uids[0], "n_worker": 1, "shard": 0},
+        {"replica_model_uid": replica_uids[1], "n_worker": 1, "shard": 0},
         {"replica_model_uid": "model-a-rank0", "n_worker": 1, "shard": 0},
     ]
 
@@ -598,8 +602,8 @@ async def test_supervisor_add_worker_idempotent_rebuilds_replica_state(monkeypat
 
     replica_info = supervisor._model_uid_to_replica_info["model-a"]
     assert replica_info.replica == 2
-    assert supervisor._replica_model_uid_to_worker["model-a-0"] is worker_ref
-    assert supervisor._replica_model_uid_to_worker["model-a-1"] is worker_ref
+    assert supervisor._replica_model_uid_to_worker[replica_uids[0]] is worker_ref
+    assert supervisor._replica_model_uid_to_worker[replica_uids[1]] is worker_ref
     assert "model-a-rank0" not in supervisor._replica_model_uid_to_worker
     assert replica_info.replica_to_worker_refs[0] == [worker_ref]
     assert replica_info.replica_to_worker_refs[1] == [worker_ref]
@@ -640,20 +644,31 @@ async def test_supervisor_report_worker_status_accepts_registered_worker():
 async def test_supervisor_add_worker_preserves_sharded_replicas_on_replay(monkeypatch):
     supervisor = SupervisorActor()
     supervisor._status_guard_ref = DummyStatusGuardRef()
+    replica_model_uid = build_replica_model_uid("model-s", 0)
     shard0 = DummyReplicaWorkerRef(
         "worker-0",
-        models={"model-s-0": {"model_uid": "model-s-0", "address": "worker-0"}},
+        models={
+            replica_model_uid: {
+                "model_uid": replica_model_uid,
+                "address": "worker-0",
+            }
+        },
     )
     shard1 = DummyReplicaWorkerRef(
         "worker-1",
-        models={"model-s-0": {"model_uid": "model-s-0", "address": "worker-1"}},
+        models={
+            replica_model_uid: {
+                "model_uid": replica_model_uid,
+                "address": "worker-1",
+            }
+        },
     )
 
     supervisor._worker_address_to_worker = {
         "worker-0": shard0,
         "worker-1": shard1,
     }
-    supervisor._replica_model_uid_to_worker = {"model-s-0": (shard0, shard1)}
+    supervisor._replica_model_uid_to_worker = {replica_model_uid: (shard0, shard1)}
     supervisor._model_uid_to_replica_info = {
         "model-s": ReplicaInfo(replica=1, scheduler=itertools.cycle(range(1)))
     }
@@ -672,10 +687,12 @@ async def test_supervisor_add_worker_preserves_sharded_replicas_on_replay(monkey
 
     await supervisor.add_worker(
         "worker-1",
-        replica_states=[{"replica_model_uid": "model-s-0", "n_worker": 2, "shard": 1}],
+        replica_states=[
+            {"replica_model_uid": replica_model_uid, "n_worker": 2, "shard": 1}
+        ],
     )
 
-    worker_refs = supervisor._replica_model_uid_to_worker["model-s-0"]
+    worker_refs = supervisor._replica_model_uid_to_worker[replica_model_uid]
     assert isinstance(worker_refs, tuple)
     assert worker_refs == (shard0, shard1)
     assert supervisor._model_uid_to_replica_info["model-s"].replica_to_worker_refs[
@@ -693,13 +710,24 @@ async def test_supervisor_add_worker_preserves_sharded_replicas_on_replay(monkey
 async def test_supervisor_add_worker_rebuilds_sharded_replica_order(monkeypatch):
     supervisor = SupervisorActor()
     supervisor._status_guard_ref = DummyStatusGuardRef()
+    replica_model_uid = build_replica_model_uid("model-s", 0)
     shard0 = DummyReplicaWorkerRef(
         "worker-0",
-        models={"model-s-0": {"model_uid": "model-s-0", "address": "worker-0"}},
+        models={
+            replica_model_uid: {
+                "model_uid": replica_model_uid,
+                "address": "worker-0",
+            }
+        },
     )
     shard1 = DummyReplicaWorkerRef(
         "worker-1",
-        models={"model-s-0": {"model_uid": "model-s-0", "address": "worker-1"}},
+        models={
+            replica_model_uid: {
+                "model_uid": replica_model_uid,
+                "address": "worker-1",
+            }
+        },
     )
 
     async def fake_actor_ref(address, uid):
@@ -713,14 +741,18 @@ async def test_supervisor_add_worker_rebuilds_sharded_replica_order(monkeypatch)
 
     await supervisor.add_worker(
         "worker-1",
-        replica_states=[{"replica_model_uid": "model-s-0", "n_worker": 2, "shard": 1}],
+        replica_states=[
+            {"replica_model_uid": replica_model_uid, "n_worker": 2, "shard": 1}
+        ],
     )
     await supervisor.add_worker(
         "worker-0",
-        replica_states=[{"replica_model_uid": "model-s-0", "n_worker": 2, "shard": 0}],
+        replica_states=[
+            {"replica_model_uid": replica_model_uid, "n_worker": 2, "shard": 0}
+        ],
     )
 
-    worker_refs = supervisor._replica_model_uid_to_worker["model-s-0"]
+    worker_refs = supervisor._replica_model_uid_to_worker[replica_model_uid]
     assert isinstance(worker_refs, tuple)
     assert worker_refs == (shard0, shard1)
     assert supervisor._model_uid_to_replica_info["model-s"].replica_to_worker_refs[
@@ -740,11 +772,12 @@ async def test_supervisor_add_worker_rebuilds_replica_details_after_reconnect(
 ):
     supervisor = SupervisorActor()
     supervisor._status_guard_ref = DummyStatusGuardRef()
+    replica_uids = [build_replica_model_uid("model-a", i) for i in range(2)]
     worker_ref = DummyReplicaWorkerRef(
         "worker-1",
         models={
-            "model-a-0": {"model_uid": "model-a-0", "address": "worker-1"},
-            "model-a-1": {"model_uid": "model-a-1", "address": "worker-1"},
+            replica_uid: {"model_uid": replica_uid, "address": "worker-1"}
+            for replica_uid in replica_uids
         },
     )
 
@@ -756,7 +789,7 @@ async def test_supervisor_add_worker_rebuilds_replica_details_after_reconnect(
 
     replica_states = [
         {
-            "replica_model_uid": "model-a-0",
+            "replica_model_uid": replica_uids[0],
             "n_worker": 1,
             "shard": 0,
             "model_uid": "model-a",
@@ -768,7 +801,7 @@ async def test_supervisor_add_worker_rebuilds_replica_details_after_reconnect(
             "instance_created_ts": 1710000001,
         },
         {
-            "replica_model_uid": "model-a-1",
+            "replica_model_uid": replica_uids[1],
             "n_worker": 1,
             "shard": 0,
             "model_uid": "model-a",
@@ -800,10 +833,7 @@ async def test_supervisor_add_worker_rebuilds_replica_details_after_reconnect(
     )
     assert len(replica_statuses) == 2
     assert [status.replica_id for status in replica_statuses] == [0, 1]
-    assert [status.replica_model_uid for status in replica_statuses] == [
-        "model-a-0",
-        "model-a-1",
-    ]
+    assert [status.replica_model_uid for status in replica_statuses] == replica_uids
     assert [status.worker_address for status in replica_statuses] == [
         "worker-1",
         "worker-1",
@@ -1654,19 +1684,20 @@ async def test_mark_replica_dead_last_replica_terminates_rank0():
     replica_info.active_replica_ids.append(0)
     replica_info.replica_to_worker_refs[0].append(replica_ref)
     supervisor._model_uid_to_replica_info = {"model-x": replica_info}
+    replica_model_uid = build_replica_model_uid("model-x", 0)
     supervisor._replica_model_uid_to_worker = {
-        "model-x-0": replica_ref,
+        replica_model_uid: replica_ref,
         "model-x-rank0": rank0_ref,
     }
 
-    await supervisor.mark_replica_dead("model-x-0")
+    await supervisor.mark_replica_dead(replica_model_uid)
 
     # rank0 terminated on the worker and supervisor mapping dropped.
     assert rank0_ref.terminated == ["model-x-rank0"]
     assert "model-x-rank0" not in supervisor._replica_model_uid_to_worker
     # Dead replica evicted and model taken offline.
     assert "model-x" not in supervisor._model_uid_to_replica_info
-    assert "model-x-0" not in supervisor._replica_model_uid_to_worker
+    assert replica_model_uid not in supervisor._replica_model_uid_to_worker
     # Failure gauge marker stays lit (mark_replica_dead must not clear it).
     assert ("model-x", 0) in supervisor._unexpected_down_replicas
 
@@ -1974,9 +2005,7 @@ async def test_try_recover_models_marks_ready_via_wait_for_load(monkeypatch):
     import xinference.core.worker as worker_module
 
     monkeypatch.setattr(worker_module, "_strip_test_envs", lambda args: (args, set()))
-    monkeypatch.setattr(
-        worker_module, "parse_replica_model_uid", lambda uid: ("test-model", 0)
-    )
+    replica_model_uid = build_replica_model_uid("test-model", 0)
 
     class _SupervisorRef:
         async def describe_model(self, origin_uid):
@@ -1990,8 +2019,8 @@ async def test_try_recover_models_marks_ready_via_wait_for_load(monkeypatch):
 
         def _load_persisted_launch_args(self):
             return {
-                "test-model-0": {
-                    "model_uid": "test-model-0",
+                replica_model_uid: {
+                    "model_uid": replica_model_uid,
                     "model_name": "test-model",
                 }
             }
@@ -2010,4 +2039,57 @@ async def test_try_recover_models_marks_ready_via_wait_for_load(monkeypatch):
     await WorkerActor._try_recover_models(worker)
 
     assert worker.launch_called
-    assert worker.wait_for_load_called_with == "test-model-0"
+    assert worker.wait_for_load_called_with == replica_model_uid
+
+
+@pytest.mark.asyncio
+async def test_try_recover_models_migrates_legacy_replica_uid(monkeypatch):
+    import xinference.core.worker as worker_module
+
+    monkeypatch.setattr(worker_module, "_strip_test_envs", lambda args: (args, set()))
+    legacy_replica_uid = "test-model-0"
+    replica_model_uid = build_replica_model_uid("test-model", 0)
+
+    class _SupervisorRef:
+        def __init__(self):
+            self.describe_model_calls = []
+
+        async def describe_model(self, model_uid):
+            self.describe_model_calls.append(model_uid)
+            if model_uid == "test-model":
+                return {"some": "info"}
+            return None
+
+    class _MockWorker:
+        def __init__(self):
+            self._supervisor_ref = _SupervisorRef()
+            self.launch_model_uid = None
+            self.wait_for_load_called_with = None
+
+        def _load_persisted_launch_args(self):
+            return {
+                legacy_replica_uid: {
+                    "model_uid": legacy_replica_uid,
+                    "model_name": "test-model",
+                }
+            }
+
+        async def launch_builtin_model(self, **kwargs):
+            self.launch_model_uid = kwargs["model_uid"]
+            return "mock-subpool-address"
+
+        async def wait_for_load(self, model_uid):
+            self.wait_for_load_called_with = model_uid
+
+        def _persist_launch_args(self):
+            pass
+
+    worker = _MockWorker()
+    await WorkerActor._try_recover_models(worker)
+
+    assert worker._supervisor_ref.describe_model_calls == [
+        legacy_replica_uid,
+        "test-model",
+    ]
+    assert worker.launch_model_uid == replica_model_uid
+    assert worker.wait_for_load_called_with == replica_model_uid
