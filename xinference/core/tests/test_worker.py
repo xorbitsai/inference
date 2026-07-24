@@ -25,7 +25,7 @@ from ...model.core import VirtualEnvSettings
 from ..status_guard import InstanceInfo, LaunchStatus, ReplicaStatus
 from ..supervisor import ReplicaInfo, SupervisorActor
 from ..utils import merge_virtual_env_packages
-from ..worker import WorkerActor
+from ..worker import ModelStatus, WorkerActor
 
 
 class MockWorkerActor(WorkerActor):
@@ -121,6 +121,7 @@ class MockWorkerActor(WorkerActor):
             **kwargs,
         }
         self._model_uid_to_addr[model_uid] = subpool_address
+        self._model_uid_to_model_status[model_uid] = ModelStatus(model_state="loading")
 
     async def terminate_model(self, model_uid: str, is_model_die: bool = False):
         self.release_devices(model_uid)
@@ -132,6 +133,22 @@ class MockWorkerActor(WorkerActor):
         self._model_uid_to_launch_args.pop(model_uid, None)
         del self._model_uid_to_addr[model_uid]
 
+    # --- test helpers for failed-launch cleanup ---
+    def set_model_ref_for_test(self, model_uid: str, model_ref):
+        self._model_uid_to_model[model_uid] = model_ref
+
+    def get_launch_state_presence_for_test(self, model_uid: str):
+        return {
+            "model": model_uid in self._model_uid_to_model,
+            "model_spec": model_uid in self._model_uid_to_model_spec,
+            "launch_args": model_uid in self._model_uid_to_launch_args,
+            "addr": model_uid in self._model_uid_to_addr,
+            "model_status": model_uid in self._model_uid_to_model_status,
+        }
+
+    def set_status_guard_ref_for_test(self, ref):
+        self._status_guard_ref = ref
+
     # --- test helpers for report_status GPU attribution ---
     def set_supervisor_ref_for_test(self, ref):
         self._supervisor_ref = ref
@@ -141,6 +158,13 @@ class MockWorkerActor(WorkerActor):
         self._model_uid_to_pid = dict(pid)
         self._model_uid_to_subpool_pids = {k: set(v) for k, v in subpool.items()}
         self._total_gpu_devices = list(total_devices)
+
+
+class MockWorkerActorRealTerminate(MockWorkerActor):
+    """Variant that keeps the real ``WorkerActor.terminate_model`` so tests
+    cover the actual cleanup path instead of the simplified override above."""
+
+    terminate_model = WorkerActor.terminate_model
 
 
 @pytest_asyncio.fixture
@@ -228,6 +252,120 @@ async def test_terminate_model_flag(setup_pool):
     gpu_to_model_id = await worker.get_gpu_to_model_uid()
     for dev in devices:
         assert dev not in gpu_to_model_id
+
+
+class _FailingLoadModelRef:
+    """Model ref whose engine loads asynchronously and fails, mirroring a
+    vLLM EngineCore init crash that only surfaces in wait_for_load."""
+
+    async def wait_for_load(self):
+        raise RuntimeError("EngineCore init failed")
+
+
+@pytest.mark.asyncio
+async def test_wait_for_load_failure_cleans_up_worker_state(setup_pool):
+    """A launch that fails after launch_builtin_model registered the model_uid
+    (e.g. the vLLM engine crashes during async load, surfacing in
+    wait_for_load) must roll back the worker state, otherwise relaunching the
+    same model_uid hits `assert model_uid not in self._model_uid_to_model`
+    until the whole service is restarted."""
+    pool = setup_pool
+    addr = pool.external_address
+
+    worker: xo.ActorRefType["MockWorkerActor"] = await xo.create_actor(  # type: ignore
+        MockWorkerActor,
+        address=addr,
+        uid=WorkerActor.default_uid(),
+        supervisor_address="test",
+        main_pool=pool,
+        cuda_devices=[0],
+    )
+
+    model_uid = "async_load_model-0"
+    await worker.launch_builtin_model(
+        model_uid, "mock_model_name", None, None, None, n_gpu=1
+    )
+    await worker.set_model_ref_for_test(model_uid, _FailingLoadModelRef())
+
+    with pytest.raises(RuntimeError, match="EngineCore init failed"):
+        await worker.wait_for_load(model_uid)
+
+    # all registration state must be rolled back
+    presence = await worker.get_launch_state_presence_for_test(model_uid)
+    assert not any(presence.values()), presence
+    gpu_to_model_uid = await worker.get_gpu_to_model_uid()
+    for model_uids in gpu_to_model_uid.values():
+        assert model_uid not in model_uids
+
+    # the same model_uid can be relaunched immediately
+    await worker.launch_builtin_model(
+        model_uid, "mock_model_name", None, None, None, n_gpu=1
+    )
+    presence = await worker.get_launch_state_presence_for_test(model_uid)
+    assert presence["model"] and presence["addr"]
+    await worker.terminate_model(model_uid)
+
+
+class _UnavailableStatusGuardRef:
+    """StatusGuard stub whose reporting calls always fail, simulating a
+    status guard that became unreachable (e.g. supervisor outage)."""
+
+    async def update_instance_info(self, *args, **kwargs):
+        raise RuntimeError("status guard unavailable")
+
+    async def update_replica_status(self, *args, **kwargs):
+        raise RuntimeError("status guard unavailable")
+
+
+@pytest.mark.asyncio
+async def test_failed_launch_cleanup_survives_status_guard_outage(setup_pool):
+    """The failed-launch rollback goes through the real terminate_model,
+    whose status reporting must not block the local map/resource cleanup —
+    e.g. when the launch finalization failed precisely because the status
+    guard was unreachable. Uses the real WorkerActor.terminate_model so the
+    unprotected update_instance_info path is actually exercised."""
+    pool = setup_pool
+    addr = pool.external_address
+
+    worker: xo.ActorRefType["MockWorkerActorRealTerminate"] = await xo.create_actor(  # type: ignore
+        MockWorkerActorRealTerminate,
+        address=addr,
+        uid=WorkerActor.default_uid(),
+        supervisor_address="test",
+        main_pool=pool,
+        cuda_devices=[0],
+    )
+
+    model_uid = "async_load_model-0"
+    await worker.launch_builtin_model(
+        model_uid, "mock_model_name", None, None, None, n_gpu=1
+    )
+    await worker.set_model_ref_for_test(model_uid, _FailingLoadModelRef())
+    await worker.set_status_guard_ref_for_test(_UnavailableStatusGuardRef())
+
+    with pytest.raises(RuntimeError, match="EngineCore init failed"):
+        await worker.wait_for_load(model_uid)
+
+    # local maps and GPU allocations must be rolled back even though every
+    # status guard call raised
+    presence = await worker.get_launch_state_presence_for_test(model_uid)
+    assert not any(presence.values()), presence
+    gpu_to_model_uid = await worker.get_gpu_to_model_uid()
+    for model_uids in gpu_to_model_uid.values():
+        assert model_uid not in model_uids
+
+    # the same model_uid can be relaunched immediately
+    await worker.launch_builtin_model(
+        model_uid, "mock_model_name", None, None, None, n_gpu=1
+    )
+    presence = await worker.get_launch_state_presence_for_test(model_uid)
+    assert presence["model"] and presence["addr"]
+
+    # a normal terminate with the status guard still down must also clean up
+    # local state without raising
+    await worker.terminate_model(model_uid)
+    presence = await worker.get_launch_state_presence_for_test(model_uid)
+    assert not any(presence.values()), presence
 
 
 def test_merge_virtual_env_packages_override_and_append():
