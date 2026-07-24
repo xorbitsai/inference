@@ -15,6 +15,7 @@
 import logging
 import platform
 import sys
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union
 
 import PIL.Image
@@ -51,6 +52,50 @@ class MLXDeepSeekOCRModel(DeepSeekOCRModel):
         if sys.platform != "darwin" or platform.processor() != "arm":
             return False, "MLX engine is only supported on Apple silicon Macs."
         return super().check_lib()
+
+    @staticmethod
+    def _reset_mlx_vlm_generation_stream():
+        try:
+            import importlib
+
+            import mlx.core as mx
+
+            device = mx.default_device()
+            if hasattr(mx, "new_thread_local_stream"):
+                stream = mx.new_thread_local_stream(device)
+            else:
+                stream = mx.new_stream(device)
+            mlx_vlm_generate = importlib.import_module("mlx_vlm.generate")
+            setattr(mlx_vlm_generate, "generation_stream", stream)
+            return stream
+        except Exception:
+            logger.debug("Failed to reset mlx-vlm generation stream", exc_info=True)
+            return None
+
+    @staticmethod
+    @contextmanager
+    def _mlx_stream_context(stream):
+        import mlx.core as mx
+
+        original_eval = mx.eval
+        original_async_eval = mx.async_eval
+
+        def _eval_on_stream(*args, **kwargs):
+            with mx.stream(stream):
+                return original_eval(*args, **kwargs)
+
+        def _async_eval_on_stream(*args, **kwargs):
+            with mx.stream(stream):
+                return original_async_eval(*args, **kwargs)
+
+        mx.eval = _eval_on_stream
+        mx.async_eval = _async_eval_on_stream
+        try:
+            with mx.stream(stream):
+                yield
+        finally:
+            mx.eval = original_eval
+            mx.async_eval = original_async_eval
 
     def load(self):
         if sys.platform != "darwin" or platform.processor() != "arm":
@@ -319,14 +364,27 @@ class MLXDeepSeekOCRModel(DeepSeekOCRModel):
         tokenizer = processor.tokenizer
         detokenizer.reset()
         text_parts = []
+        stream = self._reset_mlx_vlm_generation_stream()
 
-        for token, _ in generate_step(
-            input_ids, self._model, pixel_values, mask, **gen_kwargs
-        ):
-            if token == tokenizer.eos_token_id or token in stop_token_ids:
-                break
-            detokenizer.add_token(token)
-            text_parts.append(detokenizer.last_segment)
+        if stream is None:
+            token_iter = generate_step(
+                input_ids, self._model, pixel_values, mask, **gen_kwargs
+            )
+            for token, _ in token_iter:
+                if token == tokenizer.eos_token_id or token in stop_token_ids:
+                    break
+                detokenizer.add_token(token)
+                text_parts.append(detokenizer.last_segment)
+        else:
+            with self._mlx_stream_context(stream):
+                token_iter = generate_step(
+                    input_ids, self._model, pixel_values, mask, **gen_kwargs
+                )
+                for token, _ in token_iter:
+                    if token == tokenizer.eos_token_id or token in stop_token_ids:
+                        break
+                    detokenizer.add_token(token)
+                    text_parts.append(detokenizer.last_segment)
         detokenizer.finalize()
         text_parts.append(detokenizer.last_segment)
         return "".join(text_parts)

@@ -21,6 +21,7 @@ import threading
 import pytest
 
 from .....client import Client
+from ..core import MLXVisionModel
 
 
 class InferenceThread(threading.Thread):
@@ -64,6 +65,23 @@ class InferenceThread(threading.Thread):
         if self._ex is not None:
             raise self._ex
         return self._result
+
+
+def test_mlx_vision_text_only_prompt_detection():
+    assert MLXVisionModel._is_text_only_prompt("hello")
+    assert MLXVisionModel._is_text_only_prompt({"prompt": "hello"})
+    assert MLXVisionModel._is_text_only_prompt(
+        {"prompt": "hello", "multi_modal_data": {}}
+    )
+    assert not MLXVisionModel._is_text_only_prompt(
+        {"prompt": "hello", "multi_modal_data": {"image": "image"}}
+    )
+    assert not MLXVisionModel._is_text_only_prompt(
+        {"prompt": "hello", "multi_modal_data": {"video": "video"}}
+    )
+    assert not MLXVisionModel._is_text_only_prompt(
+        {"prompt": "hello", "multi_modal_data": {"audio": "audio"}}
+    )
 
 
 @pytest.mark.skipif(
@@ -140,10 +158,68 @@ def test_load_mlx_vision(setup):
 
     # test no image
     messages = [{"role": "user", "content": "write a poem."}]
-    completion = model.chat(messages)
+    completion = model.chat(messages, generate_config={"max_tokens": 32})
     assert "content" in completion["choices"][0]["message"]
     assert "content" in completion["choices"][0]["message"]
     assert len(completion["choices"][0]["message"]["content"]) != 0
+
+
+@pytest.mark.skipif(
+    sys.platform != "darwin" or platform.processor() != "arm",
+    reason="MLX only works for Apple silicon chip",
+)
+def test_mlx_vision_text_only_parallel_inference(setup):
+    """Test MLX VLM text-only requests can use continuous batching."""
+    endpoint, _ = setup
+    client = Client(endpoint)
+
+    model_uid = client.launch_model(
+        model_name="qwen2-vl-instruct",
+        model_engine="MLX",
+        model_size_in_billions=2,
+        model_format="mlx",
+        quantization="4bit",
+    )
+    assert len(client.list_models()) == 1
+    model = client.get_model(model_uid)
+
+    thread1 = InferenceThread(
+        "write a poem.", {"stream": True, "max_tokens": 32}, model
+    )
+    thread2 = InferenceThread(
+        "中国的首都是哪里？", {"stream": False, "max_tokens": 32}, model
+    )
+    thread3 = InferenceThread(
+        "介绍一下Python。", {"stream": True, "max_tokens": 32}, model
+    )
+
+    thread1.start()
+    thread2.start()
+    thread3.start()
+
+    result1 = thread1.join()
+    result2 = thread2.join()
+    result3 = thread3.join()
+
+    assert result1 is not None
+    assert result2 is not None
+    assert result3 is not None
+
+    assert "choices" in result1
+    assert len(result1["choices"]) > 0
+    assert "delta" in result1["choices"][0]
+    assert result1["choices"][0]["finish_reason"] in ["stop", "length"]
+
+    assert "choices" in result2
+    assert len(result2["choices"]) > 0
+    assert "message" in result2["choices"][0]
+    assert "content" in result2["choices"][0]["message"]
+    assert len(result2["choices"][0]["message"]["content"]) > 0
+
+    assert "choices" in result3
+    assert len(result3["choices"]) > 0
+    assert "delta" in result3["choices"][0]
+    assert result3["choices"][0]["finish_reason"] in ["stop", "length"]
 
 
 @pytest.mark.skipif(
@@ -166,9 +242,13 @@ def test_mlx_parallel_inference(setup):
     model = client.get_model(model_uid)
 
     # Test parallel streaming and non-streaming requests
-    thread1 = InferenceThread("1+1等于几？", {"stream": True}, model)
-    thread2 = InferenceThread("中国的首都是哪里？", {"stream": False}, model)
-    thread3 = InferenceThread("介绍一下Python。", {"stream": True}, model)
+    thread1 = InferenceThread("1+1等于几？", {"stream": True, "max_tokens": 32}, model)
+    thread2 = InferenceThread(
+        "中国的首都是哪里？", {"stream": False, "max_tokens": 32}, model
+    )
+    thread3 = InferenceThread(
+        "介绍一下Python。", {"stream": True, "max_tokens": 32}, model
+    )
 
     # Start all threads
     thread1.start()
