@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import (
     Any,
     AsyncGenerator,
+    Callable,
     Dict,
     Iterator,
     List,
@@ -62,6 +63,36 @@ from ..utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+_mlx_vlm_stream_lock = threading.Lock()
+_mlx_executor_lock = threading.Lock()
+
+
+def _ensure_mlx_vlm_thread_local_stream() -> Any:
+    """Use an MLX generation stream that is safe across worker threads."""
+    import mlx.core as mx
+
+    mlx_vlm_generate = importlib.import_module("mlx_vlm.generate")
+    thread_local_stream_type = getattr(mx, "ThreadLocalStream", None)
+    new_thread_local_stream = getattr(mx, "new_thread_local_stream", None)
+    if thread_local_stream_type is None or new_thread_local_stream is None:
+        return mlx_vlm_generate
+
+    generation_stream = getattr(mlx_vlm_generate, "generation_stream", None)
+    if not isinstance(generation_stream, thread_local_stream_type):
+        with _mlx_vlm_stream_lock:
+            generation_stream = getattr(mlx_vlm_generate, "generation_stream", None)
+            if not isinstance(generation_stream, thread_local_stream_type):
+                setattr(
+                    mlx_vlm_generate,
+                    "generation_stream",
+                    new_thread_local_stream(mx.default_device()),
+                )
+                logger.debug(
+                    "Replaced mlx-vlm generation stream with a thread-local stream"
+                )
+
+    return mlx_vlm_generate
 
 
 class MLXBatchModel:
@@ -1301,6 +1332,64 @@ class MLXChatModel(MLXModel, ChatModelMixin):
 class MLXVisionModel(MLXModel, ChatModelMixin):
     allow_batch: bool = False
 
+    def __init__(
+        self,
+        model_uid: str,
+        model_family: "LLMFamilyV2",
+        model_path: str,
+        model_config: Optional[MLXModelConfig] = None,
+        peft_model: Optional[List[LoRA]] = None,
+    ):
+        super().__init__(
+            model_uid,
+            model_family,
+            model_path,
+            model_config,
+            peft_model,
+        )
+        self._mlx_executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
+
+    def _run_on_mlx_thread(
+        self, fn: Callable[..., Any], *args: Any, **kwargs: Any
+    ) -> Any:
+        executor = self._mlx_executor
+        if executor is None:
+            with _mlx_executor_lock:
+                if self._mlx_executor is None:
+                    self._mlx_executor = concurrent.futures.ThreadPoolExecutor(
+                        max_workers=1,
+                        thread_name_prefix=f"mlx-{self.model_uid}",
+                    )
+                executor = self._mlx_executor
+        return executor.submit(fn, *args, **kwargs).result()
+
+    def stop(self):
+        with _mlx_executor_lock:
+            executor = self._mlx_executor
+            self._mlx_executor = None
+        if executor is not None:
+            executor.shutdown(wait=False)
+
+    def _iterate_on_mlx_thread(
+        self, iterator: Iterator[CompletionChunk]
+    ) -> Iterator[CompletionChunk]:
+        def _next_or_done():
+            try:
+                return True, next(iterator)
+            except StopIteration:
+                return False, None
+
+        try:
+            while True:
+                has_item, item = self._run_on_mlx_thread(_next_or_done)
+                if not has_item:
+                    break
+                yield item
+        finally:
+            close = getattr(iterator, "close", None)
+            if close is not None:
+                self._run_on_mlx_thread(close)
+
     @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
         dep_check = check_dependency_available("mlx_vlm", "mlx_vlm")
@@ -1336,6 +1425,22 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         return generate_config
 
     def generate(
+        self,
+        prompt: Union[str, Dict[str, Any]],
+        generate_config: Optional[MLXGenerateConfig] = None,
+        from_chat: bool = False,
+    ) -> Union[Completion, Iterator[CompletionChunk]]:
+        stream = bool(generate_config and generate_config.get("stream", False))
+        result = self._run_on_mlx_thread(
+            self._generate, prompt, generate_config, from_chat
+        )
+        if stream:
+            assert isinstance(result, Iterator)
+            return self._iterate_on_mlx_thread(result)
+        assert not isinstance(result, Iterator)
+        return result
+
+    def _generate(
         self,
         prompt: Union[str, Dict[str, Any]],
         generate_config: Optional[MLXGenerateConfig] = None,
@@ -1416,6 +1521,9 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         return load(self.model_path)
 
     def load(self):
+        self._run_on_mlx_thread(self._load)
+
+    def _load(self):
         from mlx_lm.utils import load_config
 
         if self._n_worker > 1:
@@ -1453,7 +1561,8 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         except ImportError:
             # for mlx-lm >= 0.22.3
             from mlx_lm.generate import GenerationResponse
-        from mlx_vlm.generate import generate_step
+        mlx_vlm_generate = _ensure_mlx_vlm_thread_local_stream()
+        generate_step = mlx_vlm_generate.generate_step
 
         inputs = kwargs.pop("prompt_token_ids")
         stop_token_ids = kwargs.pop("stop_token_ids", [])
