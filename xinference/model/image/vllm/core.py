@@ -136,6 +136,9 @@ class VLLMDiffusionModel:
         # needed for concurrent dispatch are unavailable
         self._generate_lock = threading.Lock()
         self._closed = False
+        # set on fatal engine errors; subsequent requests fail immediately
+        # with this as the cause instead of hanging on a dead backend
+        self._fatal_error: Optional[BaseException] = None
 
     def __getstate__(self):
         # the instance is pickled when handed to the model actor subprocess
@@ -211,6 +214,43 @@ class VLLMDiffusionModel:
             if not waiter.future.done():
                 waiter.future.set_exception(error)
 
+    def _fail_and_close(self, error: BaseException) -> None:
+        """Terminal transition for fatal engine errors.
+
+        Atomically marks the model closed and drains the waiters, so both
+        in-flight and subsequent requests fail immediately instead of being
+        submitted to a dead backend, then shuts the engine down.
+        """
+        with self._submit_lock:
+            self._closed = True
+            if self._fatal_error is None:
+                self._fatal_error = error
+            self._dispatcher_thread = None
+            waiters = list(self._waiters.values())
+            self._waiters.clear()
+            model, self._model = self._model, None
+        for waiter in waiters:
+            if not waiter.future.done():
+                waiter.future.set_exception(error)
+        if model is not None:
+            try:
+                model.close()
+            except Exception:
+                logger.warning(
+                    "Failed to shutdown vLLM-Omni diffusion model after a "
+                    "fatal error",
+                    exc_info=True,
+                )
+
+    def _raise_if_unavailable(self) -> None:
+        if self._fatal_error is not None:
+            raise RuntimeError(
+                "vLLM-Omni engine is unavailable after a fatal error: "
+                f"{self._fatal_error}"
+            ) from self._fatal_error
+        if self._closed:
+            raise RuntimeError("model is stopped")
+
     def _ensure_dispatcher(self) -> None:
         # caller must hold _submit_lock
         if self._dispatcher_thread is None or not self._dispatcher_thread.is_alive():
@@ -241,13 +281,11 @@ class VLLMDiffusionModel:
             except Exception as e:
                 logger.error(
                     "vLLM-Omni engine output loop failed, failing %d in-flight "
-                    "request(s)",
+                    "request(s) and closing the model",
                     len(self._waiters),
                     exc_info=True,
                 )
-                with self._submit_lock:
-                    self._dispatcher_thread = None
-                self._fail_all_waiters(e)
+                self._fail_and_close(e)
                 return
             if msg is None:
                 continue
@@ -259,7 +297,14 @@ class VLLMDiffusionModel:
         if isinstance(msg, ErrorMessage):
             error = RuntimeError(f"vLLM-Omni engine error: {msg.error}")
             request_id = getattr(msg, "request_id", None)
-            if getattr(msg, "fatal", False) or request_id is None:
+            if getattr(msg, "fatal", False):
+                # the backend is unusable; fail in-flight requests and refuse
+                # subsequent ones instead of letting them hang
+                self._fail_and_close(error)
+                return
+            if request_id is None:
+                # unroutable error: fail everyone in flight, but the engine
+                # itself may still be usable
                 self._fail_all_waiters(error)
                 return
             with self._submit_lock:
@@ -332,8 +377,7 @@ class VLLMDiffusionModel:
         request_id = f"xinf-{uuid.uuid4()}"
         waiter = _RequestWaiter()
         with self._submit_lock:
-            if self._closed:
-                raise RuntimeError("model is stopped")
+            self._raise_if_unavailable()
             self._waiters[request_id] = waiter
             self._ensure_dispatcher()
         try:
@@ -456,6 +500,7 @@ class VLLMDiffusionModel:
         response_format: str = "url",
         **kwargs,
     ):
+        self._raise_if_unavailable()
         assert self._model is not None
         width, height = map(int, re.split(r"[^\d]+", size))
         generate_config: Dict[str, Any] = (

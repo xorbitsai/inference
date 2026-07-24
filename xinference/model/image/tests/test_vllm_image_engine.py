@@ -398,6 +398,52 @@ async def test_fatal_engine_error_fails_all_requests(fake_vllm_omni_messages):
 
 
 @pytest.mark.asyncio
+async def test_fatal_engine_error_closes_model(fake_vllm_omni_messages):
+    class _ClosableOmni(_FakeOmni):
+        def __init__(self):
+            super().__init__()
+            self.closed = False
+
+        def close(self):
+            self.closed = True
+
+    model = VLLMDiffusionModel("uid", "/path", model_spec=_get_spec("Z-Image"))
+    omni = model._model = _ClosableOmni()
+    engine = omni.engine
+
+    task = asyncio.create_task(model._submit_and_wait("p", object()))
+    await _wait_for_requests(engine, 1)
+    engine.output_queue.put(_FakeErrorMessage(error="engine died", fatal=True))
+    with pytest.raises(RuntimeError, match="engine died"):
+        await asyncio.wait_for(task, timeout=5.0)
+
+    # the model is in a terminal state: the dead engine has been shut down
+    # and subsequent requests fail immediately instead of hanging
+    assert omni.closed is True
+    assert model._model is None
+    with pytest.raises(RuntimeError, match="fatal error"):
+        await asyncio.wait_for(model._submit_and_wait("p2", object()), timeout=5.0)
+    with pytest.raises(RuntimeError, match="fatal error"):
+        await model.text_to_image("prompt")
+    assert not engine.requests[1:]
+
+
+@pytest.mark.asyncio
+async def test_dispatcher_failure_closes_model(fake_vllm_omni_messages):
+    model, engine = _make_concurrent_model()
+
+    def _broken_try_get_output(timeout=0.5):
+        raise RuntimeError("output queue broken")
+
+    engine.try_get_output = _broken_try_get_output
+    task = asyncio.create_task(model._submit_and_wait("p", object()))
+    with pytest.raises(RuntimeError, match="output queue broken"):
+        await asyncio.wait_for(task, timeout=5.0)
+    with pytest.raises(RuntimeError, match="fatal error"):
+        await asyncio.wait_for(model._submit_and_wait("p2", object()), timeout=5.0)
+
+
+@pytest.mark.asyncio
 async def test_serial_fallback_without_engine_internals(
     fake_vllm_omni_sampling_params,
 ):
