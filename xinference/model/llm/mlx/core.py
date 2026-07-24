@@ -1363,6 +1363,13 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
                 executor = self._mlx_executor
         return executor.submit(fn, *args, **kwargs).result()
 
+    def stop(self):
+        with _mlx_executor_lock:
+            executor = self._mlx_executor
+            self._mlx_executor = None
+        if executor is not None:
+            executor.shutdown(wait=False)
+
     def _iterate_on_mlx_thread(
         self, iterator: Iterator[CompletionChunk]
     ) -> Iterator[CompletionChunk]:

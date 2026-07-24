@@ -25,6 +25,29 @@ import pytest
 from .....client import Client
 
 
+def test_mlx_vision_model_stop_shuts_down_executor():
+    from ..core import MLXVisionModel
+
+    model = object.__new__(MLXVisionModel)
+    model.model_uid = "shutdown-test"
+    model._mlx_executor = None
+
+    worker_name = model._run_on_mlx_thread(lambda: threading.current_thread().name)
+    executor = model._mlx_executor
+
+    assert worker_name.startswith("mlx-shutdown-test")
+    assert executor is not None
+
+    model.stop()
+
+    assert model._mlx_executor is None
+    with pytest.raises(RuntimeError, match="cannot schedule new futures"):
+        executor.submit(lambda: None)
+
+    # Teardown can safely be retried if initialization only partially completed.
+    model.stop()
+
+
 @pytest.mark.skipif(
     sys.platform != "darwin" or platform.processor() != "arm",
     reason="MLX only works for Apple silicon chip",
