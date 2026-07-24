@@ -30191,7 +30191,7 @@
     ],
     "tool_parser": "qwen",
     "featured": true,
-    "updated_at": 1784394366
+    "updated_at": 1784910125
   },
   {
     "model_name": "gemma-4",
@@ -30949,7 +30949,7 @@
     ],
     "tool_parser": "qwen",
     "featured": false,
-    "updated_at": 1784394366
+    "updated_at": 1784910126
   },
   {
     "model_name": "MiniMax-M2.7",
@@ -32803,6 +32803,6 @@
     ],
     "tool_parser": "qwen",
     "featured": false,
-    "updated_at": 1782994798
+    "updated_at": 1784910126
   }
 ]
