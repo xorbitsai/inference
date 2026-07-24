@@ -41,16 +41,38 @@ def setup_cluster():
         raise RuntimeError("Supervisor is not available after multiple attempts")
 
     try:
-        port = xo.utils.get_next_port()
-        restful_api_proc = restful_api_run_in_subprocess(
-            supervisor_address,
-            host="localhost",
-            port=port,
-            logging_conf=TEST_FILE_LOGGING_CONF,
-        )
-        endpoint = f"http://localhost:{port}"
-        if not api_health_check(endpoint, max_attempts=10, sleep_interval=5):
+        # get_next_port() probes a free port and releases it, so another
+        # process can grab it before uvicorn binds; the API subprocess then
+        # dies at startup and the endpoint stays connection-refused for the
+        # whole health-check window (seen on windows CI runners). When the
+        # subprocess is found dead, respawn it on a fresh port instead of
+        # failing the fixture.
+        for spawn_attempt in range(3):
+            port = xo.utils.get_next_port()
+            restful_api_proc = restful_api_run_in_subprocess(
+                supervisor_address,
+                host="localhost",
+                port=port,
+                logging_conf=TEST_FILE_LOGGING_CONF,
+            )
+            endpoint = f"http://localhost:{port}"
+            if api_health_check(endpoint, max_attempts=10, sleep_interval=5):
+                break
+            if restful_api_proc.exitcode is not None:
+                print(
+                    f"RESTful API subprocess exited with code "
+                    f"{restful_api_proc.exitcode} before becoming healthy, "
+                    f"respawning on a new port "
+                    f"(attempt {spawn_attempt + 1}/3)"
+                )
+                continue
+            restful_api_proc.kill()
             raise RuntimeError("Endpoint is not available after multiple attempts")
+        else:
+            raise RuntimeError(
+                "RESTful API subprocess kept dying on startup, last exit code: "
+                f"{restful_api_proc.exitcode}"
+            )
 
         yield f"http://localhost:{port}", f"http://localhost:{metrics_port}/metrics", supervisor_address
         restful_api_proc.kill()
