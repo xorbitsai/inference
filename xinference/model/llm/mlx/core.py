@@ -64,6 +64,9 @@ from ..utils import (
 
 logger = logging.getLogger(__name__)
 
+_mlx_vlm_stream_lock = threading.Lock()
+_mlx_executor_lock = threading.Lock()
+
 
 def _ensure_mlx_vlm_thread_local_stream() -> Any:
     """Use an MLX generation stream that is safe across worker threads."""
@@ -77,12 +80,17 @@ def _ensure_mlx_vlm_thread_local_stream() -> Any:
 
     generation_stream = getattr(mlx_vlm_generate, "generation_stream", None)
     if not isinstance(generation_stream, thread_local_stream_type):
-        setattr(
-            mlx_vlm_generate,
-            "generation_stream",
-            new_thread_local_stream(mx.default_device()),
-        )
-        logger.debug("Replaced mlx-vlm generation stream with a thread-local stream")
+        with _mlx_vlm_stream_lock:
+            generation_stream = getattr(mlx_vlm_generate, "generation_stream", None)
+            if not isinstance(generation_stream, thread_local_stream_type):
+                setattr(
+                    mlx_vlm_generate,
+                    "generation_stream",
+                    new_thread_local_stream(mx.default_device()),
+                )
+                logger.debug(
+                    "Replaced mlx-vlm generation stream with a thread-local stream"
+                )
 
     return mlx_vlm_generate
 
@@ -1344,9 +1352,16 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
     def _run_on_mlx_thread(
         self, fn: Callable[..., Any], *args: Any, **kwargs: Any
     ) -> Any:
-        if self._mlx_executor is None:
-            self._mlx_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-        return self._mlx_executor.submit(fn, *args, **kwargs).result()
+        executor = self._mlx_executor
+        if executor is None:
+            with _mlx_executor_lock:
+                if self._mlx_executor is None:
+                    self._mlx_executor = concurrent.futures.ThreadPoolExecutor(
+                        max_workers=1,
+                        thread_name_prefix=f"mlx-{self.model_uid}",
+                    )
+                executor = self._mlx_executor
+        return executor.submit(fn, *args, **kwargs).result()
 
     def _iterate_on_mlx_thread(
         self, iterator: Iterator[CompletionChunk]

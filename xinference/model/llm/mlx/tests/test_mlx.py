@@ -32,6 +32,11 @@ from .....client import Client
 def test_mlx_vlm_generation_stream_is_thread_local(monkeypatch):
     import mlx.core as mx
 
+    if not hasattr(mx, "ThreadLocalStream") or not hasattr(
+        mx, "new_thread_local_stream"
+    ):
+        pytest.skip("MLX version does not support thread-local streams")
+
     from ..core import _ensure_mlx_vlm_thread_local_stream
 
     mlx_vlm_generate = importlib.import_module("mlx_vlm.generate")
