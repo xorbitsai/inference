@@ -285,6 +285,14 @@ const ja = {
   monitorCenter: {
     notConfigured:
       'モニタリングが設定されていません。XINFERENCE_GRAFANA_URL 環境変数を設定してください。',
+    tab: {
+      overview: '概要',
+      modelLoad: 'モデル負荷',
+      llmSlo: 'LLM SLO',
+      gpu: 'GPU',
+      host: 'ホスト',
+      security: 'セキュリティ',
+    },
     time: {
       '5m': '直近 5 分',
       '15m': '直近 15 分',
@@ -308,6 +316,29 @@ const ja = {
     applyTimeRange: '時間範囲を適用',
     invalidTimeRange: '終了時間は開始時間より後にしてください',
     manualRefresh: 'ダッシュボードを更新',
+    config: {
+      button: 'モニタ設定',
+      title: 'モニタリング設定',
+      grafanaUrl: 'Grafana URL',
+      datasourceName: 'データソース名',
+      alertDatasourceName: 'アラートデータソース名',
+      clusterName: 'クラスター名',
+      dashboards: 'ダッシュボード UID',
+      testConnection: '接続テスト',
+      testing: 'テスト中…',
+      connectionOk: '接続成功',
+      connectionFailed: '接続失敗',
+      reset: 'デフォルトに戻す',
+      resetConfirm: 'モニタ設定をデフォルトに戻しますか？',
+      save: '保存',
+      cancel: 'キャンセル',
+      saved: '保存しました',
+      source: {
+        db: 'データベース',
+        env: '環境変数',
+        default: 'デフォルト',
+      },
+    },
   },
   logCenter: {
     notConfigured: 'ログが設定されていません。Elasticsearch ログサービスを有効にしてください。',

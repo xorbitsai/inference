@@ -287,6 +287,14 @@ const en = {
   monitorCenter: {
     notConfigured:
       'Monitoring not configured. Please set XINFERENCE_GRAFANA_URL environment variable.',
+    tab: {
+      overview: 'Overview',
+      modelLoad: 'Model Load',
+      llmSlo: 'LLM SLO',
+      gpu: 'GPU',
+      host: 'Host',
+      security: 'Security',
+    },
     time: {
       '5m': 'Last 5 minutes',
       '15m': 'Last 15 minutes',
@@ -310,6 +318,29 @@ const en = {
     applyTimeRange: 'Apply time range',
     invalidTimeRange: 'End time must be later than start time',
     manualRefresh: 'Refresh dashboard',
+    config: {
+      button: 'Monitor Config',
+      title: 'Monitor Configuration',
+      grafanaUrl: 'Grafana URL',
+      datasourceName: 'Datasource Name',
+      alertDatasourceName: 'Alert Datasource Name',
+      clusterName: 'Cluster Name',
+      dashboards: 'Dashboard UIDs',
+      testConnection: 'Test Connection',
+      testing: 'Testing…',
+      connectionOk: 'Connected',
+      connectionFailed: 'Connection failed',
+      reset: 'Reset to Defaults',
+      resetConfirm: 'Reset monitor config to defaults?',
+      save: 'Save',
+      cancel: 'Cancel',
+      saved: 'Saved',
+      source: {
+        db: 'Database',
+        env: 'Environment',
+        default: 'Default',
+      },
+    },
   },
   logCenter: {
     notConfigured: 'Logs are not configured. Please enable the Elasticsearch log service.',
