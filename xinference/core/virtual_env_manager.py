@@ -183,6 +183,17 @@ def get_xllamacpp_cuda_index_url(
 # import time with errors like "operator torchvision::nms does not exist".
 TORCH_COMPANION_PACKAGES = {"torchvision", "torchaudio", "torchcodec"}
 
+# Packages with compiled NumPy extensions that are commonly present in the
+# parent environment used by sentence-transformers.  The child venv is created
+# with --system-site-packages, so upgrading only part of this stack can leave an
+# inherited binary linked against a different NumPy ABI.
+SENTENCE_TRANSFORMERS_NUMPY_ABI_PACKAGES = (
+    "numpy",
+    "scipy",
+    "scikit-learn",
+    "pandas",
+)
+
 
 def ensure_system_torch_pin(packages: List[str]) -> List[str]:
     """
@@ -273,6 +284,59 @@ def ensure_system_torch_pin(packages: List[str]) -> List[str]:
             torch_entry,
         )
     return packages + to_inject
+
+
+def pin_sentence_transformers_numpy_abi(
+    packages: List[str], model_engine: Optional[str]
+) -> List[str]:
+    """
+    Keep an inherited sentence-transformers scientific stack ABI-compatible.
+
+    Virtual environments use ``--system-site-packages``.  When uv resolves a
+    new sentence-transformers installation, it may install a newer NumPy,
+    SciPy, or scikit-learn into the child while continuing to inherit pandas
+    (or another compiled extension) from the parent.  The mixed stack then
+    fails at import time with errors such as ``numpy.core.multiarray failed to
+    import``.
+
+    Pin only packages that are already installed in the parent, and never
+    replace an explicit model requirement.  Missing packages remain free to be
+    resolved and installed normally, which is important for slim runtimes.
+    """
+    if not model_engine or model_engine.lower() != "sentence_transformers":
+        return packages
+
+    from importlib import metadata
+
+    from packaging.requirements import InvalidRequirement, Requirement
+    from packaging.utils import canonicalize_name
+
+    explicitly_requested = set()
+    for package in packages:
+        requirement = package.split(";", 1)[0].strip()
+        if not requirement or requirement.startswith("#"):
+            continue
+        try:
+            explicitly_requested.add(canonicalize_name(Requirement(requirement).name))
+        except InvalidRequirement:
+            continue
+
+    pins: List[str] = []
+    for distribution_name in SENTENCE_TRANSFORMERS_NUMPY_ABI_PACKAGES:
+        canonical_name = canonicalize_name(distribution_name)
+        if canonical_name in explicitly_requested:
+            continue
+        try:
+            version = metadata.version(distribution_name)
+        except metadata.PackageNotFoundError:
+            continue
+        pins.append(f"{distribution_name}=={version}")
+
+    if pins:
+        logger.info(
+            "Pinning inherited sentence-transformers NumPy ABI packages: %s", pins
+        )
+    return packages + pins
 
 
 def extract_cuda_version_from_url(url: str) -> Optional[str]:

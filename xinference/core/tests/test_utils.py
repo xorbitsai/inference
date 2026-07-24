@@ -23,6 +23,7 @@ from ..virtual_env_manager import (
     XLLAMACPP_CUDA_INDEX_URLS,
     ensure_system_torch_pin,
     get_xllamacpp_cuda_index_url,
+    pin_sentence_transformers_numpy_abi,
 )
 
 
@@ -353,6 +354,55 @@ def test_ensure_system_torch_pin_deduplicates_same_marker():
     result = ensure_system_torch_pin(packages)
     assert result.count('#system_torch# ; #engine# == "x"') == 1
     assert len(result) == 3
+
+
+def test_pin_sentence_transformers_numpy_abi(monkeypatch):
+    import importlib.metadata
+
+    versions = {
+        "numpy": "1.26.4",
+        "scipy": "1.13.1",
+        "scikit-learn": "1.4.2",
+        "pandas": "2.2.2",
+    }
+
+    def _version(name):
+        try:
+            return versions[name]
+        except KeyError:
+            raise importlib.metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr(importlib.metadata, "version", _version)
+    result = pin_sentence_transformers_numpy_abi(
+        ["sentence_transformers"], "sentence_transformers"
+    )
+    assert result == [
+        "sentence_transformers",
+        "numpy==1.26.4",
+        "scipy==1.13.1",
+        "scikit-learn==1.4.2",
+        "pandas==2.2.2",
+    ]
+
+
+def test_pin_sentence_transformers_numpy_abi_preserves_explicit_requirements(
+    monkeypatch,
+):
+    import importlib.metadata
+
+    monkeypatch.setattr(importlib.metadata, "version", lambda _name: "1.0")
+    packages = ["sentence_transformers", "numpy>=2", "scipy==1.12.0"]
+    result = pin_sentence_transformers_numpy_abi(packages, "sentence_transformers")
+    assert result[: len(packages)] == packages
+    assert "numpy==1.0" not in result
+    assert "scipy==1.0" not in result
+    assert "scikit-learn==1.0" in result
+    assert "pandas==1.0" in result
+
+
+def test_pin_sentence_transformers_numpy_abi_other_engine_is_noop():
+    packages = ["xllamacpp"]
+    assert pin_sentence_transformers_numpy_abi(packages, "llama.cpp") is packages
 
 
 def test_build_subpool_envs_for_virtual_env_disabled():
