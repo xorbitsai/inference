@@ -18,7 +18,7 @@ import random
 import pytest
 
 from xinference.core.launch_strategy import IdleFirstLaunchStrategy
-from xinference.core.utils import assign_replica_gpu
+from xinference.core.utils import assign_replica_gpu, build_replica_model_uid
 
 
 class DummyRef:
@@ -91,14 +91,20 @@ class DummySupervisor:
 def test_assign_replica_gpu_single_slot_reused():
     # single gpu_idx with multiple replicas should be invalid
     with pytest.raises(ValueError):
-        assign_replica_gpu("foo-0", replica=6, gpu_idx=[1])
+        assign_replica_gpu(build_replica_model_uid("foo", 0), replica=6, gpu_idx=[1])
 
 
 def test_assign_replica_gpu_slicing():
     # multiple gpu_idx are sliced by replica id
-    assert assign_replica_gpu("foo-0", replica=3, gpu_idx=[0, 1, 2]) == [0]
-    assert assign_replica_gpu("foo-1", replica=3, gpu_idx=[0, 1, 2]) == [1]
-    assert assign_replica_gpu("foo-2", replica=3, gpu_idx=[0, 1, 2]) == [2]
+    assert assign_replica_gpu(
+        build_replica_model_uid("foo", 0), replica=3, gpu_idx=[0, 1, 2]
+    ) == [0]
+    assert assign_replica_gpu(
+        build_replica_model_uid("foo", 1), replica=3, gpu_idx=[0, 1, 2]
+    ) == [1]
+    assert assign_replica_gpu(
+        build_replica_model_uid("foo", 2), replica=3, gpu_idx=[0, 1, 2]
+    ) == [2]
 
 
 def test_idle_first_prefers_empty_gpu(monkeypatch):
@@ -375,9 +381,10 @@ async def test_terminate_model_replica_updates_active_replica_set():
                 )
             }
             self._replica_model_uid_to_worker = {
-                "demo-model-0": DummyReplicaWorkerRef("w0:1000"),
-                "demo-model-1": DummyReplicaWorkerRef("w1:1000"),
-                "demo-model-2": DummyReplicaWorkerRef("w2:1000"),
+                build_replica_model_uid(
+                    "demo-model", replica_id
+                ): DummyReplicaWorkerRef(f"w{replica_id}:1000")
+                for replica_id in range(3)
             }
             self._status_guard_ref = DummyStatusGuard()
             self._status_guard_ref.replica_counts["demo-model"] = 3
@@ -394,7 +401,10 @@ async def test_terminate_model_replica_updates_active_replica_set():
         0,
         2,
     ]
-    assert "demo-model-1" not in supervisor._replica_model_uid_to_worker
+    assert (
+        build_replica_model_uid("demo-model", 1)
+        not in supervisor._replica_model_uid_to_worker
+    )
     assert next(supervisor._model_uid_to_replica_info["demo-model"].scheduler) == 0
     assert next(supervisor._model_uid_to_replica_info["demo-model"].scheduler) == 2
     assert supervisor._status_guard_ref.updates[-1] == (
