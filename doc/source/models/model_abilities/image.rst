@@ -58,6 +58,37 @@ Image-to-image supported models:
 * Qwen-Image-Edit
 
 
+Image engines
+-------------------
+
+Text-to-image models run on the ``diffusers`` engine by default. On Linux with
+NVIDIA GPUs, the following models can also run on the ``SGLang`` engine
+(powered by `sglang-diffusion <https://docs.sglang.io/docs/sglang-diffusion/installation>`_)
+or the ``vLLM`` engine
+(powered by `vllm-omni <https://docs.vllm.ai/projects/vllm-omni/>`_)
+for faster inference:
+
+* FLUX.1-dev
+* Qwen-Image
+* Qwen-Image-2512
+* Z-Image
+* Z-Image-Turbo
+
+To use them, install SGLang with diffusion support via
+``pip install 'sglang[diffusion]'``, or vLLM-Omni together with a vLLM of the
+same major.minor version via ``pip install 'vllm-omni==0.24.*' 'vllm==0.24.*'``,
+then launch the model with ``--model-engine SGLang`` or
+``--model-engine vLLM``, for example:
+
+.. code-block:: bash
+
+    xinference launch --model-name Z-Image-Turbo --model-type image --model-engine SGLang
+    xinference launch --model-name Z-Image-Turbo --model-type image --model-engine vLLM
+
+Note that GGUF quantization, Lightning acceleration, LoRA and controlnet are
+only available on the ``diffusers`` engine.
+
+
 Quickstart
 ===================
 

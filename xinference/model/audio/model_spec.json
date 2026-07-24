@@ -1753,6 +1753,7 @@
     "virtualenv": {
       "packages": [
         "qwen-asr",
+        "qwen-asr[vllm] ; #engine# == \"vLLM\"",
         "#system_torch#",
         "#system_numpy#",
         "#system_pandas#"
@@ -1787,6 +1788,7 @@
     "virtualenv": {
       "packages": [
         "qwen-asr",
+        "qwen-asr[vllm] ; #engine# == \"vLLM\"",
         "#system_torch#",
         "#system_numpy#",
         "#system_pandas#"

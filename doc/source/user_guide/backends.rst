@@ -181,6 +181,12 @@ names start with ``bge``, ``gte``, ``text2vec``, ``m3e``, ``Qwen3``, or
 ``bce`` can be launched with ``--model-engine vllm`` — see
 :ref:`Embeddings <embed>`.
 
+vLLM can also serve as the engine for some text-to-image models
+(e.g. ``Qwen-Image``, ``Z-Image-Turbo``) on Linux with NVIDIA GPUs, see
+:ref:`image engines <image>`. This requires the vLLM-Omni add-on with a vLLM
+of the same major.minor version, e.g.
+``pip install 'vllm-omni==0.24.*' 'vllm==0.24.*'``.
+
 .. _sglang_backend:
 
 SGLang
@@ -188,6 +194,11 @@ SGLang
 `SGLang <https://github.com/sgl-project/sglang>`_ has a high-performance inference runtime with RadixAttention.
 It significantly accelerates the execution of complex LLM programs by automatic KV cache reuse across multiple calls.
 And it also supports other common techniques like continuous batching and tensor parallelism.
+
+Besides LLMs, SGLang can also serve as the engine for some text-to-image models
+(e.g. ``Qwen-Image``, ``Z-Image-Turbo``) on Linux with NVIDIA GPUs, see
+:ref:`image engines <image>`. This requires SGLang with diffusion support:
+``pip install 'sglang[diffusion]'``.
 
 .. _mlx_backend:
 

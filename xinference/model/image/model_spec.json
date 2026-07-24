@@ -129,9 +129,15 @@
     "virtualenv": {
       "packages": [
         "#diffusers_dependencies# ; #engine# == \"diffusers\"",
-        "transformers>=4.51.0",
-        "#system_torch#",
-        "#system_numpy#"
+        "sglang[diffusion] ; #engine# == \"SGLang\"",
+        "vllm-omni==0.24.* ; #engine# == \"vLLM\"",
+        "vllm==0.24.* ; #engine# == \"vLLM\"",
+        "transformers>=4.51.0 ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0 ; #engine# == \"vLLM\"",
+        "#system_torch# ; #engine# == \"diffusers\"",
+        "#system_torch# ; #engine# == \"vLLM\"",
+        "#system_numpy# ; #engine# == \"diffusers\"",
+        "#system_numpy# ; #engine# == \"vLLM\""
       ],
       "no_build_isolation": true
     }
@@ -291,9 +297,14 @@
       "packages": [
         "diffusers==0.35.1 ; #engine# == \"diffusers\"",
         "huggingface-hub<1.0 ; #engine# == \"diffusers\"",
+        "sglang[diffusion] ; #engine# == \"SGLang\"",
+        "vllm-omni==0.24.* ; #engine# == \"vLLM\"",
+        "vllm==0.24.* ; #engine# == \"vLLM\"",
         "peft>=0.17.0",
-        "#system_torch#",
-        "#system_numpy#"
+        "#system_torch# ; #engine# == \"diffusers\"",
+        "#system_torch# ; #engine# == \"vLLM\"",
+        "#system_numpy# ; #engine# == \"diffusers\"",
+        "#system_numpy# ; #engine# == \"vLLM\""
       ],
       "no_build_isolation": true
     },
@@ -1349,9 +1360,15 @@
     "virtualenv": {
       "packages": [
         "#diffusers_dependencies# ; #engine# == \"diffusers\"",
-        "transformers>=4.51.0",
-        "#system_torch#",
-        "#system_numpy#"
+        "sglang[diffusion] ; #engine# == \"SGLang\"",
+        "vllm-omni==0.24.* ; #engine# == \"vLLM\"",
+        "vllm==0.24.* ; #engine# == \"vLLM\"",
+        "transformers>=4.51.0 ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0 ; #engine# == \"vLLM\"",
+        "#system_torch# ; #engine# == \"diffusers\"",
+        "#system_torch# ; #engine# == \"vLLM\"",
+        "#system_numpy# ; #engine# == \"diffusers\"",
+        "#system_numpy# ; #engine# == \"vLLM\""
       ],
       "no_build_isolation": true
     },
@@ -1605,9 +1622,14 @@
       "packages": [
         "diffusers==0.35.1 ; #engine# == \"diffusers\"",
         "huggingface-hub<1.0 ; #engine# == \"diffusers\"",
+        "sglang[diffusion] ; #engine# == \"SGLang\"",
+        "vllm-omni==0.24.* ; #engine# == \"vLLM\"",
+        "vllm==0.24.* ; #engine# == \"vLLM\"",
         "peft>=0.17.0",
-        "#system_torch#",
-        "#system_numpy#"
+        "#system_torch# ; #engine# == \"diffusers\"",
+        "#system_torch# ; #engine# == \"vLLM\"",
+        "#system_numpy# ; #engine# == \"diffusers\"",
+        "#system_numpy# ; #engine# == \"vLLM\""
       ]
     },
     "featured": true,
@@ -1632,9 +1654,15 @@
     "virtualenv": {
       "packages": [
         "#diffusers_dependencies# ; #engine# == \"diffusers\"",
-        "transformers>=4.51.0",
-        "#system_torch#",
-        "#system_numpy#"
+        "sglang[diffusion] ; #engine# == \"SGLang\"",
+        "vllm-omni==0.24.* ; #engine# == \"vLLM\"",
+        "vllm==0.24.* ; #engine# == \"vLLM\"",
+        "transformers>=4.51.0 ; #engine# == \"diffusers\"",
+        "transformers>=4.51.0 ; #engine# == \"vLLM\"",
+        "#system_torch# ; #engine# == \"diffusers\"",
+        "#system_torch# ; #engine# == \"vLLM\"",
+        "#system_numpy# ; #engine# == \"diffusers\"",
+        "#system_numpy# ; #engine# == \"vLLM\""
       ],
       "no_build_isolation": true
     },

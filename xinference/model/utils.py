@@ -547,6 +547,25 @@ def check_dependency_available(
     return True
 
 
+@functools.lru_cache
+def has_cuda_device() -> bool:
+    # use pynvml rather than torch to avoid initializing CUDA on import
+    device_count = 0
+    try:
+        from pynvml import nvmlDeviceGetCount, nvmlInit, nvmlShutdown
+
+        nvmlInit()
+        device_count = nvmlDeviceGetCount()
+    except Exception:
+        pass
+    finally:
+        try:
+            nvmlShutdown()
+        except Exception:
+            pass
+    return device_count > 0
+
+
 def is_locale_chinese_simplified() -> bool:
     import locale
 
@@ -1401,6 +1420,32 @@ def _get_engine_params_by_name(
         )
         return engine_params
 
+    if model_type == "audio":
+        from .audio import BUILTIN_AUDIO_MODELS
+        from .audio.custom import get_user_defined_audios
+        from .audio.engine_family import AUDIO_ENGINES
+        from .audio.engine_family import SUPPORTED_ENGINES as AUDIO_SUPPORTED_ENGINES
+
+        if model_name not in AUDIO_ENGINES:
+            return None
+
+        available_engines = deepcopy(AUDIO_ENGINES[model_name])
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "audio_class")
+        audio_families: List[Any] = list(BUILTIN_AUDIO_MODELS.get(model_name, []))
+        audio_families.extend(
+            f for f in get_user_defined_audios() if f.model_name == model_name
+        )
+        _validate_available_image_engines(
+            audio_families,
+            AUDIO_SUPPORTED_ENGINES,
+            "audio",
+        )
+        _collect_supported_image_engines(
+            audio_families, AUDIO_SUPPORTED_ENGINES, "audio"
+        )
+        return engine_params
+
     return None
 
 
@@ -1912,9 +1957,47 @@ def _get_engine_params_by_name_with_virtual_env(
 
         return engine_params
 
+    elif model_type == "audio":
+        from .audio import BUILTIN_AUDIO_MODELS
+        from .audio.custom import get_user_defined_audios
+        from .audio.engine_family import AUDIO_ENGINES
+        from .audio.engine_family import SUPPORTED_ENGINES as AUDIO_SUPPORTED_ENGINES
+
+        if model_name not in AUDIO_ENGINES:
+            return None
+
+        available_engines = deepcopy(AUDIO_ENGINES[model_name])
+        for engine, params in available_engines.items():
+            _append_available_engine(engine, params, "audio_class")
+        audio_families: List[Any] = list(BUILTIN_AUDIO_MODELS.get(model_name, []))
+        audio_families.extend(
+            f for f in get_user_defined_audios() if f.model_name == model_name
+        )
+        audio_engine_markers: Set[str] = set()
+        for family in audio_families:
+            audio_engine_markers |= _collect_virtualenv_engine_markers(family)
+        _validate_available_image_engines(
+            audio_families,
+            AUDIO_SUPPORTED_ENGINES,
+            "audio",
+            audio_engine_markers,
+            enable_virtual_env,
+        )
+        _collect_supported_image_engines(
+            audio_families, AUDIO_SUPPORTED_ENGINES, "audio"
+        )
+        _apply_virtualenv_engine_overrides(
+            engine_params,
+            AUDIO_SUPPORTED_ENGINES,
+            audio_engine_markers,
+            enable_virtual_env,
+        )
+
+        return engine_params
+
     raise ValueError(
         "Cannot support model_engine for "
-        f"{model_type}, only available for LLM, embedding, rerank, image"
+        f"{model_type}, only available for LLM, embedding, rerank, image, audio"
     )
 
 

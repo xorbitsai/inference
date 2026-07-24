@@ -902,6 +902,13 @@ export default function LaunchDialog({
         placeholder: t('launchModel.modelUidPlaceholder'),
       },
       {
+        name: 'model_engine',
+        type: 'select',
+        label: t('launchModel.modelEngine'),
+        fieldProps: { options: modelEngineOptions },
+        show: !!modelEngineOptions.length,
+      },
+      {
         name: 'replica',
         type: 'input',
         label: t('launchModel.replica'),
