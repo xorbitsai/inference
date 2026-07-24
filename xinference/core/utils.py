@@ -261,22 +261,30 @@ def merge_virtual_env_packages(
     """
 
     def get_key(package: str) -> str:
-        if package.startswith("#"):
-            # special placeholders like #system_torch#
-            return package
+        pkg_name = package.split(";", 1)[0].strip()
+        if pkg_name.startswith("#system_") and pkg_name.endswith("#"):
+            return pkg_name[len("#system_") : -1].lower()
+        if pkg_name.startswith("#"):
+            return pkg_name
         try:
             return Requirement(package).name.lower()
         except Exception:
             # fallback: strip version/url markers best effort
             for sep in ["@", "==", ">=", "<=", "~=", "!=", "[", " "]:
-                if sep in package:
-                    return package.split(sep, 1)[0].strip().lower()
-            return package.lower()
+                if sep in pkg_name:
+                    return pkg_name.split(sep, 1)[0].strip().lower()
+            return pkg_name.lower()
 
     merged: List[str] = []
     index_map: Dict[str, int] = {}
     for pkg in base_packages:
-        key = get_key(pkg)
+        canonical_key = get_key(pkg)
+        pkg_name, separator, marker = pkg.partition(";")
+        key = (
+            f"{canonical_key}; {marker.strip()}"
+            if separator and pkg_name.strip().startswith("#system_")
+            else canonical_key
+        )
         if key in index_map:
             merged[index_map[key]] = pkg
         else:
@@ -286,10 +294,16 @@ def merge_virtual_env_packages(
     if extra_packages:
         for pkg in extra_packages:
             key = get_key(pkg)
-            if key in index_map:
-                merged[index_map[key]] = pkg
+            matching_indexes = [
+                index
+                for index, base_pkg in enumerate(merged)
+                if get_key(base_pkg) == key
+            ]
+            if matching_indexes:
+                merged[matching_indexes[0]] = pkg
+                for index in reversed(matching_indexes[1:]):
+                    merged.pop(index)
             else:
-                index_map[key] = len(merged)
                 merged.append(pkg)
 
     return merged
