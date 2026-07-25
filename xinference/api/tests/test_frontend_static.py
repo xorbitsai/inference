@@ -18,6 +18,7 @@ Uses a synthetic export directory rather than a real Next.js build, so the
 route-resolution logic can be exercised without a Node toolchain.
 """
 
+import os
 from pathlib import Path
 
 import pytest
@@ -258,3 +259,129 @@ class TestEnsureSpaFallbackLast:
     def test_noop_when_frontend_not_mounted(self):
         app = FastAPI()
         ensure_spa_fallback_last(app)  # must not raise
+
+
+class TestHotReload:
+    """The dynamic-route shell table refreshes when the export dir changes,
+    so a fresh ``npm run build`` is served without restarting the process."""
+
+    def test_new_dynamic_route_appears_after_rebuild(self, dist_dir: Path):
+        # Deterministic baseline mtime, snapshotted at mount time.
+        os.utime(dist_dir, (1_000_000, 1_000_000))
+        client = TestClient(_app_with_backend_routes(dist_dir))
+
+        # The route is absent from the initial export.
+        assert client.get("/new-route/some-uid").status_code == 404
+
+        # Simulate `npm run build` adding a new dynamic route, then change the
+        # dist mtime (rmSync+cpSync recreates the dir -> mtime always changes).
+        _write(dist_dir / "new-route" / "__shell__.html", "<html>new-shell</html>")
+        os.utime(dist_dir, (2_000_000, 2_000_000))
+
+        resp = client.get("/new-route/some-uid")
+        assert resp.status_code == 200
+        assert "new-shell" in resp.text
+
+    def test_shell_table_rebuilt_only_when_mtime_changes(self, dist_dir, monkeypatch):
+        import xinference.api.frontend_static as fs
+
+        real = fs._build_shell_patterns
+        calls = {"n": 0}
+
+        def counting(dist):
+            calls["n"] += 1
+            return real(dist)
+
+        monkeypatch.setattr(fs, "_build_shell_patterns", counting)
+
+        os.utime(dist_dir, (1_000_000, 1_000_000))
+        client = TestClient(_app_with_backend_routes(dist_dir))  # 1st build at mount
+        assert calls["n"] == 1
+
+        # Serving an existing dynamic route must not rebuild (mtime unchanged).
+        assert client.get("/running-model/uid").status_code == 200
+        assert calls["n"] == 1
+        assert client.get("/running-model/uid").status_code == 200
+        assert calls["n"] == 1
+
+        # mtime change -> next dynamic-route request rebuilds exactly once.
+        os.utime(dist_dir, (2_000_000, 2_000_000))
+        assert client.get("/running-model/uid").status_code == 200
+        assert calls["n"] == 2
+
+        # No further rebuild while mtime is stable.
+        assert client.get("/running-model/uid").status_code == 200
+        assert calls["n"] == 2
+
+    def test_partial_tree_mid_copy_does_not_cache_incomplete_state(
+        self, dist_dir: Path
+    ):
+        """Regression: a non-atomic copy whose directory appears before its
+        shell files must not permanently cache an incomplete route table.
+
+        When a new route directory is created (e.g. during a non-atomic
+        recursive copy) and a request triggers a rebuild before the shell
+        files land, the cache must eventually reflect the complete tree
+        after the directory mtime changes again (simulating an atomic
+        rename that only fires once staging is finished)."""
+        os.utime(dist_dir, (1_000_000, 1_000_000))
+        client = TestClient(_app_with_backend_routes(dist_dir))
+        assert client.get("/staged-route/uid").status_code == 404
+
+        # Phase 1: directory exists but shell file hasn't been copied yet
+        # (mid-copy state). mtime bump triggers a rebuild on next request.
+        (dist_dir / "staged-route").mkdir()
+        os.utime(dist_dir, (2_000_000, 2_000_000))
+        assert client.get("/staged-route/uid").status_code == 404
+
+        # Phase 2: shell file arrives but WITHOUT bumping dist mtime — the
+        # subdirectory file write does not update the parent directory mtime,
+        # so the stale cache survives. This is the race window that the
+        # atomic staging+rename in stage-export.mjs closes.
+        _write(
+            dist_dir / "staged-route" / "__shell__.html",
+            "<html>staged-shell</html>",
+        )
+        # mtime unchanged -> cache still reports 404 from the earlier scan.
+        assert client.get("/staged-route/uid").status_code == 404
+
+        # Phase 3: after the atomic rename (simulated by another mtime bump),
+        # the route MUST be visible in full.
+        os.utime(dist_dir, (3_000_000, 3_000_000))
+        resp = client.get("/staged-route/uid")
+        assert resp.status_code == 200
+        assert "staged-shell" in resp.text
+
+
+class TestCacheHeaders:
+    """Entry documents force browser revalidation; binary assets stay cached."""
+
+    def test_index_html_is_no_cache(self, dist_dir: Path):
+        client = TestClient(_app_with_backend_routes(dist_dir))
+        resp = client.get("/")
+        assert resp.status_code == 200
+        assert resp.headers["cache-control"] == "no-cache"
+
+    def test_static_html_entry_is_no_cache(self, dist_dir: Path):
+        client = TestClient(_app_with_backend_routes(dist_dir))
+        resp = client.get("/launch-model")
+        assert resp.status_code == 200
+        assert resp.headers["cache-control"] == "no-cache"
+
+    def test_rsc_txt_entry_is_no_cache(self, dist_dir: Path):
+        client = TestClient(_app_with_backend_routes(dist_dir))
+        resp = client.get("/launch-model.txt")
+        assert resp.status_code == 200
+        assert resp.headers["cache-control"] == "no-cache"
+
+    def test_dynamic_route_shell_is_no_cache(self, dist_dir: Path):
+        client = TestClient(_app_with_backend_routes(dist_dir))
+        resp = client.get("/running-model/uid")
+        assert resp.status_code == 200
+        assert resp.headers["cache-control"] == "no-cache"
+
+    def test_binary_asset_is_exempt_from_no_cache(self, dist_dir: Path):
+        client = TestClient(_app_with_backend_routes(dist_dir))
+        resp = client.get("/favicon.ico")
+        assert resp.status_code == 200
+        assert resp.headers.get("cache-control") != "no-cache"
