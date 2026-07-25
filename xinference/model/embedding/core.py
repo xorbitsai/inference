@@ -335,6 +335,15 @@ class EmbeddingModel(abc.ABC):
             # 3. Split and attach original index
             for (offset, n), idx in zip(offsets, indices):
                 data = embedding_list["data"][offset : offset + n]
+                # Re-normalize the per-item index to [0, n) for this caller.
+                # Engines number ``index`` over the whole concatenated batch
+                # (global enumerate); without this, a call whose inputs land at a
+                # non-zero offset leaks the global index (e.g. ``[1, 2]`` instead
+                # of ``[0, 1]``). ``embedding_list`` is the throw-away batch
+                # result and the per-caller slices are disjoint, so mutating the
+                # index in place is safe.
+                for j, item in enumerate(data):
+                    item["index"] = j
                 result = Embedding(
                     object="list",
                     model=model_uid,
