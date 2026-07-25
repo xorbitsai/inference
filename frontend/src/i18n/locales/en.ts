@@ -139,6 +139,18 @@ const en = {
     lightningModelPath: 'Lightning Model Path',
     lightningModelPathPlaceholder: 'Lightning Model Path',
     enableThinking: 'Enable Thinking',
+    enableMtp: 'Enable MTP',
+    speculativeDecoding: 'Speculative Decoding',
+    draftModelQuantization: 'Drafter Quantization',
+    draftModelQuantizationPlaceholder: 'Defaults to the first available',
+    numSpeculativeTokens: 'Speculative Tokens',
+    numSpeculativeTokensPlaceholder: 'default: 4',
+    enableMtpTip:
+      'Runs a small drafter alongside the model that proposes several tokens per round, which the model then verifies in one pass. Output is identical, decoding is faster. Enabling it downloads an extra drafter checkpoint.',
+    draftModelQuantizationTip:
+      'A drafter is small, so quantizing it saves little memory while lowering the acceptance rate. The unquantized conversion is recommended even for a quantized target model.',
+    numSpeculativeTokensTip:
+      'Tokens the drafter proposes per round, including the bonus token. Defaults to 4, the depth the Gemma 4 drafter was trained for. A larger value acts as a ceiling: each round still starts at the trained depth and only grows once the acceptance history justifies it.',
     parsingReasoningContent: 'Parsing Reasoning Content',
     CPUOffload: 'CPU Offload',
     CPUOffloadTip:

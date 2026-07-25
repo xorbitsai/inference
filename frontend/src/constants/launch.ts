@@ -60,6 +60,9 @@ export const KWARGS_OPTIONS_FOR_ENGINES: Record<string, Array<{ label: string; v
     { label: 'mm_processor_kwargs', value: 'mm_processor_kwargs' },
     { label: 'min_pixels', value: 'min_pixels' },
     { label: 'max_pixels', value: 'max_pixels' },
+    { label: 'enable_mtp', value: 'enable_mtp' },
+    { label: 'num_speculative_tokens', value: 'num_speculative_tokens' },
+    { label: 'draft_model_path', value: 'draft_model_path' },
   ],
   sglang: [
     { label: 'mem_fraction_static', value: 'mem_fraction_static' },
@@ -70,10 +73,16 @@ export const KWARGS_OPTIONS_FOR_ENGINES: Record<string, Array<{ label: string; v
     { label: 'cpu_offload_gb', value: 'cpu_offload_gb' },
     { label: 'enable_dp_attention', value: 'enable_dp_attention' },
     { label: 'enable_ep_moe', value: 'enable_ep_moe' },
+    { label: 'enable_mtp', value: 'enable_mtp' },
+    { label: 'num_speculative_tokens', value: 'num_speculative_tokens' },
+    { label: 'draft_model_path', value: 'draft_model_path' },
   ],
   mlx: [
     { label: 'cache_limit_gb', value: 'cache_limit_gb' },
     { label: 'max_kv_size', value: 'max_kv_size' },
+    { label: 'enable_mtp', value: 'enable_mtp' },
+    { label: 'num_speculative_tokens', value: 'num_speculative_tokens' },
+    { label: 'draft_model_path', value: 'draft_model_path' },
   ],
 };
 export const QUANTIZATION_OPTIONS = [
@@ -120,6 +129,9 @@ export const ALL_FORM_KEYS = [
   'peft_model_config',
   'quantization_config',
   'enable_thinking',
+  'enable_mtp',
+  'num_speculative_tokens',
+  'draft_quantization',
   'multimodal_projector',
   'enable_virtual_env',
   'virtual_env_packages',
