@@ -419,9 +419,23 @@ async def test_kill_gpu_orphans_by_ppid_no_orphans_returns_empty(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
+async def test_startup_cleanup_skips_without_nvidia_gpu(monkeypatch):
+    import xinference.core.worker as w
+
+    monkeypatch.setattr(w, "get_available_device_env_name", lambda: None)
+    self = _make_worker()
+    with patch("xinference.core.worker._nvml_init_with_timeout") as mock_init:
+        await self._cleanup_gpu_orphans_on_startup()
+    mock_init.assert_not_called()
+
+
 async def test_startup_cleanup_nvml_failure_degrades(monkeypatch):
     import xinference.core.worker as w
 
+    monkeypatch.setattr(
+        w, "get_available_device_env_name", lambda: "CUDA_VISIBLE_DEVICES"
+    )
+    monkeypatch.setattr(w, "gpu_count", lambda: 1)
     monkeypatch.setattr(w, "_nvml_init_with_timeout", lambda timeout=10: False)
     self = _make_worker()
     # Must not raise and must not attempt any snapshot/kill.
@@ -433,6 +447,10 @@ async def test_startup_cleanup_nvml_failure_degrades(monkeypatch):
 async def test_startup_cleanup_no_orphans_returns_cleanly(monkeypatch):
     import xinference.core.worker as w
 
+    monkeypatch.setattr(
+        w, "get_available_device_env_name", lambda: "CUDA_VISIBLE_DEVICES"
+    )
+    monkeypatch.setattr(w, "gpu_count", lambda: 1)
     monkeypatch.setattr(w, "_nvml_init_with_timeout", lambda timeout=10: True)
     monkeypatch.setattr(
         "xinference.core.worker._snapshot_gpu_occupying_pids", lambda devs: set()
@@ -447,6 +465,10 @@ async def test_startup_cleanup_no_orphans_returns_cleanly(monkeypatch):
 async def test_startup_cleanup_kills_orphans(monkeypatch):
     import xinference.core.worker as w
 
+    monkeypatch.setattr(
+        w, "get_available_device_env_name", lambda: "CUDA_VISIBLE_DEVICES"
+    )
+    monkeypatch.setattr(w, "gpu_count", lambda: 1)
     monkeypatch.setattr(w, "_nvml_init_with_timeout", lambda timeout=10: True)
 
     # nvmlDeviceGetCount inside the method (pynvml is imported locally).

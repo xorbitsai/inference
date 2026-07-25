@@ -914,6 +914,20 @@ class WorkerActor(xo.StatelessActor):
         driver cannot block startup. Never raises — failures degrade to a
         warning and rely on H2/C as backstops.
         """
+        # This cleanup is NVIDIA-specific.  CPU images still install pynvml as
+        # a lightweight runtime dependency, but they do not expose NVML (or any
+        # CUDA devices) to the container.  Avoid an unnecessary 10-second
+        # nvmlInit timeout and a misleading warning in that environment.  The
+        # environment-name check also excludes non-NVIDIA accelerators.
+        if (
+            get_available_device_env_name() != "CUDA_VISIBLE_DEVICES"
+            or gpu_count() == 0
+        ):
+            logger.debug(
+                "Startup GPU orphan cleanup skipped: no NVIDIA GPU devices detected"
+            )
+            return
+
         if not _nvml_init_with_timeout():
             logger.warning(
                 "Startup GPU orphan cleanup skipped: pynvml init failed or "
