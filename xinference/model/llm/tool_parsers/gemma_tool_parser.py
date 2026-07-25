@@ -22,14 +22,12 @@ class GemmaToolParser(ToolParser):
     def __init__(self):
         self.tool_call_start_token = "<|tool_call>"
         self.tool_call_end_token = "<tool_call|>"
+        self.string_token = '<|"|>'
+
         self.tool_call_regex = re.compile(
             r"(<\|tool_call\>.*?<tool_call\|>)", re.DOTALL
         )
         self.call_header_regex = re.compile(r"call\s*:\s*([^{\s]+)", re.IGNORECASE)
-
-    @staticmethod
-    def _replace_quotes(text: str) -> str:
-        return text.replace('<|"|>', '"')
 
     @staticmethod
     def _quote_keys(text: str) -> str:
@@ -47,12 +45,42 @@ class GemmaToolParser(ToolParser):
                 break
         return text
 
+    def _arguments_to_json(self, arg_block: str) -> str:
+        """Rewrite Gemma's argument block as JSON.
+
+        Gemma delimits strings with ``<|"|>`` rather than quoting them, so the
+        text between two of those tokens is a literal: it may itself contain
+        double quotes, backslashes or newlines, and re-emitting it verbatim
+        would produce invalid JSON. Each string is therefore re-encoded, and
+        bare keys are quoted only in the structural text between strings — a
+        value containing something like ``a,b:c`` must not be mistaken for one.
+        """
+        segments: List[str] = []
+        structural: List[str] = []
+        index = 0
+        token = self.string_token
+        while index < len(arg_block):
+            if arg_block.startswith(token, index):
+                end = arg_block.find(token, index + len(token))
+                if end == -1:
+                    raise ValueError("Unterminated string in tool call arguments")
+                segments.append(self._quote_keys("".join(structural)))
+                structural = []
+                segments.append(
+                    json.dumps(arg_block[index + len(token) : end], ensure_ascii=False)
+                )
+                index = end + len(token)
+            else:
+                structural.append(arg_block[index])
+                index += 1
+        segments.append(self._quote_keys("".join(structural)))
+        return "".join(segments)
+
     def _parse_arguments(self, arg_block: str) -> Dict[str, Any]:
-        cleaned = self._replace_quotes(arg_block.strip())
+        cleaned = arg_block.strip()
         if not cleaned:
             return {}
-        normalized = self._quote_keys(cleaned)
-        return json.loads(normalized)
+        return json.loads(self._arguments_to_json(cleaned))
 
     def _parse_tool_call_block(
         self, block: str
