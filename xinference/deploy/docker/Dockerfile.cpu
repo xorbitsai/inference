@@ -14,22 +14,12 @@ RUN apt-get -y update \
   && apt install -y build-essential curl procps git libgl1 \
   && apt-get -yq clean
 
-# GPTQModel requires torchao.  torchao 0.16.0 also publishes a cp310-abi3
-# wheel containing optional CUDA extensions; pip prefers it on Python 3.11,
-# even in this CPU-only image.  Select the pure-Python wheel explicitly so
-# importing torchao does not try to load those unusable CUDA libraries.
 ARG PIP_INDEX=https://pypi.org/simple
-ARG TORCHAO_VERSION=0.16.0
 COPY xinference/deploy/docker/requirements_cpu/ /opt/inference/xinference/deploy/docker/requirements_cpu/
 RUN --mount=type=cache,target=/root/.cache/pip \
     python -m pip install --upgrade -i "$PIP_INDEX" pip "setuptools<82" wheel "packaging>=24.2" && \
     pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_cpu/requirements_cpu-base.txt && \
-    mkdir -p /tmp/torchao-pure && \
-    pip download -i "$PIP_INDEX" --no-deps --only-binary=:all: --platform any \
-      --dest /tmp/torchao-pure "torchao==$TORCHAO_VERSION" && \
-    pip install --no-deps /tmp/torchao-pure/torchao-*.whl && \
-    rm -rf /tmp/torchao-pure && \
     pip install -i "$PIP_INDEX" --no-build-isolation "gptqmodel<6.0.0" && \
     pip install -i "$PIP_INDEX" --upgrade-strategy only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_cpu/requirements_cpu-ml.txt && \
     pip install -i "$PIP_INDEX" --upgrade-strategy  only-if-needed -r /opt/inference/xinference/deploy/docker/requirements_cpu/requirements_cpu-models.txt && \
