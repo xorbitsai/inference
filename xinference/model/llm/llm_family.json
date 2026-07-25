@@ -30335,6 +30335,7 @@
         "model_src": {
           "huggingface": {
             "model_id": "unsloth/gemma-4-E2B-it-GGUF",
+            "draft_model_id": "unsloth/gemma-4-E2B-it-GGUF",
             "model_file_name_template": "gemma-4-E2B-it-{quantization}.gguf",
             "draft_model_file_name_template": "MTP/mtp-gemma-4-E2B-it-{draft_quantization}.gguf",
             "draft_quantizations": [
@@ -30369,6 +30370,7 @@
           },
           "modelscope": {
             "model_id": "unsloth/gemma-4-E2B-it-GGUF",
+            "draft_model_id": "unsloth/gemma-4-E2B-it-GGUF",
             "model_file_name_template": "gemma-4-E2B-it-{quantization}.gguf",
             "draft_model_file_name_template": "MTP/mtp-gemma-4-E2B-it-{draft_quantization}.gguf",
             "draft_quantizations": [
@@ -30415,6 +30417,7 @@
               "Q8_0"
             ],
             "model_id": "unsloth/gemma-4-E4B-it-GGUF",
+            "draft_model_id": "unsloth/gemma-4-E4B-it-GGUF",
             "quantizations": [
               "BF16",
               "IQ4_NL",
@@ -30441,6 +30444,7 @@
           },
           "modelscope": {
             "model_id": "unsloth/gemma-4-E4B-it-GGUF",
+            "draft_model_id": "unsloth/gemma-4-E4B-it-GGUF",
             "model_file_name_template": "gemma-4-E4B-it-{quantization}.gguf",
             "draft_model_file_name_template": "MTP/mtp-gemma-4-E4B-it-{draft_quantization}.gguf",
             "draft_quantizations": [
@@ -30480,6 +30484,7 @@
         "model_src": {
           "huggingface": {
             "model_id": "unsloth/gemma-4-12b-it-GGUF",
+            "draft_model_id": "unsloth/gemma-4-12b-it-GGUF",
             "model_file_name_template": "gemma-4-12b-it-{quantization}.gguf",
             "draft_model_file_name_template": "MTP/mtp-gemma-4-12b-it-{draft_quantization}.gguf",
             "draft_quantizations": [
@@ -30513,6 +30518,7 @@
           },
           "modelscope": {
             "model_id": "unsloth/gemma-4-12b-it-GGUF",
+            "draft_model_id": "unsloth/gemma-4-12b-it-GGUF",
             "model_file_name_template": "gemma-4-12b-it-{quantization}.gguf",
             "draft_model_file_name_template": "MTP/mtp-gemma-4-12b-it-{draft_quantization}.gguf",
             "draft_quantizations": [
@@ -30552,6 +30558,7 @@
         "model_src": {
           "huggingface": {
             "model_id": "unsloth/gemma-4-31B-it-GGUF",
+            "draft_model_id": "unsloth/gemma-4-31B-it-GGUF",
             "model_file_name_template": "gemma-4-31B-it-{quantization}.gguf",
             "draft_model_file_name_template": "MTP/mtp-gemma-4-31B-it-{draft_quantization}.gguf",
             "draft_quantizations": [
@@ -30590,6 +30597,7 @@
         "model_src": {
           "huggingface": {
             "model_id": "unsloth/gemma-4-26B-A4B-it-GGUF",
+            "draft_model_id": "unsloth/gemma-4-26B-A4B-it-GGUF",
             "model_file_name_template": "gemma-4-26B-A4B-it-{quantization}.gguf",
             "draft_model_file_name_template": "MTP/mtp-gemma-4-26B-A4B-it-{draft_quantization}.gguf",
             "draft_quantizations": [
@@ -30622,6 +30630,7 @@
           },
           "modelscope": {
             "model_id": "unsloth/gemma-4-26B-A4B-it-GGUF",
+            "draft_model_id": "unsloth/gemma-4-26B-A4B-it-GGUF",
             "model_file_name_template": "gemma-4-26B-A4B-it-{quantization}.gguf",
             "draft_model_file_name_template": "MTP/mtp-gemma-4-26B-A4B-it-{draft_quantization}.gguf",
             "draft_quantizations": [

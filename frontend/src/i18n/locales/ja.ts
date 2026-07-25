@@ -119,8 +119,7 @@ const ja = {
     requestLimits: 'リクエスト制限',
     requestLimitsPlaceholder: 'このモデルのリクエスト制限数、デフォルトは無制限',
     workerIp: 'ワーカーIP',
-    workerIpPlaceholder:
-      '分散環境のワーカーIPを指定。複数選択、または入力してAdd。',
+    workerIpPlaceholder: '分散環境のワーカーIPを指定。複数選択、または入力してAdd。',
     workerCount: 'ワーカー数',
     workerCountPlaceholder: 'ワーカー数',
     GPUIdx: 'GPUインデックス',
@@ -144,10 +143,14 @@ const ja = {
     draftModelQuantization: 'ドラフトモデルの量子化',
     draftModelQuantizationPlaceholder: '既定では最初の利用可能な項目',
     numSpeculativeTokens: '投機トークン数',
-    numSpeculativeTokensPlaceholder: '既定 4',
-    enableMtpTip: 'モデルと並行して小さなドラフトモデルを実行し、1 ラウンドごとに複数トークンを提案してモデルが一括検証します。出力は同一で、デコードが高速化されます。有効化するとドラフトモデルの重みを追加でダウンロードします。',
-    draftModelQuantizationTip: 'ドラフトモデルは小さいため、量子化してもメモリ削減はわずかで受理率が下がります。対象モデルが量子化済みでも、未量子化のドラフトモデルを推奨します。',
-    numSpeculativeTokensTip: '1 ラウンドあたりにドラフトモデルが提案するトークン数（ボーナストークンを含む）。既定は 4 で、Gemma 4 ドラフトモデルの学習深度です。大きい値は上限として扱われ、各ラウンドは学習深度から始まり、受理履歴が良好な場合にのみ増加します。',
+    numSpeculativeTokensPlaceholder: 'エンジン既定値',
+    numSpeculativeTokensPlaceholderValue: 'エンジン既定 {{value}}',
+    enableMtpTip:
+      'モデルと並行して小さなドラフトモデルを実行し、1 ラウンドごとに複数トークンを提案してモデルが一括検証します。出力は同一で、デコードが高速化されます。有効化するとドラフトモデルの重みを追加でダウンロードします。',
+    draftModelQuantizationTip:
+      'ドラフトモデルは小さいため、量子化してもメモリ削減はわずかで受理率が下がります。対象モデルが量子化済みでも、未量子化のドラフトモデルを推奨します。',
+    numSpeculativeTokensTip:
+      '1 ラウンドあたりにドラフトモデルが提案するトークン数（ボーナストークンを含む）。未設定の場合は各エンジンの既定値に従います: MLX は 4（Gemma 4 ドラフトモデルの学習深度）、vLLM は 1、SGLang は 6、llama.cpp は 3。MLX では大きい値は上限として扱われ、各ラウンドは学習深度から始まり受理履歴が良好な場合にのみ増加します。他のエンジンは指定値をそのまま使います。',
     parsingReasoningContent: '推論内容の解析',
     CPUOffload: 'CPUオフロード',
     CPUOffloadTip:

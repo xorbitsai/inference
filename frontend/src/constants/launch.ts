@@ -39,6 +39,9 @@ export const KWARGS_OPTIONS_FOR_ENGINES: Record<string, Array<{ label: string; v
     { label: 'n_ctx', value: 'n_ctx' },
     { label: 'use_mmap', value: 'use_mmap' },
     { label: 'use_mlock', value: 'use_mlock' },
+    { label: 'enable_mtp', value: 'enable_mtp' },
+    { label: 'num_speculative_tokens', value: 'num_speculative_tokens' },
+    { label: 'draft_model_path', value: 'draft_model_path' },
   ],
   vllm: [
     { label: 'block_size', value: 'block_size' },
@@ -85,6 +88,19 @@ export const KWARGS_OPTIONS_FOR_ENGINES: Record<string, Array<{ label: string; v
     { label: 'draft_model_path', value: 'draft_model_path' },
   ],
 };
+/**
+ * Tokens the drafter proposes per round when the launch leaves it unset. The
+ * value is the engine's own default, not something Xinference picks: MLX runs
+ * the drafter at its configured depth, the others fall back to their server
+ * defaults.
+ */
+export const SPECULATIVE_TOKENS_DEFAULT_BY_ENGINE: Record<string, number> = {
+  mlx: 4,
+  vllm: 1,
+  sglang: 6,
+  'llama.cpp': 3,
+};
+
 export const QUANTIZATION_OPTIONS = [
   { label: 'load_in_8bit', value: 'load_in_8bit' },
   { label: 'load_in_4bit', value: 'load_in_4bit' },

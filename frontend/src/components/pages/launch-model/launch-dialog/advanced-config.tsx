@@ -13,6 +13,7 @@ import { InfoTooltip } from '@/components/ui/tooltip';
 import {
   KWARGS_OPTIONS_FOR_ENGINES,
   QUANTIZATION_OPTIONS,
+  SPECULATIVE_TOKENS_DEFAULT_BY_ENGINE,
   VIRTUAL_ENV_OPTIONS,
 } from '@/constants/launch';
 import { useI18n } from '@/contexts/i18n-context';
@@ -70,6 +71,10 @@ const AdvancedConfig: FC<AdvancedConfigProps> = ({
 
   const kwargsOptionsForEngine = modelEngineValue
     ? KWARGS_OPTIONS_FOR_ENGINES[modelEngineValue.toLowerCase()]
+    : undefined;
+  // the per-round default is the engine's, not ours, so name the engine's value
+  const speculativeTokensDefault = modelEngineValue
+    ? SPECULATIVE_TOKENS_DEFAULT_BY_ENGINE[modelEngineValue.toLowerCase()]
     : undefined;
   const showLora = [ModelType.LLM, ModelType.Image, ModelType.Video].includes(modelType);
   const showLoraKwargs = [ModelType.Image, ModelType.Video].includes(modelType);
@@ -185,7 +190,13 @@ const AdvancedConfig: FC<AdvancedConfigProps> = ({
               <FormField
                 className="w-56"
                 name="num_speculative_tokens"
-                placeholder={t('launchModel.numSpeculativeTokensPlaceholder')}
+                placeholder={
+                  speculativeTokensDefault
+                    ? t('launchModel.numSpeculativeTokensPlaceholderValue', {
+                        value: speculativeTokensDefault,
+                      })
+                    : t('launchModel.numSpeculativeTokensPlaceholder')
+                }
                 rules={[
                   {
                     pattern: /^[1-9]\d*$/,

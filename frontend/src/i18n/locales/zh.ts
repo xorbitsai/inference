@@ -141,13 +141,14 @@ const zh = {
     draftModelQuantization: '草稿模型量化',
     draftModelQuantizationPlaceholder: '默认使用第一个可用项',
     numSpeculativeTokens: '推测 Token 数',
-    numSpeculativeTokensPlaceholder: '默认 4',
+    numSpeculativeTokensPlaceholder: '引擎默认值',
+    numSpeculativeTokensPlaceholderValue: '引擎默认 {{value}}',
     enableMtpTip:
       '在模型旁边运行一个小的草稿模型，每轮提议若干 token，再由模型一次性验证。输出完全一致，解码更快。开启会额外下载一份草稿模型权重。',
     draftModelQuantizationTip:
       '草稿模型本身很小，量化它省不了多少内存，却会降低接受率。即使目标模型是量化版，也建议用未量化的草稿模型。',
     numSpeculativeTokensTip:
-      '每轮草稿模型提议的 token 数（含 bonus token）。默认 4，即 Gemma 4 草稿模型训练时的深度。填更大的值只作为上限：每轮仍从训练深度起步，只有接受率足够高时才会增长。',
+      '每轮草稿模型提议的 token 数（含 bonus token）。留空则取各引擎自己的默认值：MLX 是 4（Gemma 4 草稿模型训练时的深度），vLLM 是 1，SGLang 是 6，llama.cpp 是 3。在 MLX 上填更大的值只作为上限 —— 每轮仍从训练深度起步，只有接受率足够高时才会增长；其他引擎则按填的值执行。',
     parsingReasoningContent: '解析推理内容',
     CPUOffload: 'CPU卸载',
     CPUOffloadTip: '将模型卸载到CPU。当资源有限或使用GGUF选项时，建议启用此功能。',
