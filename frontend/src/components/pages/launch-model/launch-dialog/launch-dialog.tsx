@@ -1225,35 +1225,48 @@ export default function LaunchDialog({
     }
 
     return (
-      <div className="max-w-md space-y-2 overflow-auto">
+      <div className="space-y-2">
         <div className="text-sm font-medium">{t('launchModel.launchProgress')}</div>
-        {replicaStatuses.map((replica) => {
-          const statusClassName =
-            replica.status === 'READY'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-              : replica.status === 'ERROR'
-                ? 'border-red-200 bg-red-50 text-red-700'
-                : 'border-border bg-muted/40 text-muted-foreground';
+        <div
+          className="grid max-h-[min(60vh,32rem)] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-3"
+          aria-live="polite"
+        >
+          {replicaStatuses.map((replica) => {
+            const statusClassName =
+              replica.status === 'READY'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                : replica.status === 'ERROR'
+                  ? 'border-red-200 bg-red-50 text-red-700'
+                  : 'border-border bg-muted/40 text-muted-foreground';
 
-          return (
-            <div key={replica.replica_id} className="flex items-center justify-between gap-8">
-              <div className="flex flex-col gap-0.5 text-xs">
-                <span className="font-semibold">
-                  {t('launchModel.replica')}&nbsp;{replica.replica_id}
-                </span>
-                <span className="text-muted-foreground">{replica?.worker_address || '-'}</span>
-              </div>
+            return (
               <div
-                className={cn(
-                  'rounded-md border px-2 py-1 text-xs font-medium leading-none',
-                  statusClassName
-                )}
+                key={replica.replica_id}
+                className="flex min-w-0 items-start justify-between gap-3 rounded-md border bg-background/60 p-3"
               >
-                {replica.status}
+                <div className="flex min-w-0 flex-col gap-1 text-xs">
+                  <span className="font-semibold">
+                    {t('launchModel.replica')}&nbsp;{replica.replica_id}
+                  </span>
+                  <span
+                    className="truncate font-mono text-muted-foreground"
+                    title={replica.worker_address || '-'}
+                  >
+                    {replica.worker_address || '-'}
+                  </span>
+                </div>
+                <div
+                  className={cn(
+                    'shrink-0 rounded-md border px-2 py-1 text-xs font-medium leading-none',
+                    statusClassName
+                  )}
+                >
+                  {replica.status}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     );
   };
@@ -1445,7 +1458,11 @@ export default function LaunchDialog({
                           {t('common.stop')}
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent side="top" align="end">
+                      <TooltipContent
+                        side="top"
+                        align="end"
+                        className="w-[min(42rem,calc(100vw-2rem))] max-w-none p-3"
+                      >
                         {renderReplicaStatuses()}
                       </TooltipContent>
                     </Tooltip>
