@@ -48,6 +48,7 @@ class LLMCacheManager(CacheManager):
         self._model_revision = llm_family.model_specs[0].model_revision
         # Set when caching a gguf drafter: a single file rather than a snapshot.
         self._draft_file_name: Optional[str] = None
+        self._use_draft_model = use_draft_model
         self._cache_dir = os.path.join(
             self._v2_cache_dir_prefix,
             f"{self._model_name.replace('.', '_')}-{self._model_format}-"
@@ -102,6 +103,16 @@ class LLMCacheManager(CacheManager):
                 self._draft_file_name = draft_template.format(
                     draft_quantization=draft_quantization
                 )
+            elif self._model_format == "ggufv2":
+                # A gguf download is per file, so without a template there is no
+                # drafter file to ask for; falling through would request the
+                # target's file name from the drafter repository.
+                raise ValueError(
+                    f"Model {self._model_name} declares the drafter "
+                    f"{draft_model_id!r} but no `draft_model_file_name_template`, "
+                    f"which a gguf drafter needs. Pass `draft_model_path` to use "
+                    f"a local drafter file instead."
+                )
             # The drafter is downloaded on its own, never through the target's
             # local URI or its multimodal projector.
             self._model_uri = None
@@ -116,7 +127,10 @@ class LLMCacheManager(CacheManager):
         """File list for a gguf download: the drafter is a single file."""
         from ..utils import generate_model_file_names_with_quantization_parts
 
-        if self._draft_file_name:
+        if self._use_draft_model:
+            # guarded in __init__; never fall through to the target's file names,
+            # they do not exist in the drafter repository
+            assert self._draft_file_name, "no drafter file to download"
             return [self._draft_file_name], self._draft_file_name, False
         return generate_model_file_names_with_quantization_parts(
             self._llm_family.model_specs[0], self._multimodal_projector

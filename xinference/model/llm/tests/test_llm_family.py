@@ -242,6 +242,64 @@ def test_draft_model_quantization_selection():
         CacheManager(family, use_draft_model=True, draft_quantization="mxfp4")
 
 
+def test_gguf_drafter_without_a_file_template_is_rejected():
+    # A gguf download is per file. Without a template there is nothing to ask
+    # for, and falling through to the target's file names would request a name
+    # that does not exist in the drafter repository.
+    spec = LlamaCppLLMSpecV2(
+        model_format="ggufv2",
+        model_size_in_billions=12,
+        quantization="Q4_K_M",
+        model_id="unsloth/gemma-4-12b-it-GGUF",
+        model_file_name_template="gemma-4-12b-it-{quantization}.gguf",
+        draft_model_id="some/standalone-drafter-GGUF",
+        draft_quantizations=["BF16"],
+    )
+    family = LLMFamilyV2(
+        version=2,
+        context_length=2048,
+        model_type="LLM",
+        model_name="gemma-4",
+        model_lang=["en"],
+        model_ability=["chat"],
+        model_specs=[spec],
+        chat_template=None,
+        stop_token_ids=None,
+        stop=None,
+    )
+
+    with pytest.raises(ValueError, match="draft_model_file_name_template"):
+        CacheManager(family, use_draft_model=True)
+
+
+def test_gguf_drafter_downloads_only_its_own_file():
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == "gemma-4")
+    spec = next(
+        s
+        for s in family.model_specs
+        if s.model_format == "ggufv2"
+        and s.model_hub == "huggingface"
+        and s.model_size_in_billions == 12
+        and s.quantization == "Q4_K_M"
+    )
+    copy = family.copy()
+    copy.model_specs = [spec]
+
+    target_files, _, _ = CacheManager(copy)._gguf_file_names()
+    draft_files, final, need_merge = CacheManager(
+        copy, use_draft_model=True
+    )._gguf_file_names()
+
+    assert draft_files == ["MTP/mtp-gemma-4-12b-it-BF16.gguf"]
+    assert final == draft_files[0]
+    assert need_merge is False
+    # never the target's own file, which does not exist under that name in a
+    # drafter repository
+    assert not set(draft_files) & set(target_files)
+
+
 def test_draft_model_not_declared():
     family = _mlx_family_with_drafter()
 
