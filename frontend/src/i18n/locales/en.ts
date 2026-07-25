@@ -652,7 +652,7 @@ const en = {
     mustChangePasswordDesc: 'You need to change your password before continuing on first login.',
     changePasswordUserMissing: 'Unable to identify the current user. Please log in again.',
     or: 'or',
-    ssoLogin: 'Sign in with Keycloak',
+    ssoLogin: 'Sign in with SSO',
   },
   setup: {
     welcome: 'Welcome to Xinference',

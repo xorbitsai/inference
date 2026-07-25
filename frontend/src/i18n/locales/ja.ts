@@ -651,7 +651,7 @@ const ja = {
     mustChangePasswordDesc: '初回ログイン時は、続行する前にパスワードを変更してください。',
     changePasswordUserMissing: '現在のユーザーを識別できません。もう一度ログインしてください。',
     or: 'または',
-    ssoLogin: 'Keycloak でログイン',
+    ssoLogin: 'SSO でログイン',
   },
   setup: {
     welcome: 'Xinference へようこそ',
