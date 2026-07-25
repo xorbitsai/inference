@@ -2271,3 +2271,50 @@ async def test_list_deletable_models_includes_drafters(tmp_path):
         assert str(draft_dir) in paths
         assert str(draft_dir / "model.safetensors") in paths
     assert str(other) not in paths
+
+
+@pytest.mark.asyncio
+async def test_list_deletable_models_keeps_shared_drafter_downloads(tmp_path):
+    """One drafter download is shared by every quantization of its target, so
+    only our own cache entries may be deleted — resolving the links would take
+    the download out from under the sibling quantizations."""
+    hub = tmp_path / "hub"
+    hub.mkdir()
+    blob = hub / "mtp-gemma-4-12b-it-BF16.gguf"
+    blob.write_text("weights")
+    snapshot = hub / "snapshot"
+    snapshot.mkdir()
+    (snapshot / "model.safetensors").write_text("weights")
+
+    cache_dir = tmp_path / "gemma-4-ggufv2-12b-Q4_K_M"
+    cache_dir.mkdir()
+
+    # a gguf drafter: a real directory holding a link to the shared file
+    gguf_draft = tmp_path / "gemma-4-ggufv2-12b-Q4_K_M-draft-BF16"
+    (gguf_draft / "MTP").mkdir(parents=True)
+    linked_file = gguf_draft / "MTP" / "mtp-gemma-4-12b-it-BF16.gguf"
+    linked_file.symlink_to(blob)
+
+    # a snapshot-style drafter: the cache entry is itself a link
+    snapshot_draft = tmp_path / "gemma-4-ggufv2-12b-Q4_K_M-draft-Q8_0"
+    snapshot_draft.symlink_to(snapshot, target_is_directory=True)
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(cache_dir)
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+    paths = await WorkerActor.list_deletable_models(_Worker(), "gemma-4")
+
+    assert str(gguf_draft) in paths
+    assert str(linked_file) in paths
+    assert str(snapshot_draft) in paths
+    # what the links point at stays: it belongs to the hub cache, and the
+    # target's other quantizations link to the very same download
+    assert str(blob) not in paths
+    assert str(snapshot) not in paths
+    assert str(snapshot / "model.safetensors") not in paths

@@ -4103,6 +4103,14 @@ class WorkerActor(xo.StatelessActor):
             # removed along with the model they belong to instead of being
             # orphaned, e.g. Gemma 4 MTP's ``*-it-assistant``. One model may have
             # several, one per drafter quantization: ``<cache_dir>-draft-<quant>``.
+            #
+            # Only the entries under our own cache dir are removed here, never
+            # what they resolve to: unlike a model file, one drafter is shared by
+            # every quantization of its target, so all their `-draft-<quant>`
+            # directories link to the same download. Deleting the download would
+            # leave the sibling quantizations reporting a cached drafter that no
+            # longer loads. The hub cache keeps the blob; its own tooling
+            # reclaims it.
             draft_prefix = f"{os.path.basename(path)}-draft"
             parent_dir = os.path.dirname(path)
             for entry in os.listdir(parent_dir) if os.path.isdir(parent_dir) else []:
@@ -4110,16 +4118,11 @@ class WorkerActor(xo.StatelessActor):
                     continue
                 draft_path = os.path.join(parent_dir, entry)
                 paths.add(draft_path)
-                if os.path.isdir(draft_path):
-                    for file in os.listdir(draft_path):
-                        draft_file = os.path.join(draft_path, file)
-                        paths.add(draft_file)
-                        if os.path.exists(
-                            (real_draft_file := os.path.realpath(draft_file))
-                        ):
-                            paths.add(real_draft_file)
-                if os.path.exists((real_draft_path := os.path.realpath(draft_path))):
-                    paths.add(real_draft_path)
+                if os.path.islink(draft_path):
+                    # a snapshot-style drafter: the link itself is all we own
+                    continue
+                for root, _dirs, files in os.walk(draft_path):
+                    paths.update(os.path.join(root, name) for name in files)
 
         return list(paths)
 

@@ -68,6 +68,20 @@ def test_cache_dir_resolves_to_the_single_gguf(tmp_path):
     assert params.speculative.draft.mparams.path == str(drafter)
 
 
+def test_cache_dir_resolves_a_flat_gguf(tmp_path):
+    # a drafter may also sit directly in the cache dir; `**` without
+    # recursive=True collapses to a single level and would miss it
+    cache_dir = tmp_path / "gemma-4-ggufv2-2b-Q4_K_M-draft-BF16"
+    cache_dir.mkdir()
+    drafter = cache_dir / "mtp-gemma-4-E2B-it-BF16.gguf"
+    drafter.write_text("gguf")
+    params = _params()
+
+    _model({"draft_model_path": str(cache_dir)})._apply_draft_model(params)
+
+    assert params.speculative.draft.mparams.path == str(drafter)
+
+
 def test_num_speculative_tokens_sets_n_max(tmp_path):
     drafter = tmp_path / "d.gguf"
     drafter.write_text("gguf")

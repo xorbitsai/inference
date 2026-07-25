@@ -160,7 +160,13 @@ class XllamaCppModel(LLM, ChatModelMixin):
 
         if os.path.isdir(draft_model_path):
             # the cache dir holds the single drafter file
-            ggufs = sorted(glob.glob(os.path.join(draft_model_path, "**", "*.gguf")))
+            # recursive=True or ** collapses to a single level, which would miss
+            # a drafter sitting directly in the directory
+            ggufs = sorted(
+                glob.glob(
+                    os.path.join(draft_model_path, "**", "*.gguf"), recursive=True
+                )
+            )
             if not ggufs:
                 raise ValueError(f"No gguf drafter found under {draft_model_path}")
             draft_model_path = ggufs[0]
