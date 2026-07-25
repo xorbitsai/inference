@@ -96,6 +96,49 @@ from .utils import require_model
 logger = logging.getLogger(__name__)
 
 
+def _validate_replica(value: Any) -> int:
+    """Validate and convert the ``replica`` field from a JSON payload.
+
+    Accepts:
+      - ``int`` (but not ``bool``, which is an ``int`` subclass in Python)
+      - ``str`` representing a valid integer
+
+    Rejects:
+      - ``bool`` (``True`` / ``False``)
+      - ``float`` (fractional values, ``Infinity``, ``NaN``)
+      - ``None``
+      - any other non-integral type
+
+    Returns an ``int >= 1``.
+    Raises ``HTTPException(400)`` on invalid input.
+    """
+    if isinstance(value, bool):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid input. The `replica` field must be an integer, "
+            "got a boolean.",
+        )
+    if isinstance(value, float):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid input. The `replica` field must be an integer, "
+            "got a float.",
+        )
+    try:
+        replica = int(value)
+    except (TypeError, ValueError, OverflowError):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid input. The `replica` field must be a valid integer.",
+        )
+    if replica < 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid input. The `replica` field must be at least 1.",
+        )
+    return replica
+
+
 def _log_setup_required_notice() -> None:
     """Log the first-run setup notice, called while setup is pending.
 
@@ -791,7 +834,7 @@ class RESTfulAPI(CancelMixin):
         model_format = payload.get("model_format")
         quantization = payload.get("quantization")
         model_type = payload.get("model_type", "LLM")
-        replica = payload.get("replica", 1)
+        replica = _validate_replica(payload.get("replica", 1))
         n_gpu = payload.get("n_gpu", "auto")
         request_limits = payload.get("request_limits", None)
         peft_model_config = payload.get("peft_model_config", None)
@@ -1022,7 +1065,7 @@ class RESTfulAPI(CancelMixin):
         model_engine = payload.get("model_engine")
         model_type = payload.get("model_type")
         model_version = payload.get("model_version")
-        replica = payload.get("replica", 1)
+        replica = _validate_replica(payload.get("replica", 1))
         n_gpu = payload.get("n_gpu", "auto")
 
         try:

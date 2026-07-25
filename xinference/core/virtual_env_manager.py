@@ -175,6 +175,106 @@ def get_xllamacpp_cuda_index_url(
     return None
 
 
+# torch companion packages whose binaries are compiled against a specific torch
+# ABI. When any of these is pinned to the system version (via #system_<pkg>#) the
+# environment MUST also keep torch at the system version, otherwise the resolver
+# is free to upgrade torch (e.g. sentence_transformers pulling the latest wheel)
+# while these stay at the system version, producing a broken pair that fails at
+# import time with errors like "operator torchvision::nms does not exist".
+TORCH_COMPANION_PACKAGES = {"torchvision", "torchaudio", "torchcodec"}
+
+
+def ensure_system_torch_pin(packages: List[str]) -> List[str]:
+    """
+    Pin torch to the system version whenever a torch companion package
+    (torchvision/torchaudio/torchcodec) is pinned to the system version but torch
+    itself is left unpinned.
+
+    Model specs pin the companion via ``#system_torchvision#`` yet sometimes omit a
+    torch pin. Without it the resolver is free to upgrade torch in the child venv
+    (e.g. ``sentence_transformers`` pulling the latest wheel) while the companion
+    stays at the older system version inherited through ``--system-site-packages``.
+    The resulting ABI mismatch crashes the model subprocess at import time with
+    errors like ``operator torchvision::nms does not exist`` — reproducibly on the
+    second launch of a model, once the venv has been populated (issue #5156).
+
+    A ``#system_torch#`` marker is appended (matching the convention of the specs
+    that already carry it); xoscar's ``process_packages`` later resolves it to the
+    installed ``torch==<version>``. Each companion's environment marker (e.g. the
+    engine guard) is preserved so the injected torch pin applies under exactly the
+    same conditions. When several companions carry different markers (e.g.
+    ``#system_torchvision# ; #engine# == "sentence_transformers"`` alongside
+    ``#system_torchaudio# ; #engine# == "audio"``), a matching torch pin is added
+    for each distinct marker that does not already have one. This covers built-in
+    specs and user-registered models alike, and is a no-op when torch is already
+    pinned under the relevant condition or no companion is pinned.
+    """
+    if not packages:
+        return packages
+
+    def _marker_name(pkg: str) -> Optional[str]:
+        # Split off any PEP 508 environment marker (";" onwards) before matching
+        # the "#system_<name>#" placeholder.
+        head = pkg.split(";", 1)[0].strip()
+        if head.startswith("#system_") and head.endswith("#"):
+            return head[len("#system_") : -1].lower()
+        return None
+
+    def _requirement_name(pkg: str) -> Optional[str]:
+        # Best-effort package name for a plain requirement string like
+        # "torch==2.11.0" or "torch ; marker".
+        head = pkg.split(";", 1)[0].strip()
+        if not head or head.startswith("#"):
+            return None
+        for sep in ("==", ">=", "<=", "~=", "!=", ">", "<", "[", " "):
+            if sep in head:
+                head = head.split(sep, 1)[0]
+                break
+        return head.strip().lower() or None
+
+    def _env_marker(pkg: str) -> Optional[str]:
+        # The PEP 508 environment marker (text after ";"), or None if unconditional.
+        return pkg.split(";", 1)[1].strip() if ";" in pkg else None
+
+    # Collect the conditions under which torch is already pinned. ``None`` means an
+    # unconditional pin (which satisfies every companion), so we can stop early.
+    existing_torch_markers: set = set()
+    for pkg in packages:
+        if _marker_name(pkg) == "torch" or _requirement_name(pkg) == "torch":
+            marker = _env_marker(pkg)
+            if marker is None:
+                return packages
+            existing_torch_markers.add(marker)
+
+    # Inject one torch pin per distinct companion condition that lacks one,
+    # preserving that companion's environment marker so the pin applies under
+    # exactly the same conditions.
+    to_inject: List[str] = []
+    seen_markers = set(existing_torch_markers)
+    for pkg in packages:
+        if _marker_name(pkg) not in TORCH_COMPANION_PACKAGES:
+            continue
+        marker = _env_marker(pkg)
+        if marker in seen_markers:
+            continue
+        seen_markers.add(marker)
+        to_inject.append(
+            f"#system_torch# ; {marker}" if marker is not None else "#system_torch#"
+        )
+
+    if not to_inject:
+        return packages
+
+    for torch_entry in to_inject:
+        logger.info(
+            "Pinning torch to the system version (%s) to match the system torch "
+            "companion package pinned in the virtual env; avoids a torch/torchvision "
+            "ABI mismatch on relaunch (issue #5156).",
+            torch_entry,
+        )
+    return packages + to_inject
+
+
 def extract_cuda_version_from_url(url: str) -> Optional[str]:
     """Extract CUDA version suffix (e.g. 'cu130') from a wheel index URL."""
     if not url:

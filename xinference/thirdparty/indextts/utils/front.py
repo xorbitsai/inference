@@ -91,14 +91,27 @@ class TextNormalizer:
         import platform
         if self.zh_normalizer is not None and self.en_normalizer is not None:
             return
-        if platform.system() != "Linux":  # Mac and Windows
+        use_wetext = platform.system() != "Linux"  # Mac and Windows
+        if not use_wetext:
+            try:
+                from tn.chinese.normalizer import Normalizer as NormalizerZh
+                from tn.english.normalizer import Normalizer as NormalizerEn
+            except ImportError:
+                if platform.machine() == "x86_64":
+                    # pynini wheels exist for linux x86_64, so tn should be
+                    # installed there; surface the real import problem
+                    # instead of a misleading wetext ModuleNotFoundError.
+                    raise
+                # WeTextProcessing depends on pynini, which only ships
+                # prebuilt wheels for linux x86_64; fall back to wetext on
+                # other Linux architectures (e.g. aarch64).
+                use_wetext = True
+        if use_wetext:
             from wetext import Normalizer
 
             self.zh_normalizer = Normalizer(remove_erhua=False, lang="zh", operator="tn")
             self.en_normalizer = Normalizer(lang="en", operator="tn")
         else:
-            from tn.chinese.normalizer import Normalizer as NormalizerZh
-            from tn.english.normalizer import Normalizer as NormalizerEn
             # use new cache dir for build tagger rules with disable remove_interjections and remove_erhua
             cache_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tagger_cache")
             if not os.path.exists(cache_dir):

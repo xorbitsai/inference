@@ -13,6 +13,8 @@
 # limitations under the License.
 
 import base64
+import concurrent.futures
+import importlib
 import os
 import platform
 import sys
@@ -21,6 +23,64 @@ import threading
 import pytest
 
 from .....client import Client
+
+
+def test_mlx_vision_model_stop_shuts_down_executor():
+    from ..core import MLXVisionModel
+
+    model = object.__new__(MLXVisionModel)
+    model.model_uid = "shutdown-test"
+    model._mlx_executor = None
+
+    worker_name = model._run_on_mlx_thread(lambda: threading.current_thread().name)
+    executor = model._mlx_executor
+
+    assert worker_name.startswith("mlx-shutdown-test")
+    assert executor is not None
+
+    model.stop()
+
+    assert model._mlx_executor is None
+    with pytest.raises(RuntimeError, match="cannot schedule new futures"):
+        executor.submit(lambda: None)
+
+    # Teardown can safely be retried if initialization only partially completed.
+    model.stop()
+
+
+@pytest.mark.skipif(
+    sys.platform != "darwin" or platform.processor() != "arm",
+    reason="MLX only works for Apple silicon chip",
+)
+def test_mlx_vlm_generation_stream_is_thread_local(monkeypatch):
+    import mlx.core as mx
+
+    if not hasattr(mx, "ThreadLocalStream") or not hasattr(
+        mx, "new_thread_local_stream"
+    ):
+        pytest.skip("MLX version does not support thread-local streams")
+
+    from ..core import _ensure_mlx_vlm_thread_local_stream
+
+    mlx_vlm_generate = importlib.import_module("mlx_vlm.generate")
+    monkeypatch.setattr(
+        mlx_vlm_generate,
+        "generation_stream",
+        mx.new_stream(mx.default_device()),
+    )
+
+    _ensure_mlx_vlm_thread_local_stream()
+
+    assert isinstance(mlx_vlm_generate.generation_stream, mx.ThreadLocalStream)
+
+    def generate_on_worker_thread():
+        with mx.stream(mlx_vlm_generate.generation_stream):
+            result = mx.arange(4) + 1
+        mx.async_eval(result)
+        return result.tolist()
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        assert executor.submit(generate_on_worker_thread).result() == [1, 2, 3, 4]
 
 
 class InferenceThread(threading.Thread):
@@ -144,6 +204,18 @@ def test_load_mlx_vision(setup):
     assert "content" in completion["choices"][0]["message"]
     assert "content" in completion["choices"][0]["message"]
     assert len(completion["choices"][0]["message"]["content"]) != 0
+
+    chunks = list(
+        model.chat(
+            messages,
+            generate_config={
+                "stream": True,
+                "stream_options": {"include_usage": True},
+                "max_tokens": 4,
+            },
+        )
+    )
+    assert any(chunk.get("choices") for chunk in chunks)
 
 
 @pytest.mark.skipif(

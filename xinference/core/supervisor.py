@@ -1143,7 +1143,9 @@ class SupervisorActor(xo.StatelessActor):
     async def remove_autostart_model(self, model_uid: str) -> Dict[str, Any]:
         if not isinstance(model_uid, str) or not is_valid_model_uid(model_uid):
             raise ValueError(
-                "The model UID is invalid. Please specify the model UID by 0 < length <= 100."
+                "The model UID is invalid. Please specify the model UID by "
+                "0 < length <= 100, not ending with the reserved replica "
+                "suffix '-rep<number>'."
             )
 
         async with self._autostart_store_lock:
@@ -1366,7 +1368,7 @@ class SupervisorActor(xo.StatelessActor):
             worker_replica_count: Dict[str, int] = defaultdict(int)
             replica_gpu_details: list = []
             for _rep_idx, ref_list in replica_info.replica_to_worker_refs.items():
-                replica_uid = f"{model_uid}-{_rep_idx}"
+                replica_uid = build_replica_model_uid(model_uid, _rep_idx)
                 gpu_indices = self._replica_gpu_cache.get(replica_uid, [])
                 for ref in ref_list:
                     worker_replica_count[ref.address] += 1
@@ -2358,7 +2360,9 @@ class SupervisorActor(xo.StatelessActor):
 
         if not is_valid_model_uid(model_uid):
             raise ValueError(
-                "The model UID is invalid. Please specify the model UID by 0 < length <= 100."
+                "The model UID is invalid. Please specify the model UID by "
+                "0 < length <= 100, not ending with the reserved replica "
+                "suffix '-rep<number>'."
             )
 
         if request_limits is not None and request_limits < 0:
@@ -2550,7 +2554,9 @@ class SupervisorActor(xo.StatelessActor):
 
         if not is_valid_model_uid(model_uid):
             raise ValueError(
-                "The model UID is invalid. Please specify the model UID by 0 < length <= 100."
+                "The model UID is invalid. Please specify the model UID by "
+                "0 < length <= 100, not ending with the reserved replica "
+                "suffix '-rep<number>'."
             )
 
         if request_limits is not None and request_limits < 0:

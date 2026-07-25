@@ -347,7 +347,7 @@ export function AutoComplete({
               dropdownDirection === 'up' && 'origin-bottom'
             )}
           >
-            <div className="max-h-60 overflow-auto">
+            <div className="max-h-60 overflow-auto p-1">
               {filteredOptions.length === 0 ? (
                 <div className="py-10 text-center text-sm text-muted-foreground">
                   {emptyText || t('common.noOptions')}
@@ -365,11 +365,13 @@ export function AutoComplete({
                         key={option.value}
                         type="button"
                         className={cn(
-                          'flex w-full items-start justify-between gap-2 border-b border-border px-3 py-2 text-left text-sm transition-colors last:border-b-0',
+                          'flex w-full items-start justify-between gap-2 rounded-[4px] px-3 py-2 text-left text-sm transition-colors',
 
-                          'hover:bg-accent hover:text-accent-foreground',
+                          active
+                            ? 'hover:bg-primary/10 hover:text-primary'
+                            : 'hover:bg-accent hover:text-accent-foreground',
 
-                          active && 'bg-accent text-accent-foreground'
+                          active && 'bg-primary/10 text-primary'
                         )}
                         onMouseDown={(e) => {
                           e.preventDefault();

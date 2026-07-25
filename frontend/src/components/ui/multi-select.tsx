@@ -57,22 +57,43 @@ export function MultiSelect({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const selectedValues = Array.isArray(value) ? value : [];
-  const updateDropdownPosition = useCallback(() => {
-    if (!triggerRef.current) return;
+  const getPortalContainer = useCallback(() => {
+    if (typeof document === 'undefined') return null;
 
-    const rect = triggerRef.current.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom - 50;
-    const spaceAbove = rect.top - 50;
+    return (
+      (containerRef.current?.closest('[data-slot="dialog-content"]') as HTMLElement | null) ||
+      document.body
+    );
+  }, []);
+  const updateDropdownPosition = useCallback(() => {
+    const trigger = triggerRef.current;
+    const portalContainer = getPortalContainer();
+
+    if (!trigger || !portalContainer) return;
+
+    const rect = trigger.getBoundingClientRect();
+    const boundaryRect = trigger
+      .closest('[data-slot="dialog-body"]')
+      ?.getBoundingClientRect();
+    const boundaryTop = boundaryRect?.top ?? 0;
+    const boundaryBottom = boundaryRect?.bottom ?? window.innerHeight;
+    const spaceBelow = boundaryBottom - rect.bottom - 50;
+    const spaceAbove = rect.top - boundaryTop - 50;
     const direction = spaceBelow < 200 && spaceAbove > spaceBelow ? 'up' : 'down';
+    const portalRect =
+      portalContainer === document.body
+        ? { left: 0, top: 0 }
+        : portalContainer.getBoundingClientRect();
 
     setDropdownDirection(direction);
     setDropdownStyle({
-      left: rect.left,
-      top: direction === 'down' ? rect.bottom + 4 : rect.top - 4,
+      position: portalContainer === document.body ? 'fixed' : 'absolute',
+      left: rect.left - portalRect.left,
+      top: direction === 'down' ? rect.bottom - portalRect.top + 4 : rect.top - portalRect.top - 4,
       width: rect.width,
       transform: direction === 'up' ? 'translateY(-100%)' : undefined,
     });
-  }, []);
+  }, [getPortalContainer]);
 
   // click outside
   useEffect(() => {
@@ -180,6 +201,7 @@ export function MultiSelect({
 
     setInputValue('');
   };
+  const portalContainer = getPortalContainer();
 
   return (
     <div ref={containerRef} className={cn('relative w-full', className)}>
@@ -233,13 +255,14 @@ export function MultiSelect({
 
       {open &&
         dropdownStyle &&
+        portalContainer &&
         createPortal(
           <div
             ref={dropdownRef}
             data-slot="select-dropdown"
             style={dropdownStyle}
             className={cn(
-              'pointer-events-auto fixed z-[9999] overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md',
+              'pointer-events-auto z-[9999] overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md',
               dropdownDirection === 'up' && 'origin-bottom'
             )}
           >
@@ -255,7 +278,7 @@ export function MultiSelect({
               </div>
             )}
 
-            <div className="max-h-60 overflow-auto">
+            <div className="max-h-60 overflow-auto p-1">
               {filteredOptions.length === 0 && !creatable ? (
                 <div className="py-10 text-center text-sm text-muted-foreground">
                   {t('common.noOptions')}
@@ -270,11 +293,13 @@ export function MultiSelect({
                       type="button"
                       onClick={() => handleSelect(option.value)}
                       className={cn(
-                        'w-full border-b border-border px-3 py-2 text-left text-sm transition-colors last:border-b-0',
+                        'w-full rounded-[4px] px-3 py-2 text-left text-sm transition-colors',
 
-                        'hover:bg-accent hover:text-accent-foreground',
+                        active
+                          ? 'hover:bg-primary/10 hover:text-primary'
+                          : 'hover:bg-accent hover:text-accent-foreground',
 
-                        active && 'bg-accent text-accent-foreground'
+                        active && 'bg-primary/10 text-primary'
                       )}
                     >
                       <div className="flex items-center justify-between gap-2">
@@ -297,6 +322,7 @@ export function MultiSelect({
               {creatable && (
                 <div
                   className="sticky bottom-0 border-t bg-background p-2"
+                  onMouseDown={(e) => e.stopPropagation()}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex gap-2">
@@ -325,7 +351,7 @@ export function MultiSelect({
               )}
             </div>
           </div>,
-          document.body
+          portalContainer
         )}
     </div>
   );

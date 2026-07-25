@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+
 # Slim GPU image for Xinference.
 #
 # The image intentionally ships NO inference engine (vllm / sglang / ...).
@@ -36,11 +38,14 @@
 # ---------------------------------------------------------------------------
 # Stage 1: build the Web UI static export
 # ---------------------------------------------------------------------------
-FROM node:20-slim AS web-builder
+FROM node:20.19.0-slim AS web-builder
 
 WORKDIR /opt/inference/frontend
+# Keep dependency installation cached when only frontend sources change.
+COPY frontend/package.json frontend/package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm npm ci
 COPY frontend ./
-RUN npm ci && npm run build
+RUN npm run build
 # `npm run build` stages the static export at ../xinference/ui/web/dist via
 # its postbuild hook (frontend/scripts/stage-export.mjs).
 
@@ -88,14 +93,13 @@ RUN apt-get update && \
 # wheel index for per-model venv installs. pandas backs the #system_pandas#
 # placeholder used by several audio model specs.
 COPY xinference/deploy/docker/requirements-runtime.txt /opt/requirements-runtime.txt
-RUN pip install --no-cache-dir -i "$PIP_INDEX" --upgrade pip "setuptools<82" wheel && \
-    pip install --no-cache-dir --constraint /opt/requirements-runtime.txt \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -i "$PIP_INDEX" --upgrade pip "setuptools<82" wheel && \
+    pip install --constraint /opt/requirements-runtime.txt \
       torch torchvision torchaudio torchcodec --index-url "$TORCH_INDEX" && \
-    pip install --no-cache-dir --constraint /opt/requirements-runtime.txt \
+    pip install --constraint /opt/requirements-runtime.txt \
       -i "$PIP_INDEX" numpy pandas
 
-COPY . /opt/inference
-COPY --from=web-builder /opt/inference/xinference/ui/web/dist /opt/inference/xinference/ui/web/dist
 WORKDIR /opt/inference
 
 # NO_WEB_UI=1: the static Web UI was already staged by the builder stage and
@@ -108,11 +112,25 @@ WORKDIR /opt/inference
 # also does the image install: parallel downloads with per-request timeouts
 # recover from throttled/stalled index connections that serial pip rides
 # to a crawl.
-RUN pip install --no-cache-dir -i "$PIP_INDEX" uv && \
-    NO_WEB_UI=1 uv pip install --system --no-cache --index-url "$PIP_INDEX" \
+# Install third-party dependencies from the smallest viable project skeleton.
+# This layer is invalidated by packaging metadata changes, not ordinary source
+# edits. The complete project is installed separately below without resolving
+# dependencies again.
+COPY setup.py setup.cfg pyproject.toml versioneer.py ./
+COPY xinference/__init__.py xinference/_version.py ./xinference/
+RUN --mount=type=cache,target=/root/.cache/pip \
+    --mount=type=cache,target=/root/.cache/uv \
+    touch README.md && \
+    pip install -i "$PIP_INDEX" uv && \
+    NO_WEB_UI=1 uv pip install --system --index-url "$PIP_INDEX" \
       --extra-index-url "$TORCH_INDEX" --index-strategy unsafe-best-match \
       --constraint /opt/requirements-runtime.txt \
       ".[otel]" transformers accelerate
+
+COPY . /opt/inference
+COPY --from=web-builder /opt/inference/xinference/ui/web/dist /opt/inference/xinference/ui/web/dist
+RUN --mount=type=cache,target=/root/.cache/uv \
+    NO_WEB_UI=1 uv pip install --system --no-deps --reinstall "."
 
 # Parity with previous images: no entrypoint, plain shell by default; deploy
 # commands (xinference-local / supervisor / worker) are passed explicitly.

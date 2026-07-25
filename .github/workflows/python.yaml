@@ -79,9 +79,13 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             base_sha="${{ github.event.pull_request.base.sha }}"
             head_sha="${{ github.event.pull_request.head.sha }}"
+            # Match GitHub's PR diff: exclude commits added to the base branch
+            # after the PR branch diverged.
+            diff_range="$base_sha...$head_sha"
           else
             base_sha="${{ github.event.before }}"
             head_sha="${{ github.sha }}"
+            diff_range="$base_sha..$head_sha"
           fi
 
           full=false
@@ -90,7 +94,7 @@ jobs:
           # Fall back to a full run when there is no usable diff base (new
           # branch, or a force push whose previous head no longer exists).
           if [ -z "$base_sha" ] || [[ "$base_sha" =~ ^0+$ ]] \
-              || ! git diff --name-only "$base_sha" "$head_sha" > changed-files.txt 2>/dev/null; then
+              || ! git diff --name-only "$diff_range" > changed-files.txt 2>/dev/null; then
             full=true
           else
             # Map each changed path to the GPU test group(s) it affects.

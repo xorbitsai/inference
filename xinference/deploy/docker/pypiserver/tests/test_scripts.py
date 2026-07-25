@@ -197,21 +197,46 @@ def test_runtime_and_mirror_share_the_same_constraints_file():
         "transformers",
     }
 
-    runtime_dockerfile = (REPO_ROOT / "xinference/deploy/docker/Dockerfile").read_text()
+    runtime_dockerfile = (REPO_ROOT / "xinference/deploy/docker/Dockerfile").read_text(
+        encoding="utf-8"
+    )
     assert (
         "COPY xinference/deploy/docker/requirements-runtime.txt" in runtime_dockerfile
     )
     mirror_dockerfile = (
         REPO_ROOT / "xinference/deploy/docker/pypiserver/Dockerfile.pypiserver"
-    ).read_text()
+    ).read_text(encoding="utf-8")
     assert "COPY xinference/deploy/docker/requirements-runtime.txt" in mirror_dockerfile
     assert "--runtime-constraints /build/requirements-runtime.txt" in mirror_dockerfile
+
+
+def test_runtime_dockerfiles_keep_dependency_layers_source_independent():
+    for name in ("Dockerfile", "Dockerfile.cpu"):
+        dockerfile = (REPO_ROOT / "xinference/deploy/docker" / name).read_text(
+            encoding="utf-8"
+        )
+
+        frontend_dependencies = dockerfile.index(
+            "COPY frontend/package.json frontend/package-lock.json ./"
+        )
+        npm_install = dockerfile.index("npm ci", frontend_dependencies)
+        frontend_sources = dockerfile.index("COPY frontend ./", npm_install)
+        assert frontend_dependencies < npm_install < frontend_sources
+        assert "--mount=type=cache,target=/root/.npm" in dockerfile
+        assert "--mount=type=cache,target=/root/.cache/pip" in dockerfile
+
+        dependency_install = dockerfile.index("pip install", frontend_sources)
+        project_sources = dockerfile.index("COPY . /opt/inference", dependency_install)
+        project_install = dockerfile.index("pip install", project_sources)
+        assert dependency_install < project_sources < project_install
 
 
 def test_transformers_optional_dependencies_are_scoped_and_mirrored(
     monkeypatch, tmp_path
 ):
-    dockerfile = (REPO_ROOT / "xinference/deploy/docker/Dockerfile").read_text()
+    dockerfile = (REPO_ROOT / "xinference/deploy/docker/Dockerfile").read_text(
+        encoding="utf-8"
+    )
     assert '".[otel]" transformers accelerate' in dockerfile
     assert '".[otel,transformers,transformers_quantization]"' not in dockerfile
     assert "--constraint /opt/requirements-runtime.txt" in dockerfile

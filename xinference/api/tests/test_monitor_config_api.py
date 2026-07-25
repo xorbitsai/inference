@@ -164,3 +164,60 @@ async def test_full_flow(mock_request, store):
     response = await admin.get_ui_config(request=mock_request)
     data = _json_body(response)
     assert data["grafana_url"] == ""
+
+
+# All six dashboard tab keys, matching MONITOR_DASHBOARD_TABS in the frontend.
+ALL_DASHBOARD_KEYS = ("overview", "model_load", "llm_slo", "gpu", "host", "security")
+
+
+@pytest.mark.asyncio
+async def test_get_monitor_config_returns_configured_keys(mock_request):
+    response = await admin.get_monitor_config(request=mock_request)
+    assert response.status_code == 200
+    data = _json_body(response)
+    # Fresh store: only overview is configured (always-on default). The other
+    # five resolve to code-default UIDs but must NOT be reported as configured.
+    assert data["grafana_dashboards_configured"] == ["overview"]
+
+
+@pytest.mark.asyncio
+async def test_put_unchanged_dashboards_does_not_expand_configured(mock_request):
+    """Regression for the GET->PUT round-trip. The config dialog submits all
+    six dashboard keys: the resolved UID for enabled tabs and an empty string
+    for disabled ones. An unchanged save must not persist fallback UIDs for
+    disabled tabs, otherwise every tab would become "configured" and the
+    backward-compatible single-dashboard UX would break."""
+    get_resp = await admin.get_monitor_config(request=mock_request)
+    dashboards = _json_body(get_resp)["grafana_dashboards"]
+
+    # Mirror the dialog payload: enabled tab (overview) keeps its UID, rest empty.
+    payload = {key: "" for key in ALL_DASHBOARD_KEYS}
+    payload["overview"] = dashboards["overview"]
+    body = admin.MonitorConfigUpdate(grafana_dashboards=payload)
+    put_resp = await admin.update_monitor_config(request=mock_request, body=body)
+    assert put_resp.status_code == 200
+
+    after = await admin.get_monitor_config(request=mock_request)
+    assert _json_body(after)["grafana_dashboards_configured"] == ["overview"]
+
+
+@pytest.mark.asyncio
+async def test_enable_then_disable_dashboard_via_empty_string(mock_request, store):
+    # Enable model_load with an explicit UID.
+    enabled = {key: "" for key in ALL_DASHBOARD_KEYS}
+    enabled["model_load"] = "ml-uid"
+    await admin.update_monitor_config(
+        request=mock_request, body=admin.MonitorConfigUpdate(grafana_dashboards=enabled)
+    )
+    assert "model_load" in store.get_configured_dashboard_keys()
+
+    # Disable it again by submitting an explicit empty string, which must
+    # overwrite the stale DB value so the tab falls back to "default".
+    disabled = {key: "" for key in ALL_DASHBOARD_KEYS}
+    await admin.update_monitor_config(
+        request=mock_request,
+        body=admin.MonitorConfigUpdate(grafana_dashboards=disabled),
+    )
+    configured = store.get_configured_dashboard_keys()
+    assert "model_load" not in configured
+    assert configured == ["overview"]

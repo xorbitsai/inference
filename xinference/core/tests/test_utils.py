@@ -15,13 +15,16 @@
 from ..utils import (
     build_replica_model_uid,
     build_subpool_envs_for_virtual_env,
+    is_valid_model_uid,
     iter_replica_model_uid,
     merge_virtual_env_packages,
+    parse_legacy_replica_model_uid,
     parse_replica_model_uid,
 )
 from ..virtual_env_manager import (
     ENGINE_VIRTUALENV_PACKAGES,
     XLLAMACPP_CUDA_INDEX_URLS,
+    ensure_system_torch_pin,
     get_xllamacpp_cuda_index_url,
 )
 
@@ -36,6 +39,40 @@ def test_replica_model_uid():
         all_gen_ids.append(replica_model_uid)
     assert len(all_gen_ids) == 5
     assert len(set(all_gen_ids)) == 5
+
+
+def test_parse_replica_model_uid_bare_names_ending_in_digits():
+    """Bare model uids like llama-2 must not be treated as replicas (#5198)."""
+    assert parse_replica_model_uid("llama-2") == ("llama-2", -1)
+    assert parse_replica_model_uid("phi-2") == ("phi-2", -1)
+    assert parse_replica_model_uid("gpt-4") == ("gpt-4", -1)
+    assert parse_replica_model_uid("mymodel") == ("mymodel", -1)
+
+    built = build_replica_model_uid("llama-2", 0)
+    assert built == "llama-2-rep0"
+    assert parse_replica_model_uid(built) == ("llama-2", 0)
+
+    built2 = build_replica_model_uid("gpt-4", 3)
+    assert parse_replica_model_uid(built2) == ("gpt-4", 3)
+    assert build_replica_model_uid(*parse_replica_model_uid(built2)) == built2
+
+
+def test_is_valid_model_uid_rejects_replica_shaped_names():
+    assert is_valid_model_uid("llama-2")
+    assert is_valid_model_uid("my-model")
+    assert not is_valid_model_uid("llama-2-rep0")
+    assert not is_valid_model_uid("")
+
+
+def test_parse_legacy_replica_model_uid():
+    """Migration helper for pre--rep{n} recovery files."""
+    assert parse_legacy_replica_model_uid("myllm-0") == ("myllm", 0)
+    assert parse_legacy_replica_model_uid("llama-2-1") == ("llama-2", 1)
+    # Ambiguous by design: bare names ending in digits also match; callers
+    # must verify the base uid against known models.
+    assert parse_legacy_replica_model_uid("llama-2") == ("llama", 2)
+    assert parse_legacy_replica_model_uid("mymodel") is None
+    assert parse_legacy_replica_model_uid("myllm-rep0") is None
 
 
 class DummyVirtualEnvManager:
@@ -128,7 +165,12 @@ def test_merge_virtual_env_packages_preserves_conditional_system_markers_without
 
 
 def _run_prepare_virtual_env(
-    cuda_version, inherited_index_url, skip_installed=True, cuda_available=True
+    cuda_version,
+    inherited_index_url,
+    skip_installed=True,
+    cuda_available=True,
+    model_engine="llama.cpp",
+    packages=("xllamacpp>=0.2.6",),
 ):
     """
     Drive WorkerActor._prepare_virtual_env for the llama.cpp engine and report
@@ -180,9 +222,9 @@ def _run_prepare_virtual_env(
     ):
         WorkerActor._prepare_virtual_env(
             virtual_env_manager=_FakeVEM(),
-            settings=VirtualEnvSettings(packages=["xllamacpp>=0.2.6"]),
+            settings=VirtualEnvSettings(packages=list(packages)),
             virtual_env_packages=None,
-            model_engine="llama.cpp",
+            model_engine=model_engine,
             model_name="qwen3",
             architectures=None,
         )
@@ -245,6 +287,150 @@ def test_prepare_virtual_env_llama_cpp_no_gpu_device_keeps_cpu_index():
         result["conf"]["index_url"] == "https://mirrors.cloud.tencent.com/pypi/simple/"
     )
     assert result["uninstalled"] == []
+
+
+def _run_prepare_with_torchvision_version(model_engine, tv_version="0.20.0+cu130"):
+    # Built-in embedding/rerank specs share this engine-guarded companion entry
+    # across engines. Pin the reported torchvision version so the PyTorch CUDA
+    # index decision is deterministic regardless of the test host.
+    import importlib.metadata
+    from unittest import mock
+
+    real_version = importlib.metadata.version
+
+    def _fake_version(name):
+        if name.lower() == "torchvision":
+            return tv_version
+        return real_version(name)
+
+    with mock.patch("importlib.metadata.version", side_effect=_fake_version):
+        return _run_prepare_virtual_env(
+            cuda_version="13.0",
+            inherited_index_url=None,
+            model_engine=model_engine,
+            packages=(
+                'sentence_transformers ; #engine# == "sentence_transformers"',
+                '#system_torchvision# ; #engine# == "sentence_transformers"',
+            ),
+        )
+
+
+def test_prepare_virtual_env_pytorch_index_skipped_for_nonmatching_engine():
+    # A flag launch must NOT auto-configure the PyTorch CUDA index from the
+    # sentence_transformers-guarded #system_torchvision# marker, and the
+    # inactive companion is filtered out entirely (issue #5156 review).
+    result = _run_prepare_with_torchvision_version("flag")
+    extra = result["conf"].get("extra_index_url")
+    assert not extra or "download.pytorch.org" not in str(extra)
+    assert result["packages"] == []
+
+
+def test_prepare_virtual_env_pytorch_index_used_for_matching_engine():
+    # The sentence_transformers launch keeps the companion (guard stripped) and
+    # does auto-configure the matching PyTorch CUDA index.
+    result = _run_prepare_with_torchvision_version("sentence_transformers")
+    extra = result["conf"].get("extra_index_url")
+    assert extra and "https://download.pytorch.org/whl/cu130" in extra
+    # #system_torchvision# survives (guard stripped) and #system_torch# is added.
+    assert "#system_torchvision#" in result["packages"]
+    assert "#system_torch#" in result["packages"]
+
+
+def test_ensure_system_torch_pin_injects_when_missing():
+    # #system_torchvision# present but torch unpinned -> #system_torch# added,
+    # inheriting the companion's environment marker (issue #5156).
+    packages = [
+        "sentence_transformers",
+        '#system_torchvision# ; #engine# == "sentence_transformers"',
+    ]
+    result = ensure_system_torch_pin(packages)
+    assert '#system_torch# ; #engine# == "sentence_transformers"' in result
+    # original entries preserved, torch pin appended once
+    assert result[: len(packages)] == packages
+    assert sum(1 for p in result if p.split(";", 1)[0].strip() == "#system_torch#") == 1
+
+
+def test_ensure_system_torch_pin_no_marker_when_companion_unmarked():
+    packages = ["sentence_transformers", "#system_torchvision#"]
+    result = ensure_system_torch_pin(packages)
+    assert "#system_torch#" in result
+
+
+def test_ensure_system_torch_pin_noop_when_torch_already_pinned_marker():
+    packages = [
+        '#system_torchvision# ; #engine# == "sentence_transformers"',
+        '#system_torch# ; #engine# == "sentence_transformers"',
+    ]
+    result = ensure_system_torch_pin(packages)
+    assert result == packages
+
+
+def test_ensure_system_torch_pin_noop_when_torch_already_pinned_plain():
+    # A plain torch pin (e.g. user-registered model) also counts as pinned.
+    packages = ["torch==2.11.0", "#system_torchvision#"]
+    result = ensure_system_torch_pin(packages)
+    assert result == packages
+
+
+def test_ensure_system_torch_pin_noop_without_companion():
+    packages = ["sentence_transformers", "einops", "#system_numpy#"]
+    result = ensure_system_torch_pin(packages)
+    assert result == packages
+    assert not any("torch" in p for p in result)
+
+
+def test_ensure_system_torch_pin_empty():
+    assert ensure_system_torch_pin([]) == []
+
+
+def test_ensure_system_torch_pin_multiple_companions_different_markers():
+    # Two companions guarded by different engine markers each get a matching
+    # torch pin under the same condition (issue #5156 review follow-up).
+    packages = [
+        '#system_torchvision# ; #engine# == "sentence_transformers"',
+        '#system_torchaudio# ; #engine# == "audio"',
+    ]
+    result = ensure_system_torch_pin(packages)
+    assert '#system_torch# ; #engine# == "sentence_transformers"' in result
+    assert '#system_torch# ; #engine# == "audio"' in result
+    assert result[: len(packages)] == packages
+    assert len(result) == 4
+
+
+def test_ensure_system_torch_pin_only_fills_missing_marker():
+    # A conditional torch pin already covers one companion; the other companion
+    # (different marker) still gets its own torch pin, and the existing one is
+    # left untouched.
+    packages = [
+        '#system_torchvision# ; #engine# == "sentence_transformers"',
+        '#system_torch# ; #engine# == "sentence_transformers"',
+        '#system_torchaudio# ; #engine# == "audio"',
+    ]
+    result = ensure_system_torch_pin(packages)
+    assert result[: len(packages)] == packages
+    assert result[len(packages) :] == ['#system_torch# ; #engine# == "audio"']
+
+
+def test_ensure_system_torch_pin_unconditional_torch_covers_all():
+    # An unconditional torch pin satisfies every companion regardless of marker.
+    packages = [
+        "torch==2.11.0",
+        '#system_torchvision# ; #engine# == "sentence_transformers"',
+        "#system_torchaudio#",
+    ]
+    result = ensure_system_torch_pin(packages)
+    assert result == packages
+
+
+def test_ensure_system_torch_pin_deduplicates_same_marker():
+    # Two companions sharing one marker yield a single torch pin.
+    packages = [
+        '#system_torchvision# ; #engine# == "x"',
+        '#system_torchaudio# ; #engine# == "x"',
+    ]
+    result = ensure_system_torch_pin(packages)
+    assert result.count('#system_torch# ; #engine# == "x"') == 1
+    assert len(result) == 3
 
 
 def test_build_subpool_envs_for_virtual_env_disabled():

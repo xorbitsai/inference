@@ -145,6 +145,46 @@ class IndexTTS2:
 
             return None
 
+        def get_modelscope_small_model_path(model_name):
+            """Download an auxiliary small model from ModelScope.
+
+            The auxiliary models below are otherwise hardcoded to
+            HuggingFace, which is unreachable in many deployments that
+            download their main models via ModelScope; honor
+            XINFERENCE_MODEL_SRC=modelscope for them as well.
+            """
+            if os.environ.get("XINFERENCE_MODEL_SRC") != "modelscope":
+                return None
+            modelscope_small_models = {
+                "w2v-bert-2.0": (
+                    "AI-ModelScope/w2v-bert-2.0",
+                    ["config.json", "preprocessor_config.json", "model.safetensors"],
+                    None,
+                ),
+                "semantic_codec": (
+                    "amphion/MaskGCT",
+                    ["semantic_codec/*"],
+                    "semantic_codec",
+                ),
+                "campplus": (
+                    "iic/speech_campplus_sv_zh-cn_16k-common",
+                    ["campplus_cn_common.bin"],
+                    None,
+                ),
+                "bigvgan": (
+                    "nv-community/bigvgan_v2_22khz_80band_256x",
+                    ["config.json", "bigvgan_generator.pt"],
+                    None,
+                ),
+            }
+            repo_id, patterns, subdir = modelscope_small_models[model_name]
+            from modelscope import snapshot_download
+
+            root = snapshot_download(repo_id, allow_patterns=patterns)
+            path = os.path.join(root, subdir) if subdir else root
+            print(f">> {model_name} downloaded from modelscope: {repo_id} -> {path}")
+            return path
+
         if device is not None:
             self.device = device
             self.use_fp16 = False if device == "cpu" else use_fp16
@@ -221,7 +261,9 @@ class IndexTTS2:
                 print(f"{e!r}")
                 self.use_cuda_kernel = False
 
-        w2v_bert_path = get_small_model_path("w2v-bert-2.0")
+        w2v_bert_path = get_small_model_path(
+            "w2v-bert-2.0"
+        ) or get_modelscope_small_model_path("w2v-bert-2.0")
         print(f">> w2v_bert_path lookup result: {w2v_bert_path}")
         if w2v_bert_path is not None:
             self.extract_features = SeamlessM4TFeatureExtractor.from_pretrained(
@@ -244,7 +286,9 @@ class IndexTTS2:
         self.semantic_std = self.semantic_std.to(self.device)
 
         semantic_codec = build_semantic_codec(self.cfg.semantic_codec)
-        semantic_codec_path = get_small_model_path("semantic_codec")
+        semantic_codec_path = get_small_model_path(
+            "semantic_codec"
+        ) or get_modelscope_small_model_path("semantic_codec")
         print(f">> semantic_codec_path lookup result: {semantic_codec_path}")
         if semantic_codec_path is not None:
             semantic_code_ckpt = os.path.join(semantic_codec_path, "model.safetensors")
@@ -285,7 +329,9 @@ class IndexTTS2:
         print(">> s2mel weights restored from:", s2mel_path)
 
         # load campplus_model
-        campplus_path = get_small_model_path("campplus")
+        campplus_path = get_small_model_path(
+            "campplus"
+        ) or get_modelscope_small_model_path("campplus")
         print(f">> campplus_path lookup result: {campplus_path}")
         if campplus_path is not None:
             campplus_ckpt_path = os.path.join(campplus_path, "campplus_cn_common.bin")
@@ -309,7 +355,9 @@ class IndexTTS2:
         self.campplus_model.eval()
         print(">> campplus_model weights restored from:", campplus_ckpt_path)
 
-        bigvgan_path = get_small_model_path("bigvgan")
+        bigvgan_path = get_small_model_path(
+            "bigvgan"
+        ) or get_modelscope_small_model_path("bigvgan")
         print(f">> bigvgan_path lookup result: {bigvgan_path}")
         if bigvgan_path is not None:
             bigvgan_name = bigvgan_path

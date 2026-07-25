@@ -138,15 +138,18 @@ class Indextts2:
                 temp_emo.write(emo_prompt_speech)
                 emo_prompt_path = temp_emo.name
 
-        # Generate complete audio first
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_output:
-            output_path = temp_output.name
-
         try:
-            self._model.infer(
+            # Pass output_path=None so IndexTTS2 returns the generated waveform in
+            # memory (as an int16 numpy array) instead of writing it to disk with
+            # torchaudio.save. torchaudio.save routes through TorchCodec, whose
+            # FFmpeg shared libraries are missing / ABI-mismatched in some images
+            # (see #5201), which made /v1/audio/speech fail at the save step even
+            # though inference had already succeeded. soundfile below performs the
+            # actual encoding, so the on-disk WAV round-trip is not needed.
+            sample_rate, audio = self._model.infer(
                 spk_audio_prompt=temp_prompt_path,
                 text=input,
-                output_path=output_path,
+                output_path=None,
                 emo_audio_prompt=emo_prompt_path,
                 emo_alpha=emo_alpha,
                 emo_text=emo_text,
@@ -154,9 +157,6 @@ class Indextts2:
                 emo_vector=emo_vector,
                 use_emo_text=use_emo_text,
             )
-
-            # Read generated audio
-            audio, sample_rate = soundfile.read(output_path)
 
             if stream:
                 # Streaming mode - return generator that yields chunks
@@ -167,9 +167,6 @@ class Indextts2:
                         ) as f:
                             f.write(audio)
                         complete_audio = out.getvalue()
-
-                    # Clean up temp file
-                    os.unlink(output_path)
 
                     # Yield the complete audio in chunks
                     chunk_size = 8192  # 8KB chunks
@@ -186,8 +183,6 @@ class Indextts2:
                         f.write(audio)
                     result = out.getvalue()
 
-                # Clean up temp file
-                os.unlink(output_path)
                 return result
         finally:
             # Clean up temp files

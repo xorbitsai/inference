@@ -10,3 +10,11 @@ frontend/.npm-cache/
 frontend/.npm-logs/
 xinference/web/ui/build/
 xinference/web/ui/node_modules/
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml

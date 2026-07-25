@@ -17,4 +17,13 @@ export const REFRESH = [
   { labelKey: 'monitorCenter.refresh.30s', refreshInterval: 30000, value: '30s' },
   { labelKey: 'monitorCenter.refresh.1m', refreshInterval: 60000, value: '1m' },
   { labelKey: 'monitorCenter.refresh.5m', refreshInterval: 300000, value: '5m' },
-]
+];
+
+export const MONITOR_DASHBOARD_TABS = [
+  { key: 'overview', labelKey: 'monitorCenter.tab.overview' },
+  { key: 'model_load', labelKey: 'monitorCenter.tab.modelLoad' },
+  { key: 'llm_slo', labelKey: 'monitorCenter.tab.llmSlo' },
+  { key: 'gpu', labelKey: 'monitorCenter.tab.gpu' },
+  { key: 'host', labelKey: 'monitorCenter.tab.host' },
+  { key: 'security', labelKey: 'monitorCenter.tab.security' },
+] as const;

@@ -4,11 +4,18 @@ import { Input } from '@/components/ui/input';
 import { RadioGroup } from '@/components/ui/radio-group';
 import { Select } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { MultiSelect } from '@/components/ui/multi-select';
 import { ModelType, XINFERENCE_IO, CUSTOM_MODEL_OPTIONS } from '@/constants';
 import { ALL_FORM_KEYS, LAUNCH_MODEL_ROUTE_TABS } from '@/constants/launch';
 import type { FormInstance, FormValues } from '@/types/form';
 import { transformFormListToObj, transformObjToFormList } from '@/lib/utils';
-import type { ModelEngine, ModelEngineItem, ReplicaItem } from '@/types/services';
+import type {
+  ModelEngine,
+  ModelEngineItem,
+  ReplicaItem,
+  ClusterInfo,
+  ClusterInfoResponse,
+} from '@/types/services';
 import CommonFormList from './launch-dialog/common-form-list';
 import type {
   CatalogModel,
@@ -20,6 +27,7 @@ import type {
   RequestModelType,
   RouteModelType,
   UnknownRecord,
+  WorkerOption,
 } from './types';
 
 export const MODEL_ENGINE_TYPES: RequestModelType[] = [
@@ -136,6 +144,8 @@ export function renderLaunchField(field: LaunchFieldConfig) {
       return renderFormField(field, <Input {...field.fieldProps} />);
     case 'select':
       return renderFormField(field, <Select {...field.fieldProps} />);
+    case 'multi-select':
+      return renderFormField(field, <MultiSelect {...field.fieldProps} />);
     case 'switch':
       return renderFormField(field, <Switch {...field.fieldProps} />);
     case 'radio-group':
@@ -394,13 +404,13 @@ function deleteNestedEmptyArrayField(values: FormValues, parent: string, field: 
   }
 }
 
-function normalizeNGPU (value?: string | number) {
-  if (!value) return null
+function normalizeNGPU(value?: string | number) {
+  if (!value) return null;
 
-  if (value === 'CPU') return null
-  if (value === 'auto' || value === 'GPU') return 'auto'
+  if (value === 'CPU') return null;
+  if (value === 'auto' || value === 'GPU') return 'auto';
 
-  return value === 0 ? null : value
+  return value === 0 ? null : value;
 }
 export const parseGpuIndexes = (value?: string): number[] | undefined => {
   if (!value) return undefined;
@@ -414,6 +424,29 @@ export const parseGpuIndexes = (value?: string): number[] | undefined => {
 
   return result.length ? result : undefined;
 };
+
+function transformWorkerIpToFetch(value: unknown) {
+  if (!Array.isArray(value)) return value;
+
+  const workerIps = value.map((item) => String(item).trim()).filter(Boolean);
+
+  return workerIps.length ? workerIps.join(',') : undefined;
+}
+
+function transformWorkerIpToForm(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+
+  if (typeof value === 'string') {
+    return value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return value;
+}
 
 export function transformFormToFetch(values: FormValues) {
   const nextValues = { ...values };
@@ -429,30 +462,39 @@ export function transformFormToFetch(values: FormValues) {
   if (nextValues?.enable_virtual_env === 'unset') {
     delete nextValues.enable_virtual_env;
   }
-  if('n_gpu' in values){
-    nextValues.n_gpu = normalizeNGPU(values.n_gpu)
+  if ('n_gpu' in values) {
+    nextValues.n_gpu = normalizeNGPU(values.n_gpu);
   }
-  if('gpu_idx' in values) {
+  if ('gpu_idx' in values) {
     nextValues.gpu_idx = parseGpuIndexes(values.gpu_idx);
   }
+  if ('worker_ip' in values) {
+    const workerIp = transformWorkerIpToFetch(values.worker_ip);
+
+    if (workerIp === undefined) {
+      delete nextValues.worker_ip;
+    } else {
+      nextValues.worker_ip = workerIp;
+    }
+  }
   if ('n_gpu_layers' in values && values.n_gpu_layers < 0) {
-    delete nextValues.n_gpu_layers
+    delete nextValues.n_gpu_layers;
   }
   if (nextValues.download_hub === 'none') {
-    delete nextValues.download_hub
+    delete nextValues.download_hub;
   }
   if (nextValues.gguf_quantization === 'none') {
-    delete nextValues.gguf_quantization
+    delete nextValues.gguf_quantization;
   }
   return nextValues;
 }
-function restoreNGPU (value: null | string | number, modelType: RequestModelType) {
-  if (value === null) return 'CPU'
+function restoreNGPU(value: null | string | number, modelType: RequestModelType) {
+  if (value === null) return 'CPU';
   if (value === 'auto') {
-    return [ModelType.LLM, ModelType.Image].includes(modelType) ? 'auto' : 'GPU'
+    return [ModelType.LLM, ModelType.Image].includes(modelType) ? 'auto' : 'GPU';
   }
-  if (typeof value === 'number') return value
-  return value || 'CPU'
+  if (typeof value === 'number') return value;
+  return value || 'CPU';
 }
 export function transformFetchToForm(values: FormValues) {
   const nextValues = { ...values };
@@ -463,11 +505,14 @@ export function transformFetchToForm(values: FormValues) {
   restoreKwargsFormList(nextValues);
   restoreNestedFormListObject(nextValues, 'peft_model_config', 'image_lora_load_kwargs');
   restoreNestedFormListObject(nextValues, 'peft_model_config', 'image_lora_fuse_kwargs');
-  if('n_gpu' in values){
-    nextValues.n_gpu = restoreNGPU(values.n_gpu, values?.model_type)
+  if ('n_gpu' in values) {
+    nextValues.n_gpu = restoreNGPU(values.n_gpu, values?.model_type);
   }
-  if('gpu_idx' in values){
+  if ('gpu_idx' in values) {
     nextValues.gpu_idx = Array.isArray(values.gpu_idx) ? values.gpu_idx.join(',') : undefined;
+  }
+  if ('worker_ip' in values) {
+    nextValues.worker_ip = transformWorkerIpToForm(values.worker_ip);
   }
   return nextValues;
 }
@@ -603,9 +648,7 @@ export function generateCommandLineStatement(params: FormValues) {
   const entries = Object.entries(params).filter(([, value]) => !isEmptyCommandValue(value));
 
   const args = [
-    ...commandLeadingKeys.flatMap((leadingKey) =>
-      entries.filter(([key]) => key === leadingKey)
-    ),
+    ...commandLeadingKeys.flatMap((leadingKey) => entries.filter(([key]) => key === leadingKey)),
     ...entries.filter(([key]) => !commandLeadingKeys.includes(key)),
   ]
     .flatMap(([key, value]) => {
@@ -860,4 +903,63 @@ export function isEmptyLaunchValue(value: unknown) {
 
 export function isVisibleRequiredLaunchField(field: LaunchFieldConfig) {
   return field.show !== false && 'rules' in field && field.rules?.some((rule) => rule.required);
+}
+
+export function normalizeWorkerAddress(value: unknown) {
+  const normalized = String(value || '').trim();
+  if (!normalized) return '';
+
+  try {
+    return new URL(`http://${normalized}`).hostname.replace(/^\[|\]$/g, '');
+  } catch {
+    if (normalized.startsWith('[')) {
+      const closingBracketIndex = normalized.indexOf(']');
+      if (closingBracketIndex !== -1) {
+        return normalized.slice(1, closingBracketIndex).trim();
+      }
+    }
+
+    const lastColonIndex = normalized.lastIndexOf(':');
+    if (lastColonIndex === -1) return normalized;
+
+    const hasMultipleColons = normalized.indexOf(':') !== lastColonIndex;
+    if (hasMultipleColons) {
+      return normalized;
+    }
+
+    return normalized.slice(0, lastColonIndex).trim();
+  }
+}
+
+export function extractWorkerItems(clusterInfo: ClusterInfoResponse): WorkerOption[] {
+  if (!clusterInfo) return [];
+  const isFlatNodeList = Array.isArray(clusterInfo);
+  const nodes = isFlatNodeList ? clusterInfo : clusterInfo.workers || [];
+  const workerMap = nodes.reduce<Map<string, WorkerOption>>((acc, node: ClusterInfo) => {
+    if (isFlatNodeList && node.node_type !== 'Worker') return acc;
+
+    const workerIp = normalizeWorkerAddress(node.ip_address || node.ip);
+    if (!workerIp) return acc;
+
+    const gpuCount = Number(node.gpu_count || 0);
+    const existingWorker = acc.get(workerIp);
+
+    if (existingWorker) {
+      existingWorker.gpuCount = Math.max(existingWorker.gpuCount, gpuCount);
+      return acc;
+    }
+
+    acc.set(workerIp, {
+      label: workerIp,
+      value: workerIp,
+      gpuCount,
+    });
+
+    return acc;
+  }, new Map());
+
+  return Array.from(workerMap.values()).sort((a, b) => a.label.localeCompare(b.label));
+}
+export function requiresGpuWorkers(value: unknown) {
+  return value != null && value !== '' && value !== undefined && value !== 'CPU';
 }

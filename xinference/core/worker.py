@@ -93,18 +93,21 @@ from .resource import gather_node_info
 from .status_guard import StatusGuardActor
 from .utils import (
     apply_engine_virtualenv_settings,
+    build_replica_model_uid,
     build_subpool_envs_for_virtual_env,
     filter_virtualenv_packages_by_markers,
     find_direct_reference_packages,
     log_async,
     log_sync,
     merge_virtual_env_packages,
+    parse_legacy_replica_model_uid,
     parse_replica_model_uid,
     purge_dir,
     rewrite_direct_url_packages_for_index,
 )
 from .virtual_env_manager import VirtualEnvManager as XinferenceVirtualEnvManager
 from .virtual_env_manager import (
+    ensure_system_torch_pin,
     expand_engine_dependency_placeholders,
     get_engine_critical_dependency_specs,
     get_engine_model_format_virtualenv_packages,
@@ -1390,11 +1393,33 @@ class WorkerActor(xo.StatelessActor):
         for model_uid, launch_args in persisted.items():
             try:
                 # Cross-validate: check if supervisor still knows about this model
-                origin_uid, _ = parse_replica_model_uid(model_uid)
+                origin_uid, rep_id = parse_replica_model_uid(model_uid)
                 try:
                     model_info = await supervisor_ref.describe_model(origin_uid)
                 except Exception:
                     model_info = None
+                if model_info is None and rep_id == -1:
+                    # The recovery file may have been written by a version
+                    # that built replica uids as "{uid}-{n}" instead of the
+                    # reserved "-rep{n}" suffix. That format is ambiguous
+                    # (a bare "llama-2" also matches), so only migrate when
+                    # the stripped base uid is a model the supervisor knows.
+                    legacy = parse_legacy_replica_model_uid(model_uid)
+                    if legacy is not None:
+                        try:
+                            model_info = await supervisor_ref.describe_model(legacy[0])
+                        except Exception:
+                            model_info = None
+                        if model_info is not None:
+                            new_uid = build_replica_model_uid(*legacy)
+                            logger.info(
+                                "Migrating legacy replica model uid %s -> %s "
+                                "for recovery",
+                                model_uid,
+                                new_uid,
+                            )
+                            model_uid = new_uid
+                            launch_args["model_uid"] = new_uid
                 if model_info is None:
                     logger.info(
                         "Model %s no longer registered in supervisor, skipping recovery",
@@ -2688,17 +2713,36 @@ class WorkerActor(xo.StatelessActor):
         )
         packages = merge_virtual_env_packages(base_packages, virtual_env_packages)
 
+        try:
+            from xoscar.virtualenv.platform import get_cuda_version
+
+            cuda_version = get_cuda_version()
+        except Exception:
+            cuda_version = None
+
         # Auto-configure PyTorch wheel URL based on system packages
         # Check if packages contain PyTorch system markers (#system_torch#, etc.)
         # If so, detect CUDA version from system and configure wheel URL
         # Note: markers are kept as-is and resolved later by xoscar's process_packages
         from .virtual_env_manager import PYTORCH_CUDA_WHEEL_URLS, PYTORCH_PACKAGES
 
+        # Only consider markers that actually apply to the current engine/CUDA/
+        # platform. Built-in embedding/rerank specs carry an engine-guarded entry
+        # such as '#system_torchvision# ; #engine# == "sentence_transformers"';
+        # evaluating it for a non-matching engine (e.g. flag/vllm) would otherwise
+        # auto-configure the PyTorch CUDA index from an inactive marker (issue
+        # #5156). filter_virtualenv_packages_by_markers drops non-applicable
+        # entries and strips the guard from the ones that remain.
+        active_packages = filter_virtualenv_packages_by_markers(
+            packages, model_engine, cuda_version
+        )
+
         system_cuda_urls = None
-        for pkg in packages:
-            if pkg.startswith("#system_") and pkg.endswith("#"):
+        for pkg in active_packages:
+            marker_head = pkg.split(";", 1)[0].strip()
+            if marker_head.startswith("#system_") and marker_head.endswith("#"):
                 # Extract package name from marker
-                marker_pkg = pkg[len("#system_") : -1].lower()
+                marker_pkg = marker_head[len("#system_") : -1].lower()
                 if marker_pkg in PYTORCH_PACKAGES:
                     try:
                         import importlib.metadata
@@ -2746,13 +2790,6 @@ class WorkerActor(xo.StatelessActor):
                 settings.extra_index_url = system_cuda_urls + [
                     u for u in existing_urls if u not in system_cuda_urls
                 ]
-
-        try:
-            from xoscar.virtualenv.platform import get_cuda_version
-
-            cuda_version = get_cuda_version()
-        except Exception:
-            cuda_version = None
 
         if not is_cuda_compatible(settings.extra_index_url, cuda_version):
             logger.debug(
@@ -2824,9 +2861,9 @@ class WorkerActor(xo.StatelessActor):
                 # force this install so the GPU wheel actually replaces it.
                 force_reinstall_xllamacpp = True
 
-        packages = filter_virtualenv_packages_by_markers(
-            packages, model_engine, cuda_version
-        )
+        # Reuse the engine/CUDA/platform-filtered list computed above for the
+        # PyTorch index decision — same inputs, so the result is identical.
+        packages = active_packages
 
         critical_specs = get_engine_critical_dependency_specs(model_engine, packages)
         if critical_specs:
@@ -2857,6 +2894,13 @@ class WorkerActor(xo.StatelessActor):
                     "non-wheel direct references; preinstall or replace these "
                     f"requirements: {direct_references}"
                 )
+
+        # Keep torch aligned with any system-pinned torch companion package
+        # (torchvision/torchaudio/torchcodec). Without this, the resolver may
+        # upgrade torch in the child venv while the companion stays at the system
+        # version, and the ABI mismatch crashes the model subprocess on relaunch
+        # (issue #5156).
+        packages = ensure_system_torch_pin(packages)
 
         conf = dict(settings)
         conf.pop("packages", None)
@@ -3449,26 +3493,60 @@ class WorkerActor(xo.StatelessActor):
             except Exception as e:
                 logger.warning(f"Failed to handle virtual environment info: {e}")
 
-        # update status to READY
-        abilities = await self._get_model_ability(model, model_type)
-        _ = await self.get_supervisor_ref(add_worker=False)
+        try:
+            # update status to READY
+            abilities = await self._get_model_ability(model, model_type)
+            _ = await self.get_supervisor_ref(add_worker=False)
 
-        if self._status_guard_ref is None:
-            _ = await self.get_supervisor_ref()
-        assert self._status_guard_ref is not None
-        await self._status_guard_ref.update_instance_info(
-            origin_uid,
-            {"model_ability": abilities, "status": LaunchStatus.READY.name},
-        )
-        if n_worker > 1 and shard == 0:  # type: ignore
-            return subpool_address, await model_ref.get_driver_info()
-        else:
-            return subpool_address
+            if self._status_guard_ref is None:
+                _ = await self.get_supervisor_ref()
+            assert self._status_guard_ref is not None
+            await self._status_guard_ref.update_instance_info(
+                origin_uid,
+                {"model_ability": abilities, "status": LaunchStatus.READY.name},
+            )
+            if n_worker > 1 and shard == 0:  # type: ignore
+                return subpool_address, await model_ref.get_driver_info()
+            else:
+                return subpool_address
+        except Exception:
+            logger.error(
+                f"Failed to finalize launch of model {model_uid}", exc_info=True
+            )
+            await self._clean_up_failed_launch(model_uid)
+            raise
+
+    async def _clean_up_failed_launch(self, model_uid: str):
+        """Roll back the state registered by ``launch_builtin_model`` when the
+        launch fails after registration (e.g. an engine that loads
+        asynchronously crashes at init and the error only surfaces in
+        ``wait_for_load``). Without this, the stale ``_model_uid_to_model``
+        entry makes relaunching the same model_uid fail on the registration
+        assert until the whole service is restarted."""
+        try:
+            await self.terminate_model(model_uid, is_model_die=True)
+        except Exception:
+            logger.error(
+                "Failed to clean up worker state after failed launch, model uid: %s",
+                model_uid,
+                exc_info=True,
+            )
+        finally:
+            # terminate_model(is_model_die=True) keeps _model_uid_to_model_status
+            # for the auto-recovery path, which relaunches the same model_uid;
+            # a failed launch has no relaunch, so drop it here to avoid leaking
+            # a stale "loading" entry.
+            self._model_uid_to_model_status.pop(model_uid, None)
 
     @log_async(logger=logger, level=logging.INFO)
     async def wait_for_load(self, model_uid: str):
         model_ref = self._model_uid_to_model[model_uid]
-        await model_ref.wait_for_load()
+        try:
+            await model_ref.wait_for_load()
+        except Exception:
+            logger.error(f"Failed to load model {model_uid}", exc_info=True)
+            await self._clean_up_failed_launch(model_uid)
+            raise
         await self._update_model_state(model_uid, "ready")
 
     @log_sync(logger=logger, level=logging.INFO)
@@ -3531,9 +3609,20 @@ class WorkerActor(xo.StatelessActor):
             logger.error("report_event error: %s" % (e))
 
         if self._status_guard_ref is not None:
-            await self._status_guard_ref.update_instance_info(
-                origin_uid, {"status": LaunchStatus.TERMINATING.name}
-            )
+            try:
+                await self._status_guard_ref.update_instance_info(
+                    origin_uid, {"status": LaunchStatus.TERMINATING.name}
+                )
+            except Exception:
+                # Status reporting must not block the local map/resource
+                # cleanup below, e.g. when terminating precisely because the
+                # status guard became unavailable during launch finalization.
+                logger.warning(
+                    "Failed to report TERMINATING status for %s, "
+                    "continuing with local cleanup",
+                    model_uid,
+                    exc_info=True,
+                )
         model_ref = self._model_uid_to_model.get(model_uid, None)
         if model_ref is None:
             logger.debug("Model not found, uid: %s", model_uid)
@@ -3628,12 +3717,22 @@ class WorkerActor(xo.StatelessActor):
                 await self._update_model_state(model_uid, "stopped")
                 self._model_uid_to_model_status.pop(model_uid, None)
 
-            if self._status_guard_ref is None:
-                _ = await self.get_supervisor_ref()
-            assert self._status_guard_ref is not None
-            await self._status_guard_ref.update_instance_info(
-                origin_uid, {"status": status}
-            )
+            try:
+                if self._status_guard_ref is None:
+                    _ = await self.get_supervisor_ref()
+                assert self._status_guard_ref is not None
+                await self._status_guard_ref.update_instance_info(
+                    origin_uid, {"status": status}
+                )
+            except Exception:
+                # Local cleanup already happened above; a status guard or
+                # supervisor outage must not fail the terminate itself.
+                logger.warning(
+                    "Failed to report %s status for %s after cleanup",
+                    status,
+                    model_uid,
+                    exc_info=True,
+                )
 
         # Per-uid persist state cleanup (prevent zombie entries on long-running workers)
         self._persist_launch_args_dirty_uids.discard(model_uid)
