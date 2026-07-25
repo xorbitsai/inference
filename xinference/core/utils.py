@@ -160,37 +160,82 @@ def log_sync(logger, level=logging.DEBUG, log_exception=True):
     return decorator
 
 
+# Replica suffix must not collide with bare model names that end in
+# "-<digits>" (llama-2, phi-2, gpt-2, ...). See #5198.
+_REPLICA_MODEL_UID_SEP = "-rep"
+_REPLICA_MODEL_UID_RE = re.compile(
+    rf"^(?P<uid>.+){_REPLICA_MODEL_UID_SEP}(?P<rep>\d+)$"
+)
+
+
 def iter_replica_model_uid(model_uid: str, replica: int) -> Generator[str, None, None]:
     """
     Generates all the replica model uids.
     """
     replica = int(replica)
     for rep_id in range(replica):
-        yield f"{model_uid}-{rep_id}"
+        yield build_replica_model_uid(model_uid, rep_id)
 
 
 def build_replica_model_uid(model_uid: str, rep_id: int) -> str:
     """
     Build a replica model uid.
+
+    Uses a reserved ``-rep{n}`` suffix so bare model names that themselves
+    end in ``-<digits>`` (e.g. ``llama-2``) are not ambiguous with a replica
+    index.
     """
-    return f"{model_uid}-{rep_id}"
+    return f"{model_uid}{_REPLICA_MODEL_UID_SEP}{int(rep_id)}"
 
 
 def parse_replica_model_uid(replica_model_uid: str) -> Tuple[str, int]:
     """
     Parse replica model uid to model uid and rep id.
+
+    Returns ``(model_uid, -1)`` when the input has no replica suffix.
     """
-    parts = replica_model_uid.split("-")
-    if len(parts) == 1:
-        return replica_model_uid, -1
-    rep_id = int(parts.pop())
-    model_uid = "-".join(parts)
-    return model_uid, rep_id
+    match = _REPLICA_MODEL_UID_RE.match(replica_model_uid)
+    if match:
+        return match.group("uid"), int(match.group("rep"))
+    # No reserved suffix: treat as bare model uid. Do NOT fall back to the
+    # legacy "-{n}" split here — that mis-parses real model names like
+    # "llama-2" as ("llama", 2). UIDs built by the old builder therefore no
+    # longer parse as replicas; migration paths that may still see them
+    # (e.g. worker recovery files written by an older version) must handle
+    # the legacy format explicitly via parse_legacy_replica_model_uid.
+    return replica_model_uid, -1
+
+
+_LEGACY_REPLICA_MODEL_UID_RE = re.compile(r"^(?P<uid>.+)-(?P<rep>\d+)$")
+
+
+def parse_legacy_replica_model_uid(
+    replica_model_uid: str,
+) -> Optional[Tuple[str, int]]:
+    """
+    Parse the legacy ``{model_uid}-{n}`` replica format used before the
+    reserved ``-rep{n}`` suffix was introduced.
+
+    Only intended for migration paths (e.g. worker recovery files written
+    by an older version). The legacy format is ambiguous by design — a bare
+    model name like ``llama-2`` also matches — so callers must verify that
+    the returned base uid actually refers to a known model before trusting
+    the result. Returns ``None`` when the input does not match the legacy
+    pattern.
+    """
+    match = _LEGACY_REPLICA_MODEL_UID_RE.match(replica_model_uid)
+    if match:
+        return match.group("uid"), int(match.group("rep"))
+    return None
 
 
 def is_valid_model_uid(model_uid: str) -> bool:
     model_uid = model_uid.strip()
     if not model_uid or len(model_uid) > 100:
+        return False
+    # Forbid user-supplied uids that look like a replica suffix so they
+    # cannot collide with build_replica_model_uid output.
+    if _REPLICA_MODEL_UID_RE.match(model_uid):
         return False
     return True
 
