@@ -273,3 +273,38 @@ Engine support:
 
 Not supported by the Transformers engine: it runs its own continuous-batching
 loop rather than ``generate()``, so there is nowhere to attach a drafter.
+
+When it pays off
+----------------
+Speculation is only worth it when a drafting step is cheap *relative to* a
+target decoding step. The drafter is a small dense model whose cost does not
+change with the target, so the ratio is what decides the outcome — and a
+mixture-of-experts target can land on the wrong side of it, because only its
+activated slice is read per token:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 34 22 22 22
+
+   * - gemma-4 MLX, 4bit, M5 Pro
+     - Without a drafter
+     - With MTP
+     - Accepted per round
+   * - 31B (dense, 18.4 GB read per token)
+     - 14.9 tok/s
+     - **31.0 tok/s** (2.1x)
+     - 2.08 of 4
+   * - 26B-A4B (MoE, ~2.2 GB read per token)
+     - 73.2 tok/s
+     - 65.9 tok/s (0.9x)
+     - 1.40 of 4
+
+The 0.83 GB drafter costs about 5% of a 31B decoding step but 39% of a
+26B-A4B one, so on the MoE the three drafting steps of a round already exceed
+one plain decoding step — and the round has to win that back from a lower
+acceptance rate. The MoE is still the faster model here in absolute terms; it
+simply has no headroom left for speculation.
+
+So measure before leaving it on, and note that the verification step itself is
+not the problem: a four-token forward costs only ~40% more than a single-token
+one on either model.
