@@ -109,6 +109,10 @@ class PytorchLLMSpecV2(BaseModel):
     model_revision: Optional[str]
     # for MOE model, illustrates the activated model size
     activated_size_in_billions: Optional[Union[str, int]]
+    # see MLXLLMSpecV2 for the semantics of these three
+    draft_model_id: Optional[str]
+    draft_quantizations: Optional[List[str]]
+    draft_model_revision: Optional[str]
 
     @validator("model_size_in_billions", "activated_size_in_billions", pre=False)
     def validate_model_size_with_radix(cls, v: object) -> object:
@@ -133,6 +137,15 @@ class MLXLLMSpecV2(BaseModel):
     model_revision: Optional[str]
     # for MOE model, illustrates the activated model size
     activated_size_in_billions: Optional[Union[str, int]]
+    # Paired drafter checkpoint for speculative decoding (e.g. Gemma 4 MTP),
+    # only downloaded when speculative decoding is enabled at launch time.
+    # ``draft_model_id`` may carry a ``{draft_quantization}`` placeholder filled
+    # from ``draft_quantizations``; do NOT use ``{quantization}`` here, that one
+    # is substituted with the *target* model's quantization when specs are
+    # flattened, which is unrelated to how the drafter was converted.
+    draft_model_id: Optional[str]
+    draft_quantizations: Optional[List[str]]
+    draft_model_revision: Optional[str]
 
     @validator("model_size_in_billions", "activated_size_in_billions", pre=False)
     def validate_model_size_with_radix(cls, v: object) -> object:

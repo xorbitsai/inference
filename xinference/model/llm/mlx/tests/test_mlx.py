@@ -48,6 +48,50 @@ def test_mlx_vision_model_stop_shuts_down_executor():
     model.stop()
 
 
+def test_mlx_vision_draft_generate_kwargs():
+    from ..core import MLXVisionModel
+
+    model = object.__new__(MLXVisionModel)
+    model._draft_model = None
+    model._draft_kind = None
+    model._draft_block_size = None
+
+    assert model._draft_generate_kwargs() == {}
+
+    drafter = object()
+    model._draft_model = drafter
+    model._draft_kind = "mtp"
+
+    # without an explicit size, the drafter's own block size is kept
+    assert model._draft_generate_kwargs() == {
+        "draft_model": drafter,
+        "draft_kind": "mtp",
+    }
+
+    model._draft_block_size = 6
+    assert model._draft_generate_kwargs() == {
+        "draft_model": drafter,
+        "draft_kind": "mtp",
+        "draft_block_size": 6,
+    }
+
+
+def test_mlx_text_model_rejects_drafter():
+    from ..core import MLXChatModel
+
+    model = object.__new__(MLXChatModel)
+    model._model_config = {
+        "draft_model_path": "/tmp/gemma-4-assistant",
+        "num_speculative_tokens": 3,
+    }
+
+    with pytest.raises(ValueError, match="only supported by the MLX vision engine"):
+        model._load_model()
+
+    # speculative options must not leak into the mlx_lm model config
+    assert model._model_config == {}
+
+
 @pytest.mark.skipif(
     sys.platform != "darwin" or platform.processor() != "arm",
     reason="MLX only works for Apple silicon chip",

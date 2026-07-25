@@ -2230,3 +2230,44 @@ async def test_try_recover_models_migrates_legacy_replica_uid(monkeypatch):
     ]
     assert worker.launch_model_uid == replica_model_uid
     assert worker.wait_for_load_called_with == replica_model_uid
+
+
+@pytest.mark.asyncio
+async def test_list_deletable_models_includes_drafters(tmp_path):
+    """Deleting a model's cache must also remove the drafters downloaded for
+    speculative decoding, one per drafter quantization, instead of orphaning
+    ~1GB directories next to it."""
+    cache_dir = tmp_path / "gemma-4-mlx-12b-4bit"
+    cache_dir.mkdir()
+    (cache_dir / "config.json").write_text("{}")
+
+    # two drafter conversions downloaded for the same model
+    for quant in ("bf16", "8bit"):
+        draft_dir = tmp_path / f"gemma-4-mlx-12b-4bit-draft-{quant}"
+        draft_dir.mkdir()
+        (draft_dir / "model.safetensors").write_text("weights")
+
+    # an unrelated model must not be swept up
+    other = tmp_path / "gemma-4-mlx-2b-4bit-draft-bf16"
+    other.mkdir()
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(cache_dir)
+
+    # a plain stub: xoscar actors cannot be built with object.__new__
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+    worker = _Worker()
+
+    paths = await WorkerActor.list_deletable_models(worker, "gemma-4-mlx-12b-4bit")
+
+    assert str(cache_dir) in paths
+    for quant in ("bf16", "8bit"):
+        draft_dir = tmp_path / f"gemma-4-mlx-12b-4bit-draft-{quant}"
+        assert str(draft_dir) in paths
+        assert str(draft_dir / "model.safetensors") in paths
+    assert str(other) not in paths

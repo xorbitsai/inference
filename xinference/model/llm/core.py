@@ -46,6 +46,8 @@ def get_llm_version_infos():
 
 class LLM(abc.ABC):
     allow_batch = False
+    # whether the engine can run speculative decoding with a paired drafter
+    support_draft_model = False
 
     def __init__(
         self,
@@ -259,6 +261,14 @@ def generate_llm_version_info(llm_family: "LLMFamilyV2") -> Dict[str, List[Dict]
     return res
 
 
+def parse_bool_launch_arg(value: object) -> bool:
+    """The Web UI submits additional parameters as plain strings, so ``"false"``
+    must not be read as a truthy value."""
+    if isinstance(value, str):
+        return value.strip().lower() in ("true", "1", "yes")
+    return bool(value)
+
+
 def create_llm_model_instance(
     model_uid: str,
     model_name: str,
@@ -320,6 +330,29 @@ def create_llm_model_instance(
     if not model_path:
         cache_manager = LLMCacheManager(llm_family, multimodal_projector)
         model_path = cache_manager.cache()
+
+    # Speculative decoding: download the drafter checkpoint paired with this
+    # spec (e.g. Gemma 4 ``*-it-assistant`` for MTP) unless the user points at
+    # a local one. ``enable_mtp`` is not forwarded to the engine config.
+    enable_mtp = parse_bool_launch_arg(kwargs.pop("enable_mtp", False))
+    draft_quantization = kwargs.pop("draft_quantization", None)
+    if (
+        enable_mtp or kwargs.get("draft_model_path")
+    ) and not llm_cls.support_draft_model:
+        raise ValueError(
+            f"Speculative decoding is not supported by engine {model_engine} "
+            f"for model {model_name}."
+        )
+    if enable_mtp and not kwargs.get("draft_model_path"):
+        kwargs["draft_model_path"] = LLMCacheManager(
+            llm_family, use_draft_model=True, draft_quantization=draft_quantization
+        ).cache()
+    if kwargs.get("draft_model_path"):
+        logger.info(
+            "Launching %s with speculative decoding, drafter: %s",
+            model_uid,
+            kwargs["draft_model_path"],
+        )
 
     peft_model = peft_model_config.peft_model if peft_model_config else None
     if peft_model is not None:

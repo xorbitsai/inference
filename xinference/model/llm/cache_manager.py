@@ -27,7 +27,11 @@ logger = logging.getLogger(__name__)
 
 class LLMCacheManager(CacheManager):
     def __init__(
-        self, llm_family: "LLMFamilyV2", multimodal_projector: Optional[str] = None
+        self,
+        llm_family: "LLMFamilyV2",
+        multimodal_projector: Optional[str] = None,
+        use_draft_model: bool = False,
+        draft_quantization: Optional[str] = None,
     ):
         super().__init__(llm_family)
         self._llm_family = llm_family
@@ -47,6 +51,51 @@ class LLMCacheManager(CacheManager):
             f"{self._model_name.replace('.', '_')}-{self._model_format}-"
             f"{self._model_size_in_billions}b-{self._quantization}",
         )
+        if use_draft_model:
+            # Cache the paired drafter checkpoint instead of the target model,
+            # reusing the download logic below with a dedicated cache dir.
+            spec = llm_family.model_specs[0]
+            draft_model_id = getattr(spec, "draft_model_id", None)
+            if not draft_model_id:
+                raise ValueError(
+                    f"Model {self._model_name} ({self._model_format}, "
+                    f"{self._model_size_in_billions}b, {self._quantization}) does not "
+                    f"declare a drafter model on hub {self._model_hub}. Please pass "
+                    f"`draft_model_path` to use a local drafter."
+                )
+            draft_quantizations = getattr(spec, "draft_quantizations", None) or []
+            if draft_quantization is None:
+                draft_quantization = (
+                    draft_quantizations[0] if draft_quantizations else None
+                )
+            elif draft_quantizations and draft_quantization not in draft_quantizations:
+                raise ValueError(
+                    f"Drafter quantization {draft_quantization!r} is not available "
+                    f"for {self._model_name} ({self._model_format}, "
+                    f"{self._model_size_in_billions}b), "
+                    f"available: {draft_quantizations}"
+                )
+            self._draft_quantization = draft_quantization
+            if "{draft_quantization}" in draft_model_id:
+                if not draft_quantization:
+                    raise ValueError(
+                        f"Model {self._model_name} declares the templated drafter "
+                        f"{draft_model_id!r} but no `draft_quantizations`."
+                    )
+                draft_model_id = draft_model_id.format(
+                    draft_quantization=draft_quantization
+                )
+            self._model_id = draft_model_id
+            self._model_revision = getattr(spec, "draft_model_revision", None)
+            # The drafter is always a full checkpoint, never a local URI of the
+            # target model nor a gguf file of it.
+            self._model_uri = None
+            self._multimodal_projector = None
+            # Keep the quantization in the path so drafters converted differently
+            # do not collide, and so ``list_deletable_models`` can find them all
+            # by the ``-draft`` prefix.
+            suffix = f"-draft-{draft_quantization}" if draft_quantization else "-draft"
+            self._cache_dir = f"{self._cache_dir}{suffix}"
 
     def cache_uri(self) -> str:
         from ..utils import parse_uri

@@ -26,6 +26,7 @@ from ..llm_family import (
     CustomLLMFamilyV2,
     LlamaCppLLMSpecV2,
     LLMFamilyV2,
+    MLXLLMSpecV2,
     PytorchLLMSpecV2,
     convert_model_size_to_float,
     match_llm,
@@ -171,6 +172,103 @@ def test_cache_from_huggingface_gguf():
     assert os.path.exists(os.path.join(cache_dir, "README.md"))
     assert os.path.islink(os.path.join(cache_dir, "README.md"))
     shutil.rmtree(cache_dir)
+
+
+def _mlx_family_with_drafter(draft_model_id=None, draft_quantizations=None):
+    spec = MLXLLMSpecV2(
+        model_format="mlx",
+        model_size_in_billions=2,
+        quantization="bf16",
+        model_id="mlx-community/gemma-4-e2b-it-bf16",
+        draft_model_id=draft_model_id,
+        draft_quantizations=draft_quantizations,
+    )
+    return LLMFamilyV2(
+        version=2,
+        context_length=2048,
+        model_type="LLM",
+        model_name="gemma-4",
+        model_lang=["en"],
+        model_ability=["chat", "vision"],
+        model_specs=[spec],
+        chat_template=None,
+        stop_token_ids=None,
+        stop=None,
+    )
+
+
+def test_parse_bool_launch_arg():
+    from ..core import parse_bool_launch_arg
+
+    assert parse_bool_launch_arg(True) is True
+    assert parse_bool_launch_arg("true") is True
+    assert parse_bool_launch_arg("True") is True
+    assert parse_bool_launch_arg("1") is True
+    # the Web UI submits strings, "false" must not turn the switch on
+    assert parse_bool_launch_arg("false") is False
+    assert parse_bool_launch_arg("") is False
+    assert parse_bool_launch_arg(None) is False
+
+
+def test_draft_model_cache_dir():
+    family = _mlx_family_with_drafter("mlx-community/gemma-4-E2B-it-assistant-bf16")
+
+    target_cache_dir = CacheManager(family).get_cache_dir()
+    draft_cache_dir = CacheManager(family, use_draft_model=True).get_cache_dir()
+
+    assert target_cache_dir.endswith("gemma-4-mlx-2b-bf16")
+    # no declared quantizations, so the drafter has a single cache dir
+    assert draft_cache_dir == f"{target_cache_dir}-draft"
+
+
+def test_draft_model_quantization_selection():
+    family = _mlx_family_with_drafter(
+        "mlx-community/gemma-4-12B-it-assistant-{draft_quantization}",
+        draft_quantizations=["bf16", "8bit", "4bit"],
+    )
+    target_cache_dir = CacheManager(family).get_cache_dir()
+
+    # the first declared quantization is the default
+    default_manager = CacheManager(family, use_draft_model=True)
+    assert default_manager._model_id == "mlx-community/gemma-4-12B-it-assistant-bf16"
+    assert default_manager.get_cache_dir() == f"{target_cache_dir}-draft-bf16"
+
+    chosen = CacheManager(family, use_draft_model=True, draft_quantization="4bit")
+    assert chosen._model_id == "mlx-community/gemma-4-12B-it-assistant-4bit"
+    # drafters converted differently must not share a cache dir
+    assert chosen.get_cache_dir() == f"{target_cache_dir}-draft-4bit"
+
+    with pytest.raises(ValueError, match="is not available"):
+        CacheManager(family, use_draft_model=True, draft_quantization="mxfp4")
+
+
+def test_draft_model_not_declared():
+    family = _mlx_family_with_drafter()
+
+    with pytest.raises(ValueError, match="does not declare a drafter model"):
+        CacheManager(family, use_draft_model=True)
+
+
+def test_builtin_gemma_4_mlx_specs_declare_drafter():
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == "gemma-4")
+    mlx_specs = [s for s in family.model_specs if s.model_format == "mlx"]
+
+    assert mlx_specs
+    for spec in mlx_specs:
+        assert spec.draft_model_id, spec.model_id
+        assert "assistant" in spec.draft_model_id
+        assert spec.draft_quantizations
+        # `{quantization}` would be substituted with the target's quantization
+        # while flattening specs, which has nothing to do with the drafter
+        assert "{quantization}" not in spec.draft_model_id
+
+    # 12B is the encoder-free Unified variant and the only one whose drafter is
+    # published in several conversions, so it exercises the drafter selector
+    spec_12b = next(s for s in mlx_specs if s.model_size_in_billions == 12)
+    assert len(spec_12b.draft_quantizations) > 1
+    assert spec_12b.draft_quantizations[0] == "bf16"
 
 
 def test_cache_from_uri_local():

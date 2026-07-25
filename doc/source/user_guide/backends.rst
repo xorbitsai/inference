@@ -196,3 +196,71 @@ MLX
 `MLX <https://github.com/ml-explore/mlx-examples/tree/main/llms>`_ provides efficient runtime
 to run LLM on Apple silicon. It's recommended to use for Mac users when running on Apple silicon
 if the model has MLX format support.
+
+
+.. _speculative_decoding:
+
+Speculative decoding
+====================
+Some models ship a small paired drafter checkpoint that predicts several tokens
+ahead, which the target model then verifies in one pass. Output is unchanged,
+decoding gets faster. Gemma 4 calls this multi-token prediction (MTP) and
+publishes a ``*-it-assistant`` drafter for every variant.
+
+Pass ``--enable_mtp true`` at launch to download the drafter declared by the
+model spec and run it alongside the target model:
+
+.. code-block:: bash
+
+   xinference launch --model-name gemma-4 --model-engine vllm \
+     --model-format pytorch --size-in-billions 12 --quantization none \
+     --enable_mtp true
+
+In the Web UI the same options live under *Advanced Configuration → Speculative
+Decoding*, which only appears for a format/size that actually ships a drafter.
+
+Optional parameters:
+
+* ``--num_speculative_tokens <n>``: how many tokens the drafter proposes per
+  round, including the bonus token. The default follows the engine: the MLX
+  drafter runs at the depth it was trained for (``4`` for Gemma 4), vLLM starts
+  at ``1``, SGLang at ``6``.
+* ``--draft_quantization <quantization>``: which drafter conversion to use, when
+  the spec declares more than one — the MLX build of Gemma 4 12B publishes
+  eight. Defaults to the first declared, which is the least quantized one: a
+  drafter is small and quantizing it costs acceptance rate, so pairing a
+  quantized target with an unquantized drafter is the recommended setup.
+* ``--draft_model_path <path>``: use a local drafter instead of the one declared
+  by the spec. Implies ``--enable_mtp true``.
+
+The drafter must match the target model family and size — it shares the target's
+KV cache, so a mismatched checkpoint is rejected rather than silently degrading.
+
+Engine support:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 18 32 50
+
+   * - Engine
+     - Requirement
+     - Notes
+   * - :ref:`vLLM <vllm_backend>`
+     - ``vllm>=0.22.0``
+     - Translated into ``speculative_config`` with ``method: mtp``. An
+       explicitly provided ``speculative_config`` is left untouched. Older
+       vLLM treats the drafter as a generic draft model and fails against a
+       multimodal target, so the launch is rejected instead.
+   * - :ref:`SGLang <sglang_backend>`
+     - drafter support for the model family
+     - Translated into ``--speculative-algorithm NEXTN`` with the matching
+       ``speculative_num_steps`` / ``speculative_num_draft_tokens``. An
+       explicitly provided ``speculative_algorithm`` is left untouched.
+   * - :ref:`MLX <mlx_backend>`
+     - ``mlx-vlm>=0.5.0`` (``>=0.6.1`` for Gemma 4 12B)
+     - Served by the MLX vision engine, the one that runs multimodal models
+       such as Gemma 4. The drafter is validated against the target when the
+       model loads.
+
+Not supported by the Transformers engine: it runs its own continuous-batching
+loop rather than ``generate()``, so there is nowhere to attach a drafter.

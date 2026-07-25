@@ -15,6 +15,7 @@
 import asyncio
 import concurrent.futures
 import importlib
+import inspect
 import logging
 import pathlib
 import platform
@@ -446,6 +447,11 @@ class MLXModelConfig(TypedDict, total=False):
     # batch configuration
     allow_batch: bool
     batch_size: int
+    # speculative decoding, currently only the MLX vision engine consumes them.
+    # ``draft_model_path`` is resolved by ``create_llm_model_instance`` from the
+    # spec's ``draft_model_id`` when ``enable_mtp`` is passed at launch time.
+    draft_model_path: Optional[str]
+    num_speculative_tokens: Optional[int]
 
 
 class MLXGenerateConfig(TypedDict, total=False):
@@ -572,6 +578,12 @@ class MLXModel(LLM, ChatModelMixin):
         return generate_config
 
     def _load_model(self, **kwargs):
+        if self._model_config.pop("draft_model_path", None):
+            self._model_config.pop("num_speculative_tokens", None)
+            raise ValueError(
+                "Speculative decoding is only supported by the MLX vision engine "
+                "for now, e.g. gemma-4 with its `*-it-assistant` drafter."
+            )
         try:
             import mlx.core as mx
             from mlx_lm import load
@@ -1331,6 +1343,7 @@ class MLXChatModel(MLXModel, ChatModelMixin):
 
 class MLXVisionModel(MLXModel, ChatModelMixin):
     allow_batch: bool = False
+    support_draft_model: bool = True
 
     def __init__(
         self,
@@ -1348,6 +1361,9 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
             peft_model,
         )
         self._mlx_executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
+        self._draft_model: Optional[Any] = None
+        self._draft_kind: Optional[str] = None
+        self._draft_block_size: Optional[int] = None
 
     def _run_on_mlx_thread(
         self, fn: Callable[..., Any], *args: Any, **kwargs: Any
@@ -1520,6 +1536,44 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
 
         return load(self.model_path)
 
+    def _load_draft_model(self, draft_model_path: str) -> Tuple[Any, str]:
+        """Load the speculative drafter, e.g. a Gemma 4 ``*-it-assistant``
+        checkpoint. Must run on the dedicated MLX thread, same as the target
+        model, so that both share one thread-local generation stream."""
+        try:
+            from mlx_vlm.speculative.drafters import load_drafter
+        except ImportError:
+            raise ImportError(
+                "Speculative decoding requires mlx-vlm>=0.5.0, "
+                "you can upgrade it by `pip install -U mlx-vlm`"
+            )
+
+        generate_step = _ensure_mlx_vlm_thread_local_stream().generate_step
+        if "draft_model" not in inspect.signature(generate_step).parameters:
+            raise RuntimeError(
+                "The installed mlx-vlm does not support speculative decoding, "
+                "you can upgrade it by `pip install -U mlx-vlm`"
+            )
+
+        # ``kind`` is auto-detected from the drafter's ``model_type``, so a
+        # gemma4_assistant checkpoint resolves to "mtp" on its own.
+        draft_model, draft_kind = load_drafter(draft_model_path)
+        try:
+            from mlx_vlm.speculative.drafters import validate_drafter_compatibility
+        except ImportError:
+            # not available on older mlx-vlm, generate_step validates as well
+            pass
+        else:
+            # fail at load time instead of on the first request
+            validate_drafter_compatibility(self._model, draft_model, draft_kind)
+        logger.info(
+            "Loaded drafter %s for %s, kind: %s",
+            draft_model_path,
+            self.model_uid,
+            draft_kind,
+        )
+        return draft_model, draft_kind
+
     def load(self):
         self._run_on_mlx_thread(self._load)
 
@@ -1545,13 +1599,38 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         kwargs["trust_remote_code"] = self._model_config.get("trust_remote_code")
         kwargs["cache_limit_gb"] = self._model_config.pop("cache_limit_gb", None)
 
+        draft_model_path = self._model_config.pop("draft_model_path", None)
+        num_speculative_tokens = self._model_config.pop("num_speculative_tokens", None)
+        # the Web UI submits additional parameters as plain strings
+        self._draft_block_size = (
+            int(num_speculative_tokens) if num_speculative_tokens else None
+        )
+
         self._model, self._processor = self._load_model(**kwargs)
         self._tokenizer = self._processor.tokenizer
+
+        if draft_model_path:
+            self._draft_model, self._draft_kind = self._load_draft_model(
+                draft_model_path
+            )
 
         # get context length
         config = load_config(Path(self.model_path))
         config.update(self._model_config)
         self._context_length = get_context_length_from_config(config)
+
+    def _draft_generate_kwargs(self) -> Dict[str, Any]:
+        """Extra ``generate_step`` kwargs enabling speculative decoding."""
+        if self._draft_model is None:
+            return {}
+        draft_kwargs: Dict[str, Any] = {
+            "draft_model": self._draft_model,
+            "draft_kind": self._draft_kind,
+        }
+        if self._draft_block_size:
+            # otherwise fall back to the block size configured by the drafter
+            draft_kwargs["draft_block_size"] = self._draft_block_size
+        return draft_kwargs
 
     def _generate_stream_inner(self, **kwargs):
         import mlx.core as mx
@@ -1570,6 +1649,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         extra_kwargs = kwargs.copy()
         input_ids, pixel_values, mask, kwargs = inputs
         kwargs.update(extra_kwargs)
+        kwargs.update(self._draft_generate_kwargs())
 
         tokenizer = self._processor.tokenizer
         detokenizer = self._processor.detokenizer

@@ -63,6 +63,15 @@ class SGLANGModelConfig(TypedDict, total=False):
     node_rank: Optional[int]
     dist_init_addr: Optional[str]
     reasoning_content: bool
+    # engine-neutral speculative decoding options, translated into the
+    # speculative_* server args below and never forwarded to the engine as-is
+    draft_model_path: Optional[str]
+    num_speculative_tokens: Optional[int]
+    speculative_algorithm: Optional[str]
+    speculative_draft_model_path: Optional[str]
+    speculative_num_steps: Optional[int]
+    speculative_num_draft_tokens: Optional[int]
+    speculative_eagle_topk: Optional[int]
 
 
 class SGLANGGenerateConfig(TypedDict, total=False):
@@ -141,6 +150,7 @@ SGLANG_SUPPORTED_VISION_MODEL_LIST = [
 
 class SGLANGModel(LLM):
     allow_batch = True
+    support_draft_model = True
 
     def __init__(
         self,
@@ -281,11 +291,53 @@ class SGLANGModel(LLM):
         logger.info("Stopping SGLang engine, sglang pid: %s", self._engine.pid)
         self._engine.shutdown()
 
+    # SGLang drafts Gemma 4 style assistants through its NEXTN path, whose
+    # defaults come from the Gemma 4 cookbook: 5 steps producing 6 draft tokens,
+    # with a single candidate per step (the drafter is not a tree speculator).
+    DEFAULT_SPECULATIVE_NUM_DRAFT_TOKENS = 6
+
+    def _apply_draft_model(self, model_config: SGLANGModelConfig) -> None:
+        """Turn a downloaded drafter into SGLang's ``speculative_*`` server args.
+
+        ``draft_model_path`` / ``num_speculative_tokens`` are the engine-neutral
+        launch options; the whole model_config is splatted into the engine, so
+        they must be consumed here whether or not they end up being used.
+        """
+        draft_model_path = model_config.pop("draft_model_path", None)  # type: ignore[typeddict-item]
+        num_speculative_tokens = model_config.pop("num_speculative_tokens", None)  # type: ignore[typeddict-item]
+        if not draft_model_path:
+            return
+
+        if model_config.get("speculative_algorithm"):
+            # The user is configuring SGLang's speculative decoding directly.
+            logger.info(
+                "Ignoring the drafter of %s, speculative_algorithm was set explicitly",
+                self.model_uid,
+            )
+            return
+
+        num_draft_tokens = int(
+            num_speculative_tokens or self.DEFAULT_SPECULATIVE_NUM_DRAFT_TOKENS
+        )
+        model_config["speculative_algorithm"] = "NEXTN"
+        model_config["speculative_draft_model_path"] = draft_model_path
+        model_config["speculative_num_draft_tokens"] = num_draft_tokens
+        # one bonus token from the target plus one draft per step
+        model_config.setdefault("speculative_num_steps", max(1, num_draft_tokens - 1))
+        model_config.setdefault("speculative_eagle_topk", 1)
+        logger.info(
+            "Speculative decoding enabled for %s: NEXTN with %s, %s draft tokens",
+            self.model_uid,
+            draft_model_path,
+            num_draft_tokens,
+        )
+
     def _sanitize_model_config(
         self, model_config: Optional[SGLANGModelConfig]
     ) -> SGLANGModelConfig:
         if model_config is None:
             model_config = SGLANGModelConfig()
+        self._apply_draft_model(model_config)
 
         cuda_count = self._get_cuda_count()
         model_config.setdefault("tokenizer_mode", "auto")

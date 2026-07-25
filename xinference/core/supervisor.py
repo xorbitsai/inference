@@ -1415,9 +1415,19 @@ class SupervisorActor(xo.StatelessActor):
                 continue
             model_family.model_specs = [spec]
             cache_manager = cache_manager_cls(model_family)
-            specs.append(
-                {**spec.dict(), "cache_status": cache_manager.get_cache_status()}
-            )
+            spec_dict = {
+                **spec.dict(),
+                "cache_status": cache_manager.get_cache_status(),
+            }
+            if getattr(spec, "draft_model_id", None):
+                # see WorkerActor._get_spec_dicts_with_cache_status
+                spec_dict["draft_cache_status"] = [
+                    cache_manager_cls(
+                        model_family, use_draft_model=True, draft_quantization=quant
+                    ).get_cache_status()
+                    for quant in (getattr(spec, "draft_quantizations", None) or [None])
+                ]
+            specs.append(spec_dict)
         return specs, list(download_hubs)
 
     async def _to_llm_reg(

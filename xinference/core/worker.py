@@ -877,9 +877,21 @@ class WorkerActor(xo.StatelessActor):
             family_copy = model_family.copy()
             family_copy.model_specs = [spec]
             cache_manager = cache_manager_cls(family_copy)
-            specs.append(
-                {**spec.dict(), "cache_status": cache_manager.get_cache_status()}
-            )
+            spec_dict = {
+                **spec.dict(),
+                "cache_status": cache_manager.get_cache_status(),
+            }
+            if getattr(spec, "draft_model_id", None):
+                # the drafter used for speculative decoding is downloaded on
+                # demand, report one status per drafter quantization so the UI
+                # can tell users which of them costs an extra download
+                spec_dict["draft_cache_status"] = [
+                    cache_manager_cls(
+                        family_copy, use_draft_model=True, draft_quantization=quant
+                    ).get_cache_status()
+                    for quant in (getattr(spec, "draft_quantizations", None) or [None])
+                ]
+            specs.append(spec_dict)
         return specs, download_hubs
 
     def _prefer_model_hub(self, model_family: Any, preferred_hub: str = "huggingface"):
@@ -4086,6 +4098,28 @@ class WorkerActor(xo.StatelessActor):
             if os.path.isdir(tensorizer_path):
                 files = os.listdir(tensorizer_path)
                 paths.update([os.path.join(tensorizer_path, file) for file in files])
+
+            # get the drafters cached for speculative decoding, so that they are
+            # removed along with the model they belong to instead of being
+            # orphaned, e.g. Gemma 4 MTP's ``*-it-assistant``. One model may have
+            # several, one per drafter quantization: ``<cache_dir>-draft-<quant>``.
+            draft_prefix = f"{os.path.basename(path)}-draft"
+            parent_dir = os.path.dirname(path)
+            for entry in os.listdir(parent_dir) if os.path.isdir(parent_dir) else []:
+                if not entry.startswith(draft_prefix):
+                    continue
+                draft_path = os.path.join(parent_dir, entry)
+                paths.add(draft_path)
+                if os.path.isdir(draft_path):
+                    for file in os.listdir(draft_path):
+                        draft_file = os.path.join(draft_path, file)
+                        paths.add(draft_file)
+                        if os.path.exists(
+                            (real_draft_file := os.path.realpath(draft_file))
+                        ):
+                            paths.add(real_draft_file)
+                if os.path.exists((real_draft_path := os.path.realpath(draft_path))):
+                    paths.add(real_draft_path)
 
         return list(paths)
 
