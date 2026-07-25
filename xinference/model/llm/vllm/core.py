@@ -53,6 +53,7 @@ from ....types import (
     Completion,
     CompletionChoice,
     CompletionChunk,
+    CompletionLogprobs,
     CompletionUsage,
     LoRA,
 )
@@ -1145,6 +1146,22 @@ class VLLMModel(LLM):
             "guided_json_object",
             generate_config.get("guided_json_object", guided_json_object),
         )
+        # logprobs: translate the chat-completions API request fields
+        # (``logprobs``: bool, ``top_logprobs``: int) into vLLM's native
+        # ``logprobs`` (int: number of top logprobs to return per position).
+        # When the caller asks for logprobs, request at least the sampled token
+        # plus the requested number of alternatives so they can be surfaced in
+        # the response. ``prompt_logprobs`` is passed through unchanged.
+        _logprobs_req = generate_config.get("logprobs")
+        _top_logprobs_req = generate_config.get("top_logprobs")
+        if _logprobs_req:
+            _vllm_logprobs = max(int(_top_logprobs_req) if _top_logprobs_req else 1, 1)
+        else:
+            _vllm_logprobs = 0
+        sanitized.setdefault("logprobs", _vllm_logprobs)
+        sanitized.setdefault(
+            "prompt_logprobs", generate_config.get("prompt_logprobs", None)
+        )
         # 1. Try to get from generate config
         ignore_eos_val = generate_config.get("ignore_eos")
 
@@ -1215,6 +1232,64 @@ class VLLMModel(LLM):
         return True
 
     @staticmethod
+    def _build_logprobs(output: "RequestOutput") -> Optional[CompletionLogprobs]:
+        """Build a chat-completions-compatible ``CompletionLogprobs`` from a
+        vLLM request output.
+
+        Returns ``None`` when the engine did not produce logprobs (i.e. the
+        caller did not request them via ``generate_config``), preserving the
+        previous behaviour. When logprobs are present, they are mapped to the
+        ``text_offset`` / ``tokens`` / ``token_logprobs`` / ``top_logprobs``
+        shape defined by ``CompletionLogprobs``.
+        """
+        output_logprobs = getattr(output, "logprobs", None)
+        if not output_logprobs:
+            return None
+        token_ids = getattr(output, "token_ids", []) or []
+        tokens: List[str] = []
+        token_logprobs: List[Optional[float]] = []
+        top_logprobs: List[Optional[Dict[str, float]]] = []
+        text_offset: List[int] = []
+        offset = 0
+        for i, token_id in enumerate(token_ids):
+            lp_dict = (
+                output_logprobs[i] if i < len(output_logprobs) else None
+            )
+            if not lp_dict:
+                tokens.append("")
+                token_logprobs.append(None)
+                top_logprobs.append(None)
+                text_offset.append(offset)
+                continue
+            sampled = lp_dict.get(token_id)
+            sampled_decoded = (
+                getattr(sampled, "decoded_token", None) if sampled is not None else None
+            )
+            token_text = sampled_decoded if sampled_decoded else ""
+            token_lp = (
+                getattr(sampled, "logprob", None) if sampled is not None else None
+            )
+            tokens.append(token_text)
+            token_logprobs.append(token_lp)
+            top_logprobs.append(
+                {
+                    (getattr(lp, "decoded_token", None) or ""): getattr(
+                        lp, "logprob", None
+                    )
+                    for tid, lp in lp_dict.items()
+                }
+            )
+            text_offset.append(offset)
+            if token_text:
+                offset += len(token_text)
+        return CompletionLogprobs(
+            text_offset=text_offset,
+            token_logprobs=token_logprobs,
+            tokens=tokens,
+            top_logprobs=top_logprobs,
+        )
+
+    @staticmethod
     def _convert_request_output_to_completion_chunk(
         request_id: str, model: str, request_output: "RequestOutput"
     ) -> Tuple[CompletionChunk, Optional[str]]:
@@ -1225,7 +1300,7 @@ class VLLMModel(LLM):
                 CompletionChoice(
                     text=output.text,
                     index=output.index,
-                    logprobs=None,  # TODO: support logprobs.
+                    logprobs=VLLMModel._build_logprobs(output),
                     finish_reason=None,
                 )
             )
@@ -1251,7 +1326,7 @@ class VLLMModel(LLM):
                 CompletionChoice(
                     text=output.text,
                     index=output.index,
-                    logprobs=None,  # TODO: support logprobs.
+                    logprobs=VLLMModel._build_logprobs(output),
                     finish_reason=output.finish_reason,
                 )
             )

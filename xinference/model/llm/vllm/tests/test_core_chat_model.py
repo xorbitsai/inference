@@ -1604,3 +1604,159 @@ class TestVLLMSanitizeGenerateConfig:
 
         sanitized = VLLMChatModel._sanitize_generate_config({})
         assert sanitized["guided_json"] is None
+
+
+class TestVLLMModelLogprobs:
+    """Tests for vLLM logprobs wiring in the completion response path.
+
+    These exercise the function under fix (``_build_logprobs`` and the
+    ``_convert_request_output_to_completion`` site that used to hardcode
+    ``logprobs=None``) directly, with a mocked vLLM request output. On
+    master the response ``logprobs`` is always ``None``; on the branch it is
+    populated when the engine produced them.
+    """
+
+    @staticmethod
+    def _make_logprob(logprob: float, decoded_token: str):
+        lp = MagicMock()
+        lp.logprob = logprob
+        lp.decoded_token = decoded_token
+        return lp
+
+    @classmethod
+    def _make_request_output(
+        cls, *, text, token_ids, logprobs, finish_reason="stop"
+    ):
+        output = MagicMock()
+        output.text = text
+        output.index = 0
+        output.token_ids = list(token_ids)
+        output.logprobs = logprobs
+        output.finish_reason = finish_reason
+        request_output = MagicMock()
+        request_output.outputs = [output]
+        request_output.prompt_token_ids = [1, 2, 3]
+        return request_output
+
+    def test_build_logprobs_none_when_not_requested(self):
+        from ..core import VLLMModel
+
+        request_output = self._make_request_output(
+            text=" hello world", token_ids=[10, 11], logprobs=None
+        )
+        output = request_output.outputs[0]
+        assert VLLMModel._build_logprobs(output) is None
+
+    def test_build_logprobs_populated_when_present(self):
+        from ..core import VLLMModel
+
+        logprobs = [
+            {
+                10: self._make_logprob(-0.1, " hello"),
+                99: self._make_logprob(-3.2, " hi"),
+            },
+            {11: self._make_logprob(-0.2, " world")},
+        ]
+        request_output = self._make_request_output(
+            text=" hello world", token_ids=[10, 11], logprobs=logprobs
+        )
+        result = VLLMModel._build_logprobs(request_output.outputs[0])
+        assert result is not None
+        assert result["tokens"] == [" hello", " world"]
+        assert result["token_logprobs"] == [-0.1, -0.2]
+        assert result["top_logprobs"][0][" hello"] == -0.1
+        assert result["top_logprobs"][0][" hi"] == -3.2
+        assert result["top_logprobs"][1][" world"] == -0.2
+        # text_offset advances by each decoded token's length
+        assert result["text_offset"] == [0, 6]
+
+    def test_convert_request_output_to_completion_carries_logprobs(self):
+        from ..core import VLLMModel
+
+        logprobs = [{10: self._make_logprob(-0.5, "ab")}]
+        request_output = self._make_request_output(
+            text="ab", token_ids=[10], logprobs=logprobs, finish_reason="stop"
+        )
+        completion = VLLMModel._convert_request_output_to_completion(
+            request_id="req-1", model="m", request_output=request_output
+        )
+        choice = completion["choices"][0]
+        assert choice["logprobs"] is not None
+        assert choice["logprobs"]["tokens"] == ["ab"]
+        assert choice["logprobs"]["token_logprobs"] == [-0.5]
+
+    def test_convert_request_output_to_completion_logprobs_none_when_absent(self):
+        from ..core import VLLMModel
+
+        request_output = self._make_request_output(
+            text="ab", token_ids=[10], logprobs=None
+        )
+        completion = VLLMModel._convert_request_output_to_completion(
+            request_id="req-1", model="m", request_output=request_output
+        )
+        assert completion["choices"][0]["logprobs"] is None
+
+    def test_convert_request_output_to_completion_chunk_carries_logprobs(self):
+        from ..core import VLLMModel
+
+        logprobs = [{10: self._make_logprob(-0.5, "ab")}]
+        request_output = self._make_request_output(
+            text="ab", token_ids=[10], logprobs=logprobs, finish_reason=None
+        )
+        chunk, finish_reason = VLLMModel._convert_request_output_to_completion_chunk(
+            request_id="req-1", model="m", request_output=request_output
+        )
+        choice = chunk["choices"][0]
+        assert choice["logprobs"] is not None
+        assert choice["logprobs"]["tokens"] == ["ab"]
+        assert choice["logprobs"]["token_logprobs"] == [-0.5]
+
+    def test_convert_request_output_to_completion_chunk_logprobs_none_when_absent(self):
+        from ..core import VLLMModel
+
+        request_output = self._make_request_output(
+            text="ab", token_ids=[10], logprobs=None, finish_reason=None
+        )
+        chunk, _ = VLLMModel._convert_request_output_to_completion_chunk(
+            request_id="req-1", model="m", request_output=request_output
+        )
+        assert chunk["choices"][0]["logprobs"] is None
+
+    def test_build_logprobs_skips_empty_decoded_token(self):
+        """A malformed Logprob with no decoded token must not emit a ``str(tid)``
+        key -- OpenAI ``top_logprobs`` keys are decoded token strings."""
+        from ..core import VLLMModel
+
+        lp_with_text = self._make_logprob(-0.1, "ab")
+        lp_no_text = MagicMock()
+        lp_no_text.logprob = -2.0
+        lp_no_text.decoded_token = None
+        logprobs = [{10: lp_with_text, 99: lp_no_text}]
+        request_output = self._make_request_output(
+            text="ab", token_ids=[10], logprobs=logprobs
+        )
+        result = VLLMModel._build_logprobs(request_output.outputs[0])
+        assert result is not None
+        # the malformed entry's key is the empty string, never str(99)
+        assert "99" not in result["top_logprobs"][0]
+        assert "ab" in result["top_logprobs"][0]
+
+    def test_sanitize_translates_logprobs_request_to_vllm_int(self):
+        from ..core import VLLMChatModel
+
+        # logprobs=True with top_logprobs=5 -> vLLM logprobs=5
+        sanitized = VLLMChatModel._sanitize_generate_config(
+            {"logprobs": True, "top_logprobs": 5}
+        )
+        assert sanitized["logprobs"] == 5
+        # logprobs=True without top_logprobs -> at least 1
+        sanitized = VLLMChatModel._sanitize_generate_config({"logprobs": True})
+        assert sanitized["logprobs"] == 1
+        # not requested -> 0 (vLLM disables logprobs)
+        sanitized = VLLMChatModel._sanitize_generate_config({})
+        assert sanitized["logprobs"] == 0
+        # prompt_logprobs passes through
+        sanitized = VLLMChatModel._sanitize_generate_config(
+            {"prompt_logprobs": 3}
+        )
+        assert sanitized["prompt_logprobs"] == 3
