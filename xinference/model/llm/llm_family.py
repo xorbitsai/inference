@@ -85,6 +85,13 @@ class LlamaCppLLMSpecV2(BaseModel):
     model_revision: Optional[str]
     # for MOE model, illustrates the activated model size
     activated_size_in_billions: Optional[Union[str, int]]
+    # see MLXLLMSpecV2 for the semantics of these. A gguf drafter is a single
+    # file, usually inside the target's own repo, hence the extra template;
+    # ``draft_model_id`` defaults to ``model_id`` when it is left out.
+    draft_model_id: Optional[str]
+    draft_model_file_name_template: Optional[str]
+    draft_quantizations: Optional[List[str]]
+    draft_model_revision: Optional[str]
 
     @validator("model_size_in_billions", "activated_size_in_billions", pre=False)
     def validate_model_size_with_radix(cls, v: object) -> object:

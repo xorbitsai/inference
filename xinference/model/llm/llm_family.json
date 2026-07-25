@@ -30336,6 +30336,12 @@
           "huggingface": {
             "model_id": "unsloth/gemma-4-E2B-it-GGUF",
             "model_file_name_template": "gemma-4-E2B-it-{quantization}.gguf",
+            "draft_model_file_name_template": "MTP/mtp-gemma-4-E2B-it-{draft_quantization}.gguf",
+            "draft_quantizations": [
+              "BF16",
+              "F16",
+              "Q8_0"
+            ],
             "quantization_parts": {},
             "quantizations": [
               "BF16",
@@ -30364,6 +30370,12 @@
           "modelscope": {
             "model_id": "unsloth/gemma-4-E2B-it-GGUF",
             "model_file_name_template": "gemma-4-E2B-it-{quantization}.gguf",
+            "draft_model_file_name_template": "MTP/mtp-gemma-4-E2B-it-{draft_quantization}.gguf",
+            "draft_quantizations": [
+              "BF16",
+              "F16",
+              "Q8_0"
+            ],
             "quantizations": [
               "BF16",
               "IQ4_NL",
@@ -30396,6 +30408,12 @@
         "model_src": {
           "huggingface": {
             "model_file_name_template": "gemma-4-E4B-it-{quantization}.gguf",
+            "draft_model_file_name_template": "MTP/mtp-gemma-4-E4B-it-{draft_quantization}.gguf",
+            "draft_quantizations": [
+              "BF16",
+              "F16",
+              "Q8_0"
+            ],
             "model_id": "unsloth/gemma-4-E4B-it-GGUF",
             "quantizations": [
               "BF16",
@@ -30424,6 +30442,12 @@
           "modelscope": {
             "model_id": "unsloth/gemma-4-E4B-it-GGUF",
             "model_file_name_template": "gemma-4-E4B-it-{quantization}.gguf",
+            "draft_model_file_name_template": "MTP/mtp-gemma-4-E4B-it-{draft_quantization}.gguf",
+            "draft_quantizations": [
+              "BF16",
+              "F16",
+              "Q8_0"
+            ],
             "quantizations": [
               "BF16",
               "IQ4_NL",
@@ -30457,6 +30481,12 @@
           "huggingface": {
             "model_id": "unsloth/gemma-4-12b-it-GGUF",
             "model_file_name_template": "gemma-4-12b-it-{quantization}.gguf",
+            "draft_model_file_name_template": "MTP/mtp-gemma-4-12b-it-{draft_quantization}.gguf",
+            "draft_quantizations": [
+              "BF16",
+              "F16",
+              "Q8_0"
+            ],
             "quantizations": [
               "BF16",
               "IQ4_NL",
@@ -30484,6 +30514,12 @@
           "modelscope": {
             "model_id": "unsloth/gemma-4-12b-it-GGUF",
             "model_file_name_template": "gemma-4-12b-it-{quantization}.gguf",
+            "draft_model_file_name_template": "MTP/mtp-gemma-4-12b-it-{draft_quantization}.gguf",
+            "draft_quantizations": [
+              "BF16",
+              "F16",
+              "Q8_0"
+            ],
             "quantizations": [
               "BF16",
               "IQ4_NL",
@@ -30517,6 +30553,12 @@
           "huggingface": {
             "model_id": "unsloth/gemma-4-31B-it-GGUF",
             "model_file_name_template": "gemma-4-31B-it-{quantization}.gguf",
+            "draft_model_file_name_template": "MTP/mtp-gemma-4-31B-it-{draft_quantization}.gguf",
+            "draft_quantizations": [
+              "BF16",
+              "F16",
+              "Q8_0"
+            ],
             "quantizations": [
               "IQ4_NL",
               "IQ4_XS",
@@ -30549,6 +30591,12 @@
           "huggingface": {
             "model_id": "unsloth/gemma-4-26B-A4B-it-GGUF",
             "model_file_name_template": "gemma-4-26B-A4B-it-{quantization}.gguf",
+            "draft_model_file_name_template": "MTP/mtp-gemma-4-26B-A4B-it-{draft_quantization}.gguf",
+            "draft_quantizations": [
+              "BF16",
+              "F16",
+              "Q8_0"
+            ],
             "quantizations": [
               "MXFP4_MOE",
               "Q8_0",
@@ -30575,6 +30623,12 @@
           "modelscope": {
             "model_id": "unsloth/gemma-4-26B-A4B-it-GGUF",
             "model_file_name_template": "gemma-4-26B-A4B-it-{quantization}.gguf",
+            "draft_model_file_name_template": "MTP/mtp-gemma-4-26B-A4B-it-{draft_quantization}.gguf",
+            "draft_quantizations": [
+              "BF16",
+              "F16",
+              "Q8_0"
+            ],
             "quantizations": [
               "MXFP4_MOE",
               "Q8_0",

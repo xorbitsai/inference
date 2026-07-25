@@ -46,6 +46,8 @@ class LLMCacheManager(CacheManager):
         self._model_id = llm_family.model_specs[0].model_id
         self._model_hub = llm_family.model_specs[0].model_hub
         self._model_revision = llm_family.model_specs[0].model_revision
+        # Set when caching a gguf drafter: a single file rather than a snapshot.
+        self._draft_file_name: Optional[str] = None
         self._cache_dir = os.path.join(
             self._v2_cache_dir_prefix,
             f"{self._model_name.replace('.', '_')}-{self._model_format}-"
@@ -56,6 +58,10 @@ class LLMCacheManager(CacheManager):
             # reusing the download logic below with a dedicated cache dir.
             spec = llm_family.model_specs[0]
             draft_model_id = getattr(spec, "draft_model_id", None)
+            draft_template = getattr(spec, "draft_model_file_name_template", None)
+            if not draft_model_id and draft_template:
+                # a gguf drafter usually ships inside the target's own repo
+                draft_model_id = spec.model_id
             if not draft_model_id:
                 raise ValueError(
                     f"Model {self._model_name} ({self._model_format}, "
@@ -87,8 +93,17 @@ class LLMCacheManager(CacheManager):
                 )
             self._model_id = draft_model_id
             self._model_revision = getattr(spec, "draft_model_revision", None)
-            # The drafter is always a full checkpoint, never a local URI of the
-            # target model nor a gguf file of it.
+            if draft_template:
+                if not draft_quantization:
+                    raise ValueError(
+                        f"Model {self._model_name} declares the drafter file "
+                        f"{draft_template!r} but no `draft_quantizations`."
+                    )
+                self._draft_file_name = draft_template.format(
+                    draft_quantization=draft_quantization
+                )
+            # The drafter is downloaded on its own, never through the target's
+            # local URI or its multimodal projector.
             self._model_uri = None
             self._multimodal_projector = None
             # Keep the quantization in the path so drafters converted differently
@@ -96,6 +111,16 @@ class LLMCacheManager(CacheManager):
             # by the ``-draft`` prefix.
             suffix = f"-draft-{draft_quantization}" if draft_quantization else "-draft"
             self._cache_dir = f"{self._cache_dir}{suffix}"
+
+    def _gguf_file_names(self):
+        """File list for a gguf download: the drafter is a single file."""
+        from ..utils import generate_model_file_names_with_quantization_parts
+
+        if self._draft_file_name:
+            return [self._draft_file_name], self._draft_file_name, False
+        return generate_model_file_names_with_quantization_parts(
+            self._llm_family.model_specs[0], self._multimodal_projector
+        )
 
     def cache_uri(self) -> str:
         from ..utils import parse_uri
@@ -152,7 +177,6 @@ class LLMCacheManager(CacheManager):
         from ..utils import (
             IS_NEW_HUGGINGFACE_HUB,
             create_symlink,
-            generate_model_file_names_with_quantization_parts,
             merge_cached_files,
             retry_download,
             symlink_local_file,
@@ -187,11 +211,7 @@ class LLMCacheManager(CacheManager):
             if IS_NEW_HUGGINGFACE_HUB:
                 create_symlink(download_dir, cache_dir)
         elif self._model_format in ["ggufv2"]:
-            file_names, final_file_name, need_merge = (
-                generate_model_file_names_with_quantization_parts(
-                    self._llm_family.model_specs[0], self._multimodal_projector
-                )
-            )
+            file_names, final_file_name, need_merge = self._gguf_file_names()
 
             for file_name in file_names:
                 download_file_path = retry_download(
@@ -225,7 +245,6 @@ class LLMCacheManager(CacheManager):
 
         from ..utils import (
             create_symlink,
-            generate_model_file_names_with_quantization_parts,
             merge_cached_files,
             retry_download,
             symlink_local_file,
@@ -264,11 +283,7 @@ class LLMCacheManager(CacheManager):
             create_symlink(download_dir, cache_dir)
 
         elif self._model_format in ["ggufv2"]:
-            file_names, final_file_name, need_merge = (
-                generate_model_file_names_with_quantization_parts(
-                    self._llm_family.model_specs[0], self._multimodal_projector
-                )
-            )
+            file_names, final_file_name, need_merge = self._gguf_file_names()
 
             for filename in file_names:
                 download_path = retry_download(
@@ -330,7 +345,6 @@ class LLMCacheManager(CacheManager):
         from ...constants import XINFERENCE_CSG_ENDPOINT, XINFERENCE_ENV_CSG_TOKEN
         from ..utils import (
             create_symlink,
-            generate_model_file_names_with_quantization_parts,
             merge_cached_files,
             retry_download,
             symlink_local_file,
@@ -354,11 +368,7 @@ class LLMCacheManager(CacheManager):
             )
             create_symlink(download_dir, cache_dir)
         elif self._model_format in ["ggufv2"]:
-            file_names, final_file_name, need_merge = (
-                generate_model_file_names_with_quantization_parts(
-                    self._llm_family.model_specs[0], self._multimodal_projector
-                )
-            )
+            file_names, final_file_name, need_merge = self._gguf_file_names()
 
             for filename in file_names:
                 download_path = retry_download(

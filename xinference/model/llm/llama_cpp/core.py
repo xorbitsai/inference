@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import concurrent.futures
+import glob
 import logging
 import os
 import pprint
@@ -129,6 +130,7 @@ def _make_stream_stop_chunk(
 
 class XllamaCppModel(LLM, ChatModelMixin):
     allow_batch = True
+    support_draft_model = True
 
     def __init__(
         self,
@@ -141,6 +143,54 @@ class XllamaCppModel(LLM, ChatModelMixin):
         self._llamacpp_model_config = self._sanitize_model_config(llamacpp_model_config)
         self._llm = None
         self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
+
+    def _apply_draft_model(self, params) -> None:
+        """Point llama.cpp at the drafter for MTP speculative decoding.
+
+        ``draft-mtp`` covers Gemma 4 style assistants, which are a separate
+        model sharing the target's KV cache; llama.cpp learned that
+        architecture (``gemma4-assistant``) in xllamacpp 2026.6.9713.
+        """
+        draft_model_path = self._llamacpp_model_config.pop("draft_model_path", None)
+        num_speculative_tokens = self._llamacpp_model_config.pop(
+            "num_speculative_tokens", None
+        )
+        if not draft_model_path:
+            return
+
+        if os.path.isdir(draft_model_path):
+            # the cache dir holds the single drafter file
+            ggufs = sorted(glob.glob(os.path.join(draft_model_path, "**", "*.gguf")))
+            if not ggufs:
+                raise ValueError(f"No gguf drafter found under {draft_model_path}")
+            draft_model_path = ggufs[0]
+
+        try:
+            from xllamacpp import common_speculative_type
+        except ImportError:
+            raise ImportError(
+                "Speculative decoding needs a xllamacpp that knows the "
+                "`gemma4-assistant` architecture, xllamacpp>=2026.6.9713"
+            )
+        mtp = getattr(
+            common_speculative_type, "COMMON_SPECULATIVE_TYPE_DRAFT_MTP", None
+        )
+        if mtp is None:
+            raise ValueError(
+                "The installed xllamacpp has no MTP speculative implementation, "
+                "upgrade to xllamacpp>=2026.6.9713"
+            )
+
+        params.speculative.types = [mtp]
+        params.speculative.draft.mparams.path = draft_model_path
+        if num_speculative_tokens:
+            params.speculative.draft.n_max = int(num_speculative_tokens)
+        logger.info(
+            "Speculative decoding enabled for %s: draft-mtp with %s, n_max %s",
+            self.model_uid,
+            draft_model_path,
+            params.speculative.draft.n_max,
+        )
 
     def _sanitize_model_config(self, llamacpp_model_config: Optional[dict]) -> dict:
         if llamacpp_model_config is None:
@@ -283,6 +333,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
                         setattr(params, k, v)
                 except Exception as e:
                     logger.error("Failed to set the param %s = %s, error: %s", k, v, e)
+            self._apply_draft_model(params)
             n_threads = self._llamacpp_model_config.get("n_threads", os.cpu_count())
             params.cpuparams.n_threads = n_threads
             params.cpuparams_batch.n_threads = n_threads

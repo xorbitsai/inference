@@ -7,6 +7,8 @@ Backends
 Xinference supports multiple backends for different models. After the user specifies the model,
 xinference will automatically select the appropriate backend.
 
+.. _llama_cpp_backend:
+
 llama.cpp
 =========
 
@@ -261,6 +263,13 @@ Engine support:
      - Served by the MLX vision engine, the one that runs multimodal models
        such as Gemma 4. The drafter is validated against the target when the
        model loads.
+   * - :ref:`llama.cpp <llama_cpp_backend>`
+     - ``xllamacpp>=2026.6.9713``
+     - Translated into the ``draft-mtp`` speculative implementation. The
+       drafter is a single gguf published inside the target's own repository,
+       so its quantizations are its own (``BF16``, ``F16``, ``Q8_0`` for Gemma
+       4) and independent of the target's. Earlier llama.cpp builds do not
+       know the ``gemma4-assistant`` architecture and cannot load it.
 
 Not supported by the Transformers engine: it runs its own continuous-batching
 loop rather than ``generate()``, so there is nowhere to attach a drafter.
