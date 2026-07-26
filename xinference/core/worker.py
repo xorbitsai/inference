@@ -899,7 +899,9 @@ class WorkerActor(xo.StatelessActor):
                             getattr(spec, "draft_quantizations", None) or [None]
                         )
                     ]
-                except Exception as e:
+                except ValueError as e:
+                    # what the cache manager raises for a drafter shape that does
+                    # not add up; anything else is a bug worth surfacing
                     logger.warning(
                         "Ignoring the drafter of %s (%s): %s",
                         model_family.model_name,

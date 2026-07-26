@@ -286,6 +286,25 @@ def _build_engine_params_from_specs_by_quantization(
     return engine_param_list
 
 
+def _annotate_draft_support(
+    params: List[Dict[str, Any]], engine_classes: List[Type[Any]]
+) -> List[Dict[str, Any]]:
+    """Publish whether an engine can run a drafter, for rebuilt param lists.
+
+    The virtualenv-aware discovery path rebuilds entries from specs rather than
+    from the engine registry, so the model class is not attached to them the way
+    ``_clean_engine_param`` finds it. An engine maps to several classes (MLX has
+    a text one and a vision one); the flag says whether any of them can, which
+    is what the caller needs before offering the option at all.
+    """
+    support = any(
+        bool(getattr(cls, "support_draft_model", False)) for cls in engine_classes
+    )
+    for param in params:
+        param.setdefault("support_draft_model", support)
+    return params
+
+
 def _force_virtualenv_engine_params(
     family: Optional[Any],
     supported_engines: Dict[str, List[Type[Any]]],
@@ -372,7 +391,9 @@ def _force_virtualenv_engine_params(
                 continue
 
             selected_specs = matched_specs
-            engine_param_list = param_builder(family, selected_specs)
+            engine_param_list = _annotate_draft_support(
+                param_builder(family, selected_specs), engine_classes
+            )
             engine_params[engine_name] = engine_param_list
             available_params[engine_name] = engine_param_list
             match_status[engine_name] = True
@@ -408,7 +429,9 @@ def _force_virtualenv_engine_params(
         ):
             continue
         selected_specs = matched_specs or specs
-        engine_param_list = param_builder(family, selected_specs)
+        engine_param_list = _annotate_draft_support(
+            param_builder(family, selected_specs), engine_classes
+        )
         if engine_param_list:
             engine_params[engine_name] = engine_param_list
             available_params[engine_name] = engine_param_list
@@ -980,6 +1003,21 @@ class CancellableDownloader:
             logger.debug(f"Error during CancellableDownloader cleanup: {e}")
 
 
+def _clean_engine_param(param: Dict[str, Any], class_field: str) -> Dict[str, Any]:
+    """Drop the model class from an engine entry, keeping what callers need.
+
+    ``support_draft_model`` is published so a caller can tell whether an engine
+    can run a drafter for speculative decoding, rather than finding out when the
+    launch is rejected. Shared by both engine-discovery entry points: they build
+    otherwise identical payloads and have to stay in sync.
+    """
+    cleaned = {k: v for k, v in param.items() if k != class_field}
+    support_draft_model = getattr(param.get(class_field), "support_draft_model", None)
+    if support_draft_model is not None:
+        cleaned["support_draft_model"] = bool(support_draft_model)
+    return cleaned
+
+
 def get_engine_params_by_name(
     model_type: Optional[str],
     model_name: str,
@@ -1016,16 +1054,7 @@ def _get_engine_params_by_name(
     def _append_available_engine(
         engine: str, params: List[Dict[str, Any]], class_field: str
     ):
-        cleaned_params: List[Dict[str, Any]] = []
-        for param in params:
-            new_param = {k: v for k, v in param.items() if k != class_field}
-            model_cls = param.get(class_field)
-            support_draft_model = getattr(model_cls, "support_draft_model", None)
-            if support_draft_model is not None:
-                # so callers can tell whether this engine can run a drafter at
-                # all, rather than finding out when the launch is rejected
-                new_param["support_draft_model"] = bool(support_draft_model)
-            cleaned_params.append(new_param)
+        cleaned_params = [_clean_engine_param(param, class_field) for param in params]
         engine_params[engine] = cleaned_params
 
     def _append_unavailable_engine(
@@ -1462,10 +1491,7 @@ def _get_engine_params_by_name_with_virtual_env(
     def _append_available_engine(
         engine: str, params: List[Dict[str, Any]], class_field: str
     ):
-        cleaned_params: List[Dict[str, Any]] = []
-        for param in params:
-            new_param = {k: v for k, v in param.items() if k != class_field}
-            cleaned_params.append(new_param)
+        cleaned_params = [_clean_engine_param(param, class_field) for param in params]
         engine_params[engine] = cleaned_params
         available_params[engine] = cleaned_params
 

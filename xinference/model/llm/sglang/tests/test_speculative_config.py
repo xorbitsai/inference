@@ -63,6 +63,19 @@ def test_explicit_draft_token_count_wins():
     assert model_config["speculative_num_steps"] == 2
 
 
+def test_explicit_draft_token_count_is_coerced():
+    # the Web UI submits strings, and the engine expects an int
+    model_config = {
+        "draft_model_path": "/cache/draft",
+        "speculative_num_draft_tokens": "3",
+    }
+
+    _model()._apply_draft_model(model_config)
+
+    assert model_config["speculative_num_draft_tokens"] == 3
+    assert model_config["speculative_num_steps"] == 2
+
+
 def test_explicit_speculative_algorithm_wins():
     model_config = {
         "draft_model_path": "/cache/draft",

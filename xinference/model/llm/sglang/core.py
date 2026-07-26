@@ -322,11 +322,14 @@ class SGLANGModel(LLM):
         )
         model_config["speculative_algorithm"] = "NEXTN"
         model_config["speculative_draft_model_path"] = draft_model_path
-        # an explicitly provided count wins, like the two keys below
-        model_config.setdefault("speculative_num_draft_tokens", num_draft_tokens)
-        effective_draft_tokens = int(
-            model_config["speculative_num_draft_tokens"] or num_draft_tokens
+        # an explicitly provided count wins, like the two keys below. Coerce the
+        # entry itself, not just the local: the Web UI submits strings, and the
+        # engine expects an int.
+        provided = model_config.get("speculative_num_draft_tokens")
+        effective_draft_tokens = (
+            int(provided) if provided is not None else num_draft_tokens
         )
+        model_config["speculative_num_draft_tokens"] = effective_draft_tokens
         # one bonus token from the target plus one draft per step
         model_config.setdefault(
             "speculative_num_steps", max(1, effective_draft_tokens - 1)

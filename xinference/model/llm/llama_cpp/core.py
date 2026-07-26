@@ -144,16 +144,24 @@ class XllamaCppModel(LLM, ChatModelMixin):
         self._llm = None
         self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
 
-    def _pop_draft_options(self) -> Tuple[Optional[str], Optional[Any]]:
-        """Take the engine-neutral speculative options out of the config.
+    # Engine-neutral speculative options: read, never forwarded. The dotted-key
+    # loop has to skip them rather than pop them — CommonParams has no such
+    # attributes, so passing them through logs a failure for each on every
+    # speculative launch, while removing them would lose the drafter on the
+    # load retry, which reuses this instance and its config.
+    DRAFT_OPTION_KEYS = ("draft_model_path", "num_speculative_tokens")
+    # Which passthrough keys mean "the user is choosing the speculative mode
+    # themselves". Tuning knobs like speculative.draft.n_min are not selectors
+    # and must not disable the drafter.
+    SPECULATIVE_SELECTOR_KEYS = (
+        "speculative.types",
+        "speculative.draft.mparams.path",
+    )
 
-        They have to leave before the generic dotted-key loop runs: CommonParams
-        has no such attributes, so the loop would log a failure for each of them
-        on every speculative launch.
-        """
+    def _draft_options(self) -> Tuple[Optional[str], Optional[Any]]:
         return (
-            self._llamacpp_model_config.pop("draft_model_path", None),
-            self._llamacpp_model_config.pop("num_speculative_tokens", None),
+            self._llamacpp_model_config.get("draft_model_path"),
+            self._llamacpp_model_config.get("num_speculative_tokens"),
         )
 
     def _apply_draft_model(
@@ -169,8 +177,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
             return
 
         if any(
-            key == "speculative" or key.startswith("speculative.")
-            for key in self._llamacpp_model_config
+            key in self._llamacpp_model_config for key in self.SPECULATIVE_SELECTOR_KEYS
         ):
             # The user is driving llama.cpp's speculative decoding directly, and
             # the dotted-key loop has already applied it.
@@ -213,6 +220,8 @@ class XllamaCppModel(LLM, ChatModelMixin):
         params.speculative.draft.mparams.path = draft_model_path
         if num_speculative_tokens:
             params.speculative.draft.n_max = int(num_speculative_tokens)
+        # left alone otherwise: xllamacpp's own CommonParams default applies,
+        # unlike vLLM and SGLang which require a value from us
         logger.info(
             "Speculative decoding enabled for %s: draft-mtp with %s, n_max %s",
             self.model_uid,
@@ -349,8 +358,10 @@ class XllamaCppModel(LLM, ChatModelMixin):
             params.use_jinja = True
             # This is the default value, could be overwritten by _llamacpp_model_config
             params.n_parallel = min(8, os.cpu_count() or 1)
-            draft_options = self._pop_draft_options()
+            draft_options = self._draft_options()
             for k, v in self._llamacpp_model_config.items():
+                if k in self.DRAFT_OPTION_KEYS:
+                    continue
                 try:
                     if "." in k:
                         parts = k.split(".")

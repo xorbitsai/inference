@@ -343,6 +343,34 @@ def test_malformed_drafter_spec_does_not_break_listing():
     assert specs[0]["draft_cache_status"] == []
 
 
+def test_both_engine_discovery_paths_publish_draft_support():
+    # The virtualenv-aware path is the default one, and it rebuilds entries from
+    # specs rather than from the engine registry; the flag has to reach both or
+    # the Web UI hides speculative decoding in a default deployment.
+    from ...utils import (
+        get_engine_params_by_name,
+        get_engine_params_by_name_with_virtual_env,
+    )
+
+    for get_params in (
+        get_engine_params_by_name,
+        get_engine_params_by_name_with_virtual_env,
+    ):
+        params = get_params("LLM", "gemma-4") or {}
+        available = {
+            engine: entries
+            for engine, entries in params.items()
+            if isinstance(entries, list) and entries
+        }
+        assert available, get_params.__name__
+        for engine, entries in available.items():
+            for entry in entries:
+                assert "support_draft_model" in entry, (get_params.__name__, engine)
+        if "Transformers" in available:
+            # it runs its own batching loop, so it can never take a drafter
+            assert not available["Transformers"][0]["support_draft_model"]
+
+
 def test_draft_model_not_declared():
     family = _mlx_family_with_drafter()
 

@@ -81,11 +81,14 @@ export const KWARGS_OPTIONS_FOR_ENGINES: Record<string, Array<{ label: string; v
   ],
 };
 /**
- * Tokens the drafter proposes per round when the launch leaves it unset. Only
- * MLX reads this from the drafter itself (Gemma 4 trains its drafters at depth
- * 4); for the other engines the value has to be supplied, and these are the
- * ones their own Gemma 4 guides use. vLLM's 1 is a deliberately conservative
- * starting point rather than a tuned value.
+ * Tokens the drafter proposes per round when the launch leaves it unset, shown
+ * so the field can name the value that will actually apply.
+ *
+ * Three different provenances: MLX reads it from the drafter, which runs at the
+ * depth it was trained for (4 for Gemma 4); llama.cpp keeps xllamacpp's own
+ * CommonParams default (3 as of 2026.7); vLLM and SGLang require a value, so
+ * the one from their own Gemma 4 guide is passed (1 and 6). vLLM's 1 is a
+ * conservative starting point rather than a tuned value.
  */
 export const SPECULATIVE_TOKENS_DEFAULT_BY_ENGINE: Record<string, number> = {
   mlx: 4,
