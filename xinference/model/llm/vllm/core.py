@@ -1264,8 +1264,11 @@ class VLLMModel(LLM):
                 getattr(sampled, "decoded_token", None) if sampled is not None else None
             )
             token_text = sampled_decoded if sampled_decoded else ""
-            token_lp = (
+            raw_token_lp = (
                 getattr(sampled, "logprob", None) if sampled is not None else None
+            )
+            token_lp = (
+                max(float(raw_token_lp), -9999.0) if raw_token_lp is not None else None
             )
             tokens.append(token_text)
             token_logprobs.append(token_lp)
@@ -1274,7 +1277,7 @@ class VLLMModel(LLM):
                 decoded_token = getattr(lp, "decoded_token", None)
                 logprob = getattr(lp, "logprob", None)
                 if decoded_token is not None and logprob is not None:
-                    decoded_logprobs[decoded_token] = float(logprob)
+                    decoded_logprobs[decoded_token] = max(float(logprob), -9999.0)
             top_logprobs.append(decoded_logprobs)
             text_offset.append(offset)
             if token_text:

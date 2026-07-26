@@ -1749,6 +1749,23 @@ class TestVLLMModelLogprobs:
         assert "" not in result["top_logprobs"][0]
         assert "ab" in result["top_logprobs"][0]
 
+    def test_build_logprobs_clamps_negative_infinity(self):
+        from ..core import VLLMModel
+
+        logprobs = [
+            {
+                10: self._make_logprob(float("-inf"), "ab"),
+                99: self._make_logprob(float("-inf"), "cd"),
+            }
+        ]
+        request_output = self._make_request_output(
+            text="ab", token_ids=[10], logprobs=logprobs
+        )
+        result = VLLMModel._build_logprobs(request_output.outputs[0])
+        assert result is not None
+        assert result["token_logprobs"] == [-9999.0]
+        assert result["top_logprobs"] == [{"ab": -9999.0, "cd": -9999.0}]
+
     def test_slice_logprobs_returns_only_new_stream_tokens(self):
         from ..core import VLLMModel
 
