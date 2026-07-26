@@ -224,9 +224,13 @@ Decoding*, which only appears for a format/size that actually ships a drafter.
 Optional parameters:
 
 * ``--num_speculative_tokens <n>``: how many tokens the drafter proposes per
-  round, including the bonus token. The default follows the engine: the MLX
-  drafter runs at the depth it was trained for (``4`` for Gemma 4), vLLM starts
-  at ``1``, SGLang at ``6``.
+  round, including the bonus token. Only the MLX path reads this from the
+  drafter itself, which runs at the depth it was trained for (``4`` for Gemma
+  4). The other engines require a value, so one is supplied: ``1`` for vLLM,
+  ``6`` for SGLang, ``3`` for llama.cpp, taken from each engine's own Gemma 4
+  guide. vLLM's ``1`` is a conservative starting point rather than a tuned
+  value — raising it toward the drafter's trained depth is usually what pays
+  off, and there is no field in the checkpoint to read it from.
 * ``--draft_quantization <quantization>``: which drafter conversion to use, when
   the spec declares more than one — the MLX build of Gemma 4 12B publishes
   eight. Defaults to the first declared, which is the least quantized one: a

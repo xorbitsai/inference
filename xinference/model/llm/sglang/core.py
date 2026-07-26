@@ -291,9 +291,10 @@ class SGLANGModel(LLM):
         logger.info("Stopping SGLang engine, sglang pid: %s", self._engine.pid)
         self._engine.shutdown()
 
-    # SGLang drafts Gemma 4 style assistants through its NEXTN path, whose
-    # defaults come from the Gemma 4 cookbook: 5 steps producing 6 draft tokens,
-    # with a single candidate per step (the drafter is not a tree speculator).
+    # SGLang drafts Gemma 4 style assistants through its NEXTN path. This is the
+    # value its own Gemma 4 cookbook uses (5 steps producing 6 draft tokens,
+    # with a single candidate per step since the drafter is not a tree
+    # speculator), not a value SGLang would default to on its own.
     DEFAULT_SPECULATIVE_NUM_DRAFT_TOKENS = 6
 
     def _apply_draft_model(self, model_config: SGLANGModelConfig) -> None:
@@ -321,15 +322,21 @@ class SGLANGModel(LLM):
         )
         model_config["speculative_algorithm"] = "NEXTN"
         model_config["speculative_draft_model_path"] = draft_model_path
-        model_config["speculative_num_draft_tokens"] = num_draft_tokens
+        # an explicitly provided count wins, like the two keys below
+        model_config.setdefault("speculative_num_draft_tokens", num_draft_tokens)
+        effective_draft_tokens = int(
+            model_config["speculative_num_draft_tokens"] or num_draft_tokens
+        )
         # one bonus token from the target plus one draft per step
-        model_config.setdefault("speculative_num_steps", max(1, num_draft_tokens - 1))
+        model_config.setdefault(
+            "speculative_num_steps", max(1, effective_draft_tokens - 1)
+        )
         model_config.setdefault("speculative_eagle_topk", 1)
         logger.info(
             "Speculative decoding enabled for %s: NEXTN with %s, %s draft tokens",
             self.model_uid,
             draft_model_path,
-            num_draft_tokens,
+            effective_draft_tokens,
         )
 
     def _sanitize_model_config(

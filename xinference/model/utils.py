@@ -1019,6 +1019,12 @@ def _get_engine_params_by_name(
         cleaned_params: List[Dict[str, Any]] = []
         for param in params:
             new_param = {k: v for k, v in param.items() if k != class_field}
+            model_cls = param.get(class_field)
+            support_draft_model = getattr(model_cls, "support_draft_model", None)
+            if support_draft_model is not None:
+                # so callers can tell whether this engine can run a drafter at
+                # all, rather than finding out when the launch is rejected
+                new_param["support_draft_model"] = bool(support_draft_model)
             cleaned_params.append(new_param)
         engine_params[engine] = cleaned_params
 

@@ -1419,14 +1419,27 @@ class SupervisorActor(xo.StatelessActor):
                 **spec.dict(),
                 "cache_status": cache_manager.get_cache_status(),
             }
-            if getattr(spec, "draft_model_id", None):
+            if getattr(spec, "draft_model_id", None) or getattr(
+                spec, "draft_model_file_name_template", None
+            ):
                 # see WorkerActor._get_spec_dicts_with_cache_status
-                spec_dict["draft_cache_status"] = [
-                    cache_manager_cls(
-                        model_family, use_draft_model=True, draft_quantization=quant
-                    ).get_cache_status()
-                    for quant in (getattr(spec, "draft_quantizations", None) or [None])
-                ]
+                try:
+                    spec_dict["draft_cache_status"] = [
+                        cache_manager_cls(
+                            model_family, use_draft_model=True, draft_quantization=quant
+                        ).get_cache_status()
+                        for quant in (
+                            getattr(spec, "draft_quantizations", None) or [None]
+                        )
+                    ]
+                except Exception as e:
+                    logger.warning(
+                        "Ignoring the drafter of %s (%s): %s",
+                        model_family.model_name,
+                        spec.model_format,
+                        e,
+                    )
+                    spec_dict["draft_cache_status"] = []
             specs.append(spec_dict)
         return specs, list(download_hubs)
 

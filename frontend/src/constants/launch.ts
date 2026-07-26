@@ -39,8 +39,6 @@ export const KWARGS_OPTIONS_FOR_ENGINES: Record<string, Array<{ label: string; v
     { label: 'n_ctx', value: 'n_ctx' },
     { label: 'use_mmap', value: 'use_mmap' },
     { label: 'use_mlock', value: 'use_mlock' },
-    { label: 'enable_mtp', value: 'enable_mtp' },
-    { label: 'num_speculative_tokens', value: 'num_speculative_tokens' },
     { label: 'draft_model_path', value: 'draft_model_path' },
   ],
   vllm: [
@@ -63,8 +61,6 @@ export const KWARGS_OPTIONS_FOR_ENGINES: Record<string, Array<{ label: string; v
     { label: 'mm_processor_kwargs', value: 'mm_processor_kwargs' },
     { label: 'min_pixels', value: 'min_pixels' },
     { label: 'max_pixels', value: 'max_pixels' },
-    { label: 'enable_mtp', value: 'enable_mtp' },
-    { label: 'num_speculative_tokens', value: 'num_speculative_tokens' },
     { label: 'draft_model_path', value: 'draft_model_path' },
   ],
   sglang: [
@@ -76,23 +72,20 @@ export const KWARGS_OPTIONS_FOR_ENGINES: Record<string, Array<{ label: string; v
     { label: 'cpu_offload_gb', value: 'cpu_offload_gb' },
     { label: 'enable_dp_attention', value: 'enable_dp_attention' },
     { label: 'enable_ep_moe', value: 'enable_ep_moe' },
-    { label: 'enable_mtp', value: 'enable_mtp' },
-    { label: 'num_speculative_tokens', value: 'num_speculative_tokens' },
     { label: 'draft_model_path', value: 'draft_model_path' },
   ],
   mlx: [
     { label: 'cache_limit_gb', value: 'cache_limit_gb' },
     { label: 'max_kv_size', value: 'max_kv_size' },
-    { label: 'enable_mtp', value: 'enable_mtp' },
-    { label: 'num_speculative_tokens', value: 'num_speculative_tokens' },
     { label: 'draft_model_path', value: 'draft_model_path' },
   ],
 };
 /**
- * Tokens the drafter proposes per round when the launch leaves it unset. The
- * value is the engine's own default, not something Xinference picks: MLX runs
- * the drafter at its configured depth, the others fall back to their server
- * defaults.
+ * Tokens the drafter proposes per round when the launch leaves it unset. Only
+ * MLX reads this from the drafter itself (Gemma 4 trains its drafters at depth
+ * 4); for the other engines the value has to be supplied, and these are the
+ * ones their own Gemma 4 guides use. vLLM's 1 is a deliberately conservative
+ * starting point rather than a tuned value.
  */
 export const SPECULATIVE_TOKENS_DEFAULT_BY_ENGINE: Record<string, number> = {
   mlx: 4,

@@ -881,16 +881,32 @@ class WorkerActor(xo.StatelessActor):
                 **spec.dict(),
                 "cache_status": cache_manager.get_cache_status(),
             }
-            if getattr(spec, "draft_model_id", None):
+            if getattr(spec, "draft_model_id", None) or getattr(
+                spec, "draft_model_file_name_template", None
+            ):
                 # the drafter used for speculative decoding is downloaded on
                 # demand, report one status per drafter quantization so the UI
-                # can tell users which of them costs an extra download
-                spec_dict["draft_cache_status"] = [
-                    cache_manager_cls(
-                        family_copy, use_draft_model=True, draft_quantization=quant
-                    ).get_cache_status()
-                    for quant in (getattr(spec, "draft_quantizations", None) or [None])
-                ]
+                # can tell users which of them costs an extra download.
+                # A spec whose drafter fields do not add up is reported as not
+                # cached: it cannot be launched either way, and listing every
+                # other model must not fail because of one bad registration.
+                try:
+                    spec_dict["draft_cache_status"] = [
+                        cache_manager_cls(
+                            family_copy, use_draft_model=True, draft_quantization=quant
+                        ).get_cache_status()
+                        for quant in (
+                            getattr(spec, "draft_quantizations", None) or [None]
+                        )
+                    ]
+                except Exception as e:
+                    logger.warning(
+                        "Ignoring the drafter of %s (%s): %s",
+                        model_family.model_name,
+                        spec.model_format,
+                        e,
+                    )
+                    spec_dict["draft_cache_status"] = []
             specs.append(spec_dict)
         return specs, download_hubs
 

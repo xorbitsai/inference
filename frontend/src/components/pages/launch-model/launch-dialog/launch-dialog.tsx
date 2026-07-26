@@ -259,7 +259,22 @@ export default function LaunchDialog({
   // Drafter conversions available for the selected spec, each flagged with
   // whether it is already downloaded. Empty when the spec declares a drafter
   // without alternatives, in which case there is nothing to pick.
-  const hasDrafter = Boolean(selectedSpec?.draft_model_id);
+  // A drafter needs both a spec that ships one and an engine that can run it:
+  // gemma-4's pytorch spec has a drafter but Transformers cannot use it, and
+  // showing the switch there only moves the failure to the launch button.
+  const engineSupportsDrafter = useMemo(() => {
+    const entries = modelEngineMap[modelEngineValue];
+    if (!Array.isArray(entries)) return false;
+    const matching = entries.filter(
+      (entry) =>
+        entry.model_format === modelFormatValue &&
+        toOptionValue(entry.model_size_in_billions) === modelSizeInBillionsKey
+    );
+    return (matching.length ? matching : entries).some((entry) => entry.support_draft_model);
+  }, [modelEngineMap, modelEngineValue, modelFormatValue, modelSizeInBillionsKey]);
+  const hasDrafter =
+    engineSupportsDrafter &&
+    Boolean(selectedSpec?.draft_model_id || selectedSpec?.draft_model_file_name_template);
   const draftQuantizationOptions = useMemo(() => {
     const quantizations = (selectedSpec?.draft_quantizations as string[] | undefined) || [];
     const cacheStatus = selectedSpec?.draft_cache_status;

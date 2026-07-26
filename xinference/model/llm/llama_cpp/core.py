@@ -144,18 +144,40 @@ class XllamaCppModel(LLM, ChatModelMixin):
         self._llm = None
         self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
 
-    def _apply_draft_model(self, params) -> None:
+    def _pop_draft_options(self) -> Tuple[Optional[str], Optional[Any]]:
+        """Take the engine-neutral speculative options out of the config.
+
+        They have to leave before the generic dotted-key loop runs: CommonParams
+        has no such attributes, so the loop would log a failure for each of them
+        on every speculative launch.
+        """
+        return (
+            self._llamacpp_model_config.pop("draft_model_path", None),
+            self._llamacpp_model_config.pop("num_speculative_tokens", None),
+        )
+
+    def _apply_draft_model(
+        self, params, draft_model_path: Optional[str], num_speculative_tokens: Any
+    ) -> None:
         """Point llama.cpp at the drafter for MTP speculative decoding.
 
         ``draft-mtp`` covers Gemma 4 style assistants, which are a separate
         model sharing the target's KV cache; llama.cpp learned that
         architecture (``gemma4-assistant``) in xllamacpp 2026.6.9713.
         """
-        draft_model_path = self._llamacpp_model_config.pop("draft_model_path", None)
-        num_speculative_tokens = self._llamacpp_model_config.pop(
-            "num_speculative_tokens", None
-        )
         if not draft_model_path:
+            return
+
+        if any(
+            key == "speculative" or key.startswith("speculative.")
+            for key in self._llamacpp_model_config
+        ):
+            # The user is driving llama.cpp's speculative decoding directly, and
+            # the dotted-key loop has already applied it.
+            logger.info(
+                "Ignoring the drafter of %s, speculative params were set explicitly",
+                self.model_uid,
+            )
             return
 
         if os.path.isdir(draft_model_path):
@@ -327,6 +349,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
             params.use_jinja = True
             # This is the default value, could be overwritten by _llamacpp_model_config
             params.n_parallel = min(8, os.cpu_count() or 1)
+            draft_options = self._pop_draft_options()
             for k, v in self._llamacpp_model_config.items():
                 try:
                     if "." in k:
@@ -339,7 +362,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
                         setattr(params, k, v)
                 except Exception as e:
                     logger.error("Failed to set the param %s = %s, error: %s", k, v, e)
-            self._apply_draft_model(params)
+            self._apply_draft_model(params, *draft_options)
             n_threads = self._llamacpp_model_config.get("n_threads", os.cpu_count())
             params.cpuparams.n_threads = n_threads
             params.cpuparams_batch.n_threads = n_threads

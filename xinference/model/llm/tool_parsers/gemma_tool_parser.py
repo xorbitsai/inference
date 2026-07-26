@@ -51,30 +51,24 @@ class GemmaToolParser(ToolParser):
         Gemma delimits strings with ``<|"|>`` rather than quoting them, so the
         text between two of those tokens is a literal: it may itself contain
         double quotes, backslashes or newlines, and re-emitting it verbatim
-        would produce invalid JSON. Each string is therefore re-encoded, and
-        bare keys are quoted only in the structural text between strings — a
-        value containing something like ``a,b:c`` must not be mistaken for one.
+        would produce invalid JSON. Splitting on the delimiter therefore yields
+        alternating segments — even indices are structural, odd ones are string
+        contents — so each string is re-encoded and bare keys are quoted only in
+        the structural text. A value containing something like ``a,b:c`` must
+        not be mistaken for a key.
         """
-        segments: List[str] = []
-        structural: List[str] = []
-        index = 0
-        token = self.string_token
-        while index < len(arg_block):
-            if arg_block.startswith(token, index):
-                end = arg_block.find(token, index + len(token))
-                if end == -1:
-                    raise ValueError("Unterminated string in tool call arguments")
-                segments.append(self._quote_keys("".join(structural)))
-                structural = []
-                segments.append(
-                    json.dumps(arg_block[index + len(token) : end], ensure_ascii=False)
-                )
-                index = end + len(token)
-            else:
-                structural.append(arg_block[index])
-                index += 1
-        segments.append(self._quote_keys("".join(structural)))
-        return "".join(segments)
+        parts = arg_block.split(self.string_token)
+        if len(parts) % 2 == 0:
+            # an odd number of delimiters leaves a string open
+            raise ValueError("Unterminated string in tool call arguments")
+        return "".join(
+            (
+                json.dumps(part, ensure_ascii=False)
+                if index % 2
+                else self._quote_keys(part)
+            )
+            for index, part in enumerate(parts)
+        )
 
     def _parse_arguments(self, arg_block: str) -> Dict[str, Any]:
         cleaned = arg_block.strip()

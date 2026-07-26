@@ -300,6 +300,49 @@ def test_gguf_drafter_downloads_only_its_own_file():
     assert not set(draft_files) & set(target_files)
 
 
+def test_malformed_drafter_spec_does_not_break_listing():
+    # A custom spec whose drafter fields do not add up cannot be launched, but
+    # it must not take the model-listing endpoint down with it.
+    from ...core import VirtualEnvSettings  # noqa: F401
+
+    spec = MLXLLMSpecV2(
+        model_format="mlx",
+        model_size_in_billions=2,
+        quantization="bf16",
+        model_id="mlx-community/gemma-4-e2b-it-bf16",
+        # templated id with nothing to fill it from: the cache manager rejects it
+        draft_model_id="some/drafter-{draft_quantization}",
+        draft_quantizations=[],
+    )
+    family = LLMFamilyV2(
+        version=2,
+        context_length=2048,
+        model_type="LLM",
+        model_name="gemma-4",
+        model_lang=["en"],
+        model_ability=["chat"],
+        model_specs=[spec],
+        chat_template=None,
+        stop_token_ids=None,
+        stop=None,
+    )
+
+    with pytest.raises(ValueError):
+        CacheManager(family, use_draft_model=True)
+
+    from ....core.worker import WorkerActor
+
+    class _Worker:
+        pass
+
+    specs, hubs = WorkerActor._get_spec_dicts_with_cache_status(
+        _Worker(), family, CacheManager
+    )
+
+    assert len(specs) == 1
+    assert specs[0]["draft_cache_status"] == []
+
+
 def test_draft_model_not_declared():
     family = _mlx_family_with_drafter()
 

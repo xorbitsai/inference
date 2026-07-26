@@ -48,6 +48,21 @@ def test_num_speculative_tokens_drives_the_step_count():
     assert model_config["speculative_num_steps"] == 3
 
 
+def test_explicit_draft_token_count_wins():
+    # The guard above only looks at speculative_algorithm, so an explicitly
+    # supplied count must survive here too, like the two keys beside it.
+    model_config = {
+        "draft_model_path": "/cache/draft",
+        "speculative_num_draft_tokens": 3,
+    }
+
+    _model()._apply_draft_model(model_config)
+
+    assert model_config["speculative_num_draft_tokens"] == 3
+    # the step count follows the value actually in effect
+    assert model_config["speculative_num_steps"] == 2
+
+
 def test_explicit_speculative_algorithm_wins():
     model_config = {
         "draft_model_path": "/cache/draft",

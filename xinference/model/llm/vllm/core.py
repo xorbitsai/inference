@@ -980,6 +980,12 @@ class VLLMModel(LLM):
     # assistant checkpoint as a generic draft model and fails to initialize
     # against a multimodal target.
     MTP_MIN_VLLM_VERSION = version.parse("0.22.0")
+    # vLLM requires num_speculative_tokens, so something has to be picked. This
+    # is the starting point its own MTP guide recommends ("a small value like 1
+    # is a good default to start with") rather than a value vLLM would default
+    # to on its own, and it is deliberately conservative: Gemma 4's drafters are
+    # trained to propose 4, so raising it is usually what pays off.
+    DEFAULT_NUM_SPECULATIVE_TOKENS = 1
 
     def _apply_draft_model(self, model_config: VLLMModelConfig) -> None:
         """Turn a downloaded drafter into vLLM's ``speculative_config``.
@@ -1012,7 +1018,9 @@ class VLLMModel(LLM):
         model_config["speculative_config"] = {
             "method": "mtp",
             "model": draft_model_path,
-            "num_speculative_tokens": int(num_speculative_tokens or 1),
+            "num_speculative_tokens": int(
+                num_speculative_tokens or self.DEFAULT_NUM_SPECULATIVE_TOKENS
+            ),
         }
         logger.info(
             "Speculative decoding enabled for %s: %s",

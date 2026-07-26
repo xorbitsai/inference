@@ -42,7 +42,8 @@ def test_drafter_file_is_wired_into_params(tmp_path):
     model_config = {"draft_model_path": str(drafter), "n_ctx": 4096}
     params = _params()
 
-    _model(model_config)._apply_draft_model(params)
+    model = _model(model_config)
+    model._apply_draft_model(params, *model._pop_draft_options())
 
     assert params.speculative.draft.mparams.path == str(drafter)
     from xllamacpp import common_speculative_type
@@ -63,7 +64,8 @@ def test_cache_dir_resolves_to_the_single_gguf(tmp_path):
     drafter.write_text("gguf")
     params = _params()
 
-    _model({"draft_model_path": str(cache_dir)})._apply_draft_model(params)
+    model = _model({"draft_model_path": str(cache_dir)})
+    model._apply_draft_model(params, *model._pop_draft_options())
 
     assert params.speculative.draft.mparams.path == str(drafter)
 
@@ -77,7 +79,8 @@ def test_cache_dir_resolves_a_flat_gguf(tmp_path):
     drafter.write_text("gguf")
     params = _params()
 
-    _model({"draft_model_path": str(cache_dir)})._apply_draft_model(params)
+    model = _model({"draft_model_path": str(cache_dir)})
+    model._apply_draft_model(params, *model._pop_draft_options())
 
     assert params.speculative.draft.mparams.path == str(drafter)
 
@@ -88,9 +91,8 @@ def test_num_speculative_tokens_sets_n_max(tmp_path):
     params = _params()
 
     # the Web UI submits additional parameters as strings
-    _model(
-        {"draft_model_path": str(drafter), "num_speculative_tokens": "5"}
-    )._apply_draft_model(params)
+    model = _model({"draft_model_path": str(drafter), "num_speculative_tokens": "5"})
+    model._apply_draft_model(params, *model._pop_draft_options())
 
     assert params.speculative.draft.n_max == 5
 
@@ -99,14 +101,52 @@ def test_empty_cache_dir_is_reported(tmp_path):
     params = _params()
 
     with pytest.raises(ValueError, match="No gguf drafter found"):
-        _model({"draft_model_path": str(tmp_path)})._apply_draft_model(params)
+        model = _model({"draft_model_path": str(tmp_path)})
+        model._apply_draft_model(params, *model._pop_draft_options())
+
+
+def test_explicit_speculative_params_win(tmp_path):
+    # A user driving llama.cpp's speculative decoding through the dotted-key
+    # passthrough must not have it clobbered, matching vLLM and SGLang.
+    drafter = tmp_path / "d.gguf"
+    drafter.write_text("gguf")
+    model_config = {
+        "draft_model_path": str(drafter),
+        "speculative.draft.mparams.path": "/somewhere/mine.gguf",
+    }
+    params = _params()
+
+    model = _model(model_config)
+    model._apply_draft_model(params, *model._pop_draft_options())
+
+    assert params.speculative.types == []
+    assert params.speculative.draft.mparams.path == ""
+
+
+def test_neutral_options_leave_before_the_passthrough_loop(tmp_path):
+    # They are not CommonParams attributes, so leaving them in the config makes
+    # the dotted-key loop log a failure for each one on every launch.
+    drafter = tmp_path / "d.gguf"
+    drafter.write_text("gguf")
+    model_config = {
+        "draft_model_path": str(drafter),
+        "num_speculative_tokens": 5,
+        "n_ctx": 4096,
+    }
+
+    model = _model(model_config)
+    draft_options = model._pop_draft_options()
+
+    assert draft_options == (str(drafter), 5)
+    assert model_config == {"n_ctx": 4096}
 
 
 def test_no_drafter_is_a_noop():
     model_config = {"n_ctx": 4096}
     params = _params()
 
-    _model(model_config)._apply_draft_model(params)
+    model = _model(model_config)
+    model._apply_draft_model(params, *model._pop_draft_options())
 
     assert params.speculative.types == []
     assert params.speculative.draft.mparams.path == ""
