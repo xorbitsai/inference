@@ -102,7 +102,9 @@ export function LogToolbar({
           setOpen(true);
           setFocusedIndex(options.length - 1);
         } else {
-          setFocusedIndex((prev) => (prev - 1 + options.length) % options.length);
+          setFocusedIndex((prev) =>
+            prev <= 0 ? options.length - 1 : prev - 1
+          );
         }
         break;
       case 'Enter':
@@ -170,6 +172,7 @@ export function LogToolbar({
                         key={node || '__all__'}
                         type="button"
                         role="option"
+                        tabIndex={-1}
                         aria-selected={isSelected}
                         className={cn(
                           'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm',
