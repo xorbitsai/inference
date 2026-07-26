@@ -218,8 +218,11 @@ class XllamaCppModel(LLM, ChatModelMixin):
 
         params.speculative.types = [mtp]
         params.speculative.draft.mparams.path = draft_model_path
-        if num_speculative_tokens:
-            params.speculative.draft.n_max = int(num_speculative_tokens)
+        from ..core import parse_num_speculative_tokens
+
+        requested = parse_num_speculative_tokens(num_speculative_tokens)
+        if requested is not None:
+            params.speculative.draft.n_max = requested
         # left alone otherwise: xllamacpp's own CommonParams default applies,
         # unlike vLLM and SGLang which require a value from us
         logger.info(

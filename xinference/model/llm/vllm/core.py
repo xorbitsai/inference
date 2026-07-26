@@ -1015,11 +1015,16 @@ class VLLMModel(LLM):
                 f"Upgrade vLLM, or launch without `enable_mtp`."
             )
 
+        from ..core import parse_num_speculative_tokens
+
+        requested = parse_num_speculative_tokens(num_speculative_tokens)
         model_config["speculative_config"] = {
             "method": "mtp",
             "model": draft_model_path,
-            "num_speculative_tokens": int(
-                num_speculative_tokens or self.DEFAULT_NUM_SPECULATIVE_TOKENS
+            "num_speculative_tokens": (
+                requested
+                if requested is not None
+                else self.DEFAULT_NUM_SPECULATIVE_TOKENS
             ),
         }
         logger.info(

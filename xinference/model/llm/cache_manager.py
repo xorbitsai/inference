@@ -89,8 +89,8 @@ class LLMCacheManager(CacheManager):
                         f"Model {self._model_name} declares the templated drafter "
                         f"{draft_model_id!r} but no `draft_quantizations`."
                     )
-                draft_model_id = draft_model_id.format(
-                    draft_quantization=draft_quantization
+                draft_model_id = self._format_draft_field(
+                    draft_model_id, draft_quantization, "draft_model_id"
                 )
             self._model_id = draft_model_id
             self._model_revision = getattr(spec, "draft_model_revision", None)
@@ -100,8 +100,10 @@ class LLMCacheManager(CacheManager):
                         f"Model {self._model_name} declares the drafter file "
                         f"{draft_template!r} but no `draft_quantizations`."
                     )
-                self._draft_file_name = draft_template.format(
-                    draft_quantization=draft_quantization
+                self._draft_file_name = self._format_draft_field(
+                    draft_template,
+                    draft_quantization,
+                    "draft_model_file_name_template",
                 )
             elif self._model_format == "ggufv2":
                 # A gguf download is per file, so without a template there is no
@@ -122,6 +124,23 @@ class LLMCacheManager(CacheManager):
             # by the ``-draft`` prefix.
             suffix = f"-draft-{draft_quantization}" if draft_quantization else "-draft"
             self._cache_dir = f"{self._cache_dir}{suffix}"
+
+    @staticmethod
+    def _format_draft_field(template: str, draft_quantization: str, field: str) -> str:
+        """Fill ``{draft_quantization}`` in a drafter field.
+
+        Any other placeholder makes ``str.format`` raise KeyError or IndexError.
+        Nothing validates a user-registered spec, so those are normalized into
+        the ValueError the callers already expect for a drafter shape that does
+        not add up — a listing call must not fail over one bad registration.
+        """
+        try:
+            return template.format(draft_quantization=draft_quantization)
+        except (KeyError, IndexError) as exc:
+            raise ValueError(
+                f"{field} {template!r} carries a placeholder other than "
+                f"`{{draft_quantization}}`: {exc!r}"
+            )
 
     def _gguf_file_names(self):
         """File list for a gguf download: the drafter is a single file."""

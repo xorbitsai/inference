@@ -371,6 +371,82 @@ def test_both_engine_discovery_paths_publish_draft_support():
             assert not available["Transformers"][0]["support_draft_model"]
 
 
+def test_engine_discovery_paths_agree_on_draft_support():
+    # The default path rebuilds entries from specs, so it resolves the class a
+    # different way than the registry path. They have to reach the same answer,
+    # or the Web UI offers speculative decoding for an engine that rejects it —
+    # or hides it for one that would take it.
+    from ...utils import (
+        get_engine_params_by_name,
+        get_engine_params_by_name_with_virtual_env,
+    )
+
+    def flags(params):
+        return {
+            (
+                engine,
+                entry["model_format"],
+                str(entry["model_size_in_billions"]),
+            ): entry["support_draft_model"]
+            for engine, entries in (params or {}).items()
+            if isinstance(entries, list)
+            for entry in entries
+        }
+
+    for model_name in ("gemma-4", "qwen3"):
+        strict = flags(get_engine_params_by_name("LLM", model_name))
+        default = flags(get_engine_params_by_name_with_virtual_env("LLM", model_name))
+
+        assert strict, model_name
+        assert default, model_name
+        shared = set(strict) & set(default)
+        assert shared, model_name
+        for key in shared:
+            assert strict[key] == default[key], (model_name, key)
+
+
+def test_num_speculative_tokens_validation():
+    from ..core import parse_num_speculative_tokens
+
+    assert parse_num_speculative_tokens(None) is None
+    assert parse_num_speculative_tokens("") is None
+    assert parse_num_speculative_tokens(4) == 4
+    # the Web UI submits additional parameters as strings
+    assert parse_num_speculative_tokens("6") == 6
+    # a depth of zero contradicts speculative decoding being on; substituting a
+    # default for it would silently ignore what the caller asked for
+    for invalid in (0, "0", -1, "abc", 1.5):
+        with pytest.raises(ValueError, match="positive integer"):
+            parse_num_speculative_tokens(invalid)
+
+
+@pytest.mark.parametrize(
+    "draft_model_id",
+    [
+        "some/drafter-{draft_quantization}-{quantization}",  # KeyError
+        "some/drafter-{draft_quantization}-{}",  # IndexError
+    ],
+)
+def test_unexpected_placeholder_is_a_value_error(draft_model_id):
+    # str.format raises KeyError or IndexError for these, which the listing
+    # path's ValueError guard would not catch.
+    family = _mlx_family_with_drafter(draft_model_id, draft_quantizations=["bf16"])
+
+    with pytest.raises(ValueError, match="placeholder other than"):
+        CacheManager(family, use_draft_model=True)
+
+    from ....core.worker import WorkerActor
+
+    class _Worker:
+        pass
+
+    specs, _hubs = WorkerActor._get_spec_dicts_with_cache_status(
+        _Worker(), family, CacheManager
+    )
+
+    assert specs[0]["draft_cache_status"] == []
+
+
 def test_draft_model_not_declared():
     family = _mlx_family_with_drafter()
 

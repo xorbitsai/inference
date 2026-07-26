@@ -1600,10 +1600,11 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         kwargs["cache_limit_gb"] = self._model_config.pop("cache_limit_gb", None)
 
         draft_model_path = self._model_config.pop("draft_model_path", None)
-        num_speculative_tokens = self._model_config.pop("num_speculative_tokens", None)
-        # the Web UI submits additional parameters as plain strings
-        self._draft_block_size = (
-            int(num_speculative_tokens) if num_speculative_tokens else None
+        from ..core import parse_num_speculative_tokens
+
+        # None keeps the depth the drafter was trained for
+        self._draft_block_size = parse_num_speculative_tokens(
+            self._model_config.pop("num_speculative_tokens", None)
         )
 
         self._model, self._processor = self._load_model(**kwargs)

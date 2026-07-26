@@ -269,6 +269,35 @@ def parse_bool_launch_arg(value: object) -> bool:
     return bool(value)
 
 
+def parse_num_speculative_tokens(value: object) -> Optional[int]:
+    """Validate the engine-neutral speculation depth.
+
+    ``None`` means the launch left it unset, so each engine applies its own
+    default. Anything else has to be a positive integer: the Web UI submits
+    additional parameters as strings, and a zero or negative depth is a
+    contradiction with speculative decoding being enabled — substituting a
+    default for it would silently ignore what the caller asked for.
+    """
+    if value is None or value == "":
+        return None
+    if isinstance(value, float) and not value.is_integer():
+        # truncating 1.5 to 1 would be the same silent substitution
+        raise ValueError(
+            f"num_speculative_tokens must be a positive integer, got {value!r}"
+        )
+    try:
+        parsed = int(value)  # type: ignore[call-overload]
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"num_speculative_tokens must be a positive integer, got {value!r}"
+        )
+    if parsed <= 0:
+        raise ValueError(
+            f"num_speculative_tokens must be a positive integer, got {parsed}"
+        )
+    return parsed
+
+
 def create_llm_model_instance(
     model_uid: str,
     model_name: str,

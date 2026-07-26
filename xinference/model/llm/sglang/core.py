@@ -317,8 +317,13 @@ class SGLANGModel(LLM):
             )
             return
 
-        num_draft_tokens = int(
-            num_speculative_tokens or self.DEFAULT_SPECULATIVE_NUM_DRAFT_TOKENS
+        from ..core import parse_num_speculative_tokens
+
+        requested = parse_num_speculative_tokens(num_speculative_tokens)
+        num_draft_tokens = (
+            requested
+            if requested is not None
+            else self.DEFAULT_SPECULATIVE_NUM_DRAFT_TOKENS
         )
         model_config["speculative_algorithm"] = "NEXTN"
         model_config["speculative_draft_model_path"] = draft_model_path
