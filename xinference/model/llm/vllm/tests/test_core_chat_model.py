@@ -15,6 +15,7 @@
 from unittest.mock import MagicMock
 
 import pytest
+from packaging import version
 
 from ...tool_parsers.qwen_tool_parser import QwenToolParser
 
@@ -1625,7 +1626,7 @@ class TestVLLMModelLogprobs:
 
     @classmethod
     def _make_request_output(
-        cls, *, text, token_ids, logprobs, finish_reason="stop"
+        cls, *, text, token_ids, logprobs, finish_reason="stop", prompt=""
     ):
         output = MagicMock()
         output.text = text
@@ -1635,6 +1636,7 @@ class TestVLLMModelLogprobs:
         output.finish_reason = finish_reason
         request_output = MagicMock()
         request_output.outputs = [output]
+        request_output.prompt = prompt
         request_output.prompt_token_ids = [1, 2, 3]
         return request_output
 
@@ -1660,22 +1662,26 @@ class TestVLLMModelLogprobs:
         request_output = self._make_request_output(
             text=" hello world", token_ids=[10, 11], logprobs=logprobs
         )
-        result = VLLMModel._build_logprobs(request_output.outputs[0])
+        result = VLLMModel._build_logprobs(request_output.outputs[0], prompt_offset=4)
         assert result is not None
         assert result["tokens"] == [" hello", " world"]
         assert result["token_logprobs"] == [-0.1, -0.2]
         assert result["top_logprobs"][0][" hello"] == -0.1
         assert result["top_logprobs"][0][" hi"] == -3.2
         assert result["top_logprobs"][1][" world"] == -0.2
-        # text_offset advances by each decoded token's length
-        assert result["text_offset"] == [0, 6]
+        # text_offset is relative to the full prompt + completion text.
+        assert result["text_offset"] == [4, 10]
 
     def test_convert_request_output_to_completion_carries_logprobs(self):
         from ..core import VLLMModel
 
         logprobs = [{10: self._make_logprob(-0.5, "ab")}]
         request_output = self._make_request_output(
-            text="ab", token_ids=[10], logprobs=logprobs, finish_reason="stop"
+            text="ab",
+            token_ids=[10],
+            logprobs=logprobs,
+            finish_reason="stop",
+            prompt="say:",
         )
         completion = VLLMModel._convert_request_output_to_completion(
             request_id="req-1", model="m", request_output=request_output
@@ -1684,6 +1690,7 @@ class TestVLLMModelLogprobs:
         assert choice["logprobs"] is not None
         assert choice["logprobs"]["tokens"] == ["ab"]
         assert choice["logprobs"]["token_logprobs"] == [-0.5]
+        assert choice["logprobs"]["text_offset"] == [4]
 
     def test_convert_request_output_to_completion_logprobs_none_when_absent(self):
         from ..core import VLLMModel
@@ -1737,26 +1744,59 @@ class TestVLLMModelLogprobs:
         )
         result = VLLMModel._build_logprobs(request_output.outputs[0])
         assert result is not None
-        # the malformed entry's key is the empty string, never str(99)
+        # Malformed alternatives without decoded text are omitted.
         assert "99" not in result["top_logprobs"][0]
+        assert "" not in result["top_logprobs"][0]
         assert "ab" in result["top_logprobs"][0]
 
-    def test_sanitize_translates_logprobs_request_to_vllm_int(self):
-        from ..core import VLLMChatModel
+    def test_slice_logprobs_returns_only_new_stream_tokens(self):
+        from ..core import VLLMModel
 
-        # logprobs=True with top_logprobs=5 -> vLLM logprobs=5
-        sanitized = VLLMChatModel._sanitize_generate_config(
+        cumulative = VLLMModel._build_logprobs(
+            self._make_request_output(
+                text="ab",
+                token_ids=[10, 11],
+                logprobs=[
+                    {10: self._make_logprob(-0.1, "a")},
+                    {11: self._make_logprob(-0.2, "b")},
+                ],
+            ).outputs[0],
+            prompt_offset=4,
+        )
+        assert cumulative is not None
+        delta = VLLMModel._slice_logprobs(cumulative, 1)
+        assert delta == {
+            "text_offset": [5],
+            "tokens": ["b"],
+            "token_logprobs": [-0.2],
+            "top_logprobs": [{"b": -0.2}],
+        }
+
+    def test_sanitize_translates_logprobs_request_to_vllm_int(self, monkeypatch):
+        from .. import core
+
+        monkeypatch.setattr(core, "VLLM_VERSION", version.parse("0.21.0"))
+
+        # Legacy completions pass their integer logprobs value through.
+        sanitized = core.VLLMModel._sanitize_generate_config({"logprobs": 5})
+        assert sanitized["logprobs"] == 5
+        sanitized = core.VLLMModel._sanitize_generate_config({"logprobs": 0})
+        assert sanitized["logprobs"] == 0
+
+        # Chat requests use a boolean plus top_logprobs.
+        sanitized = core.VLLMModel._sanitize_generate_config(
             {"logprobs": True, "top_logprobs": 5}
         )
         assert sanitized["logprobs"] == 5
-        # logprobs=True without top_logprobs -> at least 1
-        sanitized = VLLMChatModel._sanitize_generate_config({"logprobs": True})
-        assert sanitized["logprobs"] == 1
-        # not requested -> 0 (vLLM disables logprobs)
-        sanitized = VLLMChatModel._sanitize_generate_config({})
+        sanitized = core.VLLMModel._sanitize_generate_config({"logprobs": True})
         assert sanitized["logprobs"] == 0
+
+        # vLLM uses None, rather than 0, to disable logprobs.
+        sanitized = core.VLLMModel._sanitize_generate_config({"logprobs": False})
+        assert sanitized["logprobs"] is None
+        sanitized = core.VLLMModel._sanitize_generate_config({})
+        assert sanitized["logprobs"] is None
+
         # prompt_logprobs passes through
-        sanitized = VLLMChatModel._sanitize_generate_config(
-            {"prompt_logprobs": 3}
-        )
+        sanitized = core.VLLMModel._sanitize_generate_config({"prompt_logprobs": 3})
         assert sanitized["prompt_logprobs"] == 3
