@@ -37,7 +37,7 @@ const LogCenter = () => {
   const [appliedSearch, setAppliedSearch] = useState('');
   const [selectedLevels, setSelectedLevels] = useState<string[]>([]);
   const [selectedLogType, setSelectedLogType] = useState('');
-  const [selectedNode, setSelectedNode] = useState('');
+  const [selectedNodes, setSelectedNodes] = useState<string[]>([]);
   const [nodes, setNodes] = useState<string[]>([]);
   const [nodeField, setNodeField] = useState('node');
   const [pageFrom, setPageFrom] = useState(0);
@@ -75,7 +75,7 @@ const LogCenter = () => {
         appliedSearch,
         selectedLevels,
         selectedLogType,
-        selectedNode,
+        selectedNode: selectedNodes.join(','),
         nodeField,
         timeRange,
         pageFrom,
@@ -100,7 +100,7 @@ const LogCenter = () => {
     pageFrom,
     selectedLevels,
     selectedLogType,
-    selectedNode,
+    selectedNodes,
     timeRange,
   ]);
 
@@ -222,9 +222,9 @@ const LogCenter = () => {
       <div className="flex h-[calc(100vh-8rem)] min-h-[34rem] flex-col overflow-hidden rounded-md border bg-background">
         <LogToolbar
           nodes={nodes}
-          selectedNode={selectedNode}
-          onSelectedNodeChange={(value) => {
-            setSelectedNode(value);
+          selectedNodes={selectedNodes}
+          onSelectedNodesChange={(values) => {
+            setSelectedNodes(values);
             setPageFrom(0);
           }}
           searchText={searchText}
