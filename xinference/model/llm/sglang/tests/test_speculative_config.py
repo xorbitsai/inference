@@ -13,6 +13,9 @@
 # limitations under the License.
 
 
+import pytest
+
+
 def _model():
     from ..core import SGLANGModel
 
@@ -74,6 +77,30 @@ def test_explicit_draft_token_count_is_coerced():
 
     assert model_config["speculative_num_draft_tokens"] == 3
     assert model_config["speculative_num_steps"] == 2
+
+
+@pytest.mark.parametrize("invalid", [0, "0", -2, 2.7, "abc"])
+def test_invalid_native_draft_token_count_is_rejected(invalid):
+    # zero draft tokens with NEXTN on is self-contradictory, and 2.7 truncating
+    # to 2 is the silent substitution the shared validator exists to prevent
+    model_config = {
+        "draft_model_path": "/cache/draft",
+        "speculative_num_draft_tokens": invalid,
+    }
+
+    with pytest.raises(ValueError, match="positive integer"):
+        _model()._apply_draft_model(model_config)
+
+
+@pytest.mark.parametrize("invalid", [0, "0", -1, 1.5, "abc"])
+def test_invalid_neutral_token_count_is_rejected(invalid):
+    model_config = {
+        "draft_model_path": "/cache/draft",
+        "num_speculative_tokens": invalid,
+    }
+
+    with pytest.raises(ValueError, match="positive integer"):
+        _model()._apply_draft_model(model_config)
 
 
 def test_explicit_speculative_algorithm_wins():

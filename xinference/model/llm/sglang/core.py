@@ -330,10 +330,10 @@ class SGLANGModel(LLM):
         # an explicitly provided count wins, like the two keys below. Coerce the
         # entry itself, not just the local: the Web UI submits strings, and the
         # engine expects an int.
-        provided = model_config.get("speculative_num_draft_tokens")
-        effective_draft_tokens = (
-            int(provided) if provided is not None else num_draft_tokens
+        provided = parse_num_speculative_tokens(
+            model_config.get("speculative_num_draft_tokens")
         )
+        effective_draft_tokens = provided if provided is not None else num_draft_tokens
         model_config["speculative_num_draft_tokens"] = effective_draft_tokens
         # one bonus token from the target plus one draft per step
         model_config.setdefault(

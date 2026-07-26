@@ -83,19 +83,21 @@ class LLMCacheManager(CacheManager):
                     f"available: {draft_quantizations}"
                 )
             self._draft_quantization = draft_quantization
-            if "{draft_quantization}" in draft_model_id:
-                if not draft_quantization:
-                    raise ValueError(
-                        f"Model {self._model_name} declares the templated drafter "
-                        f"{draft_model_id!r} but no `draft_quantizations`."
-                    )
-                draft_model_id = self._format_draft_field(
-                    draft_model_id, draft_quantization, "draft_model_id"
+            if "{draft_quantization}" in draft_model_id and not draft_quantization:
+                raise ValueError(
+                    f"Model {self._model_name} declares the templated drafter "
+                    f"{draft_model_id!r} but no `draft_quantizations`."
                 )
+            # unconditionally, like the file template below: a field carrying
+            # some other placeholder has to fail here rather than reach the hub
+            # verbatim and 404 at download time
+            draft_model_id = self._format_draft_field(
+                draft_model_id, draft_quantization, "draft_model_id"
+            )
             self._model_id = draft_model_id
             self._model_revision = getattr(spec, "draft_model_revision", None)
             if draft_template:
-                if not draft_quantization:
+                if "{draft_quantization}" in draft_template and not draft_quantization:
                     raise ValueError(
                         f"Model {self._model_name} declares the drafter file "
                         f"{draft_template!r} but no `draft_quantizations`."
@@ -126,7 +128,9 @@ class LLMCacheManager(CacheManager):
             self._cache_dir = f"{self._cache_dir}{suffix}"
 
     @staticmethod
-    def _format_draft_field(template: str, draft_quantization: str, field: str) -> str:
+    def _format_draft_field(
+        template: str, draft_quantization: Optional[str], field: str
+    ) -> str:
         """Fill ``{draft_quantization}`` in a drafter field.
 
         Any other placeholder makes ``str.format`` raise KeyError or IndexError.

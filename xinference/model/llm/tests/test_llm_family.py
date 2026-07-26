@@ -425,6 +425,10 @@ def test_num_speculative_tokens_validation():
     [
         "some/drafter-{draft_quantization}-{quantization}",  # KeyError
         "some/drafter-{draft_quantization}-{}",  # IndexError
+        # no `{draft_quantization}` at all: these used to be passed to the hub
+        # verbatim and 404 at download time instead of failing here
+        "some/drafter-{quantization}",
+        "some/drafter-{}",
     ],
 )
 def test_unexpected_placeholder_is_a_value_error(draft_model_id):
