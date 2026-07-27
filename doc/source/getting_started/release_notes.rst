@@ -9,47 +9,47 @@ For detailed updates, please visit the corresponding links below.
 +-----------------+--------------------------------------------------------------------------------+
 | Version         | Release Notes                                                                  |
 +=================+================================================================================+
-| v3.0.0          | `View release notes <https://xinference.io/release_notes/v3.0.0.html>`_        |
+| v3.0.0          | `View release notes <https://xinference.co/release_notes/v3.0.0.html>`_        |
 +-----------------+--------------------------------------------------------------------------------+
-| v2.12.0         | `View release notes <https://xinference.io/release_notes/v2.12.0.html>`_       |
+| v2.12.0         | `View release notes <https://xinference.co/release_notes/v2.12.0.html>`_       |
 +-----------------+--------------------------------------------------------------------------------+
-| v2.11.0         | `View release notes <https://xinference.io/release_notes/v2.11.0.html>`_       |
+| v2.11.0         | `View release notes <https://xinference.co/release_notes/v2.11.0.html>`_       |
 +-----------------+--------------------------------------------------------------------------------+
-| v2.10.0         | `View release notes <https://xinference.io/release_notes/v2.10.0.html>`_       |
+| v2.10.0         | `View release notes <https://xinference.co/release_notes/v2.10.0.html>`_       |
 +-----------------+--------------------------------------------------------------------------------+
-| v2.9.0          | `View release notes <https://xinference.io/release_notes/v2.9.0.html>`_        |
+| v2.9.0          | `View release notes <https://xinference.co/release_notes/v2.9.0.html>`_        |
 +-----------------+--------------------------------------------------------------------------------+
-| v2.8.0          | `View release notes <https://xinference.io/release_notes/v2.8.0.html>`_        |
+| v2.8.0          | `View release notes <https://xinference.co/release_notes/v2.8.0.html>`_        |
 +-----------------+--------------------------------------------------------------------------------+
-| v2.7.0          | `View release notes <https://xinference.io/release_notes/v2.7.0.html>`_        |
+| v2.7.0          | `View release notes <https://xinference.co/release_notes/v2.7.0.html>`_        |
 +-----------------+--------------------------------------------------------------------------------+
-| v2.5.0          | `View release notes <https://xinference.io/release_notes/v2.5.0.html>`_        |
+| v2.5.0          | `View release notes <https://xinference.co/release_notes/v2.5.0.html>`_        |
 +-----------------+--------------------------------------------------------------------------------+
-| v2.4.0          | `View release notes <https://xinference.io/release_notes/v2.4.0.html>`_        |
+| v2.4.0          | `View release notes <https://xinference.co/release_notes/v2.4.0.html>`_        |
 +-----------------+--------------------------------------------------------------------------------+
-| v2.3.0          | `View release notes <https://xinference.io/release_notes/v2.3.0.html>`_        |
+| v2.3.0          | `View release notes <https://xinference.co/release_notes/v2.3.0.html>`_        |
 +-----------------+--------------------------------------------------------------------------------+
-| v2.2.0          | `View release notes <https://xinference.io/release_notes/v2.2.0.html>`_        |
+| v2.2.0          | `View release notes <https://xinference.co/release_notes/v2.2.0.html>`_        |
 +-----------------+--------------------------------------------------------------------------------+
-| v2.1.0          | `View release notes <https://xinference.io/release_notes/v2.1.0.html>`_        |
+| v2.1.0          | `View release notes <https://xinference.co/release_notes/v2.1.0.html>`_        |
 +-----------------+--------------------------------------------------------------------------------+
-| v2.0.0          | `View release notes <https://xinference.io/release_notes/v2.0.0.html>`_        |
+| v2.0.0          | `View release notes <https://xinference.co/release_notes/v2.0.0.html>`_        |
 +-----------------+--------------------------------------------------------------------------------+
-| v1.17.0         | `View release notes <https://xinference.io/release_notes/v1.17.0.html>`_       |
+| v1.17.0         | `View release notes <https://xinference.co/release_notes/v1.17.0.html>`_       |
 +-----------------+--------------------------------------------------------------------------------+
-| v1.16.0         | `View release notes <https://xinference.io/release_notes/v1.16.0.html>`_       |
+| v1.16.0         | `View release notes <https://xinference.co/release_notes/v1.16.0.html>`_       |
 +-----------------+--------------------------------------------------------------------------------+
-| v1.15.0         | `View release notes <https://xinference.io/release_notes/v1.15.0.html>`_       |
+| v1.15.0         | `View release notes <https://xinference.co/release_notes/v1.15.0.html>`_       |
 +-----------------+--------------------------------------------------------------------------------+
-| v1.14.0         | `View release notes <https://xinference.io/release_notes/v1.14.0.html>`_       |
+| v1.14.0         | `View release notes <https://xinference.co/release_notes/v1.14.0.html>`_       |
 +-----------------+--------------------------------------------------------------------------------+
-| v1.13.0         | `View release notes <https://xinference.io/release_notes/v1.13.0.html>`_       |
+| v1.13.0         | `View release notes <https://xinference.co/release_notes/v1.13.0.html>`_       |
 +-----------------+--------------------------------------------------------------------------------+
-| v1.12.0         | `View release notes <https://xinference.io/release_notes/v1.12.0.html>`_       |
+| v1.12.0         | `View release notes <https://xinference.co/release_notes/v1.12.0.html>`_       |
 +-----------------+--------------------------------------------------------------------------------+
-| v1.11.0.post1   | `View release notes <https://xinference.io/release_notes/v1.11.0.post1.html>`_ |
+| v1.11.0.post1   | `View release notes <https://xinference.co/release_notes/v1.11.0.post1.html>`_ |
 +-----------------+--------------------------------------------------------------------------------+
-| v1.10.1         | `View release notes <https://xinference.io/release_notes/v1.10.1.html>`_       |
+| v1.10.1         | `View release notes <https://xinference.co/release_notes/v1.10.1.html>`_       |
 +-----------------+--------------------------------------------------------------------------------+
 
 ----
