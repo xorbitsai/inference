@@ -132,9 +132,7 @@ def test_to_chat_completion_propagates_logprobs():
                 finish_reason="stop",
             )
         ],
-        usage=CompletionUsage(
-            prompt_tokens=1, completion_tokens=2, total_tokens=3
-        ),
+        usage=CompletionUsage(prompt_tokens=1, completion_tokens=2, total_tokens=3),
     )
 
     chat = ChatModelMixin._to_chat_completion(completion)
@@ -146,11 +144,7 @@ def test_to_chat_completion_propagates_logprobs():
 def test_to_chat_completion_chunks_propagates_logprobs():
     # Streaming counterpart: the chat chunk choice must carry the source
     # CompletionChunk choice's logprobs instead of dropping them.
-    from ....types import (
-        CompletionChoice,
-        CompletionChunk,
-        CompletionLogprobs,
-    )
+    from ....types import CompletionChoice, CompletionChunk, CompletionLogprobs
 
     logprobs = CompletionLogprobs(
         text_offset=[0, 5],
