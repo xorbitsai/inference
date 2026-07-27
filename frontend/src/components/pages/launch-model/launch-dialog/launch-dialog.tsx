@@ -243,6 +243,51 @@ export default function LaunchDialog({
     t,
   ]);
 
+  // The spec currently selected in the form, used to tell whether this
+  // format/size/quantization ships a drafter for speculative decoding.
+  const selectedSpec = useMemo(
+    () =>
+      model?.modelSpecs?.find(
+        (spec) =>
+          spec.model_format === modelFormatValue &&
+          toOptionValue(spec.model_size_in_billions) === modelSizeInBillionsKey &&
+          (spec.quantization === quantizationValue ||
+            (Array.isArray(spec.quantizations) && spec.quantizations.includes(quantizationValue)))
+      ),
+    [model?.modelSpecs, modelFormatValue, modelSizeInBillionsKey, quantizationValue]
+  );
+  // Drafter conversions available for the selected spec, each flagged with
+  // whether it is already downloaded. Empty when the spec declares a drafter
+  // without alternatives, in which case there is nothing to pick.
+  // A drafter needs both a spec that ships one and an engine that can run it:
+  // gemma-4's pytorch spec has a drafter but Transformers cannot use it, and
+  // showing the switch there only moves the failure to the launch button.
+  const engineSupportsDrafter = useMemo(() => {
+    const entries = modelEngineMap[modelEngineValue];
+    if (!Array.isArray(entries)) return false;
+    const matching = entries.filter(
+      (entry) =>
+        entry.model_format === modelFormatValue &&
+        toOptionValue(entry.model_size_in_billions) === modelSizeInBillionsKey
+    );
+    return (matching.length ? matching : entries).some((entry) => entry.support_draft_model);
+  }, [modelEngineMap, modelEngineValue, modelFormatValue, modelSizeInBillionsKey]);
+  const hasDrafter =
+    engineSupportsDrafter &&
+    Boolean(selectedSpec?.draft_model_id || selectedSpec?.draft_model_file_name_template);
+  const draftQuantizationOptions = useMemo(() => {
+    const quantizations = (selectedSpec?.draft_quantizations as string[] | undefined) || [];
+    const cacheStatus = selectedSpec?.draft_cache_status;
+
+    return quantizations.map((quantization, index) => ({
+      label: quantization,
+      value: quantization,
+      suffix: (Array.isArray(cacheStatus) ? cacheStatus[index] : cacheStatus)
+        ? t('launchModel.cached')
+        : undefined,
+    }));
+  }, [selectedSpec, t]);
+
   const multimodalProjectorOptions = useMemo(
     () =>
       Array.from(
@@ -524,7 +569,15 @@ export default function LaunchDialog({
         name: 'collapsibleConfig',
         type: 'custom',
         colSpan: 2,
-        content: <CollapsibleConfig form={form} modelType={modelType} />,
+        content: (
+          <CollapsibleConfig
+            form={form}
+            modelType={modelType}
+            modelName={model?.model_name}
+            hasDrafter={hasDrafter}
+            draftQuantizationOptions={draftQuantizationOptions}
+          />
+        ),
       },
     ],
     [ModelType.Embedding]: [

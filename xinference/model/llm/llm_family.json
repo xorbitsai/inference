@@ -30217,12 +30217,14 @@
         "model_src": {
           "huggingface": {
             "model_id": "google/gemma-4-E2B-it",
+            "draft_model_id": "google/gemma-4-E2B-it-assistant",
             "quantizations": [
               "none"
             ]
           },
           "modelscope": {
             "model_id": "google/gemma-4-E2B-it",
+            "draft_model_id": "google/gemma-4-E2B-it-assistant",
             "quantizations": [
               "none"
             ]
@@ -30235,12 +30237,34 @@
         "model_src": {
           "huggingface": {
             "model_id": "google/gemma-4-E4B-it",
+            "draft_model_id": "google/gemma-4-E4B-it-assistant",
             "quantizations": [
               "none"
             ]
           },
           "modelscope": {
             "model_id": "google/gemma-4-E4B-it",
+            "draft_model_id": "google/gemma-4-E4B-it-assistant",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 12,
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "google/gemma-4-12B-it",
+            "draft_model_id": "google/gemma-4-12B-it-assistant",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "google/gemma-4-12B-it",
+            "draft_model_id": "google/gemma-4-12B-it-assistant",
             "quantizations": [
               "none"
             ]
@@ -30253,12 +30277,14 @@
         "model_src": {
           "huggingface": {
             "model_id": "google/gemma-4-31B-it",
+            "draft_model_id": "google/gemma-4-31B-it-assistant",
             "quantizations": [
               "none"
             ]
           },
           "modelscope": {
             "model_id": "google/gemma-4-31B-it",
+            "draft_model_id": "google/gemma-4-31B-it-assistant",
             "quantizations": [
               "none"
             ]
@@ -30289,12 +30315,14 @@
         "model_src": {
           "huggingface": {
             "model_id": "google/gemma-4-26B-A4B-it",
+            "draft_model_id": "google/gemma-4-26B-A4B-it-assistant",
             "quantizations": [
               "none"
             ]
           },
           "modelscope": {
             "model_id": "google/gemma-4-26B-A4B-it",
+            "draft_model_id": "google/gemma-4-26B-A4B-it-assistant",
             "quantizations": [
               "none"
             ]
@@ -30307,7 +30335,14 @@
         "model_src": {
           "huggingface": {
             "model_id": "unsloth/gemma-4-E2B-it-GGUF",
+            "draft_model_id": "unsloth/gemma-4-E2B-it-GGUF",
             "model_file_name_template": "gemma-4-E2B-it-{quantization}.gguf",
+            "draft_model_file_name_template": "MTP/mtp-gemma-4-E2B-it-{draft_quantization}.gguf",
+            "draft_quantizations": [
+              "BF16",
+              "F16",
+              "Q8_0"
+            ],
             "quantization_parts": {},
             "quantizations": [
               "BF16",
@@ -30335,7 +30370,14 @@
           },
           "modelscope": {
             "model_id": "unsloth/gemma-4-E2B-it-GGUF",
+            "draft_model_id": "unsloth/gemma-4-E2B-it-GGUF",
             "model_file_name_template": "gemma-4-E2B-it-{quantization}.gguf",
+            "draft_model_file_name_template": "MTP/mtp-gemma-4-E2B-it-{draft_quantization}.gguf",
+            "draft_quantizations": [
+              "BF16",
+              "F16",
+              "Q8_0"
+            ],
             "quantizations": [
               "BF16",
               "IQ4_NL",
@@ -30368,7 +30410,14 @@
         "model_src": {
           "huggingface": {
             "model_file_name_template": "gemma-4-E4B-it-{quantization}.gguf",
+            "draft_model_file_name_template": "MTP/mtp-gemma-4-E4B-it-{draft_quantization}.gguf",
+            "draft_quantizations": [
+              "BF16",
+              "F16",
+              "Q8_0"
+            ],
             "model_id": "unsloth/gemma-4-E4B-it-GGUF",
+            "draft_model_id": "unsloth/gemma-4-E4B-it-GGUF",
             "quantizations": [
               "BF16",
               "IQ4_NL",
@@ -30395,7 +30444,88 @@
           },
           "modelscope": {
             "model_id": "unsloth/gemma-4-E4B-it-GGUF",
+            "draft_model_id": "unsloth/gemma-4-E4B-it-GGUF",
             "model_file_name_template": "gemma-4-E4B-it-{quantization}.gguf",
+            "draft_model_file_name_template": "MTP/mtp-gemma-4-E4B-it-{draft_quantization}.gguf",
+            "draft_quantizations": [
+              "BF16",
+              "F16",
+              "Q8_0"
+            ],
+            "quantizations": [
+              "BF16",
+              "IQ4_NL",
+              "IQ4_XS",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ2_M",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 12,
+        "model_format": "ggufv2",
+        "model_src": {
+          "huggingface": {
+            "model_id": "unsloth/gemma-4-12b-it-GGUF",
+            "draft_model_id": "unsloth/gemma-4-12b-it-GGUF",
+            "model_file_name_template": "gemma-4-12b-it-{quantization}.gguf",
+            "draft_model_file_name_template": "MTP/mtp-gemma-4-12b-it-{draft_quantization}.gguf",
+            "draft_quantizations": [
+              "BF16",
+              "F16",
+              "Q8_0"
+            ],
+            "quantizations": [
+              "BF16",
+              "IQ4_NL",
+              "IQ4_XS",
+              "Q3_K_M",
+              "Q3_K_S",
+              "Q4_0",
+              "Q4_1",
+              "Q4_K_M",
+              "Q4_K_S",
+              "Q5_K_M",
+              "Q5_K_S",
+              "Q6_K",
+              "Q8_0",
+              "UD-IQ2_M",
+              "UD-IQ3_XXS",
+              "UD-Q2_K_XL",
+              "UD-Q3_K_XL",
+              "UD-Q4_K_XL",
+              "UD-Q5_K_XL",
+              "UD-Q6_K_XL",
+              "UD-Q8_K_XL"
+            ]
+          },
+          "modelscope": {
+            "model_id": "unsloth/gemma-4-12b-it-GGUF",
+            "draft_model_id": "unsloth/gemma-4-12b-it-GGUF",
+            "model_file_name_template": "gemma-4-12b-it-{quantization}.gguf",
+            "draft_model_file_name_template": "MTP/mtp-gemma-4-12b-it-{draft_quantization}.gguf",
+            "draft_quantizations": [
+              "BF16",
+              "F16",
+              "Q8_0"
+            ],
             "quantizations": [
               "BF16",
               "IQ4_NL",
@@ -30428,7 +30558,14 @@
         "model_src": {
           "huggingface": {
             "model_id": "unsloth/gemma-4-31B-it-GGUF",
+            "draft_model_id": "unsloth/gemma-4-31B-it-GGUF",
             "model_file_name_template": "gemma-4-31B-it-{quantization}.gguf",
+            "draft_model_file_name_template": "MTP/mtp-gemma-4-31B-it-{draft_quantization}.gguf",
+            "draft_quantizations": [
+              "BF16",
+              "F16",
+              "Q8_0"
+            ],
             "quantizations": [
               "IQ4_NL",
               "IQ4_XS",
@@ -30460,7 +30597,14 @@
         "model_src": {
           "huggingface": {
             "model_id": "unsloth/gemma-4-26B-A4B-it-GGUF",
+            "draft_model_id": "unsloth/gemma-4-26B-A4B-it-GGUF",
             "model_file_name_template": "gemma-4-26B-A4B-it-{quantization}.gguf",
+            "draft_model_file_name_template": "MTP/mtp-gemma-4-26B-A4B-it-{draft_quantization}.gguf",
+            "draft_quantizations": [
+              "BF16",
+              "F16",
+              "Q8_0"
+            ],
             "quantizations": [
               "MXFP4_MOE",
               "Q8_0",
@@ -30486,7 +30630,14 @@
           },
           "modelscope": {
             "model_id": "unsloth/gemma-4-26B-A4B-it-GGUF",
+            "draft_model_id": "unsloth/gemma-4-26B-A4B-it-GGUF",
             "model_file_name_template": "gemma-4-26B-A4B-it-{quantization}.gguf",
+            "draft_model_file_name_template": "MTP/mtp-gemma-4-26B-A4B-it-{draft_quantization}.gguf",
+            "draft_quantizations": [
+              "BF16",
+              "F16",
+              "Q8_0"
+            ],
             "quantizations": [
               "MXFP4_MOE",
               "Q8_0",
@@ -30518,6 +30669,10 @@
         "model_src": {
           "huggingface": {
             "model_id": "mlx-community/gemma-4-e2b-it-{quantization}",
+            "draft_model_id": "mlx-community/gemma-4-E2B-it-assistant-{draft_quantization}",
+            "draft_quantizations": [
+              "bf16"
+            ],
             "quantizations": [
               "bf16",
               "8bit",
@@ -30531,6 +30686,10 @@
           },
           "modelscope": {
             "model_id": "mlx-community/gemma-4-e2b-it-{quantization}",
+            "draft_model_id": "mlx-community/gemma-4-E2B-it-assistant-{draft_quantization}",
+            "draft_quantizations": [
+              "bf16"
+            ],
             "quantizations": [
               "bf16",
               "8bit",
@@ -30550,6 +30709,10 @@
         "model_src": {
           "huggingface": {
             "model_id": "mlx-community/gemma-4-e4b-it-{quantization}",
+            "draft_model_id": "mlx-community/gemma-4-E4B-it-assistant-{draft_quantization}",
+            "draft_quantizations": [
+              "bf16"
+            ],
             "quantizations": [
               "bf16",
               "8bit",
@@ -30563,6 +30726,64 @@
           },
           "modelscope": {
             "model_id": "mlx-community/gemma-4-e4b-it-{quantization}",
+            "draft_model_id": "mlx-community/gemma-4-E4B-it-assistant-{draft_quantization}",
+            "draft_quantizations": [
+              "bf16"
+            ],
+            "quantizations": [
+              "bf16",
+              "8bit",
+              "6bit",
+              "5bit",
+              "4bit",
+              "mxfp8",
+              "mxfp4",
+              "nvfp4"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 12,
+        "model_format": "mlx",
+        "model_src": {
+          "huggingface": {
+            "model_id": "mlx-community/gemma-4-12B-it-{quantization}",
+            "draft_model_id": "mlx-community/gemma-4-12B-it-assistant-{draft_quantization}",
+            "draft_quantizations": [
+              "bf16",
+              "8bit",
+              "6bit",
+              "5bit",
+              "4bit",
+              "mxfp8",
+              "mxfp4",
+              "nvfp4"
+            ],
+            "quantizations": [
+              "bf16",
+              "8bit",
+              "6bit",
+              "5bit",
+              "4bit",
+              "mxfp8",
+              "mxfp4",
+              "nvfp4"
+            ]
+          },
+          "modelscope": {
+            "model_id": "mlx-community/gemma-4-12B-it-{quantization}",
+            "draft_model_id": "mlx-community/gemma-4-12B-it-assistant-{draft_quantization}",
+            "draft_quantizations": [
+              "bf16",
+              "8bit",
+              "6bit",
+              "5bit",
+              "4bit",
+              "mxfp8",
+              "mxfp4",
+              "nvfp4"
+            ],
             "quantizations": [
               "bf16",
               "8bit",
@@ -30582,6 +30803,10 @@
         "model_src": {
           "huggingface": {
             "model_id": "mlx-community/gemma-4-31b-it-{quantization}",
+            "draft_model_id": "mlx-community/gemma-4-31B-it-assistant-{draft_quantization}",
+            "draft_quantizations": [
+              "bf16"
+            ],
             "quantizations": [
               "bf16",
               "8bit",
@@ -30595,6 +30820,10 @@
           },
           "modelscope": {
             "model_id": "mlx-community/gemma-4-31b-it-{quantization}",
+            "draft_model_id": "mlx-community/gemma-4-31B-it-assistant-{draft_quantization}",
+            "draft_quantizations": [
+              "bf16"
+            ],
             "quantizations": [
               "bf16",
               "8bit",
@@ -30614,6 +30843,10 @@
         "model_src": {
           "huggingface": {
             "model_id": "mlx-community/gemma-4-26b-a4b-it-{quantization}",
+            "draft_model_id": "mlx-community/gemma-4-26B-A4B-it-assistant-{draft_quantization}",
+            "draft_quantizations": [
+              "bf16"
+            ],
             "quantizations": [
               "bf16",
               "8bit",
@@ -30627,6 +30860,10 @@
           },
           "modelscope": {
             "model_id": "mlx-community/gemma-4-26b-a4b-it-{quantization}",
+            "draft_model_id": "mlx-community/gemma-4-26B-A4B-it-assistant-{draft_quantization}",
+            "draft_quantizations": [
+              "bf16"
+            ],
             "quantizations": [
               "bf16",
               "8bit",
@@ -30642,7 +30879,8 @@
       }
     ],
     "architectures": [
-      "Gemma4ForConditionalGeneration"
+      "Gemma4ForConditionalGeneration",
+      "Gemma4UnifiedForConditionalGeneration"
     ],
     "chat_template": "",
     "stop_token_ids": [
@@ -30664,14 +30902,25 @@
       "packages": [
         "#transformers_dependencies# ; #engine# == \"Transformers\"",
         "#mlx_dependencies# ; #engine# == \"MLX\"",
-        "mlx-vlm>=0.4.4 ; #engine# == \"MLX\"",
-        "vllm>=0.19.0 ; #engine# == \"vllm\"",
-        "transformers>=5.5.0 ; #engine# == \"vllm\"",
+        "mlx-vlm>=0.6.1 ; #engine# == \"MLX\"",
+        "vllm>=0.22.0 ; #engine# == \"vllm\"",
+        "transformers>=5.8.0 ; #engine# == \"vllm\"",
         "qwen_omni_utils ; #engine# == \"vllm\"",
-        "#sglang_dependencies# ; #engine# == \\\"sglang\\\"\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "sglang==0.5.13.post1 ; #engine# == \"sglang\"",
+        "transformers==5.8.1 ; #engine# == \"sglang\"",
+        "kernels==0.14.1 ; #engine# == \"sglang\"",
+        "sglang-kernel==0.4.3 ; #engine# == \"sglang\"",
+        "flash-attn-4==4.0.0b9 ; #engine# == \"sglang\"",
         "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "xllamacpp>=2026.6.9713 ; #engine# == \"llama.cpp\"",
         "#system_numpy# ; #engine# == \"vllm\""
-      ]
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.22.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
     },
     "featured": true,
     "updated_at": 1777564386

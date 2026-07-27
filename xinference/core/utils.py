@@ -354,10 +354,52 @@ def merge_virtual_env_packages(
     return merged
 
 
+def normalize_sglang_kernel_packages(
+    packages: List[str],
+) -> Tuple[List[str], bool]:
+    """Drop the legacy kernel distribution when a recipe selects its successor.
+
+    SGLang 0.5.11 renamed the ``sgl-kernel`` distribution to
+    ``sglang-kernel`` while keeping the same ``sgl_kernel`` import package.
+    Installing both distributions into one cached virtualenv leaves two owners
+    for the same files.  Model recipes that explicitly select the new
+    distribution therefore supersede the legacy engine default.
+
+    Returns the normalized package list and whether the modern kernel was
+    selected.  Callers use the latter to migrate cached environments and force
+    dependency reconciliation for the renamed distribution.
+    """
+
+    def _requirement_name(package: str) -> Optional[str]:
+        head = package.split(";", 1)[0].strip()
+        try:
+            return Requirement(head).name.lower().replace("_", "-")
+        except Exception:
+            # Bare wheel URLs are not valid ``Requirement`` instances.  The
+            # legacy CUDA 13 engine dependency uses exactly this form.
+            lowered = head.lower()
+            if re.search(r"(?:^|/)sgl[_-]kernel-", lowered):
+                return "sgl-kernel"
+            return None
+
+    package_names = [_requirement_name(package) for package in packages]
+    modern_kernel_selected = "sglang-kernel" in package_names
+    if not modern_kernel_selected:
+        return packages, False
+
+    normalized = [
+        package
+        for package, package_name in zip(packages, package_names)
+        if package_name != "sgl-kernel"
+    ]
+    return normalized, True
+
+
 def build_subpool_envs_for_virtual_env(
     envs: Optional[Dict[str, str]],
     enable_virtual_env: Optional[bool],
     virtual_env_manager: Any,
+    model_engine: Optional[str] = None,
 ) -> Dict[str, str]:
     subpool_envs = {} if envs is None else envs.copy()
     if bool(enable_virtual_env) and virtual_env_manager is not None:
@@ -374,6 +416,32 @@ def build_subpool_envs_for_virtual_env(
         subpool_envs.setdefault(
             "FLASHINFER_NINJA_PATH", os.path.join(venv_bin, "ninja")
         )
+        if sys.platform == "linux" and (model_engine or "").lower() in (
+            "sglang",
+            "vllm",
+        ):
+            import sysconfig
+
+            # PyTorch CUDA wheels load NVIDIA runtime libraries from Python
+            # packages.  The actor subprocess is exec'd directly instead of
+            # through virtualenv activation, so make both the child and
+            # inherited parent locations visible to the dynamic linker.  CUDA
+            # 13 packages use either the legacy per-library layout or the
+            # consolidated nvidia/cu13/lib layout, depending on the wheel.
+            child_site_packages = virtual_env_manager.get_lib_path()
+            parent_site_packages = sysconfig.get_path("purelib")
+            nvidia_lib_paths = []
+            for site_packages in (child_site_packages, parent_site_packages):
+                for directory in ("cusparselt", "cu13"):
+                    path = os.path.join(site_packages, "nvidia", directory, "lib")
+                    if path not in nvidia_lib_paths:
+                        nvidia_lib_paths.append(path)
+            current_ld_library_path = subpool_envs.get(
+                "LD_LIBRARY_PATH"
+            ) or os.environ.get("LD_LIBRARY_PATH", "")
+            if current_ld_library_path:
+                nvidia_lib_paths.append(current_ld_library_path)
+            subpool_envs["LD_LIBRARY_PATH"] = os.pathsep.join(nvidia_lib_paths)
     return subpool_envs
 
 

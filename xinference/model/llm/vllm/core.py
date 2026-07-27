@@ -58,7 +58,7 @@ from ....types import (
     LoRA,
 )
 from .. import BUILTIN_LLM_FAMILIES, LLM, LLMFamilyV2, LLMSpecV1
-from ..core import chat_context_var
+from ..core import chat_context_var, get_model_speculative_tokens_default
 from ..llm_family import cache_model_tokenizer_and_config
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
@@ -116,6 +116,10 @@ class VLLMModelConfig(TypedDict, total=False):
     speculative_config: Optional[Dict[str, Any]]
     rope_scaling: Optional[Dict[str, Any]]
     hf_overrides: Optional[Dict[str, Any]]
+    # engine-neutral speculative decoding options, translated into
+    # speculative_config and never forwarded to the engine as-is
+    draft_model_path: NotRequired[Optional[str]]
+    num_speculative_tokens: NotRequired[Optional[int]]
 
 
 class VLLMGenerateConfig(TypedDict, total=False):
@@ -164,6 +168,15 @@ try:
 except ImportError:
     VLLM_INSTALLED = False
     VLLM_VERSION = None
+
+
+def _get_transformers_version() -> Optional[version.Version]:
+    try:
+        import transformers
+    except ImportError:
+        return None
+    return version.parse(transformers.__version__)
+
 
 DEFAULT_VLLM_VERSION = version.parse("0.21.0")
 
@@ -415,6 +428,7 @@ _update_vllm_supported_lists()
 
 class VLLMModel(LLM):
     allow_batch = True
+    support_draft_model = True
 
     def __init__(
         self,
@@ -974,6 +988,83 @@ class VLLMModel(LLM):
             )
             return default
 
+    # vLLM grew a dedicated Gemma 4 MTP path in 0.22.0; before that it treats an
+    # assistant checkpoint as a generic draft model and fails to initialize
+    # against a multimodal target.
+    MTP_MIN_VLLM_VERSION = version.parse("0.22.0")
+    # Gemma4AssistantConfig first shipped in Transformers 5.8.0.
+    MTP_MIN_TRANSFORMERS_VERSION = version.parse("5.8.0")
+    # Generic fallback for MTP families without a model-specific recipe.
+    DEFAULT_NUM_SPECULATIVE_TOKENS = 1
+
+    def _default_num_speculative_tokens(self) -> int:
+        return get_model_speculative_tokens_default(
+            getattr(self.model_family, "model_name", None),
+            getattr(self.model_spec, "model_size_in_billions", None),
+            self.DEFAULT_NUM_SPECULATIVE_TOKENS,
+        )
+
+    def _apply_draft_model(self, model_config: VLLMModelConfig) -> None:
+        """Turn a downloaded drafter into vLLM's ``speculative_config``.
+
+        ``draft_model_path`` / ``num_speculative_tokens`` are the engine-neutral
+        launch options; they must never reach ``AsyncEngineArgs``, so they are
+        consumed here whether or not they end up being used.
+        """
+        draft_model_path = model_config.pop("draft_model_path", None)  # type: ignore[typeddict-item]
+        num_speculative_tokens = model_config.pop("num_speculative_tokens", None)  # type: ignore[typeddict-item]
+        if not draft_model_path:
+            return
+
+        if model_config.get("speculative_config"):
+            # An explicit speculative_config wins: the user is driving vLLM
+            # directly and may be running a different method entirely.
+            logger.info(
+                "Ignoring the drafter of %s, speculative_config was set explicitly",
+                self.model_uid,
+            )
+            return
+
+        if VLLM_VERSION is not None and VLLM_VERSION < self.MTP_MIN_VLLM_VERSION:
+            raise ValueError(
+                f"Speculative decoding with a Gemma 4 style drafter needs "
+                f"vllm>={self.MTP_MIN_VLLM_VERSION}, but {VLLM_VERSION} is installed. "
+                f"Upgrade vLLM, or launch without `enable_mtp`."
+            )
+        transformers_version = _get_transformers_version()
+        if transformers_version is None or (
+            transformers_version < self.MTP_MIN_TRANSFORMERS_VERSION
+        ):
+            installed = (
+                str(transformers_version)
+                if transformers_version is not None
+                else "not installed"
+            )
+            raise ValueError(
+                "Speculative decoding with a Gemma 4 style drafter needs "
+                f"transformers>={self.MTP_MIN_TRANSFORMERS_VERSION}, but "
+                f"{installed} is installed. Upgrade Transformers, or launch "
+                "without `enable_mtp`."
+            )
+
+        from ..core import parse_num_speculative_tokens
+
+        requested = parse_num_speculative_tokens(num_speculative_tokens)
+        model_config["speculative_config"] = {
+            "method": "mtp",
+            "model": draft_model_path,
+            "num_speculative_tokens": (
+                requested
+                if requested is not None
+                else self._default_num_speculative_tokens()
+            ),
+        }
+        logger.info(
+            "Speculative decoding enabled for %s: %s",
+            self.model_uid,
+            model_config["speculative_config"],
+        )
+
     def _sanitize_model_config(
         self, model_config: Optional[VLLMModelConfig]
     ) -> VLLMModelConfig:
@@ -1043,6 +1134,7 @@ class VLLMModel(LLM):
             model_config["speculative_config"] = self.parse_str_field_to_dict(
                 model_config.get("speculative_config", {}), "speculative_config"
             )
+        self._apply_draft_model(model_config)
         if "rope_scaling" in model_config:
             rope_scaling = self.parse_str_field_to_dict(
                 model_config["rope_scaling"], "rope_scaling"

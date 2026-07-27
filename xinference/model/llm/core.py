@@ -46,6 +46,8 @@ def get_llm_version_infos():
 
 class LLM(abc.ABC):
     allow_batch = False
+    # whether the engine can run speculative decoding with a paired drafter
+    support_draft_model = False
 
     def __init__(
         self,
@@ -259,6 +261,61 @@ def generate_llm_version_info(llm_family: "LLMFamilyV2") -> Dict[str, List[Dict]
     return res
 
 
+def parse_bool_launch_arg(value: object) -> bool:
+    """The Web UI submits additional parameters as plain strings, so ``"false"``
+    must not be read as a truthy value."""
+    if isinstance(value, str):
+        return value.strip().lower() in ("true", "1", "yes")
+    return bool(value)
+
+
+GEMMA_4_NUM_SPECULATIVE_TOKENS_BY_SIZE = {
+    "2": 2,
+    "4": 4,
+    "12": 4,
+    "26": 4,
+    "31": 4,
+}
+
+
+def get_model_speculative_tokens_default(
+    model_name: object, model_size: object, fallback: int
+) -> int:
+    """Return the model recipe's speculation depth when one is registered."""
+    if model_name == "gemma-4":
+        return GEMMA_4_NUM_SPECULATIVE_TOKENS_BY_SIZE.get(str(model_size), fallback)
+    return fallback
+
+
+def parse_num_speculative_tokens(value: object) -> Optional[int]:
+    """Validate the engine-neutral speculation depth.
+
+    ``None`` means the launch left it unset, so each engine applies its own
+    default. Anything else has to be a positive integer: the Web UI submits
+    additional parameters as strings, and a zero or negative depth is a
+    contradiction with speculative decoding being enabled — substituting a
+    default for it would silently ignore what the caller asked for.
+    """
+    if value is None or value == "":
+        return None
+    if isinstance(value, float) and not value.is_integer():
+        # truncating 1.5 to 1 would be the same silent substitution
+        raise ValueError(
+            f"num_speculative_tokens must be a positive integer, got {value!r}"
+        )
+    try:
+        parsed = int(value)  # type: ignore[call-overload]
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"num_speculative_tokens must be a positive integer, got {value!r}"
+        )
+    if parsed <= 0:
+        raise ValueError(
+            f"num_speculative_tokens must be a positive integer, got {parsed}"
+        )
+    return parsed
+
+
 def create_llm_model_instance(
     model_uid: str,
     model_name: str,
@@ -320,6 +377,29 @@ def create_llm_model_instance(
     if not model_path:
         cache_manager = LLMCacheManager(llm_family, multimodal_projector)
         model_path = cache_manager.cache()
+
+    # Speculative decoding: download the drafter checkpoint paired with this
+    # spec (e.g. Gemma 4 ``*-it-assistant`` for MTP) unless the user points at
+    # a local one. ``enable_mtp`` is not forwarded to the engine config.
+    enable_mtp = parse_bool_launch_arg(kwargs.pop("enable_mtp", False))
+    draft_quantization = kwargs.pop("draft_quantization", None)
+    if (
+        enable_mtp or kwargs.get("draft_model_path")
+    ) and not llm_cls.support_draft_model:
+        raise ValueError(
+            f"Speculative decoding is not supported by engine {model_engine} "
+            f"for model {model_name}."
+        )
+    if enable_mtp and not kwargs.get("draft_model_path"):
+        kwargs["draft_model_path"] = LLMCacheManager(
+            llm_family, use_draft_model=True, draft_quantization=draft_quantization
+        ).cache()
+    if kwargs.get("draft_model_path"):
+        logger.info(
+            "Launching %s with speculative decoding, drafter: %s",
+            model_uid,
+            kwargs["draft_model_path"],
+        )
 
     peft_model = peft_model_config.peft_model if peft_model_config else None
     if peft_model is not None:
