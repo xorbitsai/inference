@@ -18,6 +18,7 @@ import tempfile
 from unittest.mock import patch
 
 import pytest
+from packaging.requirements import Requirement
 
 from ....constants import XINFERENCE_ENV_MODEL_SRC
 from ...utils import is_locale_chinese_simplified, is_valid_model_uri
@@ -478,6 +479,23 @@ def test_builtin_gemma_4_mlx_specs_declare_drafter():
     spec_12b = next(s for s in mlx_specs if s.model_size_in_billions == 12)
     assert len(spec_12b.draft_quantizations) > 1
     assert spec_12b.draft_quantizations[0] == "bf16"
+
+
+def test_builtin_gemma_4_vllm_requires_mtp_version():
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == "gemma-4")
+    assert family.virtualenv is not None
+
+    vllm_package = next(
+        package
+        for package in family.virtualenv.packages
+        if package.split(";", 1)[0].strip().startswith("vllm")
+    )
+    requirement = Requirement(vllm_package.split(";", 1)[0].strip())
+
+    assert requirement.specifier.contains("0.22.0")
+    assert not requirement.specifier.contains("0.21.0")
 
 
 def test_cache_from_uri_local():
