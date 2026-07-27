@@ -18,6 +18,7 @@ from ..utils import (
     is_valid_model_uid,
     iter_replica_model_uid,
     merge_virtual_env_packages,
+    normalize_sglang_kernel_packages,
     parse_legacy_replica_model_uid,
     parse_replica_model_uid,
 )
@@ -168,6 +169,34 @@ def test_merge_virtual_env_packages_preserves_conditional_system_markers_without
     assert merge_virtual_env_packages(base_packages, None) == base_packages
 
 
+def test_normalize_sglang_kernel_packages_for_modern_recipe():
+    legacy_wheel = (
+        "https://github.com/sgl-project/whl/releases/download/v0.3.21/"
+        "sgl_kernel-0.3.21+cu130-cp310-abi3-manylinux2014_x86_64.whl"
+    )
+    packages, migrate_legacy = normalize_sglang_kernel_packages(
+        [
+            "sglang==0.5.11",
+            legacy_wheel,
+            "sglang-kernel==0.4.2",
+            "flash-attn-4==4.0.0b9",
+        ]
+    )
+
+    assert packages == [
+        "sglang==0.5.11",
+        "sglang-kernel==0.4.2",
+        "flash-attn-4==4.0.0b9",
+    ]
+    assert migrate_legacy is True
+
+
+def test_normalize_sglang_kernel_packages_keeps_legacy_recipe():
+    packages = ["sglang>=0.5.6", "sgl_kernel"]
+
+    assert normalize_sglang_kernel_packages(packages) == (packages, False)
+
+
 def _run_prepare_virtual_env(
     cuda_version,
     inherited_index_url,
@@ -233,6 +262,32 @@ def _run_prepare_virtual_env(
             architectures=None,
         )
     return result
+
+
+def test_prepare_virtual_env_modern_sglang_migrates_legacy_kernel():
+    legacy_wheel = (
+        "https://github.com/sgl-project/whl/releases/download/v0.3.21/"
+        "sgl_kernel-0.3.21+cu130-cp310-abi3-manylinux2014_x86_64.whl"
+    )
+    result = _run_prepare_virtual_env(
+        cuda_version="13.0",
+        inherited_index_url=None,
+        model_engine="sglang",
+        packages=(
+            "sglang==0.5.11",
+            legacy_wheel,
+            "sglang-kernel==0.4.2",
+            "flash-attn-4==4.0.0b9",
+        ),
+    )
+
+    assert result["packages"] == [
+        "sglang==0.5.11",
+        "sglang-kernel==0.4.2",
+        "flash-attn-4==4.0.0b9",
+    ]
+    assert result["conf"]["skip_installed"] is False
+    assert result["uninstalled"] == ["sgl-kernel"]
 
 
 def test_prepare_virtual_env_llama_cpp_gpu_uses_exclusive_index():

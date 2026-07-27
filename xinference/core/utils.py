@@ -354,6 +354,47 @@ def merge_virtual_env_packages(
     return merged
 
 
+def normalize_sglang_kernel_packages(
+    packages: List[str],
+) -> Tuple[List[str], bool]:
+    """Drop the legacy kernel distribution when a recipe selects its successor.
+
+    SGLang 0.5.11 renamed the ``sgl-kernel`` distribution to
+    ``sglang-kernel`` while keeping the same ``sgl_kernel`` import package.
+    Installing both distributions into one cached virtualenv leaves two owners
+    for the same files.  Model recipes that explicitly select the new
+    distribution therefore supersede the legacy engine default.
+
+    Returns the normalized package list and whether the modern kernel was
+    selected.  Callers use the latter to migrate cached environments and force
+    dependency reconciliation for the renamed distribution.
+    """
+
+    def _requirement_name(package: str) -> Optional[str]:
+        head = package.split(";", 1)[0].strip()
+        try:
+            return Requirement(head).name.lower().replace("_", "-")
+        except Exception:
+            # Bare wheel URLs are not valid ``Requirement`` instances.  The
+            # legacy CUDA 13 engine dependency uses exactly this form.
+            lowered = head.lower()
+            if re.search(r"(?:^|/)sgl[_-]kernel-", lowered):
+                return "sgl-kernel"
+            return None
+
+    package_names = [_requirement_name(package) for package in packages]
+    modern_kernel_selected = "sglang-kernel" in package_names
+    if not modern_kernel_selected:
+        return packages, False
+
+    normalized = [
+        package
+        for package, package_name in zip(packages, package_names)
+        if package_name != "sgl-kernel"
+    ]
+    return normalized, True
+
+
 def build_subpool_envs_for_virtual_env(
     envs: Optional[Dict[str, str]],
     enable_virtual_env: Optional[bool],

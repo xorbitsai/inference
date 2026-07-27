@@ -511,6 +511,46 @@ def test_builtin_gemma_4_vllm_requires_mtp_dependencies():
     assert "https://wheels.vllm.ai/0.22.0/cu130" in family.virtualenv.extra_index_url
 
 
+def test_builtin_gemma_4_sglang_requires_supported_runtime():
+    from ....core.utils import (
+        filter_virtualenv_packages_by_markers,
+        merge_virtual_env_packages,
+        normalize_sglang_kernel_packages,
+    )
+    from ....core.virtual_env_manager import expand_engine_dependency_placeholders
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == "gemma-4")
+    assert family.virtualenv is not None
+
+    requirements = {
+        requirement.name: requirement
+        for package in family.virtualenv.packages
+        if not package.lstrip().startswith("#")
+        for requirement in [Requirement(package.split(";", 1)[0].strip())]
+    }
+
+    assert requirements["sglang"].specifier.contains("0.5.11")
+    assert not requirements["sglang"].specifier.contains("0.5.10")
+    assert requirements["sglang-kernel"].specifier.contains("0.4.2")
+    assert requirements["flash-attn-4"].specifier.contains("4.0.0b9")
+
+    packages = expand_engine_dependency_placeholders(
+        family.virtualenv.packages, "sglang"
+    )
+    packages = merge_virtual_env_packages(packages, None)
+    packages = filter_virtualenv_packages_by_markers(
+        packages, "sglang", "13.0", "linux"
+    )
+    packages, modern_kernel = normalize_sglang_kernel_packages(packages)
+
+    assert "sglang==0.5.11" in packages
+    assert "sglang-kernel==0.4.2" in packages
+    assert "flash-attn-4==4.0.0b9" in packages
+    assert not any("sgl_kernel-0.3.21" in package for package in packages)
+    assert modern_kernel is True
+
+
 def test_cache_from_uri_local():
     with open("model.bin", "w") as fd:
         fd.write("foo")

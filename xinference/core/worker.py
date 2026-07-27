@@ -100,6 +100,7 @@ from .utils import (
     log_async,
     log_sync,
     merge_virtual_env_packages,
+    normalize_sglang_kernel_packages,
     parse_legacy_replica_model_uid,
     parse_replica_model_uid,
     purge_dir,
@@ -2894,6 +2895,7 @@ class WorkerActor(xo.StatelessActor):
         # Reuse the engine/CUDA/platform-filtered list computed above for the
         # PyTorch index decision — same inputs, so the result is identical.
         packages = active_packages
+        packages, modern_sglang_kernel = normalize_sglang_kernel_packages(packages)
 
         critical_specs = get_engine_critical_dependency_specs(model_engine, packages)
         if critical_specs:
@@ -2942,6 +2944,11 @@ class WorkerActor(xo.StatelessActor):
             # the GPU index even when a same-version CPU wheel is already
             # present.
             conf["skip_installed"] = False
+        if modern_sglang_kernel:
+            # The recipe pins a coherent SGLang release stack.  Re-run its
+            # resolver even when the top-level packages are cached so exact
+            # transitive pins such as Transformers and Torch are repaired too.
+            conf["skip_installed"] = False
         variables = {}
         if model_engine:
             engine_value = model_engine.lower()
@@ -2955,6 +2962,11 @@ class WorkerActor(xo.StatelessActor):
             ", ".join([f"{k}={v}" for k, v in conf.items() if v]),
         )
         with _exclusive_venv_path_lock(str(virtual_env_manager.env_path)):
+            if modern_sglang_kernel:
+                # SGLang 0.5.11 renamed the distribution while retaining the
+                # same import package.  Remove the cached legacy owner before
+                # the new wheel writes those files.
+                cls._uninstall_venv_package(virtual_env_manager, "sgl-kernel")
             if force_reinstall_xllamacpp:
                 cls._uninstall_venv_package(virtual_env_manager, "xllamacpp")
             virtual_env_manager.install_packages(packages, **conf, **variables)
