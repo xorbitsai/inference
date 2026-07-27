@@ -3935,13 +3935,21 @@ class WorkerActor(xo.StatelessActor):
         (add_worker + record_model_version). Registry recovery is driven solely
         by report_status -> report_worker_status path, per supervisor's
         receive_heartbeat design contract (supervisor.py).
+
+        A transport failure invalidates the cached supervisor references so the
+        next attempt can refresh a supervisor whose internal address changed
+        after a restart.
         """
-        await xo.wait_for(
-            (await self.get_supervisor_ref(add_worker=False)).receive_heartbeat(
-                self.address
-            ),
-            XINFERENCE_TCP_REQUEST_TIMEOUT,
-        )
+        try:
+            await xo.wait_for(
+                (await self.get_supervisor_ref(add_worker=False)).receive_heartbeat(
+                    self.address
+                ),
+                XINFERENCE_TCP_REQUEST_TIMEOUT,
+            )
+        except Exception:
+            self._clear_supervisor_refs()
+            raise
 
     async def _periodical_report_status(self):
         """
