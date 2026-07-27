@@ -227,10 +227,9 @@ Optional parameters:
   round, including the bonus token. Left unset, three things can happen. MLX
   reads it from the drafter, which runs at the depth it was trained for (``4``
   for Gemma 4). llama.cpp keeps xllamacpp's own default (``3`` as of
-  ``2026.7``), since it has one. SGLang requires a value, so its Gemma 4 guide's
-  ``6`` is passed. vLLM follows its Gemma 4 recipe by model size: ``2`` for E2B,
-  ``4`` for E4B and 26B-A4B, and the lower end (``4``) of the recommended
-  ``4-8`` range for 12B and 31B.
+  ``2026.7``), since it has one. vLLM and SGLang follow the Gemma 4 recipe by
+  model size: ``2`` for E2B, ``4`` for E4B and 26B-A4B, and the lower end
+  (``4``) of the recommended ``4-8`` range for 12B and 31B.
 * ``--draft_quantization <quantization>``: which drafter conversion to use, when
   the spec declares more than one — the MLX build of Gemma 4 12B publishes
   eight. Defaults to the first declared, which is the least quantized one: a
@@ -262,7 +261,7 @@ Engine support:
        starting vLLM, repairing stale environments that contain mismatched
        FlashInfer packages.
    * - :ref:`SGLang <sglang_backend>`
-     - drafter support for the model family
+     - ``sglang==0.5.13.post1``, ``transformers==5.8.1``
      - Translated into ``--speculative-algorithm NEXTN`` with the matching
        ``speculative_num_steps`` / ``speculative_num_draft_tokens``. An
        explicitly provided ``speculative_algorithm`` is left untouched.

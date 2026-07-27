@@ -84,11 +84,10 @@ export const KWARGS_OPTIONS_FOR_ENGINES: Record<string, Array<{ label: string; v
  * Tokens the drafter proposes per round when the launch leaves it unset, shown
  * so the field can name the value that will actually apply.
  *
- * Three different provenances: MLX reads it from the drafter, which runs at the
- * depth it was trained for (4 for Gemma 4); llama.cpp keeps xllamacpp's own
- * CommonParams default (3 as of 2026.7); SGLang requires a value, so the one
- * from its Gemma 4 guide is passed (6). Gemma 4 on vLLM follows the per-size
- * values from vLLM's recipe below.
+ * MLX reads it from the drafter, which runs at the depth it was trained for
+ * (4 for Gemma 4); llama.cpp keeps xllamacpp's own CommonParams default (3 as
+ * of 2026.7). Gemma 4 on vLLM and SGLang follows the shared per-size recipe
+ * below.
  */
 export const SPECULATIVE_TOKENS_DEFAULT_BY_ENGINE: Record<string, number> = {
   mlx: 4,
@@ -97,7 +96,7 @@ export const SPECULATIVE_TOKENS_DEFAULT_BY_ENGINE: Record<string, number> = {
   'llama.cpp': 3,
 };
 
-export const GEMMA_4_VLLM_SPECULATIVE_TOKENS_BY_SIZE: Record<string, number> = {
+export const GEMMA_4_SPECULATIVE_TOKENS_BY_SIZE: Record<string, number> = {
   '2': 2,
   '4': 4,
   '12': 4,

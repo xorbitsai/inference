@@ -149,7 +149,7 @@ const ko = {
     draftModelQuantizationTip:
       '드래프트 모델은 작아서 양자화해도 메모리 절약은 적고 수용률은 낮아집니다. 대상 모델이 양자화되어 있어도 양자화되지 않은 드래프트 모델을 권장합니다.',
     numSpeculativeTokensTip:
-      '라운드당 드래프트 모델이 제안하는 토큰 수(보너스 토큰 포함). 비워 두면 MLX는 드래프트 모델의 학습 깊이(Gemma 4는 4)를 읽고, llama.cpp는 xllamacpp 기본값 3, SGLang은 6을 사용합니다. vLLM은 Gemma 4 레시피에 따라 E2B는 2, E4B와 26B-A4B는 4, 12B와 31B는 권장 범위 4~8의 하한인 4를 사용합니다.',
+      '라운드당 드래프트 모델이 제안하는 토큰 수(보너스 토큰 포함). 비워 두면 MLX는 드래프트 모델의 학습 깊이(Gemma 4는 4)를 읽고, llama.cpp는 xllamacpp 기본값 3을 사용합니다. vLLM과 SGLang은 Gemma 4 레시피에 따라 E2B는 2, E4B와 26B-A4B는 4, 12B와 31B는 권장 범위 4~8의 하한인 4를 사용합니다.',
     parsingReasoningContent: '추론 내용 파싱',
     CPUOffload: 'CPU 오프로드',
     CPUOffloadTip:

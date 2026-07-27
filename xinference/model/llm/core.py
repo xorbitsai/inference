@@ -269,6 +269,24 @@ def parse_bool_launch_arg(value: object) -> bool:
     return bool(value)
 
 
+GEMMA_4_NUM_SPECULATIVE_TOKENS_BY_SIZE = {
+    "2": 2,
+    "4": 4,
+    "12": 4,
+    "26": 4,
+    "31": 4,
+}
+
+
+def get_model_speculative_tokens_default(
+    model_name: object, model_size: object, fallback: int
+) -> int:
+    """Return the model recipe's speculation depth when one is registered."""
+    if model_name == "gemma-4":
+        return GEMMA_4_NUM_SPECULATIVE_TOKENS_BY_SIZE.get(str(model_size), fallback)
+    return fallback
+
+
 def parse_num_speculative_tokens(value: object) -> Optional[int]:
     """Validate the engine-neutral speculation depth.
 

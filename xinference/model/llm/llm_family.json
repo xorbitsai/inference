@@ -30907,9 +30907,10 @@
         "transformers>=5.8.0 ; #engine# == \"vllm\"",
         "qwen_omni_utils ; #engine# == \"vllm\"",
         "#sglang_dependencies# ; #engine# == \"sglang\"",
-        "sglang==0.5.11 ; #engine# == \"sglang\"",
+        "sglang==0.5.13.post1 ; #engine# == \"sglang\"",
+        "transformers==5.8.1 ; #engine# == \"sglang\"",
         "kernels==0.14.1 ; #engine# == \"sglang\"",
-        "sglang-kernel==0.4.2 ; #engine# == \"sglang\"",
+        "sglang-kernel==0.4.3 ; #engine# == \"sglang\"",
         "flash-attn-4==4.0.0b9 ; #engine# == \"sglang\"",
         "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
         "#system_numpy# ; #engine# == \"vllm\""

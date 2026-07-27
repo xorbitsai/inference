@@ -57,7 +57,7 @@ from ....types import (
     LoRA,
 )
 from .. import BUILTIN_LLM_FAMILIES, LLM, LLMFamilyV2, LLMSpecV1
-from ..core import chat_context_var
+from ..core import chat_context_var, get_model_speculative_tokens_default
 from ..llm_family import cache_model_tokenizer_and_config
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
@@ -993,23 +993,13 @@ class VLLMModel(LLM):
     MTP_MIN_TRANSFORMERS_VERSION = version.parse("5.8.0")
     # Generic fallback for MTP families without a model-specific recipe.
     DEFAULT_NUM_SPECULATIVE_TOKENS = 1
-    # vLLM's Gemma 4 recipe recommends 2 for E2B, 4 for E4B and 26B-A4B,
-    # and 4-8 for 12B and 31B. Use the lower end of those ranges by default.
-    GEMMA_4_NUM_SPECULATIVE_TOKENS_BY_SIZE = {
-        "2": 2,
-        "4": 4,
-        "12": 4,
-        "26": 4,
-        "31": 4,
-    }
 
     def _default_num_speculative_tokens(self) -> int:
-        if getattr(self.model_family, "model_name", None) == "gemma-4":
-            model_size = str(getattr(self.model_spec, "model_size_in_billions", ""))
-            return self.GEMMA_4_NUM_SPECULATIVE_TOKENS_BY_SIZE.get(
-                model_size, self.DEFAULT_NUM_SPECULATIVE_TOKENS
-            )
-        return self.DEFAULT_NUM_SPECULATIVE_TOKENS
+        return get_model_speculative_tokens_default(
+            getattr(self.model_family, "model_name", None),
+            getattr(self.model_spec, "model_size_in_billions", None),
+            self.DEFAULT_NUM_SPECULATIVE_TOKENS,
+        )
 
     def _apply_draft_model(self, model_config: VLLMModelConfig) -> None:
         """Turn a downloaded drafter into vLLM's ``speculative_config``.

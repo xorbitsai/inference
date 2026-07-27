@@ -13,14 +13,18 @@
 # limitations under the License.
 
 
+from types import SimpleNamespace
+
 import pytest
 
 
-def _model():
+def _model(model_name="gemma-4", model_size=26):
     from ..core import SGLANGModel
 
     model = object.__new__(SGLANGModel)
     model.model_uid = "test-model-0"
+    model.model_family = SimpleNamespace(model_name=model_name)
+    model.model_spec = SimpleNamespace(model_size_in_billions=model_size)
     return model
 
 
@@ -31,14 +35,42 @@ def test_drafter_becomes_nextn_server_args():
 
     assert model_config["speculative_algorithm"] == "NEXTN"
     assert model_config["speculative_draft_model_path"] == "/cache/gemma-4-draft"
-    assert model_config["speculative_num_draft_tokens"] == 6
-    assert model_config["speculative_num_steps"] == 5
+    assert model_config["speculative_num_draft_tokens"] == 4
+    assert model_config["speculative_num_steps"] == 3
     assert model_config["speculative_eagle_topk"] == 1
     # the whole model_config is splatted into the engine, so the neutral
     # options must not survive
     assert "draft_model_path" not in model_config
     assert "num_speculative_tokens" not in model_config
     assert model_config["tp_size"] == 1
+
+
+@pytest.mark.parametrize(
+    ("model_size", "expected"),
+    [
+        (2, 2),
+        (4, 4),
+        (12, 4),
+        (26, 4),
+        (31, 4),
+    ],
+)
+def test_gemma_4_recipe_default_by_size(model_size, expected):
+    model_config = {"draft_model_path": "/cache/draft"}
+
+    _model(model_size=model_size)._apply_draft_model(model_config)
+
+    assert model_config["speculative_num_draft_tokens"] == expected
+    assert model_config["speculative_num_steps"] == max(1, expected - 1)
+
+
+def test_other_nextn_family_keeps_generic_default():
+    model_config = {"draft_model_path": "/cache/draft"}
+
+    _model(model_name="other-nextn")._apply_draft_model(model_config)
+
+    assert model_config["speculative_num_draft_tokens"] == 6
+    assert model_config["speculative_num_steps"] == 5
 
 
 def test_num_speculative_tokens_drives_the_step_count():

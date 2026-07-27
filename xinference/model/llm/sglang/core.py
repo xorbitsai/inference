@@ -35,7 +35,7 @@ from ....types import (
 )
 from ...utils import check_dependency_available
 from .. import LLM, LLMFamilyV2, LLMSpecV1
-from ..core import chat_context_var
+from ..core import chat_context_var, get_model_speculative_tokens_default
 from ..utils import (
     DEEPSEEK_TOOL_CALL_FAMILY,
     GEMMA_TOOL_CALL_FAMILY,
@@ -291,11 +291,15 @@ class SGLANGModel(LLM):
         logger.info("Stopping SGLang engine, sglang pid: %s", self._engine.pid)
         self._engine.shutdown()
 
-    # SGLang drafts Gemma 4 style assistants through its NEXTN path. This is the
-    # value its own Gemma 4 cookbook uses (5 steps producing 6 draft tokens,
-    # with a single candidate per step since the drafter is not a tree
-    # speculator), not a value SGLang would default to on its own.
+    # Generic fallback for NEXTN families without a model-specific recipe.
     DEFAULT_SPECULATIVE_NUM_DRAFT_TOKENS = 6
+
+    def _default_num_speculative_tokens(self) -> int:
+        return get_model_speculative_tokens_default(
+            getattr(self.model_family, "model_name", None),
+            getattr(self.model_spec, "model_size_in_billions", None),
+            self.DEFAULT_SPECULATIVE_NUM_DRAFT_TOKENS,
+        )
 
     def _apply_draft_model(self, model_config: SGLANGModelConfig) -> None:
         """Turn a downloaded drafter into SGLang's ``speculative_*`` server args.
@@ -323,7 +327,7 @@ class SGLANGModel(LLM):
         num_draft_tokens = (
             requested
             if requested is not None
-            else self.DEFAULT_SPECULATIVE_NUM_DRAFT_TOKENS
+            else self._default_num_speculative_tokens()
         )
         model_config["speculative_algorithm"] = "NEXTN"
         model_config["speculative_draft_model_path"] = draft_model_path
