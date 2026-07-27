@@ -32,6 +32,7 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
         "dill",
         "ninja",
         "numpy<2.3",
+        "pandas<3",
         "sglang>=0.5.6",
         'https://github.com/sgl-project/whl/releases/download/v0.3.21/sgl_kernel-0.3.21+cu130-cp310-abi3-manylinux2014_x86_64.whl ; cuda_version == "13.0" and platform_machine == "x86_64"',
         'https://github.com/sgl-project/whl/releases/download/v0.3.21/sgl_kernel-0.3.21+cu130-cp310-abi3-manylinux2014_aarch64.whl ; cuda_version == "13.0" and platform_machine == "aarch64"',
@@ -870,16 +871,16 @@ def _get_virtualenv_distribution_version(
     return result.stdout.strip() or None
 
 
-def ensure_sglang_numpy_compatible_post_install(
+def ensure_sglang_inherited_packages_compatible_post_install(
     model_engine: Optional[str], virtual_env_manager: Any
 ) -> None:
-    """Keep SGLang's NumPy compatible with inherited numba/cudf packages.
+    """Keep SGLang dependencies compatible with inherited numba/cudf packages.
 
-    SGLang itself does not constrain NumPy, while the actor subprocess inherits
-    the parent site-packages so xoscar can import its serializers.  A cached
-    virtualenv may therefore contain NumPy 2.3+ even when an inherited numba
-    requires NumPy 2.2 or earlier.  New environments constrain ``numpy<2.3``;
-    when the parent already has a compatible NumPy, repair a cached environment
+    SGLang and datasets leave NumPy and pandas broadly constrained, while the
+    actor subprocess inherits parent site-packages so xoscar can import its
+    serializers.  New child versions can therefore break inherited numba/cudf
+    before SGLang starts.  New environments carry explicit compatibility caps;
+    when the parent already has a compatible version, repair a cached environment
     without downloading anything by removing only the shadowing child copy.
     """
     if not model_engine or model_engine.lower() != "sglang":
@@ -890,72 +891,82 @@ def ensure_sglang_numpy_compatible_post_install(
     from packaging.specifiers import SpecifierSet
     from packaging.version import Version
 
-    compatible = SpecifierSet("<2.3")
-    try:
-        system_version = importlib.metadata.version("numpy")
-    except importlib.metadata.PackageNotFoundError:
-        return
-    virtualenv_version = _get_virtualenv_distribution_version(
-        virtual_env_manager, "numpy"
-    )
-    if virtualenv_version is None or Version(virtualenv_version) in compatible:
-        return
-    if Version(system_version) not in compatible:
-        raise RuntimeError(
-            "SGLang requires NumPy <2.3 for compatibility with inherited "
-            f"numba/cudf packages, but virtualenv NumPy is {virtualenv_version} "
-            f"and system NumPy is {system_version}."
-        )
-
-    logger.warning(
-        "Incompatible SGLang virtualenv NumPy %s shadows system NumPy %s in %s; "
-        "removing the child copy",
-        virtualenv_version,
-        system_version,
-        virtual_env_manager.env_path,
-    )
-    uv_path = None
-    if hasattr(virtual_env_manager, "_get_uv_path"):
+    constraints = {"numpy": "<2.3", "pandas": "<3"}
+    for distribution, specifier in constraints.items():
+        compatible = SpecifierSet(specifier)
         try:
-            uv_path = virtual_env_manager._get_uv_path()
-        except Exception:
-            pass
-    if not uv_path:
-        uv_path = shutil.which("uv") or "uv"
-    python_path = resolve_virtualenv_python_path(virtual_env_manager)
-    if not python_path:
-        raise RuntimeError(
-            "Cannot repair the SGLang virtualenv NumPy mismatch: "
-            "virtualenv Python was not found."
+            system_version = importlib.metadata.version(distribution)
+        except importlib.metadata.PackageNotFoundError:
+            continue
+        virtualenv_version = _get_virtualenv_distribution_version(
+            virtual_env_manager, distribution
         )
+        if virtualenv_version is None or Version(virtualenv_version) in compatible:
+            continue
+        if Version(system_version) not in compatible:
+            raise RuntimeError(
+                f"SGLang requires {distribution}{specifier} for compatibility "
+                f"with inherited numba/cudf packages, but virtualenv "
+                f"{distribution} is {virtualenv_version} and system "
+                f"{distribution} is {system_version}."
+            )
 
-    result = subprocess.run(
-        [
-            uv_path,
-            "pip",
-            "uninstall",
-            "--python",
-            python_path,
-            "numpy",
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    repaired_version = _get_virtualenv_distribution_version(
-        virtual_env_manager, "numpy"
-    )
-    if (
-        result.returncode != 0
-        or repaired_version is None
-        or Version(repaired_version) not in compatible
-    ):
-        detail = result.stderr[-500:] if result.stderr else "(empty)"
-        raise RuntimeError(
-            "Failed to repair the incompatible SGLang virtualenv NumPy "
-            f"{virtualenv_version}; system NumPy is {system_version}: {detail}"
+        logger.warning(
+            "Incompatible SGLang virtualenv %s %s shadows system %s %s in %s; "
+            "removing the child copy",
+            distribution,
+            virtualenv_version,
+            distribution,
+            system_version,
+            virtual_env_manager.env_path,
         )
-    logger.info("SGLang virtualenv now uses compatible NumPy %s", repaired_version)
+        uv_path = None
+        if hasattr(virtual_env_manager, "_get_uv_path"):
+            try:
+                uv_path = virtual_env_manager._get_uv_path()
+            except Exception:
+                pass
+        if not uv_path:
+            uv_path = shutil.which("uv") or "uv"
+        python_path = resolve_virtualenv_python_path(virtual_env_manager)
+        if not python_path:
+            raise RuntimeError(
+                f"Cannot repair the SGLang virtualenv {distribution} mismatch: "
+                "virtualenv Python was not found."
+            )
+
+        result = subprocess.run(
+            [
+                uv_path,
+                "pip",
+                "uninstall",
+                "--python",
+                python_path,
+                distribution,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        repaired_version = _get_virtualenv_distribution_version(
+            virtual_env_manager, distribution
+        )
+        if (
+            result.returncode != 0
+            or repaired_version is None
+            or Version(repaired_version) not in compatible
+        ):
+            detail = result.stderr[-500:] if result.stderr else "(empty)"
+            raise RuntimeError(
+                f"Failed to repair the incompatible SGLang virtualenv "
+                f"{distribution} {virtualenv_version}; system {distribution} "
+                f"is {system_version}: {detail}"
+            )
+        logger.info(
+            "SGLang virtualenv now uses compatible %s %s",
+            distribution,
+            repaired_version,
+        )
 
 
 def ensure_flashinfer_cubin_matches_post_install(

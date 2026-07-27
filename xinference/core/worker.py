@@ -2969,10 +2969,10 @@ class WorkerActor(xo.StatelessActor):
             from .virtual_env_manager import (
                 apply_flashinfer_aot_post_install,
                 ensure_flashinfer_cubin_matches_post_install,
-                ensure_sglang_numpy_compatible_post_install,
+                ensure_sglang_inherited_packages_compatible_post_install,
             )
 
-            ensure_sglang_numpy_compatible_post_install(
+            ensure_sglang_inherited_packages_compatible_post_install(
                 model_engine, virtual_env_manager
             )
             if XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL:

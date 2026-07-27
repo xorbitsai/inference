@@ -114,6 +114,7 @@ def test_filter_then_rewrite_sglang_cu130():
     assert not any(p.startswith(("http://", "https://")) for p in rewritten)
     assert "sglang>=0.5.6" in rewritten
     assert "numpy<2.3" in rewritten
+    assert "pandas<3" in rewritten
     if machine:
         # the arch-matching direct URL survives filtering and is rewritten
         assert "sgl_kernel==0.3.21+cu130" in rewritten

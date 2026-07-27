@@ -30,7 +30,7 @@ from ..virtual_env_manager import (
     FLASHINFER_CUBIN_WHEEL_URL,
     apply_flashinfer_aot_post_install,
     ensure_flashinfer_cubin_matches_post_install,
-    ensure_sglang_numpy_compatible_post_install,
+    ensure_sglang_inherited_packages_compatible_post_install,
     get_engine_critical_dependency_specs,
     needs_flashinfer_aot,
 )
@@ -181,7 +181,7 @@ class TestEnsureFlashinferCubinMatchesPostInstall:
         version_mock.assert_not_called()
 
 
-class TestEnsureSGLangNumpyCompatiblePostInstall:
+class TestEnsureSGLangInheritedPackagesCompatiblePostInstall:
     @pytest.fixture
     def fake_venv_manager(self):
         manager = mock.MagicMock()
@@ -191,23 +191,35 @@ class TestEnsureSGLangNumpyCompatiblePostInstall:
         return manager
 
     def test_matching_versions_are_noop(self, fake_venv_manager):
-        with mock.patch("importlib.metadata.version", return_value="2.2.6"), mock.patch(
+        versions = {"numpy": "2.2.6", "pandas": "2.3.3"}
+        with mock.patch(
+            "importlib.metadata.version", side_effect=versions.__getitem__
+        ), mock.patch(
             "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
-            return_value="2.2.6",
-        ), mock.patch("xinference.core.virtual_env_manager.subprocess.run") as run_mock:
-            ensure_sglang_numpy_compatible_post_install("sglang", fake_venv_manager)
+            side_effect=lambda _manager, name: versions[name],
+        ), mock.patch(
+            "xinference.core.virtual_env_manager.subprocess.run"
+        ) as run_mock:
+            ensure_sglang_inherited_packages_compatible_post_install(
+                "sglang", fake_venv_manager
+            )
 
         run_mock.assert_not_called()
 
     def test_cached_newer_numpy_is_removed(self, fake_venv_manager):
         result = mock.MagicMock(returncode=0, stderr="")
-        with mock.patch("importlib.metadata.version", return_value="2.2.6"), mock.patch(
+        versions = {"numpy": "2.2.6", "pandas": "2.3.3"}
+        with mock.patch(
+            "importlib.metadata.version", side_effect=versions.__getitem__
+        ), mock.patch(
             "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
-            side_effect=["2.4.1", "2.2.6"],
+            side_effect=["2.4.1", "2.2.6", "2.3.3"],
         ), mock.patch(
             "xinference.core.virtual_env_manager.subprocess.run", return_value=result
         ) as run_mock:
-            ensure_sglang_numpy_compatible_post_install("sglang", fake_venv_manager)
+            ensure_sglang_inherited_packages_compatible_post_install(
+                "sglang", fake_venv_manager
+            )
 
         assert run_mock.call_args[0][0] == [
             "/fake/uv",
@@ -218,9 +230,35 @@ class TestEnsureSGLangNumpyCompatiblePostInstall:
             "numpy",
         ]
 
+    def test_cached_pandas_3_is_removed(self, fake_venv_manager):
+        result = mock.MagicMock(returncode=0, stderr="")
+        versions = {"numpy": "2.2.6", "pandas": "2.3.3"}
+        with mock.patch(
+            "importlib.metadata.version", side_effect=versions.__getitem__
+        ), mock.patch(
+            "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
+            side_effect=["2.2.6", "3.0.0", "2.3.3"],
+        ), mock.patch(
+            "xinference.core.virtual_env_manager.subprocess.run", return_value=result
+        ) as run_mock:
+            ensure_sglang_inherited_packages_compatible_post_install(
+                "sglang", fake_venv_manager
+            )
+
+        assert run_mock.call_args[0][0] == [
+            "/fake/uv",
+            "pip",
+            "uninstall",
+            "--python",
+            "/fake/venv/bin/python",
+            "pandas",
+        ]
+
     def test_other_engines_are_untouched(self, fake_venv_manager):
         with mock.patch("importlib.metadata.version") as version_mock:
-            ensure_sglang_numpy_compatible_post_install("vllm", fake_venv_manager)
+            ensure_sglang_inherited_packages_compatible_post_install(
+                "vllm", fake_venv_manager
+            )
 
         version_mock.assert_not_called()
 
