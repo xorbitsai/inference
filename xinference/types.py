@@ -204,6 +204,7 @@ class ChatCompletionMessage(TypedDict):
 class ChatCompletionChoice(TypedDict):
     index: int
     message: ChatCompletionMessage
+    logprobs: NotRequired[Optional[CompletionLogprobs]]
     finish_reason: Optional[str]
 
 
@@ -226,6 +227,7 @@ class ChatCompletionChunkDelta(TypedDict):
 class ChatCompletionChunkChoice(TypedDict):
     index: int
     delta: ChatCompletionChunkDelta
+    logprobs: NotRequired[Optional[CompletionLogprobs]]
     finish_reason: Optional[str]
 
 

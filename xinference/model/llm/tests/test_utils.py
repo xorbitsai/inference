@@ -102,6 +102,81 @@ def test_to_chat_completion_chunks_usage_only_chunk_without_metadata():
     }
 
 
+def test_to_chat_completion_propagates_logprobs():
+    # Regression for #1911 / #3553: /v1/chat/completions silently returned
+    # logprobs: null even when the engine produced them. The chat builder must
+    # propagate the source Completion choice's logprobs onto the chat choice.
+    from ....types import (
+        Completion,
+        CompletionChoice,
+        CompletionLogprobs,
+        CompletionUsage,
+    )
+
+    logprobs = CompletionLogprobs(
+        text_offset=[0, 5],
+        token_logprobs=[None, -0.1],
+        tokens=["Hello", " world"],
+        top_logprobs=[None, {" world": -0.2}],
+    )
+    completion = Completion(
+        id="cmpl-1",
+        object="text_completion",
+        created=123,
+        model="test-model",
+        choices=[
+            CompletionChoice(
+                text="Hello world",
+                index=0,
+                logprobs=logprobs,
+                finish_reason="stop",
+            )
+        ],
+        usage=CompletionUsage(
+            prompt_tokens=1, completion_tokens=2, total_tokens=3
+        ),
+    )
+
+    chat = ChatModelMixin._to_chat_completion(completion)
+
+    assert chat["choices"][0]["logprobs"] is not None
+    assert chat["choices"][0]["logprobs"] == logprobs
+
+
+def test_to_chat_completion_chunks_propagates_logprobs():
+    # Streaming counterpart: the chat chunk choice must carry the source
+    # CompletionChunk choice's logprobs instead of dropping them.
+    from ....types import (
+        CompletionChoice,
+        CompletionChunk,
+        CompletionLogprobs,
+    )
+
+    logprobs = CompletionLogprobs(
+        text_offset=[0, 5],
+        token_logprobs=[None, -0.1],
+        tokens=["Hello", " world"],
+        top_logprobs=[None, {" world": -0.2}],
+    )
+    chunk = CompletionChunk(
+        id="cmpl-2",
+        object="text_completion",
+        created=123,
+        model="test-model",
+        choices=[
+            CompletionChoice(
+                text="Hello", index=0, logprobs=logprobs, finish_reason=None
+            )
+        ],
+    )
+
+    results = list(ChatModelMixin._to_chat_completion_chunks(iter([chunk])))
+
+    assert results, "expected at least one chat chunk"
+    assert results[0]["choices"][0]["logprobs"] is not None
+    assert results[0]["choices"][0]["logprobs"] == logprobs
+
+
 def test_async_to_chat_completion_chunks_preserves_usage_only_chunk():
     async def _chunks():
         yield {

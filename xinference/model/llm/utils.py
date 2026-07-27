@@ -528,6 +528,7 @@ class ChatModelMixin:
                 {
                     "index": i,
                     "delta": delta,
+                    "logprobs": choice.get("logprobs"),
                     "finish_reason": choice["finish_reason"],
                 }
             )
@@ -812,6 +813,7 @@ class ChatModelMixin:
                 {
                     "index": i,
                     "message": message,
+                    "logprobs": choice.get("logprobs"),
                     "finish_reason": choice["finish_reason"],
                 }
             )
