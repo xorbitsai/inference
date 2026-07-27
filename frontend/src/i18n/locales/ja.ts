@@ -150,7 +150,7 @@ const ja = {
     draftModelQuantizationTip:
       'ドラフトモデルは小さいため、量子化してもメモリ削減はわずかで受理率が下がります。対象モデルが量子化済みでも、未量子化のドラフトモデルを推奨します。',
     numSpeculativeTokensTip:
-      '1 ラウンドあたりにドラフトモデルが提案するトークン数（ボーナストークンを含む）。未設定の場合は 3 通り: MLX はドラフトモデルから学習深度を読み取り（Gemma 4 は 4）、llama.cpp は xllamacpp 自身の既定値（3）を使用し、vLLM と SGLang は値が必須なため各 Gemma 4 ガイドの値（1 と 6）を渡します。MLX では大きい値は上限として扱われ、各ラウンドは学習深度から始まり受理履歴が良好な場合にのみ増加します。他のエンジンは指定値をそのまま使い、特に vLLM の 1 は保守的です。',
+      '1 ラウンドあたりにドラフトモデルが提案するトークン数（ボーナストークンを含む）。未設定の場合、MLX はドラフトモデルの学習深度（Gemma 4 は 4）を読み取り、llama.cpp は xllamacpp の既定値 3、SGLang は 6 を使用します。vLLM は Gemma 4 のレシピに従い、E2B は 2、E4B と 26B-A4B は 4、12B と 31B は推奨範囲 4～8 の下限である 4 を使用します。',
     parsingReasoningContent: '推論内容の解析',
     CPUOffload: 'CPUオフロード',
     CPUOffloadTip:

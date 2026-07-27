@@ -12,15 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from types import SimpleNamespace
+
 import pytest
 from packaging import version
 
 
-def _model():
+def _model(model_name="gemma-4", model_size=26):
     from ..core import VLLMModel
 
     model = object.__new__(VLLMModel)
     model.model_uid = "test-model-0"
+    model.model_family = SimpleNamespace(model_name=model_name)
+    model.model_spec = SimpleNamespace(model_size_in_billions=model_size)
     return model
 
 
@@ -38,12 +42,44 @@ def test_drafter_becomes_speculative_config(monkeypatch):
     assert model_config["speculative_config"] == {
         "method": "mtp",
         "model": "/cache/gemma-4-draft",
-        "num_speculative_tokens": 1,
+        "num_speculative_tokens": 4,
     }
     # the engine-neutral options must not reach AsyncEngineArgs
     assert "draft_model_path" not in model_config
     assert "num_speculative_tokens" not in model_config
     assert model_config["gpu_memory_utilization"] == 0.9
+
+
+@pytest.mark.parametrize(
+    ("model_size", "expected"),
+    [
+        (2, 2),
+        (4, 4),
+        (12, 4),
+        (26, 4),
+        (31, 4),
+    ],
+)
+def test_gemma_4_recipe_default_by_size(monkeypatch, model_size, expected):
+    from .. import core
+
+    monkeypatch.setattr(core, "VLLM_VERSION", version.parse("0.22.0"))
+    model_config = {"draft_model_path": "/cache/draft"}
+
+    _model(model_size=model_size)._apply_draft_model(model_config)
+
+    assert model_config["speculative_config"]["num_speculative_tokens"] == expected
+
+
+def test_other_mtp_family_keeps_generic_default(monkeypatch):
+    from .. import core
+
+    monkeypatch.setattr(core, "VLLM_VERSION", version.parse("0.22.0"))
+    model_config = {"draft_model_path": "/cache/draft"}
+
+    _model(model_name="other-mtp")._apply_draft_model(model_config)
+
+    assert model_config["speculative_config"]["num_speculative_tokens"] == 1
 
 
 def test_num_speculative_tokens_is_honored(monkeypatch):

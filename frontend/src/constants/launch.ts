@@ -86,15 +86,23 @@ export const KWARGS_OPTIONS_FOR_ENGINES: Record<string, Array<{ label: string; v
  *
  * Three different provenances: MLX reads it from the drafter, which runs at the
  * depth it was trained for (4 for Gemma 4); llama.cpp keeps xllamacpp's own
- * CommonParams default (3 as of 2026.7); vLLM and SGLang require a value, so
- * the one from their own Gemma 4 guide is passed (1 and 6). vLLM's 1 is a
- * conservative starting point rather than a tuned value.
+ * CommonParams default (3 as of 2026.7); SGLang requires a value, so the one
+ * from its Gemma 4 guide is passed (6). Gemma 4 on vLLM follows the per-size
+ * values from vLLM's recipe below.
  */
 export const SPECULATIVE_TOKENS_DEFAULT_BY_ENGINE: Record<string, number> = {
   mlx: 4,
   vllm: 1,
   sglang: 6,
   'llama.cpp': 3,
+};
+
+export const GEMMA_4_VLLM_SPECULATIVE_TOKENS_BY_SIZE: Record<string, number> = {
+  '2': 2,
+  '4': 4,
+  '12': 4,
+  '26': 4,
+  '31': 4,
 };
 
 export const QUANTIZATION_OPTIONS = [

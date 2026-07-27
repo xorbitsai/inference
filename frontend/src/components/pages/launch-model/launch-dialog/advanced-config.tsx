@@ -11,6 +11,7 @@ import { Select } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { InfoTooltip } from '@/components/ui/tooltip';
 import {
+  GEMMA_4_VLLM_SPECULATIVE_TOKENS_BY_SIZE,
   KWARGS_OPTIONS_FOR_ENGINES,
   QUANTIZATION_OPTIONS,
   SPECULATIVE_TOKENS_DEFAULT_BY_ENGINE,
@@ -28,6 +29,7 @@ import { ModelType } from '@/constants';
 interface AdvancedConfigProps {
   form: FormInstance;
   modelType: RequestModelType;
+  modelName?: string;
   /** whether the selected spec ships a drafter for speculative decoding */
   hasDrafter?: boolean;
   /** available drafter conversions, empty when there is nothing to pick */
@@ -62,20 +64,21 @@ function ConfigSection({ title, children }: ConfigSectionProps) {
 const AdvancedConfig: FC<AdvancedConfigProps> = ({
   form,
   modelType,
+  modelName,
   hasDrafter = false,
   draftQuantizationOptions = [],
 }) => {
   const { t } = useI18n();
   const modelEngineValue = toOptionValue(useWatch('model_engine', form));
+  const modelSizeValue = toOptionValue(useWatch('model_size_in_billions', form));
   const enableMtpValue = useWatch('enable_mtp', form);
 
-  const kwargsOptionsForEngine = modelEngineValue
-    ? KWARGS_OPTIONS_FOR_ENGINES[modelEngineValue.toLowerCase()]
-    : undefined;
-  // the per-round default is the engine's, not ours, so name the engine's value
-  const speculativeTokensDefault = modelEngineValue
-    ? SPECULATIVE_TOKENS_DEFAULT_BY_ENGINE[modelEngineValue.toLowerCase()]
-    : undefined;
+  const engineKey = modelEngineValue.toLowerCase();
+  const kwargsOptionsForEngine = engineKey ? KWARGS_OPTIONS_FOR_ENGINES[engineKey] : undefined;
+  const speculativeTokensDefault =
+    engineKey === 'vllm' && modelName === 'gemma-4'
+      ? GEMMA_4_VLLM_SPECULATIVE_TOKENS_BY_SIZE[modelSizeValue]
+      : SPECULATIVE_TOKENS_DEFAULT_BY_ENGINE[engineKey];
   const showLora = [ModelType.LLM, ModelType.Image, ModelType.Video].includes(modelType);
   const showLoraKwargs = [ModelType.Image, ModelType.Video].includes(modelType);
   return (

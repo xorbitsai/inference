@@ -573,6 +573,7 @@ export default function LaunchDialog({
           <CollapsibleConfig
             form={form}
             modelType={modelType}
+            modelName={model?.model_name}
             hasDrafter={hasDrafter}
             draftQuantizationOptions={draftQuantizationOptions}
           />

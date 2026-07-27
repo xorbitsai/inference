@@ -148,7 +148,7 @@ const zh = {
     draftModelQuantizationTip:
       '草稿模型本身很小，量化它省不了多少内存，却会降低接受率。即使目标模型是量化版，也建议用未量化的草稿模型。',
     numSpeculativeTokensTip:
-      '每轮草稿模型提议的 token 数（含 bonus token）。留空时有三种情况：MLX 从草稿模型自身读取训练深度（Gemma 4 是 4）；llama.cpp 沿用 xllamacpp 自己的默认值（3）；vLLM 和 SGLang 必须给值，这里用各自 Gemma 4 官方指南的值（1 和 6）。在 MLX 上填更大的值只作为上限 —— 每轮仍从训练深度起步，只有接受率足够高时才会增长；其他引擎按填的值执行，其中 vLLM 的 1 偏保守，往上调通常有收益。',
+      '每轮草稿模型提议的 token 数（含 bonus token）。留空时，MLX 读取草稿模型的训练深度（Gemma 4 是 4）；llama.cpp 沿用 xllamacpp 默认值 3；SGLang 使用 6；vLLM 按 Gemma 4 recipe 根据模型大小取值：E2B 为 2，E4B 和 26B-A4B 为 4，12B 和 31B 取推荐范围 4–8 的下限 4。',
     parsingReasoningContent: '解析推理内容',
     CPUOffload: 'CPU卸载',
     CPUOffloadTip: '将模型卸载到CPU。当资源有限或使用GGUF选项时，建议启用此功能。',

@@ -151,7 +151,7 @@ const en = {
     draftModelQuantizationTip:
       'A drafter is small, so quantizing it saves little memory while lowering the acceptance rate. The unquantized conversion is recommended even for a quantized target model.',
     numSpeculativeTokensTip:
-      'Tokens the drafter proposes per round, including the bonus token. Left unset, MLX reads it from the drafter, which runs at the depth it was trained for (4 for Gemma 4); llama.cpp keeps the xllamacpp default (3); vLLM and SGLang require a value, so the one from their Gemma 4 guide is passed (1 and 6). On MLX a larger value acts as a ceiling rather than a fixed size — each round still starts at the trained depth and only grows once the acceptance history justifies it; the other engines take it literally, and vLLM in particular starts conservatively at 1.',
+      'Tokens the drafter proposes per round, including the bonus token. Left unset, MLX reads the drafter training depth (4 for Gemma 4), llama.cpp keeps the xllamacpp default (3), SGLang uses 6, and vLLM follows its Gemma 4 recipe by size: 2 for E2B, 4 for E4B and 26B-A4B, and 4 for 12B and 31B (the lower end of their recommended 4–8 range).',
     parsingReasoningContent: 'Parsing Reasoning Content',
     CPUOffload: 'CPU Offload',
     CPUOffloadTip:

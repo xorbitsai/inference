@@ -980,12 +980,25 @@ class VLLMModel(LLM):
     # assistant checkpoint as a generic draft model and fails to initialize
     # against a multimodal target.
     MTP_MIN_VLLM_VERSION = version.parse("0.22.0")
-    # vLLM requires num_speculative_tokens, so something has to be picked. This
-    # is the starting point its own MTP guide recommends ("a small value like 1
-    # is a good default to start with") rather than a value vLLM would default
-    # to on its own, and it is deliberately conservative: Gemma 4's drafters are
-    # trained to propose 4, so raising it is usually what pays off.
+    # Generic fallback for MTP families without a model-specific recipe.
     DEFAULT_NUM_SPECULATIVE_TOKENS = 1
+    # vLLM's Gemma 4 recipe recommends 2 for E2B, 4 for E4B and 26B-A4B,
+    # and 4-8 for 12B and 31B. Use the lower end of those ranges by default.
+    GEMMA_4_NUM_SPECULATIVE_TOKENS_BY_SIZE = {
+        "2": 2,
+        "4": 4,
+        "12": 4,
+        "26": 4,
+        "31": 4,
+    }
+
+    def _default_num_speculative_tokens(self) -> int:
+        if getattr(self.model_family, "model_name", None) == "gemma-4":
+            model_size = str(getattr(self.model_spec, "model_size_in_billions", ""))
+            return self.GEMMA_4_NUM_SPECULATIVE_TOKENS_BY_SIZE.get(
+                model_size, self.DEFAULT_NUM_SPECULATIVE_TOKENS
+            )
+        return self.DEFAULT_NUM_SPECULATIVE_TOKENS
 
     def _apply_draft_model(self, model_config: VLLMModelConfig) -> None:
         """Turn a downloaded drafter into vLLM's ``speculative_config``.
@@ -1024,7 +1037,7 @@ class VLLMModel(LLM):
             "num_speculative_tokens": (
                 requested
                 if requested is not None
-                else self.DEFAULT_NUM_SPECULATIVE_TOKENS
+                else self._default_num_speculative_tokens()
             ),
         }
         logger.info(
