@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import logging
 import os
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
@@ -60,11 +59,14 @@ class DeepDocModel(OCRModel):
     (https://github.com/xorbitsai/deepdoc-lib). Three tasks are supported,
     selected via the ``task`` kwarg:
     - ``ocr`` (default): text detection + recognition, returns plain text
-    - ``layout``: page layout analysis, returns layout blocks as JSON
-    - ``table``: table structure recognition, returns structures as JSON
+    - ``layout``: page layout analysis, returns layout blocks as a dict
+    - ``table``: table structure recognition, returns structures as a dict
     """
 
     required_libs = ("deepdoc",)
+    # deepdoc-lib runs on the CPU onnxruntime backend; the worker must not
+    # reserve a GPU that inference will never touch.
+    cpu_only = True
 
     @classmethod
     def match(cls, model_family: "ImageModelFamilyV2") -> bool:
@@ -135,7 +137,7 @@ class DeepDocModel(OCRModel):
         self,
         image: Union[PIL.Image.Image, List[PIL.Image.Image]],
         **kwargs,
-    ) -> Union[str, List[str]]:
+    ) -> Union[str, List[str], Dict[str, Any], List[Dict[str, Any]]]:
         """
         Run DeepDoc on one image or a list of images.
 
@@ -146,12 +148,15 @@ class DeepDocModel(OCRModel):
                 - threshold: score threshold for 'table' (default 0.2). The
                   YOLOv10 layout model uses a fixed threshold in its
                   upstream postprocess, so 'layout' ignores this value.
-                - return_dict: for task 'ocr', return a JSON string with boxes
+                - return_dict: for task 'ocr', return a dict with boxes
                   and scores instead of plain text (default False)
 
         Returns:
-            Plain text for task 'ocr', otherwise a JSON string. Lists of
-            images return a list of texts (or a JSON array string).
+            Plain text for task 'ocr', otherwise a JSON-serializable dict.
+            Lists of images return a list of texts (or a list of dicts).
+            The REST layer serializes the return value to JSON once, so
+            structured results must be returned as objects, not pre-encoded
+            JSON strings.
         """
         logger.info("DeepDoc kwargs: %s", kwargs)
 
@@ -176,7 +181,7 @@ class DeepDocModel(OCRModel):
             return texts[0] if single else texts
 
         payload = results[0] if single else results
-        return json.dumps(_jsonable(payload), ensure_ascii=False)
+        return _jsonable(payload)
 
     def _process_single(
         self, image: PIL.Image.Image, task: str, kwargs: Dict[str, Any]

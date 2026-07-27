@@ -155,6 +155,32 @@ def match_diffusion(
         )
 
 
+def is_cpu_only_image_model(
+    model_name: str, model_engine: Optional[str] = None
+) -> bool:
+    """Whether every candidate engine for this image model runs on CPU only.
+
+    The worker consults this before reserving devices so that CPU-only
+    integrations (e.g. DeepDoc's onnxruntime backend, which ignores the
+    assigned device) never reserve a GPU that inference won't touch.
+    Unknown models/engines return False and keep the default GPU behavior.
+    """
+    from .ocr.ocr_family import OCR_ENGINES
+
+    engines = OCR_ENGINES.get(model_name)
+    if not engines:
+        return False
+    if model_engine is not None:
+        engine = next((e for e in engines if e.lower() == model_engine.lower()), None)
+        if engine is None:
+            return False
+        params = engines[engine]
+    else:
+        params = [p for engine_params in engines.values() for p in engine_params]
+    classes = [p["ocr_class"] for p in params]
+    return bool(classes) and all(getattr(c, "cpu_only", False) for c in classes)
+
+
 def create_ocr_model_instance(
     model_uid: str,
     model_spec: ImageModelFamilyV2,

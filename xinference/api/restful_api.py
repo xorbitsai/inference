@@ -2009,15 +2009,15 @@ class RESTfulAPI(CancelMixin):
                 body = merge_ocr_page_results(page_results)
                 return Response(content=body, media_type="application/json")
             im = Image.open(image.file)
-            text = await model_ref.ocr(
+            result = await model_ref.ocr(
                 image=im,
                 **parsed_kwargs,
             )
-            # ModelActor.ocr serializes the model's return value to JSON
-            # bytes, and both REST clients parse the body with
-            # response.json() — declaring text/plain here breaks aiohttp's
-            # content-type check on the async client.
-            return Response(content=text, media_type="application/json")
+            # ModelActor.ocr always serializes the model's return value to
+            # JSON bytes (_call_wrapper_json), and both REST clients parse
+            # the body with response.json() — declaring text/plain here
+            # breaks aiohttp's content-type check on the async client.
+            return Response(content=result, media_type="application/json")
         except asyncio.CancelledError:
             err_str = f"The request has been cancelled: {request_id}"
             logger.error(err_str)

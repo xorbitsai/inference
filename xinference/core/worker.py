@@ -3268,6 +3268,17 @@ class WorkerActor(xo.StatelessActor):
         if device and device.lower().startswith("cpu"):
             n_gpu = None
 
+        if model_type == "image" and (n_gpu is not None or gpu_idx is not None):
+            from ..model.image.core import is_cpu_only_image_model
+
+            if is_cpu_only_image_model(model_name, model_engine):
+                logger.info(
+                    f"Model {model_name} runs on CPU only, "
+                    f"skipping GPU allocation for model {model_uid}."
+                )
+                n_gpu = None
+                gpu_idx = None
+
         if peft_model_config is not None:
             if model_type in ("embedding", "rerank"):
                 raise ValueError(

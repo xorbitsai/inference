@@ -171,38 +171,11 @@ class SafeRotatingFileHandler(logging.handlers.RotatingFileHandler):
 
 
 class SafeTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
-    """TimedRotatingFileHandler that auto-creates parent directories.
-
-    ``TimedRotatingFileHandler.__init__`` reads the log file's mtime with
-    ``os.stat()`` guarded only by an ``os.path.exists()`` check. A rollover
-    in another process can rename the file between those two calls, making
-    the stat raise ``FileNotFoundError`` — outside ``emit()``'s exception
-    protection, so it kills the process (observed as CI workers exiting
-    with code 1). Retry on that race: every attempt reopens (and thereby
-    recreates) the base file first, so a retry hitting the same race again
-    is practically impossible.
-    """
-
-    _INIT_ATTEMPTS = 5
+    """TimedRotatingFileHandler that auto-creates parent directories."""
 
     def __init__(self, filename, *args, **kwargs):
         os.makedirs(os.path.dirname(filename), exist_ok=True)
-        for attempt in range(self._INIT_ATTEMPTS):
-            try:
-                super().__init__(filename, *args, **kwargs)
-                break
-            except FileNotFoundError:
-                # FileHandler.__init__ opened the stream before the crashing
-                # stat; close it so retries do not leak one fd per attempt.
-                stream = getattr(self, "stream", None)
-                if stream is not None:
-                    try:
-                        stream.close()
-                    except Exception:
-                        pass
-                    self.stream = None
-                if attempt == self._INIT_ATTEMPTS - 1:
-                    raise
+        super().__init__(filename, *args, **kwargs)
 
 
 class SafeTimedAndSizeRotatingFileHandler(SafeTimedRotatingFileHandler):

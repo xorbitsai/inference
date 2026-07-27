@@ -14,7 +14,6 @@
 
 import importlib.util
 import io
-import json
 
 import pytest
 
@@ -30,6 +29,28 @@ def test_deepdoc_registration():
     assert family.model_ability == ["ocr"]
     assert DeepDocModel.match(family)
     assert "deepdoc" in OCR_ENGINES["DeepDoc"]
+
+
+def test_deepdoc_is_cpu_only():
+    """DeepDoc must never reserve a GPU: deepdoc-lib pulls the CPU
+    onnxruntime backend and the adapter ignores the assigned device."""
+    from .. import register_builtin_model
+    from ..core import is_cpu_only_image_model
+    from ..ocr.deepdoc import DeepDocModel
+
+    register_builtin_model()
+    assert DeepDocModel.cpu_only is True
+    # no engine given: every DeepDoc engine is CPU-only
+    assert is_cpu_only_image_model("DeepDoc") is True
+    # engine lookup is case-insensitive, mirroring engine spell-correction
+    assert is_cpu_only_image_model("DeepDoc", "deepdoc") is True
+    assert is_cpu_only_image_model("DeepDoc", "DeepDoc") is True
+    # unknown engine names keep the default GPU behavior
+    assert is_cpu_only_image_model("DeepDoc", "not-an-engine") is False
+    # GPU-capable OCR models are unaffected
+    assert is_cpu_only_image_model("GOT-OCR2_0") is False
+    # non-OCR image models are unaffected
+    assert is_cpu_only_image_model("stable-diffusion-v1.5") is False
 
 
 def _make_unloaded_model():
@@ -71,8 +92,9 @@ def test_deepdoc_threshold_parsing():
 
     image = Image.new("RGB", (8, 8), "white")
 
-    # an explicit JSON null falls back to the default threshold
-    payload = json.loads(model.ocr(image, task="layout", threshold=None))
+    # an explicit JSON null falls back to the default threshold; structured
+    # results come back as dicts (the REST layer serializes them exactly once)
+    payload = model.ocr(image, task="layout", threshold=None)
     assert payload["task"] == "layout"
     assert payload["layouts"] == [{"type": "text"}]
     assert layout.forward.call_args.kwargs["thr"] == pytest.approx(0.2)
@@ -87,13 +109,13 @@ def test_deepdoc_threshold_parsing():
 
     # empty recognizer output degrades to an empty layouts list
     layout.forward.return_value = []
-    payload = json.loads(model.ocr(image, task="layout"))
+    payload = model.ocr(image, task="layout")
     assert payload["layouts"] == []
 
     table = MagicMock()
     table.return_value = [[{"label": "table column"}]]
     model._table_recognizer = table
-    payload = json.loads(model.ocr(image, task="table", threshold=None))
+    payload = model.ocr(image, task="table", threshold=None)
     assert payload["structures"] == [{"label": "table column"}]
     assert table.call_args.kwargs["thr"] == pytest.approx(0.2)
 
@@ -129,20 +151,18 @@ def test_deepdoc_ocr(setup):
     r = model.ocr(image=bio.getvalue())
     assert isinstance(r, str)
 
-    # ocr with return_dict returns lines with boxes and scores
-    r = model.ocr(image=bio.getvalue(), return_dict=True)
-    payload = json.loads(r)
+    # ocr with return_dict returns lines with boxes and scores; the client
+    # parses the JSON body, so structured results arrive as dicts
+    payload = model.ocr(image=bio.getvalue(), return_dict=True)
     assert payload["task"] == "ocr"
     assert isinstance(payload["lines"], list)
 
-    # layout task returns JSON
-    r = model.ocr(image=bio.getvalue(), task="layout")
-    payload = json.loads(r)
+    # layout task returns layout blocks
+    payload = model.ocr(image=bio.getvalue(), task="layout")
     assert payload["task"] == "layout"
     assert isinstance(payload["layouts"], list)
 
-    # table task returns JSON structures
-    r = model.ocr(image=bio.getvalue(), task="table")
-    payload = json.loads(r)
+    # table task returns table structures
+    payload = model.ocr(image=bio.getvalue(), task="table")
     assert payload["task"] == "table"
     assert isinstance(payload["structures"], list)
