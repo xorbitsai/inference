@@ -17,11 +17,13 @@ from types import SimpleNamespace
 import pytest
 
 
-def _model(model_config):
+def _model(model_config, model_name="gemma-4", model_size=12):
     from ..core import XllamaCppModel
 
     model = object.__new__(XllamaCppModel)
     model.model_uid = "test-model-0"
+    model.model_family = SimpleNamespace(model_name=model_name)
+    model.model_spec = SimpleNamespace(model_size_in_billions=model_size)
     model._llamacpp_model_config = model_config
     return model
 
@@ -95,6 +97,38 @@ def test_num_speculative_tokens_sets_n_max(tmp_path):
     model._apply_draft_model(params, *model._draft_options())
 
     assert params.speculative.draft.n_max == 5
+
+
+@pytest.mark.parametrize(
+    ("model_size", "expected"),
+    [
+        (2, 2),
+        (4, 4),
+        (12, 4),
+        (26, 4),
+        (31, 4),
+    ],
+)
+def test_gemma_4_recipe_default_by_size(tmp_path, model_size, expected):
+    drafter = tmp_path / "d.gguf"
+    drafter.write_text("gguf")
+    params = _params()
+
+    model = _model({"draft_model_path": str(drafter)}, model_size=model_size)
+    model._apply_draft_model(params, *model._draft_options())
+
+    assert params.speculative.draft.n_max == expected
+
+
+def test_other_mtp_family_keeps_xllamacpp_default(tmp_path):
+    drafter = tmp_path / "d.gguf"
+    drafter.write_text("gguf")
+    params = _params()
+
+    model = _model({"draft_model_path": str(drafter)}, model_name="other-mtp")
+    model._apply_draft_model(params, *model._draft_options())
+
+    assert params.speculative.draft.n_max == 3
 
 
 def test_empty_cache_dir_is_reported(tmp_path):

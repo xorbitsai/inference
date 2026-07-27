@@ -76,7 +76,7 @@ const AdvancedConfig: FC<AdvancedConfigProps> = ({
   const engineKey = modelEngineValue.toLowerCase();
   const kwargsOptionsForEngine = engineKey ? KWARGS_OPTIONS_FOR_ENGINES[engineKey] : undefined;
   const speculativeTokensDefault =
-    ['vllm', 'sglang'].includes(engineKey) && modelName === 'gemma-4'
+    ['vllm', 'sglang', 'llama.cpp'].includes(engineKey) && modelName === 'gemma-4'
       ? GEMMA_4_SPECULATIVE_TOKENS_BY_SIZE[modelSizeValue]
       : SPECULATIVE_TOKENS_DEFAULT_BY_ENGINE[engineKey];
   const showLora = [ModelType.LLM, ModelType.Image, ModelType.Video].includes(modelType);

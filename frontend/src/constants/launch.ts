@@ -85,9 +85,8 @@ export const KWARGS_OPTIONS_FOR_ENGINES: Record<string, Array<{ label: string; v
  * so the field can name the value that will actually apply.
  *
  * MLX reads it from the drafter, which runs at the depth it was trained for
- * (4 for Gemma 4); llama.cpp keeps xllamacpp's own CommonParams default (3 as
- * of 2026.7). Gemma 4 on vLLM and SGLang follows the shared per-size recipe
- * below.
+ * (4 for Gemma 4). Gemma 4 on llama.cpp, vLLM, and SGLang follows the shared
+ * per-size recipe below; other llama.cpp models keep xllamacpp's own default.
  */
 export const SPECULATIVE_TOKENS_DEFAULT_BY_ENGINE: Record<string, number> = {
   mlx: 4,

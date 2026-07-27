@@ -32,7 +32,7 @@ from ....types import (
     CompletionChunk,
 )
 from ...utils import check_dependency_available
-from ..core import LLM, chat_context_var
+from ..core import LLM, chat_context_var, get_model_speculative_tokens_default
 from ..llm_family import LLMFamilyV2, LLMSpecV1
 from ..utils import ChatModelMixin, normalize_response_format
 
@@ -164,6 +164,13 @@ class XllamaCppModel(LLM, ChatModelMixin):
             self._llamacpp_model_config.get("num_speculative_tokens"),
         )
 
+    def _default_num_speculative_tokens(self, fallback: int) -> int:
+        return get_model_speculative_tokens_default(
+            getattr(self.model_family, "model_name", None),
+            getattr(self.model_spec, "model_size_in_billions", None),
+            fallback,
+        )
+
     def _apply_draft_model(
         self, params, draft_model_path: Optional[str], num_speculative_tokens: Any
     ) -> None:
@@ -221,10 +228,11 @@ class XllamaCppModel(LLM, ChatModelMixin):
         from ..core import parse_num_speculative_tokens
 
         requested = parse_num_speculative_tokens(num_speculative_tokens)
-        if requested is not None:
-            params.speculative.draft.n_max = requested
-        # left alone otherwise: xllamacpp's own CommonParams default applies,
-        # unlike vLLM and SGLang which require a value from us
+        params.speculative.draft.n_max = (
+            requested
+            if requested is not None
+            else self._default_num_speculative_tokens(params.speculative.draft.n_max)
+        )
         logger.info(
             "Speculative decoding enabled for %s: draft-mtp with %s, n_max %s",
             self.model_uid,
