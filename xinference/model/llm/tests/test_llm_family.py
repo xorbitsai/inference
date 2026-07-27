@@ -560,6 +560,36 @@ def test_builtin_gemma_4_sglang_requires_supported_runtime():
     assert modern_kernel is True
 
 
+def test_builtin_gemma_4_llama_cpp_requires_assistant_architecture():
+    from ....core.utils import (
+        filter_virtualenv_packages_by_markers,
+        merge_virtual_env_packages,
+    )
+    from ....core.virtual_env_manager import expand_engine_dependency_placeholders
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == "gemma-4")
+    assert family.virtualenv is not None
+
+    packages = expand_engine_dependency_placeholders(
+        family.virtualenv.packages, "llama.cpp"
+    )
+    packages = merge_virtual_env_packages(packages, None)
+    packages = filter_virtualenv_packages_by_markers(
+        packages, "llama.cpp", None, "darwin"
+    )
+    requirements = {
+        requirement.name: requirement
+        for package in packages
+        if not package.lstrip().startswith("#")
+        for requirement in [Requirement(package.split(";", 1)[0].strip())]
+    }
+
+    assert requirements["xllamacpp"].specifier.contains("2026.6.9713")
+    assert not requirements["xllamacpp"].specifier.contains("2026.5.9294")
+    assert sum(package.startswith("xllamacpp") for package in packages) == 1
+
+
 def test_cache_from_uri_local():
     with open("model.bin", "w") as fd:
         fd.write("foo")

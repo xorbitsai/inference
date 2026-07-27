@@ -30913,6 +30913,7 @@
         "sglang-kernel==0.4.3 ; #engine# == \"sglang\"",
         "flash-attn-4==4.0.0b9 ; #engine# == \"sglang\"",
         "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
+        "xllamacpp>=2026.6.9713 ; #engine# == \"llama.cpp\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ],
       "extra_index_url": [
