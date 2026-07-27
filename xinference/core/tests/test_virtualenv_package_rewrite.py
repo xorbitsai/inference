@@ -107,7 +107,7 @@ def test_filter_then_rewrite_sglang_cu130():
         machine = None
 
     packages = filter_virtualenv_packages_by_markers(
-        ENGINE_VIRTUALENV_PACKAGES["sglang"], "sglang", "13.0"
+        ENGINE_VIRTUALENV_PACKAGES["sglang"], "sglang", "13.0", "linux"
     )
     rewritten = rewrite_direct_url_packages_for_index(packages)
 
@@ -115,6 +115,7 @@ def test_filter_then_rewrite_sglang_cu130():
     assert "sglang>=0.5.6" in rewritten
     assert "numpy<2.3" in rewritten
     assert "pandas<3" in rewritten
+    assert "nvidia-cusparselt-cu13==0.8.0" in rewritten
     if machine:
         # the arch-matching direct URL survives filtering and is rewritten
         assert "sgl_kernel==0.3.21+cu130" in rewritten
@@ -123,10 +124,11 @@ def test_filter_then_rewrite_sglang_cu130():
 def test_filter_sglang_keeps_cuda_12_fallback():
     """The cu130 offline mirror must not remove online CUDA 12 support."""
     packages = filter_virtualenv_packages_by_markers(
-        ENGINE_VIRTUALENV_PACKAGES["sglang"], "sglang", "12.8"
+        ENGINE_VIRTUALENV_PACKAGES["sglang"], "sglang", "12.8", "linux"
     )
 
     assert "sgl_kernel" in packages
+    assert "nvidia-cusparselt-cu13==0.8.0" not in packages
     assert not any("+cu130" in package for package in packages)
 
 
