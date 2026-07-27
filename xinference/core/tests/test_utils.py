@@ -76,11 +76,15 @@ def test_parse_legacy_replica_model_uid():
 
 
 class DummyVirtualEnvManager:
-    def __init__(self, python_path: str):
+    def __init__(self, python_path: str, lib_path: str = "/venv/site-packages"):
         self._python_path = python_path
+        self._lib_path = lib_path
 
     def get_python_path(self) -> str:
         return self._python_path
+
+    def get_lib_path(self) -> str:
+        return self._lib_path
 
 
 def test_sentence_transformers_virtualenv_packages_include_accelerate():
@@ -441,17 +445,36 @@ def test_build_subpool_envs_for_virtual_env_disabled():
     assert result is not base_envs
 
 
-def test_build_subpool_envs_for_virtual_env_enabled():
-    manager = DummyVirtualEnvManager("/venv/bin/python")
-    base_envs = {"PATH": "/usr/bin", "FLASHINFER_NINJA_PATH": "/custom/ninja"}
+def test_build_subpool_envs_for_virtual_env_enabled(monkeypatch):
+    import sysconfig
 
-    result = build_subpool_envs_for_virtual_env(base_envs, True, manager)
+    manager = DummyVirtualEnvManager("/venv/bin/python")
+    base_envs = {
+        "PATH": "/usr/bin",
+        "FLASHINFER_NINJA_PATH": "/custom/ninja",
+        "LD_LIBRARY_PATH": "/custom/lib",
+    }
+    monkeypatch.setattr("sys.platform", "linux")
+    monkeypatch.setattr(sysconfig, "get_path", lambda name: "/parent/site-packages")
+
+    result = build_subpool_envs_for_virtual_env(
+        base_envs, True, manager, model_engine="sglang"
+    )
 
     import os
 
     assert result["PATH"] == "/venv/bin" + os.pathsep + "/usr/bin"
     assert result["VIRTUAL_ENV"] == "/venv"
     assert result["FLASHINFER_NINJA_PATH"] == "/custom/ninja"
+    assert result["LD_LIBRARY_PATH"] == os.pathsep.join(
+        [
+            "/venv/site-packages/nvidia/cusparselt/lib",
+            "/venv/site-packages/nvidia/cu13/lib",
+            "/parent/site-packages/nvidia/cusparselt/lib",
+            "/parent/site-packages/nvidia/cu13/lib",
+            "/custom/lib",
+        ]
+    )
     assert result is not base_envs
 
 

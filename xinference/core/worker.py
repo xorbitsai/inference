@@ -3194,7 +3194,10 @@ class WorkerActor(xo.StatelessActor):
                         virtual_env_manager
                     )
                     subpool_envs = build_subpool_envs_for_virtual_env(
-                        envs, enable_virtual_env, virtual_env_manager
+                        envs,
+                        enable_virtual_env,
+                        virtual_env_manager,
+                        model_engine,
                     )
                     # Reserve devices now (before download/virtualenv
                     # install): allocate_devices/allocate_devices_with_gpu_idx

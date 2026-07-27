@@ -358,6 +358,7 @@ def build_subpool_envs_for_virtual_env(
     envs: Optional[Dict[str, str]],
     enable_virtual_env: Optional[bool],
     virtual_env_manager: Any,
+    model_engine: Optional[str] = None,
 ) -> Dict[str, str]:
     subpool_envs = {} if envs is None else envs.copy()
     if bool(enable_virtual_env) and virtual_env_manager is not None:
@@ -374,6 +375,32 @@ def build_subpool_envs_for_virtual_env(
         subpool_envs.setdefault(
             "FLASHINFER_NINJA_PATH", os.path.join(venv_bin, "ninja")
         )
+        if sys.platform == "linux" and (model_engine or "").lower() in (
+            "sglang",
+            "vllm",
+        ):
+            import sysconfig
+
+            # PyTorch CUDA wheels load NVIDIA runtime libraries from Python
+            # packages.  The actor subprocess is exec'd directly instead of
+            # through virtualenv activation, so make both the child and
+            # inherited parent locations visible to the dynamic linker.  CUDA
+            # 13 packages use either the legacy per-library layout or the
+            # consolidated nvidia/cu13/lib layout, depending on the wheel.
+            child_site_packages = virtual_env_manager.get_lib_path()
+            parent_site_packages = sysconfig.get_path("purelib")
+            nvidia_lib_paths = []
+            for site_packages in (child_site_packages, parent_site_packages):
+                for directory in ("cusparselt", "cu13"):
+                    path = os.path.join(site_packages, "nvidia", directory, "lib")
+                    if path not in nvidia_lib_paths:
+                        nvidia_lib_paths.append(path)
+            current_ld_library_path = subpool_envs.get(
+                "LD_LIBRARY_PATH"
+            ) or os.environ.get("LD_LIBRARY_PATH", "")
+            if current_ld_library_path:
+                nvidia_lib_paths.append(current_ld_library_path)
+            subpool_envs["LD_LIBRARY_PATH"] = os.pathsep.join(nvidia_lib_paths)
     return subpool_envs
 
 
