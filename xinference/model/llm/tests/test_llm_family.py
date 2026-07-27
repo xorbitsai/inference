@@ -532,6 +532,7 @@ def test_builtin_gemma_4_sglang_requires_supported_runtime():
 
     assert requirements["sglang"].specifier.contains("0.5.11")
     assert not requirements["sglang"].specifier.contains("0.5.10")
+    assert requirements["kernels"].specifier.contains("0.14.1")
     assert requirements["sglang-kernel"].specifier.contains("0.4.2")
     assert requirements["flash-attn-4"].specifier.contains("4.0.0b9")
 
@@ -545,6 +546,7 @@ def test_builtin_gemma_4_sglang_requires_supported_runtime():
     packages, modern_kernel = normalize_sglang_kernel_packages(packages)
 
     assert "sglang==0.5.11" in packages
+    assert "kernels==0.14.1" in packages
     assert "sglang-kernel==0.4.2" in packages
     assert "flash-attn-4==4.0.0b9" in packages
     assert not any("sgl_kernel-0.3.21" in package for package in packages)
