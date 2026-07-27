@@ -4,6 +4,7 @@ from typing import Any, Dict
 import pytest
 
 from xinference.core.supervisor import ReplicaInfo, SupervisorActor
+from xinference.core.utils import build_replica_model_uid
 
 
 class _DummyWorker:
@@ -37,6 +38,8 @@ class DummySupervisor:
         self._model_uid_to_replica_info: Dict[str, ReplicaInfo] = {}
         self._list_models_cache: Dict[str, Dict[str, Dict[str, Any]]] = {}
         self._replica_gpu_cache: Dict[str, list] = {}
+        # worker_address -> replica_model_uid -> {gpu_idx -> bytes}
+        self._worker_model_gpu_memory: Dict[str, Dict[str, Dict[int, int]]] = {}
 
 
 def _replica_info(replica: int) -> ReplicaInfo:
@@ -57,9 +60,15 @@ async def test_list_models_drops_stale_uid_without_replica_info():
     worker = _DummyWorker(
         {
             # Healthy model, replica 0.
-            "qwen3-0": {"model_name": "qwen3", "model_type": "LLM"},
+            build_replica_model_uid("qwen3", 0): {
+                "model_name": "qwen3",
+                "model_type": "LLM",
+            },
             # Stale replica from a failed qwen3.5 launch; no replica info left.
-            "qwen3.5-0": {"model_name": "qwen3.5", "model_type": "LLM"},
+            build_replica_model_uid("qwen3.5", 0): {
+                "model_name": "qwen3.5",
+                "model_type": "LLM",
+            },
         }
     )
     supervisor = DummySupervisor(address, {address: worker})
@@ -79,8 +88,14 @@ async def test_list_models_returns_healthy_models():
     address = "127.0.0.1:1234"
     worker = _DummyWorker(
         {
-            "qwen3-0": {"model_name": "qwen3", "model_type": "LLM"},
-            "qwen3-1": {"model_name": "qwen3", "model_type": "LLM"},
+            build_replica_model_uid("qwen3", 0): {
+                "model_name": "qwen3",
+                "model_type": "LLM",
+            },
+            build_replica_model_uid("qwen3", 1): {
+                "model_name": "qwen3",
+                "model_type": "LLM",
+            },
         }
     )
     supervisor = DummySupervisor(address, {address: worker})
@@ -99,7 +114,14 @@ async def test_list_models_falls_back_to_cache_when_worker_fails():
     models, while still merging healthy workers that respond."""
     healthy_addr = "127.0.0.1:1234"
     failing_addr = "127.0.0.1:5678"
-    healthy = _DummyWorker({"qwen3-0": {"model_name": "qwen3", "model_type": "LLM"}})
+    healthy = _DummyWorker(
+        {
+            build_replica_model_uid("qwen3", 0): {
+                "model_name": "qwen3",
+                "model_type": "LLM",
+            }
+        }
+    )
     failing = _FailingWorker(TimeoutError("worker unreachable"))
 
     supervisor = DummySupervisor(
@@ -109,7 +131,10 @@ async def test_list_models_falls_back_to_cache_when_worker_fails():
     supervisor._model_uid_to_replica_info["llama3"] = _replica_info(1)
     # Last good result seen from the now-failing worker.
     supervisor._list_models_cache[failing_addr] = {
-        "llama3-0": {"model_name": "llama3", "model_type": "LLM"}
+        build_replica_model_uid("llama3", 0): {
+            "model_name": "llama3",
+            "model_type": "LLM",
+        }
     }
 
     result = await supervisor.list_models()
@@ -125,7 +150,14 @@ async def test_list_models_failing_worker_without_cache_is_skipped():
     but must not break the healthy workers' listing."""
     healthy_addr = "127.0.0.1:1234"
     failing_addr = "127.0.0.1:5678"
-    healthy = _DummyWorker({"qwen3-0": {"model_name": "qwen3", "model_type": "LLM"}})
+    healthy = _DummyWorker(
+        {
+            build_replica_model_uid("qwen3", 0): {
+                "model_name": "qwen3",
+                "model_type": "LLM",
+            }
+        }
+    )
     failing = _FailingWorker(RuntimeError("boom"))
 
     supervisor = DummySupervisor(
