@@ -372,6 +372,15 @@ def test_both_engine_discovery_paths_publish_draft_support():
             assert not available["Transformers"][0]["support_draft_model"]
 
 
+def test_gemma_4_virtualenv_declares_sglang():
+    from ...utils import _collect_virtualenv_engine_markers
+    from ..llm_family import BUILTIN_LLM_FAMILIES
+
+    family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == "gemma-4")
+
+    assert "sglang" in _collect_virtualenv_engine_markers(family)
+
+
 def test_engine_discovery_paths_agree_on_draft_support():
     # The default path rebuilds entries from specs, so it resolves the class a
     # different way than the registry path. They have to reach the same answer,

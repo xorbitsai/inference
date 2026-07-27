@@ -30906,7 +30906,7 @@
         "vllm>=0.22.0 ; #engine# == \"vllm\"",
         "transformers>=5.8.0 ; #engine# == \"vllm\"",
         "qwen_omni_utils ; #engine# == \"vllm\"",
-        "#sglang_dependencies# ; #engine# == \\\"sglang\\\"\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
         "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
         "#system_numpy# ; #engine# == \"vllm\""
       ],
