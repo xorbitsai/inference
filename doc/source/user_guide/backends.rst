@@ -252,11 +252,12 @@ Engine support:
      - Requirement
      - Notes
    * - :ref:`vLLM <vllm_backend>`
-     - ``vllm>=0.22.0``
+     - ``vllm>=0.22.0``, ``transformers>=5.8.0``
      - Translated into ``speculative_config`` with ``method: mtp``. An
        explicitly provided ``speculative_config`` is left untouched. Older
-       vLLM treats the drafter as a generic draft model and fails against a
-       multimodal target, so the launch is rejected instead.
+       vLLM treats the drafter as a generic draft model, while older
+       Transformers does not recognize ``gemma4_assistant``; either case is
+       rejected before engine initialization.
    * - :ref:`SGLang <sglang_backend>`
      - drafter support for the model family
      - Translated into ``--speculative-algorithm NEXTN`` with the matching

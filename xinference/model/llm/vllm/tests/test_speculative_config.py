@@ -18,6 +18,15 @@ import pytest
 from packaging import version
 
 
+@pytest.fixture(autouse=True)
+def supported_transformers_version(monkeypatch):
+    from .. import core
+
+    monkeypatch.setattr(
+        core, "_get_transformers_version", lambda: version.parse("5.8.0")
+    )
+
+
 def _model(model_name="gemma-4", model_size=26):
     from ..core import VLLMModel
 
@@ -117,6 +126,19 @@ def test_old_vllm_is_rejected(monkeypatch):
     model_config = {"draft_model_path": "/cache/draft"}
 
     with pytest.raises(ValueError, match="needs vllm>=0.22.0"):
+        _model()._apply_draft_model(model_config)
+
+
+def test_old_transformers_is_rejected(monkeypatch):
+    from .. import core
+
+    monkeypatch.setattr(core, "VLLM_VERSION", version.parse("0.22.0"))
+    monkeypatch.setattr(
+        core, "_get_transformers_version", lambda: version.parse("5.7.0")
+    )
+    model_config = {"draft_model_path": "/cache/draft"}
+
+    with pytest.raises(ValueError, match="needs transformers>=5.8.0"):
         _model()._apply_draft_model(model_config)
 
 

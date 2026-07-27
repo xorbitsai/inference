@@ -30904,7 +30904,7 @@
         "#mlx_dependencies# ; #engine# == \"MLX\"",
         "mlx-vlm>=0.6.1 ; #engine# == \"MLX\"",
         "vllm>=0.22.0 ; #engine# == \"vllm\"",
-        "transformers>=5.5.0 ; #engine# == \"vllm\"",
+        "transformers>=5.8.0 ; #engine# == \"vllm\"",
         "qwen_omni_utils ; #engine# == \"vllm\"",
         "#sglang_dependencies# ; #engine# == \\\"sglang\\\"\"",
         "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",

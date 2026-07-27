@@ -166,6 +166,15 @@ except ImportError:
     VLLM_INSTALLED = False
     VLLM_VERSION = None
 
+
+def _get_transformers_version() -> Optional[version.Version]:
+    try:
+        import transformers
+    except ImportError:
+        return None
+    return version.parse(transformers.__version__)
+
+
 DEFAULT_VLLM_VERSION = version.parse("0.21.0")
 
 
@@ -980,6 +989,8 @@ class VLLMModel(LLM):
     # assistant checkpoint as a generic draft model and fails to initialize
     # against a multimodal target.
     MTP_MIN_VLLM_VERSION = version.parse("0.22.0")
+    # Gemma4AssistantConfig first shipped in Transformers 5.8.0.
+    MTP_MIN_TRANSFORMERS_VERSION = version.parse("5.8.0")
     # Generic fallback for MTP families without a model-specific recipe.
     DEFAULT_NUM_SPECULATIVE_TOKENS = 1
     # vLLM's Gemma 4 recipe recommends 2 for E2B, 4 for E4B and 26B-A4B,
@@ -1026,6 +1037,21 @@ class VLLMModel(LLM):
                 f"Speculative decoding with a Gemma 4 style drafter needs "
                 f"vllm>={self.MTP_MIN_VLLM_VERSION}, but {VLLM_VERSION} is installed. "
                 f"Upgrade vLLM, or launch without `enable_mtp`."
+            )
+        transformers_version = _get_transformers_version()
+        if transformers_version is None or (
+            transformers_version < self.MTP_MIN_TRANSFORMERS_VERSION
+        ):
+            installed = (
+                str(transformers_version)
+                if transformers_version is not None
+                else "not installed"
+            )
+            raise ValueError(
+                "Speculative decoding with a Gemma 4 style drafter needs "
+                f"transformers>={self.MTP_MIN_TRANSFORMERS_VERSION}, but "
+                f"{installed} is installed. Upgrade Transformers, or launch "
+                "without `enable_mtp`."
             )
 
         from ..core import parse_num_speculative_tokens

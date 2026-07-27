@@ -481,21 +481,23 @@ def test_builtin_gemma_4_mlx_specs_declare_drafter():
     assert spec_12b.draft_quantizations[0] == "bf16"
 
 
-def test_builtin_gemma_4_vllm_requires_mtp_version():
+def test_builtin_gemma_4_vllm_requires_mtp_dependencies():
     from ..llm_family import BUILTIN_LLM_FAMILIES
 
     family = next(f for f in BUILTIN_LLM_FAMILIES if f.model_name == "gemma-4")
     assert family.virtualenv is not None
 
-    vllm_package = next(
-        package
+    requirements = {
+        requirement.name: requirement
         for package in family.virtualenv.packages
-        if package.split(";", 1)[0].strip().startswith("vllm")
-    )
-    requirement = Requirement(vllm_package.split(";", 1)[0].strip())
+        if not package.lstrip().startswith("#")
+        for requirement in [Requirement(package.split(";", 1)[0].strip())]
+    }
 
-    assert requirement.specifier.contains("0.22.0")
-    assert not requirement.specifier.contains("0.21.0")
+    assert requirements["vllm"].specifier.contains("0.22.0")
+    assert not requirements["vllm"].specifier.contains("0.21.0")
+    assert requirements["transformers"].specifier.contains("5.8.0")
+    assert not requirements["transformers"].specifier.contains("5.7.0")
 
 
 def test_cache_from_uri_local():
