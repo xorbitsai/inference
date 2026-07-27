@@ -27,7 +27,9 @@ from ..virtual_env_manager import (
     FLASHINFER_AOT_ARCHES,
     FLASHINFER_AOT_PACKAGES,
     FLASHINFER_AOT_WHEEL_URL,
+    FLASHINFER_CUBIN_WHEEL_URL,
     apply_flashinfer_aot_post_install,
+    ensure_flashinfer_cubin_matches_post_install,
     get_engine_critical_dependency_specs,
     needs_flashinfer_aot,
 )
@@ -106,6 +108,76 @@ class TestNeedsFlashinferAot:
         assert len(FLASHINFER_AOT_PACKAGES) == 3
         assert any("flashinfer-jit-cache" in p for p in FLASHINFER_AOT_PACKAGES)
         assert "flashinfer.ai" in FLASHINFER_AOT_WHEEL_URL
+
+
+class TestEnsureFlashinferCubinMatchesPostInstall:
+    @pytest.fixture
+    def fake_venv_manager(self):
+        manager = mock.MagicMock()
+        manager._get_uv_path.return_value = "/fake/uv"
+        manager.env_path = "/fake/venv"
+        return manager
+
+    @pytest.fixture(autouse=True)
+    def clean_env(self, monkeypatch):
+        monkeypatch.delenv("FLASHINFER_DISABLE_VERSION_CHECK", raising=False)
+
+    def test_matching_versions_are_noop(self, fake_venv_manager):
+        with mock.patch(
+            "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
+            side_effect=["0.6.14", "0.6.14"],
+        ), mock.patch("xinference.core.virtual_env_manager.subprocess.run") as run_mock:
+            ensure_flashinfer_cubin_matches_post_install("vllm", fake_venv_manager)
+
+        run_mock.assert_not_called()
+        assert "FLASHINFER_DISABLE_VERSION_CHECK" not in os.environ
+
+    def test_mismatched_cubin_is_synchronized(self, fake_venv_manager):
+        result = mock.MagicMock(returncode=0)
+        with mock.patch(
+            "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
+            side_effect=["0.6.14", "0.6.6", "0.6.14"],
+        ), mock.patch(
+            "xinference.core.virtual_env_manager.subprocess.run", return_value=result
+        ) as run_mock:
+            ensure_flashinfer_cubin_matches_post_install("vllm", fake_venv_manager)
+
+        cmd = run_mock.call_args[0][0]
+        assert "flashinfer-cubin==0.6.14" in cmd
+        assert FLASHINFER_CUBIN_WHEEL_URL in cmd
+        assert "FLASHINFER_DISABLE_VERSION_CHECK" not in os.environ
+
+    def test_failed_sync_sets_version_check_bypass(self, fake_venv_manager):
+        result = mock.MagicMock(returncode=1, stderr="wheel unavailable")
+        with mock.patch(
+            "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
+            side_effect=["0.6.14", "0.6.6"],
+        ), mock.patch(
+            "xinference.core.virtual_env_manager.subprocess.run", return_value=result
+        ):
+            ensure_flashinfer_cubin_matches_post_install("vllm", fake_venv_manager)
+
+        assert os.environ.get("FLASHINFER_DISABLE_VERSION_CHECK") == "1"
+
+    def test_offline_mismatch_uses_version_check_bypass(self, fake_venv_manager):
+        with mock.patch(
+            "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
+            side_effect=["0.6.14", "0.6.6"],
+        ), mock.patch("xinference.core.virtual_env_manager.subprocess.run") as run_mock:
+            ensure_flashinfer_cubin_matches_post_install(
+                "vllm", fake_venv_manager, allow_public_install=False
+            )
+
+        run_mock.assert_not_called()
+        assert os.environ.get("FLASHINFER_DISABLE_VERSION_CHECK") == "1"
+
+    def test_non_vllm_engine_is_noop(self, fake_venv_manager):
+        with mock.patch(
+            "xinference.core.virtual_env_manager._get_virtualenv_distribution_version"
+        ) as version_mock:
+            ensure_flashinfer_cubin_matches_post_install("sglang", fake_venv_manager)
+
+        version_mock.assert_not_called()
 
 
 class TestApplyFlashinferAotPostInstall:

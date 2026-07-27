@@ -30909,7 +30909,12 @@
         "#sglang_dependencies# ; #engine# == \\\"sglang\\\"\"",
         "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\"",
         "#system_numpy# ; #engine# == \"vllm\""
-      ]
+      ],
+      "extra_index_url": [
+        "https://wheels.vllm.ai/0.22.0/cu130",
+        "https://download.pytorch.org/whl/cu130"
+      ],
+      "index_strategy": "unsafe-best-match"
     },
     "featured": true,
     "updated_at": 1777564386

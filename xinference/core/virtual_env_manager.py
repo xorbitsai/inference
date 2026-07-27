@@ -836,7 +836,127 @@ FLASHINFER_AOT_PACKAGES = [
     "flashinfer-cubin==0.6.11.post3",
     "flashinfer-jit-cache==0.6.11.post3+cu130",
 ]
+FLASHINFER_CUBIN_WHEEL_URL = "https://flashinfer.ai/whl"
 FLASHINFER_AOT_WHEEL_URL = "https://flashinfer.ai/whl/cu130"
+
+
+def _get_virtualenv_distribution_version(
+    virtual_env_manager: Any, distribution: str
+) -> Optional[str]:
+    try:
+        python_path = resolve_virtualenv_python_path(virtual_env_manager)
+    except (AttributeError, TypeError):
+        return None
+    if not python_path:
+        return None
+    try:
+        result = subprocess.run(
+            [
+                python_path,
+                "-c",
+                (
+                    "import importlib.metadata as metadata; "
+                    f"print(metadata.version({distribution!r}))"
+                ),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
+
+
+def ensure_flashinfer_cubin_matches_post_install(
+    model_engine: Optional[str],
+    virtual_env_manager: Any,
+    allow_public_install: bool = True,
+) -> None:
+    """Keep FlashInfer's Python package and cubin package on the same version.
+
+    ``flashinfer-cubin`` lives on FlashInfer's own wheel index. A reused vLLM
+    environment can therefore upgrade ``flashinfer-python`` from PyPI while
+    retaining an older cubin from a previous engine wheel index. FlashInfer
+    rejects that pair at import time before the model can load.
+
+    Repair the cubin in place from the official index. In explicit offline mode
+    (or if the repair fails), use FlashInfer's documented version-check bypass
+    so a stale environment does not fail before engine initialization.
+    """
+    if not model_engine or model_engine.lower() != "vllm":
+        return
+
+    python_version = _get_virtualenv_distribution_version(
+        virtual_env_manager, "flashinfer-python"
+    )
+    if python_version is None:
+        return
+    cubin_version = _get_virtualenv_distribution_version(
+        virtual_env_manager, "flashinfer-cubin"
+    )
+    if cubin_version == python_version:
+        return
+
+    logger.warning(
+        "FlashInfer package mismatch in %s: flashinfer-python=%s, "
+        "flashinfer-cubin=%s",
+        virtual_env_manager.env_path,
+        python_version,
+        cubin_version or "not installed",
+    )
+
+    if allow_public_install:
+        uv_path = None
+        if hasattr(virtual_env_manager, "_get_uv_path"):
+            try:
+                uv_path = virtual_env_manager._get_uv_path()
+            except Exception:
+                pass
+        if not uv_path:
+            uv_path = shutil.which("uv") or "uv"
+
+        cmd = [
+            uv_path,
+            "pip",
+            "install",
+            "-p",
+            str(virtual_env_manager.env_path),
+            "--no-deps",
+            "--upgrade",
+            "--index-url",
+            FLASHINFER_CUBIN_WHEEL_URL,
+            f"flashinfer-cubin=={python_version}",
+        ]
+        try:
+            result = subprocess.run(cmd, check=False, capture_output=True, text=True)
+            if result.returncode == 0:
+                repaired_version = _get_virtualenv_distribution_version(
+                    virtual_env_manager, "flashinfer-cubin"
+                )
+                if repaired_version == python_version:
+                    logger.info(
+                        "Synchronized flashinfer-cubin to flashinfer-python %s",
+                        python_version,
+                    )
+                    return
+            else:
+                logger.warning(
+                    "Failed to synchronize flashinfer-cubin (exit %d): %s",
+                    result.returncode,
+                    result.stderr[-500:] if result.stderr else "(empty)",
+                )
+        except Exception as e:
+            logger.warning("Failed to synchronize flashinfer-cubin: %s", e)
+
+    os.environ["FLASHINFER_DISABLE_VERSION_CHECK"] = "1"
+    logger.warning(
+        "Set FLASHINFER_DISABLE_VERSION_CHECK=1 because flashinfer-cubin could "
+        "not be synchronized to flashinfer-python %s",
+        python_version,
+    )
 
 
 def needs_flashinfer_aot(

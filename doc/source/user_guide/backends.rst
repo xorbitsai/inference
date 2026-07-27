@@ -257,7 +257,10 @@ Engine support:
        explicitly provided ``speculative_config`` is left untouched. Older
        vLLM treats the drafter as a generic draft model, while older
        Transformers does not recognize ``gemma4_assistant``; either case is
-       rejected before engine initialization.
+       rejected before engine initialization. Virtual-environment launches
+       also synchronize ``flashinfer-cubin`` with ``flashinfer-python`` before
+       starting vLLM, repairing stale environments that contain mismatched
+       FlashInfer packages.
    * - :ref:`SGLang <sglang_backend>`
      - drafter support for the model family
      - Translated into ``--speculative-algorithm NEXTN`` with the matching

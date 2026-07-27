@@ -498,6 +498,8 @@ def test_builtin_gemma_4_vllm_requires_mtp_dependencies():
     assert not requirements["vllm"].specifier.contains("0.21.0")
     assert requirements["transformers"].specifier.contains("5.8.0")
     assert not requirements["transformers"].specifier.contains("5.7.0")
+    assert isinstance(family.virtualenv.extra_index_url, list)
+    assert "https://wheels.vllm.ai/0.22.0/cu130" in family.virtualenv.extra_index_url
 
 
 def test_cache_from_uri_local():

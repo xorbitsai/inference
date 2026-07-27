@@ -2966,7 +2966,10 @@ class WorkerActor(xo.StatelessActor):
             # must stay serialized with install_packages() and other AOT
             # upgrades when multiple replicas/workers share this venv.
             # See optimize/20260702/2026070209.md
-            from .virtual_env_manager import apply_flashinfer_aot_post_install
+            from .virtual_env_manager import (
+                apply_flashinfer_aot_post_install,
+                ensure_flashinfer_cubin_matches_post_install,
+            )
 
             if XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL:
                 logger.info(
@@ -2981,6 +2984,11 @@ class WorkerActor(xo.StatelessActor):
                     conf,
                     cuda_version,
                 )
+            ensure_flashinfer_cubin_matches_post_install(
+                model_engine,
+                virtual_env_manager,
+                allow_public_install=not XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL,
+            )
 
         # Apply engine-specific post-install patches
         if model_engine and model_engine.lower() == "vllm":
