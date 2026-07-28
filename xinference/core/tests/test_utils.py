@@ -773,9 +773,7 @@ def test_prepare_virtual_env_skips_on_second_call(tmp_path):
     packages = ["vllm==0.21.0"]
 
     # First call: should install
-    with mock.patch.object(
-        worker_mod, "_exclusive_venv_path_lock", new=_nullctx
-    ):
+    with mock.patch.object(worker_mod, "_exclusive_venv_path_lock", new=_nullctx):
         WorkerActor._prepare_virtual_env(
             virtual_env_manager=_FakeVEM(),
             settings=VirtualEnvSettings(packages=packages),
@@ -787,9 +785,7 @@ def test_prepare_virtual_env_skips_on_second_call(tmp_path):
     assert call_count == 1
 
     # Second call with same packages: should skip
-    with mock.patch.object(
-        worker_mod, "_exclusive_venv_path_lock", new=_nullctx
-    ):
+    with mock.patch.object(worker_mod, "_exclusive_venv_path_lock", new=_nullctx):
         WorkerActor._prepare_virtual_env(
             virtual_env_manager=_FakeVEM(),
             settings=VirtualEnvSettings(packages=packages),
@@ -831,9 +827,7 @@ def test_prepare_virtual_env_does_not_skip_different_packages(tmp_path):
     second_packages = ["vllm==0.21.0", "new-package"]
 
     # First call
-    with mock.patch.object(
-        worker_mod, "_exclusive_venv_path_lock", new=_nullctx
-    ):
+    with mock.patch.object(worker_mod, "_exclusive_venv_path_lock", new=_nullctx):
         WorkerActor._prepare_virtual_env(
             virtual_env_manager=_FakeVEM(),
             settings=VirtualEnvSettings(packages=first_packages),
@@ -845,9 +839,7 @@ def test_prepare_virtual_env_does_not_skip_different_packages(tmp_path):
     assert call_count == 1
 
     # Second call with different packages
-    with mock.patch.object(
-        worker_mod, "_exclusive_venv_path_lock", new=_nullctx
-    ):
+    with mock.patch.object(worker_mod, "_exclusive_venv_path_lock", new=_nullctx):
         WorkerActor._prepare_virtual_env(
             virtual_env_manager=_FakeVEM(),
             settings=VirtualEnvSettings(packages=second_packages),
