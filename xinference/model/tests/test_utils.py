@@ -15,6 +15,7 @@
 import asyncio
 import shutil
 import sys
+import threading
 
 import pytest
 from tqdm.auto import tqdm
@@ -74,6 +75,67 @@ def test_tqdm_patch():
             all_bar.update(6)
 
     assert downloader.done
+
+
+def test_concurrent_progress_no_set_mutation():
+    """Two concurrent downloaders race the progress sets: one thread creates
+    new download bars and calls .update() (so patched_update grows
+    _download_progresses), while another polls get_progress(). On main this
+    raises "RuntimeError: Set changed size during iteration"; the per-instance
+    _progress_lock + snapshot in get_progress makes it safe.
+
+    Under CPython's default ~5ms switch interval the mutation rarely lands
+    mid-iteration, so the crash is flaky on main (and can even pass 8/8). We
+    tighten sys.setswitchinterval to force frequent GIL handoffs so the
+    mutation coincides with the poller's iteration deterministically: red on
+    main, green on the branch. The original interval is restored in finally.
+    """
+    d1 = CancellableDownloader(cancel_error_cls=RuntimeError)
+    d2 = CancellableDownloader(cancel_error_cls=RuntimeError)
+    errors = []
+
+    orig_si = sys.getswitchinterval()
+    sys.setswitchinterval(1e-4)
+    try:
+        with d1, d2:
+            stop = threading.Event()
+
+            def updater():
+                try:
+                    # seed a few download bars first
+                    for _ in range(5):
+                        bar = tqdm(total=1000000, unit="B")
+                        bar.update(1)
+                    while not stop.is_set():
+                        # a NEW bar each iteration -> add() grows the set size
+                        bar = tqdm(total=1000000, unit="B")
+                        bar.update(1)
+                        bar.close()
+                except RuntimeError as e:
+                    errors.append(("updater", e))
+
+            def poller():
+                while not stop.is_set():
+                    try:
+                        d1.get_progress()
+                        d2.get_progress()
+                    except RuntimeError as e:
+                        errors.append(("poller", e))
+                        return
+
+            tu = threading.Thread(target=updater)
+            tp = threading.Thread(target=poller)
+            tu.start()
+            tp.start()
+            # run the race for ~1s; a timeout + Event keeps CI from hanging
+            tp.join(timeout=1.2)
+            stop.set()
+            tu.join(timeout=3.0)
+            tp.join(timeout=3.0)
+    finally:
+        sys.setswitchinterval(orig_si)
+
+    assert not errors, f"concurrent get_progress raised: {errors}"
 
 
 def test_extract_engine_markers_from_packages():

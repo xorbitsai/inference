@@ -896,6 +896,7 @@ def set_all_random_seed(seed: int):
 class CancellableDownloader:
     _global_lock = threading.Lock()
     _active_instances = 0
+    _active_registry: Set["CancellableDownloader"] = set()
     _original_update = None  # Class-level original update method (tqdm.auto.tqdm)
     _original_update_plain = None  # Class-level original update method (tqdm.tqdm)
     _patch_lock = threading.Lock()  # Additional lock for patching operations
@@ -910,6 +911,10 @@ class CancellableDownloader:
             self._cancelled = threading.Event()
         self._done_event = threading.Event()
         self._cancel_error_cls = cancel_error_cls
+        # Guards mutation/iteration of the progress sets below; a new download
+        # bar can be added by patched_update (download thread) while another
+        # thread iterates the same set in get_progress().
+        self._progress_lock = threading.RLock()
         # progress for tqdm that is main
         self._main_progresses: Set[tqdm] = set()
         # progress for file downloader
@@ -928,8 +933,15 @@ class CancellableDownloader:
             return 1.0
         # Don't return 1.0 when cancelled, calculate actual progress
 
+        # Snapshot the progress sets under the lock: patched_update (download
+        # thread) can add a new bar mid-iteration, which would otherwise raise
+        # "Set changed size during iteration".
+        with self._progress_lock:
+            main_progresses = list(self._main_progresses)
+            download_progresses = list(self._download_progresses)
+
         tasks = finished_tasks = 0
-        for main_progress in self._main_progresses:
+        for main_progress in main_progresses:
             tasks += main_progress.total or 0
             finished_tasks += main_progress.n
 
@@ -940,7 +952,7 @@ class CancellableDownloader:
         finished_ratio = finished_tasks / tasks
 
         all_download_progress = finished_download_progress = 0
-        for download_progress in self._download_progresses:
+        for download_progress in download_progresses:
             # we skip finished download
             if download_progress.n == download_progress.total:
                 continue
@@ -994,14 +1006,10 @@ class CancellableDownloader:
 
             # Thread-safe patched update
             def patched_update(tqdm_instance, n):
-                import gc
-
-                # Get all CancellableDownloader instances and check for cancellation
-                downloaders = [
-                    obj
-                    for obj in gc.get_objects()
-                    if isinstance(obj, CancellableDownloader)
-                ]
+                # Iterate the bounded active-instance registry instead of
+                # gc.get_objects(): the whole-heap traversal stalled the GIL
+                # on every progress tick and scanned O(heap) objects.
+                downloaders = list(CancellableDownloader._active_registry)
 
                 for downloader in downloaders:
                     # if download cancelled, throw error
@@ -1019,7 +1027,10 @@ class CancellableDownloader:
                             )
 
                     if progresses is not None:
-                        progresses.add(tqdm_instance)
+                        # Guard the mutation: a concurrent get_progress()
+                        # caller may be iterating this very set.
+                        with downloader._progress_lock:
+                            progresses.add(tqdm_instance)
                     else:
                         logger.debug(f"No progresses found for downloader {downloader}")
 
@@ -1046,12 +1057,14 @@ class CancellableDownloader:
             if self._active_instances == 0:
                 self.patch_tqdm()
             self._active_instances += 1
+            CancellableDownloader._active_registry.add(self)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         # Use global lock to prevent concurrent unpatching
         with self._global_lock:
             self._active_instances -= 1
+            CancellableDownloader._active_registry.discard(self)
             if self._active_instances == 0:
                 self.unpatch_tqdm()
         try:
