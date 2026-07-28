@@ -108,5 +108,6 @@ export type LaunchFieldConfig =
     });
 
 export type WorkerOption = Option<string> & {
+  description?: string;
   gpuCount: number;
 };

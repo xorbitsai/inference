@@ -228,7 +228,7 @@ export function MultiSelect({
                 key={option.value}
                 className="flex items-center gap-1 rounded-md bg-secondary px-2 py-0.5 text-xs text-secondary-foreground"
               >
-                <span className="truncate max-w-[120px]">{option.label}</span>
+                <span className="truncate max-w-[200px]">{option.label}</span>
 
                 <button
                   type="button"

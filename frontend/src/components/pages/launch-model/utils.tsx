@@ -952,6 +952,7 @@ export function extractWorkerItems(clusterInfo: ClusterInfoResponse): WorkerOpti
     acc.set(workerIp, {
       label: workerIp,
       value: workerIp,
+      description: `GPU: ${gpuCount}`,
       gpuCount,
     });
 
