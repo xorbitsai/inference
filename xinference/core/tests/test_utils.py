@@ -651,7 +651,7 @@ def test_should_skip_venv_setup_first_install(tmp_path):
     venv = str(tmp_path / "venv")
     packages = ["vllm==0.21.0", "flashinfer-cubin==0.6.8.post1"]
 
-    assert not worker_mod._should_skip_venv_setup(venv, packages)
+    assert not worker_mod._should_skip_venv_setup(venv, packages, {}, {})
 
 
 def test_should_skip_venv_setup_same_packages(tmp_path):
@@ -666,9 +666,9 @@ def test_should_skip_venv_setup_same_packages(tmp_path):
 
     # Simulate first setup
     os.makedirs(venv, exist_ok=True)
-    worker_mod._mark_venv_setup_done(venv, packages)
+    worker_mod._mark_venv_setup_done(venv, packages, {}, {})
 
-    assert worker_mod._should_skip_venv_setup(venv, packages)
+    assert worker_mod._should_skip_venv_setup(venv, packages, {}, {})
 
 
 def test_should_skip_venv_setup_different_packages(tmp_path):
@@ -684,26 +684,29 @@ def test_should_skip_venv_setup_different_packages(tmp_path):
 
     # Simulate first setup with first_packages
     os.makedirs(venv, exist_ok=True)
-    worker_mod._mark_venv_setup_done(venv, first_packages)
+    worker_mod._mark_venv_setup_done(venv, first_packages, {}, {})
 
     # second_packages differ → should NOT skip
-    assert not worker_mod._should_skip_venv_setup(venv, second_packages)
+    assert not worker_mod._should_skip_venv_setup(venv, second_packages, {}, {})
 
 
 def test_should_skip_venv_setup_marker_missing(tmp_path):
     """Same path + same packages but marker file is gone (venv deleted) →
     should NOT skip."""
+    import os
+
     _clean_venv_setup_done()
     from .. import worker as worker_mod
 
     venv = str(tmp_path / "venv")
     packages = ["vllm==0.21.0"]
 
-    # Put the path in the in-process dict WITHOUT writing the marker file
-    worker_mod._venv_setup_done[venv] = hash(tuple(sorted(packages)))
-    # venv directory doesn't exist → no marker file
+    # Set up via helper, then remove the marker to simulate external deletion
+    os.makedirs(venv, exist_ok=True)
+    worker_mod._mark_venv_setup_done(venv, packages, {}, {})
+    os.remove(os.path.join(venv, ".xinference_setup_done"))
 
-    assert not worker_mod._should_skip_venv_setup(venv, packages)
+    assert not worker_mod._should_skip_venv_setup(venv, packages, {}, {})
 
 
 def test_should_skip_venv_setup_different_path(tmp_path):
@@ -719,15 +722,15 @@ def test_should_skip_venv_setup_different_path(tmp_path):
 
     # Set up venv_a
     os.makedirs(venv_a, exist_ok=True)
-    worker_mod._mark_venv_setup_done(venv_a, packages)
+    worker_mod._mark_venv_setup_done(venv_a, packages, {}, {})
 
     # venv_b is a different path → should NOT skip
-    assert not worker_mod._should_skip_venv_setup(venv_b, packages)
+    assert not worker_mod._should_skip_venv_setup(venv_b, packages, {}, {})
 
 
 def test_mark_venv_setup_done_writes_marker(tmp_path):
-    """_mark_venv_setup_done adds the path+hash to the dict and creates the
-    marker file."""
+    """_mark_venv_setup_done adds the path+fingerprint to the dict and creates the
+    marker file with the fingerprint value."""
     import os
 
     _clean_venv_setup_done()
@@ -737,11 +740,15 @@ def test_mark_venv_setup_done_writes_marker(tmp_path):
     packages = ["vllm==0.21.0"]
     os.makedirs(venv, exist_ok=True)
 
-    worker_mod._mark_venv_setup_done(venv, packages)
+    worker_mod._mark_venv_setup_done(venv, packages, {}, {})
 
+    expected_fp = worker_mod._make_fingerprint(packages, {}, {}, None)
     assert venv in worker_mod._venv_setup_done
-    assert worker_mod._venv_setup_done[venv] == hash(tuple(sorted(packages)))
+    assert worker_mod._venv_setup_done[venv] == expected_fp
     assert os.path.exists(os.path.join(venv, ".xinference_setup_done"))
+    # Verify the marker file contains the fingerprint
+    with open(os.path.join(venv, ".xinference_setup_done")) as f:
+        assert f.read().strip() == str(expected_fp)
 
 
 def test_prepare_virtual_env_skips_on_second_call(tmp_path):

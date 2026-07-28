@@ -137,33 +137,72 @@ logger = getLogger(__name__)
 _venv_setup_done: Dict[str, int] = {}
 
 
-def _should_skip_venv_setup(venv_path: str, packages: List[str]) -> bool:
-    """Return True if the venv at *venv_path* was already set up with *packages*.
+def _make_fingerprint(
+    packages: List[str],
+    conf: dict,
+    variables: dict,
+    architectures: Optional[List[str]],
+) -> int:
+    """Return a hash fingerprint of every setup input that affects the result.
+
+    Includes the canonical package list, install configuration (conf),
+    template variables, and target architectures so a change to any of
+    them produces a different fingerprint and triggers a re-setup.
+    """
+    key = (
+        tuple(sorted(packages)),
+        tuple(sorted(conf.items())),
+        tuple(sorted(variables.items())),
+        tuple(sorted(architectures) if architectures else ()),
+    )
+    return hash(key)
+
+
+def _should_skip_venv_setup(
+    venv_path: str,
+    packages: List[str],
+    conf: dict,
+    variables: dict,
+    architectures: Optional[List[str]] = None,
+) -> bool:
+    """Return True if the venv was already set up with the given inputs.
 
     Checks three conditions:
     1. The path is in the process-local done dict.
-    2. The stored package fingerprint matches the current package list.
+    2. The stored fingerprint matches the current inputs (packages, conf,
+       variables, and architectures).
     3. The on-disk marker file exists (guards against external venv deletion
        via ``remove_virtual_env`` during the same process lifetime).
     """
     marker_path = os.path.join(venv_path, ".xinference_setup_done")
-    pkg_hash = hash(tuple(sorted(packages)))
+    fp = _make_fingerprint(packages, conf, variables, architectures)
     return (
         venv_path in _venv_setup_done
-        and _venv_setup_done[venv_path] == pkg_hash
+        and _venv_setup_done[venv_path] == fp
         and os.path.exists(marker_path)
     )
 
 
-def _mark_venv_setup_done(venv_path: str, packages: List[str]) -> None:
-    """Record that *venv_path* has been set up with *packages*."""
-    _venv_setup_done[venv_path] = hash(tuple(sorted(packages)))
+def _mark_venv_setup_done(
+    venv_path: str,
+    packages: List[str],
+    conf: dict,
+    variables: dict,
+    architectures: Optional[List[str]] = None,
+) -> None:
+    """Record that *venv_path* has been set up with the given inputs."""
+    fp = _make_fingerprint(packages, conf, variables, architectures)
+    _venv_setup_done[venv_path] = fp
     marker_path = os.path.join(venv_path, ".xinference_setup_done")
     try:
         with open(marker_path, "w") as f:
-            f.write("done")
+            f.write(str(fp))
     except OSError:
-        pass
+        logger.debug(
+            "Failed to write .xinference_setup_done marker to %s",
+            venv_path,
+            exc_info=True,
+        )
 
 
 @contextmanager
@@ -3017,7 +3056,9 @@ class WorkerActor(xo.StatelessActor):
         )
         venv_path = str(virtual_env_manager.env_path)
         with _exclusive_venv_path_lock(venv_path):
-            if not _should_skip_venv_setup(venv_path, packages):
+            if not _should_skip_venv_setup(
+                venv_path, packages, conf, variables, architectures
+            ):
                 if modern_sglang_kernel:
                     # SGLang 0.5.11 renamed the distribution while retaining the
                     # same import package.  Remove the cached legacy owner before
@@ -3062,26 +3103,34 @@ class WorkerActor(xo.StatelessActor):
                     allow_public_install=not XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL,
                 )
 
-                _mark_venv_setup_done(venv_path, packages)
+                # Apply engine-specific post-install patches.  These mutate files
+                # inside the shared virtualenv, so they must stay under the same
+                # lock and deduplication as install_packages and post-install
+                # hooks to avoid race conditions when multiple replicas share
+                # this venv.
+                if model_engine and model_engine.lower() == "vllm":
+                    try:
+                        from xinference.model.llm.vllm.patches import (
+                            apply_vllm_patches,
+                        )
+                    except ImportError:
+                        pass
+                    else:
+                        apply_vllm_patches(
+                            env_path=venv_path,
+                            model_name=model_name,
+                            architectures=architectures,
+                        )
+
+                _mark_venv_setup_done(
+                    venv_path, packages, conf, variables, architectures
+                )
             else:
                 logger.info(
                     "Virtual env %s already set up with current packages in "
                     "this process; skipping install_packages and post-install "
                     "hooks",
                     venv_path,
-                )
-
-        # Apply engine-specific post-install patches
-        if model_engine and model_engine.lower() == "vllm":
-            try:
-                from xinference.model.llm.vllm.patches import apply_vllm_patches
-            except ImportError:
-                pass
-            else:
-                apply_vllm_patches(
-                    env_path=str(virtual_env_manager.env_path),
-                    model_name=model_name,
-                    architectures=architectures,
                 )
 
     async def _get_progressor(self, request_id: str):
