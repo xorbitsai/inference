@@ -3110,9 +3110,7 @@ class WorkerActor(xo.StatelessActor):
                 # this venv.
                 if model_engine and model_engine.lower() == "vllm":
                     try:
-                        from xinference.model.llm.vllm.patches import (
-                            apply_vllm_patches,
-                        )
+                        from xinference.model.llm.vllm.patches import apply_vllm_patches
                     except ImportError:
                         pass
                     else:
