@@ -138,7 +138,31 @@ def test_to_chat_completion_propagates_logprobs():
     chat = ChatModelMixin._to_chat_completion(completion)
 
     assert chat["choices"][0]["logprobs"] is not None
-    assert chat["choices"][0]["logprobs"] == logprobs
+    # Chat completions carry the chat ``content[]`` logprobs shape (token/bytes/
+    # logprob/top_logprobs), not the legacy parallel-list shape, so openai-python
+    # parses ``choice.logprobs.content`` instead of dropping it as extra fields.
+    assert chat["choices"][0]["logprobs"] == {
+        "content": [
+            {
+                "token": "Hello",
+                "bytes": [72, 101, 108, 108, 111],
+                "logprob": None,
+                "top_logprobs": [],
+            },
+            {
+                "token": " world",
+                "bytes": [32, 119, 111, 114, 108, 100],
+                "logprob": -0.1,
+                "top_logprobs": [
+                    {
+                        "token": " world",
+                        "bytes": [32, 119, 111, 114, 108, 100],
+                        "logprob": -0.2,
+                    }
+                ],
+            },
+        ]
+    }
 
 
 def test_to_chat_completion_chunks_propagates_logprobs():
@@ -168,7 +192,169 @@ def test_to_chat_completion_chunks_propagates_logprobs():
 
     assert results, "expected at least one chat chunk"
     assert results[0]["choices"][0]["logprobs"] is not None
-    assert results[0]["choices"][0]["logprobs"] == logprobs
+    # Streaming chat chunks carry the chat ``content[]`` logprobs shape, converted
+    # from the legacy parallel-list shape the engine emits.
+    assert results[0]["choices"][0]["logprobs"] == {
+        "content": [
+            {
+                "token": "Hello",
+                "bytes": [72, 101, 108, 108, 111],
+                "logprob": None,
+                "top_logprobs": [],
+            },
+            {
+                "token": " world",
+                "bytes": [32, 119, 111, 114, 108, 100],
+                "logprob": -0.1,
+                "top_logprobs": [
+                    {
+                        "token": " world",
+                        "bytes": [32, 119, 111, 114, 108, 100],
+                        "logprob": -0.2,
+                    }
+                ],
+            },
+        ]
+    }
+
+
+class _NoOpToolParser:
+    """Minimal tool-parser stub: reports no tool calls so the tool post-processors
+    take the content-preserving branch while still exercising the logprobs path
+    (the real parsers are heavy to construct in a unit test)."""
+
+    def extract_tool_calls(self, text):  # non-streaming
+        return []
+
+    def extract_tool_calls_streaming(
+        self, previous_texts, current_text, delta_text
+    ):  # streaming; returns (content, func, args)
+        return (delta_text or "", None, None)
+
+
+def test_post_process_completion_preserves_chat_logprobs():
+    # Non-streaming tools path: _post_process_completion previously omitted the
+    # logprobs field entirely, so tool-enabled requests lost them. It must now
+    # carry the converted chat-shape logprobs from the source Completion choice.
+    from ....types import (
+        Completion,
+        CompletionChoice,
+        CompletionLogprobs,
+        CompletionUsage,
+    )
+
+    logprobs = CompletionLogprobs(
+        text_offset=[0, 5],
+        token_logprobs=[None, -0.1],
+        tokens=["Hello", " world"],
+        top_logprobs=[None, {" world": -0.2}],
+    )
+    completion = Completion(
+        id="cmpl-1",
+        object="text_completion",
+        created=123,
+        model="test-model",
+        choices=[
+            CompletionChoice(
+                text="Hello world",
+                index=0,
+                logprobs=logprobs,
+                finish_reason="stop",
+            )
+        ],
+        usage=CompletionUsage(prompt_tokens=1, completion_tokens=2, total_tokens=3),
+    )
+
+    mixin = ChatModelMixin()
+    mixin.tool_parser = _NoOpToolParser()
+    mixin.reasoning_parser = None
+
+    result = mixin._post_process_completion("test-family", "test-model", completion)
+
+    assert result["choices"][0]["logprobs"] is not None
+    assert result["choices"][0]["logprobs"] == {
+        "content": [
+            {
+                "token": "Hello",
+                "bytes": [72, 101, 108, 108, 111],
+                "logprob": None,
+                "top_logprobs": [],
+            },
+            {
+                "token": " world",
+                "bytes": [32, 119, 111, 114, 108, 100],
+                "logprob": -0.1,
+                "top_logprobs": [
+                    {
+                        "token": " world",
+                        "bytes": [32, 119, 111, 114, 108, 100],
+                        "logprob": -0.2,
+                    }
+                ],
+            },
+        ]
+    }
+
+
+def test_post_process_completion_chunk_preserves_chat_logprobs():
+    # Streaming tools path: _post_process_completion_chunk previously hard-coded
+    # logprobs to None, so streaming tool-enabled requests lost them. It must now
+    # carry the converted chat-shape logprobs from the source CompletionChunk choice.
+    from ....types import CompletionChoice, CompletionChunk, CompletionLogprobs
+
+    logprobs = CompletionLogprobs(
+        text_offset=[0, 5],
+        token_logprobs=[None, -0.1],
+        tokens=["Hello", " world"],
+        top_logprobs=[None, {" world": -0.2}],
+    )
+    chunk = CompletionChunk(
+        id="cmpl-2",
+        object="text_completion",
+        created=123,
+        model="test-model",
+        choices=[
+            CompletionChoice(
+                text="Hello",
+                index=0,
+                logprobs=logprobs,
+                finish_reason=None,
+            )
+        ],
+    )
+
+    mixin = ChatModelMixin()
+    mixin.tool_parser = _NoOpToolParser()
+    mixin.reasoning_parser = None
+
+    result = mixin._post_process_completion_chunk(
+        "test-family", "test-model", chunk, chunk_id="cmpl-2"
+    )
+
+    assert result is not None
+    assert result["choices"][0]["logprobs"] is not None
+    assert result["choices"][0]["logprobs"] == {
+        "content": [
+            {
+                "token": "Hello",
+                "bytes": [72, 101, 108, 108, 111],
+                "logprob": None,
+                "top_logprobs": [],
+            },
+            {
+                "token": " world",
+                "bytes": [32, 119, 111, 114, 108, 100],
+                "logprob": -0.1,
+                "top_logprobs": [
+                    {
+                        "token": " world",
+                        "bytes": [32, 119, 111, 114, 108, 100],
+                        "logprob": -0.2,
+                    }
+                ],
+            },
+        ]
+    }
 
 
 def test_async_to_chat_completion_chunks_preserves_usage_only_chunk():
