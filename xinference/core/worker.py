@@ -113,6 +113,7 @@ from .virtual_env_manager import (
     get_engine_critical_dependency_specs,
     get_engine_model_format_virtualenv_packages,
     is_cuda_compatible,
+    pin_sentence_transformers_numpy_abi,
     resolve_virtualenv_python_path,
 )
 
@@ -2947,6 +2948,7 @@ class WorkerActor(xo.StatelessActor):
         # version, and the ABI mismatch crashes the model subprocess on relaunch
         # (issue #5156).
         packages = ensure_system_torch_pin(packages)
+        packages = pin_sentence_transformers_numpy_abi(packages, model_engine)
 
         conf = dict(settings)
         conf.pop("packages", None)

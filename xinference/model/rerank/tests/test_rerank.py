@@ -215,3 +215,41 @@ def test_auto_detect_type():
         except EnvironmentError:
             # gated repo, ignore
             continue
+
+
+@pytest.mark.parametrize(
+    ("model_name", "model_revision"),
+    [
+        (
+            "Qwen3-Reranker-0.6B",
+            "eb9ad47d4e53c2a6abd6158b505f1539d1c5650c",
+        ),
+        ("Qwen3-Reranker-4B", "1b452c803342e73ac3644551b727dfd51a09fd5b"),
+        ("Qwen3-Reranker-8B", "646e3a1fc04936cab940ad02e18ee6b14af46263"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("quantization", "separator"),
+    [("Q4_K_M", "-"), ("Q8_0", ".")],
+)
+def test_qwen3_reranker_gguf_uses_llama_cpp_compatible_models(
+    model_name, model_revision, quantization, separator
+):
+    from .. import register_builtin_model
+    from ..rerank_family import match_rerank
+
+    register_builtin_model()
+    family = match_rerank(
+        model_name,
+        model_format="ggufv2",
+        quantization=quantization,
+        download_hub="modelscope",
+    )
+    spec = family.model_specs[0]
+
+    assert spec.model_hub == "huggingface"
+    assert spec.model_id == f"Voodisss/{model_name}-GGUF-llama_cpp"
+    assert spec.model_revision == model_revision
+    assert spec.model_file_name_template == (
+        f"{model_name}{separator}{quantization}.gguf"
+    )
