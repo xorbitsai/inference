@@ -692,6 +692,8 @@ const ja = {
       '単一マシンでもクラスタでも、GPU と CPU をまたいで推論をスケールできます。',
   },
   common: {
+    accessDenied: 'アクセス拒否',
+    accessDeniedDescription: 'このページにアクセスするために必要な権限 ({{scope}}) がありません。',
     valueEmpty: '空にできません',
     patternError: '形式が正しくありません。確認してください',
     loginSuccess: 'ログインに成功しました',

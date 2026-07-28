@@ -674,6 +674,8 @@ const zh = {
     },
   },
   common: {
+    accessDenied: '访问被拒绝',
+    accessDeniedDescription: '您没有访问此页面所需的权限 ({{scope}})。',
     valueEmpty: '不能为空',
     patternError: '格式不正确，请检查',
     loginSuccess: '登录成功',

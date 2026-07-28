@@ -684,6 +684,8 @@ const ko = {
       '단일 머신이든 클러스터든 GPU와 CPU 전반에서 추론을 확장할 수 있습니다.',
   },
   common: {
+    accessDenied: '접근 거부됨',
+    accessDeniedDescription: '이 페이지에 접근하는 데 필요한 권한({{scope}})이 없습니다.',
     valueEmpty: '비워둘 수 없습니다',
     patternError: '형식이 올바르지 않습니다. 확인해주세요',
     loginSuccess: '로그인에 성공했습니다',

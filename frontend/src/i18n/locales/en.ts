@@ -694,6 +694,8 @@ const en = {
       'Scale inference across GPUs and CPUs, on a single machine or a cluster.',
   },
   common: {
+    accessDenied: 'Access Denied',
+    accessDeniedDescription: 'You do not have the required permission ({{scope}}) to access this page.',
     valueEmpty: 'Cannot be empty',
     patternError: 'Invalid format, please check',
     loginSuccess: 'Login successful',
