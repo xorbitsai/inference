@@ -114,7 +114,7 @@ export default function LaunchDialog({
     } catch {
       setWorkerOptions([]);
     }
-  }, [clusterAuth?.auth, isAdmin]);
+  }, [clusterAuth?.auth, isAdmin, t]);
   const fetchModelEngine = useCallback(async () => {
     if (!model?.model_name || !MODEL_ENGINE_TYPES.includes(modelType)) {
       setModelEngineMap({});

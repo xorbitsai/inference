@@ -5,7 +5,7 @@ import { translations } from '@/i18n/translations';
 import type { Locale } from '@/types/common';
 import { LANGUAGES_KEYS, DEFAULT_LANGUAGE } from '@/constants';
 type InterpolationValue = string | number | boolean | null | undefined;
-type TFunc = (key: string, vars?: Record<string, InterpolationValue>) => string;
+export type TFunc = (key: string, vars?: Record<string, InterpolationValue>) => string;
 
 interface I18nContextValue {
   locale: Locale;
