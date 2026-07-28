@@ -931,7 +931,10 @@ export function normalizeWorkerAddress(value: unknown) {
   }
 }
 
-export function extractWorkerItems(clusterInfo: ClusterInfoResponse): WorkerOption[] {
+export function extractWorkerItems(
+  clusterInfo: ClusterInfoResponse,
+  t?: (key: string, vars?: Record<string, string | number>) => string
+): WorkerOption[] {
   if (!clusterInfo) return [];
   const isFlatNodeList = Array.isArray(clusterInfo);
   const nodes = isFlatNodeList ? clusterInfo : clusterInfo.workers || [];
@@ -952,7 +955,9 @@ export function extractWorkerItems(clusterInfo: ClusterInfoResponse): WorkerOpti
     acc.set(workerIp, {
       label: workerIp,
       value: workerIp,
-      description: `GPU: ${gpuCount}`,
+      description: t
+        ? t('launchModel.gpuCount', { count: gpuCount })
+        : `GPU: ${gpuCount}`,
       gpuCount,
     });
 

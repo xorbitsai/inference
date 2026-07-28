@@ -110,7 +110,7 @@ export default function LaunchDialog({
       const data = await request.get<ClusterInfoResponse>('/v1/cluster/info', {
         params: { detailed: true },
       });
-      setWorkerOptions(extractWorkerItems(data));
+      setWorkerOptions(extractWorkerItems(data, t));
     } catch {
       setWorkerOptions([]);
     }
