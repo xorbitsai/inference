@@ -429,6 +429,42 @@ class DummyActorRef:
         self.address = address
 
 
+@pytest.mark.asyncio
+async def test_worker_heartbeat_failure_clears_cached_supervisor_refs():
+    class FailingSupervisorRef:
+        async def receive_heartbeat(self, worker_address: str):
+            raise ConnectionRefusedError("stale supervisor address")
+
+    class DummyWorker:
+        heartbeat = WorkerActor.heartbeat
+        _clear_supervisor_refs = WorkerActor._clear_supervisor_refs
+
+        def __init__(self):
+            self.address = "test://worker"
+            self._supervisor_ref = FailingSupervisorRef()
+            self._registered = True
+            self._status_guard_ref = object()
+            self._event_collector_ref = object()
+            self._cache_tracker_ref = object()
+            self._progress_tracker_ref = object()
+
+        async def get_supervisor_ref(self, add_worker=True):
+            assert not add_worker
+            return self._supervisor_ref
+
+    worker = DummyWorker()
+
+    with pytest.raises(ConnectionRefusedError, match="stale supervisor address"):
+        await worker.heartbeat()
+
+    assert worker._supervisor_ref is None
+    assert not worker._registered
+    assert worker._status_guard_ref is None
+    assert worker._event_collector_ref is None
+    assert worker._cache_tracker_ref is None
+    assert worker._progress_tracker_ref is None
+
+
 class DummyReplicaWorkerRef(DummyActorRef):
     def __init__(self, address: str, models=None):
         super().__init__(address)
