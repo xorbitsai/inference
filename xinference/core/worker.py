@@ -127,6 +127,13 @@ if TYPE_CHECKING:
 
 logger = getLogger(__name__)
 
+# Track which virtualenv paths have already been set up (install_packages +
+# post-install hooks) within the current process lifetime. When multiple
+# replicas share the same venv, only the first one runs the full setup;
+# subsequent replicas skip it to avoid downgrade/upgrade churn that can
+# corrupt .so files while child subprocesses are importing torch/vllm.
+_venv_setup_done: Set[str] = set()
+
 
 @contextmanager
 def _exclusive_venv_path_lock(env_path: str):
@@ -2977,50 +2984,58 @@ class WorkerActor(xo.StatelessActor):
             virtual_env_manager.env_path,
             ", ".join([f"{k}={v}" for k, v in conf.items() if v]),
         )
-        with _exclusive_venv_path_lock(str(virtual_env_manager.env_path)):
-            if modern_sglang_kernel:
-                # SGLang 0.5.11 renamed the distribution while retaining the
-                # same import package.  Remove the cached legacy owner before
-                # the new wheel writes those files.
-                cls._uninstall_venv_package(virtual_env_manager, "sgl-kernel")
-            if force_reinstall_xllamacpp:
-                cls._uninstall_venv_package(virtual_env_manager, "xllamacpp")
-            virtual_env_manager.install_packages(packages, **conf, **variables)
+        with _exclusive_venv_path_lock(venv_path := str(virtual_env_manager.env_path)):
+            if venv_path not in _venv_setup_done:
+                if modern_sglang_kernel:
+                    # SGLang 0.5.11 renamed the distribution while retaining the
+                    # same import package.  Remove the cached legacy owner before
+                    # the new wheel writes those files.
+                    cls._uninstall_venv_package(virtual_env_manager, "sgl-kernel")
+                if force_reinstall_xllamacpp:
+                    cls._uninstall_venv_package(virtual_env_manager, "xllamacpp")
+                virtual_env_manager.install_packages(packages, **conf, **variables)
 
-            # Post-install: flashinfer AOT workaround for sm_120 Blackwell.
-            # vllm 0.21.0 hard-pins flashinfer-cubin==0.6.8.post1 which has JIT
-            # compilation failure on sm_120. Force-upgrade to AOT versions.
-            # Run under the same lock — uv pip install mutates the venv and
-            # must stay serialized with install_packages() and other AOT
-            # upgrades when multiple replicas/workers share this venv.
-            # See optimize/20260702/2026070209.md
-            from .virtual_env_manager import (
-                apply_flashinfer_aot_post_install,
-                ensure_flashinfer_cubin_matches_post_install,
-                ensure_sglang_inherited_packages_compatible_post_install,
-            )
-
-            ensure_sglang_inherited_packages_compatible_post_install(
-                model_engine, virtual_env_manager
-            )
-            if XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL:
-                logger.info(
-                    "Skipping the FlashInfer AOT post-install from its public "
-                    "wheel index in explicit offline-install mode"
+                # Post-install: flashinfer AOT workaround for sm_120 Blackwell.
+                # vllm 0.21.0 hard-pins flashinfer-cubin==0.6.8.post1 which has JIT
+                # compilation failure on sm_120. Force-upgrade to AOT versions.
+                # Run under the same lock — uv pip install mutates the venv and
+                # must stay serialized with install_packages() and other AOT
+                # upgrades when multiple replicas/workers share this venv.
+                from .virtual_env_manager import (
+                    apply_flashinfer_aot_post_install,
+                    ensure_flashinfer_cubin_matches_post_install,
+                    ensure_sglang_inherited_packages_compatible_post_install,
                 )
-            else:
-                apply_flashinfer_aot_post_install(
+
+                ensure_sglang_inherited_packages_compatible_post_install(
+                    model_engine, virtual_env_manager
+                )
+                if XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL:
+                    logger.info(
+                        "Skipping the FlashInfer AOT post-install from its public "
+                        "wheel index in explicit offline-install mode"
+                    )
+                else:
+                    apply_flashinfer_aot_post_install(
+                        model_engine,
+                        architectures,
+                        virtual_env_manager,
+                        conf,
+                        cuda_version,
+                    )
+                ensure_flashinfer_cubin_matches_post_install(
                     model_engine,
-                    architectures,
                     virtual_env_manager,
-                    conf,
-                    cuda_version,
+                    allow_public_install=not XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL,
                 )
-            ensure_flashinfer_cubin_matches_post_install(
-                model_engine,
-                virtual_env_manager,
-                allow_public_install=not XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL,
-            )
+
+                _venv_setup_done.add(venv_path)
+            else:
+                logger.info(
+                    "Virtual env %s already set up in this process; "
+                    "skipping install_packages and post-install hooks",
+                    venv_path,
+                )
 
         # Apply engine-specific post-install patches
         if model_engine and model_engine.lower() == "vllm":
