@@ -137,6 +137,19 @@ logger = getLogger(__name__)
 _venv_setup_done: Dict[str, int] = {}
 
 
+def _freeze(value):
+    """Recursively convert lists/dicts to hashable tuples for fingerprinting.
+
+    ``conf`` values such as ``extra_index_url`` and ``trusted_host`` are
+    ``List[str]``, which cannot be hashed directly.
+    """
+    if isinstance(value, dict):
+        return tuple(sorted((k, _freeze(v)) for k, v in value.items()))
+    if isinstance(value, list):
+        return tuple(_freeze(v) for v in value)
+    return value
+
+
 def _make_fingerprint(
     packages: List[str],
     conf: dict,
@@ -151,8 +164,8 @@ def _make_fingerprint(
     """
     key = (
         tuple(sorted(packages)),
-        tuple(sorted(conf.items())),
-        tuple(sorted(variables.items())),
+        _freeze(conf),
+        _freeze(variables),
         tuple(sorted(architectures) if architectures else ()),
     )
     return hash(key)

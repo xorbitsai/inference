@@ -751,6 +751,32 @@ def test_mark_venv_setup_done_writes_marker(tmp_path):
         assert f.read().strip() == str(expected_fp)
 
 
+def test_make_fingerprint_handles_list_valued_conf(tmp_path):
+    """_make_fingerprint must hash conf values that are lists
+    (e.g., extra_index_url, trusted_host) without raising TypeError."""
+    _clean_venv_setup_done()
+    from .. import worker as worker_mod
+
+    packages = ["vllm==0.21.0"]
+    conf_a = {"extra_index_url": ["https://pypi.org/simple", "https://example.com"]}
+    conf_b = {"extra_index_url": ["https://different.org"]}
+    variables = {}
+    architectures = None
+
+    # Must not raise TypeError: unhashable type: 'list'
+    fp_a = worker_mod._make_fingerprint(packages, conf_a, variables, architectures)
+    fp_b = worker_mod._make_fingerprint(packages, conf_b, variables, architectures)
+
+    assert isinstance(fp_a, int)
+    assert isinstance(fp_b, int)
+    # Different list values → different fingerprints
+    assert fp_a != fp_b
+
+    # Same inputs → same fingerprint
+    fp_a2 = worker_mod._make_fingerprint(packages, conf_a, variables, architectures)
+    assert fp_a == fp_a2
+
+
 def test_prepare_virtual_env_skips_on_second_call(tmp_path):
     """Second call with same packages skips install_packages."""
     import contextlib
