@@ -46,7 +46,23 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name gemma-4 --size-in-billions 4 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 3 (pytorch, 31 Billion)
+Model Spec 3 (pytorch, 12 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** pytorch
+- **Model Size (in billions):** 12
+- **Quantizations:** none
+- **Engines**: vLLM, Transformers
+- **Model ID:** google/gemma-4-12B-it
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/google/gemma-4-12B-it>`__, `ModelScope <https://modelscope.cn/models/google/gemma-4-12B-it>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name gemma-4 --size-in-billions 12 --model-format pytorch --quantization ${quantization}
+
+
+Model Spec 4 (pytorch, 31 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -62,7 +78,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name gemma-4 --size-in-billions 31 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 4 (fp4, 31 Billion)
+Model Spec 5 (fp4, 31 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** fp4
@@ -78,7 +94,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name gemma-4 --size-in-billions 31 --model-format fp4 --quantization ${quantization}
 
 
-Model Spec 5 (pytorch, 26 Billion)
+Model Spec 6 (pytorch, 26 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** pytorch
@@ -94,7 +110,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name gemma-4 --size-in-billions 26 --model-format pytorch --quantization ${quantization}
 
 
-Model Spec 6 (ggufv2, 2 Billion)
+Model Spec 7 (ggufv2, 2 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
@@ -110,7 +126,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name gemma-4 --size-in-billions 2 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 7 (ggufv2, 4 Billion)
+Model Spec 8 (ggufv2, 4 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
@@ -126,7 +142,23 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name gemma-4 --size-in-billions 4 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 8 (ggufv2, 31 Billion)
+Model Spec 9 (ggufv2, 12 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** ggufv2
+- **Model Size (in billions):** 12
+- **Quantizations:** BF16, IQ4_NL, IQ4_XS, Q3_K_M, Q3_K_S, Q4_0, Q4_1, Q4_K_M, Q4_K_S, Q5_K_M, Q5_K_S, Q6_K, Q8_0, UD-IQ2_M, UD-IQ3_XXS, UD-Q2_K_XL, UD-Q3_K_XL, UD-Q4_K_XL, UD-Q5_K_XL, UD-Q6_K_XL, UD-Q8_K_XL
+- **Engines**: llama.cpp
+- **Model ID:** unsloth/gemma-4-12b-it-GGUF
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/unsloth/gemma-4-12b-it-GGUF>`__, `ModelScope <https://modelscope.cn/models/unsloth/gemma-4-12b-it-GGUF>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name gemma-4 --size-in-billions 12 --model-format ggufv2 --quantization ${quantization}
+
+
+Model Spec 10 (ggufv2, 31 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
@@ -142,7 +174,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name gemma-4 --size-in-billions 31 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 9 (ggufv2, 26 Billion)
+Model Spec 11 (ggufv2, 26 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** ggufv2
@@ -158,7 +190,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name gemma-4 --size-in-billions 26 --model-format ggufv2 --quantization ${quantization}
 
 
-Model Spec 10 (mlx, 2 Billion)
+Model Spec 12 (mlx, 2 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** mlx
@@ -174,7 +206,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name gemma-4 --size-in-billions 2 --model-format mlx --quantization ${quantization}
 
 
-Model Spec 11 (mlx, 4 Billion)
+Model Spec 13 (mlx, 4 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** mlx
@@ -190,7 +222,23 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name gemma-4 --size-in-billions 4 --model-format mlx --quantization ${quantization}
 
 
-Model Spec 12 (mlx, 31 Billion)
+Model Spec 14 (mlx, 12 Billion)
+++++++++++++++++++++++++++++++++++++++++
+
+- **Model Format:** mlx
+- **Model Size (in billions):** 12
+- **Quantizations:** bf16, 8bit, 6bit, 5bit, 4bit, mxfp8, mxfp4, nvfp4
+- **Engines**: MLX
+- **Model ID:** mlx-community/gemma-4-12B-it-{quantization}
+- **Model Hubs**:  `Hugging Face <https://huggingface.co/mlx-community/gemma-4-12B-it-{quantization}>`__, `ModelScope <https://modelscope.cn/models/mlx-community/gemma-4-12B-it-{quantization}>`__
+
+Execute the following command to launch the model, remember to replace ``${quantization}`` with your
+chosen quantization method from the options listed above::
+
+   xinference launch --model-engine ${engine} --model-name gemma-4 --size-in-billions 12 --model-format mlx --quantization ${quantization}
+
+
+Model Spec 15 (mlx, 31 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** mlx
@@ -206,7 +254,7 @@ chosen quantization method from the options listed above::
    xinference launch --model-engine ${engine} --model-name gemma-4 --size-in-billions 31 --model-format mlx --quantization ${quantization}
 
 
-Model Spec 13 (mlx, 26 Billion)
+Model Spec 16 (mlx, 26 Billion)
 ++++++++++++++++++++++++++++++++++++++++
 
 - **Model Format:** mlx

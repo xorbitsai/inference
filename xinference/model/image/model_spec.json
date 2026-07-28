@@ -125,7 +125,7 @@
       }
     },
     "featured": false,
-    "updated_at": 1769418354,
+    "updated_at": 1785233836,
     "virtualenv": {
       "packages": [
         "#diffusers_dependencies# ; #engine# == \"diffusers\"",
@@ -308,7 +308,7 @@
       ],
       "no_build_isolation": true
     },
-    "updated_at": 1769152887,
+    "updated_at": 1785233836,
     "featured": false
   },
   {
@@ -404,7 +404,7 @@
         "gguf_model_file_name_template": "sd3.5_medium-{quantization}.gguf"
       }
     },
-    "updated_at": 1769418357,
+    "updated_at": 1785233836,
     "featured": true,
     "virtualenv": {
       "packages": [
@@ -1143,15 +1143,17 @@
     ],
     "virtualenv": {
       "packages": [
-        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "transformers==4.46.3 ; #engine# == \"Transformers\"",
+        "accelerate>=0.28.0 ; #engine# == \"Transformers\"",
         "mlx-vlm ; #engine# == \"mlx\"",
-        "tokenizers",
+        "tokenizers==0.20.3 ; #engine# == \"Transformers\"",
         "PyMuPDF",
         "img2pdf",
         "einops",
         "easydict",
         "addict",
         "Pillow",
+        "matplotlib==3.10.8",
         "#system_torch# ; #engine# == \"Transformers\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#system_numpy#"
@@ -1198,7 +1200,7 @@
       }
     ],
     "featured": false,
-    "updated_at": 1774949598
+    "updated_at": 1784198843
   },
   {
     "version": 2,
@@ -1385,7 +1387,7 @@
       }
     },
     "featured": true,
-    "updated_at": 1769418376
+    "updated_at": 1785233837
   },
   {
     "version": 2,
@@ -1635,7 +1637,7 @@
       ]
     },
     "featured": true,
-    "updated_at": 1769152912
+    "updated_at": 1785233837
   },
   {
     "version": 2,
@@ -1679,7 +1681,7 @@
       }
     },
     "featured": true,
-    "updated_at": 1769594289
+    "updated_at": 1785233837
   },
   {
     "model_name": "FLUX.2-klein-4B",
