@@ -119,8 +119,7 @@ const ko = {
     requestLimits: '요청 제한',
     requestLimitsPlaceholder: '이 모델의 요청 제한 수, 기본값은 없음',
     workerIp: '워커 IP',
-    workerIpPlaceholder:
-      '분산 환경의 워커 IP 지정. 여러 개를 선택하거나 입력 후 Add.',
+    workerIpPlaceholder: '분산 환경의 워커 IP 지정. 여러 개를 선택하거나 입력 후 Add.',
     workerCount: '워커 수',
     workerCountPlaceholder: '워커 수',
     GPUIdx: 'GPU 인덱스',
@@ -138,6 +137,19 @@ const ko = {
     lightningModelPath: '경량화 lora 모델 경로',
     lightningModelPathPlaceholder: '경량화 lora 모델 경로',
     enableThinking: '사고 활성화',
+    enableMtp: 'MTP 활성화',
+    speculativeDecoding: '추측 디코딩',
+    draftModelQuantization: '드래프트 모델 양자화',
+    draftModelQuantizationPlaceholder: '기본값은 첫 번째 사용 가능 항목',
+    numSpeculativeTokens: '추측 토큰 수',
+    numSpeculativeTokensPlaceholder: '엔진 기본값',
+    numSpeculativeTokensPlaceholderValue: '엔진 기본값 {{value}}',
+    enableMtpTip:
+      '모델과 함께 작은 드래프트 모델을 실행해 라운드마다 여러 토큰을 제안하고, 모델이 한 번에 검증합니다. 출력은 동일하며 디코딩이 빨라집니다. 활성화하면 드래프트 모델 가중치를 추가로 다운로드합니다.',
+    draftModelQuantizationTip:
+      '드래프트 모델은 작아서 양자화해도 메모리 절약은 적고 수용률은 낮아집니다. 대상 모델이 양자화되어 있어도 양자화되지 않은 드래프트 모델을 권장합니다.',
+    numSpeculativeTokensTip:
+      '라운드당 드래프트 모델이 제안하는 토큰 수(보너스 토큰 포함). 비워 두면 MLX는 드래프트 모델의 학습 깊이(Gemma 4는 4)를 읽습니다. Gemma 4의 llama.cpp, vLLM, SGLang은 모델 크기별 동일한 레시피에 따라 E2B는 2, E4B와 26B-A4B는 4, 12B와 31B는 권장 범위 4~8의 하한인 4를 사용합니다.',
     parsingReasoningContent: '추론 내용 파싱',
     CPUOffload: 'CPU 오프로드',
     CPUOffloadTip:

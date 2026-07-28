@@ -139,6 +139,19 @@ const en = {
     lightningModelPath: 'Lightning Model Path',
     lightningModelPathPlaceholder: 'Lightning Model Path',
     enableThinking: 'Enable Thinking',
+    enableMtp: 'Enable MTP',
+    speculativeDecoding: 'Speculative Decoding',
+    draftModelQuantization: 'Drafter Quantization',
+    draftModelQuantizationPlaceholder: 'Defaults to the first available',
+    numSpeculativeTokens: 'Speculative Tokens',
+    numSpeculativeTokensPlaceholder: 'engine default',
+    numSpeculativeTokensPlaceholderValue: 'engine default: {{value}}',
+    enableMtpTip:
+      'Runs a small drafter alongside the model that proposes several tokens per round, which the model then verifies in one pass. Output is identical, decoding is faster. Enabling it downloads an extra drafter checkpoint.',
+    draftModelQuantizationTip:
+      'A drafter is small, so quantizing it saves little memory while lowering the acceptance rate. The unquantized conversion is recommended even for a quantized target model.',
+    numSpeculativeTokensTip:
+      'Tokens the drafter proposes per round, including the bonus token. Left unset, MLX reads the drafter training depth (4 for Gemma 4). For Gemma 4, llama.cpp, vLLM, and SGLang follow the size recipe: 2 for E2B, 4 for E4B and 26B-A4B, and 4 for 12B and 31B (the lower end of their recommended 4–8 range).',
     parsingReasoningContent: 'Parsing Reasoning Content',
     CPUOffload: 'CPU Offload',
     CPUOffloadTip:

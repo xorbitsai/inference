@@ -1415,9 +1415,34 @@ class SupervisorActor(xo.StatelessActor):
                 continue
             model_family.model_specs = [spec]
             cache_manager = cache_manager_cls(model_family)
-            specs.append(
-                {**spec.dict(), "cache_status": cache_manager.get_cache_status()}
-            )
+            spec_dict = {
+                **spec.dict(),
+                "cache_status": cache_manager.get_cache_status(),
+            }
+            if getattr(spec, "draft_model_id", None) or getattr(
+                spec, "draft_model_file_name_template", None
+            ):
+                # see WorkerActor._get_spec_dicts_with_cache_status
+                try:
+                    spec_dict["draft_cache_status"] = [
+                        cache_manager_cls(
+                            model_family, use_draft_model=True, draft_quantization=quant
+                        ).get_cache_status()
+                        for quant in (
+                            getattr(spec, "draft_quantizations", None) or [None]
+                        )
+                    ]
+                except ValueError as e:
+                    # what the cache manager raises for a drafter shape that does
+                    # not add up; anything else is a bug worth surfacing
+                    logger.warning(
+                        "Ignoring the drafter of %s (%s): %s",
+                        model_family.model_name,
+                        spec.model_format,
+                        e,
+                    )
+                    spec_dict["draft_cache_status"] = []
+            specs.append(spec_dict)
         return specs, list(download_hubs)
 
     async def _to_llm_reg(

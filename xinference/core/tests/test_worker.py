@@ -2230,3 +2230,91 @@ async def test_try_recover_models_migrates_legacy_replica_uid(monkeypatch):
     ]
     assert worker.launch_model_uid == replica_model_uid
     assert worker.wait_for_load_called_with == replica_model_uid
+
+
+@pytest.mark.asyncio
+async def test_list_deletable_models_includes_drafters(tmp_path):
+    """Deleting a model's cache must also remove the drafters downloaded for
+    speculative decoding, one per drafter quantization, instead of orphaning
+    ~1GB directories next to it."""
+    cache_dir = tmp_path / "gemma-4-mlx-12b-4bit"
+    cache_dir.mkdir()
+    (cache_dir / "config.json").write_text("{}")
+
+    # two drafter conversions downloaded for the same model
+    for quant in ("bf16", "8bit"):
+        draft_dir = tmp_path / f"gemma-4-mlx-12b-4bit-draft-{quant}"
+        draft_dir.mkdir()
+        (draft_dir / "model.safetensors").write_text("weights")
+
+    # an unrelated model must not be swept up
+    other = tmp_path / "gemma-4-mlx-2b-4bit-draft-bf16"
+    other.mkdir()
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(cache_dir)
+
+    # a plain stub: xoscar actors cannot be built with object.__new__
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+    worker = _Worker()
+
+    paths = await WorkerActor.list_deletable_models(worker, "gemma-4-mlx-12b-4bit")
+
+    assert str(cache_dir) in paths
+    for quant in ("bf16", "8bit"):
+        draft_dir = tmp_path / f"gemma-4-mlx-12b-4bit-draft-{quant}"
+        assert str(draft_dir) in paths
+        assert str(draft_dir / "model.safetensors") in paths
+    assert str(other) not in paths
+
+
+@pytest.mark.asyncio
+async def test_list_deletable_models_keeps_shared_drafter_downloads(tmp_path):
+    """One drafter download is shared by every quantization of its target, so
+    only our own cache entries may be deleted — resolving the links would take
+    the download out from under the sibling quantizations."""
+    hub = tmp_path / "hub"
+    hub.mkdir()
+    blob = hub / "mtp-gemma-4-12b-it-BF16.gguf"
+    blob.write_text("weights")
+    snapshot = hub / "snapshot"
+    snapshot.mkdir()
+    (snapshot / "model.safetensors").write_text("weights")
+
+    cache_dir = tmp_path / "gemma-4-ggufv2-12b-Q4_K_M"
+    cache_dir.mkdir()
+
+    # a gguf drafter: a real directory holding a link to the shared file
+    gguf_draft = tmp_path / "gemma-4-ggufv2-12b-Q4_K_M-draft-BF16"
+    (gguf_draft / "MTP").mkdir(parents=True)
+    linked_file = gguf_draft / "MTP" / "mtp-gemma-4-12b-it-BF16.gguf"
+    linked_file.symlink_to(blob)
+
+    # a snapshot-style drafter: the cache entry is itself a link
+    snapshot_draft = tmp_path / "gemma-4-ggufv2-12b-Q4_K_M-draft-Q8_0"
+    snapshot_draft.symlink_to(snapshot, target_is_directory=True)
+
+    class _Tracker:
+        async def list_deletable_models(self, model_version, address):
+            return str(cache_dir)
+
+    class _Worker:
+        def __init__(self):
+            self._cache_tracker_ref = _Tracker()
+            self.address = "127.0.0.1:0"
+
+    paths = await WorkerActor.list_deletable_models(_Worker(), "gemma-4")
+
+    assert str(gguf_draft) in paths
+    assert str(linked_file) in paths
+    assert str(snapshot_draft) in paths
+    # what the links point at stays: it belongs to the hub cache, and the
+    # target's other quantizations link to the very same download
+    assert str(blob) not in paths
+    assert str(snapshot) not in paths
+    assert str(snapshot / "model.safetensors") not in paths

@@ -136,6 +136,19 @@ const zh = {
     lightningModelPath: '蒸馏 Lora 路径',
     lightningModelPathPlaceholder: '蒸馏lora路径',
     enableThinking: '开启思考模式',
+    enableMtp: '开启 MTP',
+    speculativeDecoding: '推测解码',
+    draftModelQuantization: '草稿模型量化',
+    draftModelQuantizationPlaceholder: '默认使用第一个可用项',
+    numSpeculativeTokens: '推测 Token 数',
+    numSpeculativeTokensPlaceholder: '引擎默认值',
+    numSpeculativeTokensPlaceholderValue: '引擎默认 {{value}}',
+    enableMtpTip:
+      '在模型旁边运行一个小的草稿模型，每轮提议若干 token，再由模型一次性验证。输出完全一致，解码更快。开启会额外下载一份草稿模型权重。',
+    draftModelQuantizationTip:
+      '草稿模型本身很小，量化它省不了多少内存，却会降低接受率。即使目标模型是量化版，也建议用未量化的草稿模型。',
+    numSpeculativeTokensTip:
+      '每轮草稿模型提议的 token 数（含 bonus token）。留空时，MLX 读取草稿模型的训练深度（Gemma 4 是 4）；Gemma 4 的 llama.cpp、vLLM 和 SGLang 按模型大小使用同一份 recipe：E2B 为 2，E4B 和 26B-A4B 为 4，12B 和 31B 取推荐范围 4–8 的下限 4。',
     parsingReasoningContent: '解析推理内容',
     CPUOffload: 'CPU卸载',
     CPUOffloadTip: '将模型卸载到CPU。当资源有限或使用GGUF选项时，建议启用此功能。',

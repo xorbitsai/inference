@@ -100,6 +100,7 @@ from .utils import (
     log_async,
     log_sync,
     merge_virtual_env_packages,
+    normalize_sglang_kernel_packages,
     parse_legacy_replica_model_uid,
     parse_replica_model_uid,
     purge_dir,
@@ -877,9 +878,39 @@ class WorkerActor(xo.StatelessActor):
             family_copy = model_family.copy()
             family_copy.model_specs = [spec]
             cache_manager = cache_manager_cls(family_copy)
-            specs.append(
-                {**spec.dict(), "cache_status": cache_manager.get_cache_status()}
-            )
+            spec_dict = {
+                **spec.dict(),
+                "cache_status": cache_manager.get_cache_status(),
+            }
+            if getattr(spec, "draft_model_id", None) or getattr(
+                spec, "draft_model_file_name_template", None
+            ):
+                # the drafter used for speculative decoding is downloaded on
+                # demand, report one status per drafter quantization so the UI
+                # can tell users which of them costs an extra download.
+                # A spec whose drafter fields do not add up is reported as not
+                # cached: it cannot be launched either way, and listing every
+                # other model must not fail because of one bad registration.
+                try:
+                    spec_dict["draft_cache_status"] = [
+                        cache_manager_cls(
+                            family_copy, use_draft_model=True, draft_quantization=quant
+                        ).get_cache_status()
+                        for quant in (
+                            getattr(spec, "draft_quantizations", None) or [None]
+                        )
+                    ]
+                except ValueError as e:
+                    # what the cache manager raises for a drafter shape that does
+                    # not add up; anything else is a bug worth surfacing
+                    logger.warning(
+                        "Ignoring the drafter of %s (%s): %s",
+                        model_family.model_name,
+                        spec.model_format,
+                        e,
+                    )
+                    spec_dict["draft_cache_status"] = []
+            specs.append(spec_dict)
         return specs, download_hubs
 
     def _prefer_model_hub(self, model_family: Any, preferred_hub: str = "huggingface"):
@@ -2878,6 +2909,7 @@ class WorkerActor(xo.StatelessActor):
         # Reuse the engine/CUDA/platform-filtered list computed above for the
         # PyTorch index decision — same inputs, so the result is identical.
         packages = active_packages
+        packages, modern_sglang_kernel = normalize_sglang_kernel_packages(packages)
 
         critical_specs = get_engine_critical_dependency_specs(model_engine, packages)
         if critical_specs:
@@ -2926,6 +2958,11 @@ class WorkerActor(xo.StatelessActor):
             # the GPU index even when a same-version CPU wheel is already
             # present.
             conf["skip_installed"] = False
+        if modern_sglang_kernel:
+            # The recipe pins a coherent SGLang release stack.  Re-run its
+            # resolver even when the top-level packages are cached so exact
+            # transitive pins such as Transformers and Torch are repaired too.
+            conf["skip_installed"] = False
         variables = {}
         if model_engine:
             engine_value = model_engine.lower()
@@ -2939,6 +2976,11 @@ class WorkerActor(xo.StatelessActor):
             ", ".join([f"{k}={v}" for k, v in conf.items() if v]),
         )
         with _exclusive_venv_path_lock(str(virtual_env_manager.env_path)):
+            if modern_sglang_kernel:
+                # SGLang 0.5.11 renamed the distribution while retaining the
+                # same import package.  Remove the cached legacy owner before
+                # the new wheel writes those files.
+                cls._uninstall_venv_package(virtual_env_manager, "sgl-kernel")
             if force_reinstall_xllamacpp:
                 cls._uninstall_venv_package(virtual_env_manager, "xllamacpp")
             virtual_env_manager.install_packages(packages, **conf, **variables)
@@ -2950,8 +2992,15 @@ class WorkerActor(xo.StatelessActor):
             # must stay serialized with install_packages() and other AOT
             # upgrades when multiple replicas/workers share this venv.
             # See optimize/20260702/2026070209.md
-            from .virtual_env_manager import apply_flashinfer_aot_post_install
+            from .virtual_env_manager import (
+                apply_flashinfer_aot_post_install,
+                ensure_flashinfer_cubin_matches_post_install,
+                ensure_sglang_inherited_packages_compatible_post_install,
+            )
 
+            ensure_sglang_inherited_packages_compatible_post_install(
+                model_engine, virtual_env_manager
+            )
             if XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL:
                 logger.info(
                     "Skipping the FlashInfer AOT post-install from its public "
@@ -2965,6 +3014,11 @@ class WorkerActor(xo.StatelessActor):
                     conf,
                     cuda_version,
                 )
+            ensure_flashinfer_cubin_matches_post_install(
+                model_engine,
+                virtual_env_manager,
+                allow_public_install=not XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL,
+            )
 
         # Apply engine-specific post-install patches
         if model_engine and model_engine.lower() == "vllm":
@@ -3166,7 +3220,10 @@ class WorkerActor(xo.StatelessActor):
                         virtual_env_manager
                     )
                     subpool_envs = build_subpool_envs_for_virtual_env(
-                        envs, enable_virtual_env, virtual_env_manager
+                        envs,
+                        enable_virtual_env,
+                        virtual_env_manager,
+                        model_engine,
                     )
                     # Reserve devices now (before download/virtualenv
                     # install): allocate_devices/allocate_devices_with_gpu_idx
@@ -4100,6 +4157,31 @@ class WorkerActor(xo.StatelessActor):
             if os.path.isdir(tensorizer_path):
                 files = os.listdir(tensorizer_path)
                 paths.update([os.path.join(tensorizer_path, file) for file in files])
+
+            # get the drafters cached for speculative decoding, so that they are
+            # removed along with the model they belong to instead of being
+            # orphaned, e.g. Gemma 4 MTP's ``*-it-assistant``. One model may have
+            # several, one per drafter quantization: ``<cache_dir>-draft-<quant>``.
+            #
+            # Only the entries under our own cache dir are removed here, never
+            # what they resolve to: unlike a model file, one drafter is shared by
+            # every quantization of its target, so all their `-draft-<quant>`
+            # directories link to the same download. Deleting the download would
+            # leave the sibling quantizations reporting a cached drafter that no
+            # longer loads. The hub cache keeps the blob; its own tooling
+            # reclaims it.
+            draft_prefix = f"{os.path.basename(path)}-draft"
+            parent_dir = os.path.dirname(path)
+            for entry in os.listdir(parent_dir) if os.path.isdir(parent_dir) else []:
+                if not entry.startswith(draft_prefix):
+                    continue
+                draft_path = os.path.join(parent_dir, entry)
+                paths.add(draft_path)
+                if os.path.islink(draft_path):
+                    # a snapshot-style drafter: the link itself is all we own
+                    continue
+                for root, _dirs, files in os.walk(draft_path):
+                    paths.update(os.path.join(root, name) for name in files)
 
         return list(paths)
 

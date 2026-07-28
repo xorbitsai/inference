@@ -39,6 +39,7 @@ export const KWARGS_OPTIONS_FOR_ENGINES: Record<string, Array<{ label: string; v
     { label: 'n_ctx', value: 'n_ctx' },
     { label: 'use_mmap', value: 'use_mmap' },
     { label: 'use_mlock', value: 'use_mlock' },
+    { label: 'draft_model_path', value: 'draft_model_path' },
   ],
   vllm: [
     { label: 'block_size', value: 'block_size' },
@@ -60,6 +61,7 @@ export const KWARGS_OPTIONS_FOR_ENGINES: Record<string, Array<{ label: string; v
     { label: 'mm_processor_kwargs', value: 'mm_processor_kwargs' },
     { label: 'min_pixels', value: 'min_pixels' },
     { label: 'max_pixels', value: 'max_pixels' },
+    { label: 'draft_model_path', value: 'draft_model_path' },
   ],
   sglang: [
     { label: 'mem_fraction_static', value: 'mem_fraction_static' },
@@ -70,12 +72,37 @@ export const KWARGS_OPTIONS_FOR_ENGINES: Record<string, Array<{ label: string; v
     { label: 'cpu_offload_gb', value: 'cpu_offload_gb' },
     { label: 'enable_dp_attention', value: 'enable_dp_attention' },
     { label: 'enable_ep_moe', value: 'enable_ep_moe' },
+    { label: 'draft_model_path', value: 'draft_model_path' },
   ],
   mlx: [
     { label: 'cache_limit_gb', value: 'cache_limit_gb' },
     { label: 'max_kv_size', value: 'max_kv_size' },
+    { label: 'draft_model_path', value: 'draft_model_path' },
   ],
 };
+/**
+ * Tokens the drafter proposes per round when the launch leaves it unset, shown
+ * so the field can name the value that will actually apply.
+ *
+ * MLX reads it from the drafter, which runs at the depth it was trained for
+ * (4 for Gemma 4). Gemma 4 on llama.cpp, vLLM, and SGLang follows the shared
+ * per-size recipe below; other llama.cpp models keep xllamacpp's own default.
+ */
+export const SPECULATIVE_TOKENS_DEFAULT_BY_ENGINE: Record<string, number> = {
+  mlx: 4,
+  vllm: 1,
+  sglang: 6,
+  'llama.cpp': 3,
+};
+
+export const GEMMA_4_SPECULATIVE_TOKENS_BY_SIZE: Record<string, number> = {
+  '2': 2,
+  '4': 4,
+  '12': 4,
+  '26': 4,
+  '31': 4,
+};
+
 export const QUANTIZATION_OPTIONS = [
   { label: 'load_in_8bit', value: 'load_in_8bit' },
   { label: 'load_in_4bit', value: 'load_in_4bit' },
@@ -120,6 +147,9 @@ export const ALL_FORM_KEYS = [
   'peft_model_config',
   'quantization_config',
   'enable_thinking',
+  'enable_mtp',
+  'num_speculative_tokens',
+  'draft_quantization',
   'multimodal_projector',
   'enable_virtual_env',
   'virtual_env_packages',

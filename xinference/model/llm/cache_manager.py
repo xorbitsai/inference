@@ -27,7 +27,11 @@ logger = logging.getLogger(__name__)
 
 class LLMCacheManager(CacheManager):
     def __init__(
-        self, llm_family: "LLMFamilyV2", multimodal_projector: Optional[str] = None
+        self,
+        llm_family: "LLMFamilyV2",
+        multimodal_projector: Optional[str] = None,
+        use_draft_model: bool = False,
+        draft_quantization: Optional[str] = None,
     ):
         super().__init__(llm_family)
         self._llm_family = llm_family
@@ -42,10 +46,117 @@ class LLMCacheManager(CacheManager):
         self._model_id = llm_family.model_specs[0].model_id
         self._model_hub = llm_family.model_specs[0].model_hub
         self._model_revision = llm_family.model_specs[0].model_revision
+        # Set when caching a gguf drafter: a single file rather than a snapshot.
+        self._draft_file_name: Optional[str] = None
+        self._use_draft_model = use_draft_model
         self._cache_dir = os.path.join(
             self._v2_cache_dir_prefix,
             f"{self._model_name.replace('.', '_')}-{self._model_format}-"
             f"{self._model_size_in_billions}b-{self._quantization}",
+        )
+        if use_draft_model:
+            # Cache the paired drafter checkpoint instead of the target model,
+            # reusing the download logic below with a dedicated cache dir.
+            spec = llm_family.model_specs[0]
+            draft_model_id = getattr(spec, "draft_model_id", None)
+            draft_template = getattr(spec, "draft_model_file_name_template", None)
+            if not draft_model_id and draft_template:
+                # a gguf drafter usually ships inside the target's own repo
+                draft_model_id = spec.model_id
+            if not draft_model_id:
+                raise ValueError(
+                    f"Model {self._model_name} ({self._model_format}, "
+                    f"{self._model_size_in_billions}b, {self._quantization}) does not "
+                    f"declare a drafter model on hub {self._model_hub}. Please pass "
+                    f"`draft_model_path` to use a local drafter."
+                )
+            draft_quantizations = getattr(spec, "draft_quantizations", None) or []
+            if draft_quantization is None:
+                draft_quantization = (
+                    draft_quantizations[0] if draft_quantizations else None
+                )
+            elif draft_quantizations and draft_quantization not in draft_quantizations:
+                raise ValueError(
+                    f"Drafter quantization {draft_quantization!r} is not available "
+                    f"for {self._model_name} ({self._model_format}, "
+                    f"{self._model_size_in_billions}b), "
+                    f"available: {draft_quantizations}"
+                )
+            self._draft_quantization = draft_quantization
+            if "{draft_quantization}" in draft_model_id and not draft_quantization:
+                raise ValueError(
+                    f"Model {self._model_name} declares the templated drafter "
+                    f"{draft_model_id!r} but no `draft_quantizations`."
+                )
+            # unconditionally, like the file template below: a field carrying
+            # some other placeholder has to fail here rather than reach the hub
+            # verbatim and 404 at download time
+            draft_model_id = self._format_draft_field(
+                draft_model_id, draft_quantization, "draft_model_id"
+            )
+            self._model_id = draft_model_id
+            self._model_revision = getattr(spec, "draft_model_revision", None)
+            if draft_template:
+                if "{draft_quantization}" in draft_template and not draft_quantization:
+                    raise ValueError(
+                        f"Model {self._model_name} declares the drafter file "
+                        f"{draft_template!r} but no `draft_quantizations`."
+                    )
+                self._draft_file_name = self._format_draft_field(
+                    draft_template,
+                    draft_quantization,
+                    "draft_model_file_name_template",
+                )
+            elif self._model_format == "ggufv2":
+                # A gguf download is per file, so without a template there is no
+                # drafter file to ask for; falling through would request the
+                # target's file name from the drafter repository.
+                raise ValueError(
+                    f"Model {self._model_name} declares the drafter "
+                    f"{draft_model_id!r} but no `draft_model_file_name_template`, "
+                    f"which a gguf drafter needs. Pass `draft_model_path` to use "
+                    f"a local drafter file instead."
+                )
+            # The drafter is downloaded on its own, never through the target's
+            # local URI or its multimodal projector.
+            self._model_uri = None
+            self._multimodal_projector = None
+            # Keep the quantization in the path so drafters converted differently
+            # do not collide, and so ``list_deletable_models`` can find them all
+            # by the ``-draft`` prefix.
+            suffix = f"-draft-{draft_quantization}" if draft_quantization else "-draft"
+            self._cache_dir = f"{self._cache_dir}{suffix}"
+
+    @staticmethod
+    def _format_draft_field(
+        template: str, draft_quantization: Optional[str], field: str
+    ) -> str:
+        """Fill ``{draft_quantization}`` in a drafter field.
+
+        Any other placeholder makes ``str.format`` raise KeyError or IndexError.
+        Nothing validates a user-registered spec, so those are normalized into
+        the ValueError the callers already expect for a drafter shape that does
+        not add up — a listing call must not fail over one bad registration.
+        """
+        try:
+            return template.format(draft_quantization=draft_quantization)
+        except (KeyError, IndexError) as exc:
+            raise ValueError(
+                f"{field} {template!r} carries a placeholder other than "
+                f"`{{draft_quantization}}`: {exc!r}"
+            )
+
+    def _gguf_file_names(self):
+        """File list for a gguf download: the drafter is a single file."""
+        from ..utils import generate_model_file_names_with_quantization_parts
+
+        if self._use_draft_model:
+            # guarded in __init__; never fall through to the target's file names,
+            # they do not exist in the drafter repository
+            assert self._draft_file_name, "no drafter file to download"
+            return [self._draft_file_name], self._draft_file_name, False
+        return generate_model_file_names_with_quantization_parts(
+            self._llm_family.model_specs[0], self._multimodal_projector
         )
 
     def cache_uri(self) -> str:
@@ -103,7 +214,6 @@ class LLMCacheManager(CacheManager):
         from ..utils import (
             IS_NEW_HUGGINGFACE_HUB,
             create_symlink,
-            generate_model_file_names_with_quantization_parts,
             merge_cached_files,
             retry_download,
             symlink_local_file,
@@ -138,11 +248,7 @@ class LLMCacheManager(CacheManager):
             if IS_NEW_HUGGINGFACE_HUB:
                 create_symlink(download_dir, cache_dir)
         elif self._model_format in ["ggufv2"]:
-            file_names, final_file_name, need_merge = (
-                generate_model_file_names_with_quantization_parts(
-                    self._llm_family.model_specs[0], self._multimodal_projector
-                )
-            )
+            file_names, final_file_name, need_merge = self._gguf_file_names()
 
             for file_name in file_names:
                 download_file_path = retry_download(
@@ -176,7 +282,6 @@ class LLMCacheManager(CacheManager):
 
         from ..utils import (
             create_symlink,
-            generate_model_file_names_with_quantization_parts,
             merge_cached_files,
             retry_download,
             symlink_local_file,
@@ -215,11 +320,7 @@ class LLMCacheManager(CacheManager):
             create_symlink(download_dir, cache_dir)
 
         elif self._model_format in ["ggufv2"]:
-            file_names, final_file_name, need_merge = (
-                generate_model_file_names_with_quantization_parts(
-                    self._llm_family.model_specs[0], self._multimodal_projector
-                )
-            )
+            file_names, final_file_name, need_merge = self._gguf_file_names()
 
             for filename in file_names:
                 download_path = retry_download(
@@ -281,7 +382,6 @@ class LLMCacheManager(CacheManager):
         from ...constants import XINFERENCE_CSG_ENDPOINT, XINFERENCE_ENV_CSG_TOKEN
         from ..utils import (
             create_symlink,
-            generate_model_file_names_with_quantization_parts,
             merge_cached_files,
             retry_download,
             symlink_local_file,
@@ -305,11 +405,7 @@ class LLMCacheManager(CacheManager):
             )
             create_symlink(download_dir, cache_dir)
         elif self._model_format in ["ggufv2"]:
-            file_names, final_file_name, need_merge = (
-                generate_model_file_names_with_quantization_parts(
-                    self._llm_family.model_specs[0], self._multimodal_projector
-                )
-            )
+            file_names, final_file_name, need_merge = self._gguf_file_names()
 
             for filename in file_names:
                 download_path = retry_download(

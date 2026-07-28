@@ -22,15 +22,21 @@ npm run dev
 
 Open http://127.0.0.1:3999.
 
-In dev mode, the frontend proxies API requests to `http://127.0.0.1:9997`. To
-use a different backend endpoint:
+`.env.development` points the browser straight at `http://127.0.0.1:9997`.
+Keep it that way unless you know you want the proxy: with `NEXT_PUBLIC_API_URL`
+unset the browser talks to the Next dev server instead, and its rewrite proxy
+buffers responses — streaming endpoints (chat completions and friends) then
+deliver the whole answer in one go, which looks like the backend lost its
+streaming support.
+
+To use a different backend endpoint:
 
 ```bash
-XINFERENCE_API_URL=http://127.0.0.1:6735 npm run dev
+NEXT_PUBLIC_API_URL=http://127.0.0.1:6735 npm run dev
 ```
 
-For direct browser requests to a non-default backend, use
-`NEXT_PUBLIC_API_URL` instead.
+`XINFERENCE_API_URL` sets the proxy target instead, for the same-origin setup
+where the browser goes through the dev server.
 
 ## Build
 

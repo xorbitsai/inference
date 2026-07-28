@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import concurrent.futures
+import glob
 import logging
 import os
 import pprint
@@ -31,7 +32,7 @@ from ....types import (
     CompletionChunk,
 )
 from ...utils import check_dependency_available
-from ..core import LLM, chat_context_var
+from ..core import LLM, chat_context_var, get_model_speculative_tokens_default
 from ..llm_family import LLMFamilyV2, LLMSpecV1
 from ..utils import ChatModelMixin, normalize_response_format
 
@@ -129,6 +130,7 @@ def _make_stream_stop_chunk(
 
 class XllamaCppModel(LLM, ChatModelMixin):
     allow_batch = True
+    support_draft_model = True
 
     def __init__(
         self,
@@ -141,6 +143,102 @@ class XllamaCppModel(LLM, ChatModelMixin):
         self._llamacpp_model_config = self._sanitize_model_config(llamacpp_model_config)
         self._llm = None
         self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
+
+    # Engine-neutral speculative options: read, never forwarded. The dotted-key
+    # loop has to skip them rather than pop them — CommonParams has no such
+    # attributes, so passing them through logs a failure for each on every
+    # speculative launch, while removing them would lose the drafter on the
+    # load retry, which reuses this instance and its config.
+    DRAFT_OPTION_KEYS = ("draft_model_path", "num_speculative_tokens")
+    # Which passthrough keys mean "the user is choosing the speculative mode
+    # themselves". Tuning knobs like speculative.draft.n_min are not selectors
+    # and must not disable the drafter.
+    SPECULATIVE_SELECTOR_KEYS = (
+        "speculative.types",
+        "speculative.draft.mparams.path",
+    )
+
+    def _draft_options(self) -> Tuple[Optional[str], Optional[Any]]:
+        return (
+            self._llamacpp_model_config.get("draft_model_path"),
+            self._llamacpp_model_config.get("num_speculative_tokens"),
+        )
+
+    def _default_num_speculative_tokens(self, fallback: int) -> int:
+        return get_model_speculative_tokens_default(
+            getattr(self.model_family, "model_name", None),
+            getattr(self.model_spec, "model_size_in_billions", None),
+            fallback,
+        )
+
+    def _apply_draft_model(
+        self, params, draft_model_path: Optional[str], num_speculative_tokens: Any
+    ) -> None:
+        """Point llama.cpp at the drafter for MTP speculative decoding.
+
+        ``draft-mtp`` covers Gemma 4 style assistants, which are a separate
+        model sharing the target's KV cache; llama.cpp learned that
+        architecture (``gemma4-assistant``) in xllamacpp 2026.6.9713.
+        """
+        if not draft_model_path:
+            return
+
+        if any(
+            key in self._llamacpp_model_config for key in self.SPECULATIVE_SELECTOR_KEYS
+        ):
+            # The user is driving llama.cpp's speculative decoding directly, and
+            # the dotted-key loop has already applied it.
+            logger.info(
+                "Ignoring the drafter of %s, speculative params were set explicitly",
+                self.model_uid,
+            )
+            return
+
+        if os.path.isdir(draft_model_path):
+            # the cache dir holds the single drafter file
+            # recursive=True or ** collapses to a single level, which would miss
+            # a drafter sitting directly in the directory
+            ggufs = sorted(
+                glob.glob(
+                    os.path.join(draft_model_path, "**", "*.gguf"), recursive=True
+                )
+            )
+            if not ggufs:
+                raise ValueError(f"No gguf drafter found under {draft_model_path}")
+            draft_model_path = ggufs[0]
+
+        try:
+            from xllamacpp import common_speculative_type
+        except ImportError:
+            raise ImportError(
+                "Speculative decoding needs a xllamacpp that knows the "
+                "`gemma4-assistant` architecture, xllamacpp>=2026.6.9713"
+            )
+        mtp = getattr(
+            common_speculative_type, "COMMON_SPECULATIVE_TYPE_DRAFT_MTP", None
+        )
+        if mtp is None:
+            raise ValueError(
+                "The installed xllamacpp has no MTP speculative implementation, "
+                "upgrade to xllamacpp>=2026.6.9713"
+            )
+
+        params.speculative.types = [mtp]
+        params.speculative.draft.mparams.path = draft_model_path
+        from ..core import parse_num_speculative_tokens
+
+        requested = parse_num_speculative_tokens(num_speculative_tokens)
+        params.speculative.draft.n_max = (
+            requested
+            if requested is not None
+            else self._default_num_speculative_tokens(params.speculative.draft.n_max)
+        )
+        logger.info(
+            "Speculative decoding enabled for %s: draft-mtp with %s, n_max %s",
+            self.model_uid,
+            draft_model_path,
+            params.speculative.draft.n_max,
+        )
 
     def _sanitize_model_config(self, llamacpp_model_config: Optional[dict]) -> dict:
         if llamacpp_model_config is None:
@@ -271,7 +369,10 @@ class XllamaCppModel(LLM, ChatModelMixin):
             params.use_jinja = True
             # This is the default value, could be overwritten by _llamacpp_model_config
             params.n_parallel = min(8, os.cpu_count() or 1)
+            draft_options = self._draft_options()
             for k, v in self._llamacpp_model_config.items():
+                if k in self.DRAFT_OPTION_KEYS:
+                    continue
                 try:
                     if "." in k:
                         parts = k.split(".")
@@ -283,6 +384,7 @@ class XllamaCppModel(LLM, ChatModelMixin):
                         setattr(params, k, v)
                 except Exception as e:
                     logger.error("Failed to set the param %s = %s, error: %s", k, v, e)
+            self._apply_draft_model(params, *draft_options)
             n_threads = self._llamacpp_model_config.get("n_threads", os.cpu_count())
             params.cpuparams.n_threads = n_threads
             params.cpuparams_batch.n_threads = n_threads

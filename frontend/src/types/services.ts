@@ -91,6 +91,8 @@ export type ModelEngineItem = {
   multimodal_projectors?: string[];
   quantization?: string;
   quantizations?: string[];
+  /** whether this engine can run a drafter for speculative decoding */
+  support_draft_model?: boolean;
 };
 export type ModelEngine = Record<string, string | ModelEngineItem[]>;
 

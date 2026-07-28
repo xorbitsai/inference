@@ -31,8 +31,10 @@ ENGINE_VIRTUALENV_PACKAGES: Dict[str, List[str]] = {
         "sentencepiece",
         "dill",
         "ninja",
-        "numpy>=2.4.1",
+        "numpy<2.3",
+        "pandas<3",
         "sglang>=0.5.6",
+        'nvidia-cusparselt-cu13==0.8.0 ; cuda_version == "13.0" and sys_platform == "linux"',
         'https://github.com/sgl-project/whl/releases/download/v0.3.21/sgl_kernel-0.3.21+cu130-cp310-abi3-manylinux2014_x86_64.whl ; cuda_version == "13.0" and platform_machine == "x86_64"',
         'https://github.com/sgl-project/whl/releases/download/v0.3.21/sgl_kernel-0.3.21+cu130-cp310-abi3-manylinux2014_aarch64.whl ; cuda_version == "13.0" and platform_machine == "aarch64"',
         'sgl_kernel ; cuda_version < "13.0"',
@@ -836,7 +838,225 @@ FLASHINFER_AOT_PACKAGES = [
     "flashinfer-cubin==0.6.11.post3",
     "flashinfer-jit-cache==0.6.11.post3+cu130",
 ]
+FLASHINFER_CUBIN_WHEEL_URL = "https://flashinfer.ai/whl"
 FLASHINFER_AOT_WHEEL_URL = "https://flashinfer.ai/whl/cu130"
+
+
+def _get_virtualenv_distribution_version(
+    virtual_env_manager: Any, distribution: str
+) -> Optional[str]:
+    try:
+        python_path = resolve_virtualenv_python_path(virtual_env_manager)
+    except (AttributeError, TypeError):
+        return None
+    if not python_path:
+        return None
+    try:
+        result = subprocess.run(
+            [
+                python_path,
+                "-c",
+                (
+                    "import importlib.metadata as metadata; "
+                    f"print(metadata.version({distribution!r}))"
+                ),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
+
+
+def ensure_sglang_inherited_packages_compatible_post_install(
+    model_engine: Optional[str], virtual_env_manager: Any
+) -> None:
+    """Keep SGLang dependencies compatible with inherited numba/cudf packages.
+
+    SGLang and datasets leave NumPy and pandas broadly constrained, while the
+    actor subprocess inherits parent site-packages so xoscar can import its
+    serializers.  New child versions can therefore break inherited numba/cudf
+    before SGLang starts.  New environments carry explicit compatibility caps;
+    when the parent already has a compatible version, repair a cached environment
+    without downloading anything by removing only the shadowing child copy.
+    """
+    if not model_engine or model_engine.lower() != "sglang":
+        return
+
+    import importlib.metadata
+
+    from packaging.specifiers import SpecifierSet
+    from packaging.version import Version
+
+    constraints = {"numpy": "<2.3", "pandas": "<3"}
+    for distribution, specifier in constraints.items():
+        compatible = SpecifierSet(specifier)
+        try:
+            system_version = importlib.metadata.version(distribution)
+        except importlib.metadata.PackageNotFoundError:
+            continue
+        virtualenv_version = _get_virtualenv_distribution_version(
+            virtual_env_manager, distribution
+        )
+        if virtualenv_version is None or Version(virtualenv_version) in compatible:
+            continue
+        if Version(system_version) not in compatible:
+            raise RuntimeError(
+                f"SGLang requires {distribution}{specifier} for compatibility "
+                f"with inherited numba/cudf packages, but virtualenv "
+                f"{distribution} is {virtualenv_version} and system "
+                f"{distribution} is {system_version}."
+            )
+
+        logger.warning(
+            "Incompatible SGLang virtualenv %s %s shadows system %s %s in %s; "
+            "removing the child copy",
+            distribution,
+            virtualenv_version,
+            distribution,
+            system_version,
+            virtual_env_manager.env_path,
+        )
+        uv_path = None
+        if hasattr(virtual_env_manager, "_get_uv_path"):
+            try:
+                uv_path = virtual_env_manager._get_uv_path()
+            except Exception:
+                pass
+        if not uv_path:
+            uv_path = shutil.which("uv") or "uv"
+        python_path = resolve_virtualenv_python_path(virtual_env_manager)
+        if not python_path:
+            raise RuntimeError(
+                f"Cannot repair the SGLang virtualenv {distribution} mismatch: "
+                "virtualenv Python was not found."
+            )
+
+        result = subprocess.run(
+            [
+                uv_path,
+                "pip",
+                "uninstall",
+                "--python",
+                python_path,
+                distribution,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        repaired_version = _get_virtualenv_distribution_version(
+            virtual_env_manager, distribution
+        )
+        if (
+            result.returncode != 0
+            or repaired_version is None
+            or Version(repaired_version) not in compatible
+        ):
+            detail = result.stderr[-500:] if result.stderr else "(empty)"
+            raise RuntimeError(
+                f"Failed to repair the incompatible SGLang virtualenv "
+                f"{distribution} {virtualenv_version}; system {distribution} "
+                f"is {system_version}: {detail}"
+            )
+        logger.info(
+            "SGLang virtualenv now uses compatible %s %s",
+            distribution,
+            repaired_version,
+        )
+
+
+def ensure_flashinfer_cubin_matches_post_install(
+    model_engine: Optional[str],
+    virtual_env_manager: Any,
+    allow_public_install: bool = True,
+) -> None:
+    """Keep FlashInfer's Python package and cubin package on the same version.
+
+    ``flashinfer-cubin`` lives on FlashInfer's own wheel index. A reused vLLM
+    environment can therefore upgrade ``flashinfer-python`` from PyPI while
+    retaining an older cubin from a previous engine wheel index. FlashInfer
+    rejects that pair at import time before the model can load.
+
+    Repair the cubin in place from the official index. In explicit offline mode
+    (or if the repair fails), use FlashInfer's documented version-check bypass
+    so a stale environment does not fail before engine initialization.
+    """
+    if not model_engine or model_engine.lower() != "vllm":
+        return
+
+    python_version = _get_virtualenv_distribution_version(
+        virtual_env_manager, "flashinfer-python"
+    )
+    if python_version is None:
+        return
+    cubin_version = _get_virtualenv_distribution_version(
+        virtual_env_manager, "flashinfer-cubin"
+    )
+    if cubin_version == python_version:
+        return
+
+    logger.warning(
+        "FlashInfer package mismatch in %s: flashinfer-python=%s, "
+        "flashinfer-cubin=%s",
+        virtual_env_manager.env_path,
+        python_version,
+        cubin_version or "not installed",
+    )
+
+    if allow_public_install:
+        uv_path = None
+        if hasattr(virtual_env_manager, "_get_uv_path"):
+            try:
+                uv_path = virtual_env_manager._get_uv_path()
+            except Exception:
+                pass
+        if not uv_path:
+            uv_path = shutil.which("uv") or "uv"
+
+        cmd = [
+            uv_path,
+            "pip",
+            "install",
+            "-p",
+            str(virtual_env_manager.env_path),
+            "--no-deps",
+            "--upgrade",
+            "--index-url",
+            FLASHINFER_CUBIN_WHEEL_URL,
+            f"flashinfer-cubin=={python_version}",
+        ]
+        try:
+            result = subprocess.run(cmd, check=False, capture_output=True, text=True)
+            if result.returncode == 0:
+                repaired_version = _get_virtualenv_distribution_version(
+                    virtual_env_manager, "flashinfer-cubin"
+                )
+                if repaired_version == python_version:
+                    logger.info(
+                        "Synchronized flashinfer-cubin to flashinfer-python %s",
+                        python_version,
+                    )
+                    return
+            else:
+                logger.warning(
+                    "Failed to synchronize flashinfer-cubin (exit %d): %s",
+                    result.returncode,
+                    result.stderr[-500:] if result.stderr else "(empty)",
+                )
+        except Exception as e:
+            logger.warning("Failed to synchronize flashinfer-cubin: %s", e)
+
+    os.environ["FLASHINFER_DISABLE_VERSION_CHECK"] = "1"
+    logger.warning(
+        "Set FLASHINFER_DISABLE_VERSION_CHECK=1 because flashinfer-cubin could "
+        "not be synchronized to flashinfer-python %s",
+        python_version,
+    )
 
 
 def needs_flashinfer_aot(
