@@ -103,6 +103,7 @@ def create_model_instance(
             model_name,
             download_hub,
             model_path,
+            model_engine=model_engine,
             **kwargs,
         )
     elif model_type == "video":
