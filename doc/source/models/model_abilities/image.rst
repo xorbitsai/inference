@@ -73,6 +73,12 @@ for faster inference:
 * Qwen-Image-2512
 * Z-Image
 * Z-Image-Turbo
+* sd3.5-medium (vLLM only)
+
+On the vLLM engine, models whose vllm-omni pipeline supports request-level
+batching (e.g. sd3.5-medium, Qwen-Image, FLUX.1-dev) can additionally batch
+concurrent requests on the GPU; pass ``max_num_seqs`` at launch to set the
+maximum batch size.
 
 To use them, install SGLang with diffusion support via
 ``pip install 'sglang[diffusion]'``, or vLLM-Omni together with a vLLM of the

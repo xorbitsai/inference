@@ -37,6 +37,7 @@ VLLM_SUPPORTED_IMAGE_MODELS = (
     "Z-Image",
     "Z-Image-Turbo",
     "FLUX.1-dev",
+    "sd3.5-medium",
 )
 
 # Abilities this engine actually implements; the builtin specs of the models
