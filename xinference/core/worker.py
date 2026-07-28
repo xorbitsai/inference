@@ -2985,7 +2985,8 @@ class WorkerActor(xo.StatelessActor):
             ", ".join([f"{k}={v}" for k, v in conf.items() if v]),
         )
         with _exclusive_venv_path_lock(venv_path := str(virtual_env_manager.env_path)):
-            if venv_path not in _venv_setup_done:
+            marker_path = os.path.join(venv_path, ".xinference_setup_done")
+            if venv_path not in _venv_setup_done or not os.path.exists(marker_path):
                 if modern_sglang_kernel:
                     # SGLang 0.5.11 renamed the distribution while retaining the
                     # same import package.  Remove the cached legacy owner before
@@ -3030,6 +3031,11 @@ class WorkerActor(xo.StatelessActor):
                 )
 
                 _venv_setup_done.add(venv_path)
+                try:
+                    with open(marker_path, "w") as f:
+                        f.write("done")
+                except OSError:
+                    pass
             else:
                 logger.info(
                     "Virtual env %s already set up in this process; "
