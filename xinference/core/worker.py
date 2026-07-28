@@ -128,11 +128,42 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 # Track which virtualenv paths have already been set up (install_packages +
-# post-install hooks) within the current process lifetime. When multiple
-# replicas share the same venv, only the first one runs the full setup;
+# post-install hooks) within the current process lifetime. Maps venv_path to
+# a fingerprint of the resolved package list so that a change in package
+# requirements invalidates the cache. When multiple replicas share the same
+# venv with the same package set, only the first one runs the full setup;
 # subsequent replicas skip it to avoid downgrade/upgrade churn that can
 # corrupt .so files while child subprocesses are importing torch/vllm.
-_venv_setup_done: Set[str] = set()
+_venv_setup_done: Dict[str, int] = {}
+
+
+def _should_skip_venv_setup(venv_path: str, packages: List[str]) -> bool:
+    """Return True if the venv at *venv_path* was already set up with *packages*.
+
+    Checks three conditions:
+    1. The path is in the process-local done dict.
+    2. The stored package fingerprint matches the current package list.
+    3. The on-disk marker file exists (guards against external venv deletion
+       via ``remove_virtual_env`` during the same process lifetime).
+    """
+    marker_path = os.path.join(venv_path, ".xinference_setup_done")
+    pkg_hash = hash(tuple(sorted(packages)))
+    return (
+        venv_path in _venv_setup_done
+        and _venv_setup_done[venv_path] == pkg_hash
+        and os.path.exists(marker_path)
+    )
+
+
+def _mark_venv_setup_done(venv_path: str, packages: List[str]) -> None:
+    """Record that *venv_path* has been set up with *packages*."""
+    _venv_setup_done[venv_path] = hash(tuple(sorted(packages)))
+    marker_path = os.path.join(venv_path, ".xinference_setup_done")
+    try:
+        with open(marker_path, "w") as f:
+            f.write("done")
+    except OSError:
+        pass
 
 
 @contextmanager
@@ -2984,9 +3015,9 @@ class WorkerActor(xo.StatelessActor):
             virtual_env_manager.env_path,
             ", ".join([f"{k}={v}" for k, v in conf.items() if v]),
         )
-        with _exclusive_venv_path_lock(venv_path := str(virtual_env_manager.env_path)):
-            marker_path = os.path.join(venv_path, ".xinference_setup_done")
-            if venv_path not in _venv_setup_done or not os.path.exists(marker_path):
+        venv_path = str(virtual_env_manager.env_path)
+        with _exclusive_venv_path_lock(venv_path):
+            if not _should_skip_venv_setup(venv_path, packages):
                 if modern_sglang_kernel:
                     # SGLang 0.5.11 renamed the distribution while retaining the
                     # same import package.  Remove the cached legacy owner before
@@ -3002,6 +3033,7 @@ class WorkerActor(xo.StatelessActor):
                 # Run under the same lock — uv pip install mutates the venv and
                 # must stay serialized with install_packages() and other AOT
                 # upgrades when multiple replicas/workers share this venv.
+                # See optimize/20260702/2026070209.md
                 from .virtual_env_manager import (
                     apply_flashinfer_aot_post_install,
                     ensure_flashinfer_cubin_matches_post_install,
@@ -3030,16 +3062,12 @@ class WorkerActor(xo.StatelessActor):
                     allow_public_install=not XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL,
                 )
 
-                _venv_setup_done.add(venv_path)
-                try:
-                    with open(marker_path, "w") as f:
-                        f.write("done")
-                except OSError:
-                    pass
+                _mark_venv_setup_done(venv_path, packages)
             else:
                 logger.info(
-                    "Virtual env %s already set up in this process; "
-                    "skipping install_packages and post-install hooks",
+                    "Virtual env %s already set up with current packages in "
+                    "this process; skipping install_packages and post-install "
+                    "hooks",
                     venv_path,
                 )
 

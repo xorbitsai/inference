@@ -629,3 +629,231 @@ def test_model_specs_pin_system_torch_with_torchvision():
         "same environment markers (torch/torchvision would be mixed-source): "
         + ", ".join(offenders)
     )
+
+
+# ---------------------------------------------------------------------------
+# Tests for venv setup dedup (_should_skip_venv_setup / _mark_venv_setup_done)
+# ---------------------------------------------------------------------------
+
+
+def _clean_venv_setup_done():
+    """Reset the process-local setup cache between tests."""
+    from .. import worker as worker_mod
+
+    worker_mod._venv_setup_done.clear()
+
+
+def test_should_skip_venv_setup_first_install(tmp_path):
+    """First install: cache is empty → should NOT skip."""
+    _clean_venv_setup_done()
+    from .. import worker as worker_mod
+
+    venv = str(tmp_path / "venv")
+    packages = ["vllm==0.21.0", "flashinfer-cubin==0.6.8.post1"]
+
+    assert not worker_mod._should_skip_venv_setup(venv, packages)
+
+
+def test_should_skip_venv_setup_same_packages(tmp_path):
+    """Same path + same packages + marker file exists → should skip."""
+    import os
+
+    _clean_venv_setup_done()
+    from .. import worker as worker_mod
+
+    venv = str(tmp_path / "venv")
+    packages = ["vllm==0.21.0", "flashinfer-cubin==0.6.8.post1"]
+
+    # Simulate first setup
+    os.makedirs(venv, exist_ok=True)
+    worker_mod._mark_venv_setup_done(venv, packages)
+
+    assert worker_mod._should_skip_venv_setup(venv, packages)
+
+
+def test_should_skip_venv_setup_different_packages(tmp_path):
+    """Same path but different packages → should NOT skip."""
+    import os
+
+    _clean_venv_setup_done()
+    from .. import worker as worker_mod
+
+    venv = str(tmp_path / "venv")
+    first_packages = ["vllm==0.21.0", "flashinfer-cubin==0.6.8.post1"]
+    second_packages = ["vllm==0.21.0", "flashinfer-cubin==0.6.8.post1", "extra-pkg"]
+
+    # Simulate first setup with first_packages
+    os.makedirs(venv, exist_ok=True)
+    worker_mod._mark_venv_setup_done(venv, first_packages)
+
+    # second_packages differ → should NOT skip
+    assert not worker_mod._should_skip_venv_setup(venv, second_packages)
+
+
+def test_should_skip_venv_setup_marker_missing(tmp_path):
+    """Same path + same packages but marker file is gone (venv deleted) →
+    should NOT skip."""
+    _clean_venv_setup_done()
+    from .. import worker as worker_mod
+
+    venv = str(tmp_path / "venv")
+    packages = ["vllm==0.21.0"]
+
+    # Put the path in the in-process dict WITHOUT writing the marker file
+    worker_mod._venv_setup_done[venv] = hash(tuple(sorted(packages)))
+    # venv directory doesn't exist → no marker file
+
+    assert not worker_mod._should_skip_venv_setup(venv, packages)
+
+
+def test_should_skip_venv_setup_different_path(tmp_path):
+    """Different venv path → should NOT skip."""
+    import os
+
+    _clean_venv_setup_done()
+    from .. import worker as worker_mod
+
+    venv_a = str(tmp_path / "venv_a")
+    venv_b = str(tmp_path / "venv_b")
+    packages = ["vllm==0.21.0"]
+
+    # Set up venv_a
+    os.makedirs(venv_a, exist_ok=True)
+    worker_mod._mark_venv_setup_done(venv_a, packages)
+
+    # venv_b is a different path → should NOT skip
+    assert not worker_mod._should_skip_venv_setup(venv_b, packages)
+
+
+def test_mark_venv_setup_done_writes_marker(tmp_path):
+    """_mark_venv_setup_done adds the path+hash to the dict and creates the
+    marker file."""
+    import os
+
+    _clean_venv_setup_done()
+    from .. import worker as worker_mod
+
+    venv = str(tmp_path / "venv")
+    packages = ["vllm==0.21.0"]
+    os.makedirs(venv, exist_ok=True)
+
+    worker_mod._mark_venv_setup_done(venv, packages)
+
+    assert venv in worker_mod._venv_setup_done
+    assert worker_mod._venv_setup_done[venv] == hash(tuple(sorted(packages)))
+    assert os.path.exists(os.path.join(venv, ".xinference_setup_done"))
+
+
+def test_prepare_virtual_env_skips_on_second_call(tmp_path):
+    """Second call with same packages skips install_packages."""
+    import contextlib
+    import os
+    from unittest import mock
+
+    from ...model.core import VirtualEnvSettings
+    from .. import worker as worker_mod
+    from ..worker import WorkerActor
+
+    _clean_venv_setup_done()
+    venv_dir = str(tmp_path / "venv_skip")
+    os.makedirs(venv_dir, exist_ok=True)
+    call_count = 0
+
+    class _FakeVEM:
+        env_path = venv_dir
+
+        def install_packages(self, packages, **conf):
+            nonlocal call_count
+            call_count += 1
+
+    @contextlib.contextmanager
+    def _nullctx(*args, **kwargs):
+        yield
+
+    packages = ["vllm==0.21.0"]
+
+    # First call: should install
+    with mock.patch.object(
+        worker_mod, "_exclusive_venv_path_lock", new=_nullctx
+    ):
+        WorkerActor._prepare_virtual_env(
+            virtual_env_manager=_FakeVEM(),
+            settings=VirtualEnvSettings(packages=packages),
+            virtual_env_packages=None,
+            model_engine="vllm",
+            model_name="test-model",
+            architectures=None,
+        )
+    assert call_count == 1
+
+    # Second call with same packages: should skip
+    with mock.patch.object(
+        worker_mod, "_exclusive_venv_path_lock", new=_nullctx
+    ):
+        WorkerActor._prepare_virtual_env(
+            virtual_env_manager=_FakeVEM(),
+            settings=VirtualEnvSettings(packages=packages),
+            virtual_env_packages=None,
+            model_engine="vllm",
+            model_name="test-model",
+            architectures=None,
+        )
+    assert call_count == 1  # Still 1 — second call skipped
+
+
+def test_prepare_virtual_env_does_not_skip_different_packages(tmp_path):
+    """Different packages invalidate the cache → install_packages runs again."""
+    import contextlib
+    import os
+    from unittest import mock
+
+    from ...model.core import VirtualEnvSettings
+    from .. import worker as worker_mod
+    from ..worker import WorkerActor
+
+    _clean_venv_setup_done()
+    venv_dir = str(tmp_path / "venv_diff")
+    os.makedirs(venv_dir, exist_ok=True)
+    call_count = 0
+
+    class _FakeVEM:
+        env_path = venv_dir
+
+        def install_packages(self, packages, **conf):
+            nonlocal call_count
+            call_count += 1
+
+    @contextlib.contextmanager
+    def _nullctx(*args, **kwargs):
+        yield
+
+    first_packages = ["vllm==0.21.0"]
+    second_packages = ["vllm==0.21.0", "new-package"]
+
+    # First call
+    with mock.patch.object(
+        worker_mod, "_exclusive_venv_path_lock", new=_nullctx
+    ):
+        WorkerActor._prepare_virtual_env(
+            virtual_env_manager=_FakeVEM(),
+            settings=VirtualEnvSettings(packages=first_packages),
+            virtual_env_packages=None,
+            model_engine="vllm",
+            model_name="test-model-diff",
+            architectures=None,
+        )
+    assert call_count == 1
+
+    # Second call with different packages
+    with mock.patch.object(
+        worker_mod, "_exclusive_venv_path_lock", new=_nullctx
+    ):
+        WorkerActor._prepare_virtual_env(
+            virtual_env_manager=_FakeVEM(),
+            settings=VirtualEnvSettings(packages=second_packages),
+            virtual_env_packages=None,
+            model_engine="vllm",
+            model_name="test-model-diff",
+            architectures=None,
+        )
+    assert call_count == 2  # Second call installed because packages differ
