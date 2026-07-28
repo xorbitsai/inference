@@ -573,10 +573,10 @@ def test_build_subpool_envs_for_virtual_env_enabled(monkeypatch):
     assert result["FLASHINFER_NINJA_PATH"] == "/custom/ninja"
     assert result["LD_LIBRARY_PATH"] == os.pathsep.join(
         [
-            "/venv/site-packages/nvidia/cusparselt/lib",
-            "/venv/site-packages/nvidia/cu13/lib",
-            "/parent/site-packages/nvidia/cusparselt/lib",
-            "/parent/site-packages/nvidia/cu13/lib",
+            os.path.join("/venv/site-packages", "nvidia", "cusparselt", "lib"),
+            os.path.join("/venv/site-packages", "nvidia", "cu13", "lib"),
+            os.path.join("/parent/site-packages", "nvidia", "cusparselt", "lib"),
+            os.path.join("/parent/site-packages", "nvidia", "cu13", "lib"),
             "/custom/lib",
         ]
     )
