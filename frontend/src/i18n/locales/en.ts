@@ -107,6 +107,7 @@ const en = {
     nGPU: 'GPU Count per Replica',
     nGPUPerWorker: 'GPU Count per Worker',
     nGPUDevice: 'Device',
+    gpuCount: 'GPU: {{count}}',
     nGpuLayers: 'N GPU Layers',
     replica: 'Replica',
     advancedConfiguration: 'Advanced Configuration',

@@ -110,11 +110,11 @@ export default function LaunchDialog({
       const data = await request.get<ClusterInfoResponse>('/v1/cluster/info', {
         params: { detailed: true },
       });
-      setWorkerOptions(extractWorkerItems(data));
+      setWorkerOptions(extractWorkerItems(data, t));
     } catch {
       setWorkerOptions([]);
     }
-  }, [clusterAuth?.auth, isAdmin]);
+  }, [clusterAuth?.auth, isAdmin, t]);
   const fetchModelEngine = useCallback(async () => {
     if (!model?.model_name || !MODEL_ENGINE_TYPES.includes(modelType)) {
       setModelEngineMap({});

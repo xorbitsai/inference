@@ -106,6 +106,7 @@ const zh = {
     nGPU: 'GPU 数量 (每个副本)',
     nGPUPerWorker: '每个 Worker 上的 GPU 数量',
     nGPUDevice: '设备',
+    gpuCount: 'GPU 数量：{{count}}',
     nGpuLayers: 'GPU 层数',
     replica: '副本',
     advancedConfiguration: '高级配置',

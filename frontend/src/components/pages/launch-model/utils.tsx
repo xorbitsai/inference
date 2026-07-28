@@ -29,6 +29,7 @@ import type {
   UnknownRecord,
   WorkerOption,
 } from './types';
+import type { TFunc } from '@/contexts/i18n-context';
 
 export const MODEL_ENGINE_TYPES: RequestModelType[] = [
   ModelType.LLM,
@@ -932,7 +933,10 @@ export function normalizeWorkerAddress(value: unknown) {
   }
 }
 
-export function extractWorkerItems(clusterInfo: ClusterInfoResponse): WorkerOption[] {
+export function extractWorkerItems(
+  clusterInfo: ClusterInfoResponse,
+  t: TFunc
+): WorkerOption[] {
   if (!clusterInfo) return [];
   const isFlatNodeList = Array.isArray(clusterInfo);
   const nodes = isFlatNodeList ? clusterInfo : clusterInfo.workers || [];
@@ -953,6 +957,7 @@ export function extractWorkerItems(clusterInfo: ClusterInfoResponse): WorkerOpti
     acc.set(workerIp, {
       label: workerIp,
       value: workerIp,
+      description: t('launchModel.gpuCount', { count: gpuCount }),
       gpuCount,
     });
 
