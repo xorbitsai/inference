@@ -218,6 +218,15 @@ def _mark_venv_setup_done(
         )
 
 
+# Per-venv process-local locks so the check-and-setup sequence in
+# _exclusive_venv_path_lock is atomic on every platform.  The Unix
+# fcntl file lock serializes across processes; the threading lock
+# handles the in-process case on Windows (where fcntl is unavailable)
+# and provides a fast uncontended path on Unix as well.
+_venv_locks: Dict[str, threading.Lock] = {}
+_venv_locks_lock = threading.Lock()
+
+
 @contextmanager
 def _exclusive_venv_path_lock(env_path: str):
     """
@@ -228,27 +237,35 @@ def _exclusive_venv_path_lock(env_path: str):
     Ensures the lock file's parent directory exists before ``os.open`` so cold
     starts work after the entire venv tree was removed.
 
-    Uses a sibling lock file ``{realpath(env_path)}.xinference-venv.lock``.
-    On Windows this is a no-op (``fcntl`` unavailable / different semantics).
+    Uses a sibling lock file ``{realpath(env_path)}.xinference-venv.lock``
+    for cross-process serialization on Unix, plus a process-local per-venv
+    ``threading.Lock`` that works on every platform (including Windows where
+    ``fcntl`` is unavailable).
     """
-    if os.name == "nt":
-        yield
-        return
-
-    import fcntl
-
     real = os.path.realpath(os.path.normpath(env_path))
-    lock_path = f"{real}.xinference-venv.lock"
-    lock_dir = os.path.dirname(lock_path)
-    if lock_dir:
-        os.makedirs(lock_dir, exist_ok=True)
-    fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o644)
-    try:
-        fcntl.flock(fd, fcntl.LOCK_EX)
-        yield
-    finally:
-        fcntl.flock(fd, fcntl.LOCK_UN)
-        os.close(fd)
+    with _venv_locks_lock:
+        if real not in _venv_locks:
+            _venv_locks[real] = threading.Lock()
+        venv_lock = _venv_locks[real]
+
+    with venv_lock:
+        if os.name == "nt":
+            yield
+            return
+
+        import fcntl
+
+        lock_path = f"{real}.xinference-venv.lock"
+        lock_dir = os.path.dirname(lock_path)
+        if lock_dir:
+            os.makedirs(lock_dir, exist_ok=True)
+        fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o644)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            yield
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+            os.close(fd)
 
 
 # Strip test-injected envs from cached launch_args before recover.

@@ -882,3 +882,66 @@ def test_prepare_virtual_env_does_not_skip_different_packages(tmp_path):
             architectures=None,
         )
     assert call_count == 2  # Second call installed because packages differ
+
+
+def test_exclusive_venv_path_lock_serializes_concurrent_calls(tmp_path):
+    """Process-local threading lock prevents two concurrent callers from
+    both passing the check-and-setup gate.  Exercises the cross-platform
+    path inside _exclusive_venv_path_lock (the threading lock) without
+    mocking, so the test validates serialization on every OS."""
+    import os
+    import threading
+    import time
+
+    from ...model.core import VirtualEnvSettings
+    from .. import worker as worker_mod
+    from ..worker import WorkerActor
+
+    _clean_venv_setup_done()
+    venv_dir = str(tmp_path / "venv_concurrent")
+    os.makedirs(venv_dir, exist_ok=True)
+
+    call_count = 0
+    call_lock = threading.Lock()
+    # Make the install slow enough that both threads can reach the gate
+    # before either one completes, forcing the lock to serialize them.
+    started = threading.Barrier(2, timeout=5)
+
+    class _FakeVEM:
+        env_path = venv_dir
+
+        def install_packages(self, packages, **conf):
+            nonlocal call_count
+            started.wait()
+            # Small delay to ensure the other thread is waiting on the lock
+            time.sleep(0.2)
+            with call_lock:
+                call_count += 1
+
+    packages = ["vllm==0.21.0"]
+    errors = []
+
+    def launch():
+        try:
+            WorkerActor._prepare_virtual_env(
+                virtual_env_manager=_FakeVEM(),
+                settings=VirtualEnvSettings(packages=packages),
+                virtual_env_packages=None,
+                model_engine="vllm",
+                model_name="test-concurrent",
+                architectures=None,
+            )
+        except Exception as e:
+            errors.append(e)
+
+    t1 = threading.Thread(target=launch)
+    t2 = threading.Thread(target=launch)
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+
+    assert not errors, f"Errors in concurrent launch: {errors}"
+    assert (
+        call_count == 1
+    ), f"Expected 1 install_packages call with serialization, got {call_count}"
