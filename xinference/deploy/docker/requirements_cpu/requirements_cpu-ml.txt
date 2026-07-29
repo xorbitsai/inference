@@ -11,7 +11,9 @@ bitsandbytes
 tiktoken>=0.6.0
 autoawq!=0.2.6
 optimum
-peft<=0.17.1
+# peft <=0.17.1 imports HybridCache at module level, removed in transformers
+# 5.0.0; keep in sync with the pin in pyproject.toml.
+peft>=0.18.0
 timm
 tensorizer~=2.9.0
 modelscope>=1.19.0
