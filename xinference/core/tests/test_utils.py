@@ -882,3 +882,52 @@ def test_prepare_virtual_env_does_not_skip_different_packages(tmp_path):
             architectures=None,
         )
     assert call_count == 2  # Second call installed because packages differ
+
+
+def test_exclusive_venv_path_lock_serializes_concurrent_callers(tmp_path):
+    """Two threads entering _exclusive_venv_path_lock for the same path
+    must never occupy the critical section simultaneously.  Tests the
+    process-local threading lock that is the only in-process guard on
+    Windows and the fast uncontended path on Unix."""
+    import os
+    import threading
+    import time
+
+    from .. import worker as worker_mod
+
+    venv_dir = str(tmp_path / "venv_lock_test")
+    os.makedirs(venv_dir, exist_ok=True)
+
+    occupants = 0
+    max_occupants = 0
+    lock = threading.Lock()
+
+    # Barrier ensures both threads are ready before either enters the lock,
+    # guaranteeing they overlap in time.
+    barrier = threading.Barrier(2, timeout=5)
+
+    errors = []
+
+    def critical_section():
+        nonlocal occupants, max_occupants
+        barrier.wait()
+        with worker_mod._exclusive_venv_path_lock(venv_dir):
+            with lock:
+                nonlocal occupants
+                occupants += 1
+                max_occupants = max(max_occupants, occupants)
+            time.sleep(0.1)
+            with lock:
+                occupants -= 1
+
+    t1 = threading.Thread(target=critical_section)
+    t2 = threading.Thread(target=critical_section)
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+
+    assert not errors, f"Errors in concurrent lock test: {errors}"
+    assert (
+        max_occupants == 1
+    ), f"Lock failed to serialize: max_occupants={max_occupants}, expected 1"
