@@ -147,9 +147,9 @@ msgstr "每條命令都配有 ``option`` 和 ``flag``，可自訂其行為，如
 
 #: ../../source/development/xinference_internals.rst:62
 msgid ""
-"Python projects define command-line console entry points in `setup.cfg` or "
-"`setup.py`."
-msgstr "Python 專案會在 `setup.cfg` 或 `setup.py` 中定義命令列主控台入口點。"
+"Python projects define command-line console entry points in "
+"``pyproject.toml``."
+msgstr "Python 專案會在 ``pyproject.toml`` 中定義命令列主控台入口點。"
 
 #: ../../source/development/xinference_internals.rst:72
 msgid ""

@@ -1,9 +1,303 @@
 [build-system]
 requires = [
-    "setuptools>=64,<82; python_version<'3.12'",
-    "setuptools>=75,<82; python_version>='3.12'"
+    "setuptools>=77,<82",
+    "setuptools-scm>=8",
 ]
-build-backend = "setuptools.build_meta"
+build-backend = "build_backend"
+backend-path = ["."]
+
+[project]
+name = "xinference"
+description = "Model Serving Made Easy"
+readme = "README.md"
+authors = [
+    { name = "Chris Qin", email = "chris.qin@xinference.co" },
+]
+maintainers = [
+    { name = "Chris Qin", email = "chris.qin@xinference.co" },
+]
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+classifiers = [
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Software Development :: Libraries",
+]
+dynamic = ["version"]
+dependencies = [
+    "xoscar>=0.9.6",
+    "torch",
+    "pillow",
+    "click<8.2.0",
+    "tqdm>=4.27",
+    "tabulate",
+    "requests",
+    "aiohttp",
+    "pydantic",
+    "fastapi>=0.110.3,<0.137",
+    "python-multipart>=0.0.18",  # required by FastAPI's Form/File/UploadFile params; used to come in transitively via gradio
+    "orjson",  # used by core.utils.json_dumps for all REST API JSON responses; used to come in transitively via gradio
+    "uvicorn",
+    "huggingface-hub>=0.19.4",
+    "typing_extensions",
+    "modelscope>=1.19.0",
+    "sse_starlette>=1.6.5",  # ensure_bytes API break change: https://github.com/sysid/sse-starlette/issues/65
+    "openai>=1.40.0",  # For typing
+    "python-jose[cryptography]",
+    "bcrypt>=4.0.0",
+    "aioprometheus[starlette]>=23.12.0",
+    "httpx",
+    "nvidia-ml-py",
+    "pynvml>=12",
+    "async-timeout",
+    "peft<=0.17.1",
+    "timm",
+    "setproctitle",
+    "uv",
+]
+
+[project.urls]
+Homepage = "https://github.com/xorbitsai/inference"
+
+[project.scripts]
+xinference = "xinference.deploy.cmdline:cli"
+xinference-local = "xinference.deploy.cmdline:local"
+xinference-supervisor = "xinference.deploy.cmdline:supervisor"
+xinference-worker = "xinference.deploy.cmdline:worker"
+xinference-migrate-auth = "xinference.api.oauth2.advanced.migrate:main"
+xinference-reset-auth-password = "xinference.api.oauth2.advanced.reset_password:main"
+
+[project.optional-dependencies]
+dev = [
+    "cython>=0.29",
+    "pytest>=3.5.0",
+    "pytest-cov>=2.5.0",
+    "pytest-timeout>=1.2.0",
+    "pytest-forked>=1.0",
+    "pytest-asyncio>=0.14.0",
+    "pytest-mock>=3.11.1",
+    "ipython>=6.5.0",
+    "sphinx>=3.0.0",
+    "pydata-sphinx-theme>=0.3.0",
+    "sphinx-intl>=0.9.9",
+    "jieba>=0.42.0",
+    "ruff",
+    "black",
+    "openai>=1.40.0",
+    "anthropic",
+    "langchain",
+    "langchain-community",
+    "langchain-openai",
+    "sphinx-tabs",
+    "sphinx-design",
+]
+otel = [
+    "opentelemetry-api>=1.20.0",
+    "opentelemetry-sdk>=1.20.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.20.0",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.20.0",
+    "opentelemetry-instrumentation-fastapi>=0.41b0",
+    "opentelemetry-instrumentation-httpx>=0.41b0",
+]
+all = [
+    "xinference[anthropic]",
+    "xinference[llama_cpp]",
+    "xinference[transformers]",
+    "xinference[vllm]",
+    "xinference[mlx]",
+    "xinference[embedding]",
+    "xinference[rerank]",
+    "xinference[image]",
+    "xinference[video]",
+    "xinference[audio]",
+]
+intel = [
+    "torch==2.1.0a0",
+    "intel_extension_for_pytorch==2.1.10+xpu",
+]
+llama_cpp = [
+    "xllamacpp>=0.2.0",
+]
+transformers = [
+    "transformers>=4.53.3",
+    "torch",
+    "accelerate>=0.28.0",
+    "sentencepiece",
+    "transformers_stream_generator",
+    "bitsandbytes ; sys_platform=='linux'",
+    "protobuf",
+    "einops",
+    "tiktoken",
+    "optimum",
+    "attrdict",  # For deepseek VL
+    "timm>=0.9.16",  # For deepseek VL
+    "torchvision",  # For deepseek VL
+    "peft",
+    "eva-decord",  # For video in VL
+    "jj-pytorchvideo",  # For CogVLM2-video
+    "qwen-vl-utils!=0.0.9",  # For qwen2-vl
+    "qwen_omni_utils",  # For qwen2.5-omni
+    "datamodel_code_generator",  # for minicpm-4B
+    "jsonschema",  # for minicpm-4B
+    "blobfile",  # for moonlight-16b-a3b
+]
+transformers_quantization = [
+    "bitsandbytes ; sys_platform=='linux'",
+    "gptqmodel",
+    "autoawq!=0.2.6 ; sys_platform!='darwin'",  # autoawq 0.2.6 pinned torch to 2.3
+    "datasets>=3.4.0",  # see GH#3934
+]
+vllm = [
+    "vllm>=0.2.6 ; sys_platform=='linux'",
+    "xxhash",
+]
+sglang = [
+    "sglang[srt]>=0.4.2.post4 ; sys_platform=='linux'",
+]
+mlx = [
+    "mlx-lm>=0.21.5 ; sys_platform=='darwin' and platform_machine=='arm64'",
+    "mlx-vlm>=0.3.4 ; sys_platform=='darwin' and platform_machine=='arm64'",
+    "mlx-whisper ; sys_platform=='darwin' and platform_machine=='arm64'",
+    "f5-tts-mlx ; sys_platform=='darwin' and platform_machine=='arm64'",
+    "mlx-audio ; sys_platform=='darwin' and platform_machine=='arm64'",
+    "qwen_vl_utils!=0.0.9",
+    "tomli",
+]
+embedding = [
+    "sentence-transformers>=3.1.0",
+    "FlagEmbedding",
+    "datasets>=3.4.0",  # see GH#3934
+]
+rerank = [
+    "FlagEmbedding",
+    "datasets>=3.4.0",  # see GH#3934
+]
+image = [
+    "diffusers>=0.32.0",  # fix conflict with matcha-tts
+    "controlnet_aux",
+    "deepcache",
+    "verovio>=4.3.1",  # For got_ocr2
+    "transformers>=4.53.3",  # For got_ocr2
+    "tiktoken>=0.6.0",  # For got_ocr2
+    "accelerate>=0.28.0",  # For got_ocr2
+    "torch",  # For got_ocr2
+    "torchvision",  # For got_ocr2
+    "gguf",  # For flux and sd3.5 series
+]
+video = [
+    "diffusers>=0.32.0",
+    "imageio-ffmpeg",
+]
+audio = [
+    "funasr==1.2.7",
+    "omegaconf~=2.3.0",
+    "nemo_text_processing<=1.1.0; sys_platform == 'linux'",  # 1.1.0 requires pynini==2.1.6.post1
+    "WeText",
+    "librosa",
+    "xxhash",
+    "torch>=2.0.0",  # for CosyVoice, matcha
+    "torchaudio>=2.0.0",
+    "ChatTTS>=0.2.1",
+    "tiktoken",  # For CosyVoice, openai-whisper
+    "lightning>=2.0.0",  # For CosyVoice, matcha
+    "hydra-core>=1.3.2",  # For CosyVoice, matcha
+    "inflect",  # For CosyVoice, matcha
+    "conformer",  # For CosyVoice, matcha
+    "diffusers>=0.32.0",  # For CosyVoice, matcha
+    "gdown",  # For CosyVoice, matcha
+    "pyarrow",  # For CosyVoice, matcha
+    "HyperPyYAML",  # For CosyVoice
+    "onnxruntime>=1.16.0",  # For CosyVoice, use onnxruntime-gpu==1.16.0 if possible
+    "pyworld>=0.3.4",  # For CosyVoice
+    "loguru",  # For Fish Speech
+    "natsort",  # For Fish Speech
+    "loralib",  # For Fish Speech
+    "ormsgpack",  # For Fish Speech
+    "cachetools",  # For Fish Speech
+    "silero-vad",  # For Fish Speech
+    "vector-quantize-pytorch<=1.17.3,>=1.14.24",  # For Fish Speech
+    "torchdiffeq",  # For F5-TTS
+    "x_transformers>=1.31.14",  # For F5-TTS
+    "pypinyin",  # For F5-TTS
+    "tomli",  # For F5-TTS
+    "vocos",  # For F5-TTS
+    "librosa",  # For F5-TTS
+    "jieba",  # For F5-TTS
+    "pydub",  # For F5-TTS & MegaTTS3; used to come in transitively via gradio
+    "soundfile",  # For F5-TTS & MeloTTS & Kokoro
+    "cached_path",  # For MeloTTS
+    "unidic-lite",  # For MeloTTS, unidic requires manually download
+    "cn2an",  # For MeloTTS
+    "mecab-python3",  # For MeloTTS
+    "num2words",  # For MeloTTS
+    "pykakasi",  # For MeloTTS
+    "fugashi",  # For MeloTTS
+    "g2p_en",  # For MeloTTS
+    "anyascii",  # For MeloTTS
+    "gruut[de,es,fr]",  # For MeloTTS
+    "kokoro>=0.7.15",  # Kokoro, already included misaki[en]
+    "misaki[en,zh]>=0.7.15",  # Kokoro
+    "langdetect",  # MegaTTS3
+    "pyloudnorm",  # MegaTTS3
+    "json5",  # IndexTTS2
+    "munch",  # IndexTTS2
+    "matplotlib",  # IndexTTS2
+    "flatten_dict",  # IndexTTS2
+    "julius",  # IndexTTS2
+    "tensorboard",  # IndexTTS2
+    "randomname",  # IndexTTS2
+    "argbind",  # IndexTTS2
+    "ffmpy",  # IndexTTS2 (audiotools' core.ffmpeg imports this unconditionally); used to come in transitively via gradio
+]
+doc = [
+    "ipython>=6.5.0",
+    "sphinx>=3.0.0",
+    "pydata-sphinx-theme>=0.3.0",
+    "sphinx-intl>=0.9.9",
+    "sphinx-tabs",
+    "sphinx-design",
+    "prometheus_client",
+    "timm",
+]
+musa = [
+    "mthreads-ml-py>=2.2.8",
+    "torchada>=0.1.11",
+]
+benchmark = [
+    "psutil",
+]
+anthropic = [
+    "anthropic",
+]
+
+[tool.setuptools]
+zip-safe = false
+include-package-data = true
+
+[tool.setuptools.packages.find]
+# Plain packages only; namespace discovery would sweep in top-level
+# directories such as doc/, frontend/ and benchmark/.
+namespaces = false
+include = ["xinference*"]
+exclude = [
+    "*.conftest*",
+    "*.tests.*",
+    "*.tests",
+]
+
+[tool.setuptools_scm]
+version_file = "xinference/_version.py"
+# must stay a numeric three-part release: bdist_wheel fails on values
+# like "0+unknown" when building without any git metadata (e.g. the
+# Dockerfile's dependency-skeleton layer)
+fallback_version = "0.0.0+unknown"
 
 [tool.black]
 include = '\.pyi?$'
@@ -17,7 +311,98 @@ extend-exclude = '''
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 
-[tool.cibuildwheel]
-build = ["cp39-*", "cp310-*", "cp311-*", "cp312-*"]
-skip = "pp* *musllinux* *i686 cp36* cp39-win32 cp310-win32 cp311-win32 cp312-win32"
-manylinux-x86_64-image = "manylinux2014"
+[tool.coverage.run]
+branch = true
+relative_files = true
+cover_pylib = false
+plugins = ["Cython.Coverage"]
+include = ["xinference/*"]
+omit = [
+    "xinference/_version.py",
+    "*.pxd",
+    "*/tests/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "return NotImplemented",
+]
+
+[tool.isort]
+profile = "black"
+skip = ["thirdparty"]
+
+[tool.mypy]
+ignore_missing_imports = true
+follow_imports = "skip"
+exclude = "thirdparty"
+
+[tool.codespell]
+ignore-words-list = "hist,rcall,fpr,ser,nd,inout,ot,Ba,ba,asend,hart,coo,splitted,datas,fro"
+skip = ".idea,.git,./build,./docs/build,node_modules,static,generated,*.po,*.ts,*.json,*.c,*.cpp,*.cfg,thirdparty"
+
+[tool.ruff]
+line-length = 100
+# Mirrors the old flake8 `exclude` list from setup.cfg.
+extend-exclude = [
+    "__init__.py",
+    "xinference/thirdparty",
+    "xinference/_version.py",
+    ".github",
+    "build",
+    "ci",
+    "dist",
+    "docs",
+]
+
+[tool.ruff.lint]
+preview = true
+# Equivalent of the flake8 `select` list previously in setup.cfg.
+# E901/E999 are omitted (ruff always reports syntax errors); E127 and the
+# long-deprecated W601-W604 checks have no ruff counterpart.
+select = [
+    "E101",
+    "E111",
+    "E117",
+    "E201",
+    "E202",
+    "E223",
+    "E224",
+    "E225",
+    "E231",
+    "E242",
+    "E251",
+    "E273",
+    "E274",
+    "E275",
+    "E301",
+    "E302",
+    "E303",
+    "E304",
+    "E305",
+    "E401",
+    "E703",
+    "E902",
+    "F401",
+    "F63",
+    "F7",
+    "F811",
+    "F821",
+    "F822",
+    "F823",
+    "F841",
+    "W191",
+    "W291",
+    "W292",
+    "W293",
+    "W391",
+    "W605",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Sphinx injects the `tags` global when executing conf.py.
+"doc/source/conf.py" = ["F821"]

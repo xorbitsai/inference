@@ -103,7 +103,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 WORKDIR /opt/inference
 
 # NO_WEB_UI=1: the static Web UI was already staged by the builder stage and
-# is packaged via MANIFEST.in; skip the npm build hook of setup.py.
+# is packaged via MANIFEST.in; skip the npm build hook of the build backend.
 # Keep only the engine core in the slim parent image. Optional model-side and
 # format-specific quantization dependencies live in model virtualenv specs;
 # they are installed only into matching per-model venvs and are also collected
@@ -116,8 +116,8 @@ WORKDIR /opt/inference
 # This layer is invalidated by packaging metadata changes, not ordinary source
 # edits. The complete project is installed separately below without resolving
 # dependencies again.
-COPY setup.py setup.cfg pyproject.toml versioneer.py ./
-COPY xinference/__init__.py xinference/_version.py ./xinference/
+COPY pyproject.toml build_backend.py build_web.py ./
+COPY xinference/__init__.py ./xinference/
 RUN --mount=type=cache,target=/root/.cache/pip \
     --mount=type=cache,target=/root/.cache/uv \
     touch README.md && \

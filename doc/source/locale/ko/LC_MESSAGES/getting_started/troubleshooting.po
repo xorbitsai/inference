@@ -514,11 +514,11 @@ msgstr ""
 
 #: ../../source/getting_started/troubleshooting.rst:267
 msgid ""
-"**Xinference's Unbounded Torch Dependency**: Xinference's ``setup.cfg`` does"
-" not specify an upper bound for PyTorch:"
+"**Xinference's Unbounded Torch Dependency**: Xinference's "
+"``pyproject.toml`` does not specify an upper bound for PyTorch:"
 msgstr ""
-"**Xinference가 Torch 의존성에 상한을 설정하지 않음**: Xinference의 ``setup.cfg``에서 PyTorch에"
-" 대해 버전 상한을 지정하지 않음:"
+"**Xinference가 Torch 의존성에 상한을 설정하지 않음**: Xinference의 ``pyproject.toml``에서 "
+"PyTorch에 대해 버전 상한을 지정하지 않음:"
 
 #: ../../source/getting_started/troubleshooting.rst:275
 msgid ""

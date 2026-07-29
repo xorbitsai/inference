@@ -764,9 +764,11 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         sampler_name = kwargs.pop("sampler_name", None)
         self._process_progressor(kwargs)
         assert callable(model)
-        with self._reset_when_done(
-            model, sampler_name
-        ), self._release_after(), self._wrap_deepcache(model):
+        with (
+            self._reset_when_done(model, sampler_name),
+            self._release_after(),
+            self._wrap_deepcache(model),
+        ):
             logger.debug("stable diffusion args: %s, model: %s", kwargs, model)
             # Some pipelines (e.g., Z-Image img2img) can't handle guidance_scale=None.
             if kwargs.get("guidance_scale", "unset") is None:

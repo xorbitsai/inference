@@ -3,11 +3,10 @@ global-include *.pxd
 global-include xinference/**/*.json
 global-exclude *.c
 global-exclude *.cpp
-include setup.cfg
 include pyproject.toml
+include build_backend.py
+include build_web.py
 global-exclude .DS_Store
-include versioneer.py
-include xinference/_version.py
 global-exclude conftest.py
 include xinference/locale/*.json
 include xinference/model/llm/*.json
@@ -20,3 +19,22 @@ prune frontend/out
 prune frontend/node_modules
 prune frontend/.npm-cache
 prune frontend/.npm-logs
+# setuptools-scm's file finder would otherwise pull every git-tracked file
+# into the sdist and wheel; trim the package payload back to code plus the
+# data declared above, and keep repository-only trees out of the sdist.
+recursive-exclude xinference *
+recursive-include xinference *.py *.json *.pyx *.pxd
+recursive-exclude xinference/deploy/docker *.py
+graft xinference/thirdparty
+graft xinference/ui/web/dist
+global-exclude conftest.py
+global-exclude */tests/* */tests/*/* */tests/*/*/*
+global-exclude .DS_Store
+prune doc
+prune docs
+prune .github
+prune benchmark
+prune assets
+prune monitor
+prune READMES
+exclude .* *.yaml *.yml

@@ -69,7 +69,7 @@ Install from source code
 
 Before we begin, please make sure that you have cloned the repository. 
 Suppose you clone the repository as ``inference`` directory,  ``cd`` to this directory
-where the ``setup.cfg`` and ``setup.py`` files are located, and run the following command:
+where the ``pyproject.toml`` file is located, and run the following command:
 
 ::
 
@@ -120,5 +120,5 @@ For local frontend development, start the Xinference backend separately and then
    XINFERENCE_API_URL=http://127.0.0.1:9997 npm run dev
 
 After compiling the frontend, you can ``cd`` back to the directory
-where the ``setup.cfg`` and ``setup.py`` files are located,
+where the ``pyproject.toml`` file is located,
 and install Xinference via ``pip install -e .``.

@@ -42,7 +42,7 @@ jobs:
           --user
       - name: Build web
         run: >-
-          python setup.py build_web
+          python build_web.py
       - name: Build a binary wheel and a source tarball
         run: >-
           python3 -m

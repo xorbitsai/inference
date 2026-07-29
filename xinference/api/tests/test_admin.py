@@ -96,6 +96,26 @@ async def test_get_cluster_version_returns_version():
 
 
 @pytest.mark.asyncio
+async def test_get_cluster_version_full_revisionid():
+    import re
+
+    from xinference import __version__
+
+    response = await admin.get_cluster_version()
+    assert response.status_code == 200
+    data = _json_body(response)
+    assert data["version"] == __version__
+    try:
+        from xinference._commit import full_revisionid
+    except ImportError:
+        pytest.skip("no build-time commit metadata (plain source tree)")
+    # normal VCS builds must expose the full 40-character SHA, matching the
+    # versioneer-era full-revisionid contract
+    assert data["full-revisionid"] == full_revisionid
+    assert re.fullmatch(r"[0-9a-f]{40}", data["full-revisionid"])
+
+
+@pytest.mark.asyncio
 async def test_is_cluster_authenticated_returns_auth_flag(mock_api):
     mock_api.is_authenticated.return_value = True
     response = await admin.is_cluster_authenticated(api=mock_api)

@@ -1,0 +1,171 @@
+# Copyright 2022-2026 Xinference Holdings Pte. Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Unit tests for the in-tree build backend's revision recording."""
+
+import importlib.util
+import os
+import shutil
+import subprocess
+
+import pytest
+
+_REPO_ROOT = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), os.pardir, os.pardir)
+)
+_BACKEND_PATH = os.path.join(_REPO_ROOT, "build_backend.py")
+
+pytestmark = [
+    pytest.mark.skipif(
+        not os.path.exists(_BACKEND_PATH),
+        reason="build backend only exists in a source tree",
+    ),
+    pytest.mark.skipif(shutil.which("git") is None, reason="requires the git binary"),
+]
+
+
+@pytest.fixture(scope="module")
+def backend():
+    import sys
+
+    # build_backend imports its sibling build_web module from the repo root
+    sys.path.insert(0, _REPO_ROOT)
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "_xinf_build_backend", _BACKEND_PATH
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.path.remove(_REPO_ROOT)
+
+
+def _read_recorded(root):
+    path = os.path.join(root, "xinference", "_commit.py")
+    if not os.path.exists(path):
+        return None
+    namespace: dict = {}
+    with open(path) as f:
+        exec(f.read(), namespace)
+    return namespace["full_revisionid"]
+
+
+def _make_source_tree(root):
+    os.makedirs(os.path.join(root, "xinference"), exist_ok=True)
+    with open(os.path.join(root, "xinference", "__init__.py"), "w") as f:
+        f.write("")
+
+
+def _git(cwd, *args):
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "t",
+        "GIT_AUTHOR_EMAIL": "t@t",
+        "GIT_COMMITTER_NAME": "t",
+        "GIT_COMMITTER_EMAIL": "t@t",
+    }
+    return subprocess.run(
+        ["git", *args], cwd=cwd, capture_output=True, text=True, check=True, env=env
+    ).stdout.strip()
+
+
+def test_records_head_of_own_checkout(backend, tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _make_source_tree(str(repo))
+    _git(repo, "init", "-q")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "init")
+    head = _git(repo, "rev-parse", "HEAD")
+
+    backend._record_full_revision(str(repo))
+
+    assert _read_recorded(str(repo)) == head
+
+
+def test_archive_node_used_when_not_a_checkout(backend, tmp_path):
+    sha = "0123456789abcdef0123456789abcdef01234567"
+    src = tmp_path / "archive"
+    src.mkdir()
+    _make_source_tree(str(src))
+    (src / ".git_archival.txt").write_text(
+        f"node: {sha}\nnode-date: 2026-01-01T00:00:00+00:00\n"
+        "describe-name: v1.0.0-1-g0123456\n"
+    )
+
+    backend._record_full_revision(str(src))
+
+    assert _read_recorded(str(src)) == sha
+
+
+def test_ignores_enclosing_repository(backend, tmp_path):
+    # an archive (no .git of its own) extracted inside an unrelated checkout
+    # must not be attributed to the enclosing repository's commit
+    outer = tmp_path / "outer"
+    outer.mkdir()
+    (outer / "unrelated.txt").write_text("x")
+    _git(outer, "init", "-q")
+    _git(outer, "add", "-A")
+    _git(outer, "commit", "-q", "-m", "outer")
+
+    nested = outer / "extracted" / "archive"
+    nested.mkdir(parents=True)
+    _make_source_tree(str(nested))
+
+    backend._record_full_revision(str(nested))
+
+    assert _read_recorded(str(nested)) is None
+
+
+def test_unexpanded_archival_placeholders_are_ignored(backend, tmp_path):
+    # a plain checkout carries the archival file with $Format:...$ intact
+    src = tmp_path / "srctree"
+    src.mkdir()
+    _make_source_tree(str(src))
+    (src / ".git_archival.txt").write_text(
+        "node: $Format:%H$\nnode-date: $Format:%cI$\n"
+    )
+
+    backend._record_full_revision(str(src))
+
+    assert _read_recorded(str(src)) is None
+
+
+def test_fallback_version_is_wheel_compatible():
+    # regression: bdist_wheel does int() on the release parts of the version,
+    # so a no-git build (e.g. the Dockerfile's dependency-skeleton layer)
+    # crashes when fallback_version is not a numeric three-part release
+    import re
+
+    with open(os.path.join(_REPO_ROOT, "pyproject.toml")) as f:
+        match = re.search(r'fallback_version\s*=\s*"([^"]+)"', f.read())
+    assert match, "fallback_version must be configured for no-git builds"
+    release = match.group(1).split("+")[0]
+    parts = release.split(".")
+    assert len(parts) == 3 and all(p.isdigit() for p in parts)
+
+
+def test_existing_record_kept_without_revision_source(backend, tmp_path):
+    # building a wheel from an sdist: no git, no expanded archival file --
+    # the file recorded at sdist-build time must survive
+    sha = "89abcdef0123456789abcdef0123456789abcdef"
+    src = tmp_path / "sdist"
+    src.mkdir()
+    _make_source_tree(str(src))
+    (src / "xinference" / "_commit.py").write_text(f'full_revisionid = "{sha}"\n')
+
+    backend._record_full_revision(str(src))
+
+    assert _read_recorded(str(src)) == sha

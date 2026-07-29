@@ -51,13 +51,15 @@ pip install -e ".[dev]"
 
 Notes:
 
-- `setup.py develop/install/sdist` runs the Web UI build unless
-  `NO_WEB_UI=1` is set.
+- Wheel, sdist, and editable builds (including `pip install -e .`) run the
+  Web UI build through the in-tree build backend (`build_backend.py` /
+  `build_web.py`) unless `NO_WEB_UI=1` is set.
 - For Python 3.12 and newer, CI installs `setuptools<82`; use the same pin if
   packaging or editable installs fail.
 - The project supports Python 3.10 through 3.13 in CI.
-- Optional model engines have extras in `setup.cfg`, such as `transformers`,
-  `vllm`, `mlx`, `embedding`, `rerank`, `image`, `video`, and `audio`.
+- Optional model engines have extras in `pyproject.toml`, such as
+  `transformers`, `vllm`, `mlx`, `embedding`, `rerank`, `image`, `video`, and
+  `audio`.
 
 ## Formatting and Linting
 
@@ -74,9 +76,9 @@ For a branch-wide check against upstream main:
 pre-commit run --from-ref=upstream/main --to-ref=HEAD --all-files
 ```
 
-Configured hooks include Black, end-of-file/trailing-whitespace checks, Flake8,
+Configured hooks include Black, end-of-file/trailing-whitespace checks, Ruff,
 isort, mypy with missing imports ignored, and codespell. Configuration lives in
-`.pre-commit-config.yaml`, `pyproject.toml`, and `setup.cfg`.
+`.pre-commit-config.yaml` and `pyproject.toml`.
 
 ## Python Tests
 
@@ -90,7 +92,7 @@ The broad CI-style non-GPU test command is approximately:
 
 ```bash
 pytest --timeout=3000 -W ignore::PendingDeprecationWarning -vv \
-  --cov-config=setup.cfg --cov-report=xml --cov=xinference \
+  --cov-config=pyproject.toml --cov-report=xml --cov=xinference \
   --ignore xinference/core/tests/test_continuous_batching.py \
   --ignore xinference/model/image/tests/test_stable_diffusion.py \
   --ignore xinference/model/image/tests/test_got_ocr2.py \

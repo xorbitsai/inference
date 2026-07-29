@@ -15,7 +15,7 @@ import aiohttp
 from fastapi import Body, Depends, HTTPException, Query, Request, Security
 from pydantic import BaseModel
 
-from ..._version import get_versions
+from ... import __version__
 from ..dependencies import get_api
 from ..responses import JSONResponse
 
@@ -63,7 +63,22 @@ async def get_cluster_device_info(
 
 async def get_cluster_version() -> JSONResponse:
     try:
-        data = get_versions()
+        # keep the response keys the versioneer-era API exposed; the build
+        # backend records the full 40-character SHA in _commit.py, with the
+        # setuptools-scm short node as a fallback for artifacts built without
+        # git metadata
+        try:
+            from ..._commit import full_revisionid
+        except ImportError:
+            try:
+                from ..._version import commit_id
+            except ImportError:
+                commit_id = None
+            full_revisionid = commit_id.lstrip("g") if commit_id else None
+        data = {
+            "version": __version__,
+            "full-revisionid": full_revisionid,
+        }
         return JSONResponse(content=data)
     except Exception as e:
         logger.error(e, exc_info=True)
