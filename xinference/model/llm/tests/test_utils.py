@@ -297,9 +297,13 @@ def test_post_process_completion_preserves_chat_logprobs():
 
 
 def test_post_process_completion_chunk_preserves_chat_logprobs():
-    # Streaming tools path: _post_process_completion_chunk previously hard-coded
-    # logprobs to None, so streaming tool-enabled requests lost them. It must now
-    # carry the converted chat-shape logprobs from the source CompletionChunk choice.
+    # Streaming tools path: `_async_to_tool_completion_chunks` first converts each
+    # legacy CompletionChunk to a chat chunk via `_to_chat_completion_chunk` (which
+    # already turns the legacy parallel-list logprobs into the chat ``content[]``
+    # shape), then hands the chat chunk to `_post_process_completion_chunk`. That
+    # post-processor must pass the already-converted logprobs through unchanged;
+    # re-running the converter would find no ``tokens`` key and collapse a real
+    # one-token logprob to ``{"content": []}`` (regression flagged on #5252).
     from ....types import CompletionChoice, CompletionChunk, CompletionLogprobs
 
     logprobs = CompletionLogprobs(
@@ -308,7 +312,7 @@ def test_post_process_completion_chunk_preserves_chat_logprobs():
         tokens=["Hello", " world"],
         top_logprobs=[None, {" world": -0.2}],
     )
-    chunk = CompletionChunk(
+    raw_chunk = CompletionChunk(
         id="cmpl-2",
         object="text_completion",
         created=123,
@@ -323,16 +327,22 @@ def test_post_process_completion_chunk_preserves_chat_logprobs():
         ],
     )
 
+    # Production order: convert to a chat chunk first, then post-process it.
+    chat_chunk = ChatModelMixin._to_chat_completion_chunk(raw_chunk)
+    expected_logprobs = chat_chunk["choices"][0]["logprobs"]
+    assert expected_logprobs is not None  # converted once to the chat shape
+
     mixin = ChatModelMixin()
     mixin.tool_parser = _NoOpToolParser()
     mixin.reasoning_parser = None
 
     result = mixin._post_process_completion_chunk(
-        "test-family", "test-model", chunk, chunk_id="cmpl-2"
+        "test-family", "test-model", chat_chunk, chunk_id="cmpl-2"
     )
 
     assert result is not None
-    assert result["choices"][0]["logprobs"] is not None
+    # Passed through unchanged -- not double-converted to {"content": []}.
+    assert result["choices"][0]["logprobs"] == expected_logprobs
     assert result["choices"][0]["logprobs"] == {
         "content": [
             {
@@ -2145,6 +2155,7 @@ def test_post_process_completion_without_thinking():
                         }
                     ],
                 },
+                "logprobs": None,
                 "finish_reason": "tool_calls",
             }
         ],
@@ -2201,6 +2212,7 @@ def test_post_process_completion_with_thinking():
                         }
                     ],
                 },
+                "logprobs": None,
                 "finish_reason": "tool_calls",
             }
         ],
@@ -2264,6 +2276,7 @@ def test_post_process_completion_with_parser():
                     ],
                     "reasoning_content": '\n好的，用户问的是上海当前的天气。我需要调用get_current_weather这个工具来获取数据。首先，确认工具的参数是location，必须填写城市名称。用户提到的是上海，所以参数应该是"location": "上海"。然后，生成对应的JSON格式，确保正确无误。检查一下有没有其他必填项，这里只有location，所以没问题。最后，用工具调用的格式返回结果。\n',
                 },
+                "logprobs": None,
                 "finish_reason": "tool_calls",
             }
         ],

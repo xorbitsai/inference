@@ -968,9 +968,11 @@ class ChatModelMixin:
                 {
                     "index": 0,
                     "delta": d,
-                    "logprobs": _completion_logprobs_to_chat_logprobs(
-                        c["choices"][0].get("logprobs")
-                    ),
+                    # `_async_to_tool_completion_chunks` already converted the
+                    # legacy completion logprobs to the chat ``content[]`` shape
+                    # via `_to_chat_completion_chunk`; pass it through unchanged
+                    # here so a real logprob is not collapsed to ``{"content": []}``.
+                    "logprobs": c["choices"][0].get("logprobs"),
                     "finish_reason": finish_reason,
                 }
             ],
