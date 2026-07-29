@@ -467,12 +467,15 @@ const ja = {
       users: 'users',
       cache: 'cache',
       virtualenv: 'virtualenv',
+      logs: 'logs',
+      monitor: 'monitor',
     },
     permissionLabels: {
       admin: '管理者',
       'models:list': 'モデル一覧を表示',
       'models:read': 'モデル情報を読み取り',
       'models:write': 'モデルを起動/停止',
+      'models:register': 'モデルを登録/登録解除',
       'keys:create': 'API Key を作成',
       'keys:manage': 'API Key を管理',
       'users:manage': 'ユーザーを管理',
@@ -480,6 +483,8 @@ const ja = {
       'cache:delete': 'キャッシュを削除',
       'virtualenv:list': '仮想環境を表示',
       'virtualenv:delete': '仮想環境を削除',
+      'logs:list': 'ログを表示',
+      'monitor:view': '監視を表示',
     },
   },
   apiKey: {
@@ -688,6 +693,8 @@ const ja = {
       '単一マシンでもクラスタでも、GPU と CPU をまたいで推論をスケールできます。',
   },
   common: {
+    accessDenied: 'アクセス拒否',
+    accessDeniedDescription: 'このページにアクセスするために必要な権限 ({{scope}}) がありません。',
     valueEmpty: '空にできません',
     patternError: '形式が正しくありません。確認してください',
     loginSuccess: 'ログインに成功しました',

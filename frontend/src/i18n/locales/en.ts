@@ -470,12 +470,15 @@ const en = {
       users: 'users',
       cache: 'cache',
       virtualenv: 'virtualenv',
+      logs: 'logs',
+      monitor: 'monitor',
     },
     permissionLabels: {
       admin: 'Administrator',
       'models:list': 'View model list',
       'models:read': 'Read model details',
       'models:write': 'Launch/stop models',
+      'models:register': 'Register/unregister models',
       'keys:create': 'Create API Key',
       'keys:manage': 'Manage API Keys',
       'users:manage': 'Manage users',
@@ -483,6 +486,8 @@ const en = {
       'cache:delete': 'Delete cache',
       'virtualenv:list': 'View virtual environments',
       'virtualenv:delete': 'Delete virtual environments',
+      'logs:list': 'View logs',
+      'monitor:view': 'View monitoring',
     },
   },
   apiKey: {
@@ -690,6 +695,8 @@ const en = {
       'Scale inference across GPUs and CPUs, on a single machine or a cluster.',
   },
   common: {
+    accessDenied: 'Access Denied',
+    accessDeniedDescription: 'You do not have the required permission ({{scope}}) to access this page.',
     valueEmpty: 'Cannot be empty',
     patternError: 'Invalid format, please check',
     loginSuccess: 'Login successful',

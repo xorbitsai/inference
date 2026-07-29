@@ -22,5 +22,8 @@ export function useMenuAuth() {
     canCreateKeys: hasScope('admin', 'keys:create'),
     canManageKeys: hasScope('admin', 'keys:manage'),
     canAccessKeysPage: hasScope('admin', 'keys:create', 'keys:manage'),
+    hasLogsList: hasScope('admin', 'logs:list'),
+    hasMonitorView: hasScope('admin', 'monitor:view'),
+    canRegisterModel: hasScope('admin', 'models:register', 'models:add', 'models:unregister'),
   };
 }

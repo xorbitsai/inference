@@ -147,7 +147,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const branding = getBrandingFromEnv();
   const { clusterVersion, clusterAuth, clusterUIConfig } = useGlobal();
-  const { isAdmin, usersManagePage, canAccessKeysPage } = useMenuAuth();
+  const { isAdmin, usersManagePage, canAccessKeysPage, hasLogsList, hasMonitorView, canRegisterModel } = useMenuAuth();
   const [token, setToken] = useState<string | undefined>();
   const showLoginOut = useMemo(
     () => Boolean(clusterAuth?.auth && token && token !== NO_AUTH),
@@ -202,6 +202,7 @@ export function Sidebar() {
             name: t('menu.registerModel'),
             Icon: Box,
             Extra: ChevronRight,
+            show: !clusterUIConfig?.auth_advanced || canRegisterModel,
           },
         ],
       },
@@ -219,13 +220,16 @@ export function Sidebar() {
             name: t('menu.monitorCenter'),
             Icon: Monitor,
             Extra: ChevronRight,
+            show: !clusterUIConfig?.auth_advanced || hasMonitorView,
           },
           {
             path: '/log-center',
             name: t('menu.logCenter'),
             Icon: ScrollText,
             Extra: ChevronRight,
-            show: Boolean(clusterUIConfig?.es_enabled),
+            show:
+              Boolean(clusterUIConfig?.es_enabled) &&
+              (!clusterUIConfig?.auth_advanced || hasLogsList),
           },
         ],
       },
@@ -303,7 +307,7 @@ export function Sidebar() {
         items: group.items.filter(({ show = true }) => show),
       }))
       .filter(({ items }) => items.length > 0);
-  }, [clusterUIConfig, locale, t, usersManagePage, canAccessKeysPage, isAdmin]);
+  }, [clusterUIConfig, locale, t, usersManagePage, canAccessKeysPage, isAdmin, hasLogsList, hasMonitorView, canRegisterModel]);
 
   return (
     <div

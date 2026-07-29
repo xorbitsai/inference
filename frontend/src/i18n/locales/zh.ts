@@ -487,12 +487,15 @@ const zh = {
       users: 'users',
       cache: 'cache',
       virtualenv: 'virtualenv',
+      logs: 'logs',
+      monitor: 'monitor',
     },
     permissionLabels: {
       admin: '管理员',
       'models:list': '查看模型列表',
       'models:read': '读取模型信息',
       'models:write': '启动/停止模型',
+      'models:register': '注册/取消注册模型',
       'keys:create': '创建 API Key',
       'keys:manage': '管理 API Key',
       'users:manage': '管理用户',
@@ -500,6 +503,8 @@ const zh = {
       'cache:delete': '删除缓存',
       'virtualenv:list': '查看虚拟环境',
       'virtualenv:delete': '删除虚拟环境',
+      'logs:list': '查看日志',
+      'monitor:view': '查看监控',
     },
   },
   apiKey: {
@@ -670,6 +675,8 @@ const zh = {
     },
   },
   common: {
+    accessDenied: '访问被拒绝',
+    accessDeniedDescription: '您没有访问此页面所需的权限 ({{scope}})。',
     valueEmpty: '不能为空',
     patternError: '格式不正确，请检查',
     loginSuccess: '登录成功',

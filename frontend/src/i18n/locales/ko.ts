@@ -463,12 +463,15 @@ const ko = {
       users: 'users',
       cache: 'cache',
       virtualenv: 'virtualenv',
+      logs: 'logs',
+      monitor: 'monitor',
     },
     permissionLabels: {
       admin: '관리자',
       'models:list': '모델 목록 보기',
       'models:read': '모델 정보 읽기',
       'models:write': '모델 시작/중지',
+      'models:register': '모델 등록/등록 해제',
       'keys:create': 'API Key 생성',
       'keys:manage': 'API Key 관리',
       'users:manage': '사용자 관리',
@@ -476,6 +479,8 @@ const ko = {
       'cache:delete': '캐시 삭제',
       'virtualenv:list': '가상 환경 보기',
       'virtualenv:delete': '가상 환경 삭제',
+      'logs:list': '로그 보기',
+      'monitor:view': '모니터링 보기',
     },
   },
   apiKey: {
@@ -680,6 +685,8 @@ const ko = {
       '단일 머신이든 클러스터든 GPU와 CPU 전반에서 추론을 확장할 수 있습니다.',
   },
   common: {
+    accessDenied: '접근 거부됨',
+    accessDeniedDescription: '이 페이지에 접근하는 데 필요한 권한({{scope}})이 없습니다.',
     valueEmpty: '비워둘 수 없습니다',
     patternError: '형식이 올바르지 않습니다. 확인해주세요',
     loginSuccess: '로그인에 성공했습니다',
