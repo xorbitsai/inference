@@ -37,8 +37,13 @@ def _get_spec(model_name: str):
 
 
 def test_match_on_linux_with_cuda():
-    with patch.object(engine_platform, "system", return_value="Linux"), patch.object(
-        sys.modules[SGLangImageModel.__module__], "has_cuda_device", return_value=True
+    with (
+        patch.object(engine_platform, "system", return_value="Linux"),
+        patch.object(
+            sys.modules[SGLangImageModel.__module__],
+            "has_cuda_device",
+            return_value=True,
+        ),
     ):
         for model_name in SGLANG_SUPPORTED_IMAGE_MODELS:
             assert SGLangImageModel.match(_get_spec(model_name)) is True
@@ -46,15 +51,25 @@ def test_match_on_linux_with_cuda():
 
 
 def test_match_rejects_non_linux():
-    with patch.object(engine_platform, "system", return_value="Darwin"), patch.object(
-        sys.modules[SGLangImageModel.__module__], "has_cuda_device", return_value=True
+    with (
+        patch.object(engine_platform, "system", return_value="Darwin"),
+        patch.object(
+            sys.modules[SGLangImageModel.__module__],
+            "has_cuda_device",
+            return_value=True,
+        ),
     ):
         assert SGLangImageModel.match(_get_spec("Qwen-Image")) is False
 
 
 def test_match_rejects_without_cuda():
-    with patch.object(engine_platform, "system", return_value="Linux"), patch.object(
-        sys.modules[SGLangImageModel.__module__], "has_cuda_device", return_value=False
+    with (
+        patch.object(engine_platform, "system", return_value="Linux"),
+        patch.object(
+            sys.modules[SGLangImageModel.__module__],
+            "has_cuda_device",
+            return_value=False,
+        ),
     ):
         assert SGLangImageModel.match(_get_spec("Qwen-Image")) is False
 
