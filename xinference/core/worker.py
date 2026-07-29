@@ -127,6 +127,105 @@ if TYPE_CHECKING:
 
 logger = getLogger(__name__)
 
+# Track which virtualenv paths have already been set up (install_packages +
+# post-install hooks) within the current process lifetime. Maps venv_path to
+# a fingerprint of the resolved package list so that a change in package
+# requirements invalidates the cache. When multiple replicas share the same
+# venv with the same package set, only the first one runs the full setup;
+# subsequent replicas skip it to avoid downgrade/upgrade churn that can
+# corrupt .so files while child subprocesses are importing torch/vllm.
+_venv_setup_done: Dict[str, int] = {}
+
+
+def _freeze(value):
+    """Recursively convert lists/dicts to hashable tuples for fingerprinting.
+
+    ``conf`` values such as ``extra_index_url`` and ``trusted_host`` are
+    ``List[str]``, which cannot be hashed directly.
+    """
+    if isinstance(value, dict):
+        return tuple(sorted((k, _freeze(v)) for k, v in value.items()))
+    if isinstance(value, list):
+        return tuple(_freeze(v) for v in value)
+    return value
+
+
+def _make_fingerprint(
+    packages: List[str],
+    conf: dict,
+    variables: dict,
+    architectures: Optional[List[str]],
+) -> int:
+    """Return a hash fingerprint of every setup input that affects the result.
+
+    Includes the canonical package list, install configuration (conf),
+    template variables, and target architectures so a change to any of
+    them produces a different fingerprint and triggers a re-setup.
+    """
+    key = (
+        tuple(sorted(packages)),
+        _freeze(conf),
+        _freeze(variables),
+        tuple(sorted(architectures) if architectures else ()),
+    )
+    return hash(key)
+
+
+def _should_skip_venv_setup(
+    venv_path: str,
+    packages: List[str],
+    conf: dict,
+    variables: dict,
+    architectures: Optional[List[str]] = None,
+) -> bool:
+    """Return True if the venv was already set up with the given inputs.
+
+    Checks three conditions:
+    1. The path is in the process-local done dict.
+    2. The stored fingerprint matches the current inputs (packages, conf,
+       variables, and architectures).
+    3. The on-disk marker file exists (guards against external venv deletion
+       via ``remove_virtual_env`` during the same process lifetime).
+    """
+    marker_path = os.path.join(venv_path, ".xinference_setup_done")
+    fp = _make_fingerprint(packages, conf, variables, architectures)
+    return (
+        venv_path in _venv_setup_done
+        and _venv_setup_done[venv_path] == fp
+        and os.path.exists(marker_path)
+    )
+
+
+def _mark_venv_setup_done(
+    venv_path: str,
+    packages: List[str],
+    conf: dict,
+    variables: dict,
+    architectures: Optional[List[str]] = None,
+) -> None:
+    """Record that *venv_path* has been set up with the given inputs."""
+    fp = _make_fingerprint(packages, conf, variables, architectures)
+    _venv_setup_done[venv_path] = fp
+    marker_path = os.path.join(venv_path, ".xinference_setup_done")
+    try:
+        with open(marker_path, "w") as f:
+            f.write(str(fp))
+    except OSError:
+        logger.debug(
+            "Failed to write .xinference_setup_done marker to %s",
+            venv_path,
+            exc_info=True,
+        )
+
+
+# Per-venv process-local locks so the check-and-setup sequence in
+# _exclusive_venv_path_lock is atomic on every platform.  The Unix
+# fcntl file lock serializes across processes; the threading lock
+# handles the in-process case on Windows (where fcntl is unavailable)
+# and provides a fast uncontended path on Unix as well.
+_venv_locks: Dict[str, threading.Lock] = {}
+_venv_locks_lock = threading.Lock()
+
 
 @contextmanager
 def _exclusive_venv_path_lock(env_path: str):
@@ -138,27 +237,35 @@ def _exclusive_venv_path_lock(env_path: str):
     Ensures the lock file's parent directory exists before ``os.open`` so cold
     starts work after the entire venv tree was removed.
 
-    Uses a sibling lock file ``{realpath(env_path)}.xinference-venv.lock``.
-    On Windows this is a no-op (``fcntl`` unavailable / different semantics).
+    Uses a sibling lock file ``{realpath(env_path)}.xinference-venv.lock``
+    for cross-process serialization on Unix, plus a process-local per-venv
+    ``threading.Lock`` that works on every platform (including Windows where
+    ``fcntl`` is unavailable).
     """
-    if os.name == "nt":
-        yield
-        return
-
-    import fcntl
-
     real = os.path.realpath(os.path.normpath(env_path))
-    lock_path = f"{real}.xinference-venv.lock"
-    lock_dir = os.path.dirname(lock_path)
-    if lock_dir:
-        os.makedirs(lock_dir, exist_ok=True)
-    fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o644)
-    try:
-        fcntl.flock(fd, fcntl.LOCK_EX)
-        yield
-    finally:
-        fcntl.flock(fd, fcntl.LOCK_UN)
-        os.close(fd)
+    with _venv_locks_lock:
+        if real not in _venv_locks:
+            _venv_locks[real] = threading.Lock()
+        venv_lock = _venv_locks[real]
+
+    with venv_lock:
+        if os.name == "nt":
+            yield
+            return
+
+        import fcntl
+
+        lock_path = f"{real}.xinference-venv.lock"
+        lock_dir = os.path.dirname(lock_path)
+        if lock_dir:
+            os.makedirs(lock_dir, exist_ok=True)
+        fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o644)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            yield
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+            os.close(fd)
 
 
 # Strip test-injected envs from cached launch_args before recover.
@@ -2977,62 +3084,81 @@ class WorkerActor(xo.StatelessActor):
             virtual_env_manager.env_path,
             ", ".join([f"{k}={v}" for k, v in conf.items() if v]),
         )
-        with _exclusive_venv_path_lock(str(virtual_env_manager.env_path)):
-            if modern_sglang_kernel:
-                # SGLang 0.5.11 renamed the distribution while retaining the
-                # same import package.  Remove the cached legacy owner before
-                # the new wheel writes those files.
-                cls._uninstall_venv_package(virtual_env_manager, "sgl-kernel")
-            if force_reinstall_xllamacpp:
-                cls._uninstall_venv_package(virtual_env_manager, "xllamacpp")
-            virtual_env_manager.install_packages(packages, **conf, **variables)
+        venv_path = str(virtual_env_manager.env_path)
+        with _exclusive_venv_path_lock(venv_path):
+            if not _should_skip_venv_setup(
+                venv_path, packages, conf, variables, architectures
+            ):
+                if modern_sglang_kernel:
+                    # SGLang 0.5.11 renamed the distribution while retaining the
+                    # same import package.  Remove the cached legacy owner before
+                    # the new wheel writes those files.
+                    cls._uninstall_venv_package(virtual_env_manager, "sgl-kernel")
+                if force_reinstall_xllamacpp:
+                    cls._uninstall_venv_package(virtual_env_manager, "xllamacpp")
+                virtual_env_manager.install_packages(packages, **conf, **variables)
 
-            # Post-install: flashinfer AOT workaround for sm_120 Blackwell.
-            # vllm 0.21.0 hard-pins flashinfer-cubin==0.6.8.post1 which has JIT
-            # compilation failure on sm_120. Force-upgrade to AOT versions.
-            # Run under the same lock — uv pip install mutates the venv and
-            # must stay serialized with install_packages() and other AOT
-            # upgrades when multiple replicas/workers share this venv.
-            # See optimize/20260702/2026070209.md
-            from .virtual_env_manager import (
-                apply_flashinfer_aot_post_install,
-                ensure_flashinfer_cubin_matches_post_install,
-                ensure_sglang_inherited_packages_compatible_post_install,
-            )
-
-            ensure_sglang_inherited_packages_compatible_post_install(
-                model_engine, virtual_env_manager
-            )
-            if XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL:
-                logger.info(
-                    "Skipping the FlashInfer AOT post-install from its public "
-                    "wheel index in explicit offline-install mode"
+                # Post-install: flashinfer AOT workaround for sm_120 Blackwell.
+                # vllm 0.21.0 hard-pins flashinfer-cubin==0.6.8.post1 which has JIT
+                # compilation failure on sm_120. Force-upgrade to AOT versions.
+                # Run under the same lock — uv pip install mutates the venv and
+                # must stay serialized with install_packages() and other AOT
+                # upgrades when multiple replicas/workers share this venv.
+                # See optimize/20260702/2026070209.md
+                from .virtual_env_manager import (
+                    apply_flashinfer_aot_post_install,
+                    ensure_flashinfer_cubin_matches_post_install,
+                    ensure_sglang_inherited_packages_compatible_post_install,
                 )
-            else:
-                apply_flashinfer_aot_post_install(
+
+                ensure_sglang_inherited_packages_compatible_post_install(
+                    model_engine, virtual_env_manager
+                )
+                if XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL:
+                    logger.info(
+                        "Skipping the FlashInfer AOT post-install from its public "
+                        "wheel index in explicit offline-install mode"
+                    )
+                else:
+                    apply_flashinfer_aot_post_install(
+                        model_engine,
+                        architectures,
+                        virtual_env_manager,
+                        conf,
+                        cuda_version,
+                    )
+                ensure_flashinfer_cubin_matches_post_install(
                     model_engine,
-                    architectures,
                     virtual_env_manager,
-                    conf,
-                    cuda_version,
+                    allow_public_install=not XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL,
                 )
-            ensure_flashinfer_cubin_matches_post_install(
-                model_engine,
-                virtual_env_manager,
-                allow_public_install=not XINFERENCE_VIRTUAL_ENV_OFFLINE_INSTALL,
-            )
 
-        # Apply engine-specific post-install patches
-        if model_engine and model_engine.lower() == "vllm":
-            try:
-                from xinference.model.llm.vllm.patches import apply_vllm_patches
-            except ImportError:
-                pass
+                # Apply engine-specific post-install patches.  These mutate files
+                # inside the shared virtualenv, so they must stay under the same
+                # lock and deduplication as install_packages and post-install
+                # hooks to avoid race conditions when multiple replicas share
+                # this venv.
+                if model_engine and model_engine.lower() == "vllm":
+                    try:
+                        from xinference.model.llm.vllm.patches import apply_vllm_patches
+                    except ImportError:
+                        pass
+                    else:
+                        apply_vllm_patches(
+                            env_path=venv_path,
+                            model_name=model_name,
+                            architectures=architectures,
+                        )
+
+                _mark_venv_setup_done(
+                    venv_path, packages, conf, variables, architectures
+                )
             else:
-                apply_vllm_patches(
-                    env_path=str(virtual_env_manager.env_path),
-                    model_name=model_name,
-                    architectures=architectures,
+                logger.info(
+                    "Virtual env %s already set up with current packages in "
+                    "this process; skipping install_packages and post-install "
+                    "hooks",
+                    venv_path,
                 )
 
     async def _get_progressor(self, request_id: str):

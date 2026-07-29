@@ -629,3 +629,305 @@ def test_model_specs_pin_system_torch_with_torchvision():
         "same environment markers (torch/torchvision would be mixed-source): "
         + ", ".join(offenders)
     )
+
+
+# ---------------------------------------------------------------------------
+# Tests for venv setup dedup (_should_skip_venv_setup / _mark_venv_setup_done)
+# ---------------------------------------------------------------------------
+
+
+def _clean_venv_setup_done():
+    """Reset the process-local setup cache between tests."""
+    from .. import worker as worker_mod
+
+    worker_mod._venv_setup_done.clear()
+
+
+def test_should_skip_venv_setup_first_install(tmp_path):
+    """First install: cache is empty → should NOT skip."""
+    _clean_venv_setup_done()
+    from .. import worker as worker_mod
+
+    venv = str(tmp_path / "venv")
+    packages = ["vllm==0.21.0", "flashinfer-cubin==0.6.8.post1"]
+
+    assert not worker_mod._should_skip_venv_setup(venv, packages, {}, {})
+
+
+def test_should_skip_venv_setup_same_packages(tmp_path):
+    """Same path + same packages + marker file exists → should skip."""
+    import os
+
+    _clean_venv_setup_done()
+    from .. import worker as worker_mod
+
+    venv = str(tmp_path / "venv")
+    packages = ["vllm==0.21.0", "flashinfer-cubin==0.6.8.post1"]
+
+    # Simulate first setup
+    os.makedirs(venv, exist_ok=True)
+    worker_mod._mark_venv_setup_done(venv, packages, {}, {})
+
+    assert worker_mod._should_skip_venv_setup(venv, packages, {}, {})
+
+
+def test_should_skip_venv_setup_different_packages(tmp_path):
+    """Same path but different packages → should NOT skip."""
+    import os
+
+    _clean_venv_setup_done()
+    from .. import worker as worker_mod
+
+    venv = str(tmp_path / "venv")
+    first_packages = ["vllm==0.21.0", "flashinfer-cubin==0.6.8.post1"]
+    second_packages = ["vllm==0.21.0", "flashinfer-cubin==0.6.8.post1", "extra-pkg"]
+
+    # Simulate first setup with first_packages
+    os.makedirs(venv, exist_ok=True)
+    worker_mod._mark_venv_setup_done(venv, first_packages, {}, {})
+
+    # second_packages differ → should NOT skip
+    assert not worker_mod._should_skip_venv_setup(venv, second_packages, {}, {})
+
+
+def test_should_skip_venv_setup_marker_missing(tmp_path):
+    """Same path + same packages but marker file is gone (venv deleted) →
+    should NOT skip."""
+    import os
+
+    _clean_venv_setup_done()
+    from .. import worker as worker_mod
+
+    venv = str(tmp_path / "venv")
+    packages = ["vllm==0.21.0"]
+
+    # Set up via helper, then remove the marker to simulate external deletion
+    os.makedirs(venv, exist_ok=True)
+    worker_mod._mark_venv_setup_done(venv, packages, {}, {})
+    os.remove(os.path.join(venv, ".xinference_setup_done"))
+
+    assert not worker_mod._should_skip_venv_setup(venv, packages, {}, {})
+
+
+def test_should_skip_venv_setup_different_path(tmp_path):
+    """Different venv path → should NOT skip."""
+    import os
+
+    _clean_venv_setup_done()
+    from .. import worker as worker_mod
+
+    venv_a = str(tmp_path / "venv_a")
+    venv_b = str(tmp_path / "venv_b")
+    packages = ["vllm==0.21.0"]
+
+    # Set up venv_a
+    os.makedirs(venv_a, exist_ok=True)
+    worker_mod._mark_venv_setup_done(venv_a, packages, {}, {})
+
+    # venv_b is a different path → should NOT skip
+    assert not worker_mod._should_skip_venv_setup(venv_b, packages, {}, {})
+
+
+def test_mark_venv_setup_done_writes_marker(tmp_path):
+    """_mark_venv_setup_done adds the path+fingerprint to the dict and creates the
+    marker file with the fingerprint value."""
+    import os
+
+    _clean_venv_setup_done()
+    from .. import worker as worker_mod
+
+    venv = str(tmp_path / "venv")
+    packages = ["vllm==0.21.0"]
+    os.makedirs(venv, exist_ok=True)
+
+    worker_mod._mark_venv_setup_done(venv, packages, {}, {})
+
+    expected_fp = worker_mod._make_fingerprint(packages, {}, {}, None)
+    assert venv in worker_mod._venv_setup_done
+    assert worker_mod._venv_setup_done[venv] == expected_fp
+    assert os.path.exists(os.path.join(venv, ".xinference_setup_done"))
+    # Verify the marker file contains the fingerprint
+    with open(os.path.join(venv, ".xinference_setup_done")) as f:
+        assert f.read().strip() == str(expected_fp)
+
+
+def test_make_fingerprint_handles_list_valued_conf(tmp_path):
+    """_make_fingerprint must hash conf values that are lists
+    (e.g., extra_index_url, trusted_host) without raising TypeError."""
+    _clean_venv_setup_done()
+    from .. import worker as worker_mod
+
+    packages = ["vllm==0.21.0"]
+    conf_a = {"extra_index_url": ["https://pypi.org/simple", "https://example.com"]}
+    conf_b = {"extra_index_url": ["https://different.org"]}
+    variables = {}
+    architectures = None
+
+    # Must not raise TypeError: unhashable type: 'list'
+    fp_a = worker_mod._make_fingerprint(packages, conf_a, variables, architectures)
+    fp_b = worker_mod._make_fingerprint(packages, conf_b, variables, architectures)
+
+    assert isinstance(fp_a, int)
+    assert isinstance(fp_b, int)
+    # Different list values → different fingerprints
+    assert fp_a != fp_b
+
+    # Same inputs → same fingerprint
+    fp_a2 = worker_mod._make_fingerprint(packages, conf_a, variables, architectures)
+    assert fp_a == fp_a2
+
+
+def test_prepare_virtual_env_skips_on_second_call(tmp_path):
+    """Second call with same packages skips install_packages."""
+    import contextlib
+    import os
+    from unittest import mock
+
+    from ...model.core import VirtualEnvSettings
+    from .. import worker as worker_mod
+    from ..worker import WorkerActor
+
+    _clean_venv_setup_done()
+    venv_dir = str(tmp_path / "venv_skip")
+    os.makedirs(venv_dir, exist_ok=True)
+    call_count = 0
+
+    class _FakeVEM:
+        env_path = venv_dir
+
+        def install_packages(self, packages, **conf):
+            nonlocal call_count
+            call_count += 1
+
+    @contextlib.contextmanager
+    def _nullctx(*args, **kwargs):
+        yield
+
+    packages = ["vllm==0.21.0"]
+
+    # First call: should install
+    with mock.patch.object(worker_mod, "_exclusive_venv_path_lock", new=_nullctx):
+        WorkerActor._prepare_virtual_env(
+            virtual_env_manager=_FakeVEM(),
+            settings=VirtualEnvSettings(packages=packages),
+            virtual_env_packages=None,
+            model_engine="vllm",
+            model_name="test-model",
+            architectures=None,
+        )
+    assert call_count == 1
+
+    # Second call with same packages: should skip
+    with mock.patch.object(worker_mod, "_exclusive_venv_path_lock", new=_nullctx):
+        WorkerActor._prepare_virtual_env(
+            virtual_env_manager=_FakeVEM(),
+            settings=VirtualEnvSettings(packages=packages),
+            virtual_env_packages=None,
+            model_engine="vllm",
+            model_name="test-model",
+            architectures=None,
+        )
+    assert call_count == 1  # Still 1 — second call skipped
+
+
+def test_prepare_virtual_env_does_not_skip_different_packages(tmp_path):
+    """Different packages invalidate the cache → install_packages runs again."""
+    import contextlib
+    import os
+    from unittest import mock
+
+    from ...model.core import VirtualEnvSettings
+    from .. import worker as worker_mod
+    from ..worker import WorkerActor
+
+    _clean_venv_setup_done()
+    venv_dir = str(tmp_path / "venv_diff")
+    os.makedirs(venv_dir, exist_ok=True)
+    call_count = 0
+
+    class _FakeVEM:
+        env_path = venv_dir
+
+        def install_packages(self, packages, **conf):
+            nonlocal call_count
+            call_count += 1
+
+    @contextlib.contextmanager
+    def _nullctx(*args, **kwargs):
+        yield
+
+    first_packages = ["vllm==0.21.0"]
+    second_packages = ["vllm==0.21.0", "new-package"]
+
+    # First call
+    with mock.patch.object(worker_mod, "_exclusive_venv_path_lock", new=_nullctx):
+        WorkerActor._prepare_virtual_env(
+            virtual_env_manager=_FakeVEM(),
+            settings=VirtualEnvSettings(packages=first_packages),
+            virtual_env_packages=None,
+            model_engine="vllm",
+            model_name="test-model-diff",
+            architectures=None,
+        )
+    assert call_count == 1
+
+    # Second call with different packages
+    with mock.patch.object(worker_mod, "_exclusive_venv_path_lock", new=_nullctx):
+        WorkerActor._prepare_virtual_env(
+            virtual_env_manager=_FakeVEM(),
+            settings=VirtualEnvSettings(packages=second_packages),
+            virtual_env_packages=None,
+            model_engine="vllm",
+            model_name="test-model-diff",
+            architectures=None,
+        )
+    assert call_count == 2  # Second call installed because packages differ
+
+
+def test_exclusive_venv_path_lock_serializes_concurrent_callers(tmp_path):
+    """Two threads entering _exclusive_venv_path_lock for the same path
+    must never occupy the critical section simultaneously.  Tests the
+    process-local threading lock that is the only in-process guard on
+    Windows and the fast uncontended path on Unix."""
+    import os
+    import threading
+    import time
+
+    from .. import worker as worker_mod
+
+    venv_dir = str(tmp_path / "venv_lock_test")
+    os.makedirs(venv_dir, exist_ok=True)
+
+    occupants = 0
+    max_occupants = 0
+    lock = threading.Lock()
+
+    # Barrier ensures both threads are ready before either enters the lock,
+    # guaranteeing they overlap in time.
+    barrier = threading.Barrier(2, timeout=5)
+
+    errors = []
+
+    def critical_section():
+        nonlocal occupants, max_occupants
+        barrier.wait()
+        with worker_mod._exclusive_venv_path_lock(venv_dir):
+            with lock:
+                nonlocal occupants
+                occupants += 1
+                max_occupants = max(max_occupants, occupants)
+            time.sleep(0.1)
+            with lock:
+                occupants -= 1
+
+    t1 = threading.Thread(target=critical_section)
+    t2 = threading.Thread(target=critical_section)
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+
+    assert not errors, f"Errors in concurrent lock test: {errors}"
+    assert (
+        max_occupants == 1
+    ), f"Lock failed to serialize: max_occupants={max_occupants}, expected 1"
