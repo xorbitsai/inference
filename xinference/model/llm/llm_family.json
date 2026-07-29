@@ -33053,5 +33053,514 @@
     "tool_parser": "qwen",
     "featured": false,
     "updated_at": 1784910126
+  },
+  {
+    "model_name": "MiniMax-M3",
+    "model_description": "MiniMax-M3 is a native multimodal model with 1M context. It has ~428B parameters and ~23B activated parameters.",
+    "context_length": 1048576,
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "tools",
+      "reasoning",
+      "hybrid"
+    ],
+    "model_specs": [
+      {
+        "model_size_in_billions": 428,
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "MiniMaxAI/MiniMax-M3",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "MiniMax/MiniMax-M3",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 428,
+        "model_format": "ggufv2",
+        "model_src": {
+          "huggingface": {
+            "model_id": "unsloth/MiniMax-M3-GGUF",
+            "model_file_name_template": "",
+            "model_file_name_split_template": "MiniMax-M3-{quantization}-{part}.gguf",
+            "quantizations": [
+              "none"
+            ],
+            "quantization_parts": {
+              "BF16": [
+                "00001-of-00018",
+                "00002-of-00018",
+                "00003-of-00018",
+                "00004-of-00018",
+                "00005-of-00018",
+                "00006-of-00018",
+                "00007-of-00018",
+                "00008-of-00018",
+                "00009-of-00018",
+                "00010-of-00018",
+                "00011-of-00018",
+                "00012-of-00018",
+                "00013-of-00018",
+                "00014-of-00018",
+                "00015-of-00018",
+                "00016-of-00018",
+                "00017-of-00018",
+                "00018-of-00018"
+              ],
+              "MXFP4_MOE": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "Q8_0": [
+                "00001-of-00011",
+                "00002-of-00011",
+                "00003-of-00011",
+                "00004-of-00011",
+                "00005-of-00011",
+                "00006-of-00011",
+                "00007-of-00011",
+                "00008-of-00011",
+                "00009-of-00011",
+                "00010-of-00011",
+                "00011-of-00011"
+              ],
+              "UD-IQ1_M": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "UD-IQ2_M": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "UD-IQ2_XXS": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "UD-IQ3_S": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "UD-IQ3_XXS": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "UD-IQ4_NL": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "UD-IQ4_XS": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "UD-Q2_K_XL": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "UD-Q3_K_M": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "UD-Q3_K_XL": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "UD-Q4_K_M": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "UD-Q4_K_S": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "UD-Q4_K_XL": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "UD-Q5_K_M": [
+                "00001-of-00008",
+                "00002-of-00008",
+                "00003-of-00008",
+                "00004-of-00008",
+                "00005-of-00008",
+                "00006-of-00008",
+                "00007-of-00008",
+                "00008-of-00008"
+              ],
+              "UD-Q5_K_S": [
+                "00001-of-00008",
+                "00002-of-00008",
+                "00003-of-00008",
+                "00004-of-00008",
+                "00005-of-00008",
+                "00006-of-00008",
+                "00007-of-00008",
+                "00008-of-00008"
+              ],
+              "UD-Q5_K_XL": [
+                "00001-of-00008",
+                "00002-of-00008",
+                "00003-of-00008",
+                "00004-of-00008",
+                "00005-of-00008",
+                "00006-of-00008",
+                "00007-of-00008",
+                "00008-of-00008"
+              ],
+              "UD-Q6_K": [
+                "00001-of-00009",
+                "00002-of-00009",
+                "00003-of-00009",
+                "00004-of-00009",
+                "00005-of-00009",
+                "00006-of-00009",
+                "00007-of-00009",
+                "00008-of-00009",
+                "00009-of-00009"
+              ],
+              "UD-Q6_K_XL": [
+                "00001-of-00009",
+                "00002-of-00009",
+                "00003-of-00009",
+                "00004-of-00009",
+                "00005-of-00009",
+                "00006-of-00009",
+                "00007-of-00009",
+                "00008-of-00009",
+                "00009-of-00009"
+              ],
+              "UD-Q8_K_XL": [
+                "00001-of-00011",
+                "00002-of-00011",
+                "00003-of-00011",
+                "00004-of-00011",
+                "00005-of-00011",
+                "00006-of-00011",
+                "00007-of-00011",
+                "00008-of-00011",
+                "00009-of-00011",
+                "00010-of-00011",
+                "00011-of-00011"
+              ]
+            }
+          },
+          "modelscope": {
+            "model_id": "unsloth/MiniMax-M3-GGUF",
+            "model_file_name_template": "",
+            "model_file_name_split_template": "MiniMax-M3-{quantization}-{part}.gguf",
+            "quantizations": [
+              "none"
+            ],
+            "quantization_parts": {
+              "BF16": [
+                "00001-of-00018",
+                "00002-of-00018",
+                "00003-of-00018",
+                "00004-of-00018",
+                "00005-of-00018",
+                "00006-of-00018",
+                "00007-of-00018",
+                "00008-of-00018",
+                "00009-of-00018",
+                "00010-of-00018",
+                "00011-of-00018",
+                "00012-of-00018",
+                "00013-of-00018",
+                "00014-of-00018",
+                "00015-of-00018",
+                "00016-of-00018",
+                "00017-of-00018",
+                "00018-of-00018"
+              ],
+              "MXFP4_MOE": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "Q8_0": [
+                "00001-of-00011",
+                "00002-of-00011",
+                "00003-of-00011",
+                "00004-of-00011",
+                "00005-of-00011",
+                "00006-of-00011",
+                "00007-of-00011",
+                "00008-of-00011",
+                "00009-of-00011",
+                "00010-of-00011",
+                "00011-of-00011"
+              ],
+              "UD-IQ1_M": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "UD-IQ2_M": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "UD-IQ2_XXS": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "UD-IQ3_S": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "UD-IQ3_XXS": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "UD-IQ4_NL": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "UD-IQ4_XS": [
+                "00001-of-00006",
+                "00002-of-00006",
+                "00003-of-00006",
+                "00004-of-00006",
+                "00005-of-00006",
+                "00006-of-00006"
+              ],
+              "UD-Q2_K_XL": [
+                "00001-of-00004",
+                "00002-of-00004",
+                "00003-of-00004",
+                "00004-of-00004"
+              ],
+              "UD-Q3_K_M": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "UD-Q3_K_XL": [
+                "00001-of-00005",
+                "00002-of-00005",
+                "00003-of-00005",
+                "00004-of-00005",
+                "00005-of-00005"
+              ],
+              "UD-Q4_K_M": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "UD-Q4_K_S": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "UD-Q4_K_XL": [
+                "00001-of-00007",
+                "00002-of-00007",
+                "00003-of-00007",
+                "00004-of-00007",
+                "00005-of-00007",
+                "00006-of-00007",
+                "00007-of-00007"
+              ],
+              "UD-Q5_K_M": [
+                "00001-of-00008",
+                "00002-of-00008",
+                "00003-of-00008",
+                "00004-of-00008",
+                "00005-of-00008",
+                "00006-of-00008",
+                "00007-of-00008",
+                "00008-of-00008"
+              ],
+              "UD-Q5_K_S": [
+                "00001-of-00008",
+                "00002-of-00008",
+                "00003-of-00008",
+                "00004-of-00008",
+                "00005-of-00008",
+                "00006-of-00008",
+                "00007-of-00008",
+                "00008-of-00008"
+              ],
+              "UD-Q5_K_XL": [
+                "00001-of-00008",
+                "00002-of-00008",
+                "00003-of-00008",
+                "00004-of-00008",
+                "00005-of-00008",
+                "00006-of-00008",
+                "00007-of-00008",
+                "00008-of-00008"
+              ],
+              "UD-Q6_K": [
+                "00001-of-00009",
+                "00002-of-00009",
+                "00003-of-00009",
+                "00004-of-00009",
+                "00005-of-00009",
+                "00006-of-00009",
+                "00007-of-00009",
+                "00008-of-00009",
+                "00009-of-00009"
+              ],
+              "UD-Q6_K_XL": [
+                "00001-of-00009",
+                "00002-of-00009",
+                "00003-of-00009",
+                "00004-of-00009",
+                "00005-of-00009",
+                "00006-of-00009",
+                "00007-of-00009",
+                "00008-of-00009",
+                "00009-of-00009"
+              ],
+              "UD-Q8_K_XL": [
+                "00001-of-00011",
+                "00002-of-00011",
+                "00003-of-00011",
+                "00004-of-00011",
+                "00005-of-00011",
+                "00006-of-00011",
+                "00007-of-00011",
+                "00008-of-00011",
+                "00009-of-00011",
+                "00010-of-00011",
+                "00011-of-00011"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 428,
+        "model_format": "mlx",
+        "model_src": {
+          "huggingface": {
+            "model_id": "mlx-community/MiniMax-M3-{quantization}",
+            "quantizations": [
+              "4bit"
+            ]
+          },
+          "modelscope": {
+            "model_id": "mlx-community/MiniMax-M3-{quantization}",
+            "quantizations": [
+              "4bit"
+            ]
+          }
+        }
+      }
+    ],
+    "architectures": [
+      "MiniMaxM3SparseForConditionalGeneration"
+    ],
+    "chat_template": "{# ---------- special token variables ---------- #}\n{%- set ns_token               = ']<]minimax[>['                  -%}\n{%- set bod_token              = ']~!b['                          -%}\n{%- set bos_token              = ']~b]'                           -%}\n{%- set eos_token              = '[e~['                           -%}\n{%- set toolcall_begin_token   = ns_token ~ '<tool_call>'         -%}\n{%- set toolcall_end_token     = ns_token ~ '</tool_call>'        -%}\n{%- set think_begin_token      = '<mm:think>'                     -%}\n{%- set think_end_token        = '</mm:think>'                    -%}\n{%- set image_token            = ']<]image[>['                    -%}\n{%- set video_token            = ']<]video[>['                    -%}\n{#- Thinking mode: \"enabled\" / \"disabled\" / \"adaptive\" / not defined -#}\n{#- Recursive XML renderer for tool_call arguments ======================== -#}\n{#- None values are intentionally skipped in mapping iteration so that\n    `<key>null</key>` (which would round-trip to the literal string \"null\")\n    never appears in the rendered tool_call. The convention is: omit the\n    field entirely. The top-level `_args` loop applies the same rule.\n    The `val is none` branch below is a safety net only — upstream cleaning\n    (drop_none_in_tool_arguments) should ensure no None ever reaches here. -#}\n{%- macro to_xml(val, ns) -%}\n{%- if val is mapping -%}\n{%- for k, v in val.items() if v is not none -%}\n{{ ns }}<{{ k }}>{{ to_xml(v, ns) }}{{ ns }}</{{ k }}>\n{%- endfor -%}\n{%- elif val is iterable and val is not string -%}\n{%- for item in val -%}\n{{ ns }}<item>{{ to_xml(item, ns) }}{{ ns }}</item>\n{%- endfor -%}\n{%- elif val is none -%}\n{#- Should be unreachable when upstream cleaning is applied. -#}\n{%- elif val is boolean -%}\n{{ val | tojson }}\n{%- else -%}\n{{ val }}\n{%- endif -%}\n{%- endmacro -%}\n{#- Tool Rendering Functions ============================================== -#}\n{%- macro render_tool_namespace(namespace_name, tool_list) -%}\n{%- for tool in tool_list -%}\n<tool>{{ tool.function | tojson(ensure_ascii=False) }}</tool>\n{% endfor -%}\n{%- endmacro -%}\n{%- macro visible_text(content) -%}\n    {%- if content is string -%}\n        {{ content }}\n    {%- elif content is iterable and content is not mapping -%}\n        {%- for item in content -%}\n            {%- if item is mapping and item.type == 'text' -%}\n                {{- item.text }}\n            {%- elif item is mapping and item.type == 'image' -%}\n                {{- image_token }}\n            {%- elif item is mapping and item.type == 'video' -%}\n                {{- video_token}}\n            {%- elif item is string -%}\n                {{- item }}\n            {%- endif -%}\n        {%- endfor -%}\n    {%- elif content is none -%}\n        {{- '' }}\n    {%- else -%}\n        {{- content }}\n    {%- endif -%}\n{%- endmacro -%}\n{#- System Message Construction ============================================ -#}\n{%- macro build_system_message(system_message) -%}\n    {%- if system_message and system_message.content -%}\n        {{- visible_text(system_message.content) }}\n    {%- else -%}\n        {{- 'Your model version is MiniMax-M3, developed by MiniMax. Knowledge cutoff: January 2026. Founded in early 2022, MiniMax is a global AI foundation model company committed to advancing the frontiers of AI towards AGI.' }}\n    {%- endif -%}\n\n    {#- Thinking mode instructions -#}\n    {{- '\\n\\n<thinking_instructions>\\n' }}\n    {{- 'You have a thinking capability that allows you to reason step by step before responding. When thinking is enabled, wrap your reasoning in ' ~ think_begin_token ~ think_end_token ~ ' tags before your response. When thinking is disabled, begin your response directly after the ' ~ think_end_token ~ ' prefix. When thinking is adaptive, decide on your own whether to think for the current turn.\\n' }}\n    {%- if thinking_mode is defined -%}\n        {%- if thinking_mode == \"enabled\" -%}\n            {{- 'Current thinking mode: enabled. You MUST think step by step before every response, including after receiving function/tool results.\\n' }}\n        {%- elif thinking_mode == \"disabled\" -%}\n            {{- 'Current thinking mode: disabled. Do not output any thinking process.\\n' }}\n        {%- elif thinking_mode == \"adaptive\" -%}\n            {{- 'Current thinking mode: adaptive. You are encouraged to think for complex decision-making, multi-step reasoning, or when analyzing function/tool results.\\n' }}\n        {%- endif -%}\n    {%- else -%}\n        {{- 'Current thinking mode: adaptive. You are encouraged to think for complex decision-making, multi-step reasoning, or when analyzing function/tool results.\\n' }}\n    {%- endif -%}\n    {{- '</thinking_instructions>' }}\n{%- endmacro -%}\n{%- macro build_developer_message(developer_message) -%}\n    {%- if developer_message and developer_message.content -%}\n        {{- visible_text(developer_message.content) }}\n    {%- else -%}\n        {%- if model_identity is not defined -%}\n            {%- set model_identity = \"You are a helpful assistant.\" -%}\n        {%- endif -%}\n        {{- model_identity }}\n    {%- endif -%}\n{%- endmacro -%}\n{#- Main Template Logic ================================================= -#}\n{#- Role mapping: root -> system sp (high priority), system/developer -> developer sp (low priority) -#}\n{%- set system_message = none -%}\n{%- set developer_message = none -%}\n{%- set conversation_messages = messages -%}\n{%- if messages and messages[0].role == \"root\" -%}\n    {%- set system_message = messages[0] -%}\n    {%- set conversation_messages = messages[1:] -%}\n    {%- if conversation_messages and conversation_messages[0].role in [\"system\", \"developer\"] -%}\n        {%- set developer_message = conversation_messages[0] -%}\n        {%- set conversation_messages = conversation_messages[1:] -%}\n    {%- endif -%}\n{%- elif messages and messages[0].role in [\"system\", \"developer\"] -%}\n    {%- set developer_message = messages[0] -%}\n    {%- set conversation_messages = messages[1:] -%}\n{%- endif -%}\n{#- Render system sp (higher priority, root role only) -#}\n{{- bod_token ~ bos_token ~ 'system' ~ '\\n' }}\n{{- build_system_message(system_message) }}\n{{- eos_token ~ '\\n' }}\n\n{#- Render developer sp (lower priority: system/developer role + tools) -#}\n{{- bos_token ~ 'developer' ~ '\\n' }}\n{{- build_developer_message(developer_message) }}\n{%- if tools -%}\n    {{- '\\n\\n' ~ '# Tools' ~ '\\n' ~ 'You may call one or more tools to assist with the user query.\\nHere are the tools available in JSONSchema format:' ~ '\\n' }}\n    {{- '\\n' ~ '<tools>' ~ '\\n' }}\n    {{- render_tool_namespace(\"functions\", tools) }}\n    {{- '</tools>' ~ '\\n\\n' }}\n    {{- 'To call tools, wrap all invocations in a single ' ~ toolcall_begin_token ~ toolcall_end_token ~ ' block. Parameter values containing nested objects or arrays are recursively expanded into XML elements. Example:\\n' }}\n    {{- '\\n' ~ toolcall_begin_token ~ '\\n' }}\n    {{- ns_token + '<invoke name=\"tool-name-1\">' }}\n    {{- ns_token + '<param-1>value-1' + ns_token + '</param-1>' }}\n    {{- ns_token + '<param-2>' }}\n    {{- ns_token + '<item>' }}\n    {{- ns_token + '<key-a>val-a' + ns_token + '</key-a>' }}\n    {{- ns_token + '<key-b>val-b' + ns_token + '</key-b>' }}\n    {{- ns_token + '</item>' }}\n    {{- ns_token + '</param-2>' }}\n    {{- ns_token + '</invoke>\\n' }}\n    {{- ns_token + '<invoke name=\"tool-name-2\">' }}\n    {{- ns_token + '<param-1>value-1' + ns_token + '</param-1>' }}\n    {{- ns_token + '</invoke>\\n' }}\n    {{- toolcall_end_token }}\n{%- endif -%}\n{{- eos_token ~ '\\n' }}\n\n{#- Render messages -#}\n{%- set last_tool_call = namespace(name=none) -%}\n{%- for message in conversation_messages -%}\n    {%- if message.role == 'assistant' -%}\n        {{- bos_token ~ 'ai' ~ '\\n' }}\n\n        {%- set reasoning_content = '' %}\n        {%- set content = visible_text(message.content) %}\n        {%- if message.reasoning_content is string %}\n            {%- set reasoning_content = message.reasoning_content %}\n        {%- else %}\n            {%- if think_end_token in content %}\n                {%- set reasoning_content = content.split(think_end_token)[0].strip('\\n').split(think_begin_token)[-1].strip('\\n') %}\n                {%- set content = content.split(think_end_token)[-1].strip('\\n') %}\n            {%- endif %}\n        {%- endif %}\n\n        {%- if reasoning_content -%}\n            {#- Render thinking for every assistant turn (all-turn visible) -#}\n            {{- think_begin_token ~ reasoning_content ~ think_end_token }}\n        {%- else -%}\n            {#- No thinking rendered → prefix with think_end_token -#}\n            {{- think_end_token }}\n        {%- endif -%}\n\n        {%- if content -%}\n            {{- content }}\n        {%- endif -%}\n        {%- if message.tool_calls -%}\n            {{- toolcall_begin_token ~ '\\n' }}\n\n            {%- for tool_call in message.tool_calls -%}\n                {%- if tool_call.function -%}\n                    {%- set tool_call = tool_call.function -%}\n                {%- endif -%}\n{{- ns_token + '<invoke name=\"' + tool_call.name + '\">' }}\n{%- set _args = tool_call.arguments -%}\n{%- for k, v in _args.items() if v is not none %}\n{{- ns_token + '<' + k + '>' -}}\n{{- to_xml(v, ns_token) -}}\n{{- ns_token + '</' + k + '>' }}\n{%- endfor -%}\n{{- ns_token + '</invoke>' ~ '\\n' }}\n            {%- endfor -%}\n\n            {{- toolcall_end_token }}\n            {%- if message.tool_calls[-1].function -%}\n                {%- set last_tool_call.name = message.tool_calls[-1].function.name -%}\n            {%- else -%}\n                {%- set last_tool_call.name = message.tool_calls[-1].name -%}\n            {%- endif -%}\n        {%- else -%}\n            {%- set last_tool_call.name = none -%}\n        {%- endif -%}\n        {{- eos_token ~ '\\n' }}\n\n    {%- elif message.role == 'tool' -%}\n        {%- if last_tool_call.name is none -%}\n            {{- raise_exception(\"Message has tool role, but there was no previous assistant message with a tool call!\") }}\n        {%- endif -%}\n        {%- if loop.first or (conversation_messages[loop.index0 - 1].role != 'tool') -%}\n            {{- bos_token ~ 'tool' }}\n        {%- endif -%}\n        {{- '\\n<response>' }}\n        {%- if message.content is string -%}\n            {{- message.content }}\n        {%- else -%}\n            {%- for tr in message.content -%}\n                {%- if tr is mapping and tr.type is defined and tr.type == 'image' -%}\n                    {{- image_token }}\n                {%- elif tr is mapping and tr.type is defined and tr.type == 'video' -%}\n                    {{- video_token }}\n                {%- else -%}\n                    {{- tr.output if tr.output is defined else (tr.text if tr.type == 'text' and tr.text is defined else tr) }}\n                {%- endif -%}\n            {%- endfor -%}\n        {%- endif -%}\n        {{- '</response>' }}\n        {%- if loop.last or (conversation_messages[loop.index0 + 1].role != 'tool') -%}\n            {{- eos_token ~ '\\n' -}}\n        {%- endif -%}\n\n    {%- elif message.role == 'user' -%}\n        {{- bos_token ~ 'user' ~ '\\n' }}\n        {{- visible_text(message.content) }}\n        {{- eos_token ~ '\\n' }}\n    {%- endif -%}\n{%- endfor -%}\n\n{#- Generation prompt -#}\n{%- if add_generation_prompt -%}\n{{- bos_token ~ 'ai' ~ '\\n' }}\n{%- if thinking_mode is defined and thinking_mode == \"disabled\" -%}\n    {{- think_end_token }}\n{%- elif thinking_mode is defined and thinking_mode == \"adaptive\" -%}\n    {#- adaptive: no prefix, let model decide -#}\n{%- elif thinking_mode is defined and thinking_mode == \"enabled\" -%}\n    {#- enabled or not defined: default to think -#}\n    {{- think_begin_token }}\n{%- else -%}\n    {#- adaptive: no prefix, let model decide -#}\n{%- endif -%}\n{%- endif -%}\n",
+    "stop_token_ids": [
+      200020
+    ],
+    "stop": [
+      "[e~["
+    ],
+    "tool_parser": "minimax",
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "version": 2,
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "#mlx_dependencies# ; #engine# == \"MLX\"",
+        "#vllm_dependencies# ; #engine# == \"vllm\"",
+        "#sglang_dependencies# ; #engine# == \"sglang\"",
+        "#system_numpy# ; #engine# == \"vllm\"",
+        "#llama_cpp_dependencies# ; #engine# == \"llama.cpp\""
+      ]
+    },
+    "featured": false,
+    "updated_at": 1785309334
   }
 ]
