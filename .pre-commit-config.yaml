@@ -12,17 +12,15 @@ repos:
         exclude: ^xinference/thirdparty
       - id: trailing-whitespace
         exclude: thirdparty
-  - repo: https://github.com/PyCQA/flake8
-    rev: 6.0.0
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.22
     hooks:
-      - id: flake8
-        args: [--config, setup.cfg]
+      - id: ruff-check
         exclude: thirdparty
   - repo: https://github.com/pycqa/isort
     rev: 5.12.0
     hooks:
       - id: isort
-        args: [--sp, setup.cfg]
         exclude: thirdparty
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.15.0
@@ -35,5 +33,5 @@ repos:
     rev: v2.2.2
     hooks:
       - id: codespell
-        args: [ --config, setup.cfg]
+        additional_dependencies: [tomli]
         exclude: thirdparty

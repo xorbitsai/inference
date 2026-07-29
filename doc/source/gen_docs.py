@@ -19,38 +19,39 @@ from collections import defaultdict
 
 from jinja2 import Environment, FileSystemLoader
 
+
 # Mock engine libraries before importing xinference modules
 def mock_engine_libraries():
     """Mock engine libraries to make them appear installed for documentation generation"""
     from types import ModuleType
     from importlib.machinery import ModuleSpec
-    
+
     # Create mock vllm module
     vllm_mock = ModuleType('vllm')
     vllm_mock.__version__ = "1.0.0"  # Latest version for full feature support
     vllm_mock.__spec__ = ModuleSpec('vllm', None)
     vllm_mock.__file__ = "mock_vllm.py"
-    
+
     # Create mock mlx module with core submodule
 
     mlx_mock = ModuleType('mlx')
     mlx_mock.__version__ = "1.0.0"
     mlx_mock.__spec__ = ModuleSpec('mlx', None)
     mlx_mock.__file__ = "mock_mlx.py"
-    
+
     mlx_core_mock = ModuleType('mlx.core')
     mlx_core_mock.__spec__ = ModuleSpec('mlx.core', None)
     mlx_core_mock.__file__ = "mock_mlx_core.py"
     # Add required attributes for xoscar serialization
     mlx_core_mock.array = type('MockArray', (), {})
     mlx_mock.core = mlx_core_mock
-    
-    # Create mock lmdeploy module  
+
+    # Create mock lmdeploy module
     lmdeploy_mock = ModuleType('lmdeploy')
     lmdeploy_mock.__version__ = "0.6.0"
     lmdeploy_mock.__spec__ = ModuleSpec('lmdeploy', None)
     lmdeploy_mock.__file__ = "mock_lmdeploy.py"
-    
+
     # Create mock sglang module
     sglang_mock = ModuleType('sglang')
     sglang_mock.__version__ = "0.3.0"
@@ -58,7 +59,6 @@ def mock_engine_libraries():
     sglang_mock.__file__ = "mock_sglang.py"
 
     # Create mock xllamacpp module with proper module spec for importlib.util.find_spec
-    import importlib.util
     import importlib.machinery
 
     xllamacpp_mock = ModuleType('xllamacpp')
@@ -92,8 +92,10 @@ def mock_engine_libraries():
     sys.modules['mlx_lm'] = mlx_lm_mock
     sys.modules['mlx_vlm'] = mlx_vlm_mock
 
+
 # Apply mocking before importing xinference modules
 mock_engine_libraries()
+
 
 # Mock platform checks BEFORE importing xinference modules
 def mock_platform_checks():
@@ -189,6 +191,7 @@ def mock_platform_checks():
         print(f"Warning: Could not mock some engine platform checks: {e}")
         pass
 
+
 mock_platform_checks()
 
 from xinference.model.llm.llm_family import SUPPORTED_ENGINES, check_engine_by_spec_parameters
@@ -241,6 +244,7 @@ def _can_use_transformers_legacy(model, model_spec):
     abilities = set(model.get("model_ability", []))
     return "chat" in abilities or "generate" in abilities
 
+
 def _extract_primary_model_src(model):
     if model.get("model_specs"):
         for spec in model["model_specs"]:
@@ -248,14 +252,15 @@ def _extract_primary_model_src(model):
                 return spec["model_src"]
     return model.get("model_src")
 
+
 def main():
-    template_dir = '../templates' 
+    template_dir = '../templates'
     env = Environment(loader=FileSystemLoader(template_dir))
 
     with open('../../xinference/model/llm/llm_family.json', 'r') as model_file:
         models = json.load(model_file)
 
-        model_by_names = { m['model_name']: m for m in models}
+        model_by_names = {m['model_name']: m for m in models}
 
         sorted_models = []
         output_dir = './models/builtin/llm'
@@ -269,7 +274,7 @@ def main():
 
             for model_spec in model['model_specs']:
                 model_spec['model_hubs'] = []
-                
+
                 # Process different model sources
                 if 'model_src' in model_spec:
                     # Handle new model_src structure
@@ -283,14 +288,14 @@ def main():
                         model_spec['model_id'] = hf_src['model_id']
                         model_spec['quantizations'] = hf_src['quantizations']
                         quantizations = hf_src['quantizations']
-                    
+
                     if 'modelscope' in model_spec['model_src']:
                         ms_src = model_spec['model_src']['modelscope']
                         model_spec['model_hubs'].append({
                             'name': MODEL_HUB_MODELSCOPE,
                             'url': f"https://modelscope.cn/models/{ms_src['model_id']}"
                         })
-                        
+
                     # If only modelscope exists and no huggingface, use modelscope data
                     if 'modelscope' in model_spec['model_src'] and 'huggingface' not in model_spec['model_src']:
                         ms_src = model_spec['model_src']['modelscope']
@@ -345,11 +350,10 @@ def main():
             file.write(rendered_index)
         llm_sorted_models = sorted_models
 
-
     with open('../../xinference/model/embedding/model_spec.json', 'r') as file:
         models = json.load(file)
 
-        model_by_names = { m['model_name']: m for m in models}
+        model_by_names = {m['model_name']: m for m in models}
 
         sorted_models = []
         output_dir = './models/builtin/embedding'
@@ -361,7 +365,7 @@ def main():
             sorted_models.append(model)
 
             model['model_hubs'] = []
-            
+
             # Process model specs for new model_src structure
             if 'model_specs' in model and model['model_specs']:
                 model_spec = model['model_specs'][0]  # Use first spec for model hubs
@@ -374,7 +378,7 @@ def main():
                         })
                         # Set model_id for template compatibility (prefer huggingface)
                         model['model_id'] = hf_src['model_id']
-                    
+
                     if 'modelscope' in model_spec['model_src']:
                         ms_src = model_spec['model_src']['modelscope']
                         model['model_hubs'].append({
@@ -407,7 +411,7 @@ def main():
                 print(output_file_path)
 
         index_file_path = os.path.join(output_dir, "index.rst")
-        with open(index_file_path, "w") as file:            
+        with open(index_file_path, "w") as file:
             rendered_index = env.get_template('embedding_index.rst.jinja').render(models=sorted_models)
             file.write(rendered_index)
 
@@ -421,7 +425,7 @@ def main():
         for model in sorted_models:
             # Initialize model_hubs list
             model['model_hubs'] = []
-            
+
             # Process model specs for new model_src structure
             model_spec = model['model_specs'][0]  # Use first spec for model hubs
             if 'model_src' in model_spec:
@@ -433,7 +437,7 @@ def main():
                     })
                     # Set model_id for template compatibility (prefer huggingface)
                     model['model_id'] = hf_src['model_id']
-                
+
                 if 'modelscope' in model_spec['model_src']:
                     ms_src = model_spec['model_src']['modelscope']
                     model['model_hubs'].append({
@@ -443,7 +447,7 @@ def main():
                     # Only set modelscope model_id if no huggingface exists
                     if 'huggingface' not in model_spec['model_src']:
                         model['model_id'] = ms_src['model_id']
-            
+
             rendered = env.get_template('rerank.rst.jinja').render(model)
             output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
             with open(output_file_path, 'w') as output_file:
@@ -480,17 +484,17 @@ def main():
                         model['lightning_versions'] = ", ".join(hf_src['lightning_versions'])
                 elif 'modelscope' in model_src:
                     model['model_id'] = model_src['modelscope']['model_id']
-            
+
             available_controlnet = [cn["model_name"] for cn in model.get("controlnet", [])]
             if not available_controlnet:
                 available_controlnet = None
             model["available_controlnet"] = available_controlnet
             model["model_ability"] = ', '.join(model.get("model_ability"))
-            
+
             # Ensure gguf_quantizations is properly formatted (fallback for old format)
             if "gguf_quantizations" not in model:
                 model["gguf_quantizations"] = ", ".join(model.get("gguf_quantizations", []))
-            
+
             rendered = env.get_template('image.rst.jinja').render(model)
             output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
             with open(output_file_path, 'w') as output_file:
@@ -516,7 +520,7 @@ def main():
                     model['model_id'] = model_src['huggingface']['model_id']
                 elif 'modelscope' in model_src:
                     model['model_id'] = model_src['modelscope']['model_id']
-            
+
             rendered = env.get_template('audio.rst.jinja').render(model)
             output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")
             with open(output_file_path, 'w') as output_file:
@@ -542,7 +546,7 @@ def main():
                     model['model_id'] = model_src['huggingface']['model_id']
                 elif 'modelscope' in model_src:
                     model['model_id'] = model_src['modelscope']['model_id']
-            
+
             model["model_ability"] = ', '.join(model.get("model_ability"))
             rendered = env.get_template('video.rst.jinja').render(model)
             output_file_path = os.path.join(output_dir, f"{model['model_name'].lower()}.rst")

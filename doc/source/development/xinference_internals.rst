@@ -59,15 +59,15 @@ Take the command-lines we implemented as examples:
 Each command is equipped with ``options`` and ``flags`` to customize its behavior, such as specifying log levels,
 host addresses, port numbers, and other relevant settings.
 
-Python projects define command-line console entry points in `setup.cfg` or `setup.py`.
+Python projects define command-line console entry points in ``pyproject.toml``.
 
 ::
 
-  console_scripts =
-      xinference = xinference.deploy.cmdline:cli
-      xinference-local = xinference.deploy.cmdline:local
-      xinference-supervisor = xinference.deploy.cmdline:supervisor
-      xinference-worker = xinference.deploy.cmdline:worker
+  [project.scripts]
+  xinference = "xinference.deploy.cmdline:cli"
+  xinference-local = "xinference.deploy.cmdline:local"
+  xinference-supervisor = "xinference.deploy.cmdline:supervisor"
+  xinference-worker = "xinference.deploy.cmdline:worker"
 
 The command-line ``xinference`` can be referred to code in ``xinference.deploy.cmdline:cli``.
 

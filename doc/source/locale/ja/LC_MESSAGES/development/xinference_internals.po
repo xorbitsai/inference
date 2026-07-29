@@ -150,10 +150,9 @@ msgstr ""
 
 #: ../../source/development/xinference_internals.rst:62
 msgid ""
-"Python projects define command-line console entry points in `setup.cfg` or "
-"`setup.py`."
-msgstr ""
-"Pythonプロジェクトでは、`setup.cfg` または `setup.py` でコマンドラインコンソールのエントリポイントを定義します。"
+"Python projects define command-line console entry points in "
+"``pyproject.toml``."
+msgstr "Pythonプロジェクトでは、``pyproject.toml`` でコマンドラインコンソールのエントリポイントを定義します。"
 
 #: ../../source/development/xinference_internals.rst:72
 msgid ""

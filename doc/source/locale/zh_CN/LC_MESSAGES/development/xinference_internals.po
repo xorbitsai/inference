@@ -159,9 +159,9 @@ msgstr ""
 
 #: ../../source/development/xinference_internals.rst:62
 msgid ""
-"Python projects define command-line console entry points in `setup.cfg` "
-"or `setup.py`."
-msgstr "Python 项目会在 `setup.cfg` 或 `setup.py` 中定义命令行控制台入口点。"
+"Python projects define command-line console entry points in "
+"``pyproject.toml``."
+msgstr "Python 项目会在 ``pyproject.toml`` 中定义命令行控制台入口点。"
 
 #: ../../source/development/xinference_internals.rst:72
 msgid ""

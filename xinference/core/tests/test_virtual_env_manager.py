@@ -124,10 +124,15 @@ class TestEnsureFlashinferCubinMatchesPostInstall:
         monkeypatch.delenv("FLASHINFER_DISABLE_VERSION_CHECK", raising=False)
 
     def test_matching_versions_are_noop(self, fake_venv_manager):
-        with mock.patch(
-            "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
-            side_effect=["0.6.14", "0.6.14"],
-        ), mock.patch("xinference.core.virtual_env_manager.subprocess.run") as run_mock:
+        with (
+            mock.patch(
+                "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
+                side_effect=["0.6.14", "0.6.14"],
+            ),
+            mock.patch(
+                "xinference.core.virtual_env_manager.subprocess.run"
+            ) as run_mock,
+        ):
             ensure_flashinfer_cubin_matches_post_install("vllm", fake_venv_manager)
 
         run_mock.assert_not_called()
@@ -135,12 +140,16 @@ class TestEnsureFlashinferCubinMatchesPostInstall:
 
     def test_mismatched_cubin_is_synchronized(self, fake_venv_manager):
         result = mock.MagicMock(returncode=0)
-        with mock.patch(
-            "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
-            side_effect=["0.6.14", "0.6.6", "0.6.14"],
-        ), mock.patch(
-            "xinference.core.virtual_env_manager.subprocess.run", return_value=result
-        ) as run_mock:
+        with (
+            mock.patch(
+                "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
+                side_effect=["0.6.14", "0.6.6", "0.6.14"],
+            ),
+            mock.patch(
+                "xinference.core.virtual_env_manager.subprocess.run",
+                return_value=result,
+            ) as run_mock,
+        ):
             ensure_flashinfer_cubin_matches_post_install("vllm", fake_venv_manager)
 
         cmd = run_mock.call_args[0][0]
@@ -150,21 +159,30 @@ class TestEnsureFlashinferCubinMatchesPostInstall:
 
     def test_failed_sync_sets_version_check_bypass(self, fake_venv_manager):
         result = mock.MagicMock(returncode=1, stderr="wheel unavailable")
-        with mock.patch(
-            "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
-            side_effect=["0.6.14", "0.6.6"],
-        ), mock.patch(
-            "xinference.core.virtual_env_manager.subprocess.run", return_value=result
+        with (
+            mock.patch(
+                "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
+                side_effect=["0.6.14", "0.6.6"],
+            ),
+            mock.patch(
+                "xinference.core.virtual_env_manager.subprocess.run",
+                return_value=result,
+            ),
         ):
             ensure_flashinfer_cubin_matches_post_install("vllm", fake_venv_manager)
 
         assert os.environ.get("FLASHINFER_DISABLE_VERSION_CHECK") == "1"
 
     def test_offline_mismatch_uses_version_check_bypass(self, fake_venv_manager):
-        with mock.patch(
-            "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
-            side_effect=["0.6.14", "0.6.6"],
-        ), mock.patch("xinference.core.virtual_env_manager.subprocess.run") as run_mock:
+        with (
+            mock.patch(
+                "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
+                side_effect=["0.6.14", "0.6.6"],
+            ),
+            mock.patch(
+                "xinference.core.virtual_env_manager.subprocess.run"
+            ) as run_mock,
+        ):
             ensure_flashinfer_cubin_matches_post_install(
                 "vllm", fake_venv_manager, allow_public_install=False
             )
@@ -192,14 +210,16 @@ class TestEnsureSGLangInheritedPackagesCompatiblePostInstall:
 
     def test_matching_versions_are_noop(self, fake_venv_manager):
         versions = {"numpy": "2.2.6", "pandas": "2.3.3"}
-        with mock.patch(
-            "importlib.metadata.version", side_effect=versions.__getitem__
-        ), mock.patch(
-            "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
-            side_effect=lambda _manager, name: versions[name],
-        ), mock.patch(
-            "xinference.core.virtual_env_manager.subprocess.run"
-        ) as run_mock:
+        with (
+            mock.patch("importlib.metadata.version", side_effect=versions.__getitem__),
+            mock.patch(
+                "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
+                side_effect=lambda _manager, name: versions[name],
+            ),
+            mock.patch(
+                "xinference.core.virtual_env_manager.subprocess.run"
+            ) as run_mock,
+        ):
             ensure_sglang_inherited_packages_compatible_post_install(
                 "sglang", fake_venv_manager
             )
@@ -209,14 +229,17 @@ class TestEnsureSGLangInheritedPackagesCompatiblePostInstall:
     def test_cached_newer_numpy_is_removed(self, fake_venv_manager):
         result = mock.MagicMock(returncode=0, stderr="")
         versions = {"numpy": "2.2.6", "pandas": "2.3.3"}
-        with mock.patch(
-            "importlib.metadata.version", side_effect=versions.__getitem__
-        ), mock.patch(
-            "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
-            side_effect=["2.4.1", "2.2.6", "2.3.3"],
-        ), mock.patch(
-            "xinference.core.virtual_env_manager.subprocess.run", return_value=result
-        ) as run_mock:
+        with (
+            mock.patch("importlib.metadata.version", side_effect=versions.__getitem__),
+            mock.patch(
+                "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
+                side_effect=["2.4.1", "2.2.6", "2.3.3"],
+            ),
+            mock.patch(
+                "xinference.core.virtual_env_manager.subprocess.run",
+                return_value=result,
+            ) as run_mock,
+        ):
             ensure_sglang_inherited_packages_compatible_post_install(
                 "sglang", fake_venv_manager
             )
@@ -233,14 +256,17 @@ class TestEnsureSGLangInheritedPackagesCompatiblePostInstall:
     def test_cached_pandas_3_is_removed(self, fake_venv_manager):
         result = mock.MagicMock(returncode=0, stderr="")
         versions = {"numpy": "2.2.6", "pandas": "2.3.3"}
-        with mock.patch(
-            "importlib.metadata.version", side_effect=versions.__getitem__
-        ), mock.patch(
-            "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
-            side_effect=["2.2.6", "3.0.0", "2.3.3"],
-        ), mock.patch(
-            "xinference.core.virtual_env_manager.subprocess.run", return_value=result
-        ) as run_mock:
+        with (
+            mock.patch("importlib.metadata.version", side_effect=versions.__getitem__),
+            mock.patch(
+                "xinference.core.virtual_env_manager._get_virtualenv_distribution_version",
+                side_effect=["2.2.6", "3.0.0", "2.3.3"],
+            ),
+            mock.patch(
+                "xinference.core.virtual_env_manager.subprocess.run",
+                return_value=result,
+            ) as run_mock,
+        ):
             ensure_sglang_inherited_packages_compatible_post_install(
                 "sglang", fake_venv_manager
             )

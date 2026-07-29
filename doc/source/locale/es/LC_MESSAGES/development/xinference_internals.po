@@ -170,11 +170,11 @@ msgstr ""
 
 #: ../../source/development/xinference_internals.rst:62
 msgid ""
-"Python projects define command-line console entry points in `setup.cfg` or "
-"`setup.py`."
+"Python projects define command-line console entry points in "
+"``pyproject.toml``."
 msgstr ""
-"Los proyectos de Python definen puntos de entrada de consola en `setup.cfg` "
-"o `setup.py`."
+"Los proyectos de Python definen puntos de entrada de consola en "
+"``pyproject.toml``."
 
 #: ../../source/development/xinference_internals.rst:72
 msgid ""

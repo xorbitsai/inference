@@ -14,7 +14,6 @@
 
 import asyncio
 import importlib
-import importlib.util
 import itertools
 import json
 import logging

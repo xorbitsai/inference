@@ -142,7 +142,7 @@ jobs:
                 xinference/model/*) full=true; break ;;
                 # The rest of the package (deploy/, docs, examples, other
                 # top-level modules) is not exercised by any GPU test.
-                .github/workflows/python.yaml|setup.py|setup.cfg|pyproject.toml) full=true; break ;;
+                .github/workflows/python.yaml|pyproject.toml|build_backend.py|build_web.py) full=true; break ;;
               esac
             done < changed-files.txt
           fi
@@ -223,6 +223,9 @@ jobs:
         env:
           MODULE: ${{ matrix.module }}
           OS: ${{ matrix.os }}
+          # Tests never touch the web UI; skip the npm build that the build
+          # backend would otherwise run on editable installs.
+          NO_WEB_UI: 1
         run: |
           if [ "$OS" == "ubuntu-latest" ]; then
             sudo rm -rf /usr/share/dotnet
@@ -315,7 +318,7 @@ jobs:
           run_pytest() {
             pytest --timeout=3000 \
               -W ignore::PendingDeprecationWarning \
-              --cov-config=setup.cfg \
+              --cov-config=pyproject.toml \
               --cov-report=xml \
               --cov=xinference \
               "$@"
@@ -379,7 +382,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: gpu-pip-${{ hashFiles('.github/workflows/python.yaml', 'setup.cfg') }}
+          key: gpu-pip-${{ hashFiles('.github/workflows/python.yaml', 'pyproject.toml') }}
           restore-keys: gpu-pip-
 
       # funasr downloads its auxiliary models (fsmn-vad, ct-punc, cam++) from

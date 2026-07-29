@@ -52,8 +52,9 @@ def linux_cuda_engines():
         VLLMQwen3ASRAudioModel.__module__, fromlist=["has_cuda_device"]
     )
     old_engines = {k: dict(v) for k, v in AUDIO_ENGINES.items()}
-    with patch.object(engine_platform, "system", return_value="Linux"), patch.object(
-        engine_mod, "has_cuda_device", return_value=True
+    with (
+        patch.object(engine_platform, "system", return_value="Linux"),
+        patch.object(engine_mod, "has_cuda_device", return_value=True),
     ):
         AUDIO_ENGINES.clear()
         _register_all_engines()
@@ -87,12 +88,14 @@ def test_vllm_engine_not_matched_without_cuda():
     engine_mod = __import__(
         VLLMQwen3ASRAudioModel.__module__, fromlist=["has_cuda_device"]
     )
-    with patch.object(engine_platform, "system", return_value="Linux"), patch.object(
-        engine_mod, "has_cuda_device", return_value=False
+    with (
+        patch.object(engine_platform, "system", return_value="Linux"),
+        patch.object(engine_mod, "has_cuda_device", return_value=False),
     ):
         assert VLLMQwen3ASRAudioModel.match(_get_spec("Qwen3-ASR-0.6B")) is False
-    with patch.object(engine_platform, "system", return_value="Darwin"), patch.object(
-        engine_mod, "has_cuda_device", return_value=True
+    with (
+        patch.object(engine_platform, "system", return_value="Darwin"),
+        patch.object(engine_mod, "has_cuda_device", return_value=True),
     ):
         assert VLLMQwen3ASRAudioModel.match(_get_spec("Qwen3-ASR-0.6B")) is False
 

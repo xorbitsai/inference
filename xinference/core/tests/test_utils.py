@@ -239,20 +239,23 @@ def _run_prepare_virtual_env(
     from .. import worker as worker_mod
 
     pip_config = {"index_url": inherited_index_url} if inherited_index_url else {}
-    with mock.patch.object(
-        worker_mod, "get_pip_config_args", return_value=pip_config
-    ), mock.patch(
-        "xoscar.virtualenv.platform.get_cuda_version", return_value=cuda_version
-    ), mock.patch.object(
-        worker_mod, "_exclusive_venv_path_lock", new=_nullctx
-    ), mock.patch.object(
-        worker_mod, "XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED", skip_installed
-    ), mock.patch.object(
-        WorkerActor, "_is_cuda_device_available", return_value=cuda_available
-    ), mock.patch.object(
-        WorkerActor,
-        "_uninstall_venv_package",
-        side_effect=lambda _vem, pkg: result["uninstalled"].append(pkg),
+    with (
+        mock.patch.object(worker_mod, "get_pip_config_args", return_value=pip_config),
+        mock.patch(
+            "xoscar.virtualenv.platform.get_cuda_version", return_value=cuda_version
+        ),
+        mock.patch.object(worker_mod, "_exclusive_venv_path_lock", new=_nullctx),
+        mock.patch.object(
+            worker_mod, "XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED", skip_installed
+        ),
+        mock.patch.object(
+            WorkerActor, "_is_cuda_device_available", return_value=cuda_available
+        ),
+        mock.patch.object(
+            WorkerActor,
+            "_uninstall_venv_package",
+            side_effect=lambda _vem, pkg: result["uninstalled"].append(pkg),
+        ),
     ):
         WorkerActor._prepare_virtual_env(
             virtual_env_manager=_FakeVEM(),
