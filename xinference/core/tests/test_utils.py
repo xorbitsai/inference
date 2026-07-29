@@ -894,7 +894,6 @@ def test_exclusive_venv_path_lock_serializes_concurrent_calls(tmp_path):
     import time
 
     from ...model.core import VirtualEnvSettings
-    from .. import worker as worker_mod
     from ..worker import WorkerActor
 
     _clean_venv_setup_done()
