@@ -57,7 +57,11 @@ dependencies = [
     "nvidia-ml-py",
     "pynvml>=12",
     "async-timeout",
-    "peft<=0.17.1",
+    # peft 0.17.1 and below import HybridCache at module level, which was
+    # removed in transformers 5.0.0. peft declares an unbounded transformers
+    # requirement, so pinning it low silently breaks any transformers 5.x
+    # install (see the sentence-transformers rerank import chain).
+    "peft>=0.18.0",
     "timm",
     "setproctitle",
     "uv",
