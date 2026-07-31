@@ -1,3 +1,4 @@
+import asyncio
 import itertools
 import time as time_module
 from typing import Any, Dict
@@ -41,6 +42,7 @@ class DummySupervisor:
         self._list_models_result_cache: Dict[str, Dict[str, Any]] = {}
         self._list_models_result_cache_time: float = 0.0
         self._list_models_cache_version: int = 0
+        self._list_models_sweep_lock = asyncio.Lock()
         self._replica_gpu_cache: Dict[str, list] = {}
         # worker_address -> replica_model_uid -> {gpu_idx -> bytes}
         self._worker_model_gpu_memory: Dict[str, Dict[str, Dict[int, int]]] = {}
@@ -242,3 +244,63 @@ async def test_list_models_debounce_cache_expiry():
     # The debounce cache must have been refreshed.
     assert supervisor._list_models_result_cache == result
     assert supervisor._list_models_result_cache_time > time_module.time() - 10
+
+
+class _CountingWorker:
+    """Worker that counts list_models() calls for single-flight verification."""
+
+    def __init__(self, models: Dict[str, Dict[str, Any]]):
+        self._models = models
+        self.list_models_call_count = 0
+
+    async def list_models(self) -> Dict[str, Dict[str, Any]]:
+        self.list_models_call_count += 1
+        return dict(self._models)
+
+
+@pytest.mark.asyncio
+async def test_list_models_debounce_cache_empty_result():
+    """An empty model list ({}) must also be cached so subsequent calls
+    within the TTL return the cached empty dict without a new RPC sweep."""
+    address = "127.0.0.1:1234"
+    worker = _DummyWorker({})
+    supervisor = DummySupervisor(address, {address: worker})
+
+    # First call: fills the cache with an empty dict.
+    result1 = await supervisor.list_models()
+    assert result1 == {}
+    assert supervisor._list_models_result_cache_time > 0
+
+    # Second call within TTL: must return the cached empty dict.
+    result2 = await supervisor.list_models()
+    assert result2 == {}
+
+
+@pytest.mark.asyncio
+async def test_list_models_debounce_single_flight():
+    """When the debounce cache is empty, concurrent list_models calls must
+    coalesce into a single RPC sweep (single-flight) rather than each
+    starting its own full worker sweep."""
+    address = "127.0.0.1:1234"
+    worker = _CountingWorker(
+        {
+            build_replica_model_uid("demo-model", 0): {
+                "model_name": "demo-model",
+                "model_type": "LLM",
+            }
+        }
+    )
+    supervisor = DummySupervisor(address, {address: worker})
+    supervisor._model_uid_to_replica_info["demo-model"] = _replica_info(1)
+
+    # Launch two concurrent list_models calls.
+    results = await asyncio.gather(
+        supervisor.list_models(),
+        supervisor.list_models(),
+    )
+
+    # Both must return the same result.
+    for r in results:
+        assert set(r) == {"demo-model"}
+    # The worker must have been called exactly once (single-flight).
+    assert worker.list_models_call_count == 1

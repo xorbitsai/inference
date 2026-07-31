@@ -90,6 +90,7 @@ class DummySupervisor:
 
     def _invalidate_list_models_debounce_cache(self) -> None:
         self._list_models_result_cache = {}
+        self._list_models_result_cache_time = 0.0
         self._list_models_cache_version += 1
 
     async def terminate_model(self, model_uid: str, suppress_exception: bool = False):
