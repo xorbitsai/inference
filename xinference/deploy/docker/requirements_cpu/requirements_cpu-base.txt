@@ -1,4 +1,4 @@
-xoscar>=0.7.2
+xoscar>=0.9.7
 pillow
 click
 tqdm>=4.27
