@@ -33064,6 +33064,7 @@
     ],
     "model_ability": [
       "chat",
+      "vision",
       "tools",
       "reasoning",
       "hybrid"
@@ -33561,6 +33562,6 @@
       ]
     },
     "featured": false,
-    "updated_at": 1785309334
+    "updated_at": 1785465575
   }
 ]
