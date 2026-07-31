@@ -27,7 +27,7 @@ def create_model_instance(
     quantization: Optional[str] = None,
     peft_model_config: Optional[PeftModelConfig] = None,
     download_hub: Optional[
-        Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
+        Literal["auto", "huggingface", "modelscope", "openmind_hub", "csghub"]
     ] = None,
     model_path: Optional[str] = None,
     **kwargs,
@@ -38,7 +38,10 @@ def create_model_instance(
     from .image.core import create_image_model_instance
     from .llm.core import create_llm_model_instance
     from .rerank.core import create_rerank_model_instance
+    from .utils import resolve_download_hub
     from .video.core import create_video_model_instance
+
+    download_hub = resolve_download_hub(download_hub, model_path)  # type: ignore[assignment]
 
     # enable_thinking is only meaningful for LLMs; drop it for other model types.
     if model_type != "LLM":
