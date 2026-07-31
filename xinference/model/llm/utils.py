@@ -100,6 +100,15 @@ def _completion_logprobs_to_chat_logprobs(
     content: List[ChatCompletionLogprob] = []
     for i, token in enumerate(tokens):
         logprob = token_logprobs[i] if i < len(token_logprobs) else None
+        # The OpenAI chat-completions schema requires ``logprob: float`` on every
+        # ``content[]`` entry; ``openai-python`` rejects ``null`` (reproduced with
+        # 1.99.9: "Input should be a valid number"). The legacy
+        # ``token_logprobs`` carries ``None`` for tokens whose logprob was not
+        # computed (e.g. the first generated token in the legacy completion
+        # shape). Rather than emit a fabricated probability, skip those tokens so
+        # ``content[]`` reports only tokens whose logprob is actually known.
+        if logprob is None:
+            continue
         raw_top = top_logprobs[i] if i < len(top_logprobs) else None
         top_list: List[ChatCompletionTopLogprob] = []
         if raw_top:

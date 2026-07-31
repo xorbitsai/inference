@@ -142,13 +142,10 @@ def test_to_chat_completion_propagates_logprobs():
     # logprob/top_logprobs), not the legacy parallel-list shape, so openai-python
     # parses ``choice.logprobs.content`` instead of dropping it as extra fields.
     assert chat["choices"][0]["logprobs"] == {
+        # The first token's legacy logprob is None (not computed), so it is
+        # omitted from content[] rather than emitted with a null logprob —
+        # openai-python rejects null (see test_chat_logprobs_parse_openai).
         "content": [
-            {
-                "token": "Hello",
-                "bytes": [72, 101, 108, 108, 111],
-                "logprob": None,
-                "top_logprobs": [],
-            },
             {
                 "token": " world",
                 "bytes": [32, 119, 111, 114, 108, 100],
@@ -195,13 +192,10 @@ def test_to_chat_completion_chunks_propagates_logprobs():
     # Streaming chat chunks carry the chat ``content[]`` logprobs shape, converted
     # from the legacy parallel-list shape the engine emits.
     assert results[0]["choices"][0]["logprobs"] == {
+        # The first token's legacy logprob is None -> omitted from content[]
+        # (see test_chat_logprobs_parse_openai); only the known-logprob token
+        # survives, in the chat content[] shape.
         "content": [
-            {
-                "token": "Hello",
-                "bytes": [72, 101, 108, 108, 111],
-                "logprob": None,
-                "top_logprobs": [],
-            },
             {
                 "token": " world",
                 "bytes": [32, 119, 111, 114, 108, 100],
@@ -216,6 +210,59 @@ def test_to_chat_completion_chunks_propagates_logprobs():
             },
         ]
     }
+
+
+def test_chat_logprobs_parse_openai():
+    # Regression for the openai-python validation failure qinxuye reproduced with
+    # 1.99.9: ``ChatCompletionTokenLogprob.logprob`` is non-nullable, so a chat
+    # logprobs ``content[]`` entry must never carry ``null``. The converter now
+    # skips tokens whose legacy ``token_logprobs`` entry is ``None`` instead of
+    # emitting a null logprob; assert every emitted entry parses through the
+    # OpenAI client model.
+    pytest.importorskip("openai")
+    from openai.types.chat.chat_completion_token_logprob import (
+        ChatCompletionTokenLogprob,
+    )
+    from ....types import (
+        Completion,
+        CompletionChoice,
+        CompletionLogprobs,
+        CompletionUsage,
+    )
+
+    # token_logprobs[0] is None (the legacy first-token case). The converter must
+    # drop that token rather than emit ``logprob: None``.
+    logprobs = CompletionLogprobs(
+        text_offset=[0, 5],
+        token_logprobs=[None, -0.1],
+        tokens=["Hello", " world"],
+        top_logprobs=[None, {" world": -0.2}],
+    )
+    completion = Completion(
+        id="cmpl-1",
+        object="text_completion",
+        created=123,
+        model="test-model",
+        choices=[
+            CompletionChoice(
+                text="Hello world",
+                index=0,
+                logprobs=logprobs,
+                finish_reason="stop",
+            )
+        ],
+        usage=CompletionUsage(prompt_tokens=1, completion_tokens=2, total_tokens=3),
+    )
+
+    chat = ChatModelMixin._to_chat_completion(completion)
+    content = chat["choices"][0]["logprobs"]["content"]
+    assert content, "content[] must not be empty when a known-logprob token exists"
+    # No entry carries a null logprob, and the None-logprob first token is dropped.
+    assert [e["token"] for e in content] == [" world"]
+    for entry in content:
+        # Must parse through the OpenAI client model without raising — the exact
+        # gate that was failing ("logprob: Input should be a valid number").
+        ChatCompletionTokenLogprob(**entry)
 
 
 class _NoOpToolParser:

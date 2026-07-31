@@ -159,13 +159,16 @@ class ChatCompletionTopLogprob(TypedDict):
 class ChatCompletionLogprob(TypedDict):
     """A token entry in chat completion ``logprobs.content[]``.
 
-    ``logprob`` is optional because the first generated token carries no logprob,
-    matching the OpenAI chat logprobs contract.
+    ``logprob`` is required (non-optional): the OpenAI chat-completions schema
+    mandates a ``float`` on every ``content[]`` entry, and ``openai-python``
+    rejects ``null``. Tokens whose logprob is unknown (``None`` in the legacy
+    ``CompletionLogprobs.token_logprobs`` shape) are omitted from ``content[]``
+    by the chat builder rather than emitted with a null or fabricated logprob.
     """
 
     token: str
     bytes: Optional[List[int]]
-    logprob: Optional[float]
+    logprob: float
     top_logprobs: List[ChatCompletionTopLogprob]
 
 
