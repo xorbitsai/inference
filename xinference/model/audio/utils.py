@@ -147,28 +147,39 @@ def audio_to_bytes(response_format: str, sample_rate: int, tensor: "torch.Tensor
                 torchaudio.save(out, tensor, sample_rate, format=response_format)
                 return out.getvalue()
     else:
+        import os
         import tempfile
 
-        with tempfile.NamedTemporaryFile(
-            delete=True, suffix=f".{response_format}"
-        ) as temp_file:
+        # ``NamedTemporaryFile`` keeps its own handle open for the whole
+        # ``with`` block. On Windows that handle carries ``O_TEMPORARY``
+        # (delete-on-close) and is not opened with ``FILE_SHARE_DELETE``, so
+        # any second open of the same path -- both ``torchaudio.save`` and the
+        # read-back below -- fails with ``PermissionError: [WinError 32]``.
+        # Create the file, close our handle immediately, and clean it up
+        # ourselves instead.
+        fd, temp_path = tempfile.mkstemp(suffix=f".{response_format}")
+        os.close(fd)
+        try:
             if response_pcm:
                 logger.debug(f"PCM output, num_channels: 1, sample_rate: {sample_rate}")
                 torchaudio.save(
-                    temp_file.name,
+                    temp_path,
                     tensor,
                     sample_rate,
                     format="wav",
                     encoding="PCM_S",
                 )
                 # Read the temporary file and extract PCM data
-                with open(temp_file.name, "rb") as f:
+                with open(temp_path, "rb") as f:
                     wav_bytes = f.read()
                 return _extract_pcm_from_wav_bytes(wav_bytes)
             else:
-                torchaudio.save(
-                    temp_file.name, tensor, sample_rate, format=response_format
-                )
+                torchaudio.save(temp_path, tensor, sample_rate, format=response_format)
                 # Read the temporary file and return its content
-                with open(temp_file.name, "rb") as f:
+                with open(temp_path, "rb") as f:
                     return f.read()
+        finally:
+            try:
+                os.remove(temp_path)
+            except OSError:
+                logger.debug("Failed to remove temporary file %s", temp_path)
