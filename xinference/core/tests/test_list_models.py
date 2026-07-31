@@ -40,6 +40,7 @@ class DummySupervisor:
         self._list_models_cache: Dict[str, Dict[str, Dict[str, Any]]] = {}
         self._list_models_result_cache: Dict[str, Dict[str, Any]] = {}
         self._list_models_result_cache_time: float = 0.0
+        self._list_models_cache_version: int = 0
         self._replica_gpu_cache: Dict[str, list] = {}
         # worker_address -> replica_model_uid -> {gpu_idx -> bytes}
         self._worker_model_gpu_memory: Dict[str, Dict[str, Dict[int, int]]] = {}

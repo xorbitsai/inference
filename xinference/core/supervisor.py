@@ -150,6 +150,7 @@ class SupervisorActor(xo.StatelessActor):
         # Invalidated on model launch / termination; also self-heals via TTL.
         self._list_models_result_cache: Dict[str, Dict[str, Any]] = {}
         self._list_models_result_cache_time: float = 0.0
+        self._list_models_cache_version: int = 0
         # Reverse-ping failure counter per worker
         self._reverse_ping_failures: Dict[str, int] = {}
         # Track workers currently launching models — when a worker has active
@@ -2418,11 +2419,16 @@ class SupervisorActor(xo.StatelessActor):
         await self._status_guard_ref.set_instance_info(model_uid, instance_info)
         if wait_ready:
             await _launch_model()
+            self._invalidate_list_models_debounce_cache()
         else:
             task = asyncio.create_task(_launch_model())
             ASYNC_LAUNCH_TASKS[model_uid] = task
             task.add_done_callback(lambda _: callback_for_async_launch(model_uid))  # type: ignore
-        self._invalidate_list_models_debounce_cache()
+            # Invalidate the debounce cache once the background launch
+            # completes so the newly-ready model appears immediately.
+            task.add_done_callback(
+                lambda _: self._invalidate_list_models_debounce_cache()
+            )
         return model_uid
 
     async def _launch_builtin_sharded_model(
@@ -2615,11 +2621,14 @@ class SupervisorActor(xo.StatelessActor):
         await self._status_guard_ref.set_instance_info(model_uid, instance_info)
         if wait_ready:
             await _launch_model()
+            self._invalidate_list_models_debounce_cache()
         else:
             task = asyncio.create_task(_launch_model())
             ASYNC_LAUNCH_TASKS[model_uid] = task
             task.add_done_callback(lambda _: callback_for_async_launch(model_uid))  # type: ignore
-        self._invalidate_list_models_debounce_cache()
+            task.add_done_callback(
+                lambda _: self._invalidate_list_models_debounce_cache()
+            )
         return model_uid
 
     async def get_launch_builtin_model_progress(self, model_uid: str) -> float:
@@ -3193,7 +3202,8 @@ class SupervisorActor(xo.StatelessActor):
         # disable debounce caching.
         now = time.time()
         if (
-            self._list_models_result_cache
+            XINFERENCE_LIST_MODELS_DEBOUNCE_SECONDS > 0
+            and self._list_models_result_cache
             and (now - self._list_models_result_cache_time)
             < XINFERENCE_LIST_MODELS_DEBOUNCE_SECONDS
         ):
@@ -3202,7 +3212,13 @@ class SupervisorActor(xo.StatelessActor):
                 now - self._list_models_result_cache_time,
                 len(self._list_models_result_cache),
             )
-            return self._list_models_result_cache
+            return self._list_models_result_cache.copy()
+
+        # Snapshot the cache version before the RPC sweep so that if
+        # _invalidate_list_models_debounce_cache is called concurrently
+        # (e.g. from a launch / termination), the stale sweep result is
+        # not written back over the invalidation.
+        current_version = self._list_models_cache_version
 
         ret: Dict[str, Dict[str, Any]] = {}
 
@@ -3307,9 +3323,11 @@ class SupervisorActor(xo.StatelessActor):
                 }
         for k in stale_uids:
             running_model_info.pop(k, None)
-        # Cache the result for debounce during rapid UI refresh
-        self._list_models_result_cache = running_model_info
-        self._list_models_result_cache_time = time.time()
+        # Only cache the result if no invalidation occurred during the
+        # RPC sweep (e.g. a concurrent launch / termination).
+        if current_version == self._list_models_cache_version:
+            self._list_models_result_cache = running_model_info
+            self._list_models_result_cache_time = time.time()
         return running_model_info
 
     def _invalidate_list_models_debounce_cache(self) -> None:
@@ -3318,6 +3336,7 @@ class SupervisorActor(xo.StatelessActor):
         so the UI reflects model-list changes without waiting for the TTL.
         """
         self._list_models_result_cache = {}
+        self._list_models_cache_version += 1
 
     def is_local_deployment(self) -> bool:
         # TODO: temporary.
