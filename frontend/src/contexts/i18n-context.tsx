@@ -30,6 +30,37 @@ function interpolate(str: string, vars?: Record<string, InterpolationValue>) {
   }, str);
 }
 
+function lookup(locale: Locale, key: string, vars?: Record<string, InterpolationValue>) {
+  const dict: any = translations[locale as keyof typeof translations] || {};
+  const value = key
+    .split('.')
+    .reduce(
+      (acc: any, part: string) => (acc && acc[part] !== undefined ? acc[part] : undefined),
+      dict
+    );
+  const str = typeof value === 'string' ? value : key;
+  return interpolate(str, vars);
+}
+
+/**
+ * Translate outside the React tree.
+ *
+ * `RequestProvider` sits above `I18nProvider` in the layout, so it cannot use
+ * the `useI18n` hook; it reads the persisted locale directly instead.
+ */
+export function translate(key: string, vars?: Record<string, InterpolationValue>) {
+  let locale: Locale = DEFAULT_LANGUAGE;
+  try {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('app_locale') : null;
+    if (stored && LANGUAGES_KEYS.includes(stored as Locale)) {
+      locale = stored as Locale;
+    }
+  } catch {
+    // ignore
+  }
+  return lookup(locale, key, vars);
+}
+
 export function I18nProvider({
   children,
   initialLocale = DEFAULT_LANGUAGE,
@@ -80,17 +111,7 @@ export function I18nProvider({
   }, [locale]);
 
   const t: TFunc = useMemo(() => {
-    return (key, vars) => {
-      const dict: any = translations[locale as keyof typeof translations] || {};
-      const value = key
-        .split('.')
-        .reduce(
-          (acc: any, part: string) => (acc && acc[part] !== undefined ? acc[part] : undefined),
-          dict
-        );
-      const str = typeof value === 'string' ? value : key;
-      return interpolate(str, vars);
-    };
+    return (key, vars) => lookup(locale, key, vars);
   }, [locale]);
 
   const value = useMemo(() => ({ locale, setLocale, t }), [locale, t]);

@@ -195,6 +195,9 @@ const zh = {
     launchCanceled: '已停止部署',
     initializing: '初始化中...',
     moreDetails: '更多详情',
+    launchFailed: '模型部署失败',
+    showTraceback: '查看详情',
+    copyError: '复制错误',
   },
   runningModels: {
     searchPlaceholder: '搜索模型名称或模型UID...',
@@ -683,6 +686,7 @@ const zh = {
     loginOut: '退出登录',
     loginOutSuccess: '退出成功',
     copySuccess: '复制成功!',
+    noAuth: '无权访问',
     deleteSuccess: '删除成功!',
     lastUpdateTime: '最后更新时间',
     noOptions: '暂无数据',

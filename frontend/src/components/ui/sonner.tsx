@@ -12,10 +12,14 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme={theme as ToasterProps['theme']}
       className="toaster group"
       position="top-center"
+      expand
+      visibleToasts={3}
       toastOptions={{
         classNames: {
+          // Widen past sonner's 356px default: a server error can carry a full
+          // Python traceback, which is unreadable at that width.
           toast:
-            'group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg data-[type=error]:!bg-red-500 data-[type=error]:!text-white data-[type=error]:!border-red-600 data-[type=success]:!bg-green-500 data-[type=success]:!text-white data-[type=success]:!border-green-500',
+            'group toast !w-[min(48rem,90vw)] group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg data-[type=error]:!bg-red-500 data-[type=error]:!text-white data-[type=error]:!border-red-600 data-[type=success]:!bg-green-500 data-[type=success]:!text-white data-[type=success]:!border-green-500',
           description:
             'group-[.toast]:text-muted-foreground group-data-[type=error]:!text-white/90 group-data-[type=success]:!text-white/90',
           actionButton: 'group-[.toast]:bg-primary group-[.toast]:text-primary-foreground',

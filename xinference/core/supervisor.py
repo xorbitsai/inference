@@ -58,6 +58,11 @@ from ..model.utils import (
     get_engine_params_by_name_with_virtual_env,
 )
 from ..types import PeftModelConfig
+from .error_utils import (
+    AggregatedLaunchError,
+    format_error_summary,
+    format_replica_errors,
+)
 from .exceptions import ModelNotReadyError
 from .launch_strategy import IdleFirstLaunchStrategy
 from .metrics import record_metrics
@@ -91,9 +96,20 @@ logger = getLogger(__name__)
 ASYNC_LAUNCH_TASKS = {}  # type: ignore
 
 
-def callback_for_async_launch(model_uid: str):
+def callback_for_async_launch(model_uid: str, task: "asyncio.Task"):
     ASYNC_LAUNCH_TASKS.pop(model_uid, None)
-    logger.debug(f"Model uid: {model_uid} async launch completes.")
+    if task.cancelled():
+        logger.debug("Model uid: %s async launch cancelled.", model_uid)
+        return
+    # Retrieve the exception even though nothing awaits this task: without it
+    # the failure is garbage collected with an "exception was never retrieved"
+    # warning and its traceback never reaches the log. The replica status
+    # record written during the failure is what the Web UI reads.
+    exc = task.exception()
+    if exc is not None:
+        logger.error("Model uid: %s async launch failed.", model_uid, exc_info=exc)
+        return
+    logger.debug("Model uid: %s async launch completes.", model_uid)
 
 
 class WorkerNotRegisteredError(Exception):
@@ -2187,7 +2203,10 @@ class SupervisorActor(xo.StatelessActor):
                 await self._status_guard_ref.update_replica_status(
                     model_uid,
                     replica_id,
-                    {"status": LaunchStatus.ERROR.name, "error_message": str(e)},
+                    {
+                        "status": LaunchStatus.ERROR.name,
+                        "error_message": format_error_summary(e),
+                    },
                 )
                 raise
             finally:
@@ -2347,18 +2366,38 @@ class SupervisorActor(xo.StatelessActor):
                     rank_addresses.append(rank0_metadata[4])
                     task_metadata = task_metadata[1:]  # Remove rank0 from metadata
 
-                # Process parallel launch results
+                # Process parallel launch results. Collect every failure rather
+                # than raising on the first: replicas fail independently, and
+                # the first one is not necessarily the informative one (a
+                # replica may trip over "already in the model list" while
+                # another hit the actual CUDA/engine error).
+                failures: List[Tuple[str, BaseException]] = []
                 for idx, (result, metadata) in enumerate(zip(results, task_metadata)):
                     worker_ref, rep_model_uid, is_rank0, _idx, _ = metadata
 
-                    if isinstance(result, Exception):
-                        logger.error(
-                            f"Failed to launch replica {rep_model_uid}: {result}"
-                        )
-                        raise result
+                    if isinstance(result, BaseException):
+                        failures.append((rep_model_uid, result))
+                        continue
 
                     worker_refs.append((worker_ref, rep_model_uid))
                     rank_addresses.append(result)
+
+                if failures:
+                    logger.error(
+                        "Failed to launch %d/%d replicas for model %s",
+                        len(failures),
+                        len(results),
+                        model_uid,
+                        exc_info=failures[0][1],
+                    )
+                    if len(failures) == 1:
+                        # Re-raise the original object so its type survives:
+                        # the REST layer maps ValueError/RuntimeError to 400/503,
+                        # and wrapping would collapse those into a 500.
+                        raise failures[0][1]
+                    raise AggregatedLaunchError(
+                        format_replica_errors(failures)
+                    ) from failures[0][1]
 
                 # For xavier, start all the vllm instances first,
                 # and then start the transfer component,
@@ -2384,11 +2423,27 @@ class SupervisorActor(xo.StatelessActor):
                         )
 
                     logger.debug(f"Init transfer component for xavier done.")
-            except Exception:
+            except Exception as e:
+                _error_summary = format_error_summary(e)
+                # Record the cause before terminate_model tears the replicas
+                # down, so the message survives even if cleanup itself fails.
+                await self._status_guard_ref.update_instance_info(
+                    model_uid,
+                    {
+                        "status": LaunchStatus.ERROR.name,
+                        "error_message": _error_summary,
+                    },
+                )
                 # terminate_model will remove the replica info.
                 await self.terminate_model(model_uid, suppress_exception=True)
+                # Cleanup flips instance status on its way out; re-assert ERROR
+                # so the resting state is the failure, not a normal shutdown.
                 await self._status_guard_ref.update_instance_info(
-                    model_uid, {"status": LaunchStatus.ERROR.name}
+                    model_uid,
+                    {
+                        "status": LaunchStatus.ERROR.name,
+                        "error_message": _error_summary,
+                    },
                 )
                 raise
 
@@ -2426,7 +2481,7 @@ class SupervisorActor(xo.StatelessActor):
         else:
             task = asyncio.create_task(_launch_model())
             ASYNC_LAUNCH_TASKS[model_uid] = task
-            task.add_done_callback(lambda _: callback_for_async_launch(model_uid))  # type: ignore
+            task.add_done_callback(lambda t: callback_for_async_launch(model_uid, t))  # type: ignore
             # Invalidate the debounce cache once the background launch
             # completes so the newly-ready model appears immediately.
             task.add_done_callback(
@@ -2581,11 +2636,27 @@ class SupervisorActor(xo.StatelessActor):
                     # wait for load complete
                     for worker_ref in worker_refs:
                         await worker_ref.wait_for_load(rep_model_uid)
-            except Exception:
+            except Exception as e:
+                _error_summary = format_error_summary(e)
+                # Record the cause before terminate_model tears the replicas
+                # down, so the message survives even if cleanup itself fails.
+                await self._status_guard_ref.update_instance_info(
+                    model_uid,
+                    {
+                        "status": LaunchStatus.ERROR.name,
+                        "error_message": _error_summary,
+                    },
+                )
                 # terminate_model will remove the replica info.
                 await self.terminate_model(model_uid, suppress_exception=True)
+                # Cleanup flips instance status on its way out; re-assert ERROR
+                # so the resting state is the failure, not a normal shutdown.
                 await self._status_guard_ref.update_instance_info(
-                    model_uid, {"status": LaunchStatus.ERROR.name}
+                    model_uid,
+                    {
+                        "status": LaunchStatus.ERROR.name,
+                        "error_message": _error_summary,
+                    },
                 )
                 raise
 
@@ -2628,7 +2699,7 @@ class SupervisorActor(xo.StatelessActor):
         else:
             task = asyncio.create_task(_launch_model())
             ASYNC_LAUNCH_TASKS[model_uid] = task
-            task.add_done_callback(lambda _: callback_for_async_launch(model_uid))  # type: ignore
+            task.add_done_callback(lambda t: callback_for_async_launch(model_uid, t))  # type: ignore
             task.add_done_callback(
                 lambda _: self._invalidate_list_models_debounce_cache()
             )
@@ -2638,6 +2709,13 @@ class SupervisorActor(xo.StatelessActor):
         try:
             self._model_uid_to_replica_info[model_uid]
         except KeyError:
+            # The replica info is gone either because the launch never started
+            # or because it failed and was cleaned up. Distinguish the two:
+            # reporting a dead launch as 0% leaves a polling client waiting
+            # forever on a model that will never arrive.
+            error_message = await self._get_failed_instance_error(model_uid)
+            if error_message is not None:
+                raise RuntimeError(error_message)
             # Not launched perhaps, just return 0.0 to prevent error
             return 0.0
 
@@ -2683,6 +2761,37 @@ class SupervisorActor(xo.StatelessActor):
         )
         return [info.dict() for info in sorted(infos, key=lambda info: info.model_uid)]
 
+    async def _get_failed_instance_error(self, model_uid: str) -> Optional[str]:
+        """Return the recorded failure for ``model_uid``, or None if it did not fail.
+
+        Falls back to the per-replica messages when the instance-level record
+        has none, and to a generic line when the instance is ERROR but no cause
+        was captured.
+        """
+        try:
+            infos = await self._status_guard_ref.get_instance_info(
+                model_name=None, model_uid=model_uid
+            )
+        except Exception:
+            logger.debug(
+                "Failed to read instance info for %s", model_uid, exc_info=True
+            )
+            return None
+        for info in infos:
+            if info.status != LaunchStatus.ERROR.name:
+                continue
+            if info.error_message:
+                return info.error_message
+            replica_errors = [
+                replica.error_message
+                for replica in (info.replica_statuses or [])
+                if replica.error_message
+            ]
+            if replica_errors:
+                return "\n".join(replica_errors)
+            return "Model launch failed"
+        return None
+
     async def get_replica_statuses(self, model_uid: str) -> List[Dict]:
         """Get replica statuses from status guard"""
         replica_statuses = await self._status_guard_ref.get_replica_statuses(model_uid)
@@ -2692,6 +2801,7 @@ class SupervisorActor(xo.StatelessActor):
                 "replica_model_uid": status.replica_model_uid,
                 "worker_address": status.worker_address,
                 "status": status.status,
+                "model_state": status.model_state,
                 "created_ts": status.created_ts,
                 "error_message": status.error_message,
             }

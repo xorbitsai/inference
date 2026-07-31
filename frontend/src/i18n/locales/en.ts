@@ -201,6 +201,9 @@ const en = {
     launchCanceled: 'Deployment stopped',
     initializing: 'Initializing...',
     moreDetails: 'More Details',
+    launchFailed: 'Model deployment failed',
+    showTraceback: 'Show details',
+    copyError: 'Copy error',
   },
   runningModels: {
     searchPlaceholder: 'Search model name or model UID...',
@@ -703,6 +706,7 @@ const en = {
     loginOut: 'Log out',
     loginOutSuccess: 'Logged out successfully',
     copySuccess: 'Copied successfully!',
+    noAuth: 'No permission to access',
     deleteSuccess: 'Deleted successfully!',
     lastUpdateTime: 'Last update time',
     noOptions: 'No data available',

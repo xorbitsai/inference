@@ -81,6 +81,7 @@ from ..model.utils import (
 from ..types import PeftModelConfig
 from ..utils import get_pip_config_args, get_real_path
 from .cache_tracker import CacheTrackerActor
+from .error_utils import format_error_summary
 from .event import Event, EventCollectorActor, EventType
 from .exceptions import ModelNotReadyError
 from .metrics import (
@@ -3611,9 +3612,11 @@ class WorkerActor(xo.StatelessActor):
                             except xo.ServerClosed:
                                 check_cancel()
                                 raise
-                    except Exception:
+                    except Exception as e:
                         logger.error(f"Failed to load model {model_uid}", exc_info=True)
-                        await self._update_model_state(model_uid, "error")
+                        await self._update_model_state(
+                            model_uid, "error", format_error_summary(e)
+                        )
                         self.release_devices(model_uid=model_uid)
                         for addr in all_subpool_addresses:
                             try:
@@ -3742,8 +3745,12 @@ class WorkerActor(xo.StatelessActor):
         model_ref = self._model_uid_to_model[model_uid]
         try:
             await model_ref.wait_for_load()
-        except Exception:
+        except Exception as e:
             logger.error(f"Failed to load model {model_uid}", exc_info=True)
+            # Engines that initialise on a background thread (vLLM, SGLang)
+            # surface their real failure here rather than from load(), so this
+            # is where their root cause has to be recorded.
+            await self._update_model_state(model_uid, "error", format_error_summary(e))
             await self._clean_up_failed_launch(model_uid)
             raise
         await self._update_model_state(model_uid, "ready")
@@ -4017,13 +4024,22 @@ class WorkerActor(xo.StatelessActor):
         return {k: v for k, v in self._model_uid_to_model_spec.items()}
 
     @log_async(logger=logger)
-    async def _update_model_state(self, model_uid: str, state: str):
-        """Update ModelStatus.model_state and sync to StatusGuard."""
+    async def _update_model_state(
+        self, model_uid: str, state: str, error_message: Optional[str] = None
+    ):
+        """Update ModelStatus.model_state and sync to StatusGuard.
+
+        ``error_message`` carries the root cause of a failed launch so it
+        reaches the replica record the Web UI polls, instead of living only in
+        the worker log.
+        """
         ms = self._model_uid_to_model_status.get(model_uid)
         if ms is None:
             ms = ModelStatus()
             self._model_uid_to_model_status[model_uid] = ms
         ms.model_state = state
+        if error_message:
+            ms.last_error = error_message
         status_map = {
             "registering": LaunchStatus.CREATING.name,
             "loading": LaunchStatus.LOADING.name,
@@ -4036,13 +4052,16 @@ class WorkerActor(xo.StatelessActor):
             try:
                 origin_uid, rank_suffix = parse_replica_model_uid(model_uid)
                 replica_id = rank_suffix - 1 if rank_suffix > 0 else 0
+                status_update = {
+                    "status": status_map.get(state, LaunchStatus.CREATING.name),
+                    "model_state": state,
+                }
+                if error_message:
+                    status_update["error_message"] = error_message
                 await self._status_guard_ref.update_replica_status(
                     origin_uid,
                     replica_id,
-                    {
-                        "status": status_map.get(state, LaunchStatus.CREATING.name),
-                        "model_state": state,
-                    },
+                    status_update,
                 )
             except Exception:
                 logger.debug(

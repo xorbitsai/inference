@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useMemo, useState, useRef } from 'react';
-import { Ban, Rocket } from 'lucide-react';
+import { Ban, ChevronDown, Copy, Rocket, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import request from '@/lib/request';
@@ -25,6 +25,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Form } from '@/components/ui/form';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import type { ServerErrorPayload } from '@/lib/request';
 import type {
   ClusterInfoResponse,
   ModelEngine,
@@ -64,6 +67,25 @@ interface LaunchDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+/** Pull the real backend error out of a rejected request. */
+function extractLaunchError(error: unknown): ServerErrorPayload {
+  const err = error as {
+    xinferenceError?: ServerErrorPayload;
+    response?: { data?: { detail?: unknown; traceback?: unknown } };
+    message?: string;
+  };
+  // Set by the response interceptor, which already normalized `detail`.
+  if (err?.xinferenceError) return err.xinferenceError;
+  const data = err?.response?.data;
+  return {
+    detail:
+      (typeof data?.detail === 'string' ? data.detail : undefined) ||
+      err?.message ||
+      'Unknown error',
+    traceback: typeof data?.traceback === 'string' ? data.traceback : undefined,
+  };
+}
+
 export default function LaunchDialog({
   model,
   modelType,
@@ -82,6 +104,7 @@ export default function LaunchDialog({
   const [saveAutostart, setSaveAutostart] = useState(false);
   const [progress, setProgress] = useState(0);
   const [replicaStatuses, setReplicaStatuses] = useState<ReplicaItem[]>([]);
+  const [launchError, setLaunchError] = useState<ServerErrorPayload | null>(null);
   const [configCacheRefreshKey, setConfigCacheRefreshKey] = useState(0);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isCanceledLaunchRef = useRef(false);
@@ -1261,21 +1284,84 @@ export default function LaunchDialog({
         progressRes && typeof progressRes === 'object' ? progressRes.progress : progressRes;
       const nextProgress = normalizeProgress(progressValue);
 
+      const nextReplicas = normalizeReplicaStatuses(replicaRes);
       setProgress(nextProgress);
-      setReplicaStatuses(normalizeReplicaStatuses(replicaRes));
+      setReplicaStatuses(nextReplicas);
+
+      // A replica can report its failure before the launch POST rejects (and
+      // always does when wait_ready=false, where the POST already returned).
+      const replicaErrors = nextReplicas
+        .filter((replica) => replica.status === 'ERROR' && replica.error_message)
+        .map(
+          (replica) => `${t('launchModel.replica')} ${replica.replica_id}: ${replica.error_message}`
+        );
+      if (replicaErrors.length) {
+        setLaunchError((current) => current ?? { detail: replicaErrors.join('\n') });
+      }
 
       if (nextProgress >= 100) {
         stopPolling();
       }
-    } catch {
+    } catch (error) {
+      // /progress now fails outright once the launch has errored, rather than
+      // reporting a dead launch as 0%.
+      setLaunchError((current) => current ?? extractLaunchError(error));
       stopPolling();
     }
-  }, [stopPolling, form, model]);
+  }, [stopPolling, form, model, t]);
 
   const startPolling = useCallback(() => {
     if (pollingRef.current) return;
     pollingRef.current = setInterval(fetchProgress, 1000);
   }, [fetchProgress]);
+
+  const renderLaunchError = () => {
+    if (!launchError) return null;
+
+    const copyText = launchError.traceback
+      ? `${launchError.detail}\n\n${launchError.traceback}`
+      : launchError.detail;
+
+    return (
+      <Alert variant="destructive" className="border-red-200 bg-red-50">
+        <TriangleAlert />
+        <AlertTitle>{t('launchModel.launchFailed')}</AlertTitle>
+        <AlertDescription>
+          <p className="whitespace-pre-wrap break-words font-mono text-xs text-destructive">
+            {launchError.detail}
+          </p>
+          <div className="mt-1 flex w-full items-center gap-2">
+            {launchError.traceback && (
+              <Collapsible className="min-w-0 flex-1">
+                <CollapsibleTrigger className="group flex items-center gap-1 text-xs underline underline-offset-2">
+                  <ChevronDown className="size-3 transition-transform group-data-[state=open]:rotate-180" />
+                  {t('launchModel.showTraceback')}
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap break-all rounded-md bg-background/80 p-2 text-xs">
+                    {launchError.traceback}
+                  </pre>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="ml-auto h-7 shrink-0 gap-1 text-xs"
+              onClick={() => {
+                void navigator.clipboard?.writeText(copyText);
+                toast.success(t('common.copySuccess'));
+              }}
+            >
+              <Copy className="size-3" />
+              {t('launchModel.copyError')}
+            </Button>
+          </div>
+        </AlertDescription>
+      </Alert>
+    );
+  };
 
   const renderReplicaStatuses = () => {
     if (!replicaStatuses.length) {
@@ -1314,6 +1400,14 @@ export default function LaunchDialog({
                   >
                     {replica.worker_address || '-'}
                   </span>
+                  {replica.status === 'ERROR' && replica.error_message && (
+                    <span
+                      className="line-clamp-3 whitespace-pre-wrap break-all text-red-600"
+                      title={replica.error_message}
+                    >
+                      {replica.error_message}
+                    </span>
+                  )}
                 </div>
                 <div
                   className={cn(
@@ -1342,6 +1436,7 @@ export default function LaunchDialog({
       setLoading(false);
       setProgress(0);
       setReplicaStatuses([]);
+      setLaunchError(null);
       toast.success(t('launchModel.launchCanceled'));
     } finally {
       setCanceling(false);
@@ -1354,6 +1449,7 @@ export default function LaunchDialog({
     setLoading(true);
     setProgress(0);
     setReplicaStatuses([]);
+    setLaunchError(null);
 
     request
       .post<{ model_uid?: string }>('/v1/models', newValues, { noTimeout: true })
@@ -1395,8 +1491,11 @@ export default function LaunchDialog({
         );
         router.push('/running-model');
       })
-      .catch(() => {
+      .catch((error) => {
         stopPolling();
+        // Keep the dialog open: the user needs to read the cause and fix the
+        // configuration, which is impossible once the dialog closes.
+        setLaunchError(extractLaunchError(error));
       })
       .finally(() => {
         setLoading(false);
@@ -1408,6 +1507,7 @@ export default function LaunchDialog({
     setCanceling(false);
     setProgress(0);
     setReplicaStatuses([]);
+    setLaunchError(null);
     setSaveAutostart(false);
     stopPolling();
     onOpenChange(false);
@@ -1491,6 +1591,7 @@ export default function LaunchDialog({
             <FormField hidden name="model_type" />
             {renderLaunchFields(currentLaunchFields)}
           </Form>
+          {renderLaunchError()}
           <DialogFooter className={cn(loading ? '!flex-col' : '')}>
             {loading && <Progress value={progress} />}
             <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

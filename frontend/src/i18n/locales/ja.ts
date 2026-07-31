@@ -199,6 +199,9 @@ const ja = {
     launchCanceled: 'デプロイを停止しました',
     initializing: '初期化中...',
     moreDetails: '詳細を見る',
+    launchFailed: 'モデルのデプロイに失敗しました',
+    showTraceback: '詳細を表示',
+    copyError: 'エラーをコピー',
   },
   runningModels: {
     searchPlaceholder: 'モデル名またはモデルUIDを検索...',
@@ -701,6 +704,7 @@ const ja = {
     loginOut: 'ログアウト',
     loginOutSuccess: 'ログアウトしました',
     copySuccess: 'コピーしました!',
+    noAuth: 'アクセス権限がありません',
     deleteSuccess: '削除しました!',
     lastUpdateTime: '最終更新時間',
     noOptions: 'データがありません',

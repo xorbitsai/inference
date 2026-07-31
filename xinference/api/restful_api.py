@@ -24,7 +24,7 @@ import time
 import uuid
 import warnings
 from pathlib import Path
-from typing import Any, List, Optional, Union, get_type_hints
+from typing import Any, Dict, List, Optional, Union, get_type_hints
 
 import xoscar as xo
 from aioprometheus import REGISTRY, MetricsMiddleware
@@ -64,6 +64,7 @@ from ..constants import (
     is_auth_advanced,
     is_metrics_disabled,
 )
+from ..core.error_utils import format_error_summary, format_error_traceback
 from ..core.event import Event, EventCollectorActor, EventType
 from ..core.exceptions import ModelNotReadyError
 from ..core.http_protocol import create_hardened_http_protocol
@@ -94,6 +95,19 @@ from .schemas import (
 from .utils import require_model
 
 logger = logging.getLogger(__name__)
+
+
+class DetailedHTTPException(HTTPException):
+    """An ``HTTPException`` that also carries a ``traceback`` in the body.
+
+    ``detail`` stays a plain string, so existing API consumers and the Web UI's
+    response interceptor are unaffected; ``traceback`` is purely additive and
+    omitted entirely when unavailable.
+    """
+
+    def __init__(self, status_code: int, detail: str, tb: Optional[str] = None):
+        super().__init__(status_code=status_code, detail=detail)
+        self.tb = tb
 
 
 def _validate_replica(value: Any) -> int:
@@ -519,6 +533,15 @@ class RESTfulAPI(CancelMixin):
                     "Failed to initialise OpenTelemetry — continuing without OTEL."
                 )
 
+        @self._app.exception_handler(DetailedHTTPException)
+        async def detailed_http_exception_handler(
+            request: Request, exc: DetailedHTTPException
+        ):
+            body: Dict[str, Any] = {"detail": exc.detail}
+            if exc.tb:
+                body["traceback"] = exc.tb
+            return JSONResponse(status_code=exc.status_code, content=body)
+
         @self._app.exception_handler(500)
         async def internal_exception_handler(request: Request, exc: Exception):
             logger.exception("Handling request %s failed: %s", request.url, exc)
@@ -919,19 +942,29 @@ class RESTfulAPI(CancelMixin):
                 envs=envs,
                 **kwargs,
             )
+        # A launch failure originates deep inside an engine and crosses several
+        # actor boundaries before arriving here. Report the root cause of the
+        # chain rather than the outermost wrapper's message, and pass the
+        # traceback along so the UI can show where it actually broke.
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
-            raise HTTPException(status_code=400, detail=str(ve))
+            raise DetailedHTTPException(
+                400, format_error_summary(ve), format_error_traceback(ve)
+            )
         except RuntimeError as re:
             logger.error(str(re), exc_info=True)
-            raise HTTPException(status_code=503, detail=str(re))
+            raise DetailedHTTPException(
+                503, format_error_summary(re), format_error_traceback(re)
+            )
         except asyncio.CancelledError as ce:
-            # cancelled by user
+            # cancelled by user -- not a defect, so no traceback
             logger.error(str(ce), exc_info=True)
-            raise HTTPException(status_code=499, detail=str(ce))
+            raise DetailedHTTPException(499, format_error_summary(ce))
         except Exception as e:
             logger.error(str(e), exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
+            raise DetailedHTTPException(
+                500, format_error_summary(e), format_error_traceback(e)
+            )
 
         # Clear negative cache so that get_model for this uid is not blocked
         # by a stale "Model not found" entry.
@@ -981,8 +1014,10 @@ class RESTfulAPI(CancelMixin):
                 await self._get_supervisor_ref()
             ).get_launch_builtin_model_progress(model_uid)
         except Exception as e:
+            # The polling client reads this while the launch POST is still in
+            # flight, so it needs the same clean root-cause message.
             logger.error(str(e), exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
+            raise DetailedHTTPException(500, format_error_summary(e))
         return JSONResponse(content={"progress": progress})
 
     async def cancel_launch_model(self, model_uid: str) -> JSONResponse:
