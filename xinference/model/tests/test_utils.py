@@ -619,3 +619,88 @@ def test_neutralize_broken_torchcodec_idempotent(monkeypatch):
         assert sys.modules.get("torchcodec", "missing") is None
     finally:
         _clear_torchcodec_from_sys_modules()
+
+
+@pytest.fixture
+def _reset_auto_hub_cache(monkeypatch):
+    import xinference.model.utils as model_utils
+
+    monkeypatch.setattr(model_utils, "_auto_detected_hub", None)
+    monkeypatch.delenv("XINFERENCE_MODEL_SRC", raising=False)
+    yield
+    model_utils._auto_detected_hub = None
+
+
+def test_auto_detect_download_hub_hf_reachable(monkeypatch, _reset_auto_hub_cache):
+    import xinference.model.utils as model_utils
+
+    monkeypatch.setattr(
+        model_utils, "_is_hub_endpoint_reachable", lambda url, timeout: True
+    )
+    assert model_utils.auto_detect_download_hub() == "huggingface"
+
+
+def test_auto_detect_download_hub_hf_unreachable(monkeypatch, _reset_auto_hub_cache):
+    import xinference.model.utils as model_utils
+
+    monkeypatch.setattr(
+        model_utils, "_is_hub_endpoint_reachable", lambda url, timeout: False
+    )
+    assert model_utils.auto_detect_download_hub() == "modelscope"
+
+
+def test_auto_detect_download_hub_result_is_cached(monkeypatch, _reset_auto_hub_cache):
+    import xinference.model.utils as model_utils
+
+    calls = {"n": 0}
+
+    def probe(url, timeout):
+        calls["n"] += 1
+        return True
+
+    monkeypatch.setattr(model_utils, "_is_hub_endpoint_reachable", probe)
+    assert model_utils.auto_detect_download_hub() == "huggingface"
+    assert model_utils.auto_detect_download_hub() == "huggingface"
+    assert calls["n"] == 1
+
+
+def test_resolve_download_hub(monkeypatch, _reset_auto_hub_cache):
+    import xinference.model.utils as model_utils
+
+    monkeypatch.setattr(
+        model_utils, "_is_hub_endpoint_reachable", lambda url, timeout: False
+    )
+
+    # explicit hubs are passed through untouched
+    assert model_utils.resolve_download_hub("huggingface") == "huggingface"
+    assert model_utils.resolve_download_hub("modelscope") == "modelscope"
+    assert model_utils.resolve_download_hub("csghub") == "csghub"
+
+    # "auto" always resolves via detection
+    assert model_utils.resolve_download_hub("auto") == "modelscope"
+
+    # unspecified hub goes through detection as well
+    assert model_utils.resolve_download_hub(None) == "modelscope"
+
+    # a local model path means no download, so no detection
+    assert model_utils.resolve_download_hub(None, "/path/to/model") is None
+
+    # a pinned XINFERENCE_MODEL_SRC keeps the legacy fallback behavior
+    monkeypatch.setenv("XINFERENCE_MODEL_SRC", "modelscope")
+    assert model_utils.resolve_download_hub(None) is None
+
+
+def test_download_from_modelscope_env_auto(monkeypatch, _reset_auto_hub_cache):
+    import xinference.model.utils as model_utils
+
+    monkeypatch.setenv("XINFERENCE_MODEL_SRC", "auto")
+    monkeypatch.setattr(
+        model_utils, "_is_hub_endpoint_reachable", lambda url, timeout: False
+    )
+    assert model_utils.download_from_modelscope() is True
+
+    model_utils._auto_detected_hub = None
+    monkeypatch.setattr(
+        model_utils, "_is_hub_endpoint_reachable", lambda url, timeout: True
+    )
+    assert model_utils.download_from_modelscope() is False

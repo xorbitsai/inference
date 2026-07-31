@@ -2216,7 +2216,9 @@ class SupervisorActor(xo.StatelessActor):
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
         replica_config: Optional[List[ReplicaConfig]] = None,
-        download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+        download_hub: Optional[
+            Literal["auto", "huggingface", "modelscope", "csghub"]
+        ] = None,
         model_path: Optional[str] = None,
         enable_virtual_env: Optional[bool] = None,
         virtual_env_packages: Optional[List[str]] = None,
@@ -2763,7 +2765,9 @@ class SupervisorActor(xo.StatelessActor):
         peft_model_config: Optional[PeftModelConfig] = None,
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
-        download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+        download_hub: Optional[
+            Literal["auto", "huggingface", "modelscope", "csghub"]
+        ] = None,
         model_path: Optional[str] = None,
         enable_virtual_env: Optional[bool] = None,
         virtual_env_packages: Optional[List[str]] = None,

@@ -51,6 +51,7 @@ from ..constants import (
     XINFERENCE_DOWNLOAD_MAX_ATTEMPTS,
     XINFERENCE_ENABLE_VIRTUAL_ENV,
     XINFERENCE_ENV_MODEL_SRC,
+    XINFERENCE_HUB_DETECT_TIMEOUT,
 )
 from ..device_utils import get_available_device, is_device_available
 from .core import CacheableModelSpec
@@ -638,9 +639,80 @@ def is_locale_chinese_simplified() -> bool:
         return False
 
 
+_auto_detected_hub: Optional[str] = None
+_auto_detect_hub_lock = threading.Lock()
+
+
+def _is_hub_endpoint_reachable(url: str, timeout: float) -> bool:
+    import requests
+
+    try:
+        # Any HTTP response means the endpoint is reachable; proxies configured
+        # via HTTP(S)_PROXY environment variables are honored by requests.
+        requests.head(url, timeout=timeout, allow_redirects=True)
+    except requests.RequestException:
+        return False
+    return True
+
+
+def auto_detect_download_hub() -> str:
+    """
+    Decide between huggingface and modelscope by probing connectivity.
+
+    Probes the Hugging Face endpoint (honoring ``HF_ENDPOINT`` mirrors and
+    ``HTTP(S)_PROXY`` proxies). If it is reachable, returns "huggingface";
+    otherwise falls back to "modelscope". The result is cached for the
+    lifetime of the process so the probe runs at most once.
+    """
+    global _auto_detected_hub
+    if _auto_detected_hub is not None:
+        return _auto_detected_hub
+    with _auto_detect_hub_lock:
+        if _auto_detected_hub is None:
+            hf_endpoint = os.environ.get("HF_ENDPOINT") or "https://huggingface.co"
+            if _is_hub_endpoint_reachable(hf_endpoint, XINFERENCE_HUB_DETECT_TIMEOUT):
+                _auto_detected_hub = "huggingface"
+                logger.info(
+                    "Auto-detected download hub: huggingface (%s is reachable)",
+                    hf_endpoint,
+                )
+            else:
+                _auto_detected_hub = "modelscope"
+                logger.info(
+                    "Auto-detected download hub: modelscope "
+                    "(%s is not reachable within %.1f seconds)",
+                    hf_endpoint,
+                    XINFERENCE_HUB_DETECT_TIMEOUT,
+                )
+    return _auto_detected_hub
+
+
+def resolve_download_hub(
+    download_hub: Optional[str], model_path: Optional[str] = None
+) -> Optional[str]:
+    """
+    Resolve the "auto" download hub to a concrete hub before matching specs.
+
+    Explicit "auto" always triggers connectivity detection. When no hub is
+    specified at all, detection also runs unless the user pinned a source via
+    the ``XINFERENCE_MODEL_SRC`` environment variable or provided a local
+    ``model_path`` (in which case no download is needed).
+    """
+    if download_hub == "auto" or (
+        download_hub is None
+        and model_path is None
+        and not os.environ.get(XINFERENCE_ENV_MODEL_SRC)
+    ):
+        return auto_detect_download_hub()
+    return download_hub
+
+
 def download_from_modelscope() -> bool:
-    if os.environ.get(XINFERENCE_ENV_MODEL_SRC):
-        return os.environ.get(XINFERENCE_ENV_MODEL_SRC) == "modelscope"
+    model_src = os.environ.get(XINFERENCE_ENV_MODEL_SRC)
+    if model_src == "auto":
+        return auto_detect_download_hub() == "modelscope"
+    elif model_src:
+        return model_src == "modelscope"
     elif is_locale_chinese_simplified():
         return True
     else:
