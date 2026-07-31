@@ -689,6 +689,10 @@ def test_resolve_download_hub(monkeypatch, _reset_auto_hub_cache):
     monkeypatch.setenv("XINFERENCE_MODEL_SRC", "modelscope")
     assert model_utils.resolve_download_hub(None) is None
 
+    # XINFERENCE_MODEL_SRC="auto" resolves via detection
+    monkeypatch.setenv("XINFERENCE_MODEL_SRC", "auto")
+    assert model_utils.resolve_download_hub(None) == "modelscope"
+
 
 def test_download_from_modelscope_env_auto(monkeypatch, _reset_auto_hub_cache):
     import xinference.model.utils as model_utils

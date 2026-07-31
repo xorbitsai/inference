@@ -649,8 +649,10 @@ def _is_hub_endpoint_reachable(url: str, timeout: float) -> bool:
     try:
         # Any HTTP response means the endpoint is reachable; proxies configured
         # via HTTP(S)_PROXY environment variables are honored by requests.
+        # The probe is best-effort: any failure (including malformed endpoint
+        # or proxy configuration) just means "not reachable".
         requests.head(url, timeout=timeout, allow_redirects=True)
-    except requests.RequestException:
+    except Exception:
         return False
     return True
 
@@ -694,16 +696,17 @@ def resolve_download_hub(
     Resolve the "auto" download hub to a concrete hub before matching specs.
 
     Explicit "auto" always triggers connectivity detection. When no hub is
-    specified at all, detection also runs unless the user pinned a source via
-    the ``XINFERENCE_MODEL_SRC`` environment variable or provided a local
-    ``model_path`` (in which case no download is needed).
+    specified at all, detection also runs unless the user pinned a concrete
+    source via the ``XINFERENCE_MODEL_SRC`` environment variable (which may
+    itself be "auto") or provided a local ``model_path`` (in which case no
+    download is needed).
     """
-    if download_hub == "auto" or (
-        download_hub is None
-        and model_path is None
-        and not os.environ.get(XINFERENCE_ENV_MODEL_SRC)
-    ):
+    if download_hub == "auto":
         return auto_detect_download_hub()
+    if download_hub is None and model_path is None:
+        model_src = os.environ.get(XINFERENCE_ENV_MODEL_SRC)
+        if not model_src or model_src == "auto":
+            return auto_detect_download_hub()
     return download_hub
 
 
