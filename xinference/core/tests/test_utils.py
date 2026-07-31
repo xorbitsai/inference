@@ -15,6 +15,7 @@
 from ..utils import (
     build_replica_model_uid,
     build_subpool_envs_for_virtual_env,
+    filter_virtualenv_packages_by_markers,
     is_valid_model_uid,
     iter_replica_model_uid,
     merge_virtual_env_packages,
@@ -127,6 +128,21 @@ def test_get_xllamacpp_cuda_index_url():
     assert get_xllamacpp_cuda_index_url(None) is None
     assert get_xllamacpp_cuda_index_url("") is None
     assert get_xllamacpp_cuda_index_url("unknown") is None
+
+
+def test_filter_virtualenv_packages_keeps_system_pandas_marker():
+    # #system_pandas# is used in model specs (e.g. audio) and must be treated
+    # as a system placeholder like the torch/numpy ones
+    packages = [
+        '#system_pandas# ; #engine# == "vllm"',
+        "#system_pandas#",
+    ]
+    assert filter_virtualenv_packages_by_markers(
+        packages, model_engine="vllm", cuda_version=None
+    ) == ["#system_pandas#", "#system_pandas#"]
+    assert filter_virtualenv_packages_by_markers(
+        packages, model_engine="transformers", cuda_version=None
+    ) == ["#system_pandas#"]
 
 
 def test_merge_virtual_env_packages_user_package_overrides_system_marker():
