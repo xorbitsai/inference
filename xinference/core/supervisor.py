@@ -48,6 +48,7 @@ from ..constants import (
     XINFERENCE_HEALTH_CHECK_TIMEOUT,
     XINFERENCE_LAUNCH_HISTORY_DB_PATH,
     XINFERENCE_LAUNCH_STRATEGY,
+    XINFERENCE_LIST_MODELS_DEBOUNCE_SECONDS,
     XINFERENCE_LIST_MODELS_PER_WORKER_TIMEOUT,
 )
 from ..core.model import ModelActor
@@ -145,6 +146,10 @@ class SupervisorActor(xo.StatelessActor):
         self._replica_gpu_cache: Dict[str, list] = {}
         # list_models cache for graceful degradation when a worker is unreachable
         self._list_models_cache: Dict[str, Dict[str, Dict[str, Any]]] = {}
+        # Whole-result cache for list_models debounce during rapid UI refresh.
+        # Invalidated on model launch / termination; also self-heals via TTL.
+        self._list_models_result_cache: Dict[str, Dict[str, Any]] = {}
+        self._list_models_result_cache_time: float = 0.0
         # Reverse-ping failure counter per worker
         self._reverse_ping_failures: Dict[str, int] = {}
         # Track workers currently launching models — when a worker has active
@@ -2417,6 +2422,7 @@ class SupervisorActor(xo.StatelessActor):
             task = asyncio.create_task(_launch_model())
             ASYNC_LAUNCH_TASKS[model_uid] = task
             task.add_done_callback(lambda _: callback_for_async_launch(model_uid))  # type: ignore
+        self._invalidate_list_models_debounce_cache()
         return model_uid
 
     async def _launch_builtin_sharded_model(
@@ -2613,6 +2619,7 @@ class SupervisorActor(xo.StatelessActor):
             task = asyncio.create_task(_launch_model())
             ASYNC_LAUNCH_TASKS[model_uid] = task
             task.add_done_callback(lambda _: callback_for_async_launch(model_uid))  # type: ignore
+        self._invalidate_list_models_debounce_cache()
         return model_uid
 
     async def get_launch_builtin_model_progress(self, model_uid: str) -> float:
@@ -2850,6 +2857,7 @@ class SupervisorActor(xo.StatelessActor):
             raise errors[0]
         self._model_uid_to_replica_info.pop(model_uid, None)
         self._clear_unexpected_down_replicas(model_uid)
+        self._invalidate_list_models_debounce_cache()
 
         # clear for xavier
         rank0_uid = model_uid + "-rank0"
@@ -3178,6 +3186,24 @@ class SupervisorActor(xo.StatelessActor):
 
     @log_async(logger=logger)
     async def list_models(self) -> Dict[str, Dict[str, Any]]:
+        # Fast path: return cached result if within debounce window.
+        # During rapid UI refresh (every ~1 s), this prevents redundant
+        # RPC sweeps to all workers, reducing concurrent xoscar transport
+        # pressure.  Set XINFERENCE_LIST_MODELS_DEBOUNCE_SECONDS=0 to
+        # disable debounce caching.
+        now = time.time()
+        if (
+            self._list_models_result_cache
+            and (now - self._list_models_result_cache_time)
+            < XINFERENCE_LIST_MODELS_DEBOUNCE_SECONDS
+        ):
+            logger.debug(
+                "list_models: returning cached result (age %.1fs, %d models)",
+                now - self._list_models_result_cache_time,
+                len(self._list_models_result_cache),
+            )
+            return self._list_models_result_cache
+
         ret: Dict[str, Dict[str, Any]] = {}
 
         workers = list(self._worker_address_to_worker.items())
@@ -3281,7 +3307,17 @@ class SupervisorActor(xo.StatelessActor):
                 }
         for k in stale_uids:
             running_model_info.pop(k, None)
+        # Cache the result for debounce during rapid UI refresh
+        self._list_models_result_cache = running_model_info
+        self._list_models_result_cache_time = time.time()
         return running_model_info
+
+    def _invalidate_list_models_debounce_cache(self) -> None:
+        """Clear the whole-result debounce cache so the next list_models call
+        performs a fresh RPC sweep. Called after model launch / termination
+        so the UI reflects model-list changes without waiting for the TTL.
+        """
+        self._list_models_result_cache = {}
 
     def is_local_deployment(self) -> bool:
         # TODO: temporary.
