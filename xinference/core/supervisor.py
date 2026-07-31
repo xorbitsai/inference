@@ -48,6 +48,7 @@ from ..constants import (
     XINFERENCE_HEALTH_CHECK_TIMEOUT,
     XINFERENCE_LAUNCH_HISTORY_DB_PATH,
     XINFERENCE_LAUNCH_STRATEGY,
+    XINFERENCE_LIST_MODELS_DEBOUNCE_SECONDS,
     XINFERENCE_LIST_MODELS_PER_WORKER_TIMEOUT,
 )
 from ..core.model import ModelActor
@@ -145,6 +146,14 @@ class SupervisorActor(xo.StatelessActor):
         self._replica_gpu_cache: Dict[str, list] = {}
         # list_models cache for graceful degradation when a worker is unreachable
         self._list_models_cache: Dict[str, Dict[str, Dict[str, Any]]] = {}
+        # Whole-result cache for list_models debounce during rapid UI refresh.
+        # Invalidated on model launch / termination; also self-heals via TTL.
+        self._list_models_result_cache: Dict[str, Dict[str, Any]] = {}
+        self._list_models_result_cache_time: float = 0.0
+        self._list_models_cache_version: int = 0
+        # Single-flight lock: prevents concurrent list_models() cache-miss
+        # sweeps so that only one RPC scan is in-flight at a time.
+        self._list_models_sweep_lock = asyncio.Lock()
         # Reverse-ping failure counter per worker
         self._reverse_ping_failures: Dict[str, int] = {}
         # Track workers currently launching models — when a worker has active
@@ -2413,10 +2422,16 @@ class SupervisorActor(xo.StatelessActor):
         await self._status_guard_ref.set_instance_info(model_uid, instance_info)
         if wait_ready:
             await _launch_model()
+            self._invalidate_list_models_debounce_cache()
         else:
             task = asyncio.create_task(_launch_model())
             ASYNC_LAUNCH_TASKS[model_uid] = task
             task.add_done_callback(lambda _: callback_for_async_launch(model_uid))  # type: ignore
+            # Invalidate the debounce cache once the background launch
+            # completes so the newly-ready model appears immediately.
+            task.add_done_callback(
+                lambda _: self._invalidate_list_models_debounce_cache()
+            )
         return model_uid
 
     async def _launch_builtin_sharded_model(
@@ -2609,10 +2624,14 @@ class SupervisorActor(xo.StatelessActor):
         await self._status_guard_ref.set_instance_info(model_uid, instance_info)
         if wait_ready:
             await _launch_model()
+            self._invalidate_list_models_debounce_cache()
         else:
             task = asyncio.create_task(_launch_model())
             ASYNC_LAUNCH_TASKS[model_uid] = task
             task.add_done_callback(lambda _: callback_for_async_launch(model_uid))  # type: ignore
+            task.add_done_callback(
+                lambda _: self._invalidate_list_models_debounce_cache()
+            )
         return model_uid
 
     async def get_launch_builtin_model_progress(self, model_uid: str) -> float:
@@ -2850,6 +2869,7 @@ class SupervisorActor(xo.StatelessActor):
             raise errors[0]
         self._model_uid_to_replica_info.pop(model_uid, None)
         self._clear_unexpected_down_replicas(model_uid)
+        self._invalidate_list_models_debounce_cache()
 
         # clear for xavier
         rank0_uid = model_uid + "-rank0"
@@ -3178,110 +3198,178 @@ class SupervisorActor(xo.StatelessActor):
 
     @log_async(logger=logger)
     async def list_models(self) -> Dict[str, Dict[str, Any]]:
-        ret: Dict[str, Dict[str, Any]] = {}
+        # Fast path: return cached result if within debounce window.
+        # During rapid UI refresh (every ~1 s), this prevents redundant
+        # RPC sweeps to all workers, reducing concurrent xoscar transport
+        # pressure.  Set XINFERENCE_LIST_MODELS_DEBOUNCE_SECONDS=0 to
+        # disable debounce caching.
+        # Use the timestamp (not the dict) as the cache-validity sentinel
+        # so that a genuinely empty model list ({}) is also cached.
+        now = time.time()
+        if (
+            XINFERENCE_LIST_MODELS_DEBOUNCE_SECONDS > 0
+            and self._list_models_result_cache_time > 0
+            and (now - self._list_models_result_cache_time)
+            < XINFERENCE_LIST_MODELS_DEBOUNCE_SECONDS
+        ):
+            logger.debug(
+                "list_models: returning cached result (age %.1fs, %d models)",
+                now - self._list_models_result_cache_time,
+                len(self._list_models_result_cache),
+            )
+            return self._list_models_result_cache.copy()
 
-        workers = list(self._worker_address_to_worker.items())
-        if not workers:
-            return {}
-
-        async def _fetch_one(
-            worker_address: str, worker_ref: xo.ActorRefType["WorkerActor"]
-        ) -> Dict[str, Dict[str, Any]]:
-            try:
-                result = await xo.wait_for(
-                    worker_ref.list_models(),
-                    XINFERENCE_LIST_MODELS_PER_WORKER_TIMEOUT,
+        # Single-flight: only one cache-miss RPC sweep at a time.
+        # Concurrent callers wait on the lock and then double-check the
+        # cache (which may have been filled by the preceding sweep).
+        async with self._list_models_sweep_lock:
+            now = time.time()
+            if (
+                XINFERENCE_LIST_MODELS_DEBOUNCE_SECONDS > 0
+                and self._list_models_result_cache_time > 0
+                and (now - self._list_models_result_cache_time)
+                < XINFERENCE_LIST_MODELS_DEBOUNCE_SECONDS
+            ):
+                logger.debug(
+                    "list_models: returning cached result after waiting "
+                    "for in-flight sweep (age %.1fs, %d models)",
+                    now - self._list_models_result_cache_time,
+                    len(self._list_models_result_cache),
                 )
-                # Update cache on success
-                self._list_models_cache[worker_address] = result
-                return result
-            except Exception as ex:
-                cached = self._list_models_cache.get(worker_address, {})
-                if cached:
-                    logger.warning(
-                        "list_models from worker %s failed or timed out: %s, "
-                        "returning cached result (%d models)",
-                        worker_address,
-                        ex,
-                        len(cached),
-                    )
-                else:
-                    logger.warning(
-                        "list_models from worker %s failed or timed out: %s",
-                        worker_address,
-                        ex,
-                    )
-                return cached
+                return self._list_models_result_cache.copy()
 
-        parts = await asyncio.gather(*(_fetch_one(addr, ref) for addr, ref in workers))
-        for part in parts:
-            ret.update(part)
+            # Snapshot the cache version before the RPC sweep so that if
+            # _invalidate_list_models_debounce_cache is called concurrently
+            # (e.g. from a launch / termination), the stale sweep result
+            # is not written back over the invalidation.
+            current_version = self._list_models_cache_version
 
-        # Cache per-replica GPU info before dedup (for get_cluster_metrics_data)
-        replica_gpu_cache: Dict[str, list] = {}
-        for replica_uid, spec in ret.items():
-            accelerators = spec.get("accelerators")
-            if accelerators:
-                replica_gpu_cache[replica_uid] = [str(a) for a in accelerators]
-        self._replica_gpu_cache = replica_gpu_cache
+            ret: Dict[str, Dict[str, Any]] = {}
 
-        running_model_info = {parse_replica_model_uid(k)[0]: v for k, v in ret.items()}
+            workers = list(self._worker_address_to_worker.items())
+            if not workers:
+                return {}
 
-        # Aggregate per-process GPU memory (real-time, from
-        # nvmlDeviceGetComputeRunningProcesses) into base-model granularity so
-        # the REST /v1/models response can surface it. _worker_model_gpu_memory
-        # is keyed by worker_address -> replica_model_uid -> {gpu_idx -> bytes}.
-        # GPU indices are local to each worker, so the worker dimension must be
-        # preserved: aggregating by gpu_idx alone would merge same-numbered GPUs
-        # on different physical hosts. Result shape:
-        # {base_uid: {worker_address: {gpu_idx: bytes}}}, summed across replicas
-        # that live on the same worker.
-        base_gpu_memory: Dict[str, Dict[str, Dict[int, int]]] = defaultdict(
-            lambda: defaultdict(lambda: defaultdict(int))
-        )
-        for worker_address, per_model in self._worker_model_gpu_memory.items():
-            for replica_uid, per_gpu in per_model.items():
+            async def _fetch_one(
+                worker_address: str, worker_ref: xo.ActorRefType["WorkerActor"]
+            ) -> Dict[str, Dict[str, Any]]:
                 try:
-                    base_uid = parse_replica_model_uid(replica_uid)[0]
-                except Exception:
-                    # A malformed replica uid must not break model listing;
-                    # skip this entry instead of propagating the error.
-                    logger.warning(
-                        "list_models: skip malformed replica uid %s in "
-                        "per-model GPU memory",
-                        replica_uid,
+                    result = await xo.wait_for(
+                        worker_ref.list_models(),
+                        XINFERENCE_LIST_MODELS_PER_WORKER_TIMEOUT,
                     )
-                    continue
-                for gpu_idx, mem in per_gpu.items():
-                    base_gpu_memory[base_uid][worker_address][int(gpu_idx)] += int(mem)
+                    # Update cache on success
+                    self._list_models_cache[worker_address] = result
+                    return result
+                except Exception as ex:
+                    cached = self._list_models_cache.get(worker_address, {})
+                    if cached:
+                        logger.warning(
+                            "list_models from worker %s failed or timed out: %s, "
+                            "returning cached result (%d models)",
+                            worker_address,
+                            ex,
+                            len(cached),
+                        )
+                    else:
+                        logger.warning(
+                            "list_models from worker %s failed or timed out: %s",
+                            worker_address,
+                            ex,
+                        )
+                    return cached
 
-        # add replica count
-        stale_uids = []
-        for k, v in running_model_info.items():
-            replica_info = self._model_uid_to_replica_info.get(k)
-            if replica_info is None:
-                # Worker still reports a replica that supervisor no longer
-                # tracks (e.g. failed launch left a stale subprocess). Skip
-                # it instead of raising KeyError, and let recover_sub_pool
-                # clean up later.
-                logger.warning(
-                    "list_models: drop stale running model %s without replica info",
-                    k,
-                )
-                stale_uids.append(k)
-                continue
-            v["replica"] = replica_info.replica
-            gpu_mem = base_gpu_memory.get(k)
-            if gpu_mem:
-                # {worker_address: {gpu_idx(str): bytes}}, sorted by GPU index
-                # per worker for deterministic display.
-                v["gpu_memory"] = {
-                    worker_address: {str(idx): per_gpu[idx] for idx in sorted(per_gpu)}
-                    for worker_address, per_gpu in gpu_mem.items()
-                }
-        for k in stale_uids:
-            running_model_info.pop(k, None)
-        return running_model_info
+            parts = await asyncio.gather(
+                *(_fetch_one(addr, ref) for addr, ref in workers)
+            )
+            for part in parts:
+                ret.update(part)
+
+            # Cache per-replica GPU info before dedup (for get_cluster_metrics_data)
+            replica_gpu_cache: Dict[str, list] = {}
+            for replica_uid, spec in ret.items():
+                accelerators = spec.get("accelerators")
+                if accelerators:
+                    replica_gpu_cache[replica_uid] = [str(a) for a in accelerators]
+            self._replica_gpu_cache = replica_gpu_cache
+
+            running_model_info = {
+                parse_replica_model_uid(k)[0]: v for k, v in ret.items()
+            }
+
+            # Aggregate per-process GPU memory (real-time, from
+            # nvmlDeviceGetComputeRunningProcesses) into base-model granularity so
+            # the REST /v1/models response can surface it. _worker_model_gpu_memory
+            # is keyed by worker_address -> replica_model_uid -> {gpu_idx -> bytes}.
+            # GPU indices are local to each worker, so the worker dimension must be
+            # preserved: aggregating by gpu_idx alone would merge same-numbered GPUs
+            # on different physical hosts. Result shape:
+            # {base_uid: {worker_address: {gpu_idx: bytes}}}, summed across replicas
+            # that live on the same worker.
+            base_gpu_memory: Dict[str, Dict[str, Dict[int, int]]] = defaultdict(
+                lambda: defaultdict(lambda: defaultdict(int))
+            )
+            for worker_address, per_model in self._worker_model_gpu_memory.items():
+                for replica_uid, per_gpu in per_model.items():
+                    try:
+                        base_uid = parse_replica_model_uid(replica_uid)[0]
+                    except Exception:
+                        # A malformed replica uid must not break model listing;
+                        # skip this entry instead of propagating the error.
+                        logger.warning(
+                            "list_models: skip malformed replica uid %s in "
+                            "per-model GPU memory",
+                            replica_uid,
+                        )
+                        continue
+                    for gpu_idx, mem in per_gpu.items():
+                        base_gpu_memory[base_uid][worker_address][int(gpu_idx)] += int(
+                            mem
+                        )
+
+            # add replica count
+            stale_uids = []
+            for k, v in running_model_info.items():
+                replica_info = self._model_uid_to_replica_info.get(k)
+                if replica_info is None:
+                    # Worker still reports a replica that supervisor no longer
+                    # tracks (e.g. failed launch left a stale subprocess). Skip
+                    # it instead of raising KeyError, and let recover_sub_pool
+                    # clean up later.
+                    logger.warning(
+                        "list_models: drop stale running model %s without replica info",
+                        k,
+                    )
+                    stale_uids.append(k)
+                    continue
+                v["replica"] = replica_info.replica
+                gpu_mem = base_gpu_memory.get(k)
+                if gpu_mem:
+                    # {worker_address: {gpu_idx(str): bytes}}, sorted by GPU index
+                    # per worker for deterministic display.
+                    v["gpu_memory"] = {
+                        worker_address: {
+                            str(idx): per_gpu[idx] for idx in sorted(per_gpu)
+                        }
+                        for worker_address, per_gpu in gpu_mem.items()
+                    }
+            for k in stale_uids:
+                running_model_info.pop(k, None)
+            # Only cache the result if no invalidation occurred during the
+            # RPC sweep (e.g. a concurrent launch / termination).
+            if current_version == self._list_models_cache_version:
+                self._list_models_result_cache = running_model_info
+                self._list_models_result_cache_time = time.time()
+            return running_model_info
+
+    def _invalidate_list_models_debounce_cache(self) -> None:
+        """Clear the whole-result debounce cache so the next list_models call
+        performs a fresh RPC sweep. Called after model launch / termination
+        so the UI reflects model-list changes without waiting for the TTL.
+        """
+        self._list_models_result_cache = {}
+        self._list_models_result_cache_time = 0.0
+        self._list_models_cache_version += 1
 
     def is_local_deployment(self) -> bool:
         # TODO: temporary.

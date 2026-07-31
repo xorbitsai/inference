@@ -83,6 +83,15 @@ class DummySupervisor:
         self._launch_builtin_sharded_model = (
             SupervisorActor._launch_builtin_sharded_model.__get__(self)
         )
+        # Fields used by _invalidate_list_models_debounce_cache (called from
+        # _launch_builtin_sharded_model after model launch completes).
+        self._list_models_result_cache = {}
+        self._list_models_cache_version = 0
+
+    def _invalidate_list_models_debounce_cache(self) -> None:
+        self._list_models_result_cache = {}
+        self._list_models_result_cache_time = 0.0
+        self._list_models_cache_version += 1
 
     async def terminate_model(self, model_uid: str, suppress_exception: bool = False):
         return None

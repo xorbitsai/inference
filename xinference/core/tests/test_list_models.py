@@ -1,4 +1,6 @@
+import asyncio
 import itertools
+import time as time_module
 from typing import Any, Dict
 
 import pytest
@@ -37,6 +39,10 @@ class DummySupervisor:
         self._worker_address_to_worker = dict(workers)
         self._model_uid_to_replica_info: Dict[str, ReplicaInfo] = {}
         self._list_models_cache: Dict[str, Dict[str, Dict[str, Any]]] = {}
+        self._list_models_result_cache: Dict[str, Dict[str, Any]] = {}
+        self._list_models_result_cache_time: float = 0.0
+        self._list_models_cache_version: int = 0
+        self._list_models_sweep_lock = asyncio.Lock()
         self._replica_gpu_cache: Dict[str, list] = {}
         # worker_address -> replica_model_uid -> {gpu_idx -> bytes}
         self._worker_model_gpu_memory: Dict[str, Dict[str, Dict[int, int]]] = {}
@@ -169,3 +175,132 @@ async def test_list_models_failing_worker_without_cache_is_skipped():
 
     assert set(result) == {"qwen3"}
     assert result["qwen3"]["replica"] == 1
+
+
+@pytest.mark.asyncio
+async def test_list_models_debounce_cache_hit():
+    """When called within the debounce window, list_models must return the
+    cached whole-result without issuing any worker RPCs."""
+    address = "127.0.0.1:1234"
+    # Worker returns a model NOT in the cache — if the fast path is taken
+    # we get the cached value, not what the worker would return.
+    worker = _DummyWorker(
+        {
+            build_replica_model_uid("fresh-model", 0): {
+                "model_name": "fresh-model",
+                "model_type": "LLM",
+            }
+        }
+    )
+    supervisor = DummySupervisor(address, {address: worker})
+    supervisor._model_uid_to_replica_info["fresh-model"] = _replica_info(1)
+    # Pre-populate the debounce cache with a different model.
+    supervisor._list_models_result_cache = {
+        "cached-model": {
+            "model_name": "cached-model",
+            "model_type": "LLM",
+            "replica": 1,
+        }
+    }
+    supervisor._list_models_result_cache_time = time_module.time()
+
+    result = await supervisor.list_models()
+
+    # Must return the cached result (not the fresh worker result).
+    assert set(result) == {"cached-model"}
+    assert result["cached-model"]["model_name"] == "cached-model"
+
+
+@pytest.mark.asyncio
+async def test_list_models_debounce_cache_expiry():
+    """When the debounce TTL has elapsed, list_models must perform a fresh
+    RPC sweep and update the cache."""
+    address = "127.0.0.1:1234"
+    worker = _DummyWorker(
+        {
+            build_replica_model_uid("fresh-model", 0): {
+                "model_name": "fresh-model",
+                "model_type": "LLM",
+            }
+        }
+    )
+    supervisor = DummySupervisor(address, {address: worker})
+    supervisor._model_uid_to_replica_info["fresh-model"] = _replica_info(1)
+    # Pre-populate with stale cached data (well beyond the debounce TTL).
+    supervisor._list_models_result_cache = {
+        "stale-model": {
+            "model_name": "stale-model",
+            "model_type": "LLM",
+            "replica": 1,
+        }
+    }
+    supervisor._list_models_result_cache_time = time_module.time() - 3600
+
+    result = await supervisor.list_models()
+
+    # Cache is expired → must return the fresh worker result.
+    assert set(result) == {"fresh-model"}
+    assert result["fresh-model"]["model_name"] == "fresh-model"
+    # The debounce cache must have been refreshed.
+    assert supervisor._list_models_result_cache == result
+    assert supervisor._list_models_result_cache_time > time_module.time() - 10
+
+
+class _CountingWorker:
+    """Worker that counts list_models() calls for single-flight verification."""
+
+    def __init__(self, models: Dict[str, Dict[str, Any]]):
+        self._models = models
+        self.list_models_call_count = 0
+
+    async def list_models(self) -> Dict[str, Dict[str, Any]]:
+        self.list_models_call_count += 1
+        return dict(self._models)
+
+
+@pytest.mark.asyncio
+async def test_list_models_debounce_cache_empty_result():
+    """An empty model list ({}) must also be cached so subsequent calls
+    within the TTL return the cached empty dict without a new RPC sweep."""
+    address = "127.0.0.1:1234"
+    worker = _DummyWorker({})
+    supervisor = DummySupervisor(address, {address: worker})
+
+    # First call: fills the cache with an empty dict.
+    result1 = await supervisor.list_models()
+    assert result1 == {}
+    assert supervisor._list_models_result_cache_time > 0
+
+    # Second call within TTL: must return the cached empty dict.
+    result2 = await supervisor.list_models()
+    assert result2 == {}
+
+
+@pytest.mark.asyncio
+async def test_list_models_debounce_single_flight():
+    """When the debounce cache is empty, concurrent list_models calls must
+    coalesce into a single RPC sweep (single-flight) rather than each
+    starting its own full worker sweep."""
+    address = "127.0.0.1:1234"
+    worker = _CountingWorker(
+        {
+            build_replica_model_uid("demo-model", 0): {
+                "model_name": "demo-model",
+                "model_type": "LLM",
+            }
+        }
+    )
+    supervisor = DummySupervisor(address, {address: worker})
+    supervisor._model_uid_to_replica_info["demo-model"] = _replica_info(1)
+
+    # Launch two concurrent list_models calls.
+    results = await asyncio.gather(
+        supervisor.list_models(),
+        supervisor.list_models(),
+    )
+
+    # Both must return the same result.
+    for r in results:
+        assert set(r) == {"demo-model"}
+    # The worker must have been called exactly once (single-flight).
+    assert worker.list_models_call_count == 1
