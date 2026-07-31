@@ -924,8 +924,13 @@ class CancellableDownloader:
         self._patched_instances: Set[int] = set()
 
     def reset(self):
-        self._main_progresses.clear()
-        self._download_progresses.clear()
+        # Hold _progress_lock around both clears so a concurrent get_progress()
+        # caller (e.g. the progress-upload thread that already passed its done
+        # check) cannot be mid-iteration when the sets are cleared — that race
+        # raised "Set changed size during iteration".
+        with self._progress_lock:
+            self._main_progresses.clear()
+            self._download_progresses.clear()
 
     def get_progress(self) -> float:
         if self.done:
@@ -990,19 +995,26 @@ class CancellableDownloader:
         raise self._cancel_error_cls(error_msg)
 
     def patch_tqdm(self):
-        # Use class-level patching to avoid conflicts
+        # Use class-level patching to avoid conflicts. Route the bookkeeping
+        # through the class (type(self)), not `self`: assigning to
+        # self._original_update creates a per-instance attribute that shadows
+        # the class attribute, so two concurrent downloaders each observe the
+        # class-level None, patch tqdm independently, and keep their own
+        # originals — the first to exit then restores tqdm.update while the
+        # second is still active.
         with self._patch_lock:
             import tqdm as tqdm_module
+            cls = type(self)
 
-            if self._original_update is None:
-                self._original_update = tqdm.update
-            if self._original_update_plain is None:
-                self._original_update_plain = tqdm_module.tqdm.update
+            if cls._original_update is None:
+                cls._original_update = tqdm.update
+            if cls._original_update_plain is None:
+                cls._original_update_plain = tqdm_module.tqdm.update
 
-            if self._original_update is None or self._original_update_plain is None:
+            if cls._original_update is None or cls._original_update_plain is None:
                 return
 
-            original_update_plain = self._original_update_plain
+            original_update_plain = cls._original_update_plain
 
             # Thread-safe patched update
             def patched_update(tqdm_instance, n):
@@ -1042,30 +1054,35 @@ class CancellableDownloader:
 
     def unpatch_tqdm(self):
         with self._patch_lock:
-            if self._original_update is not None and self._active_instances == 0:
+            cls = type(self)
+            if cls._original_update is not None and cls._active_instances == 0:
                 import tqdm as tqdm_module
 
-                tqdm.update = self._original_update
-                self._original_update = None
-                if self._original_update_plain is not None:
-                    tqdm_module.tqdm.update = self._original_update_plain
-                    self._original_update_plain = None
+                tqdm.update = cls._original_update
+                cls._original_update = None
+                if cls._original_update_plain is not None:
+                    tqdm_module.tqdm.update = cls._original_update_plain
+                    cls._original_update_plain = None
 
     def __enter__(self):
-        # Use global lock to prevent concurrent patching
+        # Use global lock to prevent concurrent patching. _active_instances is
+        # class-level bookkeeping (routed through type(self)) so concurrent
+        # downloaders share one counter instead of each shadowing it per-instance.
         with self._global_lock:
-            if self._active_instances == 0:
+            cls = type(self)
+            if cls._active_instances == 0:
                 self.patch_tqdm()
-            self._active_instances += 1
-            CancellableDownloader._active_registry.add(self)
+            cls._active_instances += 1
+            cls._active_registry.add(self)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         # Use global lock to prevent concurrent unpatching
         with self._global_lock:
-            self._active_instances -= 1
-            CancellableDownloader._active_registry.discard(self)
-            if self._active_instances == 0:
+            cls = type(self)
+            cls._active_instances -= 1
+            cls._active_registry.discard(self)
+            if cls._active_instances == 0:
                 self.unpatch_tqdm()
         try:
             self._done_event.set()
