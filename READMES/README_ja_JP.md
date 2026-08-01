@@ -41,7 +41,7 @@ Xorbits Inference（Xinference）は、言語、音声認識、マルチモー�
 
 ## 🔥 注目のトピック
 ### フレームワークの強化
-- Xinference 3.0.0 が公開され、移行メモと破壊的変更を確認できます: [リリースノート](https://xinference.io/release_notes/v3.0.0.html)
+- Xinference 3.0.0 が公開され、移行メモと破壊的変更を確認できます: [リリースノート](https://xinference.co/release_notes/v3.0.0.html)
 - Agent ネイティブ配信：Xinference は [Xagent](https://github.com/xorbitsai/xagent) と統合し、動的プランニング、ツール利用、自己完結型の複数ステップ推論を可能にし、静的なパイプラインの限界を超えます。
 - 自動バッチ処理：複数の同時リクエストを自動的にバッチ化し、スループットを大幅に向上させます。: [#4197](https://github.com/xorbitsai/inference/pull/4197)
 - [Xllamacpp](https://github.com/xorbitsai/xllamacpp): Xinference チームが管理する新しい llama.cpp の Python バインディングは、継続的なバッチ処理をサポートし、より本番運用に適しています。: [#2997](https://github.com/xorbitsai/inference/pull/2997)
