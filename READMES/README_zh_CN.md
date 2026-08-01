@@ -51,6 +51,7 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - 分布式推理：在多个 worker 上运行大尺寸模型：[#2877](https://github.com/xorbitsai/inference/pull/2877)
 - VLLM 引擎增强: 跨副本共享KV Cache: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### 新模型
+- 内置 [MiniMax-M3](https://huggingface.co/MiniMaxAI/MiniMax-M3): [#5258](https://github.com/xorbitsai/inference/pull/5258)
 - 内置 VibeThinker 系列（[1.5B](https://huggingface.co/WeiboAI/VibeThinker-1.5B)、[3B](https://huggingface.co/WeiboAI/VibeThinker-3B)）: [#5085](https://github.com/xorbitsai/inference/pull/5085)
 - 内置 Nex-N2 系列（[mini](https://huggingface.co/nex-agi/Nex-N2-mini)、[Pro](https://huggingface.co/nex-agi/Nex-N2-Pro)、[Pro-fp8](https://huggingface.co/nex-agi/Nex-N2-Pro-fp8)）: [#5094](https://github.com/xorbitsai/inference/pull/5094)
 - 内置 [Unlimited-OCR](https://huggingface.co/baidu/Unlimited-OCR): [#5103](https://github.com/xorbitsai/inference/pull/5103)
@@ -58,7 +59,6 @@ Xorbits Inference（Xinference）是一个性能强大且功能全面的分布�
 - 内置 [MiniCPM5-1B](https://huggingface.co/openbmb/MiniCPM5-1B): [#5010](https://github.com/xorbitsai/inference/pull/5010)
 - 内置 jina-embeddings-v5 系列（[text-nano](https://huggingface.co/jinaai/jina-embeddings-v5-text-nano)、[text-small](https://huggingface.co/jinaai/jina-embeddings-v5-text-small)、[omni-nano](https://huggingface.co/jinaai/jina-embeddings-v5-omni-nano)、[omni-small](https://huggingface.co/jinaai/jina-embeddings-v5-omni-small)）: [#5018](https://github.com/xorbitsai/inference/pull/5018)
 - 内置 MiniCPM-V-4.6 系列（[MiniCPM-V-4.6](https://huggingface.co/openbmb/MiniCPM-V-4.6)、[MiniCPM-V-4.6-Thinking](https://huggingface.co/openbmb/MiniCPM-V-4.6-Thinking)）: [#5025](https://github.com/xorbitsai/inference/pull/5025)
-- 内置腾讯 Hy-MT2 系列（[1.8B](https://huggingface.co/tencent/Hy-MT2-1.8B)、[7B](https://huggingface.co/tencent/Hy-MT2-7B)、[30B-A3B](https://huggingface.co/tencent/Hy-MT2-30B-A3B)）: [#5029](https://github.com/xorbitsai/inference/pull/5029)
 ### 集成
 - [Xagent](https://github.com/xorbitsai/xagent)：企业级 Agent 平台，用于构建和运行具备规划、记忆与工具调用能力的智能体，不再受限于僵化的工作流。
 - [FastGPT](https://doc.fastai.site/docs/development/custom-models/xinference/)：一个基于 LLM 大模型的开源 AI 知识库构建平台。提供了开箱即用的数据处理、模型调用、RAG 检索、可视化 AI 工作流编排等能力，帮助您轻松实现复杂的问答场景。

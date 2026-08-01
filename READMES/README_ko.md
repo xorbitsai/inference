@@ -41,13 +41,14 @@ Xorbits Inference (Xinference)는 언어, 음성 인식, 멀티모달 모델을 
 
 ## 🔥 주요 하이라이트
 ### 프레임워크 개선
-- Xinference 3.0.0이 마이그레이션 안내와 호환되지 않는 변경 사항과 함께 제공됩니다: [릴리스 노트](https://xinference.io/release_notes/v3.0.0.html)
+- Xinference 3.0.0이 마이그레이션 안내와 호환되지 않는 변경 사항과 함께 제공됩니다: [릴리스 노트](https://xinference.co/release_notes/v3.0.0.html)
 - 에이전트 네이티브 배포: Xinference는 [Xagent](https://github.com/xorbitsai/xagent)와 통합되어 동적 플래닝, 도구 사용 및 자율적 다단계 추론을 지원하며 정적 파이프라인의 한계를 넘어섭니다.
 - 자동 배칭: 여러 동시 요청을 자동으로 묶어 처리량을 크게 향상시킵니다. : [#4197](https://github.com/xorbitsai/inference/pull/4197)
 - [Xllamacpp](https://github.com/xorbitsai/xllamacpp): Xinference 팀이 관리하는 새로운 llama.cpp Python 바인딩은 연속 배칭을 지원하며 프로덕션에 더 적합합니다. : [#2997](https://github.com/xorbitsai/inference/pull/2997)
 - 분산 추론: 모델을 여러 워커에 걸쳐 실행할 수 있습니다: [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - vLLM 개선: 여러 복제본 간 KV 캐시 공유: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### 신규 모델
+- [MiniMax-M3](https://huggingface.co/MiniMaxAI/MiniMax-M3) 통합: [#5258](https://github.com/xorbitsai/inference/pull/5258)
 - VibeThinker 시리즈 통합 ([1.5B](https://huggingface.co/WeiboAI/VibeThinker-1.5B), [3B](https://huggingface.co/WeiboAI/VibeThinker-3B)): [#5085](https://github.com/xorbitsai/inference/pull/5085)
 - Nex-N2 시리즈 통합 ([mini](https://huggingface.co/nex-agi/Nex-N2-mini), [Pro](https://huggingface.co/nex-agi/Nex-N2-Pro), [Pro-fp8](https://huggingface.co/nex-agi/Nex-N2-Pro-fp8)): [#5094](https://github.com/xorbitsai/inference/pull/5094)
 - [Unlimited-OCR](https://huggingface.co/baidu/Unlimited-OCR) 통합: [#5103](https://github.com/xorbitsai/inference/pull/5103)
@@ -55,7 +56,6 @@ Xorbits Inference (Xinference)는 언어, 음성 인식, 멀티모달 모델을 
 - [MiniCPM5-1B](https://huggingface.co/openbmb/MiniCPM5-1B) 통합: [#5010](https://github.com/xorbitsai/inference/pull/5010)
 - jina-embeddings-v5 시리즈 통합 ([text-nano](https://huggingface.co/jinaai/jina-embeddings-v5-text-nano), [text-small](https://huggingface.co/jinaai/jina-embeddings-v5-text-small), [omni-nano](https://huggingface.co/jinaai/jina-embeddings-v5-omni-nano), [omni-small](https://huggingface.co/jinaai/jina-embeddings-v5-omni-small)): [#5018](https://github.com/xorbitsai/inference/pull/5018)
 - MiniCPM-V-4.6 시리즈 통합 ([MiniCPM-V-4.6](https://huggingface.co/openbmb/MiniCPM-V-4.6), [MiniCPM-V-4.6-Thinking](https://huggingface.co/openbmb/MiniCPM-V-4.6-Thinking)): [#5025](https://github.com/xorbitsai/inference/pull/5025)
-- Tencent Hy-MT2 시리즈 통합 ([1.8B](https://huggingface.co/tencent/Hy-MT2-1.8B), [7B](https://huggingface.co/tencent/Hy-MT2-7B), [30B-A3B](https://huggingface.co/tencent/Hy-MT2-30B-A3B)): [#5029](https://github.com/xorbitsai/inference/pull/5029)
 ### 통합
 - [Xagent](https://github.com/xorbitsai/xagent): 플래닝, 메모리, 툴 통합을 제공하는 엔터프라이즈 에이전트 플랫폼.
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): 시각화와 제어가 가능한 LLMOps 플랫폼.

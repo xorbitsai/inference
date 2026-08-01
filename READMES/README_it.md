@@ -41,13 +41,14 @@ Xorbits Inference (Xinference) è una libreria potente e versatile per modelli d
 
 ## 🔥 Novità in evidenza
 ### Miglioramenti del framework
-- Xinference 3.0.0 è disponibile con note di migrazione e modifiche incompatibili: [Note di rilascio](https://xinference.io/release_notes/v3.0.0.html)
+- Xinference 3.0.0 è disponibile con note di migrazione e modifiche incompatibili: [Note di rilascio](https://xinference.co/release_notes/v3.0.0.html)
 - Deploy nativo per agenti: Xinference si integra con [Xagent](https://github.com/xorbitsai/xagent) fornendo pianificazione dinamica, utilizzo di tool e inferenze multi-step autonome, superando i limiti delle pipeline statiche.
 - Batching automatico: più richieste concorrenti vengono raggruppate automaticamente per aumentare significativamente il throughput. : [#4197](https://github.com/xorbitsai/inference/pull/4197)
 - [Xllamacpp](https://github.com/xorbitsai/xllamacpp): nuove binding Python per llama.cpp, mantenute dal team Xinference, che supportano il batching continuo e sono più adatte alla produzione. : [#2997](https://github.com/xorbitsai/inference/pull/2997)
 - Inferenza distribuita: i modelli possono essere eseguiti attraverso più worker: [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - Miglioramenti per vLLM: condivisione del KV-cache tra più repliche: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### Nuovi modelli
+- Integrazione di [MiniMax-M3](https://huggingface.co/MiniMaxAI/MiniMax-M3) : [#5258](https://github.com/xorbitsai/inference/pull/5258)
 - Integrazione della serie VibeThinker ([1.5B](https://huggingface.co/WeiboAI/VibeThinker-1.5B), [3B](https://huggingface.co/WeiboAI/VibeThinker-3B)) : [#5085](https://github.com/xorbitsai/inference/pull/5085)
 - Integrazione della serie Nex-N2 ([mini](https://huggingface.co/nex-agi/Nex-N2-mini), [Pro](https://huggingface.co/nex-agi/Nex-N2-Pro), [Pro-fp8](https://huggingface.co/nex-agi/Nex-N2-Pro-fp8)) : [#5094](https://github.com/xorbitsai/inference/pull/5094)
 - Integrazione di [Unlimited-OCR](https://huggingface.co/baidu/Unlimited-OCR) : [#5103](https://github.com/xorbitsai/inference/pull/5103)
@@ -55,7 +56,6 @@ Xorbits Inference (Xinference) è una libreria potente e versatile per modelli d
 - Integrazione di [MiniCPM5-1B](https://huggingface.co/openbmb/MiniCPM5-1B) : [#5010](https://github.com/xorbitsai/inference/pull/5010)
 - Integrazione della serie jina-embeddings-v5 ([text-nano](https://huggingface.co/jinaai/jina-embeddings-v5-text-nano), [text-small](https://huggingface.co/jinaai/jina-embeddings-v5-text-small), [omni-nano](https://huggingface.co/jinaai/jina-embeddings-v5-omni-nano), [omni-small](https://huggingface.co/jinaai/jina-embeddings-v5-omni-small)) : [#5018](https://github.com/xorbitsai/inference/pull/5018)
 - Integrazione della serie MiniCPM-V-4.6 ([MiniCPM-V-4.6](https://huggingface.co/openbmb/MiniCPM-V-4.6), [MiniCPM-V-4.6-Thinking](https://huggingface.co/openbmb/MiniCPM-V-4.6-Thinking)) : [#5025](https://github.com/xorbitsai/inference/pull/5025)
-- Integrazione della serie Tencent Hy-MT2 ([1.8B](https://huggingface.co/tencent/Hy-MT2-1.8B), [7B](https://huggingface.co/tencent/Hy-MT2-7B), [30B-A3B](https://huggingface.co/tencent/Hy-MT2-30B-A3B)) : [#5029](https://github.com/xorbitsai/inference/pull/5029)
 ### Integrazioni
 - [Xagent](https://github.com/xorbitsai/xagent): piattaforma enterprise per agenti con pianificazione, memoria e integrazione di tool.
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): piattaforma LLMOps per costruire rapidamente applicazioni con visualizzazione e controllo.
