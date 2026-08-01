@@ -48,6 +48,7 @@ Xorbits Inference (Xinference) est une bibliothèque puissante et polyvalente po
 - Inférence distribuée : les modèles peuvent être exécutés entre plusieurs workers : [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - Améliorations de vLLM : partage du KV-cache entre plusieurs réplicas : [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### Nouveaux modèles
+- Intégration de [MiniMax-M3](https://huggingface.co/MiniMaxAI/MiniMax-M3) : [#5258](https://github.com/xorbitsai/inference/pull/5258)
 - Intégration de la série VibeThinker ([1.5B](https://huggingface.co/WeiboAI/VibeThinker-1.5B), [3B](https://huggingface.co/WeiboAI/VibeThinker-3B)) : [#5085](https://github.com/xorbitsai/inference/pull/5085)
 - Intégration de la série Nex-N2 ([mini](https://huggingface.co/nex-agi/Nex-N2-mini), [Pro](https://huggingface.co/nex-agi/Nex-N2-Pro), [Pro-fp8](https://huggingface.co/nex-agi/Nex-N2-Pro-fp8)) : [#5094](https://github.com/xorbitsai/inference/pull/5094)
 - Intégration de [Unlimited-OCR](https://huggingface.co/baidu/Unlimited-OCR) : [#5103](https://github.com/xorbitsai/inference/pull/5103)
@@ -55,7 +56,6 @@ Xorbits Inference (Xinference) est une bibliothèque puissante et polyvalente po
 - Intégration de [MiniCPM5-1B](https://huggingface.co/openbmb/MiniCPM5-1B) : [#5010](https://github.com/xorbitsai/inference/pull/5010)
 - Intégration de la série jina-embeddings-v5 ([text-nano](https://huggingface.co/jinaai/jina-embeddings-v5-text-nano), [text-small](https://huggingface.co/jinaai/jina-embeddings-v5-text-small), [omni-nano](https://huggingface.co/jinaai/jina-embeddings-v5-omni-nano), [omni-small](https://huggingface.co/jinaai/jina-embeddings-v5-omni-small)) : [#5018](https://github.com/xorbitsai/inference/pull/5018)
 - Intégration de la série MiniCPM-V-4.6 ([MiniCPM-V-4.6](https://huggingface.co/openbmb/MiniCPM-V-4.6), [MiniCPM-V-4.6-Thinking](https://huggingface.co/openbmb/MiniCPM-V-4.6-Thinking)) : [#5025](https://github.com/xorbitsai/inference/pull/5025)
-- Intégration de la série Tencent Hy-MT2 ([1.8B](https://huggingface.co/tencent/Hy-MT2-1.8B), [7B](https://huggingface.co/tencent/Hy-MT2-7B), [30B-A3B](https://huggingface.co/tencent/Hy-MT2-30B-A3B)) : [#5029](https://github.com/xorbitsai/inference/pull/5029)
 ### Intégrations
 - [Xagent](https://github.com/xorbitsai/xagent) : plateforme d'agents pour entreprises avec planification, mémoire et intégration d'outils.
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference) : plateforme LLMOps pour construire rapidement des applications avec visualisation et contrôle.
