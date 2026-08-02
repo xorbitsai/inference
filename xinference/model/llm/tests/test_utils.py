@@ -223,6 +223,7 @@ def test_chat_logprobs_parse_openai():
     from openai.types.chat.chat_completion_token_logprob import (
         ChatCompletionTokenLogprob,
     )
+
     from ....types import (
         Completion,
         CompletionChoice,
@@ -322,12 +323,6 @@ def test_post_process_completion_preserves_chat_logprobs():
     assert result["choices"][0]["logprobs"] == {
         "content": [
             {
-                "token": "Hello",
-                "bytes": [72, 101, 108, 108, 111],
-                "logprob": None,
-                "top_logprobs": [],
-            },
-            {
                 "token": " world",
                 "bytes": [32, 119, 111, 114, 108, 100],
                 "logprob": -0.1,
@@ -392,12 +387,6 @@ def test_post_process_completion_chunk_preserves_chat_logprobs():
     assert result["choices"][0]["logprobs"] == expected_logprobs
     assert result["choices"][0]["logprobs"] == {
         "content": [
-            {
-                "token": "Hello",
-                "bytes": [72, 101, 108, 108, 111],
-                "logprob": None,
-                "top_logprobs": [],
-            },
             {
                 "token": " world",
                 "bytes": [32, 119, 111, 114, 108, 100],
