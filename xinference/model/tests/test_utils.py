@@ -15,6 +15,7 @@
 import asyncio
 import shutil
 import sys
+import threading
 
 import pytest
 from tqdm.auto import tqdm
@@ -74,6 +75,192 @@ def test_tqdm_patch():
             all_bar.update(6)
 
     assert downloader.done
+
+
+def test_concurrent_progress_no_set_mutation():
+    """Two concurrent downloaders race the progress sets: one thread creates
+    new download bars and calls .update() (so patched_update grows
+    _download_progresses), while another polls get_progress(). On main this
+    raises "RuntimeError: Set changed size during iteration"; the per-instance
+    _progress_lock + snapshot in get_progress makes it safe.
+
+    Under CPython's default ~5ms switch interval the mutation rarely lands
+    mid-iteration, so the crash is flaky on main (and can even pass 8/8). We
+    tighten sys.setswitchinterval to force frequent GIL handoffs so the
+    mutation coincides with the poller's iteration deterministically: red on
+    main, green on the branch. The original interval is restored in finally.
+    """
+    d1 = CancellableDownloader(cancel_error_cls=RuntimeError)
+    d2 = CancellableDownloader(cancel_error_cls=RuntimeError)
+    errors = []
+
+    orig_si = sys.getswitchinterval()
+    sys.setswitchinterval(1e-4)
+    try:
+        with d1, d2:
+            stop = threading.Event()
+
+            def updater():
+                try:
+                    # seed a few download bars first
+                    for _ in range(5):
+                        bar = tqdm(total=1000000, unit="B")
+                        bar.update(1)
+                    while not stop.is_set():
+                        # a NEW bar each iteration -> add() grows the set size
+                        bar = tqdm(total=1000000, unit="B")
+                        bar.update(1)
+                        bar.close()
+                except RuntimeError as e:
+                    errors.append(("updater", e))
+
+            def poller():
+                while not stop.is_set():
+                    try:
+                        d1.get_progress()
+                        d2.get_progress()
+                    except RuntimeError as e:
+                        errors.append(("poller", e))
+                        return
+
+            tu = threading.Thread(target=updater)
+            tp = threading.Thread(target=poller)
+            tu.start()
+            tp.start()
+            # run the race for ~1s; a timeout + Event keeps CI from hanging
+            tp.join(timeout=1.2)
+            stop.set()
+            tu.join(timeout=3.0)
+            tp.join(timeout=3.0)
+    finally:
+        sys.setswitchinterval(orig_si)
+
+    assert not errors, f"concurrent get_progress raised: {errors}"
+
+
+def test_class_level_bookkeeping_no_per_instance_shadow():
+    """qinxuye #5257 round-4 ask #1: _active_instances / _original_update /
+    _original_update_plain must be routed through the class (type(self)), not
+    ``self``. The old ``self._original_update = ...`` shadowed the class
+    attribute, so two concurrent downloaders each saw the class-level None,
+    patched tqdm independently, and the first to exit restored tqdm.update
+    while the second was still active."""
+    # Clean class state, independent of test ordering.
+    CancellableDownloader._active_instances = 0
+    CancellableDownloader._original_update = None
+    CancellableDownloader._original_update_plain = None
+    CancellableDownloader._active_registry.clear()
+    original_update = tqdm.update
+
+    d1 = CancellableDownloader(cancel_error_cls=RuntimeError)
+    d2 = CancellableDownloader(cancel_error_cls=RuntimeError)
+    d1.__enter__()
+    d2.__enter__()
+    try:
+        # Shared class-level counter, no per-instance shadow.
+        assert CancellableDownloader._active_instances == 2
+        assert "_active_instances" not in vars(d1)
+        assert "_active_instances" not in vars(d2)
+        # Originals stored on the class, no per-instance shadow.
+        assert CancellableDownloader._original_update is original_update
+        assert CancellableDownloader._original_update_plain is not None
+        for d in (d1, d2):
+            assert "_original_update" not in vars(d)
+            assert "_original_update_plain" not in vars(d)
+        # tqdm stays patched while any instance is active.
+        assert tqdm.update is not original_update
+
+        # d1 exits while d2 is still active: must NOT restore tqdm yet (the
+        # concrete reproduction: "first downloader exiting while the second
+        # remained active: tqdm.update was restored too early").
+        d1.__exit__(None, None, None)
+        assert CancellableDownloader._active_instances == 1
+        assert (
+            tqdm.update is not original_update
+        ), "tqdm.update was restored while a downloader is still active"
+    finally:
+        if CancellableDownloader._active_instances > 0:
+            d2.__exit__(None, None, None)
+    # last instance out -> counter 0 and tqdm restored
+    assert CancellableDownloader._active_instances == 0
+    assert tqdm.update is original_update
+
+
+def test_reset_holds_lock_against_progress_poller():
+    """qinxuye #5257 round-4 ask #2: reset() must take _progress_lock around
+    both clears. During __exit__ the progress-upload thread can already have
+    passed its done check and entered get_progress() while cleanup calls
+    reset(); the unlocked clear raced the set iteration and raised
+    "Set changed size during iteration"."""
+    CancellableDownloader._active_instances = 0
+    CancellableDownloader._original_update = None
+    CancellableDownloader._original_update_plain = None
+    CancellableDownloader._active_registry.clear()
+    d = CancellableDownloader(cancel_error_cls=RuntimeError)
+    with d:
+        for _ in range(20):
+            bar = tqdm(total=1000000, unit="B")
+            bar.update(1)
+        errors = []
+        orig_si = sys.getswitchinterval()
+        sys.setswitchinterval(1e-4)
+        try:
+            stop = threading.Event()
+
+            def poller():
+                while not stop.is_set():
+                    try:
+                        d.get_progress()
+                    except RuntimeError as e:
+                        errors.append(e)
+                        return
+
+            def resetter():
+                while not stop.is_set():
+                    try:
+                        bar = tqdm(total=1000000, unit="B")
+                        bar.update(1)  # patched_update grows the set under the lock
+                        d.reset()  # must clear under the same lock
+                    except RuntimeError as e:
+                        errors.append(e)
+                        return
+
+            tp = threading.Thread(target=poller)
+            tr = threading.Thread(target=resetter)
+            tp.start()
+            tr.start()
+            tp.join(timeout=1.2)
+            stop.set()
+            tr.join(timeout=3.0)
+            tp.join(timeout=3.0)
+        finally:
+            sys.setswitchinterval(orig_si)
+
+    assert not errors, f"reset/get_progress race raised: {errors}"
+
+
+def test_active_registry_snapshot_holds_global_lock():
+    """The tqdm hook must snapshot the registry under its mutation lock."""
+
+    class LockCheckingSet(set):
+        def __iter__(self):
+            assert CancellableDownloader._global_lock.locked()
+            return super().__iter__()
+
+    original_registry = CancellableDownloader._active_registry
+    CancellableDownloader._active_instances = 0
+    CancellableDownloader._original_update = None
+    CancellableDownloader._original_update_plain = None
+    CancellableDownloader._active_registry = LockCheckingSet()
+
+    downloader = CancellableDownloader(cancel_error_cls=RuntimeError)
+    try:
+        with downloader:
+            bar = tqdm(total=1, disable=True)
+            bar.update(1)
+            bar.close()
+    finally:
+        CancellableDownloader._active_registry = original_registry
 
 
 def test_extract_engine_markers_from_packages():
