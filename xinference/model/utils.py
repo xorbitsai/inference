@@ -1004,6 +1004,7 @@ class CancellableDownloader:
         # second is still active.
         with self._patch_lock:
             import tqdm as tqdm_module
+
             cls = type(self)
 
             if cls._original_update is None:
@@ -1021,7 +1022,8 @@ class CancellableDownloader:
                 # Iterate the bounded active-instance registry instead of
                 # gc.get_objects(): the whole-heap traversal stalled the GIL
                 # on every progress tick and scanned O(heap) objects.
-                downloaders = list(CancellableDownloader._active_registry)
+                with CancellableDownloader._global_lock:
+                    downloaders = list(CancellableDownloader._active_registry)
 
                 for downloader in downloaders:
                     # if download cancelled, throw error

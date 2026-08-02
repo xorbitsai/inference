@@ -239,6 +239,30 @@ def test_reset_holds_lock_against_progress_poller():
     assert not errors, f"reset/get_progress race raised: {errors}"
 
 
+def test_active_registry_snapshot_holds_global_lock():
+    """The tqdm hook must snapshot the registry under its mutation lock."""
+
+    class LockCheckingSet(set):
+        def __iter__(self):
+            assert CancellableDownloader._global_lock.locked()
+            return super().__iter__()
+
+    original_registry = CancellableDownloader._active_registry
+    CancellableDownloader._active_instances = 0
+    CancellableDownloader._original_update = None
+    CancellableDownloader._original_update_plain = None
+    CancellableDownloader._active_registry = LockCheckingSet()
+
+    downloader = CancellableDownloader(cancel_error_cls=RuntimeError)
+    try:
+        with downloader:
+            bar = tqdm(total=1, disable=True)
+            bar.update(1)
+            bar.close()
+    finally:
+        CancellableDownloader._active_registry = original_registry
+
+
 def test_extract_engine_markers_from_packages():
     packages = [
         'vllm ; #engine# == "vllm"',
