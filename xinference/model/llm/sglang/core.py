@@ -31,6 +31,7 @@ from ....types import (
     Completion,
     CompletionChoice,
     CompletionChunk,
+    CompletionLogprobs,
     CompletionUsage,
 )
 from ...utils import check_dependency_available
@@ -431,6 +432,25 @@ class SGLANGModel(LLM):
             if json_schema:
                 generate_config.setdefault("json_schema", json.dumps(json_schema))  # type: ignore
 
+        # Map the OpenAI logprobs request to sglang's native engine params. The
+        # raw OpenAI keys must not reach sglang's SamplingParams (#3553: passing
+        # them crashes the msgspec.Struct with unknown kwargs); sglang reads
+        # return_logprob/top_logprobs_num/return_text_in_logprobs as top-level
+        # GenerateReqInput fields, lifted out of sampling_params by the generate
+        # methods so the engine both produces and returns logprob data.
+        logprobs_req = generate_config.pop("logprobs", None)  # type: ignore
+        top_logprobs_req = generate_config.pop("top_logprobs", None)  # type: ignore
+        if logprobs_req:
+            if isinstance(logprobs_req, bool):
+                # chat completions: logprobs is a flag, top_logprobs holds the count
+                top_k = max(int(top_logprobs_req or 0), 0)
+            else:
+                # legacy completions: logprobs is the requested count directly
+                top_k = max(int(logprobs_req or 0), 0)
+            generate_config["return_logprob"] = True  # type: ignore
+            generate_config["top_logprobs_num"] = top_k  # type: ignore
+            generate_config["return_text_in_logprobs"] = True  # type: ignore
+
         return generate_config
 
     def _get_tokenizer(self, lora_request: Any = None) -> Any:
@@ -498,7 +518,7 @@ class SGLANGModel(LLM):
             CompletionChoice(
                 text=output_text,
                 index=0,
-                logprobs=None,
+                logprobs=SGLANGModel._build_logprobs(meta_info),
                 finish_reason=finish_reason,
             )
         ]
@@ -535,7 +555,7 @@ class SGLANGModel(LLM):
             CompletionChoice(
                 text=output_text,
                 index=0,
-                logprobs=None,
+                logprobs=SGLANGModel._build_logprobs(meta_info),
                 finish_reason=finish_reason,
             )
         ]
@@ -554,11 +574,107 @@ class SGLANGModel(LLM):
             usage=usage,
         )
 
+    @staticmethod
+    def _extract_logprob_entry(
+        entry: Any,
+    ) -> Tuple[Optional[float], Optional[str]]:
+        """Pull (logprob, decoded_text) from one sglang logprob tuple.
+
+        sglang emits each sampled/top position as a ``(logprob, token_id,
+        token_text)`` 3-tuple when ``return_text_in_logprobs`` is set (text
+        is ``None`` on versions without that flag); older releases used a
+        ``(token_id, logprob)`` pair. After the JSON round-trip from the
+        engine logprobs are floats and token ids are ints, so when the arity
+        is ambiguous we identify the logprob by type. Returns ``(None, None)``
+        on any shape we cannot read safely -- no fabricated probabilities.
+        """
+        if not isinstance(entry, (list, tuple)) or not entry:
+            return None, None
+        if len(entry) >= 3:
+            return entry[0], entry[2]
+        if len(entry) == 2:
+            if isinstance(entry[0], float):
+                return entry[0], None
+            if isinstance(entry[1], float):
+                return entry[1], None
+        return None, None
+
+    @staticmethod
+    def _build_logprobs(meta_info: Dict) -> Optional[CompletionLogprobs]:
+        """Build a legacy ``CompletionLogprobs`` from sglang ``meta_info``.
+
+        Mirrors ``vllm/core.py:_build_logprobs``: parallel
+        ``text_offset`` / ``tokens`` / ``token_logprobs`` / ``top_logprobs``
+        lists with a ``-9999.0`` floor and ``text_offset`` accumulation.
+        Returns ``None`` when ``meta_info`` carries no output logprob data
+        (the caller did not request ``return_logprob``, or the fields are
+        absent/malformed) -- no crash, no fabricated probabilities.
+        """
+        token_lps = meta_info.get("output_token_logprobs")
+        if not token_lps:
+            return None
+        # current sglang field is output_top_logprobs; older releases used
+        # output_topk_logprobs (a dict of decoded_text -> logprob).
+        top_lps = (
+            meta_info.get("output_top_logprobs")
+            or meta_info.get("output_topk_logprobs")
+        )
+        tokens: List[str] = []
+        token_logprobs: List[Optional[float]] = []
+        top_logprobs: List[Optional[Dict[str, float]]] = []
+        text_offset: List[int] = []
+        offset = 0
+        for i, entry in enumerate(token_lps):
+            lp, token_text = SGLANGModel._extract_logprob_entry(entry)
+            tokens.append(token_text or "")
+            token_logprobs.append(
+                max(float(lp), -9999.0) if lp is not None else None
+            )
+            top_entry = top_lps[i] if (top_lps and i < len(top_lps)) else None
+            if isinstance(top_entry, dict):
+                top_dict = {
+                    text: max(float(v), -9999.0)
+                    for text, v in top_entry.items()
+                    if v is not None
+                }
+                top_logprobs.append(top_dict or None)
+            elif top_entry:
+                top_dict: Dict[str, float] = {}
+                for alt in top_entry:
+                    alt_lp, alt_text = SGLANGModel._extract_logprob_entry(alt)
+                    if alt_text is not None and alt_lp is not None:
+                        top_dict[alt_text] = max(float(alt_lp), -9999.0)
+                top_logprobs.append(top_dict or None)
+            else:
+                top_logprobs.append(None)
+            text_offset.append(offset)
+            if token_text:
+                offset += len(token_text)
+        return CompletionLogprobs(
+            text_offset=text_offset,
+            token_logprobs=token_logprobs,
+            tokens=tokens,
+            top_logprobs=top_logprobs,
+        )
+
     @classmethod
     def _filter_sampling_params(cls, sampling_params: dict):
         if not sampling_params.get("lora_name"):
             sampling_params.pop("lora_name", None)
         return sampling_params
+
+    @staticmethod
+    def _lift_logprob_request_params(sampling_params: dict) -> dict:
+        """Pop sglang's top-level GenerateReqInput logprob fields out of the
+        sampling_params dict. sglang reads them off GenerateReqInput, not
+        SamplingParams; leaving them in sampling_params crashes the msgspec
+        SamplingParams with unknown kwargs (#3553).
+        """
+        top: Dict = {}
+        for k in ("return_logprob", "top_logprobs_num", "return_text_in_logprobs"):
+            if k in sampling_params:
+                top[k] = sampling_params.pop(k)
+        return top
 
     async def _stream_generate(
         self,
@@ -574,6 +690,7 @@ class SGLANGModel(LLM):
             "image_data": image_data,
             "sampling_params": sampling_params,
             "stream": True,
+            **self._lift_logprob_request_params(sampling_params),
         }
         pos = 0
 
@@ -612,6 +729,7 @@ class SGLANGModel(LLM):
             "text": prompt,
             "image_data": image_data,
             "sampling_params": sampling_params,
+            **self._lift_logprob_request_params(sampling_params),
         }
         async with aiohttp.ClientSession(trust_env=True) as session:
             async with session.post(
