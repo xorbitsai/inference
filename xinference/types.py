@@ -142,6 +142,47 @@ class CompletionLogprobs(TypedDict):
     top_logprobs: List[Optional[Dict[str, float]]]
 
 
+class ChatCompletionTopLogprob(TypedDict):
+    """A single alternative token in a chat ``logprobs.content[].top_logprobs`` entry.
+
+    Distinct from the legacy parallel-list :class:`CompletionLogprobs`: chat
+    completions expose per-token ``token`` / ``bytes`` / ``logprob`` objects so
+    ``openai-python`` parses ``choice.logprobs.content`` instead of dropping the
+    legacy fields as extras.
+    """
+
+    token: str
+    bytes: Optional[List[int]]
+    logprob: float
+
+
+class ChatCompletionLogprob(TypedDict):
+    """A token entry in chat completion ``logprobs.content[]``.
+
+    ``logprob`` is required (non-optional): the OpenAI chat-completions schema
+    mandates a ``float`` on every ``content[]`` entry, and ``openai-python``
+    rejects ``null``. Tokens whose logprob is unknown (``None`` in the legacy
+    ``CompletionLogprobs.token_logprobs`` shape) are omitted from ``content[]``
+    by the chat builder rather than emitted with a null or fabricated logprob.
+    """
+
+    token: str
+    bytes: Optional[List[int]]
+    logprob: float
+    top_logprobs: List[ChatCompletionTopLogprob]
+
+
+class ChatCompletionLogprobs(TypedDict):
+    """Chat Completions logprobs (``content`` list shape).
+
+    vLLM emits logprobs in the legacy parallel-list :class:`CompletionLogprobs`
+    shape; chat clients expect ``logprobs.content[]``. The chat builder converts
+    at the boundary so the legacy shape never reaches a chat choice.
+    """
+
+    content: Optional[List[ChatCompletionLogprob]]
+
+
 class ToolCallFunction(TypedDict):
     name: str
     arguments: str
@@ -204,6 +245,7 @@ class ChatCompletionMessage(TypedDict):
 class ChatCompletionChoice(TypedDict):
     index: int
     message: ChatCompletionMessage
+    logprobs: NotRequired[Optional[ChatCompletionLogprobs]]
     finish_reason: Optional[str]
 
 
@@ -226,6 +268,7 @@ class ChatCompletionChunkDelta(TypedDict):
 class ChatCompletionChunkChoice(TypedDict):
     index: int
     delta: ChatCompletionChunkDelta
+    logprobs: NotRequired[Optional[ChatCompletionLogprobs]]
     finish_reason: Optional[str]
 
 

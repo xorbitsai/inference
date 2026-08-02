@@ -46,10 +46,14 @@ from ...types import (
     ChatCompletionChunk,
     ChatCompletionChunkChoice,
     ChatCompletionChunkDelta,
+    ChatCompletionLogprob,
+    ChatCompletionLogprobs,
     ChatCompletionMessage,
+    ChatCompletionTopLogprob,
     Completion,
     CompletionChoice,
     CompletionChunk,
+    CompletionLogprobs,
     CompletionUsage,
 )
 from .core import chat_context_var
@@ -57,6 +61,74 @@ from .reasoning_parser import ReasoningParser
 from .tool_parsers.glm4_tool_parser import Glm4ToolParser
 
 logger = logging.getLogger(__name__)
+
+
+def _token_logprob_bytes(token: str) -> Optional[List[int]]:
+    """UTF-8 byte sequence of a logprob token, or ``None`` when not representable.
+
+    OpenAI encodes chat logprob tokens as their UTF-8 byte sequence; non-UTF-8
+    byte tokens surface as ``None`` so clients fall back to the token string.
+    """
+    if token is None:
+        return None
+    try:
+        return list(token.encode("utf-8"))
+    except (UnicodeEncodeError, AttributeError):
+        return None
+
+
+def _completion_logprobs_to_chat_logprobs(
+    logprobs: Optional[CompletionLogprobs],
+) -> Optional[ChatCompletionLogprobs]:
+    """Convert legacy parallel-list completion logprobs to the chat ``content[]`` shape.
+
+    vLLM emits ``/v1/completions`` logprobs in the legacy shape
+    (``text_offset`` / ``tokens`` / ``token_logprobs`` / ``top_logprobs`` parallel
+    lists); chat completions clients (``openai-python``) expect
+    ``logprobs.content[]`` with per-token ``token`` / ``bytes`` / ``logprob`` /
+    ``top_logprobs``. Surfacing the legacy shape on a chat choice leaves
+    ``choice.logprobs.content`` ``None`` for standard chat clients, so convert at
+    the chat builder boundary (both streaming and non-streaming, and through the
+    tool post-processors). ``None`` input (logprobs not requested/produced) passes
+    through as ``None``.
+    """
+    if logprobs is None:
+        return None
+    tokens = logprobs.get("tokens") or []
+    token_logprobs = logprobs.get("token_logprobs") or []
+    top_logprobs = logprobs.get("top_logprobs") or []
+    content: List[ChatCompletionLogprob] = []
+    for i, token in enumerate(tokens):
+        logprob = token_logprobs[i] if i < len(token_logprobs) else None
+        # The OpenAI chat-completions schema requires ``logprob: float`` on every
+        # ``content[]`` entry; ``openai-python`` rejects ``null`` (reproduced with
+        # 1.99.9: "Input should be a valid number"). The legacy
+        # ``token_logprobs`` carries ``None`` for tokens whose logprob was not
+        # computed (e.g. the first generated token in the legacy completion
+        # shape). Rather than emit a fabricated probability, skip those tokens so
+        # ``content[]`` reports only tokens whose logprob is actually known.
+        if logprob is None:
+            continue
+        raw_top = top_logprobs[i] if i < len(top_logprobs) else None
+        top_list: List[ChatCompletionTopLogprob] = []
+        if raw_top:
+            for top_token, top_logprob in raw_top.items():
+                top_list.append(
+                    {
+                        "token": top_token,
+                        "bytes": _token_logprob_bytes(top_token),
+                        "logprob": top_logprob,
+                    }
+                )
+        content.append(
+            {
+                "token": token,
+                "bytes": _token_logprob_bytes(token),
+                "logprob": logprob,
+                "top_logprobs": top_list,
+            }
+        )
+    return {"content": content}
 
 
 class MessageRoleOrderError(ValueError):
@@ -528,6 +600,9 @@ class ChatModelMixin:
                 {
                     "index": i,
                     "delta": delta,
+                    "logprobs": _completion_logprobs_to_chat_logprobs(
+                        choice.get("logprobs")
+                    ),
                     "finish_reason": choice["finish_reason"],
                 }
             )
@@ -812,6 +887,9 @@ class ChatModelMixin:
                 {
                     "index": i,
                     "message": message,
+                    "logprobs": _completion_logprobs_to_chat_logprobs(
+                        choice.get("logprobs")
+                    ),
                     "finish_reason": choice["finish_reason"],
                 }
             )
@@ -899,7 +977,11 @@ class ChatModelMixin:
                 {
                     "index": 0,
                     "delta": d,
-                    "logprobs": None,
+                    # `_async_to_tool_completion_chunks` already converted the
+                    # legacy completion logprobs to the chat ``content[]`` shape
+                    # via `_to_chat_completion_chunk`; pass it through unchanged
+                    # here so a real logprob is not collapsed to ``{"content": []}``.
+                    "logprobs": c["choices"][0].get("logprobs"),
                     "finish_reason": finish_reason,
                 }
             ],
@@ -991,6 +1073,9 @@ class ChatModelMixin:
                 {
                     "index": 0,
                     "message": m,
+                    "logprobs": _completion_logprobs_to_chat_logprobs(
+                        c["choices"][0].get("logprobs")
+                    ),
                     "finish_reason": finish_reason,
                 }
             ],

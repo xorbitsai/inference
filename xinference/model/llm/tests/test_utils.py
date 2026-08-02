@@ -102,6 +102,307 @@ def test_to_chat_completion_chunks_usage_only_chunk_without_metadata():
     }
 
 
+def test_to_chat_completion_propagates_logprobs():
+    # Regression for #1911 / #3553: /v1/chat/completions silently returned
+    # logprobs: null even when the engine produced them. The chat builder must
+    # propagate the source Completion choice's logprobs onto the chat choice.
+    from ....types import (
+        Completion,
+        CompletionChoice,
+        CompletionLogprobs,
+        CompletionUsage,
+    )
+
+    logprobs = CompletionLogprobs(
+        text_offset=[0, 5],
+        token_logprobs=[None, -0.1],
+        tokens=["Hello", " world"],
+        top_logprobs=[None, {" world": -0.2}],
+    )
+    completion = Completion(
+        id="cmpl-1",
+        object="text_completion",
+        created=123,
+        model="test-model",
+        choices=[
+            CompletionChoice(
+                text="Hello world",
+                index=0,
+                logprobs=logprobs,
+                finish_reason="stop",
+            )
+        ],
+        usage=CompletionUsage(prompt_tokens=1, completion_tokens=2, total_tokens=3),
+    )
+
+    chat = ChatModelMixin._to_chat_completion(completion)
+
+    assert chat["choices"][0]["logprobs"] is not None
+    # Chat completions carry the chat ``content[]`` logprobs shape (token/bytes/
+    # logprob/top_logprobs), not the legacy parallel-list shape, so openai-python
+    # parses ``choice.logprobs.content`` instead of dropping it as extra fields.
+    assert chat["choices"][0]["logprobs"] == {
+        # The first token's legacy logprob is None (not computed), so it is
+        # omitted from content[] rather than emitted with a null logprob —
+        # openai-python rejects null (see test_chat_logprobs_parse_openai).
+        "content": [
+            {
+                "token": " world",
+                "bytes": [32, 119, 111, 114, 108, 100],
+                "logprob": -0.1,
+                "top_logprobs": [
+                    {
+                        "token": " world",
+                        "bytes": [32, 119, 111, 114, 108, 100],
+                        "logprob": -0.2,
+                    }
+                ],
+            },
+        ]
+    }
+
+
+def test_to_chat_completion_chunks_propagates_logprobs():
+    # Streaming counterpart: the chat chunk choice must carry the source
+    # CompletionChunk choice's logprobs instead of dropping them.
+    from ....types import CompletionChoice, CompletionChunk, CompletionLogprobs
+
+    logprobs = CompletionLogprobs(
+        text_offset=[0, 5],
+        token_logprobs=[None, -0.1],
+        tokens=["Hello", " world"],
+        top_logprobs=[None, {" world": -0.2}],
+    )
+    chunk = CompletionChunk(
+        id="cmpl-2",
+        object="text_completion",
+        created=123,
+        model="test-model",
+        choices=[
+            CompletionChoice(
+                text="Hello", index=0, logprobs=logprobs, finish_reason=None
+            )
+        ],
+    )
+
+    results = list(ChatModelMixin._to_chat_completion_chunks(iter([chunk])))
+
+    assert results, "expected at least one chat chunk"
+    assert results[0]["choices"][0]["logprobs"] is not None
+    # Streaming chat chunks carry the chat ``content[]`` logprobs shape, converted
+    # from the legacy parallel-list shape the engine emits.
+    assert results[0]["choices"][0]["logprobs"] == {
+        # The first token's legacy logprob is None -> omitted from content[]
+        # (see test_chat_logprobs_parse_openai); only the known-logprob token
+        # survives, in the chat content[] shape.
+        "content": [
+            {
+                "token": " world",
+                "bytes": [32, 119, 111, 114, 108, 100],
+                "logprob": -0.1,
+                "top_logprobs": [
+                    {
+                        "token": " world",
+                        "bytes": [32, 119, 111, 114, 108, 100],
+                        "logprob": -0.2,
+                    }
+                ],
+            },
+        ]
+    }
+
+
+def test_chat_logprobs_parse_openai():
+    # Regression for the openai-python validation failure qinxuye reproduced with
+    # 1.99.9: ``ChatCompletionTokenLogprob.logprob`` is non-nullable, so a chat
+    # logprobs ``content[]`` entry must never carry ``null``. The converter now
+    # skips tokens whose legacy ``token_logprobs`` entry is ``None`` instead of
+    # emitting a null logprob; assert every emitted entry parses through the
+    # OpenAI client model.
+    pytest.importorskip("openai")
+    from openai.types.chat.chat_completion_token_logprob import (
+        ChatCompletionTokenLogprob,
+    )
+
+    from ....types import (
+        Completion,
+        CompletionChoice,
+        CompletionLogprobs,
+        CompletionUsage,
+    )
+
+    # token_logprobs[0] is None (the legacy first-token case). The converter must
+    # drop that token rather than emit ``logprob: None``.
+    logprobs = CompletionLogprobs(
+        text_offset=[0, 5],
+        token_logprobs=[None, -0.1],
+        tokens=["Hello", " world"],
+        top_logprobs=[None, {" world": -0.2}],
+    )
+    completion = Completion(
+        id="cmpl-1",
+        object="text_completion",
+        created=123,
+        model="test-model",
+        choices=[
+            CompletionChoice(
+                text="Hello world",
+                index=0,
+                logprobs=logprobs,
+                finish_reason="stop",
+            )
+        ],
+        usage=CompletionUsage(prompt_tokens=1, completion_tokens=2, total_tokens=3),
+    )
+
+    chat = ChatModelMixin._to_chat_completion(completion)
+    content = chat["choices"][0]["logprobs"]["content"]
+    assert content, "content[] must not be empty when a known-logprob token exists"
+    # No entry carries a null logprob, and the None-logprob first token is dropped.
+    assert [e["token"] for e in content] == [" world"]
+    for entry in content:
+        # Must parse through the OpenAI client model without raising — the exact
+        # gate that was failing ("logprob: Input should be a valid number").
+        ChatCompletionTokenLogprob(**entry)
+
+
+class _NoOpToolParser:
+    """Minimal tool-parser stub: reports no tool calls so the tool post-processors
+    take the content-preserving branch while still exercising the logprobs path
+    (the real parsers are heavy to construct in a unit test)."""
+
+    def extract_tool_calls(self, text):  # non-streaming
+        return []
+
+    def extract_tool_calls_streaming(
+        self, previous_texts, current_text, delta_text
+    ):  # streaming; returns (content, func, args)
+        return (delta_text or "", None, None)
+
+
+def test_post_process_completion_preserves_chat_logprobs():
+    # Non-streaming tools path: _post_process_completion previously omitted the
+    # logprobs field entirely, so tool-enabled requests lost them. It must now
+    # carry the converted chat-shape logprobs from the source Completion choice.
+    from ....types import (
+        Completion,
+        CompletionChoice,
+        CompletionLogprobs,
+        CompletionUsage,
+    )
+
+    logprobs = CompletionLogprobs(
+        text_offset=[0, 5],
+        token_logprobs=[None, -0.1],
+        tokens=["Hello", " world"],
+        top_logprobs=[None, {" world": -0.2}],
+    )
+    completion = Completion(
+        id="cmpl-1",
+        object="text_completion",
+        created=123,
+        model="test-model",
+        choices=[
+            CompletionChoice(
+                text="Hello world",
+                index=0,
+                logprobs=logprobs,
+                finish_reason="stop",
+            )
+        ],
+        usage=CompletionUsage(prompt_tokens=1, completion_tokens=2, total_tokens=3),
+    )
+
+    mixin = ChatModelMixin()
+    mixin.tool_parser = _NoOpToolParser()
+    mixin.reasoning_parser = None
+
+    result = mixin._post_process_completion("test-family", "test-model", completion)
+
+    assert result["choices"][0]["logprobs"] is not None
+    assert result["choices"][0]["logprobs"] == {
+        "content": [
+            {
+                "token": " world",
+                "bytes": [32, 119, 111, 114, 108, 100],
+                "logprob": -0.1,
+                "top_logprobs": [
+                    {
+                        "token": " world",
+                        "bytes": [32, 119, 111, 114, 108, 100],
+                        "logprob": -0.2,
+                    }
+                ],
+            },
+        ]
+    }
+
+
+def test_post_process_completion_chunk_preserves_chat_logprobs():
+    # Streaming tools path: `_async_to_tool_completion_chunks` first converts each
+    # legacy CompletionChunk to a chat chunk via `_to_chat_completion_chunk` (which
+    # already turns the legacy parallel-list logprobs into the chat ``content[]``
+    # shape), then hands the chat chunk to `_post_process_completion_chunk`. That
+    # post-processor must pass the already-converted logprobs through unchanged;
+    # re-running the converter would find no ``tokens`` key and collapse a real
+    # one-token logprob to ``{"content": []}`` (regression flagged on #5252).
+    from ....types import CompletionChoice, CompletionChunk, CompletionLogprobs
+
+    logprobs = CompletionLogprobs(
+        text_offset=[0, 5],
+        token_logprobs=[None, -0.1],
+        tokens=["Hello", " world"],
+        top_logprobs=[None, {" world": -0.2}],
+    )
+    raw_chunk = CompletionChunk(
+        id="cmpl-2",
+        object="text_completion",
+        created=123,
+        model="test-model",
+        choices=[
+            CompletionChoice(
+                text="Hello",
+                index=0,
+                logprobs=logprobs,
+                finish_reason=None,
+            )
+        ],
+    )
+
+    # Production order: convert to a chat chunk first, then post-process it.
+    chat_chunk = ChatModelMixin._to_chat_completion_chunk(raw_chunk)
+    expected_logprobs = chat_chunk["choices"][0]["logprobs"]
+    assert expected_logprobs is not None  # converted once to the chat shape
+
+    mixin = ChatModelMixin()
+    mixin.tool_parser = _NoOpToolParser()
+    mixin.reasoning_parser = None
+
+    result = mixin._post_process_completion_chunk(
+        "test-family", "test-model", chat_chunk, chunk_id="cmpl-2"
+    )
+
+    assert result is not None
+    # Passed through unchanged -- not double-converted to {"content": []}.
+    assert result["choices"][0]["logprobs"] == expected_logprobs
+    assert result["choices"][0]["logprobs"] == {
+        "content": [
+            {
+                "token": " world",
+                "bytes": [32, 119, 111, 114, 108, 100],
+                "logprob": -0.1,
+                "top_logprobs": [
+                    {
+                        "token": " world",
+                        "bytes": [32, 119, 111, 114, 108, 100],
+                        "logprob": -0.2,
+                    }
+                ],
+            },
+        ]
+    }
+
+
 def test_async_to_chat_completion_chunks_preserves_usage_only_chunk():
     async def _chunks():
         yield {
@@ -1890,6 +2191,7 @@ def test_post_process_completion_without_thinking():
                         }
                     ],
                 },
+                "logprobs": None,
                 "finish_reason": "tool_calls",
             }
         ],
@@ -1946,6 +2248,7 @@ def test_post_process_completion_with_thinking():
                         }
                     ],
                 },
+                "logprobs": None,
                 "finish_reason": "tool_calls",
             }
         ],
@@ -2009,6 +2312,7 @@ def test_post_process_completion_with_parser():
                     ],
                     "reasoning_content": '\n好的，用户问的是上海当前的天气。我需要调用get_current_weather这个工具来获取数据。首先，确认工具的参数是location，必须填写城市名称。用户提到的是上海，所以参数应该是"location": "上海"。然后，生成对应的JSON格式，确保正确无误。检查一下有没有其他必填项，这里只有location，所以没问题。最后，用工具调用的格式返回结果。\n',
                 },
+                "logprobs": None,
                 "finish_reason": "tool_calls",
             }
         ],
