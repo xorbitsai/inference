@@ -1,4 +1,7 @@
 import shutil
+from unittest.mock import MagicMock
+
+import pytest
 
 from ...cache_manager import RerankCacheManager
 from ...core import RerankModelFamilyV2, TransformersRerankSpecV1
@@ -54,3 +57,81 @@ async def test_model():
     finally:
         if model_path is not None:
             shutil.rmtree(model_path, ignore_errors=True)
+
+
+def test_jina_reranker_v35_batch_isolation():
+    """Regression test: batched requests with the same query but different
+    document lists must each be passed to model.rerank() separately.
+
+    Jina v3.5 is genuinely listwise – its native implementation computes
+    query embeddings and block weights from the full candidate set, so
+    mixing documents from independent requests would change scores even
+    when the query text is identical.
+    """
+    model_family = RerankModelFamilyV2(
+        version=2,
+        model_name="jina-reranker-v3.5",
+        type="normal",
+        max_tokens=8192,
+        language=["en"],
+        model_specs=[
+            TransformersRerankSpecV1(
+                model_id="jinaai/jina-reranker-v3.5",
+                model_format="pytorch",
+            )
+        ],
+    )
+
+    # Create instance without calling __init__ (no model download needed)
+    model = SentenceTransformerRerankModel.__new__(SentenceTransformerRerankModel)
+    model.model_family = model_family
+    model._vl_reranker = None
+
+    # Track which (query, documents) pairs are sent to the native reranker
+    rerank_calls: list = []
+
+    def mock_rerank(query, documents):
+        rerank_calls.append((query, list(documents)))
+        # Return one result per document, sorted by index
+        return [
+            {"index": i, "relevance_score": 0.9 - i * 0.1}
+            for i in range(len(documents))
+        ]
+
+    mock_model = MagicMock()
+    mock_model.rerank = mock_rerank
+    model._model = mock_model
+
+    # Simulate the batch handler coalescing two requests with the SAME
+    # query but different document lists:
+    #   Request 1: query="Q", docs=["A", "B"]       (offset 0, size 2)
+    #   Request 2: query="Q", docs=["C", "D", "E"]  (offset 2, size 3)
+    documents = ["A", "B", "C", "D", "E"]
+    query = ["Q"] * 5
+    batch_offsets = [(0, 2), (2, 3)]
+
+    scores = model._rerank(
+        documents,
+        query,
+        None,  # top_n
+        None,  # max_chunks_per_doc
+        True,  # return_documents
+        False,  # return_len
+        _batch_offsets=batch_offsets,
+    )
+
+    # The native reranker must be called once per request, not once total
+    assert len(rerank_calls) == 2, f"Expected 2 rerank() calls, got {len(rerank_calls)}"
+    # First call: only documents from request 1
+    assert rerank_calls[0][0] == "Q"
+    assert rerank_calls[0][1] == ["A", "B"]
+    # Second call: only documents from request 2
+    assert rerank_calls[1][0] == "Q"
+    assert rerank_calls[1][1] == ["C", "D", "E"]
+    # Scores should be mapped back to the correct positions
+    assert len(scores) == 5
+    assert scores[0] == pytest.approx(0.9)  # A
+    assert scores[1] == pytest.approx(0.8)  # B
+    assert scores[2] == pytest.approx(0.9)  # C
+    assert scores[3] == pytest.approx(0.8)  # D
+    assert scores[4] == pytest.approx(0.7)  # E

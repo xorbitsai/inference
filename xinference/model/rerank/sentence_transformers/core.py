@@ -143,6 +143,39 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             if self._use_fp16:
                 self._model.model.half()
             self._tokenizer = self._model.tokenizer
+        elif "jina-reranker-v3.5" in self.model_family.model_name.lower():
+            # jina-reranker-v3.5 ships custom modeling code (JinaForRanking)
+            # with a native listwise `rerank()` API; use it instead of the
+            # Qwen3-style yes/no scoring applied to jina-reranker-v3. Note
+            # that "jina-reranker-v3" is a substring of "jina-reranker-v3.5",
+            # so this branch must precede the jina-reranker-v3 one.
+            try:
+                from transformers import AutoModel, AutoTokenizer
+            except ImportError:
+                error_message = "Failed to import module 'transformers'"
+                installation_guide = [
+                    "Please make sure 'transformers' is installed. ",
+                    "You can install it by `pip install transformers`\n",
+                ]
+
+                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+            if not allow_trust_remote_code(self.model_family):
+                raise ValueError(
+                    "Loading this model executes code shipped in the model "
+                    "repository; set XINFERENCE_TRUST_REMOTE_CODE=1 to allow it."
+                )
+            self._tokenizer = AutoTokenizer.from_pretrained(
+                self._model_path, trust_remote_code=True
+            )
+            model_kwargs: Dict[str, Any] = {"device_map": "auto", "torch_dtype": "auto"}
+            if enable_flash_attn:
+                model_kwargs["attn_implementation"] = "flash_attention_2"
+            model_kwargs.update(self._kwargs)
+            logger.debug("Loading jina-reranker-v3.5 with kwargs %s", model_kwargs)
+            self._model = AutoModel.from_pretrained(
+                self._model_path, trust_remote_code=True, **model_kwargs
+            ).eval()
         elif (
             "qwen3" in self.model_family.model_name.lower()
             or "jina-reranker-v3" in self.model_family.model_name.lower()
@@ -243,20 +276,23 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
         # in the _rerank method instead.
         self._token_tracking_data = threading.local()
 
-        # Create a simple wrapper for return value conversion only
-        try:
-            original_predict = self._model.predict
+        # Create a simple wrapper for return value conversion only.
+        # Models scored through a native API (e.g. jina-reranker-v3.5's
+        # listwise `rerank()`) expose no `predict`; skip wrapping for them.
+        if hasattr(self._model, "predict"):
+            try:
+                original_predict = self._model.predict
 
-            def wrapped_predict(*args, **kwargs):
-                result = original_predict(*args, **kwargs)
-                # Convert SequenceClassifierOutput to dict if needed
-                if hasattr(result, "logits") and not hasattr(result, "scores"):
-                    return {"scores": result.logits}
-                return result
+                def wrapped_predict(*args, **kwargs):
+                    result = original_predict(*args, **kwargs)
+                    # Convert SequenceClassifierOutput to dict if needed
+                    if hasattr(result, "logits") and not hasattr(result, "scores"):
+                        return {"scores": result.logits}
+                    return result
 
-            self._model.predict = wrapped_predict
-        except Exception as e:
-            logger.warning(f"Failed to wrap predict method: {e}")
+                self._model.predict = wrapped_predict
+            except Exception as e:
+                logger.warning(f"Failed to wrap predict method: {e}")
 
     def _reset_token_tracking(self):
         """Reset token tracking counters."""
@@ -301,6 +337,10 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
         return_len: Optional[bool],
         **kwargs,
     ) -> List[Any]:
+        # Pop batch offsets early so they are not forwarded to model APIs
+        # (predict, compute_score, rerank, etc.). Only the jina-reranker-v3.5
+        # branch uses this to preserve per-request isolation.
+        batch_offsets = kwargs.pop("_batch_offsets", None)
         if self._vl_reranker is not None:
             return self._rerank_vl(documents, query, **kwargs)
         assert self._model is not None
@@ -361,6 +401,34 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             if similarity_scores.dtype == torch.bfloat16:
                 similarity_scores = torch.float16
                 similarity_scores = similarity_scores.float()
+        elif "jina-reranker-v3.5" in self.model_family.model_name.lower():
+            # Native listwise API: returns dicts sorted by score desc, each
+            # carrying the original document index. Map back to input order
+            # so the shared sorting logic below works unchanged.
+            #
+            # Jina v3.5 is genuinely listwise: its native implementation
+            # computes query embeddings and block weights from the full
+            # candidate set, so mixing documents from different requests
+            # would change scores. Call rerank() once per original request
+            # (using batch offsets) to preserve request isolation.
+            if not documents:
+                similarity_scores = []
+            else:
+                similarity_scores = [0.0] * len(documents)
+                if batch_offsets is not None:
+                    for offset, n in batch_offsets:
+                        req_docs = documents[offset : offset + n]
+                        if not req_docs:
+                            continue
+                        results = self._model.rerank(query[offset], req_docs)
+                        for r in results:
+                            similarity_scores[offset + int(r["index"])] = float(
+                                r["relevance_score"]
+                            )
+                else:
+                    results = self._model.rerank(query[0], documents)
+                    for r in results:
+                        similarity_scores[int(r["index"])] = float(r["relevance_score"])
         elif (
             "qwen3" in self.model_family.model_name.lower()
             or "jina-reranker-v3" in self.model_family.model_name.lower()
@@ -560,7 +628,9 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             kwargs = group["kwargs"]
             offsets = group["offsets"]
             indices = group["indices"]
-            score_list = self._rerank(documents, query, **kwargs)
+            score_list = self._rerank(
+                documents, query, _batch_offsets=offsets, **kwargs
+            )
             top_n = kwargs.pop("top_n", None)
             return_documents = kwargs.pop("return_documents", None)
             return_len = kwargs.pop("return_len", None)
