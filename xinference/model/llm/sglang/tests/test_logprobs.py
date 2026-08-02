@@ -103,7 +103,11 @@ def test_logprob_floor_applied():
 def test_no_logprob_data_degrades_to_none():
     # defensive: caller did not request return_logprob -> meta_info carries no
     # output_token_logprobs -> None, no crash, no fabricated probabilities
-    meta = {"finish_reason": {"type": "stop"}, "prompt_tokens": 2, "completion_tokens": 1}
+    meta = {
+        "finish_reason": {"type": "stop"},
+        "prompt_tokens": 2,
+        "completion_tokens": 1,
+    }
     lp = _model()._convert_state_to_completion("r", "m", "x", meta)["choices"][0][
         "logprobs"
     ]
@@ -165,9 +169,7 @@ def test_sanitize_maps_chat_logprobs_to_sglang_params():
     from ..core import SGLANGModel
 
     # chat completions: logprobs is a bool flag, top_logprobs holds the count
-    cfg = SGLANGModel._sanitize_generate_config(
-        {"logprobs": True, "top_logprobs": 3}
-    )
+    cfg = SGLANGModel._sanitize_generate_config({"logprobs": True, "top_logprobs": 3})
     assert cfg["return_logprob"] is True
     assert cfg["top_logprobs_num"] == 3
     assert cfg["return_text_in_logprobs"] is True

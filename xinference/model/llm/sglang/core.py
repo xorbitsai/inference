@@ -615,9 +615,8 @@ class SGLANGModel(LLM):
             return None
         # current sglang field is output_top_logprobs; older releases used
         # output_topk_logprobs (a dict of decoded_text -> logprob).
-        top_lps = (
-            meta_info.get("output_top_logprobs")
-            or meta_info.get("output_topk_logprobs")
+        top_lps = meta_info.get("output_top_logprobs") or meta_info.get(
+            "output_topk_logprobs"
         )
         tokens: List[str] = []
         token_logprobs: List[Optional[float]] = []
@@ -627,9 +626,7 @@ class SGLANGModel(LLM):
         for i, entry in enumerate(token_lps):
             lp, token_text = SGLANGModel._extract_logprob_entry(entry)
             tokens.append(token_text or "")
-            token_logprobs.append(
-                max(float(lp), -9999.0) if lp is not None else None
-            )
+            token_logprobs.append(max(float(lp), -9999.0) if lp is not None else None)
             top_entry = top_lps[i] if (top_lps and i < len(top_lps)) else None
             if isinstance(top_entry, dict):
                 top_dict = {
@@ -639,12 +636,12 @@ class SGLANGModel(LLM):
                 }
                 top_logprobs.append(top_dict or None)
             elif top_entry:
-                top_dict: Dict[str, float] = {}
+                alt_top: Dict[str, float] = {}
                 for alt in top_entry:
                     alt_lp, alt_text = SGLANGModel._extract_logprob_entry(alt)
                     if alt_text is not None and alt_lp is not None:
-                        top_dict[alt_text] = max(float(alt_lp), -9999.0)
-                top_logprobs.append(top_dict or None)
+                        alt_top[alt_text] = max(float(alt_lp), -9999.0)
+                top_logprobs.append(alt_top or None)
             else:
                 top_logprobs.append(None)
             text_offset.append(offset)
