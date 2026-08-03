@@ -521,3 +521,71 @@ def test_download_from_modelscope_env_auto(monkeypatch, _reset_auto_hub_cache):
         model_utils, "_is_hub_endpoint_reachable", lambda url, timeout: True
     )
     assert model_utils.download_from_modelscope() is False
+
+
+def test_probe_rejects_http_error_responses(monkeypatch, _reset_auto_hub_cache):
+    from types import SimpleNamespace
+
+    import requests
+
+    import xinference.model.utils as model_utils
+
+    def _head(status):
+        def head(url, timeout=None, allow_redirects=None):
+            return SimpleNamespace(status_code=status)
+
+        return head
+
+    monkeypatch.setattr(requests, "head", _head(200))
+    assert model_utils._is_hub_endpoint_reachable("https://huggingface.co", 1.0)
+
+    # An error response (blocking corporate proxy, broken mirror) means
+    # downloads would fail, so it must count as unreachable.
+    for status in (403, 407, 500, 503):
+        monkeypatch.setattr(requests, "head", _head(status))
+        assert not model_utils._is_hub_endpoint_reachable("https://huggingface.co", 1.0)
+
+    def head_raise(url, timeout=None, allow_redirects=None):
+        raise requests.ConnectionError("boom")
+
+    monkeypatch.setattr(requests, "head", head_raise)
+    assert not model_utils._is_hub_endpoint_reachable("https://huggingface.co", 1.0)
+
+
+def test_explicit_download_hub_overrides_model_src_env(
+    monkeypatch, _reset_auto_hub_cache
+):
+    from ..embedding.embed_family import match_embedding
+    from ..image.core import match_diffusion
+    from ..rerank.rerank_family import match_rerank
+    from ..video.core import match_diffusion as match_video_diffusion
+
+    monkeypatch.setenv("XINFERENCE_MODEL_SRC", "modelscope")
+
+    # an explicit hub must win over the XINFERENCE_MODEL_SRC fallback
+    assert (
+        match_diffusion("FLUX.1-schnell", download_hub="huggingface").model_hub
+        == "huggingface"
+    )
+    assert (
+        match_video_diffusion("CogVideoX-2b", download_hub="huggingface").model_hub
+        == "huggingface"
+    )
+    assert (
+        match_rerank("bge-reranker-large", download_hub="huggingface")
+        .model_specs[0]
+        .model_hub
+        == "huggingface"
+    )
+    assert (
+        match_embedding("bge-large-en", download_hub="huggingface")
+        .model_specs[0]
+        .model_hub
+        == "huggingface"
+    )
+
+    # without an explicit hub, the env fallback still applies
+    assert match_diffusion("FLUX.1-schnell").model_hub == "modelscope"
+    assert match_video_diffusion("CogVideoX-2b").model_hub == "modelscope"
+    assert match_rerank("bge-reranker-large").model_specs[0].model_hub == "modelscope"
+    assert match_embedding("bge-large-en").model_specs[0].model_hub == "modelscope"

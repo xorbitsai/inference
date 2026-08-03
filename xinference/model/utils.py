@@ -647,14 +647,17 @@ def _is_hub_endpoint_reachable(url: str, timeout: float) -> bool:
     import requests
 
     try:
-        # Any HTTP response means the endpoint is reachable; proxies configured
-        # via HTTP(S)_PROXY environment variables are honored by requests.
-        # The probe is best-effort: any failure (including malformed endpoint
-        # or proxy configuration) just means "not reachable".
-        requests.head(url, timeout=timeout, allow_redirects=True)
+        # Proxies configured via HTTP(S)_PROXY environment variables are
+        # honored by requests. The probe is best-effort: any failure
+        # (including malformed endpoint or proxy configuration) just means
+        # "not reachable".
+        response = requests.head(url, timeout=timeout, allow_redirects=True)
     except Exception:
         return False
-    return True
+    # An error response (e.g. 403/407 from a blocking corporate proxy or a
+    # 5xx from a broken mirror) means downloads would fail as well, so treat
+    # it the same as unreachable.
+    return response.status_code < 400
 
 
 def auto_detect_download_hub() -> str:

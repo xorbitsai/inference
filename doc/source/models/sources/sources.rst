@@ -13,7 +13,9 @@ By default, Xinference automatically decides between Hugging Face and ModelScope
 launching a model: it probes whether the Hugging Face endpoint is reachable (mirrors set
 via ``HF_ENDPOINT`` and proxies set via ``HTTP_PROXY`` / ``HTTPS_PROXY`` are honored).
 If it is reachable, models are downloaded from Hugging Face; otherwise Xinference falls
-back to ModelScope. The detection result is cached, so the probe runs at most once per
+back to ModelScope. An HTTP error response (for example ``403``/``407`` from a blocking
+corporate proxy, or a ``5xx`` from a broken mirror) counts as unreachable, since
+downloads would fail anyway. The detection result is cached, so the probe runs at most once per
 process, and its timeout can be tuned via the ``XINFERENCE_HUB_DETECT_TIMEOUT``
 environment variable (default: 3 seconds).
 
