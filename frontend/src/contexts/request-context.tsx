@@ -8,6 +8,7 @@ import { RequestEvents } from '@/constants';
 import { requestManager } from '@/lib/request-manager';
 import { removeAuthTokens } from '@/lib/auth-storage';
 import { translate as t } from '@/contexts/i18n-context';
+import { copyToClipboard } from '@/lib/utils';
 import type { ServerErrorPayload } from '@/lib/request';
 
 export default function RequestProvider({ children }: PropsWithChildren) {
@@ -54,9 +55,9 @@ export default function RequestProvider({ children }: PropsWithChildren) {
           </pre>
         ),
         action: {
-          label: t('common.copy'),
+          label: t('launchModel.copyError'),
           onClick: () => {
-            void navigator.clipboard?.writeText(`${message ?? ''}\n\n${traceback}`);
+            void copyToClipboard(`${message ?? ''}\n\n${traceback}`);
           },
         },
       });

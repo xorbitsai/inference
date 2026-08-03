@@ -116,8 +116,10 @@ def format_error_summary(exc: BaseException) -> str:
 def format_error_traceback(exc: BaseException) -> Optional[str]:
     """Render the full traceback of ``exc``, including its cause chain.
 
-    Returns ``None`` when ``XINFERENCE_DISABLE_ERROR_TRACEBACK`` is set, for
-    deployments that would rather not expose filesystem paths over HTTP.
+    Returns ``None`` when ``XINFERENCE_DISABLE_ERROR_TRACEBACK`` is set, which
+    withholds tracebacks over HTTP even from callers who would otherwise be
+    permitted them. Callers are responsible for the permission check itself;
+    see ``RESTfulAPI._caller_may_see_diagnostics``.
 
     Formats ``exc`` rather than its root cause on purpose: the outer exception
     carries the frames from every layer, and xoscar attaches the remote

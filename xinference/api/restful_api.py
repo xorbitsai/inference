@@ -280,6 +280,51 @@ class RESTfulAPI(CancelMixin):
     def is_authenticated(self):
         return self._advanced_auth_service is not None
 
+    def _caller_may_see_diagnostics(self, request) -> bool:
+        """Whether the caller is allowed to receive internal diagnostics.
+
+        Launching a model only requires ``models:write``, but a traceback
+        exposes filesystem paths and runtime internals that are otherwise
+        reachable only through the log center, which requires ``logs:list``.
+        Gate the traceback on that same permission so this endpoint does not
+        become a way around the diagnostic boundary. Admins always qualify.
+
+        When auth is disabled entirely there is no boundary to respect, so
+        diagnostics are returned to everyone.
+        """
+        if not self._advanced_auth_service:
+            return True
+        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        if not token:
+            return False
+        try:
+            payload = self._advanced_auth_service.verify_access_token(token)
+            if not payload:
+                # An API key rather than a JWT. API keys are restricted to
+                # model query and inference scopes, so they never qualify.
+                return False
+            user = self._advanced_auth_service.db.get_user_by_id(payload.get("user_id"))
+            if not user:
+                return False
+            # Live-read the DB permissions rather than the JWT snapshot, so a
+            # revoked permission takes effect immediately -- the same policy
+            # the auth service itself applies.
+            from .oauth2.scope_aliases import _normalize_scopes
+
+            scopes = _normalize_scopes(user.get("permissions", []))
+        except Exception:
+            # Never let the diagnostics check break the error response itself;
+            # fail closed.
+            logger.debug("Failed to resolve caller scopes", exc_info=True)
+            return False
+        return "admin" in scopes or "logs:list" in scopes
+
+    def _launch_error_traceback(self, request, exc: BaseException) -> Optional[str]:
+        """Format ``exc``'s traceback, or None if the caller may not see it."""
+        if not self._caller_may_see_diagnostics(request):
+            return None
+        return format_error_traceback(exc)
+
     def _check_model_access(
         self, request, model_uid: str, model_type: Optional[str] = None
     ):
@@ -944,17 +989,18 @@ class RESTfulAPI(CancelMixin):
             )
         # A launch failure originates deep inside an engine and crosses several
         # actor boundaries before arriving here. Report the root cause of the
-        # chain rather than the outermost wrapper's message, and pass the
-        # traceback along so the UI can show where it actually broke.
+        # chain rather than the outermost wrapper's message. The traceback is
+        # only attached for callers who may already read it in the log center;
+        # the root-cause summary goes to everyone who may launch a model.
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise DetailedHTTPException(
-                400, format_error_summary(ve), format_error_traceback(ve)
+                400, format_error_summary(ve), self._launch_error_traceback(request, ve)
             )
         except RuntimeError as re:
             logger.error(str(re), exc_info=True)
             raise DetailedHTTPException(
-                503, format_error_summary(re), format_error_traceback(re)
+                503, format_error_summary(re), self._launch_error_traceback(request, re)
             )
         except asyncio.CancelledError as ce:
             # cancelled by user -- not a defect, so no traceback
@@ -963,7 +1009,7 @@ class RESTfulAPI(CancelMixin):
         except Exception as e:
             logger.error(str(e), exc_info=True)
             raise DetailedHTTPException(
-                500, format_error_summary(e), format_error_traceback(e)
+                500, format_error_summary(e), self._launch_error_traceback(request, e)
             )
 
         # Clear negative cache so that get_model for this uid is not blocked

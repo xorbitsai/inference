@@ -46,19 +46,23 @@ function extractDetail(data: unknown): string {
           ? String((item as { msg: unknown }).msg)
           : typeof item === 'string'
             ? item
-            : JSON.stringify(item)
+            : safeStringify(item)
       )
       .filter(Boolean);
     if (messages.length) return messages.join('; ');
   }
-  if (data && typeof data === 'object') {
-    try {
-      return JSON.stringify(data);
-    } catch {
-      return String(data);
-    }
-  }
+  if (data && typeof data === 'object') return safeStringify(data);
   return String(data ?? '');
+}
+
+/** `JSON.stringify` throws on BigInt and circular references; this runs while
+ * already handling an error, so it must never throw itself. */
+function safeStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value) ?? String(value);
+  } catch {
+    return String(value);
+  }
 }
 
 // Keep untyped request calls backward-compatible while typed calls can still pass <T>.

@@ -23,7 +23,7 @@ from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 
 from ...core.error_utils import format_error_summary, format_error_traceback
-from ..restful_api import DetailedHTTPException
+from ..restful_api import DetailedHTTPException, RESTfulAPI
 
 
 def _build_app() -> FastAPI:
@@ -113,3 +113,105 @@ def test_exception_subclasses_http_exception():
     assert exc.status_code == 503
     assert exc.detail == "boom"
     assert exc.tb is None
+
+
+class _FakeDB:
+    def __init__(self, permissions):
+        self._permissions = permissions
+
+    def get_user_by_id(self, user_id):
+        if user_id is None:
+            return None
+        return {"id": user_id, "permissions": list(self._permissions)}
+
+
+class _FakeAuthService:
+    """Minimal stand-in for AdvancedAuthService's diagnostics-relevant surface."""
+
+    def __init__(self, permissions, valid_jwt=True):
+        self.db = _FakeDB(permissions)
+        self._valid_jwt = valid_jwt
+
+    def verify_access_token(self, token):
+        # A None payload is how an API key (rather than a JWT) presents here.
+        return {"user_id": 1} if self._valid_jwt else None
+
+
+def _api_with_auth(auth_service):
+    api = RESTfulAPI.__new__(RESTfulAPI)
+    api._advanced_auth_service = auth_service
+    return api
+
+
+def _request_with_token(token="tok"):
+    headers = [(b"authorization", f"Bearer {token}".encode())] if token else []
+    return Request({"type": "http", "headers": headers, "method": "POST", "path": "/"})
+
+
+class TestDiagnosticsPermission:
+    """Launching needs models:write; a traceback needs logs:list."""
+
+    def test_no_auth_configured_allows_diagnostics(self):
+        api = _api_with_auth(None)
+        assert api._caller_may_see_diagnostics(_request_with_token()) is True
+
+    def test_logs_list_allows_diagnostics(self):
+        api = _api_with_auth(_FakeAuthService(["models:write", "logs:list"]))
+        assert api._caller_may_see_diagnostics(_request_with_token()) is True
+
+    def test_admin_allows_diagnostics(self):
+        api = _api_with_auth(_FakeAuthService(["admin"]))
+        assert api._caller_may_see_diagnostics(_request_with_token()) is True
+
+    def test_models_write_alone_is_denied(self):
+        # The whole point of the gate: a model operator without log access
+        # must not receive filesystem paths and runtime internals.
+        api = _api_with_auth(_FakeAuthService(["models:write"]))
+        assert api._caller_may_see_diagnostics(_request_with_token()) is False
+
+    def test_legacy_scope_alias_is_honoured(self):
+        # models:start normalizes to models:write -- still not logs:list.
+        api = _api_with_auth(_FakeAuthService(["models:start"]))
+        assert api._caller_may_see_diagnostics(_request_with_token()) is False
+
+    def test_missing_token_is_denied(self):
+        api = _api_with_auth(_FakeAuthService(["logs:list"]))
+        assert api._caller_may_see_diagnostics(_request_with_token(None)) is False
+
+    def test_api_key_is_denied(self):
+        # API keys cannot hold logs:list, so they never qualify.
+        api = _api_with_auth(_FakeAuthService(["logs:list"], valid_jwt=False))
+        assert api._caller_may_see_diagnostics(_request_with_token()) is False
+
+    def test_unknown_user_is_denied(self):
+        service = _FakeAuthService(["logs:list"])
+        service.db.get_user_by_id = lambda _uid: None
+        api = _api_with_auth(service)
+        assert api._caller_may_see_diagnostics(_request_with_token()) is False
+
+    def test_auth_failure_fails_closed(self):
+        service = _FakeAuthService(["logs:list"])
+
+        def _boom(_token):
+            raise RuntimeError("auth backend down")
+
+        service.verify_access_token = _boom
+        api = _api_with_auth(service)
+        # Must not propagate out of the error path, and must deny.
+        assert api._caller_may_see_diagnostics(_request_with_token()) is False
+
+
+class TestLaunchErrorTraceback:
+    def test_traceback_withheld_without_permission(self):
+        api = _api_with_auth(_FakeAuthService(["models:write"]))
+        assert (
+            api._launch_error_traceback(_request_with_token(), ValueError("x")) is None
+        )
+
+    def test_traceback_returned_with_permission(self):
+        api = _api_with_auth(_FakeAuthService(["logs:list"]))
+        try:
+            raise ValueError("boom")
+        except ValueError as e:
+            tb = api._launch_error_traceback(_request_with_token(), e)
+        assert tb is not None and "ValueError: boom" in tb

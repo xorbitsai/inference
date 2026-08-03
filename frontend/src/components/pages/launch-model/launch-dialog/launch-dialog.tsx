@@ -12,7 +12,7 @@ import { useGlobal } from '@/contexts/global-context';
 import { useI18n } from '@/contexts/i18n-context';
 import { useForm, useFormValues, useWatch } from '@/hooks/use-form';
 import { useMenuAuth } from '@/hooks/use-menu-auth';
-import { cn } from '@/lib/utils';
+import { cn, copyToClipboard } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -1350,8 +1350,7 @@ export default function LaunchDialog({
               size="sm"
               className="ml-auto h-7 shrink-0 gap-1 text-xs"
               onClick={() => {
-                void navigator.clipboard?.writeText(copyText);
-                toast.success(t('common.copySuccess'));
+                void copyToClipboard(copyText);
               }}
             >
               <Copy className="size-3" />
