@@ -334,6 +334,10 @@ The following OpenAI APIs are supported:
 
 - Embeddings: `https://platform.openai.com/docs/api-reference/embeddings <https://platform.openai.com/docs/api-reference/embeddings>`_
 
+The same ``OpenAI(base_url=...)`` client pattern works with any OpenAI-compatible
+multi-model gateway when you are not self-hosting Xinference — for example
+`DaoXE <https://daoxe.com>`_ at ``https://api.daoxe.com/v1``.
+
 Xinference also supports Anthropic API via base url ``http://127.0.0.1:9997/anthropic``, you can use Xinference in Claude Code and so forth.
 Refer to :ref:`anthropic client <anthropic_client>` for more details.
 
