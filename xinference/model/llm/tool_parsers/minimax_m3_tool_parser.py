@@ -27,8 +27,10 @@ class MiniMaxM3ToolParser(ToolParser):
         self.tool_call_end_token: str = "</minimax:tool_call>"
 
         self.think_regex = re.compile(r"<mm:think>(.*?)</mm:think>", re.DOTALL)
-        self.content_regex = (
-            r"(<(?:mm:think|minimax:tool_call)>.*?</(?:mm:think|minimax:tool_call)>)"
+        self.content_regex = re.compile(
+            r"(<mm:think>.*?</mm:think>|"
+            r"<minimax:tool_call>.*?</minimax:tool_call>)",
+            re.DOTALL,
         )
         self.tool_call_complete_regex = re.compile(
             r"<minimax:tool_call>(.*?)</minimax:tool_call>", re.DOTALL
@@ -95,7 +97,7 @@ class MiniMaxM3ToolParser(ToolParser):
     def _get_function_calls(self, model_output: str) -> List[str]:
         functions_calls = []
         last_end = 0
-        for m in re.finditer(self.content_regex, model_output, re.DOTALL):
+        for m in self.content_regex.finditer(model_output):
             if m.start() > last_end:
                 functions_calls.append(model_output[last_end : m.start()])
             functions_calls.append(m.group(0))
@@ -112,8 +114,6 @@ class MiniMaxM3ToolParser(ToolParser):
         return self.think_regex.search(model_output) is not None
 
     def _has_unclosed_tool_call(self, text: str) -> bool:
-        if not text:
-            return True
         start_count = text.count(self.tool_call_start_token)
         end_count = text.count(self.tool_call_end_token)
         return start_count > end_count
@@ -157,12 +157,20 @@ class MiniMaxM3ToolParser(ToolParser):
     ) -> Optional[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
         try:
             if self.tool_call_start_token in current_text:
+                prev_text = previous_text[-1] if previous_text else ""
+                if self.tool_call_start_token not in prev_text:
+                    # A transition delta may contain normal text immediately
+                    # before the tool call. Yield it instead of swallowing it
+                    # while the tool call is still incomplete.
+                    start_pos = current_text.find(self.tool_call_start_token)
+                    if start_pos > len(prev_text):
+                        return current_text[len(prev_text) : start_pos], None, None
+
                 function_calls = self._get_function_calls_streaming(current_text)
                 if not function_calls:
                     return None
                 if self.is_contain_think(function_calls[-1]):
                     return None
-                prev_text = previous_text[-1] if previous_text else ""
                 if (
                     not self._has_unclosed_tool_call(prev_text)
                     and not self._has_unclosed_tool_call(current_text)
@@ -180,4 +188,4 @@ class MiniMaxM3ToolParser(ToolParser):
             return (delta_text, None, None)
         except Exception as e:
             logger.error("Error in MiniMax streaming tool call extraction: %s", e)
-            raise
+            return (delta_text, None, None)

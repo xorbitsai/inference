@@ -136,3 +136,41 @@ def test_streaming_returns_text_after_completed_call(parser):
     assert parser.extract_tool_calls_streaming(
         [tool_call], tool_call + " done", " done"
     ) == (" done", None, None)
+
+
+def test_streaming_yields_text_before_tool_call(parser):
+    previous = ["<mm:think>thought"]
+    current = "<mm:think>thought</mm:think><minimax:tool_call>"
+    delta = "</mm:think><minimax:tool_call>"
+
+    assert parser.extract_tool_calls_streaming(previous, current, delta) == (
+        "</mm:think>",
+        None,
+        None,
+    )
+
+
+def test_content_regex_does_not_match_mismatched_tags(parser):
+    output = "<mm:think>thought</minimax:tool_call>"
+
+    assert parser._get_function_calls(output) == [output]
+
+
+def test_empty_text_has_no_unclosed_tool_call(parser):
+    assert parser._has_unclosed_tool_call("") is False
+
+
+def test_streaming_returns_raw_delta_on_parser_error(parser, monkeypatch):
+    def raise_parse_error(_text):
+        raise ValueError("unexpected model output")
+
+    monkeypatch.setattr(parser, "_get_function_calls_streaming", raise_parse_error)
+    current = "prefix<minimax:tool_call>"
+
+    # Keep the start token in the previous value so this exercises the error
+    # fallback instead of the transition-prefix path.
+    assert parser.extract_tool_calls_streaming([current], current, "broken delta") == (
+        "broken delta",
+        None,
+        None,
+    )
