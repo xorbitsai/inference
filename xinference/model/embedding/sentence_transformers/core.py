@@ -254,8 +254,11 @@ class SentenceTransformerEmbeddingModel(EmbeddingModel, BatchMixin):
                 model_kwargs=model_kwargs,
                 truncate_dim=dimensions,
             )
-        elif "qwen3" in self.model_family.model_name.lower():
-            # qwen3 embedding
+        elif (
+            "qwen3" in self.model_family.model_name.lower()
+            or "r3-embedding" in self.model_family.model_name.lower()
+        ):
+            # qwen3 embedding (also covers R3-embedding, fine-tuned from Qwen3)
             flash_attn_enabled = self._kwargs.get(
                 "enable_flash_attn", is_flash_attn_available()
             )
