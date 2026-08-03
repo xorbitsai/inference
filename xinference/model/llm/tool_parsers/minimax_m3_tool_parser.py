@@ -131,8 +131,9 @@ class MiniMaxM3ToolParser(ToolParser):
                     return None
                 if self.is_contain_think(function_calls[-1]):
                     return None
+                prev_text = previous_text[-1] if previous_text else ""
                 if (
-                    not self._has_unclosed_tool_call(previous_text[-1])
+                    not self._has_unclosed_tool_call(prev_text)
                     and not self._has_unclosed_tool_call(current_text)
                     and self.tool_call_end_token not in delta_text
                 ):
