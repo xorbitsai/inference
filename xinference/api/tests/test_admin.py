@@ -269,3 +269,207 @@ async def test_get_progress_raises_400_on_key_error(mock_api, mock_supervisor):
     with pytest.raises(HTTPException) as exc_info:
         await admin.get_progress(request_id="req-missing", api=mock_api)
     assert exc_info.value.status_code == 400
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("filter_name", "filter_value"),
+    [
+        ("user", "min"),
+        ("api_key_name", "obo"),
+        ("model_id", "S"),
+        ("model_id", "SenseVoiceSmall"),
+        ("model_name", "voice"),
+        ("model_name", "SenseVoiceSmall"),
+        ("client_ip", "168.1"),
+    ],
+)
+async def test_search_audit_file_partially_matches_text_fields(
+    tmp_path, monkeypatch, filter_name, filter_value
+):
+    audit_entry = {
+        "@timestamp": "2026-08-03T08:24:16+00:00",
+        "user": "admin",
+        "api_key_name": "robot",
+        "model_id": "SenseVoiceSmall",
+        "model_name": "SenseVoiceSmall",
+        "client_ip": "192.168.1.10",
+    }
+    (tmp_path / "audit.log").write_text(
+        json.dumps(audit_entry) + "\n", encoding="utf-8"
+    )
+    monkeypatch.setattr("xinference.constants.XINFERENCE_LOG_DIR", str(tmp_path))
+
+    filters = {
+        "user": "",
+        "api_key_name": "",
+        "model_id": "",
+        "model_name": "",
+        "model_type": "",
+        "category": "",
+        "auth_type": "",
+        "status": "",
+        "client_ip": "",
+    }
+    filters[filter_name] = filter_value
+
+    response = await admin._search_audit_from_file(
+        time_from="",
+        time_to="",
+        page_from=0,
+        size=50,
+        **filters,
+    )
+
+    assert _json_body(response) == {"hits": [audit_entry], "total": 1}
+
+
+@pytest.mark.asyncio
+async def test_search_audit_elasticsearch_partially_matches_text_fields(monkeypatch):
+    captured = {}
+
+    class FakeResponse:
+        status = 200
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        async def json(self):
+            return {"hits": {"hits": [], "total": {"value": 0}}}
+
+    class FakeClientSession:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        def post(self, url, json, headers):
+            captured["body"] = json
+            return FakeResponse()
+
+    monkeypatch.setenv("XINFERENCE_ES_URL", "http://elasticsearch:9200")
+    monkeypatch.setattr(admin.aiohttp, "ClientSession", FakeClientSession)
+
+    await admin.search_audit_logs(
+        user="min",
+        api_key_name="obo",
+        model_id="SenseVoiceSmall",
+        model_name="voice",
+        client_ip="168.1",
+    )
+
+    assert captured["body"]["query"]["bool"]["filter"] == [
+        {"range": {"@timestamp": {"gte": "now-1h", "lte": "now"}}},
+        {"wildcard": {"user": {"value": "*min*", "case_insensitive": True}}},
+        {"wildcard": {"api_key_name": {"value": "*obo*", "case_insensitive": True}}},
+        {
+            "wildcard": {
+                "model_id": {
+                    "value": "*SenseVoiceSmall*",
+                    "case_insensitive": True,
+                }
+            }
+        },
+        {"wildcard": {"model_name": {"value": "*voice*", "case_insensitive": True}}},
+        {"wildcard": {"client_ip": {"value": "*168.1*", "case_insensitive": True}}},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_list_audit_filter_options_from_file(tmp_path, monkeypatch):
+    audit_entries = [
+        {
+            "@timestamp": "2026-08-03T08:24:16+00:00",
+            "user": "zoe",
+            "api_key_name": "robot",
+            "model_id": "sense-voice",
+            "model_name": "SenseVoiceSmall",
+            "client_ip": "192.168.1.10",
+        },
+        {
+            "@timestamp": "2026-08-03T08:25:16+00:00",
+            "user": "Admin",
+            "api_key_name": "assistant",
+            "model_id": "qwen",
+            "model_name": "Qwen3",
+            "client_ip": "10.0.0.2",
+        },
+    ]
+    (tmp_path / "audit.log").write_text(
+        "\n".join(json.dumps(entry) for entry in audit_entries) + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("xinference.constants.XINFERENCE_LOG_DIR", str(tmp_path))
+
+    response = await admin._list_audit_filter_options_from_file(
+        time_from="", time_to=""
+    )
+
+    assert _json_body(response) == {
+        "user": ["Admin", "zoe"],
+        "api_key_name": ["assistant", "robot"],
+        "model_id": ["qwen", "sense-voice"],
+        "model_name": ["Qwen3", "SenseVoiceSmall"],
+        "client_ip": ["10.0.0.2", "192.168.1.10"],
+    }
+
+
+@pytest.mark.asyncio
+async def test_list_audit_filter_options_from_elasticsearch(monkeypatch):
+    captured = {}
+
+    class FakeResponse:
+        status = 200
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        async def json(self):
+            return {
+                "aggregations": {
+                    field_name: {"buckets": [{"key": f"{field_name}-value"}]}
+                    for field_name in admin._AUDIT_TEXT_FILTER_FIELDS
+                }
+            }
+
+    class FakeClientSession:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        def post(self, url, json, headers):
+            captured["body"] = json
+            return FakeResponse()
+
+    monkeypatch.setenv("XINFERENCE_ES_URL", "http://elasticsearch:9200")
+    monkeypatch.setattr(admin.aiohttp, "ClientSession", FakeClientSession)
+
+    response = await admin.list_audit_filter_options(time_from="now-6h", time_to="now")
+
+    assert _json_body(response) == {
+        field_name: [f"{field_name}-value"]
+        for field_name in admin._AUDIT_TEXT_FILTER_FIELDS
+    }
+    assert captured["body"] == {
+        "size": 0,
+        "query": {"range": {"@timestamp": {"gte": "now-6h", "lte": "now"}}},
+        "aggs": {
+            field_name: {"terms": {"field": field_name, "size": 500}}
+            for field_name in admin._AUDIT_TEXT_FILTER_FIELDS
+        },
+    }
