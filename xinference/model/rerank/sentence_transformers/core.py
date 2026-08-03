@@ -98,6 +98,7 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             self.model_family.type == "normal"
             and "qwen3" not in self.model_family.model_name.lower()
             and "jina-reranker-v3" not in self.model_family.model_name.lower()
+            and "r3-rerank" not in self.model_family.model_name.lower()
         ):
             # sentence-transformers >= 5.4 imports torchcodec at import time and
             # only tolerates ImportError/OSError; a broken (version-mismatched)
@@ -146,8 +147,9 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
         elif (
             "qwen3" in self.model_family.model_name.lower()
             or "jina-reranker-v3" in self.model_family.model_name.lower()
+            or "r3-rerank" in self.model_family.model_name.lower()
         ):
-            # qwen3-reranker
+            # qwen3-reranker (also covers R3-rerank, fine-tuned from Qwen3-Reranker)
             # now we use transformers
             # TODO: support engines for rerank models
             try:
@@ -330,6 +332,7 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             self.model_family.type == "normal"
             and "qwen3" not in self.model_family.model_name.lower()
             and "jina-reranker-v3" not in self.model_family.model_name.lower()
+            and "r3-rerank" not in self.model_family.model_name.lower()
         ):
             logger.debug("Passing processed sentences: %s", sentence_combinations)
 
@@ -364,11 +367,18 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
         elif (
             "qwen3" in self.model_family.model_name.lower()
             or "jina-reranker-v3" in self.model_family.model_name.lower()
+            or "r3-rerank" in self.model_family.model_name.lower()
         ):
 
             def format_instruction(instruction, query, doc):
                 if instruction is None:
-                    instruction = "Given a web search query, retrieve relevant passages that answer the query"
+                    if "r3-rerank" in self.model_family.model_name.lower():
+                        instruction = (
+                            "Given a user request, retrieve the agent skill "
+                            "that solves it."
+                        )
+                    else:
+                        instruction = "Given a web search query, retrieve relevant passages that answer the query"
                 output = "<Instruct>: {instruction}\n<Query>: {query}\n<Document>: {doc}".format(
                     instruction=instruction, query=query, doc=doc
                 )
@@ -594,16 +604,9 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
                 if return_len:
                     if (
                         self.model_family.type == "normal"
-                        and "qwen3" not in self.model_family.model_name.lower()
-                        and "jina-reranker-v3"
-                        not in self.model_family.model_name.lower()
-                    ):
-                        input_len = sum(
-                            self._get_input_tokens_slice(offset, offset + n)
-                        )
-                    elif (
-                        "qwen3" in self.model_family.model_name.lower()
+                        or "qwen3" in self.model_family.model_name.lower()
                         or "jina-reranker-v3" in self.model_family.model_name.lower()
+                        or "r3-rerank" in self.model_family.model_name.lower()
                     ):
                         input_len = sum(
                             self._get_input_tokens_slice(offset, offset + n)

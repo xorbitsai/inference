@@ -137,6 +137,7 @@ dmypy.json
 # IDEs
 .idea
 .vscode
+.trae
 *.iml
 
 # VIM
