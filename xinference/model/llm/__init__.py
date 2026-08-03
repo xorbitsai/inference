@@ -224,7 +224,7 @@ def load_model_family_from_json(json_filename, target_families):
         if "tools" in model_spec.model_ability:
             BUILTIN_LLM_MODEL_TOOL_CALL_FAMILIES.add(model_spec.model_name)
             if tool_parser := getattr(model_spec, "tool_parser", None):
-                if tool_parser == "qwen" or tool_parser == "minimax":
+                if tool_parser == "qwen" or tool_parser.startswith("minimax"):
                     QWEN_TOOL_CALL_FAMILY.add(model_spec.model_name)
                 elif tool_parser == "gemma":
                     GEMMA_TOOL_CALL_FAMILY.add(model_spec.model_name)
