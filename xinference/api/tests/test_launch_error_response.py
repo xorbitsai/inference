@@ -183,6 +183,12 @@ class TestDiagnosticsPermission:
         api = _api_with_auth(_FakeAuthService(["logs:list"], valid_jwt=False))
         assert api._caller_may_see_diagnostics(_request_with_token()) is False
 
+    def test_missing_user_id_in_payload_is_denied(self):
+        service = _FakeAuthService(["logs:list"])
+        service.verify_access_token = lambda _t: {}
+        api = _api_with_auth(service)
+        assert api._caller_may_see_diagnostics(_request_with_token()) is False
+
     def test_unknown_user_is_denied(self):
         service = _FakeAuthService(["logs:list"])
         service.db.get_user_by_id = lambda _uid: None

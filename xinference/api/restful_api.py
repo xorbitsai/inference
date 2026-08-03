@@ -303,7 +303,10 @@ class RESTfulAPI(CancelMixin):
                 # An API key rather than a JWT. API keys are restricted to
                 # model query and inference scopes, so they never qualify.
                 return False
-            user = self._advanced_auth_service.db.get_user_by_id(payload.get("user_id"))
+            user_id = payload.get("user_id")
+            if user_id is None:
+                return False
+            user = self._advanced_auth_service.db.get_user_by_id(user_id)
             if not user:
                 return False
             # Live-read the DB permissions rather than the JWT snapshot, so a
