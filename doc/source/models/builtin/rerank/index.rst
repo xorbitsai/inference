@@ -39,3 +39,5 @@ The following is a list of built-in rerank models in Xinference:
   
    qwen3-vl-reranker-8b
   
+   r3-rerank-0.6b
+  
