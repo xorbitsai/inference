@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Optional, Tuple
 
 from . import register_tool_parser
@@ -15,7 +16,7 @@ class MiniMaxM3ToolParser(ToolParser):
     Tool parser implementation for MiniMax models.
 
     This parser handles MiniMax tool calls wrapped with <minimax:tool_call>
-    tags and <invoke>/<parameter> blocks.
+    tags and <invoke> blocks containing recursively nested XML arguments.
     """
 
     def __init__(self):
@@ -52,13 +53,43 @@ class MiniMaxM3ToolParser(ToolParser):
         except Exception:
             return value
 
+    def _parse_xml_element(self, element: ET.Element) -> Any:
+        children = list(element)
+        if not children:
+            return self._parse_param_value(element.text or "")
+
+        if all(child.tag == "item" for child in children):
+            return [self._parse_xml_element(child) for child in children]
+
+        result: Dict[str, Any] = {}
+        for child in children:
+            result[child.tag] = self._parse_xml_element(child)
+        return result
+
+    def _parse_invoke_args(self, body: str) -> Dict[str, Any]:
+        try:
+            root = ET.fromstring(f"<root>{body}</root>")
+        except ET.ParseError:
+            # Keep compatibility with the legacy MiniMax parameter format if
+            # the model emits text that is not valid nested XML.
+            return {
+                key: self._parse_param_value(value)
+                for key, value in self.param_regex.findall(body)
+            }
+
+        args: Dict[str, Any] = {}
+        for element in root:
+            if element.tag == "parameter" and "name" in element.attrib:
+                key = element.attrib["name"]
+            else:
+                key = element.tag
+            args[key] = self._parse_xml_element(element)
+        return args
+
     def _parse_invoke_calls(self, tool_block: str) -> List[Tuple[str, Dict[str, Any]]]:
         results = []
         for name, body in self.invoke_regex.findall(tool_block):
-            args: Dict[str, Any] = {}
-            for key, val in self.param_regex.findall(body):
-                args[key] = self._parse_param_value(val)
-            results.append((name, args))
+            results.append((name, self._parse_invoke_args(body)))
         return results
 
     def _get_function_calls(self, model_output: str) -> List[str]:
