@@ -56,6 +56,51 @@ def test_extract_multiple_calls_and_surrounding_text(parser):
     ]
 
 
+def test_extract_tool_call_escapes_bare_ampersands(parser):
+    output = (
+        '<minimax:tool_call><invoke name="search">'
+        "<query>cats & dogs &amp; birds</query>"
+        "<url>https://example.com/?a=1&b=2</url>"
+        "</invoke></minimax:tool_call>"
+    )
+
+    assert parser.extract_tool_calls(output) == [
+        (
+            None,
+            "search",
+            {
+                "query": "cats & dogs & birds",
+                "url": "https://example.com/?a=1&b=2",
+            },
+        )
+    ]
+
+
+def test_extract_duplicate_sibling_tags_as_list(parser):
+    output = (
+        '<minimax:tool_call><invoke name="search">'
+        "<city>Beijing</city><city>Shanghai</city><city>Shenzhen</city>"
+        "</invoke></minimax:tool_call>"
+    )
+
+    assert parser.extract_tool_calls(output) == [
+        (None, "search", {"city": ["Beijing", "Shanghai", "Shenzhen"]})
+    ]
+
+
+def test_duplicate_array_tags_remain_separate_arrays(parser):
+    output = (
+        '<minimax:tool_call><invoke name="search">'
+        "<cities><item>Beijing</item></cities>"
+        "<cities><item>Shanghai</item></cities>"
+        "</invoke></minimax:tool_call>"
+    )
+
+    assert parser.extract_tool_calls(output) == [
+        (None, "search", {"cities": [["Beijing"], ["Shanghai"]]})
+    ]
+
+
 def test_extract_no_tool_call(parser):
     assert parser.extract_tool_calls("plain response") == [
         ("plain response", None, None)

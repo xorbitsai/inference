@@ -64,13 +64,29 @@ class MiniMaxM3ToolParser(ToolParser):
             return [self._parse_xml_element(child) for child in children]
 
         result: Dict[str, Any] = {}
+        duplicate_tags = set()
         for child in children:
-            result[child.tag] = self._parse_xml_element(child)
+            child_value = self._parse_xml_element(child)
+            if child.tag not in result:
+                result[child.tag] = child_value
+            elif child.tag in duplicate_tags:
+                result[child.tag].append(child_value)
+            else:
+                result[child.tag] = [result[child.tag], child_value]
+                duplicate_tags.add(child.tag)
         return result
 
     def _parse_invoke_args(self, body: str) -> Dict[str, Any]:
+        # Model output is often XML-like rather than strictly valid XML. Escape
+        # bare ampersands while preserving the five predefined XML entities and
+        # numeric character references.
+        escaped_body = re.sub(
+            r"&(?!amp;|lt;|gt;|quot;|apos;|#[0-9]+;|#x[0-9A-Fa-f]+;)",
+            "&amp;",
+            body,
+        )
         try:
-            root = ET.fromstring(f"<root>{body}</root>")
+            root = ET.fromstring(f"<root>{escaped_body}</root>")
         except ET.ParseError:
             # Keep compatibility with the legacy MiniMax parameter format if
             # the model emits text that is not valid nested XML.
@@ -80,12 +96,20 @@ class MiniMaxM3ToolParser(ToolParser):
             }
 
         args: Dict[str, Any] = {}
+        duplicate_keys = set()
         for element in root:
             if element.tag == "parameter" and "name" in element.attrib:
                 key = element.attrib["name"]
             else:
                 key = element.tag
-            args[key] = self._parse_xml_element(element)
+            value = self._parse_xml_element(element)
+            if key not in args:
+                args[key] = value
+            elif key in duplicate_keys:
+                args[key].append(value)
+            else:
+                args[key] = [args[key], value]
+                duplicate_keys.add(key)
         return args
 
     def _parse_invoke_calls(self, tool_block: str) -> List[Tuple[str, Dict[str, Any]]]:
