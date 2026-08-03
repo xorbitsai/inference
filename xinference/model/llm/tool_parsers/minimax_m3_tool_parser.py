@@ -25,9 +25,9 @@ class MiniMaxM3ToolParser(ToolParser):
         self.tool_call_start_token: str = "<minimax:tool_call>"
         self.tool_call_end_token: str = "</minimax:tool_call>"
 
-        self.think_regex = re.compile(r"<think>(.*?)</think>", re.DOTALL)
+        self.think_regex = re.compile(r"<mm:think>(.*?)</mm:think>", re.DOTALL)
         self.content_regex = (
-            r"(<(?:think|minimax:tool_call)>.*?</(?:think|minimax:tool_call)>)"
+            r"(<(?:mm:think|minimax:tool_call)>.*?</(?:mm:think|minimax:tool_call)>)"
         )
         self.tool_call_complete_regex = re.compile(
             r"<minimax:tool_call>(.*?)</minimax:tool_call>", re.DOTALL
@@ -131,8 +131,12 @@ class MiniMaxM3ToolParser(ToolParser):
                     return None
                 if self.is_contain_think(function_calls[-1]):
                     return None
-                if not self._has_unclosed_tool_call(previous_text[-1]):
-                    return None
+                if (
+                    not self._has_unclosed_tool_call(previous_text[-1])
+                    and not self._has_unclosed_tool_call(current_text)
+                    and self.tool_call_end_token not in delta_text
+                ):
+                    return (delta_text, None, None)
                 tool_block = function_calls[-1]
                 if self.tool_call_end_token not in tool_block:
                     return None
