@@ -1260,6 +1260,44 @@
   },
   {
     "version": 2,
+    "model_name": "R3-embedding-0.6b",
+    "dimensions": 1024,
+    "max_tokens": 32768,
+    "language": [
+      "en",
+      "zh"
+    ],
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "tencent/R3-embedding-0.6b",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Tencent-Hunyuan/R3-embedding-0.6b",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "updated_at": 1785775911,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\""
+      ]
+    }
+  },
+  {
+    "version": 2,
     "model_name": "Qwen3-Embedding-0.6B",
     "dimensions": 1024,
     "max_tokens": 32768,

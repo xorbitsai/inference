@@ -471,6 +471,11 @@ The following is a list of built-in LLM in Xinference:
      - 204800
      - MiniMax-M2.7 is our first model deeply participating in its own evolution. M2.7 is capable of building complex agent harnesses and completing highly elaborate productivity tasks, leveraging Agent Teams, complex Skills, and dynamic tool search
 
+   * - :ref:`minimax-m3 <models_llm_minimax-m3>`
+     - chat, vision, tools, reasoning, hybrid
+     - 1048576
+     - MiniMax-M3 is a native multimodal model with 1M context. It has ~428B parameters and ~23B activated parameters.
+
    * - :ref:`mistral-instruct-v0.1 <models_llm_mistral-instruct-v0.1>`
      - chat
      - 8192
@@ -1012,6 +1017,8 @@ The following is a list of built-in LLM in Xinference:
    minimax-m2.5
   
    minimax-m2.7
+  
+   minimax-m3
   
    mistral-instruct-v0.1
   

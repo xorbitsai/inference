@@ -366,6 +366,44 @@
   },
   {
     "version": 2,
+    "model_name": "R3-rerank-0.6b",
+    "type": "normal",
+    "language": [
+      "en",
+      "zh"
+    ],
+    "max_tokens": 40960,
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "tencent/R3-rerank-0.6b",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "Tencent-Hunyuan/R3-rerank-0.6b",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "updated_at": 1785775986,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\""
+      ]
+    }
+  },
+  {
+    "version": 2,
     "model_name": "Qwen3-Reranker-0.6B",
     "type": "normal",
     "language": [
@@ -625,6 +663,45 @@
         "#system_torch# ; #engine# == \"sentence_transformers\"",
         "#vllm_dependencies# ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "jina-reranker-v3.5",
+    "type": "normal",
+    "language": [
+      "en",
+      "zh",
+      "multilingual"
+    ],
+    "max_tokens": 131072,
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "jinaai/jina-reranker-v3.5",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "jinaai/jina-reranker-v3.5",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "updated_at": 1785817121,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\""
       ]
     }
   },
