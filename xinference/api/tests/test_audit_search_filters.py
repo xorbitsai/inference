@@ -156,6 +156,11 @@ async def test_malformed_entry_does_not_break_search(tmp_path, monkeypatch):
         # non-string values previously raised AttributeError -> HTTP 500
         json.dumps({"@timestamp": "2026-08-03T16:00:00.000Z", "status": 500}),
         json.dumps({"@timestamp": "2026-08-03T16:00:00.000Z", "model_id": None}),
+        # valid JSON that is not an object: `entry.get(...)` would raise
+        "null",
+        "[1, 2, 3]",
+        '"a bare string"',
+        "42",
     ]
     (log_dir / "audit.log").write_text("\n".join(lines) + "\n", encoding="utf-8")
     monkeypatch.setattr("xinference.constants.XINFERENCE_LOG_DIR", str(log_dir))
@@ -164,6 +169,13 @@ async def test_malformed_entry_does_not_break_search(tmp_path, monkeypatch):
     assert data["total"] == 1
     data = await _search(log_dir / "audit.log", status="success")
     assert data["total"] == 1
+
+    # Also exercise the unfiltered path, which reads `@timestamp` off every
+    # entry and so trips over non-object lines regardless of any filter.
+    data = await _search(log_dir / "audit.log")
+    assert [h["model_id"] for h in data["hits"] if h.get("model_id")] == [
+        "SenseVoiceSmall"
+    ]
 
 
 @pytest.mark.asyncio

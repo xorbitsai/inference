@@ -818,6 +818,10 @@ async def _search_audit_from_file(
                     entry = json.loads(line)
                 except (json.JSONDecodeError, ValueError):
                     continue
+                # A line may be valid JSON yet not an object (e.g. `null`,
+                # `[1,2]`); `entry.get(...)` below would raise AttributeError.
+                if not isinstance(entry, dict):
+                    continue
 
                 ts_str = entry.get("@timestamp", "")
                 if t_from or t_to:
@@ -839,6 +843,7 @@ async def _search_audit_from_file(
                         ("model_name", model_name),
                         ("client_ip", client_ip),
                     )
+                    if needle
                 ):
                     continue
                 if not all(
@@ -849,6 +854,7 @@ async def _search_audit_from_file(
                         ("model_type", model_type_set),
                         ("auth_type", auth_type_set),
                     )
+                    if allowed
                 ):
                     continue
 
@@ -920,6 +926,13 @@ async def search_audit_logs(
             # Query the `.keyword` subfield: under ES dynamic mapping these are
             # `text` + `.keyword`, and the analyzed `text` field would never
             # match a value containing uppercase or `-`/`_`/`/`.
+            #
+            # NOTE: a leading wildcard cannot use the index and forces a scan of
+            # all terms in the segment. That is acceptable for typical audit
+            # volumes, but on a large index deployments should install an index
+            # template mapping these fields to the `wildcard` type (ES >= 7.9),
+            # or to `text` with an ngram analyzer, which makes this pattern
+            # index-accelerated without changing the query semantics.
             filter_clauses.append(
                 {
                     "wildcard": {
