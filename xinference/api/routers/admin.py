@@ -758,6 +758,30 @@ _AUDIT_TEXT_FILTER_FIELDS = (
 )
 
 
+def _audit_filter_aggregation_body(
+    time_from: str, time_to: str, *, keyword_fields: bool = False
+) -> dict[str, Any]:
+    return {
+        "size": 0,
+        "query": {"range": {"@timestamp": {"gte": time_from, "lte": time_to}}},
+        "aggs": {
+            field_name: {
+                "terms": {
+                    "field": (
+                        f"{field_name}.keyword" if keyword_fields else field_name
+                    ),
+                    "size": 500,
+                }
+            }
+            for field_name in _AUDIT_TEXT_FILTER_FIELDS
+        },
+    }
+
+
+def _is_fielddata_disabled_error(status: int, response_text: str) -> bool:
+    return status == 400 and "fielddata is disabled" in response_text.casefold()
+
+
 def _audit_entry_in_time_range(
     entry: dict[str, Any], t_from: Optional[datetime], t_to: Optional[datetime]
 ) -> bool:
@@ -920,14 +944,7 @@ async def list_audit_filter_options(
 
     from ...constants import XINFERENCE_AUDIT_ES_INDEX
 
-    body: dict[str, Any] = {
-        "size": 0,
-        "query": {"range": {"@timestamp": {"gte": time_from, "lte": time_to}}},
-        "aggs": {
-            field_name: {"terms": {"field": field_name, "size": 500}}
-            for field_name in _AUDIT_TEXT_FILTER_FIELDS
-        },
-    }
+    body = _audit_filter_aggregation_body(time_from, time_to)
     headers = {"Content-Type": "application/json"}
     auth = None
     es_auth = os.environ.get("XINFERENCE_ES_AUTH", "")
@@ -943,18 +960,33 @@ async def list_audit_filter_options(
     try:
         timeout = aiohttp.ClientTimeout(total=10)
         async with aiohttp.ClientSession(timeout=timeout, auth=auth) as session:
-            async with session.post(url, json=body, headers=headers) as resp:
-                if resp.status != 200:
-                    text = await resp.text()
-                    logger.error(
-                        "ES audit filter aggregation failed: status=%d body=%s",
-                        resp.status,
-                        text[:500],
-                    )
-                    raise HTTPException(
-                        status_code=502, detail="Elasticsearch query failed"
-                    )
-                data = await resp.json()
+
+            async def fetch(
+                request_body: dict[str, Any],
+            ) -> tuple[int, str, dict[str, Any]]:
+                async with session.post(
+                    url, json=request_body, headers=headers
+                ) as resp:
+                    if resp.status != 200:
+                        return resp.status, await resp.text(), {}
+                    return resp.status, "", await resp.json()
+
+            status, response_text, data = await fetch(body)
+            if _is_fielddata_disabled_error(status, response_text):
+                keyword_body = _audit_filter_aggregation_body(
+                    time_from, time_to, keyword_fields=True
+                )
+                status, response_text, data = await fetch(keyword_body)
+
+            if status != 200:
+                logger.error(
+                    "ES audit filter aggregation failed: status=%d body=%s",
+                    status,
+                    response_text[:500],
+                )
+                raise HTTPException(
+                    status_code=502, detail="Elasticsearch query failed"
+                )
     except (aiohttp.ClientError, asyncio.TimeoutError) as e:
         logger.error("ES connection error or timeout: %s", e)
         raise HTTPException(status_code=502, detail="Audit service unavailable")

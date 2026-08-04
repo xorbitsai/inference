@@ -473,3 +473,180 @@ async def test_list_audit_filter_options_from_elasticsearch(monkeypatch):
             for field_name in admin._AUDIT_TEXT_FILTER_FIELDS
         },
     }
+
+
+@pytest.mark.asyncio
+async def test_list_audit_filter_options_retries_keyword_fields(monkeypatch):
+    captured_bodies = []
+    responses = [
+        {
+            "status": 400,
+            "text": json.dumps(
+                {
+                    "error": {
+                        "root_cause": [
+                            {
+                                "reason": (
+                                    "Fielddata is disabled on [user] in "
+                                    "[xinference-audit-2026.08.04]"
+                                )
+                            }
+                        ]
+                    }
+                }
+            ),
+        },
+        {
+            "status": 200,
+            "data": {
+                "aggregations": {
+                    field_name: {"buckets": [{"key": f"{field_name}-value"}]}
+                    for field_name in admin._AUDIT_TEXT_FILTER_FIELDS
+                }
+            },
+        },
+    ]
+
+    class FakeResponse:
+        def __init__(self, response):
+            self.status = response["status"]
+            self._text = response.get("text", "")
+            self._data = response.get("data", {})
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        async def text(self):
+            return self._text
+
+        async def json(self):
+            return self._data
+
+    class FakeClientSession:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        def post(self, url, json, headers):
+            captured_bodies.append(json)
+            return FakeResponse(responses.pop(0))
+
+    monkeypatch.setenv("XINFERENCE_ES_URL", "http://elasticsearch:9200")
+    monkeypatch.setattr(admin.aiohttp, "ClientSession", FakeClientSession)
+
+    response = await admin.list_audit_filter_options()
+
+    assert _json_body(response) == {
+        field_name: [f"{field_name}-value"]
+        for field_name in admin._AUDIT_TEXT_FILTER_FIELDS
+    }
+    assert len(captured_bodies) == 2
+    assert captured_bodies[0]["aggs"] == {
+        field_name: {"terms": {"field": field_name, "size": 500}}
+        for field_name in admin._AUDIT_TEXT_FILTER_FIELDS
+    }
+    assert captured_bodies[1]["aggs"] == {
+        field_name: {"terms": {"field": f"{field_name}.keyword", "size": 500}}
+        for field_name in admin._AUDIT_TEXT_FILTER_FIELDS
+    }
+
+
+@pytest.mark.asyncio
+async def test_list_audit_filter_options_does_not_retry_unrelated_error(monkeypatch):
+    captured_bodies = []
+
+    class FakeResponse:
+        status = 503
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        async def text(self):
+            return '{"error":{"reason":"all shards failed"}}'
+
+    class FakeClientSession:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        def post(self, url, json, headers):
+            captured_bodies.append(json)
+            return FakeResponse()
+
+    monkeypatch.setenv("XINFERENCE_ES_URL", "http://elasticsearch:9200")
+    monkeypatch.setattr(admin.aiohttp, "ClientSession", FakeClientSession)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await admin.list_audit_filter_options()
+
+    assert exc_info.value.status_code == 502
+    assert exc_info.value.detail == "Elasticsearch query failed"
+    assert len(captured_bodies) == 1
+
+
+@pytest.mark.asyncio
+async def test_list_audit_filter_options_returns_502_when_keyword_retry_fails(
+    monkeypatch,
+):
+    captured_bodies = []
+    responses = [
+        (
+            400,
+            '{"error":{"reason":"Fielddata is disabled on [user] in [audit]"}}',
+        ),
+        (400, '{"error":{"reason":"No mapping found for [user.keyword]"}}'),
+    ]
+
+    class FakeResponse:
+        def __init__(self, status, text):
+            self.status = status
+            self._text = text
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        async def text(self):
+            return self._text
+
+    class FakeClientSession:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        def post(self, url, json, headers):
+            captured_bodies.append(json)
+            return FakeResponse(*responses.pop(0))
+
+    monkeypatch.setenv("XINFERENCE_ES_URL", "http://elasticsearch:9200")
+    monkeypatch.setattr(admin.aiohttp, "ClientSession", FakeClientSession)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await admin.list_audit_filter_options()
+
+    assert exc_info.value.status_code == 502
+    assert exc_info.value.detail == "Elasticsearch query failed"
+    assert len(captured_bodies) == 2
