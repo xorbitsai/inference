@@ -158,6 +158,69 @@ def test_extract_tool_call_streaming(parser):
     ]
 
 
+def test_extract_multiple_tool_calls_streaming(parser):
+    output = (
+        '<minimax:tool_call><invoke name="get_weather">'
+        '<city>Beijing</city></invoke><invoke name="get_time">'
+        "<timezone>UTC+8</timezone></invoke></minimax:tool_call>"
+    )
+
+    assert parser.extract_tool_calls_streaming([], output, output) == [
+        (None, "get_weather", {"city": "Beijing"}),
+        (None, "get_time", {"timezone": "UTC+8"}),
+    ]
+
+
+def test_streaming_preserves_text_between_tool_calls(parser):
+    first_call = (
+        '<minimax:tool_call><invoke name="first"><value>1</value>'
+        "</invoke></minimax:tool_call>"
+    )
+    second_start = '<minimax:tool_call><invoke name="second">'
+    current = first_call + " between " + second_start
+
+    assert parser.extract_tool_calls_streaming(
+        [first_call], current, " between " + second_start
+    ) == (" between ", None, None)
+
+
+def test_streaming_preserves_text_after_newly_completed_call(parser):
+    previous = '<minimax:tool_call><invoke name="first"><value>1</value>'
+    delta = "</invoke></minimax:tool_call> tail"
+
+    assert parser.extract_tool_calls_streaming([previous], previous + delta, delta) == [
+        (None, "first", {"value": 1}),
+        (" tail", None, None),
+    ]
+
+
+def test_streaming_suppresses_split_tool_call_start(parser):
+    previous = ["Before "]
+    current = "Before <minimax:tool"
+
+    assert (
+        parser.extract_tool_calls_streaming(previous, current, "<minimax:tool") is None
+    )
+
+    previous = [current]
+    current += '_call><invoke name="get_weather">'
+    assert (
+        parser.extract_tool_calls_streaming(
+            previous, current, '_call><invoke name="get_weather">'
+        )
+        is None
+    )
+
+
+def test_streaming_releases_partial_start_when_it_is_plain_text(parser):
+    previous = ["Before <minimax:tool"]
+    current = "Before <minimax:tools are unavailable"
+
+    assert parser.extract_tool_calls_streaming(
+        previous, current, "s are unavailable"
+    ) == ("<minimax:tools are unavailable", None, None)
+
+
 @pytest.mark.parametrize("previous", [[], None])
 def test_extract_tool_call_streaming_with_empty_history(parser, previous):
     output = (
@@ -209,11 +272,9 @@ def test_streaming_returns_raw_delta_on_parser_error(parser, monkeypatch):
     def raise_parse_error(_text):
         raise ValueError("unexpected model output")
 
-    monkeypatch.setattr(parser, "_get_function_calls_streaming", raise_parse_error)
+    monkeypatch.setattr(parser, "extract_tool_calls", raise_parse_error)
     current = "prefix<minimax:tool_call>"
 
-    # Keep the start token in the previous value so this exercises the error
-    # fallback instead of the transition-prefix path.
     assert parser.extract_tool_calls_streaming([current], current, "broken delta") == (
         "broken delta",
         None,

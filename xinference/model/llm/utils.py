@@ -935,23 +935,29 @@ class ChatModelMixin:
             previous_texts[-1] = current_text
         if tool_result is None and not finish_reason:
             return None
-        tool_calls = []
+        tool_calls: List[Dict[str, Any]] = []
         failed_contents = []
-        content, func, args = tool_result if tool_result else ("", None, None)
-        if func:
-            tool_calls.append(
-                {
-                    "index": 0,
-                    "id": f"call_{str(uuid.uuid4())}",
-                    "type": "function",
-                    "function": {
-                        "name": func,
-                        "arguments": json.dumps(args, ensure_ascii=False),
-                    },
-                }
-            )
+        if isinstance(tool_result, list):
+            tool_results = tool_result
+        elif tool_result is not None:
+            tool_results = [tool_result]
         else:
-            failed_contents.append(content)
+            tool_results = []
+        for parsed_content, func, args in tool_results:
+            if func:
+                tool_calls.append(
+                    {
+                        "index": len(tool_calls),
+                        "id": f"call_{str(uuid.uuid4())}",
+                        "type": "function",
+                        "function": {
+                            "name": func,
+                            "arguments": json.dumps(args, ensure_ascii=False),
+                        },
+                    }
+                )
+            elif parsed_content:
+                failed_contents.append(parsed_content)
 
         finish_reason = "tool_calls" if tool_calls else finish_reason
 

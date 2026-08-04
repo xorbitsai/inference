@@ -178,38 +178,57 @@ class MiniMaxM3ToolParser(ToolParser):
 
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str
-    ) -> Optional[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
-        try:
-            if self.tool_call_start_token in current_text:
-                prev_text = previous_text[-1] if previous_text else ""
-                if self.tool_call_start_token not in prev_text:
-                    # A transition delta may contain normal text immediately
-                    # before the tool call. Yield it instead of swallowing it
-                    # while the tool call is still incomplete.
-                    start_pos = current_text.find(self.tool_call_start_token)
-                    if start_pos > len(prev_text):
-                        return current_text[len(prev_text) : start_pos], None, None
+    ) -> Optional[Any]:
+        def completed_blocks(
+            text: str,
+        ) -> List[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
+            for prefix_length in range(len(self.tool_call_start_token) - 1, 0, -1):
+                partial_start = self.tool_call_start_token[:prefix_length]
+                if text.endswith(partial_start):
+                    text = text[:-prefix_length]
+                    break
+            if self._has_unclosed_tool_call(text):
+                text = text[: text.rfind(self.tool_call_start_token)]
+            return self.extract_tool_calls(text)
 
-                function_calls = self._get_function_calls_streaming(current_text)
-                if not function_calls:
-                    return None
-                if self.is_contain_think(function_calls[-1]):
-                    return None
-                if (
-                    not self._has_unclosed_tool_call(prev_text)
-                    and not self._has_unclosed_tool_call(current_text)
-                    and self.tool_call_end_token not in delta_text
-                ):
-                    return (delta_text, None, None)
-                tool_block = function_calls[-1]
-                if self.tool_call_end_token not in tool_block:
-                    return None
-                invokes = self._parse_invoke_calls(tool_block)
-                if not invokes:
-                    return None
-                name, args = invokes[-1]
-                return None, name, args
-            return (delta_text, None, None)
+        try:
+            prev_text = previous_text[-1] if previous_text else ""
+            previous_blocks = completed_blocks(prev_text)
+            current_blocks = completed_blocks(current_text)
+
+            previous_tool_count = sum(
+                1 for _, name, _ in previous_blocks if name is not None
+            )
+            previous_plain_length = sum(
+                len(content)
+                for content, name, _ in previous_blocks
+                if name is None and content
+            )
+
+            events: List[
+                Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]
+            ] = []
+            tool_count = 0
+            plain_length = 0
+            for content, name, args in current_blocks:
+                if name is not None:
+                    if tool_count >= previous_tool_count:
+                        events.append((None, name, args))
+                    tool_count += 1
+                    continue
+
+                if not content:
+                    continue
+                content_start = max(0, previous_plain_length - plain_length)
+                if content_start < len(content):
+                    events.append((content[content_start:], None, None))
+                plain_length += len(content)
+
+            if not events:
+                return None
+            if len(events) == 1:
+                return events[0]
+            return events
         except Exception as e:
             logger.error("Error in MiniMax streaming tool call extraction: %s", e)
             return (delta_text, None, None)

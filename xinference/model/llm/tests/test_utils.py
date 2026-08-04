@@ -280,6 +280,47 @@ class _NoOpToolParser:
         return (delta_text or "", None, None)
 
 
+class _MultiToolParser:
+    def extract_tool_calls_streaming(self, previous_texts, current_text, delta_text):
+        return [
+            (None, "get_weather", {"city": "Beijing"}),
+            (None, "get_time", {"timezone": "UTC+8"}),
+            (" tail", None, None),
+        ]
+
+
+def test_post_process_completion_chunk_supports_multiple_tool_calls():
+    mixin = ChatModelMixin()
+    mixin.tool_parser = _MultiToolParser()
+    result = mixin._post_process_completion_chunk(
+        "test-family",
+        "test-model",
+        {
+            "choices": [
+                {
+                    "delta": {"content": "tool output"},
+                    "finish_reason": None,
+                    "logprobs": None,
+                }
+            ]
+        },
+        previous_texts=[""],
+    )
+
+    assert result is not None
+    choice = result["choices"][0]
+    assert choice["finish_reason"] == "tool_calls"
+    assert choice["delta"]["content"] == " tail"
+    assert [call["index"] for call in choice["delta"]["tool_calls"]] == [0, 1]
+    assert [
+        (call["function"]["name"], call["function"]["arguments"])
+        for call in choice["delta"]["tool_calls"]
+    ] == [
+        ("get_weather", '{"city": "Beijing"}'),
+        ("get_time", '{"timezone": "UTC+8"}'),
+    ]
+
+
 def test_post_process_completion_preserves_chat_logprobs():
     # Non-streaming tools path: _post_process_completion previously omitted the
     # logprobs field entirely, so tool-enabled requests lost them. It must now
