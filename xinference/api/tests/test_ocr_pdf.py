@@ -20,6 +20,7 @@ import pytest
 
 from ..pdf_ocr import (
     DEFAULT_PDF_OCR_DPI,
+    MAX_PDF_OCR_PAGES,
     is_pdf_upload,
     merge_ocr_page_results,
     normalize_pages,
@@ -27,7 +28,7 @@ from ..pdf_ocr import (
 )
 
 
-def make_pdf(page_count: int = 1) -> bytes:
+def make_pdf(page_count: int = 1, media_box: str = "0 0 200 100") -> bytes:
     """Build a minimal valid PDF with ``page_count`` blank pages."""
     kids = " ".join(f"{3 + i} 0 R" for i in range(page_count))
     objects = [
@@ -35,7 +36,7 @@ def make_pdf(page_count: int = 1) -> bytes:
         f"<</Type /Pages /Kids [{kids}] /Count {page_count}>>".encode(),
     ]
     objects.extend(
-        b"<</Type /Page /Parent 2 0 R /MediaBox [0 0 200 100]>>"
+        f"<</Type /Page /Parent 2 0 R /MediaBox [{media_box}]>>".encode()
         for _ in range(page_count)
     )
     out = bytearray(b"%PDF-1.4\n")
@@ -124,7 +125,7 @@ class TestMergeOcrPageResults:
 class TestRasterizePdf:
     def test_all_pages(self):
         pytest.importorskip("pypdfium2")
-        images = rasterize_pdf(make_pdf(page_count=2))
+        images = list(rasterize_pdf(make_pdf(page_count=2)))
         assert [page_number for page_number, _ in images] == [1, 2]
         for _, image in images:
             # 200x100pt page at the default 200 DPI
@@ -136,7 +137,7 @@ class TestRasterizePdf:
 
     def test_page_selection_and_dpi(self):
         pytest.importorskip("pypdfium2")
-        images = rasterize_pdf(make_pdf(page_count=3), pages=[2], dpi=72)
+        images = list(rasterize_pdf(make_pdf(page_count=3), pages=[2], dpi=72))
         assert len(images) == 1
         page_number, image = images[0]
         assert page_number == 2
@@ -144,7 +145,7 @@ class TestRasterizePdf:
 
     def test_dpi_capped(self):
         pytest.importorskip("pypdfium2")
-        images = rasterize_pdf(make_pdf(), dpi=100000)
+        images = list(rasterize_pdf(make_pdf(), dpi=100000))
         _, image = images[0]
         assert image.width == round(200 * 600 / 72)
 
@@ -153,10 +154,42 @@ class TestRasterizePdf:
         with pytest.raises(ValueError, match="dpi"):
             rasterize_pdf(make_pdf(), dpi=0)
 
-    def test_invalid_pages(self):
+    def test_invalid_pages_raise_before_rendering(self):
         pytest.importorskip("pypdfium2")
+        # validation is eager: the error surfaces at call time, not on
+        # first iteration
         with pytest.raises(ValueError, match="out of range"):
             rasterize_pdf(make_pdf(page_count=2), pages=[3])
+
+    def test_rendering_is_lazy(self):
+        pytest.importorskip("pypdfium2")
+        page_iter = rasterize_pdf(make_pdf(page_count=3))
+        assert not isinstance(page_iter, (list, tuple))
+        page_number, image = next(page_iter)
+        assert page_number == 1
+        image.close()
+        page_iter.close()
+
+    def test_page_count_limit(self):
+        pytest.importorskip("pypdfium2")
+        with pytest.raises(ValueError, match="at most"):
+            rasterize_pdf(make_pdf(page_count=MAX_PDF_OCR_PAGES + 1))
+        # selecting a subset of a large document is fine
+        images = list(
+            rasterize_pdf(make_pdf(page_count=MAX_PDF_OCR_PAGES + 1), pages=[1])
+        )
+        assert len(images) == 1
+
+    def test_page_pixel_limit(self):
+        pytest.importorskip("pypdfium2")
+        # 14400x14400pt (the PDF spec maximum) is ~1.6e9 pixels at 200 DPI
+        huge = make_pdf(media_box="0 0 14400 14400")
+        with pytest.raises(ValueError, match="lower `dpi`"):
+            rasterize_pdf(huge)
+        # the same page is fine at a low enough DPI
+        images = list(rasterize_pdf(huge, dpi=20))
+        assert len(images) == 1
+        images[0][1].close()
 
     def test_pdf_magic_detected_on_generated_pdf(self):
         assert is_pdf_upload(None, make_pdf()[:8])

@@ -21,13 +21,19 @@ JSON-serializable response body.
 """
 
 import json
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Generator, List, Optional, Tuple, Union
 
 PDF_MAGIC = b"%PDF"
 DEFAULT_PDF_OCR_DPI = 200
 # Rasterizing above this resolution rarely helps OCR quality but can
 # exhaust memory on large pages.
 MAX_PDF_OCR_DPI = 600
+# One request OCRs at most this many pages.
+MAX_PDF_OCR_PAGES = 200
+# A page whose raster would exceed this many pixels (~240 MB of RGB
+# pixels; an A3 page at 600 DPI is ~70 MP) is rejected so a single
+# oversized page cannot exhaust the API process.
+MAX_PDF_OCR_PAGE_PIXELS = 80_000_000
 
 
 def is_pdf_upload(content_type: Optional[str], head: bytes) -> bool:
@@ -69,11 +75,15 @@ def rasterize_pdf(
     data: bytes,
     pages: Optional[Union[int, List[int]]] = None,
     dpi: Union[int, float] = DEFAULT_PDF_OCR_DPI,
-) -> List[Tuple[int, Any]]:
-    """Rasterize a PDF into PIL images.
+) -> Generator[Tuple[int, Any], None, None]:
+    """Rasterize a PDF into PIL images, one page at a time.
 
-    Returns a list of ``(page_number, PIL.Image)`` tuples, page numbers
-    being 1-based.
+    Returns an iterator of ``(page_number, PIL.Image)`` tuples, page
+    numbers being 1-based. Page selection and page sizes are validated
+    eagerly (raising ``ValueError``) so invalid requests fail before any
+    OCR runs; rendering itself is lazy so only one page's pixels are
+    alive at a time. The caller must exhaust or ``close()`` the iterator
+    to release the underlying document.
     """
     try:
         import pypdfium2 as pdfium
@@ -87,24 +97,51 @@ def rasterize_pdf(
     if not isinstance(dpi, (int, float)) or isinstance(dpi, bool) or dpi <= 0:
         raise ValueError(f"`dpi` must be a positive number, got: {dpi!r}")
     dpi = min(float(dpi), float(MAX_PDF_OCR_DPI))
+    scale = dpi / 72.0
 
     pdf = pdfium.PdfDocument(data)
     try:
         page_numbers = normalize_pages(pages, len(pdf))
-        images = []
+        if len(page_numbers) > MAX_PDF_OCR_PAGES:
+            raise ValueError(
+                f"{len(page_numbers)} pages selected, at most "
+                f"{MAX_PDF_OCR_PAGES} pages can be OCRed per request; "
+                "use `pages` to select a subset"
+            )
         for page_number in page_numbers:
             page = pdf[page_number - 1]
             try:
-                bitmap = page.render(scale=dpi / 72.0)
-                try:
-                    images.append((page_number, bitmap.to_pil()))
-                finally:
-                    bitmap.close()
+                width, height = page.get_size()
             finally:
                 page.close()
-        return images
-    finally:
+            pixels = int(width * scale) * int(height * scale)
+            if pixels > MAX_PDF_OCR_PAGE_PIXELS:
+                raise ValueError(
+                    f"Page {page_number} would rasterize to {pixels} pixels "
+                    f"at {dpi:g} DPI, exceeding the limit of "
+                    f"{MAX_PDF_OCR_PAGE_PIXELS}; lower `dpi`"
+                )
+    except Exception:
         pdf.close()
+        raise
+
+    def _render() -> Generator[Tuple[int, Any], None, None]:
+        try:
+            for page_number in page_numbers:
+                page = pdf[page_number - 1]
+                try:
+                    bitmap = page.render(scale=scale)
+                    try:
+                        image = bitmap.to_pil()
+                    finally:
+                        bitmap.close()
+                finally:
+                    page.close()
+                yield page_number, image
+        finally:
+            pdf.close()
+
+    return _render()
 
 
 def merge_ocr_page_results(page_results: List[Tuple[int, Any]]) -> str:

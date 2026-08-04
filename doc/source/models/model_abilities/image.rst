@@ -392,7 +392,10 @@ PDF uploads are rasterized page by page (requires ``pypdfium2``, included in the
 
 Two optional PDF-only ``kwargs`` fields are supported: ``pages`` (a 1-based page
 number or list of page numbers to OCR, defaults to all pages) and ``dpi`` (the
-rasterization resolution, defaults to 200):
+rasterization resolution, defaults to 200, capped at 600). Pages are rasterized
+one at a time to keep memory usage flat; at most 200 pages can be OCRed per
+request (use ``pages`` to select a subset of larger documents), and a page whose
+raster would exceed 80 megapixels is rejected — lower ``dpi`` in that case:
 
 .. code-block:: bash
 
