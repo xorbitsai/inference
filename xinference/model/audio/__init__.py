@@ -85,7 +85,9 @@ def _install():
 
     # register model description after recording model revision
     for model_name, model_specs in BUILTIN_AUDIO_MODELS.items():
-        model_spec = [x for x in model_specs if x.model_hub == "huggingface"][0]
+        model_spec = (
+            [x for x in model_specs if x.model_hub == "huggingface"] + model_specs
+        )[0]
         if model_spec.model_name not in AUDIO_MODEL_DESCRIPTIONS:
             AUDIO_MODEL_DESCRIPTIONS.update(generate_audio_description(model_spec))
 

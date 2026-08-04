@@ -1542,6 +1542,32 @@ class RESTfulAPI(CancelMixin):
             self.handle_request_limit_error(e)
             raise HTTPException(status_code=500, detail=str(e))
 
+    async def create_audio_embedding(
+        self,
+        request: Request,
+        model: str = Form(...),
+        file: UploadFile = File(media_type="application/octet-stream"),
+    ) -> Response:
+        model_uid = model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("audio")
+        self._check_model_access(request, model_uid, "audio")
+        model_ref = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
+
+        try:
+            embedding = await model_ref.create_audio_embedding(
+                audio=await file.read(), model_uid=model_uid
+            )
+            return Response(content=embedding, media_type="application/json")
+        except Exception as e:
+            e = await self._get_model_last_error(model_ref.uid, e)
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            self.handle_request_limit_error(e)
+            raise HTTPException(status_code=500, detail=str(e))
+
     async def create_transcriptions(
         self,
         request: Request,

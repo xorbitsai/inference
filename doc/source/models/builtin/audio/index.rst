@@ -89,6 +89,10 @@ The following is a list of built-in audio models in Xinference:
   
    sensevoicesmall
   
+   speech_campplus_sv_zh-cn_16k-common
+
+   speech_campplus_sv_zh_en_16k-common_advanced
+
    voxcpm2
   
    whisper-base
@@ -130,4 +134,3 @@ The following is a list of built-in audio models in Xinference:
    whisper-tiny.en
   
    whisper-tiny.en-mlx
-  

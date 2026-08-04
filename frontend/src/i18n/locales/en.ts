@@ -47,6 +47,7 @@ const en = {
     inpainting: 'Image Inpainting',
     ocr: 'Optical Character Recognition (OCR)',
     audio2text: 'Audio to Text',
+    speaker_embedding: 'Speaker Embedding',
     text2audio: 'Text to Audio',
     text2audio_zero_shot: 'Text to Audio (Zero-Shot)',
     text2audio_voice_cloning: 'Text to Audio (Voice Cloning)',
@@ -696,7 +697,8 @@ const en = {
   },
   common: {
     accessDenied: 'Access Denied',
-    accessDeniedDescription: 'You do not have the required permission ({{scope}}) to access this page.',
+    accessDeniedDescription:
+      'You do not have the required permission ({{scope}}) to access this page.',
     valueEmpty: 'Cannot be empty',
     patternError: 'Invalid format, please check',
     loginSuccess: 'Login successful',

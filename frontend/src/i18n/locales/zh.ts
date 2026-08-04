@@ -47,6 +47,7 @@ const zh = {
     inpainting: '图像修复',
     ocr: '光学字符识别',
     audio2text: '语音转文本',
+    speaker_embedding: '说话人向量',
     text2audio: '文本转语音',
     text2audio_zero_shot: '文本转语音(零样本)',
     text2audio_voice_cloning: '文本转语音(声音克隆)',

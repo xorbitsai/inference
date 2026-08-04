@@ -47,6 +47,7 @@ const ko = {
     inpainting: '이미지 인페인팅',
     ocr: '광학 문자 인식 (OCR)',
     audio2text: '오디오에서 텍스트',
+    speaker_embedding: '화자 임베딩',
     text2audio: '텍스트에서 오디오',
     text2audio_zero_shot: '텍스트에서 오디오(제로 샷)',
     text2audio_voice_cloning: '텍스트에서 오디오(음성 클로닝)',

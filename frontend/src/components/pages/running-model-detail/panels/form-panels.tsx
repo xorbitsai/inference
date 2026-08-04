@@ -365,6 +365,18 @@ export function AudioToTextPanel() {
   );
 }
 
+export function SpeakerEmbeddingPanel() {
+  return (
+    <FormField name="file" rules={[{ required: true }]}>
+      <FileUpload
+        accept="audio/*,video/*"
+        label="Upload or drop audio"
+        description="The model extracts one speaker embedding from the audio."
+      />
+    </FormField>
+  );
+}
+
 export function SpeechPanel({ model }: CapabilityFormProps) {
   const supportsVoiceCloning = model.model_ability.includes(ModelAbility.Text2audioVoiceCloning);
 

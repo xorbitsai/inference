@@ -25,6 +25,7 @@ import {
   OcrPanel,
   EmbedPanel,
   RerankPanel,
+  SpeakerEmbeddingPanel,
   SpeechPanel,
   TextPromptPanel,
   TextToImagePanel,
@@ -175,6 +176,16 @@ function audioTextFormData(context: TransformContext) {
   return formData;
 }
 
+function audioEmbeddingFormData(context: TransformContext) {
+  const { modelUid, values } = context;
+  const audio = firstUpload(values, 'file');
+  const formData = new FormData();
+
+  formData.append('model', modelUid);
+  if (audio) formData.append('file', audio.file);
+  return formData;
+}
+
 export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>> = {
   [ModelAbility.Generate]: {
     ability: ModelAbility.Generate,
@@ -234,6 +245,24 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
       model: modelUid,
       input: stringValue(values.input),
     }),
+  },
+  [ModelAbility.SpeakerEmbedding]: {
+    ability: ModelAbility.SpeakerEmbedding,
+    label: 'Speaker Embedding',
+    icon: Binary,
+    requestApi: '/v1/audio/embeddings',
+    codeExample: {
+      method: 'POST',
+      contentType: 'form',
+      fields: [
+        { key: 'model', required: true },
+        { key: 'file', required: true, type: 'file', value: '/path/to/speaker.wav' },
+      ],
+    },
+    initialValues: { file: [] },
+    formPanel: SpeakerEmbeddingPanel,
+    resultPanel: ResultPanels.Universal,
+    transformValues: audioEmbeddingFormData,
   },
   [ModelAbility.Rerank]: {
     ability: ModelAbility.Rerank,
@@ -432,7 +461,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
           key: 'kwargs',
           value: {
             ...imageKwargsExample,
-            strength: 0.6
+            strength: 0.6,
           },
           stringify: true,
           comment: 'Optional(other key/value)',
@@ -471,7 +500,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
           key: 'kwargs',
           value: {
             ...imageKwargsExample,
-            strength: 0.6
+            strength: 0.6,
           },
           stringify: true,
           comment: 'Optional(other key/value)',

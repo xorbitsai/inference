@@ -4,19 +4,20 @@
 Audio
 =====
 
-Learn how to turn audio into text or text into audio with Xinference.
+Learn how to turn audio into text, text into audio, or audio into speaker embeddings with Xinference.
 
 
 Introduction
 ==================
 
 
-The Audio API provides three methods for interacting with audio:
+The Audio API provides four methods for interacting with audio:
 
 
 * The transcriptions endpoint transcribes audio into the input language.
 * The translations endpoint translates audio into English.
 * The speech endpoint generates audio from the input text.
+* The embeddings endpoint extracts a speaker embedding from an audio file.
 
 
 .. list-table:: 
@@ -34,6 +35,9 @@ The Audio API provides three methods for interacting with audio:
 
    * - Speech API
      - /v1/audio/speech
+
+   * - Speaker Embedding API
+     - /v1/audio/embeddings
 
 
 Supported models
@@ -97,6 +101,12 @@ Text to audio (TTS)
 * :ref:`Kokoro-82M-MLX <models_builtin_kokoro-82m-mlx>`
 * :ref:`MegaTTS3 <models_builtin_megatts3>`
 
+Speaker embeddings
+~~~~~~~~~~~~~~~~~~
+
+* :ref:`speech_campplus_sv_zh-cn_16k-common <models_builtin_speech_campplus_sv_zh-cn_16k-common>`
+* :ref:`speech_campplus_sv_zh_en_16k-common_advanced <models_builtin_speech_campplus_sv_zh_en_16k-common_advanced>`
+
 **Models supporting voice cloning** (requires reference audio):
 
 * :ref:`CosyVoice-300M <models_builtin_cosyvoice-300m>`
@@ -117,6 +127,49 @@ For Mac M-series chips only:
 
 Quickstart
 ===================
+
+Speaker Embeddings
+--------------------
+
+The Speaker Embedding API accepts one audio file and returns one speaker
+embedding. The built-in CAMPPlus models return a 192-dimensional vector. The
+endpoint is intentionally stateless: applications can store the returned vectors
+and use cosine similarity for speaker verification or 1:N speaker identification.
+
+.. tabs::
+
+  .. code-tab:: bash cURL
+
+    curl -X POST \
+      'http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1/audio/embeddings' \
+      -H 'accept: application/json' \
+      -F 'model=<MODEL_UID>' \
+      -F 'file=@speaker.wav'
+
+  .. code-tab:: python Xinference Python Client
+
+    from xinference.client import Client
+
+    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
+    model = client.get_model("<MODEL_UID>")
+
+    with open("speaker.wav", "rb") as audio_file:
+        result = model.create_embedding(audio_file.read())
+
+    embedding = result["embedding"]
+
+  .. code-tab:: json output
+
+    {
+      "object": "embedding",
+      "model": "<MODEL_UID>",
+      "dimensions": 192,
+      "embedding": [0.0123, -0.0456, 0.0789]
+    }
+
+ModelScope decodes the input, converts multi-channel audio to one channel, and
+resamples it to the model's 16 kHz sample rate. The returned vector preserves
+the model output. Use cosine similarity when comparing two vectors.
 
 Transcription
 --------------------
