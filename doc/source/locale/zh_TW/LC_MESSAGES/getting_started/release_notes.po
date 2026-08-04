@@ -211,3 +211,4 @@ msgid ""
 msgstr ""
 "更多歷史版本及原始碼，請造訪 GitHub "
 "Releases：https://github.com/xorbitsai/inference/releases"
+ Xinference/Xagent
