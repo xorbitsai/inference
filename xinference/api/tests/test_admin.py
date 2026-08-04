@@ -360,25 +360,30 @@ async def test_search_audit_elasticsearch_partially_matches_text_fields(monkeypa
     await admin.search_audit_logs(
         user="min",
         api_key_name="obo",
-        model_id="SenseVoiceSmall",
+        model_id="bge-m3",
         model_name="voice",
         client_ip="168.1",
     )
 
+    def expected_wildcard_filter(field_name, value):
+        wildcard = {"value": f"*{value}*", "case_insensitive": True}
+        return {
+            "bool": {
+                "should": [
+                    {"wildcard": {field_name: wildcard}},
+                    {"wildcard": {f"{field_name}.keyword": wildcard}},
+                ],
+                "minimum_should_match": 1,
+            }
+        }
+
     assert captured["body"]["query"]["bool"]["filter"] == [
         {"range": {"@timestamp": {"gte": "now-1h", "lte": "now"}}},
-        {"wildcard": {"user": {"value": "*min*", "case_insensitive": True}}},
-        {"wildcard": {"api_key_name": {"value": "*obo*", "case_insensitive": True}}},
-        {
-            "wildcard": {
-                "model_id": {
-                    "value": "*SenseVoiceSmall*",
-                    "case_insensitive": True,
-                }
-            }
-        },
-        {"wildcard": {"model_name": {"value": "*voice*", "case_insensitive": True}}},
-        {"wildcard": {"client_ip": {"value": "*168.1*", "case_insensitive": True}}},
+        expected_wildcard_filter("user", "min"),
+        expected_wildcard_filter("api_key_name", "obo"),
+        expected_wildcard_filter("model_id", "bge-m3"),
+        expected_wildcard_filter("model_name", "voice"),
+        expected_wildcard_filter("client_ip", "168.1"),
     ]
 
 

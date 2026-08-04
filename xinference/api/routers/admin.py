@@ -739,12 +739,17 @@ def _matches_audit_text_filter(value: Any, query: str) -> bool:
 
 def _audit_text_wildcard_filter(field_name: str, value: str) -> dict[str, Any]:
     escaped_value = value.replace("\\", "\\\\").replace("*", "\\*").replace("?", "\\?")
+    wildcard_value = {
+        "value": f"*{escaped_value}*",
+        "case_insensitive": True,
+    }
     return {
-        "wildcard": {
-            field_name: {
-                "value": f"*{escaped_value}*",
-                "case_insensitive": True,
-            }
+        "bool": {
+            "should": [
+                {"wildcard": {field_name: wildcard_value}},
+                {"wildcard": {f"{field_name}.keyword": wildcard_value}},
+            ],
+            "minimum_should_match": 1,
         }
     }
 
