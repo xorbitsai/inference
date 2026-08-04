@@ -218,9 +218,9 @@ export function OcrPanel() {
     <>
       <FormField name="image" rules={[{ required: true }]}>
         <FileUpload
-          accept="image/*"
-          label="Upload image"
-          description="PNG, JPG, WebP or scanned page"
+          accept="image/*,application/pdf"
+          label="Upload image or PDF"
+          description="PNG, JPG, WebP, scanned page or PDF document"
         />
       </FormField>
       <div className="grid grid-cols-2 gap-3">

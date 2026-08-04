@@ -101,6 +101,7 @@ dev = [
     "langchain-openai",
     "sphinx-tabs",
     "sphinx-design",
+    "pypdfium2",  # For PDF OCR tests
 ]
 otel = [
     "opentelemetry-api>=1.20.0",
@@ -194,6 +195,7 @@ image = [
     "torch",  # For got_ocr2
     "torchvision",  # For got_ocr2
     "gguf",  # For flux and sd3.5 series
+    "pypdfium2",  # For PDF input on the OCR API
 ]
 video = [
     "diffusers>=0.32.0",
