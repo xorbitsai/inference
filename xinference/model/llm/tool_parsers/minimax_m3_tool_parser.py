@@ -40,10 +40,10 @@ class MiniMaxM3ToolParser(ToolParser):
             re.DOTALL,
         )
         self.invoke_regex = re.compile(
-            r"<invoke\s+name=\"([^\"]+)\">(.*?)</invoke>", re.DOTALL
+            r"<invoke\s+name=[\"']([^\"']+)[\"']>(.*?)</invoke>", re.DOTALL
         )
         self.param_regex = re.compile(
-            r"<parameter\s+name=\"([^\"]+)\">(.*?)</parameter>", re.DOTALL
+            r"<parameter\s+name=[\"']([^\"']+)[\"']>(.*?)</parameter>", re.DOTALL
         )
 
     def _parse_param_value(self, value: str) -> Any:
