@@ -225,3 +225,83 @@ def test_lift_logprob_request_params_is_empty_when_unrequested():
     sampling_params = {"temperature": 0.7}
     assert SGLANGModel._lift_logprob_request_params(sampling_params) == {}
     assert sampling_params == {"temperature": 0.7}
+
+
+def test_sanitize_treats_completion_logprobs_zero_as_request():
+    from ..core import SGLANGModel
+
+    # /v1/completions: logprobs=0 requests the selected-token logprob with zero
+    # alternatives. The bare `if logprobs_req:` truthiness check treated 0 as
+    # opt-out, so return_logprob was never sent and the response stayed
+    # logprobs=None. Distinguish chat False from completion int 0 explicitly.
+    cfg = SGLANGModel._sanitize_generate_config({"logprobs": 0})
+    assert cfg["return_logprob"] is True
+    assert cfg["top_logprobs_num"] == 0
+    assert cfg["return_text_in_logprobs"] is True
+    assert "logprobs" not in cfg
+    assert "top_logprobs" not in cfg
+
+
+def test_sanitize_chat_logprobs_false_opts_out():
+    from ..core import SGLANGModel
+
+    # chat completions: logprobs=False explicitly opts out. False is an int
+    # subclass but must NOT request logprobs.
+    cfg = SGLANGModel._sanitize_generate_config({"logprobs": False})
+    assert "return_logprob" not in cfg
+    assert "top_logprobs_num" not in cfg
+    assert "return_text_in_logprobs" not in cfg
+    assert "logprobs" not in cfg
+
+
+def test_slice_stream_logprobs_emits_per_chunk_delta():
+    from ..core import SGLANGModel
+
+    # sglang with incremental_streaming_output=False sends CUMULATIVE logprob
+    # arrays in every chunk's meta_info. Slicing must emit only the
+    # not-yet-consumed tail per chunk, so chunk 1 emits [A] and chunk 2 emits
+    # [B], not [A] then [A, B].
+    chunk1_meta = {
+        "prompt_tokens": 1,
+        "completion_tokens": 1,
+        "output_token_logprobs": [(-0.5, 4398, "Hello")],
+        "output_top_logprobs": [[(-0.5, 4398, "Hello"), (-3.0, 912, "Hi")]],
+    }
+    chunk2_meta = {
+        "prompt_tokens": 1,
+        "completion_tokens": 2,
+        "output_token_logprobs": [(-0.5, 4398, "Hello"), (-1.2, 290, " world")],
+        "output_top_logprobs": [
+            [(-0.5, 4398, "Hello"), (-3.0, 912, "Hi")],
+            [(-1.2, 290, " world"), (-2.5, 818, " there")],
+        ],
+    }
+
+    delta1, consumed = SGLANGModel._slice_stream_logprobs(chunk1_meta, 0)
+    assert consumed == 1
+    assert delta1["output_token_logprobs"] == [(-0.5, 4398, "Hello")]
+    assert delta1["output_top_logprobs"] == [[(-0.5, 4398, "Hello"), (-3.0, 912, "Hi")]]
+    lp1 = SGLANGModel._build_logprobs(delta1)
+    assert lp1["tokens"] == ["Hello"]
+
+    delta2, consumed = SGLANGModel._slice_stream_logprobs(chunk2_meta, consumed)
+    assert consumed == 2
+    # only the second token reaches this chunk
+    assert delta2["output_token_logprobs"] == [(-1.2, 290, " world")]
+    assert delta2["output_top_logprobs"] == [
+        [(-1.2, 290, " world"), (-2.5, 818, " there")]
+    ]
+    lp2 = SGLANGModel._build_logprobs(delta2)
+    assert lp2["tokens"] == [" world"]
+
+
+def test_slice_stream_logprobs_passthrough_when_no_logprob_data():
+    from ..core import SGLANGModel
+
+    # a chunk that carries no logprob data (caller did not request
+    # return_logprob) passes through unchanged and leaves the counter untouched,
+    # so a later cumulative chunk still slices correctly.
+    meta = {"prompt_tokens": 1, "completion_tokens": 1}
+    delta, consumed = SGLANGModel._slice_stream_logprobs(meta, 0)
+    assert delta is meta
+    assert consumed == 0

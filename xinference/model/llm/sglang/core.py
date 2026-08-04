@@ -440,7 +440,13 @@ class SGLANGModel(LLM):
         # methods so the engine both produces and returns logprob data.
         logprobs_req = generate_config.pop("logprobs", None)  # type: ignore
         top_logprobs_req = generate_config.pop("top_logprobs", None)  # type: ignore
-        if logprobs_req:
+        # A request is active when the caller explicitly opted in. For chat
+        # completions ``logprobs`` is a bool flag (False = opt out); for legacy
+        # /v1/completions it is an int count where 0 means "selected-token
+        # logprob, no alternatives". A bare truthiness check treated completion
+        # 0 as opt-out, so ``return_logprob`` was never sent and the response
+        # stayed ``logprobs=None``. Distinguish chat False from completion int 0.
+        if logprobs_req is not None and logprobs_req is not False:
             if isinstance(logprobs_req, bool):
                 # chat completions: logprobs is a flag, top_logprobs holds the count
                 top_k = max(int(top_logprobs_req or 0), 0)
@@ -673,6 +679,39 @@ class SGLANGModel(LLM):
                 top[k] = sampling_params.pop(k)
         return top
 
+    @staticmethod
+    def _slice_stream_logprobs(meta_info: Dict, consumed: int) -> Tuple[Dict, int]:
+        """Slice cumulative sglang streaming logprob arrays to the per-chunk delta.
+
+        With ``incremental_streaming_output=False`` (sglang default), every
+        streamed ``meta_info`` carries cumulative ``output_token_logprobs`` and
+        ``output_top_logprobs``. Forwarding it unchanged re-emits earlier tokens
+        on every chunk (chunk 1 -> ``[A]``, chunk 2 -> ``[A, B]`` instead of
+        ``[B]``). This returns a shallow-copied ``meta_info`` whose logprob
+        arrays hold only the not-yet-consumed tail, plus the new consumed count
+        (the full cumulative length after this chunk). When this chunk carries
+        no logprob data, ``meta_info`` is returned unchanged and the counter is
+        untouched so a later cumulative chunk still slices correctly.
+        """
+        token_lps = meta_info.get("output_token_logprobs")
+        if not token_lps:
+            return meta_info, consumed
+        total = len(token_lps)
+        delta = dict(meta_info)
+        delta["output_token_logprobs"] = token_lps[consumed:]
+        top_lps = meta_info.get("output_top_logprobs") or meta_info.get(
+            "output_topk_logprobs"
+        )
+        if isinstance(top_lps, list):
+            sliced_top = top_lps[consumed:]
+            if "output_top_logprobs" in meta_info:
+                delta["output_top_logprobs"] = sliced_top
+            elif "output_topk_logprobs" in meta_info:
+                delta["output_topk_logprobs"] = sliced_top
+            else:
+                delta["output_top_logprobs"] = sliced_top
+        return delta, total
+
     async def _stream_generate(
         self,
         prompt: str,
@@ -690,6 +729,10 @@ class SGLANGModel(LLM):
             **self._lift_logprob_request_params(sampling_params),
         }
         pos = 0
+        # sglang (incremental_streaming_output=False) sends cumulative logprob
+        # arrays per chunk; track how many we have already emitted so each chunk
+        # only carries its delta, not the whole prefix again.
+        logprob_consumed = 0
 
         timeout = aiohttp.ClientTimeout(total=3 * 3600)
         async with aiohttp.ClientSession(timeout=timeout, trust_env=True) as session:
@@ -708,7 +751,12 @@ class SGLANGModel(LLM):
                             data = json.loads(chunk[5:].strip("\n"))
                             cur = data["text"][pos:]
                             if cur:
-                                yield data["meta_info"], cur
+                                meta_info, logprob_consumed = (
+                                    SGLANGModel._slice_stream_logprobs(
+                                        data["meta_info"], logprob_consumed
+                                    )
+                                )
+                                yield meta_info, cur
                             pos += len(cur)
                             if need_stop:
                                 break
