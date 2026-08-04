@@ -733,6 +733,35 @@ def _parse_relative_time(expr: str) -> Optional[datetime]:
     return None
 
 
+def _escape_es_wildcard(value: str) -> str:
+    """Escape characters that are special to an Elasticsearch wildcard query."""
+    return value.replace("\\", "\\\\").replace("*", "\\*").replace("?", "\\?")
+
+
+def _match_substring(stored: Any, needle: str) -> bool:
+    """Case-insensitive substring match used by audit free-text filters.
+
+    An empty ``needle`` means the filter is not active and matches everything.
+    """
+    if not needle:
+        return True
+    if not isinstance(stored, str):
+        return False
+    return needle.lower() in stored.lower()
+
+
+def _match_enum(stored: Any, allowed: set) -> bool:
+    """Case-insensitive exact match against a set of allowed values.
+
+    An empty ``allowed`` set means the filter is not active.
+    """
+    if not allowed:
+        return True
+    if not isinstance(stored, str):
+        return False
+    return stored.lower() in allowed
+
+
 async def _search_audit_from_file(
     *,
     time_from: str,
@@ -801,31 +830,25 @@ async def _search_audit_from_file(
                     if t_to and ts > t_to:
                         continue
 
-                if user and entry.get("user") != user:
-                    continue
-                if api_key_name and entry.get("api_key_name") != api_key_name:
-                    continue
-                if model_id and entry.get("model_id") != model_id:
-                    continue
-                if model_name and entry.get("model_name") != model_name:
-                    continue
-                if client_ip and entry.get("client_ip") != client_ip:
-                    continue
-                if status_set and entry.get("status", "").lower() not in status_set:
-                    continue
-                if (
-                    category_set
-                    and entry.get("category", "").lower() not in category_set
+                if not all(
+                    _match_substring(entry.get(field), needle)
+                    for field, needle in (
+                        ("user", user),
+                        ("api_key_name", api_key_name),
+                        ("model_id", model_id),
+                        ("model_name", model_name),
+                        ("client_ip", client_ip),
+                    )
                 ):
                     continue
-                if (
-                    model_type_set
-                    and entry.get("model_type", "").lower() not in model_type_set
-                ):
-                    continue
-                if (
-                    auth_type_set
-                    and entry.get("auth_type", "").lower() not in auth_type_set
+                if not all(
+                    _match_enum(entry.get(field), allowed)
+                    for field, allowed in (
+                        ("status", status_set),
+                        ("category", category_set),
+                        ("model_type", model_type_set),
+                        ("auth_type", auth_type_set),
+                    )
                 ):
                     continue
 
@@ -893,7 +916,20 @@ async def search_audit_logs(
         ("client_ip", client_ip),
     ]:
         if value:
-            filter_clauses.append({"term": {field_name: value}})
+            # Substring, case-insensitive, to match the file-mode semantics.
+            # Query the `.keyword` subfield: under ES dynamic mapping these are
+            # `text` + `.keyword`, and the analyzed `text` field would never
+            # match a value containing uppercase or `-`/`_`/`/`.
+            filter_clauses.append(
+                {
+                    "wildcard": {
+                        f"{field_name}.keyword": {
+                            "value": f"*{_escape_es_wildcard(value)}*",
+                            "case_insensitive": True,
+                        }
+                    }
+                }
+            )
 
     for field_name, value in [
         ("model_type", model_type),
