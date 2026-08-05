@@ -796,9 +796,11 @@ def _audit_entry_in_time_range(
         timestamp = datetime.fromisoformat(
             str(entry.get("@timestamp", "")).replace("Z", "+00:00")
         )
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
+        return not ((t_from and timestamp < t_from) or (t_to and timestamp > t_to))
     except (ValueError, TypeError):
         return False
-    return not ((t_from and timestamp < t_from) or (t_to and timestamp > t_to))
 
 
 async def _search_audit_from_file(
