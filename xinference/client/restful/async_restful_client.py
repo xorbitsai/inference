@@ -1352,7 +1352,7 @@ class AsyncClient:
             Per-replica placement spec. Each item is ``{"replica_uid": str|None,
             "devices": [{"worker_ip": "ip:port", "n_gpu": int|"auto",
             "gpu_idx": [int]|None}]}``. When set, each replica is pinned to the
-            given worker/GPU and the legacy worker_ip/n_gpu/gpu_idx are ignored.
+            given worker/GPU. Do not combine it with worker_ip/n_gpu/gpu_idx.
             An omitted replica_uid defaults to ``{model_uid}-{replica_index}``.
             ``devices`` length must be 1 (no cross-worker sharding per replica).
         model_path: Optional[str]
@@ -1517,9 +1517,7 @@ class AsyncClient:
         payload: Dict[str, Any] = {}
         if replica_config is not None:
             payload["replica_config"] = replica_config
-        response = await self.session.post(
-            url, json=payload if payload else None, headers=self._headers
-        )
+        response = await self.session.post(url, json=payload, headers=self._headers)
         if response.status != 200:
             raise RuntimeError(
                 f"Failed to add model replica, detail: {await _get_error_string(response)}"

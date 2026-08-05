@@ -1167,7 +1167,7 @@ class RESTfulAPI(CancelMixin):
         return JSONResponse(content=None)
 
     async def add_model_replica(
-        self, model_uid: str, payload: dict[str, Any]
+        self, model_uid: str, payload: Optional[dict[str, Any]] = None
     ) -> JSONResponse:
         """Add a single new replica to a running model (scale-up).
 
@@ -1176,6 +1176,7 @@ class RESTfulAPI(CancelMixin):
         supervisor auto-selects the least-loaded worker.
         """
         try:
+            payload = payload or {}
             replica_config_raw = payload.get("replica_config", None)
             replica_config: Optional[ReplicaConfig] = None
             if replica_config_raw is not None:
@@ -1197,13 +1198,13 @@ class RESTfulAPI(CancelMixin):
                         detail="replica_config must contain exactly one device entry for scale-up.",
                     )
 
-            result = await (
-                await self._get_supervisor_ref()
-            ).add_model_replica(
+            result = await (await self._get_supervisor_ref()).add_model_replica(
                 model_uid=model_uid,
                 replica_config=replica_config,
             )
             return JSONResponse(content=result)
+        except HTTPException:
+            raise
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))
@@ -1232,6 +1233,10 @@ class RESTfulAPI(CancelMixin):
                         and route.path == "/" + model_uid
                     )
                 ]
+                self._uid_to_model_name.pop(model_uid, None)
+                from .oauth2.advanced.audit import evict_model_cache
+
+                evict_model_cache(model_uid)
             return JSONResponse(content={"remaining_replicas": remaining_replicas})
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
