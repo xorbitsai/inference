@@ -994,8 +994,8 @@ async def list_audit_filter_options(
                 raise HTTPException(
                     status_code=502, detail="Elasticsearch query failed"
                 )
-    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-        logger.error("ES connection error or timeout: %s", e)
+    except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as e:
+        logger.error("ES connection error, timeout, or invalid response: %s", e)
         raise HTTPException(status_code=502, detail="Audit service unavailable")
 
     aggregations = data.get("aggregations", {})
