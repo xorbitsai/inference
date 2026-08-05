@@ -440,6 +440,8 @@ def _reset_auto_hub_cache(monkeypatch):
 
     monkeypatch.setattr(model_utils, "_auto_detected_hub", None)
     monkeypatch.delenv("XINFERENCE_MODEL_SRC", raising=False)
+    monkeypatch.delenv("HF_HUB_OFFLINE", raising=False)
+    monkeypatch.delenv("TRANSFORMERS_OFFLINE", raising=False)
     yield
     model_utils._auto_detected_hub = None
 
@@ -589,3 +591,27 @@ def test_explicit_download_hub_overrides_model_src_env(
     assert match_video_diffusion("CogVideoX-2b").model_hub == "modelscope"
     assert match_rerank("bge-reranker-large").model_specs[0].model_hub == "modelscope"
     assert match_embedding("bge-large-en").model_specs[0].model_hub == "modelscope"
+
+
+@pytest.mark.parametrize("offline_var", ["HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE"])
+def test_auto_detect_honors_hf_offline_mode(
+    monkeypatch, _reset_auto_hub_cache, offline_var
+):
+    import xinference.model.utils as model_utils
+
+    calls = {"n": 0}
+
+    def probe(url, timeout):
+        calls["n"] += 1
+        return False
+
+    monkeypatch.setattr(model_utils, "_is_hub_endpoint_reachable", probe)
+    monkeypatch.setenv(offline_var, "1")
+
+    # Offline deployments read weights from a pre-populated local Hugging
+    # Face cache: detection must pick huggingface without probing the
+    # network instead of falling back to modelscope.
+    assert model_utils.auto_detect_download_hub() == "huggingface"
+    assert calls["n"] == 0
+    assert model_utils.resolve_download_hub(None) == "huggingface"
+    assert model_utils.resolve_download_hub("auto") == "huggingface"

@@ -660,20 +660,41 @@ def _is_hub_endpoint_reachable(url: str, timeout: float) -> bool:
     return response.status_code < 400
 
 
+def _hf_offline_mode_enabled() -> bool:
+    # Same truthy values huggingface_hub accepts for these variables.
+    return any(
+        os.environ.get(var, "").strip().lower() in ("1", "true", "yes", "on")
+        for var in ("HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE")
+    )
+
+
 def auto_detect_download_hub() -> str:
     """
     Decide between huggingface and modelscope by probing connectivity.
 
     Probes the Hugging Face endpoint (honoring ``HF_ENDPOINT`` mirrors and
     ``HTTP(S)_PROXY`` proxies). If it is reachable, returns "huggingface";
-    otherwise falls back to "modelscope". The result is cached for the
-    lifetime of the process so the probe runs at most once.
+    otherwise falls back to "modelscope". When Hugging Face offline mode is
+    enabled (``HF_HUB_OFFLINE`` / ``TRANSFORMERS_OFFLINE``), no probe runs and
+    "huggingface" is returned directly: offline deployments read weights from
+    a pre-populated local Hugging Face cache, which the huggingface_hub
+    downloader resolves without network access, whereas falling back to
+    modelscope would bypass that cache and attempt a real download. The result
+    is cached for the lifetime of the process so the probe runs at most once.
     """
     global _auto_detected_hub
     if _auto_detected_hub is not None:
         return _auto_detected_hub
     with _auto_detect_hub_lock:
         if _auto_detected_hub is None:
+            if _hf_offline_mode_enabled():
+                _auto_detected_hub = "huggingface"
+                logger.info(
+                    "Auto-detected download hub: huggingface "
+                    "(Hugging Face offline mode is enabled; "
+                    "reading from the local cache)"
+                )
+                return _auto_detected_hub
             hf_endpoint = os.environ.get("HF_ENDPOINT") or "https://huggingface.co"
             if _is_hub_endpoint_reachable(hf_endpoint, XINFERENCE_HUB_DETECT_TIMEOUT):
                 _auto_detected_hub = "huggingface"
