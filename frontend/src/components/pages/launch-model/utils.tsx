@@ -414,6 +414,8 @@ function normalizeNGPU(value?: string | number) {
 
   return value === 0 ? null : value;
 }
+export const GPU_IDX_PATTERN = /^\d+(?:\s*,\s*\d+)*$/;
+
 export const parseGpuIndexes = (value?: string): number[] | undefined => {
   if (!value) return undefined;
 
@@ -488,6 +490,36 @@ export function transformFormToFetch(values: FormValues) {
   if (nextValues.gguf_quantization === 'none') {
     delete nextValues.gguf_quantization;
   }
+
+  // Per-replica placement. `replica_placement_mode` is UI-only and never sent.
+  const placementMode = nextValues.replica_placement_mode;
+  delete nextValues.replica_placement_mode;
+  if (placementMode === 'custom') {
+    const rows = Array.isArray(nextValues.replica_config) ? nextValues.replica_config : [];
+    nextValues.replica_config = rows
+      .filter((row: unknown) => isRecord(row) && row.worker_ip)
+      .map((row: UnknownRecord) => {
+        const gpuIdx = parseGpuIndexes(row.gpu_idx as string);
+        return {
+          replica_uid:
+            typeof row.replica_uid === 'string' ? row.replica_uid.trim() || undefined : undefined,
+          devices: [
+            {
+              worker_ip: row.worker_ip,
+              n_gpu: gpuIdx ? gpuIdx.length : 'auto',
+              gpu_idx: gpuIdx,
+            },
+          ],
+        };
+      });
+    // Mutual exclusion: the legacy global placement fields must not be sent
+    // together with replica_config (the backend rejects this).
+    delete nextValues.worker_ip;
+    delete nextValues.n_gpu;
+    delete nextValues.gpu_idx;
+  } else {
+    delete nextValues.replica_config;
+  }
   return nextValues;
 }
 function restoreNGPU(value: null | string | number, modelType: RequestModelType) {
@@ -515,6 +547,20 @@ export function transformFetchToForm(values: FormValues) {
   }
   if ('worker_ip' in values) {
     nextValues.worker_ip = transformWorkerIpToForm(values.worker_ip);
+  }
+  if (Array.isArray(nextValues.replica_config)) {
+    nextValues.replica_config = nextValues.replica_config.map((entry: unknown) => {
+      const device = isRecord(entry) && Array.isArray(entry.devices) ? entry.devices[0] : {};
+      const deviceRecord = isRecord(device) ? device : {};
+      return {
+        replica_uid: (isRecord(entry) && entry.replica_uid) || '',
+        worker_ip: deviceRecord.worker_ip || '',
+        gpu_idx: Array.isArray(deviceRecord.gpu_idx) ? deviceRecord.gpu_idx.join(',') : '',
+      };
+    });
+    nextValues.replica_placement_mode = 'custom';
+  } else if (nextValues.replica_placement_mode === undefined) {
+    nextValues.replica_placement_mode = 'auto';
   }
   return nextValues;
 }
@@ -654,6 +700,11 @@ export function generateCommandLineStatement(params: FormValues) {
     ...entries.filter(([key]) => !commandLeadingKeys.includes(key)),
   ]
     .flatMap(([key, value]) => {
+      // CLI has no --replica-config flag, so per-replica placement is not
+      // expressible on the command line. Skip these UI-only / unsupported keys.
+      if (key === 'replica_config' || key === 'replica_placement_mode') {
+        return [];
+      }
       if (key === 'gpu_idx' && Array.isArray(value)) {
         return `--gpu-idx ${quoteCommandValue(value.join(','))}`;
       }
@@ -907,56 +958,34 @@ export function isVisibleRequiredLaunchField(field: LaunchFieldConfig) {
   return field.show !== false && 'rules' in field && field.rules?.some((rule) => rule.required);
 }
 
-export function normalizeWorkerAddress(value: unknown) {
-  const normalized = String(value || '').trim();
-  if (!normalized) return '';
-
-  try {
-    return new URL(`http://${normalized}`).hostname.replace(/^\[|\]$/g, '');
-  } catch {
-    if (normalized.startsWith('[')) {
-      const closingBracketIndex = normalized.indexOf(']');
-      if (closingBracketIndex !== -1) {
-        return normalized.slice(1, closingBracketIndex).trim();
-      }
-    }
-
-    const lastColonIndex = normalized.lastIndexOf(':');
-    if (lastColonIndex === -1) return normalized;
-
-    const hasMultipleColons = normalized.indexOf(':') !== lastColonIndex;
-    if (hasMultipleColons) {
-      return normalized;
-    }
-
-    return normalized.slice(0, lastColonIndex).trim();
-  }
-}
-
-export function extractWorkerItems(
-  clusterInfo: ClusterInfoResponse,
-  t: TFunc
-): WorkerOption[] {
+/**
+ * Extract registered Worker addresses without dropping their ports.
+ *
+ * The full `ip:port` address identifies one concrete Worker. Keeping it for
+ * both automatic and per-replica placement prevents multiple Workers running
+ * on the same host from being merged into one ambiguous option.
+ */
+export function extractWorkerItems(clusterInfo: ClusterInfoResponse, t: TFunc): WorkerOption[] {
   if (!clusterInfo) return [];
   const isFlatNodeList = Array.isArray(clusterInfo);
   const nodes = isFlatNodeList ? clusterInfo : clusterInfo.workers || [];
   const workerMap = nodes.reduce<Map<string, WorkerOption>>((acc, node: ClusterInfo) => {
     if (isFlatNodeList && node.node_type !== 'Worker') return acc;
 
-    const workerIp = normalizeWorkerAddress(node.ip_address || node.ip);
-    if (!workerIp) return acc;
+    const fullAddress = String(node.ip_address || node.ip || '').trim();
+    if (!fullAddress) return acc;
 
     const gpuCount = Number(node.gpu_count || 0);
-    const existingWorker = acc.get(workerIp);
+    const existingWorker = acc.get(fullAddress);
 
     if (existingWorker) {
       existingWorker.gpuCount = Math.max(existingWorker.gpuCount, gpuCount);
       return acc;
     }
 
-    acc.set(workerIp, {
-      label: workerIp,
-      value: workerIp,
+    acc.set(fullAddress, {
+      label: fullAddress,
+      value: fullAddress,
       description: t('launchModel.gpuCount', { count: gpuCount }),
       gpuCount,
     });
