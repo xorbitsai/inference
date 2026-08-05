@@ -3201,12 +3201,11 @@ class SupervisorActor(xo.StatelessActor):
 
         # ---- 6. Resolve target worker / GPU --------------------------------------
         if replica_config is not None:
-            user_replica_uid = replica_config.replica_uid
             _resolved_targets, _replica_uid_map = await self._resolve_replica_config(
                 model_uid, replica=1, replica_config=[replica_config]
             )
             target_worker_ref, target_gpu_idx, target_n_gpu = _resolved_targets[0]
-            replica_uid_label = user_replica_uid
+            replica_uid_label = _replica_uid_map.get(0)
         else:
             # Auto-select: pick the worker with the fewest loaded models.
             workers = list(self._worker_address_to_worker.values())
@@ -3242,11 +3241,29 @@ class SupervisorActor(xo.StatelessActor):
         # does not inherit an old replica's pinned indexes.
         modified_args["gpu_idx"] = target_gpu_idx
         # Strip internal fields that must not be forwarded verbatim.
+        modified_args.pop("replica", None)
+        modified_args.pop("replica_config", None)
+        modified_args.pop("worker_ip", None)
+        modified_args.pop("replica_uid", None)
         modified_args.pop("launch_ts", None)
         modified_args.pop("origin_uid", None)
         modified_args.pop("cached_xoscar_address", None)
 
-        # ---- 8. Launch the new replica on the target worker ---------------------
+        # ---- 8. Mark the new replica as creating before the potentially slow RPC.
+        await self._status_guard_ref.update_replica_status(
+            model_uid,
+            new_replica_id,
+            {
+                "replica_model_uid": new_replica_uid,
+                "worker_address": target_worker_ref.address,
+                "status": LaunchStatus.CREATING.name,
+                "created_ts": int(time.time()),
+                "replica_uid": replica_uid_label,
+                "gpu_idx": list(target_gpu_idx) if target_gpu_idx else None,
+            },
+        )
+
+        # ---- 9. Launch the new replica on the target worker ---------------------
         worker_address = target_worker_ref.address
         self._workers_launching[worker_address] = (
             self._workers_launching.get(worker_address, 0) + 1
@@ -3263,6 +3280,16 @@ class SupervisorActor(xo.StatelessActor):
                 )
             except Exception:
                 pass
+            try:
+                await self._status_guard_ref.remove_replica_status(
+                    model_uid, new_replica_id
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to remove creating status for replica %s",
+                    new_replica_uid,
+                    exc_info=True,
+                )
             raise
         finally:
             current = self._workers_launching.get(worker_address, 1) - 1
@@ -3271,13 +3298,13 @@ class SupervisorActor(xo.StatelessActor):
             else:
                 self._workers_launching[worker_address] = current
 
-        # ---- 9. Register routing & replica info ---------------------------------
+        # ---- 10. Register routing & replica info --------------------------------
         self._replica_model_uid_to_worker[new_replica_uid] = target_worker_ref
         replica_info.replica_to_worker_refs[new_replica_id] = [target_worker_ref]
         replica_info.active_replica_ids.append(new_replica_id)
         self._refresh_replica_scheduler(replica_info)
 
-        # ---- 10. Update status guard ---------------------------------------------
+        # ---- 11. Update status guard ---------------------------------------------
         # Note: update_replica_status does NOT bump instance_info.replica, so we
         # must explicitly update it afterward (mirrors terminate asymmetry).
         await self._status_guard_ref.update_replica_status(
@@ -3296,7 +3323,7 @@ class SupervisorActor(xo.StatelessActor):
             {"replica": len(replica_info.active_replica_ids)},
         )
 
-        # ---- 11. Invalidate caches -----------------------------------------------
+        # ---- 12. Invalidate caches -----------------------------------------------
         self._invalidate_list_models_debounce_cache()
 
         logger.info(
