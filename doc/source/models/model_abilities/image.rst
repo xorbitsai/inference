@@ -352,7 +352,7 @@ For example, using ``4steps-V1.0``, the inference time is reduced from the origi
 OCR
 --------------------
 
-The OCR API accepts image bytes and returns the OCR text.
+The OCR API accepts image or PDF bytes and returns the OCR text.
 
 We can try OCR API out either via cURL, or Xinference's python client:
 
@@ -381,3 +381,26 @@ We can try OCR API out either via cURL, or Xinference's python client:
   .. code-tab:: text output
 
     <OCR result string>
+
+PDF uploads are rasterized page by page (requires ``pypdfium2``, included in the
+``image`` extra), OCR runs on each page, and the results are merged:
+
+* When the model returns plain text, the page texts are joined with blank lines
+  and the response stays a single string, same as for an image.
+* When the model returns structured results (e.g. with ``return_dict`` style
+  options), the response is ``{"pages": [{"page": 1, "result": ...}, ...]}``.
+
+Two optional PDF-only ``kwargs`` fields are supported: ``pages`` (a 1-based page
+number or list of page numbers to OCR, defaults to all pages) and ``dpi`` (the
+rasterization resolution, defaults to 200, capped at 600). Pages are rasterized
+one at a time to keep memory usage flat; at most 200 pages can be OCRed per
+request (use ``pages`` to select a subset of larger documents), and a page whose
+raster would exceed 80 megapixels is rejected — lower ``dpi`` in that case:
+
+.. code-block:: bash
+
+    curl -X 'POST' \
+      'http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1/images/ocr' \
+      -F model=<MODEL_UID> \
+      -F 'kwargs={"pages": [1, 2], "dpi": 300}' \
+      -F image=@xxx.pdf
