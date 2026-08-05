@@ -63,18 +63,18 @@ const ReplicaPlacementConfig: FC<ReplicaPlacementConfigProps> = ({ form, workerO
           className="grid grid-cols-[1fr_2fr_1fr] items-center gap-2 rounded-md border border-border/70 p-2"
         >
           <Input
-            value={row.replica_uid ?? ''}
+            value={row?.replica_uid ?? ''}
             placeholder={t('launchModel.replicaUidPlaceholder')}
             onChange={(e) => patchRow(index, { replica_uid: e.target.value })}
           />
           <Select
-            value={row.worker_ip}
+            value={row?.worker_ip ?? ''}
             options={workerOptions}
             placeholder={t('launchModel.workerIpPlaceholder')}
             onChange={(value) => patchRow(index, { worker_ip: (value as string) ?? '' })}
           />
           <Input
-            value={row.gpu_idx ?? ''}
+            value={row?.gpu_idx ?? ''}
             placeholder={t('launchModel.GPUIdxPlaceholder')}
             onChange={(e) => patchRow(index, { gpu_idx: e.target.value })}
           />

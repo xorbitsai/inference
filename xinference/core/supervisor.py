@@ -2138,7 +2138,10 @@ class SupervisorActor(xo.StatelessActor):
                             "this worker disallows sharing a GPU."
                         )
                     used.update(gpu_idx)
-            resolved_targets.append((worker_ref, gpu_idx, device.n_gpu))
+            target_n_gpu = (
+                len(gpu_idx) if gpu_idx and device.n_gpu == "auto" else device.n_gpu
+            )
+            resolved_targets.append((worker_ref, gpu_idx, target_n_gpu))
             replica_uid_map[idx] = cfg.replica_uid
 
         return resolved_targets, replica_uid_map

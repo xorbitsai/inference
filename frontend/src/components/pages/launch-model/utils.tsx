@@ -414,6 +414,8 @@ function normalizeNGPU(value?: string | number) {
 
   return value === 0 ? null : value;
 }
+export const GPU_IDX_PATTERN = /^\d+(?:\s*,\s*\d+)*$/;
+
 export const parseGpuIndexes = (value?: string): number[] | undefined => {
   if (!value) return undefined;
 

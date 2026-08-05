@@ -91,6 +91,22 @@ def test_normalize_n_gpu_consistency():
     normalize_replica_configs("m", 1, [_cfg(n_gpu="auto", gpu_idx=[0])])
 
 
+def test_normalize_rejects_duplicate_gpu_indexes_within_replica():
+    with pytest.raises(ValueError, match="duplicate indexes"):
+        normalize_replica_configs("m", 1, [_cfg(n_gpu=2, gpu_idx=[0, 0])])
+
+
+def test_normalize_replica_uid_strips_whitespace():
+    configs = normalize_replica_configs("m", 1, [_cfg(replica_uid="  primary  ")])
+    assert configs[0].replica_uid == "primary"
+
+
+@pytest.mark.parametrize("uid", ["", "   "])
+def test_normalize_rejects_blank_replica_uid(uid):
+    with pytest.raises(ValueError, match="must not be empty"):
+        normalize_replica_configs("m", 1, [_cfg(replica_uid=uid)])
+
+
 def test_normalize_missing_replica_uid_stays_none():
     configs = normalize_replica_configs(
         "my-model", 2, [_cfg(), _cfg(worker_ip="10.0.0.2:9978")]
@@ -134,6 +150,16 @@ def test_resolve_preserves_per_replica_n_gpu():
     assert targets[0][2] == 2
 
 
+def test_resolve_normalizes_auto_n_gpu_for_explicit_gpu_indexes():
+    w1 = _FakeWorker("10.0.0.1:9978", total=[0, 1, 2, 3])
+    sup = _make_supervisor([w1])
+    targets, _ = asyncio.run(
+        sup._resolve_replica_config("m", 1, [_cfg(worker_ip=w1.address, gpu_idx=[0, 1])])
+    )
+    assert targets[0][1] == [0, 1]
+    assert targets[0][2] == 2
+
+
 def test_resolve_rejects_existing_gpu_occupancy():
     w1 = _FakeWorker(
         "10.0.0.1:9978", total=[0, 1], allow_share=False, models={0: ["existing"]}
@@ -161,7 +187,7 @@ def test_resolve_valid():
     targets, uid_map = asyncio.run(sup._resolve_replica_config("m", 2, configs))
     assert targets[0][0].address == "10.0.0.1:9978"
     assert targets[0][1] == [0]
-    assert targets[0][2] == "auto"
+    assert targets[0][2] == 1
     assert targets[1][0].address == "10.0.0.2:9978"
     assert targets[1][1] == [1]
     assert uid_map == {0: None, 1: None}
