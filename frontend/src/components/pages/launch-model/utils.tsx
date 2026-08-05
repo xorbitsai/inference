@@ -488,6 +488,35 @@ export function transformFormToFetch(values: FormValues) {
   if (nextValues.gguf_quantization === 'none') {
     delete nextValues.gguf_quantization;
   }
+
+  // Per-replica placement. `replica_placement_mode` is UI-only and never sent.
+  const placementMode = nextValues.replica_placement_mode;
+  delete nextValues.replica_placement_mode;
+  if (placementMode === 'custom') {
+    const rows = Array.isArray(nextValues.replica_config) ? nextValues.replica_config : [];
+    nextValues.replica_config = rows
+      .filter((row: unknown) => isRecord(row) && row.worker_ip)
+      .map((row: UnknownRecord) => {
+        const gpuIdx = parseGpuIndexes(row.gpu_idx as string);
+        return {
+          replica_uid: row.replica_uid || undefined,
+          devices: [
+            {
+              worker_ip: row.worker_ip,
+              n_gpu: gpuIdx ? gpuIdx.length : 'auto',
+              gpu_idx: gpuIdx,
+            },
+          ],
+        };
+      });
+    // Mutual exclusion: the legacy global placement fields must not be sent
+    // together with replica_config (the backend rejects this).
+    delete nextValues.worker_ip;
+    delete nextValues.n_gpu;
+    delete nextValues.gpu_idx;
+  } else {
+    delete nextValues.replica_config;
+  }
   return nextValues;
 }
 function restoreNGPU(value: null | string | number, modelType: RequestModelType) {
@@ -515,6 +544,20 @@ export function transformFetchToForm(values: FormValues) {
   }
   if ('worker_ip' in values) {
     nextValues.worker_ip = transformWorkerIpToForm(values.worker_ip);
+  }
+  if (Array.isArray(nextValues.replica_config)) {
+    nextValues.replica_config = nextValues.replica_config.map((entry: unknown) => {
+      const device = isRecord(entry) && Array.isArray(entry.devices) ? entry.devices[0] : {};
+      const deviceRecord = isRecord(device) ? device : {};
+      return {
+        replica_uid: (isRecord(entry) && entry.replica_uid) || '',
+        worker_ip: deviceRecord.worker_ip || '',
+        gpu_idx: Array.isArray(deviceRecord.gpu_idx) ? deviceRecord.gpu_idx.join(',') : '',
+      };
+    });
+    nextValues.replica_placement_mode = 'custom';
+  } else if (nextValues.replica_placement_mode === undefined) {
+    nextValues.replica_placement_mode = 'auto';
   }
   return nextValues;
 }
@@ -654,6 +697,11 @@ export function generateCommandLineStatement(params: FormValues) {
     ...entries.filter(([key]) => !commandLeadingKeys.includes(key)),
   ]
     .flatMap(([key, value]) => {
+      // CLI has no --replica-config flag, so per-replica placement is not
+      // expressible on the command line. Skip these UI-only / unsupported keys.
+      if (key === 'replica_config' || key === 'replica_placement_mode') {
+        return [];
+      }
       if (key === 'gpu_idx' && Array.isArray(value)) {
         return `--gpu-idx ${quoteCommandValue(value.join(','))}`;
       }
@@ -933,10 +981,7 @@ export function normalizeWorkerAddress(value: unknown) {
   }
 }
 
-export function extractWorkerItems(
-  clusterInfo: ClusterInfoResponse,
-  t: TFunc
-): WorkerOption[] {
+export function extractWorkerItems(clusterInfo: ClusterInfoResponse, t: TFunc): WorkerOption[] {
   if (!clusterInfo) return [];
   const isFlatNodeList = Array.isArray(clusterInfo);
   const nodes = isFlatNodeList ? clusterInfo : clusterInfo.workers || [];
@@ -960,6 +1005,41 @@ export function extractWorkerItems(
       description: t('launchModel.gpuCount', { count: gpuCount }),
       gpuCount,
     });
+
+    return acc;
+  }, new Map());
+
+  return Array.from(workerMap.values()).sort((a, b) => a.label.localeCompare(b.label));
+}
+
+/**
+ * Like {@link extractWorkerItems} but keeps the FULL registered worker address
+ * (`ip:port`) and dedupes by full address. Required by `replica_config`, whose
+ * backend matches the exact `ip:port` (one host may run several workers on
+ * different ports, which IP-prefix matching cannot distinguish).
+ */
+export function extractFullAddressWorkerItems(
+  clusterInfo: ClusterInfoResponse,
+  t: TFunc
+): WorkerOption[] {
+  if (!clusterInfo) return [];
+  const isFlatNodeList = Array.isArray(clusterInfo);
+  const nodes = isFlatNodeList ? clusterInfo : clusterInfo.workers || [];
+  const workerMap = nodes.reduce<Map<string, WorkerOption>>((acc, node: ClusterInfo) => {
+    if (isFlatNodeList && node.node_type !== 'Worker') return acc;
+
+    const fullAddress = String(node.ip_address || node.ip || '').trim();
+    if (!fullAddress) return acc;
+
+    const gpuCount = Number(node.gpu_count || 0);
+    if (!acc.has(fullAddress)) {
+      acc.set(fullAddress, {
+        label: fullAddress,
+        value: fullAddress,
+        description: t('launchModel.gpuCount', { count: gpuCount }),
+        gpuCount,
+      });
+    }
 
     return acc;
   }, new Map());

@@ -103,6 +103,8 @@ export interface ReplicaItem {
   replica_model_uid: string;
   status: string;
   worker_address: string;
+  replica_uid?: string;
+  gpu_idx?: number[];
 }
 
 export interface RunningModelItem {
