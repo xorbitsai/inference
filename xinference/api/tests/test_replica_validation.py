@@ -12,14 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for the ``_validate_replica`` helper and its integration in REST endpoints."""
+"""Tests for REST launch payload validation helpers."""
 
 import math
 
 import pytest
 from fastapi import HTTPException
 
-from ..restful_api import _validate_replica
+from ..restful_api import _parse_replica_config, _validate_replica
 
 
 class TestValidateReplica:
@@ -117,3 +117,61 @@ class TestValidateReplica:
             _validate_replica(float("inf"))
         assert exc.value.status_code == 400
         assert "float" in exc.value.detail
+
+
+class TestParseReplicaConfig:
+    """Unit tests for ``_parse_replica_config``."""
+
+    def test_absent_config_returns_none(self):
+        assert _parse_replica_config({}) is None
+
+    def test_valid_config_is_parsed(self):
+        configs = _parse_replica_config(
+            {
+                "replica_config": [
+                    {
+                        "replica_uid": "replica-a",
+                        "devices": [
+                            {
+                                "worker_ip": "10.0.0.1:9978",
+                                "n_gpu": 1,
+                                "gpu_idx": [0],
+                            }
+                        ],
+                    }
+                ]
+            }
+        )
+
+        assert configs is not None
+        assert len(configs) == 1
+        assert configs[0].replica_uid == "replica-a"
+        assert configs[0].devices[0].worker_ip == "10.0.0.1:9978"
+
+    def test_empty_config_is_preserved(self):
+        assert _parse_replica_config({"replica_config": []}) == []
+
+    @pytest.mark.parametrize(
+        "legacy_placement",
+        [
+            {"worker_ip": "10.0.0.1:9978"},
+            {"gpu_idx": []},
+            {"n_gpu": 1},
+        ],
+    )
+    def test_rejects_legacy_placement_options(self, legacy_placement):
+        payload = {"replica_config": []}
+        payload.update(legacy_placement)
+
+        with pytest.raises(HTTPException) as exc:
+            _parse_replica_config(payload)
+
+        assert exc.value.status_code == 400
+        assert "together with replica_config" in exc.value.detail
+
+    def test_rejects_invalid_config(self):
+        with pytest.raises(HTTPException) as exc:
+            _parse_replica_config({"replica_config": [None]})
+
+        assert exc.value.status_code == 400
+        assert "Invalid replica_config" in exc.value.detail

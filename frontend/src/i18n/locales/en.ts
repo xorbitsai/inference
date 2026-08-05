@@ -110,6 +110,15 @@ const en = {
     gpuCount: 'GPU: {{count}}',
     nGpuLayers: 'N GPU Layers',
     replica: 'Replica',
+    replicaPlacementMode: 'Replica Placement',
+    placementAuto: 'Auto scheduling',
+    placementCustom: 'Per-replica (worker & GPU)',
+    replicaUid: 'Replica Alias',
+    replicaUidPlaceholder: 'Optional, used to identify this replica',
+    replicaPlacementEmpty: 'Increase the replica count to specify placement per replica.',
+    replicaPlacementIncomplete:
+      'Select a worker for every replica and use comma-separated non-negative GPU indexes.',
+    replicaAliasDuplicate: 'Replica aliases must be unique.',
     advancedConfiguration: 'Advanced Configuration',
     runtimeEnvironment: 'Runtime Environment',
     engineParameters: 'Engine Parameters',
@@ -696,7 +705,8 @@ const en = {
   },
   common: {
     accessDenied: 'Access Denied',
-    accessDeniedDescription: 'You do not have the required permission ({{scope}}) to access this page.',
+    accessDeniedDescription:
+      'You do not have the required permission ({{scope}}) to access this page.',
     valueEmpty: 'Cannot be empty',
     patternError: 'Invalid format, please check',
     loginSuccess: 'Login successful',

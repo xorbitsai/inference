@@ -1621,6 +1621,15 @@ class WorkerActor(xo.StatelessActor):
     def get_model_count(self) -> int:
         return len(self._model_uid_to_model)
 
+    @log_sync(logger=logger)
+    def get_launch_args(self, model_uid: str) -> Optional[Dict]:
+        """Return the cached launch args for a given replica model_uid.
+
+        Used by the supervisor to retrieve the original launch parameters
+        when adding a new replica to a running model (scale-up).
+        """
+        return self._model_uid_to_launch_args.get(model_uid)
+
     async def is_model_vllm_backend(self, model_uid: str) -> bool:
         _model_uid, _ = parse_replica_model_uid(model_uid)
         supervisor_ref = await self.get_supervisor_ref()
