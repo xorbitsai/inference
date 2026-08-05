@@ -103,6 +103,10 @@ export interface ReplicaItem {
   replica_model_uid: string;
   status: string;
   worker_address: string;
+  // Address of the model subprocess/subpool, not the Worker's service port.
+  model_address?: string | null;
+  // Actual accelerators assigned to this replica after scheduling.
+  accelerators?: string[] | null;
   replica_uid?: string;
   gpu_idx?: number[];
 }

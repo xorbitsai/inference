@@ -24,7 +24,12 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { InfoTooltip } from '@/components/ui/tooltip';
 import { useI18n } from '@/contexts/i18n-context';
-import type { RunningModelItem, ReplicaItem, AddReplicaRequest, ClusterInfoResponse } from '@/types/services';
+import type {
+  RunningModelItem,
+  ReplicaItem,
+  AddReplicaRequest,
+  ClusterInfoResponse,
+} from '@/types/services';
 import request from '@/lib/request';
 import { cn } from '@/lib/utils';
 import {
@@ -117,6 +122,96 @@ const formatGpuMemory = (bytes: number): string => {
   return `${(bytes / 1024 ** 2).toFixed(2)} MiB`;
 };
 
+const getAddressHost = (address: string): string => {
+  const normalized = address.trim();
+  const separator = normalized.lastIndexOf(':');
+  return separator > 0 ? normalized.slice(0, separator) : normalized;
+};
+
+const getAddressPort = (address: string): string | undefined => {
+  const normalized = address.trim();
+  const separator = normalized.lastIndexOf(':');
+  if (separator < 0 || separator === normalized.length - 1) {
+    return undefined;
+  }
+  const port = normalized.slice(separator + 1);
+  return /^\d+$/.test(port) ? port : undefined;
+};
+
+const formatReplicaRuntimeAddress = (replica: ReplicaItem): string | undefined => {
+  const workerAddress = replica.worker_address?.trim();
+  const modelAddress = replica.model_address?.trim();
+  if (!modelAddress) return undefined;
+
+  const modelPort = getAddressPort(modelAddress);
+  const workerHost = workerAddress ? getAddressHost(workerAddress) : getAddressHost(modelAddress);
+  if (modelPort && workerHost) {
+    return `${workerHost}:${modelPort}`;
+  }
+  return modelAddress;
+};
+
+interface ReplicaDeviceIndexes {
+  known: boolean;
+  devices: string[];
+}
+
+interface DeviceIndexGroup {
+  workerAddress: string;
+  devices: string[];
+}
+
+interface DeviceIndexAllocation {
+  showWorkerAddresses: boolean;
+  groups: DeviceIndexGroup[];
+}
+
+const normalizeDeviceIndex = (value: string | number): string | undefined => {
+  const normalized = String(value).trim();
+  if (!normalized) return undefined;
+
+  if (/^\d+$/.test(normalized)) {
+    return `GPU ${Number(normalized)}`;
+  }
+
+  const gpuMatch = normalized.match(/^GPU\s*(\d+)$/i);
+  if (gpuMatch) {
+    return `GPU ${Number(gpuMatch[1])}`;
+  }
+
+  const cpuMatch = normalized.match(/^CPU(?:\s*(\d+))?$/i);
+  if (cpuMatch) {
+    return cpuMatch[1] === undefined ? 'CPU' : `CPU ${Number(cpuMatch[1])}`;
+  }
+
+  return normalized;
+};
+
+const normalizeDeviceIndexes = (values: Array<string | number>): string[] =>
+  Array.from(
+    new Set(values.map(normalizeDeviceIndex).filter((device): device is string => Boolean(device)))
+  ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+
+const getReplicaDeviceIndexes = (replica: ReplicaItem): ReplicaDeviceIndexes => {
+  if (Array.isArray(replica.accelerators)) {
+    const devices = normalizeDeviceIndexes(replica.accelerators);
+    return { known: true, devices: devices.length > 0 ? devices : ['CPU'] };
+  }
+
+  if (replica.gpu_idx && replica.gpu_idx.length > 0) {
+    return { known: true, devices: normalizeDeviceIndexes(replica.gpu_idx) };
+  }
+
+  return { known: false, devices: [] };
+};
+
+const formatReplicaDeviceIndexes = (replica: ReplicaItem): string => {
+  const deviceIndexes = getReplicaDeviceIndexes(replica);
+  return deviceIndexes.known && deviceIndexes.devices.length > 0
+    ? deviceIndexes.devices.join(', ')
+    : '-';
+};
+
 const RunningModel = () => {
   const { t } = useI18n();
   const router = useRouter();
@@ -137,6 +232,82 @@ const RunningModel = () => {
     [activeModel?.model_ability]
   );
   const [clusterWorkerInfo, setClusterWorkerInfo] = useState<Map<string, number>>(new Map());
+  const activeModelReplicaAddresses = useMemo(() => {
+    if (!activeModel) return [];
+    const replicas = replicaLogs[activeModel.id];
+    if (replicas && replicas.length > 0) {
+      const replicaAddresses = Array.from(
+        new Set(
+          replicas
+            .map(formatReplicaRuntimeAddress)
+            .filter((address): address is string => Boolean(address))
+        )
+      ).sort((a, b) => a.localeCompare(b));
+      if (replicaAddresses.length > 0) return replicaAddresses;
+    }
+    return activeModel.address ? [activeModel.address] : [];
+  }, [activeModel, replicaLogs]);
+
+  const activeModelDeviceIndexes = useMemo<DeviceIndexAllocation>(() => {
+    if (!activeModel) return { showWorkerAddresses: false, groups: [] };
+
+    const replicas = replicaLogs[activeModel.id];
+    if (replicas && replicas.length > 0) {
+      const workerAddresses = new Set(
+        replicas.map((replica) => replica.worker_address?.trim()).filter(Boolean)
+      );
+      const showWorkerAddresses = workerAddresses.size > 1;
+      const devicesByWorker = new Map<string, string[]>();
+      let hasReplicaDeviceIndexes = false;
+
+      for (const replica of replicas) {
+        const workerAddress = replica.worker_address?.trim() || '';
+        if (!devicesByWorker.has(workerAddress)) {
+          devicesByWorker.set(workerAddress, []);
+        }
+
+        const deviceIndexes = getReplicaDeviceIndexes(replica);
+        if (!deviceIndexes.known) continue;
+
+        hasReplicaDeviceIndexes = true;
+        devicesByWorker.get(workerAddress)!.push(...deviceIndexes.devices);
+      }
+
+      if (hasReplicaDeviceIndexes) {
+        if (!showWorkerAddresses) {
+          return {
+            showWorkerAddresses: false,
+            groups: [
+              {
+                workerAddress: Array.from(workerAddresses)[0] || '',
+                devices: normalizeDeviceIndexes(Array.from(devicesByWorker.values()).flat()),
+              },
+            ],
+          };
+        }
+
+        return {
+          showWorkerAddresses: true,
+          groups: Array.from(devicesByWorker.entries())
+            .map(([workerAddress, devices]) => ({
+              workerAddress,
+              devices: normalizeDeviceIndexes(devices),
+            }))
+            .sort((a, b) => a.workerAddress.localeCompare(b.workerAddress)),
+        };
+      }
+    }
+
+    if (Array.isArray(activeModel.accelerators)) {
+      const devices = normalizeDeviceIndexes(activeModel.accelerators);
+      return {
+        showWorkerAddresses: false,
+        groups: [{ workerAddress: '', devices: devices.length > 0 ? devices : ['CPU'] }],
+      };
+    }
+
+    return { showWorkerAddresses: false, groups: [] };
+  }, [activeModel, replicaLogs]);
 
   const fetchClusterWorkers = useCallback(() => {
     request
@@ -482,20 +653,49 @@ const RunningModel = () => {
           </div>
           <h3 className="font-medium">{t('runningModels.resources')}</h3>
           <div className="grid grid-cols-2 gap-4">
-            <ContentItemInfo title={t('runningModels.workerAddress')} value={activeModel.address} />
             <ContentItemInfo
-              title={t('runningModels.gpuIndexes')}
+              title={t('runningModels.replicaAddress')}
               value={
-                Array.isArray(activeModel?.accelerators) ? (
-                  <div className="flex gap-1 text-xs">
-                    {activeModel.accelerators.map((item) => (
-                      <span
-                        key={item}
-                        className="flex items-center gap-1 rounded-full border border-primary/20 bg-primary/5 py-0.5 px-1 text-primary"
+                activeModelReplicaAddresses.length > 0 ? (
+                  <div className="flex flex-col gap-0.5 text-xs font-mono">
+                    {activeModelReplicaAddresses.map((address) => (
+                      <span key={address}>{address}</span>
+                    ))}
+                  </div>
+                ) : (
+                  '-'
+                )
+              }
+            />
+            <ContentItemInfo
+              title={t('runningModels.deviceIndexes')}
+              value={
+                activeModelDeviceIndexes.groups.length > 0 ? (
+                  <div className="flex flex-col gap-1.5 text-xs">
+                    {activeModelDeviceIndexes.groups.map((group, groupIndex) => (
+                      <div
+                        key={group.workerAddress || `device-group-${groupIndex}`}
+                        className="flex min-w-0 flex-wrap items-center gap-1"
                       >
-                        <Cpu className="size-3" />
-                        GPU {item}
-                      </span>
+                        {activeModelDeviceIndexes.showWorkerAddresses && (
+                          <span className="mr-1 break-all font-mono text-muted-foreground">
+                            {group.workerAddress || '-'}
+                          </span>
+                        )}
+                        {group.devices.length > 0 ? (
+                          group.devices.map((device) => (
+                            <span
+                              key={`${group.workerAddress}-${device}`}
+                              className="flex items-center gap-1 whitespace-nowrap rounded-full border border-primary/20 bg-primary/5 px-1 py-0.5 text-primary"
+                            >
+                              <Cpu className="size-3" />
+                              {device}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </div>
                     ))}
                   </div>
                 ) : (
@@ -532,11 +732,7 @@ const RunningModel = () => {
           </div>
           <div className="flex items-center justify-between">
             <h3 className="font-medium">{t('runningModels.replicaDetail')}</h3>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setAddReplicaOpen(true)}
-            >
+            <Button variant="outline" size="sm" onClick={() => setAddReplicaOpen(true)}>
               <Plus className="size-3.5 mr-1" />
               {t('runningModels.addReplica')}
             </Button>
@@ -571,6 +767,14 @@ const RunningModel = () => {
               </div>
               <p className="text-xs text-muted-foreground mt-2">
                 {t('runningModels.workerAddress')}: {replica.worker_address}
+              </p>
+              {replica.replica_uid && (
+                <p className="text-xs text-muted-foreground">
+                  {t('launchModel.replicaUid')}: {replica.replica_uid}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                {t('runningModels.deviceIndexes')}: {formatReplicaDeviceIndexes(replica)}
               </p>
             </div>
           ))}

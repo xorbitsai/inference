@@ -1,6 +1,7 @@
 import asyncio
 import itertools
 import time as time_module
+from types import SimpleNamespace
 from typing import Any, Dict
 
 import pytest
@@ -55,6 +56,84 @@ def _replica_info(replica: int) -> ReplicaInfo:
         scheduler=itertools.cycle(active),
         active_replica_ids=active,
     )
+
+
+@pytest.mark.asyncio
+async def test_get_replica_statuses_returns_per_replica_runtime_info():
+    model_uid = "qwen3"
+    replica_uids = [
+        build_replica_model_uid(model_uid, 0),
+        build_replica_model_uid(model_uid, 1),
+    ]
+
+    class _ReplicaWorker(_DummyWorker):
+        def __init__(self, address: str, models: Dict[str, Dict[str, Any]]):
+            super().__init__(models)
+            self.address = address
+
+    worker_one = _ReplicaWorker(
+        "xinference-worker-4090-1:30001",
+        {
+            replica_uids[0]: {
+                "address": "xinference-worker-4090-1:42135",
+                "accelerators": [0],
+            }
+        },
+    )
+    worker_two = _ReplicaWorker(
+        "xinference-worker-4090-2:30001",
+        {
+            replica_uids[1]: {
+                "address": "xinference-worker-4090-2:42136",
+                "accelerators": [1],
+            }
+        },
+    )
+
+    class _StatusGuard:
+        async def get_replica_statuses(self, _model_uid: str):
+            return [
+                SimpleNamespace(
+                    replica_id=0,
+                    replica_model_uid=replica_uids[0],
+                    worker_address=worker_one.address,
+                    status="READY",
+                    created_ts=1,
+                    error_message=None,
+                    replica_uid=None,
+                    gpu_idx=None,
+                ),
+                SimpleNamespace(
+                    replica_id=1,
+                    replica_model_uid=replica_uids[1],
+                    worker_address=worker_two.address,
+                    status="READY",
+                    created_ts=2,
+                    error_message=None,
+                    replica_uid=None,
+                    gpu_idx=None,
+                ),
+            ]
+
+    supervisor = SimpleNamespace(
+        _status_guard_ref=_StatusGuard(),
+        _replica_model_uid_to_worker={
+            replica_uids[0]: worker_one,
+            replica_uids[1]: worker_two,
+        },
+    )
+    supervisor._get_replica_runtime_info = (
+        SupervisorActor._get_replica_runtime_info.__get__(supervisor)
+    )
+
+    result = await SupervisorActor.get_replica_statuses(supervisor, model_uid)
+
+    assert result[0]["worker_address"] == worker_one.address
+    assert result[0]["model_address"] == "xinference-worker-4090-1:42135"
+    assert result[0]["accelerators"] == ["0"]
+    assert result[1]["worker_address"] == worker_two.address
+    assert result[1]["model_address"] == "xinference-worker-4090-2:42136"
+    assert result[1]["accelerators"] == ["1"]
 
 
 @pytest.mark.asyncio
