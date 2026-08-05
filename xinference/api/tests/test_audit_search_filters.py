@@ -187,10 +187,10 @@ async def test_missing_log_file_returns_empty(tmp_path, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_es_mode_uses_case_insensitive_wildcard(monkeypatch):
-    """ES mode must use substring semantics on the `.keyword` subfield.
+    """ES mode must support dynamic and explicitly mapped string fields.
 
-    A `term` query against the analyzed `text` field never matches a value
-    containing uppercase or `-`/`_`/`/`.
+    Dynamic mapping creates `text` + `.keyword`, while index templates commonly
+    map audit fields directly as `keyword` or `wildcard`.
     """
     captured: Dict[str, Any] = {}
 
@@ -226,9 +226,18 @@ async def test_es_mode_uses_case_insensitive_wildcard(monkeypatch):
     await search_audit_logs(model_id="Sense*Voice")
 
     clauses = captured["body"]["query"]["bool"]["filter"]
-    wildcards = [c["wildcard"] for c in clauses if "wildcard" in c]
-    assert len(wildcards) == 1
-    clause = wildcards[0]["model_id.keyword"]
-    assert clause["case_insensitive"] is True
-    # user-typed `*` is escaped rather than treated as a wildcard
-    assert clause["value"] == r"*Sense\*Voice*"
+    substring_clauses = [c["bool"] for c in clauses if "bool" in c]
+    assert len(substring_clauses) == 1
+    substring_clause = substring_clauses[0]
+    assert substring_clause["minimum_should_match"] == 1
+
+    wildcards = [c["wildcard"] for c in substring_clause["should"]]
+    assert [next(iter(clause)) for clause in wildcards] == [
+        "model_id",
+        "model_id.keyword",
+    ]
+    for clause in wildcards:
+        query = next(iter(clause.values()))
+        assert query["case_insensitive"] is True
+        # user-typed `*` is escaped rather than treated as a wildcard
+        assert query["value"] == r"*Sense\*Voice*"

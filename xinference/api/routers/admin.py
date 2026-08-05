@@ -738,6 +738,20 @@ def _escape_es_wildcard(value: str) -> str:
     return value.replace("\\", "\\\\").replace("*", "\\*").replace("?", "\\?")
 
 
+def _es_substring_clause(field_name: str, value: str) -> dict[str, Any]:
+    """Build a substring query compatible with common ES string mappings."""
+    pattern = f"*{_escape_es_wildcard(value)}*"
+    return {
+        "bool": {
+            "should": [
+                {"wildcard": {field: {"value": pattern, "case_insensitive": True}}}
+                for field in (field_name, f"{field_name}.keyword")
+            ],
+            "minimum_should_match": 1,
+        }
+    }
+
+
 def _match_substring(stored: Any, needle: str) -> bool:
     """Case-insensitive substring match used by audit free-text filters.
 
@@ -923,26 +937,17 @@ async def search_audit_logs(
     ]:
         if value:
             # Substring, case-insensitive, to match the file-mode semantics.
-            # Query the `.keyword` subfield: under ES dynamic mapping these are
-            # `text` + `.keyword`, and the analyzed `text` field would never
-            # match a value containing uppercase or `-`/`_`/`/`.
+            # Dynamic mapping commonly creates `text` + `.keyword`, while an
+            # index template may map the field directly as `keyword` or
+            # `wildcard`. Query both names so either mapping works. An unmapped
+            # alternative simply contributes no match.
             #
             # NOTE: a leading wildcard cannot use the index and forces a scan of
             # all terms in the segment. That is acceptable for typical audit
             # volumes, but on a large index deployments should install an index
-            # template mapping these fields to the `wildcard` type (ES >= 7.9),
-            # or to `text` with an ngram analyzer, which makes this pattern
-            # index-accelerated without changing the query semantics.
-            filter_clauses.append(
-                {
-                    "wildcard": {
-                        f"{field_name}.keyword": {
-                            "value": f"*{_escape_es_wildcard(value)}*",
-                            "case_insensitive": True,
-                        }
-                    }
-                }
-            )
+            # template mapping these fields directly to the `wildcard` type
+            # (ES >= 7.9), which is covered by the first alternative.
+            filter_clauses.append(_es_substring_clause(field_name, value))
 
     for field_name, value in [
         ("model_type", model_type),
