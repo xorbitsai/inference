@@ -74,6 +74,7 @@ def test_deepdoc_virtualenv_selects_runtime_package(
 
     assert expected in selected
     assert unexpected not in selected
+    assert "transformers<5" in selected
 
 
 def _make_unloaded_model():

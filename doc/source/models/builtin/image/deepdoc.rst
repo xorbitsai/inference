@@ -18,7 +18,9 @@ Specifications
   Xinference installs the ``deepdoc-lib[gpu]`` extra (including
   ``onnxruntime-gpu``) and DeepDoc selects CUDAExecutionProvider. On workers
   without CUDA, Xinference installs the base ``deepdoc-lib`` package instead.
-  Xinference reserves and exposes the assigned GPU to the model process.
+  The isolated environment also pins ``transformers<5`` for compatibility with
+  DeepDoc's Hugging Face Hub dependency. Xinference reserves and exposes the
+  assigned GPU to the model process.
 
 Execute the following command to launch the model::
 
@@ -27,4 +29,3 @@ Execute the following command to launch the model::
 The ``/v1/images/ocr`` endpoint accepts a ``task`` kwarg: ``ocr`` (default,
 returns plain text), ``layout`` (returns layout blocks) or ``table`` (returns
 table structures). Structured results are returned as JSON objects.
-
