@@ -147,6 +147,32 @@ def _validate_replica(value: Any) -> int:
     return replica
 
 
+def _parse_replica_config(payload: dict) -> Optional[List[ReplicaConfig]]:
+    """Validate and parse per-replica placement from a launch payload."""
+    replica_config_data = payload.get("replica_config")
+    if replica_config_data is None:
+        return None
+
+    if (
+        payload.get("worker_ip") is not None
+        or payload.get("gpu_idx") is not None
+        or payload.get("n_gpu", "auto") != "auto"
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot specify worker_ip / n_gpu / gpu_idx together with "
+            "replica_config.",
+        )
+
+    try:
+        return [ReplicaConfig.from_dict(item) for item in replica_config_data]
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid replica_config: {e}",
+        )
+
+
 def _log_setup_required_notice() -> None:
     """Log the first-run setup notice, called while setup is pending.
 
@@ -853,17 +879,7 @@ class RESTfulAPI(CancelMixin):
         enable_virtual_env = payload.get("enable_virtual_env", None)
         virtual_env_packages = payload.get("virtual_env_packages", None)
         envs = payload.get("envs", None)
-        replica_config = payload.get("replica_config", None)
-        if replica_config is not None:
-            try:
-                replica_config = [
-                    ReplicaConfig.from_dict(item) for item in replica_config
-                ]
-            except Exception as e:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid replica_config: {e}",
-                )
+        replica_config = _parse_replica_config(payload)
 
         exclude_keys = {
             "model_uid",
@@ -900,17 +916,6 @@ class RESTfulAPI(CancelMixin):
             raise HTTPException(
                 status_code=400,
                 detail="Invalid input. Please specify the `model_engine` field.",
-            )
-
-        if replica_config is not None and (
-            worker_ip is not None
-            or gpu_idx is not None
-            or payload.get("n_gpu", "auto") != "auto"
-        ):
-            raise HTTPException(
-                status_code=400,
-                detail="Cannot specify worker_ip / n_gpu / gpu_idx together with "
-                "replica_config.",
             )
 
         if isinstance(gpu_idx, int):
@@ -1101,27 +1106,7 @@ class RESTfulAPI(CancelMixin):
         model_version = payload.get("model_version")
         replica = _validate_replica(payload.get("replica", 1))
         n_gpu = payload.get("n_gpu", "auto")
-        replica_config = payload.get("replica_config", None)
-        if replica_config is not None:
-            if (
-                payload.get("worker_ip") is not None
-                or payload.get("gpu_idx") is not None
-                or n_gpu != "auto"
-            ):
-                raise HTTPException(
-                    status_code=400,
-                    detail="Cannot specify worker_ip / n_gpu / gpu_idx together with "
-                    "replica_config.",
-                )
-            try:
-                replica_config = [
-                    ReplicaConfig.from_dict(item) for item in replica_config
-                ]
-            except Exception as e:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid replica_config: {e}",
-                )
+        replica_config = _parse_replica_config(payload)
 
         try:
             model_uid = await (
