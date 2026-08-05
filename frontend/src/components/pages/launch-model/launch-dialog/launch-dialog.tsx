@@ -52,9 +52,11 @@ import {
   isEmptyLaunchValue,
   isVisibleRequiredLaunchField,
   extractWorkerItems,
+  extractFullAddressWorkerItems,
   requiresGpuWorkers,
 } from '../utils';
 import CommandLine from './command-line';
+import ReplicaPlacementConfig from './replica-placement-config';
 import { FormField } from '@/components/ui/form-field';
 
 interface LaunchDialogProps {
@@ -99,6 +101,11 @@ export default function LaunchDialog({
   const multimodalProjectorValue = toOptionValue(useWatch('multimodal_projector', form));
   const nGpuValue = useWatch('n_gpu', form);
   const [workerOptions, setWorkerOptions] = useState<WorkerOption[]>([]);
+  const [fullAddressWorkerOptions, setFullAddressWorkerOptions] = useState<WorkerOption[]>([]);
+  const replicaPlacementModeValue = useWatch('replica_placement_mode', form);
+  const replicaValue = Number(useWatch('replica', form)) || 1;
+  const modelUidValue = toOptionValue(useWatch('model_uid', form));
+  const isCustomPlacement = replicaPlacementModeValue === 'custom';
 
   const fetchWorkers = useCallback(async () => {
     if (clusterAuth?.auth && !isAdmin) {
@@ -111,8 +118,10 @@ export default function LaunchDialog({
         params: { detailed: true },
       });
       setWorkerOptions(extractWorkerItems(data, t));
+      setFullAddressWorkerOptions(extractFullAddressWorkerItems(data, t));
     } catch {
       setWorkerOptions([]);
+      setFullAddressWorkerOptions([]);
     }
   }, [clusterAuth?.auth, isAdmin, t]);
   const fetchModelEngine = useCallback(async () => {
@@ -410,8 +419,73 @@ export default function LaunchDialog({
     );
   }, [form, multimodalProjectorOptions, multimodalProjectorValue]);
 
+  // Keep replica_config row count in sync with `replica` while in custom
+  // placement mode. Preserves already-filled rows; pads/truncates otherwise.
+  useEffect(() => {
+    if (!isCustomPlacement) return;
+    const current =
+      (form.getFieldValue('replica_config') as
+        | Array<{ replica_uid?: string; worker_ip: string; gpu_idx: string }>
+        | undefined) ?? [];
+    if (current.length === replicaValue) return;
+    const next = Array.from(
+      { length: replicaValue },
+      (_, i) => current[i] ?? { replica_uid: '', worker_ip: '', gpu_idx: '' }
+    );
+    form.setFieldsValue({ replica_config: next });
+  }, [isCustomPlacement, replicaValue, form]);
+
+  // Shared per-replica placement fields, appended after the `replica` field in
+  // every model type's field array so the feature is uniform across types.
+  const replicaPlacementFields: LaunchFieldConfig[] = [
+    {
+      name: 'replica_placement_mode',
+      type: 'radio-group',
+      label: t('launchModel.replicaPlacementMode'),
+      colSpan: 2,
+      fieldProps: {
+        options: [
+          { label: t('launchModel.placementAuto'), value: 'auto' },
+          { label: t('launchModel.placementCustom'), value: 'custom' },
+        ],
+      },
+    },
+    {
+      name: 'replica_config',
+      type: 'custom',
+      colSpan: 2,
+      show: isCustomPlacement,
+      content: (
+        <ReplicaPlacementConfig
+          form={form}
+          workerOptions={fullAddressWorkerOptions}
+          modelUid={modelUidValue}
+        />
+      ),
+    },
+  ];
+
   const modelTypeFields: Partial<Record<ModelType, LaunchFieldConfig[]>> = {
     [ModelType.LLM]: [
+      {
+        name: 'model_uid',
+        type: 'input',
+        label: t('launchModel.modelUid'),
+        placeholder: t('launchModel.modelUidPlaceholder'),
+      },
+      {
+        name: 'replica',
+        type: 'input',
+        label: t('launchModel.replica'),
+        rules: [
+          {
+            pattern: /^[1-9]\d*$/,
+            message: t('launchModel.enterIntegerGreaterThanZero'),
+          },
+        ],
+        fieldProps: { type: 'number', min: 1 },
+      },
+      ...replicaPlacementFields,
       {
         name: 'model_engine',
         type: 'select',
@@ -468,24 +542,6 @@ export default function LaunchDialog({
         label: t('launchModel.nGpuLayers'),
         show: [ModelFormat.GGMLV3, ModelFormat.GGUFV2].includes(modelFormatValue as ModelFormat),
         fieldProps: { type: 'number', min: -1 },
-      },
-      {
-        name: 'replica',
-        type: 'input',
-        label: t('launchModel.replica'),
-        rules: [
-          {
-            pattern: /^[1-9]\d*$/,
-            message: t('launchModel.enterIntegerGreaterThanZero'),
-          },
-        ],
-        fieldProps: { type: 'number', min: 1 },
-      },
-      {
-        name: 'model_uid',
-        type: 'input',
-        label: t('launchModel.modelUid'),
-        placeholder: t('launchModel.modelUidPlaceholder'),
       },
       {
         name: 'request_limits',
@@ -582,6 +638,25 @@ export default function LaunchDialog({
     ],
     [ModelType.Embedding]: [
       {
+        name: 'model_uid',
+        type: 'input',
+        label: t('launchModel.modelUid'),
+        placeholder: t('launchModel.modelUidPlaceholder'),
+      },
+      {
+        name: 'replica',
+        type: 'input',
+        label: t('launchModel.replica'),
+        rules: [
+          {
+            pattern: /^[1-9]\d*$/,
+            message: t('launchModel.enterIntegerGreaterThanZero'),
+          },
+        ],
+        fieldProps: { type: 'number', min: 1 },
+      },
+      ...replicaPlacementFields,
+      {
         name: 'model_engine',
         type: 'select',
         label: t('launchModel.modelEngine'),
@@ -605,18 +680,6 @@ export default function LaunchDialog({
         fieldProps: { options: quantizationOptions },
       },
       {
-        name: 'replica',
-        type: 'input',
-        label: t('launchModel.replica'),
-        rules: [
-          {
-            pattern: /^[1-9]\d*$/,
-            message: t('launchModel.enterIntegerGreaterThanZero'),
-          },
-        ],
-        fieldProps: { type: 'number', min: 1 },
-      },
-      {
         name: 'n_gpu',
         type: 'select',
         label: t('launchModel.nGPUDevice'),
@@ -634,12 +697,6 @@ export default function LaunchDialog({
           },
         ],
         show: nGpuValue === 'GPU',
-      },
-      {
-        name: 'model_uid',
-        type: 'input',
-        label: t('launchModel.modelUid'),
-        placeholder: t('launchModel.modelUidPlaceholder'),
       },
       {
         name: 'download_hub',
@@ -687,6 +744,25 @@ export default function LaunchDialog({
     ],
     [ModelType.Rerank]: [
       {
+        name: 'model_uid',
+        type: 'input',
+        label: t('launchModel.modelUid'),
+        placeholder: t('launchModel.modelUidPlaceholder'),
+      },
+      {
+        name: 'replica',
+        type: 'input',
+        label: t('launchModel.replica'),
+        rules: [
+          {
+            pattern: /^[1-9]\d*$/,
+            message: t('launchModel.enterIntegerGreaterThanZero'),
+          },
+        ],
+        fieldProps: { type: 'number', min: 1 },
+      },
+      ...replicaPlacementFields,
+      {
         name: 'model_engine',
         type: 'select',
         label: t('launchModel.modelEngine'),
@@ -710,18 +786,6 @@ export default function LaunchDialog({
         fieldProps: { options: quantizationOptions },
       },
       {
-        name: 'replica',
-        type: 'input',
-        label: t('launchModel.replica'),
-        rules: [
-          {
-            pattern: /^[1-9]\d*$/,
-            message: t('launchModel.enterIntegerGreaterThanZero'),
-          },
-        ],
-        fieldProps: { type: 'number', min: 1 },
-      },
-      {
         name: 'n_gpu',
         type: 'select',
         label: t('launchModel.nGPUDevice'),
@@ -739,12 +803,6 @@ export default function LaunchDialog({
           },
         ],
         show: nGpuValue === 'GPU',
-      },
-      {
-        name: 'model_uid',
-        type: 'input',
-        label: t('launchModel.modelUid'),
-        placeholder: t('launchModel.modelUidPlaceholder'),
       },
       {
         name: 'download_hub',
@@ -847,6 +905,7 @@ export default function LaunchDialog({
         ],
         fieldProps: { type: 'number', min: 1 },
       },
+      ...replicaPlacementFields,
       {
         name: 'n_gpu',
         type: 'select',
@@ -973,6 +1032,7 @@ export default function LaunchDialog({
         ],
         fieldProps: { type: 'number', min: 1 },
       },
+      ...replicaPlacementFields,
       {
         name: 'n_gpu',
         type: 'select',
@@ -1071,6 +1131,7 @@ export default function LaunchDialog({
         ],
         fieldProps: { type: 'number', min: 1 },
       },
+      ...replicaPlacementFields,
       {
         name: 'n_gpu',
         type: 'select',
@@ -1176,6 +1237,7 @@ export default function LaunchDialog({
         ],
         fieldProps: { type: 'number', min: 1 },
       },
+      ...replicaPlacementFields,
       {
         name: 'n_gpu',
         type: 'select',
@@ -1234,7 +1296,12 @@ export default function LaunchDialog({
     ],
   };
 
-  const currentLaunchFields = modelTypeFields[modelType] || [];
+  // In custom placement mode (LLM only for now), hide the legacy global
+  // placement fields — they are mutually exclusive with replica_config and
+  // would only confuse the operator if shown alongside the per-replica editor.
+  const currentLaunchFields = (modelTypeFields[modelType] || []).filter(
+    (field) => !isCustomPlacement || !['n_gpu', 'gpu_idx', 'worker_ip'].includes(field.name)
+  );
   // required fields is filled in
   const isReady = currentLaunchFields
     .filter(isVisibleRequiredLaunchField)
@@ -1313,6 +1380,17 @@ export default function LaunchDialog({
                     title={replica.worker_address || '-'}
                   >
                     {replica.worker_address || '-'}
+                  </span>
+                  {replica.replica_uid && (
+                    <span className="truncate text-muted-foreground" title={replica.replica_uid}>
+                      {replica.replica_uid}
+                    </span>
+                  )}
+                  <span className="text-muted-foreground">
+                    {t('launchModel.GPUIdx')}:{' '}
+                    {replica.gpu_idx && replica.gpu_idx.length > 0
+                      ? replica.gpu_idx.join(', ')
+                      : 'auto'}
                   </span>
                 </div>
                 <div
@@ -1449,6 +1527,7 @@ export default function LaunchDialog({
         : 'GPU',
     n_gpu_layers: -1,
     replica: 1,
+    replica_placement_mode: 'auto' as const,
     enable_thinking: true,
     reasoning_content: false,
     enable_virtual_env: 'unset',
