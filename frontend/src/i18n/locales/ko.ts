@@ -245,6 +245,9 @@ const ko = {
     addReplicaUidLabel: '복제본 별칭',
     addReplicaUidPlaceholder: '선택사항, 비워두면 자동 생성',
     addReplicaAutoWorker: '자동 (기본값)',
+    addReplicaWorkerRequired: 'GPU 인덱스 또는 레플리카 별칭을 지정하기 전에 Worker를 선택하세요.',
+    addReplicaInvalidGpuIdx:
+      'GPU 인덱스를 음이 아닌 정수의 쉼표 구분 형식으로 입력하세요(예: 0,1).',
     autostartEnabled: '자동 시작이 설정됨',
     removeAutostartSuccess: '{{modelUid}}의 자동 시작을 제거했습니다',
     removeAutostartFailed: '자동 시작 제거에 실패했습니다',

@@ -2,6 +2,7 @@
 
 import { FC, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -56,7 +57,16 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
     const hasGpu = gpuIdx.trim() !== '';
     const hasUid = replicaUid.trim() !== '';
 
-    if (hasWorker || hasGpu || hasUid) {
+    if ((hasGpu || hasUid) && !hasWorker) {
+      toast.error(t('runningModels.addReplicaWorkerRequired'));
+      return;
+    }
+    if (hasGpu && !/^\d+(?:,\d+)*$/.test(gpuIdx.trim())) {
+      toast.error(t('runningModels.addReplicaInvalidGpuIdx'));
+      return;
+    }
+
+    if (hasWorker) {
       body.replica_config = {
         devices: [],
       };
@@ -67,7 +77,12 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
         {
           ...(hasWorker ? { worker_ip: selectedWorker } : {}),
           ...(hasGpu
-            ? { gpu_idx: gpuIdx.split(',').map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n)) }
+            ? {
+                gpu_idx: gpuIdx
+                  .split(',')
+                  .map((s) => parseInt(s.trim(), 10))
+                  .filter((n) => !isNaN(n)),
+              }
             : {}),
         },
       ];
@@ -90,12 +105,8 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent maskClosable={!loading}>
         <DialogHeader>
-          <DialogTitle>
-            {t('runningModels.addReplicaTitle', { modelUid })}
-          </DialogTitle>
-          <DialogDescription>
-            {t('runningModels.addReplicaWorkerLabel')}
-          </DialogDescription>
+          <DialogTitle>{t('runningModels.addReplicaTitle', { modelUid })}</DialogTitle>
+          <DialogDescription>{t('runningModels.addReplicaWorkerLabel')}</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
@@ -127,9 +138,7 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
 
           {/* Replica alias */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium">
-              {t('runningModels.addReplicaUidLabel')}
-            </label>
+            <label className="text-sm font-medium">{t('runningModels.addReplicaUidLabel')}</label>
             <Input
               value={replicaUid}
               onChange={(e) => setReplicaUid(e.target.value)}
@@ -140,11 +149,7 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => handleOpenChange(false)}
-            disabled={loading}
-          >
+          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={loading}>
             {t('common.cancel')}
           </Button>
           <Button onClick={handleConfirm} disabled={loading}>
