@@ -1,6 +1,6 @@
 'use client';
 
-import { type MouseEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ExternalLink,
@@ -54,6 +54,7 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
   const [gpuAvailable, setGPUAvailable] = useState(-1);
   const [customType, setCustomType] = useState<RequestModelType>(initialCustomType);
   const [models, setModels] = useState<CatalogModel[]>([]);
+  const modelRequestIdRef = useRef(0);
   const [virtualenvs, setVirtualenvs] = useState<VirtualEnv[]>([]);
   const [loading, setLoading] = useState(false);
   const [updateLoading, setUpdateLoading] = useState(false);
@@ -76,7 +77,7 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
   ];
   const customTypesRadioOptions = useMemo(
     () => CUSTOM_MODEL_OPTIONS.map((item) => ({ value: item.value, label: t(item.labelKey) })),
-    []
+    [t]
   );
   const fetDevices = useCallback(async () => {
     try {
@@ -91,7 +92,10 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
 
   const fetchModels = useCallback(
     async (nextType = requestType) => {
+      const requestId = ++modelRequestIdRef.current;
+
       setLoading(true);
+      setModels([]);
 
       try {
         const endpointType = getLaunchModelEndpointType(nextType);
@@ -135,11 +139,17 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
               })
             )
           : filteredList;
-        setModels(normalizeModels(modelsWithDetails));
+        if (requestId === modelRequestIdRef.current) {
+          setModels(normalizeModels(modelsWithDetails));
+        }
       } catch {
-        setModels([]);
+        if (requestId === modelRequestIdRef.current) {
+          setModels([]);
+        }
       } finally {
-        setLoading(false);
+        if (requestId === modelRequestIdRef.current) {
+          setLoading(false);
+        }
       }
     },
     [isCustomRoute, requestType]
@@ -165,6 +175,10 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
 
   useEffect(() => {
     fetchModels();
+
+    return () => {
+      modelRequestIdRef.current += 1;
+    };
   }, [fetchModels]);
 
   useEffect(() => {
