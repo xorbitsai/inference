@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { useI18n } from '@/contexts/i18n-context';
 import type { AddReplicaRequest } from '@/types/services';
+import { GPU_IDX_PATTERN } from '@/components/pages/launch-model/utils';
 
 interface WorkerOption {
   label: string;
@@ -61,7 +62,7 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
       toast.error(t('runningModels.addReplicaWorkerRequired'));
       return;
     }
-    if (hasGpu && !/^\d+(?:,\d+)*$/.test(gpuIdx.trim())) {
+    if (hasGpu && !GPU_IDX_PATTERN.test(gpuIdx.trim())) {
       toast.error(t('runningModels.addReplicaInvalidGpuIdx'));
       return;
     }
@@ -75,7 +76,7 @@ const AddReplicaDialog: FC<AddReplicaDialogProps> = ({
       }
       body.replica_config.devices = [
         {
-          ...(hasWorker ? { worker_ip: selectedWorker } : {}),
+          worker_ip: selectedWorker,
           ...(hasGpu
             ? {
                 gpu_idx: gpuIdx
