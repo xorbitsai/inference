@@ -287,6 +287,8 @@ async def test_get_progress_raises_400_on_key_error(mock_api, mock_supervisor):
 async def test_search_audit_file_partially_matches_text_fields(
     tmp_path, monkeypatch, filter_name, filter_value
 ):
+    to_thread = AsyncMock(wraps=admin.asyncio.to_thread)
+    monkeypatch.setattr(admin.asyncio, "to_thread", to_thread)
     audit_entry = {
         "@timestamp": "2026-08-03T08:24:16+00:00",
         "user": "admin",
@@ -322,6 +324,7 @@ async def test_search_audit_file_partially_matches_text_fields(
     )
 
     assert _json_body(response) == {"hits": [audit_entry], "total": 1}
+    to_thread.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -389,6 +392,8 @@ async def test_search_audit_elasticsearch_partially_matches_text_fields(monkeypa
 
 @pytest.mark.asyncio
 async def test_list_audit_filter_options_from_file(tmp_path, monkeypatch):
+    to_thread = AsyncMock(wraps=admin.asyncio.to_thread)
+    monkeypatch.setattr(admin.asyncio, "to_thread", to_thread)
     audit_entries = [
         {
             "@timestamp": "2026-08-03T08:24:16+00:00",
@@ -424,6 +429,7 @@ async def test_list_audit_filter_options_from_file(tmp_path, monkeypatch):
         "model_name": ["Qwen3", "SenseVoiceSmall"],
         "client_ip": ["10.0.0.2", "192.168.1.10"],
     }
+    to_thread.assert_awaited_once()
 
 
 @pytest.mark.asyncio
