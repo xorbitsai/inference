@@ -501,7 +501,7 @@ export function transformFormToFetch(values: FormValues) {
       .map((row: UnknownRecord) => {
         const gpuIdx = parseGpuIndexes(row.gpu_idx as string);
         return {
-          replica_uid: row.replica_uid || undefined,
+          replica_uid: row.replica_uid?.trim() || undefined,
           devices: [
             {
               worker_ip: row.worker_ip,
