@@ -4,6 +4,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react
 import {
   Loader2,
   MousePointerClick,
+  Plus,
   Power,
   SearchX,
   ServerOff,
@@ -22,7 +23,7 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { InfoTooltip } from '@/components/ui/tooltip';
 import { useI18n } from '@/contexts/i18n-context';
-import type { RunningModelItem, ReplicaItem } from '@/types/services';
+import type { RunningModelItem, ReplicaItem, AddReplicaRequest, ClusterInfoResponse } from '@/types/services';
 import request from '@/lib/request';
 import { cn } from '@/lib/utils';
 import {
@@ -30,6 +31,7 @@ import {
   TryApiDrawer,
 } from '@/components/pages/running-model-detail/components/try-api-drawer';
 import { transformRunningModelDetail } from '@/components/pages/running-model-detail/utils';
+import AddReplicaDialog from './add-replica-dialog';
 
 interface EmptyStateProps {
   icon: ReactNode;
@@ -93,11 +95,66 @@ const RunningModel = () => {
   const [deleteConfirmLoading, setDeleteConfirmLoading] = useState(false);
   const [deleteReplicaId, setDeleteReplicaId] = useState<string | undefined>(undefined);
   const [deleteReplicaLoading, setDeleteReplicaLoading] = useState(false);
+  const [addReplicaOpen, setAddReplicaOpen] = useState(false);
+  const [addReplicaLoading, setAddReplicaLoading] = useState(false);
   const [tryApiOpen, setTryApiOpen] = useState(false);
   const tryApiAbility = useMemo(
     () => getTryApiAbility(activeModel?.model_ability || []),
     [activeModel?.model_ability]
   );
+  const [clusterWorkerInfo, setClusterWorkerInfo] = useState<Map<string, number>>(new Map());
+
+  const fetchClusterWorkers = useCallback(() => {
+    request
+      .get<ClusterInfoResponse>('/v1/cluster/info', { params: { detailed: true } })
+      .then((data) => {
+        const workers = new Map<string, number>();
+        const nodes = Array.isArray(data) ? data : data?.workers || [];
+        for (const node of nodes) {
+          if (Array.isArray(data) && node.node_type !== 'Worker') continue;
+          const addr = String(node.ip_address || node.ip || '').trim();
+          if (!addr) continue;
+          const gpuCount = Number(node.gpu_count || 0);
+          const existing = workers.get(addr);
+          if (existing === undefined || gpuCount > existing) {
+            workers.set(addr, gpuCount);
+          }
+        }
+        setClusterWorkerInfo(workers);
+      })
+      .catch(() => {
+        // Silently ignore — model/replica-derived addresses still work as fallback
+      });
+  }, []);
+
+  const addReplicaWorkerOptions = useMemo(() => {
+    // Primary source: cluster info (matching the launch dialog).
+    // Model/replica addresses are used only as a fallback when cluster
+    // info is unavailable, avoiding duplicate entries from mixed formats.
+    if (clusterWorkerInfo.size > 0) {
+      return Array.from(clusterWorkerInfo.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([addr, gpuCount]) => ({
+          label: addr,
+          value: addr,
+          description: t('launchModel.gpuCount', { count: gpuCount }),
+        }));
+    }
+    // Fallback: collect from all running models.
+    const addresses = new Set<string>();
+    for (const model of models) {
+      if (model.address) addresses.add(model.address);
+      const reps = replicaLogs[model.id];
+      if (reps) {
+        for (const rep of reps) {
+          if (rep.worker_address) addresses.add(rep.worker_address);
+        }
+      }
+    }
+    return Array.from(addresses)
+      .sort()
+      .map((addr) => ({ label: addr, value: addr }));
+  }, [clusterWorkerInfo, models, replicaLogs, t]);
   const [autostartModelIds, setAutostartModelIds] = useState<string[]>([]);
   const [autostartBusyIds, setAutostartBusyIds] = useState<string[]>([]);
   const visibleModels = useMemo(() => {
@@ -163,10 +220,11 @@ const RunningModel = () => {
   const handleRefresh = useCallback(() => {
     fetchModels();
     fetchAutostartModels();
+    fetchClusterWorkers();
     if (activeModel?.id) {
       fetchReplicas(activeModel.id);
     }
-  }, [activeModel?.id, fetchAutostartModels, fetchModels, fetchReplicas]);
+  }, [activeModel?.id, fetchAutostartModels, fetchClusterWorkers, fetchModels, fetchReplicas]);
 
   const handleDeleteModel = () => {
     if (!activeModel) return;
@@ -201,6 +259,34 @@ const RunningModel = () => {
       })
       .finally(() => {
         setDeleteReplicaLoading(false);
+      });
+  };
+
+  const handleAddReplica = (body: AddReplicaRequest) => {
+    if (!activeModel) return;
+    setAddReplicaLoading(true);
+    request
+      .post(`/v1/models/${encodeURIComponent(activeModel.id)}/replicas`, body)
+      .then((res) => {
+        setAddReplicaOpen(false);
+        toast.success(
+          t('runningModels.addReplicaSuccess', {
+            replicaModelUid: res?.replica_model_uid ?? '',
+            workerAddress: res?.worker_address ?? '',
+          })
+        );
+        fetchReplicas(activeModel.id);
+        fetchModels();
+      })
+      .catch((err: any) => {
+        toast.error(
+          err?.response?.data?.detail ||
+            err?.message ||
+            t('runningModels.addReplicaFailed')
+        );
+      })
+      .finally(() => {
+        setAddReplicaLoading(false);
       });
   };
 
@@ -409,7 +495,17 @@ const RunningModel = () => {
               }
             />
           </div>
-          <h3 className="font-medium">{t('runningModels.replicaDetail')}</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium">{t('runningModels.replicaDetail')}</h3>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAddReplicaOpen(true)}
+            >
+              <Plus className="size-3.5 mr-1" />
+              {t('runningModels.addReplica')}
+            </Button>
+          </div>
           {(replicaLogs?.[activeModel.id] || []).map((replica) => (
             <div key={replica.replica_model_uid} className="p-3 rounded-lg border">
               <div className="flex items-center justify-between">
@@ -455,7 +551,8 @@ const RunningModel = () => {
   useEffect(() => {
     fetchModels();
     fetchAutostartModels();
-  }, [fetchAutostartModels, fetchModels]);
+    fetchClusterWorkers();
+  }, [fetchAutostartModels, fetchClusterWorkers, fetchModels]);
 
   return (
     <PageContainer
@@ -513,6 +610,14 @@ const RunningModel = () => {
         confirmClassName="bg-destructive  hover:bg-destructive/90"
         onConfirm={handleDeleteReplica}
         isLoading={deleteReplicaLoading}
+      />
+      <AddReplicaDialog
+        open={addReplicaOpen}
+        onOpenChange={setAddReplicaOpen}
+        onConfirm={handleAddReplica}
+        loading={addReplicaLoading}
+        workerOptions={addReplicaWorkerOptions}
+        modelUid={activeModel?.id ?? ''}
       />
       <TryApiDrawer
         open={tryApiOpen}
