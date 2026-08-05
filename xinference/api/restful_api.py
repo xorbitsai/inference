@@ -76,6 +76,13 @@ from ..types import (
     max_tokens_field,
 )
 from .frontend_static import mount_frontend
+from .pdf_ocr import (
+    DEFAULT_PDF_OCR_DPI,
+    PDF_MAGIC,
+    is_pdf_upload,
+    merge_ocr_page_results,
+    rasterize_pdf,
+)
 from .responses import JSONResponse
 from .schemas import (
     AutoConfigLLMRequest,
@@ -1969,17 +1976,55 @@ class RESTfulAPI(CancelMixin):
                 parsed_kwargs = {}
             request_id = parsed_kwargs.get("request_id")
             self._add_running_task(request_id)
+            head = image.file.read(len(PDF_MAGIC))
+            image.file.seek(0)
+            if is_pdf_upload(image.content_type, head):
+                pages = parsed_kwargs.pop("pages", None)
+                dpi = parsed_kwargs.pop("dpi", DEFAULT_PDF_OCR_DPI)
+                try:
+                    page_iter = await asyncio.to_thread(
+                        rasterize_pdf, image.file.read(), pages=pages, dpi=dpi
+                    )
+                except ValueError as ve:
+                    raise HTTPException(status_code=400, detail=str(ve))
+                # Pages are rendered lazily, one at a time, so peak memory
+                # stays at a single page regardless of document size.
+                page_results = []
+                try:
+                    while True:
+                        item = await asyncio.to_thread(next, page_iter, None)
+                        if item is None:
+                            break
+                        page_number, page_image = item
+                        try:
+                            result = await model_ref.ocr(
+                                image=page_image,
+                                **parsed_kwargs,
+                            )
+                        finally:
+                            page_image.close()
+                        page_results.append((page_number, json.loads(result)))
+                finally:
+                    page_iter.close()
+                body = merge_ocr_page_results(page_results)
+                return Response(content=body, media_type="application/json")
             im = Image.open(image.file)
             text = await model_ref.ocr(
                 image=im,
                 **parsed_kwargs,
             )
-            return Response(content=text, media_type="text/plain")
+            # ModelActor.ocr serializes the model's return value to JSON
+            # bytes, and both REST clients parse the body with
+            # response.json() — declaring text/plain here breaks aiohttp's
+            # content-type check on the async client.
+            return Response(content=text, media_type="application/json")
         except asyncio.CancelledError:
             err_str = f"The request has been cancelled: {request_id}"
             logger.error(err_str)
             await self._report_error_event(model_uid, err_str)
             raise HTTPException(status_code=409, detail=err_str)
+        except HTTPException:
+            raise
         except Exception as e:
             e = await self._get_model_last_error(model_ref.uid, e)
             logger.error(e, exc_info=True)
