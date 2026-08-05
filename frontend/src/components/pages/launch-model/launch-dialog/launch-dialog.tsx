@@ -53,6 +53,7 @@ import {
   isVisibleRequiredLaunchField,
   extractWorkerItems,
   requiresGpuWorkers,
+  GPU_IDX_PATTERN,
 } from '../utils';
 import CommandLine from './command-line';
 import ReplicaPlacementConfig from './replica-placement-config';
@@ -574,7 +575,7 @@ export default function LaunchDialog({
         placeholder: t('launchModel.GPUIdxPlaceholder'),
         rules: [
           {
-            pattern: /^\d+(?:,\d+)*$/,
+            pattern: GPU_IDX_PATTERN,
             message: t('launchModel.enterCommaSeparatedNumbers'),
           },
         ],
@@ -688,7 +689,7 @@ export default function LaunchDialog({
         placeholder: t('launchModel.GPUIdxPlaceholder'),
         rules: [
           {
-            pattern: /^\d+(?:,\d+)*$/,
+            pattern: GPU_IDX_PATTERN,
             message: t('launchModel.enterCommaSeparatedNumbers'),
           },
         ],
@@ -794,7 +795,7 @@ export default function LaunchDialog({
         placeholder: t('launchModel.GPUIdxPlaceholder'),
         rules: [
           {
-            pattern: /^\d+(?:,\d+)*$/,
+            pattern: GPU_IDX_PATTERN,
             message: t('launchModel.enterCommaSeparatedNumbers'),
           },
         ],
@@ -915,7 +916,7 @@ export default function LaunchDialog({
         placeholder: t('launchModel.GPUIdxPlaceholder'),
         rules: [
           {
-            pattern: /^\d+(?:,\d+)*$/,
+            pattern: GPU_IDX_PATTERN,
             message: t('launchModel.enterCommaSeparatedNumbers'),
           },
         ],
@@ -1042,7 +1043,7 @@ export default function LaunchDialog({
         placeholder: t('launchModel.GPUIdxPlaceholder'),
         rules: [
           {
-            pattern: /^\d+(?:,\d+)*$/,
+            pattern: GPU_IDX_PATTERN,
             message: t('launchModel.enterCommaSeparatedNumbers'),
           },
         ],
@@ -1141,7 +1142,7 @@ export default function LaunchDialog({
         placeholder: t('launchModel.GPUIdxPlaceholder'),
         rules: [
           {
-            pattern: /^\d+(?:,\d+)*$/,
+            pattern: GPU_IDX_PATTERN,
             message: t('launchModel.enterCommaSeparatedNumbers'),
           },
         ],
@@ -1247,7 +1248,7 @@ export default function LaunchDialog({
         placeholder: t('launchModel.GPUIdxPlaceholder'),
         rules: [
           {
-            pattern: /^\d+(?:,\d+)*$/,
+            pattern: GPU_IDX_PATTERN,
             message: t('launchModel.enterCommaSeparatedNumbers'),
           },
         ],

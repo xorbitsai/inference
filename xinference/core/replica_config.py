@@ -121,9 +121,17 @@ def normalize_replica_configs(
 
         _validate_device_consistency(idx, device)
 
-        replica_uid = (
-            cfg.replica_uid if cfg.replica_uid is not None else f"{model_uid}-{idx}"
-        )
+        replica_uid = cfg.replica_uid
+        if replica_uid is not None:
+            replica_uid = replica_uid.strip()
+            if not replica_uid:
+                raise ValueError(
+                    f"replica_config[{idx}].replica_uid must not be empty or "
+                    "whitespace-only."
+                )
+        else:
+            replica_uid = f"{model_uid}-{idx}"
+
         if _is_reserved_replica_uid(replica_uid):
             raise ValueError(
                 f"replica_uid '{replica_uid}' collides with a reserved internal "
@@ -147,6 +155,11 @@ def _validate_device_consistency(idx: int, device: DeviceConfig) -> None:
         )
     gpu_idx = device.gpu_idx or []
     if gpu_idx:
+        if len(set(gpu_idx)) != len(gpu_idx):
+            raise ValueError(
+                f"replica_config[{idx}].devices[0].gpu_idx must not contain "
+                "duplicate indexes."
+            )
         if device.n_gpu != "auto" and device.n_gpu != len(gpu_idx):
             raise ValueError(
                 f"replica_config[{idx}].devices[0].n_gpu ({device.n_gpu}) must equal "
