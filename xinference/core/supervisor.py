@@ -2216,16 +2216,15 @@ class SupervisorActor(xo.StatelessActor):
                 **kwargs,
             )
 
+        is_local_deployment = self.is_local_deployment()
         target_worker_refs = (
-            self._get_worker_refs_by_ip(worker_ip) if worker_ip is not None else []
+            []
+            if worker_ip is None or is_local_deployment
+            else self._get_worker_refs_by_ip(worker_ip)
         )
-        if (
-            worker_ip is not None
-            and not self.is_local_deployment()
-            and not target_worker_refs
-        ):
+        if worker_ip is not None and not is_local_deployment and not target_worker_refs:
             raise ValueError(f"Worker ip address {worker_ip} is not in the cluster.")
-        if worker_ip is not None and self.is_local_deployment():
+        if worker_ip is not None and is_local_deployment:
             logger.warning(
                 f"You specified the worker ip: {worker_ip} in local mode, "
                 f"xinference will ignore this option."
