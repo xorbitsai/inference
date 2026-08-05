@@ -15,7 +15,10 @@ via ``HF_ENDPOINT`` and proxies set via ``HTTP_PROXY`` / ``HTTPS_PROXY`` are hon
 If it is reachable, models are downloaded from Hugging Face; otherwise Xinference falls
 back to ModelScope. An HTTP error response (for example ``403``/``407`` from a blocking
 corporate proxy, or a ``5xx`` from a broken mirror) counts as unreachable, since
-downloads would fail anyway. The detection result is cached, so the probe runs at most once per
+downloads would fail anyway. When Hugging Face offline mode is enabled
+(``HF_HUB_OFFLINE=1`` or ``TRANSFORMERS_OFFLINE=1``), no probe runs and Hugging Face is
+selected directly, so air-gapped deployments keep reading from their pre-populated local
+Hugging Face cache. The detection result is cached, so the probe runs at most once per
 process, and its timeout can be tuned via the ``XINFERENCE_HUB_DETECT_TIMEOUT``
 environment variable (default: 3 seconds).
 
