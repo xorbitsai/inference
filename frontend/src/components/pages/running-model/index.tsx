@@ -78,12 +78,7 @@ function formatErrorDetail(detail: unknown): string | undefined {
     const messages = detail
       .map((item) => {
         if (typeof item === 'string') return item;
-        if (
-          item &&
-          typeof item === 'object' &&
-          'msg' in item &&
-          typeof item.msg === 'string'
-        ) {
+        if (item && typeof item === 'object' && 'msg' in item && typeof item.msg === 'string') {
           return item.msg;
         }
         try {
@@ -122,20 +117,42 @@ const formatGpuMemory = (bytes: number): string => {
   return `${(bytes / 1024 ** 2).toFixed(2)} MiB`;
 };
 
-const getAddressHost = (address: string): string => {
+interface ParsedAddress {
+  host: string;
+  port?: string;
+}
+
+const parseAddress = (address: string): ParsedAddress => {
   const normalized = address.trim();
+  if (normalized.startsWith('[')) {
+    const closingBracket = normalized.indexOf(']');
+    if (closingBracket >= 0) {
+      const host = normalized.slice(1, closingBracket);
+      const suffix = normalized.slice(closingBracket + 1);
+      const port = suffix.startsWith(':') ? suffix.slice(1) : '';
+      return {
+        host,
+        port: /^\d+$/.test(port) ? port : undefined,
+      };
+    }
+  }
+
+  // An unbracketed address with one colon is unambiguous host:port. An
+  // address with multiple colons is treated as a bare IPv6 host because an
+  // IPv6 address must be bracketed when a port is included.
   const separator = normalized.lastIndexOf(':');
-  return separator > 0 ? normalized.slice(0, separator) : normalized;
+  if (separator > 0 && normalized.indexOf(':') === separator) {
+    const port = normalized.slice(separator + 1);
+    if (/^\d+$/.test(port)) {
+      return { host: normalized.slice(0, separator), port };
+    }
+  }
+  return { host: normalized };
 };
 
-const getAddressPort = (address: string): string | undefined => {
-  const normalized = address.trim();
-  const separator = normalized.lastIndexOf(':');
-  if (separator < 0 || separator === normalized.length - 1) {
-    return undefined;
-  }
-  const port = normalized.slice(separator + 1);
-  return /^\d+$/.test(port) ? port : undefined;
+const formatAddress = (host: string, port: string): string => {
+  const normalizedHost = host.replace(/^\[|\]$/g, '');
+  return normalizedHost.includes(':') ? `[${normalizedHost}]:${port}` : `${normalizedHost}:${port}`;
 };
 
 const formatReplicaRuntimeAddress = (replica: ReplicaItem): string | undefined => {
@@ -143,10 +160,11 @@ const formatReplicaRuntimeAddress = (replica: ReplicaItem): string | undefined =
   const modelAddress = replica.model_address?.trim();
   if (!modelAddress) return undefined;
 
-  const modelPort = getAddressPort(modelAddress);
-  const workerHost = workerAddress ? getAddressHost(workerAddress) : getAddressHost(modelAddress);
+  const parsedModelAddress = parseAddress(modelAddress);
+  const modelPort = parsedModelAddress.port;
+  const workerHost = workerAddress ? parseAddress(workerAddress).host : parsedModelAddress.host;
   if (modelPort && workerHost) {
-    return `${workerHost}:${modelPort}`;
+    return formatAddress(workerHost, modelPort);
   }
   return modelAddress;
 };
