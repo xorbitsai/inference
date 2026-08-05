@@ -205,15 +205,13 @@ class MiniMaxM3ToolParser(ToolParser):
                 if name is None and content
             )
 
-            events: List[
-                Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]
-            ] = []
+            events: List[Any] = []
             tool_count = 0
             plain_length = 0
             for content, name, args in current_blocks:
                 if name is not None:
                     if tool_count >= previous_tool_count:
-                        events.append((None, name, args))
+                        events.append((None, name, args, tool_count))
                     tool_count += 1
                     continue
 

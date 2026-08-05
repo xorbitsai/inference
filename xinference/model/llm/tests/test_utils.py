@@ -289,6 +289,13 @@ class _MultiToolParser:
         ]
 
 
+class _IndexedToolParser:
+    def extract_tool_calls_streaming(self, previous_texts, current_text, delta_text):
+        if current_text == "first":
+            return (None, "first", {}, 0)
+        return (None, "second", {}, 1)
+
+
 def test_post_process_completion_chunk_supports_multiple_tool_calls():
     mixin = ChatModelMixin()
     mixin.tool_parser = _MultiToolParser()
@@ -319,6 +326,42 @@ def test_post_process_completion_chunk_supports_multiple_tool_calls():
         ("get_weather", '{"city": "Beijing"}'),
         ("get_time", '{"timezone": "UTC+8"}'),
     ]
+
+
+def test_post_process_completion_chunk_preserves_absolute_tool_call_index():
+    mixin = ChatModelMixin()
+    mixin.tool_parser = _IndexedToolParser()
+    previous_texts = [""]
+
+    first = mixin._post_process_completion_chunk(
+        "test-family",
+        "test-model",
+        {
+            "choices": [
+                {"delta": {"content": "first"}, "finish_reason": None, "logprobs": None}
+            ]
+        },
+        previous_texts=previous_texts,
+    )
+    second = mixin._post_process_completion_chunk(
+        "test-family",
+        "test-model",
+        {
+            "choices": [
+                {
+                    "delta": {"content": "second"},
+                    "finish_reason": None,
+                    "logprobs": None,
+                }
+            ]
+        },
+        previous_texts=previous_texts,
+    )
+
+    assert first is not None
+    assert second is not None
+    assert first["choices"][0]["delta"]["tool_calls"][0]["index"] == 0
+    assert second["choices"][0]["delta"]["tool_calls"][0]["index"] == 1
 
 
 def test_post_process_completion_preserves_chat_logprobs():

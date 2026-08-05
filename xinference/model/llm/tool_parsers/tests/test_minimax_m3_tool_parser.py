@@ -154,7 +154,7 @@ def test_extract_tool_call_streaming(parser):
         None,
         None,
         None,
-        (None, "get_weather", {"city": "Beijing"}),
+        (None, "get_weather", {"city": "Beijing"}, 0),
     ]
 
 
@@ -166,9 +166,33 @@ def test_extract_multiple_tool_calls_streaming(parser):
     )
 
     assert parser.extract_tool_calls_streaming([], output, output) == [
-        (None, "get_weather", {"city": "Beijing"}),
-        (None, "get_time", {"timezone": "UTC+8"}),
+        (None, "get_weather", {"city": "Beijing"}, 0),
+        (None, "get_time", {"timezone": "UTC+8"}, 1),
     ]
+
+
+def test_streaming_keeps_indexes_across_separate_chunks(parser):
+    first = (
+        '<minimax:tool_call><invoke name="first"><value>1</value>'
+        "</invoke></minimax:tool_call>"
+    )
+    second = (
+        '<minimax:tool_call><invoke name="second"><value>2</value>'
+        "</invoke></minimax:tool_call>"
+    )
+
+    assert parser.extract_tool_calls_streaming([], first, first) == (
+        None,
+        "first",
+        {"value": 1},
+        0,
+    )
+    assert parser.extract_tool_calls_streaming([first], first + second, second) == (
+        None,
+        "second",
+        {"value": 2},
+        1,
+    )
 
 
 def test_streaming_preserves_text_between_tool_calls(parser):
@@ -189,7 +213,7 @@ def test_streaming_preserves_text_after_newly_completed_call(parser):
     delta = "</invoke></minimax:tool_call> tail"
 
     assert parser.extract_tool_calls_streaming([previous], previous + delta, delta) == [
-        (None, "first", {"value": 1}),
+        (None, "first", {"value": 1}, 0),
         (" tail", None, None),
     ]
 
@@ -232,6 +256,7 @@ def test_extract_tool_call_streaming_with_empty_history(parser, previous):
         None,
         "get_weather",
         {"city": "Beijing"},
+        0,
     )
 
 

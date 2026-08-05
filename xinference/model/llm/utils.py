@@ -943,11 +943,16 @@ class ChatModelMixin:
             tool_results = [tool_result]
         else:
             tool_results = []
-        for parsed_content, func, args in tool_results:
+        for tool_event in tool_results:
+            if len(tool_event) == 4:
+                parsed_content, func, args, tool_call_index = tool_event
+            else:
+                parsed_content, func, args = tool_event
+                tool_call_index = len(tool_calls)
             if func:
                 tool_calls.append(
                     {
-                        "index": len(tool_calls),
+                        "index": tool_call_index,
                         "id": f"call_{str(uuid.uuid4())}",
                         "type": "function",
                         "function": {
