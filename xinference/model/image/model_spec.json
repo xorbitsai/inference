@@ -1790,7 +1790,8 @@
     ],
     "virtualenv": {
       "packages": [
-        "deepdoc-lib~=0.2.2"
+        "deepdoc-lib~=0.2.2 ; #engine# == \"deepdoc\"",
+        "transformers<5 ; #engine# == \"deepdoc\""
       ]
     },
     "model_src": {
