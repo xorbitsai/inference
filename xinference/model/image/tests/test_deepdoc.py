@@ -77,6 +77,42 @@ def test_deepdoc_virtualenv_selects_runtime_package(
     assert "transformers<5" in selected
 
 
+def test_deepdoc_gpu_repairs_onnxruntime_namespace(monkeypatch):
+    from unittest.mock import MagicMock, call
+
+    from ....core.worker import WorkerActor
+    from ....model.core import VirtualEnvSettings
+
+    manager = MagicMock(env_path="/tmp/deepdoc-test-venv")
+    monkeypatch.setattr(WorkerActor, "_is_cuda_device_available", lambda: True)
+    uninstall = MagicMock()
+    monkeypatch.setattr(WorkerActor, "_uninstall_venv_package", uninstall)
+
+    WorkerActor._prepare_virtual_env(
+        manager,
+        VirtualEnvSettings(
+            packages=[
+                "deepdoc-lib[gpu]~=0.2.2 ; has_cuda",
+                "deepdoc-lib~=0.2.2 ; not has_cuda",
+                "transformers<5",
+            ],
+            inherit_pip_config=False,
+        ),
+        None,
+        "deepdoc",
+        model_name="DeepDoc",
+    )
+
+    assert uninstall.call_args_list == [
+        call(manager, "onnxruntime"),
+        call(manager, "onnxruntime-gpu"),
+    ]
+    assert manager.install_packages.call_args_list[-1].args == (
+        ["onnxruntime-gpu>=1.19.2"],
+    )
+    assert manager.install_packages.call_args_list[-1].kwargs["skip_installed"] is False
+
+
 def _make_unloaded_model():
     from unittest.mock import MagicMock
 
