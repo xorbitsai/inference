@@ -31,26 +31,49 @@ def test_deepdoc_registration():
     assert "deepdoc" in OCR_ENGINES["DeepDoc"]
 
 
-def test_deepdoc_is_cpu_only():
-    """DeepDoc must never reserve a GPU: deepdoc-lib pulls the CPU
-    onnxruntime backend and the adapter ignores the assigned device."""
+def test_deepdoc_uses_standard_device_scheduling():
+    """DeepDoc is CUDA-capable and must not bypass worker GPU allocation.
+
+    On Linux x86_64, deepdoc-lib installs onnxruntime-gpu and selects
+    CUDAExecutionProvider when CUDA is visible. The worker's standard device
+    allocation restricts it to the assigned GPU through CUDA_VISIBLE_DEVICES.
+    """
     from .. import register_builtin_model
-    from ..core import is_cpu_only_image_model
     from ..ocr.deepdoc import DeepDocModel
 
     register_builtin_model()
-    assert DeepDocModel.cpu_only is True
-    # no engine given: every DeepDoc engine is CPU-only
-    assert is_cpu_only_image_model("DeepDoc") is True
-    # engine lookup is case-insensitive, mirroring engine spell-correction
-    assert is_cpu_only_image_model("DeepDoc", "deepdoc") is True
-    assert is_cpu_only_image_model("DeepDoc", "DeepDoc") is True
-    # unknown engine names keep the default GPU behavior
-    assert is_cpu_only_image_model("DeepDoc", "not-an-engine") is False
-    # GPU-capable OCR models are unaffected
-    assert is_cpu_only_image_model("GOT-OCR2_0") is False
-    # non-OCR image models are unaffected
-    assert is_cpu_only_image_model("stable-diffusion-v1.5") is False
+    assert getattr(DeepDocModel, "cpu_only", False) is False
+
+
+@pytest.mark.parametrize(
+    ("has_cuda", "expected", "unexpected"),
+    [
+        (True, "deepdoc-lib[gpu]~=0.2.2", "deepdoc-lib~=0.2.2"),
+        (False, "deepdoc-lib~=0.2.2", "deepdoc-lib[gpu]~=0.2.2"),
+    ],
+)
+def test_deepdoc_virtualenv_selects_runtime_package(
+    monkeypatch, has_cuda, expected, unexpected
+):
+    from xoscar.virtualenv import core as virtualenv_core
+
+    from ....core.utils import filter_virtualenv_packages_by_markers
+    from .. import BUILTIN_IMAGE_MODELS, register_builtin_model
+
+    register_builtin_model()
+    packages = BUILTIN_IMAGE_MODELS["DeepDoc"][0].virtualenv.packages
+    # Xinference must preserve xoscar's extended has_cuda marker until the
+    # virtual environment is created on the target worker.
+    prepared = filter_virtualenv_packages_by_markers(packages, "deepdoc", None)
+    assert any("has_cuda" in package for package in prepared)
+
+    env = virtualenv_core.get_env()
+    env["has_cuda"] = has_cuda
+    monkeypatch.setattr(virtualenv_core, "get_env", lambda: env)
+    selected = virtualenv_core.filter_requirements(prepared)
+
+    assert expected in selected
+    assert unexpected not in selected
 
 
 def _make_unloaded_model():

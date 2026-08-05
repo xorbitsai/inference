@@ -14,8 +14,11 @@ Specifications
 
 - **Model ID:** InfiniFlow/deepdoc (HuggingFace), Xorbits/deepdoc (ModelScope)
 - **Inference package:** `deepdoc-lib <https://github.com/xorbitsai/deepdoc-lib>`_ (onnxruntime based)
-- **Device:** CPU only. ``deepdoc-lib`` runs on the CPU onnxruntime backend,
-  so launching DeepDoc never reserves a GPU, even on GPU workers.
+- **Device:** GPU when CUDA is available, with CPU fallback. On Linux x86_64,
+  Xinference installs the ``deepdoc-lib[gpu]`` extra (including
+  ``onnxruntime-gpu``) and DeepDoc selects CUDAExecutionProvider. On workers
+  without CUDA, Xinference installs the base ``deepdoc-lib`` package instead.
+  Xinference reserves and exposes the assigned GPU to the model process.
 
 Execute the following command to launch the model::
 
@@ -24,6 +27,4 @@ Execute the following command to launch the model::
 The ``/v1/images/ocr`` endpoint accepts a ``task`` kwarg: ``ocr`` (default,
 returns plain text), ``layout`` (returns layout blocks) or ``table`` (returns
 table structures). Structured results are returned as JSON objects.
-
-
 

@@ -64,9 +64,6 @@ class DeepDocModel(OCRModel):
     """
 
     required_libs = ("deepdoc",)
-    # deepdoc-lib runs on the CPU onnxruntime backend; the worker must not
-    # reserve a GPU that inference will never touch.
-    cpu_only = True
 
     @classmethod
     def match(cls, model_family: "ImageModelFamilyV2") -> bool:
