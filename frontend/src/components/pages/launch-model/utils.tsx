@@ -955,73 +955,14 @@ export function isVisibleRequiredLaunchField(field: LaunchFieldConfig) {
   return field.show !== false && 'rules' in field && field.rules?.some((rule) => rule.required);
 }
 
-export function normalizeWorkerAddress(value: unknown) {
-  const normalized = String(value || '').trim();
-  if (!normalized) return '';
-
-  try {
-    return new URL(`http://${normalized}`).hostname.replace(/^\[|\]$/g, '');
-  } catch {
-    if (normalized.startsWith('[')) {
-      const closingBracketIndex = normalized.indexOf(']');
-      if (closingBracketIndex !== -1) {
-        return normalized.slice(1, closingBracketIndex).trim();
-      }
-    }
-
-    const lastColonIndex = normalized.lastIndexOf(':');
-    if (lastColonIndex === -1) return normalized;
-
-    const hasMultipleColons = normalized.indexOf(':') !== lastColonIndex;
-    if (hasMultipleColons) {
-      return normalized;
-    }
-
-    return normalized.slice(0, lastColonIndex).trim();
-  }
-}
-
-export function extractWorkerItems(clusterInfo: ClusterInfoResponse, t: TFunc): WorkerOption[] {
-  if (!clusterInfo) return [];
-  const isFlatNodeList = Array.isArray(clusterInfo);
-  const nodes = isFlatNodeList ? clusterInfo : clusterInfo.workers || [];
-  const workerMap = nodes.reduce<Map<string, WorkerOption>>((acc, node: ClusterInfo) => {
-    if (isFlatNodeList && node.node_type !== 'Worker') return acc;
-
-    const workerIp = normalizeWorkerAddress(node.ip_address || node.ip);
-    if (!workerIp) return acc;
-
-    const gpuCount = Number(node.gpu_count || 0);
-    const existingWorker = acc.get(workerIp);
-
-    if (existingWorker) {
-      existingWorker.gpuCount = Math.max(existingWorker.gpuCount, gpuCount);
-      return acc;
-    }
-
-    acc.set(workerIp, {
-      label: workerIp,
-      value: workerIp,
-      description: t('launchModel.gpuCount', { count: gpuCount }),
-      gpuCount,
-    });
-
-    return acc;
-  }, new Map());
-
-  return Array.from(workerMap.values()).sort((a, b) => a.label.localeCompare(b.label));
-}
-
 /**
- * Like {@link extractWorkerItems} but keeps the FULL registered worker address
- * (`ip:port`) and dedupes by full address. Required by `replica_config`, whose
- * backend matches the exact `ip:port` (one host may run several workers on
- * different ports, which IP-prefix matching cannot distinguish).
+ * Extract registered Worker addresses without dropping their ports.
+ *
+ * The full `ip:port` address identifies one concrete Worker. Keeping it for
+ * both automatic and per-replica placement prevents multiple Workers running
+ * on the same host from being merged into one ambiguous option.
  */
-export function extractFullAddressWorkerItems(
-  clusterInfo: ClusterInfoResponse,
-  t: TFunc
-): WorkerOption[] {
+export function extractWorkerItems(clusterInfo: ClusterInfoResponse, t: TFunc): WorkerOption[] {
   if (!clusterInfo) return [];
   const isFlatNodeList = Array.isArray(clusterInfo);
   const nodes = isFlatNodeList ? clusterInfo : clusterInfo.workers || [];
@@ -1032,14 +973,19 @@ export function extractFullAddressWorkerItems(
     if (!fullAddress) return acc;
 
     const gpuCount = Number(node.gpu_count || 0);
-    if (!acc.has(fullAddress)) {
-      acc.set(fullAddress, {
-        label: fullAddress,
-        value: fullAddress,
-        description: t('launchModel.gpuCount', { count: gpuCount }),
-        gpuCount,
-      });
+    const existingWorker = acc.get(fullAddress);
+
+    if (existingWorker) {
+      existingWorker.gpuCount = Math.max(existingWorker.gpuCount, gpuCount);
+      return acc;
     }
+
+    acc.set(fullAddress, {
+      label: fullAddress,
+      value: fullAddress,
+      description: t('launchModel.gpuCount', { count: gpuCount }),
+      gpuCount,
+    });
 
     return acc;
   }, new Map());

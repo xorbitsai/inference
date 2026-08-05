@@ -441,17 +441,6 @@ const RunningModel = () => {
               <p className="text-xs text-muted-foreground mt-2">
                 {t('runningModels.workerAddress')}: {replica.worker_address}
               </p>
-              {replica.replica_uid && (
-                <p className="text-xs text-muted-foreground">
-                  {t('launchModel.replicaUid')}: {replica.replica_uid}
-                </p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                {t('launchModel.GPUIdx')}:{' '}
-                {replica.gpu_idx && replica.gpu_idx.length > 0
-                  ? replica.gpu_idx.join(', ')
-                  : 'auto'}
-              </p>
             </div>
           ))}
         </div>

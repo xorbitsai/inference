@@ -113,8 +113,12 @@ const ja = {
     replicaPlacementMode: 'レプリカ配置',
     placementAuto: '自動スケジューリング',
     placementCustom: 'レプリカごと (ワーカー & GPU)',
-    replicaUid: 'レプリカ UID',
+    replicaUid: 'レプリカエイリアス',
+    replicaUidPlaceholder: '任意。このレプリカを識別するために使用します',
     replicaPlacementEmpty: 'レプリカごとの配置を指定するには、レプリカ数を増やしてください。',
+    replicaPlacementIncomplete:
+      '各レプリカの Worker を選択し、GPU インデックスは非負整数をカンマ区切りで入力してください。',
+    replicaAliasDuplicate: 'レプリカエイリアスは一意である必要があります。',
     advancedConfiguration: '高度な設定',
     runtimeEnvironment: '実行環境',
     engineParameters: 'エンジンパラメータ',

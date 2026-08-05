@@ -113,8 +113,12 @@ const en = {
     replicaPlacementMode: 'Replica Placement',
     placementAuto: 'Auto scheduling',
     placementCustom: 'Per-replica (worker & GPU)',
-    replicaUid: 'Replica UID',
+    replicaUid: 'Replica Alias',
+    replicaUidPlaceholder: 'Optional, used to identify this replica',
     replicaPlacementEmpty: 'Increase the replica count to specify placement per replica.',
+    replicaPlacementIncomplete:
+      'Select a worker for every replica and use comma-separated non-negative GPU indexes.',
+    replicaAliasDuplicate: 'Replica aliases must be unique.',
     advancedConfiguration: 'Advanced Configuration',
     runtimeEnvironment: 'Runtime Environment',
     engineParameters: 'Engine Parameters',
