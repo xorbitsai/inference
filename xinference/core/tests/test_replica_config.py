@@ -154,7 +154,9 @@ def test_resolve_normalizes_auto_n_gpu_for_explicit_gpu_indexes():
     w1 = _FakeWorker("10.0.0.1:9978", total=[0, 1, 2, 3])
     sup = _make_supervisor([w1])
     targets, _ = asyncio.run(
-        sup._resolve_replica_config("m", 1, [_cfg(worker_ip=w1.address, gpu_idx=[0, 1])])
+        sup._resolve_replica_config(
+            "m", 1, [_cfg(worker_ip=w1.address, gpu_idx=[0, 1])]
+        )
     )
     assert targets[0][1] == [0, 1]
     assert targets[0][2] == 2
