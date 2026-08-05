@@ -2381,6 +2381,9 @@ class SupervisorActor(xo.StatelessActor):
             # Calculate replica_id for status tracking
             replica_id = rank - 1 if not enable_xavier else rank
 
+            # Resolve the GPU indexes early so they can be recorded in the
+            # CREATING status below. Xavier rank 0 is the coordinator and does
+            # not allocate replica GPUs.
             replica_gpu_idx = target_gpu_idx
             if replica_gpu_idx is None and not (enable_xavier and rank == 0):
                 replica_gpu_idx = assign_replica_gpu(
@@ -2451,7 +2454,7 @@ class SupervisorActor(xo.StatelessActor):
                     quantization=quantization,
                     model_engine=model_engine,
                     model_type=model_type,
-                    n_gpu=replica_n_gpu if replica_n_gpu is not None else n_gpu,
+                    n_gpu=n_gpu if replica_n_gpu is None else replica_n_gpu,
                     request_limits=request_limits,
                     peft_model_config=peft_model_config,
                     gpu_idx=replica_gpu_idx,
@@ -2963,14 +2966,98 @@ class SupervisorActor(xo.StatelessActor):
         )
         return [info.dict() for info in sorted(infos, key=lambda info: info.model_uid)]
 
+    async def _get_replica_runtime_info(
+        self, replica_model_uids: Set[str]
+    ) -> Dict[str, Dict[str, Any]]:
+        """Return model subprocess addresses and accelerators for replicas.
+
+        ``worker_address`` identifies the Worker actor and normally contains
+        the Worker's service port.  The address exposed by the Worker model
+        specification, however, identifies the model subprocess/subpool and
+        contains the port where that replica is actually running.  Keep this
+        lookup at replica granularity so that the model-level deduplication in
+        :meth:`list_models` cannot discard addresses for other replicas.
+
+        The lookup is best effort.  Replica status should remain available if
+        a Worker is temporarily unreachable; callers can then fall back to the
+        Worker address or the model-level description.
+        """
+        if not replica_model_uids:
+            return {}
+
+        refs_by_address: Dict[str, xo.ActorRefType["WorkerActor"]] = {}
+        for replica_model_uid in replica_model_uids:
+            worker_refs = self._replica_model_uid_to_worker.get(replica_model_uid)
+            if worker_refs is None:
+                continue
+            if not isinstance(worker_refs, (list, tuple)):
+                worker_refs = [worker_refs]
+            for worker_ref in worker_refs:
+                refs_by_address.setdefault(worker_ref.address, worker_ref)
+
+        if not refs_by_address:
+            return {}
+
+        async def _fetch_one(
+            worker_address: str, worker_ref: xo.ActorRefType["WorkerActor"]
+        ) -> Dict[str, Dict[str, Any]]:
+            try:
+                return await xo.wait_for(
+                    worker_ref.list_models(),
+                    XINFERENCE_LIST_MODELS_PER_WORKER_TIMEOUT,
+                )
+            except Exception as ex:
+                logger.debug(
+                    "get_replica_statuses: failed to get model addresses from "
+                    "worker %s: %s",
+                    worker_address,
+                    ex,
+                )
+                return {}
+
+        parts = await asyncio.gather(
+            *(_fetch_one(addr, ref) for addr, ref in refs_by_address.items())
+        )
+        runtime_info: Dict[str, Dict[str, Any]] = {}
+        for part in parts:
+            for replica_model_uid in replica_model_uids:
+                model_spec = part.get(replica_model_uid)
+                if not model_spec:
+                    continue
+                info = runtime_info.setdefault(replica_model_uid, {})
+                model_address = model_spec.get("address")
+                if isinstance(model_address, str) and model_address:
+                    info["model_address"] = model_address
+                accelerators = model_spec.get("accelerators")
+                if accelerators is not None:
+                    if isinstance(accelerators, (list, tuple, set)):
+                        info["accelerators"] = [
+                            str(accelerator) for accelerator in accelerators
+                        ]
+                    else:
+                        info["accelerators"] = [str(accelerators)]
+        return runtime_info
+
     async def get_replica_statuses(self, model_uid: str) -> List[Dict]:
-        """Get replica statuses from status guard"""
+        """Get replica statuses and their actual model runtime information."""
         replica_statuses = await self._status_guard_ref.get_replica_statuses(model_uid)
+        replica_model_uids = {
+            status.replica_model_uid
+            for status in replica_statuses
+            if status.replica_model_uid
+        }
+        runtime_info = await self._get_replica_runtime_info(replica_model_uids)
         return [
             {
                 "replica_id": status.replica_id,
                 "replica_model_uid": status.replica_model_uid,
                 "worker_address": status.worker_address,
+                "model_address": runtime_info.get(status.replica_model_uid, {}).get(
+                    "model_address"
+                ),
+                "accelerators": runtime_info.get(status.replica_model_uid, {}).get(
+                    "accelerators"
+                ),
                 "status": status.status,
                 "created_ts": status.created_ts,
                 "error_message": status.error_message,
