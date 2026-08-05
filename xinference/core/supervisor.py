@@ -61,6 +61,7 @@ from ..types import PeftModelConfig
 from .exceptions import ModelNotReadyError
 from .launch_strategy import IdleFirstLaunchStrategy
 from .metrics import record_metrics
+from .replica_config import ReplicaConfig, normalize_replica_configs
 from .resource import GPUStatus, ResourceStatus
 from .utils import (
     assign_replica_gpu,
@@ -1910,6 +1911,7 @@ class SupervisorActor(xo.StatelessActor):
         replica: int = 1,
         n_gpu: Optional[Union[int, str]] = "auto",
         wait_ready: bool = True,
+        replica_config: Optional[List[ReplicaConfig]] = None,
     ):
         parse_results = parse_model_version(model_version, model_type)
 
@@ -1930,6 +1932,7 @@ class SupervisorActor(xo.StatelessActor):
             n_gpu=n_gpu,
             wait_ready=wait_ready,
             model_version=model_version,
+            replica_config=replica_config,
             **kwargs,
         )
 
@@ -1945,6 +1948,126 @@ class SupervisorActor(xo.StatelessActor):
             f"Found {len(refs)} workers for IPs {ip_list}: {[r.address for r in refs]}"
         )
         return refs
+
+    def _get_worker_ref_by_address(
+        self, address: str
+    ) -> Optional[xo.ActorRefType["WorkerActor"]]:
+        """Resolve a worker by its full ``ip:port`` address (exact match).
+
+        Unlike ``_get_worker_refs_by_ip`` (which matches on the IP prefix and is
+        therefore ambiguous when one host runs several workers), this matches
+        the complete registered address key, which is what ``replica_config``
+        requires.
+        """
+        return self._worker_address_to_worker.get(address)
+
+    async def _resolve_replica_config(
+        self,
+        model_uid: str,
+        replica: int,
+        replica_config: List[ReplicaConfig],
+    ) -> Tuple[
+        List[Tuple[xo.ActorRefType["WorkerActor"], Optional[List[int]]]],
+        Dict[int, Optional[str]],
+    ]:
+        """Validate and resolve ``replica_config`` into per-replica targets.
+
+        Runs entirely before any replica is launched so that a bad config fails
+        cleanly (no partial deployment, no leaked actors). Returns, aligned by
+        replica index:
+          * a list of ``(worker_ref, gpu_idx_or_None)`` to dispatch to, and
+          * a map ``replica_id -> replica_uid`` label for status tracking.
+
+        Stateful checks performed here: worker registered in the cluster, GPU
+        index exists on the target worker, and (when the worker disallows
+        multi-replica-per-GPU) static cross-replica GPU conflicts.
+        """
+        # Structural validation + default replica_uid fill.
+        configs = normalize_replica_configs(model_uid, replica, replica_config)
+
+        is_local = self.is_local_deployment()
+        registered = list(self._worker_address_to_worker.keys())
+
+        # 1. Resolve worker ref per replica (exact ip:port; local short-circuit).
+        resolved_worker: List[Optional[xo.ActorRefType["WorkerActor"]]] = []
+        for idx, cfg in enumerate(configs):
+            address = cfg.devices[0].worker_ip
+            worker_ref = self._get_worker_ref_by_address(address)
+            if worker_ref is None:
+                if is_local:
+                    worker_ref = next(
+                        iter(self._worker_address_to_worker.values()), None
+                    )
+                    if worker_ref is None:
+                        raise RuntimeError("No available worker found")
+                    logger.warning(
+                        "Local deployment, ignore replica_config worker_ip %s.",
+                        address,
+                    )
+                else:
+                    raise ValueError(
+                        f"replica_config[{idx}].worker_ip '{address}' is not in the "
+                        f"cluster. Registered workers: {registered}"
+                    )
+            resolved_worker.append(worker_ref)
+
+        # 2. Fetch GPU allocation snapshots for the distinct target workers.
+        distinct: Dict[str, xo.ActorRefType["WorkerActor"]] = {}
+        for ref in resolved_worker:
+            assert ref is not None
+            distinct[ref.address] = ref
+        alloc_results: Dict[str, Any] = {}
+        if distinct:
+            addrs = list(distinct.keys())
+            snapshots = await asyncio.gather(
+                *[distinct[a].get_gpu_allocation_status() for a in addrs],
+                return_exceptions=True,
+            )
+            for a, snap in zip(addrs, snapshots):
+                if isinstance(snap, Exception):
+                    raise ValueError(
+                        f"Failed to query GPU status of worker {a} while "
+                        f"validating replica_config: {snap}"
+                    )
+                alloc_results[a] = snap
+
+        # 3. Validate GPU existence + static cross-replica conflicts per worker.
+        per_worker_used: Dict[str, Set[int]] = {}
+        resolved_targets: List[
+            Tuple[xo.ActorRefType["WorkerActor"], Optional[List[int]]]
+        ] = []
+        replica_uid_map: Dict[int, Optional[str]] = {}
+        for idx, cfg in enumerate(configs):
+            device = cfg.devices[0]
+            worker_ref = resolved_worker[idx]
+            assert worker_ref is not None
+            address = worker_ref.address
+            gpu_idx = list(device.gpu_idx) if device.gpu_idx else None
+            if gpu_idx:
+                total = set(alloc_results[address].get("total") or [])
+                invalid = set(gpu_idx) - total
+                if invalid:
+                    raise ValueError(
+                        f"replica_config[{idx}].gpu_idx {gpu_idx} is not visible on "
+                        f"worker {address}; visible GPU indexes: {sorted(total)}"
+                    )
+                allow_share = bool(
+                    alloc_results[address].get("allow_multi_replica_per_gpu", False)
+                )
+                if not allow_share:
+                    used = per_worker_used.setdefault(address, set())
+                    overlap = used.intersection(gpu_idx)
+                    if overlap:
+                        raise ValueError(
+                            f"replica_config GPU conflict on worker {address}: GPU "
+                            f"indexes {sorted(overlap)} requested by more than one "
+                            f"replica, and this worker disallows sharing a GPU."
+                        )
+                    used.update(gpu_idx)
+            resolved_targets.append((worker_ref, gpu_idx))
+            replica_uid_map[idx] = cfg.replica_uid
+
+        return resolved_targets, replica_uid_map
 
     @log_async(logger=logger)
     async def launch_builtin_model(
@@ -1965,6 +2088,7 @@ class SupervisorActor(xo.StatelessActor):
         peft_model_config: Optional[PeftModelConfig] = None,
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
+        replica_config: Optional[List[ReplicaConfig]] = None,
         download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
         model_path: Optional[str] = None,
         enable_virtual_env: Optional[bool] = None,
@@ -1976,6 +2100,20 @@ class SupervisorActor(xo.StatelessActor):
             # ignore n_worker > 1 if local deployment
             logger.warning("Local deployment, ignore n_worker(%s)", n_worker)
             n_worker = 1
+
+        if replica_config is not None:
+            # replica_config pins each replica to a single worker, so it is
+            # incompatible with sharded launch (n_worker>1) and with the legacy
+            # global worker_ip / n_gpu / gpu_idx parameters.
+            if n_worker > 1:  # type: ignore
+                raise ValueError(
+                    "replica_config is incompatible with n_worker>1 (sharded launch)."
+                )
+            if worker_ip is not None or gpu_idx is not None or n_gpu != "auto":
+                raise ValueError(
+                    "replica_config cannot be used together with the legacy "
+                    "worker_ip / n_gpu / gpu_idx parameters."
+                )
 
         if n_worker > 1:  # type: ignore
             # distributed inference
@@ -2040,6 +2178,19 @@ class SupervisorActor(xo.StatelessActor):
         if model_uid is None:
             model_uid = self._gen_model_uid(model_name)
 
+        # Resolve per-replica placement (replica_config) BEFORE any side effects
+        # below (xavier actor creation, replica_info, instance_info) so that a
+        # bad config fails cleanly with no leaked actors or partial state.
+        resolved_targets: Optional[
+            List[Tuple[xo.ActorRefType["WorkerActor"], Optional[List[int]]]]
+        ] = None
+        replica_uid_map: Dict[int, Optional[str]] = {}
+        if replica_config is not None:
+            (
+                resolved_targets,
+                replica_uid_map,
+            ) = await self._resolve_replica_config(model_uid, replica, replica_config)
+
         # Xavier-related
         enable_xavier: bool = (
             bool(kwargs.pop("enable_xavier", False))
@@ -2080,7 +2231,11 @@ class SupervisorActor(xo.StatelessActor):
         )
 
         async def _launch_one_model(
-            worker_ref, _replica_model_uid, rank: int, target_gpu_idx=None
+            worker_ref,
+            _replica_model_uid,
+            rank: int,
+            target_gpu_idx=None,
+            replica_uid=None,
         ):
             if _replica_model_uid in self._replica_model_uid_to_worker:
                 raise ValueError(
@@ -2104,6 +2259,7 @@ class SupervisorActor(xo.StatelessActor):
                     "worker_address": worker_ref.address,
                     "status": LaunchStatus.CREATING.name,
                     "created_ts": int(time.time()),
+                    "replica_uid": replica_uid,
                 },
             )
 
@@ -2212,57 +2368,59 @@ class SupervisorActor(xo.StatelessActor):
                             "Launch strategy %s not recognized, fallback to load-first",
                             strategy_name,
                         )
-                # Pre-fetch worker loads for balanced scheduling
-                worker_candidates = []
+                if resolved_targets is None:
+                    # Pre-fetch worker loads for balanced scheduling
+                    worker_candidates = []
 
-                if target_worker_refs:
-                    workers = target_worker_refs
-                else:
-                    workers = list(self._worker_address_to_worker.values())
+                    if target_worker_refs:
+                        workers = target_worker_refs
+                    else:
+                        workers = list(self._worker_address_to_worker.values())
 
-                if not workers:
-                    raise RuntimeError("No available worker found")
+                    if not workers:
+                        raise RuntimeError("No available worker found")
 
-                # Fetch loads in parallel to minimize latency
-                counts = await asyncio.gather(
-                    *[w.get_model_count() for w in workers], return_exceptions=True
-                )
-                # Fetch per-worker GPU allocation snapshots for visibility/scheduling.
-                allocations = await asyncio.gather(
-                    *[w.get_gpu_allocation_status() for w in workers],
-                    return_exceptions=True,
-                )
-
-                for w_ref, count, alloc in zip(workers, counts, allocations):
-                    if isinstance(count, Exception):
-                        logger.warning(
-                            f"Failed to get model count from worker: {count}"
-                        )
-                        continue
-                    if isinstance(alloc, Exception):
-                        logger.debug(
-                            "Failed to fetch GPU allocation snapshot from worker %s: %s",
-                            w_ref.address,
-                            alloc,
-                        )
-                        alloc = None
-                    worker_candidates.append(
-                        {"ref": w_ref, "count": count, "alloc": alloc}
+                    # Fetch loads in parallel to minimize latency
+                    counts = await asyncio.gather(
+                        *[w.get_model_count() for w in workers],
+                        return_exceptions=True,
+                    )
+                    # Fetch per-worker GPU allocation snapshots for visibility/scheduling.
+                    allocations = await asyncio.gather(
+                        *[w.get_gpu_allocation_status() for w in workers],
+                        return_exceptions=True,
                     )
 
-                if not worker_candidates:
-                    raise RuntimeError("No available worker found")
+                    for w_ref, count, alloc in zip(workers, counts, allocations):
+                        if isinstance(count, Exception):
+                            logger.warning(
+                                f"Failed to get model count from worker: {count}"
+                            )
+                            continue
+                        if isinstance(alloc, Exception):
+                            logger.debug(
+                                "Failed to fetch GPU allocation snapshot from worker %s: %s",
+                                w_ref.address,
+                                alloc,
+                            )
+                            alloc = None
+                        worker_candidates.append(
+                            {"ref": w_ref, "count": count, "alloc": alloc}
+                        )
 
-                logger.debug(
-                    f"Worker candidates for {model_uid}: {[{'addr': c['ref'].address, 'count': c['count']} for c in worker_candidates]}"
-                )
-                logger.debug(
-                    "GPU allocation snapshots: %s",
-                    [
-                        {"addr": c["ref"].address, "alloc": c.get("alloc")}
-                        for c in worker_candidates
-                    ],
-                )
+                    if not worker_candidates:
+                        raise RuntimeError("No available worker found")
+
+                    logger.debug(
+                        f"Worker candidates for {model_uid}: {[{'addr': c['ref'].address, 'count': c['count']} for c in worker_candidates]}"
+                    )
+                    logger.debug(
+                        "GPU allocation snapshots: %s",
+                        [
+                            {"addr": c["ref"].address, "alloc": c.get("alloc")}
+                            for c in worker_candidates
+                        ],
+                    )
 
                 # Pre-check: ensure no replica uid already exists before entering
                 # asyncio.gather, preventing partial-deploy-then-rollback.
@@ -2279,7 +2437,13 @@ class SupervisorActor(xo.StatelessActor):
                 for _idx, rep_model_uid in enumerate(
                     iter_replica_model_uid(model_uid, replica)
                 ):
-                    if strategy is not None:
+                    if resolved_targets is not None:
+                        worker_ref, target_gpu_idx = resolved_targets[_idx]
+                        logger.debug(
+                            f"Replica {_idx} pinned by replica_config to "
+                            f"{worker_ref.address} (gpu_idx: {target_gpu_idx})"
+                        )
+                    elif strategy is not None:
                         requested_gpu = n_gpu if isinstance(n_gpu, int) else None
                         worker_ref, target_gpu_idx = strategy.select_worker(
                             worker_candidates, n_gpu=requested_gpu
@@ -2325,7 +2489,11 @@ class SupervisorActor(xo.StatelessActor):
                     # Add regular replica launch task to parallel batch
                     launch_tasks.append(
                         _launch_one_model(
-                            worker_ref, rep_model_uid, _idx + 1, target_gpu_idx
+                            worker_ref,
+                            rep_model_uid,
+                            _idx + 1,
+                            target_gpu_idx,
+                            replica_uid=replica_uid_map.get(_idx),
                         )
                     )
                     task_metadata.append((worker_ref, rep_model_uid, False, _idx, None))

@@ -42,6 +42,9 @@ class ReplicaStatus(BaseModel):
     model_state: str = ""  # registering/loading/ready/error/stopping/stopped
     created_ts: int
     error_message: Optional[str] = None
+    # User-facing replica label (from replica_config.replica_uid). Purely
+    # informational; not used for routing or as the internal replica_model_uid.
+    replica_uid: Optional[str] = None
 
 
 class InstanceInfo(BaseModel):
@@ -137,6 +140,7 @@ class StatusGuardActor(xo.StatelessActor):
                     status=status_update.get("status", LaunchStatus.CREATING.name),
                     created_ts=status_update.get("created_ts", 0),
                     error_message=status_update.get("error_message", None),
+                    replica_uid=status_update.get("replica_uid", None),
                 )
             )
 
