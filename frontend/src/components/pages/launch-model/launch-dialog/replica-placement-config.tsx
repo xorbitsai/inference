@@ -17,7 +17,7 @@ interface ReplicaConfigRow {
 
 interface ReplicaPlacementConfigProps {
   form: FormInstance;
-  /** worker options carrying the FULL `ip:port` address (see extractFullAddressWorkerItems). */
+  /** worker options carrying the FULL `ip:port` address (see extractWorkerItems). */
   workerOptions: WorkerOption[];
   modelUid?: string;
 }
@@ -33,11 +33,7 @@ interface ReplicaPlacementConfigProps {
  * Bound to form field `replica_config` (array of rows); `replica_placement_mode`
  * gates visibility at the field-config level.
  */
-const ReplicaPlacementConfig: FC<ReplicaPlacementConfigProps> = ({
-  form,
-  workerOptions,
-  modelUid,
-}) => {
+const ReplicaPlacementConfig: FC<ReplicaPlacementConfigProps> = ({ form, workerOptions }) => {
   const { t } = useI18n();
   const rows = (useWatch('replica_config', form) as ReplicaConfigRow[] | undefined) ?? [];
 
@@ -68,7 +64,7 @@ const ReplicaPlacementConfig: FC<ReplicaPlacementConfigProps> = ({
         >
           <Input
             value={row.replica_uid ?? ''}
-            placeholder={`${modelUid || ''}-rep${index}`}
+            placeholder={t('launchModel.replicaUidPlaceholder')}
             onChange={(e) => patchRow(index, { replica_uid: e.target.value })}
           />
           <Select

@@ -52,7 +52,6 @@ import {
   isEmptyLaunchValue,
   isVisibleRequiredLaunchField,
   extractWorkerItems,
-  extractFullAddressWorkerItems,
   requiresGpuWorkers,
 } from '../utils';
 import CommandLine from './command-line';
@@ -101,7 +100,6 @@ export default function LaunchDialog({
   const multimodalProjectorValue = toOptionValue(useWatch('multimodal_projector', form));
   const nGpuValue = useWatch('n_gpu', form);
   const [workerOptions, setWorkerOptions] = useState<WorkerOption[]>([]);
-  const [fullAddressWorkerOptions, setFullAddressWorkerOptions] = useState<WorkerOption[]>([]);
   const replicaPlacementModeValue = useWatch('replica_placement_mode', form);
   const replicaValue = Number(useWatch('replica', form)) || 1;
   const modelUidValue = toOptionValue(useWatch('model_uid', form));
@@ -118,10 +116,8 @@ export default function LaunchDialog({
         params: { detailed: true },
       });
       setWorkerOptions(extractWorkerItems(data, t));
-      setFullAddressWorkerOptions(extractFullAddressWorkerItems(data, t));
     } catch {
       setWorkerOptions([]);
-      setFullAddressWorkerOptions([]);
     }
   }, [clusterAuth?.auth, isAdmin, t]);
   const fetchModelEngine = useCallback(async () => {
@@ -458,7 +454,7 @@ export default function LaunchDialog({
       content: (
         <ReplicaPlacementConfig
           form={form}
-          workerOptions={fullAddressWorkerOptions}
+          workerOptions={workerOptions}
           modelUid={modelUidValue}
         />
       ),
@@ -1427,6 +1423,28 @@ export default function LaunchDialog({
   };
 
   const handleLaunch = async (values: FormValues) => {
+    if (values.replica_placement_mode === 'custom') {
+      const rows = Array.isArray(values.replica_config) ? values.replica_config : [];
+      const replicaCount = Number(values.replica) || 1;
+      const gpuIndexPattern = /^\d+(?:,\d+)*$/;
+      const hasInvalidPlacement =
+        rows.length !== replicaCount ||
+        rows.some((row) => {
+          const gpuIndexes = String(row?.gpu_idx ?? '').trim();
+          return !row?.worker_ip || (gpuIndexes !== '' && !gpuIndexPattern.test(gpuIndexes));
+        });
+      if (hasInvalidPlacement) {
+        toast.error(t('launchModel.replicaPlacementIncomplete'));
+        return;
+      }
+
+      const aliases = rows.map((row) => String(row?.replica_uid ?? '').trim()).filter(Boolean);
+      if (new Set(aliases).size !== aliases.length) {
+        toast.error(t('launchModel.replicaAliasDuplicate'));
+        return;
+      }
+    }
+
     const newValues = transformFormToFetch(values);
     isCanceledLaunchRef.current = false;
     setLoading(true);
