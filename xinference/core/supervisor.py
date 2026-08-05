@@ -3156,9 +3156,7 @@ class SupervisorActor(xo.StatelessActor):
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
 
         if not replica_info.active_replica_ids:
-            raise ValueError(
-                f"Model has no active replicas, uid: {model_uid}"
-            )
+            raise ValueError(f"Model has no active replicas, uid: {model_uid}")
 
         # ---- 2. Generate new replica id -----------------------------------------
         new_replica_id = max(replica_info.active_replica_ids) + 1
@@ -3166,9 +3164,7 @@ class SupervisorActor(xo.StatelessActor):
 
         # ---- 3. Idempotency check ------------------------------------------------
         if new_replica_uid in self._replica_model_uid_to_worker:
-            raise ValueError(
-                f"Replica already exists, uid: {new_replica_uid}"
-            )
+            raise ValueError(f"Replica already exists, uid: {new_replica_uid}")
 
         # ---- 4. Retrieve original launch args from any existing replica ----------
         any_replica_uid = build_replica_model_uid(
@@ -3201,13 +3197,12 @@ class SupervisorActor(xo.StatelessActor):
 
         # ---- 6. Resolve target worker / GPU --------------------------------------
         if replica_config is not None:
-            _resolved_targets, _replica_uid_map = (
-                await self._resolve_replica_config(
-                    model_uid, replica=1, replica_config=[replica_config]
-                )
+            user_replica_uid = replica_config.replica_uid
+            _resolved_targets, _replica_uid_map = await self._resolve_replica_config(
+                model_uid, replica=1, replica_config=[replica_config]
             )
-            target_worker_ref, target_gpu_idx = _resolved_targets[0]
-            replica_uid_label = _replica_uid_map.get(0)
+            target_worker_ref, target_gpu_idx, target_n_gpu = _resolved_targets[0]
+            replica_uid_label = user_replica_uid
         else:
             # Auto-select: pick the worker with the fewest loaded models.
             workers = list(self._worker_address_to_worker.values())
@@ -3232,13 +3227,16 @@ class SupervisorActor(xo.StatelessActor):
             candidates.sort(key=lambda x: (x[1], x[0].address))
             target_worker_ref = candidates[0][0]
             target_gpu_idx = None
+            target_n_gpu = launch_args.get("n_gpu", "auto")
             replica_uid_label = None
 
         # ---- 7. Prepare launch args for the new replica -------------------------
         modified_args: Dict[str, Any] = dict(launch_args)
         modified_args["model_uid"] = new_replica_uid
-        if target_gpu_idx is not None:
-            modified_args["gpu_idx"] = target_gpu_idx
+        modified_args["n_gpu"] = target_n_gpu
+        # Always overwrite gpu_idx so a placement config without explicit GPUs
+        # does not inherit an old replica's pinned indexes.
+        modified_args["gpu_idx"] = target_gpu_idx
         # Strip internal fields that must not be forwarded verbatim.
         modified_args.pop("launch_ts", None)
         modified_args.pop("origin_uid", None)
@@ -3253,7 +3251,6 @@ class SupervisorActor(xo.StatelessActor):
             await target_worker_ref.launch_builtin_model(**modified_args)
             await target_worker_ref.wait_for_load(new_replica_uid)
         except Exception:
-            self._workers_launching[worker_address] -= 1
             # Best-effort cleanup: terminate the partially-launched replica on the
             # worker so it doesn't leak GPU memory.
             try:
@@ -3264,11 +3261,11 @@ class SupervisorActor(xo.StatelessActor):
                 pass
             raise
         finally:
-            # Read back current count in case finally runs before the decrement in
-            # the except block.
-            current = self._workers_launching.get(worker_address, 1)
-            if current > 0:
-                self._workers_launching[worker_address] = current - 1
+            current = self._workers_launching.get(worker_address, 1) - 1
+            if current <= 0:
+                self._workers_launching.pop(worker_address, None)
+            else:
+                self._workers_launching[worker_address] = current
 
         # ---- 9. Register routing & replica info ---------------------------------
         self._replica_model_uid_to_worker[new_replica_uid] = target_worker_ref
