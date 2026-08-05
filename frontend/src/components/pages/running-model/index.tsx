@@ -67,6 +67,39 @@ interface AutostartSummary {
   }>;
 }
 
+function formatErrorDetail(detail: unknown): string | undefined {
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((item) => {
+        if (typeof item === 'string') return item;
+        if (
+          item &&
+          typeof item === 'object' &&
+          'msg' in item &&
+          typeof item.msg === 'string'
+        ) {
+          return item.msg;
+        }
+        try {
+          return JSON.stringify(item);
+        } catch {
+          return String(item);
+        }
+      })
+      .filter(Boolean);
+    return messages.length ? messages.join('; ') : undefined;
+  }
+  if (detail && typeof detail === 'object') {
+    try {
+      return JSON.stringify(detail);
+    } catch {
+      return String(detail);
+    }
+  }
+  return undefined;
+}
+
 const ContentItemInfo = ({ title, value }: ContentItemInfoProps) => {
   return (
     <div className="p-3 rounded-lg bg-muted/50">
@@ -280,8 +313,8 @@ const RunningModel = () => {
         fetchModels();
       })
       .catch((err: unknown) => {
-        const message = axios.isAxiosError<{ detail?: string }>(err)
-          ? err.response?.data?.detail || err.message
+        const message = axios.isAxiosError<{ detail?: unknown }>(err)
+          ? formatErrorDetail(err.response?.data?.detail) || err.message
           : err instanceof Error
             ? err.message
             : undefined;
