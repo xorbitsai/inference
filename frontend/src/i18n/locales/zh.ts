@@ -242,6 +242,8 @@ const zh = {
     addReplicaUidLabel: '副本别名',
     addReplicaUidPlaceholder: '可选，不填则自动生成',
     addReplicaAutoWorker: '自动分配（默认）',
+    addReplicaWorkerRequired: '指定 GPU 索引或副本别名前，请先选择 Worker。',
+    addReplicaInvalidGpuIdx: '请输入逗号分隔的非负 GPU 索引，例如：0,1。',
     autostartEnabled: '已配置开机自启',
     removeAutostartSuccess: '已移除 {{modelUid}} 的开机自启',
     removeAutostartFailed: '移除开机自启失败',

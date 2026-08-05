@@ -16,6 +16,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import axios from 'axios';
 import { toast } from 'sonner';
 import PageContainer from '@/components/ui/page-container';
 import { Input } from '@/components/ui/input';
@@ -278,12 +279,13 @@ const RunningModel = () => {
         fetchReplicas(activeModel.id);
         fetchModels();
       })
-      .catch((err: any) => {
-        toast.error(
-          err?.response?.data?.detail ||
-            err?.message ||
-            t('runningModels.addReplicaFailed')
-        );
+      .catch((err: unknown) => {
+        const message = axios.isAxiosError<{ detail?: string }>(err)
+          ? err.response?.data?.detail || err.message
+          : err instanceof Error
+            ? err.message
+            : undefined;
+        toast.error(message || t('runningModels.addReplicaFailed'));
       })
       .finally(() => {
         setAddReplicaLoading(false);

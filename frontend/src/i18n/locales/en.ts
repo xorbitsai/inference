@@ -250,6 +250,8 @@ const en = {
     addReplicaUidLabel: 'Replica Alias',
     addReplicaUidPlaceholder: 'Optional, auto-generated if empty',
     addReplicaAutoWorker: 'Auto (default)',
+    addReplicaWorkerRequired: 'Select a worker before specifying GPU indexes or a replica alias.',
+    addReplicaInvalidGpuIdx: 'Enter comma-separated non-negative GPU indexes, for example: 0,1.',
     autostartEnabled: 'Autostart configured',
     removeAutostartSuccess: 'Removed autostart for {{modelUid}}',
     removeAutostartFailed: 'Failed to remove autostart',
