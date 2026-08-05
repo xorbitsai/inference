@@ -3244,7 +3244,6 @@ class SupervisorActor(xo.StatelessActor):
         modified_args.pop("replica", None)
         modified_args.pop("replica_config", None)
         modified_args.pop("worker_ip", None)
-        modified_args.pop("replica_uid", None)
         modified_args.pop("launch_ts", None)
         modified_args.pop("origin_uid", None)
         modified_args.pop("cached_xoscar_address", None)
