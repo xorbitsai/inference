@@ -297,6 +297,10 @@ export default function AuditCenter() {
       .get<AuditFilterOptionsResponse>('/v1/audit/filter-options?' + params.toString())
       .then((data) => {
         if (!active) return;
+        if (!data) {
+          setFilterOptions(defaultFilterOptions);
+          return;
+        }
         setFilterOptions({
           user: data.user || [],
           api_key_name: data.api_key_name || [],
