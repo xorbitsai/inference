@@ -239,3 +239,11 @@ msgid ""
 msgstr ""
 "Para mais versões históricas e código-fonte, acesse GitHub Releases: "
 "https://github.com/xorbitsai/inference/releases"
+
+#: ../../source/getting_started/release_notes.rst:12
+msgid "v3.1.0"
+msgstr "v3.1.0"
+
+#: ../../source/getting_started/release_notes.rst:12
+msgid "`View release notes <https://xinference.co/release_notes/v3.1.0.html>`_"
+msgstr "`Ver notas da versão <https://xinference.co/release_notes/v3.1.0.html>`_"

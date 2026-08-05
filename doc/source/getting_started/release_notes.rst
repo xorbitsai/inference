@@ -9,6 +9,8 @@ For detailed updates, please visit the corresponding links below.
 +-----------------+--------------------------------------------------------------------------------+
 | Version         | Release Notes                                                                  |
 +=================+================================================================================+
+| v3.1.0          | `View release notes <https://xinference.co/release_notes/v3.1.0.html>`_        |
++-----------------+--------------------------------------------------------------------------------+
 | v3.0.0          | `View release notes <https://xinference.co/release_notes/v3.0.0.html>`_        |
 +-----------------+--------------------------------------------------------------------------------+
 | v2.12.0         | `View release notes <https://xinference.co/release_notes/v2.12.0.html>`_       |
