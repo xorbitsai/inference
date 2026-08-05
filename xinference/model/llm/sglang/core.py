@@ -508,7 +508,11 @@ class SGLANGModel(LLM):
 
     @staticmethod
     def _convert_state_to_completion_chunk(
-        request_id: str, model: str, output_text: str, meta_info: Dict
+        request_id: str,
+        model: str,
+        output_text: str,
+        meta_info: Dict,
+        text_offset_base: int = 0,
     ) -> CompletionChunk:
         finish_reason_raw = meta_info.get("finish_reason", None)
         finish_reason: Optional[str] = None
@@ -524,7 +528,7 @@ class SGLANGModel(LLM):
             CompletionChoice(
                 text=output_text,
                 index=0,
-                logprobs=SGLANGModel._build_logprobs(meta_info),
+                logprobs=SGLANGModel._build_logprobs(meta_info, text_offset_base),
                 finish_reason=finish_reason,
             )
         ]
@@ -606,12 +610,18 @@ class SGLANGModel(LLM):
         return None, None
 
     @staticmethod
-    def _build_logprobs(meta_info: Dict) -> Optional[CompletionLogprobs]:
+    def _build_logprobs(
+        meta_info: Dict, text_offset_base: int = 0
+    ) -> Optional[CompletionLogprobs]:
         """Build a legacy ``CompletionLogprobs`` from sglang ``meta_info``.
 
         Mirrors ``vllm/core.py:_build_logprobs``: parallel
         ``text_offset`` / ``tokens`` / ``token_logprobs`` / ``top_logprobs``
         lists with a ``-9999.0`` floor and ``text_offset`` accumulation.
+        ``text_offset_base`` shifts every ``text_offset`` by the number of
+        completion characters already streamed, so each streamed chunk reports
+        absolute offsets instead of restarting at 0 (vLLM gets the same result
+        by building cumulative logprobs and then slicing).
         Returns ``None`` when ``meta_info`` carries no output logprob data
         (the caller did not request ``return_logprob``, or the fields are
         absent/malformed) -- no crash, no fabricated probabilities.
@@ -628,7 +638,7 @@ class SGLANGModel(LLM):
         token_logprobs: List[Optional[float]] = []
         top_logprobs: List[Optional[Dict[str, float]]] = []
         text_offset: List[int] = []
-        offset = 0
+        offset = text_offset_base
         for i, entry in enumerate(token_lps):
             lp, token_text = SGLANGModel._extract_logprob_entry(entry)
             tokens.append(token_text or "")
@@ -832,6 +842,7 @@ class SGLANGModel(LLM):
                         self.model_uid,
                         output_text=out,
                         meta_info=meta_info,
+                        text_offset_base=len(complete_response),
                     )
                     complete_response += out
                     finish_reason = meta_info["finish_reason"]

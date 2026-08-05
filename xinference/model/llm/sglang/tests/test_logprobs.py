@@ -305,3 +305,41 @@ def test_slice_stream_logprobs_passthrough_when_no_logprob_data():
     delta, consumed = SGLANGModel._slice_stream_logprobs(meta, 0)
     assert delta is meta
     assert consumed == 0
+
+
+def test_stream_chunk_logprobs_report_absolute_text_offset():
+    # [P1] qinxuye: _build_logprobs restarted text_offset at 0 on every
+    # streamed chunk, so a second chunk carrying " world" reported offset [0]
+    # instead of [5] (the completion length streamed so far). The streaming
+    # caller threads len(complete_response) as text_offset_base so each chunk's
+    # offsets are absolute, matching the non-stream path ([0, 5] for "Hello"
+    # then " world"). Two-chunk regression: assert the second chunk's offset.
+    model = _model()
+    chunk1_meta = {
+        "finish_reason": None,
+        "prompt_tokens": 3,
+        "completion_tokens": 1,
+        "output_token_logprobs": [(-0.5, 4398, "Hello")],
+        "output_top_logprobs": [[(-0.5, 4398, "Hello"), (-3.0, 912, "Hi")]],
+    }
+    # first chunk: nothing streamed yet -> base 0
+    lp1 = model._convert_state_to_completion_chunk(
+        "req-1", "test-model-0", "Hello", chunk1_meta, text_offset_base=0
+    )["choices"][0]["logprobs"]
+    assert lp1 is not None
+    assert lp1["text_offset"] == [0]
+
+    chunk2_meta = {
+        "finish_reason": None,
+        "prompt_tokens": 3,
+        "completion_tokens": 2,
+        "output_token_logprobs": [(-1.2, 290, " world")],
+        "output_top_logprobs": [[(-1.2, 290, " world"), (-2.5, 818, " there")]],
+    }
+    # second chunk: "Hello" (5 chars) already streamed -> base 5
+    lp2 = model._convert_state_to_completion_chunk(
+        "req-1", "test-model-0", " world", chunk2_meta, text_offset_base=5
+    )["choices"][0]["logprobs"]
+    assert lp2 is not None
+    assert lp2["text_offset"] == [5]
+    assert lp2["tokens"] == [" world"]
