@@ -432,7 +432,17 @@ class SupervisorActor(xo.StatelessActor):
         for replica_model_uid in affected_replica_uids:
             parsed = self._get_model_uid_and_replica_index(replica_model_uid)
             if parsed is not None:
-                base_uids_affected.add(parsed[0])
+                base_uid, replica_id = parsed
+                base_uids_affected.add(base_uid)
+                if self._status_guard_ref is not None:
+                    try:
+                        await self._status_guard_ref.update_replica_status(
+                            base_uid,
+                            replica_id,
+                            {"status": LaunchStatus.TERMINATED.name},
+                        )
+                    except Exception:
+                        pass
 
         self._remove_worker_from_replica_mappings(worker_address)
 
@@ -547,7 +557,9 @@ class SupervisorActor(xo.StatelessActor):
             if replica_info is None:
                 replica_info = self._build_replica_info(replica_count)
                 self._model_uid_to_replica_info[model_uid] = replica_info
-            replica_info.active_replica_ids = replica_indexes
+            replica_info.active_replica_ids = sorted(
+                set(replica_info.active_replica_ids) | set(replica_indexes)
+            )
             self._refresh_replica_scheduler(replica_info)
 
             for replica_idx in replica_indexes:
