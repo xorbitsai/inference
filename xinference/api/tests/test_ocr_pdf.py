@@ -191,5 +191,22 @@ class TestRasterizePdf:
         assert len(images) == 1
         images[0][1].close()
 
+    def test_concurrent_rasterization(self):
+        """PDFium is not thread-safe; the module-level lock must let
+        concurrent callers interleave safely without deadlocking."""
+        pytest.importorskip("pypdfium2")
+        from concurrent.futures import ThreadPoolExecutor
+
+        def worker(_):
+            pages = []
+            for page_number, image in rasterize_pdf(make_pdf(page_count=3)):
+                pages.append(page_number)
+                image.close()
+            return pages
+
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            results = list(executor.map(worker, range(16)))
+        assert results == [[1, 2, 3]] * 16
+
     def test_pdf_magic_detected_on_generated_pdf(self):
         assert is_pdf_upload(None, make_pdf()[:8])

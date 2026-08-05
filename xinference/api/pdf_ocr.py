@@ -21,7 +21,14 @@ JSON-serializable response body.
 """
 
 import json
+import threading
 from typing import Any, Generator, List, Optional, Tuple, Union
+
+# PDFium is not thread-safe: pypdfium2 documents that concurrent calls,
+# even on different documents, may crash or corrupt the process. Every
+# PDFium operation in this module (document open, page access, rendering,
+# close) must hold this lock; model OCR calls happen outside it.
+_pdfium_lock = threading.Lock()
 
 PDF_MAGIC = b"%PDF"
 DEFAULT_PDF_OCR_DPI = 200
@@ -84,6 +91,10 @@ def rasterize_pdf(
     OCR runs; rendering itself is lazy so only one page's pixels are
     alive at a time. The caller must exhaust or ``close()`` the iterator
     to release the underlying document.
+
+    Safe to call from multiple threads: all PDFium operations are
+    serialized on a module-level lock (PDFium itself is not
+    thread-safe), which is released between pages while OCR runs.
     """
     try:
         import pypdfium2 as pdfium
@@ -99,47 +110,53 @@ def rasterize_pdf(
     dpi = min(float(dpi), float(MAX_PDF_OCR_DPI))
     scale = dpi / 72.0
 
-    pdf = pdfium.PdfDocument(data)
-    try:
-        page_numbers = normalize_pages(pages, len(pdf))
-        if len(page_numbers) > MAX_PDF_OCR_PAGES:
-            raise ValueError(
-                f"{len(page_numbers)} pages selected, at most "
-                f"{MAX_PDF_OCR_PAGES} pages can be OCRed per request; "
-                "use `pages` to select a subset"
-            )
-        for page_number in page_numbers:
-            page = pdf[page_number - 1]
-            try:
-                width, height = page.get_size()
-            finally:
-                page.close()
-            pixels = int(width * scale) * int(height * scale)
-            if pixels > MAX_PDF_OCR_PAGE_PIXELS:
+    with _pdfium_lock:
+        pdf = pdfium.PdfDocument(data)
+        try:
+            page_numbers = normalize_pages(pages, len(pdf))
+            if len(page_numbers) > MAX_PDF_OCR_PAGES:
                 raise ValueError(
-                    f"Page {page_number} would rasterize to {pixels} pixels "
-                    f"at {dpi:g} DPI, exceeding the limit of "
-                    f"{MAX_PDF_OCR_PAGE_PIXELS}; lower `dpi`"
+                    f"{len(page_numbers)} pages selected, at most "
+                    f"{MAX_PDF_OCR_PAGES} pages can be OCRed per request; "
+                    "use `pages` to select a subset"
                 )
-    except Exception:
-        pdf.close()
-        raise
+            for page_number in page_numbers:
+                page = pdf[page_number - 1]
+                try:
+                    width, height = page.get_size()
+                finally:
+                    page.close()
+                pixels = int(width * scale) * int(height * scale)
+                if pixels > MAX_PDF_OCR_PAGE_PIXELS:
+                    raise ValueError(
+                        f"Page {page_number} would rasterize to {pixels} pixels "
+                        f"at {dpi:g} DPI, exceeding the limit of "
+                        f"{MAX_PDF_OCR_PAGE_PIXELS}; lower `dpi`"
+                    )
+        except Exception:
+            pdf.close()
+            raise
 
     def _render() -> Generator[Tuple[int, Any], None, None]:
         try:
             for page_number in page_numbers:
-                page = pdf[page_number - 1]
-                try:
-                    bitmap = page.render(scale=scale)
+                # hold the lock only while PDFium renders; it is released
+                # at the yield so OCR on this page can overlap with other
+                # requests' PDFium work
+                with _pdfium_lock:
+                    page = pdf[page_number - 1]
                     try:
-                        image = bitmap.to_pil()
+                        bitmap = page.render(scale=scale)
+                        try:
+                            image = bitmap.to_pil()
+                        finally:
+                            bitmap.close()
                     finally:
-                        bitmap.close()
-                finally:
-                    page.close()
+                        page.close()
                 yield page_number, image
         finally:
-            pdf.close()
+            with _pdfium_lock:
+                pdf.close()
 
     return _render()
 
