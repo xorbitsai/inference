@@ -45,6 +45,9 @@ class ReplicaStatus(BaseModel):
     # User-facing replica label (from replica_config.replica_uid). Purely
     # informational; not used for routing or as the internal replica_model_uid.
     replica_uid: Optional[str] = None
+    # GPU indexes this replica was pinned to at launch (only known for
+    # explicitly placed replicas; None for auto-scheduled). Informational.
+    gpu_idx: Optional[List[int]] = None
 
 
 class InstanceInfo(BaseModel):
@@ -141,6 +144,7 @@ class StatusGuardActor(xo.StatelessActor):
                     created_ts=status_update.get("created_ts", 0),
                     error_message=status_update.get("error_message", None),
                     replica_uid=status_update.get("replica_uid", None),
+                    gpu_idx=status_update.get("gpu_idx", None),
                 )
             )
 

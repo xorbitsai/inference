@@ -1936,16 +1936,62 @@ class SupervisorActor(xo.StatelessActor):
             **kwargs,
         )
 
-    def _get_worker_refs_by_ip(self, ip: str) -> List[xo.ActorRefType["WorkerActor"]]:
-        ip_list = [item.strip() for item in ip.split(",") if item.strip()]
-        refs_set = set()
-        for addr, ref in self._worker_address_to_worker.items():
-            existing_ip = addr.split(":")[0]
-            if existing_ip in ip_list:
-                refs_set.add(ref)
-        refs = list(refs_set)
+    @staticmethod
+    def _get_worker_host(address: str) -> str:
+        """Return the host portion of a registered worker address."""
+        if address.startswith("["):
+            closing_bracket = address.find("]")
+            if closing_bracket != -1:
+                return address[1:closing_bracket]
+
+        host, separator, port = address.rpartition(":")
+        if separator and port.isdigit():
+            return host
+        return address
+
+    def _resolve_worker_addresses(self, worker_ip: Union[str, List[str]]) -> List[str]:
+        """Resolve bare hosts and full worker addresses to registered addresses.
+
+        A full ``host:port`` value identifies one concrete worker. A bare host
+        keeps the legacy behavior and expands to every worker registered on
+        that host. The same resolver is used by regular and sharded launches so
+        both paths interpret ``worker_ip`` consistently.
+        """
+        raw_entries = worker_ip if isinstance(worker_ip, list) else [worker_ip]
+        requested = [
+            entry.strip()
+            for item in raw_entries
+            for entry in str(item).split(",")
+            if entry.strip()
+        ]
+
+        host_to_addresses: Dict[str, List[str]] = {}
+        for address in self._worker_address_to_worker:
+            host_to_addresses.setdefault(self._get_worker_host(address), []).append(
+                address
+            )
+
+        resolved_addresses: List[str] = []
+        for entry in requested:
+            if entry in self._worker_address_to_worker:
+                resolved_addresses.append(entry)
+                continue
+
+            matched_addresses = host_to_addresses.get(entry)
+            if not matched_addresses:
+                raise ValueError(f"Worker ip address {entry} is not in the cluster.")
+            resolved_addresses.extend(matched_addresses)
+
+        return list(dict.fromkeys(resolved_addresses))
+
+    def _get_worker_refs_by_ip(
+        self, ip: Union[str, List[str]]
+    ) -> List[xo.ActorRefType["WorkerActor"]]:
+        addresses = self._resolve_worker_addresses(ip)
+        refs = [self._worker_address_to_worker[address] for address in addresses]
         logger.debug(
-            f"Found {len(refs)} workers for IPs {ip_list}: {[r.address for r in refs]}"
+            f"Found {len(refs)} workers for worker addresses {addresses}: "
+            f"{[r.address for r in refs]}"
         )
         return refs
 
@@ -1967,7 +2013,13 @@ class SupervisorActor(xo.StatelessActor):
         replica: int,
         replica_config: List[ReplicaConfig],
     ) -> Tuple[
-        List[Tuple[xo.ActorRefType["WorkerActor"], Optional[List[int]]]],
+        List[
+            Tuple[
+                xo.ActorRefType["WorkerActor"],
+                Optional[List[int]],
+                Union[int, str],
+            ]
+        ],
         Dict[int, Optional[str]],
     ]:
         """Validate and resolve ``replica_config`` into per-replica targets.
@@ -1975,7 +2027,7 @@ class SupervisorActor(xo.StatelessActor):
         Runs entirely before any replica is launched so that a bad config fails
         cleanly (no partial deployment, no leaked actors). Returns, aligned by
         replica index:
-          * a list of ``(worker_ref, gpu_idx_or_None)`` to dispatch to, and
+          * a list of ``(worker_ref, gpu_idx_or_None, n_gpu)`` to dispatch to, and
           * a map ``replica_id -> replica_uid`` label for status tracking.
 
         Stateful checks performed here: worker registered in the cluster, GPU
@@ -2034,7 +2086,11 @@ class SupervisorActor(xo.StatelessActor):
         # 3. Validate GPU existence + static cross-replica conflicts per worker.
         per_worker_used: Dict[str, Set[int]] = {}
         resolved_targets: List[
-            Tuple[xo.ActorRefType["WorkerActor"], Optional[List[int]]]
+            Tuple[
+                xo.ActorRefType["WorkerActor"],
+                Optional[List[int]],
+                Union[int, str],
+            ]
         ] = []
         replica_uid_map: Dict[int, Optional[str]] = {}
         for idx, cfg in enumerate(configs):
@@ -2063,8 +2119,26 @@ class SupervisorActor(xo.StatelessActor):
                             f"indexes {sorted(overlap)} requested by more than one "
                             f"replica, and this worker disallows sharing a GPU."
                         )
+
+                    allocation = alloc_results[address]
+                    existing_models = allocation.get("models") or {}
+                    existing_user_specified = allocation.get("user_specified") or {}
+                    occupied = {
+                        gpu
+                        for gpu in gpu_idx
+                        if existing_models.get(gpu)
+                        or existing_models.get(str(gpu))
+                        or existing_user_specified.get(gpu)
+                        or existing_user_specified.get(str(gpu))
+                    }
+                    if occupied:
+                        raise ValueError(
+                            f"replica_config GPU conflict on worker {address}: GPU "
+                            f"indexes {sorted(occupied)} are already occupied, and "
+                            "this worker disallows sharing a GPU."
+                        )
                     used.update(gpu_idx)
-            resolved_targets.append((worker_ref, gpu_idx))
+            resolved_targets.append((worker_ref, gpu_idx, device.n_gpu))
             replica_uid_map[idx] = cfg.replica_uid
 
         return resolved_targets, replica_uid_map
@@ -2182,7 +2256,13 @@ class SupervisorActor(xo.StatelessActor):
         # below (xavier actor creation, replica_info, instance_info) so that a
         # bad config fails cleanly with no leaked actors or partial state.
         resolved_targets: Optional[
-            List[Tuple[xo.ActorRefType["WorkerActor"], Optional[List[int]]]]
+            List[
+                Tuple[
+                    xo.ActorRefType["WorkerActor"],
+                    Optional[List[int]],
+                    Union[int, str],
+                ]
+            ]
         ] = None
         replica_uid_map: Dict[int, Optional[str]] = {}
         if replica_config is not None:
@@ -2235,6 +2315,7 @@ class SupervisorActor(xo.StatelessActor):
             _replica_model_uid,
             rank: int,
             target_gpu_idx=None,
+            replica_n_gpu=None,
             replica_uid=None,
         ):
             if _replica_model_uid in self._replica_model_uid_to_worker:
@@ -2316,7 +2397,7 @@ class SupervisorActor(xo.StatelessActor):
                     quantization=quantization,
                     model_engine=model_engine,
                     model_type=model_type,
-                    n_gpu=n_gpu,
+                    n_gpu=replica_n_gpu if replica_n_gpu is not None else n_gpu,
                     request_limits=request_limits,
                     peft_model_config=peft_model_config,
                     gpu_idx=replica_gpu_idx,
@@ -2438,12 +2519,15 @@ class SupervisorActor(xo.StatelessActor):
                     iter_replica_model_uid(model_uid, replica)
                 ):
                     if resolved_targets is not None:
-                        worker_ref, target_gpu_idx = resolved_targets[_idx]
+                        worker_ref, target_gpu_idx, target_n_gpu = resolved_targets[
+                            _idx
+                        ]
                         logger.debug(
                             f"Replica {_idx} pinned by replica_config to "
                             f"{worker_ref.address} (gpu_idx: {target_gpu_idx})"
                         )
                     elif strategy is not None:
+                        target_n_gpu = n_gpu
                         requested_gpu = n_gpu if isinstance(n_gpu, int) else None
                         worker_ref, target_gpu_idx = strategy.select_worker(
                             worker_candidates, n_gpu=requested_gpu
@@ -2458,6 +2542,7 @@ class SupervisorActor(xo.StatelessActor):
                             f"Replica {_idx} assigned to {worker_ref.address} (count: {current_count})"
                         )
                     else:
+                        target_n_gpu = n_gpu
                         worker_candidates.sort(
                             key=lambda x: (x["count"], x["ref"].address)
                         )
@@ -2480,7 +2565,7 @@ class SupervisorActor(xo.StatelessActor):
                         _uid = model_uid + "-rank0"
                         # For Xavier, rank0 must be launched first, so we await it immediately
                         rank0_address = await _launch_one_model(
-                            worker_ref, _uid, 0, target_gpu_idx
+                            worker_ref, _uid, 0, target_gpu_idx, target_n_gpu
                         )
                         task_metadata.append(
                             (worker_ref, _uid, True, _idx, rank0_address)
@@ -2493,6 +2578,7 @@ class SupervisorActor(xo.StatelessActor):
                             rep_model_uid,
                             _idx + 1,
                             target_gpu_idx,
+                            replica_n_gpu=target_n_gpu,
                             replica_uid=replica_uid_map.get(_idx),
                         )
                     )
@@ -2647,35 +2733,7 @@ class SupervisorActor(xo.StatelessActor):
                 # no registration, use all workers
                 available_workers = all_workers
         else:
-            # ``worker_ip`` may arrive as a comma-separated string (from the
-            # REST API / web UI) or as a list (from the Python client). Normalize
-            # it to a list of entries, then resolve each entry to the concrete
-            # worker address(es) (``ip:port``) so the values match the keys used
-            # by ``_choose_worker`` and the ``n_worker`` count reflects real
-            # workers. An entry may be a bare IP or an already-qualified
-            # ``ip:port`` worker address; both are accepted.
-            raw_entries = worker_ip if isinstance(worker_ip, list) else [worker_ip]
-            requested = [
-                entry.strip()
-                for item in raw_entries
-                for entry in str(item).split(",")
-                if entry.strip()
-            ]
-            ip_to_addresses: Dict[str, List[str]] = {}
-            for addr in self._worker_address_to_worker:
-                ip_to_addresses.setdefault(addr.split(":")[0], []).append(addr)
-            for entry in requested:
-                if entry in self._worker_address_to_worker:
-                    # Already a concrete worker address (``ip:port``).
-                    available_workers.append(entry)
-                    continue
-                matched = ip_to_addresses.get(entry)
-                if not matched:
-                    raise ValueError(
-                        f"Worker ip address {entry} is not in the cluster."
-                    )
-                available_workers.extend(matched)
-            available_workers = list(dict.fromkeys(available_workers))
+            available_workers = self._resolve_worker_addresses(worker_ip)
 
         async def _launch_model():
             # Validation of n_worker, intercept if it is greater than the available workers.

@@ -26,8 +26,8 @@ cluster topology.
 
 from typing import List, Optional, Union
 
-from .._compat import BaseModel
-from .utils import build_replica_model_uid, parse_replica_model_uid
+from .._compat import BaseModel, Field
+from .utils import parse_replica_model_uid
 
 
 class DeviceConfig(BaseModel):
@@ -46,7 +46,7 @@ class ReplicaConfig(BaseModel):
     """Placement spec for a single replica."""
 
     replica_uid: Optional[str] = None
-    devices: List[DeviceConfig] = []
+    devices: List[DeviceConfig] = Field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict) -> "ReplicaConfig":
@@ -64,7 +64,7 @@ def normalize_replica_configs(
     replica: int,
     configs: List[ReplicaConfig],
 ) -> List[ReplicaConfig]:
-    """Validate structure and fill in default ``replica_uid``.
+    """Validate structure and preserve optional user-provided ``replica_uid``.
 
     Returns a list aligned by replica index (length ``replica``). Raises
     ``ValueError`` on any structural violation. Stateful validation (worker
@@ -90,20 +90,18 @@ def normalize_replica_configs(
         _validate_device_consistency(idx, device)
 
         replica_uid = cfg.replica_uid
-        if replica_uid is None:
-            replica_uid = build_replica_model_uid(model_uid, idx)
-        elif _is_reserved_replica_uid(replica_uid):
-            raise ValueError(
-                f"replica_uid '{replica_uid}' collides with a reserved internal "
-                "replica/rank identifier; please choose another name."
-            )
-        if replica_uid in seen_uids:
-            raise ValueError(
-                f"Duplicate replica_uid '{replica_uid}' in replica_config."
-            )
-        seen_uids.add(replica_uid)
+        if replica_uid is not None:
+            if _is_reserved_replica_uid(replica_uid):
+                raise ValueError(
+                    f"replica_uid '{replica_uid}' collides with a reserved internal "
+                    "replica/rank identifier; please choose another name."
+                )
+            if replica_uid in seen_uids:
+                raise ValueError(
+                    f"Duplicate replica_uid '{replica_uid}' in replica_config."
+                )
+            seen_uids.add(replica_uid)
 
-        cfg.replica_uid = replica_uid
         resolved.append(cfg)
     return resolved
 
