@@ -113,6 +113,10 @@ def test_builtin_campplus_specs_are_modelscope_only_and_match_by_default():
         assert len(specs) == 1
         assert specs[0].model_hub == "modelscope"
         assert specs[0].model_ability == ["speaker_embedding"]
+        packages = specs[0].virtualenv.packages
+        assert "modelscope[framework]>=1.19.0" in packages
+        assert "addict" in packages
+        assert "datasets>=3,<5" in packages
 
     with (
         patch("xinference.model.audio.BUILTIN_AUDIO_MODELS", models),

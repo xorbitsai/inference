@@ -57,7 +57,8 @@ class ModelScopeSpeakerEmbeddingModel:
         except ImportError as e:
             raise ImportError(
                 "Failed to import ModelScope speaker-verification dependencies. "
-                "Please install `modelscope`, `soundfile`, and `scikit-learn`."
+                "Please install `modelscope[framework]`, `soundfile`, and "
+                "`scikit-learn`."
             ) from e
 
         if self._device is None:
