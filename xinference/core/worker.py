@@ -3105,9 +3105,7 @@ class WorkerActor(xo.StatelessActor):
                 # back only the GPU build after dependency resolution.
                 if model_name == "DeepDoc" and cls._is_cuda_device_available():
                     cls._uninstall_venv_package(virtual_env_manager, "onnxruntime")
-                    cls._uninstall_venv_package(
-                        virtual_env_manager, "onnxruntime-gpu"
-                    )
+                    cls._uninstall_venv_package(virtual_env_manager, "onnxruntime-gpu")
                     gpu_conf = conf.copy()
                     gpu_conf["skip_installed"] = False
                     virtual_env_manager.install_packages(
