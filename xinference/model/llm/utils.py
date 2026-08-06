@@ -909,6 +909,7 @@ class ChatModelMixin:
         c,
         chunk_id=None,
         previous_texts: List[str] = [""],
+        tool_call_state: Optional[Dict[str, bool]] = None,
     ):
         if not c.get("choices"):
             return c
@@ -964,7 +965,14 @@ class ChatModelMixin:
             elif parsed_content:
                 failed_contents.append(parsed_content)
 
-        finish_reason = "tool_calls" if tool_calls else finish_reason
+        if tool_calls:
+            if tool_call_state is None:
+                # Keep compatibility with one-shot streaming callers.
+                finish_reason = "tool_calls"
+            else:
+                tool_call_state["seen"] = True
+        if finish_reason == "stop" and tool_call_state and tool_call_state.get("seen"):
+            finish_reason = "tool_calls"
 
         content = "".join(failed_contents) if failed_contents else None
 
@@ -1200,6 +1208,7 @@ class ChatModelMixin:
         i = 0
         previous_texts = [""]
         previous_tools_texts = [""]
+        tool_call_state = {"seen": False}
         full_text = ""
         if self.reasoning_parser:
             set_context()
@@ -1224,6 +1233,7 @@ class ChatModelMixin:
                 self.model_uid,
                 chat_chunk,
                 previous_texts=previous_tools_texts,
+                tool_call_state=tool_call_state,
             )
             if processed_chunk:
                 yield processed_chunk
