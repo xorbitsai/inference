@@ -1193,6 +1193,7 @@ class Client:
         request_limits: Optional[int] = None,
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
+        replica_config: Optional[List[Dict]] = None,
         model_path: Optional[str] = None,
         enable_thinking: Optional[bool] = None,
         enable_virtual_env: Optional[bool] = None,
@@ -1237,6 +1238,12 @@ class Client:
             Specify the worker ip where the model is located in a distributed scenario.
         gpu_idx: Optional[Union[int, List[int]]]
             Specify the GPU index where the model is located.
+        replica_config: Optional[List[Dict]]
+            Per-replica placement spec. Each item is ``{"replica_uid": str|None,
+            "devices": [{"worker_ip": "ip:port", "n_gpu": int|"auto",
+            "gpu_idx": [int]|None}]}``. When set, each replica is pinned to the
+            given worker/GPU and the legacy worker_ip/n_gpu/gpu_idx are ignored.
+            ``devices`` length must be 1 (no cross-worker sharding per replica).
         model_path: Optional[str]
             Model path, if gguf format, should be the file path, otherwise, should be directory of the model.
         enable_thinking: Optional[bool]
@@ -1280,6 +1287,7 @@ class Client:
             "request_limits": request_limits,
             "worker_ip": worker_ip,
             "gpu_idx": gpu_idx,
+            "replica_config": replica_config,
             "model_path": model_path,
             "enable_thinking": enable_thinking,
             "enable_virtual_env": enable_virtual_env,

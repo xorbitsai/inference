@@ -67,6 +67,7 @@ from ..constants import (
 from ..core.event import Event, EventCollectorActor, EventType
 from ..core.exceptions import ModelNotReadyError
 from ..core.http_protocol import create_hardened_http_protocol
+from ..core.replica_config import ReplicaConfig
 from ..core.supervisor import SupervisorActor
 from ..core.utils import CancelMixin
 from ..types import (
@@ -144,6 +145,32 @@ def _validate_replica(value: Any) -> int:
             detail="Invalid input. The `replica` field must be at least 1.",
         )
     return replica
+
+
+def _parse_replica_config(payload: dict) -> Optional[List[ReplicaConfig]]:
+    """Validate and parse per-replica placement from a launch payload."""
+    replica_config_data = payload.get("replica_config")
+    if replica_config_data is None:
+        return None
+
+    if (
+        payload.get("worker_ip") is not None
+        or payload.get("gpu_idx") is not None
+        or payload.get("n_gpu", "auto") != "auto"
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot specify worker_ip / n_gpu / gpu_idx together with "
+            "replica_config.",
+        )
+
+    try:
+        return [ReplicaConfig.from_dict(item) for item in replica_config_data]
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid replica_config: {e}",
+        )
 
 
 def _log_setup_required_notice() -> None:
@@ -852,6 +879,7 @@ class RESTfulAPI(CancelMixin):
         enable_virtual_env = payload.get("enable_virtual_env", None)
         virtual_env_packages = payload.get("virtual_env_packages", None)
         envs = payload.get("envs", None)
+        replica_config = _parse_replica_config(payload)
 
         exclude_keys = {
             "model_uid",
@@ -872,6 +900,7 @@ class RESTfulAPI(CancelMixin):
             "enable_virtual_env",
             "virtual_env_packages",
             "envs",
+            "replica_config",
         }
 
         kwargs = {
@@ -924,8 +953,11 @@ class RESTfulAPI(CancelMixin):
                 enable_virtual_env=enable_virtual_env,
                 virtual_env_packages=virtual_env_packages,
                 envs=envs,
+                replica_config=replica_config,
                 **kwargs,
             )
+        except HTTPException:
+            raise
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
             raise HTTPException(status_code=400, detail=str(ve))
@@ -1074,6 +1106,7 @@ class RESTfulAPI(CancelMixin):
         model_version = payload.get("model_version")
         replica = _validate_replica(payload.get("replica", 1))
         n_gpu = payload.get("n_gpu", "auto")
+        replica_config = _parse_replica_config(payload)
 
         try:
             model_uid = await (
@@ -1086,7 +1119,11 @@ class RESTfulAPI(CancelMixin):
                 replica=replica,
                 n_gpu=n_gpu,
                 wait_ready=wait_ready,
+                replica_config=replica_config,
             )
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
         except Exception as e:
             logger.error(str(e), exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))

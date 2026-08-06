@@ -83,6 +83,13 @@ class DummySupervisor:
         self._launch_builtin_sharded_model = (
             SupervisorActor._launch_builtin_sharded_model.__get__(self)
         )
+        self._get_worker_host = SupervisorActor._get_worker_host
+        self._get_worker_refs_by_ip = SupervisorActor._get_worker_refs_by_ip.__get__(
+            self
+        )
+        self._resolve_worker_addresses = (
+            SupervisorActor._resolve_worker_addresses.__get__(self)
+        )
         # Fields used by _invalidate_list_models_debounce_cache (called from
         # _launch_builtin_sharded_model after model launch completes).
         self._list_models_result_cache = {}
@@ -95,6 +102,48 @@ class DummySupervisor:
 
     async def terminate_model(self, model_uid: str, suppress_exception: bool = False):
         return None
+
+
+def test_worker_address_resolution_prefers_exact_worker_address():
+    worker_1 = DummyRef("worker-1:30001")
+    worker_2 = DummyRef("worker-1:30002")
+    supervisor = DummySupervisor(
+        {
+            worker_1.address: worker_1,
+            worker_2.address: worker_2,
+        }
+    )
+
+    assert supervisor._get_worker_refs_by_ip("worker-1:30001") == [worker_1]
+    assert set(supervisor._get_worker_refs_by_ip("worker-1")) == {
+        worker_1,
+        worker_2,
+    }
+
+
+def test_worker_address_resolution_supports_multiple_addresses():
+    worker_1 = DummyRef("worker-1:30001")
+    worker_2 = DummyRef("worker-2:30001")
+    supervisor = DummySupervisor(
+        {
+            worker_1.address: worker_1,
+            worker_2.address: worker_2,
+        }
+    )
+
+    refs = supervisor._get_worker_refs_by_ip("worker-1:30001, worker-2:30001")
+
+    assert refs == [worker_1, worker_2]
+
+
+def test_worker_address_resolution_rejects_unknown_address():
+    worker = DummyRef("worker-1:30001")
+    supervisor = DummySupervisor({worker.address: worker})
+
+    with pytest.raises(
+        ValueError, match="Worker ip address worker-1:30002 is not in the cluster"
+    ):
+        supervisor._get_worker_refs_by_ip("worker-1:30002")
 
 
 def test_assign_replica_gpu_single_slot_reused():
