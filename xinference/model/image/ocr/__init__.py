@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .deepdoc import DeepDocModel
 from .deepseek_ocr import DeepSeekOCRModel
 from .got_ocr2 import GotOCR2Model
 from .hunyuan_ocr import HunyuanOCRModel
@@ -27,6 +28,7 @@ from .vllm import (
 )
 
 __all__ = [
+    "DeepDocModel",
     "DeepSeekOCRModel",
     "GotOCR2Model",
     "HunyuanOCRModel",
@@ -48,3 +50,5 @@ def register_builtin_ocr_engines() -> None:
         VLLMHunyuanOCRModel,
     ]
     SUPPORTED_ENGINES["mlx"] = [MLXDeepSeekOCRModel]
+    # DeepDoc runs on onnxruntime via its own engine name
+    SUPPORTED_ENGINES["deepdoc"] = [DeepDocModel]

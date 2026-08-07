@@ -909,6 +909,7 @@ class ChatModelMixin:
         c,
         chunk_id=None,
         previous_texts: List[str] = [""],
+        tool_call_state: Optional[Dict[str, bool]] = None,
     ):
         if not c.get("choices"):
             return c
@@ -935,25 +936,43 @@ class ChatModelMixin:
             previous_texts[-1] = current_text
         if tool_result is None and not finish_reason:
             return None
-        tool_calls = []
+        tool_calls: List[Dict[str, Any]] = []
         failed_contents = []
-        content, func, args = tool_result if tool_result else ("", None, None)
-        if func:
-            tool_calls.append(
-                {
-                    "index": 0,
-                    "id": f"call_{str(uuid.uuid4())}",
-                    "type": "function",
-                    "function": {
-                        "name": func,
-                        "arguments": json.dumps(args, ensure_ascii=False),
-                    },
-                }
-            )
+        if isinstance(tool_result, list):
+            tool_results = tool_result
+        elif tool_result is not None:
+            tool_results = [tool_result]
         else:
-            failed_contents.append(content)
+            tool_results = []
+        for tool_event in tool_results:
+            if len(tool_event) == 4:
+                parsed_content, func, args, tool_call_index = tool_event
+            else:
+                parsed_content, func, args = tool_event
+                tool_call_index = len(tool_calls)
+            if func:
+                tool_calls.append(
+                    {
+                        "index": tool_call_index,
+                        "id": f"call_{str(uuid.uuid4())}",
+                        "type": "function",
+                        "function": {
+                            "name": func,
+                            "arguments": json.dumps(args, ensure_ascii=False),
+                        },
+                    }
+                )
+            elif parsed_content:
+                failed_contents.append(parsed_content)
 
-        finish_reason = "tool_calls" if tool_calls else finish_reason
+        if tool_calls:
+            if tool_call_state is None:
+                # Keep compatibility with one-shot streaming callers.
+                finish_reason = "tool_calls"
+            else:
+                tool_call_state["seen"] = True
+        if finish_reason == "stop" and tool_call_state and tool_call_state.get("seen"):
+            finish_reason = "tool_calls"
 
         content = "".join(failed_contents) if failed_contents else None
 
@@ -1189,6 +1208,7 @@ class ChatModelMixin:
         i = 0
         previous_texts = [""]
         previous_tools_texts = [""]
+        tool_call_state = {"seen": False}
         full_text = ""
         if self.reasoning_parser:
             set_context()
@@ -1213,6 +1233,7 @@ class ChatModelMixin:
                 self.model_uid,
                 chat_chunk,
                 previous_texts=previous_tools_texts,
+                tool_call_state=tool_call_state,
             )
             if processed_chunk:
                 yield processed_chunk

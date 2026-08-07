@@ -33547,9 +33547,9 @@
     "stop": [
       "[e~["
     ],
-    "tool_parser": "minimax",
-    "reasoning_start_tag": "<think>",
-    "reasoning_end_tag": "</think>",
+    "tool_parser": "minimax_m3",
+    "reasoning_start_tag": "<mm:think>",
+    "reasoning_end_tag": "</mm:think>",
     "version": 2,
     "virtualenv": {
       "packages": [
@@ -33562,6 +33562,6 @@
       ]
     },
     "featured": false,
-    "updated_at": 1785465575
+    "updated_at": 1786072259
   }
 ]
