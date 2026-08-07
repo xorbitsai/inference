@@ -318,7 +318,11 @@ export default function LaunchDialog({
   }, [gpuAvailable, modelType, form]);
 
   const downloadHubOptions = useMemo(
-    () => ['none', ...(model?.download_hubs || [])].map((item) => ({ label: item, value: item })),
+    () =>
+      ['auto', 'none', ...(model?.download_hubs || [])].map((item) => ({
+        label: item,
+        value: item,
+      })),
     [model?.download_hubs]
   );
 

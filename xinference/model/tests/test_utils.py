@@ -619,3 +619,186 @@ def test_neutralize_broken_torchcodec_idempotent(monkeypatch):
         assert sys.modules.get("torchcodec", "missing") is None
     finally:
         _clear_torchcodec_from_sys_modules()
+
+
+@pytest.fixture
+def _reset_auto_hub_cache(monkeypatch):
+    import xinference.model.utils as model_utils
+
+    monkeypatch.setattr(model_utils, "_auto_detected_hub", None)
+    monkeypatch.delenv("XINFERENCE_MODEL_SRC", raising=False)
+    monkeypatch.delenv("HF_HUB_OFFLINE", raising=False)
+    monkeypatch.delenv("TRANSFORMERS_OFFLINE", raising=False)
+    yield
+    model_utils._auto_detected_hub = None
+
+
+def test_auto_detect_download_hub_hf_reachable(monkeypatch, _reset_auto_hub_cache):
+    import xinference.model.utils as model_utils
+
+    monkeypatch.setattr(
+        model_utils, "_is_hub_endpoint_reachable", lambda url, timeout: True
+    )
+    assert model_utils.auto_detect_download_hub() == "huggingface"
+
+
+def test_auto_detect_download_hub_hf_unreachable(monkeypatch, _reset_auto_hub_cache):
+    import xinference.model.utils as model_utils
+
+    monkeypatch.setattr(
+        model_utils, "_is_hub_endpoint_reachable", lambda url, timeout: False
+    )
+    assert model_utils.auto_detect_download_hub() == "modelscope"
+
+
+def test_auto_detect_download_hub_result_is_cached(monkeypatch, _reset_auto_hub_cache):
+    import xinference.model.utils as model_utils
+
+    calls = {"n": 0}
+
+    def probe(url, timeout):
+        calls["n"] += 1
+        return True
+
+    monkeypatch.setattr(model_utils, "_is_hub_endpoint_reachable", probe)
+    assert model_utils.auto_detect_download_hub() == "huggingface"
+    assert model_utils.auto_detect_download_hub() == "huggingface"
+    assert calls["n"] == 1
+
+
+def test_resolve_download_hub(monkeypatch, _reset_auto_hub_cache):
+    import xinference.model.utils as model_utils
+
+    monkeypatch.setattr(
+        model_utils, "_is_hub_endpoint_reachable", lambda url, timeout: False
+    )
+
+    # explicit hubs are passed through untouched
+    assert model_utils.resolve_download_hub("huggingface") == "huggingface"
+    assert model_utils.resolve_download_hub("modelscope") == "modelscope"
+    assert model_utils.resolve_download_hub("csghub") == "csghub"
+
+    # "auto" always resolves via detection
+    assert model_utils.resolve_download_hub("auto") == "modelscope"
+
+    # unspecified hub goes through detection as well
+    assert model_utils.resolve_download_hub(None) == "modelscope"
+
+    # a local model path means no download, so no detection
+    assert model_utils.resolve_download_hub(None, "/path/to/model") is None
+
+    # a pinned XINFERENCE_MODEL_SRC keeps the legacy fallback behavior
+    monkeypatch.setenv("XINFERENCE_MODEL_SRC", "modelscope")
+    assert model_utils.resolve_download_hub(None) is None
+
+    # XINFERENCE_MODEL_SRC="auto" resolves via detection
+    monkeypatch.setenv("XINFERENCE_MODEL_SRC", "auto")
+    assert model_utils.resolve_download_hub(None) == "modelscope"
+
+
+def test_download_from_modelscope_env_auto(monkeypatch, _reset_auto_hub_cache):
+    import xinference.model.utils as model_utils
+
+    monkeypatch.setenv("XINFERENCE_MODEL_SRC", "auto")
+    monkeypatch.setattr(
+        model_utils, "_is_hub_endpoint_reachable", lambda url, timeout: False
+    )
+    assert model_utils.download_from_modelscope() is True
+
+    model_utils._auto_detected_hub = None
+    monkeypatch.setattr(
+        model_utils, "_is_hub_endpoint_reachable", lambda url, timeout: True
+    )
+    assert model_utils.download_from_modelscope() is False
+
+
+def test_probe_rejects_http_error_responses(monkeypatch, _reset_auto_hub_cache):
+    from types import SimpleNamespace
+
+    import requests
+
+    import xinference.model.utils as model_utils
+
+    def _head(status):
+        def head(url, timeout=None, allow_redirects=None):
+            return SimpleNamespace(status_code=status)
+
+        return head
+
+    monkeypatch.setattr(requests, "head", _head(200))
+    assert model_utils._is_hub_endpoint_reachable("https://huggingface.co", 1.0)
+
+    # An error response (blocking corporate proxy, broken mirror) means
+    # downloads would fail, so it must count as unreachable.
+    for status in (403, 407, 500, 503):
+        monkeypatch.setattr(requests, "head", _head(status))
+        assert not model_utils._is_hub_endpoint_reachable("https://huggingface.co", 1.0)
+
+    def head_raise(url, timeout=None, allow_redirects=None):
+        raise requests.ConnectionError("boom")
+
+    monkeypatch.setattr(requests, "head", head_raise)
+    assert not model_utils._is_hub_endpoint_reachable("https://huggingface.co", 1.0)
+
+
+def test_explicit_download_hub_overrides_model_src_env(
+    monkeypatch, _reset_auto_hub_cache
+):
+    from ..embedding.embed_family import match_embedding
+    from ..image.core import match_diffusion
+    from ..rerank.rerank_family import match_rerank
+    from ..video.core import match_diffusion as match_video_diffusion
+
+    monkeypatch.setenv("XINFERENCE_MODEL_SRC", "modelscope")
+
+    # an explicit hub must win over the XINFERENCE_MODEL_SRC fallback
+    assert (
+        match_diffusion("FLUX.1-schnell", download_hub="huggingface").model_hub
+        == "huggingface"
+    )
+    assert (
+        match_video_diffusion("CogVideoX-2b", download_hub="huggingface").model_hub
+        == "huggingface"
+    )
+    assert (
+        match_rerank("bge-reranker-large", download_hub="huggingface")
+        .model_specs[0]
+        .model_hub
+        == "huggingface"
+    )
+    assert (
+        match_embedding("bge-large-en", download_hub="huggingface")
+        .model_specs[0]
+        .model_hub
+        == "huggingface"
+    )
+
+    # without an explicit hub, the env fallback still applies
+    assert match_diffusion("FLUX.1-schnell").model_hub == "modelscope"
+    assert match_video_diffusion("CogVideoX-2b").model_hub == "modelscope"
+    assert match_rerank("bge-reranker-large").model_specs[0].model_hub == "modelscope"
+    assert match_embedding("bge-large-en").model_specs[0].model_hub == "modelscope"
+
+
+@pytest.mark.parametrize("offline_var", ["HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE"])
+def test_auto_detect_honors_hf_offline_mode(
+    monkeypatch, _reset_auto_hub_cache, offline_var
+):
+    import xinference.model.utils as model_utils
+
+    calls = {"n": 0}
+
+    def probe(url, timeout):
+        calls["n"] += 1
+        return False
+
+    monkeypatch.setattr(model_utils, "_is_hub_endpoint_reachable", probe)
+    monkeypatch.setenv(offline_var, "1")
+
+    # Offline deployments read weights from a pre-populated local Hugging
+    # Face cache: detection must pick huggingface without probing the
+    # network instead of falling back to modelscope.
+    assert model_utils.auto_detect_download_hub() == "huggingface"
+    assert calls["n"] == 0
+    assert model_utils.resolve_download_hub(None) == "huggingface"
+    assert model_utils.resolve_download_hub("auto") == "huggingface"

@@ -129,7 +129,9 @@ def match_diffusion(
             return model_spec
 
     if model_name in BUILTIN_IMAGE_MODELS:
-        if download_hub == "modelscope" or download_from_modelscope():
+        if download_hub == "modelscope" or (
+            download_hub is None and download_from_modelscope()
+        ):
             return (
                 [
                     x
@@ -394,7 +396,9 @@ def _select_ocr_model_family(
             f"model list: {BUILTIN_IMAGE_MODELS.keys()}"
         )
 
-    prefer_modelscope = download_hub == "modelscope" or download_from_modelscope()
+    prefer_modelscope = download_hub == "modelscope" or (
+        download_hub is None and download_from_modelscope()
+    )
     preferred_hubs = (
         ["modelscope", "huggingface"]
         if prefer_modelscope
