@@ -286,8 +286,8 @@ _NVML_INIT_TIMEOUT = 10
 
 
 def _inject_jina_v3_allocator_env(
-    model_type: str,
-    model_name: str,
+    model_type: Optional[str],
+    model_name: Optional[str],
     envs: Optional[Dict[str, str]],
     launch_args: Dict[str, Any],
 ) -> Optional[Dict[str, str]]:
@@ -297,7 +297,12 @@ def _inject_jina_v3_allocator_env(
     called.  Updating ``envs`` alone would therefore affect the current launch
     but not the cached arguments used by worker restart recovery.
     """
-    if model_type.lower() != "embedding" or model_name.lower() != "jina-embeddings-v3":
+    if (
+        not isinstance(model_type, str)
+        or not isinstance(model_name, str)
+        or model_type.lower() != "embedding"
+        or model_name.lower() != "jina-embeddings-v3"
+    ):
         return envs
 
     updated_envs = dict(envs or {})

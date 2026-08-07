@@ -598,6 +598,10 @@ def test_jina_v3_allocator_env_preserves_new_allocator_configuration():
         ("embedding", "jina-embeddings-v2"),
         ("embedding", "jina-embeddings-v4"),
         ("embedding", "bge-small-en-v1.5"),
+        (None, "jina-embeddings-v3"),
+        ("embedding", None),
+        ("", "jina-embeddings-v3"),
+        ("embedding", ""),
     ],
 )
 def test_jina_v3_allocator_env_does_not_affect_other_models(model_type, model_name):
