@@ -4,6 +4,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react
 import {
   Loader2,
   MousePointerClick,
+  Plus,
   Power,
   SearchX,
   ServerOff,
@@ -15,6 +16,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import axios from 'axios';
 import { toast } from 'sonner';
 import PageContainer from '@/components/ui/page-container';
 import { Input } from '@/components/ui/input';
@@ -22,7 +24,12 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { InfoTooltip } from '@/components/ui/tooltip';
 import { useI18n } from '@/contexts/i18n-context';
-import type { RunningModelItem, ReplicaItem } from '@/types/services';
+import type {
+  RunningModelItem,
+  ReplicaItem,
+  AddReplicaRequest,
+  ClusterInfoResponse,
+} from '@/types/services';
 import request from '@/lib/request';
 import { cn } from '@/lib/utils';
 import {
@@ -30,6 +37,7 @@ import {
   TryApiDrawer,
 } from '@/components/pages/running-model-detail/components/try-api-drawer';
 import { transformRunningModelDetail } from '@/components/pages/running-model-detail/utils';
+import AddReplicaDialog from './add-replica-dialog';
 
 interface EmptyStateProps {
   icon: ReactNode;
@@ -64,6 +72,34 @@ interface AutostartSummary {
   }>;
 }
 
+function formatErrorDetail(detail: unknown): string | undefined {
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((item) => {
+        if (typeof item === 'string') return item;
+        if (item && typeof item === 'object' && 'msg' in item && typeof item.msg === 'string') {
+          return item.msg;
+        }
+        try {
+          return JSON.stringify(item);
+        } catch {
+          return String(item);
+        }
+      })
+      .filter(Boolean);
+    return messages.length ? messages.join('; ') : undefined;
+  }
+  if (detail && typeof detail === 'object') {
+    try {
+      return JSON.stringify(detail);
+    } catch {
+      return String(detail);
+    }
+  }
+  return undefined;
+}
+
 const ContentItemInfo = ({ title, value }: ContentItemInfoProps) => {
   return (
     <div className="p-3 rounded-lg bg-muted/50">
@@ -81,6 +117,119 @@ const formatGpuMemory = (bytes: number): string => {
   return `${(bytes / 1024 ** 2).toFixed(2)} MiB`;
 };
 
+interface ParsedAddress {
+  host: string;
+  port?: string;
+}
+
+const parseAddress = (address: string): ParsedAddress => {
+  const normalized = address.trim();
+  if (normalized.startsWith('[')) {
+    const closingBracket = normalized.indexOf(']');
+    if (closingBracket >= 0) {
+      const host = normalized.slice(1, closingBracket);
+      const suffix = normalized.slice(closingBracket + 1);
+      const port = suffix.startsWith(':') ? suffix.slice(1) : '';
+      return {
+        host,
+        port: /^\d+$/.test(port) ? port : undefined,
+      };
+    }
+  }
+
+  // An unbracketed address with one colon is unambiguous host:port. An
+  // address with multiple colons is treated as a bare IPv6 host because an
+  // IPv6 address must be bracketed when a port is included.
+  const separator = normalized.lastIndexOf(':');
+  if (separator > 0 && normalized.indexOf(':') === separator) {
+    const port = normalized.slice(separator + 1);
+    if (/^\d+$/.test(port)) {
+      return { host: normalized.slice(0, separator), port };
+    }
+  }
+  return { host: normalized };
+};
+
+const formatAddress = (host: string, port: string): string => {
+  const normalizedHost = host.replace(/^\[|\]$/g, '');
+  return normalizedHost.includes(':') ? `[${normalizedHost}]:${port}` : `${normalizedHost}:${port}`;
+};
+
+const formatReplicaRuntimeAddress = (replica: ReplicaItem): string | undefined => {
+  const workerAddress = replica.worker_address?.trim();
+  const modelAddress = replica.model_address?.trim();
+  if (!modelAddress) return undefined;
+
+  const parsedModelAddress = parseAddress(modelAddress);
+  const modelPort = parsedModelAddress.port;
+  const workerHost = workerAddress ? parseAddress(workerAddress).host : parsedModelAddress.host;
+  if (modelPort && workerHost) {
+    return formatAddress(workerHost, modelPort);
+  }
+  return modelAddress;
+};
+
+interface ReplicaDeviceIndexes {
+  known: boolean;
+  devices: string[];
+}
+
+interface DeviceIndexGroup {
+  workerAddress: string;
+  devices: string[];
+}
+
+interface DeviceIndexAllocation {
+  showWorkerAddresses: boolean;
+  groups: DeviceIndexGroup[];
+}
+
+const normalizeDeviceIndex = (value: string | number): string | undefined => {
+  const normalized = String(value).trim();
+  if (!normalized) return undefined;
+
+  if (/^\d+$/.test(normalized)) {
+    return `GPU ${Number(normalized)}`;
+  }
+
+  const gpuMatch = normalized.match(/^GPU\s*(\d+)$/i);
+  if (gpuMatch) {
+    return `GPU ${Number(gpuMatch[1])}`;
+  }
+
+  const cpuMatch = normalized.match(/^CPU(?:\s*(\d+))?$/i);
+  if (cpuMatch) {
+    return cpuMatch[1] === undefined ? 'CPU' : `CPU ${Number(cpuMatch[1])}`;
+  }
+
+  return normalized;
+};
+
+const normalizeDeviceIndexes = (values: Array<string | number>): string[] =>
+  Array.from(
+    new Set(values.map(normalizeDeviceIndex).filter((device): device is string => Boolean(device)))
+  ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+
+const getReplicaDeviceIndexes = (replica: ReplicaItem): ReplicaDeviceIndexes => {
+  if (Array.isArray(replica.accelerators)) {
+    const devices = normalizeDeviceIndexes(replica.accelerators);
+    return { known: true, devices: devices.length > 0 ? devices : ['CPU'] };
+  }
+
+  if (replica.gpu_idx && replica.gpu_idx.length > 0) {
+    return { known: true, devices: normalizeDeviceIndexes(replica.gpu_idx) };
+  }
+
+  return { known: false, devices: [] };
+};
+
+const formatReplicaDeviceIndexes = (replica: ReplicaItem): string => {
+  const deviceIndexes = getReplicaDeviceIndexes(replica);
+  return deviceIndexes.known && deviceIndexes.devices.length > 0
+    ? deviceIndexes.devices.join(', ')
+    : '-';
+};
+
 const RunningModel = () => {
   const { t } = useI18n();
   const router = useRouter();
@@ -93,11 +242,142 @@ const RunningModel = () => {
   const [deleteConfirmLoading, setDeleteConfirmLoading] = useState(false);
   const [deleteReplicaId, setDeleteReplicaId] = useState<string | undefined>(undefined);
   const [deleteReplicaLoading, setDeleteReplicaLoading] = useState(false);
+  const [addReplicaOpen, setAddReplicaOpen] = useState(false);
+  const [addReplicaLoading, setAddReplicaLoading] = useState(false);
   const [tryApiOpen, setTryApiOpen] = useState(false);
   const tryApiAbility = useMemo(
     () => getTryApiAbility(activeModel?.model_ability || []),
     [activeModel?.model_ability]
   );
+  const [clusterWorkerInfo, setClusterWorkerInfo] = useState<Map<string, number>>(new Map());
+  const activeModelReplicaAddresses = useMemo(() => {
+    if (!activeModel) return [];
+    const replicas = replicaLogs[activeModel.id];
+    if (replicas && replicas.length > 0) {
+      const replicaAddresses = Array.from(
+        new Set(
+          replicas
+            .map(formatReplicaRuntimeAddress)
+            .filter((address): address is string => Boolean(address))
+        )
+      ).sort((a, b) => a.localeCompare(b));
+      if (replicaAddresses.length > 0) return replicaAddresses;
+    }
+    return activeModel.address ? [activeModel.address] : [];
+  }, [activeModel, replicaLogs]);
+
+  const activeModelDeviceIndexes = useMemo<DeviceIndexAllocation>(() => {
+    if (!activeModel) return { showWorkerAddresses: false, groups: [] };
+
+    const replicas = replicaLogs[activeModel.id];
+    if (replicas && replicas.length > 0) {
+      const workerAddresses = new Set(
+        replicas.map((replica) => replica.worker_address?.trim()).filter(Boolean)
+      );
+      const showWorkerAddresses = workerAddresses.size > 1;
+      const devicesByWorker = new Map<string, string[]>();
+      let hasReplicaDeviceIndexes = false;
+
+      for (const replica of replicas) {
+        const workerAddress = replica.worker_address?.trim() || '';
+        if (!devicesByWorker.has(workerAddress)) {
+          devicesByWorker.set(workerAddress, []);
+        }
+
+        const deviceIndexes = getReplicaDeviceIndexes(replica);
+        if (!deviceIndexes.known) continue;
+
+        hasReplicaDeviceIndexes = true;
+        devicesByWorker.get(workerAddress)!.push(...deviceIndexes.devices);
+      }
+
+      if (hasReplicaDeviceIndexes) {
+        if (!showWorkerAddresses) {
+          return {
+            showWorkerAddresses: false,
+            groups: [
+              {
+                workerAddress: Array.from(workerAddresses)[0] || '',
+                devices: normalizeDeviceIndexes(Array.from(devicesByWorker.values()).flat()),
+              },
+            ],
+          };
+        }
+
+        return {
+          showWorkerAddresses: true,
+          groups: Array.from(devicesByWorker.entries())
+            .map(([workerAddress, devices]) => ({
+              workerAddress,
+              devices: normalizeDeviceIndexes(devices),
+            }))
+            .sort((a, b) => a.workerAddress.localeCompare(b.workerAddress)),
+        };
+      }
+    }
+
+    if (Array.isArray(activeModel.accelerators)) {
+      const devices = normalizeDeviceIndexes(activeModel.accelerators);
+      return {
+        showWorkerAddresses: false,
+        groups: [{ workerAddress: '', devices: devices.length > 0 ? devices : ['CPU'] }],
+      };
+    }
+
+    return { showWorkerAddresses: false, groups: [] };
+  }, [activeModel, replicaLogs]);
+
+  const fetchClusterWorkers = useCallback(() => {
+    request
+      .get<ClusterInfoResponse>('/v1/cluster/info', { params: { detailed: true } })
+      .then((data) => {
+        const workers = new Map<string, number>();
+        const nodes = Array.isArray(data) ? data : data?.workers || [];
+        for (const node of nodes) {
+          if (Array.isArray(data) && node.node_type !== 'Worker') continue;
+          const addr = String(node.ip_address || node.ip || '').trim();
+          if (!addr) continue;
+          const gpuCount = Number(node.gpu_count || 0);
+          const existing = workers.get(addr);
+          if (existing === undefined || gpuCount > existing) {
+            workers.set(addr, gpuCount);
+          }
+        }
+        setClusterWorkerInfo(workers);
+      })
+      .catch(() => {
+        // Silently ignore — model/replica-derived addresses still work as fallback
+      });
+  }, []);
+
+  const addReplicaWorkerOptions = useMemo(() => {
+    // Primary source: cluster info (matching the launch dialog).
+    // Model/replica addresses are used only as a fallback when cluster
+    // info is unavailable, avoiding duplicate entries from mixed formats.
+    if (clusterWorkerInfo.size > 0) {
+      return Array.from(clusterWorkerInfo.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([addr, gpuCount]) => ({
+          label: addr,
+          value: addr,
+          description: t('launchModel.gpuCount', { count: gpuCount }),
+        }));
+    }
+    // Fallback: collect from all running models.
+    const addresses = new Set<string>();
+    for (const model of models) {
+      if (model.address) addresses.add(model.address);
+      const reps = replicaLogs[model.id];
+      if (reps) {
+        for (const rep of reps) {
+          if (rep.worker_address) addresses.add(rep.worker_address);
+        }
+      }
+    }
+    return Array.from(addresses)
+      .sort()
+      .map((addr) => ({ label: addr, value: addr }));
+  }, [clusterWorkerInfo, models, replicaLogs, t]);
   const [autostartModelIds, setAutostartModelIds] = useState<string[]>([]);
   const [autostartBusyIds, setAutostartBusyIds] = useState<string[]>([]);
   const visibleModels = useMemo(() => {
@@ -163,10 +443,11 @@ const RunningModel = () => {
   const handleRefresh = useCallback(() => {
     fetchModels();
     fetchAutostartModels();
+    fetchClusterWorkers();
     if (activeModel?.id) {
       fetchReplicas(activeModel.id);
     }
-  }, [activeModel?.id, fetchAutostartModels, fetchModels, fetchReplicas]);
+  }, [activeModel?.id, fetchAutostartModels, fetchClusterWorkers, fetchModels, fetchReplicas]);
 
   const handleDeleteModel = () => {
     if (!activeModel) return;
@@ -201,6 +482,35 @@ const RunningModel = () => {
       })
       .finally(() => {
         setDeleteReplicaLoading(false);
+      });
+  };
+
+  const handleAddReplica = (body: AddReplicaRequest) => {
+    if (!activeModel) return;
+    setAddReplicaLoading(true);
+    request
+      .post(`/v1/models/${encodeURIComponent(activeModel.id)}/replicas`, body)
+      .then((res) => {
+        setAddReplicaOpen(false);
+        toast.success(
+          t('runningModels.addReplicaSuccess', {
+            replicaModelUid: res?.replica_model_uid ?? '',
+            workerAddress: res?.worker_address ?? '',
+          })
+        );
+        fetchReplicas(activeModel.id);
+        fetchModels();
+      })
+      .catch((err: unknown) => {
+        const message = axios.isAxiosError<{ detail?: unknown }>(err)
+          ? formatErrorDetail(err.response?.data?.detail) || err.message
+          : err instanceof Error
+            ? err.message
+            : undefined;
+        toast.error(message || t('runningModels.addReplicaFailed'));
+      })
+      .finally(() => {
+        setAddReplicaLoading(false);
       });
   };
 
@@ -361,20 +671,49 @@ const RunningModel = () => {
           </div>
           <h3 className="font-medium">{t('runningModels.resources')}</h3>
           <div className="grid grid-cols-2 gap-4">
-            <ContentItemInfo title={t('runningModels.workerAddress')} value={activeModel.address} />
             <ContentItemInfo
-              title={t('runningModels.gpuIndexes')}
+              title={t('runningModels.replicaAddress')}
               value={
-                Array.isArray(activeModel?.accelerators) ? (
-                  <div className="flex gap-1 text-xs">
-                    {activeModel.accelerators.map((item) => (
-                      <span
-                        key={item}
-                        className="flex items-center gap-1 rounded-full border border-primary/20 bg-primary/5 py-0.5 px-1 text-primary"
+                activeModelReplicaAddresses.length > 0 ? (
+                  <div className="flex flex-col gap-0.5 text-xs font-mono">
+                    {activeModelReplicaAddresses.map((address) => (
+                      <span key={address}>{address}</span>
+                    ))}
+                  </div>
+                ) : (
+                  '-'
+                )
+              }
+            />
+            <ContentItemInfo
+              title={t('runningModels.deviceIndexes')}
+              value={
+                activeModelDeviceIndexes.groups.length > 0 ? (
+                  <div className="flex flex-col gap-1.5 text-xs">
+                    {activeModelDeviceIndexes.groups.map((group, groupIndex) => (
+                      <div
+                        key={group.workerAddress || `device-group-${groupIndex}`}
+                        className="flex min-w-0 flex-wrap items-center gap-1"
                       >
-                        <Cpu className="size-3" />
-                        GPU {item}
-                      </span>
+                        {activeModelDeviceIndexes.showWorkerAddresses && (
+                          <span className="mr-1 break-all font-mono text-muted-foreground">
+                            {group.workerAddress || '-'}
+                          </span>
+                        )}
+                        {group.devices.length > 0 ? (
+                          group.devices.map((device) => (
+                            <span
+                              key={`${group.workerAddress}-${device}`}
+                              className="flex items-center gap-1 whitespace-nowrap rounded-full border border-primary/20 bg-primary/5 px-1 py-0.5 text-primary"
+                            >
+                              <Cpu className="size-3" />
+                              {device}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </div>
                     ))}
                   </div>
                 ) : (
@@ -409,7 +748,13 @@ const RunningModel = () => {
               }
             />
           </div>
-          <h3 className="font-medium">{t('runningModels.replicaDetail')}</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium">{t('runningModels.replicaDetail')}</h3>
+            <Button variant="outline" size="sm" onClick={() => setAddReplicaOpen(true)}>
+              <Plus className="size-3.5 mr-1" />
+              {t('runningModels.addReplica')}
+            </Button>
+          </div>
           {(replicaLogs?.[activeModel.id] || []).map((replica) => (
             <div key={replica.replica_model_uid} className="p-3 rounded-lg border">
               <div className="flex items-center justify-between">
@@ -441,6 +786,14 @@ const RunningModel = () => {
               <p className="text-xs text-muted-foreground mt-2">
                 {t('runningModels.workerAddress')}: {replica.worker_address}
               </p>
+              {replica.replica_uid && (
+                <p className="text-xs text-muted-foreground">
+                  {t('launchModel.replicaUid')}: {replica.replica_uid}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                {t('runningModels.deviceIndexes')}: {formatReplicaDeviceIndexes(replica)}
+              </p>
             </div>
           ))}
         </div>
@@ -455,7 +808,8 @@ const RunningModel = () => {
   useEffect(() => {
     fetchModels();
     fetchAutostartModels();
-  }, [fetchAutostartModels, fetchModels]);
+    fetchClusterWorkers();
+  }, [fetchAutostartModels, fetchClusterWorkers, fetchModels]);
 
   return (
     <PageContainer
@@ -513,6 +867,14 @@ const RunningModel = () => {
         confirmClassName="bg-destructive  hover:bg-destructive/90"
         onConfirm={handleDeleteReplica}
         isLoading={deleteReplicaLoading}
+      />
+      <AddReplicaDialog
+        open={addReplicaOpen}
+        onOpenChange={setAddReplicaOpen}
+        onConfirm={handleAddReplica}
+        loading={addReplicaLoading}
+        workerOptions={addReplicaWorkerOptions}
+        modelUid={activeModel?.id ?? ''}
       />
       <TryApiDrawer
         open={tryApiOpen}
