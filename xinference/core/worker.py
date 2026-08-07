@@ -285,6 +285,33 @@ _VRAM_READY_RATIO = 0.90
 _NVML_INIT_TIMEOUT = 10
 
 
+def _inject_jina_v3_allocator_env(
+    model_type: str,
+    model_name: str,
+    envs: Optional[Dict[str, str]],
+    launch_args: Dict[str, Any],
+) -> Optional[Dict[str, str]]:
+    """Add the Jina v3 allocator default and persist it for recovery.
+
+    The launch arguments are captured with ``locals()`` before this helper is
+    called.  Updating ``envs`` alone would therefore affect the current launch
+    but not the cached arguments used by worker restart recovery.
+    """
+    if model_type.lower() != "embedding" or model_name.lower() != "jina-embeddings-v3":
+        return envs
+
+    updated_envs = dict(envs or {})
+    if (
+        "PYTORCH_CUDA_ALLOC_CONF" not in updated_envs
+        and "PYTORCH_ALLOC_CONF" not in updated_envs
+    ):
+        updated_envs["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+
+    # ``launch_args`` is the recovery snapshot, so update it explicitly.
+    launch_args["envs"] = updated_envs
+    return updated_envs
+
+
 def _strip_test_envs(launch_args: dict) -> Tuple[dict, Set[str]]:
     """Strip XINFERENCE_TEST_* envs from launch_args.
 
@@ -3238,6 +3265,7 @@ class WorkerActor(xo.StatelessActor):
         launch_args.pop("kwargs")
         launch_args.update(kwargs)
         launch_args["launch_ts"] = int(time.time())
+        envs = _inject_jina_v3_allocator_env(model_type, model_name, envs, launch_args)
 
         try:
             origin_uid, _ = parse_replica_model_uid(model_uid)
