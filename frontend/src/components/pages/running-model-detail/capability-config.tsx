@@ -260,6 +260,7 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
       ],
     },
     initialValues: { file: [] },
+    submitLabel: 'Extract embedding',
     formPanel: SpeakerEmbeddingPanel,
     resultPanel: ResultPanels.Universal,
     transformValues: audioEmbeddingFormData,

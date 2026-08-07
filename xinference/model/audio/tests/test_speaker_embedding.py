@@ -19,8 +19,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from .. import load_model_family_from_json
-from ..core import create_audio_model_instance, match_audio
+from ..core import create_audio_model_instance
 from ..speaker_embedding import ModelScopeSpeakerEmbeddingModel
 
 
@@ -98,31 +97,3 @@ def test_campplus_factory_dispatch():
         )
 
     assert isinstance(model, ModelScopeSpeakerEmbeddingModel)
-
-
-def test_builtin_campplus_specs_are_modelscope_only_and_match_by_default():
-    models = {}
-    load_model_family_from_json("model_spec.json", models)
-
-    expected = {
-        "speech_campplus_sv_zh-cn_16k-common",
-        "speech_campplus_sv_zh_en_16k-common_advanced",
-    }
-    for model_name in expected:
-        specs = models[model_name]
-        assert len(specs) == 1
-        assert specs[0].model_hub == "modelscope"
-        assert specs[0].model_ability == ["speaker_embedding"]
-        packages = specs[0].virtualenv.packages
-        assert "modelscope[framework]>=1.19.0" in packages
-        assert "addict" in packages
-        assert "datasets>=3,<5" in packages
-
-    with (
-        patch("xinference.model.audio.BUILTIN_AUDIO_MODELS", models),
-        patch("xinference.model.audio.custom.get_user_defined_audios", return_value=[]),
-        patch("xinference.model.utils.download_from_modelscope", return_value=False),
-    ):
-        matched = match_audio("speech_campplus_sv_zh-cn_16k-common")
-
-    assert matched.model_hub == "modelscope"

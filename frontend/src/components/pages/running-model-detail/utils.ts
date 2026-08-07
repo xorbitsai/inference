@@ -1,7 +1,18 @@
+import { ModelAbility } from '@/constants';
 import { MODEL_TYPE_ABILITY_MAP } from '@/constants/running';
 import type { FormValues } from '@/types/form';
 import type { ChatChoicesMessage } from '@/types/services';
 import type { FileUploadValue } from '@/types/common';
+
+const SUB_CAPABILITIES = new Set<ModelAbility>([
+  ModelAbility.Text2audioVoiceCloning,
+  ModelAbility.Text2audioZeroShot,
+  ModelAbility.Text2audioEmotionControl,
+]);
+
+export function getPrimaryModelAbilities(abilities: ModelAbility[] = []) {
+  return abilities.filter((ability) => !SUB_CAPABILITIES.has(ability));
+}
 
 export function createId(prefix = 'item') {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {

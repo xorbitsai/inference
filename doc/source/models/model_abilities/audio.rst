@@ -135,8 +135,18 @@ The Speaker Embedding API accepts one audio file and returns one speaker
 embedding. The built-in CAMPPlus models return a 192-dimensional vector. The
 endpoint is intentionally stateless: applications can store the returned vectors
 and use cosine similarity for speaker verification or 1:N speaker identification.
+The request uses ``multipart/form-data``: ``model`` is the UID of a running
+speaker-embedding model and ``file`` is the audio sample. Unlike the general
+``/v1/embeddings`` endpoint, this endpoint returns one embedding object rather
+than a list of text embeddings.
 
 .. tabs::
+
+  .. tab:: Web UI
+
+    Open **Running Models**, select a running CAMPPlus model, and upload a clear
+    speech sample in the **Speaker Embedding** panel. Select **Extract embedding**
+    to inspect the vector and copy it from the results panel.
 
   .. code-tab:: bash cURL
 
@@ -169,7 +179,9 @@ and use cosine similarity for speaker verification or 1:N speaker identification
 
 ModelScope decodes the input, converts multi-channel audio to one channel, and
 resamples it to the model's 16 kHz sample rate. The returned vector preserves
-the model output. Use cosine similarity when comparing two vectors.
+the model output. Use cosine similarity when comparing two vectors; choose a
+verification or identification threshold using representative audio from your
+own application.
 
 Transcription
 --------------------

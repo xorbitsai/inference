@@ -369,9 +369,9 @@ export function SpeakerEmbeddingPanel() {
   return (
     <FormField name="file" rules={[{ required: true }]}>
       <FileUpload
-        accept="audio/*,video/*"
-        label="Upload or drop audio"
-        description="The model extracts one speaker embedding from the audio."
+        accept="audio/*"
+        label="Upload a speech sample"
+        description="Use clear speech; audio is converted to mono and resampled to 16 kHz."
       />
     </FormField>
   );
