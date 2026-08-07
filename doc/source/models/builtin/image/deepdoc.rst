@@ -12,7 +12,7 @@ DeepDoc
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Model ID:** InfiniFlow/deepdoc
+- **Model ID:** Xorbits/deepdoc
 
 Execute the following command to launch the model::
 
