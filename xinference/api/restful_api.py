@@ -79,9 +79,11 @@ from .frontend_static import mount_frontend
 from .pdf_ocr import (
     DEFAULT_PDF_OCR_DPI,
     PDF_MAGIC,
+    WHOLE_DOCUMENT_OCR_TASKS,
     is_pdf_upload,
     merge_ocr_page_results,
     rasterize_pdf,
+    validate_pdf_for_parse,
 )
 from .responses import JSONResponse
 from .schemas import (
@@ -1978,7 +1980,41 @@ class RESTfulAPI(CancelMixin):
             self._add_running_task(request_id)
             head = image.file.read(len(PDF_MAGIC))
             image.file.seek(0)
-            if is_pdf_upload(image.content_type, head):
+            is_pdf = is_pdf_upload(image.content_type, head)
+            # Whole-document tasks parse the PDF themselves and need the
+            # original bytes plus every page at once, so they bypass the
+            # per-page rasterizing path below.
+            requested_task = parsed_kwargs.get("task")
+            if (
+                isinstance(requested_task, str)
+                and requested_task in WHOLE_DOCUMENT_OCR_TASKS
+            ):
+                task = requested_task
+                if not is_pdf:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"OCR task {task!r} requires a PDF upload",
+                    )
+                for unsupported in ("pages", "dpi"):
+                    if unsupported in parsed_kwargs:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=(
+                                f"`{unsupported}` is not supported for OCR task "
+                                f"{task!r}, which parses the whole document"
+                            ),
+                        )
+                data = image.file.read()
+                try:
+                    await asyncio.to_thread(validate_pdf_for_parse, data)
+                except ValueError as ve:
+                    raise HTTPException(status_code=400, detail=str(ve))
+                result = await model_ref.ocr(
+                    image=data,
+                    **parsed_kwargs,
+                )
+                return Response(content=result, media_type="application/json")
+            if is_pdf:
                 pages = parsed_kwargs.pop("pages", None)
                 dpi = parsed_kwargs.pop("dpi", DEFAULT_PDF_OCR_DPI)
                 try:
