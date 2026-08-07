@@ -243,6 +243,13 @@ export interface EmbeddingsResponse {
   usage: TokenUsage;
 }
 
+export interface AudioEmbeddingResponse {
+  object: 'embedding';
+  model: string;
+  dimensions: number;
+  embedding: number[];
+}
+
 export interface UserItem {
   id: number;
   username: string;

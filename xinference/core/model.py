@@ -931,6 +931,20 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         )
 
     @request_limit
+    @log_async(logger=logger, ignore_kwargs=["audio"])
+    async def create_audio_embedding(self, audio: bytes, *args, **kwargs):
+        self._require_ready()
+        kwargs.pop("request_id", None)
+        if hasattr(self._model, "create_embedding"):
+            return await self._call_wrapper_json(
+                self._model.create_embedding, audio, *args, **kwargs
+            )
+
+        raise AttributeError(
+            f"Model {self._model.model_spec} is not for creating audio embeddings."
+        )
+
+    @request_limit
     @log_async(logger=logger)
     async def convert_ids_to_tokens(
         self, input: Union[List, List[List]], *args, **kwargs

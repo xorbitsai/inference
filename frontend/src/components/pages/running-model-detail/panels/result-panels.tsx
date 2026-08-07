@@ -1,13 +1,13 @@
 'use client';
 
 import { useEffect, useMemo } from 'react';
-import { ImageIcon, Sparkles } from 'lucide-react';
+import { Binary, ImageIcon, Sparkles } from 'lucide-react';
 
 import ReactMarkdown from '@/components/ui/markdown-renderer';
 import { MediaPreview } from '@/components/ui/media-preview';
 import { Progress } from '@/components/ui/progress';
 import type { FormValues } from '@/types/form';
-import type { CompletionResponse } from '@/types/services';
+import type { AudioEmbeddingResponse, CompletionResponse } from '@/types/services';
 import { ModelAbility } from '@/constants';
 import { cn } from '@/lib/utils';
 import { isNumber } from '@/lib/is';
@@ -331,6 +331,58 @@ function AudioToTextResultPanel({ result }: { result: AudioToTextResult }) {
   return <div className="grid gap-4 overflow-hidden">{result.text}</div>;
 }
 
+function formatEmbeddingVector(embedding: number[]) {
+  const valuesPerLine = 4;
+  const lines = [];
+
+  for (let index = 0; index < embedding.length; index += valuesPerLine) {
+    lines.push(embedding.slice(index, index + valuesPerLine).join(', '));
+  }
+
+  return `[\n  ${lines.join(',\n  ')}\n]`;
+}
+
+function SpeakerEmbeddingResultPanel({ result }: { result: unknown }) {
+  if (!isRecord(result) || !Array.isArray(result.embedding) || !result.embedding.every(isNumber)) {
+    return <RawResultPanel result={result} />;
+  }
+
+  const response = result as unknown as AudioEmbeddingResponse;
+  const dimensions = isNumber(response.dimensions)
+    ? response.dimensions
+    : response.embedding.length;
+
+  return (
+    <div className="grid min-w-0 gap-4">
+      <div className="flex min-w-0 flex-col gap-4 rounded-xl border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Binary className="size-5" />
+          </span>
+          <div className="min-w-0">
+            <div className="font-semibold">Speaker embedding generated</div>
+            <div className="truncate text-sm text-muted-foreground">{response.model}</div>
+          </div>
+        </div>
+        <div className="shrink-0 sm:text-right">
+          <div className="text-2xl font-semibold tabular-nums">{dimensions}</div>
+          <div className="text-sm text-muted-foreground">dimensions</div>
+        </div>
+      </div>
+
+      <div className="min-w-0 overflow-hidden rounded-xl border bg-muted/20">
+        <div className="flex items-center justify-between border-b bg-card px-4 py-3">
+          <span className="text-sm font-medium">Embedding vector</span>
+          <span className="text-xs text-muted-foreground">{response.embedding.length} values</span>
+        </div>
+        <pre className="max-h-[calc(100vh-430px)] min-h-64 w-full max-w-full overflow-auto p-4 text-xs leading-6 tabular-nums">
+          {formatEmbeddingVector(response.embedding)}
+        </pre>
+      </div>
+    </div>
+  );
+}
+
 export function UniversalResultPanel({
   result,
   values,
@@ -343,7 +395,15 @@ export function UniversalResultPanel({
   }
 
   if (result === undefined) {
-    return <EmptyResult />;
+    return (
+      <EmptyResult
+        label={
+          ability === ModelAbility.SpeakerEmbedding
+            ? 'Upload a speech sample to extract its speaker embedding.'
+            : undefined
+        }
+      />
+    );
   }
 
   if (isVisualAbility(ability) || isAudioResultAbility(ability)) {
@@ -364,6 +424,10 @@ export function UniversalResultPanel({
 
   if (ability === ModelAbility.Audio2text) {
     return <AudioToTextResultPanel result={result as AudioToTextResult} />;
+  }
+
+  if (ability === ModelAbility.SpeakerEmbedding) {
+    return <SpeakerEmbeddingResultPanel result={result} />;
   }
 
   return <RawResultPanel result={result} />;
