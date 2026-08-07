@@ -166,6 +166,7 @@ class PytorchMultiModalModel(PytorchChatModel):
         completion_tokens, total_tokens = 0, 0
         previous_texts = [""]
         previous_tools_texts = [""]
+        tool_call_state = {"seen": False}
         i = 0
         for i, new_text in enumerate(streamer):
             new_text, should_stop = self.check_conditions(new_text)
@@ -204,6 +205,7 @@ class PytorchMultiModalModel(PytorchChatModel):
                         self.model_uid,
                         chat_chunk,
                         previous_texts=previous_tools_texts,
+                        tool_call_state=tool_call_state,
                     )
                     if processed_chunk:
                         yield cast(CompletionChunk, processed_chunk)
@@ -232,6 +234,7 @@ class PytorchMultiModalModel(PytorchChatModel):
                 self.model_uid,
                 chat_chunk,
                 previous_texts=previous_tools_texts,
+                tool_call_state=tool_call_state,
             )
             if processed_chunk:
                 yield cast(CompletionChunk, processed_chunk)
@@ -261,6 +264,7 @@ class PytorchMultiModalModel(PytorchChatModel):
                     self.model_uid,
                     chat_chunk,
                     previous_texts=previous_tools_texts,
+                    tool_call_state=tool_call_state,
                 )
                 if processed_chunk:
                     yield cast(CompletionChunk, processed_chunk)

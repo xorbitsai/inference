@@ -59,6 +59,7 @@ from . import (
     glm4_tool_parser,
     glm5_tool_parser,
     llama3_tool_parser,
+    minimax_m3_tool_parser,
     minimax_tool_parser,
     qwen_tool_parser,
 )
