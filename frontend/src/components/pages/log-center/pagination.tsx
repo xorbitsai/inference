@@ -18,11 +18,10 @@ interface LogPaginationProps {
 export function LogPagination({ total, pageFrom, onPageFromChange }: LogPaginationProps) {
   const { t } = useI18n();
   const [jumpPage, setJumpPage] = useState('1');
-  const maxAccessibleTotal = Math.min(total, 10000);
-  const totalPages = Math.ceil(maxAccessibleTotal / LOG_PAGE_SIZE) || 1;
+  const totalPages = Math.ceil(total / LOG_PAGE_SIZE) || 1;
   const currentPage = Math.floor(pageFrom / LOG_PAGE_SIZE) + 1;
   const lastPageFrom = (totalPages - 1) * LOG_PAGE_SIZE;
-  const isNextDisabled = pageFrom + LOG_PAGE_SIZE >= maxAccessibleTotal;
+  const isNextDisabled = pageFrom + LOG_PAGE_SIZE >= total;
 
   useEffect(() => {
     setJumpPage(String(currentPage));

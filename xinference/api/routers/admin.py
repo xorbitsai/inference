@@ -386,6 +386,160 @@ async def reset_monitor_config(request: Request) -> JSONResponse:
 
 _FIELD_NAME_RE = re.compile(r"^[a-zA-Z0-9_.@]+$")
 _TEXT_FIELDS = {"message"}
+_ES_PIT_KEEP_ALIVE = "1m"
+_ES_SEARCH_AFTER_BATCH_SIZE = 5000
+
+
+def _get_es_total(data: dict[str, Any]) -> int:
+    total_value = data.get("hits", {}).get("total", 0)
+    return (
+        int(total_value.get("value", 0))
+        if isinstance(total_value, dict)
+        else int(total_value)
+    )
+
+
+async def _search_es_page(
+    session: aiohttp.ClientSession,
+    *,
+    es_url: str,
+    es_index: str,
+    headers: dict[str, str],
+    query: dict[str, Any],
+    page_from: int,
+    size: int,
+    source: Optional[dict[str, Any]] = None,
+    error_context: str = "ES",
+) -> tuple[list[dict[str, Any]], int]:
+    """Fetch an arbitrary page with PIT-backed ``search_after`` queries.
+
+    Elasticsearch limits ``from + size`` pagination to 10,000 hits by
+    default.  A PIT supplies the stable ``_shard_doc`` tiebreaker required to
+    walk past that boundary safely.  For pages closer to the end of the result
+    set, walking in ascending order bounds the work by the nearer edge.
+    """
+    base_url = es_url.rstrip("/")
+    pit_id = ""
+
+    async def _read_response(
+        resp: aiohttp.ClientResponse, operation: str
+    ) -> dict[str, Any]:
+        if resp.status != 200:
+            text = await resp.text()
+            logger.error(
+                "%s %s failed: status=%d body=%s",
+                error_context,
+                operation,
+                resp.status,
+                text[:500],
+            )
+            raise HTTPException(status_code=502, detail="Elasticsearch query failed")
+        return await resp.json()
+
+    async def _search(body: dict[str, Any]) -> dict[str, Any]:
+        nonlocal pit_id
+        request_body = {
+            **body,
+            "pit": {"id": pit_id, "keep_alive": _ES_PIT_KEEP_ALIVE},
+        }
+        if source is not None:
+            request_body["_source"] = source
+        async with session.post(
+            f"{base_url}/_search", json=request_body, headers=headers
+        ) as resp:
+            data = await _read_response(resp, "search")
+        pit_id = data.get("pit_id") or pit_id
+        return data
+
+    try:
+        async with session.post(
+            f"{base_url}/{es_index}/_pit",
+            params={"keep_alive": _ES_PIT_KEEP_ALIVE},
+            headers=headers,
+        ) as resp:
+            pit_data = await _read_response(resp, "PIT open")
+        pit_id = pit_data.get("id", "")
+        if not pit_id:
+            logger.error("%s PIT open returned no id", error_context)
+            raise HTTPException(status_code=502, detail="Elasticsearch query failed")
+
+        count_data = await _search(
+            {"query": query, "size": 0, "track_total_hits": True}
+        )
+        total = _get_es_total(count_data)
+        if page_from >= total:
+            return [], total
+
+        result_size = min(size, total - page_from)
+        reverse_offset = total - (page_from + result_size)
+        ascending = reverse_offset < page_from
+        remaining = reverse_offset if ascending else page_from
+        order = "asc" if ascending else "desc"
+        sort = [
+            {
+                "@timestamp": {
+                    "order": order,
+                    "format": "strict_date_optional_time_nanos",
+                    "numeric_type": "date_nanos",
+                }
+            },
+            {"_shard_doc": order},
+        ]
+        search_after: Optional[list[Any]] = None
+
+        while remaining > 0:
+            batch_size = min(remaining, _ES_SEARCH_AFTER_BATCH_SIZE)
+            batch_body: dict[str, Any] = {
+                "query": query,
+                "size": batch_size,
+                "sort": sort,
+                "track_total_hits": False,
+            }
+            if search_after is not None:
+                batch_body["search_after"] = search_after
+            batch_data = await _search(batch_body)
+            batch_hits = batch_data.get("hits", {}).get("hits", [])
+            if not batch_hits:
+                return [], total
+            search_after = batch_hits[-1].get("sort")
+            if not search_after:
+                logger.error("%s search hit returned no sort values", error_context)
+                raise HTTPException(
+                    status_code=502, detail="Elasticsearch query failed"
+                )
+            remaining -= len(batch_hits)
+            if len(batch_hits) < batch_size:
+                return [], total
+
+        page_body: dict[str, Any] = {
+            "query": query,
+            "size": result_size,
+            "sort": sort,
+            "track_total_hits": False,
+        }
+        if search_after is not None:
+            page_body["search_after"] = search_after
+        page_data = await _search(page_body)
+        page_hits = page_data.get("hits", {}).get("hits", [])
+        if ascending:
+            page_hits.reverse()
+        return [hit["_source"] for hit in page_hits], total
+    finally:
+        if pit_id:
+            try:
+                async with session.delete(
+                    f"{base_url}/_pit", json={"id": pit_id}, headers=headers
+                ) as resp:
+                    if resp.status != 200:
+                        text = await resp.text()
+                        logger.warning(
+                            "%s PIT close failed: status=%d body=%s",
+                            error_context,
+                            resp.status,
+                            text[:500],
+                        )
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                logger.warning("%s PIT close failed: %s", error_context, e)
 
 
 async def search_logs(
@@ -411,7 +565,7 @@ async def search_logs(
     es_auth = os.environ.get("XINFERENCE_ES_AUTH", "")
 
     size = max(1, min(size, 500))
-    page_from = max(0, min(page_from, 10000 - size))
+    page_from = max(0, page_from)
     if node_field not in ("node", "node.keyword"):
         node_field = "node"
 
@@ -478,14 +632,8 @@ async def search_logs(
         else:
             filter_clauses.append({"terms": {field_name: values}})
 
-    body: dict[str, Any] = {
-        "query": {
-            "bool": {"must": must, "filter": filter_clauses, "must_not": must_not}
-        },
-        "sort": [{"@timestamp": "desc"}],
-        "from": page_from,
-        "size": size,
-        "_source": {"excludes": ["@version"]},
+    query: dict[str, Any] = {
+        "bool": {"must": must, "filter": filter_clauses, "must_not": must_not}
     }
 
     headers = {"Content-Type": "application/json"}
@@ -498,33 +646,26 @@ async def search_logs(
             if len(parts) == 2:
                 auth = aiohttp.BasicAuth(parts[0], parts[1])
 
-    url = f"{es_url.rstrip('/')}/{es_index}/_search"
-
     try:
         timeout = aiohttp.ClientTimeout(total=10)
         async with aiohttp.ClientSession(timeout=timeout, auth=auth) as session:
-            async with session.post(url, json=body, headers=headers) as resp:
-                if resp.status != 200:
-                    text = await resp.text()
-                    logger.error(
-                        "ES query failed: status=%d body=%s", resp.status, text[:500]
-                    )
-                    raise HTTPException(
-                        status_code=502, detail="Elasticsearch query failed"
-                    )
-                data = await resp.json()
+            hits, total = await _search_es_page(
+                session,
+                es_url=es_url,
+                es_index=es_index,
+                headers=headers,
+                query=query,
+                page_from=page_from,
+                size=size,
+                source={"excludes": ["@version"]},
+                error_context="ES log query",
+            )
     except (aiohttp.ClientError, asyncio.TimeoutError) as e:
         logger.error("ES connection error or timeout: %s", e)
         raise HTTPException(
             status_code=502,
             detail="Failed to connect to Elasticsearch or query timed out",
         )
-
-    hits = [hit["_source"] for hit in data.get("hits", {}).get("hits", [])]
-    total_value = data.get("hits", {}).get("total", {})
-    total = (
-        total_value.get("value", 0) if isinstance(total_value, dict) else total_value
-    )
 
     return JSONResponse(content={"hits": hits, "total": total})
 
@@ -878,7 +1019,7 @@ async def search_audit_logs(
     es_auth = os.environ.get("XINFERENCE_ES_AUTH", "")
 
     size = max(1, min(size, 500))
-    page_from = max(0, min(page_from, 10000 - size))
+    page_from = max(0, page_from)
 
     must: list[dict[str, Any]] = []
     filter_clauses: list[dict[str, Any]] = [
@@ -908,12 +1049,7 @@ async def search_audit_logs(
             else:
                 filter_clauses.append({"terms": {field_name: terms}})
 
-    body: dict[str, Any] = {
-        "query": {"bool": {"must": must, "filter": filter_clauses}},
-        "sort": [{"@timestamp": "desc"}],
-        "from": page_from,
-        "size": size,
-    }
+    query: dict[str, Any] = {"bool": {"must": must, "filter": filter_clauses}}
 
     headers = {"Content-Type": "application/json"}
     auth = None
@@ -925,35 +1061,25 @@ async def search_audit_logs(
             if len(parts) == 2:
                 auth = aiohttp.BasicAuth(parts[0], parts[1])
 
-    url = f"{es_url.rstrip('/')}/{es_index}/_search"
-
     try:
         timeout = aiohttp.ClientTimeout(total=10)
         async with aiohttp.ClientSession(timeout=timeout, auth=auth) as session:
-            async with session.post(url, json=body, headers=headers) as resp:
-                if resp.status != 200:
-                    text = await resp.text()
-                    logger.error(
-                        "ES audit query failed: status=%d body=%s",
-                        resp.status,
-                        text[:500],
-                    )
-                    raise HTTPException(
-                        status_code=502, detail="Elasticsearch query failed"
-                    )
-                data = await resp.json()
+            hits, total = await _search_es_page(
+                session,
+                es_url=es_url,
+                es_index=es_index,
+                headers=headers,
+                query=query,
+                page_from=page_from,
+                size=size,
+                error_context="ES audit query",
+            )
     except (aiohttp.ClientError, asyncio.TimeoutError) as e:
         logger.error("ES connection error or timeout: %s", e)
         raise HTTPException(
             status_code=502,
             detail="Audit service unavailable",
         )
-
-    hits = [hit["_source"] for hit in data.get("hits", {}).get("hits", [])]
-    total_value = data.get("hits", {}).get("total", {})
-    total = (
-        total_value.get("value", 0) if isinstance(total_value, dict) else total_value
-    )
 
     return JSONResponse(content={"hits": hits, "total": total})
 

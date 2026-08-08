@@ -365,9 +365,8 @@ export default function AuditCenter() {
     Array.isArray(value) ? value.length > 0 : Boolean(value)
   );
   const hasDraftFilters = Object.values(draftFilters).some(Boolean);
-  const maxAccessibleTotal = Math.min(total, 10000);
   const currentPage = Math.floor(pageFrom / AUDIT_PAGE_SIZE) + 1;
-  const totalPages = Math.ceil(maxAccessibleTotal / AUDIT_PAGE_SIZE) || 1;
+  const totalPages = Math.ceil(total / AUDIT_PAGE_SIZE) || 1;
   const lastPageFrom = (totalPages - 1) * AUDIT_PAGE_SIZE;
 
   useEffect(() => {
@@ -688,7 +687,7 @@ export default function AuditCenter() {
             className="size-8"
             aria-label={t('auditCenter.nextPage')}
             title={t('auditCenter.nextPage')}
-            disabled={pageFrom + AUDIT_PAGE_SIZE >= maxAccessibleTotal}
+            disabled={pageFrom + AUDIT_PAGE_SIZE >= total}
             onClick={() => setPageFrom(pageFrom + AUDIT_PAGE_SIZE)}
           >
             <ChevronRight />
