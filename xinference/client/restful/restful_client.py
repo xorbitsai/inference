@@ -31,6 +31,11 @@ if TYPE_CHECKING:
         VideoList,
     )
 
+# (connect, read) timeout for quick metadata endpoints such as
+# /v1/cluster/auth and /v1/address, which reply immediately on a healthy
+# server. Inference requests are deliberately left without a timeout.
+_METADATA_REQUEST_TIMEOUT = (10, 30)
+
 
 def _get_error_string(response: requests.Response) -> str:
     try:
@@ -1113,7 +1118,9 @@ class Client:
 
     def _check_cluster_authenticated(self):
         url = f"{self.base_url}/v1/cluster/auth"
-        response = self.session.get(url)
+        # Lightweight metadata endpoint queried on every client construction;
+        # bound it so an unresponsive server cannot hang callers indefinitely.
+        response = self.session.get(url, timeout=_METADATA_REQUEST_TIMEOUT)
         # compatible with old version of xinference
         if response.status_code == 404:
             self._cluster_authed = False
@@ -1444,7 +1451,9 @@ class Client:
 
     def _get_supervisor_internal_address(self):
         url = f"{self.base_url}/v1/address"
-        response = self.session.get(url, headers=self._headers)
+        response = self.session.get(
+            url, headers=self._headers, timeout=_METADATA_REQUEST_TIMEOUT
+        )
         if response.status_code != 200:
             raise RuntimeError("Failed to get supervisor internal address")
         response_data = response.json()
