@@ -404,3 +404,51 @@ raster would exceed 80 megapixels is rejected — lower ``dpi`` in that case:
       -F model=<MODEL_UID> \
       -F 'kwargs={"pages": [1, 2], "dpi": 300}' \
       -F image=@xxx.pdf
+
+Whole-document parsing
+~~~~~~~~~~~~~~~~~~~~~~
+
+Some models expose a whole-document parsing task in addition to per-page OCR.
+``DeepDoc`` supports ``task="parse"``, which runs its full document pipeline —
+layout analysis, table structure recognition, paragraph merging and
+reading-order reconstruction — over an entire PDF and returns ordered document
+elements:
+
+.. code-block:: bash
+
+    curl -X 'POST' \
+      'http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1/images/ocr' \
+      -F model=<MODEL_UID> \
+      -F 'kwargs={"task": "parse"}' \
+      -F image=@xxx.pdf
+
+.. code-block:: json
+
+    {"task": "parse",
+     "elements": [
+       {"type": "table",
+        "text": "<table><caption>...</caption><tr><th>...</th></tr></table>",
+        "image_base64": "...",
+        "metadata": {"page_number": 2, "x0": 20.0, "x1": 400.0, "top": 50.0,
+                     "bottom": 200.0, "layout_type": "table", "col_id": 0,
+                     "positions": [[2, 20, 400, 50, 200]]}}
+     ]}
+
+``type`` is the detected layout type (``text``, ``title``, ``table`` or
+``figure``), and ``text`` holds the element text — complete HTML in the case of
+tables. Coordinates in ``metadata`` accumulate across pages, so ``top`` and
+``bottom`` are document-wide rather than page-relative. ``col_id`` is only
+present on elements the pipeline assigned to a column.
+
+Unlike the per-page tasks, ``parse`` renders the PDF itself and needs the whole
+document to merge across pages, so it requires a PDF upload and does not accept
+``pages`` or ``dpi``. Two optional ``kwargs`` fields apply:
+
+* ``zoomin`` — the render scale, defaulting to ``3`` and capped at ``6``.
+* ``image_scope`` — which elements carry a base64-encoded PNG crop in
+  ``image_base64``: ``table_figure`` (the default, tables and figures only),
+  ``all``, or ``none``. Every element has a crop internally, but encoding all of
+  them inflates the response substantially, so prefer the default unless the
+  text crops are needed too. The field is omitted for elements without a crop.
+
+The same 200-page limit as per-page OCR applies.

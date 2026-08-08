@@ -41,6 +41,9 @@ MAX_PDF_OCR_PAGES = 200
 # pixels; an A3 page at 600 DPI is ~70 MP) is rejected so a single
 # oversized page cannot exhaust the API process.
 MAX_PDF_OCR_PAGE_PIXELS = 80_000_000
+# OCR tasks that consume the whole PDF instead of one rasterized page at a
+# time, and therefore receive the uploaded bytes unchanged.
+WHOLE_DOCUMENT_OCR_TASKS = frozenset({"parse"})
 
 
 def is_pdf_upload(content_type: Optional[str], head: bytes) -> bool:
@@ -48,6 +51,47 @@ def is_pdf_upload(content_type: Optional[str], head: bytes) -> bool:
     if content_type and content_type.split(";")[0].strip() == "application/pdf":
         return True
     return head.startswith(PDF_MAGIC)
+
+
+def validate_pdf_for_parse(data: bytes) -> int:
+    """Check a PDF that will be handed to a whole-document parser.
+
+    Whole-document parsing tasks (e.g. DeepDoc's ``task="parse"``) render the
+    PDF themselves, so the bytes are passed straight through instead of being
+    rasterized here. That skips the validation ``rasterize_pdf`` would have
+    done, and parsers tend to fail unhelpfully: DeepDoc swallows load errors
+    and returns an empty result, then retries at 3x the zoom (9x the pixels)
+    when it finds no boxes. Validating up front turns both into a clean
+    error. Returns the page count, and raises ``ValueError`` if the document
+    cannot be opened or has too many pages.
+    """
+    try:
+        import pypdfium2 as pdfium
+    except ImportError:
+        error_message = "Failed to import module 'pypdfium2' required for PDF OCR"
+        installation_guide = [
+            "Please make sure 'pypdfium2' is installed, e.g. with `pip install pypdfium2`\n",
+        ]
+        raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+    with _pdfium_lock:
+        try:
+            pdf = pdfium.PdfDocument(data)
+        except Exception as e:
+            raise ValueError(f"Could not read the uploaded PDF: {e}") from e
+        try:
+            page_count = len(pdf)
+        finally:
+            pdf.close()
+
+    if page_count < 1:
+        raise ValueError("The uploaded PDF has no pages")
+    if page_count > MAX_PDF_OCR_PAGES:
+        raise ValueError(
+            f"The uploaded PDF has {page_count} pages, at most "
+            f"{MAX_PDF_OCR_PAGES} pages can be parsed per request"
+        )
+    return page_count
 
 
 def normalize_pages(

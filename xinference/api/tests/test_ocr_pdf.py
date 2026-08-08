@@ -21,10 +21,12 @@ import pytest
 from ..pdf_ocr import (
     DEFAULT_PDF_OCR_DPI,
     MAX_PDF_OCR_PAGES,
+    WHOLE_DOCUMENT_OCR_TASKS,
     is_pdf_upload,
     merge_ocr_page_results,
     normalize_pages,
     rasterize_pdf,
+    validate_pdf_for_parse,
 )
 
 
@@ -210,3 +212,46 @@ class TestRasterizePdf:
 
     def test_pdf_magic_detected_on_generated_pdf(self):
         assert is_pdf_upload(None, make_pdf()[:8])
+
+
+class TestValidatePdfForParse:
+    """Whole-document tasks get the uploaded bytes without going through
+    ``rasterize_pdf``, so this is the only place a bad PDF is caught before
+    the parser sees it."""
+
+    def test_accepts_a_valid_pdf_and_returns_the_page_count(self):
+        pytest.importorskip("pypdfium2")
+        assert validate_pdf_for_parse(make_pdf(page_count=3)) == 3
+
+    def test_rejects_non_pdf_bytes(self):
+        pytest.importorskip("pypdfium2")
+        with pytest.raises(ValueError, match="Could not read the uploaded PDF"):
+            validate_pdf_for_parse(b"\x89PNG\r\n\x1a\n not a pdf")
+
+    def test_rejects_empty_input(self):
+        pytest.importorskip("pypdfium2")
+        with pytest.raises(ValueError):
+            validate_pdf_for_parse(b"")
+
+    def test_rejects_too_many_pages(self):
+        pytest.importorskip("pypdfium2")
+        oversized = make_pdf(page_count=MAX_PDF_OCR_PAGES + 1)
+        with pytest.raises(ValueError, match="at most"):
+            validate_pdf_for_parse(oversized)
+
+    def test_page_limit_is_shared_with_the_per_page_path(self):
+        # Users see one page ceiling for the OCR endpoint, whichever task
+        # they pick.
+        pytest.importorskip("pypdfium2")
+        assert validate_pdf_for_parse(make_pdf(page_count=MAX_PDF_OCR_PAGES)) == (
+            MAX_PDF_OCR_PAGES
+        )
+
+
+class TestWholeDocumentOcrTasks:
+    def test_parse_is_a_whole_document_task(self):
+        assert "parse" in WHOLE_DOCUMENT_OCR_TASKS
+
+    def test_per_page_tasks_are_not(self):
+        for task in ("ocr", "layout", "table"):
+            assert task not in WHOLE_DOCUMENT_OCR_TASKS
