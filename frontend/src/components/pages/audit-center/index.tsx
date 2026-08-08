@@ -18,7 +18,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { JSONSyntaxHighlighter } from '@/components/ui/json-syntax-highlighter';
 import { Label } from '@/components/ui/label';
 import { MultiSelect } from '@/components/ui/multi-select';
@@ -68,6 +67,14 @@ interface AuditSearchResponse {
   total?: number;
 }
 
+interface AuditFilterOptionsResponse {
+  user?: string[];
+  api_key_name?: string[];
+  model_id?: string[];
+  model_name?: string[];
+  client_ip?: string[];
+}
+
 interface AuditFilters {
   user: string;
   apiKeyName: string;
@@ -96,12 +103,12 @@ const defaultFilters: AuditFilters = {
   clientIp: '',
 };
 
-const defaultTextFilters = {
-  user: '',
-  apiKeyName: '',
-  modelId: '',
-  modelName: '',
-  clientIp: '',
+const defaultFilterOptions: Required<AuditFilterOptionsResponse> = {
+  user: [],
+  api_key_name: [],
+  model_id: [],
+  model_name: [],
+  client_ip: [],
 };
 
 const filterParamMap: Record<AuditFilterKey, string> = {
@@ -198,7 +205,8 @@ export default function AuditCenter() {
   const [loading, setLoading] = useState(false);
   const [timeRange, setTimeRange] = useState<TimeRangeValue>(DEFAULT_LOG_TIME_RANGE);
   const [filters, setFilters] = useState<AuditFilters>(defaultFilters);
-  const [draftFilters, setDraftFilters] = useState(defaultTextFilters);
+  const [filterOptions, setFilterOptions] =
+    useState<Required<AuditFilterOptionsResponse>>(defaultFilterOptions);
   const [pageFrom, setPageFrom] = useState(0);
   const [selectedRecord, setSelectedRecord] = useState<AuditRecord | null>(null);
   const requestSeqRef = useRef(0);
@@ -225,38 +233,41 @@ export default function AuditCenter() {
     return params;
   }, [filters, pageFrom, timeRange]);
 
-  const fetchAuditRecords = useCallback(async (silent = false) => {
-    const seq = ++requestSeqRef.current;
-    inFlightRef.current = true;
-    // Background refreshes stay silent so the table does not flip to the
-    // loading spinner every interval; only user-initiated fetches show it.
-    if (!silent) {
-      setLoading(true);
-    }
-    try {
-      const data = await request.get<AuditSearchResponse>(
-        '/v1/audit/search?' + queryParams.toString()
-      );
+  const fetchAuditRecords = useCallback(
+    async (silent = false) => {
+      const seq = ++requestSeqRef.current;
+      inFlightRef.current = true;
+      // Background refreshes stay silent so the table does not flip to the
+      // loading spinner every interval; only user-initiated fetches show it.
+      if (!silent) {
+        setLoading(true);
+      }
+      try {
+        const data = await request.get<AuditSearchResponse>(
+          '/v1/audit/search?' + queryParams.toString()
+        );
 
-      if (seq === requestSeqRef.current) {
-        setRecords(Array.isArray(data.hits) ? data.hits : []);
-        setTotal(data.total || 0);
+        if (seq === requestSeqRef.current) {
+          setRecords(Array.isArray(data.hits) ? data.hits : []);
+          setTotal(data.total || 0);
+        }
+      } catch {
+        // A transient failure during a silent background refresh must not wipe
+        // the table — keep the last good results. Foreground (user-initiated)
+        // fetches keep the original clear-on-error behavior.
+        if (!silent && seq === requestSeqRef.current) {
+          setRecords([]);
+          setTotal(0);
+        }
+      } finally {
+        if (seq === requestSeqRef.current) {
+          inFlightRef.current = false;
+          setLoading(false);
+        }
       }
-    } catch {
-      // A transient failure during a silent background refresh must not wipe
-      // the table — keep the last good results. Foreground (user-initiated)
-      // fetches keep the original clear-on-error behavior.
-      if (!silent && seq === requestSeqRef.current) {
-        setRecords([]);
-        setTotal(0);
-      }
-    } finally {
-      if (seq === requestSeqRef.current) {
-        inFlightRef.current = false;
-        setLoading(false);
-      }
-    }
-  }, [queryParams]);
+    },
+    [queryParams]
+  );
 
   useEffect(() => {
     fetchAuditRecords();
@@ -276,21 +287,36 @@ export default function AuditCenter() {
   }, [fetchAuditRecords, refreshInterval]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setFilters((current) => {
-        const hasChanged = (Object.keys(defaultTextFilters) as AuditTextFilterKey[]).some(
-          (key) => current[key] !== draftFilters[key]
-        );
+    let active = true;
+    const params = new URLSearchParams({
+      time_from: timeRange.from,
+      time_to: timeRange.to,
+    });
 
-        if (!hasChanged) return current;
-
-        setPageFrom(0);
-        return { ...current, ...draftFilters };
+    request
+      .get<AuditFilterOptionsResponse>('/v1/audit/filter-options?' + params.toString())
+      .then((data) => {
+        if (!active) return;
+        if (!data) {
+          setFilterOptions(defaultFilterOptions);
+          return;
+        }
+        setFilterOptions({
+          user: data.user || [],
+          api_key_name: data.api_key_name || [],
+          model_id: data.model_id || [],
+          model_name: data.model_name || [],
+          client_ip: data.client_ip || [],
+        });
+      })
+      .catch(() => {
+        if (active) setFilterOptions(defaultFilterOptions);
       });
-    }, 500);
 
-    return () => clearTimeout(timer);
-  }, [draftFilters]);
+    return () => {
+      active = false;
+    };
+  }, [timeRange]);
 
   const stats = useMemo(() => {
     const successCount = records.filter((record) => record.status === 'success').length;
@@ -331,8 +357,9 @@ export default function AuditCenter() {
     ];
   }, [records, t, total]);
 
-  const setTextFilter = (key: AuditTextFilterKey, value: string) => {
-    setDraftFilters((current) => ({ ...current, [key]: value }));
+  const setTextFilter = (key: AuditTextFilterKey, value?: string | number) => {
+    setFilters((current) => ({ ...current, [key]: String(value || '') }));
+    setPageFrom(0);
   };
 
   const setFilter = (key: Exclude<AuditFilterKey, AuditTextFilterKey>, value?: string | number) => {
@@ -346,7 +373,6 @@ export default function AuditCenter() {
   };
 
   const resetFilters = () => {
-    setDraftFilters(defaultTextFilters);
     setFilters(defaultFilters);
     setPageFrom(0);
   };
@@ -359,7 +385,6 @@ export default function AuditCenter() {
   const hasFilters = Object.values(filters).some((value) =>
     Array.isArray(value) ? value.length > 0 : Boolean(value)
   );
-  const hasDraftFilters = Object.values(draftFilters).some(Boolean);
   const maxAccessibleTotal = Math.min(total, 10000);
   const currentPage = Math.floor(pageFrom / AUDIT_PAGE_SIZE) + 1;
   const totalPages = Math.ceil(maxAccessibleTotal / AUDIT_PAGE_SIZE) || 1;
@@ -433,44 +458,44 @@ export default function AuditCenter() {
               <Filter className="h-4 w-4 text-muted-foreground" />
               {t('auditCenter.filters')}
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={resetFilters}
-              disabled={!hasFilters && !hasDraftFilters}
-            >
+            <Button variant="ghost" size="sm" onClick={resetFilters} disabled={!hasFilters}>
               <RotateCcw className="mr-2 h-4 w-4" />
               {t('auditCenter.resetFilters')}
             </Button>
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <FilterInput
+            <FilterTextSelect
               label={t('auditCenter.user')}
-              value={draftFilters.user}
+              value={filters.user}
+              values={filterOptions.user}
               placeholder={t('auditCenter.userPlaceholder')}
               onChange={(value) => setTextFilter('user', value)}
             />
-            <FilterInput
+            <FilterTextSelect
               label={t('auditCenter.apiKeyName')}
-              value={draftFilters.apiKeyName}
+              value={filters.apiKeyName}
+              values={filterOptions.api_key_name}
               placeholder={t('auditCenter.apiKeyNamePlaceholder')}
               onChange={(value) => setTextFilter('apiKeyName', value)}
             />
-            <FilterInput
+            <FilterTextSelect
               label={t('auditCenter.modelId')}
-              value={draftFilters.modelId}
+              value={filters.modelId}
+              values={filterOptions.model_id}
               placeholder={t('auditCenter.modelIdPlaceholder')}
               onChange={(value) => setTextFilter('modelId', value)}
             />
-            <FilterInput
+            <FilterTextSelect
               label={t('auditCenter.modelName')}
-              value={draftFilters.modelName}
+              value={filters.modelName}
+              values={filterOptions.model_name}
               placeholder={t('auditCenter.modelNamePlaceholder')}
               onChange={(value) => setTextFilter('modelName', value)}
             />
-            <FilterInput
+            <FilterTextSelect
               label={t('auditCenter.clientIp')}
-              value={draftFilters.clientIp}
+              value={filters.clientIp}
+              values={filterOptions.client_ip}
               placeholder={t('auditCenter.clientIpPlaceholder')}
               onChange={(value) => setTextFilter('clientIp', value)}
             />
@@ -707,21 +732,25 @@ export default function AuditCenter() {
   );
 }
 
-interface FilterInputProps {
+interface FilterTextSelectProps {
   label: string;
   value: string;
+  values: string[];
   placeholder: string;
-  onChange: (value: string) => void;
+  onChange: (value?: string | number) => void;
 }
 
-function FilterInput({ label, value, placeholder, onChange }: FilterInputProps) {
+function FilterTextSelect({ label, value, values, placeholder, onChange }: FilterTextSelectProps) {
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
-      <Input
+      <Select
         value={value}
         placeholder={placeholder}
-        onChange={(event) => onChange(event.target.value)}
+        searchPlaceholder={placeholder}
+        showSearch
+        onChange={onChange}
+        options={values.map((item) => ({ value: item, label: item }))}
       />
     </div>
   );

@@ -269,3 +269,395 @@ async def test_get_progress_raises_400_on_key_error(mock_api, mock_supervisor):
     with pytest.raises(HTTPException) as exc_info:
         await admin.get_progress(request_id="req-missing", api=mock_api)
     assert exc_info.value.status_code == 400
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("filter_name", "filter_value"),
+    [
+        ("user", "min"),
+        ("api_key_name", "obo"),
+        ("model_id", "S"),
+        ("model_id", "SenseVoiceSmall"),
+        ("model_name", "voice"),
+        ("model_name", "SenseVoiceSmall"),
+        ("client_ip", "168.1"),
+    ],
+)
+async def test_search_audit_file_partially_matches_text_fields(
+    tmp_path, monkeypatch, filter_name, filter_value
+):
+    to_thread = AsyncMock(wraps=admin.asyncio.to_thread)
+    monkeypatch.setattr(admin.asyncio, "to_thread", to_thread)
+    audit_entry = {
+        "@timestamp": "2026-08-03T08:24:16+00:00",
+        "user": "admin",
+        "api_key_name": "robot",
+        "model_id": "SenseVoiceSmall",
+        "model_name": "SenseVoiceSmall",
+        "client_ip": "192.168.1.10",
+    }
+    (tmp_path / "audit.log").write_text(
+        json.dumps(audit_entry) + "\n", encoding="utf-8"
+    )
+    monkeypatch.setattr("xinference.constants.XINFERENCE_LOG_DIR", str(tmp_path))
+
+    filters = {
+        "user": "",
+        "api_key_name": "",
+        "model_id": "",
+        "model_name": "",
+        "model_type": "",
+        "category": "",
+        "auth_type": "",
+        "status": "",
+        "client_ip": "",
+    }
+    filters[filter_name] = filter_value
+
+    response = await admin._search_audit_from_file(
+        time_from="",
+        time_to="",
+        page_from=0,
+        size=50,
+        **filters,
+    )
+
+    assert _json_body(response) == {"hits": [audit_entry], "total": 1}
+    to_thread.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_search_audit_elasticsearch_partially_matches_text_fields(monkeypatch):
+    captured = {}
+
+    class FakeResponse:
+        status = 200
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        async def json(self):
+            return {"hits": {"hits": [], "total": {"value": 0}}}
+
+    class FakeClientSession:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        def post(self, url, json, headers):
+            captured["body"] = json
+            return FakeResponse()
+
+    monkeypatch.setenv("XINFERENCE_ES_URL", "http://elasticsearch:9200")
+    monkeypatch.setattr(admin.aiohttp, "ClientSession", FakeClientSession)
+
+    await admin.search_audit_logs(
+        user="min",
+        api_key_name="obo",
+        model_id="bge-m3",
+        model_name="voice",
+        client_ip="168.1",
+    )
+
+    def expected_wildcard_filter(field_name, value):
+        wildcard = {"value": f"*{value}*", "case_insensitive": True}
+        return {
+            "bool": {
+                "should": [
+                    {"wildcard": {field_name: wildcard}},
+                    {"wildcard": {f"{field_name}.keyword": wildcard}},
+                ],
+                "minimum_should_match": 1,
+            }
+        }
+
+    assert captured["body"]["query"]["bool"]["filter"] == [
+        {"range": {"@timestamp": {"gte": "now-1h", "lte": "now"}}},
+        expected_wildcard_filter("user", "min"),
+        expected_wildcard_filter("api_key_name", "obo"),
+        expected_wildcard_filter("model_id", "bge-m3"),
+        expected_wildcard_filter("model_name", "voice"),
+        expected_wildcard_filter("client_ip", "168.1"),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_list_audit_filter_options_from_file(tmp_path, monkeypatch):
+    to_thread = AsyncMock(wraps=admin.asyncio.to_thread)
+    monkeypatch.setattr(admin.asyncio, "to_thread", to_thread)
+    audit_entries = [
+        {
+            "@timestamp": "2026-08-03T08:24:16+00:00",
+            "user": "zoe",
+            "api_key_name": "robot",
+            "model_id": "sense-voice",
+            "model_name": "SenseVoiceSmall",
+            "client_ip": "192.168.1.10",
+        },
+        {
+            "@timestamp": "2026-08-03T08:25:16+00:00",
+            "user": "Admin",
+            "api_key_name": "assistant",
+            "model_id": "qwen",
+            "model_name": "Qwen3",
+            "client_ip": "10.0.0.2",
+        },
+    ]
+    (tmp_path / "audit.log").write_text(
+        "\n".join(json.dumps(entry) for entry in audit_entries) + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("xinference.constants.XINFERENCE_LOG_DIR", str(tmp_path))
+
+    response = await admin._list_audit_filter_options_from_file(
+        time_from="", time_to=""
+    )
+
+    assert _json_body(response) == {
+        "user": ["Admin", "zoe"],
+        "api_key_name": ["assistant", "robot"],
+        "model_id": ["qwen", "sense-voice"],
+        "model_name": ["Qwen3", "SenseVoiceSmall"],
+        "client_ip": ["10.0.0.2", "192.168.1.10"],
+    }
+    to_thread.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_list_audit_filter_options_from_elasticsearch(monkeypatch):
+    captured = {}
+
+    class FakeResponse:
+        status = 200
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        async def json(self):
+            return {
+                "aggregations": {
+                    field_name: {"buckets": [{"key": f"{field_name}-value"}]}
+                    for field_name in admin._AUDIT_TEXT_FILTER_FIELDS
+                }
+            }
+
+    class FakeClientSession:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        def post(self, url, json, headers):
+            captured["body"] = json
+            return FakeResponse()
+
+    monkeypatch.setenv("XINFERENCE_ES_URL", "http://elasticsearch:9200")
+    monkeypatch.setattr(admin.aiohttp, "ClientSession", FakeClientSession)
+
+    response = await admin.list_audit_filter_options(time_from="now-6h", time_to="now")
+
+    assert _json_body(response) == {
+        field_name: [f"{field_name}-value"]
+        for field_name in admin._AUDIT_TEXT_FILTER_FIELDS
+    }
+    assert captured["body"] == {
+        "size": 0,
+        "query": {"range": {"@timestamp": {"gte": "now-6h", "lte": "now"}}},
+        "aggs": {
+            field_name: {"terms": {"field": field_name, "size": 500}}
+            for field_name in admin._AUDIT_TEXT_FILTER_FIELDS
+        },
+    }
+
+
+@pytest.mark.asyncio
+async def test_list_audit_filter_options_retries_keyword_fields(monkeypatch):
+    captured_bodies = []
+    responses = [
+        {
+            "status": 400,
+            "text": json.dumps(
+                {
+                    "error": {
+                        "root_cause": [
+                            {
+                                "reason": (
+                                    "Fielddata is disabled on [user] in "
+                                    "[xinference-audit-2026.08.04]"
+                                )
+                            }
+                        ]
+                    }
+                }
+            ),
+        },
+        {
+            "status": 200,
+            "data": {
+                "aggregations": {
+                    field_name: {"buckets": [{"key": f"{field_name}-value"}]}
+                    for field_name in admin._AUDIT_TEXT_FILTER_FIELDS
+                }
+            },
+        },
+    ]
+
+    class FakeResponse:
+        def __init__(self, response):
+            self.status = response["status"]
+            self._text = response.get("text", "")
+            self._data = response.get("data", {})
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        async def text(self):
+            return self._text
+
+        async def json(self):
+            return self._data
+
+    class FakeClientSession:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        def post(self, url, json, headers):
+            captured_bodies.append(json)
+            return FakeResponse(responses.pop(0))
+
+    monkeypatch.setenv("XINFERENCE_ES_URL", "http://elasticsearch:9200")
+    monkeypatch.setattr(admin.aiohttp, "ClientSession", FakeClientSession)
+
+    response = await admin.list_audit_filter_options()
+
+    assert _json_body(response) == {
+        field_name: [f"{field_name}-value"]
+        for field_name in admin._AUDIT_TEXT_FILTER_FIELDS
+    }
+    assert len(captured_bodies) == 2
+    assert captured_bodies[0]["aggs"] == {
+        field_name: {"terms": {"field": field_name, "size": 500}}
+        for field_name in admin._AUDIT_TEXT_FILTER_FIELDS
+    }
+    assert captured_bodies[1]["aggs"] == {
+        field_name: {"terms": {"field": f"{field_name}.keyword", "size": 500}}
+        for field_name in admin._AUDIT_TEXT_FILTER_FIELDS
+    }
+
+
+@pytest.mark.asyncio
+async def test_list_audit_filter_options_does_not_retry_unrelated_error(monkeypatch):
+    captured_bodies = []
+
+    class FakeResponse:
+        status = 503
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        async def text(self):
+            return '{"error":{"reason":"all shards failed"}}'
+
+    class FakeClientSession:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        def post(self, url, json, headers):
+            captured_bodies.append(json)
+            return FakeResponse()
+
+    monkeypatch.setenv("XINFERENCE_ES_URL", "http://elasticsearch:9200")
+    monkeypatch.setattr(admin.aiohttp, "ClientSession", FakeClientSession)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await admin.list_audit_filter_options()
+
+    assert exc_info.value.status_code == 502
+    assert exc_info.value.detail == "Elasticsearch query failed"
+    assert len(captured_bodies) == 1
+
+
+@pytest.mark.asyncio
+async def test_list_audit_filter_options_returns_502_when_keyword_retry_fails(
+    monkeypatch,
+):
+    captured_bodies = []
+    responses = [
+        (
+            400,
+            '{"error":{"reason":"Fielddata is disabled on [user] in [audit]"}}',
+        ),
+        (400, '{"error":{"reason":"No mapping found for [user.keyword]"}}'),
+    ]
+
+    class FakeResponse:
+        def __init__(self, status, text):
+            self.status = status
+            self._text = text
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        async def text(self):
+            return self._text
+
+    class FakeClientSession:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        def post(self, url, json, headers):
+            captured_bodies.append(json)
+            return FakeResponse(*responses.pop(0))
+
+    monkeypatch.setenv("XINFERENCE_ES_URL", "http://elasticsearch:9200")
+    monkeypatch.setattr(admin.aiohttp, "ClientSession", FakeClientSession)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await admin.list_audit_filter_options()
+
+    assert exc_info.value.status_code == 502
+    assert exc_info.value.detail == "Elasticsearch query failed"
+    assert len(captured_bodies) == 2
