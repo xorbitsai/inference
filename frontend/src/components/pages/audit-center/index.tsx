@@ -1,7 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   CircleAlert,
   Copy,
   FileSearch,
@@ -206,6 +210,7 @@ export default function AuditCenter() {
   // interval can skip a tick instead of stacking overlapping requests.
   const inFlightRef = useRef(false);
   const [refreshInterval, setRefreshInterval] = useState(0);
+  const [jumpPage, setJumpPage] = useState('1');
 
   const queryParams = useMemo(() => {
     const params = new URLSearchParams();
@@ -363,6 +368,21 @@ export default function AuditCenter() {
   const maxAccessibleTotal = Math.min(total, 10000);
   const currentPage = Math.floor(pageFrom / AUDIT_PAGE_SIZE) + 1;
   const totalPages = Math.ceil(maxAccessibleTotal / AUDIT_PAGE_SIZE) || 1;
+  const lastPageFrom = (totalPages - 1) * AUDIT_PAGE_SIZE;
+
+  useEffect(() => {
+    setJumpPage(String(currentPage));
+  }, [currentPage]);
+
+  const goToPage = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const page = Number(jumpPage);
+    if (!Number.isInteger(page) || page < 1 || page > totalPages) return;
+
+    setPageFrom((page - 1) * AUDIT_PAGE_SIZE);
+    setJumpPage(String(page));
+  };
 
   return (
     <PageContainer
@@ -620,24 +640,69 @@ export default function AuditCenter() {
           <span className="text-sm text-muted-foreground">
             {t('auditCenter.totalHits', { count: total })}
           </span>
+          <form className="flex items-center gap-2 text-sm" onSubmit={goToPage}>
+            <Label className="sr-only" htmlFor="audit-jump-page">
+              {t('auditCenter.pageNumber')}
+            </Label>
+            <span>{t('auditCenter.pagePrefix')}</span>
+            <Input
+              id="audit-jump-page"
+              className="h-8 w-16 text-center tabular-nums"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={totalPages}
+              step={1}
+              value={jumpPage}
+              aria-label={t('auditCenter.jumpToPage')}
+              disabled={total === 0}
+              onChange={(event) => setJumpPage(event.target.value)}
+            />
+            <span>{t('auditCenter.pageOf', { count: totalPages })}</span>
+          </form>
           <Button
             variant="outline"
-            size="sm"
+            size="icon"
+            className="size-8"
+            aria-label={t('auditCenter.firstPage')}
+            title={t('auditCenter.firstPage')}
+            disabled={pageFrom === 0}
+            onClick={() => setPageFrom(0)}
+          >
+            <ChevronsLeft />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-8"
+            aria-label={t('auditCenter.prevPage')}
+            title={t('auditCenter.prevPage')}
             disabled={pageFrom === 0}
             onClick={() => setPageFrom(Math.max(0, pageFrom - AUDIT_PAGE_SIZE))}
           >
-            {t('auditCenter.prevPage')}
+            <ChevronLeft />
           </Button>
-          <span className="text-sm">
-            {currentPage} / {totalPages}
-          </span>
           <Button
             variant="outline"
-            size="sm"
+            size="icon"
+            className="size-8"
+            aria-label={t('auditCenter.nextPage')}
+            title={t('auditCenter.nextPage')}
             disabled={pageFrom + AUDIT_PAGE_SIZE >= maxAccessibleTotal}
             onClick={() => setPageFrom(pageFrom + AUDIT_PAGE_SIZE)}
           >
-            {t('auditCenter.nextPage')}
+            <ChevronRight />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-8"
+            aria-label={t('auditCenter.lastPage')}
+            title={t('auditCenter.lastPage')}
+            disabled={pageFrom === lastPageFrom}
+            onClick={() => setPageFrom(lastPageFrom)}
+          >
+            <ChevronsRight />
           </Button>
         </div>
       </div>

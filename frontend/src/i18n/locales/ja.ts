@@ -354,6 +354,12 @@ const ja = {
     },
   },
   logCenter: {
+    firstPage: '最初',
+    lastPage: '最後',
+    pageNumber: 'ページ番号',
+    jumpToPage: '指定ページへ移動',
+    pagePrefix: 'ページ',
+    pageOf: '/ {{count}}',
     notConfigured: 'ログが設定されていません。Elasticsearch ログサービスを有効にしてください。',
     allNodes: 'すべてのノード',
     searchPlaceholder: 'ログ内容、フィールド、キーワードを検索',
@@ -577,6 +583,12 @@ const ja = {
     hours: '{{count}} 時間',
   },
   auditCenter: {
+    firstPage: '最初',
+    lastPage: '最後',
+    pageNumber: 'ページ番号',
+    jumpToPage: '指定ページへ移動',
+    pagePrefix: 'ページ',
+    pageOf: '/ {{count}}',
     pageDescription:
       'ユーザー、API キー、モデル呼び出し、異常アクセスの API アクセス監査記録を検索します。',
     totalEvents: '監査イベント',

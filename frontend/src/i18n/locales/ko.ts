@@ -350,6 +350,12 @@ const ko = {
     },
   },
   logCenter: {
+    firstPage: '처음',
+    lastPage: '마지막',
+    pageNumber: '페이지 번호',
+    jumpToPage: '지정 페이지로 이동',
+    pagePrefix: '페이지',
+    pageOf: '/ {{count}}',
     notConfigured: '로그가 구성되지 않았습니다. Elasticsearch 로그 서비스를 활성화하세요.',
     allNodes: '모든 노드',
     searchPlaceholder: '로그 내용, 필드 또는 키워드 검색',
@@ -571,6 +577,12 @@ const ko = {
     hours: '{{count}}시간',
   },
   auditCenter: {
+    firstPage: '처음',
+    lastPage: '마지막',
+    pageNumber: '페이지 번호',
+    jumpToPage: '지정 페이지로 이동',
+    pagePrefix: '페이지',
+    pageOf: '/ {{count}}',
     pageDescription:
       '사용자, API Key, 모델 호출 및 비정상 접근에 대한 API 접근 감사 기록을 조회합니다.',
     totalEvents: '감사 이벤트',
