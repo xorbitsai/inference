@@ -98,7 +98,8 @@ export type ModelEngine = Record<string, string | ModelEngineItem[]>;
 
 export interface ReplicaItem {
   created_ts: number;
-  error_message: string;
+  error_message?: string | null;
+  model_state?: string;
   replica_id: number;
   replica_model_uid: string;
   status: string;

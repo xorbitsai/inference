@@ -54,6 +54,7 @@ class InstanceInfo(BaseModel):
     instance_created_ts: int
     n_worker: Optional[int] = 1
     replica_statuses: List[ReplicaStatus] = Field(default_factory=list)
+    error_message: Optional[str] = None
 
     def update(self, **kwargs):
         for field, value in kwargs.items():
@@ -105,6 +106,50 @@ class StatusGuardActor(xo.StatelessActor):
     def update_instance_info(self, model_uid: str, info: Dict):
         self._model_uid_to_info[model_uid].update(**info)
 
+    # A replica that already failed keeps its ERROR status through these
+    # transitions. A failed launch is immediately followed by cleanup
+    # (terminate_model -> worker._update_model_state("stopping"/"stopped")),
+    # whose status writes would otherwise bury the failure under a record that
+    # looks like an ordinary shutdown, leaving `error_message` attached to a
+    # TERMINATED row the UI has no reason to surface.
+    _NON_OVERRIDING_STATUSES = frozenset(
+        {
+            LaunchStatus.TERMINATING.name,
+            LaunchStatus.TERMINATED.name,
+            LaunchStatus.CREATING.name,
+            LaunchStatus.LOADING.name,
+        }
+    )
+
+    @classmethod
+    def _apply_terminal_guard(
+        cls, replica_status: "ReplicaStatus", status_update: Dict
+    ) -> Dict:
+        """Drop updates that would erase a recorded failure.
+
+        Only an explicit READY (a genuine successful relaunch) or
+        ``remove_replica_status`` clears an ERROR. Every other key in the
+        update - notably ``model_state`` - still applies, so cleanup progress
+        remains observable.
+        """
+        if replica_status.status != LaunchStatus.ERROR.name:
+            return status_update
+
+        guarded = dict(status_update)
+        new_status = guarded.get("status")
+        if new_status in cls._NON_OVERRIDING_STATUSES:
+            guarded.pop("status")
+            logger.debug(
+                "Keeping ERROR status for replica %s, ignoring transition to %s",
+                replica_status.replica_model_uid,
+                new_status,
+            )
+        # Never let a later status write blank out the recorded cause.
+        if "error_message" in guarded and not guarded["error_message"]:
+            if replica_status.error_message:
+                guarded.pop("error_message")
+        return guarded
+
     def update_replica_status(
         self, model_uid: str, replica_id: int, status_update: Dict
     ):
@@ -122,7 +167,9 @@ class StatusGuardActor(xo.StatelessActor):
         found = False
         for replica_status in replica_statuses:
             if replica_status.replica_id == replica_id:
-                for key, value in status_update.items():
+                for key, value in self._apply_terminal_guard(
+                    replica_status, status_update
+                ).items():
                     setattr(replica_status, key, value)
                 found = True
                 break

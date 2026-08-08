@@ -24,7 +24,7 @@ import time
 import uuid
 import warnings
 from pathlib import Path
-from typing import Any, List, Optional, Union, get_type_hints
+from typing import Any, Dict, List, Optional, Union, get_type_hints
 
 import xoscar as xo
 from aioprometheus import REGISTRY, MetricsMiddleware
@@ -64,6 +64,7 @@ from ..constants import (
     is_auth_advanced,
     is_metrics_disabled,
 )
+from ..core.error_utils import format_error_summary, format_error_traceback
 from ..core.event import Event, EventCollectorActor, EventType
 from ..core.exceptions import ModelNotReadyError
 from ..core.http_protocol import create_hardened_http_protocol
@@ -101,6 +102,19 @@ from .schemas import (
 from .utils import require_model
 
 logger = logging.getLogger(__name__)
+
+
+class DetailedHTTPException(HTTPException):
+    """An ``HTTPException`` that also carries a ``traceback`` in the body.
+
+    ``detail`` stays a plain string, so existing API consumers and the Web UI's
+    response interceptor are unaffected; ``traceback`` is purely additive and
+    omitted entirely when unavailable.
+    """
+
+    def __init__(self, status_code: int, detail: str, tb: Optional[str] = None):
+        super().__init__(status_code=status_code, detail=detail)
+        self.tb = tb
 
 
 def _validate_replica(value: Any) -> int:
@@ -272,6 +286,54 @@ class RESTfulAPI(CancelMixin):
 
     def is_authenticated(self):
         return self._advanced_auth_service is not None
+
+    def _caller_may_see_diagnostics(self, request) -> bool:
+        """Whether the caller is allowed to receive internal diagnostics.
+
+        Launching a model only requires ``models:write``, but a traceback
+        exposes filesystem paths and runtime internals that are otherwise
+        reachable only through the log center, which requires ``logs:list``.
+        Gate the traceback on that same permission so this endpoint does not
+        become a way around the diagnostic boundary. Admins always qualify.
+
+        When auth is disabled entirely there is no boundary to respect, so
+        diagnostics are returned to everyone.
+        """
+        if not self._advanced_auth_service:
+            return True
+        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        if not token:
+            return False
+        try:
+            payload = self._advanced_auth_service.verify_access_token(token)
+            if not payload:
+                # An API key rather than a JWT. API keys are restricted to
+                # model query and inference scopes, so they never qualify.
+                return False
+            user_id = payload.get("user_id")
+            if user_id is None:
+                return False
+            user = self._advanced_auth_service.db.get_user_by_id(user_id)
+            if not user:
+                return False
+            # Live-read the DB permissions rather than the JWT snapshot, so a
+            # revoked permission takes effect immediately -- the same policy
+            # the auth service itself applies.
+            from .oauth2.scope_aliases import _normalize_scopes
+
+            scopes = _normalize_scopes(user.get("permissions", []))
+        except Exception:
+            # Never let the diagnostics check break the error response itself;
+            # fail closed.
+            logger.debug("Failed to resolve caller scopes", exc_info=True)
+            return False
+        return "admin" in scopes or "logs:list" in scopes
+
+    def _launch_error_traceback(self, request, exc: BaseException) -> Optional[str]:
+        """Format ``exc``'s traceback, or None if the caller may not see it."""
+        if not self._caller_may_see_diagnostics(request):
+            return None
+        return format_error_traceback(exc)
 
     def _check_model_access(
         self, request, model_uid: str, model_type: Optional[str] = None
@@ -525,6 +587,15 @@ class RESTfulAPI(CancelMixin):
                 logger.exception(
                     "Failed to initialise OpenTelemetry — continuing without OTEL."
                 )
+
+        @self._app.exception_handler(DetailedHTTPException)
+        async def detailed_http_exception_handler(
+            request: Request, exc: DetailedHTTPException
+        ):
+            body: Dict[str, Any] = {"detail": exc.detail}
+            if exc.tb:
+                body["traceback"] = exc.tb
+            return JSONResponse(status_code=exc.status_code, content=body)
 
         @self._app.exception_handler(500)
         async def internal_exception_handler(request: Request, exc: Exception):
@@ -926,19 +997,30 @@ class RESTfulAPI(CancelMixin):
                 envs=envs,
                 **kwargs,
             )
+        # A launch failure originates deep inside an engine and crosses several
+        # actor boundaries before arriving here. Report the root cause of the
+        # chain rather than the outermost wrapper's message. The traceback is
+        # only attached for callers who may already read it in the log center;
+        # the root-cause summary goes to everyone who may launch a model.
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)
-            raise HTTPException(status_code=400, detail=str(ve))
+            raise DetailedHTTPException(
+                400, format_error_summary(ve), self._launch_error_traceback(request, ve)
+            )
         except RuntimeError as re:
             logger.error(str(re), exc_info=True)
-            raise HTTPException(status_code=503, detail=str(re))
+            raise DetailedHTTPException(
+                503, format_error_summary(re), self._launch_error_traceback(request, re)
+            )
         except asyncio.CancelledError as ce:
-            # cancelled by user
+            # cancelled by user -- not a defect, so no traceback
             logger.error(str(ce), exc_info=True)
-            raise HTTPException(status_code=499, detail=str(ce))
+            raise DetailedHTTPException(499, format_error_summary(ce))
         except Exception as e:
             logger.error(str(e), exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
+            raise DetailedHTTPException(
+                500, format_error_summary(e), self._launch_error_traceback(request, e)
+            )
 
         # Clear negative cache so that get_model for this uid is not blocked
         # by a stale "Model not found" entry.
@@ -988,8 +1070,10 @@ class RESTfulAPI(CancelMixin):
                 await self._get_supervisor_ref()
             ).get_launch_builtin_model_progress(model_uid)
         except Exception as e:
+            # The polling client reads this while the launch POST is still in
+            # flight, so it needs the same clean root-cause message.
             logger.error(str(e), exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
+            raise DetailedHTTPException(500, format_error_summary(e))
         return JSONResponse(content={"progress": progress})
 
     async def cancel_launch_model(self, model_uid: str) -> JSONResponse:

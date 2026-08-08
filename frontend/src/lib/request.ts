@@ -17,6 +17,52 @@ declare module 'axios' {
     skipAuthRefresh?: boolean;
     _retry?: boolean;
   }
+
+  export interface AxiosError {
+    /** Parsed backend error, attached by the response interceptor so callers
+     * can render the real cause without re-parsing the payload. */
+    xinferenceError?: ServerErrorPayload;
+  }
+}
+
+export interface ServerErrorPayload {
+  detail: string;
+  traceback?: string;
+}
+
+/**
+ * Normalize a FastAPI error body into a readable string.
+ *
+ * `detail` is usually a string, but request-validation failures (422) return
+ * an array of `{loc, msg, type}` objects, which would otherwise render as
+ * "[object Object]".
+ */
+function extractDetail(data: unknown): string {
+  if (typeof data === 'string') return data;
+  if (Array.isArray(data)) {
+    const messages = data
+      .map((item) =>
+        item && typeof item === 'object' && 'msg' in item
+          ? String((item as { msg: unknown }).msg)
+          : typeof item === 'string'
+            ? item
+            : safeStringify(item)
+      )
+      .filter(Boolean);
+    if (messages.length) return messages.join('; ');
+  }
+  if (data && typeof data === 'object') return safeStringify(data);
+  return String(data ?? '');
+}
+
+/** `JSON.stringify` throws on BigInt and circular references; this runs while
+ * already handling an error, so it must never throw itself. */
+function safeStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value) ?? String(value);
+  } catch {
+    return String(value);
+  }
 }
 
 // Keep untyped request calls backward-compatible while typed calls can still pass <T>.
@@ -104,7 +150,6 @@ requestInstance.interceptors.response.use(
     return response.data;
   },
   async (error) => {
-    console.log(error, error.message, error.status, 'error');
     const response = error.response;
     if (!response) {
       eventBus.emit(RequestEvents.SERVER_ERROR, error.message || 'Network Error');
@@ -128,13 +173,17 @@ requestInstance.interceptors.response.use(
       }
     }
 
+    const rawDetail = response.data?.detail ?? response.data?.message ?? response.data?.msg ?? null;
     const errorMessage =
-      response.data?.detail ||
-      response.data?.message ||
-      response.data?.msg ||
-      error.message ||
-      'Unknown error';
-    console.log(status, response, 'response');
+      (rawDetail !== null ? extractDetail(rawDetail) : '') || error.message || 'Unknown error';
+    // The backend sends the full traceback of a failed launch in a separate
+    // field so `detail` stays a plain string.
+    const traceback =
+      typeof response.data?.traceback === 'string' ? response.data.traceback : undefined;
+    const payload: ServerErrorPayload = { detail: errorMessage, traceback };
+    // Attach to the rejected error so per-call `.catch()` handlers can render
+    // the cause inline instead of relying on the global toast.
+    error.xinferenceError = payload;
 
     switch (status) {
       case 401: {
@@ -147,12 +196,12 @@ requestInstance.interceptors.response.use(
       case 403: {
         /** trigger only once */
         if (requestManager.canHandle403()) {
-          eventBus.emit(RequestEvents.FORBIDDEN);
+          eventBus.emit(RequestEvents.FORBIDDEN, errorMessage);
         }
         break;
       }
       default: {
-        eventBus.emit(RequestEvents.SERVER_ERROR, `Server error: ${status} - ${errorMessage}`);
+        eventBus.emit(RequestEvents.SERVER_ERROR, `${status}: ${errorMessage}`, payload);
       }
     }
     return Promise.reject(error);

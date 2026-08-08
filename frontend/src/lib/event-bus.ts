@@ -1,4 +1,4 @@
-type EventHandler<T = any> = (payload?: T) => void;
+type EventHandler<T = any> = (...args: T[]) => void;
 
 class EventBus {
   private events: Map<string, Set<EventHandler>> =
@@ -16,9 +16,9 @@ class EventBus {
     this.events.get(event)?.delete(handler);
   }
 
-  emit<T = any>(event: string, payload?: T) {
+  emit(event: string, ...args: any[]) {
     this.events.get(event)?.forEach((handler) => {
-      handler(payload);
+      handler(...args);
     });
   }
 

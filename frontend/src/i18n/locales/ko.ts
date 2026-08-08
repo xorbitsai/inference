@@ -197,6 +197,9 @@ const ko = {
     launchCanceled: '배포가 중지되었습니다',
     initializing: '초기화 중...',
     moreDetails: '자세히 보기',
+    launchFailed: '모델 배포에 실패했습니다',
+    showTraceback: '세부 정보 보기',
+    copyError: '오류 복사',
   },
   runningModels: {
     searchPlaceholder: '모델 이름 또는 모델 UID 검색...',
@@ -693,6 +696,7 @@ const ko = {
     loginOut: '로그아웃',
     loginOutSuccess: '로그아웃되었습니다',
     copySuccess: '복사되었습니다!',
+    noAuth: '접근 권한이 없습니다',
     deleteSuccess: '삭제되었습니다!',
     lastUpdateTime: '마지막 업데이트 시간',
     noOptions: '데이터 없음',
