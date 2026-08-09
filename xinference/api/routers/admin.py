@@ -733,21 +733,19 @@ def _parse_relative_time(expr: str) -> Optional[datetime]:
     return None
 
 
-def _matches_audit_text_filter(value: Any, query: str) -> bool:
-    return query.casefold() in str(value or "").casefold()
+def _escape_es_wildcard(value: str) -> str:
+    """Escape characters that are special to an Elasticsearch wildcard query."""
+    return value.replace("\\", "\\\\").replace("*", "\\*").replace("?", "\\?")
 
 
-def _audit_text_wildcard_filter(field_name: str, value: str) -> dict[str, Any]:
-    escaped_value = value.replace("\\", "\\\\").replace("*", "\\*").replace("?", "\\?")
-    wildcard_value = {
-        "value": f"*{escaped_value}*",
-        "case_insensitive": True,
-    }
+def _es_substring_clause(field_name: str, value: str) -> dict[str, Any]:
+    """Build a substring query compatible with common ES string mappings."""
+    pattern = f"*{_escape_es_wildcard(value)}*"
     return {
         "bool": {
             "should": [
-                {"wildcard": {field_name: wildcard_value}},
-                {"wildcard": {f"{field_name}.keyword": wildcard_value}},
+                {"wildcard": {field: {"value": pattern, "case_insensitive": True}}}
+                for field in (field_name, f"{field_name}.keyword")
             ],
             "minimum_should_match": 1,
         }
@@ -801,6 +799,30 @@ def _audit_entry_in_time_range(
         return not ((t_from and timestamp < t_from) or (t_to and timestamp > t_to))
     except (ValueError, TypeError):
         return False
+
+
+def _match_substring(stored: Any, needle: str) -> bool:
+    """Case-insensitive substring match used by audit free-text filters.
+
+    An empty ``needle`` means the filter is not active and matches everything.
+    """
+    if not needle:
+        return True
+    if not isinstance(stored, str):
+        return False
+    return needle.lower() in stored.lower()
+
+
+def _match_enum(stored: Any, allowed: set) -> bool:
+    """Case-insensitive exact match against a set of allowed values.
+
+    An empty ``allowed`` set means the filter is not active.
+    """
+    if not allowed:
+        return True
+    if not isinstance(stored, str):
+        return False
+    return stored.lower() in allowed
 
 
 async def _search_audit_from_file(
@@ -857,38 +879,33 @@ async def _search_audit_from_file(
                         entry = json.loads(line)
                     except (json.JSONDecodeError, ValueError):
                         continue
-
+                    # A line may be valid JSON yet not an object (e.g. `null`,
+                    # `[1,2]`); `entry.get(...)` below would raise AttributeError.
+                    if not isinstance(entry, dict):
+                        continue
                     if not _audit_entry_in_time_range(entry, t_from, t_to):
                         continue
-
-                    text_filters = (
-                        ("user", user),
-                        ("api_key_name", api_key_name),
-                        ("model_id", model_id),
-                        ("model_name", model_name),
-                        ("client_ip", client_ip),
-                    )
-                    if any(
-                        query
-                        and not _matches_audit_text_filter(entry.get(field), query)
-                        for field, query in text_filters
+                    if not all(
+                        _match_substring(entry.get(field), needle)
+                        for field, needle in (
+                            ("user", user),
+                            ("api_key_name", api_key_name),
+                            ("model_id", model_id),
+                            ("model_name", model_name),
+                            ("client_ip", client_ip),
+                        )
+                        if needle
                     ):
                         continue
-                    if status_set and entry.get("status", "").lower() not in status_set:
-                        continue
-                    if (
-                        category_set
-                        and entry.get("category", "").lower() not in category_set
-                    ):
-                        continue
-                    if (
-                        model_type_set
-                        and entry.get("model_type", "").lower() not in model_type_set
-                    ):
-                        continue
-                    if (
-                        auth_type_set
-                        and entry.get("auth_type", "").lower() not in auth_type_set
+                    if not all(
+                        _match_enum(entry.get(field), allowed)
+                        for field, allowed in (
+                            ("status", status_set),
+                            ("category", category_set),
+                            ("model_type", model_type_set),
+                            ("auth_type", auth_type_set),
+                        )
+                        if allowed
                     ):
                         continue
 
@@ -926,6 +943,8 @@ async def _list_audit_filter_options_from_file(
                     try:
                         entry = json.loads(line)
                     except (json.JSONDecodeError, ValueError):
+                        continue
+                    if not isinstance(entry, dict):
                         continue
                     if not _audit_entry_in_time_range(entry, t_from, t_to):
                         continue
@@ -1069,7 +1088,18 @@ async def search_audit_logs(
         ("client_ip", client_ip),
     ]:
         if value:
-            filter_clauses.append(_audit_text_wildcard_filter(field_name, value))
+            # Substring, case-insensitive, to match the file-mode semantics.
+            # Dynamic mapping commonly creates `text` + `.keyword`, while an
+            # index template may map the field directly as `keyword` or
+            # `wildcard`. Query both names so either mapping works. An unmapped
+            # alternative simply contributes no match.
+            #
+            # NOTE: a leading wildcard cannot use the index and forces a scan of
+            # all terms in the segment. That is acceptable for typical audit
+            # volumes, but on a large index deployments should install an index
+            # template mapping these fields directly to the `wildcard` type
+            # (ES >= 7.9), which is covered by the first alternative.
+            filter_clauses.append(_es_substring_clause(field_name, value))
 
     for field_name, value in [
         ("model_type", model_type),

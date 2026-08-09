@@ -601,16 +601,15 @@ class AsyncRESTfulImageModelHandle(AsyncRESTfulModelHandle):
 
     async def ocr(self, image: Union[str, bytes], **kwargs):
         url = f"{self._base_url}/v1/images/ocr"
-        params = {
-            "model": self._model_uid,
-            "kwargs": json.dumps(kwargs),
-        }
-        params = _filter_params(params)
-        files: List[Any] = []
-        for key, value in params.items():
-            files.append((key, (None, value)))
-        files.append(("image", ("image", image, "application/octet-stream")))
-        response = await self.session.post(url, data=files, headers=self.auth_headers)
+        # aiohttp does not understand requests-style (key, (filename, value))
+        # tuples; build a proper multipart form instead.
+        form = aiohttp.FormData()
+        form.add_field("model", self._model_uid)
+        form.add_field("kwargs", json.dumps(kwargs))
+        form.add_field(
+            "image", image, filename="image", content_type="application/octet-stream"
+        )
+        response = await self.session.post(url, data=form, headers=self.auth_headers)
         if response.status != 200:
             raise RuntimeError(
                 f"Failed to ocr the images, detail: {await _get_error_string(response)}"

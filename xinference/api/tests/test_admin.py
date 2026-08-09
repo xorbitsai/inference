@@ -413,7 +413,15 @@ async def test_list_audit_filter_options_from_file(tmp_path, monkeypatch):
         },
     ]
     (tmp_path / "audit.log").write_text(
-        "\n".join(json.dumps(entry) for entry in audit_entries) + "\n",
+        "\n".join(
+            [
+                json.dumps(audit_entries[0]),
+                "null",
+                "[1, 2]",
+                json.dumps(audit_entries[1]),
+            ]
+        )
+        + "\n",
         encoding="utf-8",
     )
     monkeypatch.setattr("xinference.constants.XINFERENCE_LOG_DIR", str(tmp_path))

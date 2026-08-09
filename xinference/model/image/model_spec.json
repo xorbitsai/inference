@@ -1780,5 +1780,32 @@
     },
     "featured": false,
     "updated_at": 1781512046
+  },
+  {
+    "version": 2,
+    "model_name": "DeepDoc",
+    "model_family": "ocr",
+    "model_ability": [
+      "ocr"
+    ],
+    "virtualenv": {
+      "packages": [
+        "deepdoc-lib[gpu]~=0.2.2 ; has_cuda",
+        "deepdoc-lib~=0.2.2 ; not has_cuda",
+        "transformers<5 ; #engine# == \"deepdoc\""
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "Xorbits/deepdoc",
+        "model_revision": "e18026ac948f64836a47aea7715502518ea04106"
+      },
+      "modelscope": {
+        "model_id": "Xorbits/deepdoc",
+        "model_revision": "master"
+      }
+    },
+    "featured": false,
+    "updated_at": 1786072489
   }
 ]

@@ -3098,6 +3098,20 @@ class WorkerActor(xo.StatelessActor):
                     cls._uninstall_venv_package(virtual_env_manager, "xllamacpp")
                 virtual_env_manager.install_packages(packages, **conf, **variables)
 
+                # deepdoc-lib[gpu] currently depends on both onnxruntime (base)
+                # and onnxruntime-gpu (extra). They install the same Python module,
+                # so a resolver may leave the CPU files in place even though the
+                # GPU distribution is present. Remove both distributions and put
+                # back only the GPU build after dependency resolution.
+                if model_name == "DeepDoc" and cls._is_cuda_device_available():
+                    cls._uninstall_venv_package(virtual_env_manager, "onnxruntime")
+                    cls._uninstall_venv_package(virtual_env_manager, "onnxruntime-gpu")
+                    gpu_conf = conf.copy()
+                    gpu_conf["skip_installed"] = False
+                    virtual_env_manager.install_packages(
+                        ["onnxruntime-gpu>=1.19.2"], **gpu_conf, **variables
+                    )
+
                 # Post-install: flashinfer AOT workaround for sm_120 Blackwell.
                 # vllm 0.21.0 hard-pins flashinfer-cubin==0.6.8.post1 which has JIT
                 # compilation failure on sm_120. Force-upgrade to AOT versions.

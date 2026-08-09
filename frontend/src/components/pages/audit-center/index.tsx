@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
+import { AutoComplete } from '@/components/ui/auto-complete';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -744,12 +745,11 @@ function FilterTextSelect({ label, value, values, placeholder, onChange }: Filte
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
-      <Select
+      <AutoComplete
         value={value}
         placeholder={placeholder}
-        searchPlaceholder={placeholder}
-        showSearch
-        onChange={onChange}
+        allowCustomValue
+        onChange={(nextValue) => onChange(nextValue)}
         options={values.map((item) => ({ value: item, label: item }))}
       />
     </div>

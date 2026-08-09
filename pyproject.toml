@@ -50,6 +50,7 @@ dependencies = [
     "modelscope>=1.19.0",
     "sse_starlette>=1.6.5",  # ensure_bytes API break change: https://github.com/sysid/sse-starlette/issues/65
     "openai>=1.40.0",  # For typing
+    "anthropic>=0.25.0",  # For Anthropic protocol typing & route registration
     "python-jose[cryptography]",
     "bcrypt>=4.0.0",
     "aioprometheus[starlette]>=23.12.0",
@@ -101,6 +102,7 @@ dev = [
     "langchain-openai",
     "sphinx-tabs",
     "sphinx-design",
+    "pypdfium2",  # For PDF OCR tests
 ]
 otel = [
     "opentelemetry-api>=1.20.0",
@@ -194,6 +196,7 @@ image = [
     "torch",  # For got_ocr2
     "torchvision",  # For got_ocr2
     "gguf",  # For flux and sd3.5 series
+    "pypdfium2",  # For PDF input on the OCR API
 ]
 video = [
     "diffusers>=0.32.0",
@@ -278,7 +281,7 @@ benchmark = [
     "psutil",
 ]
 anthropic = [
-    "anthropic",
+    "anthropic",  # no-op: anthropic is now a core dependency, kept for backward compatibility
 ]
 
 [tool.setuptools]
