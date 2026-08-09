@@ -388,6 +388,7 @@ _FIELD_NAME_RE = re.compile(r"^[a-zA-Z0-9_.@]+$")
 _TEXT_FIELDS = {"message"}
 _ES_PIT_KEEP_ALIVE = "1m"
 _ES_SEARCH_AFTER_BATCH_SIZE = 5000
+_ES_MAX_SEARCH_AFTER_REQUESTS = 10
 
 
 def _get_es_total(data: dict[str, Any]) -> int:
@@ -436,13 +437,15 @@ async def _search_es_page(
             raise HTTPException(status_code=502, detail="Elasticsearch query failed")
         return await resp.json()
 
-    async def _search(body: dict[str, Any]) -> dict[str, Any]:
+    async def _search(
+        body: dict[str, Any], *, include_source: bool = True
+    ) -> dict[str, Any]:
         nonlocal pit_id
         request_body = {
             **body,
             "pit": {"id": pit_id, "keep_alive": _ES_PIT_KEEP_ALIVE},
         }
-        if source is not None:
+        if include_source and source is not None:
             request_body["_source"] = source
         async with session.post(
             f"{base_url}/_search", json=request_body, headers=headers
@@ -464,7 +467,8 @@ async def _search_es_page(
             raise HTTPException(status_code=502, detail="Elasticsearch query failed")
 
         count_data = await _search(
-            {"query": query, "size": 0, "track_total_hits": True}
+            {"query": query, "size": 0, "track_total_hits": True, "_source": False},
+            include_source=False,
         )
         total = _get_es_total(count_data)
         if page_from >= total:
@@ -474,6 +478,15 @@ async def _search_es_page(
         reverse_offset = total - (page_from + result_size)
         ascending = reverse_offset < page_from
         remaining = reverse_offset if ascending else page_from
+        max_traversal_hits = _ES_SEARCH_AFTER_BATCH_SIZE * _ES_MAX_SEARCH_AFTER_REQUESTS
+        if remaining > max_traversal_hits:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Requested page is too far from either end of the result set; "
+                    "narrow the filters or time range"
+                ),
+            )
         order = "asc" if ascending else "desc"
         sort = [
             {
@@ -494,10 +507,11 @@ async def _search_es_page(
                 "size": batch_size,
                 "sort": sort,
                 "track_total_hits": False,
+                "_source": False,
             }
             if search_after is not None:
                 batch_body["search_after"] = search_after
-            batch_data = await _search(batch_body)
+            batch_data = await _search(batch_body, include_source=False)
             batch_hits = batch_data.get("hits", {}).get("hits", [])
             if not batch_hits:
                 return [], total
@@ -566,6 +580,7 @@ async def search_logs(
 
     size = max(1, min(size, 500))
     page_from = max(0, page_from)
+    time_from, time_to = _freeze_es_time_bounds(time_from, time_to)
     if node_field not in ("node", "node.keyword"):
         node_field = "node"
 
@@ -845,12 +860,14 @@ async def search_logs_context(
 # --- Route registration ---
 
 
-def _parse_relative_time(expr: str) -> Optional[datetime]:
+def _parse_relative_time(
+    expr: str, *, now: Optional[datetime] = None
+) -> Optional[datetime]:
     """Parse ES-style relative time, epoch milliseconds, or ISO timestamp."""
-    import re
+    reference_time = now or datetime.now(timezone.utc)
 
     if expr == "now":
-        return datetime.now(timezone.utc)
+        return reference_time
     m = re.match(r"now-(\d+)([mhdw])", expr)
     if m:
         val, unit = int(m.group(1)), m.group(2)
@@ -862,7 +879,7 @@ def _parse_relative_time(expr: str) -> Optional[datetime]:
         }.get(unit)
         if delta is None:
             return None
-        return datetime.now(timezone.utc) - delta
+        return reference_time - delta
     # Epoch milliseconds (numeric string like "1716854400000")
     if expr.isdigit():
         return datetime.fromtimestamp(int(expr) / 1000, tz=timezone.utc)
@@ -872,6 +889,24 @@ def _parse_relative_time(expr: str) -> Optional[datetime]:
     except (ValueError, TypeError):
         pass
     return None
+
+
+def _freeze_es_time_bounds(
+    time_from: str,
+    time_to: str,
+    *,
+    now: Optional[datetime] = None,
+) -> tuple[str, str]:
+    """Resolve supported relative date math against one shared instant."""
+    reference_time = now or datetime.now(timezone.utc)
+
+    def _freeze(value: str) -> str:
+        if value != "now" and re.fullmatch(r"now-\d+[mhdw]", value) is None:
+            return value
+        parsed = _parse_relative_time(value, now=reference_time)
+        return parsed.isoformat().replace("+00:00", "Z") if parsed else value
+
+    return _freeze(time_from), _freeze(time_to)
 
 
 def _escape_es_wildcard(value: str) -> str:
@@ -1063,6 +1098,7 @@ async def search_audit_logs(
 
     size = max(1, min(size, 500))
     page_from = max(0, page_from)
+    time_from, time_to = _freeze_es_time_bounds(time_from, time_to)
 
     must: list[dict[str, Any]] = []
     filter_clauses: list[dict[str, Any]] = [

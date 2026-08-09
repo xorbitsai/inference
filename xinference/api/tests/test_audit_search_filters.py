@@ -244,6 +244,9 @@ async def test_es_mode_uses_case_insensitive_wildcard(monkeypatch):
     assert captured["pit_params"] == {"keep_alive": "1m"}
     assert captured["closed_pit_id"] == "pit-2"
     clauses = captured["body"]["query"]["bool"]["filter"]
+    time_range = clauses[0]["range"]["@timestamp"]
+    assert not time_range["gte"].startswith("now")
+    assert not time_range["lte"].startswith("now")
     substring_clauses = [c["bool"] for c in clauses if "bool" in c]
     assert len(substring_clauses) == 1
     substring_clause = substring_clauses[0]

@@ -112,10 +112,8 @@ async def test_search_es_page_can_cross_default_result_window():
     assert [hit["sequence"] for hit in hits] == list(range(2049, 1999, -1))
     assert all("from" not in body for body in session.search_bodies)
     assert any("search_after" in body for body in session.search_bodies)
-    assert all(
-        body.get("_source") == {"excludes": ["@version"]}
-        for body in session.search_bodies
-    )
+    assert all(body["_source"] is False for body in session.search_bodies[:-1])
+    assert session.search_bodies[-1]["_source"] == {"excludes": ["@version"]}
     assert session.search_bodies[0]["pit"]["id"] == "pit-1"
     assert all(body["pit"]["id"] == "pit-2" for body in session.search_bodies[1:])
     assert session.closed_pit_id == "pit-2"
@@ -141,3 +139,34 @@ async def test_search_es_page_reads_partial_last_page_from_nearest_edge():
     assert len(page_searches) == 1
     assert page_searches[0]["sort"][0]["@timestamp"]["order"] == "asc"
     assert session.closed_pit_id == "pit-2"
+
+
+@pytest.mark.asyncio
+async def test_search_es_page_rejects_an_unbounded_middle_traversal():
+    session = _FakeElasticsearchSession(total=200000)
+
+    with pytest.raises(admin.HTTPException) as exc_info:
+        await admin._search_es_page(
+            session,  # type: ignore[arg-type]
+            es_url="http://elasticsearch:9200",
+            es_index="xinference-logs-*",
+            headers={"Content-Type": "application/json"},
+            query={"match_all": {}},
+            page_from=100000,
+            size=50,
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "narrow the filters or time range" in exc_info.value.detail
+    assert len(session.search_bodies) == 1
+    assert session.search_bodies[0]["_source"] is False
+    assert session.closed_pit_id == "pit-2"
+
+
+def test_freeze_es_time_bounds_uses_one_reference_time():
+    now = admin.datetime(2026, 8, 9, 10, 30, tzinfo=admin.timezone.utc)
+
+    time_from, time_to = admin._freeze_es_time_bounds("now-1h", "now", now=now)
+
+    assert time_from == "2026-08-09T09:30:00Z"
+    assert time_to == "2026-08-09T10:30:00Z"
