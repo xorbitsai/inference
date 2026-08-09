@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
+import { AutoComplete } from '@/components/ui/auto-complete';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -72,6 +73,14 @@ interface AuditSearchResponse {
   total?: number;
 }
 
+interface AuditFilterOptionsResponse {
+  user?: string[];
+  api_key_name?: string[];
+  model_id?: string[];
+  model_name?: string[];
+  client_ip?: string[];
+}
+
 interface AuditFilters {
   user: string;
   apiKeyName: string;
@@ -106,6 +115,14 @@ const defaultTextFilters = {
   modelId: '',
   modelName: '',
   clientIp: '',
+};
+
+const defaultFilterOptions: Required<AuditFilterOptionsResponse> = {
+  user: [],
+  api_key_name: [],
+  model_id: [],
+  model_name: [],
+  client_ip: [],
 };
 
 const filterParamMap: Record<AuditFilterKey, string> = {
@@ -203,6 +220,8 @@ export default function AuditCenter() {
   const [timeRange, setTimeRange] = useState<TimeRangeValue>(DEFAULT_LOG_TIME_RANGE);
   const [filters, setFilters] = useState<AuditFilters>(defaultFilters);
   const [draftFilters, setDraftFilters] = useState(defaultTextFilters);
+  const [filterOptions, setFilterOptions] =
+    useState<Required<AuditFilterOptionsResponse>>(defaultFilterOptions);
   const [pageFrom, setPageFrom] = useState(0);
   const [selectedRecord, setSelectedRecord] = useState<AuditRecord | null>(null);
   const requestSeqRef = useRef(0);
@@ -301,6 +320,38 @@ export default function AuditCenter() {
     return () => clearTimeout(timer);
   }, [draftFilters]);
 
+  useEffect(() => {
+    let active = true;
+    const params = new URLSearchParams({
+      time_from: timeRange.from,
+      time_to: timeRange.to,
+    });
+
+    request
+      .get<AuditFilterOptionsResponse>('/v1/audit/filter-options?' + params.toString())
+      .then((data) => {
+        if (!active) return;
+        if (!data) {
+          setFilterOptions(defaultFilterOptions);
+          return;
+        }
+        setFilterOptions({
+          user: data.user || [],
+          api_key_name: data.api_key_name || [],
+          model_id: data.model_id || [],
+          model_name: data.model_name || [],
+          client_ip: data.client_ip || [],
+        });
+      })
+      .catch(() => {
+        if (active) setFilterOptions(defaultFilterOptions);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [timeRange]);
+
   const stats = useMemo(() => {
     const successCount = records.filter((record) => record.status === 'success').length;
     const riskCount = records.filter(
@@ -340,8 +391,8 @@ export default function AuditCenter() {
     ];
   }, [records, t, total]);
 
-  const setTextFilter = (key: AuditTextFilterKey, value: string) => {
-    setDraftFilters((current) => ({ ...current, [key]: value }));
+  const setTextFilter = (key: AuditTextFilterKey, value?: string) => {
+    setDraftFilters((current) => ({ ...current, [key]: value || '' }));
   };
 
   const setFilter = (key: Exclude<AuditFilterKey, AuditTextFilterKey>, value?: string | number) => {
@@ -470,33 +521,38 @@ export default function AuditCenter() {
             </Button>
           </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <FilterInput
+            <FilterTextSelect
               label={t('auditCenter.user')}
               value={draftFilters.user}
+              values={filterOptions.user}
               placeholder={t('auditCenter.userPlaceholder')}
               onChange={(value) => setTextFilter('user', value)}
             />
-            <FilterInput
+            <FilterTextSelect
               label={t('auditCenter.apiKeyName')}
               value={draftFilters.apiKeyName}
+              values={filterOptions.api_key_name}
               placeholder={t('auditCenter.apiKeyNamePlaceholder')}
               onChange={(value) => setTextFilter('apiKeyName', value)}
             />
-            <FilterInput
+            <FilterTextSelect
               label={t('auditCenter.modelId')}
               value={draftFilters.modelId}
+              values={filterOptions.model_id}
               placeholder={t('auditCenter.modelIdPlaceholder')}
               onChange={(value) => setTextFilter('modelId', value)}
             />
-            <FilterInput
+            <FilterTextSelect
               label={t('auditCenter.modelName')}
               value={draftFilters.modelName}
+              values={filterOptions.model_name}
               placeholder={t('auditCenter.modelNamePlaceholder')}
               onChange={(value) => setTextFilter('modelName', value)}
             />
-            <FilterInput
+            <FilterTextSelect
               label={t('auditCenter.clientIp')}
               value={draftFilters.clientIp}
+              values={filterOptions.client_ip}
               placeholder={t('auditCenter.clientIpPlaceholder')}
               onChange={(value) => setTextFilter('clientIp', value)}
             />
@@ -778,21 +834,24 @@ export default function AuditCenter() {
   );
 }
 
-interface FilterInputProps {
+interface FilterTextSelectProps {
   label: string;
   value: string;
+  values: string[];
   placeholder: string;
-  onChange: (value: string) => void;
+  onChange: (value?: string) => void;
 }
 
-function FilterInput({ label, value, placeholder, onChange }: FilterInputProps) {
+function FilterTextSelect({ label, value, values, placeholder, onChange }: FilterTextSelectProps) {
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
-      <Input
+      <AutoComplete
         value={value}
         placeholder={placeholder}
-        onChange={(event) => onChange(event.target.value)}
+        allowCustomValue
+        onChange={(nextValue) => onChange(nextValue)}
+        options={values.map((item) => ({ value: item, label: item }))}
       />
     </div>
   );
