@@ -133,6 +133,8 @@ export const ALL_FORM_KEYS = [
   'n_gpu',
   'n_gpu_layers',
   'replica',
+  'replica_config',
+  'replica_placement_mode',
   'request_limits',
   'worker_ip',
   'gpu_idx',

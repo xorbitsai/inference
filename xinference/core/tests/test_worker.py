@@ -1120,6 +1120,13 @@ async def test_supervisor_add_worker_rebuilds_replica_details_after_reconnect(
         LaunchStatus.READY.name,
     ]
 
+    await supervisor._status_guard_ref.update_replica_status(
+        "model-a", 0, {"replica_uid": "primary", "gpu_idx": [0]}
+    )
+    api_statuses = await supervisor.get_replica_statuses("model-a")
+    assert api_statuses[0]["replica_uid"] == "primary"
+    assert api_statuses[0]["gpu_idx"] == [0]
+
 
 def test_prepare_virtual_env_without_engine_vars():
     manager = DummyVirtualEnvManager()
