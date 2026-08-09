@@ -2331,6 +2331,12 @@ class SupervisorActor(xo.StatelessActor):
             # Calculate replica_id for status tracking
             replica_id = rank - 1 if not enable_xavier else rank
 
+            replica_gpu_idx = target_gpu_idx
+            if replica_gpu_idx is None and not (enable_xavier and rank == 0):
+                replica_gpu_idx = assign_replica_gpu(
+                    _replica_model_uid, replica, gpu_idx
+                )
+
             # Initialize replica status
             import time
 
@@ -2343,6 +2349,7 @@ class SupervisorActor(xo.StatelessActor):
                     "status": LaunchStatus.CREATING.name,
                     "created_ts": int(time.time()),
                     "replica_uid": replica_uid,
+                    "gpu_idx": replica_gpu_idx,
                 },
             )
 
@@ -2375,11 +2382,6 @@ class SupervisorActor(xo.StatelessActor):
                 self._replica_model_uid_to_worker[_replica_model_uid] = worker_ref
                 return rank0_address
 
-            replica_gpu_idx = (
-                target_gpu_idx
-                if target_gpu_idx is not None
-                else assign_replica_gpu(_replica_model_uid, replica, gpu_idx)
-            )
             nonlocal model_type
 
             # LLM as default for compatibility
@@ -2922,6 +2924,8 @@ class SupervisorActor(xo.StatelessActor):
                 "status": status.status,
                 "created_ts": status.created_ts,
                 "error_message": status.error_message,
+                "replica_uid": status.replica_uid,
+                "gpu_idx": status.gpu_idx,
             }
             for status in replica_statuses
         ]

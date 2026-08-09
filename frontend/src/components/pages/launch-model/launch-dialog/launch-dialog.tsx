@@ -1427,7 +1427,7 @@ export default function LaunchDialog({
     if (values.replica_placement_mode === 'custom') {
       const rows = Array.isArray(values.replica_config) ? values.replica_config : [];
       const replicaCount = Number(values.replica) || 1;
-      const gpuIndexPattern = /^\d+(?:,\d+)*$/;
+      const gpuIndexPattern = GPU_IDX_PATTERN;
       const hasInvalidPlacement =
         rows.length !== replicaCount ||
         rows.some((row) => {
