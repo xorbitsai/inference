@@ -8,6 +8,7 @@ import logging
 import os
 import re
 import signal
+from bisect import bisect_left
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
@@ -759,30 +760,99 @@ _AUDIT_TEXT_FILTER_FIELDS = (
     "model_name",
     "client_ip",
 )
+_AUDIT_FILTER_OPTION_LIMIT = 500
+
+
+def _add_bounded_audit_filter_option(
+    options: list[tuple[str, str]], seen: set[str], value: Any
+) -> None:
+    if value is None:
+        return
+    text = str(value)
+    if not text or text in seen:
+        return
+
+    item = (text.casefold(), text)
+    position = bisect_left(options, item)
+    if len(options) >= _AUDIT_FILTER_OPTION_LIMIT and position >= len(options):
+        return
+
+    options.insert(position, item)
+    seen.add(text)
+    if len(options) > _AUDIT_FILTER_OPTION_LIMIT:
+        _, removed = options.pop()
+        seen.remove(removed)
 
 
 def _audit_filter_aggregation_body(
-    time_from: str, time_to: str, *, keyword_fields: bool = False
+    time_from: str,
+    time_to: str,
+    fields: Optional[dict[str, str]] = None,
 ) -> dict[str, Any]:
+    fields = fields or {
+        field_name: field_name for field_name in _AUDIT_TEXT_FILTER_FIELDS
+    }
     return {
         "size": 0,
         "query": {"range": {"@timestamp": {"gte": time_from, "lte": time_to}}},
         "aggs": {
-            field_name: {
+            response_field: {
                 "terms": {
-                    "field": (
-                        f"{field_name}.keyword" if keyword_fields else field_name
-                    ),
-                    "size": 500,
+                    "field": es_field,
+                    "size": _AUDIT_FILTER_OPTION_LIMIT,
                 }
             }
-            for field_name in _AUDIT_TEXT_FILTER_FIELDS
+            for response_field, es_field in fields.items()
         },
     }
 
 
-def _is_fielddata_disabled_error(status: int, response_text: str) -> bool:
-    return status == 400 and "fielddata is disabled" in response_text.casefold()
+def _aggregatable_field_indices(
+    field_caps: dict[str, Any], field_name: str, all_indices: set[str]
+) -> set[str]:
+    result: set[str] = set()
+    capabilities = field_caps.get("fields", {}).get(field_name, {})
+    for capability in capabilities.values():
+        capability_indices = set(capability.get("indices") or all_indices)
+        non_aggregatable = set(capability.get("non_aggregatable_indices") or [])
+        if capability.get("aggregatable") or non_aggregatable:
+            result.update(capability_indices - non_aggregatable)
+    return result
+
+
+def _audit_filter_field_groups(
+    field_caps: dict[str, Any],
+) -> list[tuple[list[str], dict[str, str]]]:
+    all_indices = {str(index_name) for index_name in field_caps.get("indices", [])}
+    index_fields: dict[str, dict[str, str]] = {
+        index_name: {} for index_name in all_indices
+    }
+
+    for field_name in _AUDIT_TEXT_FILTER_FIELDS:
+        direct_indices = _aggregatable_field_indices(
+            field_caps, field_name, all_indices
+        )
+        keyword_field = f"{field_name}.keyword"
+        keyword_indices = _aggregatable_field_indices(
+            field_caps, keyword_field, all_indices
+        )
+        for index_name in all_indices:
+            if index_name in direct_indices:
+                index_fields[index_name][field_name] = field_name
+            elif index_name in keyword_indices:
+                index_fields[index_name][field_name] = keyword_field
+
+    groups: dict[tuple[tuple[str, str], ...], list[str]] = {}
+    for index_name, fields in index_fields.items():
+        if not fields:
+            continue
+        signature = tuple(sorted(fields.items()))
+        groups.setdefault(signature, []).append(index_name)
+
+    return [
+        (sorted(indices), dict(signature))
+        for signature, indices in sorted(groups.items())
+    ]
 
 
 def _audit_entry_in_time_range(
@@ -941,7 +1011,10 @@ async def _list_audit_filter_options_from_file(
     t_to = _parse_relative_time(time_to)
 
     def _read_options() -> dict[str, list[str]]:
-        options: dict[str, set[str]] = {
+        options: dict[str, list[tuple[str, str]]] = {
+            field_name: [] for field_name in _AUDIT_TEXT_FILTER_FIELDS
+        }
+        seen: dict[str, set[str]] = {
             field_name: set() for field_name in _AUDIT_TEXT_FILTER_FIELDS
         }
         try:
@@ -956,15 +1029,13 @@ async def _list_audit_filter_options_from_file(
                     if not _audit_entry_in_time_range(entry, t_from, t_to):
                         continue
                     for field_name in _AUDIT_TEXT_FILTER_FIELDS:
-                        value = entry.get(field_name)
-                        if value is not None and str(value):
-                            options[field_name].add(str(value))
+                        _add_bounded_audit_filter_option(
+                            options[field_name], seen[field_name], entry.get(field_name)
+                        )
         except OSError:
             return {key: [] for key in options}
 
-        return {
-            key: sorted(values, key=str.casefold) for key, values in options.items()
-        }
+        return {key: [value for _, value in values] for key, values in options.items()}
 
     content = await asyncio.to_thread(_read_options)
     return JSONResponse(content=content)
@@ -981,7 +1052,6 @@ async def list_audit_filter_options(
 
     from ...constants import XINFERENCE_AUDIT_ES_INDEX
 
-    body = _audit_filter_aggregation_body(time_from, time_to)
     headers = {"Content-Type": "application/json"}
     auth = None
     es_auth = os.environ.get("XINFERENCE_ES_AUTH", "")
@@ -993,50 +1063,78 @@ async def list_audit_filter_options(
             if len(parts) == 2:
                 auth = aiohttp.BasicAuth(parts[0], parts[1])
 
-    url = f"{es_url.rstrip('/')}/{XINFERENCE_AUDIT_ES_INDEX}/_search"
+    es_base_url = es_url.rstrip("/")
+    field_names = ",".join(
+        field_name
+        for response_field in _AUDIT_TEXT_FILTER_FIELDS
+        for field_name in (response_field, f"{response_field}.keyword")
+    )
+    field_caps_url = (
+        f"{es_base_url}/{XINFERENCE_AUDIT_ES_INDEX}/_field_caps"
+        f"?fields={field_names}&include_unmapped=true"
+    )
+    option_values: dict[str, list[tuple[str, str]]] = {
+        field_name: [] for field_name in _AUDIT_TEXT_FILTER_FIELDS
+    }
+    seen_values: dict[str, set[str]] = {
+        field_name: set() for field_name in _AUDIT_TEXT_FILTER_FIELDS
+    }
     try:
         timeout = aiohttp.ClientTimeout(total=10)
         async with aiohttp.ClientSession(timeout=timeout, auth=auth) as session:
 
             async def fetch(
-                request_body: dict[str, Any],
+                url: str, request_body: Optional[dict[str, Any]] = None
             ) -> tuple[int, str, dict[str, Any]]:
-                async with session.post(
-                    url, json=request_body, headers=headers
-                ) as resp:
+                request_kwargs: dict[str, Any] = {"headers": headers}
+                if request_body is not None:
+                    request_kwargs["json"] = request_body
+                async with session.post(url, **request_kwargs) as resp:
                     if resp.status != 200:
                         return resp.status, await resp.text(), {}
                     return resp.status, "", await resp.json()
 
-            status, response_text, data = await fetch(body)
-            if _is_fielddata_disabled_error(status, response_text):
-                keyword_body = _audit_filter_aggregation_body(
-                    time_from, time_to, keyword_fields=True
-                )
-                status, response_text, data = await fetch(keyword_body)
-
+            status, response_text, field_caps = await fetch(field_caps_url)
             if status != 200:
                 logger.error(
-                    "ES audit filter aggregation failed: status=%d body=%s",
+                    "ES audit field capabilities query failed: status=%d body=%s",
                     status,
                     response_text[:500],
                 )
                 raise HTTPException(
                     status_code=502, detail="Elasticsearch query failed"
                 )
+
+            for indices, fields in _audit_filter_field_groups(field_caps):
+                search_url = f"{es_base_url}/{','.join(indices)}/_search"
+                body = _audit_filter_aggregation_body(time_from, time_to, fields=fields)
+                status, response_text, data = await fetch(search_url, body)
+                if status != 200:
+                    logger.error(
+                        "ES audit filter aggregation failed: status=%d body=%s",
+                        status,
+                        response_text[:500],
+                    )
+                    raise HTTPException(
+                        status_code=502, detail="Elasticsearch query failed"
+                    )
+
+                aggregations = data.get("aggregations", {})
+                for field_name in _AUDIT_TEXT_FILTER_FIELDS:
+                    for bucket in aggregations.get(field_name, {}).get("buckets", []):
+                        _add_bounded_audit_filter_option(
+                            option_values[field_name],
+                            seen_values[field_name],
+                            bucket.get("key"),
+                        )
     except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as e:
         logger.error("ES connection error, timeout, or invalid response: %s", e)
         raise HTTPException(status_code=502, detail="Audit service unavailable")
 
-    aggregations = data.get("aggregations", {})
     return JSONResponse(
         content={
-            field_name: [
-                str(bucket["key"])
-                for bucket in aggregations.get(field_name, {}).get("buckets", [])
-                if bucket.get("key") is not None and str(bucket["key"])
-            ]
-            for field_name in _AUDIT_TEXT_FILTER_FIELDS
+            field_name: [value for _, value in option_values[field_name]]
+            for field_name in option_values
         }
     )
 
