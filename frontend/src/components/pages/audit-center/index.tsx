@@ -206,6 +206,7 @@ export default function AuditCenter() {
   const [pageFrom, setPageFrom] = useState(0);
   const [selectedRecord, setSelectedRecord] = useState<AuditRecord | null>(null);
   const requestSeqRef = useRef(0);
+  const lastSuccessfulPageFromRef = useRef(0);
   // Tracks whether the latest fetch is still pending so the auto-refresh
   // interval can skip a tick instead of stacking overlapping requests.
   const inFlightRef = useRef(false);
@@ -230,38 +231,41 @@ export default function AuditCenter() {
     return params;
   }, [filters, pageFrom, timeRange]);
 
-  const fetchAuditRecords = useCallback(async (silent = false) => {
-    const seq = ++requestSeqRef.current;
-    inFlightRef.current = true;
-    // Background refreshes stay silent so the table does not flip to the
-    // loading spinner every interval; only user-initiated fetches show it.
-    if (!silent) {
-      setLoading(true);
-    }
-    try {
-      const data = await request.get<AuditSearchResponse>(
-        '/v1/audit/search?' + queryParams.toString()
-      );
+  const fetchAuditRecords = useCallback(
+    async (silent = false) => {
+      const seq = ++requestSeqRef.current;
+      inFlightRef.current = true;
+      // Background refreshes stay silent so the table does not flip to the
+      // loading spinner every interval; only user-initiated fetches show it.
+      if (!silent) {
+        setLoading(true);
+      }
+      try {
+        const data = await request.get<AuditSearchResponse>(
+          '/v1/audit/search?' + queryParams.toString()
+        );
 
-      if (seq === requestSeqRef.current) {
-        setRecords(Array.isArray(data.hits) ? data.hits : []);
-        setTotal(data.total || 0);
+        if (seq === requestSeqRef.current) {
+          setRecords(Array.isArray(data.hits) ? data.hits : []);
+          setTotal(data.total || 0);
+          lastSuccessfulPageFromRef.current = pageFrom;
+        }
+      } catch {
+        // A transient failure during a silent background refresh must not wipe
+        // the table. A failed foreground page jump also keeps the last good
+        // results and restores the page that produced them.
+        if (!silent && seq === requestSeqRef.current) {
+          setPageFrom(lastSuccessfulPageFromRef.current);
+        }
+      } finally {
+        if (seq === requestSeqRef.current) {
+          inFlightRef.current = false;
+          setLoading(false);
+        }
       }
-    } catch {
-      // A transient failure during a silent background refresh must not wipe
-      // the table — keep the last good results. Foreground (user-initiated)
-      // fetches keep the original clear-on-error behavior.
-      if (!silent && seq === requestSeqRef.current) {
-        setRecords([]);
-        setTotal(0);
-      }
-    } finally {
-      if (seq === requestSeqRef.current) {
-        inFlightRef.current = false;
-        setLoading(false);
-      }
-    }
-  }, [queryParams]);
+    },
+    [pageFrom, queryParams]
+  );
 
   useEffect(() => {
     fetchAuditRecords();

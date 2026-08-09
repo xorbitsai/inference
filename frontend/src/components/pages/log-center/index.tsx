@@ -46,6 +46,7 @@ const LogCenter = () => {
   const [refreshInterval, setRefreshInterval] = useState(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastSuccessfulPageFromRef = useRef(0);
 
   useEffect(() => {
     if (!esEnabled) return;
@@ -86,9 +87,9 @@ const LogCenter = () => {
 
       setLogs(data.hits || []);
       setTotal(data.total || 0);
+      lastSuccessfulPageFromRef.current = pageFrom;
     } catch {
-      setLogs([]);
-      setTotal(0);
+      setPageFrom(lastSuccessfulPageFromRef.current);
     } finally {
       setLoading(false);
     }
