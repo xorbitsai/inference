@@ -295,7 +295,9 @@ def _inject_jina_v3_allocator_env(
 
     The launch arguments are captured with ``locals()`` before this helper is
     called.  Updating ``envs`` alone would therefore affect the current launch
-    but not the cached arguments used by worker restart recovery.
+    but not the cached arguments used by worker restart recovery. Allocator
+    settings inherited from the worker process count as explicit user
+    configuration because xoscar applies ``envs`` on top of ``os.environ``.
     """
     if (
         not isinstance(model_type, str)
@@ -306,10 +308,8 @@ def _inject_jina_v3_allocator_env(
         return envs
 
     updated_envs = dict(envs or {})
-    if (
-        "PYTORCH_CUDA_ALLOC_CONF" not in updated_envs
-        and "PYTORCH_ALLOC_CONF" not in updated_envs
-    ):
+    allocator_env_keys = ("PYTORCH_CUDA_ALLOC_CONF", "PYTORCH_ALLOC_CONF")
+    if not any(key in updated_envs or key in os.environ for key in allocator_env_keys):
         updated_envs["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
     # ``launch_args`` is the recovery snapshot, so update it explicitly.

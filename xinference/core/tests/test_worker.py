@@ -546,7 +546,9 @@ def test_prepare_virtual_env_injects_engine_vars():
     assert kwargs["model_engine"] == "vllm"
 
 
-def test_jina_v3_allocator_env_is_persisted_for_recovery():
+def test_jina_v3_allocator_env_is_persisted_for_recovery(monkeypatch):
+    monkeypatch.delenv("PYTORCH_CUDA_ALLOC_CONF", raising=False)
+    monkeypatch.delenv("PYTORCH_ALLOC_CONF", raising=False)
     launch_args = {"envs": None}
 
     envs = _inject_jina_v3_allocator_env(
@@ -573,6 +575,36 @@ def test_jina_v3_allocator_env_preserves_user_configuration():
 
     assert envs == user_envs
     assert envs is not user_envs
+    assert launch_args["envs"] == user_envs
+
+
+@pytest.mark.parametrize(
+    "allocator_key,allocator_value",
+    [
+        ("PYTORCH_CUDA_ALLOC_CONF", "max_split_size_mb:128"),
+        ("PYTORCH_ALLOC_CONF", "backend:cudaMallocAsync"),
+    ],
+)
+def test_jina_v3_allocator_env_preserves_inherited_worker_configuration(
+    monkeypatch, allocator_key, allocator_value
+):
+    monkeypatch.delenv("PYTORCH_CUDA_ALLOC_CONF", raising=False)
+    monkeypatch.delenv("PYTORCH_ALLOC_CONF", raising=False)
+    monkeypatch.setenv(allocator_key, allocator_value)
+    launch_args = {"envs": None}
+    user_envs = {"OTHER_ENV": "value"}
+
+    envs = _inject_jina_v3_allocator_env(
+        "embedding",
+        "jina-embeddings-v3",
+        user_envs,
+        launch_args,
+    )
+
+    assert envs == user_envs
+    assert envs is not user_envs
+    assert "PYTORCH_CUDA_ALLOC_CONF" not in envs
+    assert "PYTORCH_ALLOC_CONF" not in envs
     assert launch_args["envs"] == user_envs
 
 
