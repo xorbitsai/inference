@@ -197,8 +197,11 @@ async def test_es_mode_uses_case_insensitive_wildcard(monkeypatch):
     class _FakeResponse:
         status = 200
 
+        def __init__(self, data):
+            self._data = data
+
         async def json(self):
-            return {"hits": {"hits": [], "total": {"value": 0}}}
+            return self._data
 
         async def __aenter__(self):
             return self
@@ -210,9 +213,22 @@ async def test_es_mode_uses_case_insensitive_wildcard(monkeypatch):
         def __init__(self, *args, **kwargs):
             pass
 
-        def post(self, url, json=None, headers=None):
+        def post(self, url, json=None, headers=None, params=None):
+            if url.endswith("/_pit"):
+                captured["pit_params"] = params
+                return _FakeResponse({"id": "pit-1"})
+
             captured["body"] = json
-            return _FakeResponse()
+            return _FakeResponse(
+                {
+                    "pit_id": "pit-2",
+                    "hits": {"hits": [], "total": {"value": 0}},
+                }
+            )
+
+        def delete(self, url, json=None, headers=None):
+            captured["closed_pit_id"] = json["id"]
+            return _FakeResponse({"succeeded": True, "num_freed": 1})
 
         async def __aenter__(self):
             return self
@@ -225,6 +241,8 @@ async def test_es_mode_uses_case_insensitive_wildcard(monkeypatch):
 
     await search_audit_logs(model_id="Sense*Voice")
 
+    assert captured["pit_params"] == {"keep_alive": "1m"}
+    assert captured["closed_pit_id"] == "pit-2"
     clauses = captured["body"]["query"]["bool"]["filter"]
     substring_clauses = [c["bool"] for c in clauses if "bool" in c]
     assert len(substring_clauses) == 1
