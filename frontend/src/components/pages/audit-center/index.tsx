@@ -377,7 +377,10 @@ export default function AuditCenter() {
     event.preventDefault();
 
     const page = Number(jumpPage);
-    if (!Number.isInteger(page) || page < 1 || page > totalPages) return;
+    if (!Number.isInteger(page) || page < 1 || page > totalPages) {
+      setJumpPage(String(currentPage));
+      return;
+    }
 
     setPageFrom((page - 1) * AUDIT_PAGE_SIZE);
     setJumpPage(String(page));
@@ -639,7 +642,7 @@ export default function AuditCenter() {
           <span className="text-sm text-muted-foreground">
             {t('auditCenter.totalHits', { count: total })}
           </span>
-          <form className="flex items-center gap-2 text-sm" onSubmit={goToPage}>
+          <form className="flex items-center gap-2 text-sm" noValidate onSubmit={goToPage}>
             <Label className="sr-only" htmlFor="audit-jump-page">
               {t('auditCenter.pageNumber')}
             </Label>

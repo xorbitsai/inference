@@ -31,7 +31,10 @@ export function LogPagination({ total, pageFrom, onPageFromChange }: LogPaginati
     event.preventDefault();
 
     const page = Number(jumpPage);
-    if (!Number.isInteger(page) || page < 1 || page > totalPages) return;
+    if (!Number.isInteger(page) || page < 1 || page > totalPages) {
+      setJumpPage(String(currentPage));
+      return;
+    }
 
     onPageFromChange((page - 1) * LOG_PAGE_SIZE);
     setJumpPage(String(page));
@@ -40,7 +43,7 @@ export function LogPagination({ total, pageFrom, onPageFromChange }: LogPaginati
   return (
     <div className="flex min-h-12 flex-wrap items-center justify-end gap-3 border-t px-4 py-2">
       <span className="text-sm text-muted-foreground">{t('logCenter.totalHits', { count: total })}</span>
-      <form className="flex items-center gap-2 text-sm" onSubmit={goToPage}>
+      <form className="flex items-center gap-2 text-sm" noValidate onSubmit={goToPage}>
         <Label className="sr-only" htmlFor="log-jump-page">
           {t('logCenter.pageNumber')}
         </Label>
