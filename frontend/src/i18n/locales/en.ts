@@ -357,6 +357,12 @@ const en = {
     },
   },
   logCenter: {
+    firstPage: 'First',
+    lastPage: 'Last',
+    pageNumber: 'Page number',
+    jumpToPage: 'Jump to page',
+    pagePrefix: 'Page',
+    pageOf: 'of {{count}}',
     notConfigured: 'Logs are not configured. Please enable the Elasticsearch log service.',
     allNodes: 'All nodes',
     searchPlaceholder: 'Search log content, fields, or keywords',
@@ -579,6 +585,12 @@ const en = {
     hours: '{{count}} hr',
   },
   auditCenter: {
+    firstPage: 'First',
+    lastPage: 'Last',
+    pageNumber: 'Page number',
+    jumpToPage: 'Jump to page',
+    pagePrefix: 'Page',
+    pageOf: 'of {{count}}',
     pageDescription:
       'Search API access audit records across users, API keys, model calls, and abnormal access.',
     totalEvents: 'Audit Events',

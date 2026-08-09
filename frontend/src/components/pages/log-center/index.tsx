@@ -46,6 +46,10 @@ const LogCenter = () => {
   const [refreshInterval, setRefreshInterval] = useState(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastSuccessfulRequestRef = useRef<{
+    queryKey: string;
+    pageFrom: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!esEnabled) return;
@@ -70,25 +74,37 @@ const LogCenter = () => {
 
     setLoading(true);
 
+    const params = buildLogQueryParams({
+      appliedSearch,
+      selectedLevels,
+      selectedLogType,
+      selectedNode: selectedNodes.join(','),
+      nodeField,
+      timeRange,
+      pageFrom,
+      fieldFilters,
+      size: LOG_PAGE_SIZE,
+    });
+    const queryKeyParams = new URLSearchParams(params);
+    queryKeyParams.delete('page_from');
+    queryKeyParams.delete('size');
+    const queryKey = queryKeyParams.toString();
+
     try {
-      const params = buildLogQueryParams({
-        appliedSearch,
-        selectedLevels,
-        selectedLogType,
-        selectedNode: selectedNodes.join(','),
-        nodeField,
-        timeRange,
-        pageFrom,
-        fieldFilters,
-        size: LOG_PAGE_SIZE,
-      });
       const data = await request.get<LogsResponse>(`/v1/cluster/logs?${params.toString()}`);
 
       setLogs(data.hits || []);
       setTotal(data.total || 0);
+      lastSuccessfulRequestRef.current = { queryKey, pageFrom };
     } catch {
-      setLogs([]);
-      setTotal(0);
+      const lastSuccessfulRequest = lastSuccessfulRequestRef.current;
+      if (lastSuccessfulRequest?.queryKey === queryKey) {
+        setPageFrom(lastSuccessfulRequest.pageFrom);
+      } else {
+        setLogs([]);
+        setTotal(0);
+        setPageFrom(0);
+      }
     } finally {
       setLoading(false);
     }

@@ -1,7 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   CircleAlert,
   Copy,
   FileSearch,
@@ -19,6 +23,7 @@ import { AutoComplete } from '@/components/ui/auto-complete';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { JSONSyntaxHighlighter } from '@/components/ui/json-syntax-highlighter';
 import { Label } from '@/components/ui/label';
 import { MultiSelect } from '@/components/ui/multi-select';
@@ -220,10 +225,15 @@ export default function AuditCenter() {
   const [pageFrom, setPageFrom] = useState(0);
   const [selectedRecord, setSelectedRecord] = useState<AuditRecord | null>(null);
   const requestSeqRef = useRef(0);
+  const lastSuccessfulRequestRef = useRef<{
+    queryKey: string;
+    pageFrom: number;
+  } | null>(null);
   // Tracks whether the latest fetch is still pending so the auto-refresh
   // interval can skip a tick instead of stacking overlapping requests.
   const inFlightRef = useRef(false);
   const [refreshInterval, setRefreshInterval] = useState(0);
+  const [jumpPage, setJumpPage] = useState('1');
 
   const queryParams = useMemo(() => {
     const params = new URLSearchParams();
@@ -246,6 +256,10 @@ export default function AuditCenter() {
   const fetchAuditRecords = useCallback(
     async (silent = false) => {
       const seq = ++requestSeqRef.current;
+      const queryKeyParams = new URLSearchParams(queryParams);
+      queryKeyParams.delete('page_from');
+      queryKeyParams.delete('size');
+      const queryKey = queryKeyParams.toString();
       inFlightRef.current = true;
       // Background refreshes stay silent so the table does not flip to the
       // loading spinner every interval; only user-initiated fetches show it.
@@ -260,14 +274,21 @@ export default function AuditCenter() {
         if (seq === requestSeqRef.current) {
           setRecords(Array.isArray(data.hits) ? data.hits : []);
           setTotal(data.total || 0);
+          lastSuccessfulRequestRef.current = { queryKey, pageFrom };
         }
       } catch {
         // A transient failure during a silent background refresh must not wipe
-        // the table — keep the last good results. Foreground (user-initiated)
-        // fetches keep the original clear-on-error behavior.
+        // the table. A failed foreground page jump also keeps the last good
+        // results and restores the page that produced them.
         if (!silent && seq === requestSeqRef.current) {
-          setRecords([]);
-          setTotal(0);
+          const lastSuccessfulRequest = lastSuccessfulRequestRef.current;
+          if (lastSuccessfulRequest?.queryKey === queryKey) {
+            setPageFrom(lastSuccessfulRequest.pageFrom);
+          } else {
+            setRecords([]);
+            setTotal(0);
+            setPageFrom(0);
+          }
         }
       } finally {
         if (seq === requestSeqRef.current) {
@@ -276,7 +297,7 @@ export default function AuditCenter() {
         }
       }
     },
-    [queryParams]
+    [pageFrom, queryParams]
   );
 
   useEffect(() => {
@@ -413,9 +434,26 @@ export default function AuditCenter() {
     Array.isArray(value) ? value.length > 0 : Boolean(value)
   );
   const hasDraftFilters = Object.values(draftFilters).some(Boolean);
-  const maxAccessibleTotal = Math.min(total, 10000);
   const currentPage = Math.floor(pageFrom / AUDIT_PAGE_SIZE) + 1;
-  const totalPages = Math.ceil(maxAccessibleTotal / AUDIT_PAGE_SIZE) || 1;
+  const totalPages = Math.ceil(total / AUDIT_PAGE_SIZE) || 1;
+  const lastPageFrom = (totalPages - 1) * AUDIT_PAGE_SIZE;
+
+  useEffect(() => {
+    setJumpPage(String(currentPage));
+  }, [currentPage]);
+
+  const goToPage = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const page = Number(jumpPage);
+    if (!Number.isInteger(page) || page < 1 || page > totalPages) {
+      setJumpPage(String(currentPage));
+      return;
+    }
+
+    setPageFrom((page - 1) * AUDIT_PAGE_SIZE);
+    setJumpPage(String(page));
+  };
 
   return (
     <PageContainer
@@ -678,24 +716,69 @@ export default function AuditCenter() {
           <span className="text-sm text-muted-foreground">
             {t('auditCenter.totalHits', { count: total })}
           </span>
+          <form className="flex items-center gap-2 text-sm" noValidate onSubmit={goToPage}>
+            <Label className="sr-only" htmlFor="audit-jump-page">
+              {t('auditCenter.pageNumber')}
+            </Label>
+            <span>{t('auditCenter.pagePrefix')}</span>
+            <Input
+              id="audit-jump-page"
+              className="h-8 w-16 text-center tabular-nums"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={totalPages}
+              step={1}
+              value={jumpPage}
+              aria-label={t('auditCenter.jumpToPage')}
+              disabled={total === 0}
+              onChange={(event) => setJumpPage(event.target.value)}
+            />
+            <span>{t('auditCenter.pageOf', { count: totalPages })}</span>
+          </form>
           <Button
             variant="outline"
-            size="sm"
+            size="icon"
+            className="size-8"
+            aria-label={t('auditCenter.firstPage')}
+            title={t('auditCenter.firstPage')}
+            disabled={pageFrom === 0}
+            onClick={() => setPageFrom(0)}
+          >
+            <ChevronsLeft />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-8"
+            aria-label={t('auditCenter.prevPage')}
+            title={t('auditCenter.prevPage')}
             disabled={pageFrom === 0}
             onClick={() => setPageFrom(Math.max(0, pageFrom - AUDIT_PAGE_SIZE))}
           >
-            {t('auditCenter.prevPage')}
+            <ChevronLeft />
           </Button>
-          <span className="text-sm">
-            {currentPage} / {totalPages}
-          </span>
           <Button
             variant="outline"
-            size="sm"
-            disabled={pageFrom + AUDIT_PAGE_SIZE >= maxAccessibleTotal}
+            size="icon"
+            className="size-8"
+            aria-label={t('auditCenter.nextPage')}
+            title={t('auditCenter.nextPage')}
+            disabled={pageFrom + AUDIT_PAGE_SIZE >= total}
             onClick={() => setPageFrom(pageFrom + AUDIT_PAGE_SIZE)}
           >
-            {t('auditCenter.nextPage')}
+            <ChevronRight />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-8"
+            aria-label={t('auditCenter.lastPage')}
+            title={t('auditCenter.lastPage')}
+            disabled={pageFrom === lastPageFrom}
+            onClick={() => setPageFrom(lastPageFrom)}
+          >
+            <ChevronsRight />
           </Button>
         </div>
       </div>

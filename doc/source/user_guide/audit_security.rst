@@ -47,6 +47,10 @@ By default the search reads the local ``audit.log``. If the
 cluster (e.g. with the audit log shipped by Filebeat), the search queries
 Elasticsearch instead, using the index pattern from
 ``XINFERENCE_AUDIT_ES_INDEX`` (default ``xinference-audit-*``).
+Elasticsearch-backed searches use a point-in-time snapshot and
+``search_after`` pagination, so administrators can browse beyond
+Elasticsearch's default 10,000-result window without changing
+``index.max_result_window``.
 
 Brute-force protection
 ======================
