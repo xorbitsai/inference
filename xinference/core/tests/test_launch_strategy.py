@@ -423,6 +423,8 @@ async def test_terminate_model_replica_updates_active_replica_set():
 
     class DummySupervisor:
         terminate_model_replica = SupervisorActor.terminate_model_replica
+        _terminate_model_replica = SupervisorActor._terminate_model_replica
+        _get_model_replica_lock = SupervisorActor._get_model_replica_lock
         _refresh_replica_scheduler = staticmethod(
             SupervisorActor._refresh_replica_scheduler
         )
@@ -431,6 +433,7 @@ async def test_terminate_model_replica_updates_active_replica_set():
         )
 
         def __init__(self):
+            self._model_replica_locks = {}
             self._model_uid_to_replica_info = {
                 "demo-model": ReplicaInfo(
                     replica=3,

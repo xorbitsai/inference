@@ -18,6 +18,7 @@ import os
 import signal
 import time
 import typing
+import weakref
 from collections import defaultdict
 from dataclasses import dataclass, field
 from logging import getLogger
@@ -144,6 +145,11 @@ class SupervisorActor(xo.StatelessActor):
         self._model_uid_to_replica_info: Dict[str, ReplicaInfo] = {}  # type: ignore
         self._uptime = None
         self._lock = asyncio.Lock()
+        # Scale operations may interleave because SupervisorActor is stateless.
+        # Weak values keep per-model locks from accumulating after callers finish.
+        self._model_replica_locks: weakref.WeakValueDictionary[str, asyncio.Lock] = (
+            weakref.WeakValueDictionary()
+        )
         self._replica_gpu_cache: Dict[str, list] = {}
         # list_models cache for graceful degradation when a worker is unreachable
         self._list_models_cache: Dict[str, Dict[str, Dict[str, Any]]] = {}
@@ -209,6 +215,13 @@ class SupervisorActor(xo.StatelessActor):
         replica_info.active_replica_ids = sorted(replica_info.active_replica_ids)
         replica_info.replica = len(replica_info.active_replica_ids)
         replica_info.scheduler = itertools.cycle(replica_info.active_replica_ids)
+
+    def _get_model_replica_lock(self, model_uid: str) -> asyncio.Lock:
+        lock = self._model_replica_locks.get(model_uid)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._model_replica_locks[model_uid] = lock
+        return lock
 
     def _iter_active_replica_model_uids(self, model_uid: str) -> List[str]:
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
@@ -3135,8 +3148,116 @@ class SupervisorActor(xo.StatelessActor):
             finally:
                 logger.debug(f"Destroy block_tracker_ref done. model uid: {model_uid}")
 
+    @staticmethod
+    def _worker_has_gpu_capacity(alloc: Dict[str, Any], n_gpu: int) -> bool:
+        total = {int(gpu) for gpu in alloc.get("total") or []}
+        if len(total) < n_gpu:
+            return False
+        if alloc.get("allow_multi_replica_per_gpu", False):
+            return True
+
+        models = alloc.get("models") or {}
+        user_specified = alloc.get("user_specified") or {}
+        occupied = {
+            gpu
+            for gpu in total
+            if models.get(gpu)
+            or models.get(str(gpu))
+            or user_specified.get(gpu)
+            or user_specified.get(str(gpu))
+        }
+        return len(total - occupied) >= n_gpu
+
+    async def _select_worker_for_scale_up(
+        self, n_gpu: Optional[Union[int, str]]
+    ) -> Tuple[xo.ActorRefType["WorkerActor"], Optional[List[int]]]:
+        """Select a scale-up target using launch-time load/GPU snapshots."""
+        workers = list(self._worker_address_to_worker.values())
+        if not workers:
+            raise RuntimeError("No available worker found")
+
+        counts, allocations = await asyncio.gather(
+            asyncio.gather(
+                *[worker.get_model_count() for worker in workers],
+                return_exceptions=True,
+            ),
+            asyncio.gather(
+                *[worker.get_gpu_allocation_status() for worker in workers],
+                return_exceptions=True,
+            ),
+        )
+        candidates: List[Dict[str, Any]] = []
+        for worker_ref, count, alloc in zip(workers, counts, allocations):
+            if isinstance(count, Exception):
+                logger.warning(
+                    "Failed to get model count from worker %s: %s",
+                    worker_ref.address,
+                    count,
+                )
+                continue
+            if isinstance(alloc, Exception):
+                logger.debug(
+                    "Failed to fetch GPU allocation snapshot from worker %s: %s",
+                    worker_ref.address,
+                    alloc,
+                )
+                alloc = None
+            candidates.append({"ref": worker_ref, "count": count, "alloc": alloc})
+
+        if not candidates:
+            raise RuntimeError("No available worker found")
+
+        use_gpu = not (n_gpu is None or (isinstance(n_gpu, int) and n_gpu <= 0))
+        if use_gpu:
+            requested_gpu = n_gpu if isinstance(n_gpu, int) else 1
+            feasible = [
+                candidate
+                for candidate in candidates
+                if candidate["alloc"] is not None
+                and self._worker_has_gpu_capacity(candidate["alloc"], requested_gpu)
+            ]
+            unknown = [
+                candidate for candidate in candidates if candidate["alloc"] is None
+            ]
+            gpu_workers = [
+                candidate
+                for candidate in candidates
+                if candidate["alloc"] is not None and candidate["alloc"].get("total")
+            ]
+            if feasible:
+                candidates = feasible
+            elif unknown:
+                # Keep best-effort compatibility when a worker cannot report its
+                # allocation snapshot, but never prefer it over known capacity.
+                candidates = unknown
+            elif gpu_workers or isinstance(n_gpu, int):
+                raise RuntimeError(f"No worker has capacity for {requested_gpu} GPU(s)")
+
+            strategy_name = (XINFERENCE_LAUNCH_STRATEGY or "").lower()
+            normalized = strategy_name.replace("-", "_")
+            if normalized in ("idlefirst", "idle_first_launch_strategy"):
+                strategy = IdleFirstLaunchStrategy(self._worker_status)
+                return strategy.select_worker(
+                    candidates,
+                    n_gpu=n_gpu if isinstance(n_gpu, int) else None,
+                )
+
+        candidates.sort(
+            key=lambda candidate: (candidate["count"], candidate["ref"].address)
+        )
+        return candidates[0]["ref"], None
+
     @log_async(logger=logger)
     async def add_model_replica(
+        self,
+        model_uid: str,
+        replica_config: Optional[ReplicaConfig] = None,
+    ) -> Dict[str, Any]:
+        """Add one replica while serializing scale changes for this model."""
+        async with self._get_model_replica_lock(model_uid):
+            return await self._add_model_replica(model_uid, replica_config)
+
+    async def _add_model_replica(
         self,
         model_uid: str,
         replica_config: Optional[ReplicaConfig] = None,
@@ -3200,38 +3321,51 @@ class SupervisorActor(xo.StatelessActor):
             )
 
         # ---- 6. Resolve target worker / GPU --------------------------------------
+        default_replica_uid = f"{model_uid}-{new_replica_id}"
         if replica_config is not None:
+            # normalize_replica_configs aligns defaults to the list index. Scale-up
+            # resolves one item at a time, so supply the actual replica id default.
+            scale_config = replica_config
+            if replica_config.replica_uid is None:
+                scale_config = replica_config.copy(
+                    update={"replica_uid": default_replica_uid}
+                )
             _resolved_targets, _replica_uid_map = await self._resolve_replica_config(
-                model_uid, replica=1, replica_config=[replica_config]
+                model_uid, replica=1, replica_config=[scale_config]
             )
             target_worker_ref, target_gpu_idx, target_n_gpu = _resolved_targets[0]
             replica_uid_label = _replica_uid_map.get(0)
         else:
-            # Auto-select: pick the worker with the fewest loaded models.
-            workers = list(self._worker_address_to_worker.values())
-            if not workers:
-                raise RuntimeError("No available worker found")
-            counts = await asyncio.gather(
-                *[w.get_model_count() for w in workers],
-                return_exceptions=True,
-            )
-            candidates = []
-            for w_ref, count in zip(workers, counts):
-                if isinstance(count, Exception):
-                    logger.warning(
-                        "Failed to get model count from worker %s: %s",
-                        w_ref.address,
-                        count,
-                    )
-                    continue
-                candidates.append((w_ref, count))
-            if not candidates:
-                raise RuntimeError("No available worker found")
-            candidates.sort(key=lambda x: (x[1], x[0].address))
-            target_worker_ref = candidates[0][0]
-            target_gpu_idx = None
+            replica_uid_label = default_replica_uid
             target_n_gpu = launch_args.get("n_gpu", "auto")
-            replica_uid_label = None
+            cached_gpu_idx = launch_args.get("gpu_idx")
+            if (
+                target_n_gpu == "auto"
+                and isinstance(cached_gpu_idx, (list, tuple))
+                and cached_gpu_idx
+            ):
+                # Legacy explicit placement cached n_gpu="auto" alongside the
+                # concrete indexes. Preserve the effective GPU count while
+                # discarding those stale worker-local indexes.
+                target_n_gpu = len(cached_gpu_idx)
+            target_worker_ref, target_gpu_idx = await self._select_worker_for_scale_up(
+                target_n_gpu
+            )
+
+        existing_statuses = await self._status_guard_ref.get_replica_statuses(model_uid)
+        existing_replica_uids = {
+            (
+                status.get("replica_uid")
+                if isinstance(status, dict)
+                else status.replica_uid
+            )
+            for status in existing_statuses
+        }
+        if replica_uid_label in existing_replica_uids:
+            raise ValueError(
+                f"Replica uid already exists for model {model_uid}: "
+                f"{replica_uid_label}"
+            )
 
         # ---- 7. Prepare launch args for the new replica -------------------------
         modified_args: Dict[str, Any] = dict(launch_args)
@@ -3340,6 +3474,14 @@ class SupervisorActor(xo.StatelessActor):
 
     @log_async(logger=logger)
     async def terminate_model_replica(
+        self, model_uid: str, replica_id: int, suppress_exception: bool = False
+    ) -> int:
+        async with self._get_model_replica_lock(model_uid):
+            return await self._terminate_model_replica(
+                model_uid, replica_id, suppress_exception
+            )
+
+    async def _terminate_model_replica(
         self, model_uid: str, replica_id: int, suppress_exception: bool = False
     ) -> int:
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
