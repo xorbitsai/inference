@@ -845,6 +845,9 @@ async def _search_audit_from_file(
     from ...constants import XINFERENCE_LOG_DIR
 
     audit_path = os.path.join(XINFERENCE_LOG_DIR, "audit.log")
+    if not os.path.exists(audit_path):
+        return JSONResponse(content={"hits": [], "total": 0})
+
     t_from = _parse_relative_time(time_from)
     t_to = _parse_relative_time(time_to)
 
@@ -867,61 +870,65 @@ async def _search_audit_from_file(
         else set()
     )
 
-    def _read_and_filter_entries() -> dict[str, Any]:
-        results: list[dict] = []
-        try:
-            with open(audit_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
+    results: list[dict] = []
+    try:
+        with open(audit_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except (json.JSONDecodeError, ValueError):
+                    continue
+                # A line may be valid JSON yet not an object (e.g. `null`,
+                # `[1,2]`); `entry.get(...)` below would raise AttributeError.
+                if not isinstance(entry, dict):
+                    continue
+
+                ts_str = entry.get("@timestamp", "")
+                if t_from or t_to:
                     try:
-                        entry = json.loads(line)
-                    except (json.JSONDecodeError, ValueError):
+                        ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+                    except (ValueError, TypeError):
                         continue
-                    # A line may be valid JSON yet not an object (e.g. `null`,
-                    # `[1,2]`); `entry.get(...)` below would raise AttributeError.
-                    if not isinstance(entry, dict):
+                    if t_from and ts < t_from:
                         continue
-                    if not _audit_entry_in_time_range(entry, t_from, t_to):
-                        continue
-                    if not all(
-                        _match_substring(entry.get(field), needle)
-                        for field, needle in (
-                            ("user", user),
-                            ("api_key_name", api_key_name),
-                            ("model_id", model_id),
-                            ("model_name", model_name),
-                            ("client_ip", client_ip),
-                        )
-                        if needle
-                    ):
-                        continue
-                    if not all(
-                        _match_enum(entry.get(field), allowed)
-                        for field, allowed in (
-                            ("status", status_set),
-                            ("category", category_set),
-                            ("model_type", model_type_set),
-                            ("auth_type", auth_type_set),
-                        )
-                        if allowed
-                    ):
+                    if t_to and ts > t_to:
                         continue
 
-                    results.append(entry)
-        except OSError:
-            return {"hits": [], "total": 0}
+                if not all(
+                    _match_substring(entry.get(field), needle)
+                    for field, needle in (
+                        ("user", user),
+                        ("api_key_name", api_key_name),
+                        ("model_id", model_id),
+                        ("model_name", model_name),
+                        ("client_ip", client_ip),
+                    )
+                    if needle
+                ):
+                    continue
+                if not all(
+                    _match_enum(entry.get(field), allowed)
+                    for field, allowed in (
+                        ("status", status_set),
+                        ("category", category_set),
+                        ("model_type", model_type_set),
+                        ("auth_type", auth_type_set),
+                    )
+                    if allowed
+                ):
+                    continue
 
-        results.sort(key=lambda x: x.get("@timestamp", ""), reverse=True)
-        total = len(results)
-        return {
-            "hits": results[page_from : page_from + size],
-            "total": total,
-        }
+                results.append(entry)
+    except OSError:
+        return JSONResponse(content={"hits": [], "total": 0})
 
-    content = await asyncio.to_thread(_read_and_filter_entries)
-    return JSONResponse(content=content)
+    results.sort(key=lambda x: x.get("@timestamp", ""), reverse=True)
+    total = len(results)
+    hits = results[page_from : page_from + size]
+    return JSONResponse(content={"hits": hits, "total": total})
 
 
 async def _list_audit_filter_options_from_file(

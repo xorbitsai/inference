@@ -104,6 +104,14 @@ const defaultFilters: AuditFilters = {
   clientIp: '',
 };
 
+const defaultTextFilters = {
+  user: '',
+  apiKeyName: '',
+  modelId: '',
+  modelName: '',
+  clientIp: '',
+};
+
 const defaultFilterOptions: Required<AuditFilterOptionsResponse> = {
   user: [],
   api_key_name: [],
@@ -206,6 +214,7 @@ export default function AuditCenter() {
   const [loading, setLoading] = useState(false);
   const [timeRange, setTimeRange] = useState<TimeRangeValue>(DEFAULT_LOG_TIME_RANGE);
   const [filters, setFilters] = useState<AuditFilters>(defaultFilters);
+  const [draftFilters, setDraftFilters] = useState(defaultTextFilters);
   const [filterOptions, setFilterOptions] =
     useState<Required<AuditFilterOptionsResponse>>(defaultFilterOptions);
   const [pageFrom, setPageFrom] = useState(0);
@@ -288,6 +297,23 @@ export default function AuditCenter() {
   }, [fetchAuditRecords, refreshInterval]);
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setFilters((current) => {
+        const hasChanged = (Object.keys(defaultTextFilters) as AuditTextFilterKey[]).some(
+          (key) => current[key] !== draftFilters[key]
+        );
+
+        if (!hasChanged) return current;
+
+        setPageFrom(0);
+        return { ...current, ...draftFilters };
+      });
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [draftFilters]);
+
+  useEffect(() => {
     let active = true;
     const params = new URLSearchParams({
       time_from: timeRange.from,
@@ -358,9 +384,8 @@ export default function AuditCenter() {
     ];
   }, [records, t, total]);
 
-  const setTextFilter = (key: AuditTextFilterKey, value?: string | number) => {
-    setFilters((current) => ({ ...current, [key]: String(value || '') }));
-    setPageFrom(0);
+  const setTextFilter = (key: AuditTextFilterKey, value?: string) => {
+    setDraftFilters((current) => ({ ...current, [key]: value || '' }));
   };
 
   const setFilter = (key: Exclude<AuditFilterKey, AuditTextFilterKey>, value?: string | number) => {
@@ -374,6 +399,7 @@ export default function AuditCenter() {
   };
 
   const resetFilters = () => {
+    setDraftFilters(defaultTextFilters);
     setFilters(defaultFilters);
     setPageFrom(0);
   };
@@ -386,6 +412,7 @@ export default function AuditCenter() {
   const hasFilters = Object.values(filters).some((value) =>
     Array.isArray(value) ? value.length > 0 : Boolean(value)
   );
+  const hasDraftFilters = Object.values(draftFilters).some(Boolean);
   const maxAccessibleTotal = Math.min(total, 10000);
   const currentPage = Math.floor(pageFrom / AUDIT_PAGE_SIZE) + 1;
   const totalPages = Math.ceil(maxAccessibleTotal / AUDIT_PAGE_SIZE) || 1;
@@ -459,7 +486,12 @@ export default function AuditCenter() {
               <Filter className="h-4 w-4 text-muted-foreground" />
               {t('auditCenter.filters')}
             </div>
-            <Button variant="ghost" size="sm" onClick={resetFilters} disabled={!hasFilters}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={resetFilters}
+              disabled={!hasFilters && !hasDraftFilters}
+            >
               <RotateCcw className="mr-2 h-4 w-4" />
               {t('auditCenter.resetFilters')}
             </Button>
@@ -467,35 +499,35 @@ export default function AuditCenter() {
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <FilterTextSelect
               label={t('auditCenter.user')}
-              value={filters.user}
+              value={draftFilters.user}
               values={filterOptions.user}
               placeholder={t('auditCenter.userPlaceholder')}
               onChange={(value) => setTextFilter('user', value)}
             />
             <FilterTextSelect
               label={t('auditCenter.apiKeyName')}
-              value={filters.apiKeyName}
+              value={draftFilters.apiKeyName}
               values={filterOptions.api_key_name}
               placeholder={t('auditCenter.apiKeyNamePlaceholder')}
               onChange={(value) => setTextFilter('apiKeyName', value)}
             />
             <FilterTextSelect
               label={t('auditCenter.modelId')}
-              value={filters.modelId}
+              value={draftFilters.modelId}
               values={filterOptions.model_id}
               placeholder={t('auditCenter.modelIdPlaceholder')}
               onChange={(value) => setTextFilter('modelId', value)}
             />
             <FilterTextSelect
               label={t('auditCenter.modelName')}
-              value={filters.modelName}
+              value={draftFilters.modelName}
               values={filterOptions.model_name}
               placeholder={t('auditCenter.modelNamePlaceholder')}
               onChange={(value) => setTextFilter('modelName', value)}
             />
             <FilterTextSelect
               label={t('auditCenter.clientIp')}
-              value={filters.clientIp}
+              value={draftFilters.clientIp}
               values={filterOptions.client_ip}
               placeholder={t('auditCenter.clientIpPlaceholder')}
               onChange={(value) => setTextFilter('clientIp', value)}
@@ -738,7 +770,7 @@ interface FilterTextSelectProps {
   value: string;
   values: string[];
   placeholder: string;
-  onChange: (value?: string | number) => void;
+  onChange: (value?: string) => void;
 }
 
 function FilterTextSelect({ label, value, values, placeholder, onChange }: FilterTextSelectProps) {
