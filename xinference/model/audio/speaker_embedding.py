@@ -26,6 +26,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_MODELSCOPE_DEVICES = {"cpu", "cuda", "gpu"}
+
 
 class ModelScopeSpeakerEmbeddingModel:
     """Extract speaker embeddings with a ModelScope speaker-verification model."""
@@ -65,6 +67,13 @@ class ModelScopeSpeakerEmbeddingModel:
             self._device = get_available_device()
         elif not is_device_available(self._device):
             raise ValueError(f"Device {self._device} is not available!")
+
+        if self._device not in _MODELSCOPE_DEVICES:
+            logger.info(
+                "ModelScope does not support device %s; falling back to CPU",
+                self._device,
+            )
+            self._device = "cpu"
 
         logger.debug(
             "Loading ModelScope speaker embedding model from %s on %s",

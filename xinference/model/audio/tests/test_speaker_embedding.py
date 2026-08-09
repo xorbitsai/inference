@@ -12,14 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 from pathlib import Path
-from types import SimpleNamespace
-from unittest.mock import patch
+from types import ModuleType, SimpleNamespace
+from unittest.mock import Mock, patch
 
 import numpy as np
 import pytest
 
-from ..core import create_audio_model_instance
+from ..core import create_audio_model_instance, match_audio
 from ..speaker_embedding import ModelScopeSpeakerEmbeddingModel
 
 
@@ -85,15 +86,49 @@ def test_create_speaker_embedding_rejects_empty_audio():
         model.create_embedding(b"")
 
 
-def test_campplus_factory_dispatch():
-    spec = SimpleNamespace(
-        model_name="speaker-model",
-        model_family="campplus",
-        model_ability=["speaker_embedding"],
-    )
-    with patch("xinference.model.audio.core.match_audio", return_value=spec):
-        model = create_audio_model_instance(
-            "uid", "speaker-model", model_path="/fake/path"
-        )
+@pytest.mark.parametrize(
+    "model_name",
+    [
+        "speech_campplus_sv_zh-cn_16k-common",
+        "speech_campplus_sv_zh_en_16k-common_advanced",
+    ],
+)
+def test_campplus_builtin_registration(model_name):
+    spec = match_audio(model_name, download_hub="modelscope")
+
+    assert spec.model_family == "campplus"
+    assert spec.model_ability == ["speaker_embedding"]
+
+    model = create_audio_model_instance("uid", model_name, model_path="/fake/path")
 
     assert isinstance(model, ModelScopeSpeakerEmbeddingModel)
+
+
+def test_campplus_load_falls_back_from_mps_to_cpu():
+    pipeline = Mock()
+    pipelines_module = ModuleType("modelscope.pipelines")
+    pipelines_module.pipeline = pipeline
+    constant_module = ModuleType("modelscope.utils.constant")
+    constant_module.Tasks = SimpleNamespace(speaker_verification="speaker-verification")
+
+    model = _new_model()
+    with (
+        patch.dict(
+            sys.modules,
+            {
+                "modelscope.pipelines": pipelines_module,
+                "modelscope.utils.constant": constant_module,
+            },
+        ),
+        patch(
+            "xinference.model.audio.speaker_embedding.get_available_device",
+            return_value="mps",
+        ),
+    ):
+        model.load()
+
+    pipeline.assert_called_once_with(
+        task="speaker-verification",
+        model="/unused",
+        device="cpu",
+    )
