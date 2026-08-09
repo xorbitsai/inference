@@ -1354,6 +1354,7 @@ class AsyncClient:
             "devices": [{"worker_ip": "ip:port", "n_gpu": int|"auto",
             "gpu_idx": [int]|None}]}``. When set, each replica is pinned to the
             given worker/GPU and the legacy worker_ip/n_gpu/gpu_idx are ignored.
+            An omitted replica_uid defaults to ``{model_uid}-{replica_index}``.
             ``devices`` length must be 1 (no cross-worker sharding per replica).
         model_path: Optional[str]
             Model path, if gguf format, should be the file path, otherwise, should be directory of the model.

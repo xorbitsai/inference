@@ -92,8 +92,10 @@ each entry currently supports exactly one worker.
     )
 
 ``replica_config`` is mutually exclusive with the model-level ``worker_ip``,
-``n_gpu``, and ``gpu_idx`` arguments. Omit ``gpu_idx`` and use ``n_gpu="auto"``
-to let the selected worker allocate GPUs automatically.
+``n_gpu``, and ``gpu_idx`` arguments. If ``replica_uid`` is omitted, Xinference
+assigns the stable default ``{model_uid}-{replica_index}`` (for example,
+``my-model-0``). Omit ``gpu_idx`` and use ``n_gpu="auto"`` to let the selected
+worker allocate GPUs automatically.
 
 GPU Allocation Strategy
 =======================

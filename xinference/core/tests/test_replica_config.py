@@ -70,6 +70,31 @@ def test_from_dict_roundtrip():
     assert cfg.devices[0].gpu_idx == [0]
 
 
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("worker_ip", 9978),
+        ("n_gpu", 1.5),
+        ("n_gpu", True),
+        ("n_gpu", "1"),
+        ("gpu_idx", [0.9]),
+        ("gpu_idx", [True]),
+        ("gpu_idx", [0, 0]),
+    ],
+)
+def test_device_config_rejects_non_strict_placement_values(field, value):
+    data = {"worker_ip": "10.0.0.1:9978", field: value}
+    with pytest.raises(ValueError):
+        DeviceConfig(**data)
+
+
+def test_placement_config_rejects_unknown_fields():
+    with pytest.raises(ValueError):
+        DeviceConfig(worker_ip="10.0.0.1:9978", gpu_id=0)
+    with pytest.raises(ValueError):
+        ReplicaConfig(devices=[], replica_name="replica")
+
+
 def test_normalize_length_mismatch():
     with pytest.raises(ValueError, match="must equal replica"):
         normalize_replica_configs("m", replica=2, configs=[_cfg()])
@@ -91,12 +116,12 @@ def test_normalize_n_gpu_consistency():
     normalize_replica_configs("m", 1, [_cfg(n_gpu="auto", gpu_idx=[0])])
 
 
-def test_normalize_missing_replica_uid_stays_none():
+def test_normalize_missing_replica_uid_gets_stable_default():
     configs = normalize_replica_configs(
         "my-model", 2, [_cfg(), _cfg(worker_ip="10.0.0.2:9978")]
     )
-    assert configs[0].replica_uid is None
-    assert configs[1].replica_uid is None
+    assert configs[0].replica_uid == "my-model-0"
+    assert configs[1].replica_uid == "my-model-1"
 
 
 def test_normalize_replica_uid_uniqueness():
@@ -164,7 +189,7 @@ def test_resolve_valid():
     assert targets[0][2] == "auto"
     assert targets[1][0].address == "10.0.0.2:9978"
     assert targets[1][1] == [1]
-    assert uid_map == {0: None, 1: None}
+    assert uid_map == {0: "m-0", 1: "m-1"}
 
 
 def test_resolve_preserves_explicit_replica_uid():

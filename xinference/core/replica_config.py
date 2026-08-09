@@ -26,11 +26,16 @@ cluster topology.
 
 from typing import List, Optional, Union
 
-from .._compat import BaseModel, Field
+from .._compat import BaseModel, Field, validator
 from .utils import parse_replica_model_uid
 
 
-class DeviceConfig(BaseModel):
+class _PlacementConfigBase(BaseModel):
+    class Config:
+        extra = "forbid"
+
+
+class DeviceConfig(_PlacementConfigBase):
     """Placement of one replica on a single worker.
 
     Each replica is restricted to exactly one device for now (no cross-worker
@@ -41,8 +46,34 @@ class DeviceConfig(BaseModel):
     n_gpu: Union[int, str] = "auto"  # int count, or "auto" for worker auto-allocation
     gpu_idx: Optional[List[int]] = None  # explicit GPU indexes; None/empty = auto
 
+    @validator("worker_ip", pre=True)
+    def _validate_worker_ip(cls, value):
+        if not isinstance(value, str):
+            raise TypeError("worker_ip must be a string")
+        return value
 
-class ReplicaConfig(BaseModel):
+    @validator("n_gpu", pre=True)
+    def _validate_n_gpu(cls, value):
+        if value != "auto" and (isinstance(value, bool) or not isinstance(value, int)):
+            raise TypeError("n_gpu must be an integer or 'auto'")
+        return value
+
+    @validator("gpu_idx", pre=True)
+    def _validate_gpu_idx(cls, value):
+        if value is None:
+            return value
+        if not isinstance(value, list):
+            raise TypeError("gpu_idx must be a list of integers")
+        if any(
+            isinstance(index, bool) or not isinstance(index, int) for index in value
+        ):
+            raise TypeError("gpu_idx must contain only integers")
+        if len(set(value)) != len(value):
+            raise ValueError("gpu_idx must not contain duplicate indexes")
+        return value
+
+
+class ReplicaConfig(_PlacementConfigBase):
     """Placement spec for a single replica."""
 
     replica_uid: Optional[str] = None
@@ -64,12 +95,13 @@ def normalize_replica_configs(
     replica: int,
     configs: List[ReplicaConfig],
 ) -> List[ReplicaConfig]:
-    """Validate structure and preserve optional user-provided ``replica_uid``.
+    """Validate structure and resolve each replica's stable user-facing UID.
 
-    Returns a list aligned by replica index (length ``replica``). Raises
-    ``ValueError`` on any structural violation. Stateful validation (worker
-    existence, GPU legality, cross-replica GPU conflicts) is intentionally not
-    done here — it belongs to the supervisor which holds cluster topology.
+    Returns a list aligned by replica index (length ``replica``), assigning
+    ``{model_uid}-{index}`` when ``replica_uid`` is omitted. Raises ``ValueError``
+    on any structural violation. Stateful validation (worker existence, GPU
+    legality, cross-replica GPU conflicts) is intentionally not done here — it
+    belongs to the supervisor which holds cluster topology.
     """
     if len(configs) != replica:
         raise ValueError(
@@ -89,20 +121,20 @@ def normalize_replica_configs(
 
         _validate_device_consistency(idx, device)
 
-        replica_uid = cfg.replica_uid
-        if replica_uid is not None:
-            if _is_reserved_replica_uid(replica_uid):
-                raise ValueError(
-                    f"replica_uid '{replica_uid}' collides with a reserved internal "
-                    "replica/rank identifier; please choose another name."
-                )
-            if replica_uid in seen_uids:
-                raise ValueError(
-                    f"Duplicate replica_uid '{replica_uid}' in replica_config."
-                )
-            seen_uids.add(replica_uid)
-
-        resolved.append(cfg)
+        replica_uid = (
+            cfg.replica_uid if cfg.replica_uid is not None else f"{model_uid}-{idx}"
+        )
+        if _is_reserved_replica_uid(replica_uid):
+            raise ValueError(
+                f"replica_uid '{replica_uid}' collides with a reserved internal "
+                "replica/rank identifier; please choose another name."
+            )
+        if replica_uid in seen_uids:
+            raise ValueError(
+                f"Duplicate replica_uid '{replica_uid}' in replica_config."
+            )
+        seen_uids.add(replica_uid)
+        resolved.append(cfg.copy(update={"replica_uid": replica_uid}))
     return resolved
 
 

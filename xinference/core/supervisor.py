@@ -2340,6 +2340,7 @@ class SupervisorActor(xo.StatelessActor):
                     "status": LaunchStatus.CREATING.name,
                     "created_ts": int(time.time()),
                     "replica_uid": replica_uid,
+                    "gpu_idx": target_gpu_idx,
                 },
             )
 
