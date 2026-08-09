@@ -225,7 +225,10 @@ export default function AuditCenter() {
   const [pageFrom, setPageFrom] = useState(0);
   const [selectedRecord, setSelectedRecord] = useState<AuditRecord | null>(null);
   const requestSeqRef = useRef(0);
-  const lastSuccessfulPageFromRef = useRef(0);
+  const lastSuccessfulRequestRef = useRef<{
+    queryKey: string;
+    pageFrom: number;
+  } | null>(null);
   // Tracks whether the latest fetch is still pending so the auto-refresh
   // interval can skip a tick instead of stacking overlapping requests.
   const inFlightRef = useRef(false);
@@ -253,6 +256,10 @@ export default function AuditCenter() {
   const fetchAuditRecords = useCallback(
     async (silent = false) => {
       const seq = ++requestSeqRef.current;
+      const queryKeyParams = new URLSearchParams(queryParams);
+      queryKeyParams.delete('page_from');
+      queryKeyParams.delete('size');
+      const queryKey = queryKeyParams.toString();
       inFlightRef.current = true;
       // Background refreshes stay silent so the table does not flip to the
       // loading spinner every interval; only user-initiated fetches show it.
@@ -267,14 +274,21 @@ export default function AuditCenter() {
         if (seq === requestSeqRef.current) {
           setRecords(Array.isArray(data.hits) ? data.hits : []);
           setTotal(data.total || 0);
-          lastSuccessfulPageFromRef.current = pageFrom;
+          lastSuccessfulRequestRef.current = { queryKey, pageFrom };
         }
       } catch {
         // A transient failure during a silent background refresh must not wipe
         // the table. A failed foreground page jump also keeps the last good
         // results and restores the page that produced them.
         if (!silent && seq === requestSeqRef.current) {
-          setPageFrom(lastSuccessfulPageFromRef.current);
+          const lastSuccessfulRequest = lastSuccessfulRequestRef.current;
+          if (lastSuccessfulRequest?.queryKey === queryKey) {
+            setPageFrom(lastSuccessfulRequest.pageFrom);
+          } else {
+            setRecords([]);
+            setTotal(0);
+            setPageFrom(0);
+          }
         }
       } finally {
         if (seq === requestSeqRef.current) {
