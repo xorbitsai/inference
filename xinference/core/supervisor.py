@@ -412,6 +412,46 @@ class SupervisorActor(xo.StatelessActor):
             )
         return affected_replica_uids
 
+    async def _mark_affected_replicas_terminated(
+        self, affected_replica_uids: List[str]
+    ) -> Set[str]:
+        base_uids_affected: Set[str] = set()
+        for replica_model_uid in affected_replica_uids:
+            parsed = self._get_model_uid_and_replica_index(replica_model_uid)
+            if parsed is None:
+                continue
+            base_uid, replica_id = parsed
+            base_uids_affected.add(base_uid)
+            if self._status_guard_ref is not None:
+                try:
+                    await self._status_guard_ref.update_replica_status(
+                        base_uid,
+                        replica_id,
+                        {"status": LaunchStatus.TERMINATED.name},
+                    )
+                except Exception:
+                    pass
+        return base_uids_affected
+
+    async def _reconcile_affected_model_statuses(
+        self, base_uids_affected: Set[str]
+    ) -> None:
+        if self._status_guard_ref is None:
+            return
+        for base_uid in base_uids_affected:
+            replica_info = self._model_uid_to_replica_info.get(base_uid)
+            updates = (
+                {"replica": replica_info.replica}
+                if replica_info is not None
+                else {"replica": 0, "status": LaunchStatus.TERMINATED.name}
+            )
+            try:
+                await self._status_guard_ref.update_instance_info(base_uid, updates)
+            except Exception:
+                logger.warning(
+                    "Failed to reconcile %s in status guard", base_uid, exc_info=True
+                )
+
     async def _handle_dead_worker(self, worker_address: str) -> List[str]:
         """Shared cleanup for a worker that has gone away — heartbeat-dead,
         reverse-channel-dead, or graceful remove_worker.
@@ -422,40 +462,18 @@ class SupervisorActor(xo.StatelessActor):
            _remove_worker_from_replica_mappings, which preserves healthy replicas
            of multi-replica models on other workers and drops a model only when
            *all* its replicas are gone.
-        3. Advance fully-gone models to TERMINATED so model_status disappears;
-           degraded models stay READY.
+        3. Reconcile replica statuses/counts, and advance fully-gone models to
+           TERMINATED so model_status disappears; degraded models stay READY.
         """
         affected_replica_uids = await self._record_unexpected_down_replicas(
             worker_address
         )
-        base_uids_affected = set()
-        for replica_model_uid in affected_replica_uids:
-            parsed = self._get_model_uid_and_replica_index(replica_model_uid)
-            if parsed is not None:
-                base_uid, replica_id = parsed
-                base_uids_affected.add(base_uid)
-                if self._status_guard_ref is not None:
-                    try:
-                        await self._status_guard_ref.update_replica_status(
-                            base_uid,
-                            replica_id,
-                            {"status": LaunchStatus.TERMINATED.name},
-                        )
-                    except Exception:
-                        pass
+        base_uids_affected = await self._mark_affected_replicas_terminated(
+            affected_replica_uids
+        )
 
         self._remove_worker_from_replica_mappings(worker_address)
-
-        for base_uid in base_uids_affected:
-            if base_uid not in self._model_uid_to_replica_info:
-                try:
-                    await self._status_guard_ref.update_instance_info(
-                        base_uid, {"status": LaunchStatus.TERMINATED.name}
-                    )
-                except Exception:
-                    logger.warning(
-                        "Failed to mark %s TERMINATED in status guard", base_uid
-                    )
+        await self._reconcile_affected_model_statuses(base_uids_affected)
         return affected_replica_uids
 
     def _clear_unexpected_down_replicas(self, model_uid: str) -> None:
@@ -552,14 +570,18 @@ class SupervisorActor(xo.StatelessActor):
 
         for model_uid, replica_metadata in replica_groups.items():
             replica_indexes = sorted(replica_metadata)
-            replica_count = len(replica_indexes)
             replica_info = self._model_uid_to_replica_info.get(model_uid)
             if replica_info is None:
-                replica_info = self._build_replica_info(replica_count)
+                replica_info = ReplicaInfo(
+                    replica=len(replica_indexes),
+                    scheduler=itertools.cycle(replica_indexes),
+                    active_replica_ids=list(replica_indexes),
+                )
                 self._model_uid_to_replica_info[model_uid] = replica_info
-            replica_info.active_replica_ids = sorted(
-                set(replica_info.active_replica_ids) | set(replica_indexes)
-            )
+            else:
+                replica_info.active_replica_ids = sorted(
+                    set(replica_info.active_replica_ids) | set(replica_indexes)
+                )
             self._refresh_replica_scheduler(replica_info)
 
             for replica_idx in replica_indexes:
@@ -615,8 +637,11 @@ class SupervisorActor(xo.StatelessActor):
                 if isinstance(created_ts, int):
                     created_ts_candidates.append(created_ts)
 
+            replica_info = self._model_uid_to_replica_info.get(model_uid)
             inferred_replica_count = (
-                max(replica_indexes) + 1 if replica_indexes else len(states)
+                replica_info.replica
+                if replica_info is not None
+                else len(set(replica_indexes))
             )
             model_name = next(
                 (
@@ -665,7 +690,7 @@ class SupervisorActor(xo.StatelessActor):
                         "model_name": model_name,
                         "model_version": model_version,
                         "model_ability": model_ability,
-                        "replica": max(existing_info.replica, inferred_replica_count),
+                        "replica": inferred_replica_count,
                         "status": LaunchStatus.READY.name,
                         "instance_created_ts": min(
                             existing_info.instance_created_ts, instance_created_ts
@@ -4070,31 +4095,13 @@ class SupervisorActor(xo.StatelessActor):
         affected_replica_uids = await self._record_unexpected_down_replicas(
             worker_address, skip_replica_uids=reported_uids
         )
+        base_uids_affected = await self._mark_affected_replicas_terminated(
+            affected_replica_uids
+        )
 
         self._rebuild_worker_replica_state(worker_ref, normalized)
-
-        # After the rebuild reflects what the worker reports now, advance any
-        # fully-gone model to TERMINATED so model_status stops showing it as
-        # READY. Degraded models (some replicas recovered/on other workers) stay
-        # in _model_uid_to_replica_info and are left untouched. Same logic as
-        # _handle_dead_worker.
-        base_uids_affected = set()
-        for replica_model_uid in affected_replica_uids:
-            parsed = self._get_model_uid_and_replica_index(replica_model_uid)
-            if parsed is not None:
-                base_uids_affected.add(parsed[0])
-        for base_uid in base_uids_affected:
-            if base_uid not in self._model_uid_to_replica_info:
-                try:
-                    await self._status_guard_ref.update_instance_info(
-                        base_uid, {"status": LaunchStatus.TERMINATED.name}
-                    )
-                except Exception:
-                    logger.warning(
-                        "Failed to mark %s TERMINATED in status guard", base_uid
-                    )
-
         await self._rebuild_worker_status_guard_state(worker_address, normalized)
+        await self._reconcile_affected_model_statuses(base_uids_affected)
         logger.debug("Worker %s has been added successfully", worker_address)
         self._schedule_autostart()
 

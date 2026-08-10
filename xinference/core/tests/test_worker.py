@@ -887,6 +887,119 @@ async def test_supervisor_add_worker_idempotent_rebuilds_replica_state(monkeypat
 
 
 @pytest.mark.asyncio
+async def test_supervisor_add_worker_rebuilds_sparse_replica_ids(monkeypatch):
+    supervisor = SupervisorActor()
+    supervisor._status_guard_ref = DummyStatusGuardRef()
+    replica_model_uid = "model-a-rep2"
+    worker_ref = DummyReplicaWorkerRef(
+        "worker-1",
+        models={
+            replica_model_uid: {
+                "model_uid": replica_model_uid,
+                "address": "worker-1",
+            }
+        },
+    )
+
+    async def fake_actor_ref(address, uid):
+        assert address == "worker-1"
+        return worker_ref
+
+    monkeypatch.setattr(xo, "actor_ref", fake_actor_ref)
+
+    await supervisor.add_worker(
+        "worker-1",
+        replica_states=[
+            {
+                "replica_model_uid": replica_model_uid,
+                "n_worker": 1,
+                "shard": 0,
+                "model_uid": "model-a",
+                "model_name": "demo-model",
+                "model_version": None,
+                "model_ability": ["generate"],
+                "status": LaunchStatus.READY.name,
+                "created_ts": 1710000001,
+                "instance_created_ts": 1710000001,
+            }
+        ],
+    )
+
+    replica_info = supervisor._model_uid_to_replica_info["model-a"]
+    assert replica_info.replica == 1
+    assert replica_info.active_replica_ids == [2]
+    assert next(replica_info.scheduler) == 2
+    assert "model-a-rep0" not in supervisor._replica_model_uid_to_worker
+    assert supervisor._replica_model_uid_to_worker[replica_model_uid] is worker_ref
+
+    instance_info = (
+        await supervisor._status_guard_ref.get_instance_info(model_uid="model-a")
+    )[0]
+    assert instance_info.replica == 1
+    assert [status.replica_id for status in instance_info.replica_statuses] == [2]
+
+
+@pytest.mark.asyncio
+async def test_supervisor_add_worker_reconciles_partial_recovery(monkeypatch):
+    supervisor = SupervisorActor()
+    supervisor._status_guard_ref = DummyStatusGuardRef()
+    replica_uids = ["model-a-rep0", "model-a-rep1"]
+    worker_ref = DummyReplicaWorkerRef(
+        "worker-1",
+        models={
+            replica_uid: {"model_uid": replica_uid, "address": "worker-1"}
+            for replica_uid in replica_uids
+        },
+    )
+
+    async def fake_actor_ref(address, uid):
+        assert address == "worker-1"
+        return worker_ref
+
+    monkeypatch.setattr(xo, "actor_ref", fake_actor_ref)
+
+    def build_state(replica_model_uid: str, created_ts: int):
+        return {
+            "replica_model_uid": replica_model_uid,
+            "n_worker": 1,
+            "shard": 0,
+            "model_uid": "model-a",
+            "model_name": "demo-model",
+            "model_version": None,
+            "model_ability": ["generate"],
+            "status": LaunchStatus.READY.name,
+            "created_ts": created_ts,
+            "instance_created_ts": 1710000001,
+        }
+
+    replica_states = [
+        build_state(replica_uids[0], 1710000001),
+        build_state(replica_uids[1], 1710000002),
+    ]
+    await supervisor.add_worker("worker-1", replica_states=replica_states)
+
+    await supervisor.add_worker("worker-1", replica_states=replica_states[:1])
+
+    replica_info = supervisor._model_uid_to_replica_info["model-a"]
+    assert replica_info.replica == 1
+    assert replica_info.active_replica_ids == [0]
+    assert supervisor._replica_model_uid_to_worker[replica_uids[0]] is worker_ref
+    assert replica_uids[1] not in supervisor._replica_model_uid_to_worker
+    assert ("model-a", 1) in supervisor._unexpected_down_replicas
+
+    instance_info = (
+        await supervisor._status_guard_ref.get_instance_info(model_uid="model-a")
+    )[0]
+    assert instance_info.replica == 1
+    assert instance_info.status == LaunchStatus.READY.name
+    replica_statuses = {
+        status.replica_id: status for status in instance_info.replica_statuses
+    }
+    assert replica_statuses[0].status == LaunchStatus.READY.name
+    assert replica_statuses[1].status == LaunchStatus.TERMINATED.name
+
+
+@pytest.mark.asyncio
 async def test_supervisor_report_worker_status_rejects_unregistered_worker():
     """report_worker_status must reject a worker absent from the registry
     (e.g. after a supervisor restart) instead of fabricating a _worker_status
