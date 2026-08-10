@@ -1166,6 +1166,55 @@ class RESTfulAPI(CancelMixin):
         evict_model_cache(model_uid)
         return JSONResponse(content=None)
 
+    async def add_model_replica(
+        self, model_uid: str, payload: Optional[dict[str, Any]] = None
+    ) -> JSONResponse:
+        """Add a single new replica to a running model (scale-up).
+
+        Accepts an optional ``replica_config`` with a single device entry to
+        pin the new replica to a specific worker / GPU.  When omitted the
+        supervisor auto-selects the least-loaded worker.
+        """
+        try:
+            payload = payload or {}
+            replica_config_raw = payload.get("replica_config", None)
+            replica_config: Optional[ReplicaConfig] = None
+            if replica_config_raw is not None:
+                if not isinstance(replica_config_raw, dict):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Invalid replica_config: expected a dict with a single device entry.",
+                    )
+                try:
+                    replica_config = ReplicaConfig.from_dict(replica_config_raw)
+                except Exception as e:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Invalid replica_config: {e}",
+                    )
+                if len(replica_config.devices) != 1:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="replica_config must contain exactly one device entry for scale-up.",
+                    )
+
+            result = await (await self._get_supervisor_ref()).add_model_replica(
+                model_uid=model_uid,
+                replica_config=replica_config,
+            )
+            return JSONResponse(content=result)
+        except HTTPException:
+            raise
+        except ValueError as ve:
+            logger.error(str(ve), exc_info=True)
+            raise HTTPException(status_code=400, detail=str(ve))
+        except RuntimeError as re:
+            logger.error(str(re), exc_info=True)
+            raise HTTPException(status_code=503, detail=str(re))
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            raise HTTPException(status_code=500, detail=str(e))
+
     async def terminate_model_replica(
         self, model_uid: str, replica_id: int
     ) -> JSONResponse:
@@ -1184,6 +1233,10 @@ class RESTfulAPI(CancelMixin):
                         and route.path == "/" + model_uid
                     )
                 ]
+                self._uid_to_model_name.pop(model_uid, None)
+                from .oauth2.advanced.audit import evict_model_cache
+
+                evict_model_cache(model_uid)
             return JSONResponse(content={"remaining_replicas": remaining_replicas})
         except ValueError as ve:
             logger.error(str(ve), exc_info=True)

@@ -97,6 +97,34 @@ assigns the stable default ``{model_uid}-{replica_index}`` (for example,
 ``my-model-0``). Omit ``gpu_idx`` and use ``n_gpu="auto"`` to let the selected
 worker allocate GPUs automatically.
 
+Running models can be scaled one replica at a time. Placement is optional; if
+omitted, the supervisor selects a worker automatically.
+
+.. code-block:: python
+
+    result = client.add_model_replica(model_uid)
+
+    result = client.add_model_replica(
+        model_uid,
+        replica_config={
+            "replica_uid": "burst-capacity",
+            "devices": [
+                {
+                    "worker_ip": "192.168.1.12:9978",
+                    "n_gpu": 1,
+                    "gpu_idx": [1],
+                }
+            ],
+        },
+    )
+
+    remaining = client.terminate_model_replica(
+        model_uid, replica_id=result["replica_id"]
+    )
+
+Scale-up is not supported for Xavier-distributed models or models launched with
+``n_worker > 1``. Deleting the last replica terminates the running model.
+
 GPU Allocation Strategy
 =======================
 

@@ -1242,7 +1242,7 @@ class Client:
             Per-replica placement spec. Each item is ``{"replica_uid": str|None,
             "devices": [{"worker_ip": "ip:port", "n_gpu": int|"auto",
             "gpu_idx": [int]|None}]}``. When set, each replica is pinned to the
-            given worker/GPU and the legacy worker_ip/n_gpu/gpu_idx are ignored.
+            given worker/GPU. Do not combine it with worker_ip/n_gpu/gpu_idx.
             An omitted replica_uid defaults to ``{model_uid}-{replica_index}``.
             ``devices`` length must be 1 (no cross-worker sharding per replica).
         model_path: Optional[str]
@@ -1374,6 +1374,45 @@ class Client:
             raise RuntimeError(
                 f"Failed to terminate model, detail: {_get_error_string(response)}"
             )
+
+    def add_model_replica(
+        self,
+        model_uid: str,
+        replica_config: Optional[dict] = None,
+    ) -> dict:
+        """Add a new replica to a running model (scale-up).
+
+        Parameters
+        ----------
+        model_uid : str
+            The UID of the running model to extend.
+        replica_config : Optional[dict]
+            Optional single-device placement config, e.g.::
+
+                {
+                  "replica_uid": "my-replica-label",
+                  "devices": [
+                    {"worker_ip": "192.168.1.100:9999", "gpu_idx": [0, 1]}
+                  ]
+                }
+
+            Omit to let the supervisor auto-select a worker and GPU.
+
+        Returns
+        -------
+        dict
+            ``{"replica_id": int, "replica_model_uid": str, "worker_address": str}``
+        """
+        url = f"{self.base_url}/v1/models/{model_uid}/replicas"
+        payload: Dict[str, Any] = {}
+        if replica_config is not None:
+            payload["replica_config"] = replica_config
+        response = self.session.post(url, json=payload, headers=self._headers)
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to add model replica, detail: {_get_error_string(response)}"
+            )
+        return response.json()
 
     def terminate_model_replica(self, model_uid: str, replica_id: int) -> int:
         """Terminate a specific replica of a running model."""

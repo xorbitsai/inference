@@ -6,6 +6,14 @@ Client API
 
 Complete Client API Reference: :ref:`reference_index`
 
+Replica management
+==================
+
+The synchronous and asynchronous clients accept ``replica_config`` in
+``launch_model`` and expose ``add_model_replica`` and
+``terminate_model_replica`` for running models. See :ref:`launch` for the
+request structure, placement rules, and examples.
+
 To utilize the Client API, initiate the xinference server using the command below:
 
 .. code-block::
