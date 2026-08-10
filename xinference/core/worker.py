@@ -1649,6 +1649,22 @@ class WorkerActor(xo.StatelessActor):
         # Update persisted file to reflect current state
         self._persist_launch_args()
 
+        # Re-register with supervisor so recovered replicas are added
+        # to the routing table. Without this, models recovered on
+        # worker restart are invisible to the scheduler and the model
+        # disappears when the last pre-existing replica dies.
+        if recovered > 0:
+            try:
+                self._registered = False
+                await self.get_supervisor_ref(add_worker=True)
+            except Exception:
+                logger.error(
+                    "Failed to re-register with supervisor after "
+                    "recovering %d model(s)",
+                    recovered,
+                    exc_info=True,
+                )
+
     @log_sync(logger=logger)
     def get_model_count(self) -> int:
         return len(self._model_uid_to_model)
@@ -4091,7 +4107,7 @@ class WorkerActor(xo.StatelessActor):
         if self._status_guard_ref is not None:
             try:
                 origin_uid, rank_suffix = parse_replica_model_uid(model_uid)
-                replica_id = rank_suffix - 1 if rank_suffix > 0 else 0
+                replica_id = rank_suffix if rank_suffix >= 0 else 0
                 await self._status_guard_ref.update_replica_status(
                     origin_uid,
                     replica_id,
