@@ -23,8 +23,15 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { InfoTooltip } from '@/components/ui/tooltip';
+import { useGlobal } from '@/contexts/global-context';
 import { useI18n } from '@/contexts/i18n-context';
-import type { RunningModelItem, ReplicaItem, AddReplicaRequest, ClusterInfoResponse } from '@/types/services';
+import { useMenuAuth } from '@/hooks/use-menu-auth';
+import type {
+  RunningModelItem,
+  ReplicaItem,
+  AddReplicaRequest,
+  ClusterInfoResponse,
+} from '@/types/services';
 import request from '@/lib/request';
 import { cn } from '@/lib/utils';
 import {
@@ -73,12 +80,7 @@ function formatErrorDetail(detail: unknown): string | undefined {
     const messages = detail
       .map((item) => {
         if (typeof item === 'string') return item;
-        if (
-          item &&
-          typeof item === 'object' &&
-          'msg' in item &&
-          typeof item.msg === 'string'
-        ) {
+        if (item && typeof item === 'object' && 'msg' in item && typeof item.msg === 'string') {
           return item.msg;
         }
         try {
@@ -119,6 +121,8 @@ const formatGpuMemory = (bytes: number): string => {
 
 const RunningModel = () => {
   const { t } = useI18n();
+  const { clusterAuth } = useGlobal();
+  const { isAdmin } = useMenuAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
@@ -139,6 +143,11 @@ const RunningModel = () => {
   const [clusterWorkerInfo, setClusterWorkerInfo] = useState<Map<string, number>>(new Map());
 
   const fetchClusterWorkers = useCallback(() => {
+    if (!clusterAuth || (clusterAuth.auth && !isAdmin)) {
+      setClusterWorkerInfo(new Map());
+      return;
+    }
+
     request
       .get<ClusterInfoResponse>('/v1/cluster/info', { params: { detailed: true } })
       .then((data) => {
@@ -159,7 +168,7 @@ const RunningModel = () => {
       .catch(() => {
         // Silently ignore — model/replica-derived addresses still work as fallback
       });
-  }, []);
+  }, [clusterAuth, isAdmin]);
 
   const addReplicaWorkerOptions = useMemo(() => {
     // Primary source: cluster info (matching the launch dialog).
@@ -532,11 +541,7 @@ const RunningModel = () => {
           </div>
           <div className="flex items-center justify-between">
             <h3 className="font-medium">{t('runningModels.replicaDetail')}</h3>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setAddReplicaOpen(true)}
-            >
+            <Button variant="outline" size="sm" onClick={() => setAddReplicaOpen(true)}>
               <Plus className="size-3.5 mr-1" />
               {t('runningModels.addReplica')}
             </Button>
