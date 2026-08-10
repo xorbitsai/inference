@@ -440,7 +440,7 @@ class SupervisorActor(xo.StatelessActor):
             return
         for base_uid in base_uids_affected:
             replica_info = self._model_uid_to_replica_info.get(base_uid)
-            updates = (
+            updates: Dict[str, Any] = (
                 {"replica": replica_info.replica}
                 if replica_info is not None
                 else {"replica": 0, "status": LaunchStatus.TERMINATED.name}
