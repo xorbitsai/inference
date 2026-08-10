@@ -107,6 +107,22 @@ export interface ReplicaItem {
   gpu_idx?: number[];
 }
 
+export interface AddReplicaRequest {
+  replica_config?: {
+    replica_uid?: string;
+    devices: Array<{
+      worker_ip?: string;
+      gpu_idx?: number[];
+    }>;
+  };
+}
+
+export interface AddReplicaResponse {
+  replica_id: number;
+  replica_model_uid: string;
+  worker_address: string;
+}
+
 export interface RunningModelItem {
   id: string;
   object: string;

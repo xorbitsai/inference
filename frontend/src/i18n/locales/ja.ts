@@ -237,6 +237,21 @@ const ja = {
     replicaDetail: 'レプリカ詳細',
     removeReplicaConfirm:
       'モデル {{modelUid}} のレプリカ {{replicaId}} を削除してもよろしいですか？',
+    addReplica: 'レプリカ追加',
+    addReplicaTitle: 'レプリカ追加 — {{modelUid}}',
+    addReplicaSuccess: 'レプリカが追加されました: {{replicaModelUid}} ({{workerAddress}})',
+    addReplicaFailed: 'レプリカの追加に失敗しました',
+    addReplicaLoading: 'レプリカ追加中...',
+    addReplicaWorkerLabel: 'ワーカー',
+    addReplicaGpuIdxLabel: 'GPU インデックス',
+    addReplicaGpuIdxPlaceholder: '例: 0,1（任意、空の場合は自動割り当て）',
+    addReplicaUidLabel: 'レプリカエイリアス',
+    addReplicaUidPlaceholder: '任意、空の場合は自動生成',
+    addReplicaAutoWorker: '自動（デフォルト）',
+    addReplicaWorkerRequired:
+      'GPU インデックスまたはレプリカの別名を指定する前に Worker を選択してください。',
+    addReplicaInvalidGpuIdx:
+      'GPU インデックスを非負整数のカンマ区切りで入力してください（例: 0,1）。',
     autostartEnabled: '自動起動が設定されています',
     removeAutostartSuccess: '{{modelUid}} の自動起動を削除しました',
     removeAutostartFailed: '自動起動の削除に失敗しました',
