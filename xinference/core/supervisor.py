@@ -3085,6 +3085,10 @@ class SupervisorActor(xo.StatelessActor):
 
     @log_async(logger=logger)
     async def terminate_model(self, model_uid: str, suppress_exception=False):
+        async with self._get_model_replica_lock(model_uid):
+            return await self._terminate_model(model_uid, suppress_exception)
+
+    async def _terminate_model(self, model_uid: str, suppress_exception=False):
         async def _terminate_one_model(_replica_model_uid):
             worker_refs = self._replica_model_uid_to_worker.get(
                 _replica_model_uid, None

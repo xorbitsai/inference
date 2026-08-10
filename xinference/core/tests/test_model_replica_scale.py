@@ -94,6 +94,8 @@ class _FakeScaleWorker:
         self.models = models or {}
         self.allow_share = allow_share
         self.launch_delay = launch_delay
+        self.launch_started = None
+        self.continue_launch = None
         self.launches: list = []
         self.terminations: list[str] = []
 
@@ -113,7 +115,11 @@ class _FakeScaleWorker:
 
     async def launch_builtin_model(self, **kwargs):
         self.launches.append(kwargs)
-        if self.launch_delay:
+        if self.launch_started is not None:
+            self.launch_started.set()
+        if self.continue_launch is not None:
+            await self.continue_launch.wait()
+        elif self.launch_delay:
             await asyncio.sleep(self.launch_delay)
         return "subpool"
 
@@ -144,6 +150,8 @@ def _make_supervisor(workers, launch_args, replica_uid="demo-0"):
     }
     workers[0].launch_args = dict(launch_args)
     supervisor._status_guard_ref = _FakeStatusGuard(model_uid, replica_uid)
+    supervisor._collective_manager_mapping = {}
+    supervisor._block_tracker_mapping = {}
     return supervisor
 
 
@@ -173,6 +181,34 @@ async def test_concurrent_scale_up_requests_get_distinct_replica_ids():
         build_replica_model_uid("demo", 1),
         build_replica_model_uid("demo", 2),
     ]
+
+
+@pytest.mark.asyncio
+async def test_whole_model_termination_waits_for_scale_up_and_leaves_no_orphan():
+    launch_args = {"n_gpu": "auto", "gpu_idx": None, "n_worker": 1}
+    worker = _FakeScaleWorker("worker-0:9978", launch_args, total=(0, 1))
+    worker.launch_started = asyncio.Event()
+    worker.continue_launch = asyncio.Event()
+    supervisor = _make_supervisor([worker], launch_args)
+
+    scale_task = asyncio.create_task(supervisor.add_model_replica("demo"))
+    await asyncio.wait_for(worker.launch_started.wait(), timeout=1)
+
+    terminate_task = asyncio.create_task(supervisor.terminate_model("demo"))
+    await asyncio.sleep(0)
+    assert not terminate_task.done()
+    assert worker.terminations == []
+
+    worker.continue_launch.set()
+    scale_result, _ = await asyncio.gather(scale_task, terminate_task)
+
+    assert scale_result["replica_id"] == 1
+    assert set(worker.terminations) == {
+        build_replica_model_uid("demo", 0),
+        build_replica_model_uid("demo", 1),
+    }
+    assert "demo" not in supervisor._model_uid_to_replica_info
+    assert supervisor._replica_model_uid_to_worker == {}
 
 
 @pytest.mark.asyncio
