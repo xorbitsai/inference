@@ -39,6 +39,7 @@ import {
   TryApiDrawer,
 } from '@/components/pages/running-model-detail/components/try-api-drawer';
 import { transformRunningModelDetail } from '@/components/pages/running-model-detail/utils';
+import { formatReplicaRuntimeAddress } from './address-utils.mjs';
 import AddReplicaDialog from './add-replica-dialog';
 
 interface EmptyStateProps {
@@ -117,58 +118,6 @@ const formatGpuMemory = (bytes: number): string => {
     return `${gib.toFixed(2)} GiB`;
   }
   return `${(bytes / 1024 ** 2).toFixed(2)} MiB`;
-};
-
-interface ParsedAddress {
-  host: string;
-  port?: string;
-}
-
-const parseAddress = (address: string): ParsedAddress => {
-  const normalized = address.trim();
-  if (normalized.startsWith('[')) {
-    const closingBracket = normalized.indexOf(']');
-    if (closingBracket >= 0) {
-      const host = normalized.slice(1, closingBracket);
-      const suffix = normalized.slice(closingBracket + 1);
-      const port = suffix.startsWith(':') ? suffix.slice(1) : '';
-      return {
-        host,
-        port: /^\d+$/.test(port) ? port : undefined,
-      };
-    }
-  }
-
-  // An unbracketed address with one colon is unambiguous host:port. An
-  // address with multiple colons is treated as a bare IPv6 host because an
-  // IPv6 address must be bracketed when a port is included.
-  const separator = normalized.lastIndexOf(':');
-  if (separator > 0 && normalized.indexOf(':') === separator) {
-    const port = normalized.slice(separator + 1);
-    if (/^\d+$/.test(port)) {
-      return { host: normalized.slice(0, separator), port };
-    }
-  }
-  return { host: normalized };
-};
-
-const formatAddress = (host: string, port: string): string => {
-  const normalizedHost = host.replace(/^\[|\]$/g, '');
-  return normalizedHost.includes(':') ? `[${normalizedHost}]:${port}` : `${normalizedHost}:${port}`;
-};
-
-const formatReplicaRuntimeAddress = (replica: ReplicaItem): string | undefined => {
-  const workerAddress = replica.worker_address?.trim();
-  const modelAddress = replica.model_address?.trim();
-  if (!modelAddress) return undefined;
-
-  const parsedModelAddress = parseAddress(modelAddress);
-  const modelPort = parsedModelAddress.port;
-  const workerHost = workerAddress ? parseAddress(workerAddress).host : parsedModelAddress.host;
-  if (modelPort && workerHost) {
-    return formatAddress(workerHost, modelPort);
-  }
-  return modelAddress;
 };
 
 interface ReplicaDeviceIndexes {
@@ -794,6 +743,9 @@ const RunningModel = () => {
               </div>
               <p className="text-xs text-muted-foreground mt-2">
                 {t('runningModels.workerAddress')}: {replica.worker_address}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {t('runningModels.replicaAddress')}: {formatReplicaRuntimeAddress(replica) || '-'}
               </p>
               {replica.replica_uid && (
                 <p className="text-xs text-muted-foreground">
