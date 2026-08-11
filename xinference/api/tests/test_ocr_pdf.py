@@ -226,29 +226,30 @@ class TestValidatePdfForParse:
 
     def test_accepts_a_valid_pdf_and_returns_the_page_count(self):
         pytest.importorskip("pypdfium2")
-        assert validate_pdf_for_parse(make_pdf(page_count=3)) == 3
+        assert validate_pdf_for_parse(make_pdf(page_count=3), 3) == 3
 
     def test_rejects_non_pdf_bytes(self):
         pytest.importorskip("pypdfium2")
         with pytest.raises(ValueError, match="Could not read the uploaded PDF"):
-            validate_pdf_for_parse(b"\x89PNG\r\n\x1a\n not a pdf")
+            validate_pdf_for_parse(b"\x89PNG\r\n\x1a\n not a pdf", 3)
 
     def test_rejects_empty_input(self):
         pytest.importorskip("pypdfium2")
         with pytest.raises(ValueError):
-            validate_pdf_for_parse(b"")
+            validate_pdf_for_parse(b"", 3)
 
     def test_rejects_too_many_pages(self):
         pytest.importorskip("pypdfium2")
         oversized = make_pdf(page_count=MAX_PDF_OCR_PAGES + 1)
         with pytest.raises(ValueError, match="at most"):
-            validate_pdf_for_parse(oversized)
+            validate_pdf_for_parse(oversized, 3)
 
-    def test_page_limit_is_shared_with_the_per_page_path(self):
-        # Users see one page ceiling for the OCR endpoint, whichever task
-        # they pick.
+    def test_page_count_ceiling_is_shared_with_the_per_page_path(self):
+        # The page *count* ceiling is the same for both tasks. The pixel
+        # budgets are not -- parse enforces its own, against the retry scale
+        # -- so this uses the small default page size to isolate the count.
         pytest.importorskip("pypdfium2")
-        assert validate_pdf_for_parse(make_pdf(page_count=MAX_PDF_OCR_PAGES)) == (
+        assert validate_pdf_for_parse(make_pdf(page_count=MAX_PDF_OCR_PAGES), 3) == (
             MAX_PDF_OCR_PAGES
         )
 
@@ -259,7 +260,7 @@ class TestValidatePdfForParse:
         pytest.importorskip("pypdfium2")
         oversized = make_pdf(media_box="0 0 14400 14400")
         with pytest.raises(ValueError, match="per-page limit"):
-            validate_pdf_for_parse(oversized)
+            validate_pdf_for_parse(oversized, 3)
 
     def test_page_budget_accounts_for_the_retry_scale(self):
         # deepdoc re-renders at 3x when a page yields no text, and that

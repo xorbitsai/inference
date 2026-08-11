@@ -161,6 +161,10 @@ def _reset_parser_document_state(parser: Any) -> None:
         ("tb_cpns", []),
         ("pdf", None),
         ("total_page", 0),
+        # Per-document too, and it steers table HTML construction. deepdoc
+        # reassigns it on every run, but that assignment sits inside the
+        # block whose exceptions ``__images__`` swallows.
+        ("is_english", False),
     ):
         try:
             setattr(parser, attribute, empty)

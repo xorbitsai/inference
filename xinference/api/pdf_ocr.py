@@ -121,7 +121,7 @@ def is_pdf_upload(content_type: Optional[str], head: bytes) -> bool:
     return head.startswith(PDF_MAGIC)
 
 
-def validate_pdf_for_parse(data: bytes, zoomin: int = 3) -> int:
+def validate_pdf_for_parse(data: bytes, zoomin: int) -> int:
     """Check a PDF that will be handed to a whole-document parser.
 
     Whole-document parsing tasks (e.g. DeepDoc's ``task="parse"``) render the
@@ -138,10 +138,10 @@ def validate_pdf_for_parse(data: bytes, zoomin: int = 3) -> int:
     comfortably under the per-page limit can still exhaust the worker in
     aggregate, so the pages are budgeted as a whole too.
 
-    The per-page budget is applied at the worst-case scale, since the retry
-    is left intact and a single page can reach it. The aggregate one is
-    applied at the requested scale: ``page_images`` is reassigned rather than
-    appended to on a retry, so peak usage is one render's worth.
+    Both budgets are applied at the worst-case scale, since the retry is left
+    intact and re-renders the whole document, and both count the render being
+    replaced alongside its replacement (see
+    ``worst_case_parse_peak_pixels``).
 
     Returns the page count. Raises ``ValueError`` if the document cannot be
     opened, has no pages, has too many pages, or would rasterize to too many
