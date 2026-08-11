@@ -21,10 +21,17 @@ import pytest
 from ..pdf_ocr import (
     DEFAULT_PDF_OCR_DPI,
     MAX_PDF_OCR_PAGES,
+    MAX_PDF_PARSE_PAGE_PIXELS,
+    MAX_PDF_PARSE_TOTAL_PIXELS,
+    PDF_PARSE_RETRY_ZOOM_LIMIT,
+    WHOLE_DOCUMENT_OCR_TASKS,
     is_pdf_upload,
     merge_ocr_page_results,
     normalize_pages,
     rasterize_pdf,
+    validate_pdf_for_parse,
+    worst_case_parse_peak_pixels,
+    worst_case_parse_zoom,
 )
 
 
@@ -210,3 +217,163 @@ class TestRasterizePdf:
 
     def test_pdf_magic_detected_on_generated_pdf(self):
         assert is_pdf_upload(None, make_pdf()[:8])
+
+
+class TestValidatePdfForParse:
+    """Whole-document tasks get the uploaded bytes without going through
+    ``rasterize_pdf``, so this is the only place a bad PDF is caught before
+    the parser sees it."""
+
+    def test_accepts_a_valid_pdf_and_returns_the_page_count(self):
+        pytest.importorskip("pypdfium2")
+        assert validate_pdf_for_parse(make_pdf(page_count=3), 3) == 3
+
+    def test_rejects_non_pdf_bytes(self):
+        pytest.importorskip("pypdfium2")
+        with pytest.raises(ValueError, match="Could not read the uploaded PDF"):
+            validate_pdf_for_parse(b"\x89PNG\r\n\x1a\n not a pdf", 3)
+
+    def test_rejects_empty_input(self):
+        pytest.importorskip("pypdfium2")
+        with pytest.raises(ValueError):
+            validate_pdf_for_parse(b"", 3)
+
+    def test_rejects_too_many_pages(self):
+        pytest.importorskip("pypdfium2")
+        oversized = make_pdf(page_count=MAX_PDF_OCR_PAGES + 1)
+        with pytest.raises(ValueError, match="at most"):
+            validate_pdf_for_parse(oversized, 3)
+
+    def test_page_count_ceiling_is_shared_with_the_per_page_path(self):
+        # The page *count* ceiling is the same for both tasks. The pixel
+        # budgets are not -- parse enforces its own, against the retry scale
+        # -- so this uses the small default page size to isolate the count.
+        pytest.importorskip("pypdfium2")
+        assert validate_pdf_for_parse(make_pdf(page_count=MAX_PDF_OCR_PAGES), 3) == (
+            MAX_PDF_OCR_PAGES
+        )
+
+    def test_rejects_an_oversized_page(self):
+        # A single page with a huge (but legal) MediaBox rasterizes to
+        # billions of pixels long before the page limit is relevant, so the
+        # page-pixel budget has to be enforced here too.
+        pytest.importorskip("pypdfium2")
+        oversized = make_pdf(media_box="0 0 14400 14400")
+        with pytest.raises(ValueError, match="per-page limit"):
+            validate_pdf_for_parse(oversized, 3)
+
+    def test_page_budget_accounts_for_the_retry_scale(self):
+        # deepdoc re-renders at 3x when a page yields no text, and that
+        # retry is left intact, so the per-page budget is enforced against
+        # the scale a run can actually reach.
+        pytest.importorskip("pypdfium2")
+        assert worst_case_parse_zoom(3) == 9
+        # 1700x1700 pt: 26 MP at zoomin 3, but 234 MP at the 9x it may
+        # actually render at.
+        borderline = make_pdf(media_box="0 0 1700 1700")
+        assert int(1700 * 3) ** 2 < MAX_PDF_PARSE_PAGE_PIXELS
+        assert worst_case_parse_peak_pixels(1700, 1700, 3) > MAX_PDF_PARSE_PAGE_PIXELS
+        with pytest.raises(ValueError, match="per-page limit"):
+            validate_pdf_for_parse(borderline, zoomin=3)
+
+    def test_common_page_sizes_pass_at_the_default_zoom(self):
+        # The budget must not reject ordinary documents. A4, Letter and A3
+        # come to 41, 39 and 81 MP at the zoomin-3 worst case.
+        pytest.importorskip("pypdfium2")
+        for media_box in ("0 0 595 842", "0 0 612 792", "0 0 842 1191"):
+            assert validate_pdf_for_parse(make_pdf(media_box=media_box), 3) == 1
+
+    def test_budget_scales_with_zoomin(self):
+        pytest.importorskip("pypdfium2")
+        # A3 is 81 MP at the zoomin-3 worst case but 325 MP at zoomin 6.
+        a3 = make_pdf(media_box="0 0 842 1191")
+        assert validate_pdf_for_parse(a3, zoomin=3) == 1
+        with pytest.raises(ValueError, match="per-page limit"):
+            validate_pdf_for_parse(a3, zoomin=6)
+
+    def test_rejects_an_oversized_document_of_individually_small_pages(self):
+        # Whole-document parsers render every page up front and hold them all
+        # at once, so a document whose pages each pass the per-page limit can
+        # still exhaust the worker in aggregate. A4 at zoomin 6 is 18 MP per
+        # page -- far under the 80 MP page limit -- but 200 of them come to
+        # 3.6 G px, measured at ~4 bytes each once rendered.
+        pytest.importorskip("pypdfium2")
+        # 1000x1000 pt at zoomin 4: 16 MP per page (well under the per-page
+        # cap even at the 12x worst case, 144 MP), but 200 of them are
+        # 3.2 G px together.
+        per_page = int(1000 * 4) ** 2
+        assert int(1000 * 12) ** 2 < MAX_PDF_PARSE_PAGE_PIXELS
+        assert per_page * MAX_PDF_OCR_PAGES > MAX_PDF_PARSE_TOTAL_PIXELS
+        doc = make_pdf(page_count=MAX_PDF_OCR_PAGES, media_box="0 0 1000 1000")
+        with pytest.raises(ValueError, match="whole-document limit"):
+            validate_pdf_for_parse(doc, zoomin=4)
+
+    def test_typical_document_passes_at_the_default_zoom(self):
+        # The aggregate budget must still admit an everyday document. Because
+        # it is enforced against the retry scale, the allowance is far below
+        # the 200-page ceiling the per-page OCR path permits: an A4 page peaks
+        # at 45 MP, so ~22 of them fit.
+        pytest.importorskip("pypdfium2")
+        a4 = make_pdf(page_count=20, media_box="0 0 595 842")
+        assert validate_pdf_for_parse(a4, zoomin=3) == 20
+
+    def test_page_ceiling_alone_does_not_admit_a_long_document(self):
+        # Documented consequence of budgeting for the 9x retry: a 200-page
+        # document is rejected on pixels, not on the page count.
+        pytest.importorskip("pypdfium2")
+        a4 = make_pdf(page_count=MAX_PDF_OCR_PAGES, media_box="0 0 595 842")
+        with pytest.raises(ValueError, match="whole-document limit"):
+            validate_pdf_for_parse(a4, zoomin=3)
+
+
+class TestWorstCaseParseZoom:
+    """The retry is recursive, so a low zoomin chains up several times."""
+
+    def test_chain_is_followed_to_the_ceiling(self):
+        # zoomin 1 renders at 1, then 3, then 9 -- not just 3.
+        assert worst_case_parse_zoom(1) == 9
+        assert worst_case_parse_zoom(2) == 18
+        assert worst_case_parse_zoom(3) == 9
+        assert worst_case_parse_zoom(4) == 12
+        assert worst_case_parse_zoom(5) == 15
+        assert worst_case_parse_zoom(6) == 18
+
+    def test_result_always_reaches_the_ceiling(self):
+        # Whatever the input, the chain must terminate at or above the limit,
+        # otherwise a further retry would still be possible.
+        for zoomin in range(1, 7):
+            assert worst_case_parse_zoom(zoomin) >= PDF_PARSE_RETRY_ZOOM_LIMIT
+
+    def test_never_below_the_requested_scale(self):
+        for zoomin in range(1, 7):
+            assert worst_case_parse_zoom(zoomin) >= zoomin
+
+    def test_at_or_above_the_ceiling_does_not_amplify(self):
+        assert worst_case_parse_zoom(9) == 9
+        assert worst_case_parse_zoom(12) == 12
+
+
+class TestWorstCaseParsePeakPixels:
+    def test_counts_the_coexisting_previous_render(self):
+        # `page_images = [...]` builds the new list before rebinding, so the
+        # render being replaced is still alive. Peak is 9x + 1x, not 9x.
+        peak = worst_case_parse_peak_pixels(100, 100, 3)
+        assert peak == (900 * 900) + (300 * 300)
+
+    def test_no_previous_render_when_no_retry_can_fire(self):
+        assert worst_case_parse_peak_pixels(100, 100, 9) == 900 * 900
+
+    def test_every_accepted_zoomin_is_bounded(self):
+        for zoomin in range(1, 7):
+            peak = worst_case_parse_peak_pixels(595, 842, zoomin)
+            final = worst_case_parse_zoom(zoomin)
+            assert peak >= int(595 * final) * int(842 * final)
+
+
+class TestWholeDocumentOcrTasks:
+    def test_parse_is_a_whole_document_task(self):
+        assert "parse" in WHOLE_DOCUMENT_OCR_TASKS
+
+    def test_per_page_tasks_are_not(self):
+        for task in ("ocr", "layout", "table"):
+            assert task not in WHOLE_DOCUMENT_OCR_TASKS

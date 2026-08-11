@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import base64
+import io
 import logging
 import os
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
@@ -24,6 +26,21 @@ if TYPE_CHECKING:
 from .ocr_family import OCRModel
 
 logger = logging.getLogger(__name__)
+
+# ``parse_into_bboxes`` attaches a cropped image to every element, but only
+# tables and figures are worth shipping back; encoding all of them would
+# inflate the response by an order of magnitude.
+IMAGE_SCOPES = ("table_figure", "all", "none")
+DEFAULT_IMAGE_SCOPE = "table_figure"
+_IMAGE_SCOPE_TYPES = ("table", "figure")
+DEFAULT_PARSE_ZOOMIN = 3
+# Above this, ``parse_into_bboxes`` renders pages so large that a single
+# document can exhaust host memory.
+MAX_PARSE_ZOOMIN = 6
+# Keys that must not appear in ``metadata``: ``position_tag`` is a
+# deepdoc-internal marker string, ``image`` is replaced by ``image_base64``,
+# and ``text`` is promoted to a top-level field.
+_METADATA_EXCLUDED_KEYS = frozenset({"position_tag", "image", "text"})
 
 
 def _jsonable(obj: Any) -> Any:
@@ -52,15 +69,147 @@ def _parse_threshold(kwargs: Dict[str, Any], default: float = 0.2) -> float:
         raise ValueError(f"Invalid threshold: {value!r}, expected a number") from e
 
 
+def parse_zoomin(value: Any, default: int = DEFAULT_PARSE_ZOOMIN) -> int:
+    """Validate the ``zoomin`` kwarg for task ``parse``.
+
+    Public because the API layer validates it too: it needs the value to
+    budget the raster before handing the PDF over, and both layers must
+    reject exactly the same inputs.
+    """
+    # None (e.g. an explicit JSON null from the HTTP API) falls back to the
+    # default, like `threshold` does.
+    if value is None:
+        return default
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"Invalid zoomin: {value!r}, expected an integer")
+    if value < 1 or value > MAX_PARSE_ZOOMIN:
+        raise ValueError(
+            f"Invalid zoomin: {value!r}, expected an integer between 1 "
+            f"and {MAX_PARSE_ZOOMIN}"
+        )
+    return value
+
+
+def _parse_image_scope(
+    kwargs: Dict[str, Any], default: str = DEFAULT_IMAGE_SCOPE
+) -> str:
+    value = kwargs.get("image_scope")
+    if value is None:
+        return default
+    if value not in IMAGE_SCOPES:
+        raise ValueError(
+            f"Invalid image_scope: {value!r}. "
+            f"Supported values: {', '.join(repr(s) for s in IMAGE_SCOPES)}."
+        )
+    return value
+
+
+def _wants_image(layout_type: Any, image_scope: str) -> bool:
+    if image_scope == "all":
+        return True
+    if image_scope == "none":
+        return False
+    return layout_type in _IMAGE_SCOPE_TYPES
+
+
+def _encode_image(image: Any) -> Optional[str]:
+    """PNG-encode a crop to base64, or return None if it cannot be encoded.
+
+    Crops are line art (tables, figures), so PNG is used rather than JPEG:
+    lossy artifacts would degrade downstream re-reading of the crop.
+    """
+    if image is None:
+        return None
+    try:
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG")
+        return base64.b64encode(buffer.getvalue()).decode("ascii")
+    except Exception:
+        # A crop that fails to encode must not fail the whole document.
+        logger.warning("Failed to encode a DeepDoc crop image", exc_info=True)
+        return None
+
+
+def _reset_parser_document_state(parser: Any) -> None:
+    """Drop the per-document state a parse run leaves on the parser.
+
+    The parser is cached and reused across requests to keep a single set of
+    ONNX models loaded, but ``parse_into_bboxes`` stores the document it just
+    processed on the instance and never clears it. Two problems follow:
+
+    * the rasterized pages, the per-box crops and the extracted characters
+      stay reachable after the response is sent -- at the page limit and the
+      largest render scale that is gigabytes of resident memory held idle;
+    * ``__images__`` resets ``boxes`` before it loads the new document but
+      swallows load failures, so a document it cannot open would leave the
+      *previous* request's pages attached and silently parse those instead.
+
+    Clearing the state after every run bounds the memory and makes a failed
+    load produce an empty result rather than the last document's content.
+    """
+    for attribute, empty in (
+        ("boxes", []),
+        ("page_images", []),
+        ("page_chars", []),
+        ("page_layout", []),
+        ("page_cum_height", [0]),
+        ("garbages", {}),
+        ("lefted_chars", []),
+        ("mean_height", []),
+        ("mean_width", []),
+        ("outlines", []),
+        ("tb_cpns", []),
+        ("pdf", None),
+        ("total_page", 0),
+        # Per-document too, and it steers table HTML construction. deepdoc
+        # reassigns it on every run, but that assignment sits inside the
+        # block whose exceptions ``__images__`` swallows.
+        ("is_english", False),
+    ):
+        try:
+            setattr(parser, attribute, empty)
+        except Exception:  # pragma: no cover - defensive
+            logger.debug("Could not reset parser attribute %s", attribute)
+
+
+def _element_to_json(element: Dict[str, Any], image_scope: str) -> Dict[str, Any]:
+    """Turn one ``parse_into_bboxes`` element into a JSON-serializable dict.
+
+    ``parse_into_bboxes`` returns numpy scalars and PIL images, and the
+    table/figure elements it re-inserts into the text flow carry a smaller
+    key set than the text ones (no ``col_id``, no ``position_tag``), so
+    every key is read defensively. Absent keys are omitted rather than
+    defaulted, so the response never claims information deepdoc did not
+    produce.
+    """
+    metadata = {
+        k: _jsonable(v) for k, v in element.items() if k not in _METADATA_EXCLUDED_KEYS
+    }
+    result: Dict[str, Any] = {
+        "type": _jsonable(element.get("layout_type")),
+        "text": element.get("text"),
+        "metadata": metadata,
+    }
+    if _wants_image(element.get("layout_type"), image_scope):
+        encoded = _encode_image(element.get("image"))
+        if encoded is not None:
+            result["image_base64"] = encoded
+    return result
+
+
 class DeepDocModel(OCRModel):
     """RAGFlow's DeepDoc ONNX models for document parsing.
 
     Inference is provided by the ``deepdoc-lib`` package
-    (https://github.com/xorbitsai/deepdoc-lib). Three tasks are supported,
+    (https://github.com/xorbitsai/deepdoc-lib). Four tasks are supported,
     selected via the ``task`` kwarg:
     - ``ocr`` (default): text detection + recognition, returns plain text
     - ``layout``: page layout analysis, returns layout blocks as a dict
     - ``table``: table structure recognition, returns structures as a dict
+    - ``parse``: the full document-parsing pipeline over a whole PDF,
+      returning ordered elements with table HTML, figures and cross-page
+      coordinates. Unlike the other three it consumes PDF bytes rather
+      than a page image.
     """
 
     required_libs = ("deepdoc",)
@@ -85,6 +234,7 @@ class DeepDocModel(OCRModel):
         self._ocr = None
         self._layout_recognizer = None
         self._table_recognizer = None
+        self._pdf_parser = None
         # info
         self._model_spec = model_spec
         self._abilities = model_spec.model_ability or []  # type: ignore
@@ -130,23 +280,84 @@ class DeepDocModel(OCRModel):
             )
         return self._table_recognizer
 
+    def _xgb_model_dir(self) -> str:
+        """Locate the directory holding ``updown_concat_xgb.model``.
+
+        The paragraph-merging booster lives outside the vision bundle: the
+        ModelScope layout keeps ``vision/`` and ``xgb/`` as siblings, while a
+        flat checkout keeps the booster next to the onnx files.
+        """
+        model_name = "updown_concat_xgb.model"
+        vision_dir = self._model_dir()
+        candidates = [
+            os.path.join(os.path.dirname(vision_dir), "xgb"),
+            os.path.join(vision_dir, "xgb"),
+            vision_dir,
+            self._model_path or "",
+        ]
+        for candidate in candidates:
+            if candidate and os.path.exists(os.path.join(candidate, model_name)):
+                return candidate
+        raise RuntimeError(
+            f"Could not find {model_name} for DeepDoc task 'parse' under "
+            f"{self._model_path!r}. Re-download the model files."
+        )
+
+    def _get_pdf_parser(self):
+        """Build the parser through deepdoc's public API, once, and cache it.
+
+        ``PdfParser`` constructs its own OCR, layout and table recognizers,
+        which would double the ONNX sessions (and the VRAM) this model
+        already holds. Rather than reproduce its private initialization, the
+        supported constructor is used and the freshly built recognizers are
+        then replaced by the ones already loaded; the originals are dropped
+        and freed, so steady state holds a single set. Construction happens
+        once per model and the parser is reused for every request.
+        """
+        if self._pdf_parser is not None:
+            return self._pdf_parser
+
+        from deepdoc import PdfModelConfig, PdfParser
+
+        xgb_dir = self._xgb_model_dir()
+        # `model_provider="local"` keeps the onnx/booster side offline. The
+        # tokenizer config is left at its default: RagTokenizer raises when
+        # its nltk data is missing and offline mode is on.
+        parser = PdfParser(
+            model_cfg=PdfModelConfig(
+                vision_model_dir=self._model_dir(),
+                xgb_model_dir=xgb_dir,
+                model_provider="local",
+            )
+        )
+        parser.ocr = self._ocr
+        parser.layouter = self._get_layout_recognizer()
+        parser.tbl_det = self._get_table_recognizer()
+        self._pdf_parser = parser
+        return self._pdf_parser
+        return parser
+
     def ocr(
         self,
-        image: Union[PIL.Image.Image, List[PIL.Image.Image]],
+        image: Union[PIL.Image.Image, List[PIL.Image.Image], bytes],
         **kwargs,
     ) -> Union[str, List[str], Dict[str, Any], List[Dict[str, Any]]]:
         """
-        Run DeepDoc on one image or a list of images.
+        Run DeepDoc on one image, a list of images, or a whole PDF.
 
         Args:
-            image: PIL Image or list of PIL Images
+            image: PIL Image or list of PIL Images. For task 'parse' this is
+                instead the raw bytes of a PDF document.
             **kwargs: Additional parameters including:
-                - task: 'ocr' (default), 'layout' or 'table'
+                - task: 'ocr' (default), 'layout', 'table' or 'parse'
                 - threshold: score threshold for 'table' (default 0.2). The
                   YOLOv10 layout model uses a fixed threshold in its
                   upstream postprocess, so 'layout' ignores this value.
                 - return_dict: for task 'ocr', return a dict with boxes
                   and scores instead of plain text (default False)
+                - zoomin: render scale for 'parse' (default 3)
+                - image_scope: which 'parse' elements carry a base64 crop,
+                  'table_figure' (default), 'all' or 'none'
 
         Returns:
             Plain text for task 'ocr', otherwise a JSON-serializable dict.
@@ -162,6 +373,13 @@ class DeepDocModel(OCRModel):
 
         task = kwargs.get("task", "ocr")
         return_dict = kwargs.get("return_dict", False)
+
+        # `parse` runs the whole-document pipeline, which renders the PDF
+        # itself and merges across pages, so it takes the original bytes
+        # rather than a rasterized page and must branch before any
+        # image normalization below.
+        if task == "parse":
+            return self._process_parse(image, kwargs)
 
         if image is None:
             raise ValueError("Input image cannot be None.")
@@ -214,5 +432,37 @@ class DeepDocModel(OCRModel):
         else:
             raise ValueError(
                 f"Unsupported task for DeepDoc: {task}. "
-                "Supported tasks: 'ocr', 'layout', 'table'."
+                "Supported tasks: 'ocr', 'layout', 'table', 'parse'."
             )
+
+    def _process_parse(self, data: Any, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+        """Run the full document-parsing pipeline over a PDF.
+
+        ``parse_into_bboxes`` does its own rendering, layout and table
+        recognition, paragraph merging and reading-order reconstruction, and
+        needs the whole document to accumulate cross-page coordinates -- so
+        unlike the other tasks it consumes PDF bytes, not a page image.
+        """
+        if isinstance(data, (bytearray, memoryview)):
+            data = bytes(data)
+        if not isinstance(data, bytes):
+            raise ValueError(
+                "DeepDoc task 'parse' requires the raw bytes of a PDF "
+                f"document, got {type(data).__name__}. Upload a PDF to the "
+                "OCR endpoint instead of an image."
+            )
+
+        zoomin = parse_zoomin(kwargs.get("zoomin"))
+        image_scope = _parse_image_scope(kwargs)
+
+        parser = self._get_pdf_parser()
+        try:
+            # `__images__` accepts bytes directly (it wraps them in a BytesIO),
+            # so no temporary file is needed.
+            elements = parser.parse_into_bboxes(data, zoomin=zoomin)
+            return {
+                "task": "parse",
+                "elements": [_element_to_json(e, image_scope) for e in elements or []],
+            }
+        finally:
+            _reset_parser_document_state(parser)
