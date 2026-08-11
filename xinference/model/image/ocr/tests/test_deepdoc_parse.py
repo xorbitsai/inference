@@ -45,7 +45,7 @@ from ..deepdoc import (  # noqa: E402
     DeepDocModel,
     _element_to_json,
     _parse_image_scope,
-    _parse_zoomin,
+    parse_zoomin,
 )
 
 
@@ -181,22 +181,22 @@ class TestImageScope:
 
 class TestParseZoomin:
     def test_default(self):
-        assert _parse_zoomin({}) == DEFAULT_PARSE_ZOOMIN
+        assert parse_zoomin(None) == DEFAULT_PARSE_ZOOMIN
 
     def test_none_falls_back_to_default(self):
         # An explicit JSON null from the HTTP API must not crash.
-        assert _parse_zoomin({"zoomin": None}) == DEFAULT_PARSE_ZOOMIN
+        assert parse_zoomin(None) == DEFAULT_PARSE_ZOOMIN
 
     def test_valid_value(self):
-        assert _parse_zoomin({"zoomin": 1}) == 1
-        assert _parse_zoomin({"zoomin": MAX_PARSE_ZOOMIN}) == MAX_PARSE_ZOOMIN
+        assert parse_zoomin(1) == 1
+        assert parse_zoomin(MAX_PARSE_ZOOMIN) == MAX_PARSE_ZOOMIN
 
     @pytest.mark.parametrize(
         "value", [0, -1, MAX_PARSE_ZOOMIN + 1, "3", 3.5, True, [3]]
     )
     def test_invalid_values_rejected(self, value):
         with pytest.raises(ValueError, match="zoomin"):
-            _parse_zoomin({"zoomin": value})
+            parse_zoomin(value)
 
 
 class TestParseImageScope:
@@ -362,6 +362,37 @@ class TestParserStateIsReleased:
             model.ocr(b"%PDF", task="parse")
         assert parser.page_images == []
         assert parser.boxes == []
+
+    def test_zoom_retry_is_suppressed(self):
+        # deepdoc re-renders at 3x the zoom (9x the pixels) when a first pass
+        # finds no boxes, which the API layer's page-size budget does not
+        # account for -- and which leaves later stages working at a zoom that
+        # no longer matches the pages.
+        renders = []
+
+        class Retrying(FakePdfParser):
+            def __images__(self, fnm, zoomin=3, page_from=0, page_to=299, cb=None):
+                renders.append(zoomin)
+                # what deepdoc does when it finds nothing
+                if zoomin < 9:
+                    self.__images__(fnm, zoomin * 3, page_from, page_to, cb)
+
+            def parse_into_bboxes(self, fnm, zoomin=3):
+                self.calls.append((fnm, zoomin))
+                self.__images__(fnm, zoomin)
+                return self._elements
+
+        parser = Retrying([])
+        model = make_model(parser)
+        model.ocr(b"%PDF", task="parse")
+        assert renders == [3]
+
+    def test_parser_without_images_still_parses(self):
+        # The guard must not fail a request on a parser shape it does not
+        # recognise.
+        parser = FakePdfParser([text_element()])
+        model = make_model(parser)
+        assert len(model.ocr(b"%PDF", task="parse")["elements"]) == 1
 
     def test_stale_pages_cannot_leak_into_a_later_request(self):
         # deepdoc swallows document-load failures, so without the reset a

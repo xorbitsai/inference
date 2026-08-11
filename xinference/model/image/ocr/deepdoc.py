@@ -69,10 +69,15 @@ def _parse_threshold(kwargs: Dict[str, Any], default: float = 0.2) -> float:
         raise ValueError(f"Invalid threshold: {value!r}, expected a number") from e
 
 
-def _parse_zoomin(kwargs: Dict[str, Any], default: int = DEFAULT_PARSE_ZOOMIN) -> int:
+def parse_zoomin(value: Any, default: int = DEFAULT_PARSE_ZOOMIN) -> int:
+    """Validate the ``zoomin`` kwarg for task ``parse``.
+
+    Public because the API layer validates it too: it needs the value to
+    budget the raster before handing the PDF over, and both layers must
+    reject exactly the same inputs.
+    """
     # None (e.g. an explicit JSON null from the HTTP API) falls back to the
     # default, like `threshold` does.
-    value = kwargs.get("zoomin")
     if value is None:
         return default
     if isinstance(value, bool) or not isinstance(value, int):
@@ -143,6 +148,46 @@ def _build_parallel_limiter() -> Optional[List[Any]]:
     except Exception:
         logger.debug("Could not size the DeepDoc parallel limiter", exc_info=True)
     return None
+
+
+_ZOOM_RETRY_DISABLED = "_xinference_no_zoom_retry"
+
+
+def _disable_zoom_retry(parser: Any) -> None:
+    """Stop ``__images__`` from re-rendering the document at three times the zoom.
+
+    When a first pass finds no boxes at all -- a blank or image-only PDF --
+    deepdoc recurses into ``__images__`` at ``zoomin * 3``, i.e. nine times
+    the pixels, and does so for a document that by definition produced no
+    output. It is also inconsistent: ``parse_into_bboxes`` runs every later
+    stage at the *original* zoom, so the pages it then works on no longer
+    match the scale the coordinates are computed against.
+
+    Wrapping the bound method to swallow the recursive call keeps one render
+    per request, which is what the API layer's page-size budget assumes.
+    """
+    if getattr(parser, _ZOOM_RETRY_DISABLED, False):
+        return
+    original = getattr(parser, "__images__", None)
+    if original is None:
+        # A parser shape we do not recognise; leave it alone rather than
+        # fail the request over a defensive guard.
+        logger.debug("Parser has no __images__ to guard against zoom retries")
+        return
+
+    def __images__(fnm, zoomin=3, page_from=0, page_to=299, callback=None):
+        # The recursion is the last statement of `__images__`, so a guard
+        # that makes the inner call a no-op leaves the first render intact.
+        if getattr(parser, "_xinference_in_images", False):
+            return None
+        parser._xinference_in_images = True
+        try:
+            return original(fnm, zoomin, page_from, page_to, callback)
+        finally:
+            parser._xinference_in_images = False
+
+    parser.__images__ = __images__
+    setattr(parser, _ZOOM_RETRY_DISABLED, True)
 
 
 def _reset_parser_document_state(parser: Any) -> None:
@@ -342,13 +387,18 @@ class DeepDocModel(OCRModel):
         tokenizer_cfg = TokenizerConfig()
 
         booster = xgb.Booster()
-        try:
-            import torch
+        # Upstream keys this purely off CUDA availability, which already
+        # honours the CUDA_VISIBLE_DEVICES that `gpu_idx` sets. An explicit
+        # non-CUDA `device` is respected on top of that, so a model pinned to
+        # CPU does not pull the booster onto a GPU.
+        if not self._device or "cuda" in self._device:
+            try:
+                import torch
 
-            if torch.cuda.is_available():
-                booster.set_param({"device": "cuda"})
-        except Exception:
-            logger.debug("torch unavailable, running the xgb booster on CPU")
+                if torch.cuda.is_available():
+                    booster.set_param({"device": "cuda"})
+            except Exception:
+                logger.debug("torch unavailable, running the xgb booster on CPU")
         booster.load_model(os.path.join(xgb_dir, "updown_concat_xgb.model"))
 
         parser = PdfParser.__new__(PdfParser)
@@ -515,10 +565,11 @@ class DeepDocModel(OCRModel):
                 "OCR endpoint instead of an image."
             )
 
-        zoomin = _parse_zoomin(kwargs)
+        zoomin = parse_zoomin(kwargs.get("zoomin"))
         image_scope = _parse_image_scope(kwargs)
 
         parser = self._get_pdf_parser()
+        _disable_zoom_retry(parser)
         try:
             # `__images__` accepts bytes directly (it wraps them in a BytesIO),
             # so no temporary file is needed.

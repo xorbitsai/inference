@@ -451,4 +451,6 @@ document to merge across pages, so it requires a PDF upload and does not accept
   them inflates the response substantially, so prefer the default unless the
   text crops are needed too. The field is omitted for elements without a crop.
 
-The same 200-page limit as per-page OCR applies.
+The same 200-page and 80-megapixel-per-page limits as per-page OCR apply; a page
+that would rasterize past the pixel limit at the requested ``zoomin`` is
+rejected, so lower ``zoomin`` for very large page sizes.

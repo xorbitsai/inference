@@ -247,6 +247,33 @@ class TestValidatePdfForParse:
             MAX_PDF_OCR_PAGES
         )
 
+    def test_rejects_an_oversized_page(self):
+        # A single page with a huge (but legal) MediaBox rasterizes to
+        # billions of pixels long before the page limit is relevant, so the
+        # page-pixel budget has to be enforced here too.
+        pytest.importorskip("pypdfium2")
+        oversized = make_pdf(media_box="0 0 14400 14400")
+        with pytest.raises(ValueError, match="exceeding the limit"):
+            validate_pdf_for_parse(oversized)
+
+    def test_common_page_sizes_pass_at_every_allowed_zoom(self):
+        # The budget must not reject ordinary documents: A4, Letter and even
+        # A0 are all legitimate parse inputs.
+        pytest.importorskip("pypdfium2")
+        for media_box in ("0 0 595 842", "0 0 612 792", "0 0 842 1191"):
+            for zoomin in (3, 6):
+                assert (
+                    validate_pdf_for_parse(make_pdf(media_box=media_box), zoomin) == 1
+                )
+
+    def test_budget_scales_with_zoomin(self):
+        pytest.importorskip("pypdfium2")
+        # 2384x3370 pt (A0): 72 MP at zoomin 3, 289 MP at zoomin 6.
+        a0 = make_pdf(media_box="0 0 2384 3370")
+        assert validate_pdf_for_parse(a0, zoomin=3) == 1
+        with pytest.raises(ValueError, match="exceeding the limit"):
+            validate_pdf_for_parse(a0, zoomin=6)
+
 
 class TestWholeDocumentOcrTasks:
     def test_parse_is_a_whole_document_task(self):

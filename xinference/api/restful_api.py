@@ -2004,15 +2004,25 @@ class RESTfulAPI(CancelMixin):
                                 f"{task!r}, which parses the whole document"
                             ),
                         )
+                from ..model.image.ocr.deepdoc import parse_zoomin
+
                 data = image.file.read()
                 try:
-                    await asyncio.to_thread(validate_pdf_for_parse, data)
+                    # The model validates this too; it is needed here to
+                    # budget the raster before the bytes are handed over.
+                    zoomin = parse_zoomin(parsed_kwargs.get("zoomin"))
+                    await asyncio.to_thread(validate_pdf_for_parse, data, zoomin)
                 except ValueError as ve:
                     raise HTTPException(status_code=400, detail=str(ve))
-                result = await model_ref.ocr(
-                    image=data,
-                    **parsed_kwargs,
-                )
+                try:
+                    result = await model_ref.ocr(
+                        image=data,
+                        **parsed_kwargs,
+                    )
+                except ValueError as ve:
+                    # Bad `zoomin`/`image_scope` and friends are user input,
+                    # not a server fault.
+                    raise HTTPException(status_code=400, detail=str(ve))
                 return Response(content=result, media_type="application/json")
             if is_pdf:
                 pages = parsed_kwargs.pop("pages", None)
