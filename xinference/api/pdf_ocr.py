@@ -49,6 +49,15 @@ WHOLE_DOCUMENT_OCR_TASKS = frozenset({"parse"})
 # ``zoomin * 3`` when a first pass finds no boxes, but only while
 # ``zoomin < 9`` -- so a parse started at or above this never amplifies.
 PDF_PARSE_RETRY_ZOOM_LIMIT = 9
+# Unlike the per-page path, which rasterizes lazily and holds one page at a
+# time, whole-document parsers render every page up front and keep them all
+# alive at once. The per-page pixel limit therefore says nothing about a
+# document's total footprint, so the pages are budgeted together as well.
+# Measured against pdfplumber, a rendered page costs ~4 bytes per pixel once
+# the PIL object is accounted for, so this bounds the page images at roughly
+# 4 GB; deepdoc then adds crops, characters and a deepcopy of the boxes on
+# top. It is sized to admit a full 200-page A4 document at the default zoom.
+MAX_PDF_PARSE_TOTAL_PIXELS = 1_000_000_000
 
 
 def is_pdf_upload(content_type: Optional[str], head: bytes) -> bool:
@@ -68,16 +77,20 @@ def validate_pdf_for_parse(data: bytes, zoomin: int = 3) -> int:
     errors and returns an empty result, then re-renders at three times the
     zoom when it finds no boxes.
 
-    Page geometry therefore has to be checked here too: a single valid page
-    with an outsized MediaBox — 14400x14400 points is legal — rasterizes to
-    billions of pixels and exhausts the worker long before the page limit is
-    relevant. The budget is applied at the requested scale; the caller is
+    Page geometry therefore has to be checked here too, in two ways. A single
+    valid page with an outsized MediaBox — 14400x14400 points is legal —
+    rasterizes to billions of pixels on its own. And because every page is
+    rendered up front and held together, a document whose pages are each
+    comfortably under the per-page limit can still exhaust the worker in
+    aggregate, so the pages are budgeted as a whole too.
+
+    Both budgets are applied at the requested scale; the caller is
     responsible for keeping the parser's own retry from amplifying it (see
     ``PDF_PARSE_RETRY_ZOOM_LIMIT``).
 
     Returns the page count. Raises ``ValueError`` if the document cannot be
-    opened, has no pages, has too many pages, or has a page whose raster
-    would be too large.
+    opened, has no pages, has too many pages, or would rasterize to too many
+    pixels on any single page or across the document.
     """
     try:
         import pypdfium2 as pdfium
@@ -102,6 +115,7 @@ def validate_pdf_for_parse(data: bytes, zoomin: int = 3) -> int:
                     f"The uploaded PDF has {page_count} pages, at most "
                     f"{MAX_PDF_OCR_PAGES} pages can be parsed per request"
                 )
+            total_pixels = 0
             for page_number in range(1, page_count + 1):
                 page = pdf[page_number - 1]
                 try:
@@ -114,6 +128,15 @@ def validate_pdf_for_parse(data: bytes, zoomin: int = 3) -> int:
                         f"Page {page_number} would rasterize to {pixels} pixels "
                         f"at zoomin {zoomin:g}, exceeding the limit of "
                         f"{MAX_PDF_OCR_PAGE_PIXELS}; lower `zoomin`"
+                    )
+                total_pixels += pixels
+                if total_pixels > MAX_PDF_PARSE_TOTAL_PIXELS:
+                    raise ValueError(
+                        f"The uploaded PDF would rasterize to more than "
+                        f"{total_pixels} pixels in total at zoomin {zoomin:g}, "
+                        f"exceeding the whole-document limit of "
+                        f"{MAX_PDF_PARSE_TOTAL_PIXELS}; lower `zoomin` or split "
+                        f"the document"
                     )
         finally:
             pdf.close()

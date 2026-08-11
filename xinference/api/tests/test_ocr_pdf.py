@@ -20,7 +20,9 @@ import pytest
 
 from ..pdf_ocr import (
     DEFAULT_PDF_OCR_DPI,
+    MAX_PDF_OCR_PAGE_PIXELS,
     MAX_PDF_OCR_PAGES,
+    MAX_PDF_PARSE_TOTAL_PIXELS,
     WHOLE_DOCUMENT_OCR_TASKS,
     is_pdf_upload,
     merge_ocr_page_results,
@@ -273,6 +275,27 @@ class TestValidatePdfForParse:
         assert validate_pdf_for_parse(a0, zoomin=3) == 1
         with pytest.raises(ValueError, match="exceeding the limit"):
             validate_pdf_for_parse(a0, zoomin=6)
+
+    def test_rejects_an_oversized_document_of_individually_small_pages(self):
+        # Whole-document parsers render every page up front and hold them all
+        # at once, so a document whose pages each pass the per-page limit can
+        # still exhaust the worker in aggregate. A4 at zoomin 6 is 18 MP per
+        # page -- far under the 80 MP page limit -- but 200 of them come to
+        # 3.6 G px, measured at ~4 bytes each once rendered.
+        pytest.importorskip("pypdfium2")
+        per_page = int(595 * 6) * int(842 * 6)
+        assert per_page < MAX_PDF_OCR_PAGE_PIXELS
+        assert per_page * MAX_PDF_OCR_PAGES > MAX_PDF_PARSE_TOTAL_PIXELS
+        a4 = make_pdf(page_count=MAX_PDF_OCR_PAGES, media_box="0 0 595 842")
+        with pytest.raises(ValueError, match="whole-document limit"):
+            validate_pdf_for_parse(a4, zoomin=6)
+
+    def test_full_length_document_passes_at_the_default_zoom(self):
+        # The aggregate budget must still admit an ordinary long document:
+        # 200 A4 pages at the default zoom is the headline supported case.
+        pytest.importorskip("pypdfium2")
+        a4 = make_pdf(page_count=MAX_PDF_OCR_PAGES, media_box="0 0 595 842")
+        assert validate_pdf_for_parse(a4, zoomin=3) == MAX_PDF_OCR_PAGES
 
 
 class TestWholeDocumentOcrTasks:
