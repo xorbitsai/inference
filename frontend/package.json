@@ -8,7 +8,8 @@
     "postbuild": "node scripts/stage-export.mjs",
     "start": "next start",
     "lint": "eslint .",
-    "format": "prettier . --write"
+    "format": "prettier . --write",
+    "test:address-utils": "node --test src/components/pages/running-model/address-utils.test.mjs"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",
