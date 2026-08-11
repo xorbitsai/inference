@@ -329,9 +329,9 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
                     self._model = FluxKontextPipeline.from_pretrained(
                         self._model_path, **self._kwargs
                     )
-                elif "qwen" in model_name_lower:
+                elif "qwen" in model_name_lower or "firered" in model_name_lower:
                     # TODO: remove this branch when auto pipeline supports
-                    # Qwen-Image
+                    # Qwen-Image and models based on its editing pipeline
                     from diffusers import DiffusionPipeline
 
                     self._model = DiffusionPipeline.from_pretrained(
@@ -940,6 +940,12 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         response_format: str = "url",
         **kwargs,
     ):
+        generate_kwargs = (  # type: ignore
+            self._model_spec.default_generate_config or {}
+        ).copy()
+        generate_kwargs.update({k: v for k, v in kwargs.items() if v is not None})
+        kwargs = generate_kwargs
+
         if self._kwargs.get("controlnet") or self._model_spec.model_ability == [  # type: ignore
             "image2image"
         ]:
@@ -949,6 +955,19 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
             if ability not in self._abilities:
                 raise RuntimeError(f"{self._model_uid} does not support image2image")
             model = self._get_model(ability)
+
+        # QwenImageEditPlusPipeline consumes all reference images through its
+        # ``image`` argument.  The OpenAI-compatible endpoint exposes the first
+        # upload as ``image`` and the remaining uploads as ``reference_images``;
+        # combine them here instead of letting the latter be filtered out as an
+        # unsupported pipeline keyword.
+        if (
+            kwargs.get("reference_images")
+            and type(model).__name__ == "QwenImageEditPlusPipeline"
+        ):
+            reference_images = kwargs.pop("reference_images")
+            primary_images = image if isinstance(image, list) else [image]
+            image = primary_images + list(reference_images)
 
         if padding_image_to_multiple := kwargs.pop("padding_image_to_multiple", None):
             # Model like SD3 image to image requires image's height and width is times of 16
