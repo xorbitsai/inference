@@ -130,66 +130,6 @@ def _encode_image(image: Any) -> Optional[str]:
         return None
 
 
-def _build_parallel_limiter() -> Optional[List[Any]]:
-    """Mirror the per-device semaphores ``RAGFlowPdfParser.__init__`` builds.
-
-    Bypassing that constructor to reuse the loaded recognizers means this has
-    to be reproduced, otherwise multi-GPU workers would silently serialize
-    page recognition onto a single device.
-    """
-    import asyncio
-
-    from deepdoc.common import check_and_install_torch, settings
-
-    try:
-        check_and_install_torch()
-        if settings.PARALLEL_DEVICES > 1:
-            return [asyncio.Semaphore(1) for _ in range(settings.PARALLEL_DEVICES)]
-    except Exception:
-        logger.debug("Could not size the DeepDoc parallel limiter", exc_info=True)
-    return None
-
-
-_ZOOM_RETRY_DISABLED = "_xinference_no_zoom_retry"
-
-
-def _disable_zoom_retry(parser: Any) -> None:
-    """Stop ``__images__`` from re-rendering the document at three times the zoom.
-
-    When a first pass finds no boxes at all -- a blank or image-only PDF --
-    deepdoc recurses into ``__images__`` at ``zoomin * 3``, i.e. nine times
-    the pixels, and does so for a document that by definition produced no
-    output. It is also inconsistent: ``parse_into_bboxes`` runs every later
-    stage at the *original* zoom, so the pages it then works on no longer
-    match the scale the coordinates are computed against.
-
-    Wrapping the bound method to swallow the recursive call keeps one render
-    per request, which is what the API layer's page-size budget assumes.
-    """
-    if getattr(parser, _ZOOM_RETRY_DISABLED, False):
-        return
-    original = getattr(parser, "__images__", None)
-    if original is None:
-        # A parser shape we do not recognise; leave it alone rather than
-        # fail the request over a defensive guard.
-        logger.debug("Parser has no __images__ to guard against zoom retries")
-        return
-
-    def __images__(fnm, zoomin=3, page_from=0, page_to=299, callback=None):
-        # The recursion is the last statement of `__images__`, so a guard
-        # that makes the inner call a no-op leaves the first render intact.
-        if getattr(parser, "_xinference_in_images", False):
-            return None
-        parser._xinference_in_images = True
-        try:
-            return original(fnm, zoomin, page_from, page_to, callback)
-        finally:
-            parser._xinference_in_images = False
-
-    parser.__images__ = __images__
-    setattr(parser, _ZOOM_RETRY_DISABLED, True)
-
-
 def _reset_parser_document_state(parser: Any) -> None:
     """Drop the per-document state a parse run leaves on the parser.
 
@@ -359,95 +299,38 @@ class DeepDocModel(OCRModel):
             f"{self._model_path!r}. Re-download the model files."
         )
 
-    def _build_pdf_parser(self):
-        """Build a ``PdfParser`` that reuses the already-loaded recognizers.
-
-        ``RAGFlowPdfParser.__init__`` would construct its own OCR, layout and
-        table recognizers, doubling the ONNX sessions (and the VRAM) this
-        model already holds. So the constructor is bypassed and only the
-        attributes it would have set are assembled, wiring in the existing
-        recognizers. If a future ``deepdoc-lib`` needs attributes we do not
-        know about, fall back to the real constructor and inject afterwards
-        -- slower and briefly twice the memory, but correct.
-        """
-        import xgboost as xgb
-        from deepdoc import PdfModelConfig, PdfParser, TokenizerConfig
-        from deepdoc.depend.rag_tokenizer import RagTokenizer
-
-        vision_dir = self._model_dir()
-        xgb_dir = self._xgb_model_dir()
-        # `model_provider="local"` keeps the onnx/booster side offline, but the
-        # tokenizer config must stay online-capable: RagTokenizer raises when
-        # its nltk data is missing and offline mode is on.
-        model_cfg = PdfModelConfig(
-            vision_model_dir=vision_dir,
-            xgb_model_dir=xgb_dir,
-            model_provider="local",
-        )
-        tokenizer_cfg = TokenizerConfig()
-
-        booster = xgb.Booster()
-        # Upstream keys this purely off CUDA availability, which already
-        # honours the CUDA_VISIBLE_DEVICES that `gpu_idx` sets. An explicit
-        # non-CUDA `device` is respected on top of that, so a model pinned to
-        # CPU does not pull the booster onto a GPU.
-        if not self._device or "cuda" in self._device:
-            try:
-                import torch
-
-                if torch.cuda.is_available():
-                    booster.set_param({"device": "cuda"})
-            except Exception:
-                logger.debug("torch unavailable, running the xgb booster on CPU")
-        booster.load_model(os.path.join(xgb_dir, "updown_concat_xgb.model"))
-
-        parser = PdfParser.__new__(PdfParser)
-        parser.model_cfg = model_cfg
-        parser.tokenizer_cfg = tokenizer_cfg
-        # Load-bearing: `_concat_downward` tokenizes and tags line text.
-        parser.tokenizer = RagTokenizer(
-            dict_prefix=tokenizer_cfg.resolve_dict_prefix(),
-            offline=tokenizer_cfg.offline,
-            nltk_data_dir=tokenizer_cfg.nltk_data_dir,
-        )
-        parser.ocr = self._ocr
-        parser.layouter = self._get_layout_recognizer()
-        parser.tbl_det = self._get_table_recognizer()
-        parser.updown_cnt_mdl = booster
-        parser.parallel_limiter = _build_parallel_limiter()
-        parser.page_from = 0
-        parser.column_num = 1
-        return parser
-
     def _get_pdf_parser(self):
-        if self._pdf_parser is None:
-            try:
-                self._pdf_parser = self._build_pdf_parser()
-            except Exception:
-                logger.warning(
-                    "Could not assemble a DeepDoc PdfParser around the loaded "
-                    "recognizers; falling back to constructing a new one, "
-                    "which loads a second set of models.",
-                    exc_info=True,
-                )
-                self._pdf_parser = self._build_pdf_parser_fallback()
-        return self._pdf_parser
+        """Build the parser through deepdoc's public API, once, and cache it.
 
-    def _build_pdf_parser_fallback(self):
+        ``PdfParser`` constructs its own OCR, layout and table recognizers,
+        which would double the ONNX sessions (and the VRAM) this model
+        already holds. Rather than reproduce its private initialization, the
+        supported constructor is used and the freshly built recognizers are
+        then replaced by the ones already loaded; the originals are dropped
+        and freed, so steady state holds a single set. Construction happens
+        once per model and the parser is reused for every request.
+        """
+        if self._pdf_parser is not None:
+            return self._pdf_parser
+
         from deepdoc import PdfModelConfig, PdfParser
 
+        xgb_dir = self._xgb_model_dir()
+        # `model_provider="local"` keeps the onnx/booster side offline. The
+        # tokenizer config is left at its default: RagTokenizer raises when
+        # its nltk data is missing and offline mode is on.
         parser = PdfParser(
             model_cfg=PdfModelConfig(
                 vision_model_dir=self._model_dir(),
-                xgb_model_dir=self._xgb_model_dir(),
+                xgb_model_dir=xgb_dir,
                 model_provider="local",
             )
         )
-        # Drop the freshly built recognizers in favour of the loaded ones so
-        # steady-state memory still holds a single set.
         parser.ocr = self._ocr
         parser.layouter = self._get_layout_recognizer()
         parser.tbl_det = self._get_table_recognizer()
+        self._pdf_parser = parser
+        return self._pdf_parser
         return parser
 
     def ocr(
@@ -569,7 +452,6 @@ class DeepDocModel(OCRModel):
         image_scope = _parse_image_scope(kwargs)
 
         parser = self._get_pdf_parser()
-        _disable_zoom_retry(parser)
         try:
             # `__images__` accepts bytes directly (it wraps them in a BytesIO),
             # so no temporary file is needed.

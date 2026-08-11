@@ -46,17 +46,41 @@ MAX_PDF_OCR_PAGE_PIXELS = 80_000_000
 WHOLE_DOCUMENT_OCR_TASKS = frozenset({"parse"})
 # Whole-document parsers render at ``72 * zoomin`` DPI, i.e. a scale of
 # ``zoomin`` over the page's point size. DeepDoc additionally re-renders at
-# ``zoomin * 3`` when a first pass finds no boxes, but only while
-# ``zoomin < 9`` -- so a parse started at or above this never amplifies.
+# ``zoomin * 3`` when a first pass finds no OCR boxes -- its recovery path
+# for pages the first render was too coarse to read -- but only while
+# ``zoomin < 9``, so a parse started at or above that never amplifies. That
+# retry is part of the parsing behaviour and is left intact, so the budget
+# below is enforced against the largest scale a run can actually reach.
+PDF_PARSE_RETRY_ZOOM_FACTOR = 3
 PDF_PARSE_RETRY_ZOOM_LIMIT = 9
+
+
+def worst_case_parse_zoom(zoomin: int) -> int:
+    """The largest scale a whole-document parse can actually render at."""
+    if zoomin < PDF_PARSE_RETRY_ZOOM_LIMIT:
+        return zoomin * PDF_PARSE_RETRY_ZOOM_FACTOR
+    return zoomin
+
+
+# Budgets for whole-document parsing. Measured against pdfplumber, a
+# rendered page costs ~4 bytes per pixel once the PIL object is accounted
+# for; deepdoc then adds crops, characters and a deepcopy of the boxes.
+#
+# The per-page ceiling is enforced at the worst-case (retry) scale, and is
+# separate from MAX_PDF_OCR_PAGE_PIXELS because the two paths render
+# differently -- reusing that limit here would reject an ordinary A3 page at
+# the default zoom once the retry is accounted for. Sized to admit A4 and A3
+# at the default zoom (41 and 81 MP worst-case) while still rejecting an
+# outsized MediaBox: the 14400x14400 pt maximum is 1.9 G px at zoomin 3.
+MAX_PDF_PARSE_PAGE_PIXELS = 200_000_000
 # Unlike the per-page path, which rasterizes lazily and holds one page at a
 # time, whole-document parsers render every page up front and keep them all
-# alive at once. The per-page pixel limit therefore says nothing about a
-# document's total footprint, so the pages are budgeted together as well.
-# Measured against pdfplumber, a rendered page costs ~4 bytes per pixel once
-# the PIL object is accounted for, so this bounds the page images at roughly
-# 4 GB; deepdoc then adds crops, characters and a deepcopy of the boxes on
-# top. It is sized to admit a full 200-page A4 document at the default zoom.
+# alive at once, so the pages are budgeted together as well. This one is
+# enforced at the requested scale: `page_images` is reassigned rather than
+# appended to on a retry, so peak usage is one render's worth, and sizing
+# the aggregate for the retry would mean either a 32 GB allowance or
+# refusing ordinary 200-page documents. Sized to admit a full 200-page A4
+# document at the default zoom (0.9 G px, ~3.6 GB).
 MAX_PDF_PARSE_TOTAL_PIXELS = 1_000_000_000
 
 
@@ -84,9 +108,10 @@ def validate_pdf_for_parse(data: bytes, zoomin: int = 3) -> int:
     comfortably under the per-page limit can still exhaust the worker in
     aggregate, so the pages are budgeted as a whole too.
 
-    Both budgets are applied at the requested scale; the caller is
-    responsible for keeping the parser's own retry from amplifying it (see
-    ``PDF_PARSE_RETRY_ZOOM_LIMIT``).
+    The per-page budget is applied at the worst-case scale, since the retry
+    is left intact and a single page can reach it. The aggregate one is
+    applied at the requested scale: ``page_images`` is reassigned rather than
+    appended to on a retry, so peak usage is one render's worth.
 
     Returns the page count. Raises ``ValueError`` if the document cannot be
     opened, has no pages, has too many pages, or would rasterize to too many
@@ -115,6 +140,7 @@ def validate_pdf_for_parse(data: bytes, zoomin: int = 3) -> int:
                     f"The uploaded PDF has {page_count} pages, at most "
                     f"{MAX_PDF_OCR_PAGES} pages can be parsed per request"
                 )
+            worst_case = worst_case_parse_zoom(zoomin)
             total_pixels = 0
             for page_number in range(1, page_count + 1):
                 page = pdf[page_number - 1]
@@ -122,14 +148,16 @@ def validate_pdf_for_parse(data: bytes, zoomin: int = 3) -> int:
                     width, height = page.get_size()
                 finally:
                     page.close()
-                pixels = int(width * zoomin) * int(height * zoomin)
-                if pixels > MAX_PDF_OCR_PAGE_PIXELS:
+                worst_pixels = int(width * worst_case) * int(height * worst_case)
+                if worst_pixels > MAX_PDF_PARSE_PAGE_PIXELS:
                     raise ValueError(
-                        f"Page {page_number} would rasterize to {pixels} pixels "
-                        f"at zoomin {zoomin:g}, exceeding the limit of "
-                        f"{MAX_PDF_OCR_PAGE_PIXELS}; lower `zoomin`"
+                        f"Page {page_number} would rasterize to {worst_pixels} "
+                        f"pixels at zoomin {zoomin:g} (the parser re-renders at "
+                        f"up to {worst_case:g}x when a page yields no text), "
+                        f"exceeding the per-page limit of "
+                        f"{MAX_PDF_PARSE_PAGE_PIXELS}; lower `zoomin`"
                     )
-                total_pixels += pixels
+                total_pixels += int(width * zoomin) * int(height * zoomin)
                 if total_pixels > MAX_PDF_PARSE_TOTAL_PIXELS:
                     raise ValueError(
                         f"The uploaded PDF would rasterize to more than "

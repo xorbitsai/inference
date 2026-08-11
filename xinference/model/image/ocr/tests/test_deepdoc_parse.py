@@ -363,37 +363,6 @@ class TestParserStateIsReleased:
         assert parser.page_images == []
         assert parser.boxes == []
 
-    def test_zoom_retry_is_suppressed(self):
-        # deepdoc re-renders at 3x the zoom (9x the pixels) when a first pass
-        # finds no boxes, which the API layer's page-size budget does not
-        # account for -- and which leaves later stages working at a zoom that
-        # no longer matches the pages.
-        renders = []
-
-        class Retrying(FakePdfParser):
-            def __images__(self, fnm, zoomin=3, page_from=0, page_to=299, cb=None):
-                renders.append(zoomin)
-                # what deepdoc does when it finds nothing
-                if zoomin < 9:
-                    self.__images__(fnm, zoomin * 3, page_from, page_to, cb)
-
-            def parse_into_bboxes(self, fnm, zoomin=3):
-                self.calls.append((fnm, zoomin))
-                self.__images__(fnm, zoomin)
-                return self._elements
-
-        parser = Retrying([])
-        model = make_model(parser)
-        model.ocr(b"%PDF", task="parse")
-        assert renders == [3]
-
-    def test_parser_without_images_still_parses(self):
-        # The guard must not fail a request on a parser shape it does not
-        # recognise.
-        parser = FakePdfParser([text_element()])
-        model = make_model(parser)
-        assert len(model.ocr(b"%PDF", task="parse")["elements"]) == 1
-
     def test_stale_pages_cannot_leak_into_a_later_request(self):
         # deepdoc swallows document-load failures, so without the reset a
         # PDF it cannot open would be parsed against the previous request's

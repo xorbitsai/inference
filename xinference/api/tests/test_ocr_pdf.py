@@ -20,8 +20,8 @@ import pytest
 
 from ..pdf_ocr import (
     DEFAULT_PDF_OCR_DPI,
-    MAX_PDF_OCR_PAGE_PIXELS,
     MAX_PDF_OCR_PAGES,
+    MAX_PDF_PARSE_PAGE_PIXELS,
     MAX_PDF_PARSE_TOTAL_PIXELS,
     WHOLE_DOCUMENT_OCR_TASKS,
     is_pdf_upload,
@@ -29,6 +29,7 @@ from ..pdf_ocr import (
     normalize_pages,
     rasterize_pdf,
     validate_pdf_for_parse,
+    worst_case_parse_zoom,
 )
 
 
@@ -255,26 +256,37 @@ class TestValidatePdfForParse:
         # page-pixel budget has to be enforced here too.
         pytest.importorskip("pypdfium2")
         oversized = make_pdf(media_box="0 0 14400 14400")
-        with pytest.raises(ValueError, match="exceeding the limit"):
+        with pytest.raises(ValueError, match="per-page limit"):
             validate_pdf_for_parse(oversized)
 
-    def test_common_page_sizes_pass_at_every_allowed_zoom(self):
-        # The budget must not reject ordinary documents: A4, Letter and even
-        # A0 are all legitimate parse inputs.
+    def test_page_budget_accounts_for_the_retry_scale(self):
+        # deepdoc re-renders at 3x when a page yields no text, and that
+        # retry is left intact, so the per-page budget is enforced against
+        # the scale a run can actually reach.
+        pytest.importorskip("pypdfium2")
+        assert worst_case_parse_zoom(3) == 9
+        # 1700x1700 pt: 26 MP at zoomin 3, but 234 MP at the 9x it may
+        # actually render at.
+        borderline = make_pdf(media_box="0 0 1700 1700")
+        assert int(1700 * 3) ** 2 < MAX_PDF_PARSE_PAGE_PIXELS
+        assert int(1700 * 9) ** 2 > MAX_PDF_PARSE_PAGE_PIXELS
+        with pytest.raises(ValueError, match="per-page limit"):
+            validate_pdf_for_parse(borderline, zoomin=3)
+
+    def test_common_page_sizes_pass_at_the_default_zoom(self):
+        # The budget must not reject ordinary documents. A4, Letter and A3
+        # come to 41, 39 and 81 MP at the zoomin-3 worst case.
         pytest.importorskip("pypdfium2")
         for media_box in ("0 0 595 842", "0 0 612 792", "0 0 842 1191"):
-            for zoomin in (3, 6):
-                assert (
-                    validate_pdf_for_parse(make_pdf(media_box=media_box), zoomin) == 1
-                )
+            assert validate_pdf_for_parse(make_pdf(media_box=media_box), 3) == 1
 
     def test_budget_scales_with_zoomin(self):
         pytest.importorskip("pypdfium2")
-        # 2384x3370 pt (A0): 72 MP at zoomin 3, 289 MP at zoomin 6.
-        a0 = make_pdf(media_box="0 0 2384 3370")
-        assert validate_pdf_for_parse(a0, zoomin=3) == 1
-        with pytest.raises(ValueError, match="exceeding the limit"):
-            validate_pdf_for_parse(a0, zoomin=6)
+        # A3 is 81 MP at the zoomin-3 worst case but 325 MP at zoomin 6.
+        a3 = make_pdf(media_box="0 0 842 1191")
+        assert validate_pdf_for_parse(a3, zoomin=3) == 1
+        with pytest.raises(ValueError, match="per-page limit"):
+            validate_pdf_for_parse(a3, zoomin=6)
 
     def test_rejects_an_oversized_document_of_individually_small_pages(self):
         # Whole-document parsers render every page up front and hold them all
@@ -283,12 +295,15 @@ class TestValidatePdfForParse:
         # page -- far under the 80 MP page limit -- but 200 of them come to
         # 3.6 G px, measured at ~4 bytes each once rendered.
         pytest.importorskip("pypdfium2")
-        per_page = int(595 * 6) * int(842 * 6)
-        assert per_page < MAX_PDF_OCR_PAGE_PIXELS
+        # 1000x1000 pt at zoomin 4: 16 MP per page (well under the per-page
+        # cap even at the 12x worst case, 144 MP), but 200 of them are
+        # 3.2 G px together.
+        per_page = int(1000 * 4) ** 2
+        assert int(1000 * 12) ** 2 < MAX_PDF_PARSE_PAGE_PIXELS
         assert per_page * MAX_PDF_OCR_PAGES > MAX_PDF_PARSE_TOTAL_PIXELS
-        a4 = make_pdf(page_count=MAX_PDF_OCR_PAGES, media_box="0 0 595 842")
+        doc = make_pdf(page_count=MAX_PDF_OCR_PAGES, media_box="0 0 1000 1000")
         with pytest.raises(ValueError, match="whole-document limit"):
-            validate_pdf_for_parse(a4, zoomin=6)
+            validate_pdf_for_parse(doc, zoomin=4)
 
     def test_full_length_document_passes_at_the_default_zoom(self):
         # The aggregate budget must still admit an ordinary long document:
