@@ -451,6 +451,15 @@ document to merge across pages, so it requires a PDF upload and does not accept
   them inflates the response substantially, so prefer the default unless the
   text crops are needed too. The field is omitted for elements without a crop.
 
-The same 200-page and 80-megapixel-per-page limits as per-page OCR apply; a page
-that would rasterize past the pixel limit at the requested ``zoomin`` is
-rejected, so lower ``zoomin`` for very large page sizes.
+Parsing has its own size limits, and they are tighter than the per-page OCR
+path's. When a render finds no text at all, DeepDoc re-renders the whole
+document at three times the zoom, repeatedly, until the scale reaches 9 — so a
+request at ``zoomin=3`` may end up rendering at 9, and one at ``zoomin=1`` also
+ends at 9. Because that allocation is real, both the per-page and the
+whole-document budgets are enforced against the largest scale a run can reach,
+counting the render being replaced as well.
+
+In practice a request is rejected with a 400 when a single page would peak above
+200 megapixels (an A3 page is fine at ``zoomin=3``, but not at ``6``), or when
+the pages together would peak above 1 gigapixel — roughly 22 A4 pages at the
+default zoom. Lower ``zoomin`` or split the document if you hit either.

@@ -23,12 +23,14 @@ from ..pdf_ocr import (
     MAX_PDF_OCR_PAGES,
     MAX_PDF_PARSE_PAGE_PIXELS,
     MAX_PDF_PARSE_TOTAL_PIXELS,
+    PDF_PARSE_RETRY_ZOOM_LIMIT,
     WHOLE_DOCUMENT_OCR_TASKS,
     is_pdf_upload,
     merge_ocr_page_results,
     normalize_pages,
     rasterize_pdf,
     validate_pdf_for_parse,
+    worst_case_parse_peak_pixels,
     worst_case_parse_zoom,
 )
 
@@ -269,7 +271,7 @@ class TestValidatePdfForParse:
         # actually render at.
         borderline = make_pdf(media_box="0 0 1700 1700")
         assert int(1700 * 3) ** 2 < MAX_PDF_PARSE_PAGE_PIXELS
-        assert int(1700 * 9) ** 2 > MAX_PDF_PARSE_PAGE_PIXELS
+        assert worst_case_parse_peak_pixels(1700, 1700, 3) > MAX_PDF_PARSE_PAGE_PIXELS
         with pytest.raises(ValueError, match="per-page limit"):
             validate_pdf_for_parse(borderline, zoomin=3)
 
@@ -305,12 +307,66 @@ class TestValidatePdfForParse:
         with pytest.raises(ValueError, match="whole-document limit"):
             validate_pdf_for_parse(doc, zoomin=4)
 
-    def test_full_length_document_passes_at_the_default_zoom(self):
-        # The aggregate budget must still admit an ordinary long document:
-        # 200 A4 pages at the default zoom is the headline supported case.
+    def test_typical_document_passes_at_the_default_zoom(self):
+        # The aggregate budget must still admit an everyday document. Because
+        # it is enforced against the retry scale, the allowance is far below
+        # the 200-page ceiling the per-page OCR path permits: an A4 page peaks
+        # at 45 MP, so ~22 of them fit.
+        pytest.importorskip("pypdfium2")
+        a4 = make_pdf(page_count=20, media_box="0 0 595 842")
+        assert validate_pdf_for_parse(a4, zoomin=3) == 20
+
+    def test_page_ceiling_alone_does_not_admit_a_long_document(self):
+        # Documented consequence of budgeting for the 9x retry: a 200-page
+        # document is rejected on pixels, not on the page count.
         pytest.importorskip("pypdfium2")
         a4 = make_pdf(page_count=MAX_PDF_OCR_PAGES, media_box="0 0 595 842")
-        assert validate_pdf_for_parse(a4, zoomin=3) == MAX_PDF_OCR_PAGES
+        with pytest.raises(ValueError, match="whole-document limit"):
+            validate_pdf_for_parse(a4, zoomin=3)
+
+
+class TestWorstCaseParseZoom:
+    """The retry is recursive, so a low zoomin chains up several times."""
+
+    def test_chain_is_followed_to_the_ceiling(self):
+        # zoomin 1 renders at 1, then 3, then 9 -- not just 3.
+        assert worst_case_parse_zoom(1) == 9
+        assert worst_case_parse_zoom(2) == 18
+        assert worst_case_parse_zoom(3) == 9
+        assert worst_case_parse_zoom(4) == 12
+        assert worst_case_parse_zoom(5) == 15
+        assert worst_case_parse_zoom(6) == 18
+
+    def test_result_always_reaches_the_ceiling(self):
+        # Whatever the input, the chain must terminate at or above the limit,
+        # otherwise a further retry would still be possible.
+        for zoomin in range(1, 7):
+            assert worst_case_parse_zoom(zoomin) >= PDF_PARSE_RETRY_ZOOM_LIMIT
+
+    def test_never_below_the_requested_scale(self):
+        for zoomin in range(1, 7):
+            assert worst_case_parse_zoom(zoomin) >= zoomin
+
+    def test_at_or_above_the_ceiling_does_not_amplify(self):
+        assert worst_case_parse_zoom(9) == 9
+        assert worst_case_parse_zoom(12) == 12
+
+
+class TestWorstCaseParsePeakPixels:
+    def test_counts_the_coexisting_previous_render(self):
+        # `page_images = [...]` builds the new list before rebinding, so the
+        # render being replaced is still alive. Peak is 9x + 1x, not 9x.
+        peak = worst_case_parse_peak_pixels(100, 100, 3)
+        assert peak == (900 * 900) + (300 * 300)
+
+    def test_no_previous_render_when_no_retry_can_fire(self):
+        assert worst_case_parse_peak_pixels(100, 100, 9) == 900 * 900
+
+    def test_every_accepted_zoomin_is_bounded(self):
+        for zoomin in range(1, 7):
+            peak = worst_case_parse_peak_pixels(595, 842, zoomin)
+            final = worst_case_parse_zoom(zoomin)
+            assert peak >= int(595 * final) * int(842 * final)
 
 
 class TestWholeDocumentOcrTasks:
