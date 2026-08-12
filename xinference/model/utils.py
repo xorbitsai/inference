@@ -17,6 +17,7 @@ import functools
 import importlib
 import json
 import logging
+import math
 import os
 import random
 import re
@@ -932,18 +933,18 @@ class CancellableDownloader:
             self._main_progresses.clear()
             self._download_progresses.clear()
 
+    def _progress_snapshots(self) -> Tuple[List[tqdm], List[tqdm]]:
+        """Return stable copies while tqdm callbacks may update the sets."""
+        with self._progress_lock:
+            return list(self._main_progresses), list(self._download_progresses)
+
     def get_progress(self) -> float:
         if self.done:
             # directly return 1.0 when finished
             return 1.0
         # Don't return 1.0 when cancelled, calculate actual progress
 
-        # Snapshot the progress sets under the lock: patched_update (download
-        # thread) can add a new bar mid-iteration, which would otherwise raise
-        # "Set changed size during iteration".
-        with self._progress_lock:
-            main_progresses = list(self._main_progresses)
-            download_progresses = list(self._download_progresses)
+        main_progresses, download_progresses = self._progress_snapshots()
 
         tasks = finished_tasks = 0
         for main_progress in main_progresses:
@@ -975,6 +976,70 @@ class CancellableDownloader:
             return finished_ratio + rest_ratio
         else:
             return finished_ratio
+
+    @staticmethod
+    def _finite_float(value: Any) -> Optional[float]:
+        try:
+            result = float(value)
+        except (TypeError, ValueError):
+            return None
+        return result if math.isfinite(result) else None
+
+    def get_download_progress_details(self) -> List[Dict[str, Any]]:
+        """Return JSON-serializable snapshots for files downloading right now.
+
+        Repository-level tqdm bars count files and use ``it`` as their unit.
+        File download bars use a byte unit, so only those bars are exposed.
+        Completed or closed bars are omitted because this endpoint is intended
+        to describe current network activity rather than download history.
+        """
+        _, download_progresses = self._progress_snapshots()
+        files: List[Dict[str, Any]] = []
+
+        for download_progress in download_progresses:
+            if getattr(download_progress, "disable", False):
+                continue
+
+            unit = str(getattr(download_progress, "unit", "") or "")
+            if unit.lower() not in {"b", "byte", "bytes"}:
+                continue
+
+            downloaded = self._finite_float(getattr(download_progress, "n", None))
+            total = self._finite_float(getattr(download_progress, "total", None))
+            if downloaded is None:
+                continue
+            if total is not None and downloaded >= total:
+                continue
+
+            format_dict = getattr(download_progress, "format_dict", {}) or {}
+            rate = self._finite_float(format_dict.get("rate"))
+            elapsed = self._finite_float(format_dict.get("elapsed"))
+            downloaded = max(0.0, downloaded)
+            total = max(0.0, total) if total is not None else None
+            rate = max(0.0, rate) if rate is not None else None
+            elapsed = max(0.0, elapsed) if elapsed is not None else 0.0
+
+            progress = None
+            eta = None
+            if total is not None and total > 0:
+                progress = min(1.0, downloaded / total)
+                if rate is not None and rate > 0:
+                    eta = max(0.0, (total - downloaded) / rate)
+
+            files.append(
+                {
+                    "name": str(getattr(download_progress, "desc", "") or ""),
+                    "downloaded_bytes": int(downloaded),
+                    "total_bytes": int(total) if total is not None else None,
+                    "progress": progress,
+                    "speed_bytes_per_second": rate,
+                    "elapsed_seconds": elapsed,
+                    "eta_seconds": eta,
+                    "status": "downloading",
+                }
+            )
+
+        return sorted(files, key=lambda item: item["name"])
 
     def cancel(self):
         self._cancelled.set()

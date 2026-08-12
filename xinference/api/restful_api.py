@@ -1018,13 +1018,13 @@ class RESTfulAPI(CancelMixin):
 
     async def get_launch_model_progress(self, model_uid: str) -> JSONResponse:
         try:
-            progress = await (
+            progress_details = await (
                 await self._get_supervisor_ref()
-            ).get_launch_builtin_model_progress(model_uid)
+            ).get_launch_builtin_model_progress_details(model_uid)
         except Exception as e:
             logger.error(str(e), exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
-        return JSONResponse(content={"progress": progress})
+        return JSONResponse(content=progress_details)
 
     async def cancel_launch_model(self, model_uid: str) -> JSONResponse:
         try:

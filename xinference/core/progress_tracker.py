@@ -17,7 +17,7 @@ import dataclasses
 import logging
 import os
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import xoscar as xo
@@ -40,6 +40,7 @@ class _ProgressInfo:
     progress: float
     last_updated: float
     info: Optional[str] = None
+    details: Optional[Dict[str, Any]] = None
 
 
 class ProgressTrackerActor(xo.StatelessActor):
@@ -92,13 +93,25 @@ class ProgressTrackerActor(xo.StatelessActor):
 
             await asyncio.sleep(self._check_interval)
 
-    def start(self, request_id: str, info: Optional[str] = None):
+    def start(
+        self,
+        request_id: str,
+        info: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+    ):
         self._request_id_to_progress[request_id] = _ProgressInfo(
-            progress=0.0, last_updated=time.time(), info=info
+            progress=0.0,
+            last_updated=time.time(),
+            info=info,
+            details=details,
         )
 
     def set_progress(
-        self, request_id: str, progress: float, info: Optional[str] = None
+        self,
+        request_id: str,
+        progress: float,
+        info: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
     ):
         assert progress <= 1.0
         info_ = self._request_id_to_progress[request_id]
@@ -106,6 +119,8 @@ class ProgressTrackerActor(xo.StatelessActor):
         info_.last_updated = time.time()
         if info:
             info_.info = info
+        if details is not None:
+            info_.details = details
         logger.debug(
             "Setting progress, request id: %s, progress: %s", request_id, progress
         )
@@ -116,6 +131,12 @@ class ProgressTrackerActor(xo.StatelessActor):
     def get_progress_info(self, request_id: str) -> Tuple[float, Optional[str]]:
         info = self._request_id_to_progress[request_id]
         return info.progress, info.info
+
+    def get_progress_details(
+        self, request_id: str
+    ) -> Tuple[float, Optional[str], Optional[Dict[str, Any]]]:
+        info = self._request_id_to_progress[request_id]
+        return info.progress, info.info, info.details
 
 
 class Progressor:
@@ -177,7 +198,12 @@ class Progressor:
             self.set_progress(1.0)
         return False
 
-    def set_progress(self, progress: float, info: Optional[str] = None):
+    def set_progress(
+        self,
+        progress: float,
+        info: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+    ):
         if self.request_id:
             self._current_progress = (
                 self._current_sub_progress_start
@@ -187,9 +213,9 @@ class Progressor:
             if (
                 self._current_progress - self._last_report_progress >= self._upload_span
                 or 1.0 - progress < 1e-5
-            ) or info:
+            ) or info or details is not None:
                 set_progress = self.progress_tracker_ref.set_progress(
-                    self.request_id, self._current_progress
+                    self.request_id, self._current_progress, info, details
                 )
                 asyncio.run_coroutine_threadsafe(set_progress, self.loop)  # type: ignore
                 self._last_report_progress = self._current_progress

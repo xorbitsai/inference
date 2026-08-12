@@ -3256,10 +3256,26 @@ class WorkerActor(xo.StatelessActor):
     ):
         while not downloader.done:
             progress = downloader.get_progress()
-            progressor.set_progress(progress)
+            progressor.set_progress(
+                progress,
+                "Downloading model files",
+                {
+                    "stage": "downloading",
+                    "download_files": downloader.get_download_progress_details(),
+                    "updated_at": time.time(),
+                },
+            )
             downloader.wait(1)
 
-        progressor.set_progress(1.0, "Start to load model")
+        progressor.set_progress(
+            1.0,
+            "Start to load model",
+            {
+                "stage": "loading",
+                "download_files": [],
+                "updated_at": time.time(),
+            },
+        )
 
     @log_async(logger=logger, level=logging.INFO)
     async def launch_builtin_model(
