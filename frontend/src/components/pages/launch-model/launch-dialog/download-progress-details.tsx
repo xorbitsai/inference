@@ -33,11 +33,12 @@ interface DownloadProgressDetailsProps {
 }
 
 function getProgressPercent(file: DownloadProgressFile): number {
-  const progress = Number(file.progress);
-
-  if (Number.isFinite(progress)) {
-    const percent = progress <= 1 ? progress * 100 : progress;
-    return Math.max(0, Math.min(100, percent));
+  if (file.progress !== null && file.progress !== undefined) {
+    const progress = Number(file.progress);
+    if (Number.isFinite(progress)) {
+      const percent = progress <= 1 ? progress * 100 : progress;
+      return Math.max(0, Math.min(100, percent));
+    }
   }
 
   if (file.total_bytes && file.total_bytes > 0) {
