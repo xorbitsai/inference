@@ -120,25 +120,25 @@ MAX_PDF_PARSE_PAGE_PIXELS = 200_000_000
 # zoomin (#5307): it was budgeted at 45 MP per page where it really renders
 # at 4.5.
 #
-# There is no separate document-wide ceiling for the retry scale, because for
-# any document that renders at all the retry is unreachable. deepdoc's guard
-# is ``len(self.boxes) == 0``, but ``__ocr`` appends to ``boxes`` on *every*
-# page -- ``self.boxes.append([])`` when a page yields nothing, ``append(bxs)``
-# otherwise -- so after the OCR pass ``len(self.boxes)`` equals the page count.
-# It is zero only when there were no pages to render in the first place, i.e.
-# the load failed, in which case there is nothing to re-render. Budgeting the
-# whole document for a 9x pass it cannot take would reject a 74-page A4 PDF
-# whose real render is ~334 M pixels.
+# The retry gets its own, looser ceiling below rather than being priced into
+# this one, because for any document that renders at all it is unreachable
+# with deepdoc-lib 0.2.2. deepdoc's guard is ``len(self.boxes) == 0``, but
+# ``__ocr`` appends to ``boxes`` on *every* page -- ``self.boxes.append([])``
+# when a page yields nothing, ``append(bxs)`` otherwise -- so after the OCR
+# pass ``len(self.boxes)`` equals the page count. It is zero only when there
+# were no pages to render in the first place, i.e. the load failed, in which
+# case there is nothing to re-render. Charging this budget for a 9x pass the
+# parser cannot take would reject a 74-page A4 PDF rendering ~334 M pixels.
 #
 # At 1 G px and ~4 bytes per rendered pixel this is ~4 GB of page images at
 # the requested zoom: ~221 A4 pages at the default zoomin 3, 55 at zoomin 6,
 # with the 200-page ceiling capping it from the other side.
 MAX_PDF_PARSE_TOTAL_PIXELS = 1_000_000_000
-# The unreachability above is a statement about one release, and the
+# The unreachability argued above is a statement about one release, and the
 # dependency is ``deepdoc-lib~=0.2.2``, which accepts any later 0.2.x. If
 # upstream corrects the guard to the likely intended ``not any(self.boxes)``,
-# the retry becomes reachable, so what it would then allocate needs its own
-# ceiling.
+# the retry becomes reachable, so what it would then allocate is bounded here
+# rather than left to that argument holding.
 #
 # The per-page ceiling does not supply a useful one. It caps a single page,
 # and multiplied by the 200-page ceiling it admits 40 G px -- some 160 GB of
@@ -191,9 +191,10 @@ MAX_PDF_PARSE_RETRY_TOTAL_PIXELS = _pixel_budget_from_env(
 def _parse_budget_error(sizes: List[Tuple[float, float]], zoomin: int) -> Optional[str]:
     """Why a document does not fit at ``zoomin``, or ``None`` if it does.
 
-    The per-page ceiling is applied at the worst-case scale and the
-    document-wide ceiling at the requested scale; see
-    ``MAX_PDF_PARSE_TOTAL_PIXELS`` for why they differ.
+    Three ceilings apply: the per-page one at the worst-case scale, the
+    document-wide one at the requested scale, and a looser document-wide one
+    on what a retry would peak at. See ``MAX_PDF_PARSE_TOTAL_PIXELS`` and
+    ``MAX_PDF_PARSE_RETRY_TOTAL_PIXELS`` for why the last two differ.
     """
     worst_case = worst_case_parse_zoom(zoomin)
     requested_total = 0
@@ -268,21 +269,22 @@ def validate_pdf_for_parse(
     validated, and parsers tend to fail unhelpfully: DeepDoc swallows load
     errors and returns an empty result.
 
-    Page geometry therefore has to be checked here too, in two ways. A single
-    valid page with an outsized MediaBox — 14400x14400 points is legal —
-    rasterizes to billions of pixels on its own. And because every page is
-    rendered up front and held together, a document whose pages are each
-    comfortably under the per-page limit can still exhaust the worker in
-    aggregate, so the pages are budgeted as a whole too.
+    Page geometry therefore has to be checked here too. A single valid page
+    with an outsized MediaBox — 14400x14400 points is legal — rasterizes to
+    billions of pixels on its own. And because every page is rendered up
+    front and held together, a document whose pages are each comfortably
+    under the per-page limit can still exhaust the worker in aggregate, so
+    the pages are budgeted as a whole too.
 
     The per-page ceiling is applied at the worst-case scale as cheap
     insurance -- it does not depend on the retry being unreachable, so a
     single oversized MediaBox stays rejected even if that changes -- and it
     counts the render being replaced alongside its replacement (see
-    ``worst_case_parse_peak_pixels``). The document-wide
-    ceiling is applied at the requested scale; see
-    ``MAX_PDF_PARSE_TOTAL_PIXELS`` for why the retry is not budgeted for
-    across the document.
+    ``worst_case_parse_peak_pixels``). The document-wide ceiling is applied
+    at the requested scale, with a second, looser one bounding what the
+    document would peak at if the retry did fire; see
+    ``MAX_PDF_PARSE_TOTAL_PIXELS`` and ``MAX_PDF_PARSE_RETRY_TOTAL_PIXELS``
+    for why the two differ.
 
     Returns the page count. Raises ``ValueError`` if the document cannot be
     opened, has no pages, has too many pages, or would rasterize to too many

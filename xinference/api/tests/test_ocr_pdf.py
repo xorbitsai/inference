@@ -317,9 +317,11 @@ class TestValidatePdfForParse:
         # deepdoc's `__ocr` appends to `boxes` on every page, including
         # `append([])` for a page that yields nothing, so `len(boxes) == 0`
         # cannot hold for a document that rendered any pages -- the 9x retry
-        # is unreachable. A 200-page A4 document renders to 0.9 G px at
-        # zoomin 3 and must be admitted rather than charged for a 9x pass it
-        # cannot take.
+        # is unreachable in deepdoc-lib 0.2.2. So the requested scale, not the
+        # retry scale, is what an ordinary document is charged for: 100 A4
+        # pages are 0.45 G px at zoomin 3 and are admitted, where budgeting
+        # every page at 9x would have rejected them. The retry ceiling is a
+        # backstop for a later release and is exercised separately.
         pytest.importorskip("pypdfium2")
         a4 = make_pdf(page_count=100, media_box=A4)
         assert validate_pdf_for_parse(a4, zoomin=3) == 100
@@ -357,8 +359,8 @@ class TestParseAdmitsRealDocuments:
     def test_the_default_zoom_allowance_is_materially_larger_than_before(self):
         # The old aggregate budget capped the default zoom at ~22 A4 pages,
         # which is short for the reports and papers this feature targets.
-        # Budgeting at the requested scale lifts that to the 200-page ceiling
-        # the per-page OCR path already allowed.
+        # Budgeting at the requested scale lifts that to ~130, where the
+        # retry ceiling takes over as the binding constraint.
         pytest.importorskip("pypdfium2")
         for page_count in (73, 74, 100):
             doc = make_pdf(page_count=page_count, media_box=A4)
