@@ -940,8 +940,8 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         response_format: str = "url",
         **kwargs,
     ):
-        generate_kwargs = (  # type: ignore
-            self._model_spec.default_generate_config or {}
+        generate_kwargs = (
+            self._model_spec.default_generate_config or {}  # type: ignore
         ).copy()
         generate_kwargs.update({k: v for k, v in kwargs.items() if v is not None})
         kwargs = generate_kwargs
