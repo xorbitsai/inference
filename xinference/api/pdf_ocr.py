@@ -21,8 +21,12 @@ JSON-serializable response body.
 """
 
 import json
+import logging
+import os
 import threading
 from typing import Any, Generator, List, Optional, Tuple, Union
+
+logger = logging.getLogger(__name__)
 
 # PDFium is not thread-safe: pypdfium2 documents that concurrent calls,
 # even on different documents, may crash or corrupt the process. Every
@@ -46,11 +50,15 @@ MAX_PDF_OCR_PAGE_PIXELS = 80_000_000
 WHOLE_DOCUMENT_OCR_TASKS = frozenset({"parse"})
 # Whole-document parsers render at ``72 * zoomin`` DPI, i.e. a scale of
 # ``zoomin`` over the page's point size. DeepDoc additionally re-renders at
-# ``zoomin * 3`` when a first pass finds no OCR boxes -- its recovery path
-# for pages the first render was too coarse to read -- but only while
-# ``zoomin < 9``, so a parse started at or above that never amplifies. That
-# retry is part of the parsing behaviour and is left intact, so the budget
-# below is enforced against the largest scale a run can actually reach.
+# ``zoomin * 3`` when a pass finds no OCR boxes *anywhere in the document* --
+# its recovery path for a render too coarse to read -- but only while
+# ``zoomin < 9``, so a parse started at or above that never amplifies.
+#
+# The guard tests the pre-multiplication value, so the ladder overshoots the
+# limit for any zoomin that is not a power-of-three divisor of 9: 2 escalates
+# 2 -> 6 -> 18, and 6 goes straight to 18. That makes the reachable scale
+# non-monotonic in zoomin (2 and 6 reach 18, but 3 stops at 9), which is a
+# defect in deepdoc-lib rather than here; see ``worst_case_parse_zoom``.
 PDF_PARSE_RETRY_ZOOM_FACTOR = 3
 PDF_PARSE_RETRY_ZOOM_LIMIT = 9
 
@@ -61,6 +69,14 @@ def worst_case_parse_zoom(zoomin: int) -> int:
     The retry is recursive: each pass that still finds no boxes triples the
     zoom again, and only the ``< limit`` guard stops it. So zoomin 1 renders
     at 1, 3 and finally 9, not just 3.
+
+    Because deepdoc-lib checks ``zoomin < 9`` *before* multiplying, the last
+    step can overshoot: 2 reaches 18 and 6 reaches 18, while 3 stops at 9.
+    This models that faithfully rather than clamping, so the number used for
+    budgeting is the one the parser can really allocate. The consequence is
+    that this is not monotonic in ``zoomin`` -- which is why the per-page
+    limit, the only budget still enforced at this scale, is checked against
+    every candidate zoom before one is recommended to the caller.
     """
     scale = zoomin
     while scale < PDF_PARSE_RETRY_ZOOM_LIMIT:
@@ -97,21 +113,127 @@ def worst_case_parse_peak_pixels(width: float, height: float, zoomin: int) -> in
 MAX_PDF_PARSE_PAGE_PIXELS = 200_000_000
 # Unlike the per-page path, which rasterizes lazily and holds one page at a
 # time, whole-document parsers render every page up front and keep them all
-# alive at once, so the pages are budgeted together as well -- and, like the
-# per-page ceiling, at the scale a retry can actually reach.
+# alive at once, so the pages are budgeted together as well.
 #
-# Peak usage is the final render plus the one before it: deepdoc assigns
-# ``self.page_images = [...]``, and the comprehension is fully built before
-# the name is rebound, so the previous render is still referenced while the
-# new one is allocated. ``worst_case_parse_peak_pixels`` accounts for both.
+# This one is enforced at the *requested* scale. Charging every document for
+# the retry is what stopped an ordinary 31-page A4 text PDF parsing at every
+# zoomin (#5307): it was budgeted at 45 MP per page where it really renders
+# at 4.5. The retry is not a state a text document reaches -- deepdoc's guard
+# is ``len(self.boxes) == 0`` and ``boxes`` accumulates over every page, so it
+# only fires when not one page in the whole document produced a single box.
 #
-# At 4 GB this admits roughly 22 A4 pages, well short of the 200-page ceiling
-# the per-page path allows. That is the honest consequence of budgeting for a
-# retry that renders at 9x: a document only reaches this if every page yields
-# no text, but the allocation is real when it does, and permitting tens of
-# gigabytes would leave the OOM open. Raise this if parse workers are sized
-# for it; `pages`-style batching in deepdoc-lib would lift it properly.
+# At 1 G px and ~4 bytes per rendered pixel this is ~4 GB of page images at
+# the requested zoom: ~221 A4 pages at the default zoomin 3, 55 at zoomin 6,
+# with the 200-page ceiling capping it from the other side.
 MAX_PDF_PARSE_TOTAL_PIXELS = 1_000_000_000
+# The retry is still real when it does fire, and it re-renders the *whole*
+# document, so the requested-scale budget alone would leave a hole: 200 A4
+# pages admitted at zoomin 3 would escalate to 8 G px (~32 GB). The escalated
+# document therefore gets its own ceiling, checked at the worst-case scale.
+#
+# It is deliberately looser than the requested-scale budget rather than equal
+# to it. The escalated render *replaces* the first one -- the retry re-enters
+# ``__images__``, which rebinds ``self.page_images`` -- so the two are not
+# summed; and reaching it at all requires a document that yielded no text
+# anywhere, which is the rare case rather than the one being priced.
+#
+# At 3 G px this holds an escalated document to ~12 GB of page images, which
+# admits 73 A4 pages at the default zoom. That is the binding constraint on
+# long documents now, and it is a real one: a 200-page A4 document really
+# would need ~32 GB if it escalated. Deployments whose parse workers are
+# sized for more can raise both ceilings via the environment rather than
+# being held to a default chosen for a modest worker.
+MAX_PDF_PARSE_RETRY_TOTAL_PIXELS = 3_000_000_000
+
+
+def _pixel_budget_from_env(name: str, default: int) -> int:
+    """Read a pixel ceiling from the environment, falling back to ``default``.
+
+    A malformed or non-positive value is ignored rather than raising: this
+    runs at import time, and a typo in a deployment's environment should not
+    take the API process down.
+    """
+    raw = os.environ.get(name)
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.warning("Ignoring %s=%r: not an integer", name, raw)
+        return default
+    if value <= 0:
+        logger.warning("Ignoring %s=%r: must be positive", name, raw)
+        return default
+    return value
+
+
+MAX_PDF_PARSE_TOTAL_PIXELS = _pixel_budget_from_env(
+    "XINFERENCE_MAX_PDF_PARSE_TOTAL_PIXELS", MAX_PDF_PARSE_TOTAL_PIXELS
+)
+MAX_PDF_PARSE_RETRY_TOTAL_PIXELS = _pixel_budget_from_env(
+    "XINFERENCE_MAX_PDF_PARSE_RETRY_TOTAL_PIXELS", MAX_PDF_PARSE_RETRY_TOTAL_PIXELS
+)
+
+
+def _parse_budget_error(sizes: List[Tuple[float, float]], zoomin: int) -> Optional[str]:
+    """Why a document does not fit at ``zoomin``, or ``None`` if it does.
+
+    Both budgets are applied: the per-page ceiling at the worst-case scale,
+    since one oversized MediaBox must not be admitted on the strength of a
+    retry that may still fire, and the two document-wide ceilings at the
+    requested and worst-case scales respectively.
+    """
+    worst_case = worst_case_parse_zoom(zoomin)
+    requested_total = 0
+    retry_total = 0
+    for index, (width, height) in enumerate(sizes):
+        peak_pixels = worst_case_parse_peak_pixels(width, height, zoomin)
+        if peak_pixels > MAX_PDF_PARSE_PAGE_PIXELS:
+            return (
+                f"Page {index + 1} would rasterize to {peak_pixels} pixels at "
+                f"zoomin {zoomin:g} (the parser re-renders at up to "
+                f"{worst_case:g}x when a document yields no text at all), "
+                f"exceeding the per-page limit of {MAX_PDF_PARSE_PAGE_PIXELS}"
+            )
+        requested_total += int(width * zoomin) * int(height * zoomin)
+        if requested_total > MAX_PDF_PARSE_TOTAL_PIXELS:
+            return (
+                f"The uploaded PDF would rasterize to more than "
+                f"{requested_total} pixels in total at zoomin {zoomin:g}, "
+                f"exceeding the whole-document limit of "
+                f"{MAX_PDF_PARSE_TOTAL_PIXELS}"
+            )
+        retry_total += int(width * worst_case) * int(height * worst_case)
+        if retry_total > MAX_PDF_PARSE_RETRY_TOTAL_PIXELS:
+            return (
+                f"The uploaded PDF would rasterize to more than {retry_total} "
+                f"pixels in total if the parser re-rendered it at "
+                f"{worst_case:g}x, which it does when a document yields no "
+                f"text at all, exceeding the retry limit of "
+                f"{MAX_PDF_PARSE_RETRY_TOTAL_PIXELS}"
+            )
+    return None
+
+
+def largest_fitting_parse_zoom(
+    sizes: List[Tuple[float, float]], upper_bound: int
+) -> Optional[int]:
+    """The largest zoom in ``1..upper_bound`` this document fits at.
+
+    Not simply ``upper_bound`` counted down until something fits: because the
+    retry ladder overshoots for zoom values that are not power-of-three
+    divisors of 9, a *lower* zoomin can have a *higher* worst case (2 and 6
+    both reach 18x, while 3 stops at 9x). Every candidate is therefore tested
+    rather than assuming the budget shrinks as the zoom does.
+
+    The search covers the whole range, not just values below the request, for
+    the same reason: a document rejected at zoomin 2 (18x) may well fit at 3
+    (9x), and sending the caller down to 1 would cost quality for nothing.
+    """
+    for candidate in range(upper_bound, 0, -1):
+        if _parse_budget_error(sizes, candidate) is None:
+            return candidate
+    return None
 
 
 def is_pdf_upload(content_type: Optional[str], head: bytes) -> bool:
@@ -121,7 +243,9 @@ def is_pdf_upload(content_type: Optional[str], head: bytes) -> bool:
     return head.startswith(PDF_MAGIC)
 
 
-def validate_pdf_for_parse(data: bytes, zoomin: int) -> int:
+def validate_pdf_for_parse(
+    data: bytes, zoomin: int, max_zoomin: Optional[int] = None
+) -> int:
     """Check a PDF that will be handed to a whole-document parser.
 
     Whole-document parsing tasks (e.g. DeepDoc's ``task="parse"``) render the
@@ -138,14 +262,26 @@ def validate_pdf_for_parse(data: bytes, zoomin: int) -> int:
     comfortably under the per-page limit can still exhaust the worker in
     aggregate, so the pages are budgeted as a whole too.
 
-    Both budgets are applied at the worst-case scale, since the retry is left
-    intact and re-renders the whole document, and both count the render being
-    replaced alongside its replacement (see
-    ``worst_case_parse_peak_pixels``).
+    The per-page ceiling is applied at the worst-case scale, since a single
+    oversized MediaBox must not be admitted on the strength of a retry that
+    may still fire, and it counts the render being replaced alongside its
+    replacement (see ``worst_case_parse_peak_pixels``). The document-wide
+    ceiling is applied at the requested scale, with a separate, looser one
+    bounding what a retry would re-render the document at; see
+    ``MAX_PDF_PARSE_TOTAL_PIXELS`` for why the two differ.
 
     Returns the page count. Raises ``ValueError`` if the document cannot be
     opened, has no pages, has too many pages, or would rasterize to too many
-    pixels on any single page or across the document.
+    pixels on any single page or across the document. The message names a
+    ``zoomin`` that would fit whenever one exists, rather than advising the
+    caller to lower it -- the retry ladder is not monotonic, so lowering it
+    can make the budget larger.
+
+    ``max_zoomin`` bounds the search for that recommendation; it should be the
+    largest value the endpoint accepts. It defaults to ``zoomin``, which only
+    searches downwards -- pass the real ceiling so a request rejected at a
+    zoom with an overshooting ladder (2 or 6, which reach 18x) can be pointed
+    at a higher one with a shorter ladder (3, which stops at 9x).
     """
     try:
         import pypdfium2 as pdfium
@@ -170,35 +306,28 @@ def validate_pdf_for_parse(data: bytes, zoomin: int) -> int:
                     f"The uploaded PDF has {page_count} pages, at most "
                     f"{MAX_PDF_OCR_PAGES} pages can be parsed per request"
                 )
-            worst_case = worst_case_parse_zoom(zoomin)
-            total_pixels = 0
+            sizes = []
             for page_number in range(1, page_count + 1):
                 page = pdf[page_number - 1]
                 try:
-                    width, height = page.get_size()
+                    sizes.append(page.get_size())
                 finally:
                     page.close()
-                peak_pixels = worst_case_parse_peak_pixels(width, height, zoomin)
-                if peak_pixels > MAX_PDF_PARSE_PAGE_PIXELS:
-                    raise ValueError(
-                        f"Page {page_number} would rasterize to {peak_pixels} "
-                        f"pixels at zoomin {zoomin:g} (the parser re-renders at "
-                        f"up to {worst_case:g}x when a page yields no text), "
-                        f"exceeding the per-page limit of "
-                        f"{MAX_PDF_PARSE_PAGE_PIXELS}; lower `zoomin`"
-                    )
-                total_pixels += peak_pixels
-                if total_pixels > MAX_PDF_PARSE_TOTAL_PIXELS:
-                    raise ValueError(
-                        f"The uploaded PDF would rasterize to more than "
-                        f"{total_pixels} pixels in total at zoomin {zoomin:g} "
-                        f"(the parser re-renders at up to {worst_case:g}x when a "
-                        f"page yields no text), exceeding the whole-document "
-                        f"limit of {MAX_PDF_PARSE_TOTAL_PIXELS}; lower `zoomin` "
-                        f"or split the document"
-                    )
         finally:
             pdf.close()
+
+    reason = _parse_budget_error(sizes, zoomin)
+    if reason is not None:
+        # "Lower `zoomin`" was the old advice and it is not sound: the retry
+        # ladder is not monotonic, so a lower zoomin can be budgeted *higher*
+        # (2 and 6 both escalate to 18x where 3 stops at 9x). Name a zoom that
+        # actually fits, and only fall back to splitting when none does.
+        # Search the whole permitted range, not just below the request: with a
+        # non-monotonic ladder a higher zoom can be the one that fits.
+        fitting = largest_fitting_parse_zoom(sizes, max(max_zoomin or zoomin, zoomin))
+        if fitting is None:
+            raise ValueError(f"{reason}; split the document into smaller parts")
+        raise ValueError(f"{reason}; retry with `zoomin` {fitting}")
 
     return page_count
 

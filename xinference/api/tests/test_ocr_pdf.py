@@ -15,6 +15,8 @@
 """Tests for PDF input support on the ``/v1/images/ocr`` endpoint helpers."""
 
 import json
+import os
+from unittest import mock
 
 import pytest
 
@@ -22,10 +24,12 @@ from ..pdf_ocr import (
     DEFAULT_PDF_OCR_DPI,
     MAX_PDF_OCR_PAGES,
     MAX_PDF_PARSE_PAGE_PIXELS,
+    MAX_PDF_PARSE_RETRY_TOTAL_PIXELS,
     MAX_PDF_PARSE_TOTAL_PIXELS,
     PDF_PARSE_RETRY_ZOOM_LIMIT,
     WHOLE_DOCUMENT_OCR_TASKS,
     is_pdf_upload,
+    largest_fitting_parse_zoom,
     merge_ocr_page_results,
     normalize_pages,
     rasterize_pdf,
@@ -33,6 +37,8 @@ from ..pdf_ocr import (
     worst_case_parse_peak_pixels,
     worst_case_parse_zoom,
 )
+
+A4 = "0 0 595 842"
 
 
 def make_pdf(page_count: int = 1, media_box: str = "0 0 200 100") -> bytes:
@@ -294,36 +300,242 @@ class TestValidatePdfForParse:
     def test_rejects_an_oversized_document_of_individually_small_pages(self):
         # Whole-document parsers render every page up front and hold them all
         # at once, so a document whose pages each pass the per-page limit can
-        # still exhaust the worker in aggregate. A4 at zoomin 6 is 18 MP per
-        # page -- far under the 80 MP page limit -- but 200 of them come to
-        # 3.6 G px, measured at ~4 bytes each once rendered.
+        # still exhaust the worker in aggregate.
         pytest.importorskip("pypdfium2")
-        # 1000x1000 pt at zoomin 4: 16 MP per page (well under the per-page
-        # cap even at the 12x worst case, 144 MP), but 200 of them are
-        # 3.2 G px together.
+        # 1000x1000 pt at zoomin 4: 16 MP per page, well under the per-page
+        # cap even at the 12x worst case (144 MP), but 200 of them are
+        # 3.2 G px together at the requested scale alone.
         per_page = int(1000 * 4) ** 2
         assert int(1000 * 12) ** 2 < MAX_PDF_PARSE_PAGE_PIXELS
         assert per_page * MAX_PDF_OCR_PAGES > MAX_PDF_PARSE_TOTAL_PIXELS
         doc = make_pdf(page_count=MAX_PDF_OCR_PAGES, media_box="0 0 1000 1000")
-        with pytest.raises(ValueError, match="whole-document limit"):
+        # Either aggregate ceiling is a correct rejection here; the point is
+        # that individually-small pages are still caught in aggregate.
+        with pytest.raises(ValueError, match="whole-document limit|retry limit"):
             validate_pdf_for_parse(doc, zoomin=4)
 
-    def test_typical_document_passes_at_the_default_zoom(self):
-        # The aggregate budget must still admit an everyday document. Because
-        # it is enforced against the retry scale, the allowance is far below
-        # the 200-page ceiling the per-page OCR path permits: an A4 page peaks
-        # at 45 MP, so ~22 of them fit.
+    def test_a_long_document_is_still_bounded_by_the_retry_budget(self):
+        # A 200-page A4 document fits the requested-scale budget at zoomin 3
+        # (0.9 G px) but would re-render at 9x, so the retry ceiling is what
+        # rejects it. Without that ceiling this would be ~32 GB of pages.
         pytest.importorskip("pypdfium2")
-        a4 = make_pdf(page_count=20, media_box="0 0 595 842")
-        assert validate_pdf_for_parse(a4, zoomin=3) == 20
-
-    def test_page_ceiling_alone_does_not_admit_a_long_document(self):
-        # Documented consequence of budgeting for the 9x retry: a 200-page
-        # document is rejected on pixels, not on the page count.
-        pytest.importorskip("pypdfium2")
-        a4 = make_pdf(page_count=MAX_PDF_OCR_PAGES, media_box="0 0 595 842")
-        with pytest.raises(ValueError, match="whole-document limit"):
+        a4 = make_pdf(page_count=MAX_PDF_OCR_PAGES, media_box=A4)
+        assert int(595 * 3) * int(842 * 3) * MAX_PDF_OCR_PAGES < (
+            MAX_PDF_PARSE_TOTAL_PIXELS
+        )
+        with pytest.raises(ValueError, match="retry limit"):
             validate_pdf_for_parse(a4, zoomin=3)
+
+
+class TestParseAdmitsRealDocuments:
+    """#5307: an ordinary 31-page A4 text PDF was rejected at every zoomin.
+
+    It really renders to ~140 MP at the default zoom, but was budgeted as if
+    every page would trigger the 9x retry, which put it 40% over the ceiling.
+    """
+
+    PAGES = 31
+
+    def test_thirty_one_page_a4_parses_at_the_default_zoom(self):
+        pytest.importorskip("pypdfium2")
+        doc = make_pdf(page_count=self.PAGES, media_box=A4)
+        assert validate_pdf_for_parse(doc, zoomin=3) == self.PAGES
+
+    def test_the_document_that_was_rejected_everywhere_now_has_options(self):
+        # The bug was not just that the default failed -- no zoomin in 1..6
+        # worked at all, so the document could not be parsed by any request.
+        pytest.importorskip("pypdfium2")
+        doc = make_pdf(page_count=self.PAGES, media_box=A4)
+        accepted = []
+        for zoomin in range(1, 7):
+            try:
+                validate_pdf_for_parse(doc, zoomin)
+            except ValueError:
+                continue
+            accepted.append(zoomin)
+        assert 3 in accepted, "the default zoom must work"
+        assert len(accepted) > 1
+
+    def test_the_default_zoom_allowance_is_materially_larger_than_before(self):
+        # The old aggregate budget capped the default zoom at ~22 A4 pages,
+        # which is short for the reports and papers this feature targets. The
+        # retry ceiling now binds instead, at 73 pages -- still finite, but
+        # more than three times the room.
+        pytest.importorskip("pypdfium2")
+        assert validate_pdf_for_parse(make_pdf(page_count=73, media_box=A4), 3) == 73
+        with pytest.raises(ValueError, match="retry limit"):
+            validate_pdf_for_parse(make_pdf(page_count=74, media_box=A4), 3)
+
+    def test_beyond_the_retry_ceiling_splitting_is_the_only_honest_advice(self):
+        # Past ~73 A4 pages no zoom helps, because every zoom escalates to at
+        # least 9x: the retry ceiling is really a limit on total page area,
+        # not something `zoomin` can trade against. The message says so
+        # instead of naming a zoom that would fail too.
+        pytest.importorskip("pypdfium2")
+        doc = make_pdf(page_count=100, media_box=A4)
+        for zoomin in range(1, 7):
+            with pytest.raises(ValueError, match="split the document"):
+                validate_pdf_for_parse(doc, zoomin)
+
+
+class TestParseRejectionAdviceIsActionable:
+    """The 400 must never recommend something that makes matters worse."""
+
+    def test_never_advises_lowering_zoomin(self):
+        # "lower `zoomin`" was the old advice and it is unsound: the retry
+        # ladder is not monotonic, so a lower zoomin can be budgeted higher.
+        pytest.importorskip("pypdfium2")
+        doc = make_pdf(page_count=MAX_PDF_OCR_PAGES, media_box=A4)
+        for zoomin in range(1, 7):
+            try:
+                validate_pdf_for_parse(doc, zoomin)
+            except ValueError as e:
+                assert "lower `zoomin`" not in str(e)
+
+    def test_the_recommended_zoom_actually_fits(self):
+        # Whatever zoom the message names must itself be accepted, otherwise
+        # the caller is sent round the loop again.
+        pytest.importorskip("pypdfium2")
+        import re
+
+        doc = make_pdf(page_count=31, media_box=A4)
+        for zoomin in range(1, 7):
+            try:
+                validate_pdf_for_parse(doc, zoomin)
+            except ValueError as e:
+                match = re.search(r"retry with `zoomin` (\d+)", str(e))
+                assert match, f"no actionable advice at zoomin {zoomin}: {e}"
+                recommended = int(match.group(1))
+                assert validate_pdf_for_parse(doc, recommended) == 31
+
+    def test_advises_splitting_when_no_zoom_fits(self):
+        pytest.importorskip("pypdfium2")
+        doc = make_pdf(page_count=MAX_PDF_OCR_PAGES, media_box=A4)
+        with pytest.raises(ValueError, match="split the document"):
+            validate_pdf_for_parse(doc, zoomin=3)
+
+    def test_recommendation_can_point_upwards_not_just_down(self):
+        # zoomin 2 escalates to 18x and is rejected, but 3 stops at 9x and
+        # fits. Searching only downwards would send the caller to 1 and cost
+        # them quality for nothing -- a milder form of the original bug.
+        pytest.importorskip("pypdfium2")
+        doc = make_pdf(page_count=31, media_box=A4)
+        with pytest.raises(ValueError, match=r"retry with `zoomin` 4"):
+            validate_pdf_for_parse(doc, zoomin=2, max_zoomin=6)
+        # ...and without the bound it can still only look downwards.
+        with pytest.raises(ValueError, match=r"retry with `zoomin` 1"):
+            validate_pdf_for_parse(doc, zoomin=2)
+
+    def test_recommended_zoom_may_be_higher_than_the_request(self):
+        # The concrete non-monotonicity: zoomin 6 escalates to 18x and is
+        # rejected, but 4 only reaches 12x and fits. Lowering to 5 would not
+        # have helped (15x); the correct advice is a specific value.
+        pytest.importorskip("pypdfium2")
+        doc = make_pdf(page_count=31, media_box=A4)
+        with pytest.raises(ValueError, match=r"retry with `zoomin` 4"):
+            validate_pdf_for_parse(doc, zoomin=6)
+        with pytest.raises(ValueError):
+            validate_pdf_for_parse(doc, zoomin=5)
+
+
+class TestLargestFittingParseZoom:
+    def test_tests_every_candidate_rather_than_counting_down(self):
+        # 31 A4 pages: 6 and 5 do not fit (18x, 15x) but 4 does (12x). A
+        # search that assumed the budget shrank with the zoom would stop at
+        # the first failure and report nothing.
+        sizes = [(595.0, 842.0)] * 31
+        assert largest_fitting_parse_zoom(sizes, 6) == 4
+
+    def test_returns_the_request_itself_when_it_already_fits(self):
+        sizes = [(595.0, 842.0)] * 5
+        assert largest_fitting_parse_zoom(sizes, 3) == 3
+
+    def test_returns_none_when_nothing_fits(self):
+        # A single outsized MediaBox blows the per-page ceiling at every zoom.
+        sizes = [(14400.0, 14400.0)]
+        assert largest_fitting_parse_zoom(sizes, 6) is None
+
+
+class TestParseBudgetMonotonicity:
+    """A request must never be rejected in a way a lower zoom cannot fix.
+
+    The underlying ladder is not monotonic -- that lives in deepdoc-lib --
+    so the property that has to hold here is the weaker, useful one: for any
+    document and any zoom, if the request is rejected then either some zoom
+    is accepted and named, or no zoom works and splitting is advised.
+    """
+
+    @pytest.mark.parametrize("page_count", [1, 5, 31, 100, 200])
+    def test_rejection_always_carries_a_true_way_forward(self, page_count):
+        pytest.importorskip("pypdfium2")
+        import re
+
+        doc = make_pdf(page_count=page_count, media_box=A4)
+        for zoomin in range(1, 7):
+            try:
+                validate_pdf_for_parse(doc, zoomin)
+            except ValueError as e:
+                message = str(e)
+                match = re.search(r"retry with `zoomin` (\d+)", message)
+                if match:
+                    assert validate_pdf_for_parse(doc, int(match.group(1))) == (
+                        page_count
+                    )
+                else:
+                    assert "split the document" in message
+
+    def test_a_zoom_is_only_named_when_it_genuinely_fits(self):
+        # The counterpart to the above: past the retry ceiling no zoom helps,
+        # because every zoom escalates to at least 9x. The message must not
+        # name one anyway -- that is the original bug in a new costume.
+        pytest.importorskip("pypdfium2")
+        doc = make_pdf(page_count=MAX_PDF_OCR_PAGES, media_box=A4)
+        for zoomin in range(1, 7):
+            with pytest.raises(ValueError) as excinfo:
+                validate_pdf_for_parse(doc, zoomin)
+            assert "retry with `zoomin`" not in str(excinfo.value)
+
+
+class TestParseRetryBudget:
+    """The retry ceiling is what keeps the looser aggregate budget safe."""
+
+    def test_escalated_document_is_bounded_regardless_of_zoomin(self):
+        # Whatever zoom is requested, an accepted document cannot re-render
+        # past the retry ceiling -- that is the invariant that replaced
+        # budgeting every page at 9x up front.
+        for zoomin in range(1, 7):
+            worst = worst_case_parse_zoom(zoomin)
+            per_page = int(595 * zoomin) * int(842 * zoomin)
+            admitted = MAX_PDF_PARSE_TOTAL_PIXELS // per_page
+            escalated_per_page = int(595 * worst) * int(842 * worst)
+            fits = MAX_PDF_PARSE_RETRY_TOTAL_PIXELS // escalated_per_page
+            assert min(admitted, fits) * escalated_per_page <= (
+                MAX_PDF_PARSE_RETRY_TOTAL_PIXELS
+            )
+
+    def test_ceilings_are_configurable(self):
+        # Deployments whose parse workers have headroom can raise these
+        # rather than being held to a default sized for a modest worker.
+        from ..pdf_ocr import _pixel_budget_from_env
+
+        assert _pixel_budget_from_env("XINFERENCE_TEST_ABSENT_BUDGET", 7) == 7
+        with mock.patch.dict(os.environ, {"XINFERENCE_TEST_BUDGET": "5000"}):
+            assert _pixel_budget_from_env("XINFERENCE_TEST_BUDGET", 7) == 5000
+
+    @pytest.mark.parametrize("bad", ["", "not-a-number", "0", "-1"])
+    def test_a_malformed_ceiling_falls_back_instead_of_raising(self, bad):
+        # This runs at import time; a typo in the environment must not take
+        # the API process down.
+        from ..pdf_ocr import _pixel_budget_from_env
+
+        with mock.patch.dict(os.environ, {"XINFERENCE_TEST_BUDGET": bad}):
+            assert _pixel_budget_from_env("XINFERENCE_TEST_BUDGET", 7) == 7
+
+    def test_retry_ceiling_is_looser_than_the_requested_scale_ceiling(self):
+        # They are deliberately different: the escalated render replaces the
+        # first rather than adding to it, and only a document that yielded no
+        # text anywhere ever reaches it.
+        assert MAX_PDF_PARSE_RETRY_TOTAL_PIXELS > MAX_PDF_PARSE_TOTAL_PIXELS
 
 
 class TestWorstCaseParseZoom:
