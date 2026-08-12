@@ -130,9 +130,20 @@ MAX_PDF_PARSE_PAGE_PIXELS = 200_000_000
 # whole document for a 9x pass it cannot take would reject a 74-page A4 PDF
 # whose real render is ~334 M pixels.
 #
-# The per-page ceiling above is still checked at the worst-case scale. That is
-# cheap insurance on a single outsized MediaBox and does not depend on this
-# reasoning holding for every deepdoc-lib version.
+# That is a statement about one release, and the dependency is
+# ``deepdoc-lib~=0.2.2``, which accepts any later 0.2.x -- so the retry could
+# become reachable if upstream corrects the guard to the likely intended
+# ``not any(self.boxes)``. What bounds the damage in that case is not this
+# ceiling but the per-page one above, which is still enforced at the
+# worst-case scale: no page may *peak* above MAX_PDF_PARSE_PAGE_PIXELS even
+# after escalating, and at most MAX_PDF_OCR_PAGES pages are accepted, so an
+# escalated document cannot exceed their product. Searching every page
+# geometry and zoom that both budgets admit, the true maximum is 39.96 G px
+# (~160 GB, from 200 pages of 200x11100 pt at zoomin 1) against that 40 G px
+# bound. A third, document-wide retry ceiling was tried and removed: any
+# value tight enough to bind is also tight enough to reject ordinary
+# documents (36 G px already loses A4 at zoomin 2 and 6), and any value that
+# does not is unreachable.
 #
 # At 1 G px and ~4 bytes per rendered pixel this is ~4 GB of page images at
 # the requested zoom: ~221 A4 pages at the default zoomin 3, 55 at zoomin 6,

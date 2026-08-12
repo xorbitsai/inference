@@ -520,6 +520,32 @@ class TestParseBudgetConfiguration:
         with mock.patch.dict(os.environ, {"XINFERENCE_TEST_BUDGET": bad}):
             assert _pixel_budget_from_env("XINFERENCE_TEST_BUDGET", 7) == 7
 
+    def test_an_escalated_document_is_bounded_even_if_the_retry_returns(self):
+        # The document-wide budget is at the requested scale because the 9x
+        # retry is unreachable in deepdoc-lib 0.2.2, but `~=0.2.2` accepts
+        # later 0.2.x, so that could change. What bounds the damage then is
+        # the per-page ceiling -- still enforced at the worst-case scale --
+        # times the page ceiling. Pinned here so that raising either limit
+        # has to face what it does to the escalated worst case.
+        bound = MAX_PDF_PARSE_PAGE_PIXELS * MAX_PDF_OCR_PAGES
+        assert bound == 40_000_000_000
+
+        worst = 0
+        for width in range(100, 14401, 700):
+            for height in range(100, 14401, 700):
+                for zoomin in range(1, 7):
+                    peak = worst_case_parse_peak_pixels(width, height, zoomin)
+                    if peak > MAX_PDF_PARSE_PAGE_PIXELS:
+                        continue
+                    requested = int(width * zoomin) * int(height * zoomin)
+                    if not requested:
+                        continue
+                    pages = min(
+                        MAX_PDF_OCR_PAGES, MAX_PDF_PARSE_TOTAL_PIXELS // requested
+                    )
+                    worst = max(worst, peak * pages)
+        assert worst <= bound
+
     def test_the_configured_ceiling_is_what_validation_uses(self):
         pytest.importorskip("pypdfium2")
         doc = make_pdf(page_count=MAX_PDF_OCR_PAGES, media_box=A4)
