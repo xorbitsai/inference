@@ -967,7 +967,12 @@ class DiffusionModel(SDAPIDiffusionModelMixin):
         ):
             reference_images = kwargs.pop("reference_images")
             primary_images = image if isinstance(image, list) else [image]
-            image = primary_images + list(reference_images)
+            reference_images = (
+                reference_images
+                if isinstance(reference_images, list)
+                else [reference_images]
+            )
+            image = primary_images + reference_images
 
         if padding_image_to_multiple := kwargs.pop("padding_image_to_multiple", None):
             # Model like SD3 image to image requires image's height and width is times of 16
