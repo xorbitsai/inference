@@ -169,9 +169,9 @@ MAX_PDF_PARSE_TOTAL_PIXELS = _pixel_budget_from_env(
 def _parse_budget_error(sizes: List[Tuple[float, float]], zoomin: int) -> Optional[str]:
     """Why a document does not fit at ``zoomin``, or ``None`` if it does.
 
-    The per-page ceiling is applied at the worst-case scale, since one
-    oversized MediaBox must not be admitted on the strength of a retry that
-    may still fire, and the document-wide ceiling at the requested scale.
+    The per-page ceiling is applied at the worst-case scale and the
+    document-wide ceiling at the requested scale; see
+    ``MAX_PDF_PARSE_TOTAL_PIXELS`` for why they differ.
     """
     worst_case = worst_case_parse_zoom(zoomin)
     requested_total = 0
@@ -200,15 +200,17 @@ def largest_fitting_parse_zoom(
 ) -> Optional[int]:
     """The largest zoom in ``1..upper_bound`` this document fits at.
 
-    Not simply ``upper_bound`` counted down until something fits: because the
-    retry ladder overshoots for zoom values that are not power-of-three
-    divisors of 9, a *lower* zoomin can have a *higher* worst case (2 and 6
-    both reach 18x, while 3 stops at 9x). Every candidate is therefore tested
-    rather than assuming the budget shrinks as the zoom does.
+    Not simply ``upper_bound`` counted down until something fits: the per-page
+    ceiling is enforced at the worst-case scale, and that ladder overshoots
+    for zoom values that are not power-of-three divisors of 9, so a *lower*
+    zoomin can have a *higher* worst case (2 and 6 both reach 18x, while 3
+    stops at 9x). A 1000x1000 pt page fits at 1, 3 and 4 but not at 2. Every
+    candidate is therefore tested rather than assuming the budget shrinks as
+    the zoom does.
 
     The search covers the whole range, not just values below the request, for
-    the same reason: a document rejected at zoomin 2 (18x) may well fit at 3
-    (9x), and sending the caller down to 1 would cost quality for nothing.
+    the same reason: a page rejected at zoomin 2 (18x) may well fit at 3 (9x),
+    and sending the caller down to 1 would cost quality for nothing.
     """
     for candidate in range(upper_bound, 0, -1):
         if _parse_budget_error(sizes, candidate) is None:
@@ -232,8 +234,7 @@ def validate_pdf_for_parse(
     PDF themselves, so the bytes are passed straight through instead of being
     rasterized here. That skips everything ``rasterize_pdf`` would have
     validated, and parsers tend to fail unhelpfully: DeepDoc swallows load
-    errors and returns an empty result, then re-renders at three times the
-    zoom when it finds no boxes.
+    errors and returns an empty result.
 
     Page geometry therefore has to be checked here too, in two ways. A single
     valid page with an outsized MediaBox — 14400x14400 points is legal —
@@ -242,10 +243,11 @@ def validate_pdf_for_parse(
     comfortably under the per-page limit can still exhaust the worker in
     aggregate, so the pages are budgeted as a whole too.
 
-    The per-page ceiling is applied at the worst-case scale, since a single
-    oversized MediaBox must not be admitted on the strength of a retry that
-    may still fire, and it counts the render being replaced alongside its
-    replacement (see ``worst_case_parse_peak_pixels``). The document-wide
+    The per-page ceiling is applied at the worst-case scale as cheap
+    insurance -- it does not depend on the retry being unreachable, so a
+    single oversized MediaBox stays rejected even if that changes -- and it
+    counts the render being replaced alongside its replacement (see
+    ``worst_case_parse_peak_pixels``). The document-wide
     ceiling is applied at the requested scale; see
     ``MAX_PDF_PARSE_TOTAL_PIXELS`` for why the retry is not budgeted for
     across the document.
