@@ -211,9 +211,14 @@ class Progressor:
                 * progress
             )
             if (
-                self._current_progress - self._last_report_progress >= self._upload_span
-                or 1.0 - progress < 1e-5
-            ) or info or details is not None:
+                (
+                    self._current_progress - self._last_report_progress
+                    >= self._upload_span
+                    or 1.0 - progress < 1e-5
+                )
+                or info
+                or details is not None
+            ):
                 set_progress = self.progress_tracker_ref.set_progress(
                     self.request_id, self._current_progress, info, details
                 )
