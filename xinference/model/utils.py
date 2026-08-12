@@ -990,8 +990,8 @@ class CancellableDownloader:
 
         Repository-level tqdm bars count files and use ``it`` as their unit.
         File download bars use a byte unit, so only those bars are exposed.
-        Completed or closed bars are omitted because this endpoint is intended
-        to describe current network activity rather than download history.
+        Completed byte bars remain visible until the download context resets,
+        allowing clients to show both active and just-finished files.
         """
         _, download_progresses = self._progress_snapshots()
         files: List[Dict[str, Any]] = []
@@ -1008,8 +1008,6 @@ class CancellableDownloader:
             total = self._finite_float(getattr(download_progress, "total", None))
             if downloaded is None:
                 continue
-            if total is not None and downloaded >= total:
-                continue
 
             format_dict = getattr(download_progress, "format_dict", {}) or {}
             rate = self._finite_float(format_dict.get("rate"))
@@ -1018,12 +1016,16 @@ class CancellableDownloader:
             total = max(0.0, total) if total is not None else None
             rate = max(0.0, rate) if rate is not None else None
             elapsed = max(0.0, elapsed) if elapsed is not None else 0.0
+            completed = total is not None and total > 0 and downloaded >= total
 
             progress = None
             eta = None
             if total is not None and total > 0:
                 progress = min(1.0, downloaded / total)
-                if rate is not None and rate > 0:
+                if completed:
+                    eta = 0.0
+                    rate = None
+                elif rate is not None and rate > 0:
                     eta = max(0.0, (total - downloaded) / rate)
 
             files.append(
@@ -1035,7 +1037,7 @@ class CancellableDownloader:
                     "speed_bytes_per_second": rate,
                     "elapsed_seconds": elapsed,
                     "eta_seconds": eta,
-                    "status": "downloading",
+                    "status": "completed" if completed else "downloading",
                 }
             )
 

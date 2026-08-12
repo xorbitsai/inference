@@ -77,6 +77,30 @@ def test_tqdm_patch():
     assert downloader.done
 
 
+def test_download_progress_details_include_completed_files():
+    downloader = CancellableDownloader(cancel_error_cls=RuntimeError)
+
+    with downloader:
+        bar = tqdm(total=100, unit="B", desc="model.safetensors")
+        bar.update(25)
+
+        [downloading] = downloader.get_download_progress_details()
+        assert downloading["name"] == "model.safetensors"
+        assert downloading["downloaded_bytes"] == 25
+        assert downloading["total_bytes"] == 100
+        assert downloading["progress"] == 0.25
+        assert downloading["status"] == "downloading"
+
+        bar.update(75)
+
+        [completed] = downloader.get_download_progress_details()
+        assert completed["progress"] == 1.0
+        assert completed["speed_bytes_per_second"] is None
+        assert completed["eta_seconds"] == 0.0
+        assert completed["status"] == "completed"
+        bar.close()
+
+
 def test_concurrent_progress_no_set_mutation():
     """Two concurrent downloaders race the progress sets: one thread creates
     new download bars and calls .update() (so patched_update grows

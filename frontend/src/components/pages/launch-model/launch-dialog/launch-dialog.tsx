@@ -56,6 +56,7 @@ import {
   GPU_IDX_PATTERN,
 } from '../utils';
 import CommandLine from './command-line';
+import DownloadProgressDetails, { type DownloadProgressFile } from './download-progress-details';
 import ReplicaPlacementConfig from './replica-placement-config';
 import { FormField } from '@/components/ui/form-field';
 
@@ -64,6 +65,23 @@ interface LaunchDialogProps {
   modelType: RequestModelType;
   gpuAvailable: number;
   onOpenChange: (open: boolean) => void;
+}
+
+interface LaunchProgressReplica {
+  replica_id: number;
+  replica_model_uid: string;
+  progress: number;
+  stage: string;
+  info: string | null;
+  updated_at: number | null;
+  download_files: DownloadProgressFile[];
+}
+
+interface LaunchProgressResponse {
+  progress?: number | string;
+  stage?: string;
+  download_files?: DownloadProgressFile[];
+  replicas?: LaunchProgressReplica[];
 }
 
 export default function LaunchDialog({
@@ -83,6 +101,7 @@ export default function LaunchDialog({
   const [canceling, setCanceling] = useState(false);
   const [saveAutostart, setSaveAutostart] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [progressDetails, setProgressDetails] = useState<LaunchProgressResponse | null>(null);
   const [replicaStatuses, setReplicaStatuses] = useState<ReplicaItem[]>([]);
   const [configCacheRefreshKey, setConfigCacheRefreshKey] = useState(0);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -1315,9 +1334,7 @@ export default function LaunchDialog({
     const modelUid = form.getFieldValue('model_uid') || model?.model_name;
     try {
       const [progressRes, replicaRes] = await Promise.all([
-        request.get<number | string | { progress?: number | string }>(
-          `/v1/models/${modelUid}/progress`
-        ),
+        request.get<number | string | LaunchProgressResponse>(`/v1/models/${modelUid}/progress`),
         request.get<unknown>(`/v1/models/${modelUid}/replicas`),
       ]);
 
@@ -1326,6 +1343,7 @@ export default function LaunchDialog({
       const nextProgress = normalizeProgress(progressValue);
 
       setProgress(nextProgress);
+      setProgressDetails(progressRes && typeof progressRes === 'object' ? progressRes : null);
       setReplicaStatuses(normalizeReplicaStatuses(replicaRes));
 
       if (nextProgress >= 100) {
@@ -1416,6 +1434,7 @@ export default function LaunchDialog({
       stopPolling();
       setLoading(false);
       setProgress(0);
+      setProgressDetails(null);
       setReplicaStatuses([]);
       toast.success(t('launchModel.launchCanceled'));
     } finally {
@@ -1450,6 +1469,7 @@ export default function LaunchDialog({
     isCanceledLaunchRef.current = false;
     setLoading(true);
     setProgress(0);
+    setProgressDetails(null);
     setReplicaStatuses([]);
 
     request
@@ -1504,6 +1524,7 @@ export default function LaunchDialog({
     setLoading(false);
     setCanceling(false);
     setProgress(0);
+    setProgressDetails(null);
     setReplicaStatuses([]);
     setSaveAutostart(false);
     stopPolling();
@@ -1564,7 +1585,10 @@ export default function LaunchDialog({
           onOpenChange(open);
         }}
       >
-        <DialogContent className="!max-w-3xl" maskClosable={false}>
+        <DialogContent
+          className={cn(loading ? '!max-h-[calc(100%-2rem)] !max-w-6xl' : '!max-w-3xl')}
+          maskClosable={false}
+        >
           <DialogHeader>
             <div className="flex min-w-0 items-center justify-between gap-3 pr-10">
               <DialogTitle className="min-w-0 truncate">{model?.model_name}</DialogTitle>
@@ -1590,7 +1614,20 @@ export default function LaunchDialog({
             {renderLaunchFields(currentLaunchFields)}
           </Form>
           <DialogFooter className={cn(loading ? '!flex-col' : '')}>
-            {loading && <Progress value={progress} />}
+            {loading && (
+              <div className="w-full space-y-2 pr-3">
+                <div className="flex items-center gap-3">
+                  <Progress value={progress} className="flex-1" />
+                  <span className="w-10 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                    {Math.round(progress)}%
+                  </span>
+                </div>
+                {(progressDetails?.stage === 'downloading' ||
+                  Boolean(progressDetails?.download_files?.length)) && (
+                  <DownloadProgressDetails files={progressDetails?.download_files ?? []} />
+                )}
+              </div>
+            )}
             <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <label className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Switch checked={saveAutostart} disabled={loading} onChange={setSaveAutostart} />
