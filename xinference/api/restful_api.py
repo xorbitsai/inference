@@ -2474,6 +2474,7 @@ class RESTfulAPI(CancelMixin):
         request: Request,
         model: str = Form(...),
         image: UploadFile = File(media_type="application/octet-stream"),
+        video: Optional[UploadFile] = File(None, media_type="application/octet-stream"),
         prompt: Optional[Union[str, List[str]]] = Form(None),
         negative_prompt: Optional[Union[str, List[str]]] = Form(None),
         n: Optional[int] = Form(1),
@@ -2493,6 +2494,8 @@ class RESTfulAPI(CancelMixin):
                 parsed_kwargs = json.loads(kwargs)
             else:
                 parsed_kwargs = {}
+            if video is not None:
+                parsed_kwargs["video"] = await video.read()
             request_id = parsed_kwargs.get("request_id")
             self._add_running_task(request_id)
             video_list = await model_ref.image_to_video(

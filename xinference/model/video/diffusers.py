@@ -18,6 +18,7 @@ import json
 import logging
 import operator
 import os
+import tempfile
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -155,6 +156,12 @@ class DiffusersVideoModel:
                 )
             pipeline = self._model = HunyuanVideoPipeline.from_pretrained(
                 self._model_path, transformer=transformer, **kwargs
+            )
+        elif self.model_spec.model_family == "WanAnimate2":
+            from diffusers import WanAnimate2Pipeline
+
+            pipeline = self._model = WanAnimate2Pipeline.from_pretrained(
+                self._model_path, **kwargs
             )
         elif self.model_spec.model_family == "Wan":
             from diffusers import AutoencoderKLWan, WanImageToVideoPipeline, WanPipeline
@@ -312,9 +319,50 @@ class DiffusersVideoModel:
         assert callable(self._model)
         generate_kwargs = self._model_spec.default_generate_config.copy()
         generate_kwargs.update(kwargs)
-        generate_kwargs["num_videos_per_prompt"] = n
         if num_inference_steps:
             generate_kwargs["num_inference_steps"] = num_inference_steps
+
+        if self.model_spec.model_family == "WanAnimate2":
+            if n != 1:
+                raise ValueError(
+                    "Wan-Animate-2 only supports generating one video per request"
+                )
+
+            video = generate_kwargs.pop("video", None)
+            if video is None:
+                raise ValueError("`video` is required for Wan-Animate-2")
+
+            fps = generate_kwargs.get("fps", 24)
+            temp_video_path = None
+            output: Any
+            try:
+                if isinstance(video, bytes):
+                    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as f:
+                        temp_video_path = f.name
+                        f.write(video)
+                    video = temp_video_path
+                elif isinstance(video, str):
+                    if not os.path.isfile(video):
+                        raise FileNotFoundError(
+                            f"Video path does not exist or is not a file: {video}"
+                        )
+                else:
+                    raise TypeError("`video` must be video bytes or a local path")
+
+                self._process_progressor(generate_kwargs)
+                output = self._model(
+                    image=image,
+                    driving_video=video,
+                    prompt=prompt,
+                    **generate_kwargs,
+                )
+            finally:
+                if temp_video_path and os.path.exists(temp_video_path):
+                    os.remove(temp_video_path)
+
+            return self._output_to_video(output, fps, response_format)
+
+        generate_kwargs["num_videos_per_prompt"] = n
         fps = generate_kwargs.pop("fps", 10)
 
         # process image

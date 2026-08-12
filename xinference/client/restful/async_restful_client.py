@@ -666,6 +666,7 @@ class AsyncRESTfulVideoModelHandle(AsyncRESTfulModelHandle):
         prompt: str,
         negative_prompt: Optional[str] = None,
         n: int = 1,
+        video: Optional[Union[str, bytes]] = None,
         **kwargs,
     ) -> "VideoList":
         """
@@ -681,6 +682,8 @@ class AsyncRESTfulVideoModelHandle(AsyncRESTfulModelHandle):
             The prompt or prompts not to guide the image generation.
         n: `int`, defaults to 1
             The number of videos to generate per prompt. Must be between 1 and 10.
+        video: `Union[str, bytes]`, optional
+            The driving video for character animation models.
         Returns
         -------
         VideoList
@@ -699,6 +702,18 @@ class AsyncRESTfulVideoModelHandle(AsyncRESTfulModelHandle):
         for key, value in params.items():
             files.append((key, (None, value)))
         files.append(("image", ("image", image, "application/octet-stream")))
+        if video is not None:
+            if isinstance(video, str):
+                with open(video, "rb") as f:
+                    video_data = f.read()
+            else:
+                video_data = video
+            files.append(
+                (
+                    "video",
+                    ("video", video_data, "application/octet-stream"),
+                )
+            )
         response = await self.session.post(url, data=files, headers=self.auth_headers)
         if response.status != 200:
             raise RuntimeError(
