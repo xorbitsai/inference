@@ -130,25 +130,33 @@ MAX_PDF_PARSE_PAGE_PIXELS = 200_000_000
 # whole document for a 9x pass it cannot take would reject a 74-page A4 PDF
 # whose real render is ~334 M pixels.
 #
-# That is a statement about one release, and the dependency is
-# ``deepdoc-lib~=0.2.2``, which accepts any later 0.2.x -- so the retry could
-# become reachable if upstream corrects the guard to the likely intended
-# ``not any(self.boxes)``. What bounds the damage in that case is not this
-# ceiling but the per-page one above, which is still enforced at the
-# worst-case scale: no page may *peak* above MAX_PDF_PARSE_PAGE_PIXELS even
-# after escalating, and at most MAX_PDF_OCR_PAGES pages are accepted, so an
-# escalated document cannot exceed their product. Searching every page
-# geometry and zoom that both budgets admit, the true maximum is 39.96 G px
-# (~160 GB, from 200 pages of 200x11100 pt at zoomin 1) against that 40 G px
-# bound. A third, document-wide retry ceiling was tried and removed: any
-# value tight enough to bind is also tight enough to reject ordinary
-# documents (36 G px already loses A4 at zoomin 2 and 6), and any value that
-# does not is unreachable.
-#
 # At 1 G px and ~4 bytes per rendered pixel this is ~4 GB of page images at
 # the requested zoom: ~221 A4 pages at the default zoomin 3, 55 at zoomin 6,
 # with the 200-page ceiling capping it from the other side.
 MAX_PDF_PARSE_TOTAL_PIXELS = 1_000_000_000
+# The unreachability above is a statement about one release, and the
+# dependency is ``deepdoc-lib~=0.2.2``, which accepts any later 0.2.x. If
+# upstream corrects the guard to the likely intended ``not any(self.boxes)``,
+# the retry becomes reachable, so what it would then allocate needs its own
+# ceiling.
+#
+# The per-page ceiling does not supply a useful one. It caps a single page,
+# and multiplied by the 200-page ceiling it admits 40 G px -- some 160 GB of
+# page images. That is a mathematical bound, not a memory-safety one: the
+# concrete case of 200 A4 pages escalating 3 -> 9 is 9.0 G px (~36 GB), well
+# inside it and well past what an ordinary worker survives.
+#
+# This ceiling is what keeps that in range, and unlike the requested-scale
+# budget it is applied to the *peak* -- summed from
+# ``worst_case_parse_peak_pixels``, so the render being replaced is counted
+# alongside its replacement.
+#
+# At 6 G px (~24 GB) the 31-page A4 document from #5307 passes at every
+# zoomin from 1 to 6 (1.4 G px at the default), a 100-page A4 document still
+# parses at the default zoom, and the 36 GB case above is rejected. Raise it
+# via the environment on workers sized for more; lowering it trades long
+# documents for a smaller escalated worst case.
+MAX_PDF_PARSE_RETRY_TOTAL_PIXELS = 6_000_000_000
 
 
 def _pixel_budget_from_env(name: str, default: int) -> int:
@@ -175,6 +183,9 @@ def _pixel_budget_from_env(name: str, default: int) -> int:
 MAX_PDF_PARSE_TOTAL_PIXELS = _pixel_budget_from_env(
     "XINFERENCE_MAX_PDF_PARSE_TOTAL_PIXELS", MAX_PDF_PARSE_TOTAL_PIXELS
 )
+MAX_PDF_PARSE_RETRY_TOTAL_PIXELS = _pixel_budget_from_env(
+    "XINFERENCE_MAX_PDF_PARSE_RETRY_TOTAL_PIXELS", MAX_PDF_PARSE_RETRY_TOTAL_PIXELS
+)
 
 
 def _parse_budget_error(sizes: List[Tuple[float, float]], zoomin: int) -> Optional[str]:
@@ -186,6 +197,7 @@ def _parse_budget_error(sizes: List[Tuple[float, float]], zoomin: int) -> Option
     """
     worst_case = worst_case_parse_zoom(zoomin)
     requested_total = 0
+    retry_total = 0
     for index, (width, height) in enumerate(sizes):
         peak_pixels = worst_case_parse_peak_pixels(width, height, zoomin)
         if peak_pixels > MAX_PDF_PARSE_PAGE_PIXELS:
@@ -202,6 +214,15 @@ def _parse_budget_error(sizes: List[Tuple[float, float]], zoomin: int) -> Option
                 f"{requested_total} pixels in total at zoomin {zoomin}, "
                 f"exceeding the whole-document limit of "
                 f"{MAX_PDF_PARSE_TOTAL_PIXELS}"
+            )
+        # Summed from the per-page peaks, so the render a retry replaces is
+        # counted alongside its replacement rather than the final scale alone.
+        retry_total += peak_pixels
+        if retry_total > MAX_PDF_PARSE_RETRY_TOTAL_PIXELS:
+            return (
+                f"The uploaded PDF would peak above {retry_total} pixels if "
+                f"the parser re-rendered it at {worst_case}x, exceeding the "
+                f"retry limit of {MAX_PDF_PARSE_RETRY_TOTAL_PIXELS}"
             )
     return None
 

@@ -456,11 +456,13 @@ path's. When a render finds no text *anywhere in the document*, DeepDoc
 re-renders the whole thing at three times the zoom, repeatedly, until the scale
 reaches 9 — so a request at ``zoomin=3`` may end up rendering at 9.
 
-In practice that re-render is unreachable for any document that renders at
-all — DeepDoc appends to its box list on every page, including an empty list
-for a page that yields nothing, so the ``len(boxes) == 0`` condition it guards
-on only holds when there were no pages to render — so the document as a whole
-is budgeted at the scale you asked for. Two budgets apply:
+With ``deepdoc-lib`` 0.2.2 that re-render is in practice unreachable for any
+document that renders at all — DeepDoc appends to its box list on every page,
+including an empty list for a page that yields nothing, so the
+``len(boxes) == 0`` condition it guards on only holds when there were no pages
+to render. The document is therefore budgeted at the scale you asked for, with
+a separate ceiling bounding what the re-render would cost should a later
+release make it reachable again. Three budgets apply:
 
 * **Per page**, enforced at the worst-case scale, since one page with an
   outsized MediaBox must not be admitted on the strength of a retry that may
@@ -469,6 +471,11 @@ is budgeted at the scale you asked for. Two budgets apply:
 * **Whole document**, at the requested scale: the pages together may not
   exceed 1 gigapixel, roughly 221 A4 pages at the default zoom, with the
   200-page ceiling capping it from the other side.
+* **Whole document, if the re-render happens**: the escalated peak may not
+  exceed 6 gigapixels, about 24 GB of page images. This is what limits long
+  documents in practice — roughly 130 A4 pages at the default zoom — and it is
+  deliberately not derived from the other two, whose product would permit some
+  160 GB.
 
 Note that the per-page budget is **not monotonic** in ``zoomin``, because the
 retry ladder is not: DeepDoc tests ``zoomin < 9`` before multiplying, so
@@ -478,7 +485,8 @@ that reason a 400 from these limits names a ``zoomin`` that would actually fit
 whenever one exists, and otherwise says to split the document — follow what
 the message says rather than assuming a lower zoom will help.
 
-The whole-document ceiling can be raised on deployments whose parse workers
-are sized for it, via ``XINFERENCE_MAX_PDF_PARSE_TOTAL_PIXELS`` (in pixels).
-A rendered page costs roughly 4 bytes per pixel, so the default corresponds to
-about 4 GB of page images.
+Both whole-document ceilings can be raised on deployments whose parse workers
+are sized for it, via ``XINFERENCE_MAX_PDF_PARSE_TOTAL_PIXELS`` and
+``XINFERENCE_MAX_PDF_PARSE_RETRY_TOTAL_PIXELS`` (both in pixels). A rendered
+page costs roughly 4 bytes per pixel, so the defaults correspond to about 4 GB
+and 24 GB of page images respectively.

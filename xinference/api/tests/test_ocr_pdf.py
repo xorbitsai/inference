@@ -24,6 +24,7 @@ from ..pdf_ocr import (
     DEFAULT_PDF_OCR_DPI,
     MAX_PDF_OCR_PAGES,
     MAX_PDF_PARSE_PAGE_PIXELS,
+    MAX_PDF_PARSE_RETRY_TOTAL_PIXELS,
     MAX_PDF_PARSE_TOTAL_PIXELS,
     PDF_PARSE_RETRY_ZOOM_LIMIT,
     WHOLE_DOCUMENT_OCR_TASKS,
@@ -309,10 +310,10 @@ class TestValidatePdfForParse:
         assert int(1000 * 12) ** 2 < MAX_PDF_PARSE_PAGE_PIXELS
         assert per_page * MAX_PDF_OCR_PAGES > MAX_PDF_PARSE_TOTAL_PIXELS
         doc = make_pdf(page_count=MAX_PDF_OCR_PAGES, media_box="0 0 1000 1000")
-        with pytest.raises(ValueError, match="whole-document limit"):
+        with pytest.raises(ValueError, match="whole-document limit|retry limit"):
             validate_pdf_for_parse(doc, zoomin=4)
 
-    def test_the_retry_is_not_budgeted_for_across_the_document(self):
+    def test_the_requested_scale_is_what_shapes_ordinary_acceptance(self):
         # deepdoc's `__ocr` appends to `boxes` on every page, including
         # `append([])` for a page that yields nothing, so `len(boxes) == 0`
         # cannot hold for a document that rendered any pages -- the 9x retry
@@ -320,11 +321,8 @@ class TestValidatePdfForParse:
         # zoomin 3 and must be admitted rather than charged for a 9x pass it
         # cannot take.
         pytest.importorskip("pypdfium2")
-        a4 = make_pdf(page_count=MAX_PDF_OCR_PAGES, media_box=A4)
-        assert int(595 * 3) * int(842 * 3) * MAX_PDF_OCR_PAGES < (
-            MAX_PDF_PARSE_TOTAL_PIXELS
-        )
-        assert validate_pdf_for_parse(a4, zoomin=3) == MAX_PDF_OCR_PAGES
+        a4 = make_pdf(page_count=100, media_box=A4)
+        assert validate_pdf_for_parse(a4, zoomin=3) == 100
 
 
 class TestParseAdmitsRealDocuments:
@@ -362,7 +360,7 @@ class TestParseAdmitsRealDocuments:
         # Budgeting at the requested scale lifts that to the 200-page ceiling
         # the per-page OCR path already allowed.
         pytest.importorskip("pypdfium2")
-        for page_count in (73, 74, 100, MAX_PDF_OCR_PAGES):
+        for page_count in (73, 74, 100):
             doc = make_pdf(page_count=page_count, media_box=A4)
             assert validate_pdf_for_parse(doc, zoomin=3) == page_count
 
@@ -387,9 +385,9 @@ class TestParseRejectionAdviceIsActionable:
         pytest.importorskip("pypdfium2")
         import re
 
-        # 200 A4 pages fit at zoomin 1-3 but not 4-6, so the higher zooms
-        # exercise the recommendation path.
-        doc = make_pdf(page_count=MAX_PDF_OCR_PAGES, media_box=A4)
+        # 100 A4 pages fit at zoomin 1 and 3 but not the rest, so the higher
+        # zooms exercise the recommendation path.
+        doc = make_pdf(page_count=100, media_box=A4)
         for zoomin in range(1, 7):
             try:
                 validate_pdf_for_parse(doc, zoomin, max_zoomin=6)
@@ -397,7 +395,7 @@ class TestParseRejectionAdviceIsActionable:
                 match = re.search(r"retry with `zoomin` (\d+)", str(e))
                 assert match, f"no actionable advice at zoomin {zoomin}: {e}"
                 recommended = int(match.group(1))
-                assert validate_pdf_for_parse(doc, recommended) == MAX_PDF_OCR_PAGES
+                assert validate_pdf_for_parse(doc, recommended) == 100
 
     def test_advises_splitting_when_no_zoom_fits(self):
         # A single outsized MediaBox blows the per-page ceiling at every zoom,
@@ -411,18 +409,18 @@ class TestParseRejectionAdviceIsActionable:
         # Not merely *a* zoom that works -- the best one, so the caller keeps
         # as much render quality as the budget allows.
         pytest.importorskip("pypdfium2")
-        doc = make_pdf(page_count=MAX_PDF_OCR_PAGES, media_box=A4)
+        doc = make_pdf(page_count=100, media_box=A4)
         with pytest.raises(ValueError, match=r"retry with `zoomin` 3"):
             validate_pdf_for_parse(doc, zoomin=6, max_zoomin=6)
-        assert validate_pdf_for_parse(doc, zoomin=3) == MAX_PDF_OCR_PAGES
+        assert validate_pdf_for_parse(doc, zoomin=3) == 100
         with pytest.raises(ValueError):
             validate_pdf_for_parse(doc, zoomin=4)
 
 
 class TestLargestFittingParseZoom:
     def test_finds_the_largest_zoom_within_the_budget(self):
-        # 200 A4 pages: 4-6 exceed the whole-document ceiling, 3 fits.
-        sizes = [(595.0, 842.0)] * 200
+        # 100 A4 pages: 4-6 exceed a ceiling, 3 fits.
+        sizes = [(595.0, 842.0)] * 100
         assert largest_fitting_parse_zoom(sizes, 6) == 3
 
     def test_every_candidate_is_tested_not_assumed_monotonic(self):
@@ -520,36 +518,39 @@ class TestParseBudgetConfiguration:
         with mock.patch.dict(os.environ, {"XINFERENCE_TEST_BUDGET": bad}):
             assert _pixel_budget_from_env("XINFERENCE_TEST_BUDGET", 7) == 7
 
-    def test_an_escalated_document_is_bounded_even_if_the_retry_returns(self):
-        # The document-wide budget is at the requested scale because the 9x
-        # retry is unreachable in deepdoc-lib 0.2.2, but `~=0.2.2` accepts
-        # later 0.2.x, so that could change. What bounds the damage then is
-        # the per-page ceiling -- still enforced at the worst-case scale --
-        # times the page ceiling. Pinned here so that raising either limit
-        # has to face what it does to the escalated worst case.
-        bound = MAX_PDF_PARSE_PAGE_PIXELS * MAX_PDF_OCR_PAGES
-        assert bound == 40_000_000_000
+    def test_the_retry_ceiling_is_an_effective_memory_bound(self):
+        # The per-page ceiling times the page ceiling is 40 G px -- ~160 GB of
+        # page images. That is a mathematical bound, not a memory-safety one,
+        # so the escalated total is capped separately and much lower.
+        assert MAX_PDF_PARSE_PAGE_PIXELS * MAX_PDF_OCR_PAGES == 40_000_000_000
+        assert MAX_PDF_PARSE_RETRY_TOTAL_PIXELS < 10_000_000_000
 
-        worst = 0
-        for width in range(100, 14401, 700):
-            for height in range(100, 14401, 700):
-                for zoomin in range(1, 7):
-                    peak = worst_case_parse_peak_pixels(width, height, zoomin)
-                    if peak > MAX_PDF_PARSE_PAGE_PIXELS:
-                        continue
-                    requested = int(width * zoomin) * int(height * zoomin)
-                    if not requested:
-                        continue
-                    pages = min(
-                        MAX_PDF_OCR_PAGES, MAX_PDF_PARSE_TOTAL_PIXELS // requested
-                    )
-                    worst = max(worst, peak * pages)
-        assert worst <= bound
+    def test_the_retry_ceiling_rejects_the_case_that_would_oom_a_worker(self):
+        # 200 A4 pages at zoomin 3 is only 0.902 G px as requested, so the
+        # main budget admits it, but it escalates to ~9 G px (~36 GB) -- past
+        # what an ordinary parse worker survives.
+        pytest.importorskip("pypdfium2")
+        doc = make_pdf(page_count=MAX_PDF_OCR_PAGES, media_box=A4)
+        assert int(595 * 3) * int(842 * 3) * MAX_PDF_OCR_PAGES < (
+            MAX_PDF_PARSE_TOTAL_PIXELS
+        )
+        with pytest.raises(ValueError, match="retry limit"):
+            validate_pdf_for_parse(doc, zoomin=3)
+
+    def test_the_retry_ceiling_still_admits_the_reported_document(self):
+        # The ceiling must not undo the fix: the 31-page A4 document from
+        # #5307 peaks at 1.4 G px even at 9x, so it clears the limit at every
+        # zoomin -- rejecting it is what the previous 3 G px value was wrongly
+        # believed to do.
+        pytest.importorskip("pypdfium2")
+        doc = make_pdf(page_count=31, media_box=A4)
+        for zoomin in range(1, 7):
+            assert validate_pdf_for_parse(doc, zoomin, max_zoomin=6) == 31
 
     def test_the_configured_ceiling_is_what_validation_uses(self):
         pytest.importorskip("pypdfium2")
-        doc = make_pdf(page_count=MAX_PDF_OCR_PAGES, media_box=A4)
-        assert validate_pdf_for_parse(doc, zoomin=3) == MAX_PDF_OCR_PAGES
+        doc = make_pdf(page_count=100, media_box=A4)
+        assert validate_pdf_for_parse(doc, zoomin=3) == 100
         with mock.patch(
             "xinference.api.pdf_ocr.MAX_PDF_PARSE_TOTAL_PIXELS", 10_000_000
         ):
