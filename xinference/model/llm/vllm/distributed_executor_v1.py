@@ -30,10 +30,10 @@ from typing import (
 
 import xoscar as xo
 from vllm.v1.executor.abstract import Executor
-from vllm.v1.worker.worker_base import WorkerWrapperBase
 from xoscar.utils import get_next_port
 
 from ....isolation import Isolation
+from .distributed_worker_actor import WorkerActor
 from .utils import get_distributed_init_method
 
 if TYPE_CHECKING:
@@ -42,62 +42,6 @@ if TYPE_CHECKING:
     from vllm.v1.outputs import ModelRunnerOutput
 
 logger = logging.getLogger(__name__)
-
-DEBUG_EXECUTOR = bool(int(os.getenv("XINFERENCE_DEBUG_VLLM_EXECUTOR", "0")))
-
-
-class WorkerActor(xo.StatelessActor):
-    def __init__(self, vllm_config: "VllmConfig", rpc_rank: int = 0, **kwargs):
-        super().__init__(**kwargs)
-        self._worker = WorkerWrapperBase(rpc_rank=rpc_rank)
-
-    async def __post_create__(self):
-        try:
-            # Change process title for model
-            import setproctitle
-
-            _uid = os.environ.get("XINFERENCE_MODEL_UID", "")
-            setproctitle.setproctitle(
-                f"Xinf vLLM worker: {self._worker.rpc_rank} [{_uid}]"
-            )
-        except ImportError:
-            pass
-
-    def __getattr__(self, item):
-        from xoscar.core import NO_LOCK_ATTRIBUTE_HINT
-
-        if item == NO_LOCK_ATTRIBUTE_HINT:
-            return True
-        return getattr(self._worker, item)
-
-    @classmethod
-    def gen_uid(cls, rank):
-        return f"VllmWorker_{rank}"
-
-    def execute_method(self, method: Union[str, Callable], *args, **kwargs):
-        if DEBUG_EXECUTOR:
-            # NOTE: too many logs, but useful for debug
-            logger.debug(
-                "Calling method %s in vllm worker %s, args: %s, kwargs: %s",
-                method,
-                self.uid,
-                args,
-                kwargs,
-            )
-        if isinstance(method, str):
-            if method != "sample_tokens":
-                return getattr(self._worker, method)(*args, **kwargs)
-            else:
-                result = getattr(self._worker, method)(*args, **kwargs)
-                return self._sanitize_result(result)
-        else:
-            return method(self._worker, *args, **kwargs)
-
-    def _sanitize_result(self, obj):
-        if obj is None:
-            return obj
-        output = obj.get_output()
-        return output
 
 
 class WorkerWrapper:
@@ -166,7 +110,6 @@ class XinferenceDistributedExecutorV1(Executor):
         for rank in range(world_size):
             coro = xo.create_actor(
                 WorkerActor,
-                self.vllm_config,
                 rpc_rank=rank,
                 address=self._pool_addresses[rank],
                 uid=WorkerActor.gen_uid(rank),
