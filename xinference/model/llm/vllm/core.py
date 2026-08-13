@@ -284,6 +284,7 @@ VLLM_SUPPORTED_CHAT_MODELS = [
     "ChatGLMForConditionalGeneration",
     "GlmForCausalLM",
     "ChatGLMModel",
+    "BailingMoeV3ForCausalLM",
 ]
 
 
@@ -1919,10 +1920,11 @@ class VLLMChatModel(VLLMModel, ChatModelMixin):
                 "vLLM chat mode supports pytorch/gptq/awq/fp4/fp8/bnb/ggufv2 formats only",
             )
         if llm_spec.model_format == "pytorch":
-            if quantization not in (None, "none"):
+            if str(quantization).lower() not in ("none", "int4"):
                 return (
                     False,
-                    "pytorch format with quantization is not supported in vLLM chat",
+                    "vLLM chat supports unquantized pytorch checkpoints "
+                    "and offline Int4 checkpoints only",
                 )
         if llm_spec.model_format == "awq":
             if not any(q in quantization for q in ("4", "8")):
