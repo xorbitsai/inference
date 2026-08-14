@@ -1656,62 +1656,6 @@
     "featured": true
   },
   {
-    "version": 2,
-    "model_name": "IndexTTS-2.5",
-    "model_family": "IndexTTS2",
-    "model_ability": [
-      "text2audio",
-      "text2audio_zero_shot",
-      "text2audio_voice_cloning",
-      "text2audio_emotion_control"
-    ],
-    "multilingual": true,
-    "virtualenv": {
-      "packages": [
-        "transformers==4.52.1",
-        "accelerate",
-        "modelscope==1.27.0",
-        "#system_torch#",
-        "#system_torchaudio#",
-        "#system_numpy#",
-        "librosa",
-        "soundfile",
-        "einops>=0.8.1",
-        "omegaconf>=2.3.0",
-        "sentencepiece>=0.2.1",
-        "textstat>=0.7.10",
-        "WeTextProcessing ; sys_platform == 'linux' and platform_machine == 'x86_64'",
-        "wetext ; sys_platform != 'linux' or platform_machine != 'x86_64'",
-        "fugashi[unidic-lite]>=1.2.0",
-        "openai-whisper>=20231117",
-        "tiktoken",
-        "safetensors>=0.5.2",
-        "huggingface-hub",
-        "requests>=2.28",
-        "json5",
-        "munch",
-        "matplotlib",
-        "flatten_dict",
-        "julius",
-        "tensorboard",
-        "randomname",
-        "argbind"
-      ]
-    },
-    "model_src": {
-      "huggingface": {
-        "model_id": "IndexTeam/IndexTTS-2.5",
-        "model_revision": "c39ce5ba981572cb187443877ff559dfb246ce63"
-      },
-      "modelscope": {
-        "model_id": "IndexTeam/IndexTTS-2.5",
-        "model_revision": "master"
-      }
-    },
-    "updated_at": 1786625026,
-    "featured": true
-  },
-  {
     "model_name": "Fun-ASR-Nano-2512",
     "model_description": "This is a custom model description.",
     "multilingual": false,
@@ -2128,6 +2072,62 @@
       }
     },
     "updated_at": 1781772400,
+    "featured": true
+  },
+  {
+    "version": 2,
+    "model_name": "IndexTTS-2.5",
+    "model_family": "IndexTTS2",
+    "model_ability": [
+      "text2audio",
+      "text2audio_zero_shot",
+      "text2audio_voice_cloning",
+      "text2audio_emotion_control"
+    ],
+    "multilingual": true,
+    "virtualenv": {
+      "packages": [
+        "transformers==4.52.1",
+        "accelerate",
+        "modelscope==1.27.0",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#",
+        "librosa",
+        "soundfile",
+        "einops>=0.8.1",
+        "omegaconf>=2.3.0",
+        "sentencepiece>=0.2.1",
+        "textstat>=0.7.10",
+        "WeTextProcessing ; sys_platform == 'linux' and platform_machine == 'x86_64'",
+        "wetext ; sys_platform != 'linux' or platform_machine != 'x86_64'",
+        "fugashi[unidic-lite]>=1.2.0",
+        "openai-whisper>=20231117",
+        "tiktoken",
+        "safetensors>=0.5.2",
+        "huggingface-hub",
+        "requests>=2.28",
+        "json5",
+        "munch",
+        "matplotlib",
+        "flatten_dict",
+        "julius",
+        "tensorboard",
+        "randomname",
+        "argbind"
+      ]
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "IndexTeam/IndexTTS-2.5",
+        "model_revision": "c39ce5ba981572cb187443877ff559dfb246ce63"
+      },
+      "modelscope": {
+        "model_id": "IndexTeam/IndexTTS-2.5",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1786731468,
     "featured": true
   }
 ]
