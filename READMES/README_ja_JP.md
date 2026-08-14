@@ -48,14 +48,14 @@ Xorbits Inference（Xinference）は、言語、音声認識、マルチモー�
 - 分散推論：ワーカー間でモデルを実行できます: [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - VLLM の強化：複数レプリカ間で KV キャッシュを共有: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### 新規モデル
+- [OvisOCR2](https://huggingface.co/ATH-MaaS/OvisOCR2) を組み込みでサポート: [#5322](https://github.com/xorbitsai/inference/pull/5322)
+- [IndexTTS-2.5](https://huggingface.co/IndexTeam/IndexTTS-2.5) を組み込みでサポート: [#5319](https://github.com/xorbitsai/inference/pull/5319)
+- Ling-3.0 シリーズ（[tiny](https://huggingface.co/inclusionAI/Ling-3.0-tiny)、[flash](https://huggingface.co/inclusionAI/Ling-3.0-flash)）を組み込みでサポート: [#5311](https://github.com/xorbitsai/inference/pull/5311)
+- [MiniMax-H3](https://huggingface.co/MiniMaxAI/MiniMax-H3) を組み込みでサポート: [#5321](https://github.com/xorbitsai/inference/pull/5321)
+- Wan2.2 Animate 2 シリーズ（[14B](https://huggingface.co/Wan-AI/Wan2.2-Animate-2-14B-Diffusers)、[14B Distilled](https://huggingface.co/Wan-AI/Wan2.2-Animate-2-14B-Distilled-Diffusers)）を組み込みでサポート: [#5309](https://github.com/xorbitsai/inference/pull/5309)
+- [FireRed-Image-Edit-1.1](https://huggingface.co/FireRedTeam/FireRed-Image-Edit-1.1) を組み込みでサポート: [#5306](https://github.com/xorbitsai/inference/pull/5306)
+- CAMPPlus 話者埋め込みシリーズ（[中国語](https://modelscope.cn/models/iic/speech_campplus_sv_zh-cn_16k-common)、[中国語・英語高度版](https://modelscope.cn/models/iic/speech_campplus_sv_zh_en_16k-common_advanced)）を組み込みでサポート: [#5298](https://github.com/xorbitsai/inference/pull/5298)
 - 組み込み [MiniMax-M3](https://huggingface.co/MiniMaxAI/MiniMax-M3): [#5258](https://github.com/xorbitsai/inference/pull/5258)
-- 組み込み VibeThinker シリーズ（[1.5B](https://huggingface.co/WeiboAI/VibeThinker-1.5B)、[3B](https://huggingface.co/WeiboAI/VibeThinker-3B)）: [#5085](https://github.com/xorbitsai/inference/pull/5085)
-- 組み込み Nex-N2 シリーズ（[mini](https://huggingface.co/nex-agi/Nex-N2-mini)、[Pro](https://huggingface.co/nex-agi/Nex-N2-Pro)、[Pro-fp8](https://huggingface.co/nex-agi/Nex-N2-Pro-fp8)）: [#5094](https://github.com/xorbitsai/inference/pull/5094)
-- 組み込み [Unlimited-OCR](https://huggingface.co/baidu/Unlimited-OCR): [#5103](https://github.com/xorbitsai/inference/pull/5103)
-- 組み込み [Ornith-1.0-35B](https://huggingface.co/deepreinforce-ai/Ornith-1.0-35B): [#5119](https://github.com/xorbitsai/inference/pull/5119)
-- 組み込み [MiniCPM5-1B](https://huggingface.co/openbmb/MiniCPM5-1B): [#5010](https://github.com/xorbitsai/inference/pull/5010)
-- 組み込み jina-embeddings-v5 シリーズ（[text-nano](https://huggingface.co/jinaai/jina-embeddings-v5-text-nano)、[text-small](https://huggingface.co/jinaai/jina-embeddings-v5-text-small)、[omni-nano](https://huggingface.co/jinaai/jina-embeddings-v5-omni-nano)、[omni-small](https://huggingface.co/jinaai/jina-embeddings-v5-omni-small)）: [#5018](https://github.com/xorbitsai/inference/pull/5018)
-- 組み込み MiniCPM-V-4.6 シリーズ（[MiniCPM-V-4.6](https://huggingface.co/openbmb/MiniCPM-V-4.6)、[MiniCPM-V-4.6-Thinking](https://huggingface.co/openbmb/MiniCPM-V-4.6-Thinking)）: [#5025](https://github.com/xorbitsai/inference/pull/5025)
 ### 統合
 - [Xagent](https://github.com/xorbitsai/xagent): 計画、メモリ、ツール利用を備えたエンタープライズ向けエージェントプラットフォームです。
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): LLMOps プラットフォームで、視覚化・操作可能な形で迅速にアプリを構築できます。

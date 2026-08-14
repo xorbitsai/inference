@@ -48,14 +48,14 @@ Xorbits Inference (Xinference) é uma biblioteca poderosa e versátil para model
 - Inferência distribuída: modelos podem ser executados entre vários workers: [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - Melhorias no vLLM: compartilhamento do KV-cache entre réplicas: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### Novos modelos
+- Suporte integrado para [OvisOCR2](https://huggingface.co/ATH-MaaS/OvisOCR2) : [#5322](https://github.com/xorbitsai/inference/pull/5322)
+- Suporte integrado para [IndexTTS-2.5](https://huggingface.co/IndexTeam/IndexTTS-2.5) : [#5319](https://github.com/xorbitsai/inference/pull/5319)
+- Suporte integrado para a série Ling-3.0 ([tiny](https://huggingface.co/inclusionAI/Ling-3.0-tiny), [flash](https://huggingface.co/inclusionAI/Ling-3.0-flash)) : [#5311](https://github.com/xorbitsai/inference/pull/5311)
+- Suporte integrado para [MiniMax-H3](https://huggingface.co/MiniMaxAI/MiniMax-H3) : [#5321](https://github.com/xorbitsai/inference/pull/5321)
+- Suporte integrado para a série Wan2.2 Animate 2 ([14B](https://huggingface.co/Wan-AI/Wan2.2-Animate-2-14B-Diffusers), [14B Distilled](https://huggingface.co/Wan-AI/Wan2.2-Animate-2-14B-Distilled-Diffusers)) : [#5309](https://github.com/xorbitsai/inference/pull/5309)
+- Suporte integrado para [FireRed-Image-Edit-1.1](https://huggingface.co/FireRedTeam/FireRed-Image-Edit-1.1) : [#5306](https://github.com/xorbitsai/inference/pull/5306)
+- Suporte integrado para a série CAMPPlus de embeddings de voz ([chinês](https://modelscope.cn/models/iic/speech_campplus_sv_zh-cn_16k-common), [chinês-inglês avançado](https://modelscope.cn/models/iic/speech_campplus_sv_zh_en_16k-common_advanced)) : [#5298](https://github.com/xorbitsai/inference/pull/5298)
 - Integração de [MiniMax-M3](https://huggingface.co/MiniMaxAI/MiniMax-M3) : [#5258](https://github.com/xorbitsai/inference/pull/5258)
-- Integração da série VibeThinker ([1.5B](https://huggingface.co/WeiboAI/VibeThinker-1.5B), [3B](https://huggingface.co/WeiboAI/VibeThinker-3B)) : [#5085](https://github.com/xorbitsai/inference/pull/5085)
-- Integração da série Nex-N2 ([mini](https://huggingface.co/nex-agi/Nex-N2-mini), [Pro](https://huggingface.co/nex-agi/Nex-N2-Pro), [Pro-fp8](https://huggingface.co/nex-agi/Nex-N2-Pro-fp8)) : [#5094](https://github.com/xorbitsai/inference/pull/5094)
-- Integração de [Unlimited-OCR](https://huggingface.co/baidu/Unlimited-OCR) : [#5103](https://github.com/xorbitsai/inference/pull/5103)
-- Integração de [Ornith-1.0-35B](https://huggingface.co/deepreinforce-ai/Ornith-1.0-35B) : [#5119](https://github.com/xorbitsai/inference/pull/5119)
-- Integração de [MiniCPM5-1B](https://huggingface.co/openbmb/MiniCPM5-1B) : [#5010](https://github.com/xorbitsai/inference/pull/5010)
-- Integração da série jina-embeddings-v5 ([text-nano](https://huggingface.co/jinaai/jina-embeddings-v5-text-nano), [text-small](https://huggingface.co/jinaai/jina-embeddings-v5-text-small), [omni-nano](https://huggingface.co/jinaai/jina-embeddings-v5-omni-nano), [omni-small](https://huggingface.co/jinaai/jina-embeddings-v5-omni-small)) : [#5018](https://github.com/xorbitsai/inference/pull/5018)
-- Integração da série MiniCPM-V-4.6 ([MiniCPM-V-4.6](https://huggingface.co/openbmb/MiniCPM-V-4.6), [MiniCPM-V-4.6-Thinking](https://huggingface.co/openbmb/MiniCPM-V-4.6-Thinking)) : [#5025](https://github.com/xorbitsai/inference/pull/5025)
 ### Integrações
 - [Xagent](https://github.com/xorbitsai/xagent): plataforma de agentes enterprise com planejamento, memória e integração de ferramentas.
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): plataforma LLMOps para construir aplicações rapidamente com visualização e controle.
