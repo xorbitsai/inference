@@ -80,12 +80,17 @@ def test_minimax_h3_loads_modular_pipeline(monkeypatch):
     fake_diffusers.ModularPipeline = FakePipeline
     monkeypatch.setitem(sys.modules, "diffusers", fake_diffusers)
 
-    model = DiffusersVideoModel("mock", "/tmp/minimax-h3", _model_spec())
-    model._kwargs["quantization"] = "none"
+    model = DiffusersVideoModel(
+        "mock",
+        "/tmp/minimax-h3",
+        _model_spec(),
+        quantization="none",
+        onload_device="cuda:1",
+    )
     model.load()
 
     assert calls["offload"] == {
-        "device": "cuda",
+        "device": "cuda:1",
         "memory_reserve_margin": "12GB",
     }
     model_path, from_pretrained_kwargs = calls["from_pretrained"]
@@ -364,3 +369,14 @@ def test_minimax_h3_forwards_workflows_and_muxes_audio(monkeypatch, tmp_path):
     )
     assert calls[2]["image"] is image
     assert calls[2]["last_image"] is last_image
+
+
+def test_minimax_h3_progress_tolerates_pipeline_without_blocks():
+    class FakeProgressor:
+        request_id = "request"
+
+    pipeline = types.SimpleNamespace()
+    with DiffusersVideoModel._track_minimax_h3_progress(
+        pipeline, FakeProgressor(), 0, 1
+    ):
+        pass

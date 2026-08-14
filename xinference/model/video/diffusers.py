@@ -319,7 +319,7 @@ class DiffusersVideoModel:
 
         manager = ComponentsManager()
         manager.enable_auto_cpu_offload(
-            device=kwargs.pop("offload_device", "cuda"),
+            device=kwargs.pop("onload_device", "cuda"),
             memory_reserve_margin=kwargs.pop("memory_reserve_margin", "12GB"),
         )
         pipeline = ModularPipeline.from_pretrained(
@@ -699,7 +699,7 @@ class DiffusersVideoModel:
         kwargs.pop("num_videos_per_prompt", None)
         kwargs.pop("fps", None)
 
-        generate_kwargs = self._model_spec.default_generate_config.copy()
+        generate_kwargs = (self._model_spec.default_generate_config or {}).copy()
         generate_kwargs.update(kwargs)
         if num_inference_steps is not None:
             generate_kwargs["num_inference_steps"] = num_inference_steps
@@ -766,7 +766,12 @@ class DiffusersVideoModel:
 
         missing = object()
         patched_blocks = []
-        for block in iter_blocks(pipeline._blocks):
+        blocks = getattr(pipeline, "_blocks", None)
+        if blocks is None:
+            yield
+            return
+
+        for block in iter_blocks(blocks):
             if getattr(block, "model_name", None) != "minimax-h3" or not hasattr(
                 block, "loop_step"
             ):
