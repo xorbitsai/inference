@@ -302,7 +302,9 @@ def merge_virtual_env_packages(
 ) -> List[str]:
     """
     Merge default virtualenv packages with user provided ones. Packages with the
-    same name will be replaced by the user supplied version instead of appended.
+    same name and engine condition are deduplicated. Requirements for different
+    engines coexist, while a user-supplied package still overrides every base
+    variant with that name.
     """
 
     def get_key(package: str) -> str:
@@ -325,9 +327,15 @@ def merge_virtual_env_packages(
     for pkg in base_packages:
         canonical_key = get_key(pkg)
         pkg_name, separator, marker = pkg.partition(";")
+        normalized_marker = marker.strip().lower()
         key = (
-            f"{canonical_key}; {marker.strip()}"
-            if separator and pkg_name.strip().startswith("#system_")
+            f"{canonical_key}; {normalized_marker}"
+            if separator
+            and (
+                pkg_name.strip().startswith("#system_")
+                or "#engine#" in normalized_marker
+                or "#model_engine#" in normalized_marker
+            )
             else canonical_key
         )
         if key in index_map:
