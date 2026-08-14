@@ -22,6 +22,7 @@ from ..common import async_streaming_response_iterator, convert_float_to_int_or_
 
 if TYPE_CHECKING:
     from ...types import (
+        AudioEmbedding,
         ChatCompletion,
         ChatCompletionChunk,
         Completion,
@@ -915,6 +916,24 @@ class AsyncRESTfulChatModelHandle(AsyncRESTfulGenerateModelHandle):
 
 
 class AsyncRESTfulAudioModelHandle(AsyncRESTfulModelHandle):
+    async def create_embedding(self, audio: bytes) -> "AudioEmbedding":
+        """Create a speaker embedding from encoded audio bytes."""
+        url = f"{self._base_url}/v1/audio/embeddings"
+        data = aiohttp.FormData()
+        data.add_field("model", self._model_uid)
+        data.add_field(
+            "file", audio, filename="file", content_type="application/octet-stream"
+        )
+        response = await self.session.post(url, data=data, headers=self.auth_headers)
+        if response.status != 200:
+            raise RuntimeError(
+                "Failed to create the audio embedding, "
+                f"detail: {await _get_error_string(response)}"
+            )
+        response_data = await response.json()
+        await _release_response(response)
+        return response_data
+
     async def transcriptions(
         self,
         audio: bytes,

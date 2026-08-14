@@ -92,6 +92,13 @@ class Embedding(TypedDict):
     usage: EmbeddingUsage
 
 
+class AudioEmbedding(TypedDict):
+    object: Literal["embedding"]
+    model: str
+    dimensions: int
+    embedding: List[float]
+
+
 class Document(TypedDict):
     text: str
 

@@ -39,6 +39,7 @@ export interface CapabilityConfig {
   requestApi: string;
   initialValues?: FormValues;
   showProgress?: boolean;
+  submitLabel?: string;
   formPanel: ComponentType<CapabilityFormProps>;
   resultPanel: ComponentType<CapabilityResultProps>;
   transformValues: (context: TransformContext) => BodyInit | Record<string, unknown>;

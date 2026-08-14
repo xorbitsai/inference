@@ -21,6 +21,7 @@ from ..common import convert_float_to_int_or_str, streaming_response_iterator
 
 if TYPE_CHECKING:
     from ...types import (
+        AudioEmbedding,
         ChatCompletion,
         ChatCompletionChunk,
         Completion,
@@ -831,6 +832,23 @@ class RESTfulChatModelHandle(RESTfulGenerateModelHandle):
 
 
 class RESTfulAudioModelHandle(RESTfulModelHandle):
+    def create_embedding(self, audio: bytes) -> "AudioEmbedding":
+        """Create a speaker embedding from encoded audio bytes."""
+        url = f"{self._base_url}/v1/audio/embeddings"
+        files = [("file", ("file", audio, "application/octet-stream"))]
+        response = self.session.post(
+            url,
+            data={"model": self._model_uid},
+            files=files,
+            headers=self.auth_headers,
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                "Failed to create the audio embedding, "
+                f"detail: {_get_error_string(response)}"
+            )
+        return response.json()
+
     def transcriptions(
         self,
         audio: bytes,

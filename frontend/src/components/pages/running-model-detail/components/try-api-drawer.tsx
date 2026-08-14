@@ -6,7 +6,14 @@ import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { JSONSyntaxHighlighter } from '@/components/ui/json-syntax-highlighter';
-import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ModelAbility } from '@/constants';
 import {
@@ -21,6 +28,7 @@ import { useMenuAuth } from '@/hooks/use-menu-auth';
 import { copyToClipboard, getApiUrl } from '@/lib/utils';
 
 import { CAPABILITY_CONFIGS } from '../capability-config';
+import { getPrimaryModelAbilities } from '../utils';
 
 interface TryApiDrawerProps {
   open: boolean;
@@ -470,7 +478,7 @@ function getCodeExample(
 }
 
 export function getTryApiAbility(abilities: ModelAbility[] = []) {
-  const primaryAbilities = abilities.filter((ability) => !ability.includes('_'));
+  const primaryAbilities = getPrimaryModelAbilities(abilities);
   return primaryAbilities.find((ability) => ability === ModelAbility.Chat) || primaryAbilities[0];
 }
 
@@ -493,8 +501,11 @@ export function TryApiDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent showClose={false} className="w-[min(50vw,760px)] gap-0 p-0 sm:max-w-none">
-        <SheetHeader className="flex-row items-center justify-between gap-4 border-b px-6 py-5">
+      <SheetContent
+        showClose={false}
+        className="w-[calc(100vw-1rem)] gap-0 p-0 sm:w-[min(80vw,760px)] sm:max-w-none lg:w-[min(50vw,760px)]"
+      >
+        <SheetHeader className="flex-row items-center justify-between gap-3 border-b px-4 py-4 sm:gap-4 sm:px-6 sm:py-5">
           <div className="flex min-w-0 items-center gap-3">
             <SheetClose asChild>
               <Button
@@ -505,7 +516,12 @@ export function TryApiDrawer({
                 <X className="size-5" />
               </Button>
             </SheetClose>
-            <SheetTitle className="truncate text-xl">Try To API</SheetTitle>
+            <div className="min-w-0">
+              <SheetTitle className="truncate text-xl">Try To API</SheetTitle>
+              <SheetDescription className="sr-only">
+                API request examples for the selected model ability.
+              </SheetDescription>
+            </div>
           </div>
           <Button
             type="button"
@@ -517,7 +533,7 @@ export function TryApiDrawer({
             Get API Key
           </Button>
         </SheetHeader>
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           {codeExample ? (
             <Tabs value={language} onValueChange={(value) => setLanguage(value as typeof language)}>
               <TabsList className="grid h-11 w-full grid-cols-5 rounded-xl p-1">
@@ -525,7 +541,7 @@ export function TryApiDrawer({
                   <TabsTrigger
                     key={item.value}
                     value={item.value}
-                    className="p-0 rounded-md text-base data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                    className="rounded-md p-0 text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground sm:text-base"
                   >
                     {item.label}
                   </TabsTrigger>

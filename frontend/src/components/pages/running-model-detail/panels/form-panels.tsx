@@ -365,6 +365,18 @@ export function AudioToTextPanel() {
   );
 }
 
+export function SpeakerEmbeddingPanel() {
+  return (
+    <FormField name="file" rules={[{ required: true }]}>
+      <FileUpload
+        accept="audio/*"
+        label="Upload a speech sample"
+        description="Use clear speech; audio is converted to mono and resampled to 16 kHz."
+      />
+    </FormField>
+  );
+}
+
 export function SpeechPanel({ model }: CapabilityFormProps) {
   const supportsVoiceCloning = model.model_ability.includes(ModelAbility.Text2audioVoiceCloning);
 

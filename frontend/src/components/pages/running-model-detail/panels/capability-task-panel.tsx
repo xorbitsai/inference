@@ -15,6 +15,7 @@ import type {
   CompletionResponse,
   RerankResponse,
   EmbeddingsResponse,
+  AudioEmbeddingResponse,
 } from '@/types/services';
 import type { FormValues } from '@/types/form';
 
@@ -54,6 +55,7 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
     const showCopyResult = useMemo(() => {
       return (
         config.ability === ModelAbility.Generate ||
+        config.ability === ModelAbility.SpeakerEmbedding ||
         model.model_type === ModelType.Rerank ||
         model.model_type === ModelType.Embedding
       );
@@ -65,6 +67,14 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
       if (config.ability === ModelAbility.Generate) {
         const text = (result as CompletionResponse)?.choices?.[0]?.text;
         return typeof text === 'string' ? text : '';
+      }
+      if (config.ability === ModelAbility.SpeakerEmbedding) {
+        const embedding = (result as AudioEmbeddingResponse)?.embedding;
+        try {
+          return JSON.stringify(embedding, null, 2) || '';
+        } catch {
+          return String(embedding);
+        }
       }
       if (model.model_type === ModelType.Rerank) {
         const results = (result as RerankResponse)?.results;
@@ -194,7 +204,7 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
             <div className="flex items-center gap-3 border-t p-4">
               <Button type="submit" className="h-11 flex-1 rounded-full" loading={loading}>
                 <Sparkles className={cn('size-4', loading && 'hidden')} />
-                Generate
+                {config.submitLabel || 'Generate'}
               </Button>
               <Button
                 type="button"
@@ -210,7 +220,7 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
           </Form>
         </section>
 
-        <section className="relative overflow-hidden rounded-xl border bg-background shadow-sm">
+        <section className="relative min-w-0 overflow-hidden rounded-xl border bg-background shadow-sm">
           <div className="flex items-center justify-between border-b bg-card/80 p-4">
             <h3 className="text-base font-semibold">Results</h3>
             {showCopyResult && copyResultValue && !loading && (
@@ -219,13 +229,14 @@ const CapabilityTaskPanel = forwardRef<CapabilityTaskPanelMethod, CapabilityTask
                 variant="ghost"
                 size="icon"
                 className="size-8 rounded-full text-muted-foreground"
+                aria-label="Copy result"
                 onClick={() => copyToClipboard(copyResultValue)}
               >
                 <Copy className="size-4" />
               </Button>
             )}
           </div>
-          <div className="p-4">
+          <div className="min-w-0 p-4">
             <ResultPanel
               result={result}
               values={resultValues}

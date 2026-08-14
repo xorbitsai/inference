@@ -47,6 +47,7 @@ const ja = {
     inpainting: '画像修復',
     ocr: '光学文字認識 (OCR)',
     audio2text: '音声からテキスト',
+    speaker_embedding: '話者埋め込み',
     text2audio: 'テキストから音声',
     text2audio_zero_shot: 'テキストから音声(ゼロショット)',
     text2audio_voice_cloning: 'テキストから音声(声のクローン)',
