@@ -800,9 +800,10 @@ each request. Supported language values are ``ZH``, ``EN``, ``JA``, ``ES``, and
 
 The standard ``speed`` parameter uses OpenAI semantics: values above ``1.0``
 speed up speech. The supported range is ``0.5`` to ``2.0``. You can instead
-pass the upstream ``duration_factor`` option, where values above ``1.0`` slow
-speech down. Pronunciation can be controlled with ``<word|reading>`` notation,
-for example ``他在银<行|XING2>里<行|HANG2>走了半天。``.
+pass the upstream ``duration_factor`` option with the same supported range,
+where values above ``1.0`` slow speech down. Pronunciation can be controlled
+with ``<word|reading>`` notation, for example
+``他在银<行|XING2>里<行|HANG2>走了半天。``.
 
 IndexTTS2 Offline Usage
 ~~~~~~~~~~~~~~~~~~~~~~~~
