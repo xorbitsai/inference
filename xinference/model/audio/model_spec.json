@@ -1952,6 +1952,7 @@
   {
     "version": 2,
     "model_name": "speech_campplus_sv_zh-cn_16k-common",
+    "model_description": "CAMPPlus speaker embedding model for Chinese speech. It accepts 16 kHz speech and returns a 192-dimensional speaker identity vector for verification and identification.",
     "model_family": "campplus",
     "model_ability": [
       "speaker_embedding"
@@ -1983,7 +1984,7 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1781811658,
+    "updated_at": 1786078495,
     "featured": false
   },
   {

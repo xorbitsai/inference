@@ -17377,7 +17377,7 @@
         "soundfile"
       ]
     },
-    "updated_at": 1769418569,
+    "updated_at": 1786693268,
     "featured": false,
     "architectures": [
       "Qwen2_5OmniModel"
@@ -25685,7 +25685,7 @@
         "soundfile"
       ]
     },
-    "updated_at": 1769418600,
+    "updated_at": 1786693268,
     "featured": false,
     "architectures": [
       "Qwen3OmniMoeForConditionalGeneration"
@@ -25772,7 +25772,7 @@
         "soundfile"
       ]
     },
-    "updated_at": 1769418602,
+    "updated_at": 1786693269,
     "featured": false,
     "architectures": [
       "Qwen3OmniMoeForConditionalGeneration"
@@ -26468,7 +26468,7 @@
       ]
     },
     "featured": false,
-    "updated_at": 1770103567
+    "updated_at": 1786693269
   },
   {
     "model_name": "Kimi-K2.5",
@@ -30196,7 +30196,7 @@
     ],
     "tool_parser": "qwen",
     "featured": true,
-    "updated_at": 1784910125
+    "updated_at": 1786693269
   },
   {
     "model_name": "gemma-4",
@@ -30929,7 +30929,7 @@
       "index_strategy": "unsafe-best-match"
     },
     "featured": true,
-    "updated_at": 1785167029
+    "updated_at": 1786693269
   },
   {
     "model_name": "qwen3.6",
@@ -31205,7 +31205,7 @@
     ],
     "tool_parser": "qwen",
     "featured": false,
-    "updated_at": 1784910126
+    "updated_at": 1786693269
   },
   {
     "model_name": "MiniMax-M2.7",
@@ -33060,7 +33060,7 @@
     ],
     "tool_parser": "qwen",
     "featured": false,
-    "updated_at": 1784910126
+    "updated_at": 1786693270
   },
   {
     "model_name": "MiniMax-M3",

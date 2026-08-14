@@ -434,7 +434,7 @@
       "height": 800,
       "fps": 24,
       "num_inference_steps": 40,
-      "guidance_scale": 3.0,
+      "guidance_scale": 3,
       "flow_solver": "dpm"
     },
     "virtualenv": {
@@ -462,7 +462,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1786492826,
+    "updated_at": 1786699594,
     "featured": false
   },
   {
@@ -480,7 +480,7 @@
       "height": 800,
       "fps": 24,
       "num_inference_steps": 10,
-      "guidance_scale": 1.0,
+      "guidance_scale": 1,
       "flow_solver": "euler"
     },
     "virtualenv": {
@@ -508,7 +508,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1786492826,
+    "updated_at": 1786699595,
     "featured": false
   },
   {
@@ -556,7 +556,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1786685986,
+    "updated_at": 1786704764,
     "featured": false
   }
 ]
