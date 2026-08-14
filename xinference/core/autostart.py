@@ -65,9 +65,7 @@ def normalize_launch_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
                 "Autostart launch config replica must be an integer."
             ) from None
         if replica < 1:
-            raise ValueError(
-                "Autostart launch config replica must be greater than 0."
-            )
+            raise ValueError("Autostart launch config replica must be greater than 0.")
         launch["replica"] = replica
     launch.pop("wait_ready", None)
     return launch
