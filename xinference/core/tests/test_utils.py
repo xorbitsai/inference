@@ -186,6 +186,21 @@ def test_merge_virtual_env_packages_preserves_conditional_system_markers_without
     assert merge_virtual_env_packages(base_packages, None) == base_packages
 
 
+def test_merge_virtual_env_packages_handles_engine_variants_and_default_override():
+    base_packages = [
+        "xllamacpp>=0.2.6",
+        'xllamacpp>=2026.6.9713 ; #engine# == "llama.cpp"',
+        'qwen-vl-utils!=0.0.9 ; #engine# == "sglang"',
+        'qwen-vl-utils!=0.0.9 ; #engine# == "Transformers"',
+    ]
+
+    assert merge_virtual_env_packages(base_packages, None) == [
+        'xllamacpp>=2026.6.9713 ; #engine# == "llama.cpp"',
+        'qwen-vl-utils!=0.0.9 ; #engine# == "sglang"',
+        'qwen-vl-utils!=0.0.9 ; #engine# == "Transformers"',
+    ]
+
+
 def test_normalize_sglang_kernel_packages_for_modern_recipe():
     legacy_wheel = (
         "https://github.com/sgl-project/whl/releases/download/v0.3.21/"

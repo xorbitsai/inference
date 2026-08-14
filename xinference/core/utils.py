@@ -22,7 +22,7 @@ import sys
 import uuid
 import weakref
 from enum import Enum
-from typing import Any, Dict, Generator, List, Optional, Tuple, Union
+from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
 
 import orjson
 from packaging.markers import Marker
@@ -303,8 +303,9 @@ def merge_virtual_env_packages(
     """
     Merge default virtualenv packages with user provided ones. Packages with the
     same name and engine condition are deduplicated. Requirements for different
-    engines coexist, while a user-supplied package still overrides every base
-    variant with that name.
+    engines coexist when both are conditional, while a marked model requirement
+    replaces an unmarked default. A user-supplied package still overrides every
+    base variant with that name.
     """
 
     def get_key(package: str) -> str:
@@ -322,27 +323,56 @@ def merge_virtual_env_packages(
                     return pkg_name.split(sep, 1)[0].strip().lower()
             return pkg_name.lower()
 
-    merged: List[str] = []
+    def get_engine_condition(package: str) -> Optional[str]:
+        _, separator, marker = package.partition(";")
+        if not separator:
+            return None
+        normalized_marker = marker.strip().lower()
+        if "#engine#" in normalized_marker or "#model_engine#" in normalized_marker:
+            return normalized_marker
+        return None
+
+    base_merged: List[Optional[str]] = []
     index_map: Dict[str, int] = {}
+    engine_keys: Dict[str, Set[str]] = {}
     for pkg in base_packages:
         canonical_key = get_key(pkg)
         pkg_name, separator, marker = pkg.partition(";")
         normalized_marker = marker.strip().lower()
-        key = (
-            f"{canonical_key}; {normalized_marker}"
-            if separator
-            and (
-                pkg_name.strip().startswith("#system_")
-                or "#engine#" in normalized_marker
-                or "#model_engine#" in normalized_marker
-            )
-            else canonical_key
+        engine_condition = get_engine_condition(pkg)
+        is_conditional_system_package = separator and pkg_name.strip().startswith(
+            "#system_"
         )
-        if key in index_map:
-            merged[index_map[key]] = pkg
+
+        if is_conditional_system_package:
+            key = f"{canonical_key}; {normalized_marker}"
+        elif engine_condition:
+            key = f"{canonical_key}; {engine_condition}"
+            if canonical_key in index_map:
+                index = index_map.pop(canonical_key)
+                base_merged[index] = pkg
+                index_map[key] = index
+                engine_keys.setdefault(canonical_key, set()).add(key)
+                continue
+            engine_keys.setdefault(canonical_key, set()).add(key)
         else:
-            index_map[key] = len(merged)
-            merged.append(pkg)
+            conditional_keys = engine_keys.pop(canonical_key, set())
+            if conditional_keys:
+                indexes = sorted(index_map.pop(key) for key in conditional_keys)
+                index_map[canonical_key] = indexes[0]
+                base_merged[indexes[0]] = pkg
+                for index in indexes[1:]:
+                    base_merged[index] = None
+                continue
+            key = canonical_key
+
+        if key in index_map:
+            base_merged[index_map[key]] = pkg
+        else:
+            index_map[key] = len(base_merged)
+            base_merged.append(pkg)
+
+    merged = [pkg for pkg in base_merged if pkg is not None]
 
     if extra_packages:
         for pkg in extra_packages:

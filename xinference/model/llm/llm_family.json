@@ -33625,8 +33625,7 @@
         "qwen_omni_utils==0.0.9 ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\"",
         "vllm==0.22.1 ; #engine# == \"vllm\"",
-        "transformers==4.57.6 ; #engine# == \"vllm\"",
-        "ninja ; #engine# == \"vllm\""
+        "transformers==4.57.6 ; #engine# == \"vllm\""
       ],
       "extra_index_url": [
         "https://wheels.vllm.ai/0.22.1/cu130",
