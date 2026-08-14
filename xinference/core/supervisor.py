@@ -2662,7 +2662,8 @@ class SupervisorActor(xo.StatelessActor):
                 for idx, (result, metadata) in enumerate(zip(results, task_metadata)):
                     worker_ref, rep_model_uid, is_rank0, _idx, _ = metadata
 
-                    if isinstance(result, Exception):
+                    # CancelledError is a BaseException, not an Exception.
+                    if isinstance(result, (Exception, asyncio.CancelledError)):
                         logger.error(
                             f"Failed to launch replica {rep_model_uid}: {result}"
                         )
@@ -2695,7 +2696,7 @@ class SupervisorActor(xo.StatelessActor):
                         )
 
                     logger.debug(f"Init transfer component for xavier done.")
-            except Exception:
+            except (Exception, asyncio.CancelledError):
                 # terminate_model will remove the replica info.
                 await self.terminate_model(model_uid, suppress_exception=True)
                 await self._status_guard_ref.update_instance_info(
@@ -2864,7 +2865,7 @@ class SupervisorActor(xo.StatelessActor):
                     # wait for load complete
                     for worker_ref in worker_refs:
                         await worker_ref.wait_for_load(rep_model_uid)
-            except Exception:
+            except (Exception, asyncio.CancelledError):
                 # terminate_model will remove the replica info.
                 await self.terminate_model(model_uid, suppress_exception=True)
                 await self._status_guard_ref.update_instance_info(
@@ -3230,6 +3231,8 @@ class SupervisorActor(xo.StatelessActor):
 
         replica_info = self._model_uid_to_replica_info.get(model_uid, None)
         if replica_info is None:
+            if suppress_exception:
+                return
             raise ValueError(f"Model not found in the model list, uid: {model_uid}")
 
         rep_model_uids = list(self._iter_active_replica_model_uids(model_uid))
