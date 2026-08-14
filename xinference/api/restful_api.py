@@ -966,10 +966,11 @@ class RESTfulAPI(CancelMixin):
         except RuntimeError as re:
             logger.error(str(re), exc_info=True)
             raise HTTPException(status_code=503, detail=str(re))
-        except asyncio.CancelledError as ce:
-            # cancelled by user
-            logger.error(str(ce), exc_info=True)
-            raise HTTPException(status_code=499, detail=str(ce))
+        except asyncio.CancelledError:
+            # Cancelled by the user. str() on a CancelledError is empty, so
+            # reporting it verbatim surfaces a blank error in the UI.
+            logger.info("Launch of %s was cancelled", model_uid)
+            raise HTTPException(status_code=499, detail="Launch cancelled")
         except Exception as e:
             logger.error(str(e), exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
