@@ -48,14 +48,14 @@ Xorbits Inference (Xinference)는 언어, 음성 인식, 멀티모달 모델을 
 - 분산 추론: 모델을 여러 워커에 걸쳐 실행할 수 있습니다: [#2877](https://github.com/xorbitsai/inference/pull/2877)
 - vLLM 개선: 여러 복제본 간 KV 캐시 공유: [#2732](https://github.com/xorbitsai/inference/pull/2732)
 ### 신규 모델
+- [OvisOCR2](https://huggingface.co/ATH-MaaS/OvisOCR2) 기본 지원: [#5322](https://github.com/xorbitsai/inference/pull/5322)
+- [IndexTTS-2.5](https://huggingface.co/IndexTeam/IndexTTS-2.5) 기본 지원: [#5319](https://github.com/xorbitsai/inference/pull/5319)
+- Ling-3.0 시리즈 기본 지원 ([tiny](https://huggingface.co/inclusionAI/Ling-3.0-tiny), [flash](https://huggingface.co/inclusionAI/Ling-3.0-flash)): [#5311](https://github.com/xorbitsai/inference/pull/5311)
+- [MiniMax-H3](https://huggingface.co/MiniMaxAI/MiniMax-H3) 기본 지원: [#5321](https://github.com/xorbitsai/inference/pull/5321)
+- Wan2.2 Animate 2 시리즈 기본 지원 ([14B](https://huggingface.co/Wan-AI/Wan2.2-Animate-2-14B-Diffusers), [14B Distilled](https://huggingface.co/Wan-AI/Wan2.2-Animate-2-14B-Distilled-Diffusers)): [#5309](https://github.com/xorbitsai/inference/pull/5309)
+- [FireRed-Image-Edit-1.1](https://huggingface.co/FireRedTeam/FireRed-Image-Edit-1.1) 기본 지원: [#5306](https://github.com/xorbitsai/inference/pull/5306)
+- CAMPPlus 화자 임베딩 시리즈 기본 지원 ([중국어](https://modelscope.cn/models/iic/speech_campplus_sv_zh-cn_16k-common), [중국어-영어 고급](https://modelscope.cn/models/iic/speech_campplus_sv_zh_en_16k-common_advanced)): [#5298](https://github.com/xorbitsai/inference/pull/5298)
 - [MiniMax-M3](https://huggingface.co/MiniMaxAI/MiniMax-M3) 통합: [#5258](https://github.com/xorbitsai/inference/pull/5258)
-- VibeThinker 시리즈 통합 ([1.5B](https://huggingface.co/WeiboAI/VibeThinker-1.5B), [3B](https://huggingface.co/WeiboAI/VibeThinker-3B)): [#5085](https://github.com/xorbitsai/inference/pull/5085)
-- Nex-N2 시리즈 통합 ([mini](https://huggingface.co/nex-agi/Nex-N2-mini), [Pro](https://huggingface.co/nex-agi/Nex-N2-Pro), [Pro-fp8](https://huggingface.co/nex-agi/Nex-N2-Pro-fp8)): [#5094](https://github.com/xorbitsai/inference/pull/5094)
-- [Unlimited-OCR](https://huggingface.co/baidu/Unlimited-OCR) 통합: [#5103](https://github.com/xorbitsai/inference/pull/5103)
-- [Ornith-1.0-35B](https://huggingface.co/deepreinforce-ai/Ornith-1.0-35B) 통합: [#5119](https://github.com/xorbitsai/inference/pull/5119)
-- [MiniCPM5-1B](https://huggingface.co/openbmb/MiniCPM5-1B) 통합: [#5010](https://github.com/xorbitsai/inference/pull/5010)
-- jina-embeddings-v5 시리즈 통합 ([text-nano](https://huggingface.co/jinaai/jina-embeddings-v5-text-nano), [text-small](https://huggingface.co/jinaai/jina-embeddings-v5-text-small), [omni-nano](https://huggingface.co/jinaai/jina-embeddings-v5-omni-nano), [omni-small](https://huggingface.co/jinaai/jina-embeddings-v5-omni-small)): [#5018](https://github.com/xorbitsai/inference/pull/5018)
-- MiniCPM-V-4.6 시리즈 통합 ([MiniCPM-V-4.6](https://huggingface.co/openbmb/MiniCPM-V-4.6), [MiniCPM-V-4.6-Thinking](https://huggingface.co/openbmb/MiniCPM-V-4.6-Thinking)): [#5025](https://github.com/xorbitsai/inference/pull/5025)
 ### 통합
 - [Xagent](https://github.com/xorbitsai/xagent): 플래닝, 메모리, 툴 통합을 제공하는 엔터프라이즈 에이전트 플랫폼.
 - [Dify](https://docs.dify.ai/advanced/model-configuration/xinference): 시각화와 제어가 가능한 LLMOps 플랫폼.
