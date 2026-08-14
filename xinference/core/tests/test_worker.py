@@ -160,6 +160,13 @@ class MockWorkerActor(WorkerActor):
         self._total_gpu_devices = list(total_devices)
 
 
+@pytest.mark.asyncio
+async def test_resolve_download_hub_uses_worker_local_model_src(monkeypatch):
+    monkeypatch.setenv("XINFERENCE_MODEL_SRC", "modelscope")
+
+    assert await WorkerActor.resolve_download_hub(None, None) == "modelscope"
+
+
 class MockWorkerActorRealTerminate(MockWorkerActor):
     """Variant that keeps the real ``WorkerActor.terminate_model`` so tests
     cover the actual cleanup path instead of the simplified override above."""

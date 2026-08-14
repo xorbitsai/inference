@@ -11,8 +11,15 @@ Default value is http://127.0.0.1:9997 , you can get it through logs.
 
 XINFERENCE_MODEL_SRC
 ~~~~~~~~~~~~~~~~~~~~~
-Modelhub used for downloading models. Default is "huggingface", or you
-can set "modelscope" as downloading source.
+Modelhub used for downloading models. Options are "huggingface", "modelscope"
+and "auto". When unset or set to "auto", Xinference probes whether the Hugging
+Face endpoint is reachable and picks "huggingface" if so, otherwise falls back
+to "modelscope". Set an explicit value to pin the download source.
+
+XINFERENCE_HUB_DETECT_TIMEOUT
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Timeout in seconds for probing hub connectivity when the download hub is
+automatically detected. Default is 3.
 
 .. _environments_xinference_home:
 

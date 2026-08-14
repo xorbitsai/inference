@@ -91,7 +91,9 @@ def match_diffusion(
 
     if model_name in BUILTIN_VIDEO_MODELS:
         model_families = BUILTIN_VIDEO_MODELS[model_name]
-        if download_hub == "modelscope" or download_from_modelscope():
+        if download_hub == "modelscope" or (
+            download_hub is None and download_from_modelscope()
+        ):
             return (
                 [x for x in model_families if x.model_hub == "modelscope"]
                 + [x for x in model_families if x.model_hub == "huggingface"]

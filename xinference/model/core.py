@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Any, List, Literal, Optional, Union
+from typing import Any, List, Literal, Optional, Union, cast
 
 from .._compat import BaseModel
 from ..types import PeftModelConfig
@@ -27,7 +27,7 @@ def create_model_instance(
     quantization: Optional[str] = None,
     peft_model_config: Optional[PeftModelConfig] = None,
     download_hub: Optional[
-        Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
+        Literal["auto", "huggingface", "modelscope", "openmind_hub", "csghub"]
     ] = None,
     model_path: Optional[str] = None,
     **kwargs,
@@ -38,7 +38,14 @@ def create_model_instance(
     from .image.core import create_image_model_instance
     from .llm.core import create_llm_model_instance
     from .rerank.core import create_rerank_model_instance
+    from .utils import resolve_download_hub
     from .video.core import create_video_model_instance
+
+    # resolve_download_hub never returns "auto", so the narrowing cast is safe
+    resolved_download_hub = cast(
+        Optional[Literal["huggingface", "modelscope", "openmind_hub", "csghub"]],
+        resolve_download_hub(download_hub, model_path),
+    )
 
     # enable_thinking is only meaningful for LLMs; drop it for other model types.
     if model_type != "LLM":
@@ -53,7 +60,7 @@ def create_model_instance(
             model_size_in_billions,
             quantization,
             peft_model_config,
-            download_hub,
+            resolved_download_hub,
             model_path,
             **kwargs,
         )
@@ -67,7 +74,7 @@ def create_model_instance(
             model_engine,
             model_format,
             quantization,
-            download_hub,
+            resolved_download_hub,
             model_path,
             **kwargs,
         )
@@ -77,7 +84,7 @@ def create_model_instance(
             model_uid,
             model_name,
             peft_model_config,
-            download_hub,
+            resolved_download_hub,
             model_path,
             model_engine,
             model_format,
@@ -92,7 +99,7 @@ def create_model_instance(
             model_engine,
             model_format,
             quantization,
-            download_hub,
+            resolved_download_hub,
             model_path,
             **kwargs,
         )
@@ -101,7 +108,7 @@ def create_model_instance(
         return create_audio_model_instance(
             model_uid,
             model_name,
-            download_hub,
+            resolved_download_hub,
             model_path,
             model_engine=model_engine,
             **kwargs,
@@ -111,7 +118,7 @@ def create_model_instance(
         return create_video_model_instance(
             model_uid,
             model_name,
-            download_hub,
+            resolved_download_hub,
             model_path,
             **kwargs,
         )

@@ -2196,6 +2196,36 @@ class SupervisorActor(xo.StatelessActor):
 
         return resolved_targets, replica_uid_map
 
+    @staticmethod
+    async def _resolve_download_hub_from_workers(
+        worker_refs: List[xo.ActorRefType["WorkerActor"]],
+        download_hub: Optional[str],
+        model_path: Optional[str],
+    ) -> Optional[str]:
+        """Resolve one concrete hub from the selected workers' environments."""
+        unique_workers = {worker_ref.address: worker_ref for worker_ref in worker_refs}
+        if not unique_workers:
+            raise RuntimeError("No workers selected for download hub resolution")
+
+        addresses = sorted(unique_workers)
+        resolved_hubs = await asyncio.gather(
+            *[
+                unique_workers[address].resolve_download_hub(download_hub, model_path)
+                for address in addresses
+            ]
+        )
+        worker_hubs = dict(zip(addresses, resolved_hubs))
+        if len(set(resolved_hubs)) != 1:
+            details = ", ".join(
+                f"{address}={worker_hubs[address] or 'none'}" for address in addresses
+            )
+            raise ValueError(
+                "Selected workers resolved different download hubs "
+                f"({details}). Specify download_hub explicitly so every worker "
+                "uses the same model source."
+            )
+        return resolved_hubs[0]
+
     @log_async(logger=logger)
     async def launch_builtin_model(
         self,
@@ -2216,7 +2246,9 @@ class SupervisorActor(xo.StatelessActor):
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
         replica_config: Optional[List[ReplicaConfig]] = None,
-        download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+        download_hub: Optional[
+            Literal["auto", "huggingface", "modelscope", "csghub"]
+        ] = None,
         model_path: Optional[str] = None,
         enable_virtual_env: Optional[bool] = None,
         virtual_env_packages: Optional[List[str]] = None,
@@ -2493,6 +2525,7 @@ class SupervisorActor(xo.StatelessActor):
                     self._workers_launching[_addr] = _cnt
 
         async def _launch_model():
+            nonlocal download_hub
             try:
                 strategy = None
                 use_gpu = not (n_gpu is None or (isinstance(n_gpu, int) and n_gpu <= 0))
@@ -2568,10 +2601,15 @@ class SupervisorActor(xo.StatelessActor):
                             f"Model is already in the model list, uid: {_pre_check_uid}"
                         )
 
-                # Prepare all launch tasks for parallel execution
-                launch_tasks = []
-                task_metadata = []  # Store (worker_ref, rep_model_uid, is_rank0, idx)
-
+                placements: List[
+                    Tuple[
+                        int,
+                        str,
+                        xo.ActorRefType["WorkerActor"],
+                        Optional[List[int]],
+                        Optional[Union[int, str]],
+                    ]
+                ] = []
                 for _idx, rep_model_uid in enumerate(
                     iter_replica_model_uid(model_uid, replica)
                 ):
@@ -2613,6 +2651,36 @@ class SupervisorActor(xo.StatelessActor):
                     self._model_uid_to_replica_info[model_uid].replica_to_worker_refs[
                         _idx
                     ].append(worker_ref)
+                    placements.append(
+                        (
+                            _idx,
+                            rep_model_uid,
+                            worker_ref,
+                            target_gpu_idx,
+                            target_n_gpu,
+                        )
+                    )
+
+                download_hub = typing.cast(
+                    Optional[Literal["huggingface", "modelscope", "csghub"]],
+                    await self._resolve_download_hub_from_workers(
+                        [placement[2] for placement in placements],
+                        download_hub,
+                        model_path,
+                    ),
+                )
+
+                # Prepare all launch tasks only after every selected worker has
+                # agreed on one concrete hub.
+                launch_tasks = []
+                task_metadata = []  # Store (worker_ref, rep_model_uid, is_rank0, idx)
+                for (
+                    _idx,
+                    rep_model_uid,
+                    worker_ref,
+                    target_gpu_idx,
+                    target_n_gpu,
+                ) in placements:
 
                     if enable_xavier and _idx == 0:
                         """
@@ -2764,7 +2832,9 @@ class SupervisorActor(xo.StatelessActor):
         peft_model_config: Optional[PeftModelConfig] = None,
         worker_ip: Optional[str] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
-        download_hub: Optional[Literal["huggingface", "modelscope", "csghub"]] = None,
+        download_hub: Optional[
+            Literal["auto", "huggingface", "modelscope", "csghub"]
+        ] = None,
         model_path: Optional[str] = None,
         enable_virtual_env: Optional[bool] = None,
         virtual_env_packages: Optional[List[str]] = None,
@@ -2794,6 +2864,7 @@ class SupervisorActor(xo.StatelessActor):
             available_workers = self._resolve_worker_addresses(worker_ip)
 
         async def _launch_model():
+            nonlocal download_hub, model_type
             # Validation of n_worker, intercept if it is greater than the available workers.
             if n_worker > len(available_workers):
                 raise ValueError(
@@ -2808,6 +2879,14 @@ class SupervisorActor(xo.StatelessActor):
                             f"Model is already in the model list, uid: {_pre_check_uid}"
                         )
 
+                shard_placements: List[
+                    Tuple[
+                        int,
+                        str,
+                        Optional[List[int]],
+                        List[xo.ActorRefType["WorkerActor"]],
+                    ]
+                ] = []
                 for _idx, rep_model_uid in enumerate(
                     iter_replica_model_uid(model_uid, replica)
                 ):
@@ -2815,9 +2894,7 @@ class SupervisorActor(xo.StatelessActor):
                     replica_gpu_idx = assign_replica_gpu(
                         rep_model_uid, replica, gpu_idx
                     )
-                    # launch shard
-                    worker_refs = []
-                    driver_info = None
+                    worker_refs: List[xo.ActorRefType["WorkerActor"]] = []
                     for i_worker in range(n_worker):
                         worker_ref = await self._choose_worker(remaining_workers)
                         if worker_ref.address in remaining_workers:
@@ -2825,8 +2902,28 @@ class SupervisorActor(xo.StatelessActor):
                         self._model_uid_to_replica_info[
                             model_uid
                         ].replica_to_worker_refs[_idx].append(worker_ref)
-                        nonlocal model_type
-                        model_type = model_type or "LLM"
+                        worker_refs.append(worker_ref)
+                    shard_placements.append(
+                        (_idx, rep_model_uid, replica_gpu_idx, worker_refs)
+                    )
+
+                download_hub = typing.cast(
+                    Optional[Literal["huggingface", "modelscope", "csghub"]],
+                    await self._resolve_download_hub_from_workers(
+                        [
+                            worker_ref
+                            for _, _, _, worker_refs in shard_placements
+                            for worker_ref in worker_refs
+                        ],
+                        download_hub,
+                        model_path,
+                    ),
+                )
+                model_type = model_type or "LLM"
+
+                for _, rep_model_uid, replica_gpu_idx, worker_refs in shard_placements:
+                    driver_info = None
+                    for i_worker, worker_ref in enumerate(worker_refs):
                         if i_worker > 1:
                             assert (
                                 driver_info is not None
@@ -2857,7 +2954,6 @@ class SupervisorActor(xo.StatelessActor):
                             # info will be subpool address + driver info
                             # for shard 0
                             driver_info = info[1]
-                        worker_refs.append(worker_ref)
                     self._replica_model_uid_to_worker[rep_model_uid] = worker_refs
 
                     # for distributed inference,

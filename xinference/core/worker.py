@@ -79,6 +79,7 @@ from ..model.utils import (
     get_engine_params_by_name,
     get_engine_params_by_name_with_virtual_env,
 )
+from ..model.utils import resolve_download_hub as resolve_model_download_hub
 from ..types import PeftModelConfig
 from ..utils import get_pip_config_args, get_real_path
 from .cache_tracker import CacheTrackerActor
@@ -1780,6 +1781,12 @@ class WorkerActor(xo.StatelessActor):
             "allow_multi_replica_per_gpu": self._allow_multi_replica_per_gpu,
         }
 
+    async def resolve_download_hub(
+        self, download_hub: Optional[str], model_path: Optional[str] = None
+    ) -> Optional[str]:
+        """Resolve a launch's hub using this worker's local environment."""
+        return resolve_model_download_hub(download_hub, model_path)
+
     def release_devices(self, model_uid: str):
         for dev, model_uids in list(self._gpu_to_model_uids.items()):
             if model_uid in model_uids:
@@ -3280,7 +3287,7 @@ class WorkerActor(xo.StatelessActor):
         request_limits: Optional[int] = None,
         gpu_idx: Optional[Union[int, List[int]]] = None,
         download_hub: Optional[
-            Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
+            Literal["auto", "huggingface", "modelscope", "openmind_hub", "csghub"]
         ] = None,
         model_path: Optional[str] = None,
         enable_virtual_env: Optional[bool] = None,
