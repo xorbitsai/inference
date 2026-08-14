@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import importlib
 import logging
 import os
 import sys
@@ -22,6 +23,21 @@ if TYPE_CHECKING:
     from .core import AudioModelFamilyV2
 
 logger = logging.getLogger(__name__)
+
+
+def _load_indextts_2_5_runtime():
+    previous_hf_cache = os.environ.get("HF_HUB_CACHE")
+    try:
+        # infer_v2_5 overwrites HF_HUB_CACHE at import time. Import Hub
+        # constants first so that Xinference's configured cache remains in use.
+        importlib.import_module("huggingface_hub.constants")
+        from indextts.infer_v2_5 import IndexTTS2
+    finally:
+        if previous_hf_cache is None:
+            os.environ.pop("HF_HUB_CACHE", None)
+        else:
+            os.environ["HF_HUB_CACHE"] = previous_hf_cache
+    return IndexTTS2
 
 
 class Indextts2:
@@ -40,6 +56,7 @@ class Indextts2:
         self._device = device
         self._model = None
         self._kwargs = kwargs
+        self._is_v2_5 = model_spec.model_name == "IndexTTS-2.5"
 
     @property
     def model_ability(self):
@@ -50,11 +67,28 @@ class Indextts2:
         thirdparty_dir = os.path.join(os.path.dirname(__file__), "../../thirdparty")
         sys.path.insert(0, thirdparty_dir)
 
+        config_path = os.path.join(self._model_path, "config.yaml")
+        use_deepspeed = self._kwargs.get("use_deepspeed", False)
+
+        if getattr(self._model_spec, "model_hub", None) == "modelscope":
+            os.environ.setdefault("USE_MODELSCOPE", "true")
+
+        if self._is_v2_5:
+            IndexTTS2 = _load_indextts_2_5_runtime()
+            logger.info("Loading IndexTTS-2.5 model...")
+            self._model = IndexTTS2(
+                cfg_path=config_path,
+                model_dir=self._model_path,
+                use_bf16=self._kwargs.get("use_bf16", False),
+                device=self._device,
+                use_deepspeed=use_deepspeed,
+                use_qwen_emo=self._kwargs.get("use_qwen_emo", False),
+            )
+            return
+
         from indextts.infer_v2 import IndexTTS2
 
-        config_path = os.path.join(self._model_path, "config.yaml")
         use_fp16 = self._kwargs.get("use_fp16", False)
-        use_deepspeed = self._kwargs.get("use_deepspeed", False)
 
         # Handle small model directory for offline deployment
         small_models_config = (
@@ -101,6 +135,19 @@ class Indextts2:
         seed: Optional[int] = kwargs.pop("seed", 0)
         use_emo_text: bool = kwargs.pop("use_emo_text", False)
 
+        if self._is_v2_5:
+            language = kwargs.pop("language", None)
+            if language is None:
+                language = kwargs.pop("lang", "ZH")
+            else:
+                kwargs.pop("lang", None)
+            language = str(language).upper()
+            duration_factor = kwargs.pop("duration_factor", None)
+            if duration_factor is None:
+                # OpenAI speed > 1 means faster, while IndexTTS duration_factor
+                # > 1 means slower.
+                duration_factor = 1.0 / speed
+
         if prompt_speech is None:
             # IndexTTS2 requires reference audio for voice cloning
             # We'll provide a helpful error message with usage examples
@@ -146,17 +193,33 @@ class Indextts2:
             # (see #5201), which made /v1/audio/speech fail at the save step even
             # though inference had already succeeded. soundfile below performs the
             # actual encoding, so the on-disk WAV round-trip is not needed.
-            sample_rate, audio = self._model.infer(
-                spk_audio_prompt=temp_prompt_path,
-                text=input,
-                output_path=None,
-                emo_audio_prompt=emo_prompt_path,
-                emo_alpha=emo_alpha,
-                emo_text=emo_text,
-                use_random=use_random,
-                emo_vector=emo_vector,
-                use_emo_text=use_emo_text,
-            )
+            if self._is_v2_5:
+                sample_rate, audio = self._model.infer(
+                    spk_audio_prompt=temp_prompt_path,
+                    text=input,
+                    output_path=None,
+                    emo_audio_prompt=emo_prompt_path,
+                    emo_alpha=emo_alpha,
+                    emo_text=emo_text,
+                    use_random=use_random,
+                    emo_vector=emo_vector,
+                    use_emo_text=use_emo_text,
+                    lang=language,
+                    duration_factor=duration_factor,
+                    **kwargs,
+                )
+            else:
+                sample_rate, audio = self._model.infer(
+                    spk_audio_prompt=temp_prompt_path,
+                    text=input,
+                    output_path=None,
+                    emo_audio_prompt=emo_prompt_path,
+                    emo_alpha=emo_alpha,
+                    emo_text=emo_text,
+                    use_random=use_random,
+                    emo_vector=emo_vector,
+                    use_emo_text=use_emo_text,
+                )
 
             if stream:
                 # Streaming mode - return generator that yields chunks

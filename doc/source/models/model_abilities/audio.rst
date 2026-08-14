@@ -105,10 +105,12 @@ Text to audio (TTS)
 * :ref:`F5-TTS <models_builtin_f5-tts>`
 * :ref:`F5-TTS-MLX <models_builtin_f5-tts-mlx>`
 * :ref:`IndexTTS2 <models_builtin_indextts2>`
+* :ref:`IndexTTS-2.5 <models_builtin_indextts-2.5>`
 
 **Models supporting emotion control**:
 
 * :ref:`IndexTTS2 <models_builtin_indextts2>`
+* :ref:`IndexTTS-2.5 <models_builtin_indextts-2.5>`
 
 For Mac M-series chips only:
 
@@ -771,6 +773,37 @@ Here are several examples of how to use IndexTTS2:
             use_random=False
         )
 
+IndexTTS-2.5 Usage
+~~~~~~~~~~~~~~~~~~
+
+``IndexTTS-2.5`` adds Japanese, Spanish, and Arabic, as well as pronunciation
+and speaking-speed control. A reference audio file and a language are used for
+each request. Supported language values are ``ZH``, ``EN``, ``JA``, ``ES``, and
+``AR``:
+
+.. code-block:: python
+
+    from xinference.client import Client
+
+    client = Client("http://0.0.0.0:6735")
+    model = client.get_model("IndexTTS-2.5")
+
+    with open("prompt.wav", "rb") as f:
+        prompt_speech = f.read()
+
+    response = model.speech(
+        input="Hello, this is a voice cloning demo.",
+        prompt_speech=prompt_speech,
+        language="EN",
+        speed=1.2,
+    )
+
+The standard ``speed`` parameter uses OpenAI semantics: values above ``1.0``
+speed up speech. The supported range is ``0.5`` to ``2.0``. You can instead
+pass the upstream ``duration_factor`` option, where values above ``1.0`` slow
+speech down. Pronunciation can be controlled with ``<word|reading>`` notation,
+for example ``他在银<行|XING2>里<行|HANG2>走了半天。``.
+
 IndexTTS2 Offline Usage
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -832,6 +865,3 @@ When launching with Python client:
         model_type="audio",
         small_models_dir="/path/to/small_models"
     )
-
-
-
