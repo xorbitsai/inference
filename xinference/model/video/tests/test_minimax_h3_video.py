@@ -399,6 +399,39 @@ def test_minimax_h3_cleans_up_partial_outputs_on_failure(monkeypatch, tmp_path):
     assert not video_path.exists()
 
 
+def test_minimax_h3_cleans_up_outputs_when_encoding_fails(monkeypatch, tmp_path):
+    call_count = 0
+
+    def failing_encode_video(video, *, output_path, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        Path(output_path).write_bytes(b"partial")
+        if call_count == 2:
+            raise RuntimeError("encoding failed")
+
+    fake_utils = types.ModuleType("diffusers.utils")
+    fake_utils.encode_video = failing_encode_video
+    fake_diffusers = types.ModuleType("diffusers")
+    fake_diffusers.utils = fake_utils
+    monkeypatch.setitem(sys.modules, "diffusers", fake_diffusers)
+    monkeypatch.setitem(sys.modules, "diffusers.utils", fake_utils)
+    monkeypatch.setattr(diffusers_module, "XINFERENCE_VIDEO_DIR", str(tmp_path))
+
+    output = {
+        "videos": [
+            [np.zeros((2, 2, 3), dtype=np.uint8)],
+            [np.zeros((2, 2, 3), dtype=np.uint8)],
+        ],
+        "audio": None,
+        "sampling_rate": 32000,
+    }
+    with pytest.raises(RuntimeError, match="encoding failed"):
+        DiffusersVideoModel._encode_minimax_h3_output(output)
+
+    assert call_count == 2
+    assert not list(tmp_path.glob("*.mp4"))
+
+
 def test_minimax_h3_progress_tolerates_pipeline_without_blocks():
     class FakeProgressor:
         request_id = "request"

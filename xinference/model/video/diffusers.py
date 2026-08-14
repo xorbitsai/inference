@@ -830,18 +830,24 @@ class DiffusersVideoModel:
 
         sampling_rate = output.get("sampling_rate")
         urls = []
-        for index, video in enumerate(video_outputs):
-            path = os.path.join(XINFERENCE_VIDEO_DIR, uuid.uuid4().hex + ".mp4")
-            audio = audio_outputs[index] if index < len(audio_outputs) else None
-            encode_video(
-                video,
-                fps=24,
-                output_path=path,
-                audio=audio,
-                audio_sample_rate=sampling_rate,
-            )
-            urls.append(path)
-        return urls
+        try:
+            for index, video in enumerate(video_outputs):
+                path = os.path.join(XINFERENCE_VIDEO_DIR, uuid.uuid4().hex + ".mp4")
+                urls.append(path)
+                audio = audio_outputs[index] if index < len(audio_outputs) else None
+                encode_video(
+                    video,
+                    fps=24,
+                    output_path=path,
+                    audio=audio,
+                    audio_sample_rate=sampling_rate,
+                )
+            return urls
+        except BaseException:
+            for video_path in urls:
+                with suppress(OSError):
+                    os.remove(video_path)
+            raise
 
     def _process_image(self, image: PIL.Image.Image, max_area: int) -> PIL.Image.Image:
         assert self._model is not None
