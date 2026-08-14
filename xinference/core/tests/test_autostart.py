@@ -40,7 +40,11 @@ async def test_load_autostart_entries_reads_sqlite_store_and_normalizes():
                 "priority": "5",
                 "max_retries": "2",
                 "retry_interval_seconds": "9",
-                "launch": {"model_name": "llama", "model_uid": "uid-1"},
+                "launch": {
+                    "model_name": "llama",
+                    "model_uid": "uid-1",
+                    "replica": "2",
+                },
             }
         ]
     )
@@ -57,6 +61,7 @@ async def test_load_autostart_entries_reads_sqlite_store_and_normalizes():
                 "model_name": "llama",
                 "model_uid": "uid-1",
                 "model_type": "LLM",
+                "replica": 2,
             },
         }
     ]

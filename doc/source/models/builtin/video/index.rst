@@ -17,6 +17,8 @@ The following is a list of built-in video models in Xinference:
   
    hunyuanvideo
   
+   minimax-h3
+  
    wan2.1-1.3b
   
    wan2.1-14b
@@ -28,6 +30,10 @@ The following is a list of built-in video models in Xinference:
    wan2.1-i2v-14b-720p
   
    wan2.2-a14b
+  
+   wan2.2-animate-2-14b
+  
+   wan2.2-animate-2-14b-distilled
   
    wan2.2-i2v-a14b
   

@@ -104,7 +104,6 @@ requestInstance.interceptors.response.use(
     return response.data;
   },
   async (error) => {
-    console.log(error, error.message, error.status, 'error');
     const response = error.response;
     if (!response) {
       eventBus.emit(RequestEvents.SERVER_ERROR, error.message || 'Network Error');
@@ -134,7 +133,6 @@ requestInstance.interceptors.response.use(
       response.data?.msg ||
       error.message ||
       'Unknown error';
-    console.log(status, response, 'response');
 
     switch (status) {
       case 401: {
@@ -149,6 +147,10 @@ requestInstance.interceptors.response.use(
         if (requestManager.canHandle403()) {
           eventBus.emit(RequestEvents.FORBIDDEN);
         }
+        break;
+      }
+      case 499: {
+        /** Client closed the request, e.g. the user cancelled a launch — not a server error. */
         break;
       }
       default: {

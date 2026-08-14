@@ -27,19 +27,36 @@ class DummyRef:
 
 
 class DummyWorkerRef:
-    def __init__(self, address: str, model_count: int, launched: list):
+    def __init__(
+        self,
+        address: str,
+        model_count: int,
+        launched: list,
+        resolved_download_hub: str = "huggingface",
+    ):
         self.address = address
         self._model_count = model_count
         self._launched = launched
+        self._resolved_download_hub = resolved_download_hub
+        self.resolve_calls: list[tuple] = []
+        self.launch_kwargs: list[dict] = []
 
     async def get_model_count(self) -> int:
         return self._model_count
 
+    async def get_gpu_allocation_status(self):
+        return None
+
     async def launch_builtin_model(self, *args, **kwargs):
         self._launched.append(self.address)
+        self.launch_kwargs.append(kwargs)
         if kwargs.get("shard") == 0:
             return "subpool", {"driver": "info"}
         return "subpool"
+
+    async def resolve_download_hub(self, download_hub, model_path):
+        self.resolve_calls.append((download_hub, model_path))
+        return self._resolved_download_hub
 
     async def wait_for_load(self, model_uid: str):
         return None
@@ -61,6 +78,11 @@ class DummyStatusGuard:
             self.replica_counts[model_uid] = updates["replica"]
         return None
 
+    async def update_replica_status(
+        self, model_uid: str, replica_id: int, updates: dict
+    ):
+        return None
+
     async def remove_replica_status(self, model_uid: str, replica_id: int):
         self.replica_counts[model_uid] -= 1
         return self.replica_counts[model_uid]
@@ -75,6 +97,10 @@ class DummySupervisor:
         self._replica_model_uid_to_worker = {}
         self._status_guard_ref = DummyStatusGuard()
         self._unexpected_down_replicas = {}
+        self._worker_status = {}
+        self._workers_launching = {}
+        self._collective_manager_mapping = {}
+        self._block_tracker_mapping = {}
         self._build_replica_info = SupervisorActor._build_replica_info
         self._choose_worker = SupervisorActor._choose_worker.__get__(self)
         self._clear_unexpected_down_replicas = (
@@ -83,6 +109,10 @@ class DummySupervisor:
         self._launch_builtin_sharded_model = (
             SupervisorActor._launch_builtin_sharded_model.__get__(self)
         )
+        self._resolve_download_hub_from_workers = (
+            SupervisorActor._resolve_download_hub_from_workers
+        )
+        self.launch_builtin_model = SupervisorActor.launch_builtin_model.__get__(self)
         self._get_worker_host = SupervisorActor._get_worker_host
         self._get_worker_refs_by_ip = SupervisorActor._get_worker_refs_by_ip.__get__(
             self
@@ -99,6 +129,9 @@ class DummySupervisor:
         self._list_models_result_cache = {}
         self._list_models_result_cache_time = 0.0
         self._list_models_cache_version += 1
+
+    def is_local_deployment(self) -> bool:
+        return False
 
     async def terminate_model(self, model_uid: str, suppress_exception: bool = False):
         return None
@@ -351,6 +384,95 @@ async def test_distributed_launch_avoids_same_worker_for_shards():
 
     assert set(launched) == {"w1:1000", "w2:1000"}
     assert len(launched) == 2
+
+
+@pytest.mark.asyncio
+async def test_download_hub_resolved_from_selected_workers_before_fanout(monkeypatch):
+    monkeypatch.setenv("XINFERENCE_MODEL_SRC", "huggingface")
+    launched = []
+    worker1 = DummyWorkerRef("w1:1000", 1, launched, resolved_download_hub="modelscope")
+    worker2 = DummyWorkerRef("w2:1000", 0, launched, resolved_download_hub="modelscope")
+    supervisor = DummySupervisor({"w1:1000": worker1, "w2:1000": worker2})
+
+    await supervisor.launch_builtin_model(
+        model_uid="demo-model",
+        model_name="demo",
+        model_size_in_billions=None,
+        model_format=None,
+        quantization=None,
+        model_engine=None,
+        model_type="LLM",
+        n_gpu=1,
+        n_worker=2,
+        worker_ip=["w1:1000", "w2:1000"],
+        wait_ready=True,
+    )
+
+    assert worker1.resolve_calls == [(None, None)]
+    assert worker2.resolve_calls == [(None, None)]
+    assert [
+        call["download_hub"]
+        for worker in (worker1, worker2)
+        for call in worker.launch_kwargs
+    ] == ["modelscope", "modelscope"]
+
+
+@pytest.mark.asyncio
+async def test_distributed_launch_rejects_worker_hub_disagreement_before_fanout():
+    launched = []
+    worker1 = DummyWorkerRef(
+        "w1:1000", 1, launched, resolved_download_hub="huggingface"
+    )
+    worker2 = DummyWorkerRef("w2:1000", 0, launched, resolved_download_hub="modelscope")
+    supervisor = DummySupervisor({"w1:1000": worker1, "w2:1000": worker2})
+
+    with pytest.raises(
+        ValueError, match="Selected workers resolved different download hubs"
+    ):
+        await supervisor.launch_builtin_model(
+            model_uid="demo-model",
+            model_name="demo",
+            model_size_in_billions=None,
+            model_format=None,
+            quantization=None,
+            model_engine=None,
+            model_type="LLM",
+            n_gpu=1,
+            n_worker=2,
+            worker_ip=["w1:1000", "w2:1000"],
+            download_hub="auto",
+            wait_ready=True,
+        )
+
+    assert launched == []
+
+
+@pytest.mark.asyncio
+async def test_replica_launch_rejects_worker_hub_disagreement_before_fanout():
+    launched = []
+    worker1 = DummyWorkerRef(
+        "w1:1000", 0, launched, resolved_download_hub="huggingface"
+    )
+    worker2 = DummyWorkerRef("w2:1000", 0, launched, resolved_download_hub="modelscope")
+    supervisor = DummySupervisor({"w1:1000": worker1, "w2:1000": worker2})
+
+    with pytest.raises(
+        ValueError, match="Selected workers resolved different download hubs"
+    ):
+        await supervisor.launch_builtin_model(
+            model_uid="demo-model",
+            model_name="demo",
+            model_size_in_billions=None,
+            model_format=None,
+            quantization=None,
+            model_engine=None,
+            model_type="LLM",
+            replica=2,
+            n_gpu=None,
+            wait_ready=True,
+        )
+
+    assert launched == []
 
 
 @pytest.mark.asyncio

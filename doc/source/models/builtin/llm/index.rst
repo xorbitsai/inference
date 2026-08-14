@@ -341,6 +341,16 @@ The following is a list of built-in LLM in Xinference:
      - 262144
      - Kimi K2.5 is an open-source, native multimodal agentic model built through continual pretraining on approximately 15 trillion mixed visual and text tokens atop Kimi-K2-Base. It seamlessly integrates vision and language understanding with advanced agentic capabilities, instant and thinking modes, as well as conversational and agentic paradigms.
 
+   * - :ref:`ling-3.0-flash <models_llm_ling-3.0-flash>`
+     - chat, tools, reasoning, hybrid
+     - 262144
+     - Ling-3.0-flash is a native hybrid-linear reasoning MoE model with 124B total parameters and 5.1B activated parameters per token.
+
+   * - :ref:`ling-3.0-tiny <models_llm_ling-3.0-tiny>`
+     - chat, tools, reasoning, hybrid
+     - 131072
+     - Ling-3.0-tiny is a lightweight hybrid-reasoning MoE model with 7.9B total parameters and 1.3B activated parameters per token.
+
    * - :ref:`llama-2 <models_llm_llama-2>`
      - generate
      - 4096
@@ -970,6 +980,10 @@ The following is a list of built-in LLM in Xinference:
    kat-v1
   
    kimi-k2.5
+  
+   ling-3.0-flash
+  
+   ling-3.0-tiny
   
    llama-2
   

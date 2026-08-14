@@ -36,6 +36,7 @@ from ..constants import (
     XINFERENCE_DEFAULT_LOG_FILE_NAME,
     XINFERENCE_LOG_DIR,
     XINFERENCE_LOG_DOWNLOAD_PROGRESS,
+    XINFERENCE_LOG_POLLING_ACCESS,
 )
 
 if TYPE_CHECKING:
@@ -422,6 +423,30 @@ class LoggerNameFilter(logging.Filter):
             record.name.startswith("uvicorn.error")
             and record.getMessage().startswith("Uvicorn running on")
         )
+
+
+# Hit continuously by the Web UI, health checks and metrics scrapers.
+_POLLING_ENDPOINTS = ("/progress", "/replicas", "/metrics", "/status")
+
+
+class PollingAccessFilter(logging.Filter):
+    """Drop successful polling requests from uvicorn's access log.
+
+    uvicorn logs each request with
+    ``args = (client_addr, method, full_path, http_version, status_code)``;
+    anything that does not match that shape is left alone.
+    """
+
+    def filter(self, record):
+        if XINFERENCE_LOG_POLLING_ACCESS:
+            return True
+        args = record.args
+        if not isinstance(args, tuple) or len(args) != 5:
+            return True
+        _, method, full_path, _, status = args
+        if method != "GET" or not isinstance(status, int) or status >= 400:
+            return True
+        return not full_path.split("?", 1)[0].endswith(_POLLING_ENDPOINTS)
 
 
 _PROGRESS_RE = re.compile(r"(\d+)%\|")
@@ -876,6 +901,9 @@ def get_config_dict(
             "logger_name_filter": {
                 "()": __name__ + ".LoggerNameFilter",
             },
+            "polling_access_filter": {
+                "()": __name__ + ".PollingAccessFilter",
+            },
         },
         "handlers": {
             "stream_handler": {
@@ -913,6 +941,7 @@ def get_config_dict(
                 "handlers": handlers_list,
                 "level": log_level,
                 "propagate": False,
+                "filters": ["polling_access_filter"],
             },
             "transformers": {
                 "handlers": (

@@ -17,6 +17,7 @@ import functools
 import importlib
 import json
 import logging
+import math
 import os
 import random
 import re
@@ -51,6 +52,7 @@ from ..constants import (
     XINFERENCE_DOWNLOAD_MAX_ATTEMPTS,
     XINFERENCE_ENABLE_VIRTUAL_ENV,
     XINFERENCE_ENV_MODEL_SRC,
+    XINFERENCE_HUB_DETECT_TIMEOUT,
 )
 from ..device_utils import get_available_device, is_device_available
 from .core import CacheableModelSpec
@@ -638,9 +640,108 @@ def is_locale_chinese_simplified() -> bool:
         return False
 
 
+_auto_detected_hub: Optional[str] = None
+_auto_detect_hub_lock = threading.Lock()
+
+
+def _is_hub_endpoint_reachable(url: str, timeout: float) -> bool:
+    import requests
+
+    try:
+        # Proxies configured via HTTP(S)_PROXY environment variables are
+        # honored by requests. The probe is best-effort: any failure
+        # (including malformed endpoint or proxy configuration) just means
+        # "not reachable".
+        response = requests.head(url, timeout=timeout, allow_redirects=True)
+    except Exception:
+        return False
+    # An error response (e.g. 403/407 from a blocking corporate proxy or a
+    # 5xx from a broken mirror) means downloads would fail as well, so treat
+    # it the same as unreachable.
+    return response.status_code < 400
+
+
+def _hf_offline_mode_enabled() -> bool:
+    # Same truthy values huggingface_hub accepts for these variables.
+    return any(
+        os.environ.get(var, "").strip().lower() in ("1", "true", "yes", "on")
+        for var in ("HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE")
+    )
+
+
+def auto_detect_download_hub() -> str:
+    """
+    Decide between huggingface and modelscope by probing connectivity.
+
+    Probes the Hugging Face endpoint (honoring ``HF_ENDPOINT`` mirrors and
+    ``HTTP(S)_PROXY`` proxies). If it is reachable, returns "huggingface";
+    otherwise falls back to "modelscope". When Hugging Face offline mode is
+    enabled (``HF_HUB_OFFLINE`` / ``TRANSFORMERS_OFFLINE``), no probe runs and
+    "huggingface" is returned directly: offline deployments read weights from
+    a pre-populated local Hugging Face cache, which the huggingface_hub
+    downloader resolves without network access, whereas falling back to
+    modelscope would bypass that cache and attempt a real download. The result
+    is cached for the lifetime of the process so the probe runs at most once.
+    """
+    global _auto_detected_hub
+    if _auto_detected_hub is not None:
+        return _auto_detected_hub
+    with _auto_detect_hub_lock:
+        if _auto_detected_hub is None:
+            if _hf_offline_mode_enabled():
+                _auto_detected_hub = "huggingface"
+                logger.info(
+                    "Auto-detected download hub: huggingface "
+                    "(Hugging Face offline mode is enabled; "
+                    "reading from the local cache)"
+                )
+                return _auto_detected_hub
+            hf_endpoint = os.environ.get("HF_ENDPOINT") or "https://huggingface.co"
+            if _is_hub_endpoint_reachable(hf_endpoint, XINFERENCE_HUB_DETECT_TIMEOUT):
+                _auto_detected_hub = "huggingface"
+                logger.info(
+                    "Auto-detected download hub: huggingface (%s is reachable)",
+                    hf_endpoint,
+                )
+            else:
+                _auto_detected_hub = "modelscope"
+                logger.info(
+                    "Auto-detected download hub: modelscope "
+                    "(%s is not reachable within %.1f seconds)",
+                    hf_endpoint,
+                    XINFERENCE_HUB_DETECT_TIMEOUT,
+                )
+    return _auto_detected_hub
+
+
+def resolve_download_hub(
+    download_hub: Optional[str], model_path: Optional[str] = None
+) -> Optional[str]:
+    """
+    Resolve the "auto" download hub to a concrete hub before matching specs.
+
+    Explicit "auto" always triggers connectivity detection. When no hub is
+    specified at all, a concrete source pinned via ``XINFERENCE_MODEL_SRC`` is
+    returned directly; otherwise detection runs unless a local ``model_path``
+    was provided (in which case no download is needed).
+    """
+    if download_hub == "auto":
+        return auto_detect_download_hub()
+    if download_hub is None and model_path is None:
+        model_src = os.environ.get(XINFERENCE_ENV_MODEL_SRC)
+        if not model_src or model_src == "auto":
+            return auto_detect_download_hub()
+        if model_src in ("huggingface", "modelscope", "openmind_hub", "csghub"):
+            return model_src
+    return download_hub
+
+
 def download_from_modelscope() -> bool:
-    if os.environ.get(XINFERENCE_ENV_MODEL_SRC):
-        return os.environ.get(XINFERENCE_ENV_MODEL_SRC) == "modelscope"
+    model_src = os.environ.get(XINFERENCE_ENV_MODEL_SRC)
+    if model_src == "auto":
+        return auto_detect_download_hub() == "modelscope"
+    elif model_src:
+        return model_src == "modelscope"
     elif is_locale_chinese_simplified():
         return True
     else:
@@ -893,13 +994,21 @@ def set_all_random_seed(seed: int):
     torch.cuda.manual_seed_all(seed)
 
 
+_cancellable_downloaders_var: ContextVar[Tuple["CancellableDownloader", ...]] = (
+    ContextVar("cancellable_downloaders", default=())
+)
+
+
 class CancellableDownloader:
     _global_lock = threading.Lock()
     _active_instances = 0
     _active_registry: Set["CancellableDownloader"] = set()
     _original_update = None  # Class-level original update method (tqdm.auto.tqdm)
     _original_update_plain = None  # Class-level original update method (tqdm.tqdm)
+    _original_init_plain = None  # Class-level original __init__ descriptor
+    _original_thread_pool_submit = None  # Tuple with original pool submit method
     _patch_lock = threading.Lock()  # Additional lock for patching operations
+    _tqdm_owner_attr = "_xinference_downloader"
 
     def __init__(
         self,
@@ -923,6 +1032,35 @@ class CancellableDownloader:
         # Instance-specific tqdm tracking
         self._patched_instances: Set[int] = set()
 
+    @classmethod
+    def _get_tqdm_owner(cls, tqdm_instance: Any) -> Optional["CancellableDownloader"]:
+        owner = getattr(tqdm_instance, cls._tqdm_owner_attr, None)
+        if owner is not None:
+            return owner
+
+        downloaders = _cancellable_downloaders_var.get()
+        if downloaders:
+            owner = downloaders[-1]
+        else:
+            # Some download libraries create their own worker threads without
+            # propagating contextvars. A single active downloader is still an
+            # unambiguous owner; with concurrent downloaders, never guess.
+            with cls._global_lock:
+                if len(cls._active_registry) == 1:
+                    owner = next(iter(cls._active_registry))
+
+        if owner is not None:
+            setattr(tqdm_instance, cls._tqdm_owner_attr, owner)
+        return owner
+
+    def _remove_from_context(self) -> None:
+        downloaders = list(_cancellable_downloaders_var.get())
+        for index in range(len(downloaders) - 1, -1, -1):
+            if downloaders[index] is self:
+                del downloaders[index]
+                _cancellable_downloaders_var.set(tuple(downloaders))
+                break
+
     def reset(self):
         # Hold _progress_lock around both clears so a concurrent get_progress()
         # caller (e.g. the progress-upload thread that already passed its done
@@ -932,18 +1070,18 @@ class CancellableDownloader:
             self._main_progresses.clear()
             self._download_progresses.clear()
 
+    def _progress_snapshots(self) -> Tuple[List[tqdm], List[tqdm]]:
+        """Return stable copies while tqdm callbacks may update the sets."""
+        with self._progress_lock:
+            return list(self._main_progresses), list(self._download_progresses)
+
     def get_progress(self) -> float:
         if self.done:
             # directly return 1.0 when finished
             return 1.0
         # Don't return 1.0 when cancelled, calculate actual progress
 
-        # Snapshot the progress sets under the lock: patched_update (download
-        # thread) can add a new bar mid-iteration, which would otherwise raise
-        # "Set changed size during iteration".
-        with self._progress_lock:
-            main_progresses = list(self._main_progresses)
-            download_progresses = list(self._download_progresses)
+        main_progresses, download_progresses = self._progress_snapshots()
 
         tasks = finished_tasks = 0
         for main_progress in main_progresses:
@@ -976,6 +1114,72 @@ class CancellableDownloader:
         else:
             return finished_ratio
 
+    @staticmethod
+    def _finite_float(value: Any) -> Optional[float]:
+        try:
+            result = float(value)
+        except (TypeError, ValueError):
+            return None
+        return result if math.isfinite(result) else None
+
+    def get_download_progress_details(self) -> List[Dict[str, Any]]:
+        """Return JSON-serializable snapshots for files downloading right now.
+
+        Repository-level tqdm bars count files and use ``it`` as their unit.
+        File download bars use a byte unit, so only those bars are exposed.
+        Completed byte bars remain visible until the download context resets,
+        allowing clients to show both active and just-finished files.
+        """
+        _, download_progresses = self._progress_snapshots()
+        files: List[Dict[str, Any]] = []
+
+        for download_progress in download_progresses:
+            if getattr(download_progress, "disable", False):
+                continue
+
+            unit = str(getattr(download_progress, "unit", "") or "")
+            if unit.lower() not in {"b", "byte", "bytes"}:
+                continue
+
+            downloaded = self._finite_float(getattr(download_progress, "n", None))
+            total = self._finite_float(getattr(download_progress, "total", None))
+            if downloaded is None:
+                continue
+
+            format_dict = getattr(download_progress, "format_dict", {}) or {}
+            rate = self._finite_float(format_dict.get("rate"))
+            elapsed = self._finite_float(format_dict.get("elapsed"))
+            downloaded = max(0.0, downloaded)
+            total = max(0.0, total) if total is not None else None
+            rate = max(0.0, rate) if rate is not None else None
+            elapsed = max(0.0, elapsed) if elapsed is not None else 0.0
+            completed = total is not None and total > 0 and downloaded >= total
+
+            progress = None
+            eta = None
+            if total is not None and total > 0:
+                progress = min(1.0, downloaded / total)
+                if completed:
+                    eta = 0.0
+                    rate = None
+                elif rate is not None and rate > 0:
+                    eta = max(0.0, (total - downloaded) / rate)
+
+            files.append(
+                {
+                    "name": str(getattr(download_progress, "desc", "") or ""),
+                    "downloaded_bytes": int(downloaded),
+                    "total_bytes": int(total) if total is not None else None,
+                    "progress": progress,
+                    "speed_bytes_per_second": rate,
+                    "elapsed_seconds": elapsed,
+                    "eta_seconds": eta,
+                    "status": "completed" if completed else "downloading",
+                }
+            )
+
+        return sorted(files, key=lambda item: item["name"])
+
     def cancel(self):
         self._cancelled.set()
         self._done_event.set()
@@ -1003,6 +1207,8 @@ class CancellableDownloader:
         # originals — the first to exit then restores tqdm.update while the
         # second is still active.
         with self._patch_lock:
+            from concurrent.futures import ThreadPoolExecutor
+
             import tqdm as tqdm_module
 
             cls = type(self)
@@ -1011,27 +1217,47 @@ class CancellableDownloader:
                 cls._original_update = tqdm.update
             if cls._original_update_plain is None:
                 cls._original_update_plain = tqdm_module.tqdm.update
+            if cls._original_init_plain is None:
+                # Keep the descriptor inside a tuple so accessing it through
+                # this class does not invoke its own __get__ implementation.
+                cls._original_init_plain = (tqdm_module.tqdm.__dict__["__init__"],)
+            if cls._original_thread_pool_submit is None:
+                # Store the function in a tuple to prevent descriptor binding
+                # when it is accessed through CancellableDownloader.
+                cls._original_thread_pool_submit = (ThreadPoolExecutor.submit,)
 
-            if cls._original_update is None or cls._original_update_plain is None:
+            if (
+                cls._original_update is None
+                or cls._original_update_plain is None
+                or cls._original_init_plain is None
+                or cls._original_thread_pool_submit is None
+            ):
                 return
 
             original_update_plain = cls._original_update_plain
+            original_init_plain = cls._original_init_plain[0].__get__(
+                None, tqdm_module.tqdm
+            )
+            original_thread_pool_submit = cls._original_thread_pool_submit[0]
+
+            def patched_init(tqdm_instance, *args, **kwargs):
+                # Bind ownership when the bar is created so later updates from
+                # library worker threads remain scoped to the same downloader.
+                CancellableDownloader._get_tqdm_owner(tqdm_instance)
+                return original_init_plain(tqdm_instance, *args, **kwargs)
 
             # Thread-safe patched update
             def patched_update(tqdm_instance, n):
-                # Iterate the bounded active-instance registry instead of
-                # gc.get_objects(): the whole-heap traversal stalled the GIL
-                # on every progress tick and scanned O(heap) objects.
-                with CancellableDownloader._global_lock:
-                    downloaders = list(CancellableDownloader._active_registry)
-
-                for downloader in downloaders:
+                downloader = CancellableDownloader._get_tqdm_owner(tqdm_instance)
+                if downloader is not None:
                     # if download cancelled, throw error
                     if getattr(downloader, "cancelled", False):
                         downloader.raise_error()
 
                     progresses = None
-                    if not getattr(tqdm_instance, "disable", False):
+                    if not downloader.done and not getattr(
+                        tqdm_instance, "disable", False
+                    ):
                         unit = getattr(tqdm_instance, "unit", "it")
                         if unit == "it":
                             progresses = getattr(downloader, "_main_progresses", None)
@@ -1045,26 +1271,52 @@ class CancellableDownloader:
                         # caller may be iterating this very set.
                         with downloader._progress_lock:
                             progresses.add(tqdm_instance)
-                    else:
-                        logger.debug(f"No progresses found for downloader {downloader}")
 
                 # Call original update with safety check
                 return original_update_plain(tqdm_instance, n)
 
+            def patched_thread_pool_submit(executor, fn, /, *args, **kwargs):
+                # ThreadPoolExecutor does not propagate contextvars. Capture
+                # only the downloader ownership here so libraries that create
+                # tqdm bars in nested pools can still bind each bar correctly.
+                downloaders = _cancellable_downloaders_var.get()
+                if not downloaders:
+                    return original_thread_pool_submit(executor, fn, *args, **kwargs)
+
+                def run_with_downloaders():
+                    token = _cancellable_downloaders_var.set(downloaders)
+                    try:
+                        return fn(*args, **kwargs)
+                    finally:
+                        _cancellable_downloaders_var.reset(token)
+
+                return original_thread_pool_submit(executor, run_with_downloaders)
+
+            tqdm_module.tqdm.__init__ = patched_init
             tqdm.update = patched_update
             tqdm_module.tqdm.update = patched_update
+            ThreadPoolExecutor.submit = patched_thread_pool_submit
 
     def unpatch_tqdm(self):
         with self._patch_lock:
             cls = type(self)
-            if cls._original_update is not None and cls._active_instances == 0:
+            if cls._active_instances == 0:
+                from concurrent.futures import ThreadPoolExecutor
+
                 import tqdm as tqdm_module
 
-                tqdm.update = cls._original_update
-                cls._original_update = None
+                if cls._original_update is not None:
+                    tqdm.update = cls._original_update
+                    cls._original_update = None
                 if cls._original_update_plain is not None:
                     tqdm_module.tqdm.update = cls._original_update_plain
                     cls._original_update_plain = None
+                if cls._original_init_plain is not None:
+                    tqdm_module.tqdm.__init__ = cls._original_init_plain[0]
+                    cls._original_init_plain = None
+                if cls._original_thread_pool_submit is not None:
+                    ThreadPoolExecutor.submit = cls._original_thread_pool_submit[0]
+                    cls._original_thread_pool_submit = None
 
     def __enter__(self):
         # Use global lock to prevent concurrent patching. _active_instances is
@@ -1076,16 +1328,20 @@ class CancellableDownloader:
                 self.patch_tqdm()
             cls._active_instances += 1
             cls._active_registry.add(self)
+        _cancellable_downloaders_var.set(_cancellable_downloaders_var.get() + (self,))
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        # Use global lock to prevent concurrent unpatching
-        with self._global_lock:
-            cls = type(self)
-            cls._active_instances -= 1
-            cls._active_registry.discard(self)
-            if cls._active_instances == 0:
-                self.unpatch_tqdm()
+        try:
+            # Use global lock to prevent concurrent unpatching
+            with self._global_lock:
+                cls = type(self)
+                cls._active_instances -= 1
+                cls._active_registry.discard(self)
+                if cls._active_instances == 0:
+                    self.unpatch_tqdm()
+        finally:
+            self._remove_from_context()
         try:
             self._done_event.set()
             self.reset()

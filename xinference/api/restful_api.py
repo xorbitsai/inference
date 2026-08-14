@@ -966,10 +966,11 @@ class RESTfulAPI(CancelMixin):
         except RuntimeError as re:
             logger.error(str(re), exc_info=True)
             raise HTTPException(status_code=503, detail=str(re))
-        except asyncio.CancelledError as ce:
-            # cancelled by user
-            logger.error(str(ce), exc_info=True)
-            raise HTTPException(status_code=499, detail=str(ce))
+        except asyncio.CancelledError:
+            # Cancelled by the user. str() on a CancelledError is empty, so
+            # reporting it verbatim surfaces a blank error in the UI.
+            logger.info("Launch of %s was cancelled", model_uid)
+            raise HTTPException(status_code=499, detail="Launch cancelled")
         except Exception as e:
             logger.error(str(e), exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
@@ -1018,13 +1019,13 @@ class RESTfulAPI(CancelMixin):
 
     async def get_launch_model_progress(self, model_uid: str) -> JSONResponse:
         try:
-            progress = await (
+            progress_details = await (
                 await self._get_supervisor_ref()
-            ).get_launch_builtin_model_progress(model_uid)
+            ).get_launch_builtin_model_progress_details(model_uid)
         except Exception as e:
             logger.error(str(e), exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
-        return JSONResponse(content={"progress": progress})
+        return JSONResponse(content=progress_details)
 
     async def cancel_launch_model(self, model_uid: str) -> JSONResponse:
         try:
@@ -1636,6 +1637,32 @@ class RESTfulAPI(CancelMixin):
             return Response(scores, media_type="application/json")
         except Exception as e:
             e = await self._get_model_last_error(model.uid, e)
+            logger.error(e, exc_info=True)
+            await self._report_error_event(model_uid, str(e))
+            self.handle_request_limit_error(e)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    async def create_audio_embedding(
+        self,
+        request: Request,
+        model: str = Form(...),
+        file: UploadFile = File(media_type="application/octet-stream"),
+    ) -> Response:
+        model_uid = model
+        self._set_trace_model(model_uid)
+        self._set_trace_model_type("audio")
+        self._check_model_access(request, model_uid, "audio")
+        model_ref = await require_model(
+            self._get_supervisor_ref, model_uid, self._report_error_event
+        )
+
+        try:
+            embedding = await model_ref.create_audio_embedding(
+                audio=await file.read(), model_uid=model_uid
+            )
+            return Response(content=embedding, media_type="application/json")
+        except Exception as e:
+            e = await self._get_model_last_error(model_ref.uid, e)
             logger.error(e, exc_info=True)
             await self._report_error_event(model_uid, str(e))
             self.handle_request_limit_error(e)
@@ -2476,6 +2503,7 @@ class RESTfulAPI(CancelMixin):
         request: Request,
         model: str = Form(...),
         image: UploadFile = File(media_type="application/octet-stream"),
+        video: Optional[UploadFile] = File(None, media_type="application/octet-stream"),
         prompt: Optional[Union[str, List[str]]] = Form(None),
         negative_prompt: Optional[Union[str, List[str]]] = Form(None),
         n: Optional[int] = Form(1),
@@ -2495,6 +2523,8 @@ class RESTfulAPI(CancelMixin):
                 parsed_kwargs = json.loads(kwargs)
             else:
                 parsed_kwargs = {}
+            if video is not None:
+                parsed_kwargs["video"] = await video.read()
             request_id = parsed_kwargs.get("request_id")
             self._add_running_task(request_id)
             video_list = await model_ref.image_to_video(

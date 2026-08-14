@@ -18,7 +18,7 @@ import { ChatPanel } from './panels/chat-panel';
 import { Select } from '@/components/ui/select';
 import { useI18n } from '@/contexts/i18n-context';
 import { TryApiDrawer } from './components/try-api-drawer';
-import { transformRunningModelDetail } from './utils';
+import { getPrimaryModelAbilities, transformRunningModelDetail } from './utils';
 
 interface RunningModelDetailProps {
   modelUid: string;
@@ -94,9 +94,7 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
       .get<RunningModelDetailType>(`/v1/models/${modelUid}`)
       .then((res) => {
         const newModelDetail = transformRunningModelDetail(res) as RunningModelDetailType;
-        const firstAbility = newModelDetail.model_ability.filter(
-          (item) => !item.includes('_')
-        )?.[0];
+        const firstAbility = getPrimaryModelAbilities(newModelDetail.model_ability)[0];
         setSelectAbility(firstAbility);
         setModel(newModelDetail);
       })
@@ -106,16 +104,14 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
   const abilityOptions = useMemo(() => {
     const abilities = model?.model_ability || [];
     if (!abilities.length) return [];
-    return abilities
-      .filter((item) => !item.includes('_')) // Filter out sub-capabilities (as agreed upon by the front-end and back-end, where those underlined are sub-capabilities)
-      .map((item) => {
-        const Icon = CAPABILITY_CONFIGS[item]?.icon;
-        return {
-          value: item,
-          prefix: Icon ? <Icon className="size-4" /> : undefined,
-          label: t(`launchModel.${item}`),
-        };
-      });
+    return getPrimaryModelAbilities(abilities).map((item) => {
+      const Icon = CAPABILITY_CONFIGS[item]?.icon;
+      return {
+        value: item,
+        prefix: Icon ? <Icon className="size-4" /> : undefined,
+        label: t(`launchModel.${item}`),
+      };
+    });
   }, [model, t]);
 
   const handleAbility = (value?: ModelAbility) => {
@@ -150,32 +146,34 @@ const RunningModelDetail: FC<RunningModelDetailProps> = ({ modelUid }) => {
   return (
     <PageContainer
       title={
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <Button
             variant="ghost"
             size="icon"
-            className="w-8 h-8 rounded-full"
+            className="size-8 shrink-0 rounded-full"
+            aria-label="Back to running models"
             onClick={() => router.back()}
           >
             <ArrowLeft className="size-5" />
           </Button>
-          {modelUid}
+          <span className="truncate">{modelUid}</span>
         </div>
       }
       loading={loading}
       className="gap-5"
+      headerClassName="flex-col items-stretch gap-3 sm:flex-row sm:items-center"
       extraContent={
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           {!isChat && (
             <Select
-              className="w-40"
+              className="min-w-0 flex-1 sm:w-40 sm:flex-none"
               allowClear={false}
               options={abilityOptions}
               value={selectAbility}
               onChange={handleAbility}
             />
           )}
-          <Button type="button"  onClick={() => setTryApiOpen(true)}>
+          <Button type="button" className="shrink-0" onClick={() => setTryApiOpen(true)}>
             <Code />
             Try To API
           </Button>

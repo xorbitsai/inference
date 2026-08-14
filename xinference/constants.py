@@ -38,6 +38,7 @@ XINFERENCE_ENV_MAX_CONCURRENT_LAUNCHES = "XINFERENCE_MAX_CONCURRENT_LAUNCHES"
 XINFERENCE_ENV_DISABLE_HEALTH_CHECK = "XINFERENCE_DISABLE_HEALTH_CHECK"
 XINFERENCE_ENV_DISABLE_METRICS = "XINFERENCE_DISABLE_METRICS"
 XINFERENCE_ENV_DOWNLOAD_MAX_ATTEMPTS = "XINFERENCE_DOWNLOAD_MAX_ATTEMPTS"
+XINFERENCE_ENV_HUB_DETECT_TIMEOUT = "XINFERENCE_HUB_DETECT_TIMEOUT"
 XINFERENCE_ENV_TEXT_TO_IMAGE_BATCHING_SIZE = "XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE"
 XINFERENCE_ENV_VIRTUAL_ENV = "XINFERENCE_ENABLE_VIRTUAL_ENV"
 XINFERENCE_ENV_VIRTUAL_ENV_SKIP_INSTALLED = "XINFERENCE_VIRTUAL_ENV_SKIP_INSTALLED"
@@ -271,6 +272,13 @@ XINFERENCE_LOG_CONSOLE = (
     os.environ.get("XINFERENCE_LOG_CONSOLE", "true").lower() == "true"
 )
 
+# The Web UI polls /progress and /replicas about once a second per model and
+# metrics scrapers hit /metrics, so at info level those access lines bury
+# everything else. Set to true to log them anyway.
+XINFERENCE_LOG_POLLING_ACCESS = (
+    os.environ.get("XINFERENCE_LOG_POLLING_ACCESS", "false").lower() == "true"
+)
+
 # Download progress logging level (only effective when XINFERENCE_LOG_CONSOLE=false)
 # - "sampled": log 25/50/75/100% per shard + terminal state on exit (default)
 # - "full": log every tqdm frame
@@ -346,6 +354,10 @@ def is_metrics_disabled() -> bool:
 XINFERENCE_DOWNLOAD_MAX_ATTEMPTS = int(
     os.environ.get(XINFERENCE_ENV_DOWNLOAD_MAX_ATTEMPTS, 3)
 )
+# Timeout (seconds) for probing hub connectivity when download_hub is "auto"
+XINFERENCE_HUB_DETECT_TIMEOUT = float(
+    os.environ.get(XINFERENCE_ENV_HUB_DETECT_TIMEOUT, 3)
+)
 XINFERENCE_TEXT_TO_IMAGE_BATCHING_SIZE = os.environ.get(
     XINFERENCE_ENV_TEXT_TO_IMAGE_BATCHING_SIZE, None
 )
@@ -392,6 +404,12 @@ XINFERENCE_MAX_CONCURRENT_LAUNCHES = max(
 # extreme environments (slow NFS, vLLM version upgrade slowing import, etc.).
 XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT = int(
     os.environ.get("XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT", "60")
+)
+
+# How long cancel_launch_model waits for the cancelled launch to unwind before
+# returning anyway, so an immediate relaunch is not rejected as still running.
+XINFERENCE_CANCEL_LAUNCH_TIMEOUT = int(
+    os.environ.get("XINFERENCE_CANCEL_LAUNCH_TIMEOUT", "60")
 )
 
 # Status gather timeout in seconds (for collecting GPU info, etc.)

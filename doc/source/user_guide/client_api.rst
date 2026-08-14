@@ -309,7 +309,7 @@ Output:
 Audio
 ~~~~~
 
-To list the available built-in image models:
+To list the available built-in audio models:
 
 .. code-block::
 
@@ -324,6 +324,8 @@ To list the available built-in image models:
     audio   whisper-medium.en  whisper   False           True
     audio   whisper-tiny       whisper   True            True
     audio   whisper-tiny.en    whisper   False           True
+    audio   speech_campplus_sv_zh-cn_16k-common                    campplus  False  True
+    audio   speech_campplus_sv_zh_en_16k-common_advanced           campplus  True   True
 
 
 To initiate an audio model and get text from an audio:
@@ -373,6 +375,61 @@ Output:
 .. code-block::
 
     Translation(text=' This list lists the airlines in Hong Kong.')
+
+
+Speaker Embeddings
+==================
+
+Speaker-embedding audio models extract a fixed-length representation of speaker
+identity. Xinference provides two built-in CAMPPlus models:
+``speech_campplus_sv_zh-cn_16k-common`` and
+``speech_campplus_sv_zh_en_16k-common_advanced``. Both return a 192-dimensional
+vector through the ``speaker_embedding`` ability.
+
+Launch a model and call it with the Xinference client:
+
+.. code-block:: python
+
+    from xinference.client import Client
+
+    client = Client("http://localhost:9997")
+    model_uid = client.launch_model(
+        model_name="speech_campplus_sv_zh-cn_16k-common",
+        model_type="audio",
+    )
+    model = client.get_model(model_uid)
+
+    with open("speaker.wav", "rb") as audio_file:
+        result = model.create_embedding(audio_file.read())
+
+    print(result["dimensions"])
+    embedding = result["embedding"]
+
+The equivalent HTTP request uploads the model UID and audio file as multipart
+form fields:
+
+.. code-block:: bash
+
+    curl -X POST 'http://localhost:9997/v1/audio/embeddings' \
+      -H 'accept: application/json' \
+      -F 'model=<MODEL_UID>' \
+      -F 'file=@speaker.wav'
+
+The response contains one vector rather than the list-shaped response returned
+by the text Embeddings API:
+
+.. code-block:: json
+
+    {
+      "object": "embedding",
+      "model": "<MODEL_UID>",
+      "dimensions": 192,
+      "embedding": [0.0123, -0.0456, 0.0789]
+    }
+
+Compare vectors with cosine similarity for speaker verification or speaker
+identification. See :ref:`audio` for Web UI usage, input processing details,
+and the complete Speaker Embedding API example.
 
 
 Rerank
