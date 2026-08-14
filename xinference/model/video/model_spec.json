@@ -418,5 +418,53 @@
     },
     "updated_at": 1766385310,
     "featured": false
+  },
+  {
+    "version": 2,
+    "model_name": "MiniMax-H3",
+    "model_family": "MiniMax-H3",
+    "model_ability": [
+      "text2video",
+      "image2video",
+      "firstlastframe2video"
+    ],
+    "default_model_config": {
+      "quantization": "int4",
+      "group_offload": true,
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+      "num_frames": 124
+    },
+    "virtualenv": {
+      "packages": [
+        "git+https://github.com/huggingface/diffusers",
+        "transformers>=5.15.0,<6.0",
+        "peft==0.18.0",
+        "huggingface-hub>=1.23.0,<2.0",
+        "safetensors>=0.8.0",
+        "torchao>=0.16.0",
+        "xformers>=0.0.34",
+        "av",
+        "imageio-ffmpeg",
+        "imageio",
+        "#system_torch#",
+        "#system_torchvision#",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "MiniMaxAI/MiniMax-H3",
+        "model_revision": "6818f6c32d12b210915e44ad56a4228c2608f160"
+      },
+      "modelscope": {
+        "model_id": "MiniMax/MiniMax-H3",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1786685986,
+    "featured": false
   }
 ]
