@@ -3684,7 +3684,9 @@ class WorkerActor(xo.StatelessActor):
                             except xo.ServerClosed:
                                 check_cancel()
                                 raise
-                    except Exception:
+                    # CancelledError is a BaseException: skipping it leaks the
+                    # devices reserved before the download.
+                    except (Exception, asyncio.CancelledError):
                         logger.error(f"Failed to load model {model_uid}", exc_info=True)
                         await self._update_model_state(model_uid, "error")
                         self.release_devices(model_uid=model_uid)
