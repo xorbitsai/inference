@@ -687,9 +687,9 @@ def test_resolve_download_hub(monkeypatch, _reset_auto_hub_cache):
     # a local model path means no download, so no detection
     assert model_utils.resolve_download_hub(None, "/path/to/model") is None
 
-    # a pinned XINFERENCE_MODEL_SRC keeps the legacy fallback behavior
+    # a pinned XINFERENCE_MODEL_SRC resolves to that concrete hub
     monkeypatch.setenv("XINFERENCE_MODEL_SRC", "modelscope")
-    assert model_utils.resolve_download_hub(None) is None
+    assert model_utils.resolve_download_hub(None) == "modelscope"
 
     # XINFERENCE_MODEL_SRC="auto" resolves via detection
     monkeypatch.setenv("XINFERENCE_MODEL_SRC", "auto")
