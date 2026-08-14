@@ -33571,5 +33571,242 @@
     },
     "featured": false,
     "updated_at": 1786072259
+  },
+  {
+    "version": 2,
+    "context_length": 131072,
+    "model_name": "Ling-3.0-tiny",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "tools",
+      "reasoning",
+      "hybrid"
+    ],
+    "model_description": "Ling-3.0-tiny is a lightweight hybrid-reasoning MoE model with 7.9B total parameters and 1.3B activated parameters per token.",
+    "model_specs": [
+      {
+        "model_size_in_billions": "7_9",
+        "activated_size_in_billions": "1_3",
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "inclusionAI/Ling-3.0-tiny",
+            "model_revision": "main",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "inclusionAI/Ling-3.0-tiny",
+            "model_revision": "master",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": "7_9",
+        "activated_size_in_billions": "1_3",
+        "model_format": "fp8",
+        "model_src": {
+          "huggingface": {
+            "model_id": "inclusionAI/Ling-3.0-tiny-fp8",
+            "model_revision": "main",
+            "quantizations": [
+              "FP8"
+            ]
+          },
+          "modelscope": {
+            "model_id": "inclusionAI/Ling-3.0-tiny-fp8",
+            "model_revision": "master",
+            "quantizations": [
+              "FP8"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": "7_9",
+        "activated_size_in_billions": "1_3",
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "inclusionAI/Ling-3.0-tiny-int4",
+            "model_revision": "main",
+            "quantizations": [
+              "Int4"
+            ]
+          },
+          "modelscope": {
+            "model_id": "inclusionAI/Ling-3.0-tiny-int4",
+            "model_revision": "master",
+            "quantizations": [
+              "Int4"
+            ]
+          }
+        }
+      }
+    ],
+    "architectures": [
+      "BailingMoeV3ForCausalLM"
+    ],
+    "model_type": "bailing_hybrid",
+    "chat_template": "{#- Bailing V3 chat template -#}\n{#- Supports: thinking option, tool calling -#}\n\n{#- ==================== thinking option normalization ==================== -#}\n{%- if enable_thinking is defined %}\n    {%- if enable_thinking %}\n        {%- set thinking_option = 'on' %}\n    {%- else %}\n        {%- set thinking_option = 'off' %}\n    {%- endif %}\n{%- elif thinking_option is not defined %}\n    {%- set thinking_option = 'on' %}\n{%- endif %}\n\n{#- ==================== preserved thinking  ==================== -#}\n{% set preserved_thinking = true %}\n\n{#- ==================== system message ==================== -#}\n{{- '<role>SYSTEM</role>' }}\n{%- if tools %}\n    {%- if messages[0].role == 'system' %}\n        {{- messages[0].content + '\\n' }}\n    {%- endif %}\n    {{- \"# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nIf none of the functions can be used, point it out. If the given question lacks the parameters required by the function, also point it out.\\nIf you need to use a function, for each function call, output the function name and arguments within the following XML format:\\n<tool_call>{function-name}\\n<arg_key>{arg-key-1}</arg_key>\\n<arg_value>{arg-value-1}</arg_value>\\n<arg_key>{arg-key-2}</arg_key>\\n<arg_value>{arg-value-2}</arg_value>\\n...\\n</tool_call>\\n\" }}\n    {%- if messages[0].role == 'system' and messages[0].content is string and ('detailed thinking on' in messages[0].content or 'detailed thinking off' in messages[0].content) %}\n        {{- '<|role_end|>' }}\n    {%- else %}\n        {{- 'detailed thinking ' + thinking_option + '<|role_end|>' }}\n    {%- endif %}\n{%- else %}\n    {%- if messages[0].role == 'system' %}\n        {%- if 'detailed thinking on' in messages[0].content or 'detailed thinking off' in messages[0].content %}\n            {{- messages[0].content + '<|role_end|>' }}\n        {%- else %}\n            {{- messages[0].content + '\\n' }}\n            {{- 'detailed thinking ' + thinking_option + '<|role_end|>' }}\n        {%- endif %}\n    {% else %}\n        {{- 'detailed thinking ' + thinking_option + '<|role_end|>' }}\n    {%- endif %}\n{%- endif %}\n{%- set ns = namespace(multi_step_tool=true, last_query_index=messages|length - 1) %}\n{%- for message in messages[::-1] %}\n    {%- set index = (messages|length - 1) - loop.index0 %}\n    {%- if ns.multi_step_tool and message.role == \"user\" and message.content is string and not(message.content.startswith('<tool_response>') and message.content.endswith('</tool_response>')) %}\n        {%- set ns.multi_step_tool = false %}\n        {%- set ns.last_query_index = index %}\n    {%- endif %}\n{%- endfor %}\n{%- for message in messages %}\n    {%- if message.content is string %}\n        {%- set content = message.content %}\n    {%- else %}\n        {%- set content = '' %}\n    {%- endif %}\n    {%- if message.role == \"user\" %}\n        {{- '<role>HUMAN</role>' + message.content + '<|role_end|>' }}\n    {%- elif message.role == \"system\" and not loop.first %}\n        {{- '<role>SYSTEM</role>' + message.content + '<|role_end|>' }}\n    {%- elif message.role == \"assistant\" %}\n        {%- set reasoning_content = '' %}\n        {%- if message.reasoning_content is string and message.reasoning_content != '' %}\n            {%- set reasoning_content = message.reasoning_content %}\n        {%- else %}\n            {%- if '</think>' in content %}\n                {%- set reasoning_content = content.split('</think>')[0].rstrip('\\n').split('<think>')[-1].lstrip('\\n') %}\n                {%- set content = content.split('</think>')[-1].lstrip('\\n') %}\n            {%- endif %}\n        {%- endif %}\n        {%- if preserved_thinking or loop.index0 > ns.last_query_index %}\n            {%- if reasoning_content != '' %}\n                {{- '<role>ASSISTANT</role>' + '\\n<think>' + reasoning_content.strip('\\n') + '</think>' + content.lstrip('\\n') }}\n            {%- else %}\n                {{- '<role>ASSISTANT</role>\\n<think></think>' + content }}\n            {%- endif %}\n        {%- else %}\n            {{- '<role>ASSISTANT</role>\\n<think></think>' + content }}\n        {%- endif %}\n        {%- if message.tool_calls %}\n            {%- for tool_call in message.tool_calls %}\n                {%- if (loop.first and content) or (not loop.first) %}\n                    {{- '\\n' }}\n                {%- endif %}\n                {%- set tc = tool_call %}\n                {%- if tool_call.function %}\n                    {%- set tc = tool_call.function %}\n                {%- endif %}\n                {{- '<tool_call>' + tc.name }}\n                {% set _args = tc.arguments %}\n                {%- for k, v in _args.items() %}\n                    {{- '<arg_key>' + k + '</arg_key>' }}\n                    {{- '\\n<arg_value>' }}\n                    {%- if v is string %}\n                        {{- v }}\n                    {%- else %}\n                        {{- v | tojson(ensure_ascii=False) }}\n                    {%- endif %}\n                    {{- '</arg_value>' }}\n                {%- endfor %}\n                {{- '\\n</tool_call>' }}\n            {%- endfor %}\n        {%- endif %}\n        {{- '<|role_end|>' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if loop.first or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<role>OBSERVATION</role>' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- content }}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|role_end|>' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n\n{#- ==================== generation prompt ==================== -#}\n{%- if add_generation_prompt %}\n    {{- '<role>ASSISTANT</role>' }}\n    {%- if thinking_option == 'on' %}\n        {{- '\\n<think>' }}\n    {%- elif thinking_option == 'off' %}\n        {{- '\\n<think></think>' }}\n    {%- endif %}\n{%- endif %}",
+    "stop_token_ids": [
+      156895
+    ],
+    "stop": [
+      "<|role_end|>"
+    ],
+    "tool_parser": "glm5",
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "transformers>=4.57.1,<5.0.0 ; #engine# == \"Transformers\"",
+        "fla-core>=0.5.2 ; #engine# == \"Transformers\"",
+        "compressed-tensors>=0.15.0 ; #engine# == \"Transformers\"",
+        "einops ; #engine# == \"Transformers\"",
+        "#system_torch# ; #engine# == \"Transformers\"",
+        "#system_numpy# ; #engine# == \"Transformers\""
+      ]
+    },
+    "featured": false,
+    "updated_at": 1786433164
+  },
+  {
+    "version": 2,
+    "context_length": 262144,
+    "model_name": "Ling-3.0-flash",
+    "model_lang": [
+      "en",
+      "zh"
+    ],
+    "model_ability": [
+      "chat",
+      "tools",
+      "reasoning",
+      "hybrid"
+    ],
+    "model_description": "Ling-3.0-flash is a native hybrid-linear reasoning MoE model with 124B total parameters and 5.1B activated parameters per token.",
+    "model_specs": [
+      {
+        "model_size_in_billions": 124,
+        "activated_size_in_billions": "5_1",
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "inclusionAI/Ling-3.0-flash",
+            "model_revision": "main",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "inclusionAI/Ling-3.0-flash",
+            "model_revision": "master",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 124,
+        "activated_size_in_billions": "5_1",
+        "model_format": "fp8",
+        "model_src": {
+          "huggingface": {
+            "model_id": "inclusionAI/Ling-3.0-flash-fp8",
+            "model_revision": "main",
+            "quantizations": [
+              "FP8"
+            ]
+          },
+          "modelscope": {
+            "model_id": "inclusionAI/Ling-3.0-flash-fp8",
+            "model_revision": "master",
+            "quantizations": [
+              "FP8"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 124,
+        "activated_size_in_billions": "5_1",
+        "model_format": "fp4",
+        "model_src": {
+          "huggingface": {
+            "model_id": "inclusionAI/Ling-3.0-flash-fp4",
+            "model_revision": "main",
+            "quantizations": [
+              "FP4"
+            ]
+          },
+          "modelscope": {
+            "model_id": "inclusionAI/Ling-3.0-flash-fp4",
+            "model_revision": "master",
+            "quantizations": [
+              "FP4"
+            ]
+          }
+        }
+      },
+      {
+        "model_size_in_billions": 124,
+        "activated_size_in_billions": "5_1",
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "inclusionAI/Ling-3.0-flash-int4",
+            "model_revision": "main",
+            "quantizations": [
+              "Int4"
+            ]
+          },
+          "modelscope": {
+            "model_id": "inclusionAI/Ling-3.0-flash-int4",
+            "model_revision": "master",
+            "quantizations": [
+              "Int4"
+            ]
+          }
+        }
+      }
+    ],
+    "architectures": [
+      "BailingMoeV3ForCausalLM"
+    ],
+    "model_type": "bailing_hybrid",
+    "chat_template": "{#- Bailing V3 chat template -#}\n{#- Supports: thinking option, tool calling -#}\n\n{#- ==================== thinking option normalization ==================== -#}\n{%- if enable_thinking is defined %}\n    {%- if enable_thinking %}\n        {%- set thinking_option = 'on' %}\n    {%- else %}\n        {%- set thinking_option = 'off' %}\n    {%- endif %}\n{%- elif thinking_option is not defined %}\n    {%- set thinking_option = 'on' %}\n{%- endif %}\n\n{#- ==================== preserved thinking  ==================== -#}\n{% set preserved_thinking = true %}\n\n{#- ==================== system message ==================== -#}\n{{- '<role>SYSTEM</role>' }}\n{%- if tools %}\n    {%- if messages[0].role == 'system' %}\n        {{- messages[0].content + '\\n' }}\n    {%- endif %}\n    {{- \"# Tools\\n\\nYou may call one or more functions to assist with the user query.\\n\\nYou are provided with function signatures within <tools></tools> XML tags:\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\\n\\nIf none of the functions can be used, point it out. If the given question lacks the parameters required by the function, also point it out.\\nIf you need to use a function, for each function call, output the function name and arguments within the following XML format:\\n<tool_call>{function-name}\\n<arg_key>{arg-key-1}</arg_key>\\n<arg_value>{arg-value-1}</arg_value>\\n<arg_key>{arg-key-2}</arg_key>\\n<arg_value>{arg-value-2}</arg_value>\\n...\\n</tool_call>\\n\" }}\n    {%- if messages[0].role == 'system' and messages[0].content is string and ('detailed thinking on' in messages[0].content or 'detailed thinking off' in messages[0].content) %}\n        {{- '<|role_end|>' }}\n    {%- else %}\n        {{- 'detailed thinking ' + thinking_option + '<|role_end|>' }}\n    {%- endif %}\n{%- else %}\n    {%- if messages[0].role == 'system' %}\n        {%- if 'detailed thinking on' in messages[0].content or 'detailed thinking off' in messages[0].content %}\n            {{- messages[0].content + '<|role_end|>' }}\n        {%- else %}\n            {{- messages[0].content + '\\n' }}\n            {{- 'detailed thinking ' + thinking_option + '<|role_end|>' }}\n        {%- endif %}\n    {% else %}\n        {{- 'detailed thinking ' + thinking_option + '<|role_end|>' }}\n    {%- endif %}\n{%- endif %}\n{%- set ns = namespace(multi_step_tool=true, last_query_index=messages|length - 1) %}\n{%- for message in messages[::-1] %}\n    {%- set index = (messages|length - 1) - loop.index0 %}\n    {%- if ns.multi_step_tool and message.role == \"user\" and message.content is string and not(message.content.startswith('<tool_response>') and message.content.endswith('</tool_response>')) %}\n        {%- set ns.multi_step_tool = false %}\n        {%- set ns.last_query_index = index %}\n    {%- endif %}\n{%- endfor %}\n{%- for message in messages %}\n    {%- if message.content is string %}\n        {%- set content = message.content %}\n    {%- else %}\n        {%- set content = '' %}\n    {%- endif %}\n    {%- if message.role == \"user\" %}\n        {{- '<role>HUMAN</role>' + message.content + '<|role_end|>' }}\n    {%- elif message.role == \"system\" and not loop.first %}\n        {{- '<role>SYSTEM</role>' + message.content + '<|role_end|>' }}\n    {%- elif message.role == \"assistant\" %}\n        {%- set reasoning_content = '' %}\n        {%- if message.reasoning_content is string and message.reasoning_content != '' %}\n            {%- set reasoning_content = message.reasoning_content %}\n        {%- else %}\n            {%- if '</think>' in content %}\n                {%- set reasoning_content = content.split('</think>')[0].rstrip('\\n').split('<think>')[-1].lstrip('\\n') %}\n                {%- set content = content.split('</think>')[-1].lstrip('\\n') %}\n            {%- endif %}\n        {%- endif %}\n        {%- if preserved_thinking or loop.index0 > ns.last_query_index %}\n            {%- if reasoning_content != '' %}\n                {{- '<role>ASSISTANT</role>' + '\\n<think>' + reasoning_content.strip('\\n') + '</think>' + content.lstrip('\\n') }}\n            {%- else %}\n                {{- '<role>ASSISTANT</role>\\n<think></think>' + content }}\n            {%- endif %}\n        {%- else %}\n            {{- '<role>ASSISTANT</role>\\n<think></think>' + content }}\n        {%- endif %}\n        {%- if message.tool_calls %}\n            {%- for tool_call in message.tool_calls %}\n                {%- if (loop.first and content) or (not loop.first) %}\n                    {{- '\\n' }}\n                {%- endif %}\n                {%- set tc = tool_call %}\n                {%- if tool_call.function %}\n                    {%- set tc = tool_call.function %}\n                {%- endif %}\n                {{- '<tool_call>' + tc.name }}\n                {% set _args = tc.arguments %}\n                {%- for k, v in _args.items() %}\n                    {{- '<arg_key>' + k + '</arg_key>' }}\n                    {{- '\\n<arg_value>' }}\n                    {%- if v is string %}\n                        {{- v }}\n                    {%- else %}\n                        {{- v | tojson(ensure_ascii=False) }}\n                    {%- endif %}\n                    {{- '</arg_value>' }}\n                {%- endfor %}\n                {{- '\\n</tool_call>' }}\n            {%- endfor %}\n        {%- endif %}\n        {{- '<|role_end|>' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if loop.first or (messages[loop.index0 - 1].role != \"tool\") %}\n            {{- '<role>OBSERVATION</role>' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- content }}\n        {{- '\\n</tool_response>' }}\n        {%- if loop.last or (messages[loop.index0 + 1].role != \"tool\") %}\n            {{- '<|role_end|>' }}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n\n{#- ==================== generation prompt ==================== -#}\n{%- if add_generation_prompt %}\n    {{- '<role>ASSISTANT</role>' }}\n    {%- if thinking_option == 'on' %}\n        {{- '\\n<think>' }}\n    {%- elif thinking_option == 'off' %}\n        {{- '\\n<think></think>' }}\n    {%- endif %}\n{%- endif %}",
+    "stop_token_ids": [
+      156895
+    ],
+    "stop": [
+      "<|role_end|>"
+    ],
+    "tool_parser": "glm5",
+    "reasoning_start_tag": "<think>",
+    "reasoning_end_tag": "</think>",
+    "virtualenv": {
+      "packages": [
+        "#transformers_dependencies# ; #engine# == \"Transformers\"",
+        "transformers>=4.57.1,<5.0.0 ; #engine# == \"Transformers\"",
+        "fla-core>=0.5.2 ; #engine# == \"Transformers\"",
+        "compressed-tensors>=0.15.0 ; #engine# == \"Transformers\"",
+        "einops ; #engine# == \"Transformers\"",
+        "#system_torch# ; #engine# == \"Transformers\"",
+        "#system_numpy# ; #engine# == \"Transformers\""
+      ]
+    },
+    "featured": false,
+    "updated_at": 1786112129
   }
 ]
