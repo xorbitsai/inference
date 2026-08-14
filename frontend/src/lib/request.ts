@@ -151,6 +151,10 @@ requestInstance.interceptors.response.use(
         }
         break;
       }
+      case 499: {
+        /** Client closed the request, e.g. the user cancelled a launch — not a server error. */
+        break;
+      }
       default: {
         eventBus.emit(RequestEvents.SERVER_ERROR, `Server error: ${status} - ${errorMessage}`);
       }

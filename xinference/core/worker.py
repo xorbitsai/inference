@@ -51,6 +51,7 @@ from ..client.restful.restful_client import Client as RESTfulClient
 from ..constants import (
     XINFERENCE_ALLOW_MULTI_REPLICA_PER_GPU,
     XINFERENCE_CACHE_DIR,
+    XINFERENCE_CANCEL_LAUNCH_TIMEOUT,
     XINFERENCE_DISABLE_HEALTH_CHECK,
     XINFERENCE_ENABLE_VIRTUAL_ENV,
     XINFERENCE_HEALTH_CHECK_INTERVAL,
@@ -3683,7 +3684,9 @@ class WorkerActor(xo.StatelessActor):
                             except xo.ServerClosed:
                                 check_cancel()
                                 raise
-                    except Exception:
+                    # CancelledError is a BaseException: skipping it leaks the
+                    # devices reserved before the download.
+                    except (Exception, asyncio.CancelledError):
                         logger.error(f"Failed to load model {model_uid}", exc_info=True)
                         await self._update_model_state(model_uid, "error")
                         self.release_devices(model_uid=model_uid)
@@ -3851,6 +3854,22 @@ class WorkerActor(xo.StatelessActor):
             logger.error("Fail to cancel launching", exc_info=True)
             raise RuntimeError(
                 "Model is not launching, may have launched or not launched yet"
+            )
+
+        # The launch coroutine keeps the guard until it has finished unwinding
+        # (download abort, sub-pool teardown), so returning before that makes an
+        # immediate relaunch fail with "<uid> is running".
+        deadline = time.monotonic() + XINFERENCE_CANCEL_LAUNCH_TIMEOUT
+        while (
+            model_uid in self._model_uid_launching_guard and time.monotonic() < deadline
+        ):
+            await asyncio.sleep(0.1)
+        if model_uid in self._model_uid_launching_guard:
+            logger.warning(
+                "Launch of %s still unwinding after %ss; a relaunch may be "
+                "rejected as already running",
+                model_uid,
+                XINFERENCE_CANCEL_LAUNCH_TIMEOUT,
             )
 
     @log_async(logger=logger, level=logging.INFO)

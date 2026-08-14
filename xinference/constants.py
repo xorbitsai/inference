@@ -401,6 +401,12 @@ XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT = int(
     os.environ.get("XINFERENCE_SUBPOOL_LAUNCH_TIMEOUT", "60")
 )
 
+# How long cancel_launch_model waits for the cancelled launch to unwind before
+# returning anyway, so an immediate relaunch is not rejected as still running.
+XINFERENCE_CANCEL_LAUNCH_TIMEOUT = int(
+    os.environ.get("XINFERENCE_CANCEL_LAUNCH_TIMEOUT", "60")
+)
+
 # Status gather timeout in seconds (for collecting GPU info, etc.)
 # Default: 10 seconds, increased from original 5 seconds
 XINFERENCE_STATUS_GATHER_TIMEOUT = int(
