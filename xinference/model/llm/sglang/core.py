@@ -145,6 +145,7 @@ SGLANG_SUPPORTED_VISION_MODEL_LIST = [
     "MiniCPMV",
     "MiniCPMV4_6ForConditionalGeneration",
     "MllamaForConditionalGeneration",
+    "Qwen3_5ForConditionalGeneration",
     "Qwen3_5MoeForConditionalGeneration",
 ]
 
