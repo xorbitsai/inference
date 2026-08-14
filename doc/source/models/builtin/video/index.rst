@@ -10,6 +10,7 @@ The following is a list of built-in video models in Xinference:
 .. toctree::
    :maxdepth: 1
 
+   minimax-h3
   
    cogvideox-2b
   
@@ -32,4 +33,3 @@ The following is a list of built-in video models in Xinference:
    wan2.2-i2v-a14b
   
    wan2.2-ti2v-5b
-  
