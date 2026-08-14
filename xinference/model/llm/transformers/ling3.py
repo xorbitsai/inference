@@ -30,7 +30,7 @@ class Ling3PytorchChatModel(PytorchChatModel):
                 False,
                 "Ling-3.0 Transformers supports BF16, FP8, and compressed-tensors INT4 checkpoints only",
             )
-        normalized_quantization = str(quantization).lower()
+        normalized_quantization = (quantization or "none").lower()
         if llm_spec.model_format == "pytorch" and normalized_quantization not in (
             "none",
             "int4",

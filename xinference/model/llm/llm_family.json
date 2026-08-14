@@ -33666,11 +33666,7 @@
         "compressed-tensors>=0.15.0 ; #engine# == \"Transformers\"",
         "einops ; #engine# == \"Transformers\"",
         "#system_torch# ; #engine# == \"Transformers\"",
-        "#system_numpy# ; #engine# == \"Transformers\"",
-        "#vllm_dependencies# ; #engine# == \"vllm\"",
-        "#sglang_dependencies# ; #engine# == \"sglang\"",
-        "#system_numpy# ; #engine# == \"vllm\"",
-        "#system_numpy# ; #engine# == \"sglang\""
+        "#system_numpy# ; #engine# == \"Transformers\""
       ]
     },
     "featured": false,
@@ -33799,11 +33795,7 @@
         "compressed-tensors>=0.15.0 ; #engine# == \"Transformers\"",
         "einops ; #engine# == \"Transformers\"",
         "#system_torch# ; #engine# == \"Transformers\"",
-        "#system_numpy# ; #engine# == \"Transformers\"",
-        "#vllm_dependencies# ; #engine# == \"vllm\"",
-        "#sglang_dependencies# ; #engine# == \"sglang\"",
-        "#system_numpy# ; #engine# == \"vllm\"",
-        "#system_numpy# ; #engine# == \"sglang\""
+        "#system_numpy# ; #engine# == \"Transformers\""
       ]
     },
     "featured": false,

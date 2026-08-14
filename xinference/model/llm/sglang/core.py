@@ -138,7 +138,6 @@ SGLANG_SUPPORTED_CHAT_MODELS = [
     "Qwen3ForCausalLM",
     "HunYuanDenseV1ForCausalLM",
     "HYV3ForCausalLM",
-    "BailingMoeV3ForCausalLM",
 ]
 SGLANG_SUPPORTED_VISION_MODEL_LIST = [
     "Qwen2_5_VLForConditionalGeneration",
@@ -942,24 +941,21 @@ class SGLANGChatModel(SGLANGModel, ChatModelMixin):
     def match_json(
         cls, llm_family: "LLMFamilyV2", llm_spec: "LLMSpecV1", quantization: str
     ) -> Union[bool, Tuple[bool, str]]:
-        if llm_spec.model_format not in [
-            "pytorch",
-            "gptq",
-            "awq",
-            "fp4",
-            "fp8",
-            "bnb",
-        ]:
+        if llm_spec.model_format not in ["pytorch", "gptq", "awq", "fp8", "bnb"]:
             return (
                 False,
-                "SGLang chat engine supports pytorch/gptq/awq/fp4/fp8/bnb formats only",
+                "SGLang chat engine supports pytorch/gptq/awq/fp8/bnb formats only",
+            )
+        if llm_spec.model_format == "fp4":
+            return (
+                False,
+                "SGLang chat engine does not support fp4 online quantization; use offline fp4 weights with a compatible SGLang version",
             )
         if llm_spec.model_format == "pytorch":
-            if str(quantization).lower() not in ("none", "int4"):
+            if quantization not in (None, "none"):
                 return (
                     False,
-                    "SGLang chat supports unquantized pytorch checkpoints "
-                    "and offline Int4 checkpoints only",
+                    "pytorch format with quantization is not supported by SGLang chat",
                 )
         if not llm_family.matches_supported_architectures(SGLANG_SUPPORTED_CHAT_MODELS):
             return (
