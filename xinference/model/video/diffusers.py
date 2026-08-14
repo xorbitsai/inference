@@ -22,7 +22,7 @@ import tempfile
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from functools import partial, reduce
 from typing import TYPE_CHECKING, Any, List, Optional, Union
 
@@ -709,23 +709,31 @@ class DiffusersVideoModel:
         pipeline = self._model
         assert callable(pipeline)
         videos = []
-        for video_index in range(n):
-            call_kwargs = generate_kwargs.copy()
-            if image is not None:
-                call_kwargs["image"] = image
-            if last_image is not None:
-                call_kwargs["last_image"] = last_image
-            with self._track_minimax_h3_progress(pipeline, progressor, video_index, n):
-                output = pipeline(
-                    prompt=prompt,
-                    output=["videos", "audio", "sampling_rate"],
-                    **call_kwargs,
-                )
-            videos.extend(self._encode_minimax_h3_output(output))
+        try:
+            for video_index in range(n):
+                call_kwargs = generate_kwargs.copy()
+                if image is not None:
+                    call_kwargs["image"] = image
+                if last_image is not None:
+                    call_kwargs["last_image"] = last_image
+                with self._track_minimax_h3_progress(
+                    pipeline, progressor, video_index, n
+                ):
+                    output = pipeline(
+                        prompt=prompt,
+                        output=["videos", "audio", "sampling_rate"],
+                        **call_kwargs,
+                    )
+                videos.extend(self._encode_minimax_h3_output(output))
 
-        if progressor and progressor.request_id:
-            progressor.set_progress(1.0)
-        return self._video_urls_to_response(videos, response_format)
+            if progressor and progressor.request_id:
+                progressor.set_progress(1.0)
+            return self._video_urls_to_response(videos, response_format)
+        except BaseException:
+            for video_path in videos:
+                with suppress(OSError):
+                    os.remove(video_path)
+            raise
 
     @staticmethod
     @contextmanager

@@ -530,7 +530,7 @@
     },
     "virtualenv": {
       "packages": [
-        "git+https://github.com/huggingface/diffusers",
+        "git+https://github.com/huggingface/diffusers@2da7040be1a2e5f2fcbc8b985083342a308f5a86",
         "transformers>=5.15.0,<6.0",
         "peft==0.18.0",
         "huggingface-hub>=1.23.0,<2.0",

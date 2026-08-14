@@ -16,6 +16,7 @@ import types
 from pathlib import Path
 
 import numpy as np
+import pytest
 from PIL import Image
 
 from .. import diffusers as diffusers_module
@@ -369,6 +370,33 @@ def test_minimax_h3_forwards_workflows_and_muxes_audio(monkeypatch, tmp_path):
     )
     assert calls[2]["image"] is image
     assert calls[2]["last_image"] is last_image
+    assert len(list(tmp_path.glob("*.mp4"))) == 2
+
+
+def test_minimax_h3_cleans_up_partial_outputs_on_failure(monkeypatch, tmp_path):
+    video_path = tmp_path / "partial.mp4"
+    video_path.write_bytes(b"partial")
+
+    class FailingPipeline:
+        def __init__(self):
+            self.call_count = 0
+
+        def __call__(self, **kwargs):
+            self.call_count += 1
+            if self.call_count == 2:
+                raise RuntimeError("generation failed")
+            return {}
+
+    model = DiffusersVideoModel("mock", "/tmp/minimax-h3", _model_spec())
+    model._model = FailingPipeline()
+    monkeypatch.setattr(
+        model, "_encode_minimax_h3_output", lambda output: [str(video_path)]
+    )
+
+    with pytest.raises(RuntimeError, match="generation failed"):
+        model.text_to_video("a red fox", n=2)
+
+    assert not video_path.exists()
 
 
 def test_minimax_h3_progress_tolerates_pipeline_without_blocks():
