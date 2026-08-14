@@ -150,6 +150,7 @@ transformers = [
     "jj-pytorchvideo",  # For CogVLM2-video
     "qwen-vl-utils!=0.0.9",  # For qwen2-vl
     "qwen_omni_utils",  # For qwen2.5-omni
+    "audioread",  # Undeclared runtime dependency of qwen_omni_utils
     "datamodel_code_generator",  # for minicpm-4B
     "jsonschema",  # for minicpm-4B
     "blobfile",  # for moonlight-16b-a3b
