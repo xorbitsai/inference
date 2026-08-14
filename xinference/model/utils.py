@@ -906,6 +906,7 @@ class CancellableDownloader:
     _original_update = None  # Class-level original update method (tqdm.auto.tqdm)
     _original_update_plain = None  # Class-level original update method (tqdm.tqdm)
     _original_init_plain = None  # Class-level original __init__ descriptor
+    _original_thread_pool_submit = None  # Tuple with original pool submit method
     _patch_lock = threading.Lock()  # Additional lock for patching operations
     _tqdm_owner_attr = "_xinference_downloader"
 
@@ -1106,6 +1107,8 @@ class CancellableDownloader:
         # originals — the first to exit then restores tqdm.update while the
         # second is still active.
         with self._patch_lock:
+            from concurrent.futures import ThreadPoolExecutor
+
             import tqdm as tqdm_module
 
             cls = type(self)
@@ -1118,11 +1121,16 @@ class CancellableDownloader:
                 # Keep the descriptor inside a tuple so accessing it through
                 # this class does not invoke its own __get__ implementation.
                 cls._original_init_plain = (tqdm_module.tqdm.__dict__["__init__"],)
+            if cls._original_thread_pool_submit is None:
+                # Store the function in a tuple to prevent descriptor binding
+                # when it is accessed through CancellableDownloader.
+                cls._original_thread_pool_submit = (ThreadPoolExecutor.submit,)
 
             if (
                 cls._original_update is None
                 or cls._original_update_plain is None
                 or cls._original_init_plain is None
+                or cls._original_thread_pool_submit is None
             ):
                 return
 
@@ -1130,6 +1138,7 @@ class CancellableDownloader:
             original_init_plain = cls._original_init_plain[0].__get__(
                 None, tqdm_module.tqdm
             )
+            original_thread_pool_submit = cls._original_thread_pool_submit[0]
 
             def patched_init(tqdm_instance, *args, **kwargs):
                 # Bind ownership when the bar is created so later updates from
@@ -1166,24 +1175,48 @@ class CancellableDownloader:
                 # Call original update with safety check
                 return original_update_plain(tqdm_instance, n)
 
+            def patched_thread_pool_submit(executor, fn, /, *args, **kwargs):
+                # ThreadPoolExecutor does not propagate contextvars. Capture
+                # only the downloader ownership here so libraries that create
+                # tqdm bars in nested pools can still bind each bar correctly.
+                downloaders = _cancellable_downloaders_var.get()
+                if not downloaders:
+                    return original_thread_pool_submit(executor, fn, *args, **kwargs)
+
+                def run_with_downloaders():
+                    token = _cancellable_downloaders_var.set(downloaders)
+                    try:
+                        return fn(*args, **kwargs)
+                    finally:
+                        _cancellable_downloaders_var.reset(token)
+
+                return original_thread_pool_submit(executor, run_with_downloaders)
+
             tqdm_module.tqdm.__init__ = patched_init
             tqdm.update = patched_update
             tqdm_module.tqdm.update = patched_update
+            ThreadPoolExecutor.submit = patched_thread_pool_submit
 
     def unpatch_tqdm(self):
         with self._patch_lock:
             cls = type(self)
-            if cls._original_update is not None and cls._active_instances == 0:
+            if cls._active_instances == 0:
+                from concurrent.futures import ThreadPoolExecutor
+
                 import tqdm as tqdm_module
 
-                tqdm.update = cls._original_update
-                cls._original_update = None
+                if cls._original_update is not None:
+                    tqdm.update = cls._original_update
+                    cls._original_update = None
                 if cls._original_update_plain is not None:
                     tqdm_module.tqdm.update = cls._original_update_plain
                     cls._original_update_plain = None
                 if cls._original_init_plain is not None:
                     tqdm_module.tqdm.__init__ = cls._original_init_plain[0]
                     cls._original_init_plain = None
+                if cls._original_thread_pool_submit is not None:
+                    ThreadPoolExecutor.submit = cls._original_thread_pool_submit[0]
+                    cls._original_thread_pool_submit = None
 
     def __enter__(self):
         # Use global lock to prevent concurrent patching. _active_instances is
