@@ -3033,6 +3033,79 @@ class SupervisorActor(xo.StatelessActor):
 
         return all_progress / i if i > 0 else 0.0
 
+    async def get_launch_builtin_model_progress_details(
+        self, model_uid: str
+    ) -> Dict[str, Any]:
+        """Return launch progress plus current per-file download activity."""
+        try:
+            self._model_uid_to_replica_info[model_uid]
+        except KeyError:
+            return {
+                "progress": 0.0,
+                "stage": "pending",
+                "download_files": [],
+                "replicas": [],
+            }
+
+        all_progress = 0.0
+        replicas: List[Dict[str, Any]] = []
+        download_files: List[Dict[str, Any]] = []
+        stages: Set[str] = set()
+
+        for rep_model_uid in self._iter_active_replica_model_uids(model_uid):
+            request_id = f"launching-{rep_model_uid}"
+            try:
+                progress, info, details = (
+                    await self._progress_tracker.get_progress_details(request_id)
+                )
+            except KeyError:
+                continue
+
+            _, replica_id = parse_replica_model_uid(rep_model_uid)
+            details = details if isinstance(details, dict) else {}
+            stage = str(details.get("stage") or "launching")
+            files = details.get("download_files")
+            files = files if isinstance(files, list) else []
+            normalized_files = []
+            for file_info in files:
+                if not isinstance(file_info, dict):
+                    continue
+                normalized_file = dict(file_info)
+                normalized_file["replica_id"] = replica_id
+                normalized_file["replica_model_uid"] = rep_model_uid
+                normalized_files.append(normalized_file)
+
+            all_progress += progress
+            stages.add(stage)
+            download_files.extend(normalized_files)
+            replicas.append(
+                {
+                    "replica_id": replica_id,
+                    "replica_model_uid": rep_model_uid,
+                    "progress": progress,
+                    "stage": stage,
+                    "info": info,
+                    "updated_at": details.get("updated_at"),
+                    "download_files": normalized_files,
+                }
+            )
+
+        if "downloading" in stages:
+            stage = "downloading"
+        elif "loading" in stages:
+            stage = "loading"
+        elif stages:
+            stage = sorted(stages)[0]
+        else:
+            stage = "launching"
+
+        return {
+            "progress": all_progress / len(replicas) if replicas else 0.0,
+            "stage": stage,
+            "download_files": download_files,
+            "replicas": replicas,
+        }
+
     async def cancel_launch_builtin_model(self, model_uid: str):
         try:
             info = self._model_uid_to_replica_info[model_uid]
