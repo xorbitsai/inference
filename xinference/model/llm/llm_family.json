@@ -17373,6 +17373,7 @@
         "#sglang_dependencies# ; #engine# == \"sglang\"",
         "#system_numpy# ; #engine# == \"vllm\"",
         "qwen_omni_utils",
+        "audioread",
         "soundfile"
       ]
     },
@@ -25680,6 +25681,7 @@
         "#sglang_dependencies# ; #engine# == \"sglang\"",
         "#system_numpy# ; #engine# == \"vllm\"",
         "qwen_omni_utils",
+        "audioread",
         "soundfile"
       ]
     },
@@ -25766,6 +25768,7 @@
         "#sglang_dependencies# ; #engine# == \"sglang\"",
         "#system_numpy# ; #engine# == \"vllm\"",
         "qwen_omni_utils",
+        "audioread",
         "soundfile"
       ]
     },
@@ -26460,7 +26463,8 @@
         "qwen-vl-utils",
         "#system_torch#",
         "#system_numpy#",
-        "qwen_omni_utils"
+        "qwen_omni_utils",
+        "audioread"
       ]
     },
     "featured": false,
@@ -30168,6 +30172,7 @@
         "transformers>=5.2.0 ; #engine# == \"Transformers\"",
         "qwen-vl-utils!=0.0.9 ; #engine# == \"Transformers\"",
         "qwen_omni_utils==0.0.9 ; #engine# == \"vllm\"",
+        "audioread ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\"",
         "vllm==0.21.0 ; #engine# == \"vllm\"",
         "transformers==4.57.6 ; #engine# == \"vllm\"",
@@ -30906,6 +30911,7 @@
         "vllm>=0.22.0 ; #engine# == \"vllm\"",
         "transformers>=5.8.0 ; #engine# == \"vllm\"",
         "qwen_omni_utils ; #engine# == \"vllm\"",
+        "audioread ; #engine# == \"vllm\"",
         "#sglang_dependencies# ; #engine# == \"sglang\"",
         "sglang==0.5.13.post1 ; #engine# == \"sglang\"",
         "transformers==5.8.1 ; #engine# == \"sglang\"",
@@ -31176,6 +31182,7 @@
         "transformers>=5.2.0 ; #engine# == \"Transformers\"",
         "qwen-vl-utils!=0.0.9 ; #engine# == \"Transformers\"",
         "qwen_omni_utils ; #engine# == \"vllm\"",
+        "audioread ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\"",
         "vllm==0.21.0 ; #engine# == \"vllm\"",
         "ninja ; #engine# == \"vllm\"",
@@ -33029,6 +33036,7 @@
         "sglang_dependencies ; #engine# == \"sglang\"",
         "transformers>=5.2.0 ; #engine# == \"Transformers\"",
         "qwen_omni_utils ; #engine# == \"vllm\"",
+        "audioread ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\"",
         "vllm==0.21.0 ; #engine# == \"vllm\"",
         "transformers==4.57.6 ; #engine# == \"vllm\"",
