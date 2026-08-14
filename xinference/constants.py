@@ -271,6 +271,13 @@ XINFERENCE_LOG_CONSOLE = (
     os.environ.get("XINFERENCE_LOG_CONSOLE", "true").lower() == "true"
 )
 
+# The Web UI polls /progress and /replicas about once a second per model and
+# metrics scrapers hit /metrics, so at info level those access lines bury
+# everything else. Set to true to log them anyway.
+XINFERENCE_LOG_POLLING_ACCESS = (
+    os.environ.get("XINFERENCE_LOG_POLLING_ACCESS", "false").lower() == "true"
+)
+
 # Download progress logging level (only effective when XINFERENCE_LOG_CONSOLE=false)
 # - "sampled": log 25/50/75/100% per shard + terminal state on exit (default)
 # - "full": log every tqdm frame
