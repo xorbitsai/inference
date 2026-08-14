@@ -33678,7 +33678,7 @@
       ]
     },
     "featured": false,
-    "updated_at": 1786433164
+    "updated_at": 1786709778
   },
   {
     "version": 2,
@@ -33807,7 +33807,7 @@
       ]
     },
     "featured": false,
-    "updated_at": 1786112129
+    "updated_at": 1786709780
   },
   {
     "model_name": "OvisOCR2",
@@ -33879,6 +33879,44 @@
       "index_strategy": "unsafe-best-match"
     },
     "featured": false,
-    "updated_at": 1784169050
+    "updated_at": 1786731484
+  },
+  {
+    "version": 2,
+    "model_name": "speech_campplus_sv_zh-cn_16k-common",
+    "model_description": "CAMPPlus speaker embedding model for Chinese speech. It accepts 16 kHz speech and returns a 192-dimensional speaker identity vector for verification and identification.",
+    "model_family": "campplus",
+    "model_ability": [
+      "speaker_embedding"
+    ],
+    "multilingual": false,
+    "model_src": {
+      "modelscope": {
+        "model_id": "iic/speech_campplus_sv_zh-cn_16k-common",
+        "model_revision": "v1.0.0"
+      }
+    },
+    "virtualenv": {
+      "packages": [
+        "modelscope[framework]>=1.19.0",
+        "addict",
+        "attrs",
+        "datasets>=3,<5",
+        "einops",
+        "oss2",
+        "Pillow",
+        "python-dateutil>=2.1",
+        "simplejson>=3.3.0",
+        "sortedcontainers>=1.5.9",
+        "transformers",
+        "soundfile",
+        "scikit-learn>=1.3.2",
+        "#system_torch#",
+        "#system_torchaudio#",
+        "#system_numpy#"
+      ]
+    },
+    "featured": false,
+    "updated_at": 1786078495
   }
 ]
