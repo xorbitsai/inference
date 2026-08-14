@@ -57,6 +57,7 @@ from ..core.status_guard import InstanceInfo, LaunchStatus
 from ..model.utils import (
     get_engine_params_by_name,
     get_engine_params_by_name_with_virtual_env,
+    resolve_download_hub,
 )
 from ..types import PeftModelConfig
 from .exceptions import ModelNotReadyError
@@ -2229,6 +2230,15 @@ class SupervisorActor(xo.StatelessActor):
             # ignore n_worker > 1 if local deployment
             logger.warning("Local deployment, ignore n_worker(%s)", n_worker)
             n_worker = 1
+
+        # Resolve once in the supervisor before replicas or shards fan out to
+        # workers.  Resolving "auto" independently in every worker can select
+        # different model specs for a single distributed launch when their
+        # connectivity differs or changes transiently.
+        download_hub = typing.cast(
+            Optional[Literal["huggingface", "modelscope", "csghub"]],
+            resolve_download_hub(download_hub, model_path),
+        )
 
         if replica_config is not None:
             # replica_config pins each replica to a single worker, so it is

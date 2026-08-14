@@ -31,12 +31,14 @@ class DummyWorkerRef:
         self.address = address
         self._model_count = model_count
         self._launched = launched
+        self.launch_kwargs: list[dict] = []
 
     async def get_model_count(self) -> int:
         return self._model_count
 
     async def launch_builtin_model(self, *args, **kwargs):
         self._launched.append(self.address)
+        self.launch_kwargs.append(kwargs)
         if kwargs.get("shard") == 0:
             return "subpool", {"driver": "info"}
         return "subpool"
@@ -83,6 +85,7 @@ class DummySupervisor:
         self._launch_builtin_sharded_model = (
             SupervisorActor._launch_builtin_sharded_model.__get__(self)
         )
+        self.launch_builtin_model = SupervisorActor.launch_builtin_model.__get__(self)
         self._get_worker_host = SupervisorActor._get_worker_host
         self._get_worker_refs_by_ip = SupervisorActor._get_worker_refs_by_ip.__get__(
             self
@@ -99,6 +102,9 @@ class DummySupervisor:
         self._list_models_result_cache = {}
         self._list_models_result_cache_time = 0.0
         self._list_models_cache_version += 1
+
+    def is_local_deployment(self) -> bool:
+        return False
 
     async def terminate_model(self, model_uid: str, suppress_exception: bool = False):
         return None
@@ -351,6 +357,45 @@ async def test_distributed_launch_avoids_same_worker_for_shards():
 
     assert set(launched) == {"w1:1000", "w2:1000"}
     assert len(launched) == 2
+
+
+@pytest.mark.asyncio
+async def test_auto_download_hub_resolved_once_before_worker_fanout(monkeypatch):
+    resolve_calls = []
+
+    def _resolve_download_hub(download_hub, model_path):
+        resolve_calls.append((download_hub, model_path))
+        return "huggingface"
+
+    monkeypatch.setattr(
+        "xinference.core.supervisor.resolve_download_hub", _resolve_download_hub
+    )
+    launched = []
+    worker1 = DummyWorkerRef("w1:1000", model_count=1, launched=launched)
+    worker2 = DummyWorkerRef("w2:1000", model_count=0, launched=launched)
+    supervisor = DummySupervisor({"w1:1000": worker1, "w2:1000": worker2})
+
+    await supervisor.launch_builtin_model(
+        model_uid="demo-model",
+        model_name="demo",
+        model_size_in_billions=None,
+        model_format=None,
+        quantization=None,
+        model_engine=None,
+        model_type="LLM",
+        n_gpu=1,
+        n_worker=2,
+        worker_ip=["w1:1000", "w2:1000"],
+        download_hub="auto",
+        wait_ready=True,
+    )
+
+    assert resolve_calls == [("auto", None)]
+    assert [
+        call["download_hub"]
+        for worker in (worker1, worker2)
+        for call in worker.launch_kwargs
+    ] == ["huggingface", "huggingface"]
 
 
 @pytest.mark.asyncio
