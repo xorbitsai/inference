@@ -698,23 +698,25 @@ class AsyncRESTfulVideoModelHandle(AsyncRESTfulModelHandle):
             "kwargs": json.dumps(kwargs),
         }
         params = _filter_params(params)
-        files: List[Any] = []
+        data = aiohttp.FormData()
         for key, value in params.items():
-            files.append((key, (None, value)))
-        files.append(("image", ("image", image, "application/octet-stream")))
+            data.add_field(key, str(value))
+        data.add_field(
+            "image", image, filename="image", content_type="application/octet-stream"
+        )
         if video is not None:
             if isinstance(video, str):
                 with open(video, "rb") as f:
                     video_data = f.read()
             else:
                 video_data = video
-            files.append(
-                (
-                    "video",
-                    ("video", video_data, "application/octet-stream"),
-                )
+            data.add_field(
+                "video",
+                video_data,
+                filename="video",
+                content_type="application/octet-stream",
             )
-        response = await self.session.post(url, data=files, headers=self.auth_headers)
+        response = await self.session.post(url, data=data, headers=self.auth_headers)
         if response.status != 200:
             raise RuntimeError(
                 f"Failed to create the video from image, detail: {await _get_error_string(response)}"
