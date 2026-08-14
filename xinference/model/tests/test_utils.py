@@ -13,11 +13,14 @@
 # limitations under the License.
 
 import asyncio
+import io
 import shutil
 import sys
 import threading
+from contextvars import copy_context
 
 import pytest
+import tqdm as tqdm_module
 from tqdm.auto import tqdm
 
 from ...utils import get_real_path
@@ -101,6 +104,66 @@ def test_download_progress_details_include_completed_files():
         bar.close()
 
 
+async def test_concurrent_download_progress_details_are_isolated():
+    """Each launch must only expose tqdm bars from its own task context."""
+    d1 = CancellableDownloader(cancel_error_cls=RuntimeError)
+    d2 = CancellableDownloader(cancel_error_cls=RuntimeError)
+    barrier = threading.Barrier(2)
+
+    async def collect_details(downloader, name):
+        with downloader:
+
+            def update_and_snapshot():
+                bar = tqdm(total=100, unit="B", desc=name, file=io.StringIO())
+                try:
+                    bar.update(25)
+                    barrier.wait(timeout=10)
+                    return downloader.get_download_progress_details()
+                finally:
+                    bar.close()
+
+            return await asyncio.to_thread(update_and_snapshot)
+
+    details1, details2 = await asyncio.gather(
+        collect_details(d1, "model-a.bin"),
+        collect_details(d2, "model-b.bin"),
+    )
+
+    assert [item["name"] for item in details1] == ["model-a.bin"]
+    assert [item["name"] for item in details2] == ["model-b.bin"]
+
+
+def test_tqdm_owner_is_stable_across_threads():
+    """A bar created for one downloader keeps that owner in a raw thread."""
+    d1 = CancellableDownloader(cancel_error_cls=RuntimeError)
+    d2 = CancellableDownloader(cancel_error_cls=RuntimeError)
+
+    with d1:
+        bar = tqdm(total=100, unit="B", desc="model-a.bin", file=io.StringIO())
+        try:
+            with d2:
+                errors = []
+
+                def update():
+                    try:
+                        bar.update(25)
+                    except BaseException as error:
+                        errors.append(error)
+
+                thread = threading.Thread(target=update)
+                thread.start()
+                thread.join(timeout=10)
+
+                assert not thread.is_alive()
+                assert not errors
+                assert [
+                    item["name"] for item in d1.get_download_progress_details()
+                ] == ["model-a.bin"]
+                assert d2.get_download_progress_details() == []
+        finally:
+            bar.close()
+
+
 def test_concurrent_progress_no_set_mutation():
     """Two concurrent downloaders race the progress sets: one thread creates
     new download bars and calls .update() (so patched_update grows
@@ -147,7 +210,11 @@ def test_concurrent_progress_no_set_mutation():
                         errors.append(("poller", e))
                         return
 
-            tu = threading.Thread(target=updater)
+            # Propagate the logical downloader context into the raw thread so
+            # this test still exercises concurrent set growth after tqdm bars
+            # became owner-scoped.
+            updater_context = copy_context()
+            tu = threading.Thread(target=updater_context.run, args=(updater,))
             tp = threading.Thread(target=poller)
             tu.start()
             tp.start()
@@ -173,8 +240,10 @@ def test_class_level_bookkeeping_no_per_instance_shadow():
     CancellableDownloader._active_instances = 0
     CancellableDownloader._original_update = None
     CancellableDownloader._original_update_plain = None
+    CancellableDownloader._original_init_plain = None
     CancellableDownloader._active_registry.clear()
     original_update = tqdm.update
+    original_init_plain = tqdm_module.tqdm.__dict__["__init__"]
 
     d1 = CancellableDownloader(cancel_error_cls=RuntimeError)
     d2 = CancellableDownloader(cancel_error_cls=RuntimeError)
@@ -188,9 +257,11 @@ def test_class_level_bookkeeping_no_per_instance_shadow():
         # Originals stored on the class, no per-instance shadow.
         assert CancellableDownloader._original_update is original_update
         assert CancellableDownloader._original_update_plain is not None
+        assert CancellableDownloader._original_init_plain[0] is original_init_plain
         for d in (d1, d2):
             assert "_original_update" not in vars(d)
             assert "_original_update_plain" not in vars(d)
+            assert "_original_init_plain" not in vars(d)
         # tqdm stays patched while any instance is active.
         assert tqdm.update is not original_update
 
@@ -208,6 +279,7 @@ def test_class_level_bookkeeping_no_per_instance_shadow():
     # last instance out -> counter 0 and tqdm restored
     assert CancellableDownloader._active_instances == 0
     assert tqdm.update is original_update
+    assert tqdm_module.tqdm.__dict__["__init__"] is original_init_plain
 
 
 def test_reset_holds_lock_against_progress_poller():
@@ -219,6 +291,7 @@ def test_reset_holds_lock_against_progress_poller():
     CancellableDownloader._active_instances = 0
     CancellableDownloader._original_update = None
     CancellableDownloader._original_update_plain = None
+    CancellableDownloader._original_init_plain = None
     CancellableDownloader._active_registry.clear()
     d = CancellableDownloader(cancel_error_cls=RuntimeError)
     with d:
@@ -263,8 +336,8 @@ def test_reset_holds_lock_against_progress_poller():
     assert not errors, f"reset/get_progress race raised: {errors}"
 
 
-def test_active_registry_snapshot_holds_global_lock():
-    """The tqdm hook must snapshot the registry under its mutation lock."""
+def test_active_registry_fallback_holds_global_lock():
+    """The no-context, single-downloader fallback must hold the registry lock."""
 
     class LockCheckingSet(set):
         def __iter__(self):
@@ -275,14 +348,28 @@ def test_active_registry_snapshot_holds_global_lock():
     CancellableDownloader._active_instances = 0
     CancellableDownloader._original_update = None
     CancellableDownloader._original_update_plain = None
+    CancellableDownloader._original_init_plain = None
     CancellableDownloader._active_registry = LockCheckingSet()
 
     downloader = CancellableDownloader(cancel_error_cls=RuntimeError)
     try:
         with downloader:
-            bar = tqdm(total=1, disable=True)
-            bar.update(1)
-            bar.close()
+            errors = []
+
+            def update():
+                try:
+                    bar = tqdm(total=1, disable=True)
+                    bar.update(1)
+                    bar.close()
+                except BaseException as error:
+                    errors.append(error)
+
+            thread = threading.Thread(target=update)
+            thread.start()
+            thread.join(timeout=10)
+
+            assert not thread.is_alive()
+            assert not errors
     finally:
         CancellableDownloader._active_registry = original_registry
 

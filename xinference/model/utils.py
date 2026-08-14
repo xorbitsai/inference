@@ -894,13 +894,20 @@ def set_all_random_seed(seed: int):
     torch.cuda.manual_seed_all(seed)
 
 
+_cancellable_downloaders_var: ContextVar[Tuple["CancellableDownloader", ...]] = (
+    ContextVar("cancellable_downloaders", default=())
+)
+
+
 class CancellableDownloader:
     _global_lock = threading.Lock()
     _active_instances = 0
     _active_registry: Set["CancellableDownloader"] = set()
     _original_update = None  # Class-level original update method (tqdm.auto.tqdm)
     _original_update_plain = None  # Class-level original update method (tqdm.tqdm)
+    _original_init_plain = None  # Class-level original __init__ descriptor
     _patch_lock = threading.Lock()  # Additional lock for patching operations
+    _tqdm_owner_attr = "_xinference_downloader"
 
     def __init__(
         self,
@@ -923,6 +930,35 @@ class CancellableDownloader:
         self._download_progresses: Set[tqdm] = set()
         # Instance-specific tqdm tracking
         self._patched_instances: Set[int] = set()
+
+    @classmethod
+    def _get_tqdm_owner(cls, tqdm_instance: Any) -> Optional["CancellableDownloader"]:
+        owner = getattr(tqdm_instance, cls._tqdm_owner_attr, None)
+        if owner is not None:
+            return owner
+
+        downloaders = _cancellable_downloaders_var.get()
+        if downloaders:
+            owner = downloaders[-1]
+        else:
+            # Some download libraries create their own worker threads without
+            # propagating contextvars. A single active downloader is still an
+            # unambiguous owner; with concurrent downloaders, never guess.
+            with cls._global_lock:
+                if len(cls._active_registry) == 1:
+                    owner = next(iter(cls._active_registry))
+
+        if owner is not None:
+            setattr(tqdm_instance, cls._tqdm_owner_attr, owner)
+        return owner
+
+    def _remove_from_context(self) -> None:
+        downloaders = list(_cancellable_downloaders_var.get())
+        for index in range(len(downloaders) - 1, -1, -1):
+            if downloaders[index] is self:
+                del downloaders[index]
+                _cancellable_downloaders_var.set(tuple(downloaders))
+                break
 
     def reset(self):
         # Hold _progress_lock around both clears so a concurrent get_progress()
@@ -1078,27 +1114,41 @@ class CancellableDownloader:
                 cls._original_update = tqdm.update
             if cls._original_update_plain is None:
                 cls._original_update_plain = tqdm_module.tqdm.update
+            if cls._original_init_plain is None:
+                # Keep the descriptor inside a tuple so accessing it through
+                # this class does not invoke its own __get__ implementation.
+                cls._original_init_plain = (tqdm_module.tqdm.__dict__["__init__"],)
 
-            if cls._original_update is None or cls._original_update_plain is None:
+            if (
+                cls._original_update is None
+                or cls._original_update_plain is None
+                or cls._original_init_plain is None
+            ):
                 return
 
             original_update_plain = cls._original_update_plain
+            original_init_plain = cls._original_init_plain[0].__get__(
+                None, tqdm_module.tqdm
+            )
+
+            def patched_init(tqdm_instance, *args, **kwargs):
+                # Bind ownership when the bar is created so later updates from
+                # library worker threads remain scoped to the same downloader.
+                CancellableDownloader._get_tqdm_owner(tqdm_instance)
+                return original_init_plain(tqdm_instance, *args, **kwargs)
 
             # Thread-safe patched update
             def patched_update(tqdm_instance, n):
-                # Iterate the bounded active-instance registry instead of
-                # gc.get_objects(): the whole-heap traversal stalled the GIL
-                # on every progress tick and scanned O(heap) objects.
-                with CancellableDownloader._global_lock:
-                    downloaders = list(CancellableDownloader._active_registry)
-
-                for downloader in downloaders:
+                downloader = CancellableDownloader._get_tqdm_owner(tqdm_instance)
+                if downloader is not None:
                     # if download cancelled, throw error
                     if getattr(downloader, "cancelled", False):
                         downloader.raise_error()
 
                     progresses = None
-                    if not getattr(tqdm_instance, "disable", False):
+                    if not downloader.done and not getattr(
+                        tqdm_instance, "disable", False
+                    ):
                         unit = getattr(tqdm_instance, "unit", "it")
                         if unit == "it":
                             progresses = getattr(downloader, "_main_progresses", None)
@@ -1112,12 +1162,11 @@ class CancellableDownloader:
                         # caller may be iterating this very set.
                         with downloader._progress_lock:
                             progresses.add(tqdm_instance)
-                    else:
-                        logger.debug(f"No progresses found for downloader {downloader}")
 
                 # Call original update with safety check
                 return original_update_plain(tqdm_instance, n)
 
+            tqdm_module.tqdm.__init__ = patched_init
             tqdm.update = patched_update
             tqdm_module.tqdm.update = patched_update
 
@@ -1132,6 +1181,9 @@ class CancellableDownloader:
                 if cls._original_update_plain is not None:
                     tqdm_module.tqdm.update = cls._original_update_plain
                     cls._original_update_plain = None
+                if cls._original_init_plain is not None:
+                    tqdm_module.tqdm.__init__ = cls._original_init_plain[0]
+                    cls._original_init_plain = None
 
     def __enter__(self):
         # Use global lock to prevent concurrent patching. _active_instances is
@@ -1143,16 +1195,20 @@ class CancellableDownloader:
                 self.patch_tqdm()
             cls._active_instances += 1
             cls._active_registry.add(self)
+        _cancellable_downloaders_var.set(_cancellable_downloaders_var.get() + (self,))
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        # Use global lock to prevent concurrent unpatching
-        with self._global_lock:
-            cls = type(self)
-            cls._active_instances -= 1
-            cls._active_registry.discard(self)
-            if cls._active_instances == 0:
-                self.unpatch_tqdm()
+        try:
+            # Use global lock to prevent concurrent unpatching
+            with self._global_lock:
+                cls = type(self)
+                cls._active_instances -= 1
+                cls._active_registry.discard(self)
+                if cls._active_instances == 0:
+                    self.unpatch_tqdm()
+        finally:
+            self._remove_from_context()
         try:
             self._done_event.set()
             self.reset()
