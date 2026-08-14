@@ -418,5 +418,97 @@
     },
     "updated_at": 1766385310,
     "featured": false
+  },
+  {
+    "version": 2,
+    "model_name": "Wan2.2-Animate-2-14B",
+    "model_family": "WanAnimate2",
+    "model_ability": [
+      "image2video"
+    ],
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+      "width": 640,
+      "height": 800,
+      "fps": 24,
+      "num_inference_steps": 40,
+      "guidance_scale": 3.0,
+      "flow_solver": "dpm"
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers @ git+https://github.com/huggingface/diffusers.git@refs/pull/14412/head",
+        "transformers>=4.57.6",
+        "accelerate>=1.13.0",
+        "flash-attn",
+        "decord==0.6.0",
+        "opencv-python",
+        "ftfy",
+        "imageio-ffmpeg",
+        "imageio",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "Wan-AI/Wan2.2-Animate-2-14B-Diffusers",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Wan-AI/Wan2.2-Animate-2-14B-Diffusers",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1786492826,
+    "featured": false
+  },
+  {
+    "version": 2,
+    "model_name": "Wan2.2-Animate-2-14B-Distilled",
+    "model_family": "WanAnimate2",
+    "model_ability": [
+      "image2video"
+    ],
+    "default_model_config": {
+      "torch_dtype": "bfloat16"
+    },
+    "default_generate_config": {
+      "width": 640,
+      "height": 800,
+      "fps": 24,
+      "num_inference_steps": 10,
+      "guidance_scale": 1.0,
+      "flow_solver": "euler"
+    },
+    "virtualenv": {
+      "packages": [
+        "diffusers @ git+https://github.com/huggingface/diffusers.git@refs/pull/14412/head",
+        "transformers>=4.57.6",
+        "accelerate>=1.13.0",
+        "flash-attn",
+        "decord==0.6.0",
+        "opencv-python",
+        "ftfy",
+        "imageio-ffmpeg",
+        "imageio",
+        "#system_numpy#"
+      ],
+      "no_build_isolation": true
+    },
+    "model_src": {
+      "huggingface": {
+        "model_id": "Wan-AI/Wan2.2-Animate-2-14B-Distilled-Diffusers",
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "Wan-AI/Wan2.2-Animate-2-14B-Distilled-Diffusers",
+        "model_revision": "master"
+      }
+    },
+    "updated_at": 1786492826,
+    "featured": false
   }
 ]

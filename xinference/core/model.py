@@ -1280,7 +1280,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         )
 
     @request_limit
-    @log_async(logger=logger)
+    @log_async(logger=logger, ignore_kwargs=["video"])
     async def image_to_video(
         self,
         image: "PIL.Image",
