@@ -40,6 +40,7 @@ Supported models
 
 The text-to-video API is supported with the following models in Xinference:
 
+* :ref:`MiniMax-H3 <models_builtin_minimax-h3>`
 * :ref:`CogVideoX-2b <models_builtin_cogvideox-2b>`
 * :ref:`CogVideoX-5b <models_builtin_cogvideox-5b>`
 * :ref:`HunyuanVideo <models_builtin_hunyuanvideo>`
@@ -48,11 +49,13 @@ The text-to-video API is supported with the following models in Xinference:
 
 The image-to-video API is supported with the following models in Xinference:
 
+* :ref:`MiniMax-H3 <models_builtin_minimax-h3>`
 * :ref:`Wan2.1-i2v-14B-480p <models_builtin_wan2.1-i2v-14b-480p>`
 * :ref:`Wan2.1-i2v-14B-720p <models_builtin_wan2.1-i2v-14b-720p>`
 
 The firstlastframe-to-video API is supported with the following models in Xinference:
 
+* :ref:`MiniMax-H3 <models_builtin_minimax-h3>`
 * :ref:`Wan2.1-flf2v-14B-720p <models_builtin_wan2.1-flf2v-14b-720p>`
 
 Quickstart
@@ -153,6 +156,7 @@ Xinference supports several options to optimize video model memory (VRAM) usage.
 
 * CPU offloading or block level group offloading.
 * Layerwise casting.
+* Weight quantization.
 
 .. note::
 
@@ -195,6 +199,33 @@ add an additional option ``use_stream`` with the value set to ``True``.
 
     xinference launch --model-name Wan2.1-i2v-14B-480p --model-type video --group_offload True --use_stream True
 
+Weight quantization
+-------------------
+
+Some video models support weight-only quantization through the
+``--quantization`` option. Quantization lowers both GPU and host memory usage,
+with a possible quality and performance trade-off.
+
+MiniMax-H3 supports the following values for ``quantization``:
+
+* ``int4``: the default. Most large linear weights use TorchAO INT4, while a few
+  BF16 blocks remain on the CPU during loading. Together with block-level group
+  offloading, this allows the model to load on a 24GB consumer GPU without
+  additional launch options. CUDA streams are disabled on this path to avoid an
+  extra pinned host-memory copy.
+* ``int8``: use TorchAO INT8 weight-only quantization for higher weight precision.
+  This requires at least 75GB of available host RAM.
+* ``none`` or ``bf16``: disable weight quantization. With the default
+  ``torch_dtype``, weights are loaded in BF16 and require substantially more GPU
+  and host memory.
+* ``torchao``: a compatibility alias for ``int8``. Use ``int8`` in new launch
+  configurations.
+
+For example, select INT8 with::
+
+    xinference launch --model-name MiniMax-H3 --model-type video \
+        --quantization int8
+
 Applying Layerwise Casting to the Transformer
 ------------------------------------------------
 
@@ -210,4 +241,3 @@ This example will require 20GB of VRAM.
 .. code-block:: bash
 
     xinference launch --model-name Wan2.1-i2v-14B-480p --model-type video --layerwise_cast True --cpu_offload True
-
