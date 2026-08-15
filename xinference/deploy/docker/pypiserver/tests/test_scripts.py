@@ -19,6 +19,8 @@ import sys
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
+from packaging.requirements import Requirement
+
 SCRIPT_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = SCRIPT_DIR.parents[3]
 
@@ -54,6 +56,16 @@ def test_generate_package_list_classification():
     assert generator.classify_spec("pkg @ git+https://github.com/org/repo") == "git"
     assert generator.system_placeholder_name("#system_torch#") == "torch"
     assert generator.system_placeholder_name("#system_numpy# ; marker") == "numpy"
+    assert (
+        generator.normalize_mirror_spec("deepdoc-lib[gpu]~=0.2.2 ; has_cuda")
+        == "deepdoc-lib[gpu]~=0.2.2"
+    )
+    assert (
+        generator.normalize_mirror_spec("deepdoc-lib~=0.2.2 ; not has_cuda")
+        == "deepdoc-lib~=0.2.2"
+    )
+    standard_marker = 'decord2==3.4.0 ; platform_machine == "aarch64"'
+    assert generator.normalize_mirror_spec(standard_marker) == standard_marker
 
 
 def test_load_xinference_modules_restores_sys_modules():
@@ -303,6 +315,15 @@ def test_transformers_optional_dependencies_are_scoped_and_mirrored(
         assert package not in mirrored
 
     pin_entries = json.loads((out / "pins.json").read_text())
+    pin_specs = {item["spec"] for item in pin_entries}
+    assert "deepdoc-lib[gpu]~=0.2.2" in pin_specs
+    assert "deepdoc-lib~=0.2.2" in pin_specs
+    assert all("has_cuda" not in spec for spec in pin_specs)
+    assert 'decord==0.6.0 ; platform_machine == "x86_64"' in pin_specs
+    assert 'decord2==3.4.0 ; platform_machine == "aarch64"' in pin_specs
+    for spec in pin_specs:
+        Requirement(spec)
+
     model_pins = {item["spec"].split(";", 1)[0].strip().lower() for item in pin_entries}
     for package in (
         "qwen-vl-utils!=0.0.9",

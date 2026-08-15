@@ -13,9 +13,25 @@
 # limitations under the License.
 import inspect
 import os
+import sys
 import tempfile
+from types import SimpleNamespace
 
 import pandas as pd
+
+
+def test_voice_seed_hashes_utf8_bytes(monkeypatch):
+    from ..chattts import _voice_seed
+
+    inputs = []
+    fake_xxhash = SimpleNamespace(
+        xxh32_intdigest=lambda value: inputs.append(value) or 42
+    )
+    monkeypatch.setitem(sys.modules, "xxhash", fake_xxhash)
+
+    assert _voice_seed("") == 42
+    assert _voice_seed("测试音色") == 42
+    assert inputs == [b"", "测试音色".encode("utf-8")]
 
 
 def test_chattts(setup):
