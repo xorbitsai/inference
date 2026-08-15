@@ -173,7 +173,9 @@ function BlobMediaPreview({
   useEffect(() => {
     const expectedMimeType = mediaMimeType(type);
     const mediaBlob =
-      blob.type === expectedMimeType ? blob : new Blob([blob], { type: expectedMimeType });
+      blob.type && blob.type !== 'application/octet-stream'
+        ? blob
+        : new Blob([blob], { type: expectedMimeType });
     const objectUrl = URL.createObjectURL(mediaBlob);
 
     setUrl(objectUrl);
