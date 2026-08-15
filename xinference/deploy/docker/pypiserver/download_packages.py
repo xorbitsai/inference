@@ -35,20 +35,27 @@ Writes ``report.json`` with size/version statistics next to the manifest.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
 import sys
 from collections import defaultdict
+from http.client import HTTPException
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
+from urllib.parse import urljoin
+from urllib.request import Request, urlopen
 
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.utils import (
+    InvalidSdistFilename,
     InvalidWheelFilename,
     canonicalize_name,
+    parse_sdist_filename,
     parse_wheel_filename,
 )
+from packaging.version import InvalidVersion, Version
 
 TORCH_FAMILY = ("torch", "torchvision", "torchaudio", "torchcodec")
 
@@ -199,6 +206,110 @@ def pip_download(
     return run(cmd + args, env=env)
 
 
+def download_sdist_without_metadata(
+    spec: str,
+    dest: Path,
+    *,
+    index_url: str,
+    python_version: str,
+) -> Optional[Path]:
+    """Fetch the newest compatible sdist without invoking its build backend.
+
+    ``pip download`` prepares package metadata even when the requested artifact
+    is an sdist. Some valid source distributions import runtime-only packages
+    from ``setup.py`` while doing that (``flash-attn`` imports torch), which
+    makes mirroring fail before pip can save the archive. The Simple API already
+    exposes filenames, Python requirements and hashes, so use it as a last
+    resort after normal constrained and unconstrained pip downloads fail.
+
+    Only sdists from a PEP 691 JSON response are accepted, and their SHA-256
+    digest is verified before the archive is added to the mirror.
+    """
+
+    try:
+        requirement = Requirement(spec)
+        target_python = Version(python_version)
+    except (InvalidRequirement, InvalidVersion):
+        return None
+    if requirement.url is not None:
+        return None
+
+    project = canonicalize_name(requirement.name)
+    project_url = f"{index_url.rstrip('/')}/{project}/"
+    request = Request(
+        project_url,
+        headers={"Accept": "application/vnd.pypi.simple.v1+json"},
+    )
+    try:
+        with urlopen(request, timeout=30) as response:
+            payload = json.load(response)
+        if not isinstance(payload, dict) or not isinstance(payload.get("files"), list):
+            return None
+    except (HTTPException, OSError, ValueError):
+        return None
+
+    candidates: Dict[Version, List[Dict[str, object]]] = defaultdict(list)
+    for file_info in payload.get("files", []):
+        if not isinstance(file_info, dict) or file_info.get("yanked"):
+            continue
+        filename = file_info.get("filename")
+        if not isinstance(filename, str) or Path(filename).name != filename:
+            continue
+        try:
+            name, version = parse_sdist_filename(filename)
+        except InvalidSdistFilename:
+            continue
+        if canonicalize_name(name) != project:
+            continue
+        requires_python = file_info.get("requires-python")
+        if isinstance(requires_python, str):
+            try:
+                if not Requirement(f"python{requires_python}").specifier.contains(
+                    target_python, prereleases=True
+                ):
+                    continue
+            except InvalidRequirement:
+                continue
+        hashes = file_info.get("hashes")
+        if not isinstance(hashes, dict) or not isinstance(hashes.get("sha256"), str):
+            continue
+        if not isinstance(file_info.get("url"), str):
+            continue
+        candidates[version].append(file_info)
+
+    allowed_versions = list(requirement.specifier.filter(candidates))
+    if not allowed_versions:
+        return None
+    selected_version = max(allowed_versions)
+    selected = sorted(
+        candidates[selected_version], key=lambda item: str(item["filename"])
+    )[0]
+    filename = str(selected["filename"])
+    expected_sha256 = str(selected["hashes"]["sha256"]).lower()  # type: ignore[index]
+    artifact_url = urljoin(project_url, str(selected["url"]))
+    target = dest / filename
+    partial = dest / (filename + ".part")
+    digest = hashlib.sha256()
+    try:
+        with urlopen(artifact_url, timeout=60) as response, partial.open("wb") as f:
+            while chunk := response.read(1024 * 1024):
+                digest.update(chunk)
+                f.write(chunk)
+        if digest.hexdigest() != expected_sha256:
+            partial.unlink(missing_ok=True)
+            return None
+        partial.replace(target)
+    except (HTTPException, OSError):
+        partial.unlink(missing_ok=True)
+        return None
+    print(
+        f"WARN: downloaded sdist '{filename}' directly from the Simple API "
+        "because its metadata build failed",
+        flush=True,
+    )
+    return target
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest-dir", type=Path, required=True)
@@ -240,6 +351,7 @@ def main() -> None:
     # (manylinux_2_17) would hide e.g. recent sglang releases.
     python_platform = f"{machine}-manylinux_2_34"
     unconstrained_fallbacks: List[str] = []
+    raw_sdist_fallbacks: List[str] = []
     sdist_left: List[str] = []
 
     # ------------------------------------------------------------------
@@ -372,7 +484,15 @@ def main() -> None:
                 env=package_build_env,
             )
             if proc.returncode != 0:
-                sys.exit(f"FATAL: pin '{spec}' cannot be downloaded")
+                sdist = download_sdist_without_metadata(
+                    spec,
+                    dest,
+                    index_url=args.index_url,
+                    python_version=args.python_version,
+                )
+                if sdist is None:
+                    sys.exit(f"FATAL: pin '{spec}' cannot be downloaded")
+                raw_sdist_fallbacks.append(spec)
             unconstrained_fallbacks.append(spec)
 
     # ------------------------------------------------------------------
@@ -499,6 +619,7 @@ def main() -> None:
     report: Dict[str, object] = {
         "runtime_constraints": list(runtime_pins.values()),
         "unconstrained_fallbacks": unconstrained_fallbacks,
+        "raw_sdist_fallbacks": raw_sdist_fallbacks,
         "sdist_left": sdist_left,
         "file_count": len(files),
         "total_size_bytes": total_size,

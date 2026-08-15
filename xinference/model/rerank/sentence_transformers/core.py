@@ -94,7 +94,37 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
             )
             return
 
-        if (
+        if self.model_family.model_name.lower() == "jina-reranker-m0":
+            try:
+                from transformers import AutoModel
+            except ImportError:
+                error_message = "Failed to import module 'transformers'"
+                installation_guide = [
+                    "Please make sure 'transformers>=4.47.3' is installed. ",
+                    "You can install it by `pip install 'transformers>=4.47.3'`\n",
+                ]
+                raise ImportError(f"{error_message}\n\n{''.join(installation_guide)}")
+
+            if not allow_trust_remote_code(self.model_family):
+                raise ValueError(
+                    "Loading this model executes code shipped in the model "
+                    "repository; set XINFERENCE_TRUST_REMOTE_CODE=1 to allow it."
+                )
+
+            model_kwargs: Dict[str, Any] = {
+                "device_map": self._device or "auto",
+                "torch_dtype": torch.float16 if self._use_fp16 else "auto",
+            }
+            if enable_flash_attn:
+                model_kwargs["attn_implementation"] = "flash_attention_2"
+            model_kwargs.update(self._kwargs)
+            logger.debug("Loading jina-reranker-m0 with kwargs %s", model_kwargs)
+            self._model = AutoModel.from_pretrained(
+                self._model_path,
+                trust_remote_code=True,
+                **model_kwargs,
+            ).eval()
+        elif (
             self.model_family.type == "normal"
             and "qwen3" not in self.model_family.model_name.lower()
             and "jina-reranker-v3" not in self.model_family.model_name.lower()
@@ -368,7 +398,29 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
         self._token_tracking_data.input_tokens = []
         self._token_tracking_data.input_ids = []
 
-        if (
+        similarity_scores: Any
+        if self.model_family.model_name.lower() == "jina-reranker-m0":
+            if not sentence_combinations:
+                similarity_scores = []
+            else:
+                score_kwargs = dict(kwargs)
+                # The instruction, when supplied, has already been prepended by
+                # preprocess_sentence() while building sentence_combinations.
+                score_kwargs.pop("instruction", None)
+                score_kwargs.setdefault("max_length", self.model_family.max_tokens)
+                similarity_scores = self._model.compute_score(
+                    sentence_combinations, **score_kwargs
+                )
+
+                if not isinstance(similarity_scores, Sequence):
+                    similarity_scores = [similarity_scores]
+                elif (
+                    isinstance(similarity_scores, list)
+                    and len(similarity_scores) > 0
+                    and isinstance(similarity_scores[0], Sequence)
+                ):
+                    similarity_scores = similarity_scores[0]
+        elif (
             self.model_family.type == "normal"
             and "qwen3" not in self.model_family.model_name.lower()
             and "jina-reranker-v3" not in self.model_family.model_name.lower()
@@ -820,6 +872,18 @@ class SentenceTransformerRerankModel(RerankModel, BatchMixin):
         quantization: str,
     ) -> Union[bool, Tuple[bool, str]]:
         from ....constants import XINFERENCE_ENABLE_VIRTUAL_ENV
+
+        if model_family.model_name.lower() == "jina-reranker-m0":
+            if not XINFERENCE_ENABLE_VIRTUAL_ENV:
+                dep_check = check_dependency_available("transformers", "transformers")
+                if dep_check != True:
+                    return dep_check
+                dep_check = check_dependency_available("PIL", "Pillow")
+                if dep_check != True:
+                    return dep_check
+            if model_spec.model_format not in ["pytorch"]:
+                return False, "jina-reranker-m0 supports pytorch format only"
+            return True
 
         if model_family.model_name.startswith("Qwen3-VL-Reranker"):
             if not XINFERENCE_ENABLE_VIRTUAL_ENV:
