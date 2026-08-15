@@ -36,7 +36,7 @@ import {
   EMPTY_INDEX_TTS_EMOTION_VECTOR,
   isIndexTTSEmotionModel,
   parseIndexTTSEmotionVector,
-} from './emotion-vector-utils.mjs';
+} from './emotion-vector-utils';
 import type { CapabilityConfig, TransformContext } from './types';
 import {
   appendIfPresent,

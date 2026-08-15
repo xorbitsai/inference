@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,7 @@ import {
   INDEX_TTS_EMOTION_MAX_TOTAL,
   isIndexTTSEmotionModel,
   parseIndexTTSEmotionVector,
-} from '../emotion-vector-utils.mjs';
+} from '../emotion-vector-utils';
 import type { CapabilityFormProps } from '../types';
 
 const DOCUMENT_BACKEND_OPTIONS = ['pipeline', 'vlm-auto-engine', 'hybrid-auto-engine'].map(
@@ -391,10 +391,34 @@ function EmotionVectorInput({ value, onChange, disabled, error }: BaseFormFieldP
     const item = value?.[index];
     return typeof item === 'number' && Number.isFinite(item) ? item : 0;
   });
+  const [localValues, setLocalValues] = useState<string[]>(() =>
+    vector.map((item) => String(item))
+  );
+
+  useEffect(() => {
+    setLocalValues((previousValues) =>
+      INDEX_TTS_EMOTION_DIMENSIONS.map((_, index) => {
+        const item = value?.[index];
+        const nextValue = typeof item === 'number' && Number.isFinite(item) ? item : 0;
+        const previousValue = previousValues[index];
+
+        return previousValue !== undefined && Number(previousValue) === nextValue
+          ? previousValue
+          : String(nextValue);
+      })
+    );
+  }, [value]);
+
   const total = vector.reduce((sum, item) => sum + item, 0);
   const totalExceeded = parseIndexTTSEmotionVector(vector) === undefined;
 
   const updateDimension = (index: number, nextValue: number | string) => {
+    setLocalValues((previousValues) => {
+      const nextValues = [...previousValues];
+      nextValues[index] = String(nextValue);
+      return nextValues;
+    });
+
     const parsedValue = Number(nextValue);
     if (!Number.isFinite(parsedValue)) return;
 
@@ -402,6 +426,14 @@ function EmotionVectorInput({ value, onChange, disabled, error }: BaseFormFieldP
     nextVector[index] =
       Math.round(Math.min(INDEX_TTS_EMOTION_MAX_TOTAL, Math.max(0, parsedValue)) * 100) / 100;
     onChange?.(nextVector);
+  };
+
+  const normalizeDimension = (index: number) => {
+    setLocalValues((previousValues) => {
+      const nextValues = [...previousValues];
+      nextValues[index] = String(vector[index]);
+      return nextValues;
+    });
   };
 
   return (
@@ -431,8 +463,9 @@ function EmotionVectorInput({ value, onChange, disabled, error }: BaseFormFieldP
             min={0}
             max={INDEX_TTS_EMOTION_MAX_TOTAL}
             step={0.01}
-            value={vector[index]}
+            value={localValues[index] ?? ''}
             onChange={(event) => updateDimension(index, event.target.value)}
+            onBlur={() => normalizeDimension(index)}
           />
         </div>
       ))}
