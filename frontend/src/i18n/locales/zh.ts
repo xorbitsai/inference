@@ -209,6 +209,7 @@ const zh = {
     waitingDownloadDetails: '正在等待文件下载信息...',
     downloadFileName: '文件名',
     downloadProgress: '进度',
+    downloadSize: '已下载 / 文件大小',
     downloadStatus: '状态',
     downloadSpeed: '速度',
     downloadEta: '预计剩余时间',

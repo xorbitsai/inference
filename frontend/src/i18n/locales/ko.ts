@@ -212,6 +212,7 @@ const ko = {
     waitingDownloadDetails: '파일 다운로드 정보를 기다리는 중...',
     downloadFileName: '파일 이름',
     downloadProgress: '진행률',
+    downloadSize: '다운로드됨 / 파일 크기',
     downloadStatus: '상태',
     downloadSpeed: '속도',
     downloadEta: '예상 남은 시간',
