@@ -37,10 +37,10 @@ The following is a list of built-in audio models in Xinference:
   
    fun-asr-nano-2512
   
-   indextts-2.5
-  
    indextts2
   
+   indextts-2.5
+
    kokoro-82m
   
    kokoro-82m-mlx
@@ -136,4 +136,3 @@ The following is a list of built-in audio models in Xinference:
    whisper-tiny.en
   
    whisper-tiny.en-mlx
-  
