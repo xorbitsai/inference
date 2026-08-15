@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import hashlib
 import importlib.util
+import io
 import json
 import subprocess
 import sys
@@ -174,6 +176,65 @@ def test_pip_download_forwards_package_build_environment(monkeypatch, tmp_path):
     )
 
     assert calls[0][1]["env"] is build_env
+
+
+def test_download_sdist_without_metadata_uses_simple_api(monkeypatch, tmp_path):
+    downloader = _load_script("download_packages")
+    content = b"source distribution"
+    digest = hashlib.sha256(content).hexdigest()
+    simple_payload = json.dumps(
+        {
+            "files": [
+                {
+                    "filename": "flash_attn-2.8.3.tar.gz",
+                    "url": "../../files/flash_attn-2.8.3.tar.gz",
+                    "hashes": {"sha256": digest},
+                    "requires-python": ">=3.9",
+                    "yanked": False,
+                },
+                {
+                    "filename": "flash_attn-2.8.3.post1.tar.gz",
+                    "url": "../../files/flash_attn-2.8.3.post1.tar.gz",
+                    "hashes": {"sha256": digest},
+                    "requires-python": ">=3.9",
+                    "yanked": False,
+                },
+                {
+                    "filename": "flash_attn-2.9.0.tar.gz",
+                    "url": "../../files/flash_attn-2.9.0.tar.gz",
+                    "hashes": {"sha256": digest},
+                    "requires-python": ">=3.13",
+                    "yanked": False,
+                },
+            ]
+        }
+    ).encode()
+    urls = []
+
+    def fake_urlopen(request, timeout):
+        url = request.full_url if hasattr(request, "full_url") else request
+        urls.append((url, timeout))
+        if url.endswith("/simple/flash-attn/"):
+            assert "application/vnd.pypi.simple.v1+json" in request.headers["Accept"]
+            return io.BytesIO(simple_payload)
+        assert url.endswith("/files/flash_attn-2.8.3.post1.tar.gz")
+        return io.BytesIO(content)
+
+    monkeypatch.setattr(downloader, "urlopen", fake_urlopen)
+
+    result = downloader.download_sdist_without_metadata(
+        "flash-attn<2.9",
+        tmp_path,
+        index_url="https://example.invalid/simple",
+        python_version="3.12",
+    )
+
+    assert result == tmp_path / "flash_attn-2.8.3.post1.tar.gz"
+    assert result.read_bytes() == content
+    assert urls == [
+        ("https://example.invalid/simple/flash-attn/", 30),
+        ("https://example.invalid/files/flash_attn-2.8.3.post1.tar.gz", 60),
+    ]
 
 
 def test_runtime_constraints_require_exact_pins(tmp_path):
