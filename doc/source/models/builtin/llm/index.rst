@@ -566,7 +566,7 @@ The following is a list of built-in LLM in Xinference:
      - 32768
      - Ovis (Open VISion) is a novel Multimodal Large Language Model (MLLM) architecture, designed to structurally align visual and textual embeddings.
 
-   * - :ref:`OvisOCR2 <models_llm_ovisocr2>`
+   * - :ref:`ovisocr2 <models_llm_ovisocr2>`
      - chat, vision, reasoning, hybrid
      - 262144
      - OvisOCR2 is a compact 0.8B end-to-end model for page-level document parsing. It converts document page images into Markdown in natural reading order, including text, formulas, tables, and visual regions.
@@ -1072,7 +1072,7 @@ The following is a list of built-in LLM in Xinference:
    ovis2
   
    ovisocr2
-
+  
    phi-2
   
    phi-3-mini-128k-instruct
@@ -1183,3 +1183,4 @@ The following is a list of built-in LLM in Xinference:
   
    yi-chat
   
+
