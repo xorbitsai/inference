@@ -198,7 +198,9 @@ def test_video_rejects_unsupported_lightning_before_cache(monkeypatch):
             cache_called = True
             return "/tmp/lightning.safetensors"
 
-    monkeypatch.setattr(core_module, "match_diffusion", lambda *args: _model_spec())
+    monkeypatch.setattr(
+        core_module, "match_diffusion", lambda *args, **kwargs: _model_spec()
+    )
     monkeypatch.setattr(cache_manager_module, "VideoCacheManager", FakeCacheManager)
 
     with pytest.raises(ValueError, match="does not support lightning acceleration"):

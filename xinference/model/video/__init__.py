@@ -26,6 +26,8 @@ from .core import (
     generate_video_description,
     get_video_model_descriptions,
 )
+from .engine import register_builtin_video_engines
+from .engine_family import VIDEO_ENGINES, generate_engine_config_by_model_name
 
 
 def register_custom_model():
@@ -62,6 +64,12 @@ def _install():
     # Install models with intelligent merging based on timestamps
     from ..utils import install_models_with_merge
 
+    # Startup and tests may call the installer more than once in one process.
+    # Rebuild the derived registries to avoid duplicate model and engine specs.
+    BUILTIN_VIDEO_MODELS.clear()
+    VIDEO_MODEL_DESCRIPTIONS.clear()
+    VIDEO_ENGINES.clear()
+
     install_models_with_merge(
         BUILTIN_VIDEO_MODELS,
         "model_spec.json",
@@ -71,10 +79,23 @@ def _install():
         load_model_family_from_json,
     )
 
-    # register model description
+    # Register one cache/version entry per engine variant. Hugging Face is the
+    # preferred representative when the same variant has multiple hubs.
     for model_name, model_specs in BUILTIN_VIDEO_MODELS.items():
-        model_spec = [x for x in model_specs if x.model_hub == "huggingface"][0]
-        VIDEO_MODEL_DESCRIPTIONS.update(generate_video_description(model_spec))
+        variants = {}
+        for model_spec in model_specs:
+            version = model_spec.cache_name or model_spec.model_name
+            current = variants.get(version)
+            if current is None or model_spec.model_hub == "huggingface":
+                variants[version] = model_spec
+        VIDEO_MODEL_DESCRIPTIONS[model_name] = [
+            model_spec.to_version_info() for model_spec in variants.values()
+        ]
+
+    register_builtin_video_engines()
+    for model_specs in BUILTIN_VIDEO_MODELS.values():
+        for model_spec in model_specs:
+            generate_engine_config_by_model_name(model_spec)
 
     register_custom_model()
 

@@ -3,6 +3,8 @@
     "version": 2,
     "model_name": "CogVideoX-2b",
     "model_family": "CogVideoX",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "text2video"
     ],
@@ -15,7 +17,7 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers>=0.33.0",
+        "diffusers>=0.33.0 ; #engine# == \"diffusers\"",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
@@ -39,6 +41,8 @@
     "version": 2,
     "model_name": "CogVideoX-5b",
     "model_family": "CogVideoX",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "text2video"
     ],
@@ -51,7 +55,7 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers>=0.33.0",
+        "diffusers>=0.33.0 ; #engine# == \"diffusers\"",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
@@ -75,6 +79,8 @@
     "version": 2,
     "model_name": "HunyuanVideo",
     "model_family": "HunyuanVideo",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "text2video"
     ],
@@ -85,7 +91,7 @@
     "default_generate_config": {},
     "virtualenv": {
       "packages": [
-        "diffusers>=0.33.0",
+        "diffusers>=0.33.0 ; #engine# == \"diffusers\"",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
@@ -143,6 +149,8 @@
     "version": 2,
     "model_name": "Wan2.1-1.3B",
     "model_family": "Wan",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "text2video"
     ],
@@ -152,7 +160,7 @@
     "default_generate_config": {},
     "virtualenv": {
       "packages": [
-        "diffusers>=0.33.0",
+        "diffusers>=0.33.0 ; #engine# == \"diffusers\"",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
@@ -176,6 +184,8 @@
     "version": 2,
     "model_name": "Wan2.1-14B",
     "model_family": "Wan",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "text2video"
     ],
@@ -185,7 +195,7 @@
     "default_generate_config": {},
     "virtualenv": {
       "packages": [
-        "diffusers>=0.33.0",
+        "diffusers>=0.33.0 ; #engine# == \"diffusers\"",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
@@ -209,6 +219,8 @@
     "version": 2,
     "model_name": "Wan2.1-i2v-14B-480p",
     "model_family": "Wan",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "image2video"
     ],
@@ -223,7 +235,7 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers>=0.33.0",
+        "diffusers>=0.33.0 ; #engine# == \"diffusers\"",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
@@ -247,6 +259,8 @@
     "version": 2,
     "model_name": "Wan2.1-i2v-14B-720p",
     "model_family": "Wan",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "image2video"
     ],
@@ -261,7 +275,7 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers>=0.33.0",
+        "diffusers>=0.33.0 ; #engine# == \"diffusers\"",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
@@ -285,6 +299,8 @@
     "version": 2,
     "model_name": "Wan2.1-flf2v-14B-720p",
     "model_family": "Wan",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "firstlastframe2video"
     ],
@@ -299,7 +315,7 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers==0.35.1",
+        "diffusers==0.35.1 ; #engine# == \"diffusers\"",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
@@ -323,6 +339,8 @@
     "version": 2,
     "model_name": "Wan2.2-A14B",
     "model_family": "Wan",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "text2video"
     ],
@@ -332,7 +350,7 @@
     "default_generate_config": {},
     "virtualenv": {
       "packages": [
-        "diffusers==0.35.1",
+        "diffusers==0.35.1 ; #engine# == \"diffusers\"",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
@@ -356,6 +374,8 @@
     "version": 2,
     "model_name": "Wan2.2-i2v-A14B",
     "model_family": "Wan",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "image2video"
     ],
@@ -365,7 +385,7 @@
     "default_generate_config": {},
     "virtualenv": {
       "packages": [
-        "diffusers==0.35.1",
+        "diffusers==0.35.1 ; #engine# == \"diffusers\"",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
@@ -389,6 +409,8 @@
     "version": 2,
     "model_name": "Wan2.2-ti2v-5B",
     "model_family": "Wan",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "text2video",
       "image2video"
@@ -399,7 +421,7 @@
     "default_generate_config": {},
     "virtualenv": {
       "packages": [
-        "diffusers==0.35.1",
+        "diffusers==0.35.1 ; #engine# == \"diffusers\"",
         "ftfy",
         "imageio-ffmpeg",
         "imageio",
@@ -423,6 +445,8 @@
     "version": 2,
     "model_name": "Wan2.2-Animate-2-14B",
     "model_family": "WanAnimate2",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "image2video"
     ],
@@ -439,7 +463,7 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers @ git+https://github.com/huggingface/diffusers.git@refs/pull/14412/head",
+        "diffusers @ git+https://github.com/huggingface/diffusers.git@refs/pull/14412/head ; #engine# == \"diffusers\"",
         "transformers>=4.57.6",
         "accelerate>=1.13.0",
         "flash-attn",
@@ -470,6 +494,8 @@
     "version": 2,
     "model_name": "Wan2.2-Animate-2-14B-Distilled",
     "model_family": "WanAnimate2",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "image2video"
     ],
@@ -486,7 +512,7 @@
     },
     "virtualenv": {
       "packages": [
-        "diffusers @ git+https://github.com/huggingface/diffusers.git@refs/pull/14412/head",
+        "diffusers @ git+https://github.com/huggingface/diffusers.git@refs/pull/14412/head ; #engine# == \"diffusers\"",
         "transformers>=4.57.6",
         "accelerate>=1.13.0",
         "flash-attn",
@@ -517,6 +543,8 @@
     "version": 2,
     "model_name": "MiniMax-H3",
     "model_family": "MiniMax-H3",
+    "engine": "diffusers",
+    "model_format": "diffusers",
     "model_ability": [
       "text2video",
       "image2video",
@@ -558,7 +586,7 @@
     },
     "virtualenv": {
       "packages": [
-        "git+https://github.com/huggingface/diffusers@2da7040be1a2e5f2fcbc8b985083342a308f5a86",
+        "git+https://github.com/huggingface/diffusers@2da7040be1a2e5f2fcbc8b985083342a308f5a86 ; #engine# == \"diffusers\"",
         "transformers>=5.15.0,<6.0",
         "peft==0.20.0",
         "huggingface-hub>=1.23.0,<2.0",

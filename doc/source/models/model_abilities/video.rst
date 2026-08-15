@@ -58,6 +58,21 @@ The firstlastframe-to-video API is supported with the following models in Xinfer
 * :ref:`MiniMax-H3 <models_builtin_minimax-h3>`
 * :ref:`Wan2.1-flf2v-14B-720p <models_builtin_wan2.1-flf2v-14b-720p>`
 
+Video engines
+-------------
+
+Video runtimes are selected with ``--model-engine``. All currently built-in
+video models use the ``diffusers`` engine, which is also the default. For
+example, the explicit form is:
+
+.. code-block:: bash
+
+    xinference launch --model-name MiniMax-H3 --model-type video --model-engine diffusers
+
+The Web UI obtains the engines supported by each model from the engine query
+API and presents them in the launch dialog. Additional video runtimes can be
+registered independently without changing the Video API.
+
 Quickstart
 ===================
 
