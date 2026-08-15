@@ -214,6 +214,7 @@ const ja = {
     waitingDownloadDetails: 'ファイルのダウンロード情報を待っています...',
     downloadFileName: 'ファイル名',
     downloadProgress: '進捗',
+    downloadSize: 'ダウンロード済み / ファイルサイズ',
     downloadStatus: '状態',
     downloadSpeed: '速度',
     downloadEta: '推定残り時間',

@@ -215,6 +215,7 @@ const en = {
     waitingDownloadDetails: 'Waiting for file download details...',
     downloadFileName: 'File name',
     downloadProgress: 'Progress',
+    downloadSize: 'Downloaded / Total',
     downloadStatus: 'Status',
     downloadSpeed: 'Speed',
     downloadEta: 'Estimated time remaining',

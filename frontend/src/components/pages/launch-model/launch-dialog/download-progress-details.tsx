@@ -56,6 +56,18 @@ function formatSpeed(bytesPerSecond: number | null, completed: boolean): string 
   return `${formatFileSize(Math.max(0, bytesPerSecond))}/s`;
 }
 
+function formatDownloadedSize(downloadedBytes: number, totalBytes: number | null): string {
+  const downloaded = Number(downloadedBytes);
+  const total = totalBytes === null ? null : Number(totalBytes);
+  const downloadedText = Number.isFinite(downloaded)
+    ? formatFileSize(Math.max(0, downloaded))
+    : '—';
+  const totalText =
+    total !== null && Number.isFinite(total) ? formatFileSize(Math.max(0, total)) : '—';
+
+  return `${downloadedText} / ${totalText}`;
+}
+
 function formatDuration(seconds: number | null): string {
   if (seconds === null || !Number.isFinite(seconds)) {
     return '—';
@@ -97,14 +109,15 @@ export default function DownloadProgressDetails({ files }: DownloadProgressDetai
         </div>
       ) : (
         <div className="max-h-64 overflow-y-auto" aria-live="polite">
-          <Table size="small" className="min-w-[760px] table-fixed">
+          <Table size="small" className="min-w-[900px] table-fixed">
             <TableHeader className="sticky top-0 z-10">
               <TableRow className="hover:bg-muted">
-                <TableHead className="w-[34%]">{t('launchModel.downloadFileName')}</TableHead>
-                <TableHead className="w-[25%]">{t('launchModel.downloadProgress')}</TableHead>
-                <TableHead className="w-[15%]">{t('launchModel.downloadStatus')}</TableHead>
-                <TableHead className="w-[13%]">{t('launchModel.downloadSpeed')}</TableHead>
-                <TableHead className="w-[13%]">{t('launchModel.downloadEta')}</TableHead>
+                <TableHead className="w-[25%]">{t('launchModel.downloadFileName')}</TableHead>
+                <TableHead className="w-[20%]">{t('launchModel.downloadProgress')}</TableHead>
+                <TableHead className="w-[20%]">{t('launchModel.downloadSize')}</TableHead>
+                <TableHead className="w-[12%]">{t('launchModel.downloadStatus')}</TableHead>
+                <TableHead className="w-[11%]">{t('launchModel.downloadSpeed')}</TableHead>
+                <TableHead className="w-[12%]">{t('launchModel.downloadEta')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -131,6 +144,9 @@ export default function DownloadProgressDetails({ files }: DownloadProgressDetai
                           {Math.round(progress)}%
                         </span>
                       </div>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap tabular-nums text-muted-foreground">
+                      {formatDownloadedSize(file.downloaded_bytes, file.total_bytes)}
                     </TableCell>
                     <TableCell>
                       <span className="flex items-center gap-1.5 whitespace-nowrap">
