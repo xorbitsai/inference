@@ -250,6 +250,11 @@ class MLXAudioTTSModel(MLXModelThreadMixin):
 
     _QWEN_MAX_SEGMENT_CHARS = 80
     _QWEN_SENTENCE_BOUNDARY = re.compile(r"(?<=[。！？!?；;])|(?<=\.)\s+|\n+")
+    _QWEN_FULL_STOP_PAUSE_SECONDS = 0.28
+    _QWEN_SEMICOLON_PAUSE_SECONDS = 0.18
+    _QWEN_COMMA_PAUSE_SECONDS = 0.12
+    _QWEN_DEFAULT_PAUSE_SECONDS = 0.18
+    _AUDIO_EDGE_FADE_SECONDS = 0.005
 
     _OPENAI_VOICES = {
         "alloy",
@@ -370,23 +375,25 @@ class MLXAudioTTSModel(MLXModelThreadMixin):
 
         return segments or [text]
 
-    @staticmethod
-    def _qwen_pause_seconds(segment: str) -> float:
+    @classmethod
+    def _qwen_pause_seconds(cls, segment: str) -> float:
         final_character = segment.rstrip()[-1:] if segment.strip() else ""
         if final_character in "。.!！？?":
-            return 0.28
+            return cls._QWEN_FULL_STOP_PAUSE_SECONDS
         if final_character in "；;":
-            return 0.18
+            return cls._QWEN_SEMICOLON_PAUSE_SECONDS
         if final_character in "，,、：:":
-            return 0.12
-        return 0.18
+            return cls._QWEN_COMMA_PAUSE_SECONDS
+        return cls._QWEN_DEFAULT_PAUSE_SECONDS
 
-    @staticmethod
-    def _fade_audio_edges(audio, sample_rate: int):
+    @classmethod
+    def _fade_audio_edges(cls, audio, sample_rate: int):
         import numpy as np
 
         audio = np.asarray(audio, dtype=np.float32).reshape(-1).copy()
-        fade_samples = min(int(sample_rate * 0.005), audio.size // 2)
+        fade_samples = min(
+            int(sample_rate * cls._AUDIO_EDGE_FADE_SECONDS), audio.size // 2
+        )
         if fade_samples:
             audio[:fade_samples] *= np.linspace(
                 0.0, 1.0, fade_samples, endpoint=True, dtype=np.float32
