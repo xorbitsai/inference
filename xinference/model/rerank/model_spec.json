@@ -327,48 +327,6 @@
   },
   {
     "version": 2,
-    "model_name": "jina-reranker-m0",
-    "type": "normal",
-    "language": [
-      "en",
-      "zh",
-      "multilingual"
-    ],
-    "max_tokens": 10240,
-    "model_specs": [
-      {
-        "model_format": "pytorch",
-        "model_src": {
-          "huggingface": {
-            "model_id": "jinaai/jina-reranker-m0",
-            "model_revision": "main",
-            "quantizations": [
-              "none"
-            ]
-          },
-          "modelscope": {
-            "model_id": "jinaai/jina-reranker-m0",
-            "model_revision": "master",
-            "quantizations": [
-              "none"
-            ]
-          }
-        }
-      }
-    ],
-    "updated_at": 1786731360,
-    "featured": false,
-    "virtualenv": {
-      "packages": [
-        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
-        "Pillow ; #engine# == \"sentence_transformers\"",
-        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
-        "#system_torch# ; #engine# == \"sentence_transformers\""
-      ]
-    }
-  },
-  {
-    "version": 2,
     "model_name": "minicpm-reranker",
     "type": "normal",
     "language": [
@@ -826,6 +784,48 @@
         "#system_torch# ; #engine# == \"sentence_transformers\"",
         "vllm>=0.14.0 ; #engine# == \"vllm\"",
         "#system_numpy# ; #engine# == \"vllm\""
+      ]
+    }
+  },
+  {
+    "version": 2,
+    "model_name": "jina-reranker-m0",
+    "type": "normal",
+    "language": [
+      "en",
+      "zh",
+      "multilingual"
+    ],
+    "max_tokens": 10240,
+    "model_specs": [
+      {
+        "model_format": "pytorch",
+        "model_src": {
+          "huggingface": {
+            "model_id": "jinaai/jina-reranker-m0",
+            "model_revision": "main",
+            "quantizations": [
+              "none"
+            ]
+          },
+          "modelscope": {
+            "model_id": "jinaai/jina-reranker-m0",
+            "model_revision": "master",
+            "quantizations": [
+              "none"
+            ]
+          }
+        }
+      }
+    ],
+    "updated_at": 1786790444,
+    "featured": false,
+    "virtualenv": {
+      "packages": [
+        "#sentence_transformers_dependencies# ; #engine# == \"sentence_transformers\"",
+        "Pillow ; #engine# == \"sentence_transformers\"",
+        "#system_torchvision# ; #engine# == \"sentence_transformers\"",
+        "#system_torch# ; #engine# == \"sentence_transformers\""
       ]
     }
   }
