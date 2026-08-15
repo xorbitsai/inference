@@ -23,8 +23,9 @@ def test_f5tts_mlx(setup):
     client = Client(endpoint)
 
     model_uid = client.launch_model(
-        model_name="F5-TTS-MLX",
+        model_name="F5-TTS",
         model_type="audio",
+        model_engine="MLX",
         download_hub="huggingface",
     )
     model = client.get_model(model_uid)

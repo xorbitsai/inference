@@ -24,6 +24,7 @@ from ...constants import XINFERENCE_MODEL_DIR
 from ..utils import flatten_model_src
 from .core import (
     AUDIO_MODEL_DESCRIPTIONS,
+    LEGACY_AUDIO_MODEL_ALIASES,
     AudioModelFamilyV2,
     generate_audio_description,
     get_audio_model_descriptions,
@@ -35,7 +36,7 @@ from .custom import (
     unregister_audio,
 )
 from .engine import register_builtin_audio_engines
-from .engine_family import generate_engine_config_by_model_name
+from .engine_family import AUDIO_ENGINES, generate_engine_config_by_model_name
 
 BUILTIN_AUDIO_MODELS: Dict[str, List["AudioModelFamilyV2"]] = {}
 
@@ -74,6 +75,13 @@ def _install():
     # Install models with intelligent merging based on timestamps
     from ..utils import install_models_with_merge
 
+    # Startup and tests may call the installer more than once in one process.
+    # Rebuild these derived registries so model sources and engine variants do
+    # not accumulate duplicate entries.
+    BUILTIN_AUDIO_MODELS.clear()
+    AUDIO_MODEL_DESCRIPTIONS.clear()
+    AUDIO_ENGINES.clear()
+
     install_models_with_merge(
         BUILTIN_AUDIO_MODELS,
         "model_spec.json",
@@ -83,13 +91,18 @@ def _install():
         load_model_family_from_json,
     )
 
-    # register model description after recording model revision
+    # Register one cache/version entry per engine variant. Hugging Face is the
+    # preferred representative when the same variant has multiple hubs.
     for model_name, model_specs in BUILTIN_AUDIO_MODELS.items():
-        model_spec = (
-            [x for x in model_specs if x.model_hub == "huggingface"] + model_specs
-        )[0]
-        if model_spec.model_name not in AUDIO_MODEL_DESCRIPTIONS:
-            AUDIO_MODEL_DESCRIPTIONS.update(generate_audio_description(model_spec))
+        variants = {}
+        for model_spec in model_specs:
+            version = model_spec.cache_name or model_spec.model_name
+            current = variants.get(version)
+            if current is None or model_spec.model_hub == "huggingface":
+                variants[version] = model_spec
+        AUDIO_MODEL_DESCRIPTIONS[model_name] = [
+            model_spec.to_version_info() for model_spec in variants.values()
+        ]
 
     register_builtin_audio_engines()
     for model_specs in BUILTIN_AUDIO_MODELS.values():
@@ -143,6 +156,14 @@ def load_model_family_from_json(json_filename, target_families):
         flattened_model_specs.extend(flatten_model_src(spec))
 
     for spec in flattened_model_specs:
+        legacy_name = spec["model_name"]
+        alias = LEGACY_AUDIO_MODEL_ALIASES.get(legacy_name)
+        if alias is not None:
+            canonical_name, alias_engine = alias
+            spec["model_name"] = canonical_name
+            spec["engine"] = alias_engine
+            spec.setdefault("model_format", "mlx")
+            spec.setdefault("cache_name", legacy_name)
         if not _need_filter(spec):
             if spec["model_name"] not in target_families:
                 target_families[spec["model_name"]] = [AudioModelFamilyV2(**spec)]

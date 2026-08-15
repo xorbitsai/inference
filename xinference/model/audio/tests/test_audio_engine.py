@@ -16,15 +16,29 @@ from unittest.mock import patch
 
 import pytest
 
-from .. import BUILTIN_AUDIO_MODELS, _install
-from ..core import create_audio_model_instance
-from ..engine import TransformersQwen3ASRAudioModel, VLLMQwen3ASRAudioModel
+from ...cache_manager import CacheManager
+from ...utils import get_engine_params_by_name
+from .. import BUILTIN_AUDIO_MODELS, _install, load_model_family_from_json
+from .. import platform as audio_platform
+from .. import sys as audio_sys
+from ..core import create_audio_model_instance, resolve_audio_model_name_and_engine
+from ..engine import (
+    MLXF5TTSAudioModel,
+    MLXKokoroAudioModel,
+    MLXWhisperAudioModel,
+    PyTorchF5TTSAudioModel,
+    PyTorchKokoroAudioModel,
+    TransformersQwen3ASRAudioModel,
+    TransformersWhisperAudioModel,
+    VLLMQwen3ASRAudioModel,
+)
 from ..engine import platform as engine_platform
 from ..engine import register_builtin_audio_engines
 from ..engine_family import (
     AUDIO_ENGINES,
     check_engine_by_model_name_and_engine,
     generate_engine_config_by_model_name,
+    get_supported_engines_for_model,
 )
 from ..funasr import FunASRModel
 from ..whisper import WhisperModel
@@ -63,6 +77,32 @@ def linux_cuda_engines():
     AUDIO_ENGINES.update(old_engines)
 
 
+@pytest.fixture
+def apple_mlx_engines():
+    model_names = ("whisper-tiny", "F5-TTS", "Kokoro-82M")
+    old_models = {name: BUILTIN_AUDIO_MODELS.get(name) for name in model_names}
+    old_engines = {k: dict(v) for k, v in AUDIO_ENGINES.items()}
+    with (
+        patch.object(audio_sys, "platform", "darwin"),
+        patch.object(audio_platform, "processor", return_value="arm"),
+        patch.object(engine_platform, "system", return_value="Darwin"),
+    ):
+        models = {}
+        load_model_family_from_json("model_spec.json", models)
+        for name in model_names:
+            BUILTIN_AUDIO_MODELS[name] = models[name]
+        AUDIO_ENGINES.clear()
+        _register_all_engines()
+        yield models
+    for name, specs in old_models.items():
+        if specs is None:
+            BUILTIN_AUDIO_MODELS.pop(name, None)
+        else:
+            BUILTIN_AUDIO_MODELS[name] = specs
+    AUDIO_ENGINES.clear()
+    AUDIO_ENGINES.update(old_engines)
+
+
 def test_qwen3_asr_registers_transformers_engine():
     assert "Qwen3-ASR-0.6B" in AUDIO_ENGINES
     assert "transformers" in AUDIO_ENGINES["Qwen3-ASR-0.6B"]
@@ -70,8 +110,11 @@ def test_qwen3_asr_registers_transformers_engine():
     assert next(iter(AUDIO_ENGINES["Qwen3-ASR-0.6B"])) == "transformers"
 
 
-def test_non_engine_families_not_registered():
-    assert "whisper-large-v3" not in AUDIO_ENGINES
+def test_audio_engine_families_registered():
+    assert "transformers" in AUDIO_ENGINES["whisper-large-v3"]
+    assert "PyTorch" in AUDIO_ENGINES["F5-TTS"]
+    assert "PyTorch" in AUDIO_ENGINES["Kokoro-82M"]
+    assert "SenseVoiceSmall" not in AUDIO_ENGINES
 
 
 def test_qwen3_asr_vllm_engine_on_linux_cuda(linux_cuda_engines):
@@ -110,6 +153,135 @@ def test_create_audio_model_instance_default_engine():
     assert isinstance(model, TransformersQwen3ASRAudioModel)
 
 
+def test_invalid_audio_engine_is_rejected_before_download():
+    with patch.object(CacheManager, "cache") as cache:
+        with pytest.raises(ValueError, match="cannot be run on engine"):
+            create_audio_model_instance(
+                "uid",
+                "whisper-tiny",
+                model_engine="not-an-engine",
+                enable_virtual_env=False,
+            )
+    cache.assert_not_called()
+
+
+def test_consolidated_mlx_specs_and_legacy_aliases(apple_mlx_engines):
+    models = apple_mlx_engines
+    assert "whisper-tiny-mlx" not in models
+    assert "F5-TTS-MLX" not in models
+    assert "Kokoro-82M-MLX" not in models
+
+    expected_engines = {
+        "whisper-tiny": ["transformers", "MLX"],
+        "F5-TTS": ["PyTorch", "MLX"],
+        "Kokoro-82M": ["PyTorch", "MLX"],
+    }
+    for model_name, engines in expected_engines.items():
+        assert list(AUDIO_ENGINES[model_name]) == engines
+
+    assert resolve_audio_model_name_and_engine("whisper-tiny-mlx") == (
+        "whisper-tiny",
+        "MLX",
+    )
+    assert resolve_audio_model_name_and_engine("F5-TTS-MLX") == (
+        "F5-TTS",
+        "MLX",
+    )
+    with pytest.raises(ValueError, match="cannot be launched"):
+        resolve_audio_model_name_and_engine("Kokoro-82M-MLX", "PyTorch")
+
+
+def test_whisper_mlx_virtualenv_overrides_incompatible_numba(apple_mlx_engines):
+    whisper_mlx_specs = [
+        spec
+        for specs in apple_mlx_engines.values()
+        for spec in specs
+        if spec.model_family == "whisper" and spec.engine == "MLX"
+    ]
+
+    assert whisper_mlx_specs
+    for spec in whisper_mlx_specs:
+        assert spec.virtualenv is not None
+        assert "numba>=0.64.0" in spec.virtualenv.packages
+        assert "#system_numpy#" in spec.virtualenv.packages
+
+
+def test_create_consolidated_audio_engines(apple_mlx_engines):
+    cases = [
+        ("whisper-tiny", None, TransformersWhisperAudioModel, "openai/whisper-tiny"),
+        ("whisper-tiny", "mlx", MLXWhisperAudioModel, "mlx-community/whisper-tiny"),
+        ("whisper-tiny-mlx", None, MLXWhisperAudioModel, "mlx-community/whisper-tiny"),
+        ("F5-TTS", None, PyTorchF5TTSAudioModel, "SWivid/F5-TTS"),
+        ("F5-TTS-MLX", None, MLXF5TTSAudioModel, "lucasnewman/f5-tts-mlx"),
+        ("Kokoro-82M", None, PyTorchKokoroAudioModel, "hexgrad/Kokoro-82M"),
+        ("Kokoro-82M-MLX", None, MLXKokoroAudioModel, "prince-canuma/Kokoro-82M"),
+    ]
+    for model_name, engine, expected_class, expected_model_id in cases:
+        model = create_audio_model_instance(
+            "uid",
+            model_name,
+            model_path="/fake/path",
+            model_engine=engine,
+            enable_virtual_env=False,
+        )
+        assert isinstance(model, expected_class)
+        assert model.model_family.model_id == expected_model_id
+
+
+def test_audio_engine_variants_keep_separate_cache_paths(apple_mlx_engines):
+    specs = apple_mlx_engines["whisper-tiny"]
+    transformers_spec = next(spec for spec in specs if spec.engine == "transformers")
+    mlx_spec = next(spec for spec in specs if spec.engine == "MLX")
+
+    assert CacheManager(transformers_spec).get_cache_dir().endswith("/whisper-tiny")
+    assert CacheManager(mlx_spec).get_cache_dir().endswith("/whisper-tiny-mlx")
+    assert transformers_spec.to_version_info()["model_version"] == "whisper-tiny"
+    assert mlx_spec.to_version_info()["model_version"] == "whisper-tiny-mlx"
+
+
+def test_audio_engine_discovery_filters_unrelated_engines(apple_mlx_engines):
+    models = apple_mlx_engines
+    assert set(get_supported_engines_for_model(models["F5-TTS"])) == {
+        "PyTorch",
+        "MLX",
+    }
+    assert set(get_supported_engines_for_model(models["whisper-tiny"])) == {
+        "transformers",
+        "MLX",
+    }
+
+
+def test_audio_engine_api_returns_variant_formats(apple_mlx_engines):
+    with (
+        patch.object(PyTorchF5TTSAudioModel, "check_lib", return_value=True),
+        patch.object(MLXF5TTSAudioModel, "check_lib", return_value=True),
+    ):
+        params = get_engine_params_by_name("audio", "F5-TTS", enable_virtual_env=False)
+
+    assert params == {
+        "PyTorch": [{"model_name": "F5-TTS", "model_format": "pytorch"}],
+        "MLX": [{"model_name": "F5-TTS", "model_format": "mlx"}],
+    }
+
+
+@pytest.mark.asyncio
+async def test_audio_catalog_groups_engine_variants(apple_mlx_engines):
+    from ....core.worker import WorkerActor
+
+    worker = WorkerActor.__new__(WorkerActor)
+    registrations = await worker.list_model_registrations("audio", detailed=True)
+    whisper_entries = [
+        item for item in registrations if item["model_name"] == "whisper-tiny"
+    ]
+
+    assert len(whisper_entries) == 1
+    specs = whisper_entries[0]["model_specs"]
+    assert {(spec["model_engine"], spec["model_format"]) for spec in specs} == {
+        ("transformers", "pytorch"),
+        ("MLX", "mlx"),
+    }
+
+
 def test_create_audio_model_instance_vllm_engine(linux_cuda_engines):
     model = create_audio_model_instance(
         "uid",
@@ -128,6 +300,17 @@ def test_create_audio_model_instance_legacy_dispatch():
         model_path="/fake/path",
         enable_virtual_env=False,
     )
+    assert isinstance(model, WhisperModel)
+
+    # The fallback remains correct if the derived engine registry has not been
+    # initialized yet; a non-empty ``transformers`` metadata value is not MLX.
+    with patch.dict(AUDIO_ENGINES, {}, clear=True):
+        model = create_audio_model_instance(
+            "uid",
+            "whisper-large-v3",
+            model_path="/fake/path",
+            enable_virtual_env=False,
+        )
     assert isinstance(model, WhisperModel)
 
     # model_engine on a legacy family is ignored with a warning

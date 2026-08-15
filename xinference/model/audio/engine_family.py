@@ -30,6 +30,12 @@ class AudioEngineModel:
         raise NotImplementedError
 
     @classmethod
+    def is_model_family_supported(cls, model_family: "AudioModelFamilyV2") -> bool:
+        """Whether this engine implements the model, ignoring host constraints."""
+
+        return cls.match(model_family)
+
+    @classmethod
     def check_lib(cls) -> Union[bool, Tuple[bool, str]]:
         for lib in cls.required_libs:
             if importlib.util.find_spec(lib) is None:
@@ -40,6 +46,31 @@ class AudioEngineModel:
 # { audio model name -> { engine name -> engine params } }
 AUDIO_ENGINES: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
 SUPPORTED_ENGINES: Dict[str, List[Type[AudioEngineModel]]] = {}
+
+
+def get_supported_engines_for_model(
+    model_families: List["AudioModelFamilyV2"],
+) -> Dict[str, List[Type[AudioEngineModel]]]:
+    """Return only engines that implement at least one supplied model variant.
+
+    ``SUPPORTED_ENGINES`` is global, while engine discovery is model-specific.
+    Filtering here prevents unrelated engines (for example Qwen-ASR's vLLM
+    backend on F5-TTS) from being exposed as disabled choices.
+    """
+
+    return {
+        engine: [
+            cls
+            for cls in classes
+            if any(cls.is_model_family_supported(family) for family in model_families)
+        ]
+        for engine, classes in SUPPORTED_ENGINES.items()
+        if any(
+            cls.is_model_family_supported(family)
+            for cls in classes
+            for family in model_families
+        )
+    }
 
 
 def check_engine_by_model_name_and_engine(
@@ -83,13 +114,16 @@ def check_engine_by_model_name_and_engine_with_virtual_env(
     def _engine_class_by_marker() -> Optional[Type[AudioEngineModel]]:
         if model_engine.lower() in engine_markers:
             for engine, engine_classes in SUPPORTED_ENGINES.items():
-                if engine.lower() == model_engine.lower() and engine_classes:
-                    logger.warning(
-                        "Bypassing engine compatibility checks for %s due to "
-                        "virtualenv marker.",
-                        model_engine,
-                    )
-                    return engine_classes[0]
+                if engine.lower() != model_engine.lower():
+                    continue
+                for engine_class in engine_classes:
+                    if engine_class.is_model_family_supported(model_family):
+                        logger.warning(
+                            "Bypassing engine compatibility checks for %s due to "
+                            "virtualenv marker.",
+                            model_engine,
+                        )
+                        return engine_class
         return None
 
     if model_name not in AUDIO_ENGINES:
@@ -121,6 +155,7 @@ def generate_engine_config_by_model_name(model_family: "AudioModelFamilyV2") -> 
                     engine_params.append(
                         {
                             "model_name": model_name,
+                            "model_format": getattr(model_family, "model_format", None),
                             "audio_class": cls,
                         }
                     )

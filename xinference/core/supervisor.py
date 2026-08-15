@@ -2255,6 +2255,13 @@ class SupervisorActor(xo.StatelessActor):
         envs: Optional[Dict[str, str]] = None,
         **kwargs,
     ) -> str:
+        if (model_type or "").lower() == "audio":
+            from ..model.audio.core import resolve_audio_model_name_and_engine
+
+            model_name, model_engine = resolve_audio_model_name_and_engine(
+                model_name, model_engine
+            )
+
         if self.is_local_deployment() and n_worker > 1:  # type: ignore
             # ignore n_worker > 1 if local deployment
             logger.warning("Local deployment, ignore n_worker(%s)", n_worker)

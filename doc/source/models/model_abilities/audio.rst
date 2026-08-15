@@ -62,30 +62,30 @@ Audio to text
 * :ref:`SenseVoiceSmall <models_builtin_sensevoicesmall>`
 * :ref:`Paraformer-zh <models_builtin_paraformer-zh>`
 
-For Mac M-series chips only:
-
-* :ref:`whisper-tiny-mlx <models_builtin_whisper-tiny-mlx>`
-* :ref:`whisper-tiny.en-mlx <models_builtin_whisper-tiny.en-mlx>`
-* :ref:`whisper-base-mlx <models_builtin_whisper-base-mlx>`
-* :ref:`whisper-base.en-mlx <models_builtin_whisper-base.en-mlx>`
-* :ref:`whisper-medium-mlx <models_builtin_whisper-medium-mlx>`
-* :ref:`whisper-medium.en-mlx <models_builtin_whisper-medium.en-mlx>`
-* :ref:`whisper-large-v3-mlx <models_builtin_whisper-large-v3-mlx>`
-* :ref:`whisper-large-v3-turbo-mlx <models_builtin_whisper-large-v3-turbo-mlx>`
-
 Audio engines
 ~~~~~~~~~~~~~
 
-``Qwen3-ASR-0.6B`` and ``Qwen3-ASR-1.7B`` support engine selection. The default
-``transformers`` engine works on all platforms; on Linux with NVIDIA GPUs they
-can also run on the ``vLLM`` engine for faster transcriptions. To use it,
-install the vLLM backend of `qwen-asr <https://pypi.org/project/qwen-asr/>`_ via
-``pip install 'qwen-asr[vllm]'``, then launch the model with
-``--model-engine vLLM``, for example:
+Audio models with multiple implementations use one model name and select the
+runtime with ``--model-engine``:
+
+* The Whisper models listed above use ``transformers`` by default and also
+  support ``MLX`` on Mac computers with Apple silicon.
+* ``F5-TTS`` and ``Kokoro-82M`` use ``PyTorch`` by default and also support
+  ``MLX`` on Mac computers with Apple silicon.
+* ``Qwen3-ASR-0.6B`` and ``Qwen3-ASR-1.7B`` use ``transformers`` by default. On
+  Linux with NVIDIA GPUs, they can use ``vLLM`` for faster transcriptions.
+
+For example:
 
 .. code-block:: bash
 
+    xinference launch --model-name whisper-large-v3 --model-type audio --model-engine MLX
+    xinference launch --model-name F5-TTS --model-type audio --model-engine MLX
     xinference launch --model-name Qwen3-ASR-1.7B --model-type audio --model-engine vLLM
+
+The former ``*-mlx`` model names remain accepted as compatibility aliases, but
+new integrations should use the canonical model name with ``--model-engine
+MLX``. The Web UI presents the available engines in the launch dialog.
 
 
 Text to audio (TTS)
@@ -98,7 +98,6 @@ Text to audio (TTS)
 * :ref:`CosyVoice-300M-Instruct <models_builtin_cosyvoice-300m-instruct>`
 * MeloTTS series
 * :ref:`Kokoro-82M <models_builtin_kokoro-82m>`
-* :ref:`Kokoro-82M-MLX <models_builtin_kokoro-82m-mlx>`
 * :ref:`MegaTTS3 <models_builtin_megatts3>`
 
 Speaker embeddings
@@ -113,7 +112,6 @@ Speaker embeddings
 * :ref:`CosyVoice 2.0 <models_builtin_cosyvoice2-0.5b>`
 * :ref:`FishSpeech-1.5 <models_builtin_fishspeech-1.5>`
 * :ref:`F5-TTS <models_builtin_f5-tts>`
-* :ref:`F5-TTS-MLX <models_builtin_f5-tts-mlx>`
 * :ref:`IndexTTS2 <models_builtin_indextts2>`
 * :ref:`IndexTTS-2.5 <models_builtin_indextts-2.5>`
 
@@ -121,11 +119,6 @@ Speaker embeddings
 
 * :ref:`IndexTTS2 <models_builtin_indextts2>`
 * :ref:`IndexTTS-2.5 <models_builtin_indextts-2.5>`
-
-For Mac M-series chips only:
-
-* :ref:`F5-TTS-MLX <models_builtin_f5-tts-mlx>`
-* :ref:`Kokoro-82M-MLX <models_builtin_kokoro-82m-mlx>`
 
 Quickstart
 ===================

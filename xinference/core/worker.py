@@ -2387,31 +2387,46 @@ class WorkerActor(xo.StatelessActor):
 
             # Add built-in audio models (BUILTIN_AUDIO_MODELS contains model_name -> families list)
             for model_name, families in BUILTIN_AUDIO_MODELS.items():
+                if not families:
+                    continue
                 download_hubs = []
                 for family in families:
                     if family.model_hub not in download_hubs:
                         download_hubs.append(family.model_hub)
-                for family in families:
-                    if detailed:
+
+                if detailed:
+                    model_specs = []
+                    for family in families:
                         audio_cache_manager = CacheManager(family)
-                        model_specs = [
+                        model_specs.append(
                             {
-                                "model_format": "pytorch",
+                                "model_format": family.model_format or "pytorch",
+                                "model_engine": family.engine,
                                 "model_hub": family.model_hub,
                                 "model_id": family.model_id,
+                                "cache_name": family.cache_name,
                                 "cache_status": audio_cache_manager.get_cache_status(),
                             }
-                        ]
-                        ret.append(
-                            {
-                                **family.dict(),
-                                "model_specs": model_specs,
-                                "is_builtin": True,
-                                "download_hubs": download_hubs,
-                            }
                         )
-                    else:
-                        ret.append({"model_name": model_name, "is_builtin": True})
+                    representative = next(
+                        (
+                            family
+                            for family in families
+                            if family.model_hub == "huggingface"
+                            and (family.engine or "").lower() != "mlx"
+                        ),
+                        families[0],
+                    )
+                    ret.append(
+                        {
+                            **representative.dict(),
+                            "model_specs": model_specs,
+                            "is_builtin": True,
+                            "download_hubs": download_hubs,
+                        }
+                    )
+                else:
+                    ret.append({"model_name": model_name, "is_builtin": True})
 
             # Add user-defined audio models
             for model_spec in get_user_defined_audios():
@@ -3319,6 +3334,14 @@ class WorkerActor(xo.StatelessActor):
         launch_args.pop("kwargs")
         launch_args.update(kwargs)
         launch_args["launch_ts"] = int(time.time())
+        if model_type.lower() == "audio":
+            from ..model.audio.core import resolve_audio_model_name_and_engine
+
+            model_name, model_engine = resolve_audio_model_name_and_engine(
+                model_name, model_engine, use_default_engine=True
+            )
+            launch_args["model_name"] = model_name
+            launch_args["model_engine"] = model_engine
         envs = _inject_jina_v3_allocator_env(model_type, model_name, envs, launch_args)
 
         try:

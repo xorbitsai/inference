@@ -3,6 +3,8 @@
     "version": 2,
     "model_name": "whisper-tiny",
     "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
     "model_ability": [
       "audio2text"
     ],
@@ -13,7 +15,7 @@
         "model_revision": "167c219b21f11ef214220b8fdb7536b8a88c2475"
       }
     },
-    "updated_at": 1783912296,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -28,6 +30,8 @@
     "version": 2,
     "model_name": "whisper-tiny.en",
     "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
     "model_ability": [
       "audio2text"
     ],
@@ -38,7 +42,7 @@
         "model_revision": "87c7102498dcde7456f24cfd30239ca606ed9063"
       }
     },
-    "updated_at": 1783912299,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -53,6 +57,8 @@
     "version": 2,
     "model_name": "whisper-base",
     "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
     "model_ability": [
       "audio2text"
     ],
@@ -63,7 +69,7 @@
         "model_revision": "8c1db9b51951100007a96a525d83a8ec81b3c237"
       }
     },
-    "updated_at": 1783912301,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -78,6 +84,8 @@
     "version": 2,
     "model_name": "whisper-base.en",
     "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
     "model_ability": [
       "audio2text"
     ],
@@ -88,7 +96,7 @@
         "model_revision": "911407f4214e0e1d82085af863093ec0b66f9cd6"
       }
     },
-    "updated_at": 1783912303,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -103,6 +111,8 @@
     "version": 2,
     "model_name": "whisper-small",
     "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
     "model_ability": [
       "audio2text"
     ],
@@ -113,7 +123,7 @@
         "model_revision": "998cb1a777c20db53d6033a61b977ed4c3792cac"
       }
     },
-    "updated_at": 1783912305,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -128,6 +138,8 @@
     "version": 2,
     "model_name": "whisper-small.en",
     "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
     "model_ability": [
       "audio2text"
     ],
@@ -138,7 +150,7 @@
         "model_revision": "e8727524f962ee844a7319d92be39ac1bd25655a"
       }
     },
-    "updated_at": 1783912307,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -153,6 +165,8 @@
     "version": 2,
     "model_name": "whisper-medium",
     "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
     "model_ability": [
       "audio2text"
     ],
@@ -163,7 +177,7 @@
         "model_revision": "16688beb1294bedd0a6f5cd86fe7eec57bce41ed"
       }
     },
-    "updated_at": 1783912309,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -178,6 +192,8 @@
     "version": 2,
     "model_name": "whisper-medium.en",
     "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
     "model_ability": [
       "audio2text"
     ],
@@ -188,7 +204,7 @@
         "model_revision": "2e98eb6279edf5095af0c8dedb36bdec0acd172b"
       }
     },
-    "updated_at": 1783912311,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -203,6 +219,8 @@
     "version": 2,
     "model_name": "whisper-large-v3",
     "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
     "model_ability": [
       "audio2text"
     ],
@@ -217,7 +235,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1783912313,
+    "updated_at": 1786790280,
     "featured": true,
     "virtualenv": {
       "packages": [
@@ -232,6 +250,8 @@
     "version": 2,
     "model_name": "whisper-large-v3-turbo",
     "model_family": "whisper",
+    "engine": "transformers",
+    "model_format": "pytorch",
     "model_ability": [
       "audio2text"
     ],
@@ -246,7 +266,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1783912315,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -338,230 +358,260 @@
   },
   {
     "version": 2,
-    "model_name": "whisper-tiny-mlx",
+    "model_name": "whisper-tiny",
+    "cache_name": "whisper-tiny-mlx",
     "model_family": "whisper",
     "model_ability": [
       "audio2text"
     ],
     "multilingual": true,
-    "engine": "mlx",
+    "engine": "MLX",
+    "model_format": "mlx",
     "model_src": {
       "huggingface": {
         "model_id": "mlx-community/whisper-tiny"
       }
     },
-    "updated_at": 1783912323,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
         "mlx-whisper",
+        "numba>=0.64.0",
         "#system_numpy#"
       ]
     }
   },
   {
     "version": 2,
-    "model_name": "whisper-tiny.en-mlx",
+    "model_name": "whisper-tiny.en",
+    "cache_name": "whisper-tiny.en-mlx",
     "model_family": "whisper",
     "model_ability": [
       "audio2text"
     ],
     "multilingual": false,
-    "engine": "mlx",
+    "engine": "MLX",
+    "model_format": "mlx",
     "model_src": {
       "huggingface": {
         "model_id": "mlx-community/whisper-tiny.en-mlx"
       }
     },
-    "updated_at": 1783912325,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
         "mlx-whisper",
+        "numba>=0.64.0",
         "#system_numpy#"
       ]
     }
   },
   {
     "version": 2,
-    "model_name": "whisper-base-mlx",
+    "model_name": "whisper-base",
+    "cache_name": "whisper-base-mlx",
     "model_family": "whisper",
     "model_ability": [
       "audio2text"
     ],
     "multilingual": true,
-    "engine": "mlx",
+    "engine": "MLX",
+    "model_format": "mlx",
     "model_src": {
       "huggingface": {
         "model_id": "mlx-community/whisper-base-mlx"
       }
     },
-    "updated_at": 1783912327,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
         "mlx-whisper",
+        "numba>=0.64.0",
         "#system_numpy#"
       ]
     }
   },
   {
     "version": 2,
-    "model_name": "whisper-base.en-mlx",
+    "model_name": "whisper-base.en",
+    "cache_name": "whisper-base.en-mlx",
     "model_family": "whisper",
     "model_ability": [
       "audio2text"
     ],
     "multilingual": false,
-    "engine": "mlx",
+    "engine": "MLX",
+    "model_format": "mlx",
     "model_src": {
       "huggingface": {
         "model_id": "mlx-community/whisper-base.en-mlx"
       }
     },
-    "updated_at": 1783912329,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
         "mlx-whisper",
+        "numba>=0.64.0",
         "#system_numpy#"
       ]
     }
   },
   {
     "version": 2,
-    "model_name": "whisper-small-mlx",
+    "model_name": "whisper-small",
+    "cache_name": "whisper-small-mlx",
     "model_family": "whisper",
     "model_ability": [
       "audio2text"
     ],
     "multilingual": true,
-    "engine": "mlx",
+    "engine": "MLX",
+    "model_format": "mlx",
     "model_src": {
       "huggingface": {
         "model_id": "mlx-community/whisper-small-mlx"
       }
     },
-    "updated_at": 1783912331,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
         "mlx-whisper",
+        "numba>=0.64.0",
         "#system_numpy#"
       ]
     }
   },
   {
     "version": 2,
-    "model_name": "whisper-small.en-mlx",
+    "model_name": "whisper-small.en",
+    "cache_name": "whisper-small.en-mlx",
     "model_family": "whisper",
     "model_ability": [
       "audio2text"
     ],
     "multilingual": false,
-    "engine": "mlx",
+    "engine": "MLX",
+    "model_format": "mlx",
     "model_src": {
       "huggingface": {
         "model_id": "mlx-community/whisper-small.en-mlx"
       }
     },
-    "updated_at": 1783912333,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
         "mlx-whisper",
+        "numba>=0.64.0",
         "#system_numpy#"
       ]
     }
   },
   {
     "version": 2,
-    "model_name": "whisper-medium-mlx",
+    "model_name": "whisper-medium",
+    "cache_name": "whisper-medium-mlx",
     "model_family": "whisper",
     "model_ability": [
       "audio2text"
     ],
     "multilingual": true,
-    "engine": "mlx",
+    "engine": "MLX",
+    "model_format": "mlx",
     "model_src": {
       "huggingface": {
         "model_id": "mlx-community/whisper-medium-mlx"
       }
     },
-    "updated_at": 1783912335,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
         "mlx-whisper",
+        "numba>=0.64.0",
         "#system_numpy#"
       ]
     }
   },
   {
     "version": 2,
-    "model_name": "whisper-medium.en-mlx",
+    "model_name": "whisper-medium.en",
+    "cache_name": "whisper-medium.en-mlx",
     "model_family": "whisper",
     "model_ability": [
       "audio2text"
     ],
     "multilingual": false,
-    "engine": "mlx",
+    "engine": "MLX",
+    "model_format": "mlx",
     "model_src": {
       "huggingface": {
         "model_id": "mlx-community/whisper-medium.en-mlx"
       }
     },
-    "updated_at": 1783912337,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
         "mlx-whisper",
+        "numba>=0.64.0",
         "#system_numpy#"
       ]
     }
   },
   {
     "version": 2,
-    "model_name": "whisper-large-v3-mlx",
+    "model_name": "whisper-large-v3",
+    "cache_name": "whisper-large-v3-mlx",
     "model_family": "whisper",
     "model_ability": [
       "audio2text"
     ],
     "multilingual": true,
-    "engine": "mlx",
+    "engine": "MLX",
+    "model_format": "mlx",
     "model_src": {
       "huggingface": {
         "model_id": "mlx-community/whisper-large-v3-mlx"
       }
     },
-    "updated_at": 1783912339,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
         "mlx-whisper",
+        "numba>=0.64.0",
         "#system_numpy#"
       ]
     }
   },
   {
     "version": 2,
-    "model_name": "whisper-large-v3-turbo-mlx",
+    "model_name": "whisper-large-v3-turbo",
+    "cache_name": "whisper-large-v3-turbo-mlx",
     "model_family": "whisper",
     "model_ability": [
       "audio2text"
     ],
     "multilingual": true,
-    "engine": "mlx",
+    "engine": "MLX",
+    "model_format": "mlx",
     "model_src": {
       "huggingface": {
         "model_id": "mlx-community/whisper-large-v3-turbo"
       }
     },
-    "updated_at": 1783912341,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
         "mlx-whisper",
+        "numba>=0.64.0",
         "#system_numpy#"
       ]
     }
@@ -1038,6 +1088,8 @@
     "version": 2,
     "model_name": "F5-TTS",
     "model_family": "F5-TTS",
+    "engine": "PyTorch",
+    "model_format": "pytorch",
     "model_ability": [
       "text2audio",
       "text2audio_zero_shot",
@@ -1054,7 +1106,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1783912367,
+    "updated_at": 1786790280,
     "featured": true,
     "virtualenv": {
       "packages": [
@@ -1077,8 +1129,11 @@
   },
   {
     "version": 2,
-    "model_name": "F5-TTS-MLX",
+    "model_name": "F5-TTS",
+    "cache_name": "F5-TTS-MLX",
     "model_family": "F5-TTS-MLX",
+    "engine": "MLX",
+    "model_format": "mlx",
     "model_ability": [
       "text2audio",
       "text2audio_zero_shot",
@@ -1091,7 +1146,7 @@
         "model_revision": "7642bb232e3fcacf92c51c786edebb8624da6b93"
       }
     },
-    "updated_at": 1783912368,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -1475,6 +1530,8 @@
     "version": 2,
     "model_name": "Kokoro-82M",
     "model_family": "Kokoro",
+    "engine": "PyTorch",
+    "model_format": "pytorch",
     "model_ability": [
       "text2audio",
       "text2audio_zero_shot"
@@ -1489,7 +1546,7 @@
         "model_revision": "master"
       }
     },
-    "updated_at": 1783912386,
+    "updated_at": 1786790280,
     "featured": false,
     "virtualenv": {
       "packages": [
@@ -1503,8 +1560,11 @@
   },
   {
     "version": 2,
-    "model_name": "Kokoro-82M-MLX",
+    "model_name": "Kokoro-82M",
+    "cache_name": "Kokoro-82M-MLX",
     "model_family": "Kokoro-MLX",
+    "engine": "MLX",
+    "model_format": "mlx",
     "model_ability": [
       "text2audio",
       "text2audio_zero_shot"
@@ -1529,7 +1589,7 @@
         "#system_numpy#"
       ]
     },
-    "updated_at": 1766387102,
+    "updated_at": 1786790280,
     "featured": false
   },
   {
@@ -1735,6 +1795,7 @@
       "audio2text"
     ],
     "model_family": "qwen3_asr",
+    "model_format": "pytorch",
     "model_src": {
       "huggingface": {
         "model_id": "Qwen/Qwen3-ASR-0.6B",
@@ -1770,6 +1831,7 @@
       "audio2text"
     ],
     "model_family": "qwen3_asr",
+    "model_format": "pytorch",
     "model_src": {
       "huggingface": {
         "model_id": "Qwen/Qwen3-ASR-1.7B",

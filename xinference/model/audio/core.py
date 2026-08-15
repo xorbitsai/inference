@@ -39,6 +39,21 @@ from .whisper_mlx import WhisperMLXModel
 
 logger = logging.getLogger(__name__)
 
+LEGACY_AUDIO_MODEL_ALIASES = {
+    "whisper-tiny-mlx": ("whisper-tiny", "MLX"),
+    "whisper-tiny.en-mlx": ("whisper-tiny.en", "MLX"),
+    "whisper-base-mlx": ("whisper-base", "MLX"),
+    "whisper-base.en-mlx": ("whisper-base.en", "MLX"),
+    "whisper-small-mlx": ("whisper-small", "MLX"),
+    "whisper-small.en-mlx": ("whisper-small.en", "MLX"),
+    "whisper-medium-mlx": ("whisper-medium", "MLX"),
+    "whisper-medium.en-mlx": ("whisper-medium.en", "MLX"),
+    "whisper-large-v3-mlx": ("whisper-large-v3", "MLX"),
+    "whisper-large-v3-turbo-mlx": ("whisper-large-v3-turbo", "MLX"),
+    "F5-TTS-MLX": ("F5-TTS", "MLX"),
+    "Kokoro-82M-MLX": ("Kokoro-82M", "MLX"),
+}
+
 # Init when registering all the builtin models.
 AUDIO_MODEL_DESCRIPTIONS: Dict[str, List[Dict]] = defaultdict(list)
 
@@ -61,6 +76,8 @@ class AudioModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
     default_model_config: Optional[Dict[str, Any]]
     default_transcription_config: Optional[Dict[str, Any]]
     engine: Optional[str]
+    model_format: Optional[str]
+    cache_name: Optional[str]
     virtualenv: Optional[VirtualEnvSettings]
 
     class Config:
@@ -75,6 +92,7 @@ class AudioModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
             "model_family": self.model_family,
             "model_revision": self.model_revision,
             "model_ability": self.model_ability,
+            "model_engine": getattr(self, "model_engine", None),
         }
 
     def to_version_info(self):
@@ -83,10 +101,45 @@ class AudioModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
         cache_manager = CacheManager(self)
 
         return {
-            "model_version": self.model_name,
+            "model_version": self.cache_name or self.model_name,
             "model_file_location": cache_manager.get_cache_dir(),
             "cache_status": cache_manager.get_cache_status(),
         }
+
+
+def resolve_audio_model_name_and_engine(
+    model_name: str,
+    model_engine: Optional[str] = None,
+    use_default_engine: bool = False,
+) -> tuple[str, Optional[str]]:
+    """Resolve retired MLX model names to the canonical model plus engine."""
+
+    alias = LEGACY_AUDIO_MODEL_ALIASES.get(model_name)
+    if alias is not None:
+        canonical_name, alias_engine = alias
+        if model_engine is not None and model_engine.lower() != alias_engine.lower():
+            raise ValueError(
+                f"Legacy audio model name {model_name} selects engine {alias_engine}; "
+                f"it cannot be launched with engine {model_engine}."
+            )
+        model_name, model_engine = canonical_name, alias_engine
+
+    if use_default_engine or model_engine is not None:
+        from .engine_family import AUDIO_ENGINES
+
+        available_engines = AUDIO_ENGINES.get(model_name)
+        if available_engines and model_engine is None:
+            model_engine = next(iter(available_engines))
+        elif available_engines and model_engine is not None:
+            model_engine = next(
+                (
+                    engine
+                    for engine in available_engines
+                    if engine.lower() == model_engine.lower()
+                ),
+                model_engine,
+            )
+    return model_name, model_engine
 
 
 def generate_audio_description(
@@ -102,10 +155,15 @@ def match_audio(
     download_hub: Optional[
         Literal["huggingface", "modelscope", "openmind_hub", "csghub"]
     ] = None,
+    model_engine: Optional[str] = None,
 ) -> AudioModelFamilyV2:
     from ..utils import download_from_modelscope
     from . import BUILTIN_AUDIO_MODELS
     from .custom import get_user_defined_audios
+
+    model_name, model_engine = resolve_audio_model_name_and_engine(
+        model_name, model_engine
+    )
 
     for model_spec in get_user_defined_audios():
         if model_spec.model_name == model_name:
@@ -113,6 +171,14 @@ def match_audio(
 
     if model_name in BUILTIN_AUDIO_MODELS:
         model_families = BUILTIN_AUDIO_MODELS[model_name]
+        if model_engine is not None:
+            engine_families = [
+                family
+                for family in model_families
+                if (family.engine or "").lower() == model_engine.lower()
+            ]
+            if engine_families:
+                model_families = engine_families
         if download_hub is not None:
             if download_hub == "modelscope":
                 return (
@@ -174,10 +240,11 @@ def create_audio_model_instance(
     from .engine_family import AUDIO_ENGINES
 
     enable_virtual_env = kwargs.pop("enable_virtual_env", None)
-    model_spec = match_audio(model_name, download_hub)
-    if model_path is None:
-        cache_manager = CacheManager(model_spec)
-        model_path = cache_manager.cache()
+    model_name, model_engine = resolve_audio_model_name_and_engine(
+        model_name, model_engine
+    )
+    model_spec = match_audio(model_name, download_hub, model_engine=model_engine)
+    audio_cls = None
 
     # Engine-aware dispatch for model families with multiple engines
     # (e.g. qwen3_asr on transformers or vLLM). Families without registered
@@ -215,7 +282,15 @@ def create_audio_model_instance(
                     model_engine,
                     model_spec.model_name,
                 )
-            return audio_cls(model_uid, model_path, model_spec, **kwargs)  # type: ignore
+
+    if model_path is None:
+        cache_manager = CacheManager(model_spec)
+        model_path = cache_manager.cache()
+
+    if audio_cls is not None:
+        model_spec = model_spec.copy()
+        model_spec.model_engine = model_engine
+        return audio_cls(model_uid, model_path, model_spec, **kwargs)  # type: ignore
 
     model: Union[
         WhisperModel,
@@ -238,10 +313,10 @@ def create_audio_model_instance(
         ModelScopeSpeakerEmbeddingModel,
     ]
     if model_spec.model_family == "whisper":
-        if not model_spec.engine:
-            model = WhisperModel(model_uid, model_path, model_spec, **kwargs)
-        else:
+        if (model_spec.engine or "").lower() == "mlx":
             model = WhisperMLXModel(model_uid, model_path, model_spec, **kwargs)
+        else:
+            model = WhisperModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "funasr":
         model = FunASRModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "ChatTTS":

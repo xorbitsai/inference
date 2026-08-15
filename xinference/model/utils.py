@@ -1785,8 +1785,7 @@ def _get_engine_params_by_name(
     if model_type == "audio":
         from .audio import BUILTIN_AUDIO_MODELS
         from .audio.custom import get_user_defined_audios
-        from .audio.engine_family import AUDIO_ENGINES
-        from .audio.engine_family import SUPPORTED_ENGINES as AUDIO_SUPPORTED_ENGINES
+        from .audio.engine_family import AUDIO_ENGINES, get_supported_engines_for_model
 
         if model_name not in AUDIO_ENGINES:
             return None
@@ -1798,13 +1797,14 @@ def _get_engine_params_by_name(
         audio_families.extend(
             f for f in get_user_defined_audios() if f.model_name == model_name
         )
+        supported_audio_engines = get_supported_engines_for_model(audio_families)
         _validate_available_image_engines(
             audio_families,
-            AUDIO_SUPPORTED_ENGINES,
+            supported_audio_engines,
             "audio",
         )
         _collect_supported_image_engines(
-            audio_families, AUDIO_SUPPORTED_ENGINES, "audio"
+            audio_families, supported_audio_engines, "audio"
         )
         return engine_params
 
@@ -2319,8 +2319,7 @@ def _get_engine_params_by_name_with_virtual_env(
     elif model_type == "audio":
         from .audio import BUILTIN_AUDIO_MODELS
         from .audio.custom import get_user_defined_audios
-        from .audio.engine_family import AUDIO_ENGINES
-        from .audio.engine_family import SUPPORTED_ENGINES as AUDIO_SUPPORTED_ENGINES
+        from .audio.engine_family import AUDIO_ENGINES, get_supported_engines_for_model
 
         if model_name not in AUDIO_ENGINES:
             return None
@@ -2332,22 +2331,23 @@ def _get_engine_params_by_name_with_virtual_env(
         audio_families.extend(
             f for f in get_user_defined_audios() if f.model_name == model_name
         )
+        supported_audio_engines = get_supported_engines_for_model(audio_families)
         audio_engine_markers: Set[str] = set()
         for family in audio_families:
             audio_engine_markers |= _collect_virtualenv_engine_markers(family)
         _validate_available_image_engines(
             audio_families,
-            AUDIO_SUPPORTED_ENGINES,
+            supported_audio_engines,
             "audio",
             audio_engine_markers,
             enable_virtual_env,
         )
         _collect_supported_image_engines(
-            audio_families, AUDIO_SUPPORTED_ENGINES, "audio"
+            audio_families, supported_audio_engines, "audio"
         )
         _apply_virtualenv_engine_overrides(
             engine_params,
-            AUDIO_SUPPORTED_ENGINES,
+            supported_audio_engines,
             audio_engine_markers,
             enable_virtual_env,
         )
