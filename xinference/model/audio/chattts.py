@@ -25,6 +25,12 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _voice_seed(voice: str) -> int:
+    import xxhash
+
+    return xxhash.xxh32_intdigest(voice.encode("utf-8"))
+
+
 class ChatTTSModel:
     def __init__(
         self,
@@ -72,7 +78,6 @@ class ChatTTSModel:
         import ChatTTS
         import numpy as np
         import torch
-        import xxhash
 
         from .utils import audio_stream_generator, audio_to_bytes
 
@@ -90,7 +95,7 @@ class ChatTTSModel:
                 logger.info("Fallback to random speaker due to %s", e)
 
         if rnd_spk_emb is None:
-            seed = xxhash.xxh32_intdigest(voice)
+            seed = _voice_seed(voice)
 
             set_all_random_seed(seed)
             torch.backends.cudnn.deterministic = True
