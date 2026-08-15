@@ -18,6 +18,7 @@ import io
 import json
 import subprocess
 import sys
+from http.client import IncompleteRead
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
@@ -181,7 +182,7 @@ def test_pip_download_forwards_package_build_environment(monkeypatch, tmp_path):
 def test_download_sdist_without_metadata_uses_simple_api(monkeypatch, tmp_path):
     downloader = _load_script("download_packages")
     content = b"source distribution"
-    digest = hashlib.sha256(content).hexdigest()
+    digest = hashlib.sha256(content).hexdigest().upper()
     simple_payload = json.dumps(
         {
             "files": [
@@ -235,6 +236,65 @@ def test_download_sdist_without_metadata_uses_simple_api(monkeypatch, tmp_path):
         ("https://example.invalid/simple/flash-attn/", 30),
         ("https://example.invalid/files/flash_attn-2.8.3.post1.tar.gz", 60),
     ]
+
+
+def test_download_sdist_without_metadata_rejects_malformed_simple_api(
+    monkeypatch, tmp_path
+):
+    downloader = _load_script("download_packages")
+    monkeypatch.setattr(
+        downloader, "urlopen", lambda *_args, **_kwargs: io.BytesIO(b"[]")
+    )
+
+    assert (
+        downloader.download_sdist_without_metadata(
+            "flash-attn",
+            tmp_path,
+            index_url="https://example.invalid/simple",
+            python_version="3.12",
+        )
+        is None
+    )
+
+
+def test_download_sdist_without_metadata_cleans_up_incomplete_download(
+    monkeypatch, tmp_path
+):
+    downloader = _load_script("download_packages")
+    content = b"source distribution"
+    simple_payload = json.dumps(
+        {
+            "files": [
+                {
+                    "filename": "flash_attn-2.8.3.post1.tar.gz",
+                    "url": "../../files/flash_attn-2.8.3.post1.tar.gz",
+                    "hashes": {"sha256": hashlib.sha256(content).hexdigest()},
+                    "requires-python": ">=3.9",
+                    "yanked": False,
+                }
+            ]
+        }
+    ).encode()
+
+    class BrokenResponse(io.BytesIO):
+        def read(self, *_args, **_kwargs):
+            raise IncompleteRead(b"partial")
+
+    responses = iter((io.BytesIO(simple_payload), BrokenResponse(content)))
+    monkeypatch.setattr(
+        downloader, "urlopen", lambda *_args, **_kwargs: next(responses)
+    )
+
+    assert (
+        downloader.download_sdist_without_metadata(
+            "flash-attn",
+            tmp_path,
+            index_url="https://example.invalid/simple",
+            python_version="3.12",
+        )
+        is None
+    )
+    assert not list(tmp_path.iterdir())
 
 
 def test_runtime_constraints_require_exact_pins(tmp_path):

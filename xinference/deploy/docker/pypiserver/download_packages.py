@@ -41,6 +41,7 @@ import os
 import subprocess
 import sys
 from collections import defaultdict
+from http.client import HTTPException
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 from urllib.parse import urljoin
@@ -242,7 +243,9 @@ def download_sdist_without_metadata(
     try:
         with urlopen(request, timeout=30) as response:
             payload = json.load(response)
-    except (OSError, ValueError):
+        if not isinstance(payload, dict) or not isinstance(payload.get("files"), list):
+            return None
+    except (HTTPException, OSError, ValueError):
         return None
 
     candidates: Dict[Version, List[Dict[str, object]]] = defaultdict(list)
@@ -282,7 +285,7 @@ def download_sdist_without_metadata(
         candidates[selected_version], key=lambda item: str(item["filename"])
     )[0]
     filename = str(selected["filename"])
-    expected_sha256 = str(selected["hashes"]["sha256"])  # type: ignore[index]
+    expected_sha256 = str(selected["hashes"]["sha256"]).lower()  # type: ignore[index]
     artifact_url = urljoin(project_url, str(selected["url"]))
     target = dest / filename
     partial = dest / (filename + ".part")
@@ -296,7 +299,7 @@ def download_sdist_without_metadata(
             partial.unlink(missing_ok=True)
             return None
         partial.replace(target)
-    except OSError:
+    except (HTTPException, OSError):
         partial.unlink(missing_ok=True)
         return None
     print(
