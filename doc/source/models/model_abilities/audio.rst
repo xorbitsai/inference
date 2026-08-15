@@ -870,6 +870,10 @@ where values above ``1.0`` slow speech down. Pronunciation can be controlled
 with ``<word|reading>`` notation, for example
 ``他在银<行|XING2>里<行|HANG2>走了半天。``.
 
+Upstream officially supports Python 3.10 and 3.11. A GPU is strongly
+recommended; enable ``use_bf16`` at launch to reduce GPU memory use. Text-based
+emotion guidance additionally requires ``use_qwen_emo=True``.
+
 IndexTTS2 Offline Usage
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
