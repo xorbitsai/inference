@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { Binary, ImageIcon, Sparkles } from 'lucide-react';
 
 import ReactMarkdown from '@/components/ui/markdown-renderer';
@@ -168,11 +168,19 @@ function BlobMediaPreview({
   type: MediaType;
   className: string;
 }) {
-  const url = useMemo(() => URL.createObjectURL(blob), [blob]);
+  const [url, setUrl] = useState<string>();
 
   useEffect(() => {
-    return () => URL.revokeObjectURL(url);
-  }, [url]);
+    const expectedMimeType = mediaMimeType(type);
+    const mediaBlob =
+      blob.type === expectedMimeType ? blob : new Blob([blob], { type: expectedMimeType });
+    const objectUrl = URL.createObjectURL(mediaBlob);
+
+    setUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [blob, type]);
+
+  if (!url) return null;
 
   return <MediaPreview type={type} url={url} className={className} />;
 }
