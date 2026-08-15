@@ -17,17 +17,26 @@ from unittest.mock import patch
 import pytest
 
 from ...cache_manager import CacheManager
-from ...utils import get_engine_params_by_name
+from ...utils import (
+    get_engine_params_by_name,
+    get_engine_params_by_name_with_virtual_env,
+)
 from .. import BUILTIN_AUDIO_MODELS, _install, load_model_family_from_json
 from .. import platform as audio_platform
 from .. import sys as audio_sys
 from ..core import create_audio_model_instance, resolve_audio_model_name_and_engine
 from ..engine import (
+    MLXAudioSTTEngineModel,
+    MLXAudioTTSEngineModel,
     MLXF5TTSAudioModel,
     MLXKokoroAudioModel,
     MLXWhisperAudioModel,
     PyTorchF5TTSAudioModel,
+    PyTorchFunASRAudioModel,
     PyTorchKokoroAudioModel,
+    PyTorchMeloTTSAudioModel,
+    PyTorchQwen3TTSAudioModel,
+    PyTorchVoxCPMAudioModel,
     TransformersQwen3ASRAudioModel,
     TransformersWhisperAudioModel,
     VLLMQwen3ASRAudioModel,
@@ -79,7 +88,23 @@ def linux_cuda_engines():
 
 @pytest.fixture
 def apple_mlx_engines():
-    model_names = ("whisper-tiny", "F5-TTS", "Kokoro-82M")
+    model_names = (
+        "whisper-tiny",
+        "F5-TTS",
+        "Kokoro-82M",
+        "SenseVoiceSmall",
+        "Fun-ASR-Nano-2512",
+        "Qwen3-ASR-0.6B",
+        "Qwen3-ASR-1.7B",
+        "Qwen3-TTS-12Hz-0.6B-Base",
+        "Qwen3-TTS-12Hz-1.7B-Base",
+        "Qwen3-TTS-12Hz-0.6B-CustomVoice",
+        "Qwen3-TTS-12Hz-1.7B-CustomVoice",
+        "Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        "MeloTTS-English",
+        "MeloTTS-English-v3",
+        "VoxCPM2",
+    )
     old_models = {name: BUILTIN_AUDIO_MODELS.get(name) for name in model_names}
     old_engines = {k: dict(v) for k, v in AUDIO_ENGINES.items()}
     with (
@@ -114,7 +139,7 @@ def test_audio_engine_families_registered():
     assert "transformers" in AUDIO_ENGINES["whisper-large-v3"]
     assert "PyTorch" in AUDIO_ENGINES["F5-TTS"]
     assert "PyTorch" in AUDIO_ENGINES["Kokoro-82M"]
-    assert "SenseVoiceSmall" not in AUDIO_ENGINES
+    assert "PyTorch" in AUDIO_ENGINES["SenseVoiceSmall"]
 
 
 def test_qwen3_asr_vllm_engine_on_linux_cuda(linux_cuda_engines):
@@ -175,6 +200,12 @@ def test_consolidated_mlx_specs_and_legacy_aliases(apple_mlx_engines):
         "whisper-tiny": ["transformers", "MLX"],
         "F5-TTS": ["PyTorch", "MLX"],
         "Kokoro-82M": ["PyTorch", "MLX"],
+        "SenseVoiceSmall": ["PyTorch", "MLX"],
+        "Fun-ASR-Nano-2512": ["PyTorch", "MLX"],
+        "Qwen3-ASR-0.6B": ["transformers", "MLX"],
+        "Qwen3-TTS-12Hz-0.6B-Base": ["PyTorch", "MLX"],
+        "MeloTTS-English": ["PyTorch", "MLX"],
+        "VoxCPM2": ["PyTorch", "MLX"],
     }
     for model_name, engines in expected_engines.items():
         assert list(AUDIO_ENGINES[model_name]) == engines
@@ -215,6 +246,42 @@ def test_create_consolidated_audio_engines(apple_mlx_engines):
         ("F5-TTS-MLX", None, MLXF5TTSAudioModel, "lucasnewman/f5-tts-mlx"),
         ("Kokoro-82M", None, PyTorchKokoroAudioModel, "hexgrad/Kokoro-82M"),
         ("Kokoro-82M-MLX", None, MLXKokoroAudioModel, "prince-canuma/Kokoro-82M"),
+        (
+            "SenseVoiceSmall",
+            "PyTorch",
+            PyTorchFunASRAudioModel,
+            "FunAudioLLM/SenseVoiceSmall",
+        ),
+        (
+            "SenseVoiceSmall",
+            "mlx",
+            MLXAudioSTTEngineModel,
+            "mlx-community/SenseVoiceSmall",
+        ),
+        (
+            "Qwen3-TTS-12Hz-0.6B-Base",
+            None,
+            PyTorchQwen3TTSAudioModel,
+            "Qwen/Qwen3-TTS-12Hz-0.6B-Base",
+        ),
+        (
+            "Qwen3-TTS-12Hz-0.6B-Base",
+            "MLX",
+            MLXAudioTTSEngineModel,
+            "mlx-community/Qwen3-TTS-12Hz-0.6B-Base-8bit",
+        ),
+        (
+            "MeloTTS-English",
+            None,
+            PyTorchMeloTTSAudioModel,
+            "myshell-ai/MeloTTS-English",
+        ),
+        (
+            "VoxCPM2",
+            None,
+            PyTorchVoxCPMAudioModel,
+            "openbmb/VoxCPM2",
+        ),
     ]
     for model_name, engine, expected_class, expected_model_id in cases:
         model = create_audio_model_instance(
@@ -262,6 +329,48 @@ def test_audio_engine_api_returns_variant_formats(apple_mlx_engines):
         "PyTorch": [{"model_name": "F5-TTS", "model_format": "pytorch"}],
         "MLX": [{"model_name": "F5-TTS", "model_format": "mlx"}],
     }
+
+
+def test_mlx_audio_engine_uses_virtualenv_when_dependency_is_missing(
+    apple_mlx_engines,
+):
+    with (
+        patch.object(PyTorchQwen3TTSAudioModel, "check_lib", return_value=True),
+        patch.object(
+            MLXAudioTTSEngineModel,
+            "check_lib",
+            return_value=(False, "mlx-audio is not installed"),
+        ),
+    ):
+        params = get_engine_params_by_name_with_virtual_env(
+            "audio", "Qwen3-TTS-12Hz-0.6B-Base", enable_virtual_env=True
+        )
+
+    assert params["PyTorch"] == [
+        {
+            "model_name": "Qwen3-TTS-12Hz-0.6B-Base",
+            "model_format": "pytorch",
+        }
+    ]
+    assert params["MLX"][0]["model_format"] == "mlx"
+    assert params["MLX"][0]["virtualenv_required"] is True
+
+
+def test_mlx_audio_specs_pin_isolated_runtime(apple_mlx_engines):
+    models = apple_mlx_engines
+    for model_name in (
+        "SenseVoiceSmall",
+        "Fun-ASR-Nano-2512",
+        "Qwen3-ASR-0.6B",
+        "Qwen3-TTS-12Hz-0.6B-Base",
+        "MeloTTS-English",
+        "VoxCPM2",
+    ):
+        mlx_spec = next(spec for spec in models[model_name] if spec.engine == "MLX")
+        packages = mlx_spec.virtualenv.packages
+        assert any("mlx-audio" in package for package in packages)
+        assert any('#engine# == "MLX"' in package for package in packages)
+        assert all("#system_" not in package for package in packages)
 
 
 @pytest.mark.asyncio
@@ -313,22 +422,21 @@ def test_create_audio_model_instance_legacy_dispatch():
         )
     assert isinstance(model, WhisperModel)
 
-    # model_engine on a legacy family is ignored with a warning
+    # Families that still do not have an engine registry retain legacy dispatch.
     model = create_audio_model_instance(
-        "uid",
-        "SenseVoiceSmall",
-        model_path="/fake/path",
-        model_engine="transformers",
-        enable_virtual_env=False,
+        "uid", "paraformer-zh", model_path="/fake/path", enable_virtual_env=False
     )
     assert isinstance(model, FunASRModel)
 
 
 def test_builtin_specs_have_vllm_virtualenv_marker():
     for model_name in ("Qwen3-ASR-0.6B", "Qwen3-ASR-1.7B"):
-        for spec in BUILTIN_AUDIO_MODELS[model_name]:
-            packages = spec.virtualenv.packages if spec.virtualenv else []
-            assert any(
-                "qwen-asr[vllm]" in pkg and '#engine# == "vLLM"' in pkg
-                for pkg in packages
-            ), f"{model_name} misses qwen-asr[vllm] virtualenv marker"
+        spec = next(
+            spec
+            for spec in BUILTIN_AUDIO_MODELS[model_name]
+            if spec.engine == "transformers"
+        )
+        packages = spec.virtualenv.packages if spec.virtualenv else []
+        assert any(
+            "qwen-asr[vllm]" in pkg and '#engine# == "vLLM"' in pkg for pkg in packages
+        ), f"{model_name} misses qwen-asr[vllm] virtualenv marker"

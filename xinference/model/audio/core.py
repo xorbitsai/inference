@@ -30,6 +30,7 @@ from .kokoro_mlx import KokoroMLXModel
 from .kokoro_zh import KokoroZHModel
 from .megatts import MegaTTSModel
 from .melotts import MeloTTSModel
+from .mlx_audio import MLXAudioSTTModel, MLXAudioTTSModel
 from .qwen3_asr import Qwen3ASRModel
 from .qwen3_tts import Qwen3TTSModel
 from .speaker_embedding import ModelScopeSpeakerEmbeddingModel
@@ -234,6 +235,8 @@ def create_audio_model_instance(
     Qwen3TTSModel,
     VoxCPMModel,
     ModelScopeSpeakerEmbeddingModel,
+    MLXAudioSTTModel,
+    MLXAudioTTSModel,
     AudioEngineModel,
 ]:
     from ..cache_manager import CacheManager
@@ -311,6 +314,8 @@ def create_audio_model_instance(
         Qwen3TTSModel,
         VoxCPMModel,
         ModelScopeSpeakerEmbeddingModel,
+        MLXAudioSTTModel,
+        MLXAudioTTSModel,
     ]
     if model_spec.model_family == "whisper":
         if (model_spec.engine or "").lower() == "mlx":
@@ -318,7 +323,10 @@ def create_audio_model_instance(
         else:
             model = WhisperModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "funasr":
-        model = FunASRModel(model_uid, model_path, model_spec, **kwargs)
+        if (model_spec.engine or "").lower() == "mlx":
+            model = MLXAudioSTTModel(model_uid, model_path, model_spec, **kwargs)
+        else:
+            model = FunASRModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "ChatTTS":
         model = ChatTTSModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "CosyVoice":
@@ -330,7 +338,10 @@ def create_audio_model_instance(
     elif model_spec.model_family == "F5-TTS-MLX":
         model = F5TTSMLXModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "MeloTTS":
-        model = MeloTTSModel(model_uid, model_path, model_spec, **kwargs)
+        if (model_spec.engine or "").lower() == "mlx":
+            model = MLXAudioTTSModel(model_uid, model_path, model_spec, **kwargs)
+        else:
+            model = MeloTTSModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "Kokoro":
         model = KokoroModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "Kokoro-zh":
@@ -342,11 +353,20 @@ def create_audio_model_instance(
     elif model_spec.model_family == "IndexTTS2":
         model = Indextts2(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "qwen3_asr":
-        model = Qwen3ASRModel(model_uid, model_path, model_spec, **kwargs)
+        if (model_spec.engine or "").lower() == "mlx":
+            model = MLXAudioSTTModel(model_uid, model_path, model_spec, **kwargs)
+        else:
+            model = Qwen3ASRModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "qwen3_tts":
-        model = Qwen3TTSModel(model_uid, model_path, model_spec, **kwargs)
+        if (model_spec.engine or "").lower() == "mlx":
+            model = MLXAudioTTSModel(model_uid, model_path, model_spec, **kwargs)
+        else:
+            model = Qwen3TTSModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "VoxCPM":
-        model = VoxCPMModel(model_uid, model_path, model_spec, **kwargs)
+        if (model_spec.engine or "").lower() == "mlx":
+            model = MLXAudioTTSModel(model_uid, model_path, model_spec, **kwargs)
+        else:
+            model = VoxCPMModel(model_uid, model_path, model_spec, **kwargs)
     elif model_spec.model_family == "campplus":
         model = ModelScopeSpeakerEmbeddingModel(
             model_uid, model_path, model_spec, **kwargs
