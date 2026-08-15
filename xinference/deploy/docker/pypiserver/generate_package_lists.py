@@ -51,6 +51,7 @@ PLATFORM_MACHINE = {"amd64": "x86_64", "arm64": "aarch64"}
 
 SYSTEM_PLACEHOLDER_RE = re.compile(r"^#system_([a-z0-9_]+)#$")
 ENGINE_MARKER_RE = re.compile(r"#(?:model_)?engine#\s*==\s*['\"]([^'\"]+)['\"]")
+XOSCAR_RUNTIME_MARKERS = {"has_cuda", "not has_cuda"}
 
 
 def load_xinference_modules(src_root: Path) -> Tuple[Any, Any]:
@@ -152,6 +153,22 @@ def classify_spec(spec: str) -> str:
     return "pin"
 
 
+def normalize_mirror_spec(spec: str) -> str:
+    """Strip xoscar-only markers that pip cannot evaluate.
+
+    The offline mirror must carry dependencies for both CPU and CUDA model
+    launches. xoscar selects the applicable branch when it creates the model
+    virtualenv, but the mirror builder feeds every branch to pip ahead of time.
+    Keep both requirements while removing the runtime-only marker.
+    """
+
+    candidate = spec.strip()
+    requirement, separator, marker = candidate.partition(";")
+    if separator and marker.strip().lower() in XOSCAR_RUNTIME_MARKERS:
+        return requirement.strip()
+    return candidate
+
+
 def is_dependency_macro(spec: str) -> bool:
     """True for '#xxx_dependencies#' / 'xxx_dependencies' engine macros."""
     name = spec.split(";", 1)[0].strip().lower()
@@ -237,6 +254,7 @@ def main() -> None:
     excluded_pins: Set[str] = set()
 
     def _add(spec: str, source: str) -> None:
+        spec = normalize_mirror_spec(spec)
         kind = classify_spec(spec)
         if kind == "url":
             urls.add(spec)
