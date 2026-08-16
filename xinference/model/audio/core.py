@@ -31,6 +31,7 @@ from .kokoro_zh import KokoroZHModel
 from .megatts import MegaTTSModel
 from .melotts import MeloTTSModel
 from .mlx_audio import MLXAudioSTTModel, MLXAudioTTSModel
+from .minimax_music3 import MiniMaxMusic3Model
 from .qwen3_asr import Qwen3ASRModel
 from .qwen3_tts import Qwen3TTSModel
 from .speaker_embedding import ModelScopeSpeakerEmbeddingModel
@@ -226,6 +227,7 @@ def create_audio_model_instance(
     F5TTSModel,
     F5TTSMLXModel,
     MeloTTSModel,
+    MiniMaxMusic3Model,
     KokoroModel,
     KokoroMLXModel,
     KokoroZHModel,

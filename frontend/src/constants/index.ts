@@ -59,6 +59,7 @@ export enum ModelAbility {
   Audio2text = 'audio2text',
   SpeakerEmbedding = 'speaker_embedding',
   Text2audio = 'text2audio',
+  Text2music = 'text2music',
   Audio2audio = 'audio2audio',
   Text2video = 'text2video',
   Image2video = 'image2video',

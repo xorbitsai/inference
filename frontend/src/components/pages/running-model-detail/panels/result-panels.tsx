@@ -97,7 +97,7 @@ function isVisualAbility(ability: ModelAbility) {
 }
 
 function isAudioResultAbility(ability: ModelAbility) {
-  return [ModelAbility.Text2audio, ModelAbility.Audio2audio, ModelAbility.Audio2audio].includes(
+  return [ModelAbility.Text2audio, ModelAbility.Text2music, ModelAbility.Audio2audio].includes(
     ability
   );
 }

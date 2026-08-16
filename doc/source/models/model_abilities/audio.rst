@@ -4,7 +4,8 @@
 Audio
 =====
 
-Learn how to turn audio into text, text into audio, or audio into speaker embeddings with Xinference.
+Learn how to turn audio into text, synthesize speech, generate music, or extract
+speaker embeddings with Xinference.
 
 
 Introduction
@@ -108,6 +109,11 @@ Text to audio (TTS)
 * MeloTTS series
 * :ref:`Kokoro-82M <models_builtin_kokoro-82m>`
 * :ref:`MegaTTS3 <models_builtin_megatts3>`
+
+Music generation
+~~~~~~~~~~~~~~~~
+
+* :ref:`MiniMax-Music3 <models_builtin_minimax-music3>` (NVIDIA CUDA only)
 
 Speaker embeddings
 ~~~~~~~~~~~~~~~~~~
@@ -352,6 +358,94 @@ Speech API use non-stream by default as
   .. code-tab:: output
 
     The output will be an audio binary.
+
+
+.. _minimax_music3_speech:
+
+MiniMax-Music3 Usage
+~~~~~~~~~~~~~~~~~~~~
+
+``MiniMax-Music3`` reuses the Speech endpoint for text-to-music generation.
+Put the lyrics in ``input`` and the required music description in
+``prompt_text`` inside the existing ``kwargs`` field. Preserve line breaks and
+put tags such as ``[Verse]`` and ``[Chorus]`` on their own lines.
+
+``duration`` is the maximum generated length in seconds. Its range is 0.04
+through 360 and its default is 60. Xinference passes it directly to the
+Diffusers pipeline as ``audio_duration``. The model may emit an end-of-audio
+token and finish before the limit.
+The initial integration only accepts ``response_format=wav``, ``stream=false``,
+``speed=1.0``, and ``voice`` set to ``default``, an empty string, or null.
+Inference requires NVIDIA CUDA. Sampling steps and classifier-free guidance
+remain at the Diffusers defaults and are not request parameters.
+
+Xinference preserves the Diffusers pipeline's native 44.1 kHz stereo samples.
+It wraps them in an IEEE-float WAV container without resampling or integer PCM
+quantization.
+
+``prompt_text``, ``seed``, and ``duration`` are model options passed through the
+existing ``kwargs`` channel rather than additional Speech API parameters. Raw
+REST requests encode ``kwargs`` as a JSON string. The Xinference sync and async
+clients accept these names through their existing ``**kwargs`` argument.
+
+.. tabs::
+
+  .. code-tab:: bash cURL
+
+    curl 'http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1/audio/speech' \
+      -H 'Content-Type: application/json' \
+      -d '{
+        "model": "<MODEL_UID>",
+        "input": "[Verse]\nMorning light filtering through the pine\n[Chorus]\nSoftly the world begins to breathe",
+        "voice": "default",
+        "response_format": "wav",
+        "speed": 1.0,
+        "stream": false,
+        "kwargs": "{\"prompt_text\": \"Warm acoustic pop with intimate female vocals, fingerpicked guitar, soft piano, and a wide final chorus.\", \"seed\": 7, \"duration\": 60}"
+      }' \
+      --output music3.wav
+
+  .. code-tab:: python OpenAI Python Client
+
+    import json
+
+    from openai import OpenAI
+
+    client = OpenAI(
+        api_key="cannot be empty",
+        base_url="http://<XINFERENCE_HOST>:<XINFERENCE_PORT>/v1",
+    )
+    response = client.audio.speech.create(
+        model="<MODEL_UID>",
+        input="[Verse]\nMorning light\n[Chorus]\nSing again",
+        voice="default",
+        response_format="wav",
+        extra_body={
+            "kwargs": json.dumps({
+                "prompt_text": "Warm acoustic pop with intimate vocals and soft piano.",
+                "seed": 7,
+                "duration": 60,
+            })
+        },
+    )
+    response.write_to_file("music3.wav")
+
+  .. code-tab:: python Xinference Python Client
+
+    from xinference.client import Client
+
+    client = Client("http://<XINFERENCE_HOST>:<XINFERENCE_PORT>")
+    model = client.get_model("<MODEL_UID>")
+    wav = model.speech(
+        input="[Verse]\nMorning light\n[Chorus]\nSing again",
+        prompt_text="Warm acoustic pop with intimate vocals and soft piano.",
+        voice="default",
+        response_format="wav",
+        seed=7,
+        duration=60,
+    )
+    with open("music3.wav", "wb") as output:
+        output.write(wav)
 
 
 ChatTTS Usage

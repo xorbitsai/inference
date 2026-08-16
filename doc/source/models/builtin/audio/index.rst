@@ -61,6 +61,8 @@ The following is a list of built-in audio models in Xinference:
   
    melotts-spanish
   
+   minimax-music3
+
    paraformer-zh
   
    paraformer-zh-hotword

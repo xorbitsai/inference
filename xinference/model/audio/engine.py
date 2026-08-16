@@ -25,6 +25,7 @@ from .kokoro import KokoroModel
 from .kokoro_mlx import KokoroMLXModel
 from .melotts import MeloTTSModel
 from .mlx_audio import MLXAudioSTTModel, MLXAudioTTSModel
+from .minimax_music3 import MiniMaxMusic3Model
 from .qwen3_asr import Qwen3ASRModel
 from .qwen3_tts import Qwen3TTSModel
 from .vllm import VLLMQwen3ASRModel
@@ -319,6 +320,14 @@ class MLXAudioTTSEngineModel(MLXAudioTTSModel, AudioEngineModel):
         return model_family.model_name in MLX_AUDIO_TTS_MODEL_NAMES
 
 
+class DiffusersMiniMaxMusic3AudioModel(MiniMaxMusic3Model, AudioEngineModel):
+    required_libs = ("diffusers",)
+
+    @classmethod
+    def match(cls, model_family: "AudioModelFamilyV2") -> bool:
+        return model_family.model_family == "minimax_music3"
+
+
 def register_builtin_audio_engines() -> None:
     # the first registered engine is the default one for a model
     SUPPORTED_ENGINES["transformers"] = [
@@ -341,3 +350,4 @@ def register_builtin_audio_engines() -> None:
         MLXAudioSTTEngineModel,
         MLXAudioTTSEngineModel,
     ]
+    SUPPORTED_ENGINES["diffusers"] = [DiffusersMiniMaxMusic3AudioModel]
