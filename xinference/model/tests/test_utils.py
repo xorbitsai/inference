@@ -98,15 +98,32 @@ def test_tqdm_patch_uses_equal_file_weights():
 
         large_file.update(1)
         during_completion = downloader.get_progress()
-        assert during_completion == pytest.approx(before_completion)
+        assert during_completion == pytest.approx(1 / 3)
 
         all_bar.update(1)
         after_completion = downloader.get_progress()
         assert after_completion == pytest.approx(1 / 3)
-        assert after_completion >= before_completion
+        assert after_completion == pytest.approx(during_completion)
 
         small_file.update(15)
         assert downloader.get_progress() == pytest.approx((1 + 15 / 30) / 3)
+
+
+def test_tqdm_patch_preserves_completion_without_intermediate_poll():
+    downloader = CancellableDownloader(cancel_error_cls=RuntimeError)
+
+    with downloader:
+        all_bar = tqdm(total=3, file=io.StringIO())
+        file_bar = tqdm(total=70, unit="B", file=io.StringIO())
+
+        # Complete the file before get_progress() has observed any partial
+        # progress. Its contribution must remain visible until all_bar catches
+        # up, rather than relying on a previously reported high-water mark.
+        file_bar.update(70)
+        assert downloader.get_progress() == pytest.approx(1 / 3)
+
+        all_bar.update(1)
+        assert downloader.get_progress() == pytest.approx(1 / 3)
 
 
 def test_download_progress_details_include_completed_files():

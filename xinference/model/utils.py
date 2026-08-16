@@ -1029,10 +1029,10 @@ class CancellableDownloader:
         # progress for file downloader
         # mainly when tqdm unit is set
         self._download_progresses: Set[tqdm] = set()
-        # Byte bars and the repository-level bar advance in separate calls.
-        # Keep the reported value monotonic while a completed byte bar waits
-        # for the repository-level bar to account for the same file.
-        self._last_progress = 0.0
+        # A byte bar reaches 100% before the repository-level bar advances.
+        # Keep those completed file contributions until a main-bar update
+        # accounts for them, even if get_progress() was not called in between.
+        self._unaccounted_download_progresses: Set[tqdm] = set()
         # Instance-specific tqdm tracking
         self._patched_instances: Set[int] = set()
 
@@ -1073,7 +1073,7 @@ class CancellableDownloader:
         with self._progress_lock:
             self._main_progresses.clear()
             self._download_progresses.clear()
-            self._last_progress = 0.0
+            self._unaccounted_download_progresses.clear()
 
     def _progress_snapshots(self) -> Tuple[List[tqdm], List[tqdm]]:
         """Return stable copies while tqdm callbacks may update the sets."""
@@ -1081,49 +1081,49 @@ class CancellableDownloader:
             return list(self._main_progresses), list(self._download_progresses)
 
     def get_progress(self) -> float:
-        if self.done:
-            # directly return 1.0 when finished
-            return 1.0
-        # Don't return 1.0 when cancelled, calculate actual progress
-
-        main_progresses, download_progresses = self._progress_snapshots()
-
-        tasks = finished_tasks = 0
-        for main_progress in main_progresses:
-            tasks += main_progress.total or 0
-            finished_tasks += main_progress.n
-
-        if tasks == 0:
-            # we assumed at least 1 task
-            tasks = 1
-
-        active_file_progress = 0.0
-        for download_progress in download_progresses:
-            # Completed downloads are already represented by finished_tasks.
-            if download_progress.n == download_progress.total:
-                continue
-
-            downloaded = download_progress.n or 0
-            total = download_progress.total
-            if total:
-                # Give every file the same weight, irrespective of its size.
-                active_file_progress += min(max(downloaded / total, 0.0), 1.0)
-            elif downloaded > 0:
-                # Preserve the previous best-effort estimate for downloads
-                # whose total size is not available yet.
-                active_file_progress += 0.1
-
-        # A tqdm implementation may expose more than one byte progress bar for
-        # the same file. Never let active bars account for more file slots than
-        # the repository-level progress reports as unfinished.
-        unfinished_tasks = max(tasks - finished_tasks, 0)
-        active_file_progress = min(active_file_progress, unfinished_tasks)
-        progress = min(
-            max((finished_tasks + active_file_progress) / tasks, 0.0), 1.0
-        )
         with self._progress_lock:
-            self._last_progress = max(self._last_progress, progress)
-            return self._last_progress
+            if self.done:
+                # directly return 1.0 when finished
+                return 1.0
+            # Don't return 1.0 when cancelled, calculate actual progress
+
+            tasks = finished_tasks = 0
+            for main_progress in self._main_progresses:
+                tasks += main_progress.total or 0
+                finished_tasks += main_progress.n
+
+            if tasks == 0:
+                # we assumed at least 1 task
+                tasks = 1
+
+            active_file_progress = 0.0
+            for download_progress in self._download_progresses:
+                total = download_progress.total
+                downloaded = download_progress.n or 0
+
+                # Completed downloads are represented either by finished_tasks
+                # or by _unaccounted_download_progresses during the short gap
+                # before the repository-level bar advances.
+                if total is not None and downloaded >= total:
+                    continue
+
+                if total:
+                    # Give every file the same weight, irrespective of its size.
+                    active_file_progress += min(max(downloaded / total, 0.0), 1.0)
+                elif downloaded > 0:
+                    # Preserve the previous best-effort estimate for downloads
+                    # whose total size is not available yet.
+                    active_file_progress += 0.1
+
+            unaccounted_file_progress = len(self._unaccounted_download_progresses)
+            file_progress = active_file_progress + unaccounted_file_progress
+
+            # A tqdm implementation may expose more than one byte progress bar
+            # for the same file. Never let byte bars account for more file slots
+            # than the repository-level progress reports as unfinished.
+            unfinished_tasks = max(tasks - finished_tasks, 0)
+            file_progress = min(file_progress, unfinished_tasks)
+            return min(max((finished_tasks + file_progress) / tasks, 0.0), 1.0)
 
     @staticmethod
     def _finite_float(value: Any) -> Optional[float]:
@@ -1280,12 +1280,13 @@ class CancellableDownloader:
             # Thread-safe patched update
             def patched_update(tqdm_instance, n):
                 downloader = CancellableDownloader._get_tqdm_owner(tqdm_instance)
+                progresses = None
+                unit = None
                 if downloader is not None:
                     # if download cancelled, throw error
                     if getattr(downloader, "cancelled", False):
                         downloader.raise_error()
 
-                    progresses = None
                     if not downloader.done and not getattr(
                         tqdm_instance, "disable", False
                     ):
@@ -1298,10 +1299,37 @@ class CancellableDownloader:
                             )
 
                     if progresses is not None:
-                        # Guard the mutation: a concurrent get_progress()
-                        # caller may be iterating this very set.
                         with downloader._progress_lock:
+                            # Keep the tqdm update and the corresponding
+                            # completed-file bookkeeping atomic with respect to
+                            # get_progress().
                             progresses.add(tqdm_instance)
+                            previous_n = getattr(tqdm_instance, "n", 0) or 0
+                            result = original_update_plain(tqdm_instance, n)
+                            current_n = getattr(tqdm_instance, "n", 0) or 0
+
+                            if unit == "it":
+                                newly_accounted = max(int(current_n - previous_n), 0)
+                                for _ in range(
+                                    min(
+                                        newly_accounted,
+                                        len(
+                                            downloader._unaccounted_download_progresses
+                                        ),
+                                    )
+                                ):
+                                    downloader._unaccounted_download_progresses.pop()
+                            else:
+                                total = getattr(tqdm_instance, "total", None)
+                                if (
+                                    total is not None
+                                    and previous_n < total <= current_n
+                                ):
+                                    downloader._unaccounted_download_progresses.add(
+                                        tqdm_instance
+                                    )
+
+                            return result
 
                 # Call original update with safety check
                 return original_update_plain(tqdm_instance, n)
