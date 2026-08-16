@@ -24,8 +24,8 @@ from .funasr import FunASRModel
 from .kokoro import KokoroModel
 from .kokoro_mlx import KokoroMLXModel
 from .melotts import MeloTTSModel
-from .mlx_audio import MLXAudioSTTModel, MLXAudioTTSModel
 from .minimax_music3 import MiniMaxMusic3Model
+from .mlx_audio import MLXAudioSTTModel, MLXAudioTTSModel
 from .qwen3_asr import Qwen3ASRModel
 from .qwen3_tts import Qwen3TTSModel
 from .vllm import VLLMQwen3ASRModel

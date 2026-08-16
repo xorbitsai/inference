@@ -30,8 +30,8 @@ from .kokoro_mlx import KokoroMLXModel
 from .kokoro_zh import KokoroZHModel
 from .megatts import MegaTTSModel
 from .melotts import MeloTTSModel
-from .mlx_audio import MLXAudioSTTModel, MLXAudioTTSModel
 from .minimax_music3 import MiniMaxMusic3Model
+from .mlx_audio import MLXAudioSTTModel, MLXAudioTTSModel
 from .qwen3_asr import Qwen3ASRModel
 from .qwen3_tts import Qwen3TTSModel
 from .speaker_embedding import ModelScopeSpeakerEmbeddingModel
