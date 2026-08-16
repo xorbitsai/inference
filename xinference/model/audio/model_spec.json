@@ -376,9 +376,9 @@
     "featured": false,
     "virtualenv": {
       "packages": [
-        "mlx-whisper",
-        "numba>=0.64.0",
-        "#system_numpy#"
+        "mlx-whisper ; #engine# == \"MLX\"",
+        "numba>=0.64.0 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
       ]
     }
   },
@@ -402,9 +402,9 @@
     "featured": false,
     "virtualenv": {
       "packages": [
-        "mlx-whisper",
-        "numba>=0.64.0",
-        "#system_numpy#"
+        "mlx-whisper ; #engine# == \"MLX\"",
+        "numba>=0.64.0 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
       ]
     }
   },
@@ -428,9 +428,9 @@
     "featured": false,
     "virtualenv": {
       "packages": [
-        "mlx-whisper",
-        "numba>=0.64.0",
-        "#system_numpy#"
+        "mlx-whisper ; #engine# == \"MLX\"",
+        "numba>=0.64.0 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
       ]
     }
   },
@@ -454,9 +454,9 @@
     "featured": false,
     "virtualenv": {
       "packages": [
-        "mlx-whisper",
-        "numba>=0.64.0",
-        "#system_numpy#"
+        "mlx-whisper ; #engine# == \"MLX\"",
+        "numba>=0.64.0 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
       ]
     }
   },
@@ -480,9 +480,9 @@
     "featured": false,
     "virtualenv": {
       "packages": [
-        "mlx-whisper",
-        "numba>=0.64.0",
-        "#system_numpy#"
+        "mlx-whisper ; #engine# == \"MLX\"",
+        "numba>=0.64.0 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
       ]
     }
   },
@@ -506,9 +506,9 @@
     "featured": false,
     "virtualenv": {
       "packages": [
-        "mlx-whisper",
-        "numba>=0.64.0",
-        "#system_numpy#"
+        "mlx-whisper ; #engine# == \"MLX\"",
+        "numba>=0.64.0 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
       ]
     }
   },
@@ -532,9 +532,9 @@
     "featured": false,
     "virtualenv": {
       "packages": [
-        "mlx-whisper",
-        "numba>=0.64.0",
-        "#system_numpy#"
+        "mlx-whisper ; #engine# == \"MLX\"",
+        "numba>=0.64.0 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
       ]
     }
   },
@@ -558,9 +558,9 @@
     "featured": false,
     "virtualenv": {
       "packages": [
-        "mlx-whisper",
-        "numba>=0.64.0",
-        "#system_numpy#"
+        "mlx-whisper ; #engine# == \"MLX\"",
+        "numba>=0.64.0 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
       ]
     }
   },
@@ -584,9 +584,9 @@
     "featured": false,
     "virtualenv": {
       "packages": [
-        "mlx-whisper",
-        "numba>=0.64.0",
-        "#system_numpy#"
+        "mlx-whisper ; #engine# == \"MLX\"",
+        "numba>=0.64.0 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
       ]
     }
   },
@@ -610,9 +610,9 @@
     "featured": false,
     "virtualenv": {
       "packages": [
-        "mlx-whisper",
-        "numba>=0.64.0",
-        "#system_numpy#"
+        "mlx-whisper ; #engine# == \"MLX\"",
+        "numba>=0.64.0 ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
       ]
     }
   },
@@ -1180,11 +1180,11 @@
     "featured": false,
     "virtualenv": {
       "packages": [
-        "f5-tts-mlx",
-        "vocos-mlx",
-        "soundfile",
-        "tomli",
-        "#system_numpy#"
+        "f5-tts-mlx ; #engine# == \"MLX\"",
+        "vocos-mlx ; #engine# == \"MLX\"",
+        "soundfile ; #engine# == \"MLX\"",
+        "tomli ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
       ]
     }
   },
@@ -1674,11 +1674,11 @@
     },
     "virtualenv": {
       "packages": [
-        "mlx-audio==0.2.3",
-        "mlx-lm==0.24.1",
-        "en_core_web_sm@https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
-        "en_core_web_trf@https://github.com/explosion/spacy-models/releases/download/en_core_web_trf-3.8.0/en_core_web_trf-3.8.0-py3-none-any.whl",
-        "#system_numpy#"
+        "mlx-audio==0.2.3 ; #engine# == \"MLX\"",
+        "mlx-lm==0.24.1 ; #engine# == \"MLX\"",
+        "en_core_web_sm@https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl ; #engine# == \"MLX\"",
+        "en_core_web_trf@https://github.com/explosion/spacy-models/releases/download/en_core_web_trf-3.8.0/en_core_web_trf-3.8.0-py3-none-any.whl ; #engine# == \"MLX\"",
+        "#system_numpy# ; #engine# == \"MLX\""
       ]
     },
     "updated_at": 1786790280,

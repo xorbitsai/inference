@@ -71,6 +71,16 @@ def _need_filter(spec: dict):
     return False
 
 
+def _audio_model_variant_identity(model: "AudioModelFamilyV2"):
+    return (
+        model.model_name,
+        model.engine,
+        model.model_format,
+        model.cache_name,
+        model.model_hub,
+    )
+
+
 def _install():
     # Install models with intelligent merging based on timestamps
     from ..utils import install_models_with_merge
@@ -89,6 +99,7 @@ def _install():
         "audio_models.json",
         has_downloaded_models,
         load_model_family_from_json,
+        _audio_model_variant_identity,
     )
 
     # Register one cache/version entry per engine variant. Hugging Face is the

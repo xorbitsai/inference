@@ -405,45 +405,31 @@ class MLXAudioTTSModel(MLXModelThreadMixin):
 
     @classmethod
     def _join_qwen_results(
-        cls, results: List[Any], segments: List[str], sample_rate: int
+        cls, results_by_segment: List[List[Any]], segments: List[str], sample_rate: int
     ):
         import numpy as np
 
-        grouped_audio: List[List[Any]] = [[] for _ in segments]
-        fallback_segment = 0
-        for result in results:
-            result_sample_rate = int(
-                _read_result_field(result, "sample_rate", sample_rate)
-            )
-            if result_sample_rate != sample_rate:
-                raise ValueError(
-                    "mlx-audio returned inconsistent sample rates: "
-                    f"{sample_rate} and {result_sample_rate}"
+        segment_audio = []
+        for results in results_by_segment:
+            chunks = []
+            for result in results:
+                result_sample_rate = int(
+                    _read_result_field(result, "sample_rate", sample_rate)
                 )
-
-            segment_index = _read_result_field(result, "segment_idx")
-            if segment_index is None:
-                segment_index = min(fallback_segment, len(grouped_audio) - 1)
-                if fallback_segment < len(grouped_audio) - 1:
-                    fallback_segment += 1
-            segment_index = int(segment_index)
-            if not 0 <= segment_index < len(grouped_audio):
-                raise ValueError(
-                    f"mlx-audio returned invalid segment index: {segment_index}"
+                if result_sample_rate != sample_rate:
+                    raise ValueError(
+                        "mlx-audio returned inconsistent sample rates: "
+                        f"{sample_rate} and {result_sample_rate}"
+                    )
+                chunks.append(
+                    np.asarray(_read_result_field(result, "audio")).reshape(-1)
                 )
-            grouped_audio[segment_index].append(
-                np.asarray(_read_result_field(result, "audio")).reshape(-1)
-            )
+            segment_audio.append(np.concatenate(chunks))
 
         joined_parts = []
-        generated_segments = [
-            (index, np.concatenate(chunks))
-            for index, chunks in enumerate(grouped_audio)
-            if chunks
-        ]
-        for position, (segment_index, segment_audio) in enumerate(generated_segments):
-            joined_parts.append(cls._fade_audio_edges(segment_audio, sample_rate))
-            if position < len(generated_segments) - 1:
+        for segment_index, audio in enumerate(segment_audio):
+            joined_parts.append(cls._fade_audio_edges(audio, sample_rate))
+            if segment_index < len(segment_audio) - 1:
                 pause_samples = round(
                     sample_rate * cls._qwen_pause_seconds(segments[segment_index])
                 )
@@ -552,19 +538,33 @@ class MLXAudioTTSModel(MLXModelThreadMixin):
                 and "split_pattern" not in kwargs
             ):
                 text_segments = self._split_qwen_text(input)
-                input = "\n".join(text_segments)
-                kwargs["split_pattern"] = "\n"
 
             generate_kwargs = self._build_generation_kwargs(
                 input, voice, speed, kwargs, temp_files
             )
-            results = list(self._model.generate(**generate_kwargs))
-            if not results:
-                raise RuntimeError("mlx-audio returned no generated audio")
-            sample_rate = int(_read_result_field(results[0], "sample_rate"))
             if text_segments is not None:
-                audio = self._join_qwen_results(results, text_segments, sample_rate)
+                results_by_segment = []
+                for segment_index, segment in enumerate(text_segments):
+                    segment_kwargs = dict(generate_kwargs)
+                    segment_kwargs.update(text=segment, split_pattern=None)
+                    results = list(self._model.generate(**segment_kwargs))
+                    if not results:
+                        raise RuntimeError(
+                            "mlx-audio returned no generated audio for Qwen3-TTS "
+                            f"segment {segment_index + 1}"
+                        )
+                    results_by_segment.append(results)
+                sample_rate = int(
+                    _read_result_field(results_by_segment[0][0], "sample_rate")
+                )
+                audio = self._join_qwen_results(
+                    results_by_segment, text_segments, sample_rate
+                )
             else:
+                results = list(self._model.generate(**generate_kwargs))
+                if not results:
+                    raise RuntimeError("mlx-audio returned no generated audio")
+                sample_rate = int(_read_result_field(results[0], "sample_rate"))
                 audio = np.concatenate(
                     [
                         np.asarray(_read_result_field(result, "audio")).reshape(-1)

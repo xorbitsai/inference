@@ -225,17 +225,15 @@ def test_mlx_audio_tts_qwen_requires_reference_text():
 
 def test_mlx_audio_tts_qwen_splits_and_joins_long_text():
     class FakeModel:
-        kwargs = None
+        calls = None
 
         def generate(self, **kwargs):
-            self.kwargs = kwargs
-            segments = kwargs["text"].split(kwargs["split_pattern"])
-            for index, _segment in enumerate(segments):
-                yield SimpleNamespace(
-                    audio=np.full(100, 0.5, dtype=np.float32),
-                    sample_rate=1000,
-                    segment_idx=index,
-                )
+            if self.calls is None:
+                self.calls = []
+            self.calls.append(kwargs)
+            yield SimpleNamespace(
+                audio=np.full(100, 0.5, dtype=np.float32), sample_rate=1000
+            )
 
     model = MLXAudioTTSModel(
         "uid",
@@ -251,12 +249,50 @@ def test_mlx_audio_tts_qwen_splits_and_joins_long_text():
         max_tokens=2048,
     )
 
-    assert model._model.kwargs["text"] == "第一句话。\n第二句话！"
-    assert model._model.kwargs["split_pattern"] == "\n"
-    assert model._model.kwargs["max_tokens"] == 2048
+    assert [call["text"] for call in model._model.calls] == [
+        "第一句话。",
+        "第二句话！",
+    ]
+    assert all(call["split_pattern"] is None for call in model._model.calls)
+    assert all(call["max_tokens"] == 2048 for call in model._model.calls)
     with wave.open(BytesIO(result), "rb") as wav_file:
         # Two 100-sample segments plus a 280 ms sentence pause.
         assert wav_file.getnframes() == 480
+
+
+def test_mlx_audio_tts_qwen_voice_design_splits_independently():
+    class FakeModel:
+        calls = None
+
+        def generate(self, **kwargs):
+            if self.calls is None:
+                self.calls = []
+            self.calls.append(kwargs)
+            yield SimpleNamespace(
+                audio=np.full(40, 0.5, dtype=np.float32), sample_rate=1000
+            )
+
+    model = MLXAudioTTSModel(
+        "uid",
+        "/fake/path",
+        _model_spec("Qwen3-TTS-12Hz-1.7B-VoiceDesign", "qwen3_tts"),
+    )
+    model._model = FakeModel()
+
+    result = model.speech(
+        "第一句话。第二句话！",
+        "",
+        response_format="wav",
+        instruct="A calm narrator",
+    )
+
+    assert [call["text"] for call in model._model.calls] == [
+        "第一句话。",
+        "第二句话！",
+    ]
+    assert all(call["instruct"] == "A calm narrator" for call in model._model.calls)
+    with wave.open(BytesIO(result), "rb") as wav_file:
+        assert wav_file.getnframes() == 360
 
 
 def test_mlx_audio_tts_qwen_splits_overlong_sentence_at_clause():

@@ -2603,17 +2603,42 @@ def load_downloaded_models_to_dict(
 
 
 def merge_models_by_timestamp(
-    built_in_models: Dict[str, List[Any]], user_models: Dict[str, List[Any]]
+    built_in_models: Dict[str, List[Any]],
+    user_models: Dict[str, List[Any]],
+    model_identity_func: Optional[Callable[[Any], Any]] = None,
 ) -> Dict[str, List[Any]]:
     """Merge built-in and user models, keeping the latest version based on updated_at.
 
     Args:
         built_in_models: Dictionary of built-in models
         user_models: Dictionary of user-defined models
+        model_identity_func: Optional function that distinguishes independently
+            versioned variants under the same model name.
 
     Returns:
         Merged dictionary with latest models based on updated_at timestamp
     """
+    if model_identity_func is not None:
+        merged_models: Dict[str, List[Any]] = {}
+        model_names = dict.fromkeys([*built_in_models, *user_models])
+        for model_name in model_names:
+            models_by_identity: Dict[Any, List[Any]] = {}
+            for model in [
+                *built_in_models.get(model_name, []),
+                *user_models.get(model_name, []),
+            ]:
+                models_by_identity.setdefault(model_identity_func(model), []).append(
+                    model
+                )
+
+            merged_models[model_name] = []
+            for models in models_by_identity.values():
+                latest_updated_at = max(model.updated_at for model in models)
+                merged_models[model_name].extend(
+                    model for model in models if model.updated_at == latest_updated_at
+                )
+        return merged_models
+
     merged_models = {}
 
     # First, add all built-in models
@@ -2663,6 +2688,7 @@ def install_models_with_merge(
     user_json_filename: str,
     has_downloaded_models_func,
     load_model_family_func,
+    model_identity_func: Optional[Callable[[Any], Any]] = None,
 ) -> None:
     """Install models with intelligent merging based on timestamps.
 
@@ -2673,6 +2699,8 @@ def install_models_with_merge(
         user_json_filename: Name of user JSON file
         has_downloaded_models_func: Function to check if user models exist
         load_model_family_func: Function to load model family from JSON
+        model_identity_func: Optional function that distinguishes independently
+            versioned variants under the same model name.
     """
     import os.path
 
@@ -2702,7 +2730,9 @@ def install_models_with_merge(
         built_in_models_copy = dict(built_in_dict)
 
         # Merge models, keeping the latest version based on updated_at
-        merged_models = merge_models_by_timestamp(built_in_models_copy, user_models)
+        merged_models = merge_models_by_timestamp(
+            built_in_models_copy, user_models, model_identity_func
+        )
 
         # Update the dictionary with merged results
         built_in_dict.clear()

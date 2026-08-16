@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -21,7 +23,12 @@ from ...utils import (
     get_engine_params_by_name,
     get_engine_params_by_name_with_virtual_env,
 )
-from .. import BUILTIN_AUDIO_MODELS, _install, load_model_family_from_json
+from .. import (
+    BUILTIN_AUDIO_MODELS,
+    _audio_model_variant_identity,
+    _install,
+    load_model_family_from_json,
+)
 from .. import platform as audio_platform
 from .. import sys as audio_sys
 from ..core import create_audio_model_instance, resolve_audio_model_name_and_engine
@@ -233,8 +240,8 @@ def test_whisper_mlx_virtualenv_overrides_incompatible_numba(apple_mlx_engines):
     assert whisper_mlx_specs
     for spec in whisper_mlx_specs:
         assert spec.virtualenv is not None
-        assert "numba>=0.64.0" in spec.virtualenv.packages
-        assert "#system_numpy#" in spec.virtualenv.packages
+        assert 'numba>=0.64.0 ; #engine# == "MLX"' in spec.virtualenv.packages
+        assert '#system_numpy# ; #engine# == "MLX"' in spec.virtualenv.packages
 
 
 def test_create_consolidated_audio_engines(apple_mlx_engines):
@@ -318,6 +325,46 @@ def test_audio_engine_discovery_filters_unrelated_engines(apple_mlx_engines):
     }
 
 
+def test_downloaded_audio_registry_updates_variants_independently(tmp_path):
+    from ...utils import install_models_with_merge
+
+    model_spec_path = Path(__file__).parents[1] / "model_spec.json"
+    built_in_data = json.loads(model_spec_path.read_text())
+    downloaded_transformers = dict(built_in_data[0])
+    downloaded_transformers["updated_at"] += 1
+
+    downloaded_dir = tmp_path / "v2" / "builtin" / "audio"
+    downloaded_dir.mkdir(parents=True)
+    (downloaded_dir / "audio_models.json").write_text(
+        json.dumps([downloaded_transformers])
+    )
+
+    models = {}
+    with (
+        patch.object(audio_sys, "platform", "darwin"),
+        patch.object(audio_platform, "processor", return_value="arm"),
+        patch("xinference.constants.XINFERENCE_MODEL_DIR", str(tmp_path)),
+    ):
+        install_models_with_merge(
+            models,
+            "model_spec.json",
+            "audio",
+            "audio_models.json",
+            lambda: True,
+            load_model_family_from_json,
+            _audio_model_variant_identity,
+        )
+
+    whisper_specs = models["whisper-tiny"]
+    assert {spec.engine for spec in whisper_specs} == {"transformers", "MLX"}
+    assert {
+        spec.updated_at for spec in whisper_specs if spec.engine == "transformers"
+    } == {downloaded_transformers["updated_at"]}
+    assert {spec.cache_name for spec in whisper_specs if spec.engine == "MLX"} == {
+        "whisper-tiny-mlx"
+    }
+
+
 def test_audio_engine_api_returns_variant_formats(apple_mlx_engines):
     with (
         patch.object(PyTorchF5TTSAudioModel, "check_lib", return_value=True),
@@ -353,6 +400,32 @@ def test_mlx_audio_engine_uses_virtualenv_when_dependency_is_missing(
         }
     ]
     assert params["MLX"][0]["model_format"] == "mlx"
+    assert params["MLX"][0]["virtualenv_required"] is True
+
+
+@pytest.mark.parametrize(
+    ("model_name", "default_engine_class", "mlx_engine_class"),
+    [
+        ("whisper-tiny", TransformersWhisperAudioModel, MLXWhisperAudioModel),
+        ("F5-TTS", PyTorchF5TTSAudioModel, MLXF5TTSAudioModel),
+        ("Kokoro-82M", PyTorchKokoroAudioModel, MLXKokoroAudioModel),
+    ],
+)
+def test_legacy_mlx_audio_engines_use_virtualenv_when_dependency_is_missing(
+    apple_mlx_engines, model_name, default_engine_class, mlx_engine_class
+):
+    with (
+        patch.object(default_engine_class, "check_lib", return_value=True),
+        patch.object(
+            mlx_engine_class,
+            "check_lib",
+            return_value=(False, "MLX dependency is not installed"),
+        ),
+    ):
+        params = get_engine_params_by_name_with_virtual_env(
+            "audio", model_name, enable_virtual_env=True
+        )
+
     assert params["MLX"][0]["virtualenv_required"] is True
 
 

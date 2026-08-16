@@ -72,8 +72,14 @@ runtime with ``--model-engine``:
   support ``MLX`` on Mac computers with Apple silicon.
 * ``F5-TTS`` and ``Kokoro-82M`` use ``PyTorch`` by default and also support
   ``MLX`` on Mac computers with Apple silicon.
+* ``SenseVoiceSmall`` and ``Fun-ASR-Nano-2512`` use ``PyTorch`` by default and
+  also support ``MLX`` on Mac computers with Apple silicon.
 * ``Qwen3-ASR-0.6B`` and ``Qwen3-ASR-1.7B`` use ``transformers`` by default. On
-  Linux with NVIDIA GPUs, they can use ``vLLM`` for faster transcriptions.
+  Linux with NVIDIA GPUs, they can use ``vLLM`` for faster transcriptions; on
+  Mac computers with Apple silicon, they can use ``MLX``.
+* The Qwen3-TTS models, ``MeloTTS-English``, ``MeloTTS-English-v3``, and
+  ``VoxCPM2`` use ``PyTorch`` by default and also support ``MLX`` on Mac
+  computers with Apple silicon.
 
 For example:
 
@@ -82,6 +88,7 @@ For example:
     xinference launch --model-name whisper-large-v3 --model-type audio --model-engine MLX
     xinference launch --model-name F5-TTS --model-type audio --model-engine MLX
     xinference launch --model-name Qwen3-ASR-1.7B --model-type audio --model-engine vLLM
+    xinference launch --model-name Qwen3-TTS-12Hz-0.6B-Base --model-type audio --model-engine MLX
 
 The former ``*-mlx`` model names remain accepted as compatibility aliases, but
 new integrations should use the canonical model name with ``--model-engine
