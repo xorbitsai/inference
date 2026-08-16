@@ -64,7 +64,7 @@ def test_deepdoc_virtualenv_selects_runtime_package(
     packages = BUILTIN_IMAGE_MODELS["DeepDoc"][0].virtualenv.packages
     # Xinference must preserve xoscar's extended has_cuda marker until the
     # virtual environment is created on the target worker.
-    prepared = filter_virtualenv_packages_by_markers(packages, "deepdoc", None)
+    prepared = filter_virtualenv_packages_by_markers(packages, None, None)
     assert any("has_cuda" in package for package in prepared)
 
     env = virtualenv_core.get_env()
@@ -74,7 +74,7 @@ def test_deepdoc_virtualenv_selects_runtime_package(
 
     assert expected in selected
     assert unexpected not in selected
-    assert "transformers<5" in selected
+    assert "transformers<5,>=4.51.0" in selected
 
 
 def test_deepdoc_gpu_repairs_onnxruntime_namespace(monkeypatch):
