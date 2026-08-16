@@ -74,7 +74,7 @@ def test_deepdoc_virtualenv_selects_runtime_package(
 
     assert expected in selected
     assert unexpected not in selected
-    assert "transformers<5" in selected
+    assert "transformers>=4.51.0,<5" in selected
 
 
 def test_deepdoc_gpu_repairs_onnxruntime_namespace(monkeypatch):
