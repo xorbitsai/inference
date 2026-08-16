@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import json
 import types
 
 import pytest
@@ -271,3 +272,74 @@ async def test_pre_destroy_frees_gpu_memory(
     else:
         assert len(calls) == 0
         assert stub._model is not None
+
+
+# ---------------------------------------------------------------------------
+# Regression test for the non-stream chat metrics guard (candidate #2).
+# A backend whose non-stream chat completion lacks a "usage" field (or sets
+# it to None) must not crash ModelActor.chat inside its `finally` metrics
+# block. The streaming path already guards with `if final_usage is not None`;
+# this keeps the non-stream path consistent with that intent.
+# ---------------------------------------------------------------------------
+class _NoUsageChatModel:
+    def __init__(self):
+        self.model_family = MockModelFamily()
+
+    async def chat(self, messages, **kwargs):
+        # Intentionally omit "usage" to mimic backends that don't report tokens.
+        return {
+            "id": "chatcmpl-test",
+            "object": "chat.completion",
+            "created": 0,
+            "model": "fake-no-usage",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": "hello"},
+                    "finish_reason": "stop",
+                }
+            ],
+        }
+
+
+class _NoUsageChatModelActor(MockModelActor):
+    def __init__(self, supervisor_address, worker_address, replica_model_uid):
+        super().__init__(supervisor_address, worker_address, replica_model_uid)
+        # Replace the placeholder MockModel with one that returns no usage.
+        self._model = _NoUsageChatModel()
+
+
+@pytest_asyncio.fixture
+async def _chat_pool():
+    pool = await create_actor_pool(
+        f"test://127.0.0.1:{xo.utils.get_next_port()}", n_process=0
+    )
+    async with pool:
+        yield pool
+
+
+@pytest.mark.asyncio
+async def test_chat_without_usage_does_not_crash(_chat_pool):
+    # Before the fix, `await actor.chat(...)` raised KeyError/TypeError from
+    # the `finally` block because it indexed `record["usage"]` unconditionally.
+    pool = _chat_pool
+    addr = pool.external_address
+    actor = await xo.create_actor(
+        _NoUsageChatModelActor,
+        address=addr,
+        uid=_NoUsageChatModelActor.default_uid(),
+        supervisor_address="test:123",
+        worker_address="test:345",
+        replica_model_uid="test_chat_no_usage",
+    )
+    result = await actor.chat([{"role": "user", "content": "hi"}])
+    # Tolerate both a raw bytes return and an xoscar generator wrapper.
+    if isinstance(result, (bytes, str)):
+        parsed = json.loads(result)
+    else:
+        collected = []
+        async for chunk in result:
+            collected.append(chunk)
+        first = collected[0]
+        parsed = json.loads(first if isinstance(first, (bytes, str)) else first.decode())
+    assert parsed["choices"][0]["message"]["content"] == "hello"
