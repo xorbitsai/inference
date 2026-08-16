@@ -226,3 +226,20 @@ def test_deepdoc_ocr(setup):
     payload = model.ocr(image=bio.getvalue(), task="table")
     assert payload["task"] == "table"
     assert isinstance(payload["structures"], list)
+
+
+def test_deepdoc_virtualenv_binds_transformers_without_engine():
+    """DeepDoc OCR launches without an engine; the transformers upper bound
+    must still apply so the virtualenv never resolves transformers 5.x
+    (incompatible with the pinned huggingface_hub). See issue #5295.
+    """
+    from ....core.utils import filter_virtualenv_packages_by_markers
+    from .. import BUILTIN_IMAGE_MODELS, register_builtin_model
+
+    register_builtin_model()
+    packages = BUILTIN_IMAGE_MODELS["DeepDoc"][0].virtualenv.packages
+    # Engine is None on the OCR model path (no #engine# is set), so a
+    # transformer constraint gated behind `#engine# == "deepdoc"` would be
+    # dropped and pip would pull in transformers 5.x.
+    prepared = filter_virtualenv_packages_by_markers(packages, None, None)
+    assert "transformers<5" in prepared
