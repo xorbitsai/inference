@@ -844,7 +844,7 @@ class AsyncRESTfulGenerateModelHandle(AsyncRESTfulModelHandle):
             )
 
         if stream:
-            return async_streaming_response_iterator(response.content)
+            return async_streaming_response_iterator(response)
         response_data = await response.json()
         await _release_response(response)
         return response_data
@@ -925,7 +925,7 @@ class AsyncRESTfulChatModelHandle(AsyncRESTfulGenerateModelHandle):
             )
 
         if stream:
-            return async_streaming_response_iterator(response.content)
+            return async_streaming_response_iterator(response)
 
         response_data = await response.json()
         await _release_response(response)

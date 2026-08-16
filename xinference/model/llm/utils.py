@@ -951,15 +951,30 @@ class ChatModelMixin:
                 parsed_content, func, args = tool_event
                 tool_call_index = len(tool_calls)
             if func:
+                call_id = f"call_{str(uuid.uuid4())}"
+                function_name: Optional[str] = func
+                if tool_call_state is not None:
+                    call_ids = tool_call_state.setdefault("call_ids", {})
+                    call_id = call_ids.setdefault(tool_call_index, call_id)
+                    sent_names = tool_call_state.setdefault("sent_names", set())
+                    if tool_call_index in sent_names:
+                        function_name = None
+                    else:
+                        sent_names.add(tool_call_index)
+
+                function_delta: Dict[str, Any] = {
+                    "arguments": (
+                        "" if args is None else json.dumps(args, ensure_ascii=False)
+                    )
+                }
+                if function_name is not None:
+                    function_delta["name"] = function_name
                 tool_calls.append(
                     {
                         "index": tool_call_index,
-                        "id": f"call_{str(uuid.uuid4())}",
+                        "id": call_id,
                         "type": "function",
-                        "function": {
-                            "name": func,
-                            "arguments": json.dumps(args, ensure_ascii=False),
-                        },
+                        "function": function_delta,
                     }
                 )
             elif parsed_content:

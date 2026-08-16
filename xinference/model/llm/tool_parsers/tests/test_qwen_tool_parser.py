@@ -244,7 +244,7 @@ def test_tool_parser_extract_calls_streaming_without_thinking_multi():
         None,
         None,
         None,
-        None,
+        (None, "get_current_weather", None, 0),
         None,
         None,
         None,
@@ -264,7 +264,7 @@ def test_tool_parser_extract_calls_streaming_without_thinking_multi():
         None,
         None,
         None,
-        None,
+        (None, "get_current_weather", None, 1),
         None,
         None,
         None,
@@ -387,7 +387,7 @@ def test_tool_parser_extract_calls_streaming_without_thinking():
         None,
         None,
         None,
-        None,
+        (None, "get_current_weather", None, 0),
         None,
         None,
         None,
@@ -560,7 +560,7 @@ def test_tool_parser_extract_calls_streaming_with_thinking():
         None,
         None,
         None,
-        None,
+        (None, "get_current_weather", None, 0),
         None,
         None,
         None,
@@ -691,7 +691,7 @@ def test_tool_parser_extract_calls_streaming_with_parser():
         None,
         None,
         None,
-        None,
+        (None, "get_current_weather", None, 0),
         None,
         None,
         None,
@@ -767,3 +767,66 @@ def test_tool_parser_extract_calls_with_parser():
     result = parser.extract_tool_calls(test_case)
 
     assert result == expected_results, f"Case failed: {result} != {expected_results}"
+
+
+def test_streaming_xml_tool_call_emits_function_name_before_arguments_complete():
+    parser = QwenToolParser()
+
+    prefix = "I need current facts.\n"
+    function_only = prefix + "<tool_call>\n<function=select_execution_pattern>\n"
+    first = function_only + "<parameter=action>\n"
+    second = first + "react\n</parameter>\n"
+    complete = second + "</function>\n</tool_call>"
+
+    assert (
+        parser.extract_tool_calls_streaming(
+            [prefix], function_only, function_only[len(prefix) :]
+        )
+        is None
+    )
+    assert parser.extract_tool_calls_streaming(
+        [function_only], first, first[len(function_only) :]
+    ) == (
+        None,
+        "select_execution_pattern",
+        None,
+        0,
+    )
+    assert (
+        parser.extract_tool_calls_streaming([first], second, second[len(first) :])
+        is None
+    )
+    assert parser.extract_tool_calls_streaming(
+        [second], complete, complete[len(second) :]
+    ) == (None, "select_execution_pattern", {"action": "react"}, 0)
+
+
+def test_streaming_xml_tool_calls_keep_completed_call_before_next_partial_call():
+    parser = QwenToolParser()
+    first_partial = "analysis\n<tool_call>\n<function=web_search>\n<parameter=query>\n"
+    first_complete_second_partial = (
+        first_partial
+        + "first\n</parameter>\n</function>\n</tool_call>\n"
+        + "<tool_call>\n<function=web_search>\n<parameter=query>\n"
+    )
+    both_complete = (
+        first_complete_second_partial
+        + "second\n</parameter>\n</function>\n</tool_call>"
+    )
+
+    assert parser.extract_tool_calls_streaming(
+        ["analysis\n"], first_partial, first_partial[len("analysis\n") :]
+    ) == (None, "web_search", None, 0)
+    assert parser.extract_tool_calls_streaming(
+        [first_partial],
+        first_complete_second_partial,
+        first_complete_second_partial[len(first_partial) :],
+    ) == [
+        (None, "web_search", {"query": "first"}, 0),
+        (None, "web_search", None, 1),
+    ]
+    assert parser.extract_tool_calls_streaming(
+        [first_complete_second_partial],
+        both_complete,
+        both_complete[len(first_complete_second_partial) :],
+    ) == (None, "web_search", {"query": "second"}, 1)

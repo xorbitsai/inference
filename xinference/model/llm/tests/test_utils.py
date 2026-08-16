@@ -300,6 +300,13 @@ class _IndexedToolParser:
         return (None, "second", {}, 1)
 
 
+class _IncrementalToolParser:
+    def extract_tool_calls_streaming(self, previous_texts, current_text, delta_text):
+        if current_text == "start":
+            return (None, "get_weather", None, 0)
+        return (None, "get_weather", {"city": "Beijing"}, 0)
+
+
 def test_post_process_completion_chunk_supports_multiple_tool_calls():
     mixin = ChatModelMixin()
     mixin.tool_parser = _MultiToolParser()
@@ -399,6 +406,48 @@ def test_post_process_completion_chunk_preserves_absolute_tool_call_index():
     assert gap["choices"][0]["finish_reason"] is None
     assert second["choices"][0]["finish_reason"] is None
     assert final["choices"][0]["finish_reason"] == "tool_calls"
+
+
+def test_post_process_completion_chunk_reuses_incremental_tool_call_id():
+    mixin = ChatModelMixin()
+    mixin.tool_parser = _IncrementalToolParser()
+    previous_texts = [""]
+    tool_call_state = {"seen": False}
+
+    first = mixin._post_process_completion_chunk(
+        "test-family",
+        "test-model",
+        {
+            "choices": [
+                {"delta": {"content": "start"}, "finish_reason": None, "logprobs": None}
+            ]
+        },
+        previous_texts=previous_texts,
+        tool_call_state=tool_call_state,
+    )
+    complete = mixin._post_process_completion_chunk(
+        "test-family",
+        "test-model",
+        {
+            "choices": [
+                {
+                    "delta": {"content": " complete"},
+                    "finish_reason": None,
+                    "logprobs": None,
+                }
+            ]
+        },
+        previous_texts=previous_texts,
+        tool_call_state=tool_call_state,
+    )
+
+    assert first is not None
+    assert complete is not None
+    first_call = first["choices"][0]["delta"]["tool_calls"][0]
+    complete_call = complete["choices"][0]["delta"]["tool_calls"][0]
+    assert first_call["id"] == complete_call["id"]
+    assert first_call["function"] == {"name": "get_weather", "arguments": ""}
+    assert complete_call["function"] == {"arguments": '{"city": "Beijing"}'}
 
 
 def test_post_process_completion_chunk_preserves_length_finish_reason():

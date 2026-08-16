@@ -547,16 +547,33 @@ async def test_mlx_streaming_parses_multiple_qwen_tool_calls():
             for tool_call in choice["delta"].get("tool_calls", [])
         ]
 
-        assert [tool_call["index"] for tool_call in tool_calls] == [0, 1]
-        assert [tool_call["function"]["name"] for tool_call in tool_calls] == [
-            "web_search",
-            "web_search",
-        ]
+        calls_by_index = {
+            index: [call for call in tool_calls if call["index"] == index]
+            for index in {call["index"] for call in tool_calls}
+        }
+        assert sorted(calls_by_index) == [0, 1]
         assert [
-            json.loads(tool_call["function"]["arguments"])["query"]
-            for tool_call in tool_calls
+            next(
+                call["function"]["name"]
+                for call in calls_by_index[index]
+                if call["function"].get("name")
+            )
+            for index in sorted(calls_by_index)
+        ] == ["web_search", "web_search"]
+        assert [
+            json.loads(
+                "".join(
+                    call["function"].get("arguments") or ""
+                    for call in calls_by_index[index]
+                )
+            )["query"]
+            for index in sorted(calls_by_index)
         ] == ["Dario Amodei recent news", "Dario Amodei gossip"]
-        assert tool_calls[0]["id"] != tool_calls[1]["id"]
+        assert all(
+            len({call["id"] for call in calls}) == 1
+            for calls in calls_by_index.values()
+        )
+        assert calls_by_index[0][0]["id"] != calls_by_index[1][0]["id"]
         assert results[-1]["choices"][0]["finish_reason"] == "tool_calls"
         assert (
             "".join(

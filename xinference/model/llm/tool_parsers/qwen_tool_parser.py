@@ -102,6 +102,20 @@ class QwenToolParser(ToolParser):
             return None
         return function_calls[-1]
 
+    @staticmethod
+    def _parse_partial_function_name(function_call_str: str) -> Optional[str]:
+        """Return a function name as soon as an incomplete call exposes it."""
+        xml_match = re.search(
+            r"<function\s*=\s*([a-zA-Z0-9_\-\.]+)\s*>", function_call_str
+        )
+        if xml_match:
+            return xml_match.group(1)
+
+        json_match = re.search(r'"name"\s*:\s*"([a-zA-Z0-9_\-\.]+)"', function_call_str)
+        if json_match:
+            return json_match.group(1)
+        return None
+
     def is_contain_think_end_token(self, model_output: str) -> bool:
         """
         Check if the model output contains the think end token.
@@ -304,6 +318,17 @@ class QwenToolParser(ToolParser):
         Union[
             Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]],
             Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]], int],
+            List[
+                Union[
+                    Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]],
+                    Tuple[
+                        Optional[str],
+                        Optional[str],
+                        Optional[Dict[str, Any]],
+                        int,
+                    ],
+                ]
+            ],
         ]
     ]:
         """
@@ -324,7 +349,8 @@ class QwenToolParser(ToolParser):
             - function_name (str or None): Name of the function to call
             - arguments (dict or None): Function arguments
             - tool_call_index (int): Absolute index for a parsed tool call
-            Returns None if no complete tool call is ready.
+            A list is returned when one model chunk advances multiple calls.
+            Returns None if no tool-call delta is ready.
 
         Note:
             This method is designed to work with Qwen's streaming output format
@@ -333,33 +359,74 @@ class QwenToolParser(ToolParser):
         try:
             # Check if current output contains tool_call start token
             if self.is_contain_tool_call_start_token(current_text):
+                previous_complete = self.tool_call_complete_regex.findall(
+                    previous_text[-1]
+                )
+                current_complete = self.tool_call_complete_regex.findall(current_text)
+                tool_events = []
+
+                # A detokenizer chunk can close one call and begin the next.
+                # Process every newly completed call rather than only the last
+                # regex match, otherwise parallel Qwen calls are silently lost.
+                for tool_call_index, function_call in enumerate(
+                    current_complete[len(previous_complete) :],
+                    start=len(previous_complete),
+                ):
+                    if not function_call.strip():
+                        continue
+                    end_index = function_call.find(">")
+                    if end_index != -1:
+                        parsed = self.parse_qwen35_tool_call(function_call)
+                        if parsed:
+                            tool_events.append((*parsed, tool_call_index))
+                            continue
+                    parsed_json = json.loads(function_call, strict=False)
+                    tool_events.append(
+                        (
+                            None,
+                            parsed_json["name"],
+                            parsed_json["arguments"],
+                            tool_call_index,
+                        )
+                    )
+
                 function_calls = self._get_function_calls_streaming(current_text)
-                # If the last function call contains thinking, it's not a tool call
-                if self.is_contain_think(function_calls[-1]):
+                partial_call = function_calls[-1] if function_calls else ""
+                if self._has_unclosed_tool_call(
+                    current_text
+                ) and not self.is_contain_think(partial_call):
+                    # Emit the tool identity once its first argument begins.
+                    # The completed event later reuses the same index and call ID.
+                    func_name = self._parse_partial_function_name(partial_call)
+                    has_argument_start = bool(
+                        re.search(r"<parameter\s*=", partial_call)
+                        or re.search(r'"arguments"\s*:', partial_call)
+                    )
+                    previous_calls = self._get_function_calls_streaming(
+                        previous_text[-1]
+                    )
+                    previous_partial = previous_calls[-1] if previous_calls else ""
+                    previous_had_argument_start = bool(
+                        re.search(r"<parameter\s*=", previous_partial)
+                        or re.search(r'"arguments"\s*:', previous_partial)
+                    )
+                    if (
+                        func_name is not None
+                        and has_argument_start
+                        and (
+                            len(current_complete) != len(previous_complete)
+                            or not previous_had_argument_start
+                        )
+                    ):
+                        tool_events.append(
+                            (None, func_name, None, len(current_complete))
+                        )
+
+                if not tool_events:
                     return None
-                # If the previous round's tool_call tags are closed, this is a new tool call
-                if not self._has_unclosed_tool_call(previous_text[-1]):
-                    return None
-                # Parse and return
-                function_call = self._parse_json_function_call_stream(
-                    function_calls[-1]
-                )
-                if function_call is None:
-                    return None
-                # Skip if the extracted content is whitespace-only (e.g., the model
-                # generated <tool_call></tool_call> with no JSON inside)
-                if not function_call.strip():
-                    return None
-                tool_call_index = (
-                    len(self.tool_call_complete_regex.findall(current_text)) - 1
-                )
-                end_index = function_call.find(">")
-                if end_index != -1:
-                    res = self.parse_qwen35_tool_call(function_call)
-                    if res:
-                        return (*res, tool_call_index)
-                res = json.loads(function_call, strict=False)
-                return None, res["name"], res["arguments"], tool_call_index
+                if len(tool_events) == 1:
+                    return tool_events[0]
+                return tool_events
             else:
                 # Return delta text as regular content
                 return (delta_text, None, None)
