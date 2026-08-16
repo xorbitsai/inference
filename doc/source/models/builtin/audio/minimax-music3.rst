@@ -28,7 +28,7 @@ Launch the model on an NVIDIA CUDA worker::
 
    xinference launch --model-name MiniMax-Music3 --model-type audio --model-engine diffusers
 
-The default load configuration uses BF16 with automatic CPU offload. Group
+The default load configuration uses BF16 and keeps the pipeline on CUDA. Group
 offload can be enabled for lower VRAM usage (at the cost of speed)::
 
    xinference launch --model-name MiniMax-Music3 --model-type audio \
