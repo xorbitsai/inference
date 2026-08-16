@@ -881,7 +881,7 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             if record and isinstance(record, dict):
                 usage = record.get("usage")
                 # Some backends may not have a valid usage, we just skip them.
-                if usage:
+                if isinstance(usage, dict):
                     completion_tokens = usage.get("completion_tokens")
                     prompt_tokens = usage.get("prompt_tokens")
                     if completion_tokens is not None and prompt_tokens is not None:
