@@ -251,7 +251,7 @@ def test_tool_parser_extract_calls_streaming_without_thinking_multi():
         None,
         None,
         None,
-        (None, "get_current_weather", {"location": "上海"}),  # 案例25: 完整工具调用
+        (None, "get_current_weather", {"location": "上海"}, 0),  # 案例25: 完整工具调用
         None,  # 案例26: 空增量文本
         None,  # 案例1-5: 普通文本输出
         None,
@@ -271,7 +271,7 @@ def test_tool_parser_extract_calls_streaming_without_thinking_multi():
         None,
         None,
         None,
-        (None, "get_current_weather", {"location": "北京"}),  # 案例25: 完整工具调用
+        (None, "get_current_weather", {"location": "北京"}, 1),  # 案例25: 完整工具调用
         None,  # 案例26: 空增量文本
     ]
 
@@ -394,7 +394,7 @@ def test_tool_parser_extract_calls_streaming_without_thinking():
         None,
         None,
         None,
-        (None, "get_current_weather", {"location": "上海"}),  # 案例25: 完整工具调用
+        (None, "get_current_weather", {"location": "上海"}, 0),  # 案例25: 完整工具调用
         None,  # 案例26: 空增量文本
     ]
 
@@ -567,7 +567,7 @@ def test_tool_parser_extract_calls_streaming_with_thinking():
         None,
         None,
         None,
-        (None, "get_current_weather", {"location": "上海"}),  # 案例25: 完整工具调用
+        (None, "get_current_weather", {"location": "上海"}, 0),  # 案例25: 完整工具调用
         None,  # 案例26: 空增量文本
     ]
 
@@ -698,7 +698,7 @@ def test_tool_parser_extract_calls_streaming_with_parser():
         None,
         None,
         None,
-        (None, "get_current_weather", {"location": "上海"}),  # 案例25: 完整工具调用
+        (None, "get_current_weather", {"location": "上海"}, 0),  # 案例25: 完整工具调用
         None,  # 案例26: 空增量文本
     ]
 
