@@ -209,10 +209,15 @@ class CompletionChoice(TypedDict):
     tool_calls: NotRequired[List[ToolCalls]]
 
 
+class PromptTokensDetails(TypedDict):
+    cached_tokens: int
+
+
 class CompletionUsage(TypedDict):
     prompt_tokens: int
     completion_tokens: int
     total_tokens: int
+    prompt_tokens_details: NotRequired[PromptTokensDetails]
 
 
 class CompletionChunk(TypedDict):

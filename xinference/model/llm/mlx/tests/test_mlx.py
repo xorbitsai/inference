@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import base64
 import concurrent.futures
 import importlib
@@ -95,6 +96,220 @@ def test_mlx_batch_generator_normalizes_top_k():
         MLXBatchModel._batch_generators = original_generators
 
 
+def test_mlx_batch_generator_reuses_prompt_cache(monkeypatch):
+    from ..core import MLXBatchModel
+
+    cached_state = [object()]
+
+    class FakePromptCache:
+        def fetch_nearest_cache(self, model_key, prompt_tokens):
+            assert model_key == "model-key"
+            assert prompt_tokens == [1, 2, 3, 4, 5]
+            return cached_state, [4, 5]
+
+    class FakeBatchGenerator:
+        def __init__(self):
+            self.calls = []
+
+        def insert(self, prompts, **kwargs):
+            self.calls.append((prompts, kwargs))
+            return [7]
+
+    model = object.__new__(MLXBatchModel)
+    model._prompt_cache = FakePromptCache()
+    model._prompt_cache_model_key = "model-key"
+    monkeypatch.setattr(model, "_is_new_mlx_lm", lambda: True)
+    generator = FakeBatchGenerator()
+
+    assert model._insert_request(generator, [1, 2, 3, 4, 5], 32, None) == (
+        7,
+        3,
+        None,
+    )
+    assert generator.calls == [
+        (
+            [[4, 5]],
+            {
+                "max_tokens": [32],
+                "caches": [cached_state],
+                "all_tokens": [[1, 2, 3]],
+            },
+        )
+    ]
+
+
+def test_mlx_batch_generator_checkpoints_reusable_prefix(monkeypatch):
+    from ..core import MLXBatchModel
+
+    cached_state = [object()]
+
+    class FakePromptCache:
+        def fetch_nearest_cache(self, model_key, prompt_tokens):
+            return cached_state, prompt_tokens[3:]
+
+    class FakeBatchGenerator:
+        def __init__(self):
+            self.calls = []
+
+        def insert_segments(self, segments, **kwargs):
+            self.calls.append((segments, kwargs))
+            return [8]
+
+    model = object.__new__(MLXBatchModel)
+    model._prompt_cache = FakePromptCache()
+    model._prompt_cache_model_key = "model-key"
+    monkeypatch.setattr(model, "_is_new_mlx_lm", lambda: True)
+    generator = FakeBatchGenerator()
+
+    assert model._insert_request(generator, [1, 2, 3, 4, 5, 6], 32, 5) == (
+        8,
+        3,
+        5,
+    )
+    assert generator.calls == [
+        (
+            [[[4, 5], [6]]],
+            {
+                "max_tokens": [32],
+                "caches": [cached_state],
+                "all_tokens": [[1, 2, 3]],
+            },
+        )
+    ]
+
+
+def test_mlx_batch_generator_stores_reusable_prefix():
+    from ..core import MLXBatchModel
+
+    class FakePromptCache:
+        def __init__(self):
+            self.inserted = []
+
+        def insert_cache(self, *args, **kwargs):
+            self.inserted.append((args, kwargs))
+
+        def __len__(self):
+            return len(self.inserted)
+
+    cached_state = [object()]
+
+    class FakeBatchGenerator:
+        def extract_cache(self, uids):
+            assert uids == [9]
+            return {9: (cached_state, [1, 2, 3])}
+
+    model = object.__new__(MLXBatchModel)
+    model._prompt_cache = FakePromptCache()
+    model._prompt_cache_model_key = "model-key"
+    gen_dict = {"cache_boundaries": {9: 3}}
+
+    model._store_segment_prompt_caches(
+        FakeBatchGenerator(),
+        [SimpleNamespace(uid=9, end_of_segment=True)],
+        gen_dict,
+    )
+
+    assert gen_dict["cache_boundaries"] == {}
+    assert model._prompt_cache.inserted == [
+        (
+            ("model-key", [1, 2, 3], cached_state),
+            {"cache_type": "system"},
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_mlx_batch_generator_reports_cached_tokens(monkeypatch):
+    from ..core import MLXBatchModel
+
+    model = object.__new__(MLXBatchModel)
+    gen_dict = {
+        "generator": object(),
+        "queues": {},
+        "pending": {},
+        "active": set(),
+        "cache_boundaries": {},
+    }
+    monkeypatch.setattr(model, "_get_or_create_generator", lambda *args: gen_dict)
+    monkeypatch.setattr(model, "_insert_request", lambda *args: (7, 3, None))
+
+    async def feed_result():
+        while 7 not in gen_dict["queues"]:
+            await asyncio.sleep(0)
+        await gen_dict["queues"][7].put(
+            SimpleNamespace(uid=7, token=10, finish_reason="stop")
+        )
+
+    def ensure_background_worker(_gen_dict):
+        asyncio.create_task(feed_result())
+
+    monkeypatch.setattr(model, "_ensure_background_worker", ensure_background_worker)
+    original_tokenizer = MLXBatchModel._tokenizer_ref
+    MLXBatchModel._tokenizer_ref = SimpleNamespace(
+        encode=lambda prompt: [1, 2, 3, 4, 5],
+        decode=lambda tokens, **kwargs: "x",
+    )
+    try:
+        chunks = [
+            chunk
+            async for chunk in model.generate_stream(
+                "prompt", 1, prompt_cache_prefix_len=3
+            )
+        ]
+    finally:
+        MLXBatchModel._tokenizer_ref = original_tokenizer
+
+    assert len(chunks) == 2
+    assert all(
+        chunk["usage"]["prompt_tokens_details"] == {"cached_tokens": 3}
+        for chunk in chunks
+    )
+
+
+def test_mlx_vision_model_checkpoints_reusable_prompt_prefix(monkeypatch):
+    from ..core import MLXVisionModel
+
+    class FakePromptCache:
+        def __init__(self):
+            self.inserted = []
+
+        def insert_cache(self, *args, **kwargs):
+            self.inserted.append((args, kwargs))
+
+        def __len__(self):
+            return len(self.inserted)
+
+    model = object.__new__(MLXVisionModel)
+    model._reusable_prompt_cache = FakePromptCache()
+    model._reusable_prompt_cache_model_key = "vision-model-key"
+    initial_cache = [{"state": "initial"}]
+    monkeypatch.setattr(
+        model,
+        "_fetch_reusable_prompt_cache",
+        lambda prompt_tokens: (initial_cache, prompt_tokens, 0),
+    )
+
+    remaining_tokens, cache_kwargs, cached_tokens = (
+        model._prepare_reusable_prompt_cache([1, 2, 3, 4, 5], 3)
+    )
+
+    assert remaining_tokens == [1, 2, 3, 4, 5]
+    assert cached_tokens == 0
+    assert cache_kwargs["prompt_cache"] is initial_cache
+    assert cache_kwargs["prompt_cache_checkpoint_len"] == 3
+
+    checkpoint_cache = [{"state": "prefix"}]
+    cache_kwargs["prompt_cache_checkpoint"](3, checkpoint_cache)
+    checkpoint_cache[0]["state"] = "mutated"
+
+    assert model._reusable_prompt_cache.inserted == [
+        (
+            ("vision-model-key", [1, 2, 3], [{"state": "prefix"}]),
+            {"cache_type": "system"},
+        )
+    ]
+
+
 def test_mlx_generate_stream_passes_top_k():
     from ..core import MLXModel
 
@@ -103,7 +318,7 @@ def test_mlx_generate_stream_passes_top_k():
     model._tokenizer = SimpleNamespace(eos_token_id=99)
     model._context_length = 128
     model._prompt_cache = None
-    model._prepare_inputs = lambda prompt, kwargs: ([1, 2], 2)
+    model._prepare_inputs = lambda prompt, kwargs: ([4, 5], 5, 3)
 
     captured = {}
 
@@ -112,7 +327,7 @@ def test_mlx_generate_stream_passes_top_k():
         yield SimpleNamespace(token=10, text="ok")
 
     model._generate_stream_inner = fake_generate_stream_inner
-    list(
+    results = list(
         model._generate_stream(
             "hello",
             {
@@ -131,6 +346,138 @@ def test_mlx_generate_stream_passes_top_k():
     assert captured["temperature"] == 1.0
     assert captured["top_p"] == 0.95
     assert captured["top_k"] == 20
+    assert all(
+        usage["prompt_tokens_details"] == {"cached_tokens": 3} for _, usage in results
+    )
+    assert all(
+        chunk["usage"]["prompt_tokens_details"] == {"cached_tokens": 3}
+        for chunk, _ in results
+    )
+
+
+def test_mlx_vision_chat_marks_reusable_text_prompt_prefix(monkeypatch):
+    from ..core import MLXVisionModel
+
+    class FakeTokenizer:
+        @staticmethod
+        def encode(prompt):
+            return list(prompt.encode())
+
+    monkeypatch.setitem(
+        sys.modules,
+        "qwen_vl_utils",
+        SimpleNamespace(process_vision_info=lambda messages: ([], None)),
+    )
+    model = object.__new__(MLXVisionModel)
+    model.model_uid = "vision-prompt-prefix-test"
+    model.model_family = SimpleNamespace(
+        model_family="qwen3.8",
+        model_name="qwen3.8",
+        model_ability=["chat", "vision"],
+        chat_template="test-template",
+        stop=None,
+        stop_token_ids=None,
+    )
+    model.reasoning_parser = None
+    model._tokenizer = FakeTokenizer()
+    model._transform_messages = lambda messages: messages
+
+    def get_full_context(messages, *args, **kwargs):
+        tool_names = ",".join(
+            tool["function"]["name"] for tool in kwargs.get("tools", [])
+        )
+        return (
+            f"tools:{tool_names}:stable-prefix:"
+            + messages[-1]["content"]
+            + ":generation-suffix"
+        )
+
+    model.get_full_context = get_full_context
+    model._sanitize_generate_config = lambda config: config
+    captured = {}
+
+    def fake_generate(prompt, generate_config):
+        captured["prompt"] = prompt
+        captured["generate_config"] = generate_config
+        return {"completion": "ok"}
+
+    model.generate = fake_generate
+    model._to_chat_completion = lambda completion, reasoning_parser: completion
+    model._post_process_completion = lambda family, uid, completion: completion
+
+    result = model.chat(
+        [{"role": "user", "content": "dynamic question"}],
+        {"tools": iter([{"type": "function", "function": {"name": "search"}}])},
+    )
+
+    assert result == {"completion": "ok"}
+    assert captured["prompt"] == {
+        "prompt": "tools:search:stable-prefix:dynamic question:generation-suffix"
+    }
+    assert captured["generate_config"]["prompt_cache_prefix_len"] == len(
+        "tools:search:stable-prefix:"
+    )
+
+
+@pytest.mark.asyncio
+async def test_mlx_chat_marks_reusable_prompt_prefix():
+    from ..core import MLXChatModel
+
+    class FakeTokenizer:
+        chat_template = "test-template"
+
+        @staticmethod
+        def encode(prompt):
+            return list(prompt.encode())
+
+    model = object.__new__(MLXChatModel)
+    model.model_uid = "prompt-prefix-test"
+    model.model_family = SimpleNamespace(
+        model_family="qwen3",
+        model_name="qwen3",
+        model_ability=["chat"],
+        chat_template="test-template",
+        stop=None,
+        stop_token_ids=None,
+    )
+    model.reasoning_parser = None
+    model._tokenizer = FakeTokenizer()
+
+    def get_full_context(messages, *args, **kwargs):
+        tool_names = ",".join(
+            tool["function"]["name"] for tool in kwargs.get("tools", [])
+        )
+        return (
+            f"tools:{tool_names}:stable-prefix:"
+            + messages[-1]["content"]
+            + ":generation-suffix"
+        )
+
+    model.get_full_context = get_full_context
+    model._sanitize_generate_config = lambda config: config
+    captured = {}
+
+    async def fake_async_generate(prompt, generate_config):
+        captured["prompt"] = prompt
+        captured["generate_config"] = generate_config
+        return {"completion": "ok"}
+
+    model.async_generate = fake_async_generate
+    model._to_chat_completion = lambda completion, reasoning_parser: completion
+    model._post_process_completion = lambda family, uid, completion: completion
+
+    result = await model.async_chat(
+        [{"role": "user", "content": "dynamic question"}],
+        {"tools": iter([{"type": "function", "function": {"name": "search"}}])},
+    )
+
+    assert result == {"completion": "ok"}
+    assert captured["prompt"] == (
+        "tools:search:stable-prefix:dynamic question:generation-suffix"
+    )
+    assert captured["generate_config"]["prompt_cache_prefix_len"] == len(
+        "tools:search:stable-prefix:"
+    )
 
 
 @pytest.mark.asyncio
