@@ -2558,12 +2558,24 @@
     "multilingual": true,
     "default_model_config": {
       "torch_dtype": "bfloat16",
-      "cpu_offload": true,
+      "cpu_offload": false,
       "group_offload": false
+    },
+    "cache_config": {
+      "allow_patterns": [
+        "modular_model_index.json",
+        "condition_encoder/*",
+        "language_model/*",
+        "rvq_depth_decoder/*",
+        "scheduler/*",
+        "tokenizer/*",
+        "transformer/*",
+        "vocoder/*"
+      ]
     },
     "virtualenv": {
       "packages": [
-        "diffusers @ git+https://github.com/huggingface/diffusers.git@2da7040be1a2e5f2fcbc8b985083342a308f5a86 ; #engine# == \"diffusers\"",
+        "git+https://github.com/huggingface/diffusers@2da7040be1a2e5f2fcbc8b985083342a308f5a86",
         "transformers>=5.15.0,<6.0",
         "accelerate>=1.13.0",
         "huggingface-hub>=1.23.0,<2.0",
@@ -2575,7 +2587,11 @@
     "model_src": {
       "huggingface": {
         "model_id": "MiniMaxAI/MiniMax-Music3",
-        "model_revision": "fbdf52fbaaca799592917417eb05f1899f1255ec"
+        "model_revision": "main"
+      },
+      "modelscope": {
+        "model_id": "MiniMax/MiniMax-Music3",
+        "model_revision": "master"
       }
     },
     "updated_at": 1786859407,

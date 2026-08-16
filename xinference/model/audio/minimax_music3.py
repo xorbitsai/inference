@@ -36,6 +36,7 @@ class MiniMaxMusic3Model:
         device: Optional[str] = None,
         **kwargs: Any,
     ):
+        self.model_family = model_spec
         self._model_uid = model_uid
         self._model_path = model_path
         self._model_spec = model_spec
@@ -98,7 +99,7 @@ class MiniMaxMusic3Model:
         config = (self._model_spec.default_model_config or {}).copy()
         config.update(self._kwargs)
         torch_dtype = self._resolve_dtype(torch, config.pop("torch_dtype", None))
-        cpu_offload = config.pop("cpu_offload", True)
+        cpu_offload = config.pop("cpu_offload", False)
         group_offload = config.pop("group_offload", False)
         quantization = config.pop("quantization", None)
         if quantization not in (None, "none", "bf16"):
@@ -119,7 +120,11 @@ class MiniMaxMusic3Model:
             self._model_path,
             **pipeline_kwargs,
         )
-        pipeline.load_components(dtype=torch_dtype)
+        pipeline.load_components(
+            dtype=torch_dtype,
+            pretrained_model_name_or_path=self._model_path,
+            local_files_only=True,
+        )
 
         if group_offload:
             from diffusers.hooks import apply_group_offloading
@@ -214,13 +219,14 @@ class MiniMaxMusic3Model:
         block_align = channels * bytes_per_sample
         audio_bytes = audio.tobytes(order="C")
         fmt_chunk = struct.pack(
-            "<HHIIHH",
+            "<HHIIHHH",
             3,  # WAVE_FORMAT_IEEE_FLOAT
             channels,
             sample_rate,
             sample_rate * block_align,
             block_align,
             bytes_per_sample * 8,
+            0,  # cbSize: no format-specific extension bytes
         )
         fact_chunk = struct.pack("<I", audio.shape[0])
         riff_size = 4 + 8 + len(fmt_chunk) + 8 + len(fact_chunk) + 8 + len(audio_bytes)

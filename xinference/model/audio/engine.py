@@ -16,7 +16,7 @@ import importlib.util
 import platform
 from typing import TYPE_CHECKING, Tuple, Union
 
-from ..utils import has_cuda_device
+from ..utils import has_cuda_device, virtual_env_allows_missing_engine
 from .engine_family import SUPPORTED_ENGINES, AudioEngineModel
 from .f5tts import F5TTSModel
 from .f5tts_mlx import F5TTSMLXModel
@@ -322,6 +322,12 @@ class MLXAudioTTSEngineModel(MLXAudioTTSModel, AudioEngineModel):
 
 class DiffusersMiniMaxMusic3AudioModel(MiniMaxMusic3Model, AudioEngineModel):
     required_libs = ("diffusers",)
+
+    @classmethod
+    def check_lib(cls):
+        if virtual_env_allows_missing_engine():
+            return True
+        return super().check_lib()
 
     @classmethod
     def match(cls, model_family: "AudioModelFamilyV2") -> bool:
