@@ -7,6 +7,10 @@ import { cn } from '@/lib/utils';
 import { ChevronDown, Check, X } from 'lucide-react';
 import { useI18n } from '@/contexts/i18n-context';
 
+// Dropdown border/list padding, option padding, row gap, and selection indicator.
+const AUTO_DROPDOWN_WIDTH_OFFSET = 60;
+const DROPDOWN_VIEWPORT_PADDING = 8;
+
 export type SelectValue = string | number;
 
 export interface SelectOption<T extends SelectValue = SelectValue> {
@@ -36,6 +40,7 @@ interface SelectProps<T extends SelectValue = SelectValue> {
   customPlaceholder?: string;
   customButtonText?: string;
   onCustomAdd?: (value: string) => void;
+  dropdownAutoWidth?: boolean;
 }
 
 export function Select<T extends SelectValue = SelectValue>({
@@ -54,6 +59,7 @@ export function Select<T extends SelectValue = SelectValue>({
   customPlaceholder,
   customButtonText,
   onCustomAdd,
+  dropdownAutoWidth = false,
 }: SelectProps<T>) {
   const { t } = useI18n();
 
@@ -75,6 +81,8 @@ export function Select<T extends SelectValue = SelectValue>({
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const autoDropdownContentWidthRef = useRef<number | undefined>(undefined);
+
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>();
 
   const updateDropdownPosition = useCallback(() => {
@@ -86,13 +94,61 @@ export function Select<T extends SelectValue = SelectValue>({
     const direction = spaceBelow < 200 && spaceAbove > spaceBelow ? 'up' : 'down';
 
     setDropdownDirection(direction);
+    let dropdownWidth = buttonRect.width;
+    let dropdownLeft = buttonRect.left;
+
+    if (dropdownAutoWidth) {
+      if (autoDropdownContentWidthRef.current === undefined) {
+        const measureElement = document.createElement('span');
+        const triggerStyle = window.getComputedStyle(buttonRef.current);
+
+        Object.assign(measureElement.style, {
+          position: 'fixed',
+          visibility: 'hidden',
+          pointerEvents: 'none',
+          whiteSpace: 'nowrap',
+          fontFamily: triggerStyle.fontFamily,
+          fontSize: triggerStyle.fontSize,
+          fontStyle: triggerStyle.fontStyle,
+          fontVariant: triggerStyle.fontVariant,
+          fontWeight: '500',
+          letterSpacing: triggerStyle.letterSpacing,
+        });
+        document.body.appendChild(measureElement);
+
+        autoDropdownContentWidthRef.current = options.reduce((maxWidth, option) => {
+          measureElement.textContent = option.label;
+
+          return Math.max(maxWidth, measureElement.getBoundingClientRect().width);
+        }, 0);
+        measureElement.remove();
+      }
+
+      const contentWidth =
+        autoDropdownContentWidthRef.current + AUTO_DROPDOWN_WIDTH_OFFSET;
+
+      dropdownWidth = Math.max(buttonRect.width, contentWidth);
+      dropdownLeft = Math.max(
+        DROPDOWN_VIEWPORT_PADDING,
+        Math.min(
+          buttonRect.left,
+          window.innerWidth - DROPDOWN_VIEWPORT_PADDING - dropdownWidth
+        )
+      );
+    }
+
     setDropdownStyle({
-      left: buttonRect.left,
+      left: dropdownLeft,
       top: direction === 'down' ? buttonRect.bottom + 4 : buttonRect.top - 4,
-      width: buttonRect.width,
+      width: dropdownWidth,
+      minWidth: buttonRect.width,
       transform: direction === 'up' ? 'translateY(-100%)' : undefined,
     });
-  }, []);
+  }, [dropdownAutoWidth, options]);
+
+  useEffect(() => {
+    autoDropdownContentWidthRef.current = undefined;
+  }, [dropdownAutoWidth, options]);
 
   // Handle clicking outside to close the dropdown
   useEffect(() => {
