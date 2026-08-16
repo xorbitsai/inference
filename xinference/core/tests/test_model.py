@@ -343,3 +343,60 @@ async def test_chat_without_usage_does_not_crash(_chat_pool):
         first = collected[0]
         parsed = json.loads(first if isinstance(first, (bytes, str)) else first.decode())
     assert parsed["choices"][0]["message"]["content"] == "hello"
+
+
+class _NonDictUsageChatModel:
+    """A model whose non-stream chat returns usage as a non-dict truthy value
+    (e.g. a string). The original `if usage:` guard would have crashed on it
+    via AttributeError when calling .get()."""
+
+    def __init__(self):
+        self.model_family = MockModelFamily()
+
+    async def chat(self, messages, **kwargs):
+        return {
+            "id": "chatcmpl-test",
+            "object": "chat.completion",
+            "created": 0,
+            "model": "fake-non-dict-usage",
+            "usage": "unexpected-string-usage",  # truthy but NOT a dict
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": "hi"},
+                    "finish_reason": "stop",
+                }
+            ],
+        }
+
+
+class _NonDictUsageChatModelActor(MockModelActor):
+    def __init__(self, supervisor_address, worker_address, replica_model_uid):
+        super().__init__(supervisor_address, worker_address, replica_model_uid)
+        self._model = _NonDictUsageChatModel()
+
+
+@pytest.mark.asyncio
+async def test_chat_with_non_dict_usage_does_not_crash(_chat_pool):
+    # Regression test for the isinstance(usage, dict) guard: a non-dict truthy
+    # usage (string/list) must not raise AttributeError from .get().
+    pool = _chat_pool
+    addr = pool.external_address
+    actor = await xo.create_actor(
+        _NonDictUsageChatModelActor,
+        address=addr,
+        uid=_NonDictUsageChatModelActor.default_uid(),
+        supervisor_address="test:123",
+        worker_address="test:345",
+        replica_model_uid="test_chat_non_dict_usage",
+    )
+    result = await actor.chat([{"role": "user", "content": "hi"}])
+    if isinstance(result, (bytes, str)):
+        parsed = json.loads(result)
+    else:
+        collected = []
+        async for chunk in result:
+            collected.append(chunk)
+        first = collected[0]
+        parsed = json.loads(first if isinstance(first, (bytes, str)) else first.decode())
+    assert parsed["choices"][0]["message"]["content"] == "hi"
