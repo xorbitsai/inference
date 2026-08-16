@@ -879,15 +879,17 @@ class ModelActor(xo.StatelessActor, CancelMixin):
             elif isinstance(response, bytes):
                 record = json.loads(response)
             if record and isinstance(record, dict):
-                usage = record["usage"]
+                usage = record.get("usage")
                 # Some backends may not have a valid usage, we just skip them.
-                completion_tokens = usage["completion_tokens"]
-                prompt_tokens = usage["prompt_tokens"]
-                await self._record_completion_metrics(
-                    time.time() - start_time,
-                    completion_tokens,
-                    prompt_tokens,
-                )
+                if isinstance(usage, dict):
+                    completion_tokens = usage.get("completion_tokens")
+                    prompt_tokens = usage.get("prompt_tokens")
+                    if completion_tokens is not None and prompt_tokens is not None:
+                        await self._record_completion_metrics(
+                            time.time() - start_time,
+                            completion_tokens,
+                            prompt_tokens,
+                        )
                 await self.record_metrics(
                     "time_to_first_token_seconds",
                     "observe",
