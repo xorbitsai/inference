@@ -1196,6 +1196,45 @@ class ChatModelMixin:
 
         return normalized_tool_calls
 
+    @staticmethod
+    def _split_reasoning_tool_chunk(
+        chat_chunk: ChatCompletionChunk,
+    ) -> Tuple[Optional[ChatCompletionChunk], Optional[ChatCompletionChunk]]:
+        """Split a delta that crosses from reasoning into tool-call content."""
+        if not chat_chunk.get("choices"):
+            return None, chat_chunk
+
+        choice = chat_chunk["choices"][0]
+        delta = choice["delta"]
+        reasoning_content = delta.get("reasoning_content")
+        if reasoning_content is None:
+            return None, chat_chunk
+
+        content = delta.get("content")
+        if not content:
+            return chat_chunk, None
+
+        reasoning_choices = list(chat_chunk["choices"])
+        reasoning_choices[0] = cast(
+            ChatCompletionChunkChoice,
+            {
+                **choice,
+                "delta": {**delta, "content": None},
+            },
+        )
+        content_choices = list(chat_chunk["choices"])
+        content_choices[0] = cast(
+            ChatCompletionChunkChoice,
+            {
+                **choice,
+                "delta": {**delta, "reasoning_content": None},
+            },
+        )
+        return (
+            cast(ChatCompletionChunk, {**chat_chunk, "choices": reasoning_choices}),
+            cast(ChatCompletionChunk, {**chat_chunk, "choices": content_choices}),
+        )
+
     def _to_tool_completion_chunks(
         self,
         chunks: Iterator[CompletionChunk],
@@ -1232,17 +1271,15 @@ class ChatModelMixin:
                 previous_texts,
                 ensure_role=i == 0,
             )
-            if (
-                chat_chunk["choices"]
-                and "reasoning_content" in chat_chunk["choices"][0]["delta"]
-                and chat_chunk["choices"][0]["delta"]["reasoning_content"] is not None
-            ):
-                yield chat_chunk
+            reasoning_chunk, tool_chunk = self._split_reasoning_tool_chunk(chat_chunk)
+            if reasoning_chunk is not None:
+                yield reasoning_chunk
+            if tool_chunk is None:
                 continue
             processed_chunk = self._post_process_completion_chunk(
                 self.model_family,
                 self.model_uid,
-                chat_chunk,
+                tool_chunk,
                 previous_texts=previous_tools_texts,
                 tool_call_state=tool_call_state,
             )
@@ -1287,17 +1324,15 @@ class ChatModelMixin:
                 previous_texts,
                 ensure_role=i == 0,
             )
-            if (
-                chat_chunk["choices"]
-                and "reasoning_content" in chat_chunk["choices"][0]["delta"]
-                and chat_chunk["choices"][0]["delta"]["reasoning_content"] is not None
-            ):
-                yield chat_chunk
+            reasoning_chunk, tool_chunk = self._split_reasoning_tool_chunk(chat_chunk)
+            if reasoning_chunk is not None:
+                yield reasoning_chunk
+            if tool_chunk is None:
                 continue
             processed_chunk = self._post_process_completion_chunk(
                 self.model_family,
                 self.model_uid,
-                chat_chunk,
+                tool_chunk,
                 previous_texts=previous_tools_texts,
                 tool_call_state=tool_call_state,
             )

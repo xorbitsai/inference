@@ -133,7 +133,8 @@ def test_mlx_generate_stream_passes_top_k():
     assert captured["top_k"] == 20
 
 
-def test_mlx_streaming_parses_multiple_qwen_tool_calls():
+@pytest.mark.asyncio
+async def test_mlx_streaming_parses_multiple_qwen_tool_calls():
     from ...reasoning_parser import ReasoningParser
     from ...tool_parsers.qwen_tool_parser import QwenToolParser
     from ..core import MLXVisionModel
@@ -165,15 +166,17 @@ def test_mlx_streaming_parses_multiple_qwen_tool_calls():
             ],
         }
 
-    chunks = iter(
-        [
+    def make_chunks():
+        return [
             chunk("<think>"),
-            chunk("I should search twice."),
-            chunk("</think>\n"),
-            chunk("<tool_call>"),
+            chunk("I should"),
             chunk(
-                "\n<function=web_search>\n"
-                "<parameter=query>Dario Amodei recent news</parameter>\n"
+                " search twice.</think>\n\n<tool_call>\n"
+                "<function=web_search>\n"
+                "<parameter=query>Dario"
+            ),
+            chunk(
+                " Amodei recent news</parameter>\n"
                 "<parameter=num_results>10</parameter>\n"
                 "</function>\n"
             ),
@@ -188,40 +191,51 @@ def test_mlx_streaming_parses_multiple_qwen_tool_calls():
             chunk("</tool_call>"),
             chunk("", "stop"),
         ]
-    )
 
-    results = list(model._to_tool_completion_chunks(chunks))
-    tool_calls = [
-        tool_call
-        for result in results
-        for choice in result["choices"]
-        for tool_call in choice["delta"].get("tool_calls", [])
-    ]
+    def assert_results(results):
+        tool_calls = [
+            tool_call
+            for result in results
+            for choice in result["choices"]
+            for tool_call in choice["delta"].get("tool_calls", [])
+        ]
 
-    assert [tool_call["index"] for tool_call in tool_calls] == [0, 1]
-    assert [tool_call["function"]["name"] for tool_call in tool_calls] == [
-        "web_search",
-        "web_search",
-    ]
-    assert [
-        json.loads(tool_call["function"]["arguments"])["query"]
-        for tool_call in tool_calls
-    ] == ["Dario Amodei recent news", "Dario Amodei gossip"]
-    assert tool_calls[0]["id"] != tool_calls[1]["id"]
-    assert results[-1]["choices"][0]["finish_reason"] == "tool_calls"
-    assert (
-        "".join(
-            choice["delta"].get("reasoning_content") or ""
+        assert [tool_call["index"] for tool_call in tool_calls] == [0, 1]
+        assert [tool_call["function"]["name"] for tool_call in tool_calls] == [
+            "web_search",
+            "web_search",
+        ]
+        assert [
+            json.loads(tool_call["function"]["arguments"])["query"]
+            for tool_call in tool_calls
+        ] == ["Dario Amodei recent news", "Dario Amodei gossip"]
+        assert tool_calls[0]["id"] != tool_calls[1]["id"]
+        assert results[-1]["choices"][0]["finish_reason"] == "tool_calls"
+        assert (
+            "".join(
+                choice["delta"].get("reasoning_content") or ""
+                for result in results
+                for choice in result["choices"]
+            )
+            == "I should search twice."
+        )
+        assert all(
+            "<tool_call>" not in (choice["delta"].get("content") or "")
             for result in results
             for choice in result["choices"]
         )
-        == "I should search twice."
-    )
-    assert all(
-        "<tool_call>" not in (choice["delta"].get("content") or "")
-        for result in results
-        for choice in result["choices"]
-    )
+
+    assert_results(list(model._to_tool_completion_chunks(iter(make_chunks()))))
+
+    async def async_chunks():
+        for value in make_chunks():
+            yield value
+
+    async_results = [
+        result
+        async for result in model._async_to_tool_completion_chunks(async_chunks())
+    ]
+    assert_results(async_results)
 
 
 def test_mlx_vision_model_stop_shuts_down_executor():
