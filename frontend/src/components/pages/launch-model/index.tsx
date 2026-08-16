@@ -412,6 +412,7 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
               options={LAUNCH_MODEL_UPDATE_OPTIONS}
               allowClear={false}
               className="w-32 rounded-r-none"
+              dropdownAutoWidth
             />
             <Button onClick={updateModels} disabled={updateLoading} className="rounded-l-none">
               <RefreshCw className={cn(updateLoading ? 'animate-spin' : '')} />
@@ -458,6 +459,7 @@ const LaunchModel = ({ routeType, initialCustomType }: LaunchModelProps) => {
                   placeholder={t('launchModel.modelAbility')}
                   allowClear
                   className="w-40"
+                  dropdownAutoWidth
                 />
               )}
               {showStatusFilter && (
