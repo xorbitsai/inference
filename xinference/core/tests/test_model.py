@@ -341,7 +341,9 @@ async def test_chat_without_usage_does_not_crash(_chat_pool):
         async for chunk in result:
             collected.append(chunk)
         first = collected[0]
-        parsed = json.loads(first if isinstance(first, (bytes, str)) else first.decode())
+        parsed = json.loads(
+            first if isinstance(first, (bytes, str)) else first.decode()
+        )
     assert parsed["choices"][0]["message"]["content"] == "hello"
 
 
@@ -398,5 +400,7 @@ async def test_chat_with_non_dict_usage_does_not_crash(_chat_pool):
         async for chunk in result:
             collected.append(chunk)
         first = collected[0]
-        parsed = json.loads(first if isinstance(first, (bytes, str)) else first.decode())
+        parsed = json.loads(
+            first if isinstance(first, (bytes, str)) else first.decode()
+        )
     assert parsed["choices"][0]["message"]["content"] == "hi"
