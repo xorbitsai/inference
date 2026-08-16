@@ -1092,27 +1092,28 @@ class CancellableDownloader:
             # we assumed at least 1 task
             tasks = 1
 
-        finished_ratio = finished_tasks / tasks
-
-        all_download_progress = finished_download_progress = 0
+        active_file_progress = 0.0
         for download_progress in download_progresses:
-            # we skip finished download
+            # Completed downloads are already represented by finished_tasks.
             if download_progress.n == download_progress.total:
                 continue
-            all_download_progress += download_progress.total or (
-                download_progress.n * 10
-            )
-            finished_download_progress += download_progress.n
 
-        if all_download_progress > 0:
-            rest_ratio = (
-                (tasks - finished_tasks)
-                / tasks
-                * (finished_download_progress / all_download_progress)
-            )
-            return finished_ratio + rest_ratio
-        else:
-            return finished_ratio
+            downloaded = download_progress.n or 0
+            total = download_progress.total
+            if total:
+                # Give every file the same weight, irrespective of its size.
+                active_file_progress += min(max(downloaded / total, 0.0), 1.0)
+            elif downloaded > 0:
+                # Preserve the previous best-effort estimate for downloads
+                # whose total size is not available yet.
+                active_file_progress += 0.1
+
+        # A tqdm implementation may expose more than one byte progress bar for
+        # the same file. Never let active bars account for more file slots than
+        # the repository-level progress reports as unfinished.
+        unfinished_tasks = max(tasks - finished_tasks, 0)
+        active_file_progress = min(active_file_progress, unfinished_tasks)
+        return min(max((finished_tasks + active_file_progress) / tasks, 0.0), 1.0)
 
     @staticmethod
     def _finite_float(value: Any) -> Optional[float]:
@@ -1243,8 +1244,28 @@ class CancellableDownloader:
             def patched_init(tqdm_instance, *args, **kwargs):
                 # Bind ownership when the bar is created so later updates from
                 # library worker threads remain scoped to the same downloader.
-                CancellableDownloader._get_tqdm_owner(tqdm_instance)
-                return original_init_plain(tqdm_instance, *args, **kwargs)
+                downloader = CancellableDownloader._get_tqdm_owner(tqdm_instance)
+                result = original_init_plain(tqdm_instance, *args, **kwargs)
+
+                # Register the bar immediately, rather than waiting for its
+                # first update. Repository-level bars do not update until the
+                # first file finishes; delaying registration would make
+                # get_progress() assume there is only one task until then.
+                if (
+                    downloader is not None
+                    and not downloader.done
+                    and not getattr(tqdm_instance, "disable", False)
+                ):
+                    unit = getattr(tqdm_instance, "unit", "it")
+                    progresses = (
+                        downloader._main_progresses
+                        if unit == "it"
+                        else downloader._download_progresses
+                    )
+                    with downloader._progress_lock:
+                        progresses.add(tqdm_instance)
+
+                return result
 
             # Thread-safe patched update
             def patched_update(tqdm_instance, n):

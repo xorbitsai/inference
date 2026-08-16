@@ -80,6 +80,32 @@ def test_tqdm_patch():
     assert downloader.done
 
 
+def test_tqdm_patch_uses_equal_file_weights():
+    downloader = CancellableDownloader(cancel_error_cls=RuntimeError)
+
+    with downloader:
+        all_bar = tqdm(total=3, file=io.StringIO())
+        large_file = tqdm(total=70, unit="B", file=io.StringIO())
+        small_file = tqdm(total=30, unit="B", file=io.StringIO())
+
+        # Their sizes must not determine their weight in the repository-level
+        # progress. The repository bar's total is available before its first
+        # update, so the downloader already knows that n == 3 here. The third
+        # file has not started and therefore contributes zero.
+        large_file.update(69)
+        before_completion = downloader.get_progress()
+        assert before_completion == pytest.approx((69 / 70) / 3)
+
+        large_file.update(1)
+        all_bar.update(1)
+        after_completion = downloader.get_progress()
+        assert after_completion == pytest.approx(1 / 3)
+        assert after_completion >= before_completion
+
+        small_file.update(15)
+        assert downloader.get_progress() == pytest.approx((1 + 15 / 30) / 3)
+
+
 def test_download_progress_details_include_completed_files():
     downloader = CancellableDownloader(cancel_error_cls=RuntimeError)
 
