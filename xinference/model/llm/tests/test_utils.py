@@ -2640,7 +2640,7 @@ def test_qwen3_family_get_full_context_handles_string_arguments():
     # string.
     from .. import BUILTIN_LLM_FAMILIES
 
-    targets = {"Qwen3-Coder", "qwen3.5", "qwen3.6"}
+    targets = {"Qwen3-Coder", "qwen3.5", "qwen3.6", "qwen3.8"}
     families = {
         f.model_name: f for f in BUILTIN_LLM_FAMILIES if f.model_name in targets
     }

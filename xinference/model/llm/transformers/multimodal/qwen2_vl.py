@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
     "Qwen3-VL-Thinking",
     "qwen3.5",
     "qwen3.6",
+    "qwen3.8",
     "Nex-N2",
 )
 @register_transformer

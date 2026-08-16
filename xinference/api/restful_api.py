@@ -106,6 +106,28 @@ from .utils import require_model
 logger = logging.getLogger(__name__)
 
 
+_AUDIO_RESPONSE_MEDIA_TYPES = {
+    "aac": "audio/aac",
+    "flac": "audio/flac",
+    "m4a": "audio/mp4",
+    "mp3": "audio/mpeg",
+    "mpeg": "audio/mpeg",
+    "ogg": "audio/ogg",
+    "opus": "audio/ogg",
+    "pcm": "audio/pcm",
+    "wav": "audio/wav",
+    "wave": "audio/wav",
+    "webm": "audio/webm",
+}
+
+
+def _audio_response_media_type(response_format: Optional[str]) -> str:
+    normalized_format = (response_format or "mp3").lower().lstrip(".")
+    return _AUDIO_RESPONSE_MEDIA_TYPES.get(
+        normalized_format, "application/octet-stream"
+    )
+
+
 def _validate_replica(value: Any) -> int:
     """Validate and convert the ``replica`` field from a JSON payload.
 
@@ -1813,7 +1835,10 @@ class RESTfulAPI(CancelMixin):
                     ping=XINFERENCE_SSE_PING_ATTEMPTS_SECONDS,
                 )
             else:
-                return Response(media_type="application/octet-stream", content=out)
+                return Response(
+                    media_type=_audio_response_media_type(body.response_format),
+                    content=out,
+                )
         except Exception as e:
             e = await self._get_model_last_error(model.uid, e)
             logger.error(e, exc_info=True)
