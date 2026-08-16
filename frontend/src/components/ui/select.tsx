@@ -1,14 +1,12 @@
 'use client';
 
 import * as React from 'react';
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 import { ChevronDown, Check, X } from 'lucide-react';
 import { useI18n } from '@/contexts/i18n-context';
 
-// Dropdown border/list padding, option padding, row gap, and selection indicator.
-const AUTO_DROPDOWN_WIDTH_OFFSET = 60;
 const DROPDOWN_VIEWPORT_PADDING = 8;
 
 export type SelectValue = string | number;
@@ -81,9 +79,23 @@ export function Select<T extends SelectValue = SelectValue>({
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const autoDropdownContentWidthRef = useRef<number | undefined>(undefined);
+  const optionsContainerRef = useRef<HTMLDivElement>(null);
+
+  const autoDropdownWidthRef = useRef<number | undefined>(undefined);
 
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>();
+
+  const hasDropdownStyle = dropdownStyle !== undefined;
+
+  const optionLayoutKey = JSON.stringify(
+    options.map((option) => [
+      option.value,
+      option.label,
+      option.description,
+      Boolean(option.prefix),
+      Boolean(option.suffix),
+    ])
+  );
 
   const updateDropdownPosition = useCallback(() => {
     if (!buttonRef.current) return;
@@ -94,40 +106,12 @@ export function Select<T extends SelectValue = SelectValue>({
     const direction = spaceBelow < 200 && spaceAbove > spaceBelow ? 'up' : 'down';
 
     setDropdownDirection(direction);
-    let dropdownWidth = buttonRect.width;
+    const dropdownWidth = dropdownAutoWidth
+      ? Math.max(buttonRect.width, autoDropdownWidthRef.current ?? 0)
+      : buttonRect.width;
     let dropdownLeft = buttonRect.left;
 
     if (dropdownAutoWidth) {
-      if (autoDropdownContentWidthRef.current === undefined) {
-        const measureElement = document.createElement('span');
-        const triggerStyle = window.getComputedStyle(buttonRef.current);
-
-        Object.assign(measureElement.style, {
-          position: 'fixed',
-          visibility: 'hidden',
-          pointerEvents: 'none',
-          whiteSpace: 'nowrap',
-          fontFamily: triggerStyle.fontFamily,
-          fontSize: triggerStyle.fontSize,
-          fontStyle: triggerStyle.fontStyle,
-          fontVariant: triggerStyle.fontVariant,
-          fontWeight: '500',
-          letterSpacing: triggerStyle.letterSpacing,
-        });
-        document.body.appendChild(measureElement);
-
-        autoDropdownContentWidthRef.current = options.reduce((maxWidth, option) => {
-          measureElement.textContent = option.label;
-
-          return Math.max(maxWidth, measureElement.getBoundingClientRect().width);
-        }, 0);
-        measureElement.remove();
-      }
-
-      const contentWidth =
-        autoDropdownContentWidthRef.current + AUTO_DROPDOWN_WIDTH_OFFSET;
-
-      dropdownWidth = Math.max(buttonRect.width, contentWidth);
       dropdownLeft = Math.max(
         DROPDOWN_VIEWPORT_PADDING,
         Math.min(
@@ -144,11 +128,7 @@ export function Select<T extends SelectValue = SelectValue>({
       minWidth: buttonRect.width,
       transform: direction === 'up' ? 'translateY(-100%)' : undefined,
     });
-  }, [dropdownAutoWidth, options]);
-
-  useEffect(() => {
-    autoDropdownContentWidthRef.current = undefined;
-  }, [dropdownAutoWidth, options]);
+  }, [dropdownAutoWidth]);
 
   // Handle clicking outside to close the dropdown
   useEffect(() => {
@@ -187,6 +167,49 @@ export function Select<T extends SelectValue = SelectValue>({
       window.removeEventListener('scroll', updateDropdownPosition, true);
     };
   }, [open, updateDropdownPosition]);
+
+  useLayoutEffect(() => {
+    const dropdown = dropdownRef.current;
+    const optionsContainer = optionsContainerRef.current;
+
+    if (!open || !dropdownAutoWidth || !dropdown || !optionsContainer) return;
+
+    const optionElements = Array.from(
+      optionsContainer.querySelectorAll<HTMLElement>('[data-slot="select-option"]')
+    );
+
+    if (optionElements.length === 0) return;
+
+    const originalWidths = optionElements.map((option) => option.style.width);
+    let widestOptionWidth = 0;
+
+    // Measure the complete rendered option structure without letting its
+    // intrinsic width affect the visible dropdown layout.
+    try {
+      optionElements.forEach((option) => {
+        option.style.width = 'max-content';
+        widestOptionWidth = Math.max(widestOptionWidth, option.getBoundingClientRect().width);
+      });
+    } finally {
+      optionElements.forEach((option, index) => {
+        option.style.width = originalWidths[index];
+      });
+    }
+
+    const optionsContainerStyle = window.getComputedStyle(optionsContainer);
+    const optionsContainerPadding =
+      Number.parseFloat(optionsContainerStyle.paddingLeft) +
+      Number.parseFloat(optionsContainerStyle.paddingRight);
+    const dropdownBorderWidth = dropdown.offsetWidth - dropdown.clientWidth;
+    const measuredWidth = Math.ceil(
+      widestOptionWidth + optionsContainerPadding + dropdownBorderWidth
+    );
+
+    if (autoDropdownWidthRef.current === measuredWidth) return;
+
+    autoDropdownWidthRef.current = measuredWidth;
+    updateDropdownPosition();
+  }, [dropdownAutoWidth, hasDropdownStyle, open, optionLayoutKey, updateDropdownPosition]);
 
   useEffect(() => {
     const dropdown = dropdownRef.current;
@@ -338,7 +361,7 @@ export function Select<T extends SelectValue = SelectValue>({
             dropdownDirection === 'up' && 'origin-bottom'
           )}
         >
-          <div className="max-h-60 overflow-auto p-1">
+          <div ref={optionsContainerRef} className="max-h-60 overflow-auto p-1">
             {filteredOptions.length === 0 ? (
               <div className="py-10 text-center text-sm text-muted-foreground">
                 {t('common.noOptions')}
@@ -347,6 +370,7 @@ export function Select<T extends SelectValue = SelectValue>({
               filteredOptions.map((option) => (
                 <button
                   key={option.value}
+                  data-slot="select-option"
                   type="button"
                   disabled={option.disabled}
                   onClick={() => handleOptionClick(option)}
