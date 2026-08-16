@@ -97,6 +97,9 @@ def test_tqdm_patch_uses_equal_file_weights():
         assert before_completion == pytest.approx((69 / 70) / 3)
 
         large_file.update(1)
+        during_completion = downloader.get_progress()
+        assert during_completion == pytest.approx(before_completion)
+
         all_bar.update(1)
         after_completion = downloader.get_progress()
         assert after_completion == pytest.approx(1 / 3)

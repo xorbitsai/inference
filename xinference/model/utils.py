@@ -1029,6 +1029,10 @@ class CancellableDownloader:
         # progress for file downloader
         # mainly when tqdm unit is set
         self._download_progresses: Set[tqdm] = set()
+        # Byte bars and the repository-level bar advance in separate calls.
+        # Keep the reported value monotonic while a completed byte bar waits
+        # for the repository-level bar to account for the same file.
+        self._last_progress = 0.0
         # Instance-specific tqdm tracking
         self._patched_instances: Set[int] = set()
 
@@ -1069,6 +1073,7 @@ class CancellableDownloader:
         with self._progress_lock:
             self._main_progresses.clear()
             self._download_progresses.clear()
+            self._last_progress = 0.0
 
     def _progress_snapshots(self) -> Tuple[List[tqdm], List[tqdm]]:
         """Return stable copies while tqdm callbacks may update the sets."""
@@ -1113,7 +1118,12 @@ class CancellableDownloader:
         # the repository-level progress reports as unfinished.
         unfinished_tasks = max(tasks - finished_tasks, 0)
         active_file_progress = min(active_file_progress, unfinished_tasks)
-        return min(max((finished_tasks + active_file_progress) / tasks, 0.0), 1.0)
+        progress = min(
+            max((finished_tasks + active_file_progress) / tasks, 0.0), 1.0
+        )
+        with self._progress_lock:
+            self._last_progress = max(self._last_progress, progress)
+            return self._last_progress
 
     @staticmethod
     def _finite_float(value: Any) -> Optional[float]:
