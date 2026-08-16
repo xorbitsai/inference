@@ -34,6 +34,7 @@ from .. import platform as audio_platform
 from .. import sys as audio_sys
 from ..core import create_audio_model_instance, resolve_audio_model_name_and_engine
 from ..engine import (
+    DiffusersMiniMaxMusic3AudioModel,
     MLXAudioSTTEngineModel,
     MLXAudioTTSEngineModel,
     MLXF5TTSAudioModel,
@@ -174,6 +175,20 @@ def test_vllm_engine_not_matched_without_cuda():
         patch.object(engine_mod, "has_cuda_device", return_value=True),
     ):
         assert VLLMQwen3ASRAudioModel.match(_get_spec("Qwen3-ASR-0.6B")) is False
+
+
+def test_minimax_music3_engine_not_registered_without_cuda():
+    engine_mod = __import__(
+        DiffusersMiniMaxMusic3AudioModel.__module__, fromlist=["has_cuda_device"]
+    )
+    with (
+        patch.object(engine_mod, "has_cuda_device", return_value=False),
+        patch.dict(AUDIO_ENGINES, {}, clear=True),
+    ):
+        register_builtin_audio_engines()
+        for model_spec in BUILTIN_AUDIO_MODELS["MiniMax-Music3"]:
+            generate_engine_config_by_model_name(model_spec)
+        assert "MiniMax-Music3" not in AUDIO_ENGINES
 
 
 def test_create_audio_model_instance_default_engine():

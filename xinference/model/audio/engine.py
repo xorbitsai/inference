@@ -331,7 +331,7 @@ class DiffusersMiniMaxMusic3AudioModel(MiniMaxMusic3Model, AudioEngineModel):
 
     @classmethod
     def match(cls, model_family: "AudioModelFamilyV2") -> bool:
-        return model_family.model_family == "minimax_music3"
+        return has_cuda_device() and model_family.model_family == "minimax_music3"
 
 
 def register_builtin_audio_engines() -> None:
