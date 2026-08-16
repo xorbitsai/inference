@@ -150,7 +150,12 @@ class DiffusersVideoModel:
         pipeline.audio_vae.to(onload_device)
 
     def _resolve_minimax_h3_lightning_config(self) -> Optional[dict]:
-        if not self._lightning_model_path:
+        if self._lightning_model_path is None:
+            if self._lightning_version is not None:
+                raise ValueError(
+                    f"Lightning version {self._lightning_version!r} was specified, "
+                    "but no lightning model path was provided."
+                )
             return None
 
         version_configs = self._model_spec.lightning_version_configs or {}

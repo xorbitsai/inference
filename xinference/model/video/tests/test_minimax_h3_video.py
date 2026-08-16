@@ -22,7 +22,7 @@ from PIL import Image
 from .. import diffusers as diffusers_module
 from .. import load_model_family_from_json
 from ..cache_manager import VideoCacheManager
-from ..core import VideoModelFamilyV2, match_diffusion
+from ..core import VideoModelFamilyV2, create_video_model_instance, match_diffusion
 from ..diffusers import DiffusersVideoModel
 
 
@@ -182,6 +182,35 @@ def test_minimax_h3_downloads_lightning_from_modelscope(monkeypatch, tmp_path):
     )
 
 
+def test_video_rejects_unsupported_lightning_before_cache(monkeypatch):
+    from .. import cache_manager as cache_manager_module
+    from .. import core as core_module
+
+    cache_called = False
+
+    class FakeCacheManager:
+        def __init__(self, model_spec):
+            pass
+
+        def cache_lightning(self, lightning_version):
+            nonlocal cache_called
+            cache_called = True
+            return "/tmp/lightning.safetensors"
+
+    monkeypatch.setattr(core_module, "match_diffusion", lambda *args: _model_spec())
+    monkeypatch.setattr(cache_manager_module, "VideoCacheManager", FakeCacheManager)
+
+    with pytest.raises(ValueError, match="does not support lightning acceleration"):
+        create_video_model_instance(
+            "mock",
+            "MiniMax-H3",
+            model_path="/tmp/minimax-h3",
+            lightning_version="4step_v0.1",
+        )
+
+    assert cache_called is False
+
+
 def test_minimax_h3_applies_lightning_version_config(monkeypatch):
     calls = {}
 
@@ -240,6 +269,18 @@ def test_minimax_h3_infers_lightning_version_from_path():
         "audio_shift": 3.0,
         "lora_alpha": 8,
     }
+
+
+def test_minimax_h3_rejects_lightning_version_without_path():
+    model = DiffusersVideoModel(
+        "mock",
+        "/tmp/minimax-h3",
+        _lightning_model_spec(),
+        lightning_version="4step_v0.1",
+    )
+
+    with pytest.raises(ValueError, match="no lightning model path was provided"):
+        model._resolve_minimax_h3_lightning_config()
 
 
 def test_minimax_h3_loads_lightning_peft_checkpoint(monkeypatch):

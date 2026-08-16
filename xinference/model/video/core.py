@@ -135,11 +135,13 @@ def create_video_model_instance(
     if not gguf_model_path and gguf_quantization:
         cache_manager = VideoCacheManager(model_spec)
         gguf_model_path = cache_manager.cache_gguf(gguf_quantization)
+    if (
+        lightning_version or lightning_model_path
+    ) and not model_spec.lightning_versions:
+        raise ValueError(f"Model {model_name} does not support lightning acceleration")
     if not lightning_model_path and lightning_version:
         cache_manager = VideoCacheManager(model_spec)
         lightning_model_path = cache_manager.cache_lightning(lightning_version)
-    if lightning_model_path and not model_spec.lightning_versions:
-        raise ValueError(f"Model {model_name} does not support lightning acceleration")
     assert model_path is not None
 
     model = DiffusersVideoModel(
