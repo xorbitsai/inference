@@ -22,6 +22,7 @@ import {
 import type { FileUploadValue } from '@/types/common';
 import type { BaseFormFieldProps } from '@/types/form';
 
+import { AudioRecorderUpload } from '../components/audio-recorder-upload';
 import { ImageEditorCreateMask } from '../components/image-editor-create-mask';
 import {
   INDEX_TTS_EMOTION_DIMENSIONS,
@@ -351,15 +352,11 @@ export function FirstLastFrameVideoPanel() {
   );
 }
 
-export function AudioToTextPanel() {
+export function AudioToTextPanel({ form }: CapabilityFormProps) {
   return (
     <>
       <FormField name="file" rules={[{ required: true }]}>
-        <FileUpload
-          accept="audio/*,video/*"
-          label="Upload or drop audio"
-          description="MP3, WAV, M4A, WebM..."
-        />
+        <AudioRecorderUpload form={form} />
       </FormField>
       <FormField name="language" label="Language" placeholder="e.g. en, zh">
         <Input />

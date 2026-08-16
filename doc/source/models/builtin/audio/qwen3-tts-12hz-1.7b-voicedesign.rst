@@ -12,8 +12,15 @@ Qwen3-TTS-12Hz-1.7B-VoiceDesign
 Specifications
 ^^^^^^^^^^^^^^
 
-- **Model ID:** Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign
+- **PyTorch model ID:** Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign
+- **MLX model ID:** mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-8bit
 
 Execute the following command to launch the model::
 
-   xinference launch --model-name Qwen3-TTS-12Hz-1.7B-VoiceDesign --model-type audio
+   xinference launch --model-name Qwen3-TTS-12Hz-1.7B-VoiceDesign --model-type audio --model-engine PyTorch
+
+Available engines
+^^^^^^^^^^^^^^^^^
+
+* ``PyTorch``
+* ``MLX``

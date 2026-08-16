@@ -31,8 +31,9 @@ def test_restful_api_for_whisper(setup):
 
     model_uid = client.launch_model(
         model_uid="whisper-1",
-        model_name="whisper-small-mlx",
+        model_name="whisper-small",
         model_type="audio",
+        model_engine="MLX",
     )
     model = client.get_model(model_uid)
     audio_path = os.path.join(os.path.dirname(__file__), "jfk.flac")
@@ -56,8 +57,9 @@ def test_restful_api_for_whisper(setup):
     # If model multilingual is False, it can't be used for translations.
     model_uid2 = client.launch_model(
         model_uid="whisper-2",
-        model_name="whisper-tiny.en-mlx",
+        model_name="whisper-tiny.en",
         model_type="audio",
+        model_engine="MLX",
         n_gpu=None,
     )
     model2 = client.get_model(model_uid2)
@@ -85,8 +87,9 @@ def test_transcriptions_for_whisper(setup):
 
     model_uid = client.launch_model(
         model_uid="whisper-1",
-        model_name="whisper-small-mlx",
+        model_name="whisper-small",
         model_type="audio",
+        model_engine="MLX",
     )
     model = client.get_model(model_uid)
     audio_path = os.path.join(os.path.dirname(__file__), "jfk.flac")

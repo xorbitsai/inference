@@ -289,10 +289,10 @@ class ModelActor(xo.StatelessActor, CancelMixin):
         self._progress_tracker_ref = None
         self._serve_count = 0
         model_type = self._model_description.get("model_type", "unknown")
-        if model_type in ("audio", "video"):
+        if model_type == "video":
             engine_label = ""
             format_label = ""
-        elif model_type == "image":
+        elif model_type in ("audio", "image"):
             engine_label = model_engine or ""
             format_label = ""
         else:

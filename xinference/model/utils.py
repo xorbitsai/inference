@@ -1785,8 +1785,7 @@ def _get_engine_params_by_name(
     if model_type == "audio":
         from .audio import BUILTIN_AUDIO_MODELS
         from .audio.custom import get_user_defined_audios
-        from .audio.engine_family import AUDIO_ENGINES
-        from .audio.engine_family import SUPPORTED_ENGINES as AUDIO_SUPPORTED_ENGINES
+        from .audio.engine_family import AUDIO_ENGINES, get_supported_engines_for_model
 
         if model_name not in AUDIO_ENGINES:
             return None
@@ -1798,13 +1797,14 @@ def _get_engine_params_by_name(
         audio_families.extend(
             f for f in get_user_defined_audios() if f.model_name == model_name
         )
+        supported_audio_engines = get_supported_engines_for_model(audio_families)
         _validate_available_image_engines(
             audio_families,
-            AUDIO_SUPPORTED_ENGINES,
+            supported_audio_engines,
             "audio",
         )
         _collect_supported_image_engines(
-            audio_families, AUDIO_SUPPORTED_ENGINES, "audio"
+            audio_families, supported_audio_engines, "audio"
         )
         return engine_params
 
@@ -2319,8 +2319,7 @@ def _get_engine_params_by_name_with_virtual_env(
     elif model_type == "audio":
         from .audio import BUILTIN_AUDIO_MODELS
         from .audio.custom import get_user_defined_audios
-        from .audio.engine_family import AUDIO_ENGINES
-        from .audio.engine_family import SUPPORTED_ENGINES as AUDIO_SUPPORTED_ENGINES
+        from .audio.engine_family import AUDIO_ENGINES, get_supported_engines_for_model
 
         if model_name not in AUDIO_ENGINES:
             return None
@@ -2332,22 +2331,23 @@ def _get_engine_params_by_name_with_virtual_env(
         audio_families.extend(
             f for f in get_user_defined_audios() if f.model_name == model_name
         )
+        supported_audio_engines = get_supported_engines_for_model(audio_families)
         audio_engine_markers: Set[str] = set()
         for family in audio_families:
             audio_engine_markers |= _collect_virtualenv_engine_markers(family)
         _validate_available_image_engines(
             audio_families,
-            AUDIO_SUPPORTED_ENGINES,
+            supported_audio_engines,
             "audio",
             audio_engine_markers,
             enable_virtual_env,
         )
         _collect_supported_image_engines(
-            audio_families, AUDIO_SUPPORTED_ENGINES, "audio"
+            audio_families, supported_audio_engines, "audio"
         )
         _apply_virtualenv_engine_overrides(
             engine_params,
-            AUDIO_SUPPORTED_ENGINES,
+            supported_audio_engines,
             audio_engine_markers,
             enable_virtual_env,
         )
@@ -2603,17 +2603,44 @@ def load_downloaded_models_to_dict(
 
 
 def merge_models_by_timestamp(
-    built_in_models: Dict[str, List[Any]], user_models: Dict[str, List[Any]]
+    built_in_models: Dict[str, List[Any]],
+    user_models: Dict[str, List[Any]],
+    model_identity_func: Optional[Callable[[Any], Any]] = None,
 ) -> Dict[str, List[Any]]:
     """Merge built-in and user models, keeping the latest version based on updated_at.
 
     Args:
         built_in_models: Dictionary of built-in models
         user_models: Dictionary of user-defined models
+        model_identity_func: Optional function that distinguishes independently
+            versioned variants under the same model name.
 
     Returns:
         Merged dictionary with latest models based on updated_at timestamp
     """
+    if model_identity_func is not None:
+        merged_models: Dict[str, List[Any]] = {}
+        model_names = dict.fromkeys([*built_in_models, *user_models])
+        for model_name in model_names:
+            models_by_identity: Dict[Any, List[Any]] = {}
+            for model in [
+                *built_in_models.get(model_name, []),
+                *user_models.get(model_name, []),
+            ]:
+                models_by_identity.setdefault(model_identity_func(model), []).append(
+                    model
+                )
+
+            merged_models[model_name] = []
+            for models in models_by_identity.values():
+                # Variants with the same identity are interchangeable. Keep one
+                # newest entry; because built-ins are ordered first, an equal-
+                # timestamp downloaded copy does not create a duplicate.
+                merged_models[model_name].append(
+                    max(models, key=lambda model: model.updated_at)
+                )
+        return merged_models
+
     merged_models = {}
 
     # First, add all built-in models
@@ -2663,6 +2690,8 @@ def install_models_with_merge(
     user_json_filename: str,
     has_downloaded_models_func,
     load_model_family_func,
+    model_identity_func: Optional[Callable[[Any], Any]] = None,
+    model_normalize_func: Optional[Callable[[Any, Dict[str, List[Any]]], None]] = None,
 ) -> None:
     """Install models with intelligent merging based on timestamps.
 
@@ -2673,6 +2702,10 @@ def install_models_with_merge(
         user_json_filename: Name of user JSON file
         has_downloaded_models_func: Function to check if user models exist
         load_model_family_func: Function to load model family from JSON
+        model_identity_func: Optional function that distinguishes independently
+            versioned variants under the same model name.
+        model_normalize_func: Optional function that upgrades downloaded model
+            metadata before identity and timestamp comparison.
     """
     import os.path
 
@@ -2700,9 +2733,15 @@ def install_models_with_merge(
 
         # Create a copy of built-in models for merging
         built_in_models_copy = dict(built_in_dict)
+        if model_normalize_func is not None:
+            for user_model_list in user_models.values():
+                for user_model in user_model_list:
+                    model_normalize_func(user_model, built_in_models_copy)
 
         # Merge models, keeping the latest version based on updated_at
-        merged_models = merge_models_by_timestamp(built_in_models_copy, user_models)
+        merged_models = merge_models_by_timestamp(
+            built_in_models_copy, user_models, model_identity_func
+        )
 
         # Update the dictionary with merged results
         built_in_dict.clear()

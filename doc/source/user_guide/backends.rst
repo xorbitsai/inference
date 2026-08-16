@@ -210,6 +210,10 @@ MLX
 to run LLM on Apple silicon. It's recommended to use for Mac users when running on Apple silicon
 if the model has MLX format support.
 
+MLX can also serve supported audio models on Apple silicon. Whisper models,
+``F5-TTS``, and ``Kokoro-82M`` expose it through ``--model-engine MLX``; see
+:ref:`Audio engines <audio>`.
+
 
 .. _speculative_decoding:
 
