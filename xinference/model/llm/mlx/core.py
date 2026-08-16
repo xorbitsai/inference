@@ -99,10 +99,8 @@ def _ensure_mlx_vlm_thread_local_stream() -> Any:
 class MLXBatchModel:
     """Wrapper around MLX-LM BatchGenerator for continuous batching."""
 
-    # Class-level storage for multiple batch generators keyed by (temperature, top_p)
-    _batch_generators: Dict[Tuple[float, float], Dict[str, Any]] = (
-        {}
-    )  # (temp, top_p) -> {'generator': BatchGenerator, 'queues': dict, 'pending': dict, 'active': set, 'task': task}
+    # Class-level storage for multiple batch generators keyed by sampling params.
+    _batch_generators: Dict[Tuple[float, float, int], Dict[str, Any]] = {}
     _model_ref = None
     _tokenizer_ref = None
     _batch_size = 4
@@ -161,19 +159,22 @@ class MLXBatchModel:
             except ImportError:
                 return False
 
-    def _get_or_create_generator(self, temperature: float, top_p: float):
+    def _get_or_create_generator(self, temperature: float, top_p: float, top_k: int):
         """Get or create a BatchGenerator for the given sampling parameters."""
-        key = (round(temperature, 6), round(top_p, 6))
+        key = (round(temperature, 6), round(top_p, 6), top_k)
 
         if key not in MLXBatchModel._batch_generators:
             logger.info(
-                f"Creating new BatchGenerator for temperature={temperature}, top_p={top_p}"
+                "Creating new BatchGenerator for temperature=%s, top_p=%s, top_k=%s",
+                temperature,
+                top_p,
+                top_k,
             )
             from mlx_lm.generate import BatchGenerator
             from mlx_lm.sample_utils import make_sampler
 
             # Create sampler with specific settings
-            sampler = make_sampler(temp=temperature, top_p=top_p)
+            sampler = make_sampler(temp=temperature, top_p=top_p, top_k=top_k)
 
             # Create batch generator
             batch_generator = BatchGenerator(
@@ -263,12 +264,13 @@ class MLXBatchModel:
         max_tokens: int,
         temperature: float = 0.0,
         top_p: float = 1.0,
+        top_k: int = 0,
         request_id: Optional[str] = None,
         skip_special_tokens: bool = True,
     ) -> AsyncGenerator[CompletionChunk, None]:
         """Async stream generate method using BatchGenerator."""
         # Get or create generator for this sampling configuration
-        gen_dict = self._get_or_create_generator(temperature, top_p)
+        gen_dict = self._get_or_create_generator(temperature, top_p, top_k)
         batch_generator = gen_dict["generator"]
 
         # Ensure background worker is running for this generator
@@ -295,7 +297,11 @@ class MLXBatchModel:
         inserted_uid = request_ids[0]
 
         logger.debug(
-            f"Inserted request {inserted_uid} into batch (temp={temperature}, top_p={top_p})"
+            "Inserted request %s into batch (temp=%s, top_p=%s, top_k=%s)",
+            inserted_uid,
+            temperature,
+            top_p,
+            top_k,
         )
 
         # Add to active requests set
@@ -415,6 +421,7 @@ class MLXBatchModel:
         max_tokens: int,
         temperature: float = 0.0,
         top_p: float = 1.0,
+        top_k: int = 0,
         stream: bool = False,
         skip_special_tokens: bool = True,
     ) -> str:
@@ -426,6 +433,7 @@ class MLXBatchModel:
             max_tokens=max_tokens,
             temperature=temperature,
             top_p=top_p,
+            top_k=top_k,
             request_id=None,
             skip_special_tokens=skip_special_tokens,
         ):
@@ -460,6 +468,7 @@ class MLXGenerateConfig(TypedDict, total=False):
     repetition_penalty: Optional[float]
     repetition_context_size: Optional[float]
     top_p: float
+    top_k: int
     logit_bias: Optional[Dict[int, float]]
     stop: Optional[Union[str, List[str]]]
     stop_token_ids: Optional[Union[int, List[int]]]
@@ -505,6 +514,7 @@ class MLXModel(LLM, ChatModelMixin):
         self._all_worker_started = asyncio.Event()
         self._max_kv_size = None
         self._prompt_cache = None
+        self._model_generation_config: Dict[str, Any] = {}
         if peft_model is not None:
             raise ValueError("MLX engine has not supported lora yet")
         # used to call async
@@ -564,18 +574,28 @@ class MLXModel(LLM, ChatModelMixin):
         if generate_config is None:
             generate_config = MLXGenerateConfig()
 
-        # default config is adapted from
-        # https://github.com/ml-explore/mlx-examples/blob/f212b770d8b5143e23102eda20400ae43340f844/llms/mlx_lm/utils.py#L129
-        generate_config.setdefault("temperature", 0.0)
+        model_defaults = self._model_generation_config
+        generate_config.setdefault(
+            "temperature", model_defaults.get("temperature", 0.0)
+        )
         generate_config.setdefault("logit_bias", None)
         generate_config.setdefault("repetition_penalty", None)
         generate_config.setdefault("repetition_context_size", 20)
-        generate_config.setdefault("top_p", 1.0)
+        generate_config.setdefault("top_p", model_defaults.get("top_p", 1.0))
+        generate_config.setdefault("top_k", model_defaults.get("top_k", 0))
 
         max_tokens = max_tokens_field.default or XINFERENCE_MAX_TOKENS
         if not generate_config.get("max_tokens") and max_tokens:
             generate_config["max_tokens"] = max_tokens  # type: ignore
         return generate_config
+
+    def _update_model_generation_config(self, config: Dict[str, Any]) -> None:
+        nested_config = config.get("generation_config")
+        model_defaults = dict(nested_config) if isinstance(nested_config, dict) else {}
+        for key in ("temperature", "top_p", "top_k"):
+            if key in config:
+                model_defaults[key] = config[key]
+        self._model_generation_config = model_defaults
 
     def _load_model(self, **kwargs):
         if self._model_config.pop("draft_model_path", None):
@@ -818,6 +838,7 @@ class MLXModel(LLM, ChatModelMixin):
         # get context length
         config = load_config(Path(self.model_path))
         config.update(self._model_config)
+        self._update_model_generation_config(config)
         self._context_length = get_context_length_from_config(config)
 
         # Update allow_batch based on distributed inference
@@ -902,7 +923,9 @@ class MLXModel(LLM, ChatModelMixin):
             from mlx_lm.sample_utils import make_logits_processors, make_sampler
 
         sampler = make_sampler(
-            temp=kwargs.pop("temperature"), top_p=kwargs.pop("top_p")
+            temp=kwargs.pop("temperature"),
+            top_p=kwargs.pop("top_p"),
+            top_k=kwargs.pop("top_k"),
         )
         prompt_token_ids = kwargs.pop("prompt_token_ids")
         logits_processors = make_logits_processors(
@@ -965,6 +988,7 @@ class MLXModel(LLM, ChatModelMixin):
             "max_tokens": max_tokens,
             "temperature": kwargs["temperature"],
             "top_p": kwargs["top_p"],
+            "top_k": kwargs["top_k"],
             "repetition_penalty": kwargs["repetition_penalty"],
             "repetition_context_size": kwargs["repetition_context_size"],
             "stop_token_ids": stop_token_ids,
@@ -1116,6 +1140,7 @@ class MLXModel(LLM, ChatModelMixin):
                         max_tokens=max_tokens,
                         temperature=generate_config.get("temperature", 1.0),
                         top_p=generate_config.get("top_p", 1.0),
+                        top_k=generate_config.get("top_k", 0),
                         request_id=request_id or str(uuid.uuid4()),
                         skip_special_tokens=generate_config.get(
                             "skip_special_tokens", True
@@ -1136,6 +1161,7 @@ class MLXModel(LLM, ChatModelMixin):
                     max_tokens=max_tokens,
                     temperature=generate_config.get("temperature", 1.0),
                     top_p=generate_config.get("top_p", 1.0),
+                    top_k=generate_config.get("top_k", 0),
                     stream=False,
                     skip_special_tokens=generate_config.get(
                         "skip_special_tokens", True
@@ -1323,10 +1349,12 @@ class MLXChatModel(MLXModel, ChatModelMixin):
                     full_text,
                 )
 
+            if tools:
+                return self._async_to_tool_completion_chunks(
+                    _log_streaming_chunks(), chat_template_kwargs
+                )
             return self._async_to_chat_completion_chunks(
-                _log_streaming_chunks(),
-                self.reasoning_parser,
-                chat_template_kwargs,
+                _log_streaming_chunks(), self.reasoning_parser, chat_template_kwargs
             )
         else:
             # Use async_generate for non-streaming
@@ -1618,6 +1646,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         # get context length
         config = load_config(Path(self.model_path))
         config.update(self._model_config)
+        self._update_model_generation_config(config)
         self._context_length = get_context_length_from_config(config)
 
     def _draft_generate_kwargs(self) -> Dict[str, Any]:
@@ -1766,6 +1795,7 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
         tools = generate_config.pop("tools", []) if generate_config else None
 
         model_family = self.model_family.model_family or self.model_family.model_name
+        chat_template_kwargs: Dict[str, Any] = {}
 
         if "internvl2" not in model_family.lower():
             from qwen_vl_utils import process_vision_info
@@ -1853,6 +1883,10 @@ class MLXVisionModel(MLXModel, ChatModelMixin):
                     full_text,
                 )
 
+            if tools:
+                return self._to_tool_completion_chunks(
+                    _log_streaming_chunks(), chat_template_kwargs
+                )
             return self._to_chat_completion_chunks(
                 _log_streaming_chunks(), self.reasoning_parser
             )

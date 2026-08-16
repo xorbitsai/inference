@@ -909,7 +909,7 @@ class ChatModelMixin:
         c,
         chunk_id=None,
         previous_texts: List[str] = [""],
-        tool_call_state: Optional[Dict[str, bool]] = None,
+        tool_call_state: Optional[Dict[str, Any]] = None,
     ):
         if not c.get("choices"):
             return c
@@ -996,7 +996,7 @@ class ChatModelMixin:
                 {
                     "index": 0,
                     "delta": d,
-                    # `_async_to_tool_completion_chunks` already converted the
+                    # The streaming tool-completion helpers already converted
                     # legacy completion logprobs to the chat ``content[]`` shape
                     # via `_to_chat_completion_chunk`; pass it through unchanged
                     # here so a real logprob is not collapsed to ``{"content": []}``.
@@ -1196,6 +1196,59 @@ class ChatModelMixin:
 
         return normalized_tool_calls
 
+    def _to_tool_completion_chunks(
+        self,
+        chunks: Iterator[CompletionChunk],
+        ctx: Optional[Dict[str, Any]] = None,
+    ) -> Iterator[ChatCompletionChunk]:
+        def set_context():
+            if ctx:
+                chat_context_var.set(ctx)
+
+        previous_texts = [""]
+        previous_tools_texts = [""]
+        tool_call_state: Dict[str, Any] = {"seen": False}
+        fallback_chunk: Optional[CompletionChunk] = None
+        if self.reasoning_parser:
+            set_context()
+            chunks = self.reasoning_parser.prepare_reasoning_content_sync(chunks)
+        for i, completion_chunk in enumerate(chunks):
+            set_context()
+            if not completion_chunk.get("choices"):
+                if completion_chunk.get("usage") is not None:
+                    yield self._get_usage_chat_completion_chunk(
+                        completion_chunk, fallback_chunk
+                    )
+                else:
+                    yield self._get_final_chat_completion_chunk(
+                        completion_chunk, fallback_chunk
+                    )
+                continue
+
+            fallback_chunk = completion_chunk
+            chat_chunk = self._to_chat_completion_chunk(
+                completion_chunk,
+                self.reasoning_parser,
+                previous_texts,
+                ensure_role=i == 0,
+            )
+            if (
+                chat_chunk["choices"]
+                and "reasoning_content" in chat_chunk["choices"][0]["delta"]
+                and chat_chunk["choices"][0]["delta"]["reasoning_content"] is not None
+            ):
+                yield chat_chunk
+                continue
+            processed_chunk = self._post_process_completion_chunk(
+                self.model_family,
+                self.model_uid,
+                chat_chunk,
+                previous_texts=previous_tools_texts,
+                tool_call_state=tool_call_state,
+            )
+            if processed_chunk:
+                yield processed_chunk
+
     async def _async_to_tool_completion_chunks(
         self,
         chunks: AsyncGenerator[CompletionChunk, None],
@@ -1208,13 +1261,26 @@ class ChatModelMixin:
         i = 0
         previous_texts = [""]
         previous_tools_texts = [""]
-        tool_call_state = {"seen": False}
+        tool_call_state: Dict[str, Any] = {"seen": False}
         full_text = ""
+        fallback_chunk: Optional[CompletionChunk] = None
         if self.reasoning_parser:
             set_context()
             chunks = self.reasoning_parser.prepare_reasoning_content_streaming(chunks)
         async for completion_chunk in chunks:
             set_context()
+            if not completion_chunk.get("choices"):
+                if completion_chunk.get("usage") is not None:
+                    yield self._get_usage_chat_completion_chunk(
+                        completion_chunk, fallback_chunk
+                    )
+                else:
+                    yield self._get_final_chat_completion_chunk(
+                        completion_chunk, fallback_chunk
+                    )
+                continue
+
+            fallback_chunk = completion_chunk
             chat_chunk = self._to_chat_completion_chunk(
                 completion_chunk,
                 self.reasoning_parser,

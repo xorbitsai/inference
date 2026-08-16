@@ -2634,13 +2634,19 @@ def test_normalize_tool_call_arguments_to_dict():
 
 def test_qwen3_family_get_full_context_handles_string_arguments():
     # Regression for the OpenAI-spec string tool_calls.function.arguments crash.
-    # Pre-fix: builtin templates Qwen3-Coder / qwen3.5 / qwen3.6 raised
+    # Pre-fix: builtin Qwen3 templates raised
     # "Can only get item pairs from a mapping" because their templates iterate
     # `tool_call.arguments|items` while OpenAI sends arguments as a JSON-encoded
     # string.
     from .. import BUILTIN_LLM_FAMILIES
 
-    targets = {"Qwen3-Coder", "qwen3.5", "qwen3.6", "qwen3.8"}
+    targets = {
+        "Qwen3-Coder",
+        "qwen3.5",
+        "qwen3.6",
+        "qwen3.8",
+        "qwen3.8-max",
+    }
     families = {
         f.model_name: f for f in BUILTIN_LLM_FAMILIES if f.model_name in targets
     }

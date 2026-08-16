@@ -15,14 +15,176 @@
 import base64
 import concurrent.futures
 import importlib
+import json
 import os
 import platform
 import sys
 import threading
+from types import SimpleNamespace
 
 import pytest
 
 from .....client import Client
+
+
+def test_mlx_model_uses_model_sampling_defaults():
+    from ..core import MLXModel
+
+    model = object.__new__(MLXModel)
+    model._model_generation_config = {}
+    model._update_model_generation_config(
+        {
+            "generation_config": {
+                "temperature": 0.8,
+                "top_p": 0.9,
+                "top_k": 10,
+            },
+            "temperature": 1.0,
+            "top_p": 0.95,
+            "top_k": 20,
+        }
+    )
+
+    defaults = model._sanitize_generate_config({})
+    assert defaults["temperature"] == 1.0
+    assert defaults["top_p"] == 0.95
+    assert defaults["top_k"] == 20
+
+    explicit = model._sanitize_generate_config(
+        {"temperature": 0.2, "top_p": 0.7, "top_k": 5}
+    )
+    assert explicit["temperature"] == 0.2
+    assert explicit["top_p"] == 0.7
+    assert explicit["top_k"] == 5
+
+
+def test_mlx_generate_stream_passes_top_k():
+    from ..core import MLXModel
+
+    model = object.__new__(MLXModel)
+    model.model_uid = "top-k-test"
+    model._tokenizer = SimpleNamespace(eos_token_id=99)
+    model._context_length = 128
+    model._prompt_cache = None
+    model._prepare_inputs = lambda prompt, kwargs: ([1, 2], 2)
+
+    captured = {}
+
+    def fake_generate_stream_inner(**kwargs):
+        captured.update(kwargs)
+        yield SimpleNamespace(token=10, text="ok")
+
+    model._generate_stream_inner = fake_generate_stream_inner
+    list(
+        model._generate_stream(
+            "hello",
+            {
+                "max_tokens": 1,
+                "temperature": 1.0,
+                "top_p": 0.95,
+                "top_k": 20,
+                "repetition_penalty": None,
+                "repetition_context_size": 20,
+                "stop_token_ids": [],
+                "stream": True,
+            },
+        )
+    )
+
+    assert captured["temperature"] == 1.0
+    assert captured["top_p"] == 0.95
+    assert captured["top_k"] == 20
+
+
+def test_mlx_streaming_parses_multiple_qwen_tool_calls():
+    from ...reasoning_parser import ReasoningParser
+    from ...tool_parsers.qwen_tool_parser import QwenToolParser
+    from ..core import MLXVisionModel
+
+    model = object.__new__(MLXVisionModel)
+    model.model_uid = "qwen3.8-mlx-test"
+    model.model_family = SimpleNamespace(model_name="qwen3.8")
+    model.reasoning_parser = ReasoningParser(
+        reasoning_content=True,
+        reasoning_start_tag="<think>",
+        reasoning_end_tag="</think>",
+        enable_thinking=True,
+    )
+    model.tool_parser = QwenToolParser()
+
+    def chunk(text, finish_reason=None):
+        return {
+            "id": "task-835",
+            "object": "text_completion",
+            "created": 1,
+            "model": model.model_uid,
+            "choices": [
+                {
+                    "text": text,
+                    "index": 0,
+                    "logprobs": None,
+                    "finish_reason": finish_reason,
+                }
+            ],
+        }
+
+    chunks = iter(
+        [
+            chunk("<think>"),
+            chunk("I should search twice."),
+            chunk("</think>\n"),
+            chunk("<tool_call>"),
+            chunk(
+                "\n<function=web_search>\n"
+                "<parameter=query>Dario Amodei recent news</parameter>\n"
+                "<parameter=num_results>10</parameter>\n"
+                "</function>\n"
+            ),
+            chunk("</tool_call>\n"),
+            chunk("<tool_call>"),
+            chunk(
+                "\n<function=web_search>\n"
+                "<parameter=query>Dario Amodei gossip</parameter>\n"
+                "<parameter=num_results>10</parameter>\n"
+                "</function>\n"
+            ),
+            chunk("</tool_call>"),
+            chunk("", "stop"),
+        ]
+    )
+
+    results = list(model._to_tool_completion_chunks(chunks))
+    tool_calls = [
+        tool_call
+        for result in results
+        for choice in result["choices"]
+        for tool_call in choice["delta"].get("tool_calls", [])
+    ]
+
+    assert [tool_call["index"] for tool_call in tool_calls] == [0, 1]
+    assert [tool_call["function"]["name"] for tool_call in tool_calls] == [
+        "web_search",
+        "web_search",
+    ]
+    assert [
+        json.loads(tool_call["function"]["arguments"])["query"]
+        for tool_call in tool_calls
+    ] == ["Dario Amodei recent news", "Dario Amodei gossip"]
+    assert tool_calls[0]["id"] != tool_calls[1]["id"]
+    assert results[-1]["choices"][0]["finish_reason"] == "tool_calls"
+    assert (
+        "".join(
+            choice["delta"].get("reasoning_content") or ""
+            for result in results
+            for choice in result["choices"]
+        )
+        == "I should search twice."
+    )
+    assert all(
+        "<tool_call>" not in (choice["delta"].get("content") or "")
+        for result in results
+        for choice in result["choices"]
+    )
 
 
 def test_mlx_vision_model_stop_shuts_down_executor():

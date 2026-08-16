@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from . import register_tool_parser
 from .abstract_tool_parser import ToolParser
@@ -300,7 +300,12 @@ class QwenToolParser(ToolParser):
 
     def extract_tool_calls_streaming(
         self, previous_text: List[str], current_text: str, delta_text: str
-    ) -> Optional[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
+    ) -> Optional[
+        Union[
+            Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]],
+            Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]], int],
+        ]
+    ]:
         """
         Extract tool calls from streaming output.
 
@@ -314,11 +319,11 @@ class QwenToolParser(ToolParser):
             delta_text (str): New text delta in this chunk.
 
         Returns:
-            Optional[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]]:
-            A tuple containing:
+            Optional tuple containing:
             - content (str or None): Text content or None for tool calls
             - function_name (str or None): Name of the function to call
             - arguments (dict or None): Function arguments
+            - tool_call_index (int): Absolute index for a parsed tool call
             Returns None if no complete tool call is ready.
 
         Note:
@@ -345,13 +350,16 @@ class QwenToolParser(ToolParser):
                 # generated <tool_call></tool_call> with no JSON inside)
                 if not function_call.strip():
                     return None
+                tool_call_index = (
+                    len(self.tool_call_complete_regex.findall(current_text)) - 1
+                )
                 end_index = function_call.find(">")
                 if end_index != -1:
                     res = self.parse_qwen35_tool_call(function_call)
                     if res:
-                        return res
+                        return (*res, tool_call_index)
                 res = json.loads(function_call, strict=False)
-                return None, res["name"], res["arguments"]
+                return None, res["name"], res["arguments"], tool_call_index
             else:
                 # Return delta text as regular content
                 return (delta_text, None, None)

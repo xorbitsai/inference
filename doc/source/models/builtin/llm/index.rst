@@ -726,6 +726,11 @@ The following is a list of built-in LLM in Xinference:
      - 262144
      - Built on the architectural foundation of Qwen3.5, Qwen3.8 delivers substantial gains across coding, professional work, research, and long-horizon agentic tasks. Qwen3.8-27B brings these advances to a compact, deployment-friendly dense model: a native vision-language model that understands images and videos, with flexible thinking control.
 
+   * - :ref:`qwen3.8-max <models_llm_qwen3.8-max>`
+     - chat, tools, reasoning
+     - 262144
+     - Qwen3.8-2.4T-A95B is a text-only Mixture-of-Experts model with 2.4 trillion total parameters and 95 billion activated parameters, designed for coding, research, professional work, and long-horizon agentic tasks.
+
    * - :ref:`qwenlong-l1 <models_llm_qwenlong-l1>`
      - chat
      - 32768
@@ -1139,7 +1144,9 @@ The following is a list of built-in LLM in Xinference:
    qwen3.6
   
    qwen3.8
-  
+
+   qwen3.8-max
+
    qwenlong-l1
   
    qwq-32b
@@ -1190,4 +1197,3 @@ The following is a list of built-in LLM in Xinference:
   
    yi-chat
   
-

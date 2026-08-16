@@ -153,6 +153,7 @@ Currently, supported model includes:
 - ``cogagent``
 - ``glm-edge-chat``, ``glm4-chat``, ``glm4-chat-1m``
 - ``codegeex4``, ``glm-4v``
+- ``qwen3.8-max``
 - ``seallm_v2.5``
 - ``orion-chat``
 - ``qwen1.5-moe-chat``, ``qwen2-moe-instruct``
