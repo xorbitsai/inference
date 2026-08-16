@@ -32,6 +32,11 @@ import {
   TextToVideoPanel,
 } from './panels/form-panels';
 import { ResultPanels } from './panels/result-panels';
+import {
+  EMPTY_INDEX_TTS_EMOTION_VECTOR,
+  isIndexTTSEmotionModel,
+  parseIndexTTSEmotionVector,
+} from './emotion-vector-utils';
 import type { CapabilityConfig, TransformContext } from './types';
 import {
   appendIfPresent,
@@ -673,17 +678,29 @@ export const CAPABILITY_CONFIGS: Partial<Record<ModelAbility, CapabilityConfig>>
       speed: 1,
       prompt_speech: [],
       prompt_text: '',
+      use_emo_vector: false,
+      emo_vector: [...EMPTY_INDEX_TTS_EMOTION_VECTOR],
     },
     formPanel: SpeechPanel,
     resultPanel: ResultPanels.Universal,
     responseType: 'blob',
-    transformValues: ({ modelUid, values }) => {
+    transformValues: ({ modelUid, model, values }) => {
       const promptSpeech = firstUpload(values, 'prompt_speech');
       const kwargs: Record<string, unknown> = {};
       const promptText = stringValue(values.prompt_text).trim();
 
       if (promptText) {
         kwargs.prompt_text = promptText;
+      }
+
+      if (
+        isIndexTTSEmotionModel(model.model_family, model.model_name) &&
+        booleanValue(values.use_emo_vector)
+      ) {
+        const emotionVector = parseIndexTTSEmotionVector(values.emo_vector);
+        if (emotionVector) {
+          kwargs.emo_vector = emotionVector;
+        }
       }
 
       if (promptSpeech) {

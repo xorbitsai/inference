@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -9,8 +9,10 @@ import { FormField } from '@/components/ui/form-field';
 import { FormList } from '@/components/ui/form-list';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { useWatch } from '@/hooks/use-form';
 import { ModelAbility } from '@/constants';
 import {
   SAMPLING_METHOD_OPTIONS,
@@ -18,8 +20,15 @@ import {
   OCR_MODEL_SIZE_OPTIONS,
 } from '@/constants/running';
 import type { FileUploadValue } from '@/types/common';
+import type { BaseFormFieldProps } from '@/types/form';
 
 import { ImageEditorCreateMask } from '../components/image-editor-create-mask';
+import {
+  INDEX_TTS_EMOTION_DIMENSIONS,
+  INDEX_TTS_EMOTION_MAX_TOTAL,
+  isIndexTTSEmotionModel,
+  parseIndexTTSEmotionVector,
+} from '../emotion-vector-utils';
 import type { CapabilityFormProps } from '../types';
 
 const DOCUMENT_BACKEND_OPTIONS = ['pipeline', 'vlm-auto-engine', 'hybrid-auto-engine'].map(
@@ -377,8 +386,106 @@ export function SpeakerEmbeddingPanel() {
   );
 }
 
-export function SpeechPanel({ model }: CapabilityFormProps) {
+function EmotionVectorInput({ value, onChange, disabled, error }: BaseFormFieldProps<number[]>) {
+  const vector = INDEX_TTS_EMOTION_DIMENSIONS.map((_, index) => {
+    const item = value?.[index];
+    return typeof item === 'number' && Number.isFinite(item) ? item : 0;
+  });
+  const [localValues, setLocalValues] = useState<string[]>(() =>
+    vector.map((item) => String(item))
+  );
+
+  useEffect(() => {
+    setLocalValues((previousValues) =>
+      INDEX_TTS_EMOTION_DIMENSIONS.map((_, index) => {
+        const item = value?.[index];
+        const nextValue = typeof item === 'number' && Number.isFinite(item) ? item : 0;
+        const previousValue = previousValues[index];
+
+        return previousValue !== undefined && Number(previousValue) === nextValue
+          ? previousValue
+          : String(nextValue);
+      })
+    );
+  }, [value]);
+
+  const total = vector.reduce((sum, item) => sum + item, 0);
+  const totalExceeded = parseIndexTTSEmotionVector(vector) === undefined;
+
+  const updateDimension = (index: number, nextValue: number | string) => {
+    setLocalValues((previousValues) => {
+      const nextValues = [...previousValues];
+      nextValues[index] = String(nextValue);
+      return nextValues;
+    });
+
+    const parsedValue = Number(nextValue);
+    if (!Number.isFinite(parsedValue)) return;
+
+    const nextVector = [...vector];
+    nextVector[index] =
+      Math.round(Math.min(INDEX_TTS_EMOTION_MAX_TOTAL, Math.max(0, parsedValue)) * 100) / 100;
+    onChange?.(nextVector);
+  };
+
+  const normalizeDimension = (index: number) => {
+    setLocalValues((previousValues) => {
+      const nextValues = [...previousValues];
+      nextValues[index] = String(vector[index]);
+      return nextValues;
+    });
+  };
+
+  return (
+    <div
+      className={`space-y-3 rounded-lg border p-3 ${
+        error ? 'border-destructive' : 'border-border'
+      } ${disabled ? 'opacity-60' : ''}`}
+    >
+      {INDEX_TTS_EMOTION_DIMENSIONS.map(({ key, label }, index) => (
+        <div key={key} className="grid grid-cols-[88px_minmax(0,1fr)_64px] items-center gap-3">
+          <span className="truncate text-xs font-medium text-muted-foreground">{label}</span>
+          <Slider
+            aria-label={`${label} emotion weight`}
+            disabled={disabled}
+            min={0}
+            max={INDEX_TTS_EMOTION_MAX_TOTAL}
+            step={0.01}
+            value={[vector[index]]}
+            onValueChange={([nextValue]) => updateDimension(index, nextValue)}
+          />
+          <Input
+            aria-label={`${label} emotion weight value`}
+            className="h-8 px-2 text-right font-mono text-xs"
+            disabled={disabled}
+            error={error}
+            type="number"
+            min={0}
+            max={INDEX_TTS_EMOTION_MAX_TOTAL}
+            step={0.01}
+            value={localValues[index] ?? ''}
+            onChange={(event) => updateDimension(index, event.target.value)}
+            onBlur={() => normalizeDimension(index)}
+          />
+        </div>
+      ))}
+      <div
+        className={`flex justify-end text-xs font-medium ${
+          totalExceeded ? 'text-destructive' : 'text-muted-foreground'
+        }`}
+      >
+        Total: {total.toFixed(2)} / {INDEX_TTS_EMOTION_MAX_TOTAL.toFixed(2)}
+      </div>
+    </div>
+  );
+}
+
+export function SpeechPanel({ form, model }: CapabilityFormProps) {
   const supportsVoiceCloning = model.model_ability.includes(ModelAbility.Text2audioVoiceCloning);
+  const supportsEmotionVector =
+    isIndexTTSEmotionModel(model.model_family, model.model_name) &&
+    model.model_ability.includes(ModelAbility.Text2audioEmotionControl);
+  const emotionVectorEnabled = Boolean(useWatch('use_emo_vector', form));
 
   return (
     <>
@@ -406,6 +513,31 @@ export function SpeechPanel({ model }: CapabilityFormProps) {
             <Textarea placeholder="Text spoken in the prompt audio" />
           </FormField>
         </>
+      )}
+      {supportsEmotionVector && (
+        <div className="space-y-3 rounded-lg bg-muted/30 p-3">
+          <FormField
+            name="use_emo_vector"
+            label="Emotion control"
+            valuePropName="checked"
+            layout="horizontal"
+          >
+            <Switch />
+          </FormField>
+          <FormField
+            name="emo_vector"
+            disabled={!emotionVectorEnabled}
+            rules={[
+              {
+                validator: (value) =>
+                  !emotionVectorEnabled || parseIndexTTSEmotionVector(value) !== undefined,
+                message: 'Use non-negative emotion values with a total no greater than 0.8.',
+              },
+            ]}
+          >
+            <EmotionVectorInput />
+          </FormField>
+        </div>
       )}
     </>
   );
