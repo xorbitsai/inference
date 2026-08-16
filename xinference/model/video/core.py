@@ -44,6 +44,11 @@ class VideoModelFamilyV2(CacheableModelSpec, ModelInstanceInfoMixin):
     gguf_model_id: Optional[str]
     gguf_quantizations: Optional[List[str]]
     gguf_model_file_name_template: Optional[str]
+    lightning_model_id: Optional[str]
+    lightning_model_revision: Optional[str]
+    lightning_versions: Optional[List[str]]
+    lightning_model_file_name_template: Optional[str]
+    lightning_version_configs: Optional[Dict[str, Dict[str, Any]]]
     virtualenv: Optional[VirtualEnvSettings]
 
     class Config:
@@ -116,6 +121,8 @@ def create_video_model_instance(
     model_path: Optional[str] = None,
     gguf_quantization: Optional[str] = None,
     gguf_model_path: Optional[str] = None,
+    lightning_version: Optional[str] = None,
+    lightning_model_path: Optional[str] = None,
     **kwargs,
 ) -> DiffusersVideoModel:
     from .cache_manager import VideoCacheManager
@@ -128,6 +135,11 @@ def create_video_model_instance(
     if not gguf_model_path and gguf_quantization:
         cache_manager = VideoCacheManager(model_spec)
         gguf_model_path = cache_manager.cache_gguf(gguf_quantization)
+    if not lightning_model_path and lightning_version:
+        cache_manager = VideoCacheManager(model_spec)
+        lightning_model_path = cache_manager.cache_lightning(lightning_version)
+    if lightning_model_path and not model_spec.lightning_versions:
+        raise ValueError(f"Model {model_name} does not support lightning acceleration")
     assert model_path is not None
 
     model = DiffusersVideoModel(
@@ -135,6 +147,8 @@ def create_video_model_instance(
         model_path,
         model_spec,
         gguf_model_path=gguf_model_path,
+        lightning_version=lightning_version,
+        lightning_model_path=lightning_model_path,
         **kwargs,
     )
     return model

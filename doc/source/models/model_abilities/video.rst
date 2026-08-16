@@ -146,6 +146,59 @@ You can try firstlastframe-to-video API out either via cURL, or Xinference's pyt
         model.flf_to_video(first_frame=f1.read(), last_frame=f2.read(), prompt=prompt)
 
 
+Lightning LoRA acceleration
+===========================
+
+Lightning LoRA checkpoints distill a video model into fewer denoising steps.
+Select a supported version with ``--lightning_version`` when launching the model;
+Xinference downloads the LoRA, applies its training alpha and scheduler shifts,
+and uses the version's recommended inference-step count by default.
+Lightning reduces denoising time, but does not reduce model size or peak memory;
+MiniMax-H3's default INT4 quantization and group offload remain enabled.
+
+.. list-table::
+   :widths: 25 30 15 15 15
+   :header-rows: 1
+
+   * - Model
+     - Lightning version
+     - Evaluations
+     - Video shift
+     - Recommended canvas
+   * - MiniMax-H3
+     - ``4step_v0.1``
+     - 4
+     - 12
+     - 544p mixed aspect ratios
+   * - MiniMax-H3
+     - ``8step_v1.0_bf16``
+     - 8
+     - 12
+     - 544p mixed aspect ratios
+   * - MiniMax-H3
+     - ``4step_v1.0_768p_bf16``
+     - 4
+     - 6
+     - 1344x768
+
+For example::
+
+    xinference launch --model-name MiniMax-H3 --model-type video \
+        --lightning_version 4step_v0.1
+
+Xinference downloads the Lightning checkpoint from the same hub selected for
+the base model. Both Hugging Face and ModelScope are supported. To use an already
+downloaded checkpoint, pass both its path and version::
+
+    xinference launch --model-name MiniMax-H3 --model-type video \
+        --lightning_version 4step_v0.1 \
+        --lightning_model_path /path/to/minimax_h3_fl2v_turbo_4step_v0.1.safetensors
+
+``num_inference_steps`` remains a per-request override and represents actual
+transformer evaluations. MiniMax-H3's scheduler internally adds the terminal
+sigma grid point required to run that number of evaluations.
+
+
 Memory optimization
 ===================
 

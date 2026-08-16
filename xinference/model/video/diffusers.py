@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import base64
+import gc
 import importlib
 import json
 import logging
@@ -66,6 +67,8 @@ class DiffusersVideoModel:
         model_path: str,
         model_spec: "VideoModelFamilyV2",
         gguf_model_path: Optional[str] = None,
+        lightning_version: Optional[str] = None,
+        lightning_model_path: Optional[str] = None,
         **kwargs,
     ):
         self.model_family = model_spec
@@ -76,6 +79,9 @@ class DiffusersVideoModel:
         self._model = None
         self._kwargs = kwargs
         self._gguf_model_path = gguf_model_path
+        self._lightning_version = lightning_version
+        self._lightning_model_path = lightning_model_path
+        self._minimax_h3_lightning_steps: Optional[int] = None
 
     @property
     def model_spec(self):
@@ -142,6 +148,180 @@ class DiffusersVideoModel:
         )
         pipeline.vae.to(onload_device)
         pipeline.audio_vae.to(onload_device)
+
+    def _resolve_minimax_h3_lightning_config(self) -> Optional[dict]:
+        if not self._lightning_model_path:
+            return None
+
+        version_configs = self._model_spec.lightning_version_configs or {}
+        version = self._lightning_version
+        if version is None:
+            filename = os.path.basename(self._lightning_model_path)
+            template = self._model_spec.lightning_model_file_name_template
+            if template:
+                matches = [
+                    candidate
+                    for candidate in version_configs
+                    if template.format(lightning_version=candidate) == filename
+                ]
+                if len(matches) == 1:
+                    version = matches[0]
+
+        if version not in version_configs:
+            raise ValueError(
+                "Cannot determine the MiniMax-H3 lightning configuration for "
+                f"{self._lightning_model_path!r}. Specify lightning_version from "
+                f"{list(version_configs)}."
+            )
+
+        config = version_configs[version].copy()
+        config["version"] = version
+        required = ("num_inference_steps", "video_shift", "audio_shift", "lora_alpha")
+        missing = [name for name in required if name not in config]
+        if missing:
+            raise ValueError(
+                f"MiniMax-H3 lightning version {version!r} is missing config: {missing}"
+            )
+        if config["num_inference_steps"] < 1:
+            raise ValueError(
+                "MiniMax-H3 lightning num_inference_steps must be positive"
+            )
+        if config["video_shift"] <= 0 or config["audio_shift"] <= 0:
+            raise ValueError("MiniMax-H3 lightning scheduler shifts must be positive")
+        if config["lora_alpha"] < 1:
+            raise ValueError("MiniMax-H3 lightning lora_alpha must be positive")
+        return config
+
+    @staticmethod
+    def _load_minimax_h3_lightning_adapter(transformer, path: str, alpha: int):
+        from peft import LoraConfig
+        from safetensors.torch import load_file
+
+        target_modules = (
+            "to_q",
+            "to_k",
+            "to_v",
+            "to_out.0",
+            "ff.net.0.proj",
+            "ff.net.2",
+        )
+        lora_a_suffix = ".lora_A.default.weight"
+        lora_b_suffix = ".lora_B.default.weight"
+        state_dict = load_file(path, device="cpu")
+        lora_a = {
+            key[: -len(lora_a_suffix)]: tensor
+            for key, tensor in state_dict.items()
+            if key.endswith(lora_a_suffix)
+        }
+        lora_b = {
+            key[: -len(lora_b_suffix)]: tensor
+            for key, tensor in state_dict.items()
+            if key.endswith(lora_b_suffix)
+        }
+        unsupported = [
+            key
+            for key in state_dict
+            if not key.endswith((lora_a_suffix, lora_b_suffix))
+        ]
+        if unsupported:
+            raise ValueError(
+                f"MiniMax-H3 lightning checkpoint has unsupported keys: {unsupported[:3]}"
+            )
+        if not lora_a or lora_a.keys() != lora_b.keys():
+            raise ValueError(
+                "MiniMax-H3 lightning checkpoint has unpaired LoRA tensors"
+            )
+
+        ranks = set()
+        for module_name, a_tensor in lora_a.items():
+            b_tensor = lora_b[module_name]
+            if a_tensor.ndim != 2 or b_tensor.ndim != 2:
+                raise ValueError(
+                    f"MiniMax-H3 LoRA tensors for {module_name} must be matrices"
+                )
+            if a_tensor.shape[0] != b_tensor.shape[1]:
+                raise ValueError(
+                    f"MiniMax-H3 LoRA rank mismatch for {module_name}: "
+                    f"A{tuple(a_tensor.shape)} and B{tuple(b_tensor.shape)}"
+                )
+            if not module_name.endswith(target_modules):
+                raise ValueError(
+                    f"Unsupported MiniMax-H3 LoRA target module {module_name!r}"
+                )
+            ranks.add(a_tensor.shape[0])
+        if len(ranks) != 1:
+            raise ValueError(f"Mixed MiniMax-H3 LoRA ranks are unsupported: {ranks}")
+        rank = ranks.pop()
+
+        transformer.add_adapter(
+            LoraConfig(
+                r=rank,
+                lora_alpha=alpha,
+                init_lora_weights=False,
+                target_modules=list(target_modules),
+                use_rslora=False,
+            )
+        )
+        adapter_parameters = {
+            name: parameter
+            for name, parameter in transformer.named_parameters()
+            if ".lora_A." in name or ".lora_B." in name
+        }
+        missing = sorted(adapter_parameters.keys() - state_dict.keys())
+        unexpected = sorted(state_dict.keys() - adapter_parameters.keys())
+        shape_mismatches = [
+            (name, tuple(state_dict[name].shape), tuple(parameter.shape))
+            for name, parameter in adapter_parameters.items()
+            if name in state_dict and state_dict[name].shape != parameter.shape
+        ]
+        if missing or unexpected or shape_mismatches:
+            raise ValueError(
+                "MiniMax-H3 lightning checkpoint is incompatible with the transformer: "
+                f"missing={missing[:3]}, unexpected={unexpected[:3]}, "
+                f"shape_mismatches={shape_mismatches[:3]}"
+            )
+
+        incompatible = transformer.load_state_dict(state_dict, strict=False)
+        missing_lora = [
+            key
+            for key in incompatible.missing_keys
+            if ".lora_A." in key or ".lora_B." in key
+        ]
+        if incompatible.unexpected_keys or missing_lora:
+            raise RuntimeError(
+                "MiniMax-H3 lightning loading did not consume the adapter tensors: "
+                f"missing={missing_lora[:3]}, "
+                f"unexpected={incompatible.unexpected_keys[:3]}"
+            )
+        transformer.set_adapters("default", weights=1.0)
+        transformer.requires_grad_(False)
+        transformer.eval()
+        del state_dict
+        gc.collect()
+
+    def _apply_minimax_h3_lightning(self, pipeline) -> None:
+        config = self._resolve_minimax_h3_lightning_config()
+        if config is None:
+            return
+
+        assert self._lightning_model_path is not None
+        self._load_minimax_h3_lightning_adapter(
+            pipeline.transformer,
+            self._lightning_model_path,
+            config["lora_alpha"],
+        )
+        pipeline.scheduler.set_shift(config["video_shift"])
+        pipeline.audio_scheduler.set_shift(config["audio_shift"])
+        self._minimax_h3_lightning_steps = config["num_inference_steps"]
+        logger.info(
+            "Loaded MiniMax-H3 lightning version %s from %s with %s NFE, "
+            "video shift %s, and audio shift %s",
+            config["version"],
+            self._lightning_model_path,
+            config["num_inference_steps"],
+            config["video_shift"],
+            config["audio_shift"],
+        )
 
     def _load_minimax_h3_quantized(self, kwargs: dict, torch_dtype, quantization: str):
         import torch
@@ -289,6 +469,8 @@ class DiffusersVideoModel:
             pretrained_model_name_or_path=self._model_path,
         )
 
+        self._apply_minimax_h3_lightning(pipeline)
+
         if kwargs.pop("group_offload", False):
             if quantization == "int4":
                 kwargs.setdefault("use_stream", False)
@@ -330,6 +512,7 @@ class DiffusersVideoModel:
             dtype=torch_dtype,
             pretrained_model_name_or_path=self._model_path,
         )
+        self._apply_minimax_h3_lightning(pipeline)
         self._model = pipeline
 
     @staticmethod
@@ -512,7 +695,7 @@ class DiffusersVideoModel:
         self,
         prompt: str,
         n: int = 1,
-        num_inference_steps: int = 50,
+        num_inference_steps: Optional[int] = None,
         response_format: str = "b64_json",
         **kwargs,
     ) -> VideoList:
@@ -530,6 +713,8 @@ class DiffusersVideoModel:
         generate_kwargs.update(kwargs)
         generate_kwargs["num_videos_per_prompt"] = n
         fps = generate_kwargs.pop("fps", 10)
+        if num_inference_steps is None:
+            num_inference_steps = 50
         logger.debug(
             "diffusers text_to_video args: %s",
             generate_kwargs,
@@ -701,10 +886,17 @@ class DiffusersVideoModel:
 
         generate_kwargs = (self._model_spec.default_generate_config or {}).copy()
         generate_kwargs.update(kwargs)
-        if num_inference_steps is not None:
-            generate_kwargs["num_inference_steps"] = num_inference_steps
+        if num_inference_steps is None:
+            num_inference_steps = generate_kwargs.pop(
+                "num_inference_steps", self._minimax_h3_lightning_steps or 50
+            )
         else:
-            generate_kwargs.setdefault("num_inference_steps", 50)
+            generate_kwargs.pop("num_inference_steps", None)
+        if num_inference_steps < 1:
+            raise ValueError("num_inference_steps must be at least 1")
+        # MiniMaxH3Scheduler includes terminal sigma zero in the requested grid,
+        # so N transformer evaluations require N + 1 grid points.
+        generate_kwargs["num_inference_steps"] = num_inference_steps + 1
 
         pipeline = self._model
         assert callable(pipeline)
