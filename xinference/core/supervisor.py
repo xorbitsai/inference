@@ -93,6 +93,82 @@ logger = getLogger(__name__)
 ASYNC_LAUNCH_TASKS = {}  # type: ignore
 
 
+def _merge_audio_model_registrations(
+    registrations: List[Dict[str, Any]], detailed: bool
+) -> List[Dict[str, Any]]:
+    """Merge platform-local audio catalogs without losing engine variants."""
+    merged: Dict[Tuple[str, bool], Dict[str, Any]] = {}
+    for registration in registrations:
+        key = (
+            registration["model_name"],
+            bool(registration.get("is_builtin", False)),
+        )
+        current = merged.get(key)
+        if current is None:
+            current = dict(registration)
+            if detailed:
+                current["model_specs"] = [
+                    dict(spec) for spec in registration.get("model_specs", [])
+                ]
+                current["download_hubs"] = list(registration.get("download_hubs", []))
+            merged[key] = current
+            continue
+        if not detailed:
+            continue
+
+        current_specs = current.setdefault("model_specs", [])
+        specs_by_identity = {
+            (
+                spec.get("model_engine"),
+                spec.get("model_format"),
+                spec.get("cache_name"),
+                spec.get("model_hub"),
+                spec.get("model_id"),
+            ): spec
+            for spec in current_specs
+        }
+        for spec in registration.get("model_specs", []):
+            identity = (
+                spec.get("model_engine"),
+                spec.get("model_format"),
+                spec.get("cache_name"),
+                spec.get("model_hub"),
+                spec.get("model_id"),
+            )
+            existing_spec = specs_by_identity.get(identity)
+            if existing_spec is None:
+                copied_spec = dict(spec)
+                current_specs.append(copied_spec)
+                specs_by_identity[identity] = copied_spec
+            elif spec.get("cache_status"):
+                existing_spec["cache_status"] = True
+
+        current_hubs = current.setdefault("download_hubs", [])
+        for hub in registration.get("download_hubs", []):
+            if hub not in current_hubs:
+                current_hubs.append(hub)
+    return list(merged.values())
+
+
+def _merge_worker_engine_params(
+    worker_results: List[Optional[Dict[str, Any]]],
+) -> Optional[Dict[str, Any]]:
+    """Union engine discovery results, preferring a usable worker result."""
+    merged: Dict[str, Any] = {}
+    for result in worker_results:
+        if not result:
+            continue
+        for engine, params in result.items():
+            current = merged.get(engine)
+            if current is None or (
+                isinstance(current, str) and isinstance(params, list)
+            ):
+                merged[engine] = params
+            elif isinstance(current, list) and isinstance(params, list):
+                current.extend(param for param in params if param not in current)
+    return merged or None
+
+
 def callback_for_async_launch(model_uid: str):
     ASYNC_LAUNCH_TASKS.pop(model_uid, None)
     logger.debug(f"Model uid: {model_uid} async launch completes.")
@@ -1730,6 +1806,8 @@ class SupervisorActor(xo.StatelessActor):
         )
         for result in results:
             ret.extend(result)
+        if model_type.lower() == "audio":
+            ret = _merge_audio_model_registrations(ret, detailed)
 
         ret.sort(key=sort_helper)
         return ret
@@ -1754,6 +1832,21 @@ class SupervisorActor(xo.StatelessActor):
     ):
         # search in worker first
         workers = list(self._worker_address_to_worker.values())
+        if (model_type or "").lower() == "audio":
+            worker_results = await asyncio.gather(
+                *[
+                    worker.query_engines_by_model_name(
+                        model_name,
+                        model_type=model_type,
+                        enable_virtual_env=enable_virtual_env,
+                    )
+                    for worker in workers
+                ]
+            )
+            merged = _merge_worker_engine_params(worker_results)
+            if merged is not None:
+                return merged
+
         for worker in workers:
             res = await worker.query_engines_by_model_name(
                 model_name, model_type=model_type, enable_virtual_env=enable_virtual_env
